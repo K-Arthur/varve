@@ -2,11 +2,16 @@
   "name": "@strata/desktop",
   "version": "0.0.0",
   "private": true,
-  "description": "Tauri 2 desktop shell — NATIVE engine backend. Tauri init lands in task 0.2 (render spike).",
+  "description": "Tauri 2 desktop shell — NATIVE engine backend. Render spike (task 0.2).",
   "type": "module",
   "scripts": {
-    "build": "echo '[apps/desktop] Tauri scaffold lands in task 0.2'",
-    "typecheck": "echo '[apps/desktop] typecheck deferred to task 0.2'",
-    "test": "echo '[apps/desktop] no tests yet'"
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "test": "echo '[apps/desktop] Rust tests run via cargo in src-tauri/'",
+    "typecheck": "echo '[apps/desktop] no frontend TS yet'"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
   }
 }

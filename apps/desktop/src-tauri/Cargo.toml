@@ -1,0 +1,25 @@
+[package]
+name = "strata-desktop"
+version = "0.0.0"
+description = "Strata desktop shell (Tauri 2) — render spike (task 0.2)"
+edition = "2021"
+
+# Standalone workspace so the Tauri app is isolated from the engine workspace
+# (it has OS-specific build needs and tauri::generate_context! macro concerns).
+[workspace]
+
+[lib]
+name = "strata_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+# default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
