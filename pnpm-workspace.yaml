@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
+# esbuild (used by vitest + biome) ships/verifies its platform binary via
+# postinstall; approve it explicitly. strictDepBuilds defaults to true.
+allowBuilds:
+  esbuild: true

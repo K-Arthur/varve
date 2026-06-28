@@ -1,0 +1,12 @@
+{
+  "name": "@strata/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Next.js 15 editor — WASM engine backend. Full scaffold lands in task 0.9.",
+  "type": "module",
+  "scripts": {
+    "build": "echo '[apps/web] Next.js scaffold lands in task 0.9'",
+    "typecheck": "echo '[apps/web] typecheck deferred to task 0.9'",
+    "test": "echo '[apps/web] no tests yet'"
+  }
+}

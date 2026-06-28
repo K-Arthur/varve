@@ -1,0 +1,21 @@
+{
+  "name": "@strata/collab",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local-first CRDT awareness and reconnect over the strata-sync SQLite core.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@strata/scene": "workspace:*"
+  }
+}

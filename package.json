@@ -1,0 +1,29 @@
+{
+  "name": "strata",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strata — local-first, cross-platform design suite (native Rust engine, no WASM ceiling on desktop).",
+  "license": "AGPL-3.0-or-later",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter \"./packages/*\" build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r --filter \"./packages/*\" typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "audit:tokens": "pnpm --filter @strata/ui audit:tokens",
+    "audit:emoji": "node scripts/audit-emoji.mjs",
+    "audit:a11y": "echo 'axe-core runs in Playwright E2E (task 0.9+)'"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "@types/node": "^22.0.0"
+  }
+}

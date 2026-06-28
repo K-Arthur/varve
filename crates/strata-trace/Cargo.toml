@@ -1,0 +1,11 @@
+[package]
+name = "strata-trace"
+description = "Raster-to-vector auto-tracing (Potrace/vtracer-class: contour + centerline)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true

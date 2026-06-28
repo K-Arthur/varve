@@ -1,0 +1,18 @@
+{
+  "name": "@strata/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cross-cutting types, geometry primitives, and fractional-index ordering.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  }
+}

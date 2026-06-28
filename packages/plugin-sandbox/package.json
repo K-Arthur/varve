@@ -1,0 +1,18 @@
+{
+  "name": "@strata/plugin-sandbox",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sandboxed plugin runtime (later phase).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  }
+}

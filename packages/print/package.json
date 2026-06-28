@@ -1,0 +1,21 @@
+{
+  "name": "@strata/print",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TS facade for the strata-print Rust crate: font outlining, CMYK, PDF/X.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@strata/scene": "workspace:*"
+  }
+}

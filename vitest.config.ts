@@ -1,0 +1,21 @@
+import { defineConfig } from 'vitest/config';
+
+// Root Vitest config. Per-file environment override via:
+//   // @vitest-environment jsdom
+// at the top of a test file when DOM is needed.
+export default defineConfig({
+  test: {
+    include: [
+      'packages/**/src/**/*.{test,spec}.{ts,tsx}',
+      'apps/**/src/**/*.{test,spec}.{ts,tsx}',
+      'tests/**/*.{test,spec}.{ts,tsx}',
+    ],
+    environment: 'node',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['packages/*/src/**'],
+      exclude: ['**/*.test.*', '**/*.spec.*', '**/dist/**'],
+    },
+  },
+});

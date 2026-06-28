@@ -1,0 +1,21 @@
+{
+  "name": "@strata/ai",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Auto-trace controller and assist orchestrator (on-device + cloud).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@strata/scene": "workspace:*"
+  }
+}

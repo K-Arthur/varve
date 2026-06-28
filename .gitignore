@@ -1,0 +1,38 @@
+# --- Rust / Cargo ---
+/target
+**/target
+Cargo.lock.bak
+
+# --- Node / pnpm ---
+node_modules
+.pnpm-store
+dist
+build
+.next
+.turbo
+*.tsbuildinfo
+coverage
+.vitest-cache
+
+# --- Tauri ---
+apps/desktop/src-tauri/target
+apps/desktop/dist
+apps/desktop/.tauri
+
+# --- Editors / OS ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Logs ---
+*.log
+npm-debug.log*

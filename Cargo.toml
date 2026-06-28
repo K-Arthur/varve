@@ -1,0 +1,41 @@
+# Strata Rust workspace.
+# The native engine is compiled per-OS for the Tauri desktop build, and the
+# same crates compile to wasm32 for the web fallback behind one TS facade.
+[workspace]
+resolver = "2"
+members = [
+    "crates/strata-core",
+    "crates/strata-engine",
+    "crates/strata-layout",
+    "crates/strata-sync",
+    "crates/strata-trace",
+    "crates/strata-print",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-or-later"
+authors = ["Strata"]
+repository = "https://github.com/strata/strata"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+rust_2024_compatibility = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+# Pedantic is intentionally NOT workspace-wide during scaffolding; each crate
+# opts in once it has stable public APIs. Prevents noise during foundation work.
+
+# Shared profile tuning: fast dev iteration, lean release binaries.
+[profile.dev]
+opt-level = 0
+debug = 1
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
