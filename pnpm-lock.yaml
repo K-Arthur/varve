@@ -98,6 +98,9 @@ importers:
 
   packages/scene:
     dependencies:
+      '@strata/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@strata/shared':
         specifier: workspace:*
         version: link:../shared

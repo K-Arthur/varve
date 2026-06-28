@@ -1,9 +1,12 @@
 /**
- * @strata/scene — document model and scene graph (Strata plan §3.1, §9).
+ * @strata/scene — document model, component slots, and variable store.
  *
- * Holds Node/Frame/Shape/Text, a slots-ready ComponentDefinition, and a
- * VariableStore with mode-aware aliases and math expressions. Filled across
- * tasks 0.8 (model) and 1.1 (slots) and 1.2 (variables + math).
+ * The editor manipulates this model (task 0.9+); the engine renders a
+ * flattened projection of it. Slots (1.1) and variable math (1.2) extend these
+ * stable shapes.
  */
 
-export const PACKAGE = '@strata/scene' as const;
+export * from './component';
+export * from './document';
+export * from './types';
+export * from './variables';
