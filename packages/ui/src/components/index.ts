@@ -8,5 +8,7 @@ export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Button } from './Button';
 export type { IconButtonProps } from './IconButton';
 export { IconButton } from './IconButton';
+export type { NumberInputProps } from './NumberInput';
+export { NumberInput } from './NumberInput';
 export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';

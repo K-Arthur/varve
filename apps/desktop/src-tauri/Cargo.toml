@@ -1,7 +1,7 @@
 [package]
 name = "strata-desktop"
 version = "0.0.0"
-description = "Strata desktop shell (Tauri 2) — render spike (task 0.2)"
+description = "Strata desktop app (Tauri 2) — native engine backend."
 edition = "2021"
 
 # Standalone workspace so the Tauri app is isolated from the engine workspace
@@ -19,7 +19,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+strata-core = { path = "../../../crates/strata-core" }
+strata-engine = { path = "../../../crates/strata-engine" }
 
 [features]
-# default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

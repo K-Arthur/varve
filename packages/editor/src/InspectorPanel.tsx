@@ -1,64 +1,131 @@
-/**
- * Inspector panel — property groups for the selected node (Strata plan §5.6).
- */
-import type React from 'react';
+import type { Color } from '@strata/engine';
+import { NumberInput } from '@strata/ui';
+import { useState } from 'react';
 import { useEditor } from './context';
 
 export function InspectorPanel() {
-  const { state, rootNodes } = useEditor();
+  const { state, rootNodes, setNodePosition, setNodeSize, setSelectedFill } = useEditor();
   const selected = state.selection ? rootNodes().find((n) => n.id === state.selection) : null;
+  const [fillInput, setFillInput] = useState('');
 
-  return (
-    <section className="editor-inspector" aria-label="Inspector">
-      {!selected && (
+  if (!selected) {
+    return (
+      <section className="editor-inspector" aria-label="Inspector">
         <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
           Select a layer to inspect
         </p>
-      )}
-      {selected && (
+      </section>
+    );
+  }
+
+  function commitFill(raw: string) {
+    const hex = raw.replace('#', '');
+    if (hex.length !== 6) return;
+    const m = /^([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/.exec(hex);
+    if (!m?.[1] || !m[2] || !m[3]) return;
+    const color: Color = [
+      Number.parseInt(m[1], 16),
+      Number.parseInt(m[2], 16),
+      Number.parseInt(m[3], 16),
+      255,
+    ];
+    setSelectedFill(color);
+  }
+
+  return (
+    <section className="editor-inspector" aria-label="Inspector">
+      <Section title={selected.name}>
+        <LabelledInput label="Type" value={selected.kind} readOnly />
+      </Section>
+      <Section title="Position">
+        <InspectorNumberInput
+          label="X"
+          value={Math.round(selected.transform[4] ?? 0)}
+          onChange={(v) => {
+            const t = selected.transform;
+            setNodePosition(selected.id, v, t[5] ?? 0);
+          }}
+        />
+        <InspectorNumberInput
+          label="Y"
+          value={Math.round(selected.transform[5] ?? 0)}
+          onChange={(v) => {
+            const t = selected.transform;
+            setNodePosition(selected.id, t[4] ?? 0, v);
+          }}
+        />
+      </Section>
+      {selected.kind === 'shape' && (
         <>
-          <Section title={selected.name}>
-            <LabelledInput label="Type" value={selected.kind} />
+          <Section title="Size">
+            <InspectorNumberInput
+              label="W"
+              value={Math.round(rectW(selected.shape))}
+              onChange={(v) => {
+                const h = rectH(selected.shape);
+                setNodeSize(selected.id, v, h);
+              }}
+            />
+            <InspectorNumberInput
+              label="H"
+              value={Math.round(rectH(selected.shape))}
+              onChange={(v) => {
+                const w = rectW(selected.shape);
+                setNodeSize(selected.id, w, v);
+              }}
+            />
           </Section>
-          <Section title="Position">
-            <LabelledInput label="X" value={String(selected.transform[4])} />
-            <LabelledInput label="Y" value={String(selected.transform[5])} />
+          <Section title="Fill">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <div
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 'var(--radius-sm)',
+                  background: `rgba(${selected.fill[0]},${selected.fill[1]},${selected.fill[2]},${(selected.fill[3] / 255).toFixed(2)})`,
+                }}
+              />
+              <input
+                type="text"
+                value={
+                  fillInput ||
+                  `#${selected.fill
+                    .slice(0, 3)
+                    .map((c) => c.toString(16).padStart(2, '0'))
+                    .join('')}`
+                }
+                onChange={(e) => setFillInput(e.target.value)}
+                onBlur={() => {
+                  commitFill(fillInput);
+                  setFillInput('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    commitFill(fillInput);
+                    setFillInput('');
+                  }
+                }}
+                aria-label="Fill color hex"
+                style={{
+                  width: 72,
+                  height: 'var(--space-5)',
+                  padding: '0 var(--space-2)',
+                  background: 'var(--color-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-text-primary)',
+                  font: 'inherit',
+                  fontSize: 'var(--font-size-xs)',
+                }}
+              />
+            </div>
           </Section>
-          {selected.kind === 'shape' && (
-            <>
-              <Section title="Size">
-                <LabelledInput label="W" value={String(rectW(selected.shape))} />
-                <LabelledInput label="H" value={String(rectH(selected.shape))} />
-              </Section>
-              <Section title="Fill">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <div
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 'var(--radius-sm)',
-                      background: `rgba(${selected.fill[0]},${selected.fill[1]},${selected.fill[2]},${(selected.fill[3] / 255).toFixed(2)})`,
-                    }}
-                  />
-                  <span
-                    style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
-                  >
-                    #
-                    {selected.fill
-                      .slice(0, 3)
-                      .map((c) => c.toString(16).padStart(2, '0'))
-                      .join('')}
-                  </span>
-                </div>
-              </Section>
-            </>
-          )}
-          {selected.kind === 'text' && (
-            <Section title="Text">
-              <LabelledInput label="Content" value={selected.text} />
-            </Section>
-          )}
         </>
+      )}
+      {selected.kind === 'text' && (
+        <Section title="Text">
+          <LabelledInput label="Content" value={selected.text} readOnly />
+        </Section>
       )}
     </section>
   );
@@ -88,8 +155,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function LabelledInput({ label, value = '' }: { label: string; value?: string }) {
+function LabelledInput({
+  label,
+  value = '',
+  readOnly = false,
+  onChange,
+}: {
+  label: string;
+  value?: string;
+  readOnly?: boolean;
+  onChange?: (val: string) => void;
+}) {
   const id = `insp-${label}`;
+  const [dirty, setDirty] = useState<string | null>(null);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
       <label
@@ -101,8 +179,22 @@ function LabelledInput({ label, value = '' }: { label: string; value?: string })
       <input
         id={id}
         type="text"
-        defaultValue={value}
-        readOnly
+        value={dirty ?? value}
+        readOnly={readOnly}
+        onChange={(e) => {
+          if (readOnly) return;
+          setDirty(e.target.value);
+        }}
+        onBlur={() => {
+          if (dirty !== null && onChange) onChange(dirty);
+          setDirty(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && dirty !== null && onChange) {
+            onChange(dirty);
+            setDirty(null);
+          }
+        }}
         style={{
           flex: 1,
           height: 'var(--space-5)',
@@ -110,10 +202,41 @@ function LabelledInput({ label, value = '' }: { label: string; value?: string })
           background: 'var(--color-surface-sunken)',
           border: '1px solid var(--color-border-subtle)',
           borderRadius: 'var(--radius-sm)',
-          color: 'var(--color-text-primary)',
+          color: readOnly ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
           font: 'inherit',
           fontSize: 'var(--font-size-sm)',
         }}
+      />
+    </div>
+  );
+}
+
+function InspectorNumberInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const id = `insp-${label}`;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+      <label
+        htmlFor={id}
+        style={{ width: 60, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
+      >
+        {label}
+      </label>
+      <NumberInput
+        id={id}
+        label={label}
+        value={value}
+        step={1}
+        shiftStep={10}
+        altStep={0.1}
+        onChange={onChange}
       />
     </div>
   );

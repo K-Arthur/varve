@@ -8,7 +8,8 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./editor.css": "./src/editor.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
@@ -16,6 +17,7 @@
     "test": "cd ../.. && vitest run packages/editor"
   },
   "dependencies": {
+    "@strata/codegen": "workspace:*",
     "@strata/shared": "workspace:*",
     "@strata/scene": "workspace:*",
     "@strata/engine": "workspace:*",

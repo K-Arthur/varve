@@ -12,8 +12,8 @@ describe('Shell', () => {
     expect(screen.getByRole('toolbar')).toBeTruthy();
     // Canvas region present
     expect(screen.getByRole('region', { name: /canvas/i })).toBeTruthy();
-    // Layers listbox present
-    expect(screen.getByRole('listbox')).toBeTruthy();
+    // Layers tree present
+    expect(screen.getByRole('tree')).toBeTruthy();
     // Inspector region present
     expect(screen.getByRole('region', { name: /inspector/i })).toBeTruthy();
   });

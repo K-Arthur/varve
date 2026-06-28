@@ -26,23 +26,20 @@ pub struct RenderItem {
 }
 
 /// Geometry primitive in a node's LOCAL space (pre-transform).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// Serde uses internally-tagged representation matching the TS Primitive type
+/// (`{ kind, ...fields }`) so the IPC bridge between Rust and the webview works
+/// without adapter code.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind")]
 pub enum Primitive {
-    Rect {
-        x: f64,
-        y: f64,
-        w: f64,
-        h: f64,
-    },
-    Ellipse {
-        center: Point,
-        rx: f64,
-        ry: f64,
-    },
-    Circle {
-        center: Point,
-        r: f64,
-    },
+    #[serde(rename = "rect")]
+    Rect { x: f64, y: f64, w: f64, h: f64 },
+    #[serde(rename = "ellipse")]
+    Ellipse { cx: f64, cy: f64, rx: f64, ry: f64 },
+    #[serde(rename = "circle")]
+    Circle { cx: f64, cy: f64, r: f64 },
+    #[serde(rename = "line")]
     Line {
         from: Point,
         to: Point,
@@ -71,12 +68,14 @@ fn primitive_of(shape: &Shape) -> Primitive {
             h: r.height(),
         },
         Shape::Ellipse { center, rx, ry } => Primitive::Ellipse {
-            center: *center,
+            cx: center.x,
+            cy: center.y,
             rx: *rx,
             ry: *ry,
         },
         Shape::Circle(c) => Primitive::Circle {
-            center: c.center,
+            cx: c.center.x,
+            cy: c.center.y,
             r: c.radius,
         },
         Shape::Line { line, tolerance } => Primitive::Line {
@@ -142,6 +141,14 @@ mod tests {
         let ir = build_render_ir(&[node]);
         assert!(matches!(ir[0].primitive, Primitive::Circle { r: 8.0, .. }));
         assert_eq!(ir[0].fill, [255, 0, 0, 255]);
+        assert_eq!(
+            ir[0].primitive,
+            Primitive::Circle {
+                cx: 0.0,
+                cy: 0.0,
+                r: 8.0
+            }
+        );
         // transform survives into the IR (translate(40,40) matrix coefficients).
         let coeffs = ir[0].transform.as_coeffs();
         assert_eq!(coeffs[4], 40.0);

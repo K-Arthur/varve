@@ -55,6 +55,10 @@
   background: var(--color-surface-sunken);
   outline: none;
 }
+.editor-canvas:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: -2px;
+}
 .editor-canvas__focus-layer {
   position: absolute;
   inset: 0;

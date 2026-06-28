@@ -1,0 +1,85 @@
+import type { ShortcutBinding, ShortcutDef } from './types';
+
+export const SHORTCUT_DEFS = {
+  undo: { binding: { key: 'z', ctrl: true }, label: 'Undo', category: 'Edit' },
+  redo: { binding: { key: 'z', ctrl: true, shift: true }, label: 'Redo', category: 'Edit' },
+  delete: { binding: { key: 'Backspace' }, label: 'Delete', category: 'Edit' },
+  newDocument: { binding: { key: 'n', ctrl: true }, label: 'New', category: 'File' },
+  open: { binding: { key: 'o', ctrl: true }, label: 'Open\u2026', category: 'File' },
+  save: { binding: { key: 's', ctrl: true }, label: 'Save', category: 'File' },
+  saveAs: {
+    binding: { key: 's', ctrl: true, shift: true },
+    label: 'Save As\u2026',
+    category: 'File',
+  },
+  exportSvg: {
+    binding: { key: 'e', ctrl: true, shift: true },
+    label: 'Export SVG\u2026',
+    category: 'File',
+  },
+  zoomReset: { binding: { key: '0', ctrl: true }, label: 'Zoom to 100%', category: 'View' },
+  selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
+  group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
+  shortcutPalette: {
+    binding: { key: '/', ctrl: true },
+    label: 'Command Palette',
+    category: 'View',
+  },
+  toolSelect: { binding: { key: 'v' }, label: 'Select tool', category: 'Tools' },
+  toolRect: { binding: { key: 'r' }, label: 'Rectangle tool', category: 'Tools' },
+  toolEllipse: { binding: { key: 'e' }, label: 'Ellipse tool', category: 'Tools' },
+  toolText: { binding: { key: 't' }, label: 'Text tool', category: 'Tools' },
+  toolHand: { binding: { key: 'h' }, label: 'Hand tool', category: 'Tools' },
+} satisfies Record<string, ShortcutDef>;
+
+export function isMac(): boolean {
+  return navigator.platform?.toLowerCase().includes('mac') ?? false;
+}
+
+export function shortcutFromEvent(e: KeyboardEvent): {
+  key: string;
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+} {
+  const key = e.key === 'Backspace' || e.key === 'Delete' ? 'Backspace' : e.key.toLowerCase();
+  return {
+    key,
+    ctrl: isMac() ? e.metaKey : e.ctrlKey,
+    shift: e.shiftKey,
+    alt: e.altKey,
+  };
+}
+
+export function bindingMatchesEvent(e: KeyboardEvent, binding: ShortcutBinding): boolean {
+  if (e.repeat && binding.key !== 'Backspace') return false;
+  const ev = shortcutFromEvent(e);
+  if (ev.key !== binding.key.toLocaleLowerCase()) return false;
+  if (Boolean(ev.ctrl) !== Boolean(binding.ctrl)) return false;
+  if (Boolean(ev.shift) !== Boolean(binding.shift)) return false;
+  if (Boolean(ev.alt) !== Boolean(binding.alt)) return false;
+  return true;
+}
+
+export function formatShortcut(binding: ShortcutBinding): string {
+  const parts: string[] = [];
+  if (isMac()) {
+    if (binding.ctrl) parts.push('\u2318');
+    if (binding.shift) parts.push('\u21E7');
+    if (binding.alt) parts.push('\u2325');
+  } else {
+    if (binding.ctrl) parts.push('Ctrl+');
+    if (binding.shift) parts.push('Shift+');
+    if (binding.alt) parts.push('Alt+');
+  }
+  const key =
+    binding.key.length === 1
+      ? binding.key.toUpperCase()
+      : binding.key === 'Backspace'
+        ? '\u232B'
+        : binding.key === 'Delete'
+          ? 'Del'
+          : binding.key;
+  parts.push(key);
+  return parts.join(isMac() ? '' : '');
+}

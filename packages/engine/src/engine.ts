@@ -53,10 +53,29 @@ function stubEngine(): Engine {
   };
 }
 
-function tauriInvokeAvailable(): boolean {
-  return (
-    typeof globalThis !== 'undefined' && Boolean((globalThis as Record<string, unknown>).__TAURI__)
-  );
+type TauriCore = { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
+interface TauriGlobal {
+  __TAURI__?: { core: TauriCore };
+}
+
+async function nativeEngine(): Promise<Engine> {
+  const tauri = (globalThis as TauriGlobal).__TAURI__;
+  if (!tauri?.core) return stubEngine();
+  return {
+    backend: 'native',
+    async buildIr(scene) {
+      const items = await tauri.core.invoke('build_render_ir', { nodes: scene.nodes });
+      return items as RenderItem[];
+    },
+    async hitTest(scene, world) {
+      const idx = await tauri.core.invoke('hit_test', {
+        nodes: scene.nodes,
+        x: world[0],
+        y: world[1],
+      });
+      return idx as number | null;
+    },
+  };
 }
 
 /**
@@ -64,11 +83,11 @@ function tauriInvokeAvailable(): boolean {
  * stub. Desktop callers should pass `'native'` and assert it resolved.
  */
 export async function createEngine(preferred: Backend | 'auto' = 'auto'): Promise<Engine> {
-  if (preferred === 'native' || (preferred === 'auto' && tauriInvokeAvailable())) {
-    // The native IPC commands (render_frame_ir / hit_test) are wired when the
-    // desktop editor integrates (task 0.9). Until then fall through to stub so
-    // the facade is exercised everywhere.
-    return stubEngine(); // TODO(0.9): return nativeEngine() backed by invoke().
+  if (preferred === 'native') {
+    return nativeEngine();
+  }
+  if (preferred === 'auto' && (globalThis as TauriGlobal).__TAURI__) {
+    return nativeEngine();
   }
   if (preferred === 'wasm') {
     return stubEngine(); // TODO(0.7+): load the wasm-pack module dynamically.

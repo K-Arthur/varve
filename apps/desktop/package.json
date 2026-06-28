@@ -2,16 +2,26 @@
   "name": "@strata/desktop",
   "version": "0.0.0",
   "private": true,
-  "description": "Tauri 2 desktop shell — NATIVE engine backend. Render spike (task 0.2).",
+  "description": "Strata desktop app (Tauri 2) — Vite + React frontend.",
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
     "tauri": "tauri",
-    "dev": "tauri dev",
-    "build": "tauri build",
-    "test": "echo '[apps/desktop] Rust tests run via cargo in src-tauri/'",
-    "typecheck": "echo '[apps/desktop] no frontend TS yet'"
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/cli": "^2",
+    "@vitejs/plugin-react": "^4",
+    "typescript": "^5.6.0",
+    "vite": "^6"
+  },
+  "dependencies": {
+    "@strata/editor": "workspace:*",
+    "@strata/ui": "workspace:*"
   }
 }
