@@ -7,5 +7,10 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[dependencies]
+strata-core = { path = "../strata-core" }
+lopdf = { version = "0.31", features = [] }
+serde = { version = "1", features = ["derive"] }
+
 [lints]
 workspace = true
