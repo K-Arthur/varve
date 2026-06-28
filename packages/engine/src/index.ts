@@ -1,10 +1,24 @@
 /**
- * @strata/engine — dual-backend renderer facade (Strata plan §0.3).
+ * @strata/engine — dual-backend renderer facade (Strata plan §0.3, ADR-0001).
  *
- * `createEngine(backend)` returns one surface used by all feature code:
- *   - 'native' → Tauri IPC into the natively-compiled Rust crates (desktop).
- *   - 'wasm'   → wasm-pack build of the same crates (web fallback).
- * Filled in task 0.7, gated by the render-spike ADR (0.2).
+ * One TypeScript surface drives desktop (native Rust via Tauri IPC) and web
+ * (wasm-pack of the same crates). Feature code never knows which backend it
+ * is talking to. The render IR is replayed to canvas by `replayIr`.
  */
 
-export const PACKAGE = '@strata/engine' as const;
+export type { Engine } from './engine';
+export { createEngine } from './engine';
+export * from './geometry';
+export type { ReplayTarget } from './replay';
+export { replayIr } from './replay';
+export type {
+  Affine,
+  Backend,
+  Color,
+  Point,
+  Primitive,
+  RenderItem,
+  Scene,
+  SceneNode,
+  Shape,
+} from './types';

@@ -29,14 +29,18 @@ pub struct RenderItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Primitive {
     Rect {
+        x: f64,
+        y: f64,
         w: f64,
         h: f64,
     },
     Ellipse {
+        center: Point,
         rx: f64,
         ry: f64,
     },
     Circle {
+        center: Point,
         r: f64,
     },
     Line {
@@ -61,11 +65,20 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
 fn primitive_of(shape: &Shape) -> Primitive {
     match shape {
         Shape::Rect(r) => Primitive::Rect {
+            x: r.min_x(),
+            y: r.min_y(),
             w: r.width(),
             h: r.height(),
         },
-        Shape::Ellipse { rx, ry, .. } => Primitive::Ellipse { rx: *rx, ry: *ry },
-        Shape::Circle(c) => Primitive::Circle { r: c.radius },
+        Shape::Ellipse { center, rx, ry } => Primitive::Ellipse {
+            center: *center,
+            rx: *rx,
+            ry: *ry,
+        },
+        Shape::Circle(c) => Primitive::Circle {
+            center: c.center,
+            r: c.radius,
+        },
         Shape::Line { line, tolerance } => Primitive::Line {
             from: line.p0,
             to: line.p1,
@@ -100,11 +113,11 @@ mod tests {
         assert_eq!(ir[0].fill, [57, 208, 198, 255]);
         assert!(matches!(
             ir[0].primitive,
-            Primitive::Rect { w: 10.0, h: 10.0 }
+            Primitive::Rect { w: 10.0, h: 10.0, .. }
         ));
         assert!(matches!(
             ir[1].primitive,
-            Primitive::Rect { w: 3.0, h: 3.0 }
+            Primitive::Rect { w: 3.0, h: 3.0, .. }
         ));
     }
 
@@ -123,7 +136,7 @@ mod tests {
             fill: [255, 0, 0, 255],
         };
         let ir = build_render_ir(&[node]);
-        assert!(matches!(ir[0].primitive, Primitive::Circle { r: 8.0 }));
+        assert!(matches!(ir[0].primitive, Primitive::Circle { r: 8.0, .. }));
         assert_eq!(ir[0].fill, [255, 0, 0, 255]);
         // transform survives into the IR (translate(40,40) matrix coefficients).
         let coeffs = ir[0].transform.as_coeffs();
