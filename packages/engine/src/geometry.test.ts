@@ -54,7 +54,7 @@ describe('containment', () => {
 });
 
 describe('hitTest', () => {
-  const rect = (id: number, x: number, y: number): SceneNode => ({
+  const rect = (id: string, x: number, y: number): SceneNode => ({
     id,
     name: `n${id}`,
     transform: translate(x, y),
@@ -63,17 +63,17 @@ describe('hitTest', () => {
   });
 
   it('returns the topmost overlapping node', () => {
-    const nodes = [rect(1, 0, 0), rect(2, 2, 2)];
+    const nodes = [rect('1', 0, 0), rect('2', 2, 2)];
     expect(hitTest(nodes, [5, 5])).toBe(1); // node 2 on top
   });
 
   it('returns null when nothing contains the point', () => {
-    expect(hitTest([rect(1, 0, 0)], [99, 99])).toBeNull();
+    expect(hitTest([rect('1', 0, 0)], [99, 99])).toBeNull();
   });
 
   it('respects transforms', () => {
     const node: SceneNode = {
-      id: 1,
+      id: '1',
       name: 's',
       transform: scale(2),
       shape: { kind: 'rect', x: 0, y: 0, w: 5, h: 5 },

@@ -24,7 +24,7 @@ export type Shape =
   | { kind: 'line'; from: Point; to: Point; tolerance: number };
 
 export interface SceneNode {
-  id: number;
+  id: string;
   name: string;
   transform: Affine;
   shape: Shape;

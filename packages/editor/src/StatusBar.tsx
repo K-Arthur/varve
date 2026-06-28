@@ -4,13 +4,19 @@
 import { useEditor } from './context';
 
 export function StatusBar() {
-  const { state } = useEditor();
+  const { state, rootNodes } = useEditor();
+  const selectionName = state.selection
+    ? (rootNodes().find((n) => n.id === state.selection)?.name ?? 'unknown')
+    : null;
+
   return (
     <div className="editor-status">
       <span>{state.tool}</span>
       <span>—</span>
       <span>zoom {Math.round(state.zoom * 100)}%</span>
-      <span style={{ marginLeft: 'auto' }}>{state.selection ? '1 selected' : 'no selection'}</span>
+      <span style={{ marginLeft: 'auto' }}>
+        {selectionName ? `1 selected: ${selectionName}` : `${rootNodes().length} layers`}
+      </span>
     </div>
   );
 }

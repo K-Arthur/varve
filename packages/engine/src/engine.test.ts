@@ -5,14 +5,14 @@ import type { Scene } from './types';
 const scene: Scene = {
   nodes: [
     {
-      id: 1,
+      id: '1',
       name: 'r1',
       transform: [1, 0, 0, 1, 0, 0],
       shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
       fill: [57, 208, 198, 255],
     },
     {
-      id: 2,
+      id: '2',
       name: 'r2',
       transform: [1, 0, 0, 1, 5, 5],
       shape: { kind: 'rect', x: 0, y: 0, w: 3, h: 3 },

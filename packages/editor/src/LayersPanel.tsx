@@ -1,28 +1,30 @@
+/**
+ * Layers panel — listbox of document layers (Strata plan §5.5).
+ */
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import { useEditor } from './context';
 
 export function LayersPanel() {
-  const { state, setSelection } = useEditor();
-
-  const layers = [
-    { id: 'n1', name: 'Frame 1' },
-    { id: 'n2', name: 'Ellipse' },
-    { id: 'n3', name: 'Text', locked: true },
-  ];
+  const { state, setSelection, renameSelected, rootNodes } = useEditor();
 
   return (
     <div className="editor-layers">
       <div className="editor-inspector__group-title">Layers</div>
       <div role="listbox" aria-label="Layers" style={{ margin: 0, padding: 0 }}>
-        {layers.map((l) => (
+        {rootNodes().map((n) => (
           <div
-            key={l.id}
+            key={n.id}
             role="option"
-            aria-selected={state.selection === l.id}
+            aria-selected={state.selection === n.id}
             tabIndex={0}
-            onClick={() => setSelection(l.id)}
+            onClick={() => setSelection(n.id)}
+            onDoubleClick={() => {
+              const name = prompt('Rename layer', n.name);
+              if (name) renameSelected(name);
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') setSelection(l.id);
+              if (e.key === 'Enter' || e.key === ' ') setSelection(n.id);
+              if (e.key === 'Delete') useEditor().removeSelected();
             }}
             style={{
               display: 'flex',
@@ -32,21 +34,15 @@ export function LayersPanel() {
               borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
               background:
-                state.selection === l.id ? 'var(--color-interactive-default)' : 'transparent',
+                state.selection === n.id ? 'var(--color-interactive-default)' : 'transparent',
               color:
-                state.selection === l.id
+                state.selection === n.id
                   ? 'var(--color-text-on-accent)'
                   : 'var(--color-text-primary)',
-              opacity: l.locked ? 0.5 : 1,
             }}
           >
             <Icon name={CHROME_ICONS.visibility} size="0.85em" label="" />
-            <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{l.name}</span>
-            <Icon
-              name={l.locked ? CHROME_ICONS.lock : CHROME_ICONS.unlock}
-              size="0.75em"
-              label=""
-            />
+            <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{n.name}</span>
           </div>
         ))}
       </div>

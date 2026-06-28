@@ -17,6 +17,7 @@ export type NodeId = string;
 export interface NodeBase {
   id: NodeId;
   name: string;
+  fill: Color;
   /** Paint order among siblings (0 = bottom). Reorder via Document.move. */
   index: number;
   visible: boolean;
@@ -27,14 +28,12 @@ export interface ShapeNode extends NodeBase {
   kind: 'shape';
   shape: Shape;
   transform: Affine;
-  fill: Color;
 }
 
 export interface TextNode extends NodeBase {
   kind: 'text';
   text: string;
   transform: Affine;
-  fill: Color;
   /** Font size in px at 1x; variable-bindable across breakpoints (task 1.3). */
   fontSize: number;
 }
