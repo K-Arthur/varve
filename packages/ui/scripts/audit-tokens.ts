@@ -1,14 +1,43 @@
 /**
  * Strata token audit (Strata plan §6 / §7 gate).
  *
- * Placeholder for task 0.3. The real audit will:
- *   - parse tokens/src/color/* and verify every semantic pair meets WCAG 2.2 AA
- *     (4.5:1 text, 3:1 UI) in Light, Dark, and High-Contrast themes,
- *   - scan all source for hardcoded color/space/type values not traceable to a
- *     custom property, and exit non-zero on any violation.
+ * Verifies every contrast pair in CONTRAST_PAIRS passes its WCAG 2.2 grade in
+ * EVERY theme (light, dark, high-contrast). Exits non-zero on any failure,
+ * printing the offending pair + measured ratio.
  *
- * Research basis: WCAG 2.2 contrast (W3C); APCA is evaluated but the gate uses
- * the WCAG 2.x ratio to match the §6 contract.
+ * Research basis: WCAG 2.2 success criterion 1.4.3 (text) and 1.4.11 (UI).
+ * Run: `pnpm audit:tokens` (wired into the Cascade Review `gates` recipe).
  */
-console.log('audit:tokens — pending implementation (task 0.3).');
-process.exit(0);
+import { CONTRAST_PAIRS, SEMANTIC, THEMES } from '../src/tokens/color';
+import { contrastRatio, minimumRatio, toHex } from '../src/tokens/contrast';
+
+let failures = 0;
+const rows: string[] = [];
+
+for (const theme of THEMES) {
+  const palette = SEMANTIC[theme];
+  for (const pair of CONTRAST_PAIRS) {
+    const fg = palette[pair.fg];
+    const bg = palette[pair.bg];
+    const ratio = contrastRatio(fg, bg);
+    const required = minimumRatio(pair.grade);
+    const ok = ratio >= required;
+    if (!ok) failures += 1;
+    rows.push(
+      `  ${ok ? 'PASS' : 'FAIL'}  ${theme.padEnd(13)} ${pair.grade.padEnd(3)} ${ratio.toFixed(2).padStart(5)} >= ${required.toFixed(1)}  ${pair.name}`,
+    );
+    if (!ok) {
+      rows.push(`        fg=${toHex(fg)}  bg=${toHex(bg)}`);
+    }
+  }
+}
+
+for (const r of rows) console.log(r);
+
+if (failures > 0) {
+  console.error(`\naudit:tokens — ${failures} pair(s) below WCAG 2.2 threshold.`);
+  process.exit(1);
+}
+console.log(
+  `\naudit:tokens — all ${CONTRAST_PAIRS.length * THEMES.length} pairs pass across ${THEMES.length} themes.`,
+);
