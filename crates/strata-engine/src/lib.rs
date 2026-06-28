@@ -113,7 +113,11 @@ mod tests {
         assert_eq!(ir[0].fill, [57, 208, 198, 255]);
         assert!(matches!(
             ir[0].primitive,
-            Primitive::Rect { w: 10.0, h: 10.0, .. }
+            Primitive::Rect {
+                w: 10.0,
+                h: 10.0,
+                ..
+            }
         ));
         assert!(matches!(
             ir[1].primitive,
