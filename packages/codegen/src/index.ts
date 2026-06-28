@@ -7,6 +7,8 @@
 import type { Affine, Color } from '@strata/engine';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 
+export * from './spec';
+
 export const PACKAGE = '@strata/codegen' as const;
 
 function rgba(c: Color): string {
