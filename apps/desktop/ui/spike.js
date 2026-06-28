@@ -25,7 +25,7 @@ function setReadout(mode, fps, bpf) {
   el.mode.textContent = mode;
   el.fps.textContent = fps.toFixed(1);
   el.bpf.textContent = bpf.toLocaleString();
-  el.bw.textContent = ((bpf * fps) / 1_000_000).toFixed(2) + ' MB/s';
+  el.bw.textContent = `${((bpf * fps) / 1_000_000).toFixed(2)} MB/s`;
 }
 
 async function measureIr() {
@@ -93,6 +93,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  el.status.textContent = 'error: ' + err;
+  el.status.textContent = `error: ${err}`;
   console.error(err);
 });

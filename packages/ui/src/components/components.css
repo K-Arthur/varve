@@ -1,0 +1,59 @@
+/**
+ * Strata UI component styles — consume the token CSS custom properties (§6).
+ * No hardcoded values; every color/space/type/radius traces to a token.
+ */
+.strata-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--space-6);
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  cursor: pointer;
+  outline-offset: 2px;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.strata-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+}
+.strata-btn--primary {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.strata-btn--primary:hover {
+  background: var(--color-interactive-hover);
+}
+.strata-btn--secondary {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-strong);
+}
+.strata-btn--ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.strata-btn--ghost:hover {
+  background: var(--color-surface-sunken);
+}
+.strata-btn--danger {
+  background: var(--color-feedback-danger);
+  color: var(--color-text-on-danger);
+}
+.strata-btn--sm {
+  height: var(--space-5);
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.strata-btn--lg {
+  height: var(--space-7);
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-md);
+}

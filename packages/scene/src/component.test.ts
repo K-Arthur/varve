@@ -18,7 +18,7 @@ describe('VariableStore (stub)', () => {
 
   it('falls back to default mode when the active mode is unset', () => {
     const store = createVariableStore(['default', 'dense']);
-    store.variables['r'] = { id: 'r', name: 'r', type: 'number', valuesByMode: { default: 2 } };
+    store.variables.r = { id: 'r', name: 'r', type: 'number', valuesByMode: { default: 2 } };
     store.activeMode = 'dense';
     expect(resolve(store, 'r')).toBe(2);
   });

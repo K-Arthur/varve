@@ -2,7 +2,7 @@
   "name": "@strata/editor",
   "version": "0.0.0",
   "private": true,
-  "description": "React editor UI: app shell, toolbar, canvas, layers, inspector, status, shortcuts.",
+  "description": "Strata editor UI: app shell, toolbar, canvas, layers, inspector, status, shortcuts.",
   "type": "module",
   "exports": {
     ".": {
@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "cd ../.. && vitest run packages/editor"
   },
   "dependencies": {
     "@strata/shared": "workspace:*",

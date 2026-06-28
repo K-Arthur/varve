@@ -11,6 +11,10 @@ export default defineConfig({
       'tests/**/*.{test,spec}.{ts,tsx}',
     ],
     environment: 'node',
+    environmentMatchGlobs: [
+      ['packages/ui/src/components/**', 'jsdom'],
+      ['packages/editor/**', 'jsdom'],
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

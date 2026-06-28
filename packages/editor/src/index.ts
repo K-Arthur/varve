@@ -1,9 +1,10 @@
 /**
- * @strata/editor — React editor surfaces (Strata plan §5).
+ * @strata/editor — Strata editor UI surfaces (Strata plan §5).
  *
- * App shell, menubar, toolbar, canvas, layers tree, inspector, status bar,
- * and the shortcut manager. Built to the §4 accessibility standard. Consumed
- * by both apps/desktop (Tauri) and apps/web (Next.js). Filled from task 0.9.
+ * The shell, tools, canvas, panels, and shortcut system. Exported `Shell` is
+ * the top-level component consumed by apps/web and apps/desktop.
  */
 
-export const PACKAGE = '@strata/editor' as const;
+export type { EditorState, ToolId } from './context';
+export { EditorProvider, useEditor } from './context';
+export { Shell } from './Shell';
