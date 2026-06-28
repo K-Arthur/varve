@@ -576,6 +576,11 @@ dependencies = [
 [[package]]
 name = "strata-trace"
 version = "0.0.0"
+dependencies = [
+ "rayon",
+ "serde",
+ "strata-core",
+]
 
 [[package]]
 name = "syn"
