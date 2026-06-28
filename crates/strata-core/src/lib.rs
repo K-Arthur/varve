@@ -11,11 +11,13 @@
 #![forbid(unsafe_code)]
 
 pub mod component;
+pub mod expr;
 pub mod geom;
 pub mod scene;
 pub mod shape;
 
 pub use component::{slots_satisfied, ComponentDefinition, Slot, SlotKind};
+pub use expr::evaluate;
 pub use geom::{point_to_segment_dist_sq, rect_contains};
 pub use scene::{get_parent, hit_test, walk_nodes, NodeId, SceneNode};
 pub use shape::Shape;
