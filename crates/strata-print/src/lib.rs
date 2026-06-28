@@ -1,14 +1,14 @@
-//! Print pipeline: font outlining, RGB PDF export.
+//! Print pipeline: font outlining, RGB/CMYK PDF export.
 //!
 //! `export_pdf()` converts a flat scene into PDF bytes using lopdf, emitting
-//! path operators for each shape node. Text nodes are rendered as filled
-//! rectangles (placeholder for full Bezier outlining when font rasterization
-//! is integrated).
+//! path operators for each shape node. CMYK/PDF-X export lives in `cmyk.rs`.
 //!
 //! Research basis: lopdf for PDF generation. PDF graphics model uses path
 //! construction operators (m, l, re, h, f) per the ISO 32000 spec.
 
 #![forbid(unsafe_code)]
+
+pub mod cmyk;
 
 use lopdf::{dictionary, Document, Object, Stream};
 use strata_core::{SceneNode, Shape};
