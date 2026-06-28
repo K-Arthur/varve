@@ -12,14 +12,17 @@
 
 #![forbid(unsafe_code)]
 
-use kurbo::Affine;
 use serde::{Deserialize, Serialize};
-use strata_core::{Point, SceneNode, Shape};
+use strata_core::{SceneNode, Shape};
 
 /// One drawable record in the render IR. The webview replays these in order.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// `transform` is `[f64; 6]` (not `kurbo::Affine`) because TS `Affine` =
+/// `readonly [number, number, number, number, number, number]` — kurbo's default
+/// serde produces `{"coeffs": [a,b,c,d,e,f]}` which would mismatch the wire format.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RenderItem {
-    pub transform: Affine,
+    pub transform: [f64; 6],
     /// RGBA fill, 0-255 per channel.
     pub fill: [u8; 4],
     pub primitive: Primitive,
@@ -29,7 +32,12 @@ pub struct RenderItem {
 ///
 /// Serde uses internally-tagged representation matching the TS Primitive type
 /// (`{ kind, ...fields }`) so the IPC bridge between Rust and the webview works
-/// without adapter code.
+/// without adapter code. `Line` carries `from`/`to` as `[f64; 2]` (not
+/// `kurbo::Point`) because TS `Point = readonly [number, number]` — kurbo's
+/// Point serializes as `{x, y}` which would mismatch the wire format.
+///
+/// Research basis: serde `#[serde(tag = "kind")]` internally-tagged enum;
+/// `@strata/engine` `Primitive` type is the stable webview contract (ADR-0001).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Primitive {
@@ -41,8 +49,8 @@ pub enum Primitive {
     Circle { cx: f64, cy: f64, r: f64 },
     #[serde(rename = "line")]
     Line {
-        from: Point,
-        to: Point,
+        from: [f64; 2],
+        to: [f64; 2],
         tolerance: f64,
     },
 }
@@ -52,9 +60,23 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
     nodes
         .iter()
         .map(|n| RenderItem {
-            transform: n.transform,
+            transform: n.transform.as_coeffs(),
             fill: n.fill,
             primitive: primitive_of(&n.shape),
+        })
+        .collect()
+}
+
+/// Build the render IR from a DFS-walked scene (from `walk_nodes`).
+/// Emits one item per visited node, recursively flattening frame children
+/// in paint order. Use this for nested frame-based scenes.
+pub fn build_render_ir_flat(walked: &[(strata_core::NodeId, &SceneNode, Option<strata_core::NodeId>)]) -> Vec<RenderItem> {
+    walked
+        .iter()
+        .map(|(_, node, _)| RenderItem {
+            transform: node.transform.as_coeffs(),
+            fill: node.fill,
+            primitive: primitive_of(&node.shape),
         })
         .collect()
 }
@@ -79,8 +101,8 @@ fn primitive_of(shape: &Shape) -> Primitive {
             r: c.radius,
         },
         Shape::Line { line, tolerance } => Primitive::Line {
-            from: line.p0,
-            to: line.p1,
+            from: [line.p0.x, line.p0.y],
+            to: [line.p1.x, line.p1.y],
             tolerance: *tolerance,
         },
     }
@@ -89,7 +111,7 @@ fn primitive_of(shape: &Shape) -> Primitive {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use strata_core::{Circle, Rect};
+    use strata_core::{Affine, Circle, Point, Rect};
 
     fn rect_node(id: u64, x: f64, y: f64, w: f64, h: f64) -> SceneNode {
         SceneNode {
@@ -98,6 +120,9 @@ mod tests {
             transform: Affine::translate((x, y)),
             shape: Shape::Rect(Rect::new(0.0, 0.0, w, h)),
             fill: [57, 208, 198, 255],
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
         }
     }
 
@@ -130,6 +155,89 @@ mod tests {
     }
 
     #[test]
+    fn build_render_ir_flat_nested_frames() {
+        use strata_core::walk_nodes;
+
+        let scene = vec![
+            SceneNode {
+                id: strata_core::NodeId(1),
+                name: "frame".into(),
+                transform: Affine::translate((0.0, 0.0)),
+                shape: Shape::Rect(Rect::new(0.0, 0.0, 100.0, 100.0)),
+                fill: [200, 200, 200, 255],
+                children: vec![strata_core::NodeId(2), strata_core::NodeId(3)],
+                component_id: None,
+                slots: None,
+            },
+            SceneNode {
+                id: strata_core::NodeId(2),
+                name: "child1".into(),
+                transform: Affine::translate((10.0, 10.0)),
+                shape: Shape::Circle(Circle::new(Point::ZERO, 5.0)),
+                fill: [255, 0, 0, 255],
+                children: Vec::new(),
+                component_id: None,
+                slots: None,
+            },
+            SceneNode {
+                id: strata_core::NodeId(3),
+                name: "child2".into(),
+                transform: Affine::translate((20.0, 20.0)),
+                shape: Shape::Rect(Rect::new(0.0, 0.0, 20.0, 20.0)),
+                fill: [0, 255, 0, 255],
+                children: Vec::new(),
+                component_id: None,
+                slots: None,
+            },
+            SceneNode {
+                id: strata_core::NodeId(4),
+                name: "root-shape".into(),
+                transform: Affine::translate((100.0, 100.0)),
+                shape: Shape::Rect(Rect::new(0.0, 0.0, 50.0, 50.0)),
+                fill: [57, 208, 198, 255],
+                children: Vec::new(),
+                component_id: None,
+                slots: None,
+            },
+        ];
+
+        let walked = walk_nodes(&scene);
+        assert_eq!(walked.len(), 4);
+
+        // DFS order: frame, child1, child2, root-shape
+        assert_eq!(walked[0].0, strata_core::NodeId(1));
+        assert_eq!(walked[0].2, None);
+
+        assert_eq!(walked[1].0, strata_core::NodeId(2));
+        assert_eq!(walked[1].2, Some(strata_core::NodeId(1)));
+
+        assert_eq!(walked[2].0, strata_core::NodeId(3));
+        assert_eq!(walked[2].2, Some(strata_core::NodeId(1)));
+
+        assert_eq!(walked[3].0, strata_core::NodeId(4));
+        assert_eq!(walked[3].2, None);
+
+        let ir = build_render_ir_flat(&walked);
+        assert_eq!(ir.len(), 4);
+
+        // Frame (node 1): rect backdrop
+        assert!(matches!(ir[0].primitive, Primitive::Rect { w: 100.0, h: 100.0, .. }));
+        assert_eq!(ir[0].fill, [200, 200, 200, 255]);
+
+        // child1 (node 2): circle
+        assert!(matches!(ir[1].primitive, Primitive::Circle { r: 5.0, .. }));
+        assert_eq!(ir[1].fill, [255, 0, 0, 255]);
+
+        // child2 (node 3): rect
+        assert!(matches!(ir[2].primitive, Primitive::Rect { w: 20.0, h: 20.0, .. }));
+        assert_eq!(ir[2].fill, [0, 255, 0, 255]);
+
+        // root-shape (node 4)
+        assert!(matches!(ir[3].primitive, Primitive::Rect { w: 50.0, h: 50.0, .. }));
+        assert_eq!(ir[3].fill, [57, 208, 198, 255]);
+    }
+
+    #[test]
     fn preserves_transform_and_shape_kind() {
         let node = SceneNode {
             id: strata_core::NodeId(7),
@@ -137,6 +245,9 @@ mod tests {
             transform: Affine::translate((40.0, 40.0)),
             shape: Shape::Circle(Circle::new(Point::ZERO, 8.0)),
             fill: [255, 0, 0, 255],
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
         };
         let ir = build_render_ir(&[node]);
         assert!(matches!(ir[0].primitive, Primitive::Circle { r: 8.0, .. }));
@@ -150,8 +261,6 @@ mod tests {
             }
         );
         // transform survives into the IR (translate(40,40) matrix coefficients).
-        let coeffs = ir[0].transform.as_coeffs();
-        assert_eq!(coeffs[4], 40.0);
-        assert_eq!(coeffs[5], 40.0);
+        assert_eq!(ir[0].transform, [1.0, 0.0, 0.0, 1.0, 40.0, 40.0]);
     }
 }

@@ -1,11 +1,17 @@
 import type { Color } from '@strata/engine';
+import type { FrameNode } from '@strata/scene';
 import { NumberInput } from '@strata/ui';
 import { useState } from 'react';
 import { useEditor } from './context';
 
 export function InspectorPanel() {
-  const { state, rootNodes, setNodePosition, setNodeSize, setSelectedFill } = useEditor();
-  const selected = state.selection ? rootNodes().find((n) => n.id === state.selection) : null;
+  const { state, setNodePosition, setNodeSize, setSelectedFill } = useEditor();
+  const selected = state.selection ? state.document.nodes[state.selection] : undefined;
+  const selectedFrame = selected?.kind === 'frame' ? (selected as FrameNode) : null;
+  let componentDef = null;
+  if (selectedFrame?.componentId) {
+    componentDef = state.document.components[selectedFrame.componentId] ?? null;
+  }
   const [fillInput, setFillInput] = useState('');
 
   if (!selected) {
@@ -125,6 +131,30 @@ export function InspectorPanel() {
       {selected.kind === 'text' && (
         <Section title="Text">
           <LabelledInput label="Content" value={selected.text} readOnly />
+        </Section>
+      )}
+      {componentDef && (
+        <Section title="Slots">
+          {componentDef.slots.map((slot) => {
+            const fillId = selectedFrame?.slots?.[slot.id];
+            const fillNode = fillId ? state.document.nodes[fillId] : null;
+            return (
+              <div
+                key={slot.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 'var(--space-1)',
+                }}
+              >
+                <span style={{ fontSize: 'var(--font-size-xs)' }}>{slot.name}</span>
+                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                  {fillNode?.name ?? '(empty)'}
+                </span>
+              </div>
+            );
+          })}
         </Section>
       )}
     </section>

@@ -1,10 +1,12 @@
+import type { NodeId, SceneNode } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from './context';
 
 export function LayersPanel() {
-  const { state, setSelection, renameSelected, rootNodes, moveNode } = useEditor();
+  const { state, setSelection, renameSelected, moveNode } = useEditor();
   const [focusIdx, setFocusIdx] = useState(0);
+  const [expanded, setExpanded] = useState<Set<NodeId>>(new Set());
   const treeRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<string | null>(null);
   const typeAheadRef = useRef<{ buf: string; timer: ReturnType<typeof setTimeout> | null }>({
@@ -12,7 +14,29 @@ export function LayersPanel() {
     timer: null,
   });
 
-  const nodes = rootNodes();
+  const entries = useMemo(() => {
+    const result: SceneNode[] = [];
+    const parentIds: (NodeId | null)[] = [];
+    const depths: number[] = [];
+
+    function walk(parentId: NodeId | null, ids: NodeId[], depth: number) {
+      for (const nid of ids) {
+        const n = state.document.nodes[nid];
+        if (!n) continue;
+        if (parentId && !expanded.has(parentId)) continue;
+        result.push(n);
+        parentIds.push(parentId);
+        depths.push(depth);
+        if (n.kind === 'frame' && expanded.has(nid)) {
+          walk(nid, n.children, depth + 1);
+        }
+      }
+    }
+    walk(null, state.document.rootChildren, 0);
+    return { nodes: result, depths, parentIds };
+  }, [state.document, expanded]);
+
+  const nodes = entries.nodes;
 
   const clampFocus = useCallback(
     (i: number) => Math.min(Math.max(0, i), nodes.length - 1),
@@ -30,6 +54,15 @@ export function LayersPanel() {
     [clampFocus, nodes, setSelection],
   );
 
+  const toggleExpand = useCallback((id: NodeId) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const len = nodes.length;
@@ -40,6 +73,24 @@ export function LayersPanel() {
         e.preventDefault();
         const next = clampFocus(focusIdx + delta);
         selectAndFocus(next);
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const n = nodes[focusIdx];
+        if (n?.kind === 'frame' && !expanded.has(n.id)) {
+          toggleExpand(n.id);
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const n = nodes[focusIdx];
+        if (n?.kind === 'frame' && expanded.has(n.id)) {
+          toggleExpand(n.id);
+        }
         return;
       }
 
@@ -57,10 +108,6 @@ export function LayersPanel() {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         selectAndFocus(focusIdx);
-        return;
-      }
-
-      if (e.key === 'Delete' || e.key === 'Backspace') {
         return;
       }
 
@@ -83,7 +130,7 @@ export function LayersPanel() {
         }
       }
     },
-    [nodes, focusIdx, clampFocus, selectAndFocus],
+    [nodes, focusIdx, expanded, clampFocus, selectAndFocus, toggleExpand],
   );
 
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
@@ -150,12 +197,16 @@ export function LayersPanel() {
         {nodes.map((n, i) => {
           const selected = n.id === state.selection;
           const focused = i === focusIdx;
+          const depth = entries.depths[i] ?? 0;
+          const isFrame = n.kind === 'frame';
+          const expandedNode = expanded.has(n.id);
           return (
             <div
               key={n.id}
               role="treeitem"
               data-node-id={n.id}
               aria-selected={selected}
+              aria-expanded={isFrame ? expandedNode : undefined}
               tabIndex={focused ? 0 : -1}
               draggable
               onDragStart={(e) => handleDragStart(e, n.id)}
@@ -164,6 +215,7 @@ export function LayersPanel() {
                 setFocusIdx(i);
               }}
               onDoubleClick={() => {
+                if (isFrame) toggleExpand(n.id);
                 const name = prompt('Rename layer', n.name);
                 if (name) renameSelected(name);
               }}
@@ -172,8 +224,9 @@ export function LayersPanel() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 'var(--space-2)',
+                gap: 'var(--space-1)',
                 padding: 'var(--space-1) var(--space-2)',
+                paddingLeft: `calc(var(--space-2) * ${depth + 1})`,
                 borderRadius: 'var(--radius-sm)',
                 cursor: 'grab',
                 background: selected ? 'var(--color-interactive-default)' : 'transparent',
@@ -182,8 +235,45 @@ export function LayersPanel() {
                 outlineOffset: -2,
               }}
             >
+              {isFrame && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleExpand(n.id);
+                  }}
+                  aria-label={expandedNode ? 'Collapse' : 'Expand'}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    padding: 0,
+                    width: '1em',
+                    textAlign: 'center',
+                    fontSize: 'var(--font-size-xs)',
+                  }}
+                >
+                  {expandedNode ? '\u25BC' : '\u25B6'}
+                </button>
+              )}
+              {!isFrame && <span style={{ width: '1em' }} />}
               <Icon name={CHROME_ICONS.visibility} size="0.85em" label="" />
               <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{n.name}</span>
+              {isFrame && n.componentId && (
+                <span
+                  style={{
+                    fontSize: 'var(--font-size-xs)',
+                    color: 'var(--color-text-muted)',
+                    background: 'var(--color-surface-sunken)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0 var(--space-1)',
+                  }}
+                >
+                  instance
+                </span>
+              )}
             </div>
           );
         })}

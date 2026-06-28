@@ -9,3 +9,7 @@ repository.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = "0.4"

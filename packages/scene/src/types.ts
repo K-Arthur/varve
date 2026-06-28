@@ -50,3 +50,22 @@ export interface FrameNode extends NodeBase {
 }
 
 export type SceneNode = ShapeNode | TextNode | FrameNode;
+
+export type SlotKind = 'single' | 'multiple' | 'text';
+
+export interface Slot {
+  id: string;
+  name: string;
+  kind: SlotKind;
+  /** Optional default content (NodeId of a node used as the default fill). */
+  defaultContentId?: NodeId;
+}
+
+export interface ComponentDefinition {
+  id: NodeId;
+  name: string;
+  /** Typed slots this component accepts. */
+  slots: Slot[];
+  /** Root of the master tree (the synchronized template). */
+  masterRootId: NodeId;
+}

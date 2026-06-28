@@ -4,7 +4,7 @@ Local-first, cross-platform design suite. Native Rust engine on desktop
 (Tauri 2), WASM behind the same facade on web. Linux (CachyOS/Arch) is the
 primary dev OS.
 
-## Toolchain (confirmed working, 2026-06-27)
+## Toolchain (confirmed working, 2026-06-28)
 - Rust: `~/.cargo/bin` (rustc 1.96 / cargo 1.96). Source with `. "$HOME/.cargo/env"`.
 - pnpm 11.9: `~/.local/share/pnpm/bin`. Export `PNPM_HOME="$HOME/.local/share/pnpm"` and add `$PNPM_HOME/bin` to PATH.
 - just 1.54: `~/.local/bin`.
@@ -41,8 +41,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 ```
 
 ## Current test counts
-- **Rust:** 15 tests (strata-core: 8 geometry+hit-test/scene, strata-engine: 3, 4x smoke)
-- **JS:** 66 tests (engine 19, scene 11, ui 20, shared 1, editor 15)
+- **Rust:** 29 workspace + 8 src-tauri = 37 tests (strata-core: 18, strata-engine: 4, strata-sync: 4, 4x smoke + src-tauri round-trip)
+- **JS:** 80 tests (engine 19, scene 25, ui 20, shared 1, editor 15)
 - **Gates:** lint 0 errors, emoji 0 violations, tokens 42/42 WCAG-AA across 3 themes
 
 ## Architecture decisions
@@ -70,7 +70,7 @@ TDD-first → tests green → token audit → zero emoji → axe-core zero viola
 | `strata-core` | **Built** | Geometry primitives via kurbo (Point, Rect, Affine, Circle, Ellipse, Line), `Shape` enum with point-containment, `SceneNode` + `NodeId` + `hit_test()` (inverse-transform world→local, topmost wins), `rect_contains`, `point_to_segment_dist_sq`. 8 tests. |
 | `strata-engine` | **Built** | `build_render_ir()` — scene→`Vec<RenderItem>` where each Item has transform+fill+primitive. `Primitive::Rect/Ellipse/Circle/Line`. The IR is the stable seam between native engine and webview (ADR-0001). 3 tests. |
 | `strata-layout` | Stub | Taffy-backed flex/grid layout (task 1.3). |
-| `strata-sync` | Stub | SQLite persistence + CRDT (task 0.10/Phase 2). |
+| `strata-sync` | **Built** | SQLite save/load via `DocumentStore` with `save_document()`/`load_document()`/`list_documents()` + Tauri IPC commands `sync_save`/`sync_load`. 4 tests. |
 | `strata-trace` | Stub | Auto-trace (Potrace/vtracer, task 1.7). |
 | `strata-print` | Stub | Font outlining + CMYK/PDF-X export (tasks 1.4-1.5). |
 
@@ -99,10 +99,8 @@ TDD-first → tests green → token audit → zero emoji → axe-core zero viola
 ## Phase 1 remaining (ready for next session)
 Priority order: Component Slots (1.1) → Batch variables + math (1.2) → CSS layout + breakpoints (1.3) → Print font outlining (1.4) → CMYK/PDF-X (1.5) → Spec inspector (1.6) → Auto-trace (1.7) → Packaging .AppImage/.deb (0.11).
 
-### Completed this session (Session 2 — P0 Frontend Depth)
-All four P0 frontend depth items: **Shortcut system** (`packages/editor/src/shortcuts/` — `ShortcutManager`, `useShortcuts` hook, `ShortcutPalette` with Ctrl+/), **Canvas keyboard navigation** (arrow nudge, Tab cycling, Escape clear, Enter rename, `aria-live` announcer), **Layers tree upgrade** (APG Tree View with roving tabindex, type-ahead, drag-to-reorder), **NumberInput scrubbing** (drag-to-scrub, arrow inc/dec with Shift/Alt step modifiers, integer clamping). 66 JS tests, 15 Rust tests, all gates pass.
-
-See `CONTINUATION.md` for the full continuation prompt with per-task BMAD details, research gate requirements, and key file references.
+### Completed this session (Session 3 — Pre-flight + Component Slots start)
+Three pre-flight items: **P0 — IPC serde adapter** (`IpcShape` kind-tagged enum matching TS `Shape`, `Primitive::Line` `[f64;2]` from/to, `RenderItem.transform` `[f64;6]`), **P1 — Serialization round-trip test** (4 tests in `apps/desktop/src-tauri` proving TS wire format ↔ Rust engine round-trips), **P2 — SQLite persistence** (`crates/strata-sync` `DocumentStore` with save/load/list + `sync_save`/`sync_load` Tauri commands). 19 Rust tests, 66 JS tests, all gates pass.
 
 ## Key files to read before starting
 
@@ -123,6 +121,7 @@ See `CONTINUATION.md` for the full continuation prompt with per-task BMAD detail
 | `packages/codegen/src/index.ts` | SVG + React code export |
 | `crates/strata-core/src/scene.rs` | Rust SceneNode, hit_test |
 | `crates/strata-engine/src/lib.rs` | Rust build_render_ir, Primitive enums (TS-compatible serde) |
-| `apps/desktop/src-tauri/src/lib.rs` | Tauri commands (build_render_ir, hit_test) |
+| `crates/strata-sync/src/lib.rs` | DocumentStore: save/load/list documents via SQLite |
+| `apps/desktop/src-tauri/src/lib.rs` | Tauri commands (build_render_ir, hit_test, sync_save, sync_load) |
 | `apps/desktop/src-tauri/src/renderer.rs` | Legacy render spike (archived) |
 | `pnpm-workspace.yaml` | Workspace config + allowBuilds |

@@ -7,11 +7,14 @@
  */
 
 import type { Affine, Color, Shape } from '@strata/engine';
-import type { NodeId } from '@strata/scene';
+import type { NodeId, Slot } from '@strata/scene';
 import {
   addNode,
+  createComponent,
   createDocument,
   type Document,
+  fillSlot as fillSlotDoc,
+  instantiate as instantiateComponent,
   makeShapeNode,
   moveNode,
   nextNodeId,
@@ -71,6 +74,12 @@ export interface EditorContextValue {
   loadDocument: (json: string) => void;
   /** Visible nodes in paint order (for layers, ir). */
   rootNodes: () => SceneNode[];
+  /** Register a component definition from a frame. */
+  createComponentFromFrame: (name: string, masterRootId: NodeId, slots: Slot[]) => void;
+  /** Create an instance of a component. */
+  createComponentInstance: (componentId: NodeId) => void;
+  /** Fill a slot on a component instance. */
+  fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
 }
 
 const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -223,6 +232,23 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         }
       },
       rootNodes,
+      createComponentFromFrame: (name, masterRootId, slots) => {
+        updateDoc((doc) => {
+          const { doc: d2 } = createComponent(doc, name, masterRootId, slots);
+          return d2;
+        });
+      },
+      createComponentInstance: (componentId) => {
+        updateDoc((doc) => {
+          const def = doc.components[componentId];
+          if (!def) return doc;
+          const { node, doc: d2 } = instantiateComponent(doc, def);
+          return addNode(d2, node);
+        });
+      },
+      fillSlot: (instanceId, slotId, fillNodeId) => {
+        updateDoc((doc) => fillSlotDoc(doc, instanceId, slotId, fillNodeId));
+      },
     }),
     [state, patch, updateDoc, rootNodes, updateNodeProp],
   );

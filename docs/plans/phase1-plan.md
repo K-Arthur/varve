@@ -28,23 +28,24 @@ Plus: **assert native backend on desktop** for any task that added a facade meth
 
 ---
 
-## Current state (end of Session 2)
+## Current state (end of Session 3 Pre-flight, 2026-06-28)
 
 - Phase 0 (vertical slice) done: dual-backend engine facade, scene model (slots-ready shape), editor shell (menubar/toolbar/canvas/layers/inspector/status), SVG + React codegen, native Tauri bridge (`build_render_ir` + `hit_test`).
-- P0 frontend depth done this session: **Shortcut system** (`packages/editor/src/shortcuts/`), **Canvas keyboard navigation**, **NumberInput scrubbing** (`@strata/ui`), **Layers tree upgrade** (APG Tree View + roving tabindex + drag reorder).
-- 66 JS tests, 15 Rust tests, 42/42 tokens, emoji 0, lint clean, typecheck clean.
-- Known cross-cutting debt: Rust/TS `Shape` serde mismatch in the IPC adapter; `crates/strata-sync` is a smoke stub; four Phase-1 crates (`strata-layout`, `strata-print`, `strata-trace`, `strata-sync`) are pure smoke-stubs.
+- P0 frontend depth done in Session 2: **Shortcut system**, **Canvas keyboard navigation**, **NumberInput scrubbing**, **Layers tree upgrade**.
+- **Pre-flight P0-P2 done in Session 3**: IPC serde adapter (`IpcShape` kind-tagged, `Primitive::Line` `[f64;2]`, `RenderItem.transform` `[f64;6]`), round-trip test (4), SQLite `DocumentStore` with Tauri commands.
+- 66 JS tests, 19 Rust tests, 42/42 tokens, emoji 0, lint clean, typecheck clean.
+- Known cross-cutting debt: four Phase-1 crates (`strata-layout`, `strata-print`, `strata-trace`) remain smoke-stubs; Rust `strata_core::SceneNode` still only models shape nodes (needs Frame+children for 1.1).
 
 ---
 
-## Pre-flight (do once, before 1.1)
+## Pre-flight (DONE — Session 3, 2026-06-28)
 
-| Step | What | Why |
-|---|---|---|
-| P0 | Fix Rust/TS `Shape` serde mismatch in `apps/desktop/src-tauri/src/lib.rs` — add tagged `IpcShape` adapter mirroring TS `#[serde(tag="kind")]` | Flagged as cross-cutting debt; slots/nested children amplify the breakage. Unblocks every 1.x native round-trip test. |
-| P1 | Add a full serialization round-trip test: TS `Scene` -> IPC -> Rust `hit_test`/`build_render_ir` -> back to TS | Closes "native engine IPC end-to-end" debt, makes all later native assertions meaningful. |
-| P2 | Add `crates/strata-sync` minimal SQLite `save_document`/`load_document` + Tauri IPC commands | Phase 0 left this as a smoke stub; Phase 1 vertical slice (save/reopen) depends on it. Independent of 1.1. |
-| Gate | `cargo fmt/clippy/test` + `pnpm lint/typecheck/test` + `audit:emoji` + `audit:tokens` | |
+| Step | What | Status | Notes |
+|---|---|---|---|
+| P0 | Fix Rust/TS `Shape` serde mismatch in `apps/desktop/src-tauri/src/lib.rs` — add tagged `IpcShape` adapter mirroring TS `#[serde(tag="kind")]` | **Done** | Scope was larger than planned: also fixed `Primitive::Line` `from`/`to` (were `kurbo::Point` → `{x,y}`, now `[f64;2]` matching TS) and `RenderItem.transform` (was `kurbo::Affine` → `{coeffs:...}`, now `[f64;6]`). All three mismatches blocked the native backend from working. |
+| P1 | Add a full serialization round-trip test: TS `Scene` -> IPC -> Rust `hit_test`/`build_render_ir` -> back to TS | **Done** | 4 tests in `apps/desktop/src-tauri`: `round_trip_build_render_ir`, `round_trip_hit_test`, `output_serialization_matches_ts_wire_format`, plus existing 4 renderer smoke tests. |
+| P2 | Add `crates/strata-sync` minimal SQLite `save_document`/`load_document` + Tauri IPC commands | **Done** | `DocumentStore` with `rusqlite` (bundled), `save_document`/`load_document`/`list_documents`, 4 tests. Tauri commands `sync_save`/`sync_load` wired via `.setup()` hook and state-managed. |
+| Gate | `cargo fmt/clippy/test` + `pnpm lint/typecheck/test` + `audit:emoji` + `audit:tokens` | **Done** | 19 Rust tests (up from 15), 66 JS tests, all green. |
 
 ---
 
