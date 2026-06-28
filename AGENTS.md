@@ -41,8 +41,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 ```
 
 ## Current test counts
-- **Rust:** 29 workspace + 8 src-tauri = 37 tests (strata-core: 18, strata-engine: 4, strata-sync: 4, 4x smoke + src-tauri round-trip)
-- **JS:** 80 tests (engine 19, scene 25, ui 20, shared 1, editor 15)
+- **Rust:** 64 workspace + 8 src-tauri = 72 tests (strata-core: 35, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 4, strata-trace: 8 + src-tauri round-trip)
+- **JS:** 123 tests (engine 19, scene 35+, ui 20, shared 1, editor 15, codegen 11+, expr 22)
 - **Gates:** lint 0 errors, emoji 0 violations, tokens 42/42 WCAG-AA across 3 themes
 
 ## Architecture decisions
@@ -96,11 +96,24 @@ TDD-first → tests green → token audit → zero emoji → axe-core zero viola
 - `docs/plans/phase1-plan.md` — Phase 1 execution plan (Component Slots through Packaging)
 - `docs/plans/phase2-plan.md` — Phase 2 execution plan (Sync, Assets, Present, Hybrid, Print)
 
-## Phase 1 remaining (ready for next session)
-Priority order: Component Slots (1.1) → Batch variables + math (1.2) → CSS layout + breakpoints (1.3) → Print font outlining (1.4) → CMYK/PDF-X (1.5) → Spec inspector (1.6) → Auto-trace (1.7) → Packaging .AppImage/.deb (0.11).
+## Phase 1 complete (Session 4, 2026-06-28)
 
-### Completed this session (Session 3 — Pre-flight + Component Slots start)
-Three pre-flight items: **P0 — IPC serde adapter** (`IpcShape` kind-tagged enum matching TS `Shape`, `Primitive::Line` `[f64;2]` from/to, `RenderItem.transform` `[f64;6]`), **P1 — Serialization round-trip test** (4 tests in `apps/desktop/src-tauri` proving TS wire format ↔ Rust engine round-trips), **P2 — SQLite persistence** (`crates/strata-sync` `DocumentStore` with save/load/list + `sync_save`/`sync_load` Tauri commands). 19 Rust tests, 66 JS tests, all gates pass.
+All 7 tasks + pre-flight completed:
+
+| Task | What |
+|---|---|
+| Pre-flight P0-P2 | IPC serde adapter, round-trip tests, SQLite DocumentStore |
+| 1.1 Component Slots | TS scene model + Rust mirror + Editor UI (LayersPanel/InspectorPanel) |
+| 1.2 Variables + Math | Pratt parser expr evaluator (TS + Rust), resolve() wiring |
+| 1.3 CSS Layout | Taffy 0.11 compute_layout (flex), validate_breakpoints |
+| 1.4 Print PDF | lopdf-based export_pdf (rect/circle/ellipse/line path operators) |
+| 1.5 CMYK/PDF-X | rgb_to_cmyk, marks_geometry, stub PDF/X-1a/X-4 |
+| 1.6 Spec Inspector | buildSpec() + specToMarkdown() with type styles/spacing/palette |
+| 1.7 Auto-trace | Potrace-class contour tracing, RDP simplification, rayon |
+
+**Remaining for next session:** Packaging (0.11) — .AppImage/.deb/.dmg/.msi CI matrix, CachyOS AUR PKGBUILD.
+
+### Session 4: 72 Rust tests (was 37), 123 JS tests (was 66), all gates pass.
 
 ## Key files to read before starting
 
