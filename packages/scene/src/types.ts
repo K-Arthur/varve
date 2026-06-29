@@ -11,6 +11,7 @@
  * arrives in 1.1 without changing this shape.
  */
 import type { Affine, Color, Shape } from '@strata/engine';
+import type { ExportPreset } from './export-types';
 
 export type NodeId = string;
 
@@ -22,6 +23,7 @@ export interface NodeBase {
   index: number;
   visible: boolean;
   locked: boolean;
+  presets?: ExportPreset[];
 }
 
 export interface ShapeNode extends NodeBase {

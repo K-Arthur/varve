@@ -21,6 +21,7 @@ import type {
   ShapeNode,
   TextNode,
 } from './types';
+import type { ExportSettings } from './export-types';
 
 export interface Document {
   id: string;
@@ -32,6 +33,8 @@ export interface Document {
   components: Record<NodeId, ComponentDefinition>;
   /** Monotonic counter for id generation. */
   nextId: number;
+  /** Per-document export defaults (optional — falls back to ExportSettings globals). */
+  exportDefaults?: Partial<ExportSettings>;
 }
 
 export interface NodeEntry {
