@@ -1,5 +1,5 @@
 /**
- * Position & Size section — X/Y/W/H/Rotation for the current selection.
+ * Position & Size section — X/Y/W/H/Rotation/Flip for the current selection.
  *
  * Multi-select: each axis uses `commonValue`; a differing axis renders the
  * NumberField in its `mixed` state (WCAG 1.4.1 — conveyed as "Mixed values"
@@ -9,9 +9,12 @@
  * Proportion lock: linking W/H preserves aspect ratio. When locked and the
  * user changes W, H is auto-updated (and vice versa) in a single undo step.
  *
+ * Rotation: deg field (0-360, wraps at boundaries). Flip H/V buttons negate
+ * the transform scale axis.
+ *
  * Research basis: Figma/Sketch position/size panel with aspect lock.
  */
-import type { Shape } from '@strata/engine';
+import type { Affine, Shape } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -32,6 +35,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   const hRaw: MaybeMixed<number> | null = allShapes
     ? commonValue(nodes, (n) => shapeH((n as SceneNode & { shape: Shape }).shape))
     : null;
+  const rotationRaw = commonValue(nodes, (n) => n.rotation ?? 0);
 
   const aspectRatio = useCallback(() => {
     if (wRaw === null || hRaw === null || isMixed(wRaw) || isMixed(hRaw)) return null;
@@ -65,7 +69,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       if (locked) {
         const ratio = aspectRatio();
         if (ratio !== null) {
-          editor.setSelectedW(Math.round((h * ratio) * 100) / 100);
+          editor.setSelectedW(Math.round(h * ratio * 100) / 100);
         }
       }
       editor.commitTransaction();
@@ -121,7 +125,17 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 marginTop: 'var(--space-2)',
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
                 {locked ? (
                   <>
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -146,28 +160,86 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           </div>
         </div>
       )}
+      {/* Rotation + Flip row */}
+      <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
+        <NumberField
+          label="R"
+          unit="°"
+          value={isMixed(rotationRaw) ? 0 : rotationRaw}
+          mixed={isMixed(rotationRaw)}
+          min={0}
+          max={360}
+          onChange={(v) => editor.setSelectedRotation(v % 360 < 0 ? v % 360 + 360 : v % 360)}
+        />
+        <button
+          type="button"
+          aria-label="Flip horizontal"
+          title="Flip horizontally"
+          onClick={editor.setSelectedFlipH}
+          style={{
+            width: 'var(--space-4)', height: 'var(--space-4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--color-text-muted)', padding: 0, flexShrink: 0,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" /><path d="M16 3h3a2 2 0 0 1 2 2v14c0 1.1-.9 2-2 2h-3" />
+            <path d="M12 20v2" /><path d="M12 14v2" /><path d="M12 8v2" /><path d="M12 2v2" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          aria-label="Flip vertical"
+          title="Flip vertically"
+          onClick={editor.setSelectedFlipV}
+          style={{
+            width: 'var(--space-4)', height: 'var(--space-4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--color-text-muted)', padding: 0, flexShrink: 0,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 8V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v3" /><path d="M3 16v3c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-3" />
+            <path d="M4 12H2" /><path d="M10 12H8" /><path d="M16 12h-2" /><path d="M22 12h-2" />
+          </svg>
+        </button>
+      </div>
     </DisclosureSection>
   );
 }
 
 function shapeW(shape: Shape): number {
   switch (shape.kind) {
-    case 'rect': return shape.w;
-    case 'ellipse': return shape.rx;
-    case 'circle': return shape.r;
-    case 'polygon': return shape.radius;
-    case 'star': return shape.outerRadius;
-    default: return 0;
+    case 'rect':
+      return shape.w;
+    case 'ellipse':
+      return shape.rx;
+    case 'circle':
+      return shape.r;
+    case 'polygon':
+      return shape.radius;
+    case 'star':
+      return shape.outerRadius;
+    default:
+      return 0;
   }
 }
 
 function shapeH(shape: Shape): number {
   switch (shape.kind) {
-    case 'rect': return shape.h;
-    case 'ellipse': return shape.ry;
-    case 'circle': return shape.r;
-    case 'polygon': return shape.radius;
-    case 'star': return shape.outerRadius;
-    default: return 0;
+    case 'rect':
+      return shape.h;
+    case 'ellipse':
+      return shape.ry;
+    case 'circle':
+      return shape.r;
+    case 'polygon':
+      return shape.radius;
+    case 'star':
+      return shape.outerRadius;
+    default:
+      return 0;
   }
 }

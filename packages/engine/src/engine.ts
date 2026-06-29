@@ -23,7 +23,11 @@ export interface Engine {
 }
 
 function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
+  if (node.kind === 'image') {
+    return { kind: 'image', w: node.w ?? 100, h: node.h ?? 100, src: node.src ?? '' };
+  }
   const s = node.shape;
+  if (!s) return { kind: 'rect', x: 0, y: 0, w: 100, h: 100 };
   switch (s.kind) {
     case 'rect':
       return { kind: 'rect', x: s.x, y: s.y, w: s.w, h: s.h };
@@ -52,6 +56,16 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
         points: s.points,
         rotation: s.rotation,
       };
+    case 'arrow':
+      return {
+        kind: 'arrow',
+        from: s.from,
+        to: s.to,
+        tolerance: s.tolerance,
+        arrowheadSize: s.arrowheadSize,
+      };
+    case 'path':
+      return { kind: 'path', points: s.points, closed: s.closed, tolerance: s.tolerance };
   }
 }
 
@@ -62,7 +76,7 @@ function stubEngine(): Engine {
     async buildIr(scene) {
       return scene.nodes.map((n) => ({
         transform: n.transform,
-        fill: n.fill,
+        fill: n.fill ?? [0, 0, 0, 0] as [number, number, number, number],
         primitive: shapeToPrimitive(n),
         opacity: n.opacity ?? 1,
         blendMode: n.blendMode ?? 'normal',

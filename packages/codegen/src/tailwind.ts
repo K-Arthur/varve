@@ -62,18 +62,23 @@ export function exportNodeToTailwind(
   if (node.kind === 'frame' && node.layoutStyle) {
     const l = node.layoutStyle;
     classes.push('flex');
-    const dirClass = l.direction === 'row' ? 'flex-row' : l.direction === 'column' ? 'flex-col' : '';
+    const dirClass =
+      l.direction === 'row' ? 'flex-row' : l.direction === 'column' ? 'flex-col' : '';
     if (dirClass) classes.push(dirClass);
     if (l.gap) classes.push(`gap-[${l.gap}px]`);
   }
 
   const tag = node.kind === 'text' ? 'span' : 'div';
-  const children = node.kind === 'frame' || node.kind === 'group'
-    ? '\n' + ((node.children ?? []).map((cid: string) => {
-        const child = doc.nodes[cid];
-        return child ? `          {/* ${child.name} */}` : '';
-      }).filter(Boolean).join('\n'))
-    : '';
+  const children =
+    node.kind === 'frame' || node.kind === 'group'
+      ? `\n${(node.children ?? [])
+          .map((cid: string) => {
+            const child = doc.nodes[cid];
+            return child ? `          {/* ${child.name} */}` : '';
+          })
+          .filter(Boolean)
+          .join('\n')}`
+      : '';
 
   if (node.kind === 'text') {
     return `<${tag} className="${classes.join(' ')}">${escapeXml(node.text)}</${tag}>`;

@@ -8,7 +8,7 @@
  */
 
 import type { Document as SceneDocument, SceneNode } from '@strata/scene';
-import { exportNodeToCss, type CssExportOptions } from './css';
+import { type CssExportOptions, exportNodeToCss } from './css';
 import { escapeXml } from './shared';
 
 export interface CssModulesExportOptions extends CssExportOptions {
@@ -23,12 +23,14 @@ export function exportNodeToCssModules(
 ): { jsx: string; css: string } {
   const css = exportNodeToCss(node, doc, opts);
   const selector = node.name.toLowerCase().replace(/[^a-z0-9-]/g, '-') || 'node';
-  const componentName = (opts?.componentName ?? (node.name[0]?.toUpperCase() + node.name.slice(1))) || 'Component';
+  const componentName =
+    (opts?.componentName ?? node.name[0]?.toUpperCase() + node.name.slice(1)) || 'Component';
 
   const cssWithModule = css.replace(/\.([a-z][\w-]*)/, `.${selector}`);
-  const jsx = node.kind === 'text'
-    ? `import styles from './${componentName}.module.css';\n\nexport function ${componentName}() {\n  return <span className={styles.${selector}}>{${JSON.stringify(escapeXml(node.text))}}</span>;\n}\n`
-    : `import styles from './${componentName}.module.css';\n\nexport function ${componentName}() {\n  return <div className={styles.${selector}} />;\n}\n`;
+  const jsx =
+    node.kind === 'text'
+      ? `import styles from './${componentName}.module.css';\n\nexport function ${componentName}() {\n  return <span className={styles.${selector}}>{${JSON.stringify(escapeXml(node.text))}}</span>;\n}\n`
+      : `import styles from './${componentName}.module.css';\n\nexport function ${componentName}() {\n  return <div className={styles.${selector}} />;\n}\n`;
 
   return { jsx, css: cssWithModule };
 }

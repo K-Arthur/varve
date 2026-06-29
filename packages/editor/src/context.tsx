@@ -13,7 +13,7 @@
  *     Frame tool now correctly creates a FrameNode (container), not a ShapeNode.
  */
 import type { Affine, Color, Shape } from '@strata/engine';
-import { applyAffine, invertAffine, shapeContains, rectContains } from '@strata/engine';
+import { applyAffine, invertAffine, rectContains, shapeContains } from '@strata/engine';
 import type { NodeId, Slot } from '@strata/scene';
 import {
   addChild,
@@ -38,10 +38,10 @@ import {
   resolve,
   type SceneNode,
   ungroupNode as ungroupNodeDoc,
-  walkNodes,
   type Variable,
   type VariableStore,
   type VariableValue,
+  walkNodes,
 } from '@strata/scene';
 import {
   createContext,
@@ -52,6 +52,10 @@ import {
   useRef,
   useState,
 } from 'react';
+import {
+  readClipboard as readFromClipboard,
+  writeClipboard as writeToClipboard,
+} from './clipboard';
 
 export type ToolId =
   | 'select'
@@ -142,7 +146,10 @@ export interface EditorContextValue {
   /** Get a node by ID from the document. */
   getNode: (id: NodeId) => SceneNode | undefined;
   /** Walk all nodes in the document, returning entries with parent/depth info. */
-  walkNodes: () => Map<NodeId, { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }>;
+  walkNodes: () => Map<
+    NodeId,
+    { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }
+  >;
   /** Set a draft rectangle for live feedback during gestures. */
   setDraft: (draft: { x: number; y: number; w: number; h: number; label?: string } | null) => void;
   /** Remove all currently selected nodes. */
@@ -175,6 +182,18 @@ export interface EditorContextValue {
   setSelectedBlendMode: (mode: import('@strata/engine').BlendMode) => void;
   /** F6: batch-edit rotation on all selected nodes. */
   setSelectedRotation: (value: number) => void;
+  /** F6: batch-edit flip horizontal on all selected nodes. */
+  setSelectedFlipH: () => void;
+  /** F6: batch-edit flip vertical on all selected nodes. */
+  setSelectedFlipV: () => void;
+  /** F6: batch-edit corner radius on all selected shape nodes. */
+  setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
+  /** F6: align selected nodes by the given axis. */
+  alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
+  /** F6: distribute selected nodes equally along the given axis. */
+  distributeSelected: (axis: 'horizontal' | 'vertical') => void;
+  /** F6: batch-set a variable binding on all selected nodes. */
+  setSelectedBinding: (target: string, binding: import('@strata/scene').PropertyBinding | null) => void;
   /** F6: transaction API — begin, commit, abort for single-undo scrubbing. */
   beginTransaction: () => void;
   commitTransaction: () => void;
@@ -229,6 +248,12 @@ export interface EditorContextValue {
   ungroupSelected: () => void;
   /** Detach the first selected component instance. */
   detachSelected: () => void;
+  /** Copy selected nodes to system clipboard. */
+  copySelected: () => void;
+  /** Cut selected nodes (copy + remove). */
+  cutSelected: () => void;
+  /** Paste nodes from system clipboard. */
+  paste: () => void;
 }
 
 const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -312,23 +337,40 @@ const INITIAL_SESSION_ID = 'session-0';
 // ─── standalone helpers ─────────────────────────────────────────────────
 
 /** Compute world-space bounding box for any node type. */
-export function nodeWorldBoundsFn(n: SceneNode): { x: number; y: number; w: number; h: number } | null {
+export function nodeWorldBoundsFn(
+  n: SceneNode,
+): { x: number; y: number; w: number; h: number } | null {
   const tx = n.transform[4] ?? 0;
   const ty = n.transform[5] ?? 0;
   if (n.kind === 'shape') {
     const s = n.shape;
     if (s.kind === 'rect') return { x: tx + s.x, y: ty + s.y, w: s.w, h: s.h };
-    if (s.kind === 'ellipse') return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
-    if (s.kind === 'circle') return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
+    if (s.kind === 'ellipse')
+      return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
+    if (s.kind === 'circle')
+      return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
     if (s.kind === 'line') {
       const minX = Math.min(s.from[0], s.to[0]);
       const minY = Math.min(s.from[1], s.to[1]);
-      return { x: tx + minX, y: ty + minY, w: Math.abs(s.to[0] - s.from[0]) || 4, h: Math.abs(s.to[1] - s.from[1]) || 4 };
+      return {
+        x: tx + minX,
+        y: ty + minY,
+        w: Math.abs(s.to[0] - s.from[0]) || 4,
+        h: Math.abs(s.to[1] - s.from[1]) || 4,
+      };
     }
-    if (s.kind === 'polygon') return { x: tx + s.cx - s.radius, y: ty + s.cy - s.radius, w: s.radius * 2, h: s.radius * 2 };
-    if (s.kind === 'star') return { x: tx + s.cx - s.outerRadius, y: ty + s.cy - s.outerRadius, w: s.outerRadius * 2, h: s.outerRadius * 2 };
+    if (s.kind === 'polygon')
+      return { x: tx + s.cx - s.radius, y: ty + s.cy - s.radius, w: s.radius * 2, h: s.radius * 2 };
+    if (s.kind === 'star')
+      return {
+        x: tx + s.cx - s.outerRadius,
+        y: ty + s.cy - s.outerRadius,
+        w: s.outerRadius * 2,
+        h: s.outerRadius * 2,
+      };
   }
-  if (n.kind === 'text') return { x: tx, y: ty, w: (n.fontSize ?? 16) * 3, h: (n.fontSize ?? 16) * 1.4 };
+  if (n.kind === 'text')
+    return { x: tx, y: ty, w: (n.fontSize ?? 16) * 3, h: (n.fontSize ?? 16) * 1.4 };
   if (n.kind === 'frame') return { x: tx, y: ty, w: 200, h: 160 };
   return null;
 }
@@ -620,7 +662,10 @@ export function EditorProvider({
 
       walkNodes: () => {
         const map = walkNodes(state.document);
-        const result = new Map<string, { nodeId: string; node: SceneNode; parentId: string | null; depth: number }>();
+        const result = new Map<
+          string,
+          { nodeId: string; node: SceneNode; parentId: string | null; depth: number }
+        >();
         for (const [key, val] of map) {
           result.set(key, val);
         }
@@ -836,6 +881,163 @@ export function EditorProvider({
         });
       },
 
+      // F6: batch-edit flip H
+      setSelectedFlipH: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = {
+              ...node,
+              transform: [-node.transform[0], node.transform[1], node.transform[2], node.transform[3], node.transform[4], node.transform[5]] as Affine,
+            } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: batch-edit flip V
+      setSelectedFlipV: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = {
+              ...node,
+              transform: [node.transform[0], node.transform[1], node.transform[2], -node.transform[3], node.transform[4], node.transform[5]] as Affine,
+            } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: batch-edit corner radius on shape nodes
+      setSelectedCornerRadius: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (node?.kind !== 'shape') continue;
+            nodes[id] = { ...node, cornerRadius: value } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: align selected nodes
+      alignSelected: (axis) => {
+        const sel = state.selection;
+        if (sel.length < 2) return;
+        const items = sel.map((id) => {
+          const node = state.document.nodes[id];
+          if (!node) return null;
+          const bounds = nodeWorldBoundsFn(node);
+          return { id, node, bounds };
+        }).filter((x): x is { id: NodeId; node: SceneNode; bounds: NonNullable<ReturnType<typeof nodeWorldBoundsFn>> } => x !== null && x.bounds !== null);
+        if (items.length < 2) return;
+
+        const minX = Math.min(...items.map((i) => i.bounds.x));
+        const maxX = Math.max(...items.map((i) => i.bounds.x + i.bounds.w));
+        const minY = Math.min(...items.map((i) => i.bounds.y));
+        const maxY = Math.max(...items.map((i) => i.bounds.y + i.bounds.h));
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const { id, bounds: b } of items) {
+            const node = nodes[id];
+            if (!node) continue;
+            let newX = node.transform[4];
+            let newY = node.transform[5];
+            if (axis === 'left') newX = minX;
+            else if (axis === 'centerH') newX = centerX - b.w / 2;
+            else if (axis === 'right') newX = maxX - b.w;
+            else if (axis === 'top') newY = minY;
+            else if (axis === 'centerV') newY = centerY - b.h / 2;
+            else if (axis === 'bottom') newY = maxY - b.h;
+            nodes[id] = {
+              ...node,
+              transform: [node.transform[0], node.transform[1], node.transform[2], node.transform[3], newX, newY] as Affine,
+            } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: distribute selected nodes
+      distributeSelected: (axis) => {
+        const sel = state.selection;
+        if (sel.length < 3) return;
+        const items = sel.map((id) => {
+          const node = state.document.nodes[id];
+          if (!node) return null;
+          const bounds = nodeWorldBoundsFn(node);
+          return { id, node, bounds };
+        }).filter((x): x is { id: NodeId; node: SceneNode; bounds: NonNullable<ReturnType<typeof nodeWorldBoundsFn>> } => x !== null && x.bounds !== null);
+        if (items.length < 3) return;
+
+        const sorted = [...items].sort((a, b) => {
+          return (axis === 'horizontal' ? a.bounds.x : a.bounds.y) - (axis === 'horizontal' ? b.bounds.x : b.bounds.y);
+        });
+
+        const first = sorted[0]!;
+        const last = sorted[sorted.length - 1]!;
+        const start = axis === 'horizontal' ? first.bounds.x : first.bounds.y;
+        const end = axis === 'horizontal' ? last.bounds.x + last.bounds.w : last.bounds.y + last.bounds.h;
+        const totalSize = sorted.reduce((s, i) => s + (axis === 'horizontal' ? i.bounds.w : i.bounds.h), 0);
+        const gap = (end - start - totalSize) / (sorted.length - 1);
+
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          let cursor = start;
+          for (const { id, bounds: b } of sorted) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = {
+              ...node,
+              transform: axis === 'horizontal'
+                ? [node.transform[0], node.transform[1], node.transform[2], node.transform[3], cursor, node.transform[5]] as Affine
+                : [node.transform[0], node.transform[1], node.transform[2], node.transform[3], node.transform[4], cursor] as Affine,
+            } as SceneNode;
+            cursor += (axis === 'horizontal' ? b.w : b.h) + gap;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: batch-set variable binding on all selected nodes
+      setSelectedBinding: (target, binding) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const nodeBindings = { ...(node.bindings ?? {}) };
+            if (binding === null) {
+              delete nodeBindings[target];
+            } else {
+              nodeBindings[target] = binding;
+            }
+            nodes[id] = {
+              ...node,
+              bindings: Object.keys(nodeBindings).length > 0 ? nodeBindings : undefined,
+            } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
       // F6: transaction API
       beginTransaction,
       commitTransaction,
@@ -947,6 +1149,58 @@ export function EditorProvider({
         if (sel.length === 0) return;
         const id = sel[0]!;
         updateDoc((doc) => detachInstanceDoc(doc, id));
+      },
+
+      copySelected: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const nodes = sel
+          .map((id) => state.document.nodes[id])
+          .filter((n): n is SceneNode => Boolean(n));
+        if (nodes.length === 0) return;
+        writeToClipboard(nodes);
+        if (announcerRef.current)
+          announcerRef.current.textContent = `Copied ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`;
+      },
+
+      cutSelected: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const nodes = sel
+          .map((id) => state.document.nodes[id])
+          .filter((n): n is SceneNode => Boolean(n));
+        if (nodes.length === 0) return;
+        writeToClipboard(nodes);
+        updateDoc((doc) => {
+          let d = doc;
+          for (const id of sel) d = removeNode(d, id);
+          return d;
+        });
+        patch({ selection: [] });
+        if (announcerRef.current)
+          announcerRef.current.textContent = `Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`;
+      },
+
+      paste: () => {
+        readFromClipboard().then((data) => {
+          if (!data || data.nodes.length === 0) return;
+          setState((s) => {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            redoStackRef.current = [];
+            let doc = s.document;
+            const newIds: NodeId[] = [];
+            for (const node of data.nodes) {
+              const { id, doc: d2 } = nextNodeId(doc);
+              doc = d2;
+              const cloned = { ...node, id } as SceneNode;
+              doc = addNode(doc, cloned);
+              newIds.push(id);
+            }
+            return { ...s, document: doc, selection: newIds };
+          });
+          if (announcerRef.current)
+            announcerRef.current.textContent = `Pasted ${data.nodes.length} layer${data.nodes.length > 1 ? 's' : ''}`;
+        });
       },
 
       setNodeLayout: (id, layout) => {

@@ -117,6 +117,13 @@ export interface Fill {
   visible: boolean;
 }
 
+// ── Property Binding (task 1.2+) ────────────────────────────────────────────
+
+export interface PropertyBinding {
+  variableId: string;
+  expression?: string;
+}
+
 // ── Base node ───────────────────────────────────────────────────────────────
 
 export interface NodeBase {
@@ -125,6 +132,8 @@ export interface NodeBase {
   fill: Color;
   /** Paint order among siblings (0 = bottom). Reorder via Document.move. */
   index: number;
+  /** Fractional-indexing order key for CRDT-safe concurrent ordering. */
+  order: string;
   visible: boolean;
   locked: boolean;
   /** F6: layer opacity 0-1 (default 1). */
@@ -133,6 +142,12 @@ export interface NodeBase {
   blendMode: BlendMode;
   /** F6: rotation in degrees (default 0). Applied to transform on render. */
   rotation: number;
+  /**
+   * F6: optional variable bindings per property.
+   * Keyed by property name (e.g. "fill", "opacity", "x", "y", "width",
+   * "height", "rotation", "fontSize", "strokeWeight").
+   */
+  bindings?: Record<string, PropertyBinding>;
 }
 
 export interface ShapeNode extends NodeBase {

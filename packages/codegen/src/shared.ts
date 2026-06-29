@@ -4,7 +4,7 @@
  */
 
 import type { Affine, Color } from '@strata/engine';
-import type { Document as SceneDocument, NodeId, SceneNode } from '@strata/scene';
+import type { NodeId, Document as SceneDocument, SceneNode } from '@strata/scene';
 
 export function rgba(c: Color): string {
   return `rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(3)})`;
@@ -19,7 +19,11 @@ export function affineToSvg(t: Affine): string {
 }
 
 export function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 export function computeNodePos(node: SceneNode): { x: number; y: number; w: number; h: number } {
@@ -37,12 +41,27 @@ export function computeNodePos(node: SceneNode): { x: number; y: number; w: numb
       case 'line': {
         const minX = Math.min(s.from[0], s.to[0]);
         const minY = Math.min(s.from[1], s.to[1]);
-        return { x: tx + minX, y: ty + minY, w: Math.abs(s.to[0] - s.from[0]) || 1, h: Math.abs(s.to[1] - s.from[1]) || 1 };
+        return {
+          x: tx + minX,
+          y: ty + minY,
+          w: Math.abs(s.to[0] - s.from[0]) || 1,
+          h: Math.abs(s.to[1] - s.from[1]) || 1,
+        };
       }
       case 'polygon':
-        return { x: tx + s.cx - s.radius, y: ty + s.cy - s.radius, w: s.radius * 2, h: s.radius * 2 };
+        return {
+          x: tx + s.cx - s.radius,
+          y: ty + s.cy - s.radius,
+          w: s.radius * 2,
+          h: s.radius * 2,
+        };
       case 'star':
-        return { x: tx + s.cx - s.outerRadius, y: ty + s.cy - s.outerRadius, w: s.outerRadius * 2, h: s.outerRadius * 2 };
+        return {
+          x: tx + s.cx - s.outerRadius,
+          y: ty + s.cy - s.outerRadius,
+          w: s.outerRadius * 2,
+          h: s.outerRadius * 2,
+        };
     }
   }
   if (node.kind === 'text') {

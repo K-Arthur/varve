@@ -70,7 +70,9 @@ export function exportNodeToCss(
     if (l.padding) {
       const pad = l.padding;
       if (pad[0] || pad[1] || pad[2] || pad[3]) {
-        lines.push(`  padding: ${[pad[0], pad[1], pad[2], pad[3]].map((v) => formatSize(v, unit, base)).join(' ')};`);
+        lines.push(
+          `  padding: ${[pad[0], pad[1], pad[2], pad[3]].map((v) => formatSize(v, unit, base)).join(' ')};`,
+        );
       }
     }
   }

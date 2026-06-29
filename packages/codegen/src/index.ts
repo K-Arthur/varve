@@ -8,14 +8,14 @@
 import type { Affine, Color } from '@strata/engine';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 
-export * from './spec';
-export * from './shared';
-export { exportNodeToSvg } from './svg';
 export { exportNodeToCss } from './css';
-export { exportNodeToTailwind } from './tailwind';
 export { exportNodeToCssModules } from './css-modules';
 export { exportNodeToFlutter } from './flutter';
+export * from './shared';
+export * from './spec';
+export { exportNodeToSvg } from './svg';
 export { exportNodeToSwiftUI } from './swiftui';
+export { exportNodeToTailwind } from './tailwind';
 
 export const PACKAGE = '@strata/codegen' as const;
 
@@ -28,12 +28,20 @@ function affineToSvg(t: Affine): string {
 }
 
 function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function shapeVerticesToPoints(s: { kind: string } & Record<string, unknown>): string {
   if (s.kind === 'polygon') {
-    const cx = Number(s.cx), cy = Number(s.cy), radius = Number(s.radius), sides = Number(s.sides), rotation = Number(s.rotation);
+    const cx = Number(s.cx),
+      cy = Number(s.cy),
+      radius = Number(s.radius),
+      sides = Number(s.sides),
+      rotation = Number(s.rotation);
     const pts: string[] = [];
     for (let i = 0; i < sides; i++) {
       const a = (2 * Math.PI * i) / sides - Math.PI / 2 + rotation;
@@ -42,7 +50,12 @@ function shapeVerticesToPoints(s: { kind: string } & Record<string, unknown>): s
     return pts.join(' ');
   }
   if (s.kind === 'star') {
-    const cx = Number(s.cx), cy = Number(s.cy), ir = Number(s.innerRadius), or = Number(s.outerRadius), points = Number(s.points), rotation = Number(s.rotation);
+    const cx = Number(s.cx),
+      cy = Number(s.cy),
+      ir = Number(s.innerRadius),
+      or = Number(s.outerRadius),
+      points = Number(s.points),
+      rotation = Number(s.rotation);
     const pts: string[] = [];
     for (let i = 0; i < points * 2; i++) {
       const a = (Math.PI * i) / points - Math.PI / 2 + rotation;
@@ -81,10 +94,12 @@ function nodeToSvg(node: SceneNode, doc: Document, depth: number): string {
     case 'text':
       return `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" transform="${transform}">${escapeXml(node.text)}</text>`;
     case 'frame': {
-      const children = (node.children ?? []).map((cid: NodeId) => {
-        const child = doc.nodes[cid];
-        return child ? nodeToSvg(child, doc, depth + 1) : '';
-      }).join('\n');
+      const children = (node.children ?? [])
+        .map((cid: NodeId) => {
+          const child = doc.nodes[cid];
+          return child ? nodeToSvg(child, doc, depth + 1) : '';
+        })
+        .join('\n');
       return `${indent}<g transform="${transform}">\n${children}\n${indent}</g>`;
     }
     default:
@@ -94,10 +109,12 @@ function nodeToSvg(node: SceneNode, doc: Document, depth: number): string {
 
 /** Export a Document to a standalone SVG string. (legacy, backward-compatible) */
 export function exportDocumentToSvg(doc: Document): string {
-  const children = doc.rootChildren.map((id: NodeId) => {
-    const node = doc.nodes[id];
-    return node ? nodeToSvg(node, doc, 2) : '';
-  }).join('\n');
+  const children = doc.rootChildren
+    .map((id: NodeId) => {
+      const node = doc.nodes[id];
+      return node ? nodeToSvg(node, doc, 2) : '';
+    })
+    .join('\n');
 
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
@@ -111,38 +128,41 @@ export function exportDocumentToSvg(doc: Document): string {
 
 /** Export a Document to React/Tailwind JSX. (legacy, backward-compatible) */
 export function exportDocumentToReact(doc: Document): string {
-  const children = doc.rootChildren.map((id: NodeId) => {
-    const node = doc.nodes[id];
-    if (!node) return '';
-    const fill = rgba(node.fill);
-    switch (node.kind) {
-      case 'shape': {
-        const s = node.shape;
-        const t = affineToSvg(node.transform);
-        switch (s.kind) {
-          case 'rect':
-            return `        <rect x={${s.x}} y={${s.y}} width={${s.w}} height={${s.h}} fill="${fill}" style={{ transform: "${t}" }} />`;
-          case 'ellipse':
-            return `        <ellipse cx={${s.cx}} cy={${s.cy}} rx={${s.rx}} ry={${s.ry}} fill="${fill}" style={{ transform: "${t}" }} />`;
-          case 'circle':
-            return `        <circle cx={${s.cx}} cy={${s.cy}} r={${s.r}} fill="${fill}" style={{ transform: "${t}" }} />`;
-          case 'line':
-            return `        <line x1={${s.from[0]}} y1={${s.from[1]}} x2={${s.to[0]}} y2={${s.to[1]}} stroke="${fill}" strokeWidth={${s.tolerance * 2}} strokeLinecap="round" style={{ transform: "${t}" }} />`;
-          case 'polygon':
-          case 'star':
-            return `        <polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" style={{ transform: "${t}" }} />`;
+  const children = doc.rootChildren
+    .map((id: NodeId) => {
+      const node = doc.nodes[id];
+      if (!node) return '';
+      const fill = rgba(node.fill);
+      switch (node.kind) {
+        case 'shape': {
+          const s = node.shape;
+          const t = affineToSvg(node.transform);
+          switch (s.kind) {
+            case 'rect':
+              return `        <rect x={${s.x}} y={${s.y}} width={${s.w}} height={${s.h}} fill="${fill}" style={{ transform: "${t}" }} />`;
+            case 'ellipse':
+              return `        <ellipse cx={${s.cx}} cy={${s.cy}} rx={${s.rx}} ry={${s.ry}} fill="${fill}" style={{ transform: "${t}" }} />`;
+            case 'circle':
+              return `        <circle cx={${s.cx}} cy={${s.cy}} r={${s.r}} fill="${fill}" style={{ transform: "${t}" }} />`;
+            case 'line':
+              return `        <line x1={${s.from[0]}} y1={${s.from[1]}} x2={${s.to[0]}} y2={${s.to[1]}} stroke="${fill}" strokeWidth={${s.tolerance * 2}} strokeLinecap="round" style={{ transform: "${t}" }} />`;
+            case 'polygon':
+            case 'star':
+              return `        <polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" style={{ transform: "${t}" }} />`;
+          }
+          break;
         }
-        break;
+        case 'text':
+          return `        <text x={0} y={0} fill="${fill}" fontSize={${node.fontSize}} style={{ transform: "${affineToSvg(node.transform)}" }}>${escapeXml(node.text)}</text>`;
+        case 'frame':
+          return `        <g style={{ transform: "${affineToSvg(node.transform)}" }}>\n          {/* frame children */}\n        </g>`;
+        default:
+          return '';
       }
-      case 'text':
-        return `        <text x={0} y={0} fill="${fill}" fontSize={${node.fontSize}} style={{ transform: "${affineToSvg(node.transform)}" }}>${escapeXml(node.text)}</text>`;
-      case 'frame':
-        return `        <g style={{ transform: "${affineToSvg(node.transform)}" }}>\n          {/* frame children */}\n        </g>`;
-      default:
-        return '';
-    }
-    return '';
-  }).filter(Boolean).join('\n');
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n');
 
   return [
     `import type { FC } from 'react';`,

@@ -24,6 +24,8 @@ import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TypographySection } from './sections/TypographySection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
+import { AlignDistributeBar } from './sections/AlignDistributeBar';
+import { CornerRadiusSection } from './sections/CornerRadiusSection';
 
 import './inspector.css';
 
@@ -130,6 +132,7 @@ function EmptyState() {
 function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
   const node = nodes[0] as SceneNode;
   const isFrame = node.kind === 'frame';
+  const isRect = node.kind === 'shape' && (node as import('@strata/scene').ShapeNode).shape.kind === 'rect';
 
   return (
     <>
@@ -148,6 +151,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
         </p>
       </header>
       <PositionSizeSection nodes={nodes} />
+      {isRect && <CornerRadiusSection nodes={nodes} />}
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
@@ -172,6 +176,7 @@ function MultiSelectionPanel({
           ? `${nodes.length} ${summary.sharedKind} selected`
           : `${nodes.length} selected`}
       </div>
+      <AlignDistributeBar />
       <PositionSizeSection nodes={nodes} />
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />

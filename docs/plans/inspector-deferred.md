@@ -14,27 +14,31 @@
 ## P1 — model-gated (need scene model extensions)
 
 ### Token/variable binding on every control
-- `TokenBindIndicator` component: shows bound variable chip with name, unbindable
-- Binding entry points: `=` shortcut, Shift+click on field, right-click "Apply variable"
-- Requires `Binding`/`Expression` field on every node property in `@strata/scene/types.ts`
-- Evaluate expressions through `VariableStore.resolve()` from `@strata/scene/variables.ts`
-- Per-gradient-stop variable binding (Figma pattern)
+- ✅ `PropertyBinding` type + `bindings` field on NodeBase — **done**
+- ✅ `TokenBindIndicator` component: shows bound variable chip with name, unbindable — **done**
+- ✅ `BindingMenu` component: searchable variable picker popover with expression input — **done**
+- ✅ `setSelectedBinding` context method — **done**
+- ✅ `resolveBinding()` in variables.ts — **done**
+- ☐ Binding entry points: `=` shortcut, Shift+click on field, right-click "Apply variable"
+- ☐ Per-gradient-stop variable binding (Figma pattern)
 
 ### Align/Distribute bar
-- Align left/center/right, top/middle/bottom buttons
-- Distribute horizontal/vertical spacing
-- Operates on multi-selection; uses existing `setSelectedX/Y` batch setters
-- 6 icon buttons in a row above Position section
+- ✅ Align left/center/right, top/middle/bottom buttons — **done**
+- ✅ Distribute horizontal/vertical spacing — **done**
+- ✅ `alignSelected`/`distributeSelected` context methods — **done**
+- ✅ 8 icon buttons in AlignDistributeBar — **done**
+- ☐ Keyboard shortcuts for align/distribute actions
 
 ### Rotation dial + Flip H/V
-- Rotation: NumberField with `deg` unit (0-360, wrap at boundaries)
-- Flip H: negate transform[0]; Flip V: negate transform[3]
-- Requires `setSelectedRotation`/`setSelectedFlip` context methods
+- ✅ Rotation NumberField with `deg` unit in PositionSizeSection — **done**
+- ✅ Flip H/V buttons (negate transform[0]/transform[3]) — **done**
+- ✅ `setSelectedFlipH`/`setSelectedFlipV` context methods — **done**
 
 ### Per-corner radius UI + corner smoothing
-- Expandable from uniform radius to per-corner (`[TL, TR, BR, BL]`)
-- Inputs: 4x NumberField + link toggle (same pattern as W/H lock)
-- Corner smoothing slider (Sketch-style continuous corners)
+- ✅ Uniform/per-corner radius with mode toggle — **done**
+- ✅ 4x NumberField (TL/TR/BR/BL) + link toggle — **done**
+- ✅ `setSelectedCornerRadius` context method — **done**
+- ☐ Corner smoothing slider (Sketch-style continuous corners)
 
 ## P2 — appearance model extensions
 
@@ -89,15 +93,18 @@
 
 ## Delivery order (suggested)
 
-| Slice | Effort | Value | Depends on |
+| Slice | Effort | Value | Status |
 |---|---|---|---|
-| Align/Distribute bar | 2d | High | Nothing |
-| Rotation + Flip | 1d | High | `setSelectedRotation` setter |
-| Per-corner radius | 1d | Medium | `cornerRadius` field on ShapeNode rect |
-| Token binding UI | 5d | High | `Binding` model extension |
-| Fill stacks + gradient editor | 8d | High | `Fill` model extension |
-| Grid tracks | 3d | Medium | Taffy grid support in strata-layout |
-| Component slots | 3d | Medium | Component model (built, needs UI) |
-| E2E tests | 3d | Medium | Playwright setup |
+| Align/Distribute bar | 2d | High | ✅ Done |
+| Rotation + Flip | 1d | High | ✅ Done |
+| Per-corner radius | 1d | Medium | ✅ Done |
+| Token binding UI (model + components) | 5d | High | ✅ Done |
+| Fill stacks + gradient editor | 6d | High | Needs `fills: Fill[]` wired to node model |
+| Grid tracks | 3d | Medium | Needs Taffy grid support in strata-layout |
+| Component slots UI | 2d | Medium | Component model built, needs Inspector UI |
+| Clipboard/Duplicate/Z-order | 3d | Medium | Needs context methods + toolbar buttons |
+| Corner smoothing slider | 0.5d | Low | Stretch from per-corner radius |
+| Binding entry points (shortcuts) | 1d | Medium | UX polish for token binding |
+| E2E tests | 3d | Medium | Playwright configured |
 | axe-core | 1d | Low | Full feature completion |
 | Yjs replication | 10d | Low | Phase 2 sync infrastructure |

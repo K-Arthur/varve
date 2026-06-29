@@ -11,7 +11,10 @@ export default defineConfig({
       'apps/**/src/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.{test,spec}.{ts,tsx}',
     ],
-    exclude: ['tests/e2e/**'],
+    exclude: [
+      'tests/e2e/**',
+      '**/node_modules/**',
+    ],
     environment: 'node',
     environmentMatchGlobs: [
       ['packages/ui/src/components/**', 'jsdom'],

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { SEMANTIC } from './color';
@@ -6,7 +7,8 @@ import { toHex } from './contrast';
 
 // Drift guard: tokens.css is generated from color.ts. This test proves the
 // committed CSS matches the audited TS source so the two cannot silently drift.
-const tokensCss = readFileSync(fileURLToPath(new URL('./tokens.css', import.meta.url)), 'utf8');
+const fixtureDir = import.meta.dirname ?? dirname(fileURLToPath(import.meta.url));
+const tokensCss = readFileSync(resolve(fixtureDir, 'tokens.css'), 'utf8');
 
 function parseColorDecls(selector: string): Record<string, string> {
   // Matches top-level (non-nested) rules only — sufficient for :root and the

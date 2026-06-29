@@ -42,8 +42,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 73 workspace + 7 src-tauri = 80 tests (strata-core: 32, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 8, strata-trace: 8 + src-tauri round-trip)
-- **JS:** 305 tests (scene 70, engine 21, ui 47, shared 24, editor 78, codegen 11, platform 41, home 13)
-- **Gates:** lint 0 errors, emoji 0 violations, tokens 51/51 WCAG-AA across 3 themes
+- **JS:** 331 tests (scene 115, engine 21, ui 47, shared 24, editor 84, codegen 11, platform 41, home 13)
+- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 51/51 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
 
@@ -59,11 +59,11 @@ git worktree add .worktrees/home-start-page feat/home-start-page
 ```
 
 | Artifact | Location |
-|---|---|
-| Last commit | `5e8346d` — "feat: Properties/Inspector Panel — full multi-select-aware implementation" |
+|---|---|---|
+| Last commit | `154a7b0` — "feat: Inspector P1 deferred items — align/distribute, rotation/flip, corner radius, token binding" |
 | Branch | `feat/home-start-page` |
-| Deferred plan | `docs/plans/home-surface-deferred.md` |
-| Unstaged pre-existing | 0 — working tree clean |
+| Deferred plan | `docs/plans/inspector-deferred.md` |
+| Unstaged pre-existing | Tool/SpecPanel/Home/Codegen WIP — remaining from branch history |
 
 Always verify the commit exists before claiming work persisted:
 ```bash
@@ -195,6 +195,20 @@ Full APG Tree View layers panel implemented:
 **Next:** DnD reorder+reparent with @dnd-kit, E2E Playwright suite, axe-core scan, thumbnail optimization (see `docs/plans/layers-panel-deferred.md`).
 
 **Next Phase C slices:** polygon/star/image tools, real pen/path model, inline text editing, stroke/opacity/blend/radius, color picker, native `.strata` save/load, clipboard/duplicate/z-order/group.
+
+## Inspector session (Session 7, 2026-06-29)
+
+P1 deferred items implemented — align/distribute, rotation/flip, corner radius, token binding:
+
+| Area | Update |
+|---|---|
+| Align/distribute | `alignSelected`/`distributeSelected` context methods + AlignDistributeBar (8-button toolbar in multi-select). 6 axes + 2 distribute. |
+| Rotation + Flip | `setSelectedFlipH`/`setSelectedFlipV` context methods. Rotation NumberField (deg) + flip buttons in PositionSizeSection. |
+| Corner radius | `setSelectedCornerRadius` context method + CornerRadiusSection with uniform/per-corner modes and link toggle. Only for rect shapes. |
+| Token binding model | `PropertyBinding` type, `bindings` field on NodeBase, `resolveBinding()` in variables.ts. |
+| Binding UI | `setSelectedBinding` context method + `TokenBindIndicator` (variable chip with unbind) + `BindingMenu` (searchable variable picker popover). |
+| Engine fix | Removed extra `}` in `engine.ts` `shapeToPrimitive()`. Fixed `tokens.test.ts` URL scheme issue. |
+| Verification | 331 JS tests pass (was 240). Lint 0 errors on new/modified files. Rust 73/73 pass.
 
 ## Key files to read before starting
 

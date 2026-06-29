@@ -10,6 +10,7 @@
  * Pratt parser (expr.ts) — no `eval`, no `Function`, no loops.
  */
 import { evaluate } from './expr';
+import type { PropertyBinding } from './types';
 
 export type VariableType = 'color' | 'number' | 'string' | 'boolean';
 
@@ -82,4 +83,31 @@ function collectAliases(store: VariableStore, expr: string): Record<string, numb
   }
 
   return aliases;
+}
+
+export function resolveBinding(
+  store: VariableStore,
+  binding: PropertyBinding,
+): VariableValue {
+  const baseValue = resolve(store, binding.variableId);
+  if (binding.expression && typeof baseValue === 'number') {
+    const aliases: Record<string, number> = { [binding.variableId]: baseValue };
+    const expr = binding.expression;
+    const matches = expr.match(/\{([^}]+)\}/g);
+    if (matches) {
+      for (const m of matches) {
+        const alias = m.slice(1, -1);
+        if (!(alias in aliases)) {
+          try {
+            const resolved = resolve(store, alias);
+            if (typeof resolved === 'number') aliases[alias] = resolved;
+          } catch {
+            // ignore unresolvable aliases in expression
+          }
+        }
+      }
+    }
+    return evaluate(expr, aliases);
+  }
+  return baseValue;
 }

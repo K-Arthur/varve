@@ -15,7 +15,12 @@ export interface SvgExportOptions {
   viewBoxHeight?: number;
 }
 
-function nodeToSvgTag(node: SceneNode, doc: SceneDocument, depth: number, transform: Affine): string {
+function nodeToSvgTag(
+  node: SceneNode,
+  doc: SceneDocument,
+  depth: number,
+  transform: Affine,
+): string {
   const indent = '  '.repeat(depth);
   const fill = rgba(node.fill);
   const t = affineToSvg(transform);
@@ -52,8 +57,17 @@ function nodeToSvgTag(node: SceneNode, doc: SceneDocument, depth: number, transf
   return '';
 }
 
-export function exportNodeToSvg(node: SceneNode, doc: SceneDocument, opts?: SvgExportOptions): string {
-  const pos = { x: node.transform[4] ?? 0, y: node.transform[5] ?? 0, w: opts?.viewBoxWidth ?? 200, h: opts?.viewBoxHeight ?? 160 };
+export function exportNodeToSvg(
+  node: SceneNode,
+  doc: SceneDocument,
+  opts?: SvgExportOptions,
+): string {
+  const pos = {
+    x: node.transform[4] ?? 0,
+    y: node.transform[5] ?? 0,
+    w: opts?.viewBoxWidth ?? 200,
+    h: opts?.viewBoxHeight ?? 160,
+  };
   const inner = nodeToSvgTag(node, doc, 2, node.transform);
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
