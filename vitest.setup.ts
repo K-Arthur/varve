@@ -13,7 +13,9 @@ if (typeof HTMLCanvasElement !== 'undefined') {
     value(contextId: string) {
       if (contextId !== '2d') return null;
 
-      const context: Partial<CanvasRenderingContext2D> = {
+      (this as HTMLCanvasElement).toDataURL = vi.fn(() => 'data:image/png;base64,test');
+
+      const ctx: Partial<CanvasRenderingContext2D> = {
         canvas: this as HTMLCanvasElement,
         fillStyle: '',
         strokeStyle: '',
@@ -35,9 +37,43 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         stroke: vi.fn(),
         setLineDash: vi.fn(),
         fillText: vi.fn(),
+        translate: vi.fn(),
+        scale: vi.fn(),
+        clearRect: vi.fn(),
+        createImageData: vi.fn(),
+        putImageData: vi.fn(),
+        getImageData: vi.fn(),
       };
 
-      return context as CanvasRenderingContext2D;
+      return ctx as CanvasRenderingContext2D;
     },
+  });
+}
+
+// jsdom does not implement OffscreenCanvas
+if (typeof OffscreenCanvas === 'undefined') {
+  globalThis.OffscreenCanvas = class OffscreenCanvas {
+    width: number;
+    height: number;
+    constructor(w: number, h: number) {
+      this.width = w;
+      this.height = h;
+    }
+    getContext() {
+      return null;
+    }
+    convertToBlob() {
+      return Promise.resolve(new Blob());
+    }
+  } as unknown as typeof OffscreenCanvas;
+}
+
+// jsdom does not implement HTMLDialogElement
+if (typeof HTMLDialogElement !== 'undefined') {
+  HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
   });
 }

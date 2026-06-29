@@ -22,6 +22,8 @@
   },
   "dependencies": {
     "@strata/editor": "workspace:*",
+    "@strata/home": "workspace:*",
+    "@strata/platform": "workspace:*",
     "@strata/ui": "workspace:*"
   }
 }

@@ -1,6 +1,6 @@
 import { exportDocumentToSvg } from '@strata/codegen';
 import { useCallback, useRef, useState } from 'react';
-import { useEditor } from './context';
+import { type ToolId, useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
 
 type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Plugins' | 'Help';
@@ -46,6 +46,12 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.zoomReset.binding),
         action: 'zoomReset',
       },
+      {
+        label: 'Inspect Mode',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toolInspect.binding),
+        action: 'inspectMode',
+      },
+      { label: 'Home', shortcut: '\u21E7\u2318H', action: 'home' },
     ],
   },
   {
@@ -62,8 +68,8 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
   { id: 'Help', items: [{ label: 'About Strata', action: 'about' }] },
 ];
 
-export function Menubar() {
-  const { state, newDocument, serializeDocument, undo, redo, removeSelected, setZoom } =
+export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
+  const { state, newDocument, serializeDocument, undo, redo, removeSelected, setTool, setZoom } =
     useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -113,9 +119,25 @@ export function Menubar() {
         case 'zoomReset':
           setZoom(1);
           break;
+        case 'inspectMode':
+          setTool(state.tool === 'inspect' ? 'select' : ('inspect' as ToolId));
+          break;
+        case 'home':
+          onBackToHome?.();
+          break;
       }
     },
-    [newDocument, serializeDocument, undo, redo, removeSelected, setZoom, state],
+    [
+      newDocument,
+      serializeDocument,
+      undo,
+      redo,
+      removeSelected,
+      setTool,
+      setZoom,
+      state,
+      onBackToHome,
+    ],
   );
 
   return (

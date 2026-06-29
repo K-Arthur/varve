@@ -213,6 +213,11 @@ mod tests {
             children: Vec::new(),
             component_id: None,
             slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
         }
     }
 
@@ -251,6 +256,11 @@ mod tests {
                 children: Vec::new(),
                 component_id: None,
                 slots: None,
+                opacity: 1.0,
+                blend_mode: "normal".into(),
+                rotation: 0.0,
+                strokes: Vec::new(),
+                effects: Vec::new(),
             },
         ];
         let bytes = export_pdf(&nodes, &PdfOptions::default()).expect("pdf with circle");

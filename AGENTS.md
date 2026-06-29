@@ -21,8 +21,8 @@ primary dev OS.
 - `just format` — `cargo fmt` + `pnpm format`
 - `just format-check` — verify formatting
 - `pnpm typecheck` — `tsc --noEmit` across packages/*
-- `pnpm audit:tokens` — WCAG 2.2 AA token gate (42 pairs across 3 themes)
-- `pnpm audit:emoji` — zero-emoji gate (scales 76+ files)
+- `pnpm audit:tokens` — WCAG 2.2 AA token gate (51 pairs across 3 themes)
+- `pnpm audit:emoji` — zero-emoji gate (scales 271+ files)
 - `pnpm --filter @strata/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
 - `just gate` — full Cascade Review gate (format-check + lint + test + audits)
 
@@ -42,8 +42,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 72 workspace + 8 src-tauri = 80 tests (strata-core: 35, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 4, strata-trace: 8 + src-tauri round-trip)
-- **JS:** 125 tests (engine 19, scene 57, ui 20, shared 1, editor 17, codegen 11)
-- **Gates:** lint 0 errors, emoji 0 violations, tokens 42/42 WCAG-AA across 3 themes
+- **JS:** 240 tests (engine 21, scene 70, ui 37, shared 1, editor 46, codegen 11, platform 41, home 14)
+- **Gates:** lint 0 errors, emoji 0 violations, tokens 51/51 WCAG-AA across 3 themes
 
 ## Architecture decisions
 - **ADR-0001** — native engine renders by **IR-replay** (not pixel-push). Validated empirically on Wayland: 86 fps vs 8.5 fps. Rust computes scene, emits compact IR (~42 KB/frame for 600 shapes); webview replays to canvas2D/WebGPU.
@@ -105,11 +105,11 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 | Package | Status | Contents |
 |---|---|---|
 | `@strata/engine` | **Built** | `createEngine(backend)` facade (stub/native/wasm), TypeScript IR types matching Rust, `replayIr(canvas, ir)` — the 86fps canvas2D replay, geometry helpers (affine inverse/apply, point containment, hitTest), `ReplayTarget` interface. 19 tests. |
-| `@strata/scene` | **Built** | Immutable `Document` with add/insert/remove/move/rename ops, `ShapeNode`/`TextNode`/`FrameNode` types, `ComponentDefinition` with typed `Slot[]`, `VariableStore` with modes+resolve, `slotsSatisfied()` guard. Slots-ready for task 1.1. 11 tests. |
+| `@strata/scene` | **Built** | Immutable `Document` with add/insert/remove/move/rename/reparent ops, `ShapeNode`/`TextNode`/`FrameNode`/`GroupNode` types, `groupNodes`/`ungroupNode`/`detachInstance` ops, `isContainer`/`getChildren` helpers, `ComponentDefinition` with typed `Slot[]`, `VariableStore` with modes+resolve, `slotsSatisfied()` guard. 70 tests. |
 | `@strata/ui` | **Built** | Tokens: color ramps, 3 themes, WCAG-AA audit, `tokens.css` generated from TS. Icons: typed Lucide `<Icon name label>` with a11y contract, `TOOL_ICONS` + `CHROME_ICONS` maps. Components: APG `Button` (5 variants), `IconButton`, `Toolbar` (roving tabindex), `NumberInput` (drag-to-scrub, arrow inc/dec), `components.css` (token-styled). 20 tests. |
-| `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (APG Tree View with roving tabindex, type-ahead, drag reorder), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing, layout/export/spec tabs), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel` with Select/Frame/Rect/Ellipse/Line/Pen/Text/Hand/Zoom tools, `TabStrip`, `VariablePanel`, `StatusBar`. 17 tests. |
+| `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props, shared `aria-live` announcer, `reparentNode`/`groupSelected`/`ungroupSelected`/`detachSelected` actions), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (virtualized APG Tree View — `role="tree"`, roving tabindex, full keyboard map ↑↓→←Home/End/Enter/F2, type-ahead, multi-select Shift/Ctrl/Ctrl+A, expand/collapse, inline rename, search/filter, visibility/lock toggles, context menu, per-type auto-naming, `@tanstack/react-virtual`), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing, layout/export/spec tabs), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel` with Select/Frame/Rect/Ellipse/Line/Pen/Text/Hand/Zoom tools, `TabStrip`, `VariablePanel`, `StatusBar`. 46 tests. |
 | `@strata/codegen` | **Built** | `exportDocumentToSvg(doc)` — standalone SVG from Document. `exportDocumentToReact(doc)` — React/Tailwind JSX. Sub-path export. |
-| `@strata/shared` | Stub | Cross-cutting types + fractional indexing (task 0.8+). |
+| `@strata/shared` | **Built** | `ordering` facade (`generateKeyBetween`/`midPoint`) — array-index based, designed for drop-in replacement with real fractional indexing (Phase 2). `PACKAGE` marker. |
 
 ### apps/
 | App | Status | Contents |
@@ -122,6 +122,7 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 - `docs/adr/0002-design-tokens.md` — teal accent + token system rationale
 - `docs/plans/phase1-plan.md` — Phase 1 execution plan (Component Slots through Packaging)
 - `docs/plans/phase2-plan.md` — Phase 2 execution plan (Sync, Assets, Present, Hybrid, Print)
+- `docs/plans/layers-panel-deferred.md` — Deferred DnD, E2E, axe-core, thumbnail, clipboard
 
 ## Phase 1 complete (Session 4, 2026-06-28)
 
@@ -152,6 +153,22 @@ Phase A/B UI surfacing work is present in the working tree: multi-document tabs,
 | Drawing tools | Exposed the existing engine `line` primitive as an editor tool (`ToolId`, toolbar button, `L` shortcut, drag-to-create shape, type-aware name `Line 1`). |
 | Verification | `pnpm test` reports 125/125 JS tests; `cargo test --workspace` reports 72/72 Rust workspace tests; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` reports 8/8 src-tauri tests; `pnpm typecheck`, `pnpm lint`, `pnpm audit:emoji`, and `pnpm audit:tokens` pass locally. |
 
+## Layers Panel session (Session 6, 2026-06-29)
+
+Full APG Tree View layers panel implemented:
+
+| Area | Update |
+|---|---|
+| Scene model | Added `GroupNode` (kind:'group', children), `reparentNode`, `groupNodes`, `ungroupNode`, `detachInstance` ops, `isContainer`/`getChildren` helpers. `walkNodes` recurses into groups. 13 new tests. |
+| Shared ordering | `packages/shared/src/ordering.ts` with `generateKeyBetween`/`midPoint` facade (array-index base, Phase 2 fractional-index ready). |
+| Tokens | Added `tree-row`/`tree-row-hover`/`tree-row-selected`/`tree-row-focus`/`tree-indent-guide` — 51/51 WCAG AA pairs across 3 themes. |
+| Editor context | Hoisted shared `aria-live` announcer; fixed undo to restore selection; added `reparentNode`, `groupSelected`, `ungroupSelected`, `detachSelected` actions. |
+| LayersPanel | Complete refactor into `components/LayersPanel/` directory: `LayersTree` (virtualized APG tree, `@tanstack/react-virtual`, full keyboard map, multi-select, type-ahead, expand/collapse), `LayersRow` (React.memo, disclosure/icon/name/toggles/inline-rename), search/filter, context menu. |
+| Dependencies added | `@tanstack/react-virtual`, `@dnd-kit/core/sortable/utilities`, `playwright`, `@axe-core/playwright`, `@playwright/test` |
+| Verification | JS: 240 tests pass (was 125). Token audit: 51/51. Lint: 0 errors. Emoji: 0 violations. |
+
+**Next:** DnD reorder+reparent with @dnd-kit, E2E Playwright suite, axe-core scan, thumbnail optimization (see `docs/plans/layers-panel-deferred.md`).
+
 **Next Phase C slices:** polygon/star/image tools, real pen/path model, inline text editing, stroke/opacity/blend/radius, color picker, native `.strata` save/load, clipboard/duplicate/z-order/group.
 
 ## Key files to read before starting
@@ -166,7 +183,8 @@ Phase A/B UI surfacing work is present in the working tree: multi-document tabs,
 | `packages/editor/src/Shell.tsx` | Editor app shell CSS Grid |
 | `packages/editor/src/context.tsx` | EditorProvider with shared state + undo/redo |
 | `packages/editor/src/CanvasArea.tsx` | Canvas region (replayIr + hit-test + zoom/pan) |
-| `packages/editor/src/LayersPanel.tsx` | Layers listbox from real Document |
+| `packages/editor/src/LayersPanel.tsx` | Re-exports from components/LayersPanel/ |
+| `packages/editor/src/components/LayersPanel/` | Virtualized APG Tree View — LayersTree, LayersRow, useFlatTree, useTreeFocus, useTypeAhead, useAutoName |
 | `packages/editor/src/InspectorPanel.tsx` | Editable position/size/fill |
 | `packages/editor/src/Menubar.tsx` | File/Edit/View dropdowns with Save/Load/Export |
 | `packages/editor/src/shortcuts/` | ShortcutManager, useShortcuts, ShortcutPalette |

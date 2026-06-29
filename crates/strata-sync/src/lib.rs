@@ -1,14 +1,3 @@
-//! Strata sync: local SQLite persistence + Yjs CRDT sync.
-//!
-//! Research basis: the "Local-First Software" essay (Kleppmann et al., 2019)
-//! and Yjs document persistence patterns. The document lives in local SQLite;
-//! CRDT ops queue offline and reconcile at page granularity on reconnect
-//! (Strata plan §3.2). Minimal open/save lands in task 0.10; CRDT in Phase 2.
-//!
-//! Phase 1 Pre-flight task P2: `DocumentStore` with `save_document()`,
-//! `load_document()`, and `list_documents()` over `rusqlite` (bundled so no
-//! system SQLite required — cross-platform by default).
-
 #![forbid(unsafe_code)]
 
 use std::path::Path;
@@ -17,15 +6,40 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 
 /// Persistent storage for Strata documents.
-///
-/// Thread-safe (Mutex<Connection>) so Tauri commands can share it via managed
-/// state. Uses a simple `documents` table keyed by document ID.
+/// Row type for file entries (mirrors TS FileEntry).
+#[derive(Debug, Clone)]
+pub struct FileRow {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+    pub project_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub opened_at: String,
+    pub size: i64,
+    pub pinned: bool,
+    pub trashed_at: Option<String>,
+    pub file_path: Option<String>,
+    pub content_hash: String,
+}
+
+/// Row type for project entries.
+#[derive(Debug, Clone)]
+pub struct ProjectRow {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub pinned: bool,
+    pub trashed_at: Option<String>,
+}
+
 pub struct DocumentStore {
     conn: Mutex<Connection>,
 }
 
 impl DocumentStore {
-    /// Open (or create) the SQLite database at `path` and initialize the schema.
     pub fn new(path: &Path) -> Result<Self, rusqlite::Error> {
         let conn = Connection::open(path)?;
         conn.execute_batch(
@@ -33,6 +47,40 @@ impl DocumentStore {
                 id TEXT PRIMARY KEY,
                 data TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS files (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'strata',
+                project_id TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                opened_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
+                size INTEGER NOT NULL DEFAULT 0,
+                pinned INTEGER NOT NULL DEFAULT 0,
+                trashed_at TEXT,
+                file_path TEXT,
+                content_hash TEXT NOT NULL DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS projects (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                color TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                pinned INTEGER NOT NULL DEFAULT 0,
+                trashed_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS thumbnails (
+                hash TEXT PRIMARY KEY,
+                data_url TEXT NOT NULL,
+                width INTEGER NOT NULL DEFAULT 256,
+                height INTEGER NOT NULL DEFAULT 192,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS view_state (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
             );",
         )?;
         Ok(DocumentStore {
@@ -40,7 +88,8 @@ impl DocumentStore {
         })
     }
 
-    /// Persist a document. Upserts on conflict.
+    // ── Documents ──────────────────────────────────────────────────────────
+
     pub fn save_document(&self, id: &str, data: &str) -> Result<(), rusqlite::Error> {
         let now = chrono::Utc::now().to_rfc3339();
         let conn = self.conn.lock().unwrap();
@@ -53,7 +102,6 @@ impl DocumentStore {
         Ok(())
     }
 
-    /// Load a document by ID. Returns `None` if not found.
     pub fn load_document(&self, id: &str) -> Result<Option<String>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT data FROM documents WHERE id = ?1")?;
@@ -64,7 +112,6 @@ impl DocumentStore {
         }
     }
 
-    /// List all stored document IDs.
     pub fn list_documents(&self) -> Result<Vec<String>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT id FROM documents ORDER BY id")?;
@@ -72,6 +119,294 @@ impl DocumentStore {
             .query_map([], |row| row.get(0))?
             .collect::<Result<Vec<String>, _>>()?;
         Ok(ids)
+    }
+
+    // ── Files ──────────────────────────────────────────────────────────────
+
+    fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileRow> {
+        Ok(FileRow {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            kind: row.get(2)?,
+            project_id: row.get(3)?,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+            opened_at: row.get(6)?,
+            size: row.get(7)?,
+            pinned: row.get::<_, i64>(8)? != 0,
+            trashed_at: row.get(9)?,
+            file_path: row.get(10)?,
+            content_hash: row.get(11)?,
+        })
+    }
+
+    pub fn list_files(&self) -> Result<Vec<FileRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, content_hash
+             FROM files WHERE trashed_at IS NULL ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map([], |r| Self::row_to_file(r))?;
+        rows.collect()
+    }
+
+    pub fn list_trashed_files(&self) -> Result<Vec<FileRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, content_hash
+             FROM files WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC",
+        )?;
+        let rows = stmt.query_map([], |r| Self::row_to_file(r))?;
+        rows.collect()
+    }
+
+    pub fn get_file(&self, id: &str) -> Result<Option<FileRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, content_hash
+             FROM files WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query(rusqlite::params![id])?;
+        match rows.next()? {
+            Some(row) => Ok(Some(Self::row_to_file(row)?)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn upsert_file(
+        &self,
+        id: &str,
+        name: &str,
+        kind: &str,
+        project_id: Option<&str>,
+        created_at: &str,
+        updated_at: &str,
+        opened_at: &str,
+        size: i64,
+        pinned: bool,
+        trashed_at: Option<&str>,
+        file_path: Option<&str>,
+        content_hash: &str,
+    ) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO files (id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, content_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                kind = excluded.kind,
+                project_id = excluded.project_id,
+                updated_at = excluded.updated_at,
+                opened_at = excluded.opened_at,
+                size = excluded.size,
+                pinned = excluded.pinned,
+                trashed_at = excluded.trashed_at,
+                file_path = excluded.file_path,
+                content_hash = excluded.content_hash",
+            rusqlite::params![
+                id, name, kind, project_id, created_at, updated_at, opened_at, size,
+                pinned as i64, trashed_at, file_path, content_hash
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn touch_file(&self, id: &str, opened_at: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET opened_at = ?2 WHERE id = ?1",
+            rusqlite::params![id, opened_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn rename_file(&self, id: &str, name: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET name = ?2 WHERE id = ?1",
+            rusqlite::params![id, name],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_file_pinned(&self, id: &str, pinned: bool) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET pinned = ?2 WHERE id = ?1",
+            rusqlite::params![id, pinned as i64],
+        )?;
+        Ok(())
+    }
+
+    pub fn move_file_to_project(
+        &self,
+        id: &str,
+        project_id: Option<&str>,
+    ) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET project_id = ?2 WHERE id = ?1",
+            rusqlite::params![id, project_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn trash_file(&self, id: &str, trashed_at: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET trashed_at = ?2 WHERE id = ?1",
+            rusqlite::params![id, trashed_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn restore_file(&self, id: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET trashed_at = NULL WHERE id = ?1",
+            rusqlite::params![id],
+        )?;
+        Ok(())
+    }
+
+    pub fn purge_file(&self, id: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM documents WHERE id = ?1", rusqlite::params![id])?;
+        conn.execute("DELETE FROM files WHERE id = ?1", rusqlite::params![id])?;
+        Ok(())
+    }
+
+    // ── Projects ──────────────────────────────────────────────────────────
+
+    fn row_to_project(row: &rusqlite::Row) -> rusqlite::Result<ProjectRow> {
+        Ok(ProjectRow {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            color: row.get(2)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
+            pinned: row.get::<_, i64>(5)? != 0,
+            trashed_at: row.get(6)?,
+        })
+    }
+
+    pub fn list_projects(&self) -> Result<Vec<ProjectRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, color, created_at, updated_at, pinned, trashed_at
+             FROM projects WHERE trashed_at IS NULL ORDER BY pinned DESC, name ASC",
+        )?;
+        let rows = stmt.query_map([], |r| Self::row_to_project(r))?;
+        rows.collect()
+    }
+
+    pub fn create_project(
+        &self,
+        id: &str,
+        name: &str,
+        color: Option<&str>,
+        now: &str,
+    ) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO projects (id, name, color, created_at, updated_at, pinned, trashed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 0, NULL)",
+            rusqlite::params![id, name, color, now, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn rename_project(&self, id: &str, name: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE projects SET name = ?2, updated_at = datetime('now') WHERE id = ?1",
+            rusqlite::params![id, name],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_project(&self, id: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("UPDATE files SET project_id = NULL WHERE project_id = ?1", rusqlite::params![id])?;
+        conn.execute("DELETE FROM projects WHERE id = ?1", rusqlite::params![id])?;
+        Ok(())
+    }
+
+    pub fn set_project_pinned(&self, id: &str, pinned: bool) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE projects SET pinned = ?2 WHERE id = ?1",
+            rusqlite::params![id, pinned as i64],
+        )?;
+        Ok(())
+    }
+
+    // ── Thumbnails ────────────────────────────────────────────────────────
+
+    pub fn get_thumbnail(&self, hash: &str) -> Result<Option<String>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT data_url FROM thumbnails WHERE hash = ?1")?;
+        let mut rows = stmt.query(rusqlite::params![hash])?;
+        match rows.next()? {
+            Some(row) => Ok(Some(row.get(0)?)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn put_thumbnail(
+        &self,
+        hash: &str,
+        data_url: &str,
+        width: i64,
+        height: i64,
+        now: &str,
+    ) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO thumbnails (hash, data_url, width, height, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(hash) DO UPDATE SET data_url = excluded.data_url, created_at = excluded.created_at",
+            rusqlite::params![hash, data_url, width, height, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn evict_thumbnails(&self, keep_count: i64) -> Result<i64, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let total: i64 = conn.query_row("SELECT COUNT(*) FROM thumbnails", [], |r| r.get(0))?;
+        if total <= keep_count {
+            return Ok(0);
+        }
+        let to_delete = total - keep_count;
+        conn.execute(
+            "DELETE FROM thumbnails WHERE hash IN (
+                SELECT hash FROM thumbnails ORDER BY created_at ASC LIMIT ?1
+            )",
+            rusqlite::params![to_delete],
+        )?;
+        Ok(to_delete)
+    }
+
+    // ── View State ────────────────────────────────────────────────────────
+
+    pub fn get_view_state(&self, key: &str) -> Result<Option<String>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT value FROM view_state WHERE key = ?1")?;
+        let mut rows = stmt.query(rusqlite::params![key])?;
+        match rows.next()? {
+            Some(row) => Ok(Some(row.get(0)?)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn set_view_state(&self, key: &str, value: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO view_state (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            rusqlite::params![key, value],
+        )?;
+        Ok(())
     }
 }
 
@@ -86,17 +421,18 @@ mod tests {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let dir = std::env::temp_dir();
         let path = dir.join(format!("strata_sync_test_{}_{}.db", std::process::id(), n));
-        // Remove any leftover from a previous interrupted run.
         let _ = std::fs::remove_file(&path);
         DocumentStore::new(&path).expect("create temp store")
+    }
+
+    fn now() -> String {
+        chrono::Utc::now().to_rfc3339()
     }
 
     #[test]
     fn save_and_load_round_trip() {
         let store = temp_store();
-        store
-            .save_document("doc-1", r#"{"name":"test"}"#)
-            .expect("save");
+        store.save_document("doc-1", r#"{"name":"test"}"#).expect("save");
         let loaded = store.load_document("doc-1").expect("load");
         assert_eq!(loaded, Some(r#"{"name":"test"}"#.to_string()));
     }
@@ -109,20 +445,84 @@ mod tests {
     }
 
     #[test]
-    fn upsert_overwrites_existing() {
+    fn upsert_file_round_trip() {
         let store = temp_store();
-        store.save_document("doc-2", r#"{"v":1}"#).expect("save v1");
-        store.save_document("doc-2", r#"{"v":2}"#).expect("save v2");
-        let loaded = store.load_document("doc-2").expect("load");
-        assert_eq!(loaded, Some(r#"{"v":2}"#.to_string()));
+        let t = now();
+        store
+            .upsert_file("f1", "Test Design", "strata", None, &t, &t, &t, 1024, false, None, None, "abc123")
+            .expect("upsert");
+        let files = store.list_files().expect("list");
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].name, "Test Design");
+        assert_eq!(files[0].kind, "strata");
+        assert!(!files[0].pinned);
     }
 
     #[test]
-    fn list_documents() {
+    fn trash_and_restore_file() {
         let store = temp_store();
-        store.save_document("a", r#"{}"#).expect("save a");
-        store.save_document("b", r#"{}"#).expect("save b");
-        let list = store.list_documents().expect("list");
-        assert_eq!(list, vec!["a".to_string(), "b".to_string()]);
+        let t = now();
+        store
+            .upsert_file("f2", "To Delete", "strata", None, &t, &t, &t, 0, false, None, None, "")
+            .expect("upsert");
+        let trash_t = now();
+        store.trash_file("f2", &trash_t).expect("trash");
+        assert_eq!(store.list_files().expect("list").len(), 0);
+        assert_eq!(store.list_trashed_files().expect("list").len(), 1);
+        store.restore_file("f2").expect("restore");
+        assert_eq!(store.list_files().expect("list").len(), 1);
+    }
+
+    #[test]
+    fn purge_removes_document_and_file() {
+        let store = temp_store();
+        let t = now();
+        store.save_document("f3", "{}").expect("save doc");
+        store
+            .upsert_file("f3", "Purge Me", "strata", None, &t, &t, &t, 0, false, None, None, "")
+            .expect("upsert");
+        store.purge_file("f3").expect("purge");
+        assert!(store.load_document("f3").expect("load").is_none());
+        assert!(store.get_file("f3").expect("get").is_none());
+    }
+
+    #[test]
+    fn projects_crud() {
+        let store = temp_store();
+        let t = now();
+        store.create_project("p1", "My Project", None, &t).expect("create");
+        let projects = store.list_projects().expect("list");
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].name, "My Project");
+
+        store.rename_project("p1", "Renamed").expect("rename");
+        assert_eq!(store.list_projects().expect("list")[0].name, "Renamed");
+
+        store.set_project_pinned("p1", true).expect("pin");
+        assert!(store.list_projects().expect("list")[0].pinned);
+
+        store.delete_project("p1").expect("delete");
+        assert_eq!(store.list_projects().expect("list").len(), 0);
+    }
+
+    #[test]
+    fn thumbnails_crud() {
+        let store = temp_store();
+        let t = now();
+        store.put_thumbnail("hash1", "data:image/png;base64,test", 256, 192, &t).expect("put");
+        let data = store.get_thumbnail("hash1").expect("get");
+        assert_eq!(data, Some("data:image/png;base64,test".to_string()));
+
+        assert_eq!(store.get_thumbnail("nonexistent").expect("get"), None);
+    }
+
+    #[test]
+    fn view_state_kv() {
+        let store = temp_store();
+        store.set_view_state("sidebar", "collapsed").expect("set");
+        let val = store.get_view_state("sidebar").expect("get");
+        assert_eq!(val, Some("collapsed".to_string()));
+
+        assert_eq!(store.get_view_state("missing").expect("get"), None);
     }
 }

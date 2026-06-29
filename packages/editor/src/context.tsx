@@ -20,16 +20,21 @@ import {
   createDocument,
   createVariableStore,
   type Document,
+  detachInstance as detachInstanceDoc,
   fillSlot as fillSlotDoc,
+  groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
   makeFrameNode,
+  makeGroupNode,
   makeShapeNode,
   moveNode,
   nextNodeId,
   removeNode,
   renameNode,
+  reparentNode as reparentNodeDoc,
   resolve,
   type SceneNode,
+  ungroupNode as ungroupNodeDoc,
   type Variable,
   type VariableStore,
   type VariableValue,
@@ -55,7 +60,8 @@ export type ToolId =
   | 'pen'
   | 'text'
   | 'hand'
-  | 'zoomIn';
+  | 'zoomIn'
+  | 'inspect';
 
 /** F2: metadata for each open document tab. */
 export interface SessionMeta {
@@ -107,6 +113,28 @@ export interface EditorContextValue {
   setNodePosition: (id: NodeId, x: number, y: number) => void;
   /** Update the size of a shape node. */
   setNodeSize: (id: NodeId, w: number, h: number) => void;
+  /**
+   * Batch-edit: set X/Y on EVERY selected node in a single undo step.
+   * (Strata plan §8 — multi-select batch editing commits as one history entry.)
+   * Each axis is independent so a "Mixed" axis is preserved when the other edits.
+   */
+  setSelectedX: (x: number) => void;
+  setSelectedY: (y: number) => void;
+  /** Batch-edit: set W/H on every selected shape node in a single undo step. */
+  setSelectedW: (w: number) => void;
+  setSelectedH: (h: number) => void;
+  /** F6: update any property on a single node (one undo step). */
+  updateNode: (id: NodeId, updater: (node: SceneNode) => SceneNode) => void;
+  /** F6: batch-edit opacity on all selected nodes. */
+  setSelectedOpacity: (value: number) => void;
+  /** F6: batch-edit blend mode on all selected nodes. */
+  setSelectedBlendMode: (mode: import('@strata/engine').BlendMode) => void;
+  /** F6: batch-edit rotation on all selected nodes. */
+  setSelectedRotation: (value: number) => void;
+  /** F6: transaction API — begin, commit, abort for single-undo scrubbing. */
+  beginTransaction: () => void;
+  commitTransaction: () => void;
+  abortTransaction: () => void;
   /** Undo last document mutation. */
   undo: () => void;
   /** Redo last undone mutation. */
@@ -116,7 +144,7 @@ export interface EditorContextValue {
   /** Serialize current document to JSON string. */
   serializeDocument: () => string;
   /** Load a document from a JSON string. */
-  loadDocument: (json: string) => void;
+  loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
   /** Visible root-level nodes in paint order (layers panel, IR). */
   rootNodes: () => SceneNode[];
   /** Register a component definition from a frame. */
@@ -147,6 +175,16 @@ export interface EditorContextValue {
   switchTab: (id: string) => void;
   /** F2/A8: close a tab. Returns false if dirty and force is not set (caller should confirm). */
   closeTab: (id: string, force?: boolean) => boolean;
+  /** Announce a message to screen readers via the shared aria-live region. */
+  announce: (msg: string) => void;
+  /** Reparent a node to a new container (or root). One undo step. */
+  reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
+  /** Group selected nodes into a GroupNode. */
+  groupSelected: () => void;
+  /** Ungroup the first selected group. */
+  ungroupSelected: () => void;
+  /** Detach the first selected component instance. */
+  detachSelected: () => void;
 }
 
 const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -158,6 +196,8 @@ interface SavedSession {
   viewport: { zoom: number; pan: { x: number; y: number } };
   undo: Document[];
   redo: Document[];
+  undoSel: NodeId[][];
+  redoSel: NodeId[][];
   variableStore: VariableStore;
 }
 
@@ -225,22 +265,52 @@ function shapeForTool(tool: ToolId): Shape {
 
 const INITIAL_SESSION_ID = 'session-0';
 
-export function EditorProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<EditorState>({
-    tool: 'select',
-    zoom: 1,
-    pan: { x: 0, y: 0 },
-    selection: [],
-    document: createDocument('Untitled'),
-    sessions: [{ id: INITIAL_SESSION_ID, name: 'Untitled', dirty: false }],
-    activeId: INITIAL_SESSION_ID,
-    dirty: false,
-    variableStore: createVariableStore(),
+export function EditorProvider({
+  children,
+  onBackToHome,
+  initialDocumentJson,
+  initialDocumentName,
+}: {
+  children: ReactNode;
+  onBackToHome?: () => void;
+  initialDocumentJson?: string;
+  initialDocumentName?: string;
+}) {
+  const [state, setState] = useState<EditorState>(() => {
+    let doc = createDocument(initialDocumentName ?? 'Untitled');
+    let name = initialDocumentName ?? 'Untitled';
+    if (initialDocumentJson) {
+      try {
+        doc = JSON.parse(initialDocumentJson) as Document;
+        name = initialDocumentName ?? doc.name ?? 'Untitled';
+      } catch {
+        /* invalid JSON — use blank document */
+      }
+    }
+    return {
+      tool: 'select',
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      selection: [],
+      document: doc,
+      sessions: [{ id: INITIAL_SESSION_ID, name, dirty: false }],
+      activeId: INITIAL_SESSION_ID,
+      dirty: false,
+      variableStore: createVariableStore(),
+    };
   });
   const undoStackRef = useRef<Document[]>([]);
   const redoStackRef = useRef<Document[]>([]);
+  const undoSelStackRef = useRef<NodeId[][]>([]);
+  const redoSelStackRef = useRef<NodeId[][]>([]);
   /** F2: snapshots of all inactive sessions, keyed by session ID. */
   const sessionStoreRef = useRef<Map<string, SavedSession>>(new Map());
+  /** Shared aria-live announcer for screen-reader messages. */
+  const announcerRef = useRef<HTMLDivElement>(null);
+  /** F6: transaction state for single-undo scrubbing. */
+  const inTransactionRef = useRef(false);
+  const txSnapshotRef = useRef<Document | null>(null);
+  const txSelRef = useRef<NodeId[] | null>(null);
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -249,8 +319,12 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
     setState((s) => {
-      undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-      redoStackRef.current = [];
+      if (!inTransactionRef.current) {
+        undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+        undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+        redoStackRef.current = [];
+        redoSelStackRef.current = [];
+      }
       return {
         ...s,
         document: fn(s.document),
@@ -280,6 +354,39 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     },
     [updateDoc],
   );
+
+  // F6: transaction API — begin/commit/abort for single-undo scrubbing
+  const beginTransaction = useCallback(() => {
+    inTransactionRef.current = true;
+    txSnapshotRef.current = state.document;
+    txSelRef.current = state.selection;
+  }, [state.document, state.selection]);
+
+  const commitTransaction = useCallback(() => {
+    if (inTransactionRef.current) {
+      inTransactionRef.current = false;
+      // Push the snapshot as undo entry (current state is already live)
+      if (txSnapshotRef.current !== null) {
+        undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current];
+        undoSelStackRef.current = [...undoSelStackRef.current.slice(-49), txSelRef.current ?? []];
+        redoStackRef.current = [];
+        redoSelStackRef.current = [];
+      }
+      txSnapshotRef.current = null;
+      txSelRef.current = null;
+    }
+  }, []);
+
+  const abortTransaction = useCallback(() => {
+    if (inTransactionRef.current) {
+      inTransactionRef.current = false;
+      if (txSnapshotRef.current !== null) {
+        patch({ document: txSnapshotRef.current, selection: txSelRef.current ?? [] });
+      }
+      txSnapshotRef.current = null;
+      txSelRef.current = null;
+    }
+  }, [patch]);
 
   const value = useMemo<EditorContextValue>(
     () => ({
@@ -409,34 +516,190 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         });
       },
 
+      // Batch edits: one undo step for the whole selection (Strata plan §8).
+      // Each axis is independent so a "Mixed" axis is preserved.
+      setSelectedX: (x) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = {
+              ...node,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                x,
+                node.transform[5],
+              ] as Affine,
+            } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setSelectedY: (y) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = {
+              ...node,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                node.transform[4],
+                y,
+              ] as Affine,
+            } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setSelectedW: (w) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (node?.kind !== 'shape') continue;
+            const s = node.shape;
+            const nextShape =
+              s.kind === 'rect'
+                ? { ...s, w }
+                : s.kind === 'ellipse'
+                  ? { ...s, rx: w }
+                  : s.kind === 'circle'
+                    ? { ...s, r: w }
+                    : s;
+            nodes[id] = { ...node, shape: nextShape };
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setSelectedH: (h) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (node?.kind !== 'shape') continue;
+            const s = node.shape;
+            const nextShape =
+              s.kind === 'rect' ? { ...s, h } : s.kind === 'ellipse' ? { ...s, ry: h } : s;
+            nodes[id] = { ...node, shape: nextShape };
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: public updateNode for any property
+      updateNode: updateNodeProp,
+
+      // F6: batch-edit opacity on all selected nodes
+      setSelectedOpacity: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, opacity: value };
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: batch-edit blend mode
+      setSelectedBlendMode: (mode) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, blendMode: mode };
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: batch-edit rotation
+      setSelectedRotation: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, rotation: value };
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: transaction API
+      beginTransaction,
+      commitTransaction,
+      abortTransaction,
+
       undo: () => {
         const prev = undoStackRef.current.pop();
+        const prevSel = undoSelStackRef.current.pop();
         if (!prev) return;
         redoStackRef.current = [...redoStackRef.current, state.document];
-        patch({ document: prev });
+        redoSelStackRef.current = [...redoSelStackRef.current, state.selection];
+        patch({ document: prev, selection: prevSel ?? [] });
       },
 
       redo: () => {
         const next = redoStackRef.current.pop();
+        const nextSel = redoSelStackRef.current.pop();
         if (!next) return;
         undoStackRef.current = [...undoStackRef.current, state.document];
-        patch({ document: next });
+        undoSelStackRef.current = [...undoSelStackRef.current, state.selection];
+        patch({ document: next, selection: nextSel ?? [] });
       },
 
       newDocument: () => {
         undoStackRef.current = [];
         redoStackRef.current = [];
+        undoSelStackRef.current = [];
+        redoSelStackRef.current = [];
         patch({ document: createDocument('Untitled'), selection: [] });
       },
 
       serializeDocument: () => JSON.stringify(state.document),
 
-      loadDocument: (json) => {
+      loadDocument: (json, meta) => {
         try {
           const doc = JSON.parse(json) as Document;
           undoStackRef.current = [];
           redoStackRef.current = [];
-          patch({ document: doc, selection: [] });
+          undoSelStackRef.current = [];
+          redoSelStackRef.current = [];
+          const name = meta?.name ?? doc.name;
+          const filePath = meta?.filePath;
+          const sessions = state.sessions.map((s) =>
+            s.id === state.activeId ? { ...s, name, filePath, dirty: false } : s,
+          );
+          patch({ document: doc, selection: [], sessions, dirty: false });
         } catch {
           // invalid JSON — ignore silently
         }
@@ -470,6 +733,38 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
       setNodeVisible: (id, visible) => {
         updateNodeProp(id, (n) => ({ ...n, visible }));
+      },
+
+      announce: (msg) => {
+        if (announcerRef.current) announcerRef.current.textContent = msg;
+      },
+
+      reparentNode: (id, newParentId, toIndex) => {
+        updateDoc((doc) => reparentNodeDoc(doc, id, newParentId, toIndex));
+      },
+
+      groupSelected: () => {
+        const sel = state.selection;
+        if (sel.length < 2) return;
+        updateDoc((doc) => {
+          const { id: gId, doc: d2 } = nextNodeId(doc);
+          const group = makeGroupNode(gId, { name: 'Group' });
+          return groupNodesDoc(d2, sel, group);
+        });
+      },
+
+      ungroupSelected: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const id = sel[0]!;
+        updateDoc((doc) => ungroupNodeDoc(doc, id));
+      },
+
+      detachSelected: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const id = sel[0]!;
+        updateDoc((doc) => detachInstanceDoc(doc, id));
       },
 
       setNodeLayout: (id, layout) => {
@@ -532,6 +827,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             viewport: { zoom: s.zoom, pan: s.pan },
             undo: [...undoStackRef.current],
             redo: [...redoStackRef.current],
+            undoSel: [...undoSelStackRef.current],
+            redoSel: [...redoSelStackRef.current],
             variableStore: s.variableStore,
           });
           const syncedSessions = s.sessions.map((sess) =>
@@ -541,6 +838,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
           const newDoc = createDocument('Untitled');
           undoStackRef.current = [];
           redoStackRef.current = [];
+          undoSelStackRef.current = [];
+          redoSelStackRef.current = [];
           return {
             ...s,
             document: newDoc,
@@ -565,6 +864,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             viewport: { zoom: s.zoom, pan: s.pan },
             undo: [...undoStackRef.current],
             redo: [...redoStackRef.current],
+            undoSel: [...undoSelStackRef.current],
+            redoSel: [...redoSelStackRef.current],
             variableStore: s.variableStore,
           });
           const syncedSessions = s.sessions.map((sess) =>
@@ -575,6 +876,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
           const targetMeta = syncedSessions.find((sess) => sess.id === id);
           undoStackRef.current = saved ? [...saved.undo] : [];
           redoStackRef.current = saved ? [...saved.redo] : [];
+          undoSelStackRef.current = saved ? [...saved.undoSel] : [];
+          redoSelStackRef.current = saved ? [...saved.redoSel] : [];
           return {
             ...s,
             document: saved?.document ?? createDocument(targetMeta?.name ?? 'Untitled'),
@@ -589,6 +892,26 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         });
       },
 
+      openFile: (_id: string, name: string, filePath: string | undefined, json: string) => {
+        try {
+          const doc = JSON.parse(json) as Document;
+          const newId = `session-${Date.now()}`;
+          undoStackRef.current = [];
+          redoStackRef.current = [];
+          undoSelStackRef.current = [];
+          redoSelStackRef.current = [];
+          patch({
+            document: doc,
+            selection: [],
+            sessions: [...state.sessions, { id: newId, name, dirty: false, filePath }],
+            activeId: newId,
+            dirty: false,
+          });
+        } catch {
+          // invalid JSON — ignore silently
+        }
+      },
+
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
@@ -596,21 +919,9 @@ export function EditorProvider({ children }: { children: ReactNode }) {
           const remaining = s.sessions.filter((sess) => sess.id !== id);
           sessionStoreRef.current.delete(id);
           if (remaining.length === 0) {
-            // Last tab — open a fresh one
-            const newId = `session-${Date.now()}`;
-            undoStackRef.current = [];
-            redoStackRef.current = [];
-            return {
-              ...s,
-              document: createDocument('Untitled'),
-              selection: [],
-              zoom: 1,
-              pan: { x: 0, y: 0 },
-              dirty: false,
-              variableStore: createVariableStore(),
-              sessions: [{ id: newId, name: 'Untitled', dirty: false }],
-              activeId: newId,
-            };
+            // Last tab — go back to Home
+            queueMicrotask(() => onBackToHome?.());
+            return s;
           }
           if (id !== s.activeId) {
             // Background tab — no switch needed
@@ -623,6 +934,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
           const saved = sessionStoreRef.current.get(next.id);
           undoStackRef.current = saved ? [...saved.undo] : [];
           redoStackRef.current = saved ? [...saved.redo] : [];
+          undoSelStackRef.current = saved ? [...saved.undoSel] : [];
+          redoSelStackRef.current = saved ? [...saved.redoSel] : [];
           return {
             ...s,
             document: saved?.document ?? createDocument(next.name),
@@ -638,10 +951,37 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         return true;
       },
     }),
-    [state, patch, updateDoc, rootNodes, updateNodeProp],
+    [
+      state,
+      patch,
+      updateDoc,
+      rootNodes,
+      updateNodeProp,
+      onBackToHome,
+      beginTransaction,
+      commitTransaction,
+      abortTransaction,
+    ],
   );
 
-  return <EditorCtx.Provider value={value}>{children}</EditorCtx.Provider>;
+  return (
+    <EditorCtx.Provider value={value}>
+      <div
+        ref={announcerRef}
+        role="status"
+        aria-live="polite"
+        className="editor-announcer"
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          clip: 'rect(0 0 0 0)',
+        }}
+      />
+      {children}
+    </EditorCtx.Provider>
+  );
 }
 
 export function useEditor(): EditorContextValue {

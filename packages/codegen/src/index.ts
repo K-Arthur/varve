@@ -94,6 +94,8 @@ function nodeToSvg(node: SceneNode, doc: Document, depth: number): string {
         .join('\n');
       return `${indent}<g transform="${transform}">\n${children}\n${indent}</g>`;
     }
+    default:
+      return '';
   }
 }
 
@@ -146,6 +148,8 @@ export function exportDocumentToReact(doc: Document): string {
           return `        <text x={0} y={0} fill="${fill}" fontSize={${node.fontSize}} style={{ transform: "${affineToSvg(node.transform)}" }}>${escapeXml(node.text)}</text>`;
         case 'frame':
           return `        <g style={{ transform: "${affineToSvg(node.transform)}" }}>\n          {/* frame children */}\n        </g>`;
+        default:
+          return '';
       }
       return '';
     })

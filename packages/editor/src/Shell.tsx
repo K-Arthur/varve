@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { CanvasArea } from './CanvasArea';
+import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import { EditorProvider, useEditor } from './context';
-import { InspectorPanel } from './InspectorPanel';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
@@ -9,7 +9,13 @@ import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import { ToolPanel } from './ToolPanel';
 
-function ShellInner() {
+export interface ShellProps {
+  onBackToHome?: () => void;
+  documentJson?: string;
+  documentName?: string;
+}
+
+function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
   const editor = useEditor();
   const { paletteOpen, closePalette } = useShortcuts(editor);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -23,12 +29,12 @@ function ShellInner() {
 
   return (
     <div className="editor-shell">
-      <Menubar />
+      <Menubar onBackToHome={onBackToHome} />
       <ToolPanel />
       <TabStrip />
       <CanvasArea />
       <LayersPanel />
-      <InspectorPanel />
+      <PropertiesPanel />
       <StatusBar />
       <ShortcutPalette open={paletteOpen} onClose={closePalette} onSelect={handlePaletteSelect} />
       <input
@@ -53,10 +59,10 @@ function ShellInner() {
   );
 }
 
-export function Shell() {
+export function Shell({ onBackToHome, documentJson, documentName }: ShellProps) {
   return (
-    <EditorProvider>
-      <ShellInner />
+    <EditorProvider onBackToHome={onBackToHome} initialDocumentJson={documentJson} initialDocumentName={documentName}>
+      <ShellInner onBackToHome={onBackToHome} />
     </EditorProvider>
   );
 }

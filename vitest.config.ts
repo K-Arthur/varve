@@ -15,6 +15,7 @@ export default defineConfig({
     environmentMatchGlobs: [
       ['packages/ui/src/components/**', 'jsdom'],
       ['packages/editor/**', 'jsdom'],
+      ['packages/home/**', 'jsdom'],
     ],
     coverage: {
       provider: 'v8',

@@ -11,14 +11,22 @@ export { createEngine } from './engine';
 export * from './geometry';
 export type { ReplayTarget } from './replay';
 export { replayIr } from './replay';
+export type { ThumbnailOptions } from './thumbnail';
+export { renderThumbnail } from './thumbnail';
 export type {
   Affine,
   Backend,
+  BlendMode,
   Color,
+  Effect,
   Point,
   Primitive,
   RenderItem,
   Scene,
   SceneNode,
   Shape,
+  Stroke,
+  StrokeAlign,
+  StrokeCap,
+  StrokeJoin,
 } from './types';
