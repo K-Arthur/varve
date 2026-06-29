@@ -16,6 +16,7 @@ export * from './spec';
 export { exportNodeToSvg } from './svg';
 export { exportNodeToSwiftUI } from './swiftui';
 export { exportNodeToTailwind } from './tailwind';
+export { resolveTokenName } from './tokens';
 
 export const PACKAGE = '@strata/codegen' as const;
 

@@ -4,8 +4,9 @@
  * Research basis: CSS Properties and Values API; custom property naming conventions.
  */
 
-import type { Document as SceneDocument, SceneNode } from '@strata/scene';
+import type { Document as SceneDocument, SceneNode, VariableStore } from '@strata/scene';
 import { colorToHex, computeNodePos, rgba } from './shared';
+import { resolveTokenName } from './tokens';
 
 export interface CssExportOptions {
   /** CSS class prefix. Default: node-name. */
@@ -16,6 +17,8 @@ export interface CssExportOptions {
   unit?: 'px' | 'rem';
   /** Base font size for rem units. Default: 16. */
   baseFontSize?: number;
+  /** Variable store for resolving token bindings. */
+  variableStore?: VariableStore;
 }
 
 function formatColor(c: readonly [number, number, number, number], format: 'hex' | 'rgb'): string {
@@ -48,7 +51,14 @@ export function exportNodeToCss(
   lines.push(`  top: ${formatSize(pos.y, unit, base)};`);
   lines.push(`  width: ${formatSize(pos.w, unit, base)};`);
   lines.push(`  height: ${formatSize(pos.h, unit, base)};`);
-  lines.push(`  background: ${formatColor(node.fill, colorFmt)};`);
+  const tokenName = opts?.variableStore
+    ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
+    : undefined;
+  if (tokenName) {
+    lines.push(`  background: var(--${tokenName});`);
+  } else {
+    lines.push(`  background: ${formatColor(node.fill, colorFmt)};`);
+  }
 
   if (node.kind === 'text') {
     lines.push(`  font-size: ${formatSize(node.fontSize ?? 16, unit, base)};`);

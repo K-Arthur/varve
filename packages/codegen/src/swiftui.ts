@@ -24,27 +24,23 @@ function emitText(node: TextNode, depth: number): string {
   return `${'  '.repeat(depth)}Text("${node.text}")\n${'  '.repeat(depth)}  .font(.system(size: ${node.fontSize ?? 16}))\n${'  '.repeat(depth)}  .foregroundColor(${color})`;
 }
 
-function emitContainer(
-  node: SceneNode,
-  doc: SceneDocument,
-  depth: number,
-): string {
+function emitContainer(node: SceneNode, doc: SceneDocument, depth: number): string {
   const children = getChildren(doc, node);
   const body = children.map((child) => emitNode(child, doc, depth + 1)).join('\n');
 
   if (node.kind === 'frame' && node.layoutStyle) {
     const ls = node.layoutStyle;
     let result = '';
-    if (ls.padding && ls.padding.some((v) => v !== 0)) {
+    if (ls.padding?.some((v) => v !== 0)) {
       const [t, r, b, l] = ls.padding;
       result += `${'  '.repeat(depth)}.padding(EdgeInsets(top: ${t}, leading: ${l}, bottom: ${b}, trailing: ${r}))\n`;
     }
     if (ls.direction === 'row') {
       const spacing = ls.gap > 0 ? `spacing: ${ls.gap}` : '';
-      result = `HStack(${spacing}) {\n${body}\n${'  '.repeat(depth)}}` + (result ? '\n' + result : '');
+      result = `HStack(${spacing}) {\n${body}\n${'  '.repeat(depth)}}${result ? `\n${result}` : ''}`;
     } else {
       const spacing = ls.gap > 0 ? `spacing: ${ls.gap}` : '';
-      result = `VStack(${spacing}) {\n${body}\n${'  '.repeat(depth)}}` + (result ? '\n' + result : '');
+      result = `VStack(${spacing}) {\n${body}\n${'  '.repeat(depth)}}${result ? `\n${result}` : ''}`;
     }
     return `${'  '.repeat(depth)}${result}`;
   }
@@ -58,11 +54,7 @@ function emitContainer(
   return `${'  '.repeat(depth)}ZStack {\n${body}\n${'  '.repeat(depth)}}`;
 }
 
-function emitNode(
-  node: SceneNode,
-  doc: SceneDocument,
-  depth: number,
-): string {
+function emitNode(node: SceneNode, doc: SceneDocument, depth: number): string {
   if (node.kind === 'text') return emitText(node, depth);
   if (node.kind === 'frame' || node.kind === 'group') {
     return emitContainer(node, doc, depth);
