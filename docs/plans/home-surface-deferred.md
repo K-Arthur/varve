@@ -7,16 +7,16 @@
 
 | Icon | Meaning |
 |---|---|
-| ✅ | Done |
-| 🔧 | In progress |
-| ⏳ | Not started |
-| ❌ | Blocked |
+| [OK] | Done |
+| [WIP] | In progress |
+| [TODO] | Not started |
+| [NO] | Blocked |
 
 ---
 
-## ✅ 1. Editor `@strata/editor` typecheck (pre-existing)
+## [OK] 1. Editor `@strata/editor` typecheck (pre-existing)
 
-**Status: 🔧 — 9 type errors remain (was resolved then re-introduced by SpecPanel additions)**
+**Status: [WIP] — 9 type errors remain (was resolved then re-introduced by SpecPanel additions)**
 
 ### Errors to fix
 
@@ -86,15 +86,15 @@ TS2362: The left-hand side of an arithmetic operation must be of type 'number'.
 
 ---
 
-## ✅ 2. Desktop typecheck
+## [OK] 2. Desktop typecheck
 
-**Status: ✅ PASS — no errors in `apps/desktop/tsconfig.json`.**
+**Status: [OK] PASS — no errors in `apps/desktop/tsconfig.json`.**
 
 ---
 
-## ⏳ 3. Playwright E2E tests
+## [TODO] 3. Playwright E2E tests
 
-**Status: ⏳ Not started. Dependencies installed at root level.**
+**Status: [TODO] Not started. Dependencies installed at root level.**
 
 ### Directory structure
 ```
@@ -129,9 +129,9 @@ packages/home/e2e/
 
 ---
 
-## ⏳ 4. Thumbnail rendering on desktop
+## [TODO] 4. Thumbnail rendering on desktop
 
-**Status: ⏳ Not wired into save flow. Core infrastructure exists.**
+**Status: [TODO] Not wired into save flow. Core infrastructure exists.**
 
 ### Current state
 - `packages/engine/src/thumbnail.ts` — `renderThumbnail(doc)` works, tested
@@ -152,14 +152,14 @@ packages/home/e2e/
 
 ---
 
-## ⏳ 5. Drag-and-drop DnD reorder (Home)
+## [TODO] 5. Drag-and-drop DnD reorder (Home)
 
-**Status: ⏳ Not started. Deps installed in `packages/editor/package.json` but not in `packages/home/package.json`.**
+**Status: [TODO] Not started. Deps installed in `packages/editor/package.json` but not in `packages/home/package.json`.**
 
 ### What to implement
 - **Drag files between sidebar projects** — drop a file card onto a sidebar project entry to move it to that project
 - **Reorder within a project** — drag-and-drop to reorder files (requires ordering key)
-- **Note:** OS drag-to-import (item 10) is already ✅ done. This item covers in-app DnD reordering.
+- **Note:** OS drag-to-import (item 10) is already [OK] done. This item covers in-app DnD reordering.
 
 ### Dependencies needed
 - `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` need to be added to `packages/home/package.json`
@@ -176,9 +176,9 @@ packages/home/e2e/
 
 ---
 
-## ⏳ 6. File-system watcher
+## [TODO] 6. File-system watcher
 
-**Status: ⏳ Not started.**
+**Status: [TODO] Not started.**
 
 ### Approach (Tauri plugin)
 - Use `tauri-plugin-fs`'s `watch` API if available, or the `notify` Rust crate
@@ -198,9 +198,9 @@ packages/home/e2e/
 
 ---
 
-## ⏳ 7. Search FTS5 indexing
+## [TODO] 7. Search FTS5 indexing
 
-**Status: ⏳ Not started. Pre-requisite: SQLite FTS5 is available via `rusqlite` `bundled` feature (already enabled).**
+**Status: [TODO] Not started. Pre-requisite: SQLite FTS5 is available via `rusqlite` `bundled` feature (already enabled).**
 
 ### Implementation
 1. In `strata-sync/src/lib.rs` `DocumentStore::new()`, add after table creation:
@@ -234,9 +234,9 @@ packages/home/e2e/
 
 ---
 
-## ✅ 8. Keyboard shortcuts for Home
+## [OK] 8. Keyboard shortcuts for Home
 
-**Status: ✅ Done — `packages/home/src/useHomeShortcuts.ts`**
+**Status: [OK] Done — `packages/home/src/useHomeShortcuts.ts`**
 
 | Shortcut | Action |
 |---|---|
@@ -249,9 +249,9 @@ packages/home/e2e/
 
 ---
 
-## ✅ 9. Tauri plugin capabilities
+## [OK] 9. Tauri plugin capabilities
 
-**Status: ✅ Done — `apps/desktop/src-tauri/capabilities/default.json`**
+**Status: [OK] Done — `apps/desktop/src-tauri/capabilities/default.json`**
 
 ```json
 "permissions": [
@@ -264,9 +264,9 @@ packages/home/e2e/
 
 ---
 
-## ✅ 10. Drag-drop OS file import
+## [OK] 10. Drag-drop OS file import
 
-**Status: ✅ Done — `HomeShell.tsx` `onDragOver`/`onDrop` handlers**
+**Status: [OK] Done — `HomeShell.tsx` `onDragOver`/`onDrop` handlers**
 
 - Visual drop zone with dashed outline + accent color
 - Parses `.strata` files by reading dropped `File` objects
@@ -275,9 +275,9 @@ packages/home/e2e/
 
 ---
 
-## ⏳ 11. Perf budget: 5000 files @ 60fps
+## [TODO] 11. Perf budget: 5000 files @ 60fps
 
-**Status: ⏳ Measurement exercise.**
+**Status: [TODO] Measurement exercise.**
 
 ### How to measure
 1. Use `createMemoryPlatform({ seed: { files: 5000, projects: 50 } })`
@@ -300,9 +300,9 @@ packages/home/e2e/
 
 ---
 
-## ⏳ 12. Cross-OS verification
+## [TODO] 12. Cross-OS verification
 
-**Status: ⏳ Manual testing — platform-dependent.**
+**Status: [TODO] Manual testing — platform-dependent.**
 
 ### Linux (CachyOS/Arch — primary dev OS)
 - [ ] WebKitGTK window renders correctly (Wayland + X11)
@@ -328,9 +328,9 @@ packages/home/e2e/
 
 ---
 
-## ✅ 13. Reduced-motion gate
+## [OK] 13. Reduced-motion gate
 
-**Status: ✅ Done**
+**Status: [OK] Done**
 
 - `@media (prefers-reduced-motion: reduce)` disables `.strata-home__sidebar` `transition`
 - Token system already sets `--duration-*` to `0ms` when reduced-motion is active (in `tokens.css`)
@@ -343,18 +343,18 @@ packages/home/e2e/
 
 | # | Item | Status | Effort |
 |---|---|---|---|
-| 1 | Editor typecheck | ✅ Done | — |
-| 2 | Desktop typecheck | ✅ Done | — |
-| 3 | Playwright E2E | ⏳ 8 spec files | ~2 hr |
-| 4 | Thumbnail desktop | ⏳ Wire into save flow | ~1 hr |
-| 5 | DnD reorder | ⏳ Home + sidebar | ~3 hr |
-| 6 | File watcher | ⏳ Tauri plugin | ~1 hr |
-| 7 | FTS5 search | ⏳ strata-sync | ~1 hr |
-| 8 | Keyboard shortcuts | ✅ Done | — |
-| 9 | Tauri capabilities | ✅ Done | — |
-| 10 | Drag-drop OS import | ✅ Done | — |
-| 11 | Perf budget | ⏳ Measure only | ~30 min |
-| 12 | Cross-OS | ⏳ Manual test | ~2 hr |
-| 13 | Reduced-motion | ✅ Done | — |
+| 1 | Editor typecheck | [OK] Done | — |
+| 2 | Desktop typecheck | [OK] Done | — |
+| 3 | Playwright E2E | [TODO] 8 spec files | ~2 hr |
+| 4 | Thumbnail desktop | [TODO] Wire into save flow | ~1 hr |
+| 5 | DnD reorder | [TODO] Home + sidebar | ~3 hr |
+| 6 | File watcher | [TODO] Tauri plugin | ~1 hr |
+| 7 | FTS5 search | [TODO] strata-sync | ~1 hr |
+| 8 | Keyboard shortcuts | [OK] Done | — |
+| 9 | Tauri capabilities | [OK] Done | — |
+| 10 | Drag-drop OS import | [OK] Done | — |
+| 11 | Perf budget | [TODO] Measure only | ~30 min |
+| 12 | Cross-OS | [TODO] Manual test | ~2 hr |
+| 13 | Reduced-motion | [OK] Done | — |
 
 **Total remaining effort:** ~11 hours

@@ -14,31 +14,31 @@
 ## P1 — model-gated (need scene model extensions)
 
 ### Token/variable binding on every control
-- ✅ `PropertyBinding` type + `bindings` field on NodeBase — **done**
-- ✅ `TokenBindIndicator` component: shows bound variable chip with name, unbindable — **done**
-- ✅ `BindingMenu` component: searchable variable picker popover with expression input — **done**
-- ✅ `setSelectedBinding` context method — **done**
-- ✅ `resolveBinding()` in variables.ts — **done**
-- ☐ Binding entry points: `=` shortcut, Shift+click on field, right-click "Apply variable"
-- ☐ Per-gradient-stop variable binding (Figma pattern)
+- [OK] `PropertyBinding` type + `bindings` field on NodeBase — **done**
+- [OK] `TokenBindIndicator` component: shows bound variable chip with name, unbindable — **done**
+- [OK] `BindingMenu` component: searchable variable picker popover with expression input — **done**
+- [OK] `setSelectedBinding` context method — **done**
+- [OK] `resolveBinding()` in variables.ts — **done**
+- [ ] Binding entry points: `=` shortcut, Shift+click on field, right-click "Apply variable"
+- [ ] Per-gradient-stop variable binding (Figma pattern)
 
 ### Align/Distribute bar
-- ✅ Align left/center/right, top/middle/bottom buttons — **done**
-- ✅ Distribute horizontal/vertical spacing — **done**
-- ✅ `alignSelected`/`distributeSelected` context methods — **done**
-- ✅ 8 icon buttons in AlignDistributeBar — **done**
-- ☐ Keyboard shortcuts for align/distribute actions
+- [OK] Align left/center/right, top/middle/bottom buttons — **done**
+- [OK] Distribute horizontal/vertical spacing — **done**
+- [OK] `alignSelected`/`distributeSelected` context methods — **done**
+- [OK] 8 icon buttons in AlignDistributeBar — **done**
+- [ ] Keyboard shortcuts for align/distribute actions
 
 ### Rotation dial + Flip H/V
-- ✅ Rotation NumberField with `deg` unit in PositionSizeSection — **done**
-- ✅ Flip H/V buttons (negate transform[0]/transform[3]) — **done**
-- ✅ `setSelectedFlipH`/`setSelectedFlipV` context methods — **done**
+- [OK] Rotation NumberField with `deg` unit in PositionSizeSection — **done**
+- [OK] Flip H/V buttons (negate transform[0]/transform[3]) — **done**
+- [OK] `setSelectedFlipH`/`setSelectedFlipV` context methods — **done**
 
 ### Per-corner radius UI + corner smoothing
-- ✅ Uniform/per-corner radius with mode toggle — **done**
-- ✅ 4x NumberField (TL/TR/BR/BL) + link toggle — **done**
-- ✅ `setSelectedCornerRadius` context method — **done**
-- ☐ Corner smoothing slider (Sketch-style continuous corners)
+- [OK] Uniform/per-corner radius with mode toggle — **done**
+- [OK] 4x NumberField (TL/TR/BR/BL) + link toggle — **done**
+- [OK] `setSelectedCornerRadius` context method — **done**
+- [ ] Corner smoothing slider (Sketch-style continuous corners)
 
 ## P2 — appearance model extensions
 
@@ -95,10 +95,10 @@
 
 | Slice | Effort | Value | Status |
 |---|---|---|---|
-| Align/Distribute bar | 2d | High | ✅ Done |
-| Rotation + Flip | 1d | High | ✅ Done |
-| Per-corner radius | 1d | Medium | ✅ Done |
-| Token binding UI (model + components) | 5d | High | ✅ Done |
+| Align/Distribute bar | 2d | High | [OK] Done |
+| Rotation + Flip | 1d | High | [OK] Done |
+| Per-corner radius | 1d | Medium | [OK] Done |
+| Token binding UI (model + components) | 5d | High | [OK] Done |
 | Fill stacks + gradient editor | 6d | High | Needs `fills: Fill[]` wired to node model |
 | Grid tracks | 3d | Medium | Needs Taffy grid support in strata-layout |
 | Component slots UI | 2d | Medium | Component model built, needs Inspector UI |

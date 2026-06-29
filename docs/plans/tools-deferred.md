@@ -98,7 +98,7 @@ Use this in a future session to complete the remaining phases.
 
 ### 3. NodeEditTool
 
-**Features:** Select/move anchors, add/remove anchors, convert corner↔smooth, box-select, handle symmetry, arrow nudge, Enter to enter/edit mode.
+**Features:** Select/move anchors, add/remove anchors, convert corner <-> smooth, box-select, handle symmetry, arrow nudge, Enter to enter/edit mode.
 
 ### 4. BooleanActions (Union/Subtract/Intersect/Exclude)
 

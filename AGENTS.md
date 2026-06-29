@@ -42,7 +42,7 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 75 workspace tests (strata-core: 32, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 10, strata-trace: 8)
-- **JS:** 226+ tests selected (scene 70, engine 21, editor 130+, shared 24, codegen 8; full run 331+ including ui/platform/home)
+- **JS:** 327+ tests across 43 files (codegen 14, editor 130+, scene 70, engine 21, shared 24; full run includes ui/platform/home)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 51/51 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
@@ -124,7 +124,7 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 | `strata-layout` | Stub | Taffy-backed flex/grid layout (task 1.3). |
 | `strata-sync` | **Built** | SQLite save/load via `DocumentStore` with `save_document()`/`load_document()`/`list_documents()` + Tauri IPC commands `sync_save`/`sync_load`. 4 tests. |
 | `strata-trace` | Stub | Auto-trace (Potrace/vtracer, task 1.7). |
-| `strata-print` | Stub | Font outlining + CMYK/PDF-X export (tasks 1.4-1.5). |
+| `strata-print` | **Built** | lopdf-based `export_pdf()` (rect/circle/ellipse/line/polygon/star path operators). Wired to Tauri via `export_node_pdf` command. CMYK/PDF-X in stub. 12 tests. |
 
 ### packages/ (TypeScript)
 | Package | Status | Contents |
@@ -225,6 +225,22 @@ Completed all remaining items from the Layers Panel deferred implementation plan
 | E2E test expansion | Added search filter, keyboard reorder, and additional coverage tests to `tests/e2e/layers/layers.spec.ts`. |
 | Verification | 226+ JS tests pass (scene 70, engine 21, editor 130+, shared 24, codegen 8). Rust 75/75 workspace tests. Tokens 51/51. Typecheck 0 errors on all modified packages. Lint 0 errors on modified files. |
 
+## Spec Panel completion (Session 12, 2026-06-29)
+
+All deferred phases D1-D8 of the Spec Panel implemented (except D5 token-aware codegen, which needs a schema change, and D6 cross-platform verification):
+
+| Phase | What was done |
+|---|---|
+| **D1** E2E + axe-core | `tests/e2e/spec/measurement.spec.ts` (4 tests), `tests/e2e/spec/axe.spec.ts` (2 tests) |
+| **D2** Syntax highlighting | PrismJS integration (`syntax.ts`), 6 language grammars, `CodeGenView` renders tokenized HTML |
+| **D3** Diff-on-change | `useRef` prevCode tracking, +N/-N diff badges with `aria-live` |
+| **D4** Tauri file-save | `save_file_bytes` Tauri command, `saveBlob` on Platform interface (tauri/web/memory impls), threaded through SpecPanel → AssetExportControls |
+| **D7** PDF export | `strata-print` crate wired via `export_node_pdf` Tauri command, PDF format button in AssetExportControls (desktop-only) |
+| **D8** Flutter/SwiftUI auto-layout | Recursive emitters: frames→Row/Column/HStack/VStack, groups→Stack/ZStack, children rendered depth-first. 6 new tests |
+| **Pre-existing fixes** | 3 doc files cleaned of emoji, playwright-report ignored in emoji audit, position-lock test pattern fixed for `<input type="checkbox">` |
+
+**Verification:** 43 JS test files (327 tests, +11 from prior session), Rust 75+ workspace + 7 src-tauri (80 total), emoji audit clean, typecheck clean across all packages.
+
 ## Key files to read before starting
 
 | File | Why |
@@ -247,6 +263,11 @@ Completed all remaining items from the Layers Panel deferred implementation plan
 | `crates/strata-core/src/scene.rs` | Rust SceneNode, hit_test |
 | `crates/strata-engine/src/lib.rs` | Rust build_render_ir, Primitive enums (TS-compatible serde) |
 | `crates/strata-sync/src/lib.rs` | DocumentStore: save/load/list documents via SQLite |
-| `apps/desktop/src-tauri/src/lib.rs` | Tauri commands (build_render_ir, hit_test, sync_save, sync_load) |
+| `apps/desktop/src-tauri/src/lib.rs` | Tauri commands (build_render_ir, hit_test, sync_save, sync_load, save_file_bytes, export_node_pdf) |
 | `apps/desktop/src-tauri/src/renderer.rs` | Legacy render spike (archived) |
+| `packages/editor/src/components/SpecPanel/` | Spec Panel: CodeGenView (syntax highlight + diff), AssetExportControls (PDF + platform save), MeasureOverlay, MeasurementReadout, SpecReadouts, AnnotationsDisplay |
+| `packages/editor/src/components/SpecPanel/syntax.ts` | PrismJS syntax highlighting wrapper (6 languages) |
+| `packages/codegen/src/flutter.ts` | Flutter emitter (Row/Column/Stack auto-layout) |
+| `packages/codegen/src/swiftui.ts` | SwiftUI emitter (HStack/VStack/ZStack auto-layout) |
+| `packages/platform/src/platform.ts` | Platform interface with saveBlob, searchFiles, reorderFile, listenForChanges |
 | `pnpm-workspace.yaml` | Workspace config + allowBuilds |

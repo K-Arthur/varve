@@ -31,7 +31,7 @@ pnpm add -D -w playwright @axe-core/playwright @playwright/test
 
 ---
 
-## Phase 2 — DnD reorder + reparent ✅ COMPLETED (Session 10)
+## Phase 2 — DnD reorder + reparent [OK] COMPLETED (Session 10)
 
 ### Files to modify
 
@@ -88,7 +88,7 @@ if ((e.ctrlKey || e.metaKey) && e.key === '[') {
 
 ---
 
-## Phase 3 — Virtualization (already wired in LayersTree.tsx) ✅ COMPLETED (Session 11)
+## Phase 3 — Virtualization (already wired in LayersTree.tsx) [OK] COMPLETED (Session 11)
 
 @tanstack/react-virtual is already imported and configured in `LayersTree.tsx`. Verify it works at 5000+ nodes:
 
@@ -123,7 +123,7 @@ export function useThumbnail(nodeId: NodeId): string | null {
 
 ---
 
-## Phase 4 — Playwright E2E + axe-core ✅ COMPLETED (Session 11)
+## Phase 4 — Playwright E2E + axe-core [OK] COMPLETED (Session 11)
 
 ### Setup
 
@@ -200,7 +200,7 @@ test('layers panel has no axe violations', async ({ page }) => {
 
 ## Other deferred items
 
-### 1. ImageNode + PathNode ✅ COMPLETED (Session 11)
+### 1. ImageNode + PathNode [OK] COMPLETED (Session 11)
 
 Engine IR supports both image and path primitives.
 
@@ -211,7 +211,7 @@ Engine IR supports both image and path primitives.
 | `packages/editor/src/components/LayersPanel/useAutoName.ts` | Add `image: 'Image'`, `path: 'Path'` to `TYPE_LABELS` |
 | `packages/editor/src/components/LayersPanel/LayersRow.tsx` | `nodeTypeIcon` already handles `image` and `pen`/`path` via `NODE_ICONS` |
 
-### 2. Real fractional indexing (CRDT-safe) ✅ COMPLETED (Session 11)
+### 2. Real fractional indexing (CRDT-safe) [OK] COMPLETED (Session 11)
 
 Implementation uses `fractional-indexing` package. `order: string` on NodeBase.
 
@@ -230,7 +230,7 @@ export function generateKeyBetween(a: string | null, b: string | null): string {
 
 Add `order: string` field to `NodeBase`. Replace array-index ordering with order-key sorting in `rootChildren` and `FrameNode.children`.
 
-### 3. Copy/Cut/Paste (system clipboard) ✅ COMPLETED (Session 11)
+### 3. Copy/Cut/Paste (system clipboard) [OK] COMPLETED (Session 11)
 
 System clipboard with dual MIME (`application/vnd.strata+json` + `text/plain`).
 
@@ -244,7 +244,7 @@ copySelected: () => {
 }
 ```
 
-### 4. Full context menu (Group/Ungroup, Detach, Bring Forward, etc.) ✅ COMPLETED (Session 10-11)
+### 4. Full context menu (Group/Ungroup, Detach, Bring Forward, etc.) [OK] COMPLETED (Session 10-11)
 
 Add to `index.tsx` handle actions:
 
@@ -257,6 +257,6 @@ Add to `index.tsx` handle actions:
 <ContextMenuItem label="Reveal on Canvas" onAction={handleRevealOnCanvas} />
 ```
 
-### 5. Custom context menu portal (not position:fixed) ✅ COMPLETED (Session 10-11)
+### 5. Custom context menu portal (not position:fixed) [OK] COMPLETED (Session 10-11)
 
 Uses `createPortal` to render at `document.body` (previously `position: fixed` inside the panel).

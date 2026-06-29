@@ -27,6 +27,7 @@ const SKIP_DIRS = new Set([
   'coverage',
   '.pnpm-store',
   '.tauri',
+  'playwright-report',
 ]);
 
 async function walk(dir, out = []) {

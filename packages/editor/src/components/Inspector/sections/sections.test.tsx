@@ -54,19 +54,19 @@ describe('PositionSizeSection', () => {
   it('renders proportion lock toggle button', () => {
     const node = createRectNode('n1');
     renderWithProvider(<PositionSizeSection nodes={[node]} />);
-    const lockBtn = screen.getByRole('checkbox', { name: /constrain proportions/i });
+    const lockBtn = screen.getByRole('checkbox', { name: /constrain proportions/i }) as HTMLInputElement;
     expect(lockBtn).toBeTruthy();
-    expect(lockBtn.getAttribute('aria-checked')).toBe('false');
+    expect(lockBtn.checked).toBe(false);
   });
 
   it('toggles proportion lock on click', () => {
     const node = createRectNode('n1');
     renderWithProvider(<PositionSizeSection nodes={[node]} />);
-    const lockBtn = screen.getByRole('checkbox', { name: /constrain proportions/i });
+    const lockBtn = screen.getByRole('checkbox', { name: /constrain proportions/i }) as HTMLInputElement;
     fireEvent.click(lockBtn);
-    expect(lockBtn.getAttribute('aria-checked')).toBe('true');
+    expect(lockBtn.checked).toBe(true);
     fireEvent.click(lockBtn);
-    expect(lockBtn.getAttribute('aria-checked')).toBe('false');
+    expect(lockBtn.checked).toBe(false);
   });
 });
 
