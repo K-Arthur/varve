@@ -5,7 +5,7 @@
  * Research basis: same inverse-transform hit pattern as strata-core (Rust);
  * affine inverse formula for a 2x3 matrix.
  */
-import type { Affine, Point, SceneNode, Shape } from './types';
+import type { Affine, PathPoint, Point, SceneNode, Shape } from './types';
 
 export function applyAffine(m: Affine, p: Point): Point {
   return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]];
@@ -107,6 +107,22 @@ function pointInPolygon(vertices: Point[], p: Point): boolean {
   return inside;
 }
 
+function pathVertices(points: PathPoint[]): Point[] {
+  return points.map((pt) => [pt.x, pt.y] as Point);
+}
+
+function pathSegmentDistSq(points: PathPoint[], p: Point): number {
+  if (points.length < 2) return Infinity;
+  let minDist = Infinity;
+  for (let i = 0; i < points.length - 1; i++) {
+    const from: Point = [points[i]!.x, points[i]!.y];
+    const to: Point = [points[i + 1]!.x, points[i + 1]!.y];
+    const dist = pointToSegmentDistSq(from, to, p);
+    if (dist < minDist) minDist = dist;
+  }
+  return minDist;
+}
+
 export function shapeContains(shape: Shape, p: Point): boolean {
   switch (shape.kind) {
     case 'rect':
@@ -137,6 +153,13 @@ export function shapeContains(shape: Shape, p: Point): boolean {
         ),
         p,
       );
+    case 'arrow':
+      return pointToSegmentDistSq(shape.from, shape.to, p) <= shape.tolerance * shape.tolerance;
+    case 'path':
+      if (shape.closed) {
+        return pointInPolygon(pathVertices(shape.points), p);
+      }
+      return pathSegmentDistSq(shape.points, p) <= shape.tolerance * shape.tolerance;
   }
 }
 
@@ -144,7 +167,7 @@ export function shapeContains(shape: Shape, p: Point): boolean {
 export function hitTest(nodes: SceneNode[], world: Point): number | null {
   for (let i = nodes.length - 1; i >= 0; i--) {
     const n = nodes[i];
-    if (!n) continue;
+    if (!n || !n.shape) continue;
     const local = applyAffine(invertAffine(n.transform), world);
     if (shapeContains(n.shape, local)) return i;
   }

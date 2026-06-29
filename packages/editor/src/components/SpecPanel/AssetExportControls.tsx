@@ -1,21 +1,14 @@
-/**
- * AssetExportControls — export format/scale picker with download button.
- *
- * Supports PNG/JPG/WebP at 1x/2x/3x/custom scales, and SVG copy/download.
- * Progress and completion communicated via aria-live.
- *
- * Research basis: Figma export dialog (format + scale + background).
- */
-
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createEngine, type Engine } from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
 import { exportNodeToSvg } from '@strata/codegen';
+import { createEngine, type Engine } from '@strata/engine';
+import type { Platform } from '@strata/platform';
+import type { SceneNode } from '@strata/scene';
 import { CopyButton } from '@strata/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  exportNodeAsRaster,
-  downloadBlob,
   buildFilename,
+  downloadBlob,
+  exportNodeAsPdf,
+  exportNodeAsRaster,
   type RasterFormat,
 } from './export';
 
@@ -23,20 +16,26 @@ export interface AssetExportControlsProps {
   node: SceneNode;
   doc: import('@strata/scene').Document;
   engine?: Engine;
+  platform?: Platform;
 }
 
-type ExportFormat = RasterFormat | 'svg';
+type ExportFormat = RasterFormat | 'svg' | 'pdf';
 
-const FORMATS: { value: ExportFormat; label: string }[] = [
+const FORMATS: { value: ExportFormat; label: string; desktopOnly?: boolean }[] = [
   { value: 'image/png', label: 'PNG' },
   { value: 'image/jpeg', label: 'JPEG' },
   { value: 'image/webp', label: 'WebP' },
   { value: 'svg', label: 'SVG' },
+  { value: 'pdf', label: 'PDF', desktopOnly: true },
 ];
 
 const SCALES = [1, 2, 3];
 
-export function AssetExportControls({ node, doc, engine: _engine }: AssetExportControlsProps) {
+function isTauriPlatform(p?: Platform): boolean {
+  return p?.kind === 'tauri';
+}
+
+export function AssetExportControls({ node, doc, engine: _engine, platform }: AssetExportControlsProps) {
   const [engine, setEngine] = useState<Engine | null>(null);
   const [format, setFormat] = useState<ExportFormat>('image/png');
   const [scale, setScale] = useState(2);
@@ -46,6 +45,8 @@ export function AssetExportControls({ node, doc, engine: _engine }: AssetExportC
   const liveRef = useRef<HTMLDivElement>(null);
 
   const effectiveScale = customScale ? Number.parseFloat(customScale) : scale;
+  const isTauri = isTauriPlatform(platform);
+  const isPdfDesktopOnly = format === 'pdf' && !isTauri;
 
   useEffect(() => {
     if (_engine) {
@@ -64,13 +65,27 @@ export function AssetExportControls({ node, doc, engine: _engine }: AssetExportC
     setExporting(true);
     setMessage('');
     try {
-      if (format === 'svg') {
+      if (format === 'pdf') {
+        if (!isTauri) {
+          setMessage('PDF export requires the desktop app');
+          return;
+        }
+        const { bytes, filename } = await exportNodeAsPdf(node, doc, effectiveScale);
+        const saved = await platform!.saveBlob(filename, bytes, 'application/pdf');
+        setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
+      } else if (format === 'svg') {
         const blob = await exportNodeAsRaster(node, doc, eng, {
           format: 'image/png',
           scale: effectiveScale,
         });
-        downloadBlob(blob, buildFilename(node.name, 'svg'));
-        setMessage(`Exported ${node.name} as SVG`);
+        if (isTauri && platform) {
+          const buf = await blob.arrayBuffer();
+          await platform.saveBlob(buildFilename(node.name, 'svg'), new Uint8Array(buf), 'image/svg+xml');
+          setMessage(`Exported ${node.name} as SVG`);
+        } else {
+          downloadBlob(blob, buildFilename(node.name, 'svg'));
+          setMessage(`Exported ${node.name} as SVG`);
+        }
       } else {
         const blob = await exportNodeAsRaster(node, doc, eng, {
           format: format as 'image/png' | 'image/jpeg' | 'image/webp',
@@ -78,15 +93,21 @@ export function AssetExportControls({ node, doc, engine: _engine }: AssetExportC
           quality: format === 'image/jpeg' ? 0.92 : undefined,
         });
         const ext = format === 'image/png' ? 'png' : format === 'image/jpeg' ? 'jpg' : 'webp';
-        downloadBlob(blob, buildFilename(node.name, ext));
-        setMessage(`Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x`);
+        if (isTauri && platform) {
+          const buf = await blob.arrayBuffer();
+          await platform.saveBlob(buildFilename(node.name, ext), new Uint8Array(buf), blob.type);
+          setMessage(`Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x`);
+        } else {
+          downloadBlob(blob, buildFilename(node.name, ext));
+          setMessage(`Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x`);
+        }
       }
     } catch (err) {
       setMessage(`Export failed: ${(err as Error).message}`);
     } finally {
       setExporting(false);
     }
-  }, [node, doc, engine, format, effectiveScale]);
+  }, [node, doc, engine, format, effectiveScale, isTauri, platform]);
 
   return (
     <section className="spec-panel__section" aria-labelledby="spec-export-heading">
@@ -101,6 +122,8 @@ export function AssetExportControls({ node, doc, engine: _engine }: AssetExportC
               type="button"
               className={`spec-export__btn${format === f.value ? ' spec-export__btn--active' : ''}`}
               aria-pressed={format === f.value}
+              disabled={f.desktopOnly && !isTauri}
+              title={f.desktopOnly && !isTauri ? 'Requires desktop app' : undefined}
               onClick={() => setFormat(f.value)}
             >
               {f.label}
@@ -109,7 +132,7 @@ export function AssetExportControls({ node, doc, engine: _engine }: AssetExportC
         </div>
       </div>
 
-      {format !== 'svg' && (
+      {format !== 'svg' && format !== 'pdf' && (
         <div className="spec-export__row">
           <span className="spec-row__label">Scale</span>
           <div className="spec-export__group">
@@ -143,7 +166,7 @@ export function AssetExportControls({ node, doc, engine: _engine }: AssetExportC
         <button
           type="button"
           className="spec-export__download"
-          disabled={exporting || !effectiveScale || effectiveScale <= 0}
+          disabled={exporting || !effectiveScale || effectiveScale <= 0 || isPdfDesktopOnly}
           onClick={handleExport}
         >
           {exporting ? 'Exporting\u2026' : 'Download'}

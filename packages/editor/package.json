@@ -19,14 +19,17 @@
   "dependencies": {
     "@strata/codegen": "workspace:*",
     "@strata/engine": "workspace:*",
+    "@strata/platform": "workspace:*",
     "@strata/scene": "workspace:*",
     "@strata/shared": "workspace:*",
     "@strata/ui": "workspace:*",
-    "@tanstack/react-virtual": "^3.14.4"
+    "@tanstack/react-virtual": "^3.14.4",
+    "prismjs": "^1.30.0"
   },
   "devDependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2"
+    "@dnd-kit/utilities": "^3.2.2",
+    "@types/prismjs": "^1.26.6"
   }
 }

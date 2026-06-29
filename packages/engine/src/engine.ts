@@ -76,7 +76,7 @@ function stubEngine(): Engine {
     async buildIr(scene) {
       return scene.nodes.map((n) => ({
         transform: n.transform,
-        fill: n.fill ?? [0, 0, 0, 0] as [number, number, number, number],
+        fill: n.fill ?? ([0, 0, 0, 0] as [number, number, number, number]),
         primitive: shapeToPrimitive(n),
         opacity: n.opacity ?? 1,
         blendMode: n.blendMode ?? 'normal',

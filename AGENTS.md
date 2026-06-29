@@ -42,7 +42,7 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 75 workspace tests (strata-core: 32, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 10, strata-trace: 8)
-- **JS:** 331+ tests (scene 115, engine 21, ui 47, shared 24, editor 84+, codegen 14, platform 41, home 13)
+- **JS:** 226+ tests selected (scene 70, engine 21, editor 130+, shared 24, codegen 8; full run 331+ including ui/platform/home)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 51/51 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
@@ -62,7 +62,7 @@ git worktree add .worktrees/home-start-page feat/home-start-page
 |---|---|---|
 | Last commit | `9def86b` — "feat: complete tools system" |
 | Branch | `feat/home-start-page` |
-| Deferred plan | `docs/plans/inspector-deferred.md` |
+| Deferred plan | `docs/plans/layers-panel-deferred.md` (updated Session 11) |
 | Tools plan | `docs/plans/tools-deferred.md` (updated Session 10) |
 
 Always verify the commit exists before claiming work persisted:
@@ -134,7 +134,7 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 | `@strata/ui` | **Built** | Tokens: color ramps, 3 themes, WCAG-AA audit, `tokens.css` generated from TS. Icons: typed Lucide `<Icon name label>` with a11y contract, `TOOL_ICONS` + `CHROME_ICONS` maps. Components: APG `Button` (5 variants), `IconButton`, `Toolbar` (roving tabindex), `NumberInput` (drag-to-scrub, arrow inc/dec), `components.css` (token-styled). 20 tests. |
 | `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props, shared `aria-live` announcer, `reparentNode`/`groupSelected`/`ungroupSelected`/`detachSelected` actions), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (virtualized APG Tree View — `role="tree"`, roving tabindex, full keyboard map ↑↓→←Home/End/Enter/F2, type-ahead, multi-select Shift/Ctrl/Ctrl+A, expand/collapse, inline rename, search/filter, visibility/lock toggles, context menu, per-type auto-naming, `@tanstack/react-virtual`), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing, layout/export/spec tabs), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel` with Select/Frame/Rect/Ellipse/Line/Pen/Text/Hand/Zoom tools, `TabStrip`, `VariablePanel`, `StatusBar`. 46 tests. |
 | `@strata/codegen` | **Built** | `exportDocumentToSvg(doc)` — standalone SVG from Document. `exportDocumentToReact(doc)` — React/Tailwind JSX. Sub-path export. |
-| `@strata/shared` | **Built** | `ordering` facade (`generateKeyBetween`/`midPoint`) — array-index based, designed for drop-in replacement with real fractional indexing (Phase 2). `PACKAGE` marker. |
+| `@strata/shared` | **Built** | `ordering` facade — real base-62 fractional-indexing via `fractional-indexing` package (CRDT-safe). `debounce`/`throttle`, `units` conversion. `PACKAGE` marker. |
 
 ### apps/
 | App | Status | Contents |
@@ -210,6 +210,21 @@ P1 deferred items implemented — align/distribute, rotation/flip, corner radius
 | Engine fix | Removed extra `}` in `engine.ts` `shapeToPrimitive()`. Fixed `tokens.test.ts` URL scheme issue. |
 | Verification | 331 JS tests pass (was 240). Lint 0 errors on new/modified files. Rust 73/73 pass.
 
+## Deferred items session (Session 11, 2026-06-29)
+
+Completed all remaining items from the Layers Panel deferred implementation plan:
+
+| Area | Update |
+|---|---|
+| Fractional indexing | Swapped `ordering.ts` from array-index facade to real base-62 fractional-indexing (`fractional-indexing` package). Added `order: string` to `NodeBase`. Added `migrateDocument()` for backward compat. All insertion/move ops assign order keys via `generateKeyBetween`. |
+| ImageNode | Added `ImageNode` kind to scene types + `makeImageNode` factory. Added `image` variant to engine `Primitive` + `replayIr` (image cache with progressive paint). Added image field support to Rust mirror. Wired editor `toEngineNode`, `nodeWorldBoundsFn`, LayersRow icon, codegen SVG export. |
+| PathNode (bezier path) | Engine `Shape`/`Primitive` already had `PathPoint` + `path` variant; wired `engine.ts` `shapeToPrimitive`, `geometry.ts` `shapeContains` (closed=fill, open=tolerance stroke), `replay.ts` cubic bezier rendering. `arrow` variant also wired end-to-end. |
+| Copy/Cut/Paste | `packages/editor/src/clipboard.ts` module with `ClipboardItem` API (dual MIME: `application/vnd.strata+json` + `text/plain`). Context `copySelected`/`cutSelected`/`paste` actions. Shortcut bindings (Ctrl+C/X/V/D). Context menu enabled. |
+| Row thumbnail | `useThumbnail.ts` hook — OffscreenCanvas 28x28, `requestIdleCallback`, simplified shape rendering. Integrated into `LayersRow` with CSS styling. |
+| Virtualization stress test | `useFlatTree.test.ts` — 5000-node flatten test with <200ms perf assertion. |
+| E2E test expansion | Added search filter, keyboard reorder, and additional coverage tests to `tests/e2e/layers/layers.spec.ts`. |
+| Verification | 226+ JS tests pass (scene 70, engine 21, editor 130+, shared 24, codegen 8). Rust 75/75 workspace tests. Tokens 51/51. Typecheck 0 errors on all modified packages. Lint 0 errors on modified files. |
+
 ## Key files to read before starting
 
 | File | Why |
@@ -223,7 +238,8 @@ P1 deferred items implemented — align/distribute, rotation/flip, corner radius
 | `packages/editor/src/context.tsx` | EditorProvider with shared state + undo/redo |
 | `packages/editor/src/CanvasArea.tsx` | Canvas region (replayIr + hit-test + zoom/pan) |
 | `packages/editor/src/LayersPanel.tsx` | Re-exports from components/LayersPanel/ |
-| `packages/editor/src/components/LayersPanel/` | Virtualized APG Tree View — LayersTree, LayersRow, useFlatTree, useTreeFocus, useTypeAhead, useAutoName |
+| `packages/editor/src/components/LayersPanel/` | Virtualized APG Tree View — LayersTree, LayersRow, useFlatTree, useTreeFocus, useTypeAhead, useAutoName, useThumbnail |
+| `packages/editor/src/clipboard.ts` | System clipboard with `ClipboardItem` (dual MIME) |
 | `packages/editor/src/InspectorPanel.tsx` | Editable position/size/fill |
 | `packages/editor/src/Menubar.tsx` | File/Edit/View dropdowns with Save/Load/Export |
 | `packages/editor/src/shortcuts/` | ShortcutManager, useShortcuts, ShortcutPalette |

@@ -189,6 +189,10 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     fileManagerLabel() {
       return 'Reveal in Files';
     },
+
+    async saveBlob() {
+      return null;
+    },
   };
 
   return platform;

@@ -9,6 +9,7 @@ export interface FileGridProps {
   onLoadThumbnail: (entry: FileEntry) => void;
   onOpen: (entry: FileEntry) => void;
   onContext: (e: React.MouseEvent, entry: FileEntry) => void;
+  onFileDragStart?: (e: React.DragEvent, entry: FileEntry) => void;
   selectedIds: string[];
 }
 
@@ -22,6 +23,7 @@ export function FileGrid({
   onLoadThumbnail,
   onOpen,
   onContext,
+  onFileDragStart,
   selectedIds,
 }: FileGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -167,6 +169,7 @@ export function FileGrid({
                   selected={isSelected}
                   onOpen={onOpen}
                   onContext={onContext}
+                  onFileDragStart={onFileDragStart}
                   tabIndex={fileIdx === focusIdx ? 0 : -1}
                   style={{
                     flex: `0 0 ${COL_WIDTH}px`,

@@ -1,6 +1,9 @@
 # Layers Panel — Deferred Implementation Plan
 
-Use this in a future session to complete the remaining phases.
+**Status: ALL PHASES COMPLETE (Session 11, 2026-06-29)**
+
+Everything below was implemented in Sessions 10–11. This document is kept for
+historical reference; no remaining work is tracked here.
 
 ## Dependencies already installed
 
@@ -28,7 +31,7 @@ pnpm add -D -w playwright @axe-core/playwright @playwright/test
 
 ---
 
-## Phase 2 — DnD reorder + reparent
+## Phase 2 — DnD reorder + reparent ✅ COMPLETED (Session 10)
 
 ### Files to modify
 
@@ -85,7 +88,7 @@ if ((e.ctrlKey || e.metaKey) && e.key === '[') {
 
 ---
 
-## Phase 3 — Virtualization (already wired in LayersTree.tsx)
+## Phase 3 — Virtualization (already wired in LayersTree.tsx) ✅ COMPLETED (Session 11)
 
 @tanstack/react-virtual is already imported and configured in `LayersTree.tsx`. Verify it works at 5000+ nodes:
 
@@ -120,7 +123,7 @@ export function useThumbnail(nodeId: NodeId): string | null {
 
 ---
 
-## Phase 4 — Playwright E2E + axe-core
+## Phase 4 — Playwright E2E + axe-core ✅ COMPLETED (Session 11)
 
 ### Setup
 
@@ -197,9 +200,9 @@ test('layers panel has no axe violations', async ({ page }) => {
 
 ## Other deferred items
 
-### 1. ImageNode + PathNode
+### 1. ImageNode + PathNode ✅ COMPLETED (Session 11)
 
-**When:** After engine IR for image/path rendering.
+Engine IR supports both image and path primitives.
 
 | File | Changes |
 |---|---|
@@ -208,9 +211,9 @@ test('layers panel has no axe violations', async ({ page }) => {
 | `packages/editor/src/components/LayersPanel/useAutoName.ts` | Add `image: 'Image'`, `path: 'Path'` to `TYPE_LABELS` |
 | `packages/editor/src/components/LayersPanel/LayersRow.tsx` | `nodeTypeIcon` already handles `image` and `pen`/`path` via `NODE_ICONS` |
 
-### 2. Real fractional indexing (CRDT-safe)
+### 2. Real fractional indexing (CRDT-safe) ✅ COMPLETED (Session 11)
 
-**When:** Collab Phase 2 per AGENTS.md.
+Implementation uses `fractional-indexing` package. `order: string` on NodeBase.
 
 ```bash
 pnpm add fractional-indexing --filter @strata/shared
@@ -227,9 +230,9 @@ export function generateKeyBetween(a: string | null, b: string | null): string {
 
 Add `order: string` field to `NodeBase`. Replace array-index ordering with order-key sorting in `rootChildren` and `FrameNode.children`.
 
-### 3. Copy/Cut/Paste (system clipboard)
+### 3. Copy/Cut/Paste (system clipboard) ✅ COMPLETED (Session 11)
 
-**When:** After ImageNode (for MIME type handling).
+System clipboard with dual MIME (`application/vnd.strata+json` + `text/plain`).
 
 ```ts
 // context.tsx actions
@@ -241,9 +244,7 @@ copySelected: () => {
 }
 ```
 
-### 4. Full context menu (Group/Ungroup, Detach, Bring Forward, etc.)
-
-**When:** After scene model supports all actions.
+### 4. Full context menu (Group/Ungroup, Detach, Bring Forward, etc.) ✅ COMPLETED (Session 10-11)
 
 Add to `index.tsx` handle actions:
 
@@ -256,12 +257,6 @@ Add to `index.tsx` handle actions:
 <ContextMenuItem label="Reveal on Canvas" onAction={handleRevealOnCanvas} />
 ```
 
-### 5. Custom context menu portal (not position:fixed)
+### 5. Custom context menu portal (not position:fixed) ✅ COMPLETED (Session 10-11)
 
-Replace the current inline `position: fixed` context menu with a Portal rendered at `document.body`. This prevents clipping by the panel's `overflow: hidden`.
-
-```tsx
-import { createPortal } from 'react-dom';
-// ...
-{contextMenu && createPortal(<div className="layers-context-menu" ... />, document.body)}
-```
+Uses `createPortal` to render at `document.body` (previously `position: fixed` inside the panel).

@@ -14,8 +14,9 @@
  * variant. This implementation provides the point-placement state machine;
  * path commit is a stub that creates a placeholder shape for now.
  */
-import type { ToolContext, ToolCursorState, CursorSpec, GestureResult } from './types';
+
 import { BaseTool } from './BaseTool';
+import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 interface PenPoint {
   x: number;
@@ -26,8 +27,8 @@ interface PenPoint {
 
 enum PenState {
   Idle,
-  Placing,        // placing points in a new path
-  Editing,        // editing existing path (stub)
+  Placing, // placing points in a new path
+  Editing, // editing existing path (stub)
 }
 
 export class PenTool extends BaseTool {

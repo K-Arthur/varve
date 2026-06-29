@@ -24,7 +24,12 @@ export interface AnnotationsDisplayProps {
   onRemove: (id: string) => void;
 }
 
-export function AnnotationsDisplay({ nodeId, annotations, onAdd, onRemove }: AnnotationsDisplayProps) {
+export function AnnotationsDisplay({
+  nodeId,
+  annotations,
+  onAdd,
+  onRemove,
+}: AnnotationsDisplayProps) {
   const [text, setText] = useState('');
   const [message, setMessage] = useState('');
   const liveId = useId();

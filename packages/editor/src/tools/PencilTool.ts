@@ -88,7 +88,7 @@ export class PencilTool extends BaseTool {
     const capture = () => {
       if (this.drag.kind !== 'dragging') return;
       if (this.captured.length > 0) {
-        const last = this.captured[this.captured.length - 1]!;
+        const last = this.captured[this.captured.length - 1] as Point2D;
         const cur = this.drag.currentWorld;
         const dx = cur.x - last.x;
         const dy = cur.y - last.y;

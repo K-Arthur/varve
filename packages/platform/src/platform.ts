@@ -79,4 +79,11 @@ export interface Platform {
   revealInFileManager(path: string): Promise<void>;
   /** Platform-appropriate verb for the "reveal" action ("Reveal in Finder", etc.). */
   fileManagerLabel(): string;
+
+  /**
+   * Save binary data to disk via the OS save dialog.
+   * Returns the file path or null if cancelled.
+   * In the browser, triggers a Blob download and returns the filename.
+   */
+  saveBlob(name: string, data: Uint8Array, mimeType: string): Promise<string | null>;
 }

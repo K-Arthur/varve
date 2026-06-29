@@ -3,8 +3,9 @@
  *
  * Research basis: Figma Line (L), Illustrator Line Segment (\).
  */
-import type { ToolContext, ToolCursorState, CursorSpec } from './types';
+
 import { BaseTool } from './BaseTool';
+import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 export class LineTool extends BaseTool {
   id = 'line' as const;

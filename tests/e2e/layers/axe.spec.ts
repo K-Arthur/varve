@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { expect, test } from '@playwright/test';
 
 test.describe('Layers Panel - axe-core scan', () => {
   test('layers panel has no automated accessibility violations', async ({ page }) => {

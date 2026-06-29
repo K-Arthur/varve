@@ -24,7 +24,9 @@ serde_json = "1"
 chrono = "0.4"
 strata-core = { path = "../../../crates/strata-core" }
 strata-engine = { path = "../../../crates/strata-engine" }
+notify = "6"
 strata-sync = { path = "../../../crates/strata-sync" }
+strata-print = { path = "../../../crates/strata-print" }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

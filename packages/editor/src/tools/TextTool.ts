@@ -11,8 +11,9 @@
  *       This implementation creates TextNodes and enters edit mode.
  *       Full rich-text editing is deferred to the editing overlay system.
  */
-import type { ToolContext, ToolCursorState, CursorSpec } from './types';
+
 import { BaseTool } from './BaseTool';
+import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 export class TextTool extends BaseTool {
   id = 'text' as const;

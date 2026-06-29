@@ -15,10 +15,21 @@ export interface FileCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   selected: boolean;
   onOpen: (entry: FileEntry) => void;
   onContext: (e: React.MouseEvent, entry: FileEntry) => void;
+  onFileDragStart?: (e: React.DragEvent, entry: FileEntry) => void;
 }
 
 export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function FileCard(
-  { entry, thumbnail, thumbnailLoading, selected, onOpen, onContext, className = '', ...rest },
+  {
+    entry,
+    thumbnail,
+    thumbnailLoading,
+    selected,
+    onOpen,
+    onContext,
+    onFileDragStart,
+    className = '',
+    ...rest
+  },
   ref,
 ) {
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -48,10 +59,12 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
       role="gridcell"
       aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}`}
       aria-selected={selected}
+      draggable
       className={`file-card ${selected ? 'file-card--selected' : ''} ${className}`.trim()}
       onClick={() => onOpen(entry)}
       onContextMenu={(e) => onContext(e, entry)}
       onKeyDown={handleKey}
+      onDragStart={(e) => onFileDragStart?.(e, entry)}
       {...rest}
     >
       <div className="file-card__thumb" ref={thumbRef}>

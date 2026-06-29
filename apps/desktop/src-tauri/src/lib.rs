@@ -1,8 +1,10 @@
 mod renderer;
 
+use notify::Watcher;
 use serde::{Deserialize, Serialize};
 use strata_core::{Circle, Line, Point, Rect, Shape};
 use tauri::ipc::Response;
+use tauri::Emitter;
 use tauri::Manager;
 
 use crate::renderer::{generate_ir, generate_pixels, ShapeIr};
@@ -147,6 +149,42 @@ fn sync_load(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String
     store.load_document(&doc_id).map_err(|e| e.to_string())
 }
 
+// ── File save binary (for asset export) ────────────────
+
+#[tauri::command]
+fn save_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
+    std::fs::write(&path, &bytes).map_err(|e| e.to_string())
+}
+
+// ── PDF export ─────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct ExportPdfOptions {
+    page_width: f64,
+    page_height: f64,
+    title: String,
+    author: String,
+}
+
+impl Default for ExportPdfOptions {
+    fn default() -> Self {
+        Self { page_width: 1920.0, page_height: 1080.0, title: "Strata Export".into(), author: "Strata".into() }
+    }
+}
+
+#[tauri::command]
+fn export_node_pdf(nodes: Vec<IpcSceneNode>, opts: Option<ExportPdfOptions>) -> Result<Vec<u8>, String> {
+    let scene = convert_scene(nodes);
+    let pdf_opts = opts.unwrap_or_default();
+    let print_opts = strata_print::PdfOptions {
+        page_width: pdf_opts.page_width,
+        page_height: pdf_opts.page_height,
+        title: pdf_opts.title,
+        author: pdf_opts.author,
+    };
+    strata_print::export_pdf(&scene, &print_opts)
+}
+
 // ── Home IPC Commands ────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
@@ -167,6 +205,7 @@ struct HomeFile {
     trashed_at: Option<i64>,
     #[serde(rename = "filePath")]
     file_path: Option<String>,
+    ordering: String,
     #[serde(rename = "contentHash")]
     content_hash: String,
 }
@@ -188,6 +227,8 @@ struct HomeFileInput {
     trashed_at: Option<i64>,
     #[serde(default)]
     file_path: Option<String>,
+    #[serde(default)]
+    ordering: String,
     content_hash: String,
 }
 
@@ -213,7 +254,7 @@ fn file_to_home(f: strata_sync::FileRow) -> HomeFile {
         opened_at: rfc3339_to_epoch_ms(&f.opened_at),
         size: f.size, pinned: f.pinned,
         trashed_at: f.trashed_at.as_ref().map(|s| rfc3339_to_epoch_ms(s)),
-        file_path: f.file_path, content_hash: f.content_hash,
+        file_path: f.file_path, ordering: f.ordering, content_hash: f.content_hash,
     }
 }
 
@@ -275,7 +316,7 @@ fn home_upsert_file(store: tauri::State<'_, strata_sync::DocumentStore>, entry: 
         &epoch_ms_to_rfc3339(entry.opened_at),
         entry.size, entry.pinned,
         entry.trashed_at.map(|ms| epoch_ms_to_rfc3339(ms)).as_deref(),
-        entry.file_path.as_deref(), &entry.content_hash,
+        entry.file_path.as_deref(), &entry.ordering, &entry.content_hash,
     ).map_err(|e| e.to_string())
 }
 
@@ -356,6 +397,47 @@ fn home_set_view_state(store: tauri::State<'_, strata_sync::DocumentStore>, valu
     store.set_view_state("home", &value).map_err(|e| e.to_string())
 }
 
+// ── Thumbnails ──────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ThumbnailInput {
+    hash: String,
+    data_url: String,
+    width: i64,
+    height: i64,
+    created_at: i64,
+}
+
+#[tauri::command]
+fn home_get_thumbnail(store: tauri::State<'_, strata_sync::DocumentStore>, hash: String) -> Result<Option<String>, String> {
+    store.get_thumbnail(&hash).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_put_thumbnail(store: tauri::State<'_, strata_sync::DocumentStore>, input: ThumbnailInput) -> Result<(), String> {
+    store.put_thumbnail(&input.hash, &input.data_url, input.width, input.height, &epoch_ms_to_rfc3339(input.created_at)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_evict_thumbnails(store: tauri::State<'_, strata_sync::DocumentStore>, keep_count: i64) -> Result<i64, String> {
+    store.evict_thumbnails(keep_count).map_err(|e| e.to_string())
+}
+
+// ── Search ───────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn home_search_files(store: tauri::State<'_, strata_sync::DocumentStore>, query: String) -> Result<Vec<HomeFile>, String> {
+    store.search_files(&query).map(|v| v.into_iter().map(file_to_home).collect()).map_err(|e| e.to_string())
+}
+
+// ── Reorder ──────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn home_reorder_file(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, ordering: String) -> Result<(), String> {
+    store.reorder_file(&id, &ordering).map_err(|e| e.to_string())
+}
+
 // ── File-system read/write (for open/save from disk) ─────────────────────
 
 #[tauri::command]
@@ -385,6 +467,36 @@ pub fn run() {
             let db_path = data_dir.join("documents.db");
             let store = strata_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
+
+            // Start file-system watcher for home directory
+            let watch_handle = app.handle().clone();
+            let watch_path = data_dir.clone();
+            std::thread::spawn(move || {
+                let (tx, rx) = std::sync::mpsc::channel::<()>();
+                let mut watcher = match notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
+                    if let Ok(event) = res {
+                        let has_strata = event.paths.iter().any(|p| {
+                            p.extension().map(|e| e == "strata").unwrap_or(false)
+                        });
+                        if has_strata {
+                            let _ = tx.send(());
+                        }
+                    }
+                }) {
+                    Ok(w) => w,
+                    Err(e) => {
+                        eprintln!("Failed to create file watcher: {}", e);
+                        return;
+                    }
+                };
+                if let Err(e) = watcher.watch(&watch_path, notify::RecursiveMode::Recursive) {
+                    eprintln!("Failed to watch directory {}: {}", watch_path.display(), e);
+                    return;
+                }
+                while rx.recv().is_ok() {
+                    let _ = watch_handle.emit("home:files-changed", ());
+                }
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -416,8 +528,15 @@ pub fn run() {
             home_set_project_pinned,
             home_get_view_state,
             home_set_view_state,
+            home_get_thumbnail,
+            home_put_thumbnail,
+            home_evict_thumbnails,
+            home_search_files,
+            home_reorder_file,
             home_read_text_file,
             home_write_text_file,
+            save_file_bytes,
+            export_node_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

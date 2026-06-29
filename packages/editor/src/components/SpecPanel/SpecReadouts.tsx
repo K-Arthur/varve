@@ -6,10 +6,10 @@
  * with text (not color alone), contrast ratios shown numerically.
  */
 
-import { useMemo } from 'react';
 import type { Document, SceneNode, VariableStore } from '@strata/scene';
 import { convertPx, formatValue, type SpecUnit } from '@strata/shared';
 import { CopyButton } from '@strata/ui';
+import { useMemo } from 'react';
 
 // ── Token reverse-lookup ───────────────────────────────────────────────────
 
@@ -19,11 +19,12 @@ function matchTokens(
 ): string[] {
   if (!store) return [];
 
-  const searchStr = typeof value === 'string'
-    ? value.toLowerCase()
-    : typeof value === 'number'
-      ? String(value)
-      : `rgba(${value[0]},${value[1]},${value[2]},${(value[3] / 255).toFixed(2)})`;
+  const searchStr =
+    typeof value === 'string'
+      ? value.toLowerCase()
+      : typeof value === 'number'
+        ? String(value)
+        : `rgba(${value[0]},${value[1]},${value[2]},${(value[3] / 255).toFixed(2)})`;
 
   const matches: string[] = [];
   for (const v of Object.values(store.variables)) {
@@ -162,9 +163,7 @@ function TypographyReadout({ node, unit, baseFontSize, variableStore }: SpecRead
           <span className="spec-row__label">{f.label}</span>
           <span className="spec-row__value">
             {f.value}
-            {f.tokenName && (
-              <span className="spec-row__token"> (token: {f.tokenName})</span>
-            )}
+            {f.tokenName && <span className="spec-row__token"> (token: {f.tokenName})</span>}
           </span>
           <CopyButton value={f.tokenName ?? f.value} label={f.label} className="spec-row__copy" />
         </div>
@@ -194,7 +193,7 @@ function ColorReadout({ node, variableStore: _variableStore }: SpecReadoutsProps
         <span className="spec-row__label">Fill</span>
         <span
           className="spec-swatch"
-          style={{ backgroundColor: `rgba(${fill[0]},${fill[1]},${fill[2]},${(fill[3] / 255)})` }}
+          style={{ backgroundColor: `rgba(${fill[0]},${fill[1]},${fill[2]},${fill[3] / 255})` }}
           aria-label={`Fill color: ${hex}`}
         />
         <span className="spec-row__value">{hex}</span>

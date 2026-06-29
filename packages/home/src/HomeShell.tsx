@@ -115,6 +115,18 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
     { id: 'trash', label: 'Trash', icon: 'Archive', count: view.trashedFiles.length },
   ];
 
+  const handleFileDragStart = useCallback((e: React.DragEvent, entry: FileEntry) => {
+    e.dataTransfer.setData('text/strata-file-id', entry.id);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDropOnProject = useCallback(
+    (fileId: string, projectId: string) => {
+      actions.moveToProject(fileId, projectId);
+    },
+    [actions],
+  );
+
   const handleFileContext = useCallback((e: React.MouseEvent, entry: FileEntry) => {
     e.preventDefault();
     setContextFile(entry);
@@ -250,6 +262,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             onLoadThumbnail={thumbnails.load}
             onOpen={onOpenFile}
             onContext={handleFileContext}
+            onFileDragStart={handleFileDragStart}
             selectedIds={[]}
           />
         ) : (
@@ -300,6 +313,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             const proj = view.projects.find((p) => p.id === id);
             if (proj) platform.setProjectPinned(proj.id, !proj.pinned);
           }}
+          onDropOnProject={handleDropOnProject}
         />
       </div>
       <div className="strata-home__toolbar">

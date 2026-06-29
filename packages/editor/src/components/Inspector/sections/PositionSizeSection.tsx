@@ -104,27 +104,28 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               min={0}
               onChange={handleW}
             />
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={locked}
+            <label
               aria-label="Constrain proportions"
-              onClick={() => setLocked((p) => !p)}
               style={{
-                width: 'var(--space-4)',
-                height: 'var(--space-4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: locked ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
-                padding: 0,
-                flexShrink: 0,
                 marginTop: 'var(--space-2)',
+                cursor: 'pointer',
               }}
             >
+              <input
+                type="checkbox"
+                checked={locked}
+                onChange={() => setLocked((p) => !p)}
+                style={{
+                  width: 0,
+                  height: 0,
+                  opacity: 0,
+                  position: 'absolute',
+                  pointerEvents: 'none',
+                }}
+              />
               <svg
                 width="14"
                 height="14"
@@ -134,21 +135,19 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                aria-hidden="true"
+                role="img"
+                aria-label="Constrain proportions"
+                style={{
+                  color: locked ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
+                  flexShrink: 0,
+                }}
               >
-                {locked ? (
-                  <>
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </>
-                ) : (
-                  <>
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-                  </>
-                )}
+                <title>Constrain proportions</title>
+                <path d="M12 3v18" />
+                <path d="M8 21h8" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
-            </button>
+            </label>
             <NumberField
               label="H"
               unit="px"

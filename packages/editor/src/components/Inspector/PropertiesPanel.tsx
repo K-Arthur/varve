@@ -16,7 +16,9 @@ import { useEditor } from '../../context';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { NumberField } from './controls/NumberField';
+import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
+import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
 import { LayoutSection } from './sections/LayoutSection';
@@ -24,8 +26,6 @@ import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TypographySection } from './sections/TypographySection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
-import { AlignDistributeBar } from './sections/AlignDistributeBar';
-import { CornerRadiusSection } from './sections/CornerRadiusSection';
 
 import './inspector.css';
 
@@ -132,7 +132,8 @@ function EmptyState() {
 function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
   const node = nodes[0] as SceneNode;
   const isFrame = node.kind === 'frame';
-  const isRect = node.kind === 'shape' && (node as import('@strata/scene').ShapeNode).shape.kind === 'rect';
+  const isRect =
+    node.kind === 'shape' && (node as import('@strata/scene').ShapeNode).shape.kind === 'rect';
 
   return (
     <>

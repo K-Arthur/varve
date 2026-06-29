@@ -1,6 +1,13 @@
 import type { IconName } from '@strata/ui';
 import { Icon } from '@strata/ui';
-import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type DragEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 export interface SidebarEntry {
   id: string;
@@ -15,10 +22,19 @@ export interface SidebarNavProps {
   activeId: string | null;
   onSelect: (id: string) => void;
   onPin?: (id: string) => void;
+  /** Called when a file is dropped on a project entry. */
+  onDropOnProject?: (fileId: string, projectId: string) => void;
 }
 
-export function SidebarNav({ entries, activeId, onSelect, onPin }: SidebarNavProps) {
+export function SidebarNav({
+  entries,
+  activeId,
+  onSelect,
+  onPin,
+  onDropOnProject,
+}: SidebarNavProps) {
   const [focusIdx, setFocusIdx] = useState(0);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -82,6 +98,29 @@ export function SidebarNav({ entries, activeId, onSelect, onPin }: SidebarNavPro
     >
       {entries.map((entry, i) => {
         const isActive = entry.id === activeId;
+        const isProject = !['recent', 'all', 'templates', 'trash'].includes(entry.id);
+        const isDropTarget = dropTargetId === entry.id;
+
+        const handleDragOver = (e: DragEvent) => {
+          if (isProject && onDropOnProject) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setDropTargetId(entry.id);
+          }
+        };
+
+        const handleDragLeave = () => {
+          if (dropTargetId === entry.id) setDropTargetId(null);
+        };
+
+        const handleDrop = (e: DragEvent) => {
+          e.preventDefault();
+          setDropTargetId(null);
+          if (!isProject || !onDropOnProject) return;
+          const fileId = e.dataTransfer.getData('text/strata-file-id');
+          if (fileId) onDropOnProject(fileId, entry.id);
+        };
+
         return (
           <button
             key={entry.id}
@@ -92,9 +131,12 @@ export function SidebarNav({ entries, activeId, onSelect, onPin }: SidebarNavPro
             role="option"
             aria-selected={isActive}
             tabIndex={i === focusIdx ? 0 : -1}
-            className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''}`}
+            className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''} ${isDropTarget ? 'sidebar-item--drop-target' : ''}`}
             onClick={() => onSelect(entry.id)}
             onMouseEnter={() => setFocusIdx(i)}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           >
             <Icon name={entry.icon} label={undefined} className="sidebar-item__icon" />
             <span>{entry.label}</span>

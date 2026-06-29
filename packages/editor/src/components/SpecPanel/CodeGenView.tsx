@@ -9,17 +9,18 @@
  * APG Tabs pattern for keyboard navigation.
  */
 
-import { useMemo, useState } from 'react';
-import type { Document, SceneNode } from '@strata/scene';
-import { Tabs, type Tab, CopyButton } from '@strata/ui';
 import {
-  exportNodeToSvg,
   exportNodeToCss,
-  exportNodeToTailwind,
   exportNodeToCssModules,
   exportNodeToFlutter,
+  exportNodeToSvg,
   exportNodeToSwiftUI,
+  exportNodeToTailwind,
 } from '@strata/codegen';
+import type { Document, SceneNode } from '@strata/scene';
+import { CopyButton, type Tab, Tabs } from '@strata/ui';
+import { useMemo, useRef, useState } from 'react';
+import { highlight } from './syntax';
 
 type CodeTarget = 'svg' | 'css' | 'tailwind' | 'modules' | 'flutter' | 'swiftui';
 
@@ -58,13 +59,30 @@ function generateCode(node: SceneNode, doc: Document, target: CodeTarget): strin
 
 export function CodeGenView({ node, doc }: CodeGenViewProps) {
   const [activeTab, setActiveTab] = useState<CodeTarget>('css');
+  const prevCode = useRef<Map<string, string>>(new Map());
 
-  const code = useMemo(
-    () => generateCode(node, doc, activeTab),
-    [node, doc, activeTab],
+  const code = useMemo(() => generateCode(node, doc, activeTab), [node, doc, activeTab]);
+
+  const highlightedLines = useMemo(
+    () => highlight(code, activeTab).split('\n'),
+    [code, activeTab],
   );
 
-  const lineCount = code.split('\n').length;
+  const lineCount = highlightedLines.length;
+
+  const diffSummary = useMemo(() => {
+    const key = `${node.id}:${activeTab}`;
+    const prev = prevCode.current.get(key);
+    prevCode.current.set(key, code);
+    if (prev && prev !== code) {
+      const prevLines = prev.split('\n');
+      const currLines = code.split('\n');
+      const added = currLines.length - prevLines.length;
+      const removed = prevLines.length - currLines.length;
+      return { added: Math.max(0, added), removed: Math.max(0, removed) };
+    }
+    return null;
+  }, [code, node.id, activeTab]);
 
   return (
     <section className="spec-panel__section" aria-labelledby="spec-code-heading">
@@ -74,21 +92,31 @@ export function CodeGenView({ node, doc }: CodeGenViewProps) {
           <div key={tab.value} className="spec-codegen__content">
             <div className="spec-codegen__toolbar">
               <CopyButton value={code} label={`${tab.label} code`} className="spec-row__copy" />
+              {diffSummary && (
+                <div className="spec-codegen__diff" aria-live="polite">
+                  {diffSummary.added > 0 && (
+                    <span className="spec-codegen__diff--added">+{diffSummary.added}</span>
+                  )}
+                  {diffSummary.removed > 0 && (
+                    <span className="spec-codegen__diff--removed">-{diffSummary.removed}</span>
+                  )}
+                </div>
+              )}
             </div>
-            <pre
-              className="spec-codegen__pre"
-              tabIndex={0}
-              aria-label={`${tab.label} generated code`}
-            >
-              <code>
-                {code.split('\n').map((line, i) => (
-                  <span key={i} className="spec-codegen__line">
-                    <span className="spec-codegen__line-num">{String(i + 1).padStart(String(lineCount).length, ' ')}</span>
-                    <span className="spec-codegen__line-text">{line || ' '}</span>
-                  </span>
-                ))}
-              </code>
-            </pre>
+            <section className="spec-codegen__pre" aria-label={`${tab.label} generated code`}>
+              <pre>
+                <code>
+                  {highlightedLines.map((html, i) => (
+                    <span key={i} className="spec-codegen__line">
+                      <span className="spec-codegen__line-num">
+                        {String(i + 1).padStart(String(lineCount).length, ' ')}
+                      </span>
+                      <span className="spec-codegen__line-text" dangerouslySetInnerHTML={{ __html: html || ' ' }} />
+                    </span>
+                  ))}
+                </code>
+              </pre>
+            </section>
           </div>
         ))}
       </Tabs>

@@ -1,23 +1,23 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
-import { SpecReadouts } from './SpecReadouts';
+
 import { createDocument, makeShapeNode, makeTextNode } from '@strata/scene';
+import { render } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { SpecReadouts } from './SpecReadouts';
 
 describe('SpecReadouts', () => {
   it('renders layout section for a shape node', () => {
     const doc = createDocument('Test');
-    const node = makeShapeNode('n1', { kind: 'rect', x: 10, y: 20, w: 200, h: 100 }, {
-      name: 'R1',
-      transform: [1, 0, 0, 1, 50, 60],
-    });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 10, y: 20, w: 200, h: 100 },
+      {
+        name: 'R1',
+        transform: [1, 0, 0, 1, 50, 60],
+      },
+    );
     const { container } = render(
-      <SpecReadouts
-        node={node}
-        doc={doc}
-        unit="px"
-        baseFontSize={16}
-      />,
+      <SpecReadouts node={node} doc={doc} unit="px" baseFontSize={16} />,
     );
     const headings = container.querySelectorAll('h3');
     const headingTexts = Array.from(headings).map((h) => h.textContent);
@@ -42,10 +42,14 @@ describe('SpecReadouts', () => {
 
   it('shows color swatch and hex value', () => {
     const doc = createDocument('Test');
-    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }, {
-      name: 'R1',
-      fill: [57, 208, 198, 255],
-    });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      {
+        name: 'R1',
+        fill: [57, 208, 198, 255],
+      },
+    );
     const { container } = render(
       <SpecReadouts node={node} doc={doc} unit="px" baseFontSize={16} />,
     );

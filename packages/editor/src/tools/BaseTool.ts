@@ -10,7 +10,14 @@
  *
  * Each tool overrides onDragStart / onDragMove / onDragEnd / onDragCancel.
  */
-import type { Tool, ToolContext, ToolCursorState, CursorSpec, ToolId, GestureResult } from './types';
+import type {
+  CursorSpec,
+  GestureResult,
+  Tool,
+  ToolContext,
+  ToolCursorState,
+  ToolId,
+} from './types';
 
 export interface DragState {
   kind: 'idle' | 'dragging' | 'committed';
@@ -163,10 +170,7 @@ export abstract class BaseTool implements Tool {
     return ctx.findContainingFrame(world);
   }
 
-  protected commitToParent(
-    world: { x: number; y: number },
-    _ctx: ToolContext,
-  ): string | null {
+  protected commitToParent(world: { x: number; y: number }, _ctx: ToolContext): string | null {
     return this.findContainingFrame(world, _ctx);
   }
 

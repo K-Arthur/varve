@@ -7,8 +7,9 @@
  * Research basis: Figma Hand tool (H), Illustrator hand tool (H),
  *                 Figma Space-bar spring-loaded pan.
  */
-import type { ToolContext, ToolCursorState, CursorSpec, GestureResult } from './types';
+
 import { BaseTool } from './BaseTool';
+import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class HandTool extends BaseTool {
   id = 'hand' as const;

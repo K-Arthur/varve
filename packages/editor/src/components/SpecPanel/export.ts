@@ -3,10 +3,10 @@
  * via codegen. All exports are local: no network round-trips.
  */
 
+import { exportNodeToSvg } from '@strata/codegen';
 import type { Engine } from '@strata/engine';
 import { replayIr } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode } from '@strata/scene';
-import { exportNodeToSvg } from '@strata/codegen';
 import { worldBBox } from './measurement';
 
 export type RasterFormat = 'image/png' | 'image/jpeg' | 'image/webp';
@@ -33,7 +33,13 @@ function toEngineNode(n: SceneNode) {
   if (n.kind === 'text')
     return {
       ...base,
-      shape: { kind: 'rect' as const, x: 0, y: 0, w: (n.fontSize ?? 16) * 3, h: (n.fontSize ?? 16) * 1.4 },
+      shape: {
+        kind: 'rect' as const,
+        x: 0,
+        y: 0,
+        w: (n.fontSize ?? 16) * 3,
+        h: (n.fontSize ?? 16) * 1.4,
+      },
     };
   return { ...base, shape: { kind: 'rect' as const, x: 0, y: 0, w: 200, h: 160 } };
 }
@@ -86,4 +92,28 @@ export function downloadBlob(blob: Blob, filename: string): void {
 export function buildFilename(nodeName: string, ext: string): string {
   const safe = nodeName.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'export';
   return `${safe}.${ext}`;
+}
+
+export async function exportNodeAsPdf(
+  node: SceneNode,
+  doc: SceneDocument,
+  scale: number,
+): Promise<{ bytes: Uint8Array; filename: string }> {
+  const bbox = worldBBox(node, doc);
+  const w = Math.max(Math.round(bbox.w * scale), 1);
+  const h = Math.max(Math.round(bbox.h * scale), 1);
+
+  const nodes = [toEngineNode(node)];
+  const opts = { page_width: w, page_height: h, title: node.name, author: 'Strata' };
+  const tauri = (window as unknown as Record<string, unknown>).__TAURI__ as
+    | { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }
+    | undefined;
+
+  if (!tauri) {
+    throw new Error('PDF export requires the desktop app');
+  }
+
+  const bytes = await tauri.core.invoke('export_node_pdf', { nodes, opts }) as number[];
+  const filename = buildFilename(node.name, 'pdf');
+  return { bytes: new Uint8Array(bytes), filename };
 }

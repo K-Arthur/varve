@@ -76,6 +76,7 @@ export function makeShapeNode(
       | 'strokes'
       | 'effects'
       | 'cornerRadius'
+      | 'order'
     >
   > & {
     index?: number;
@@ -86,6 +87,7 @@ export function makeShapeNode(
     kind: 'shape',
     name: opts.name ?? 'Shape',
     index: opts.index ?? 0,
+    order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
     opacity: opts.opacity ?? 1,
@@ -122,6 +124,7 @@ export function makeTextNode(
       | 'rotation'
       | 'strokes'
       | 'effects'
+      | 'order'
     >
   > & {
     index?: number;
@@ -132,6 +135,7 @@ export function makeTextNode(
     kind: 'text',
     name: opts.name ?? 'Text',
     index: opts.index ?? 0,
+    order: opts.order ?? 'a0',
     visible: true,
     locked: false,
     opacity: opts.opacity ?? 1,
@@ -167,6 +171,7 @@ export function makeGroupNode(
       | 'opacity'
       | 'blendMode'
       | 'rotation'
+      | 'order'
     >
   > & {
     index?: number;
@@ -177,6 +182,7 @@ export function makeGroupNode(
     kind: 'group',
     name: opts.name ?? 'Group',
     index: opts.index ?? 0,
+    order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
     opacity: opts.opacity ?? 1,
@@ -206,6 +212,7 @@ export function makeFrameNode(
       | 'rotation'
       | 'strokes'
       | 'effects'
+      | 'order'
     >
   > & {
     index?: number;
@@ -216,6 +223,7 @@ export function makeFrameNode(
     kind: 'frame',
     name: opts.name ?? 'Frame',
     index: opts.index ?? 0,
+    order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
     opacity: opts.opacity ?? 1,

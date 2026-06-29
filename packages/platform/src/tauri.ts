@@ -238,6 +238,17 @@ export function createTauriPlatform(): Platform {
         return 'Reveal in Explorer';
       return 'Reveal in Files';
     },
+
+    async saveBlob(name, data, _mimeType) {
+      const c = core();
+      const path = (await c.invoke('plugin:dialog|save', {
+        defaultPath: name,
+        filters: [{ name: 'Export', extensions: [name.split('.').pop() ?? 'png'] }],
+      })) as string | null;
+      if (!path) return null;
+      await c.invoke('save_file_bytes', { path, bytes: Array.from(data) });
+      return path;
+    },
   };
 
   return platform;

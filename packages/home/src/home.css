@@ -115,6 +115,10 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.sidebar-item--drop-target {
+  outline: 2px dashed var(--color-accent-primary);
+  background: var(--color-accent-subtle);
+}
 .sidebar-item__icon {
   width: 1.1em;
   height: 1.1em;

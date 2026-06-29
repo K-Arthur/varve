@@ -141,6 +141,7 @@ export function instantiate(
     kind: 'frame',
     name: `${componentDef.name} Instance`,
     index: 0,
+    order: 'a0',
     visible: true,
     locked: false,
     opacity: 1,

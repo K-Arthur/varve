@@ -7,8 +7,9 @@
  *
  * Research basis: Figma Zoom tool (Z), Illustrator zoom (Z).
  */
-import type { ToolContext, ToolCursorState, CursorSpec, GestureResult } from './types';
+
 import { BaseTool } from './BaseTool';
+import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class ZoomTool extends BaseTool {
   id = 'zoom' as const;

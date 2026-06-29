@@ -135,6 +135,8 @@
 .spec-codegen__toolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
   margin-bottom: var(--space-1);
 }
 .spec-codegen__pre {
@@ -153,6 +155,13 @@
 .spec-codegen__pre:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
+}
+.spec-codegen__pre pre {
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre;
 }
 .spec-codegen__line {
   display: block;
@@ -349,4 +358,66 @@
 /* ── Warning (fails WCAG AA) ───────────────────────── */
 .spec-row__value--warn {
   color: var(--color-feedback-danger);
+}
+
+/* ── Diff-on-change ───────────────────────────────── */
+.spec-codegen__diff {
+  display: flex;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+.spec-codegen__diff--added {
+  color: var(--color-feedback-success, #22c55e);
+}
+.spec-codegen__diff--removed {
+  color: var(--color-feedback-danger, #ef4444);
+}
+
+/* ── Prism syntax tokens (maps to theme vars) ──────── */
+.spec-codegen__pre .token.comment,
+.spec-codegen__pre .token.prolog,
+.spec-codegen__pre .token.doctype,
+.spec-codegen__pre .token.cdata {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.spec-codegen__pre .token.punctuation {
+  color: var(--color-text-secondary);
+}
+.spec-codegen__pre .token.property,
+.spec-codegen__pre .token.tag,
+.spec-codegen__pre .token.boolean,
+.spec-codegen__pre .token.number,
+.spec-codegen__pre .token.constant,
+.spec-codegen__pre .token.symbol,
+.spec-codegen__pre .token.deleted {
+  color: var(--color-feedback-danger, #ef4444);
+}
+.spec-codegen__pre .token.selector,
+.spec-codegen__pre .token.attr-name,
+.spec-codegen__pre .token.string,
+.spec-codegen__pre .token.char,
+.spec-codegen__pre .token.builtin,
+.spec-codegen__pre .token.inserted {
+  color: var(--color-feedback-success, #22c55e);
+}
+.spec-codegen__pre .token.operator,
+.spec-codegen__pre .token.entity,
+.spec-codegen__pre .token.url {
+  color: var(--color-interactive-default, #39d0c6);
+}
+.spec-codegen__pre .token.atrule,
+.spec-codegen__pre .token.attr-value,
+.spec-codegen__pre .token.keyword {
+  color: var(--color-interactive-pressed, #2ba8a0);
+}
+.spec-codegen__pre .token.function,
+.spec-codegen__pre .token.class-name {
+  color: var(--color-accent-teal, #39d0c6);
+}
+.spec-codegen__pre .token.regex,
+.spec-codegen__pre .token.important,
+.spec-codegen__pre .token.variable {
+  color: var(--color-feedback-warning, #eab308);
 }

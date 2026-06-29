@@ -1,16 +1,21 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
-import { MeasurementReadout } from './MeasurementReadout';
+
 import { createDocument, makeShapeNode } from '@strata/scene';
+import { render } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { MeasurementReadout } from './MeasurementReadout';
 
 describe('MeasurementReadout', () => {
   it('renders width and height', () => {
     const doc = createDocument('Test');
-    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, {
-      name: 'R1',
-      transform: [1, 0, 0, 1, 50, 60],
-    });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+      {
+        name: 'R1',
+        transform: [1, 0, 0, 1, 50, 60],
+      },
+    );
     const { container } = render(
       <MeasurementReadout node={node} doc={doc} unit="px" baseFontSize={16} />,
     );
@@ -22,9 +27,13 @@ describe('MeasurementReadout', () => {
 
   it('converts unit to rem', () => {
     const doc = createDocument('Test');
-    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 32, h: 16 }, {
-      name: 'R1',
-    });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 32, h: 16 },
+      {
+        name: 'R1',
+      },
+    );
     const { container } = render(
       <MeasurementReadout node={node} doc={doc} unit="rem" baseFontSize={16} />,
     );

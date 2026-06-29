@@ -9,17 +9,20 @@
  *                 Never creates shapes.
  */
 import { getParent } from '@strata/scene';
-import type { ToolContext, ToolCursorState, CursorSpec, GestureResult } from './types';
 import { BaseTool } from './BaseTool';
+import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class SelectTool extends BaseTool {
   id = 'select' as const;
 
   override cursor(state: ToolCursorState): CursorSpec {
     switch (state) {
-      case 'drag': return { css: 'move' };
-      case 'hover': return { css: 'move' };
-      default: return { css: 'default' };
+      case 'drag':
+        return { css: 'move' };
+      case 'hover':
+        return { css: 'move' };
+      default:
+        return { css: 'default' };
     }
   }
 
@@ -175,7 +178,10 @@ function rectsIntersect(
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-function childrenCount(doc: { nodes: Record<string, { children?: string[] }> }, id: string): number {
+function childrenCount(
+  doc: { nodes: Record<string, { children?: string[] }> },
+  id: string,
+): number {
   const node = doc.nodes[id];
   if (!node?.children) return 0;
   return node.children.length;

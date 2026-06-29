@@ -5,10 +5,10 @@
  * Uses the selected unit for display, with unit conversion applied to copied values.
  */
 
-import { useMemo } from 'react';
 import type { Document, SceneNode } from '@strata/scene';
 import { convertPx, formatValue, type SpecUnit } from '@strata/shared';
 import { CopyButton } from '@strata/ui';
+import { useMemo } from 'react';
 import { worldBBox } from './measurement';
 
 export interface MeasurementReadoutProps {
@@ -61,16 +61,22 @@ export function MeasurementReadout({ node, doc, unit, baseFontSize }: Measuremen
       <div className="spec-row">
         <span className="spec-row__label">X (parent)</span>
         <span className="spec-row__value">{withUnit(localX)}</span>
-        <CopyButton value={withUnit(localX)} label="X position (parent)" className="spec-row__copy" />
+        <CopyButton
+          value={withUnit(localX)}
+          label="X position (parent)"
+          className="spec-row__copy"
+        />
       </div>
 
       <div className="spec-row">
         <span className="spec-row__label">Y (parent)</span>
         <span className="spec-row__value">{withUnit(localY)}</span>
-        <CopyButton value={withUnit(localY)} label="Y position (parent)" className="spec-row__copy" />
+        <CopyButton
+          value={withUnit(localY)}
+          label="Y position (parent)"
+          className="spec-row__copy"
+        />
       </div>
     </section>
   );
 }
-
-

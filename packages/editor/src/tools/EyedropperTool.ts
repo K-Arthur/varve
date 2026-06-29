@@ -47,7 +47,12 @@ export class EyedropperTool extends BaseTool {
       const y = (e.clientY - rect.top) * scaleY;
       const pixel = canvas.getContext('2d')?.getImageData(x, y, 1, 1).data;
       if (pixel) {
-        const color: Color = [pixel[0]!, pixel[1]!, pixel[2]!, pixel[3]!];
+        const color: Color = [
+          pixel[0] as number,
+          pixel[1] as number,
+          pixel[2] as number,
+          pixel[3] as number,
+        ];
         for (const id of sel) {
           ctx.updateNode(id, (n) => ({ ...n, fill: color }));
         }

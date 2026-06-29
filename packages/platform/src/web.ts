@@ -305,6 +305,19 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     fileManagerLabel() {
       return 'Reveal in Files';
     },
+
+    async saveBlob(name, data, mimeType) {
+      const blob = new Blob([data as BlobPart], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return name;
+    },
   };
 
   return platform;

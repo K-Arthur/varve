@@ -6,8 +6,9 @@
  *
  * Research basis: Figma Frame (F), Illustrator Artboard.
  */
-import type { ToolContext, ToolCursorState, CursorSpec } from './types';
+
 import { BaseTool } from './BaseTool';
+import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 const DEFAULT_FRAME_W = 375;
 const DEFAULT_FRAME_H = 812;
@@ -21,7 +22,13 @@ export class FrameTool extends BaseTool {
 
   override onDragMove(ctx: ToolContext): void {
     const rect = this.computeDragRect(ctx);
-    ctx.setDraft({ x: rect.x, y: rect.y, w: rect.w, h: rect.h, label: `${Math.round(rect.w)} x ${Math.round(rect.h)}` });
+    ctx.setDraft({
+      x: rect.x,
+      y: rect.y,
+      w: rect.w,
+      h: rect.h,
+      label: `${Math.round(rect.w)} x ${Math.round(rect.h)}`,
+    });
   }
 
   override onDragEnd(ctx: ToolContext): void {

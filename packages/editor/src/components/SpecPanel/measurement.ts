@@ -10,7 +10,7 @@
 
 import type { Affine, Point, Shape } from '@strata/engine';
 import { applyAffine } from '@strata/engine';
-import type { Document, SceneNode } from '@strata/scene';
+import type { ContainerNode, Document, SceneNode } from '@strata/scene';
 
 export interface AABB {
   x: number;
@@ -116,6 +116,8 @@ function shapeLocalBBox(shape: Shape): AABB {
     case 'path':
       if (shape.points.length === 0) return { x: 0, y: 0, w: 100, h: 100 };
       return pointsAABB(shape.points.map((p) => [p.x, p.y] as [number, number]));
+    default:
+      return { x: 0, y: 0, w: 0, h: 0 };
   }
 }
 
@@ -178,7 +180,8 @@ function applyAffineToAABB(m: Affine, bbox: AABB): AABB {
 function getParent(doc: Document, id: string): string | null {
   for (const n of Object.values(doc.nodes)) {
     if (n.kind === 'frame' || n.kind === 'group') {
-      if ((n as any).children?.includes(id)) return n.id;
+      const container = n as ContainerNode;
+      if (container.children?.includes(id)) return n.id;
     }
   }
   return null;
