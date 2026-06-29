@@ -18,6 +18,7 @@ import type { FlexDirection, FrameNode, LayoutMode, LayoutStyle } from '@strata/
 import { NumberInput } from '@strata/ui';
 import { useState } from 'react';
 import { useEditor } from './context';
+import { ExportPresetPanel } from './components/Export/ExportPresetPanel';
 
 type InspectorTab = 'properties' | 'export' | 'spec';
 
@@ -249,75 +250,28 @@ export function InspectorPanel() {
   );
 }
 
-/** B3: Export tab — SVG, React, PDF (stub). */
+/** B3: Export tab — per-node preset panel + quick export. */
 function ExportTab({ doc }: { doc: import('@strata/scene').Document }) {
-  const [copied, setCopied] = useState<'svg' | 'react' | null>(null);
+  const { state, selectedNodes, addPreset, updatePreset, removePreset } = useEditor();
+  const sel = selectedNodes();
+  const selected = sel[0];
 
-  function copyToClipboard(text: string, which: 'svg' | 'react') {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(which);
-      setTimeout(() => setCopied(null), 1500);
-    });
-  }
-
-  function downloadText(text: string, filename: string, mime: string) {
-    const blob = new Blob([text], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+  if (!selected) {
+    return (
+      <div style={{ padding: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
+        Select a node to configure export presets.
+      </div>
+    );
   }
 
   return (
-    <div>
-      <Section title="Export">
-        <ExportRow
-          label="SVG"
-          hint="Scalable vector — paste into HTML or Figma"
-          onCopy={() => copyToClipboard(exportDocumentToSvg(doc), 'svg')}
-          onDownload={() =>
-            downloadText(exportDocumentToSvg(doc), `${doc.name}.svg`, 'image/svg+xml')
-          }
-          copyLabel={copied === 'svg' ? 'Copied!' : 'Copy SVG'}
-        />
-        <ExportRow
-          label="React"
-          hint="JSX component — paste into your project"
-          onCopy={() => copyToClipboard(exportDocumentToReact(doc), 'react')}
-          onDownload={() =>
-            downloadText(exportDocumentToReact(doc), `${doc.name}.tsx`, 'text/plain')
-          }
-          copyLabel={copied === 'react' ? 'Copied!' : 'Copy JSX'}
-        />
-      </Section>
-      <Section title="Print / PDF">
-        <div
-          style={{
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-            marginBottom: 'var(--space-1)',
-          }}
-        >
-          Preview only — not production-certified
-        </div>
-        <ExportRow
-          label="PDF"
-          hint="RGB colors, fonts outlined"
-          onCopy={undefined}
-          onDownload={() => alert('PDF export requires the Tauri desktop build.')}
-          copyLabel={undefined}
-        />
-        <ExportRow
-          label="PDF/X-1a"
-          hint="CMYK · stub — honours format but output is RGB"
-          onCopy={undefined}
-          onDownload={() => alert('PDF/X export requires the Tauri desktop build.')}
-          copyLabel={undefined}
-        />
-      </Section>
-    </div>
+    <ExportPresetPanel
+      node={selected}
+      doc={doc}
+      onAddPreset={(preset) => addPreset(selected.id, preset)}
+      onUpdatePreset={(preset) => updatePreset(selected.id, preset)}
+      onRemovePreset={(presetId) => removePreset(selected.id, presetId)}
+    />
   );
 }
 
