@@ -57,24 +57,60 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => {
           const nodes = e.rootNodes();
           if (nodes.length > 0) {
+            // Select the first node; real multi-select-all deferred to Phase D
             const first = nodes[0];
             if (first) e.setSelection(first.id);
           }
         };
+      case 'tabNew':
+        return () => e.newTab();
+      case 'tabClose':
+        return () => {
+          if (!e.closeTab(e.state.activeId)) {
+            const sess = e.state.sessions.find((s) => s.id === e.state.activeId);
+            if (confirm(`Close "${sess?.name ?? 'Untitled'}"? Unsaved changes will be lost.`)) {
+              e.closeTab(e.state.activeId, true);
+            }
+          }
+        };
+      case 'tabNext': {
+        return () => {
+          const { sessions, activeId } = e.state;
+          const idx = sessions.findIndex((s) => s.id === activeId);
+          const next = sessions[(idx + 1) % sessions.length];
+          if (next) e.switchTab(next.id);
+        };
+      }
+      case 'tabPrev': {
+        return () => {
+          const { sessions, activeId } = e.state;
+          const idx = sessions.findIndex((s) => s.id === activeId);
+          const prev = sessions[(idx - 1 + sessions.length) % sessions.length];
+          if (prev) e.switchTab(prev.id);
+        };
+      }
       case 'group':
         return null;
       case 'shortcutPalette':
         return () => setPaletteOpen((p) => !p);
       case 'toolSelect':
         return () => e.setTool('select' as ToolId);
+      case 'toolFrame':
+        return () => e.setTool('frame' as ToolId);
       case 'toolRect':
         return () => e.setTool('rect' as ToolId);
       case 'toolEllipse':
         return () => e.setTool('ellipse' as ToolId);
+      case 'toolLine':
+        return () => e.setTool('line' as ToolId);
+      case 'toolPen':
+        return () => e.setTool('pen' as ToolId);
       case 'toolText':
         return () => e.setTool('text' as ToolId);
       case 'toolHand':
         return () => e.setTool('hand' as ToolId);
+      case 'toolZoom':
+        return () => e.setTool('zoomIn' as ToolId);
       default:
         return null;
     }

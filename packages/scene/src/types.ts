@@ -38,6 +38,21 @@ export interface TextNode extends NodeBase {
   fontSize: number;
 }
 
+/** B2: TypeScript mirror of strata-layout LayoutStyle (Rust). */
+export type LayoutMode = 'flex' | 'grid';
+export type FlexDirection = 'row' | 'column' | 'rowReverse' | 'columnReverse';
+
+export interface LayoutStyle {
+  mode: LayoutMode;
+  direction: FlexDirection;
+  gap: number;
+  wrap: boolean;
+  /** [top, right, bottom, left] in px. */
+  padding: [number, number, number, number];
+  grow: number;
+  shrink: number;
+}
+
 export interface FrameNode extends NodeBase {
   kind: 'frame';
   transform: Affine;
@@ -47,6 +62,8 @@ export interface FrameNode extends NodeBase {
   componentId?: NodeId;
   /** Slot fills: slotId -> child NodeId (filled in task 1.1). */
   slots?: Record<string, NodeId>;
+  /** B2: CSS layout properties (Taffy-backed). */
+  layoutStyle?: LayoutStyle;
 }
 
 export type SceneNode = ShapeNode | TextNode | FrameNode;

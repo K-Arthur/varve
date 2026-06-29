@@ -10,7 +10,7 @@
 
 ## Methodology
 
-Same as Phase 1: BMAD Lite + TDD-first + Cascade Review gate after each task + Research Gate (`// Research basis: ...`) cited inline. Independent tasks parallelised via subagents.
+Same as Phase 1: BMAD Lite + TDD-first + Cascade Review gate after each task + Research Gate (`// Research basis: ...`) cited inline. Independent tasks parallelised via subagents (see AGENTS.md §Multi-agent coordination for worktree protocol, hub-file handling, and merge coordination when subagents touch intersecting code).
 
 ### Per-task gate (non-negotiable)
 

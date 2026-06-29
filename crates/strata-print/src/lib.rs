@@ -83,6 +83,42 @@ fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
             )
             .into_bytes()
         }
+        Shape::Polygon { cx, cy, radius, sides, rotation } => {
+            let scx = cx + x_off;
+            let scy = page_height - cy - y_off;
+            let mut buf = format!("q\n{color}\n").into_bytes();
+            for i in 0..*sides {
+                let a = 2.0 * std::f64::consts::PI * i as f64 / *sides as f64 - std::f64::consts::FRAC_PI_2 + rotation;
+                let px = scx + radius * a.cos();
+                let py = scy + radius * a.sin();
+                if i == 0 {
+                    buf.extend(format!("{px:.2} {py:.2} m\n").as_bytes());
+                } else {
+                    buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
+                }
+            }
+            buf.extend_from_slice(b"h f\nQ\n");
+            buf
+        }
+        Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation } => {
+            let scx = cx + x_off;
+            let scy = page_height - cy - y_off;
+            let mut buf = format!("q\n{color}\n").into_bytes();
+            let total = points * 2;
+            for i in 0..total {
+                let a = std::f64::consts::PI * i as f64 / *points as f64 - std::f64::consts::FRAC_PI_2 + rotation;
+                let r = if i % 2 == 0 { *outer_radius } else { *inner_radius };
+                let px = scx + r * a.cos();
+                let py = scy + r * a.sin();
+                if i == 0 {
+                    buf.extend(format!("{px:.2} {py:.2} m\n").as_bytes());
+                } else {
+                    buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
+                }
+            }
+            buf.extend_from_slice(b"h f\nQ\n");
+            buf
+        }
     }
 }
 

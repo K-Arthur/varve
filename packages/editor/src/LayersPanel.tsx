@@ -1,10 +1,41 @@
-import type { NodeId, SceneNode } from '@strata/scene';
-import { CHROME_ICONS, Icon } from '@strata/ui';
+/**
+ * Layers panel — APG Tree View (role=tree, role=treeitem, roving tabindex).
+ *
+ * A7: type icons (distinct per kind), lock toggle, visibility toggle both wired.
+ * F1: uses isSelected() from context so nested nodes highlight correctly.
+ */
+import type { NodeId, SceneNode, ShapeNode } from '@strata/scene';
+import type { IconName } from '@strata/ui';
+import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from './context';
+import { VariablePanel } from './VariablePanel';
+
+function nodeTypeIcon(n: SceneNode): IconName {
+  if (n.kind === 'frame') return n.componentId ? TOOL_ICONS.component : TOOL_ICONS.frame;
+  if (n.kind === 'text') return TOOL_ICONS.text;
+  if (n.kind === 'shape') {
+    const s = (n as ShapeNode).shape;
+    if (s.kind === 'ellipse' || s.kind === 'circle') return TOOL_ICONS.ellipse;
+    if (s.kind === 'line') return TOOL_ICONS.line;
+    if (s.kind === 'polygon') return TOOL_ICONS.polygon;
+    if (s.kind === 'star') return TOOL_ICONS.star;
+    return TOOL_ICONS.rect;
+  }
+  return TOOL_ICONS.rect;
+}
 
 export function LayersPanel() {
-  const { state, setSelection, renameSelected, moveNode } = useEditor();
+  const {
+    state,
+    isSelected,
+    setSelection,
+    toggleSelection,
+    renameSelected,
+    moveNode,
+    setNodeLocked,
+    setNodeVisible,
+  } = useEditor();
   const [focusIdx, setFocusIdx] = useState(0);
   const [expanded, setExpanded] = useState<Set<NodeId>>(new Set());
   const treeRef = useRef<HTMLDivElement>(null);
@@ -46,8 +77,9 @@ export function LayersPanel() {
   const selectAndFocus = useCallback(
     (idx: number) => {
       const i = clampFocus(idx);
-      if (nodes[i]) {
-        setSelection(nodes[i]?.id);
+      const node = nodes[i];
+      if (node) {
+        setSelection(node.id);
         setFocusIdx(i);
       }
     },
@@ -71,26 +103,21 @@ export function LayersPanel() {
       const delta = (e.key === 'ArrowDown' ? 1 : 0) - (e.key === 'ArrowUp' ? 1 : 0);
       if (delta !== 0) {
         e.preventDefault();
-        const next = clampFocus(focusIdx + delta);
-        selectAndFocus(next);
+        selectAndFocus(clampFocus(focusIdx + delta));
         return;
       }
 
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         const n = nodes[focusIdx];
-        if (n?.kind === 'frame' && !expanded.has(n.id)) {
-          toggleExpand(n.id);
-        }
+        if (n?.kind === 'frame' && !expanded.has(n.id)) toggleExpand(n.id);
         return;
       }
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         const n = nodes[focusIdx];
-        if (n?.kind === 'frame' && expanded.has(n.id)) {
-          toggleExpand(n.id);
-        }
+        if (n?.kind === 'frame' && expanded.has(n.id)) toggleExpand(n.id);
         return;
       }
 
@@ -111,6 +138,16 @@ export function LayersPanel() {
         return;
       }
 
+      if (e.key === 'F2') {
+        e.preventDefault();
+        const n = nodes[focusIdx];
+        if (n) {
+          const name = prompt('Rename layer', n.name);
+          if (name) renameSelected(name);
+        }
+        return;
+      }
+
       if (e.key.length === 1) {
         const ta = typeAheadRef.current;
         ta.buf = (ta.buf + e.key).toLowerCase();
@@ -123,14 +160,13 @@ export function LayersPanel() {
         for (let i = 0; i < len; i++) {
           const label = nodes[(focusIdx + 1 + i) % len]?.name.toLowerCase();
           if (label?.startsWith(ta.buf)) {
-            const next = (focusIdx + 1 + i) % len;
-            selectAndFocus(next);
+            selectAndFocus((focusIdx + 1 + i) % len);
             return;
           }
         }
       }
     },
-    [nodes, focusIdx, expanded, clampFocus, selectAndFocus, toggleExpand],
+    [nodes, focusIdx, expanded, clampFocus, selectAndFocus, toggleExpand, renameSelected],
   );
 
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
@@ -149,15 +185,12 @@ export function LayersPanel() {
       e.preventDefault();
       const fromId = dragRef.current;
       if (!fromId) return;
-
       const dropTarget = (e.target as HTMLElement).closest<HTMLElement>('[data-node-id]');
       const toId = dropTarget?.dataset.nodeId;
       if (!toId || fromId === toId) return;
-
       const fromIdx = nodes.findIndex((n) => n.id === fromId);
       const toIdx = nodes.findIndex((n) => n.id === toId);
       if (fromIdx < 0 || toIdx < 0) return;
-
       moveNode(fromId, toIdx);
       dragRef.current = null;
     },
@@ -195,11 +228,12 @@ export function LayersPanel() {
           </div>
         )}
         {nodes.map((n, i) => {
-          const selected = n.id === state.selection;
+          const selected = isSelected(n.id);
           const focused = i === focusIdx;
           const depth = entries.depths[i] ?? 0;
           const isFrame = n.kind === 'frame';
           const expandedNode = expanded.has(n.id);
+          const typeIcon = nodeTypeIcon(n);
           return (
             <div
               key={n.id}
@@ -208,10 +242,10 @@ export function LayersPanel() {
               aria-selected={selected}
               aria-expanded={isFrame ? expandedNode : undefined}
               tabIndex={focused ? 0 : -1}
-              draggable
+              draggable={!n.locked}
               onDragStart={(e) => handleDragStart(e, n.id)}
-              onClick={() => {
-                setSelection(n.id);
+              onClick={(e) => {
+                toggleSelection(n.id, e.shiftKey);
                 setFocusIdx(i);
               }}
               onDoubleClick={() => {
@@ -225,17 +259,19 @@ export function LayersPanel() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 'var(--space-1)',
-                padding: 'var(--space-1) var(--space-2)',
-                paddingLeft: `calc(var(--space-2) * ${depth + 1})`,
+                padding: 'var(--space-1) var(--space-1)',
+                paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
                 borderRadius: 'var(--radius-sm)',
-                cursor: 'grab',
+                cursor: n.locked ? 'not-allowed' : 'default',
                 background: selected ? 'var(--color-interactive-default)' : 'transparent',
                 color: selected ? 'var(--color-text-on-accent)' : 'var(--color-text-primary)',
+                opacity: n.visible ? 1 : 0.4,
                 outline: focused ? '2px solid var(--color-interactive-focus-ring)' : 'none',
                 outlineOffset: -2,
               }}
             >
-              {isFrame && (
+              {/* Expand/collapse disclosure for frames */}
+              {isFrame ? (
                 <button
                   type="button"
                   tabIndex={-1}
@@ -252,15 +288,35 @@ export function LayersPanel() {
                     padding: 0,
                     width: '1em',
                     textAlign: 'center',
-                    fontSize: 'var(--font-size-xs)',
+                    flexShrink: 0,
                   }}
                 >
-                  {expandedNode ? '\u25BC' : '\u25B6'}
+                  <Icon
+                    name={expandedNode ? CHROME_ICONS.chevronDown : CHROME_ICONS.chevronRight}
+                    size="0.75em"
+                  />
                 </button>
+              ) : (
+                <span style={{ width: '1em', flexShrink: 0 }} />
               )}
-              {!isFrame && <span style={{ width: '1em' }} />}
-              <Icon name={CHROME_ICONS.visibility} size="0.85em" label="" />
-              <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{n.name}</span>
+
+              {/* Type icon */}
+              <Icon name={typeIcon} size="0.85em" aria-hidden />
+
+              {/* Layer name */}
+              <span
+                style={{
+                  flex: 1,
+                  fontSize: 'var(--font-size-sm)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {n.name}
+              </span>
+
+              {/* Instance badge */}
               {isFrame && n.componentId && (
                 <span
                   style={{
@@ -269,14 +325,73 @@ export function LayersPanel() {
                     background: 'var(--color-surface-sunken)',
                     borderRadius: 'var(--radius-sm)',
                     padding: '0 var(--space-1)',
+                    flexShrink: 0,
                   }}
                 >
                   instance
                 </span>
               )}
+
+              {/* Visibility toggle */}
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNodeVisible(n.id, !n.visible);
+                }}
+                aria-label={n.visible ? 'Hide layer' : 'Show layer'}
+                aria-pressed={!n.visible}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'inherit',
+                  padding: 0,
+                  flexShrink: 0,
+                  opacity: n.visible ? 0.4 : 1,
+                }}
+              >
+                <Icon
+                  name={n.visible ? CHROME_ICONS.visibility : CHROME_ICONS.visibilityOff}
+                  size="0.85em"
+                />
+              </button>
+
+              {/* Lock toggle */}
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNodeLocked(n.id, !n.locked);
+                }}
+                aria-label={n.locked ? 'Unlock layer' : 'Lock layer'}
+                aria-pressed={n.locked}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'inherit',
+                  padding: 0,
+                  flexShrink: 0,
+                  opacity: n.locked ? 1 : 0.25,
+                }}
+              >
+                <Icon name={n.locked ? CHROME_ICONS.lock : CHROME_ICONS.unlock} size="0.85em" />
+              </button>
             </div>
           );
         })}
+      </div>
+      <div
+        style={{
+          marginTop: 'var(--space-3)',
+          paddingTop: 'var(--space-2)',
+          borderTop: '1px solid var(--color-border-subtle)',
+        }}
+      >
+        <VariablePanel />
       </div>
     </div>
   );

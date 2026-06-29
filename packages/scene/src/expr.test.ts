@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluate, tokenize, type Token } from './expr';
+import { evaluate, tokenize } from './expr';
 
 describe('tokenize', () => {
   it('tokenizes a number', () => {

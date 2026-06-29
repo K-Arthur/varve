@@ -21,7 +21,17 @@ export type Shape =
   | { kind: 'rect'; x: number; y: number; w: number; h: number }
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
   | { kind: 'circle'; cx: number; cy: number; r: number }
-  | { kind: 'line'; from: Point; to: Point; tolerance: number };
+  | { kind: 'line'; from: Point; to: Point; tolerance: number }
+  | { kind: 'polygon'; cx: number; cy: number; radius: number; sides: number; rotation: number }
+  | {
+      kind: 'star';
+      cx: number;
+      cy: number;
+      innerRadius: number;
+      outerRadius: number;
+      points: number;
+      rotation: number;
+    };
 
 export interface SceneNode {
   id: string;
@@ -39,7 +49,17 @@ export type Primitive =
   | { kind: 'rect'; x: number; y: number; w: number; h: number }
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
   | { kind: 'circle'; cx: number; cy: number; r: number }
-  | { kind: 'line'; from: Point; to: Point; tolerance: number };
+  | { kind: 'line'; from: Point; to: Point; tolerance: number }
+  | { kind: 'polygon'; cx: number; cy: number; radius: number; sides: number; rotation: number }
+  | {
+      kind: 'star';
+      cx: number;
+      cy: number;
+      innerRadius: number;
+      outerRadius: number;
+      points: number;
+      rotation: number;
+    };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */
 export interface RenderItem {

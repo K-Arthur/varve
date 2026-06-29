@@ -6,6 +6,7 @@ import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
+import { TabStrip } from './TabStrip';
 import { ToolPanel } from './ToolPanel';
 
 function ShellInner() {
@@ -24,6 +25,7 @@ function ShellInner() {
     <div className="editor-shell">
       <Menubar />
       <ToolPanel />
+      <TabStrip />
       <CanvasArea />
       <LayersPanel />
       <InspectorPanel />

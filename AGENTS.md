@@ -41,8 +41,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 ```
 
 ## Current test counts
-- **Rust:** 64 workspace + 8 src-tauri = 72 tests (strata-core: 35, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 4, strata-trace: 8 + src-tauri round-trip)
-- **JS:** 123 tests (engine 19, scene 35+, ui 20, shared 1, editor 15, codegen 11+, expr 22)
+- **Rust:** 72 workspace + 8 src-tauri = 80 tests (strata-core: 35, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 4, strata-trace: 8 + src-tauri round-trip)
+- **JS:** 125 tests (engine 19, scene 57, ui 20, shared 1, editor 17, codegen 11)
 - **Gates:** lint 0 errors, emoji 0 violations, tokens 42/42 WCAG-AA across 3 themes
 
 ## Architecture decisions
@@ -53,6 +53,33 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations
 → input-method audit (mouse/keyboard/touch/SR) → reduced-motion → 3-OS build
 → no layout thrash → assert native backend on desktop (not WASM).
+
+## Multi-agent coordination
+
+Multiple agents (subagents, parallel sessions) may touch the codebase concurrently:
+
+| Scenario | Strategy |
+|---|---|
+| **Different crates/packages** | Safe in parallel. Package boundary (`crates/` vs `packages/`, or different crates/packages) is the isolation layer. E.g., Rust `strata-core` and TS `@strata/ui` never conflict. |
+| **Same package, different files** | Safe in parallel if files are independent (no cross-imports). File is the unit of conflict. |
+| **Same file** | **Must be sequential.** One agent finishes (commits), then the next rebases/merges. Use `git worktree add` for filesystem isolation — each agent/session gets its own worktree on its own branch. |
+| **Hub files intersect** | Files like `CanvasArea.tsx` (imports from engine, scene, editor context) or `Shell.tsx` are integration hubs. Changes to dependencies may require hub updates. After parallel agents finish, the coordinating session runs `just gate` to catch integration breakage. |
+
+**Worktree protocol** (via `using-git-worktrees` skill):
+- Each agent creates a worktree: `git worktree add .worktrees/<feature> -b <feature>`
+- Work in the worktree, commit, push branch
+- Coordinator merges branches sequentially, resolving conflicts in hub files
+- Verify with `just gate` after each merge
+
+**When code must intersect** (e.g., both agents change `context.tsx`):
+- Define the shared interface/type first (the "contract")
+- Dispatch agents with the contract committed
+- First agent to finish sets the baseline; second rebases onto it
+- If that's not possible, sequence the work: one agent at a time touching the shared file
+
+**Parallel implementation vs parallel investigation:**
+- `dispatching-parallel-agents` — for independent *investigation* (debugging, research). Safe in parallel.
+- `subagent-driven-development` — for sequential *implementation* per task. Explicitly forbids parallel implementation of the same area.
 
 ## Hard rules
 - No emoji anywhere (§4.4). SVG icons via Lucide `<Icon>` only.
@@ -80,7 +107,7 @@ TDD-first → tests green → token audit → zero emoji → axe-core zero viola
 | `@strata/engine` | **Built** | `createEngine(backend)` facade (stub/native/wasm), TypeScript IR types matching Rust, `replayIr(canvas, ir)` — the 86fps canvas2D replay, geometry helpers (affine inverse/apply, point containment, hitTest), `ReplayTarget` interface. 19 tests. |
 | `@strata/scene` | **Built** | Immutable `Document` with add/insert/remove/move/rename ops, `ShapeNode`/`TextNode`/`FrameNode` types, `ComponentDefinition` with typed `Slot[]`, `VariableStore` with modes+resolve, `slotsSatisfied()` guard. Slots-ready for task 1.1. 11 tests. |
 | `@strata/ui` | **Built** | Tokens: color ramps, 3 themes, WCAG-AA audit, `tokens.css` generated from TS. Icons: typed Lucide `<Icon name label>` with a11y contract, `TOOL_ICONS` + `CHROME_ICONS` maps. Components: APG `Button` (5 variants), `IconButton`, `Toolbar` (roving tabindex), `NumberInput` (drag-to-scrub, arrow inc/dec), `components.css` (token-styled). 20 tests. |
-| `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (APG Tree View with roving tabindex, type-ahead, drag reorder), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel`, `StatusBar`. 15 tests. |
+| `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (APG Tree View with roving tabindex, type-ahead, drag reorder), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing, layout/export/spec tabs), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel` with Select/Frame/Rect/Ellipse/Line/Pen/Text/Hand/Zoom tools, `TabStrip`, `VariablePanel`, `StatusBar`. 17 tests. |
 | `@strata/codegen` | **Built** | `exportDocumentToSvg(doc)` — standalone SVG from Document. `exportDocumentToReact(doc)` — React/Tailwind JSX. Sub-path export. |
 | `@strata/shared` | Stub | Cross-cutting types + fractional indexing (task 0.8+). |
 
@@ -114,6 +141,18 @@ All 7 tasks + pre-flight completed:
 **Remaining for next session:** Packaging (0.11) — .AppImage/.deb/.dmg/.msi CI matrix, CachyOS AUR PKGBUILD.
 
 ### Session 4: 72 Rust tests (was 37), 123 JS tests (was 66), all gates pass.
+
+## Stabilization pass update (Session 5, 2026-06-28)
+
+Phase A/B UI surfacing work is present in the working tree: multi-document tabs, tooltips, variables, export/spec/layout inspector panels, and auto-trace UI surfaces. This session added two small follow-through fixes:
+
+| Area | Update |
+|---|---|
+| Test environment | Added `vitest.setup.ts` with a jsdom Canvas2D shim so editor tests fail on real console errors instead of logging the expected `HTMLCanvasElement.getContext` environment warning. |
+| Drawing tools | Exposed the existing engine `line` primitive as an editor tool (`ToolId`, toolbar button, `L` shortcut, drag-to-create shape, type-aware name `Line 1`). |
+| Verification | `pnpm test` reports 125/125 JS tests; `cargo test --workspace` reports 72/72 Rust workspace tests; `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` reports 8/8 src-tauri tests; `pnpm typecheck`, `pnpm lint`, `pnpm audit:emoji`, and `pnpm audit:tokens` pass locally. |
+
+**Next Phase C slices:** polygon/star/image tools, real pen/path model, inline text editing, stroke/opacity/blend/radius, color picker, native `.strata` save/load, clipboard/duplicate/z-order/group.
 
 ## Key files to read before starting
 

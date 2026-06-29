@@ -12,3 +12,5 @@ export type { NumberInputProps } from './NumberInput';
 export { NumberInput } from './NumberInput';
 export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';
+export type { TooltipProps } from './Tooltip';
+export { Tooltip } from './Tooltip';

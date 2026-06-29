@@ -11,7 +11,7 @@
 - **BMAD Lite** — decompose each task into Bounded, Measurable, Achievable, Deliverable steps with done-criteria before coding.
 - **TDD-first** — write the failing test (Vitest / `cargo test` / Playwright) before the implementation, always.
 - **Cascade Review** — after every sub-task: self-review -> automated checks -> quality gate -> proceed. Never skip the gate.
-- **Sub-agent delegation** — independent tasks can be parallelised across subagents (see Execution Order).
+- **Sub-agent delegation** — independent tasks can be parallelised across subagents (see Execution Order). See AGENTS.md §Multi-agent coordination for worktree isolation, hub-file handling, and merge protocol when subagents touch intersecting code.
 - **Research Gate (mandatory)** — before each feature, look up current best practice and cite it inline (`// Research basis: ...`). Do not implement from memory alone.
 
 ---

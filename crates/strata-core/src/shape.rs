@@ -21,6 +21,23 @@ pub enum Shape {
         line: Line,
         tolerance: f64,
     },
+    /// Regular polygon (equilateral, centered).
+    Polygon {
+        cx: f64,
+        cy: f64,
+        radius: f64,
+        sides: u32,
+        rotation: f64,
+    },
+    /// Star shape (alternating inner/outer vertices).
+    Star {
+        cx: f64,
+        cy: f64,
+        inner_radius: f64,
+        outer_radius: f64,
+        points: u32,
+        rotation: f64,
+    },
 }
 
 impl Shape {
@@ -33,8 +50,50 @@ impl Shape {
             Shape::Line { line, tolerance } => {
                 point_to_segment_dist_sq(*line, pt) <= tolerance * tolerance
             }
+            Shape::Polygon { cx, cy, radius, sides, rotation } => {
+                let verts = polygon_vertices(*cx, *cy, *radius, *sides, *rotation);
+                point_in_polygon(&verts, pt)
+            }
+            Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation } => {
+                let verts = star_vertices(*cx, *cy, *inner_radius, *outer_radius, *points, *rotation);
+                point_in_polygon(&verts, pt)
+            }
         }
     }
+}
+
+fn polygon_vertices(cx: f64, cy: f64, radius: f64, sides: u32, rotation: f64) -> Vec<Point> {
+    let mut verts = Vec::with_capacity(sides as usize);
+    for i in 0..sides {
+        let a = 2.0 * std::f64::consts::PI * i as f64 / sides as f64 - std::f64::consts::FRAC_PI_2 + rotation;
+        verts.push(Point::new(cx + radius * a.cos(), cy + radius * a.sin()));
+    }
+    verts
+}
+
+fn star_vertices(cx: f64, cy: f64, inner_radius: f64, outer_radius: f64, points: u32, rotation: f64) -> Vec<Point> {
+    let total = (points * 2) as usize;
+    let mut verts = Vec::with_capacity(total);
+    for i in 0..total {
+        let a = std::f64::consts::PI * i as f64 / points as f64 - std::f64::consts::FRAC_PI_2 + rotation;
+        let r = if i % 2 == 0 { outer_radius } else { inner_radius };
+        verts.push(Point::new(cx + r * a.cos(), cy + r * a.sin()));
+    }
+    verts
+}
+
+fn point_in_polygon(vertices: &[Point], pt: Point) -> bool {
+    let mut inside = false;
+    let mut j = vertices.len() - 1;
+    for i in 0..vertices.len() {
+        if (vertices[i].y > pt.y) != (vertices[j].y > pt.y)
+            && pt.x < (vertices[j].x - vertices[i].x) * (pt.y - vertices[i].y) / (vertices[j].y - vertices[i].y) + vertices[i].x
+        {
+            inside = !inside;
+        }
+        j = i;
+    }
+    inside
 }
 
 fn point_in_ellipse(center: Point, rx: f64, ry: f64, pt: Point) -> bool {

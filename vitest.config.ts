@@ -5,6 +5,7 @@ import { defineConfig } from 'vitest/config';
 // at the top of a test file when DOM is needed.
 export default defineConfig({
   test: {
+    setupFiles: ['./vitest.setup.ts'],
     include: [
       'packages/**/src/**/*.{test,spec}.{ts,tsx}',
       'apps/**/src/**/*.{test,spec}.{ts,tsx}',

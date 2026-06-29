@@ -25,11 +25,23 @@ export const SHORTCUT_DEFS = {
     label: 'Command Palette',
     category: 'View',
   },
+  tabNew: { binding: { key: 't', ctrl: true }, label: 'New tab', category: 'File' },
+  tabClose: { binding: { key: 'w', ctrl: true }, label: 'Close tab', category: 'File' },
+  tabNext: { binding: { key: 'Tab', ctrl: true }, label: 'Next tab', category: 'View' },
+  tabPrev: {
+    binding: { key: 'Tab', ctrl: true, shift: true },
+    label: 'Previous tab',
+    category: 'View',
+  },
   toolSelect: { binding: { key: 'v' }, label: 'Select tool', category: 'Tools' },
+  toolFrame: { binding: { key: 'f' }, label: 'Frame tool', category: 'Tools' },
   toolRect: { binding: { key: 'r' }, label: 'Rectangle tool', category: 'Tools' },
-  toolEllipse: { binding: { key: 'e' }, label: 'Ellipse tool', category: 'Tools' },
+  toolEllipse: { binding: { key: 'o' }, label: 'Ellipse tool', category: 'Tools' },
+  toolLine: { binding: { key: 'l' }, label: 'Line tool', category: 'Tools' },
+  toolPen: { binding: { key: 'p' }, label: 'Pen tool', category: 'Tools' },
   toolText: { binding: { key: 't' }, label: 'Text tool', category: 'Tools' },
   toolHand: { binding: { key: 'h' }, label: 'Hand tool', category: 'Tools' },
+  toolZoom: { binding: { key: 'z' }, label: 'Zoom tool', category: 'Tools' },
 } satisfies Record<string, ShortcutDef>;
 
 export function isMac(): boolean {

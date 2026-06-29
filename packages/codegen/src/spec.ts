@@ -103,7 +103,7 @@ function approxShapeSize(node: SceneNode): { w: number; h: number } {
  * Collects aggregated spacing values, type styles, assets, and per-node details.
  */
 export function buildSpec(doc: Document): SpecSheet {
-  const spacings = new Map<string, { value: number; count: number }>();
+  const spacings = new Map<string, { name: string; value: number; count: number }>();
   const typeStyles = new Map<string, SpecTypeStyle>();
   const assets: SpecAsset[] = [];
   const nodes: SpecNodeDetail[] = [];
@@ -115,7 +115,7 @@ export function buildSpec(doc: Document): SpecSheet {
     if (existing) {
       existing.count++;
     } else {
-      spacings.set(key, { value, count: 1 });
+      spacings.set(key, { name: key, value, count: 1 });
     }
   }
 

@@ -57,7 +57,7 @@ export function tokenize(input: string): Token[] {
     }
     if (ch >= '0' && ch <= '9') {
       let j = i;
-      while (j < input.length && (input[j]! >= '0' && input[j]! <= '9' || input[j] === '.')) j++;
+      while (j < input.length && ((input[j]! >= '0' && input[j]! <= '9') || input[j] === '.')) j++;
       tokens.push({ kind: 'number', value: Number.parseFloat(input.slice(i, j)) });
       i = j;
       continue;
@@ -102,7 +102,7 @@ export function evaluate(input: string, aliases: Record<string, number>): number
 
     while (true) {
       const t = peek();
-      if (!t || t.kind !== 'op') break;
+      if (t?.kind !== 'op') break;
       const prec = PRECEDENCE[t.op] ?? 0;
       if (prec < minPrec) break;
       consume();
@@ -126,7 +126,7 @@ export function evaluate(input: string, aliases: Record<string, number>): number
     if (t.kind === 'paren' && t.value === '(') {
       const val = parseExpr(0);
       const close = peek();
-      if (!close || close.kind !== 'paren' || close.value !== ')') {
+      if (close?.kind !== 'paren' || close.value !== ')') {
         throw new Error('Mismatched parentheses');
       }
       consume();

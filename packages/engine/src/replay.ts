@@ -28,6 +28,7 @@ export interface ReplayTarget {
   lineTo(x: number, y: number): void;
   fill(): void;
   stroke(): void;
+  closePath(): void;
   fillStyle: string;
   lineWidth: number;
   lineCap: CanvasLineCap;
@@ -82,6 +83,42 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
         target.lineTo(item.primitive.to[0], item.primitive.to[1]);
         target.stroke();
         break;
+      case 'polygon': {
+        target.beginPath();
+        const { cx, cy, radius, sides, rotation } = item.primitive;
+        for (let i = 0; i < sides; i++) {
+          const a = (2 * Math.PI * i) / sides - Math.PI / 2 + rotation;
+          const px = cx + radius * Math.cos(a);
+          const py = cy + radius * Math.sin(a);
+          if (i === 0) target.moveTo(px, py);
+          else target.lineTo(px, py);
+        }
+        target.closePath();
+        target.fill();
+        break;
+      }
+      case 'star': {
+        target.beginPath();
+        const {
+          cx: scx,
+          cy: scy,
+          innerRadius,
+          outerRadius,
+          points,
+          rotation: srot,
+        } = item.primitive;
+        for (let i = 0; i < points * 2; i++) {
+          const a = (Math.PI * i) / points - Math.PI / 2 + srot;
+          const r = i % 2 === 0 ? outerRadius : innerRadius;
+          const px = scx + r * Math.cos(a);
+          const py = scy + r * Math.sin(a);
+          if (i === 0) target.moveTo(px, py);
+          else target.lineTo(px, py);
+        }
+        target.closePath();
+        target.fill();
+        break;
+      }
     }
     target.restore();
   }

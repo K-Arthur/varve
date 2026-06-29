@@ -69,9 +69,7 @@ function collectAliases(store: VariableStore, expr: string): Record<string, numb
     visited.add(name);
     const resolved = resolve(store, name);
     if (typeof resolved !== 'number') {
-      throw new Error(
-        `Alias '${name}' must be numeric for math, got ${typeof resolved}`,
-      );
+      throw new Error(`Alias '${name}' must be numeric for math, got ${typeof resolved}`);
     }
     aliases[name] = resolved;
   }

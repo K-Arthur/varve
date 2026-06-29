@@ -27,6 +27,38 @@ function escapeXml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function shapeVerticesToPoints(s: { kind: string } & Record<string, unknown>): string {
+  if (s.kind === 'polygon') {
+    const cx = Number(s.cx),
+      cy = Number(s.cy),
+      radius = Number(s.radius),
+      sides = Number(s.sides),
+      rotation = Number(s.rotation);
+    const pts: string[] = [];
+    for (let i = 0; i < sides; i++) {
+      const a = (2 * Math.PI * i) / sides - Math.PI / 2 + rotation;
+      pts.push(`${cx + radius * Math.cos(a)},${cy + radius * Math.sin(a)}`);
+    }
+    return pts.join(' ');
+  }
+  if (s.kind === 'star') {
+    const cx = Number(s.cx),
+      cy = Number(s.cy),
+      ir = Number(s.innerRadius),
+      or = Number(s.outerRadius),
+      points = Number(s.points),
+      rotation = Number(s.rotation);
+    const pts: string[] = [];
+    for (let i = 0; i < points * 2; i++) {
+      const a = (Math.PI * i) / points - Math.PI / 2 + rotation;
+      const r = i % 2 === 0 ? or : ir;
+      pts.push(`${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`);
+    }
+    return pts.join(' ');
+  }
+  return '';
+}
+
 function nodeToSvg(node: SceneNode, doc: Document, depth: number): string {
   const indent = '  '.repeat(depth);
   const fill = rgba(node.fill);
@@ -44,6 +76,10 @@ function nodeToSvg(node: SceneNode, doc: Document, depth: number): string {
           return `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fill}" transform="${transform}" />`;
         case 'line':
           return `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${fill}" stroke-width="${s.tolerance * 2}" stroke-linecap="round" transform="${transform}" />`;
+        case 'polygon':
+          return `${indent}<polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" transform="${transform}" />`;
+        case 'star':
+          return `${indent}<polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" transform="${transform}" />`;
       }
       break;
     }
@@ -100,6 +136,9 @@ export function exportDocumentToReact(doc: Document): string {
               return `        <circle cx={${s.cx}} cy={${s.cy}} r={${s.r}} fill="${fill}" style={{ transform: "${t}" }} />`;
             case 'line':
               return `        <line x1={${s.from[0]}} y1={${s.from[1]}} x2={${s.to[0]}} y2={${s.to[1]}} stroke="${fill}" strokeWidth={${s.tolerance * 2}} strokeLinecap="round" style={{ transform: "${t}" }} />`;
+            case 'polygon':
+            case 'star':
+              return `        <polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" style={{ transform: "${t}" }} />`;
           }
           break;
         }

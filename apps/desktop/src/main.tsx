@@ -1,3 +1,4 @@
+import './global.css';
 import '@strata/ui/tokens.css';
 import '@strata/editor/editor.css';
 

@@ -53,6 +53,25 @@ pub enum Primitive {
         to: [f64; 2],
         tolerance: f64,
     },
+    #[serde(rename = "polygon")]
+    Polygon {
+        cx: f64,
+        cy: f64,
+        radius: f64,
+        sides: u32,
+        rotation: f64,
+    },
+    #[serde(rename = "star")]
+    Star {
+        cx: f64,
+        cy: f64,
+        #[serde(rename = "innerRadius")]
+        inner_radius: f64,
+        #[serde(rename = "outerRadius")]
+        outer_radius: f64,
+        points: u32,
+        rotation: f64,
+    },
 }
 
 /// Build the render IR from a scene (paint order preserved). One item per node.
@@ -104,6 +123,21 @@ fn primitive_of(shape: &Shape) -> Primitive {
             from: [line.p0.x, line.p0.y],
             to: [line.p1.x, line.p1.y],
             tolerance: *tolerance,
+        },
+        Shape::Polygon { cx, cy, radius, sides, rotation } => Primitive::Polygon {
+            cx: *cx,
+            cy: *cy,
+            radius: *radius,
+            sides: *sides,
+            rotation: *rotation,
+        },
+        Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation } => Primitive::Star {
+            cx: *cx,
+            cy: *cy,
+            inner_radius: *inner_radius,
+            outer_radius: *outer_radius,
+            points: *points,
+            rotation: *rotation,
         },
     }
 }

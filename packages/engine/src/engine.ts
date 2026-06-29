@@ -33,6 +33,25 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
       return { kind: 'circle', cx: s.cx, cy: s.cy, r: s.r };
     case 'line':
       return { kind: 'line', from: s.from, to: s.to, tolerance: s.tolerance };
+    case 'polygon':
+      return {
+        kind: 'polygon',
+        cx: s.cx,
+        cy: s.cy,
+        radius: s.radius,
+        sides: s.sides,
+        rotation: s.rotation,
+      };
+    case 'star':
+      return {
+        kind: 'star',
+        cx: s.cx,
+        cy: s.cy,
+        innerRadius: s.innerRadius,
+        outerRadius: s.outerRadius,
+        points: s.points,
+        rotation: s.rotation,
+      };
   }
 }
 

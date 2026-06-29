@@ -57,6 +57,56 @@ export function pointToSegmentDistSq(from: Point, to: Point, p: Point): number {
   return dx * dx + dy * dy;
 }
 
+function polygonVertices(
+  cx: number,
+  cy: number,
+  radius: number,
+  sides: number,
+  rotation: number,
+): Point[] {
+  const verts: Point[] = [];
+  for (let i = 0; i < sides; i++) {
+    const a = (2 * Math.PI * i) / sides - Math.PI / 2 + rotation;
+    verts.push([cx + radius * Math.cos(a), cy + radius * Math.sin(a)]);
+  }
+  return verts;
+}
+
+function starVertices(
+  cx: number,
+  cy: number,
+  innerRadius: number,
+  outerRadius: number,
+  points: number,
+  rotation: number,
+): Point[] {
+  const verts: Point[] = [];
+  for (let i = 0; i < points * 2; i++) {
+    const a = (Math.PI * i) / points - Math.PI / 2 + rotation;
+    const r = i % 2 === 0 ? outerRadius : innerRadius;
+    verts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return verts;
+}
+
+function pointInPolygon(vertices: Point[], p: Point): boolean {
+  let inside = false;
+  const len = vertices.length;
+  for (let i = 0; i < len; i++) {
+    const vi = vertices[i];
+    const vj = vertices[(i + len - 1) % len];
+    if (!vi || !vj) continue;
+    const xi = vi[0],
+      yi = vi[1];
+    const xj = vj[0],
+      yj = vj[1];
+    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 export function shapeContains(shape: Shape, p: Point): boolean {
   switch (shape.kind) {
     case 'rect':
@@ -70,6 +120,23 @@ export function shapeContains(shape: Shape, p: Point): boolean {
     }
     case 'line':
       return pointToSegmentDistSq(shape.from, shape.to, p) <= shape.tolerance * shape.tolerance;
+    case 'polygon':
+      return pointInPolygon(
+        polygonVertices(shape.cx, shape.cy, shape.radius, shape.sides, shape.rotation),
+        p,
+      );
+    case 'star':
+      return pointInPolygon(
+        starVertices(
+          shape.cx,
+          shape.cy,
+          shape.innerRadius,
+          shape.outerRadius,
+          shape.points,
+          shape.rotation,
+        ),
+        p,
+      );
   }
 }
 

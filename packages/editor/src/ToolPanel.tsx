@@ -2,19 +2,23 @@
  * Tool panel — the primary toolbar (Strata plan §5.3).
  *
  * Uses the APG Toolbar component with roving tabindex.
+ * A11: each tool wrapped with APG Tooltip showing name + shortcut key.
  */
-import { IconButton, TOOL_ICONS, Toolbar } from '@strata/ui';
+import { IconButton, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { type ToolId, useEditor } from './context';
 
-const TOOLS: { id: ToolId; label: string }[] = [
-  { id: 'select', label: 'Select' },
-  { id: 'frame', label: 'Frame' },
-  { id: 'rect', label: 'Rectangle' },
-  { id: 'ellipse', label: 'Ellipse' },
-  { id: 'pen', label: 'Pen' },
-  { id: 'text', label: 'Text' },
-  { id: 'hand', label: 'Hand' },
-  { id: 'zoomIn', label: 'Zoom in' },
+const TOOLS: { id: ToolId; label: string; shortcut: string }[] = [
+  { id: 'select', label: 'Select', shortcut: 'V' },
+  { id: 'frame', label: 'Frame', shortcut: 'F' },
+  { id: 'rect', label: 'Rectangle', shortcut: 'R' },
+  { id: 'ellipse', label: 'Ellipse', shortcut: 'O' },
+  { id: 'polygon', label: 'Polygon', shortcut: 'U' },
+  { id: 'star', label: 'Star', shortcut: 'S' },
+  { id: 'line', label: 'Line', shortcut: 'L' },
+  { id: 'pen', label: 'Pen', shortcut: 'P' },
+  { id: 'text', label: 'Text', shortcut: 'T' },
+  { id: 'hand', label: 'Hand', shortcut: 'H' },
+  { id: 'zoomIn', label: 'Zoom in', shortcut: 'Z' },
 ];
 
 export function ToolPanel() {
@@ -23,14 +27,31 @@ export function ToolPanel() {
     <div className="editor-toolbar">
       <Toolbar label="Drawing tools">
         {TOOLS.map((t) => (
-          <IconButton
+          <Tooltip
             key={t.id}
-            icon={TOOL_ICONS[t.id]}
-            label={t.label}
-            size="sm"
-            pressed={state.tool === t.id}
-            onClick={() => setTool(t.id)}
-          />
+            content={
+              <span>
+                {t.label}
+                <span
+                  style={{
+                    marginLeft: 6,
+                    opacity: 0.65,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {t.shortcut}
+                </span>
+              </span>
+            }
+          >
+            <IconButton
+              icon={TOOL_ICONS[t.id]}
+              label={t.label}
+              size="sm"
+              pressed={state.tool === t.id}
+              onClick={() => setTool(t.id)}
+            />
+          </Tooltip>
         ))}
       </Toolbar>
     </div>

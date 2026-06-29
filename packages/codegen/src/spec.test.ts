@@ -1,17 +1,17 @@
-import { describe, expect, it } from 'vitest';
-import { buildSpec, specToMarkdown, type SpecSheet } from './spec';
+import type { Document } from '@strata/scene';
 import {
+  addNode,
   createDocument,
+  makeFrameNode,
   makeShapeNode,
   makeTextNode,
-  makeFrameNode,
-  addNode,
   nextNodeId,
 } from '@strata/scene';
-import type { Document } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
+import { buildSpec, type SpecSheet, specToMarkdown } from './spec';
 
 function shapeDoc(overrides?: Partial<Document>): Document {
-  let doc = createDocument('Spec Test');
+  const doc = createDocument('Spec Test');
   return { ...doc, ...overrides };
 }
 
@@ -27,36 +27,36 @@ describe('buildSpec', () => {
 
   it('collects shape node info', () => {
     let doc = shapeDoc();
-    let r = nextNodeId(doc);
+    const r = nextNodeId(doc);
     const node = makeShapeNode(r.id, { kind: 'rect', x: 0, y: 0, w: 100, h: 50 }, { name: 'Box' });
     doc = addNode(r.doc, node);
 
     const spec = buildSpec(doc);
     expect(spec.nodes).toHaveLength(1);
-    expect(spec.nodes[0]!.name).toBe('Box');
-    expect(spec.nodes[0]!.rect.w).toBe(100);
-    expect(spec.nodes[0]!.rect.h).toBe(50);
+    expect(spec.nodes[0]?.name).toBe('Box');
+    expect(spec.nodes[0]?.rect.w).toBe(100);
+    expect(spec.nodes[0]?.rect.h).toBe(50);
   });
 
   it('collects text node type styles', () => {
     let doc = shapeDoc();
-    let r = nextNodeId(doc);
+    const r = nextNodeId(doc);
     const node = makeTextNode(r.id, 'Hello', { name: 'Title', fontSize: 24 });
     doc = addNode(r.doc, node);
 
     const spec = buildSpec(doc);
     expect(spec.typeStyles).toHaveLength(1);
-    expect(spec.typeStyles[0]!.fontSize).toBe(24);
-    expect(spec.typeStyles[0]!.count).toBe(1);
+    expect(spec.typeStyles[0]?.fontSize).toBe(24);
+    expect(spec.typeStyles[0]?.count).toBe(1);
   });
 
   it('aggregates duplicate type styles', () => {
     let doc = shapeDoc();
-    let r1 = nextNodeId(doc);
+    const r1 = nextNodeId(doc);
     doc = addNode(r1.doc, makeTextNode(r1.id, 'A', { fontSize: 16 }));
-    let r2 = nextNodeId(doc);
+    const r2 = nextNodeId(doc);
     doc = addNode(r2.doc, makeTextNode(r2.id, 'B', { fontSize: 16 }));
-    let r3 = nextNodeId(doc);
+    const r3 = nextNodeId(doc);
     doc = addNode(r3.doc, makeTextNode(r3.id, 'C', { fontSize: 24 }));
 
     const spec = buildSpec(doc);
@@ -69,10 +69,24 @@ describe('buildSpec', () => {
 
   it('collects colors into palette', () => {
     let doc = shapeDoc();
-    let r1 = nextNodeId(doc);
-    doc = addNode(r1.doc, makeShapeNode(r1.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'A', fill: [255, 0, 0, 255] }));
-    let r2 = nextNodeId(doc);
-    doc = addNode(r2.doc, makeShapeNode(r2.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'B', fill: [0, 255, 0, 255] }));
+    const r1 = nextNodeId(doc);
+    doc = addNode(
+      r1.doc,
+      makeShapeNode(
+        r1.id,
+        { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        { name: 'A', fill: [255, 0, 0, 255] },
+      ),
+    );
+    const r2 = nextNodeId(doc);
+    doc = addNode(
+      r2.doc,
+      makeShapeNode(
+        r2.id,
+        { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        { name: 'B', fill: [0, 255, 0, 255] },
+      ),
+    );
 
     const spec = buildSpec(doc);
     expect(spec.palette).toHaveLength(2);
@@ -80,10 +94,24 @@ describe('buildSpec', () => {
 
   it('deduplicates colors', () => {
     let doc = shapeDoc();
-    let r1 = nextNodeId(doc);
-    doc = addNode(r1.doc, makeShapeNode(r1.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'A', fill: [57, 208, 198, 255] }));
-    let r2 = nextNodeId(doc);
-    doc = addNode(r2.doc, makeShapeNode(r2.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'B', fill: [57, 208, 198, 255] }));
+    const r1 = nextNodeId(doc);
+    doc = addNode(
+      r1.doc,
+      makeShapeNode(
+        r1.id,
+        { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        { name: 'A', fill: [57, 208, 198, 255] },
+      ),
+    );
+    const r2 = nextNodeId(doc);
+    doc = addNode(
+      r2.doc,
+      makeShapeNode(
+        r2.id,
+        { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        { name: 'B', fill: [57, 208, 198, 255] },
+      ),
+    );
 
     const spec = buildSpec(doc);
     expect(spec.palette).toHaveLength(1);
@@ -91,9 +119,13 @@ describe('buildSpec', () => {
 
   it('includes frame children recursively', () => {
     let doc = shapeDoc();
-    let r1 = nextNodeId(doc);
-    let r2 = nextNodeId(r1.doc);
-    const child = makeShapeNode(r2.id, { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }, { name: 'Child' });
+    const r1 = nextNodeId(doc);
+    const r2 = nextNodeId(r1.doc);
+    const child = makeShapeNode(
+      r2.id,
+      { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+      { name: 'Child' },
+    );
     doc = addNode(r2.doc, makeFrameNode(r1.id, { name: 'Frame', children: [r2.id] }));
     doc = { ...doc, nodes: { ...doc.nodes, [r2.id]: child } };
 

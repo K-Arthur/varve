@@ -1,11 +1,11 @@
-# Strata — Continuation Prompt (Session 3)
+# Strata — Continuation Prompt (Session 5)
 
 > Generated 2026-06-28 after completing Session 2 (P0 Frontend Depth).
-> Covers everything remaining from the three original plans: Kickoff, Frontend Rework, and Market Analysis.
+> Updated 2026-06-28 during the Stabilization & Feature-Completion pass.
 
 ---
 
-## 0. Current State (End of Session 2)
+## 0. Current State (Stabilization Pass)
 
 ### Completed
 | Phase | Task | Status |
@@ -22,6 +22,9 @@
 | 0.9 | Editor shell (CSS Grid, 6 panels, 3 tests) | Done |
 | 0.10 | **Vertical Slice** | **Done** |
 | **S2** | **P0 Frontend Depth** | **Done** |
+| **A** | **P0-P2 defect repair** | **Working tree implementation present** |
+| **B** | **Engine feature surfacing** | **Working tree implementation present** |
+| **C1** | **Line tool** | **Done for existing engine line primitive** |
 
 ### What Session 2 delivered
 - **Shortcut system** — `packages/editor/src/shortcuts/` with `ShortcutManager`, `useShortcuts` hook, `ShortcutPalette` (Ctrl+/). 16 bindings (undo/redo/delete/new/open/save/export SVG/zoom reset/select all/group + tool toggles v/r/e/t/h). Platform-aware modifiers (Cmd on Mac, Ctrl on Linux/Windows).
@@ -30,9 +33,14 @@
 - **NumberInput scrubbing** — Reusable `<NumberInput>` in `@strata/ui` with drag-to-scrub, Arrow up/down increment/decrement, Shift/Alt step modifiers, min/max clamping. Replaced inspector X/Y/W/H raw inputs.
 - **All gates pass** — 66 JS tests, 15 Rust tests, lint 0, typecheck 11/11, emoji 0, tokens 42/42.
 
+### Stabilization additions now present
+- **Phase A/B surfaces** — multi-document `TabStrip`, toolbar tooltips, variables panel, export/spec/layout inspector tabs, auto-trace UI surfaces, selection overlay, DPR-aware canvas backing store, and `createEngine('auto')` in the canvas path.
+- **Line tool slice** — `ToolId` now includes `line`; toolbar exposes Line with shortcut `L`; drag creation produces a `line` shape with type-aware name `Line 1`; the existing engine replay/hit-test line primitive is reused.
+- **Pristine editor tests** — `vitest.setup.ts` shims jsdom's missing Canvas2D API, and `editor.test.tsx` has a regression asserting `Shell` renders without console errors.
+
 ### Test counts
-- **Rust:** 15 (strata-core 8, strata-engine 3, 4x smoke)
-- **JS:** 66 (engine 19, scene 11, ui 20, shared 1, editor 15)
+- **Rust:** 80 locally verified: 72 workspace tests via `cargo test --workspace` plus 8 src-tauri tests via `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`.
+- **JS:** 125 locally verified with `pnpm test` (engine 19, scene 57, ui 20, shared 1, editor 17, codegen 11).
 
 ---
 
@@ -65,12 +73,12 @@
 | **P1** | Context menu | None | Right-click on canvas/layers with `role="menu"`, full keyboard support, submenus, type-ahead |
 | **P1** | Toast / Notification | None | `role="status"` (info) / `role="alert"` (errors), auto-dismiss + manual close, stacking (max 3) |
 | **P1** | Select / Combobox | None | APG Combobox pattern, type-ahead filtering, virtualise long lists |
-| **P2** | Tooltip system | None on toolbar | 300ms hover delay + immediate on focus, `@floating-ui/dom` positioning, dismiss on Escape/scroll |
+| **P2** | Tooltip system | Built on toolbar tools | Further polish: positioning/dismiss behavior and broader use beyond toolbar |
 | **P2** | Responsive breakpoints | Full desktop only | Tablet/phone adapt: bottom-sheet inspector, floating toolbar, collapsed panels below 768px |
 | **P2** | ~~Keyboard-only canvas~~ | **Built** | Tab/Shift+Tab object navigation, arrow nudging (1px/10px/0.5px), Enter to edit, Ctrl+A/G/Shift+G |
 | **P2** | Onboarding / empty states | None | First-run welcome + template picker, interactive spotlight tour, empty state illustrations (SVG, no emoji) |
 | **P2** | Error handling UI | None | Offline banner, sync conflict resolver, AI/plugin crash boundaries, browser compat warning |
-| **P3** | Codegen panel UI | Functions exist, no UI | Tabbed export panel with syntax-highlighted code, copy button, framework selector |
+| **P3** | Codegen panel UI | Export/spec tabs built in inspector | Further polish: syntax-highlighted code, framework selector, native file save |
 | **P3** | Settings panel | None | Appearance, shortcuts, collab, AI, account sections. All settings persist to localStorage |
 | **P3** | Stories / Storybook | None | For every component: all variants, all states, dark+HC themes, keyboard demo, a11y annotations |
 | **Phase 2** | Collaboration UI | None | Presence avatars + cursors, `aria-live` join/leave announcements, conflict indicators |
@@ -84,8 +92,8 @@
 | Rust/TS `Shape` serde mismatch | `apps/desktop/src-tauri/src/lib.rs` | IPC adapter `IpcSceneNode` uses `strata_core::Shape` directly, but TS Shape uses `kind`-tagged serde. Only the `IpcSceneNode.shape` field needs a tagged `IpcShape` adapter for the IPC bridge to work end-to-end. Currently only `Primitive` (output) is aligned. |
 | Native engine IPC end-to-end | `engine.ts` + `lib.rs` | `nativeEngine()` wired but untested at runtime. Need a full serialization round-trip test. |
 | `strata-sync` SQLite | `crates/strata-sync/src/lib.rs` | Smoke test only. Needs `rusqlite` dependency, `save_document`/`load_document` commands surfaced as Tauri IPC. |
-| Test coverage | Editor: 15 tests | Still no tests for Menubar actions, Inspector editing, undo/redo, SVG export, zoom/pan. |
-| jsdom canvas crash | `editor.test.tsx` | `HTMLCanvasElement.getContext` throws in jsdom (benign, tests pass). Mock canvas or suppress. |
+| Test coverage | Editor: 17 tests | Still needs broader tests for Menubar actions, Inspector editing, undo/redo, SVG export, zoom/pan, transform gestures. |
+| jsdom canvas crash | `vitest.setup.ts`, `editor.test.tsx` | Fixed with a Canvas2D test shim plus a regression that fails on console errors during shell render. |
 | Vite chunk size | `apps/desktop/dist` | 904 KB JS bundle. Lucide icons tree-shake needs audit. |
 
 ---
@@ -96,17 +104,14 @@
 
 See `docs/plans/phase1-plan.md` for the full execution plan. Summary:
 
-1. **Pre-flight P0–P2** — Fix IPC Shape serde mismatch, add serialization round-trip test, land minimal SQLite save/load in `crates/strata-sync`.
-2. **Task 1.1 — Component Slots** (#1 differentiator, Rust + TS in parallel):
-   - Extend `ComponentDefinition` with instance creation, slot filling, master propagation
-   - Mirror in `crates/strata-core/src/component.rs`
-   - Update LayersPanel for nested slot children, Inspector for slot UI, ToolPanel for Component tool
-3. **Parallel**: **Task 1.2** (Variables/math) || **Task 1.7** (Auto-trace) || **Task 0.11** (Packaging)
-4. **Task 1.3** — CSS layout + breakpoints (after 1.1)
-5. **Task 1.4** — Print font outlining + PDF (after P2)
-6. **Task 1.5** — CMYK/PDF-X stub (after 1.4)
-7. **Task 1.6** — Spec inspector (after 1.2 + 1.3)
-8. Final `just gate` + artifact attach
+1. **Finish C1 drawing primitives** — polygon/star/image tools, then the real pen/path model across scene, engine, Rust mirror, replay, hit-test, SVG/React export.
+2. **C2 editable text** — inline contenteditable overlay committing to `TextNode.text`, plus font controls.
+3. **C3 appearance model** — stroke, opacity, blend mode, rect corner radius through scene, engine, replay, inspector, export.
+4. **C4 color picker** — keyboard-operable picker replacing hex-only fill editing.
+5. **C5 native `.strata` save/load** — Tauri dialog/fs integration, dirty flag, tab close prompts.
+6. **C6 editing operations** — clipboard, duplicate, delete, z-order, group/ungroup.
+7. **Packaging 0.11** — CI artifacts for `.AppImage`, `.deb`, `.dmg`, `.msi`, and CachyOS AUR packaging.
+8. Final `just gate` + artifact attach.
 
 ---
 

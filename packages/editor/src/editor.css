@@ -4,11 +4,13 @@
   grid-template-areas:
     "menubar  menubar   menubar"
     "toolbar  toolbar   toolbar"
+    "tabs     tabs      tabs"
     "layers   canvas    inspector"
     "status   status    status";
   grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width);
-  grid-template-rows: var(--topbar-height) var(--toolbar-height) 1fr var(--statusbar-height);
-  height: 100vh;
+  grid-template-rows: var(--topbar-height) var(--toolbar-height) 32px 1fr var(--statusbar-height);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: var(--color-surface-app);
   color: var(--color-text-primary);
@@ -46,6 +48,107 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border-bottom: 1px solid var(--color-border-subtle);
+}
+
+/* Tab strip (A8) */
+.editor-tabs {
+  grid-area: tabs;
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.editor-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.editor-tabs__tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  height: 32px;
+  min-width: 80px;
+  max-width: 200px;
+  border: none;
+  border-right: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+  user-select: none;
+}
+.editor-tabs__tab:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+.editor-tabs__tab--active {
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+  border-bottom: 2px solid var(--color-interactive-default);
+}
+
+.editor-tabs__dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-interactive-default);
+  flex-shrink: 0;
+}
+
+.editor-tabs__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Close button — base first so compound selectors (higher specificity) follow */
+.editor-tabs__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+}
+.editor-tabs__close:hover {
+  background: var(--color-surface-sunken);
+}
+.editor-tabs__tab:hover .editor-tabs__close {
+  opacity: 1;
+}
+.editor-tabs__tab--active .editor-tabs__close {
+  opacity: 1;
+}
+
+.editor-tabs__new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.editor-tabs__new:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
 }
 
 .editor-canvas {

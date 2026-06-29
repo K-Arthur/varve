@@ -38,6 +38,25 @@ enum IpcShape {
         to: [f64; 2],
         tolerance: f64,
     },
+    #[serde(rename = "polygon")]
+    Polygon {
+        cx: f64,
+        cy: f64,
+        radius: f64,
+        sides: u32,
+        rotation: f64,
+    },
+    #[serde(rename = "star")]
+    Star {
+        cx: f64,
+        cy: f64,
+        #[serde(rename = "innerRadius")]
+        inner_radius: f64,
+        #[serde(rename = "outerRadius")]
+        outer_radius: f64,
+        points: u32,
+        rotation: f64,
+    },
 }
 
 impl IpcShape {
@@ -55,6 +74,21 @@ impl IpcShape {
             IpcShape::Line { from, to, tolerance } => Shape::Line {
                 line: Line::new(Point::new(from[0], from[1]), Point::new(to[0], to[1])),
                 tolerance,
+            },
+            IpcShape::Polygon { cx, cy, radius, sides, rotation } => Shape::Polygon {
+                cx,
+                cy,
+                radius,
+                sides,
+                rotation,
+            },
+            IpcShape::Star { inner_radius, outer_radius, cx, cy, points, rotation } => Shape::Star {
+                cx,
+                cy,
+                inner_radius,
+                outer_radius,
+                points,
+                rotation,
             },
         }
     }
