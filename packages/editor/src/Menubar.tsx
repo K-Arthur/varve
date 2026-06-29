@@ -28,6 +28,7 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
         action: 'exportSvg',
       },
+      { label: 'Export\u2026', shortcut: formatShortcut(SHORTCUT_DEFS.export.binding), action: 'export' },
     ],
   },
   {
@@ -63,7 +64,7 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
 ];
 
 export function Menubar() {
-  const { state, newDocument, serializeDocument, undo, redo, removeSelected, setZoom } =
+  const { state, newDocument, serializeDocument, undo, redo, removeSelected, setZoom, setShowExportDialog } =
     useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -110,6 +111,9 @@ export function Menubar() {
           URL.revokeObjectURL(url);
           break;
         }
+        case 'export':
+          setShowExportDialog(true);
+          break;
         case 'zoomReset':
           setZoom(1);
           break;

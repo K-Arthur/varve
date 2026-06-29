@@ -17,6 +17,11 @@ export const SHORTCUT_DEFS = {
     label: 'Export SVG\u2026',
     category: 'File',
   },
+  export: {
+    binding: { key: 'e', ctrl: true, shift: true },
+    label: 'Export\u2026',
+    category: 'File',
+  },
   zoomReset: { binding: { key: '0', ctrl: true }, label: 'Zoom to 100%', category: 'View' },
   selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
   group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
