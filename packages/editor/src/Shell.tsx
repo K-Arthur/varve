@@ -61,7 +61,11 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
 
 export function Shell({ onBackToHome, documentJson, documentName }: ShellProps) {
   return (
-    <EditorProvider onBackToHome={onBackToHome} initialDocumentJson={documentJson} initialDocumentName={documentName}>
+    <EditorProvider
+      onBackToHome={onBackToHome}
+      initialDocumentJson={documentJson}
+      initialDocumentName={documentName}
+    >
       <ShellInner onBackToHome={onBackToHome} />
     </EditorProvider>
   );

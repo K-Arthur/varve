@@ -1,15 +1,25 @@
-import { describe, it, expect } from 'vitest';
 import type { Affine } from '@strata/engine';
 import { createDocument, makeShapeNode } from '@strata/scene';
-import { worldBBox, edgeDistance, centerToCenter, getAccumulatedTransform, type AABB } from './measurement';
+import { describe, expect, it } from 'vitest';
+import {
+  type AABB,
+  centerToCenter,
+  edgeDistance,
+  getAccumulatedTransform,
+  worldBBox,
+} from './measurement';
 
 describe('worldBBox', () => {
   it('computes AABB for a rect shape', () => {
     const doc = createDocument('Test');
-    const node = makeShapeNode('n1', { kind: 'rect', x: 10, y: 20, w: 200, h: 100 }, {
-      name: 'R1',
-      transform: [1, 0, 0, 1, 50, 60],
-    });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 10, y: 20, w: 200, h: 100 },
+      {
+        name: 'R1',
+        transform: [1, 0, 0, 1, 50, 60],
+      },
+    );
     const bbox = worldBBox(node, doc);
     expect(bbox.x).toBe(60);
     expect(bbox.y).toBe(80);
@@ -19,9 +29,13 @@ describe('worldBBox', () => {
 
   it('handles identity transform rect', () => {
     const doc = createDocument('Test');
-    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 50 }, {
-      name: 'R',
-    });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+      {
+        name: 'R',
+      },
+    );
     const bbox = worldBBox(node, doc);
     expect(bbox.x).toBe(0);
     expect(bbox.y).toBe(0);
@@ -31,10 +45,14 @@ describe('worldBBox', () => {
 
   it('computes AABB for an ellipse', () => {
     const doc = createDocument('Test');
-    const node = makeShapeNode('n1', { kind: 'ellipse', cx: 50, cy: 50, rx: 40, ry: 20 }, {
-      name: 'E1',
-      transform: [1, 0, 0, 1, 100, 100],
-    });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'ellipse', cx: 50, cy: 50, rx: 40, ry: 20 },
+      {
+        name: 'E1',
+        transform: [1, 0, 0, 1, 100, 100],
+      },
+    );
     const bbox = worldBBox(node, doc);
     expect(bbox.x).toBe(110);
     expect(bbox.y).toBe(130);
@@ -84,9 +102,13 @@ describe('centerToCenter', () => {
 describe('getAccumulatedTransform', () => {
   it('returns node transform for root node', () => {
     const doc = createDocument('Test');
-    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, {
-      transform: [2, 0, 0, 2, 5, 5],
-    });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      {
+        transform: [2, 0, 0, 2, 5, 5],
+      },
+    );
     const at = getAccumulatedTransform(doc, node.id, node.transform as Affine);
     expect(at[0]).toBe(2);
     expect(at[4]).toBe(5);

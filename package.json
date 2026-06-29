@@ -18,7 +18,8 @@
     "format": "biome format --write .",
     "audit:tokens": "pnpm --filter @strata/ui audit:tokens",
     "audit:emoji": "node scripts/audit-emoji.mjs",
-    "audit:a11y": "echo 'axe-core runs in Playwright E2E (task 0.9+)'"
+    "audit:a11y": "echo 'axe-core runs in Playwright E2E'",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

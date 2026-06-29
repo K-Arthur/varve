@@ -6,12 +6,13 @@
  *
  * Research basis: APG Tree View (role=treeitem), type icons per Lucide icon maps.
  */
+
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { NodeId, SceneNode, ShapeNode } from '@strata/scene';
 import { isContainer } from '@strata/scene';
 import type { IconName } from '@strata/ui';
 import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 
 export interface LayersRowProps {
   node: SceneNode;
@@ -141,121 +142,127 @@ export const LayersRow = memo(function LayersRow({
     .join(' ');
 
   return (
-    <div
-      role="treeitem"
-      data-node-id={node.id}
-      aria-selected={selected}
-      aria-expanded={container ? expanded : undefined}
-      aria-level={depth + 1}
-      className={rowClass}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      style={{
-        paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
-        ...style,
-      }}
-    >
-      {/* Drag handle */}
+    <>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard at tree level per APG tree view */}
+      {/* biome-ignore lint/a11y/useFocusableInteractive: treeitem managed by tree container focus */}
       <div
-        className="layers-row__drag-handle"
-        role="button"
-        aria-label="Drag to reorder"
-        tabIndex={-1}
-        {...dragListeners}
-        {...dragAttributes}
+        role="treeitem"
+        data-node-id={node.id}
+        aria-selected={selected}
+        aria-expanded={container ? expanded : undefined}
+        aria-level={depth + 1}
+        className={rowClass}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        style={{
+          paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
+          ...style,
+        }}
       >
-        <Icon name={CHROME_ICONS.gripVertical} size="0.75em" />
-      </div>
-
-      {/* Disclosure triangle */}
-      {container ? (
+        {/* Drag handle */}
         <button
           type="button"
-          className="layers-row__disclosure"
+          className="layers-row__drag-handle"
+          aria-label="Drag to reorder"
+          tabIndex={-1}
+          {...dragListeners}
+          {...dragAttributes}
+        >
+          <Icon name={CHROME_ICONS.gripVertical} size="0.75em" />
+        </button>
+
+        {/* Disclosure triangle */}
+        {container ? (
+          <button
+            type="button"
+            className="layers-row__disclosure"
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand(node.id);
+            }}
+            aria-label={expanded ? 'Collapse' : 'Expand'}
+          >
+            <Icon
+              name={expanded ? CHROME_ICONS.chevronDown : CHROME_ICONS.chevronRight}
+              size="0.75em"
+            />
+          </button>
+        ) : (
+          <span className="layers-row__disclosure-spacer" />
+        )}
+
+        {/* Type icon */}
+        <Icon
+          name={typeIcon}
+          size="0.85em"
+          aria-hidden
+          className="layers-row__type-icon"
+          style={isInstance ? { opacity: 0.6 } : undefined}
+        />
+
+        {/* Name or rename input */}
+        {editing ? (
+          <input
+            ref={inputRef}
+            className="layers-row__name-input"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={handleRenameKeyDown}
+            aria-label={`Rename ${node.name}`}
+          />
+        ) : (
+          <span
+            className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}
+            title={node.name}
+          >
+            {node.name}
+          </span>
+        )}
+
+        {/* Instance badge */}
+        {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
+
+        {/* Visibility toggle */}
+        <button
+          type="button"
+          className={`layers-row__toggle ${
+            node.visible
+              ? 'layers-row__toggle--visibility-on'
+              : 'layers-row__toggle--visibility-off'
+          }`}
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleExpand(node.id);
+            onToggleVisibility(node.id);
           }}
-          aria-label={expanded ? 'Collapse' : 'Expand'}
+          aria-label={node.visible ? `Hide ${node.name}` : `Show ${node.name}`}
+          aria-pressed={!node.visible}
         >
           <Icon
-            name={expanded ? CHROME_ICONS.chevronDown : CHROME_ICONS.chevronRight}
-            size="0.75em"
+            name={node.visible ? CHROME_ICONS.visibility : CHROME_ICONS.visibilityOff}
+            size="0.85em"
           />
         </button>
-      ) : (
-        <span className="layers-row__disclosure-spacer" />
-      )}
 
-      {/* Type icon */}
-      <Icon
-        name={typeIcon}
-        size="0.85em"
-        aria-hidden
-        className="layers-row__type-icon"
-        style={isInstance ? { opacity: 0.6 } : undefined}
-      />
-
-      {/* Name or rename input */}
-      {editing ? (
-        <input
-          ref={inputRef}
-          className="layers-row__name-input"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={commitRename}
-          onKeyDown={handleRenameKeyDown}
-          aria-label={`Rename ${node.name}`}
-        />
-      ) : (
-        <span
-          className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}
-          title={node.name}
+        {/* Lock toggle */}
+        <button
+          type="button"
+          className={`layers-row__toggle ${
+            node.locked ? 'layers-row__toggle--locked-on' : 'layers-row__toggle--locked-off'
+          }`}
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleLock(node.id);
+          }}
+          aria-label={node.locked ? `Unlock ${node.name}` : `Lock ${node.name}`}
+          aria-pressed={node.locked}
         >
-          {node.name}
-        </span>
-      )}
-
-      {/* Instance badge */}
-      {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
-
-      {/* Visibility toggle */}
-      <button
-        type="button"
-        className={`layers-row__toggle ${
-          node.visible ? 'layers-row__toggle--visibility-on' : 'layers-row__toggle--visibility-off'
-        }`}
-        tabIndex={-1}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleVisibility(node.id);
-        }}
-        aria-label={node.visible ? `Hide ${node.name}` : `Show ${node.name}`}
-        aria-pressed={!node.visible}
-      >
-        <Icon
-          name={node.visible ? CHROME_ICONS.visibility : CHROME_ICONS.visibilityOff}
-          size="0.85em"
-        />
-      </button>
-
-      {/* Lock toggle */}
-      <button
-        type="button"
-        className={`layers-row__toggle ${
-          node.locked ? 'layers-row__toggle--locked-on' : 'layers-row__toggle--locked-off'
-        }`}
-        tabIndex={-1}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleLock(node.id);
-        }}
-        aria-label={node.locked ? `Unlock ${node.name}` : `Lock ${node.name}`}
-        aria-pressed={node.locked}
-      >
-        <Icon name={node.locked ? CHROME_ICONS.lock : CHROME_ICONS.unlock} size="0.85em" />
-      </button>
-    </div>
+          <Icon name={node.locked ? CHROME_ICONS.lock : CHROME_ICONS.unlock} size="0.85em" />
+        </button>
+      </div>
+    </>
   );
 });

@@ -14,9 +14,12 @@ export function App() {
   const handleOpenFile = useCallback((entry: FileEntry) => {
     setPendingFile(entry);
     setView('editor');
-    platform.readFile(entry.id).then((json) => {
-      setPendingJson(json ?? null);
-    }).catch(() => setPendingJson(null));
+    platform
+      .readFile(entry.id)
+      .then((json) => {
+        setPendingJson(json ?? null);
+      })
+      .catch(() => setPendingJson(null));
   }, []);
 
   const handleBackToHome = useCallback(() => {

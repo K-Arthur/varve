@@ -10,9 +10,10 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import type { SceneNode } from '@strata/scene';
+import type { SceneNode, VariableStore } from '@strata/scene';
 import { useState } from 'react';
 import { useEditor } from '../../context';
+import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { NumberField } from './controls/NumberField';
 import { AppearanceSection } from './sections/AppearanceSection';
@@ -29,10 +30,22 @@ import './inspector.css';
 type Tab = 'properties' | 'export' | 'spec';
 
 export function PropertiesPanel() {
-  const { selectedNodes } = useEditor();
+  const { selectedNodes, state } = useEditor();
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
   const [tab, setTab] = useState<Tab>('properties');
+
+  if (state.tool === 'inspect' && selNodes.length > 0) {
+    return (
+      <section className="editor-inspector" aria-label="Inspector">
+        <SpecPanel
+          nodes={selNodes}
+          doc={state.document}
+          variableStore={state.variableStore as VariableStore}
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="editor-inspector" aria-label="Inspector">

@@ -15,6 +15,7 @@ import { createEngine, type ReplayTarget, replayIr } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
+import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { SelectionOverlay } from './SelectionOverlay';
 
 type DocNode = SceneNode;
@@ -79,10 +80,13 @@ export function CanvasArea() {
     setSelection,
     toggleSelection,
     setPan,
-    setZoom,
     setNodePosition,
+    setZoom,
     renameSelected,
+    announce: contextAnnounce,
   } = useEditor();
+
+  const [hoveredNode, setHoveredNode] = useState<DocNode | null>(null);
   const engineRef = useRef<Engine | null>(null);
 
   const gesture = useRef<GestureState>({
@@ -323,9 +327,29 @@ export function CanvasArea() {
     }
   }
 
-  function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+  async function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
     const g = gesture.current;
-    if (g.kind === 'idle' || g.pointerId !== e.pointerId) return;
+
+    if (g.kind === 'idle') {
+      if (state.tool === 'inspect') {
+        const cv = eventToCanvas(e);
+        const world = canvasToWorld(cv.x, cv.y, state.pan, state.zoom);
+        const eng = engineRef.current;
+        if (eng) {
+          const nodes = rootNodes().map(toEngineNode);
+          const idx = await eng.hitTest({ nodes }, [world.x, world.y]);
+          const hitId = idx !== null ? nodes[idx]?.id : null;
+          if (hitId && hitId !== (state.selection[0] ?? null)) {
+            const docNode = state.document.nodes[hitId];
+            setHoveredNode(docNode ?? null);
+          } else {
+            setHoveredNode(null);
+          }
+        }
+      }
+      return;
+    }
+    if (g.pointerId !== e.pointerId) return;
 
     const cv = eventToCanvas(e);
     g.currentCanvas = cv;
@@ -583,6 +607,15 @@ export function CanvasArea() {
         onWheel={handleWheel}
       />
       {state.tool !== 'inspect' && <SelectionOverlay />}
+      {state.tool === 'inspect' && (
+        <MeasureOverlay
+          zoom={state.zoom}
+          pan={state.pan}
+          selectedNodes={rootNodes().filter((n) => state.selection.includes(n.id))}
+          doc={state.document}
+          hoveredNode={hoveredNode}
+        />
+      )}
       <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" />
     </section>
   );

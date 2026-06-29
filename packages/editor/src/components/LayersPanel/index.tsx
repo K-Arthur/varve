@@ -105,7 +105,8 @@ export function LayersPanel() {
     for (const id of state.selection) {
       const parentId = getParent(state.document, id);
       const siblings = parentId
-        ? ((state.document.nodes[parentId] as ContainerNode | undefined)?.children ?? state.document.rootChildren)
+        ? ((state.document.nodes[parentId] as ContainerNode | undefined)?.children ??
+          state.document.rootChildren)
         : state.document.rootChildren;
       reparentNode(id, parentId, siblings.length - 1);
       announce('Moved to front');
@@ -138,8 +139,13 @@ export function LayersPanel() {
   }, [detachSelected, closeMenu]);
 
   const canGroup = state.selection.length >= 2;
-  const isGroupSelected = state.selection.length === 1 && state.document.nodes[state.selection[0]!]?.kind === 'group';
-  const isInstanceSelected = state.selection.length === 1 && state.document.nodes[state.selection[0]!]?.kind === 'frame' && !!(state.document.nodes[state.selection[0]!] as { componentId?: string }).componentId;
+  const firstSelId = state.selection[0];
+  const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
+  const isGroupSelected = state.selection.length === 1 && firstSel?.kind === 'group';
+  const isInstanceSelected =
+    state.selection.length === 1 &&
+    firstSel?.kind === 'frame' &&
+    !!('componentId' in firstSel && (firstSel as { componentId?: string }).componentId);
 
   return (
     <div className="editor-layers layers-panel">
@@ -172,49 +178,57 @@ export function LayersPanel() {
 
       <LayersTree filter={filter} onContextMenu={handleContextMenu} />
 
-      {contextMenu && createPortal(
-        <div
-          className="layers-context-menu"
-          role="menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') closeMenu();
-          }}
-        >
-          <ContextMenuItem label="Rename" shortcut="F2" onAction={handleRenameFromMenu} />
-          <ContextMenuItem label="Delete" shortcut="Del" onAction={handleDeleteFromMenu} />
-          <div className="layers-context-menu__separator" role="separator" />
-          <ContextMenuItem
-            label="Copy"
-            shortcut="Ctrl+C"
-            disabled
-            onAction={closeMenu}
-          />
-          <ContextMenuItem
-            label="Cut"
-            shortcut="Ctrl+X"
-            disabled
-            onAction={closeMenu}
-          />
-          <ContextMenuItem
-            label="Paste"
-            shortcut="Ctrl+V"
-            disabled
-            onAction={closeMenu}
-          />
-          <div className="layers-context-menu__separator" role="separator" />
-          <ContextMenuItem label="Group" shortcut="Ctrl+G" disabled={!canGroup} onAction={handleGroup} />
-          <ContextMenuItem label="Ungroup" shortcut="Ctrl+Shift+G" disabled={!isGroupSelected} onAction={handleUngroup} />
-          <ContextMenuItem label="Detach Instance" disabled={!isInstanceSelected} onAction={handleDetach} />
-          <div className="layers-context-menu__separator" role="separator" />
-          <ContextMenuItem label="Bring to Front" shortcut="Ctrl+Shift+]" onAction={handleMoveToFront} />
-          <ContextMenuItem label="Send to Back" shortcut="Ctrl+Shift+[" onAction={handleMoveToBack} />
-          <div className="layers-context-menu__separator" role="separator" />
-          <ContextMenuItem label="Lock" onAction={() => handleLockFromMenu(true)} />
-          <ContextMenuItem label="Hide" onAction={() => handleVisibilityFromMenu(false)} />
-        </div>,
-        document.body,
-      )}
+      {contextMenu &&
+        createPortal(
+          <div
+            className="layers-context-menu"
+            role="menu"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') closeMenu();
+            }}
+          >
+            <ContextMenuItem label="Rename" shortcut="F2" onAction={handleRenameFromMenu} />
+            <ContextMenuItem label="Delete" shortcut="Del" onAction={handleDeleteFromMenu} />
+            <hr className="layers-context-menu__separator" />
+            <ContextMenuItem label="Copy" shortcut="Ctrl+C" disabled onAction={closeMenu} />
+            <ContextMenuItem label="Cut" shortcut="Ctrl+X" disabled onAction={closeMenu} />
+            <ContextMenuItem label="Paste" shortcut="Ctrl+V" disabled onAction={closeMenu} />
+            <hr className="layers-context-menu__separator" />
+            <ContextMenuItem
+              label="Group"
+              shortcut="Ctrl+G"
+              disabled={!canGroup}
+              onAction={handleGroup}
+            />
+            <ContextMenuItem
+              label="Ungroup"
+              shortcut="Ctrl+Shift+G"
+              disabled={!isGroupSelected}
+              onAction={handleUngroup}
+            />
+            <ContextMenuItem
+              label="Detach Instance"
+              disabled={!isInstanceSelected}
+              onAction={handleDetach}
+            />
+            <hr className="layers-context-menu__separator" />
+            <ContextMenuItem
+              label="Bring to Front"
+              shortcut="Ctrl+Shift+]"
+              onAction={handleMoveToFront}
+            />
+            <ContextMenuItem
+              label="Send to Back"
+              shortcut="Ctrl+Shift+["
+              onAction={handleMoveToBack}
+            />
+            <hr className="layers-context-menu__separator" />
+            <ContextMenuItem label="Lock" onAction={() => handleLockFromMenu(true)} />
+            <ContextMenuItem label="Hide" onAction={() => handleVisibilityFromMenu(false)} />
+          </div>,
+          document.body,
+        )}
 
       <div
         style={{

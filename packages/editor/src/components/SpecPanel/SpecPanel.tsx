@@ -7,17 +7,27 @@
  * scene graph with zero network round-trips.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode, VariableStore } from '@strata/scene';
+import { MeasurementReadout } from './MeasurementReadout';
+import { SpecReadouts } from './SpecReadouts';
+import { UnitSelector, useSpecUnit } from './UnitSelector';
 import './SpecPanel.css';
 
 export interface SpecPanelProps {
   nodes: SceneNode[];
   doc: Document;
+  variableStore?: VariableStore;
 }
 
-export function SpecPanel({ nodes, doc: _doc }: SpecPanelProps) {
+const BASE_FONT_SIZE = 16;
+
+export function SpecPanel({ nodes, doc, variableStore }: SpecPanelProps) {
   const node = nodes[0];
+  const [unit, setUnit] = useSpecUnit();
+
   if (!node) return null;
+
+  const readoutsProps = { node, doc, unit, baseFontSize: BASE_FONT_SIZE, variableStore };
 
   return (
     <div className="spec-panel" role="region" aria-label="Specification inspector">
@@ -26,20 +36,10 @@ export function SpecPanel({ nodes, doc: _doc }: SpecPanelProps) {
         <span className="spec-panel__kind">{node.kind}</span>
       </div>
 
-      <section className="spec-panel__section" aria-labelledby="spec-layout-heading">
-        <h3 id="spec-layout-heading">Layout</h3>
-        <p className="spec-panel__placeholder">Measurement readout — Phase 2</p>
-      </section>
+      <UnitSelector value={unit} onChange={setUnit} />
 
-      <section className="spec-panel__section" aria-labelledby="spec-typography-heading">
-        <h3 id="spec-typography-heading">Typography</h3>
-        <p className="spec-panel__placeholder">Spec readouts — Phase 3</p>
-      </section>
-
-      <section className="spec-panel__section" aria-labelledby="spec-color-heading">
-        <h3 id="spec-color-heading">Color & Fill</h3>
-        <p className="spec-panel__placeholder">Spec readouts — Phase 3</p>
-      </section>
+      <MeasurementReadout node={node} doc={doc} unit={unit} baseFontSize={BASE_FONT_SIZE} />
+      <SpecReadouts {...readoutsProps} />
 
       <section className="spec-panel__section" aria-labelledby="spec-code-heading">
         <h3 id="spec-code-heading">Code</h3>

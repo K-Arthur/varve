@@ -42,7 +42,7 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 73 workspace + 7 src-tauri = 80 tests (strata-core: 32, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 8, strata-trace: 8 + src-tauri round-trip)
-- **JS:** 288 tests (engine 23, scene 70, ui 42, shared 1, editor 46, codegen 11, platform 41, home 13, shortcut hook 1, drag-drop 1)
+- **JS:** 305 tests (scene 70, engine 21, ui 47, shared 24, editor 78, codegen 11, platform 41, home 13)
 - **Gates:** lint 0 errors, emoji 0 violations, tokens 51/51 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
@@ -60,10 +60,10 @@ git worktree add .worktrees/home-start-page feat/home-start-page
 
 | Artifact | Location |
 |---|---|
-| Last commit | `5d1c090` — "Session 7: Home surface — update AGENTS.md test counts" |
+| Last commit | `5e8346d` — "feat: Properties/Inspector Panel — full multi-select-aware implementation" |
 | Branch | `feat/home-start-page` |
 | Deferred plan | `docs/plans/home-surface-deferred.md` |
-| Unstaged pre-existing | 36 files from previous sessions (Layers Panel, etc.) — do not touch |
+| Unstaged pre-existing | 0 — working tree clean |
 
 Always verify the commit exists before claiming work persisted:
 ```bash

@@ -46,7 +46,12 @@ export function FillSection({ nodes }: { nodes: import('@strata/scene').SceneNod
             aria-label={`Fill colour${fill ? ` ${fill[0]},${fill[1]},${fill[2]}` : ''}`}
             aria-haspopup="dialog"
             aria-expanded={open}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleOpen(); } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleOpen();
+              }
+            }}
             onClick={toggleOpen}
             style={{
               width: 24,
@@ -59,7 +64,13 @@ export function FillSection({ nodes }: { nodes: import('@strata/scene').SceneNod
             }}
           />
           {mixed && (
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginLeft: 'var(--space-2)' }}>
+            <span
+              style={{
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-muted)',
+                marginLeft: 'var(--space-2)',
+              }}
+            >
               Mixed
             </span>
           )}
@@ -79,10 +90,7 @@ export function FillSection({ nodes }: { nodes: import('@strata/scene').SceneNod
                 padding: 'var(--space-3)',
               }}
             >
-              <ColorPicker
-                value={fill ?? [255, 255, 255, 255]}
-                onChange={handleChange}
-              />
+              <ColorPicker value={fill ?? [255, 255, 255, 255]} onChange={handleChange} />
             </div>
           )}
         </div>

@@ -18,28 +18,24 @@
  * WICG virtual-scroller principles.
  */
 
-import type { ContainerNode, NodeId } from '@strata/scene';
-import { isContainer } from '@strata/scene';
-import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import {
+  closestCenter,
   DndContext,
-  DragOverlay,
   type DragEndEvent,
   type DragMoveEvent,
   type DragOverEvent,
+  DragOverlay,
   type DragStartEvent,
-  closestCenter,
   PointerSensor,
   TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { ContainerNode, NodeId } from '@strata/scene';
+import { isContainer } from '@strata/scene';
+import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
@@ -54,13 +50,24 @@ export interface LayersTreeProps {
 }
 
 export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
-  const { state, isSelected, toggleSelection, renameSelected, setNodeVisible, setNodeLocked, reparentNode, announce } =
-    useEditor();
+  const {
+    state,
+    isSelected,
+    toggleSelection,
+    renameSelected,
+    setNodeVisible,
+    setNodeLocked,
+    reparentNode,
+    announce,
+  } = useEditor();
 
   const [expanded, setExpanded] = useState<Set<NodeId>>(new Set());
   const [renamingId, setRenamingId] = useState<NodeId | null>(null);
   const [activeId, setActiveId] = useState<NodeId | null>(null);
-  const [dropIndicator, setDropIndicator] = useState<{ nodeId: NodeId; zone: 'before' | 'after' | 'into' } | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{
+    nodeId: NodeId;
+    zone: 'before' | 'after' | 'into';
+  } | null>(null);
   const entries = useFlatTree(state.document, expanded, filter);
   const treeRef = useRef<HTMLDivElement>(null);
   const { focusIdx, anchorIdx, setFocusIdx, setAnchorIdx, jumpToStart, jumpToEnd } = useTreeFocus();
@@ -423,10 +430,13 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
     }
   }, []);
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as NodeId);
-    cancelAutoScroll();
-  }, [cancelAutoScroll]);
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      setActiveId(event.active.id as NodeId);
+      cancelAutoScroll();
+    },
+    [cancelAutoScroll],
+  );
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {
     const { activatorEvent, delta } = event;
@@ -513,9 +523,10 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
 
       if (zone === 'into') {
         const overContainer = doc.nodes[overId];
-        const children = overContainer && isContainer(overContainer)
-          ? (overContainer as ContainerNode).children
-          : [];
+        const children =
+          overContainer && isContainer(overContainer)
+            ? (overContainer as ContainerNode).children
+            : [];
         reparentNode(activeNodeId, overId, children.length);
         announce(`Moved ${activeNode.name} into ${overNode.name}`);
         return;
@@ -539,7 +550,15 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
           : `Moved ${activeNode.name} below ${overNode.name}`,
       );
     },
-    [state.document, entries, dropIndicator, reparentNode, announce, cancelAutoExpand, cancelAutoScroll],
+    [
+      state.document,
+      entries,
+      dropIndicator,
+      reparentNode,
+      announce,
+      cancelAutoExpand,
+      cancelAutoScroll,
+    ],
   );
 
   if (entries.length === 0 && !filter) {
@@ -596,9 +615,8 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
               const selected = isSelected(node.id);
               const focused = virtualItem.index === focusIdx;
               const isExpanded = expanded.has(node.id);
-              const dropClass = dropIndicator?.nodeId === node.id
-                ? `layers-row--drop-${dropIndicator.zone}`
-                : '';
+              const dropClass =
+                dropIndicator?.nodeId === node.id ? `layers-row--drop-${dropIndicator.zone}` : '';
 
               return (
                 <SortableVirtualRow

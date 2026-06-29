@@ -8,8 +8,8 @@
  * Research basis: CSS Box Model (W3C); Figma Dev Mode measurement UX.
  */
 
-import { applyAffine } from '@strata/engine';
 import type { Affine, Point, Shape } from '@strata/engine';
+import { applyAffine } from '@strata/engine';
 import type { Document, SceneNode } from '@strata/scene';
 
 export interface AABB {
@@ -95,7 +95,14 @@ function shapeLocalBBox(shape: Shape): AABB {
       );
     case 'star':
       return pointsAABB(
-        starVertices(shape.cx, shape.cy, shape.innerRadius, shape.outerRadius, shape.points, shape.rotation),
+        starVertices(
+          shape.cx,
+          shape.cy,
+          shape.innerRadius,
+          shape.outerRadius,
+          shape.points,
+          shape.rotation,
+        ),
       );
   }
 }
@@ -108,7 +115,11 @@ function approximateTextBBox(node: SceneNode): AABB | null {
   return { x: 0, y: 0, w, h };
 }
 
-export function getAccumulatedTransform(doc: Document, nodeId: string, nodeTransform?: Affine): Affine {
+export function getAccumulatedTransform(
+  doc: Document,
+  nodeId: string,
+  nodeTransform?: Affine,
+): Affine {
   const nodeTransform_ = nodeTransform ?? ([1, 0, 0, 1, 0, 0] as Affine);
 
   const parents: SceneNode[] = [];
@@ -162,11 +173,12 @@ function getParent(doc: Document, id: string): string | null {
 }
 
 export function worldBBox(node: SceneNode, doc: Document): AABB {
-  const localBBox = node.kind === 'shape'
-    ? shapeLocalBBox(node.shape)
-    : node.kind === 'text'
-      ? approximateTextBBox(node) ?? { x: 0, y: 0, w: 100, h: 20 }
-      : { x: 0, y: 0, w: 200, h: 160 };
+  const localBBox =
+    node.kind === 'shape'
+      ? shapeLocalBBox(node.shape)
+      : node.kind === 'text'
+        ? (approximateTextBBox(node) ?? { x: 0, y: 0, w: 100, h: 20 })
+        : { x: 0, y: 0, w: 200, h: 160 };
 
   const world = getAccumulatedTransform(doc, node.id, node.transform as Affine);
   return applyAffineToAABB(world, localBBox);
@@ -184,10 +196,7 @@ export function edgeDistance(
   };
 }
 
-export function centerToCenter(
-  a: AABB,
-  b: AABB,
-): { dx: number; dy: number; distance: number } {
+export function centerToCenter(a: AABB, b: AABB): { dx: number; dy: number; distance: number } {
   const ax = a.x + a.w / 2;
   const ay = a.y + a.h / 2;
   const bx = b.x + b.w / 2;

@@ -56,3 +56,95 @@
   font-style: italic;
   font-size: var(--font-size-xs);
 }
+
+/* ── Unit selector ──────────────────────────────────── */
+.spec-unit-selector {
+  display: inline-flex;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+.spec-unit-selector__btn {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  outline-offset: -2px;
+}
+.spec-unit-selector__btn--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.spec-unit-selector__btn:hover:not(.spec-unit-selector__btn--active) {
+  background: var(--color-surface-sunken);
+}
+.spec-unit-selector__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+/* ── Spec rows ──────────────────────────────────────── */
+.spec-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  font-size: var(--font-size-xs);
+}
+.spec-row__label {
+  width: 7em;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.spec-row__value {
+  flex: 1;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  text-align: right;
+}
+.spec-row__copy {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.spec-row__copy:hover {
+  color: var(--color-interactive-default);
+  background: var(--color-surface-sunken);
+}
+.spec-row__copy:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+}
+
+/* ── Swatch ─────────────────────────────────────────── */
+.spec-swatch {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+/* ── Token name ────────────────────────────────────── */
+.spec-row__token {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-family: var(--font-body);
+}
+
+/* ── Warning (fails WCAG AA) ───────────────────────── */
+.spec-row__value--warn {
+  color: var(--color-feedback-danger);
+}
