@@ -45,6 +45,31 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 - **JS:** 276 tests (engine 23, scene 70, ui 42, shared 1, editor 46, codegen 11, platform 41, home 26)
 - **Gates:** lint 0 errors, emoji 0 violations, tokens 51/51 WCAG-AA across 3 themes
 
+## Ephemeral tree recovery
+
+The working tree does NOT persist between agent sessions. If the session is
+interrupted or the tree is recycled, recover with:
+
+```bash
+# The branch has the complete implementation
+git checkout feat/home-start-page
+# Or if the worktree was deleted:
+git worktree add .worktrees/home-start-page feat/home-start-page
+# Then resume work there
+```
+
+| Artifact | Location |
+|---|---|
+| Last commit | `5d1c090` — "Session 7: Home surface — update AGENTS.md test counts" |
+| Branch | `feat/home-start-page` |
+| Deferred plan | `docs/plans/home-surface-deferred.md` |
+| Unstaged pre-existing | 36 files from previous sessions (Layers Panel, etc.) — do not touch |
+
+Always verify the commit exists before claiming work persisted:
+```bash
+git log --oneline -3
+```
+
 ## Architecture decisions
 - **ADR-0001** — native engine renders by **IR-replay** (not pixel-push). Validated empirically on Wayland: 86 fps vs 8.5 fps. Rust computes scene, emits compact IR (~42 KB/frame for 600 shapes); webview replays to canvas2D/WebGPU.
 - **ADR-0002** — teal accent (#39d0c6), 12-step neutral+teal ramps, Light/Dark/High-Contrast themes.
