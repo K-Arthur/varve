@@ -9,10 +9,19 @@
  */
 
 export type ExportFormat =
-  | 'png' | 'jpg' | 'webp' | 'avif'
-  | 'svg' | 'pdf-screen'
-  | 'pdf-x1a' | 'pdf-x4'
-  | 'react-tailwind' | 'react-cssmodules' | 'flutter' | 'swiftui' | 'svg-component';
+  | 'png'
+  | 'jpg'
+  | 'webp'
+  | 'avif'
+  | 'svg'
+  | 'pdf-screen'
+  | 'pdf-x1a'
+  | 'pdf-x4'
+  | 'react-tailwind'
+  | 'react-cssmodules'
+  | 'flutter'
+  | 'swiftui'
+  | 'svg-component';
 
 export type ExportScale =
   | { type: 'factor'; value: number }

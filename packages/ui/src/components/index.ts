@@ -10,6 +10,8 @@ export type { IconButtonProps } from './IconButton';
 export { IconButton } from './IconButton';
 export type { NumberInputProps } from './NumberInput';
 export { NumberInput } from './NumberInput';
+export type { SliderProps } from './Slider';
+export { Slider } from './Slider';
 export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';
 export type { TooltipProps } from './Tooltip';

@@ -62,9 +62,13 @@ describe('ExportSettings', () => {
 describe('ExportJob', () => {
   it('tracks status transitions', () => {
     const job: ExportJob = {
-      presetId: 'p1', nodeId: 'n1', nodeName: 'Rect',
-      format: 'png', fileName: 'Rect@2x.png',
-      dimensions: { w: 100, h: 100 }, estimatedSize: 5000,
+      presetId: 'p1',
+      nodeId: 'n1',
+      nodeName: 'Rect',
+      format: 'png',
+      fileName: 'Rect@2x.png',
+      dimensions: { w: 100, h: 100 },
+      estimatedSize: 5000,
       status: 'pending',
     };
     expect(job.status).toBe('pending');

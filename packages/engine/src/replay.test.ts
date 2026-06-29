@@ -13,26 +13,42 @@ import type { RenderItem } from './types';
  */
 class Recorder implements ReplayTarget {
   public calls: string[] = [];
-  save() { this.calls.push('save'); }
-  restore() { this.calls.push('restore'); }
+  save() {
+    this.calls.push('save');
+  }
+  restore() {
+    this.calls.push('restore');
+  }
   transform(a: number, b: number, c: number, d: number, e: number, f: number) {
     this.calls.push(`transform(${a},${b},${c},${d},${e},${f})`);
   }
   fillRect(x: number, y: number, w: number, h: number) {
     this.calls.push(`fillRect(${x},${y},${w},${h})`);
   }
-  beginPath() { this.calls.push('beginPath'); }
+  beginPath() {
+    this.calls.push('beginPath');
+  }
   ellipse(x: number, y: number, rx: number, ry: number, rot: number, start: number, end: number) {
     this.calls.push(`ellipse(${x},${y},${rx},${ry},${rot},${start},${end})`);
   }
   arc(x: number, y: number, r: number, start: number, end: number) {
     this.calls.push(`arc(${x},${y},${r},${start},${end})`);
   }
-  moveTo(x: number, y: number) { this.calls.push(`moveTo(${x},${y})`); }
-  lineTo(x: number, y: number) { this.calls.push(`lineTo(${x},${y})`); }
-  fill() { this.calls.push('fill'); }
-  stroke() { this.calls.push('stroke'); }
-  closePath() { this.calls.push('closePath'); }
+  moveTo(x: number, y: number) {
+    this.calls.push(`moveTo(${x},${y})`);
+  }
+  lineTo(x: number, y: number) {
+    this.calls.push(`lineTo(${x},${y})`);
+  }
+  fill() {
+    this.calls.push('fill');
+  }
+  stroke() {
+    this.calls.push('stroke');
+  }
+  closePath() {
+    this.calls.push('closePath');
+  }
   fillStyle: string = '';
   lineWidth: number = 1;
   lineCap: CanvasLineCap = 'round';
