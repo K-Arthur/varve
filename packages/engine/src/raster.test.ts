@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeOutputDimensions } from './raster';
 import { estimateFileSize } from './raster-size';
-import type { RasterFormat } from './raster';
 
 describe('computeOutputDimensions', () => {
   it('scales dimensions by factor', () => {

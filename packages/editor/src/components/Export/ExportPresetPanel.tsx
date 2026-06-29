@@ -7,13 +7,10 @@
  * Follows the same pattern as other inspector sections (Section, control rows).
  */
 import { useState } from 'react';
-import type { ExportPreset, ExportFormat, NodeId, SceneNode } from '@strata/scene';
-import { exportDocumentToSvg } from '@strata/codegen';
-import type { Document } from '@strata/scene';
+import type { ExportPreset, ExportFormat, SceneNode } from '@strata/scene';
 
 interface ExportPresetPanelProps {
   node: SceneNode;
-  doc: Document;
   onAddPreset: (preset: ExportPreset) => void;
   onUpdatePreset: (preset: ExportPreset) => void;
   onRemovePreset: (presetId: string) => void;
@@ -50,7 +47,6 @@ const FORMAT_LABELS: Record<ExportFormat, string> = {
 
 export function ExportPresetPanel({
   node,
-  doc,
   onAddPreset,
   onUpdatePreset,
   onRemovePreset,

@@ -13,7 +13,7 @@
  *     Frame tool now correctly creates a FrameNode (container), not a ShapeNode.
  */
 import type { Affine, Color, Shape } from '@strata/engine';
-import type { ExportPreset, ExportJob, NodeId, Slot } from '@strata/scene';
+import type { ExportPreset, NodeId, Slot } from '@strata/scene';
 import {
   addNode,
   createComponent,

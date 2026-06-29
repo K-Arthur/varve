@@ -7,12 +7,7 @@
  * Supports: position (X/Y), size (W/H for shapes), fill (swatch + hex), text content, slots.
  */
 
-import {
-  buildSpec,
-  exportDocumentToReact,
-  exportDocumentToSvg,
-  specToMarkdown,
-} from '@strata/codegen';
+import { buildSpec, specToMarkdown } from '@strata/codegen';
 import type { Color } from '@strata/engine';
 import type { FlexDirection, FrameNode, LayoutMode, LayoutStyle } from '@strata/scene';
 import { NumberInput } from '@strata/ui';
@@ -244,15 +239,15 @@ export function InspectorPanel() {
         </>
       )}
 
-      {activeTab === 'export' && <ExportTab doc={state.document} />}
+      {activeTab === 'export' && <ExportTab />}
       {activeTab === 'spec' && <SpecTab doc={state.document} />}
     </section>
   );
 }
 
 /** B3: Export tab — per-node preset panel + quick export. */
-function ExportTab({ doc }: { doc: import('@strata/scene').Document }) {
-  const { state, selectedNodes, addPreset, updatePreset, removePreset } = useEditor();
+function ExportTab() {
+  const { selectedNodes, addPreset, updatePreset, removePreset } = useEditor();
   const sel = selectedNodes();
   const selected = sel[0];
 
@@ -267,72 +262,10 @@ function ExportTab({ doc }: { doc: import('@strata/scene').Document }) {
   return (
     <ExportPresetPanel
       node={selected}
-      doc={doc}
       onAddPreset={(preset) => addPreset(selected.id, preset)}
       onUpdatePreset={(preset) => updatePreset(selected.id, preset)}
       onRemovePreset={(presetId) => removePreset(selected.id, presetId)}
     />
-  );
-}
-
-function ExportRow({
-  label,
-  hint,
-  onCopy,
-  onDownload,
-  copyLabel,
-}: {
-  label: string;
-  hint: string;
-  onCopy?: () => void;
-  onDownload: () => void;
-  copyLabel?: string;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-1)',
-        marginBottom: 'var(--space-1)',
-      }}
-    >
-      <span style={{ flex: 1, fontSize: 'var(--font-size-xs)' }} title={hint}>
-        {label}
-      </span>
-      {onCopy && copyLabel && (
-        <button
-          type="button"
-          onClick={onCopy}
-          style={{
-            fontSize: 'var(--font-size-xs)',
-            padding: '2px 6px',
-            background: 'var(--color-surface-sunken)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-          }}
-        >
-          {copyLabel}
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={onDownload}
-        style={{
-          fontSize: 'var(--font-size-xs)',
-          padding: '2px 6px',
-          background: 'var(--color-interactive-default)',
-          color: 'var(--color-text-on-accent)',
-          border: 'none',
-          borderRadius: 'var(--radius-sm)',
-          cursor: 'pointer',
-        }}
-      >
-        Download
-      </button>
-    </div>
   );
 }
 
