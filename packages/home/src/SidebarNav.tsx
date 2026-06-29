@@ -1,3 +1,4 @@
+import { useDroppable } from '@dnd-kit/core';
 import type { IconName } from '@strata/ui';
 import { Icon } from '@strata/ui';
 import {
@@ -26,6 +27,79 @@ export interface SidebarNavProps {
   onDropOnProject?: (fileId: string, projectId: string) => void;
 }
 
+function SidebarProjectRow({ entry, isActive, focusIdx, idx, onSelect, setFocusIdx, onPin, onDropOnProject, dropTargetId, setDropTargetId }: {
+  entry: SidebarEntry;
+  isActive: boolean;
+  focusIdx: number;
+  idx: number;
+  onSelect: (id: string) => void;
+  setFocusIdx: (i: number) => void;
+  onPin?: (id: string) => void;
+  onDropOnProject?: (fileId: string, projectId: string) => void;
+  dropTargetId: string | null;
+  setDropTargetId: (id: string | null) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: entry.id,
+    data: { type: 'project' },
+  });
+  const isDropTarget = dropTargetId === entry.id || isOver;
+
+  const handleDragOver = (e: DragEvent) => {
+    if (onDropOnProject) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDropTargetId(entry.id);
+    }
+  };
+
+  const handleDragLeave = () => {
+    if (dropTargetId === entry.id) setDropTargetId(null);
+  };
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    setDropTargetId(null);
+    if (!onDropOnProject) return;
+    const fileId = e.dataTransfer.getData('text/strata-file-id');
+    if (fileId) onDropOnProject(fileId, entry.id);
+  };
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      role="option"
+      aria-selected={isActive}
+      tabIndex={idx === focusIdx ? 0 : -1}
+      className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''} ${isDropTarget ? 'sidebar-item--drop-target' : ''}`}
+      onClick={() => onSelect(entry.id)}
+      onMouseEnter={() => setFocusIdx(idx)}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <Icon name={entry.icon} label={undefined} className="sidebar-item__icon" />
+      <span>{entry.label}</span>
+      <span className="sidebar-item__count">{entry.count}</span>
+      {onPin && entry.pinned !== undefined && (
+        <button
+          type="button"
+          className="sidebar-item__pin"
+          aria-pressed={entry.pinned}
+          aria-label={entry.pinned ? `Unpin ${entry.label}` : `Pin ${entry.label}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPin(entry.id);
+          }}
+        >
+          <Icon name={entry.pinned ? 'Pin' : 'PinOff'} label={undefined} size="0.85em" />
+        </button>
+      )}
+    </button>
+  );
+}
+
 export function SidebarNav({
   entries,
   activeId,
@@ -36,7 +110,7 @@ export function SidebarNav({
   const [focusIdx, setFocusIdx] = useState(0);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const itemRefs = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
     const idx = entries.findIndex((e) => e.id === activeId);
@@ -99,27 +173,25 @@ export function SidebarNav({
       {entries.map((entry, i) => {
         const isActive = entry.id === activeId;
         const isProject = !['recent', 'all', 'templates', 'trash'].includes(entry.id);
-        const isDropTarget = dropTargetId === entry.id;
 
-        const handleDragOver = (e: DragEvent) => {
-          if (isProject && onDropOnProject) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            setDropTargetId(entry.id);
-          }
-        };
-
-        const handleDragLeave = () => {
-          if (dropTargetId === entry.id) setDropTargetId(null);
-        };
-
-        const handleDrop = (e: DragEvent) => {
-          e.preventDefault();
-          setDropTargetId(null);
-          if (!isProject || !onDropOnProject) return;
-          const fileId = e.dataTransfer.getData('text/strata-file-id');
-          if (fileId) onDropOnProject(fileId, entry.id);
-        };
+        if (isProject) {
+          return (
+            <div key={entry.id} ref={(el) => { itemRefs.current[i] = el; }}>
+              <SidebarProjectRow
+                entry={entry}
+                isActive={isActive}
+                focusIdx={focusIdx}
+                idx={i}
+                onSelect={onSelect}
+                setFocusIdx={setFocusIdx}
+                onPin={onPin}
+                onDropOnProject={onDropOnProject}
+                dropTargetId={dropTargetId}
+                setDropTargetId={setDropTargetId}
+              />
+            </div>
+          );
+        }
 
         return (
           <button
@@ -131,30 +203,13 @@ export function SidebarNav({
             role="option"
             aria-selected={isActive}
             tabIndex={i === focusIdx ? 0 : -1}
-            className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''} ${isDropTarget ? 'sidebar-item--drop-target' : ''}`}
+            className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''}`}
             onClick={() => onSelect(entry.id)}
             onMouseEnter={() => setFocusIdx(i)}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
           >
             <Icon name={entry.icon} label={undefined} className="sidebar-item__icon" />
             <span>{entry.label}</span>
             <span className="sidebar-item__count">{entry.count}</span>
-            {onPin && entry.pinned !== undefined && (
-              <button
-                type="button"
-                className="sidebar-item__pin"
-                aria-pressed={entry.pinned}
-                aria-label={entry.pinned ? `Unpin ${entry.label}` : `Pin ${entry.label}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPin(entry.id);
-                }}
-              >
-                <Icon name={entry.pinned ? 'Pin' : 'PinOff'} label={undefined} size="0.85em" />
-              </button>
-            )}
           </button>
         );
       })}

@@ -6,6 +6,7 @@
  * with text (not color alone), contrast ratios shown numerically.
  */
 
+import { resolveTokenName } from '@strata/codegen';
 import type { Document, SceneNode, VariableStore } from '@strata/scene';
 import { convertPx, formatValue, type SpecUnit } from '@strata/shared';
 import { CopyButton } from '@strata/ui';
@@ -174,12 +175,19 @@ function TypographyReadout({ node, unit, baseFontSize, variableStore }: SpecRead
 
 // ── Color & Fill Readout ───────────────────────────────────────────────────
 
-function ColorReadout({ node, variableStore: _variableStore }: SpecReadoutsProps) {
+function ColorReadout({ node, variableStore }: SpecReadoutsProps) {
   const fill = node.fill;
 
   const hex = useMemo(() => colorToHex(fill), [fill]);
   const rgb = useMemo(() => colorToRgb(fill), [fill]);
-  const tokens = useMemo(() => matchTokens(fill, _variableStore), [fill, _variableStore]);
+  const boundToken = useMemo(
+    () => resolveTokenName(node.bindings, 'fill', variableStore),
+    [node.bindings, variableStore],
+  );
+  const tokens = useMemo(
+    () => (boundToken ? [boundToken] : matchTokens(fill, variableStore)),
+    [boundToken, fill, variableStore],
+  );
   const bgLum = 1;
   const fgLum = useMemo(() => luminance(fill), [fill]);
   const cr = useMemo(() => contrastRatio(fgLum, bgLum), [fgLum]);

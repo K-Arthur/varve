@@ -1,4 +1,5 @@
 import type { FileEntry } from '@strata/platform';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { FileCard } from './FileCard';
@@ -119,6 +120,8 @@ export function FileGrid({
     if (idx >= 0) setFocusIdx(idx);
   }, [files]);
 
+  const sortableIds = files.filter((f) => !f.trashedAt).map((f) => f.id);
+
   return (
     <div
       ref={containerRef}
@@ -134,7 +137,8 @@ export function FileGrid({
         position: 'relative',
       }}
     >
-      {virtualizer.getVirtualItems().map((virtualRow) => {
+      <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+        {virtualizer.getVirtualItems().map((virtualRow) => {
         const rowIdx = virtualRow.index;
         const startIdx = rowIdx * columns;
         return (
@@ -184,6 +188,7 @@ export function FileGrid({
           </div>
         );
       })}
+      </SortableContext>
     </div>
   );
 }

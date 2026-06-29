@@ -67,7 +67,7 @@ export function SpecPanel({ nodes, doc, variableStore, engine, platform }: SpecP
 
       <MeasurementReadout node={node} doc={doc} unit={unit} baseFontSize={BASE_FONT_SIZE} />
       <SpecReadouts {...readoutsProps} />
-      <CodeGenView node={node} doc={doc} />
+      <CodeGenView node={node} doc={doc} variableStore={variableStore} />
 
       <AssetExportControls node={node} doc={doc} engine={engine!} platform={platform} />
 

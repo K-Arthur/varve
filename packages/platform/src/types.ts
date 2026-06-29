@@ -64,7 +64,7 @@ export interface ThumbnailRecord {
   createdAt: number;
 }
 
-export type SortKey = 'updated' | 'opened' | 'name' | 'created' | 'size';
+export type SortKey = 'updated' | 'opened' | 'name' | 'created' | 'size' | 'ordering';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortState {

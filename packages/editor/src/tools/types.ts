@@ -134,13 +134,12 @@ export interface ToolContext {
   abortTransaction: () => void;
 
   snapPosition: (
-    world: { x: number; y: number },
-    targets: { x: number; y: number; w: number; h: number }[],
+    bounds: { x: number; y: number; w: number; h: number },
+    targets: Array<{ x: number; y: number; w: number; h: number }>,
   ) => {
     x: number;
     y: number;
-    snappedX: boolean;
-    snappedY: boolean;
+    guides: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
   };
 }
 

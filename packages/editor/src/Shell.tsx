@@ -7,7 +7,7 @@ import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
-import { ToolPanel } from './ToolPanel';
+import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 
 export interface ShellProps {
   onBackToHome?: () => void;
@@ -30,7 +30,7 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
   return (
     <div className="editor-shell">
       <Menubar onBackToHome={onBackToHome} />
-      <ToolPanel />
+      <FloatingToolbar />
       <TabStrip />
       <CanvasArea />
       <LayersPanel />

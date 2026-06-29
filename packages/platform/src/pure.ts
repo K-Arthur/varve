@@ -160,10 +160,10 @@ export function formatBytes(bytes: number): string {
 
 /** Comparator for a (file | project) field given a sort key + direction. */
 export function compareBy(
-  key: 'updated' | 'opened' | 'created' | 'size' | 'name',
+  key: 'updated' | 'opened' | 'created' | 'size' | 'name' | 'ordering',
   direction: SortDirection,
 ): (
-  a: { updatedAt: number; openedAt?: number; createdAt: number; size?: number; name: string },
+  a: { updatedAt: number; openedAt?: number; createdAt: number; size?: number; name: string; ordering?: string },
   b: typeof a,
 ) => number {
   const mul = direction === 'asc' ? 1 : -1;
@@ -184,6 +184,11 @@ export function compareBy(
         const av = a.size ?? 0;
         const bv = b.size ?? 0;
         return (av - bv) * mul;
+      }
+      case 'ordering': {
+        const ao = a.ordering ?? '';
+        const bo = b.ordering ?? '';
+        return ao < bo ? -1 * mul : ao > bo ? 1 * mul : 0;
       }
       default:
         return (a.updatedAt - b.updatedAt) * mul;

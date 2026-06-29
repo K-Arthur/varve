@@ -20,6 +20,7 @@
     "@strata/engine": "workspace:*",
     "@strata/platform": "workspace:*",
     "@strata/scene": "workspace:*",
+    "@strata/shared": "workspace:*",
     "@strata/ui": "workspace:*",
     "@tanstack/react-virtual": "^3.14.4",
     "@dnd-kit/core": "^6.3.1",

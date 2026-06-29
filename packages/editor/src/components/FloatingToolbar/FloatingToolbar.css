@@ -1,0 +1,47 @@
+.floating-toolbar {
+  position: fixed;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-overlay, rgba(30, 30, 35, 0.85));
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+}
+.floating-toolbar__group {
+  display: flex;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+}
+.floating-toolbar__group + .floating-toolbar__group {
+  border-left: 1px solid var(--color-border-subtle);
+}
+.floating-toolbar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.floating-toolbar__btn:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+.floating-toolbar__btn--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.floating-toolbar__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+}

@@ -1,10 +1,19 @@
 import type { Document as SceneDoc } from '@strata/scene';
-import { addNode, createDocument, makeFrameNode, makeGroupNode, makeShapeNode, makeTextNode, nextNodeId } from '@strata/scene';
+import {
+  addNode,
+  createDocument,
+  createVariableStore,
+  makeFrameNode,
+  makeGroupNode,
+  makeShapeNode,
+  makeTextNode,
+  nextNodeId,
+} from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { exportNodeToCss } from './css';
 import { exportNodeToCssModules } from './css-modules';
 import { exportNodeToFlutter } from './flutter';
-import { exportDocumentToReact, exportDocumentToSvg } from './index';
+import { exportDocumentToReact, exportDocumentToSvg, resolveTokenName } from './index';
 import { exportNodeToSvg } from './svg';
 import { exportNodeToSwiftUI } from './swiftui';
 import { exportNodeToTailwind } from './tailwind';
@@ -65,7 +74,11 @@ describe('exportNodeToCssModules', () => {
 
 describe('exportNodeToFlutter', () => {
   it('emits Positioned/Container for a shape', () => {
-    const node = makeShapeNode('n1', { kind: 'rect', x: 10, y: 20, w: 200, h: 100 }, { name: 'Box' });
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 10, y: 20, w: 200, h: 100 },
+      { name: 'Box' },
+    );
     const fl = exportNodeToFlutter(node);
     expect(fl).toContain('Positioned(');
     expect(fl).toContain('Container(');
@@ -78,16 +91,28 @@ describe('exportNodeToFlutter', () => {
   it('emits Text widget for a text node', () => {
     const node = makeTextNode('t1', 'Hello', { fontSize: 24 });
     const fl = exportNodeToFlutter(node);
-    expect(fl).toContain("Text(");
+    expect(fl).toContain('Text(');
     expect(fl).toContain("'Hello'");
     expect(fl).toContain('fontSize: 24');
   });
 
   it('emits Row with spacing for a frame with Row layout', () => {
     let doc = createDocument('Test');
-    const child = makeShapeNode('c1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'Child' });
+    const child = makeShapeNode(
+      'c1',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Child' },
+    );
     const frame = makeFrameNode('f1', { name: 'RowFrame', children: ['c1'] });
-    frame.layoutStyle = { mode: 'flex', direction: 'row', gap: 12, wrap: false, padding: [0, 0, 0, 0], grow: 0, shrink: 0 };
+    frame.layoutStyle = {
+      mode: 'flex',
+      direction: 'row',
+      gap: 12,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    };
     doc = addNode(doc, child);
     doc = addNode(doc, frame);
     const fl = exportNodeToFlutter(frame, doc);
@@ -98,7 +123,11 @@ describe('exportNodeToFlutter', () => {
 
   it('emits Stack for a group with children', () => {
     let doc = createDocument('Test');
-    const child = makeShapeNode('c1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'Child' });
+    const child = makeShapeNode(
+      'c1',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Child' },
+    );
     const group = makeGroupNode('g1', { name: 'Group', children: ['c1'] });
     doc = addNode(doc, child);
     doc = addNode(doc, group);
@@ -125,9 +154,21 @@ describe('exportNodeToSwiftUI', () => {
 
   it('emits HStack for a frame with Row layout', () => {
     let doc = createDocument('Test');
-    const child = makeShapeNode('c1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'Child' });
+    const child = makeShapeNode(
+      'c1',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Child' },
+    );
     const frame = makeFrameNode('f1', { name: 'RowFrame', children: ['c1'] });
-    frame.layoutStyle = { mode: 'flex', direction: 'row', gap: 8, wrap: false, padding: [0, 0, 0, 0], grow: 0, shrink: 0 };
+    frame.layoutStyle = {
+      mode: 'flex',
+      direction: 'row',
+      gap: 8,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    };
     doc = addNode(doc, child);
     doc = addNode(doc, frame);
     const sw = exportNodeToSwiftUI(frame, doc);
@@ -137,12 +178,94 @@ describe('exportNodeToSwiftUI', () => {
 
   it('emits ZStack for a group with children', () => {
     let doc = createDocument('Test');
-    const child = makeShapeNode('c1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'Child' });
+    const child = makeShapeNode(
+      'c1',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Child' },
+    );
     const group = makeGroupNode('g1', { name: 'Group', children: ['c1'] });
     doc = addNode(doc, child);
     doc = addNode(doc, group);
     const sw = exportNodeToSwiftUI(group, doc);
     expect(sw).toContain('ZStack {');
+  });
+});
+
+describe('resolveTokenName', () => {
+  it('returns token name for bound property', () => {
+    const store = createVariableStore();
+    store.variables.v1 = { id: 'v1', name: 'primary', type: 'color', valuesByMode: { default: 'rgba(57,208,198,1.00)' } };
+    const name = resolveTokenName({ fill: { variableId: 'v1' } }, 'fill', store);
+    expect(name).toBe('primary');
+  });
+
+  it('returns undefined when no bindings', () => {
+    const store = createVariableStore();
+    expect(resolveTokenName(undefined, 'fill', store)).toBeUndefined();
+  });
+
+  it('returns undefined when property not bound', () => {
+    const store = createVariableStore();
+    expect(resolveTokenName({}, 'fill', store)).toBeUndefined();
+  });
+
+  it('returns undefined when variable not in store', () => {
+    const store = createVariableStore();
+    expect(resolveTokenName({ fill: { variableId: 'missing' } }, 'fill', store)).toBeUndefined();
+  });
+});
+
+describe('token-aware codegen', () => {
+  function nodeWithBindings(store: ReturnType<typeof createVariableStore>) {
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+    );
+    (node as unknown as Record<string, unknown>).bindings = { fill: { variableId: 'v1' } };
+    store.variables.v1 = { id: 'v1', name: 'primary', type: 'color', valuesByMode: { default: 'rgba(57,208,198,1.00)' } };
+    return node;
+  }
+
+  it('CSS emits var(--token-name) when fill is bound', () => {
+    const doc: SceneDoc = createDocument('Test');
+    const store = createVariableStore();
+    const node = nodeWithBindings(store);
+    const css = exportNodeToCss(node, doc, { variableStore: store });
+    expect(css).toContain('var(--primary)');
+    expect(css).not.toContain('#39d0c6');
+  });
+
+  it('CSS falls back to raw color when no bindings', () => {
+    const doc: SceneDoc = createDocument('Test');
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+    );
+    const css = exportNodeToCss(node, doc);
+    expect(css).toContain('#39d0c6');
+    expect(css).not.toContain('var(--');
+  });
+
+  it('Tailwind emits bg-[--token-name] when fill is bound', () => {
+    const doc: SceneDoc = createDocument('Test');
+    const store = createVariableStore();
+    const node = nodeWithBindings(store);
+    const tw = exportNodeToTailwind(node, doc, { variableStore: store });
+    expect(tw).toContain('bg-[--primary]');
+    expect(tw).not.toContain('bg-[#39d0c6]');
+  });
+
+  it('Tailwind falls back to raw value when no bindings', () => {
+    const doc: SceneDoc = createDocument('Test');
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+    );
+    const tw = exportNodeToTailwind(node, doc);
+    expect(tw).toContain('bg-[#39d0c6]');
   });
 });
 

@@ -160,6 +160,8 @@ export interface ShapeNode extends NodeBase {
   effects: Effect[];
   /** Uniform or per-corner radius for rect-anchored shapes. */
   cornerRadius?: number | [number, number, number, number];
+  /** Corner smoothing percentage (0-100), Sketch-style continuous corners. */
+  cornerSmoothing?: number;
 }
 
 export interface TextNode extends NodeBase {

@@ -14,6 +14,8 @@ import type { SceneNode } from '@strata/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
+import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
+import { snapPosition, type SnapGuide } from './tools/snapping';
 import { type ToolContext, ToolManager } from './tools';
 import { EllipseTool } from './tools/EllipseTool';
 import { FrameTool } from './tools/FrameTool';
@@ -86,6 +88,8 @@ export function CanvasArea() {
     h: number;
     label?: string;
   } | null>(null);
+
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
 
   useEffect(() => {
     createEngine('auto').then((eng) => {
@@ -184,31 +188,10 @@ export function CanvasArea() {
       commitTransaction: () => e.commitTransaction(),
       abortTransaction: () => e.abortTransaction(),
 
-      snapPosition: (world, targets) => {
-        let x = world.x;
-        let y = world.y;
-        let snappedX = false;
-        let snappedY = false;
-        const threshold = 6 / s.zoom;
-        for (const t of targets) {
-          if (Math.abs(world.x - t.x) < threshold) {
-            x = t.x;
-            snappedX = true;
-          }
-          if (Math.abs(world.x - (t.x + t.w)) < threshold) {
-            x = t.x + t.w;
-            snappedX = true;
-          }
-          if (Math.abs(world.y - t.y) < threshold) {
-            y = t.y;
-            snappedY = true;
-          }
-          if (Math.abs(world.y - (t.y + t.h)) < threshold) {
-            y = t.y + t.h;
-            snappedY = true;
-          }
-        }
-        return { x, y, snappedX, snappedY };
+      snapPosition: (bounds, targets) => {
+        const result = snapPosition(bounds.x, bounds.y, bounds.w, bounds.h, targets);
+        setSnapGuides(result.guides);
+        return result;
       },
     };
   }
@@ -319,6 +302,7 @@ export function CanvasArea() {
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    setSnapGuides([]);
     if (midPanRef.current) {
       midPanRef.current = null;
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -336,6 +320,7 @@ export function CanvasArea() {
     midPanRef.current = null;
     const ne = e.nativeEvent as PointerEvent;
     tm.current?.handlePointerCancel(ne, buildToolCtx(ne));
+    setSnapGuides([]);
   }
 
   // ─── Wheel (zoom) ─────────────────────────────────────────────────────────
@@ -430,6 +415,7 @@ export function CanvasArea() {
         onPointerCancel={handlePointerCancel}
         onWheel={handleWheel}
       />
+      <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />
       <SelectionOverlay />
       <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" />
     </section>

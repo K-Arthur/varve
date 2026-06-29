@@ -1,9 +1,12 @@
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { FileEntry } from '@strata/platform';
 import { formatBytes, formatRelativeTime } from '@strata/platform';
 import {
   type ButtonHTMLAttributes,
   forwardRef,
   type KeyboardEvent,
+  useCallback,
   useEffect,
   useRef,
 } from 'react';
@@ -28,11 +31,35 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
     onContext,
     onFileDragStart,
     className = '',
+    style: styleProp,
     ...rest
   },
   ref,
 ) {
   const thumbRef = useRef<HTMLDivElement>(null);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: entry.id });
+  const dndStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  const mergedStyle = { ...styleProp, ...dndStyle };
+
+  const mergedRef = useCallback(
+    (node: HTMLButtonElement | null) => {
+      setNodeRef(node);
+      if (typeof ref === 'function') ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref, setNodeRef],
+  );
 
   useEffect(() => {
     if (thumbnail && thumbRef.current) {
@@ -54,17 +81,20 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
 
   return (
     <button
-      ref={ref}
+      ref={mergedRef}
       type="button"
-      role="gridcell"
       aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}`}
       aria-selected={selected}
       draggable
       className={`file-card ${selected ? 'file-card--selected' : ''} ${className}`.trim()}
+      style={mergedStyle}
       onClick={() => onOpen(entry)}
       onContextMenu={(e) => onContext(e, entry)}
       onKeyDown={handleKey}
       onDragStart={(e) => onFileDragStart?.(e, entry)}
+      {...attributes}
+      role="gridcell"
+      {...listeners}
       {...rest}
     >
       <div className="file-card__thumb" ref={thumbRef}>

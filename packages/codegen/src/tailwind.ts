@@ -5,14 +5,17 @@
  * Token-aware: when a variable store is provided, emits theme tokens instead.
  */
 
-import type { Document as SceneDocument, SceneNode } from '@strata/scene';
+import type { Document as SceneDocument, SceneNode, VariableStore } from '@strata/scene';
 import { colorToHex, computeNodePos, escapeXml } from './shared';
+import { resolveTokenName } from './tokens';
 
 export interface TailwindExportOptions {
   /** Token map: property key → Tailwind theme path (e.g. { width: 'w-4' }). */
   tokens?: Record<string, string>;
   /** Use Tailwind arbitrary value syntax. Default: true. */
   arbitraryValues?: boolean;
+  /** Variable store for resolving token bindings. */
+  variableStore?: VariableStore;
 }
 
 function sizeClass(px: number, av: boolean): string {
@@ -31,7 +34,15 @@ function heightClass(px: number, av: boolean): string {
   return `h-[${px}px]`;
 }
 
-function bgClass(c: readonly [number, number, number, number]): string {
+function bgClass(
+  c: readonly [number, number, number, number],
+  node: SceneNode,
+  opts?: TailwindExportOptions,
+): string {
+  const tokenName = opts?.variableStore
+    ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
+    : undefined;
+  if (tokenName) return `bg-[--${tokenName}]`;
   const hex = colorToHex(c);
   return `bg-[${hex}]`;
 }
@@ -49,7 +60,7 @@ export function exportNodeToTailwind(
   classes.push(`top-[${pos.y}px]`);
   classes.push(sizeClass(pos.w, av));
   classes.push(heightClass(pos.h, av));
-  classes.push(bgClass(node.fill));
+  classes.push(bgClass(node.fill, node, opts));
 
   if (node.kind === 'text') {
     const fs = node.fontSize ?? 16;

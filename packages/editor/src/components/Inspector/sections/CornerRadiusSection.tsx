@@ -10,15 +10,18 @@
  * Research basis: Figma/Sketch corner radius panel; APG Spinbutton.
  */
 import type { SceneNode } from '@strata/scene';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed } from '../selection/selectionState';
 
 export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
-  const { setSelectedCornerRadius } = useEditor();
+  const editor = useEditor();
+  const { setSelectedCornerRadius, setSelectedCornerSmoothing } = editor;
   const [perCorner, setPerCorner] = useState(false);
+  const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const radiusRaw = commonValue(nodes, (n) => {
     if (n.kind !== 'shape') return undefined;
@@ -30,6 +33,13 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
     !mixed && radiusRaw !== undefined
       ? (radiusRaw as number | [number, number, number, number])
       : null;
+
+  const smoothingRaw = commonValue(nodes, (n) => {
+    if (n.kind !== 'shape') return undefined;
+    return n.cornerSmoothing ?? 0;
+  });
+  const smoothingMixed = isMixed(smoothingRaw);
+  const smoothing = smoothingMixed ? 0 : Math.round((smoothingRaw as number | undefined) ?? 0);
 
   const uniform = typeof radius === 'number' ? radius : 0;
   const tl = Array.isArray(radius) ? radius[0] : uniform;
@@ -63,12 +73,41 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Corner Radius">
-      {!perCorner && !mixed && (
-        <NumberField label="Radius" value={uniform} min={0} onChange={handleUniform} />
-      )}
-      {!perCorner && mixed && (
-        <NumberField label="Radius" value={0} mixed min={0} onChange={handleUniform} />
-      )}
+      <div ref={bindingTriggerRef} style={{ position: 'relative' }}>
+        {!perCorner && !mixed && (
+          <NumberField
+            label="Radius"
+            value={uniform}
+            min={0}
+            onChange={handleUniform}
+            fieldName="cornerRadius"
+            onShiftClick={() => editor.setBindingField('cornerRadius')}
+          />
+        )}
+        {!perCorner && mixed && (
+          <NumberField
+            label="Radius"
+            value={0}
+            mixed
+            min={0}
+            onChange={handleUniform}
+            fieldName="cornerRadius"
+            onShiftClick={() => editor.setBindingField('cornerRadius')}
+          />
+        )}
+        {editor.bindingField === 'cornerRadius' && (
+          <BindingMenu
+            variableStore={editor.state.variableStore as import('@strata/scene').VariableStore}
+            targetType="number"
+            onBind={(variableId, expression) => {
+              editor.setSelectedBinding(editor.bindingField!, { variableId, expression });
+              editor.setBindingField(null);
+            }}
+            onClose={() => editor.setBindingField(null)}
+            triggerRef={bindingTriggerRef}
+          />
+        )}
+      </div>
       {perCorner && (
         <>
           <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-1)' }}>
@@ -112,6 +151,33 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
         </svg>
         {perCorner ? 'Uniform' : 'Individual'}
       </button>
+      {/* Corner smoothing slider */}
+      <div
+        className="insp-field"
+        style={{ marginTop: 'var(--space-1)', flexDirection: 'column', gap: 'var(--space-1)' }}
+      >
+        <label className="insp-field__label">Smoothing</label>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-2)',
+          }}
+        >
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={smoothing}
+            onChange={(e) => setSelectedCornerSmoothing(Number(e.target.value))}
+            aria-label="Corner smoothing"
+            style={{ flex: 1 }}
+          />
+          <span className="insp-value" style={{ fontSize: 'var(--font-size-xs)', minWidth: 32, textAlign: 'right' }}>
+            {smoothing}%
+          </span>
+        </div>
+      </div>
     </DisclosureSection>
   );
 }

@@ -1,5 +1,7 @@
+import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { contentHash, detectFileKind, type FileEntry, type Platform } from '@strata/platform';
-import { useCallback, useEffect, useState } from 'react';
+import { generateKeyBetween } from '@strata/shared';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
@@ -142,6 +144,40 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
     { id: 'templates', label: 'Templates', icon: 'LayoutGrid', count: 0 },
     { id: 'trash', label: 'Trash', icon: 'Archive', count: view.trashedFiles.length },
   ];
+
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
+  const sensors = useSensors(pointerSensor);
+
+  const filesByOrdering = useMemo(
+    () => [...view.files].filter((f) => !f.trashedAt).sort((a, b) => (a.ordering || '') < (b.ordering || '') ? -1 : (a.ordering || '') > (b.ordering || '') ? 1 : 0),
+    [view.files],
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const activeId = String(active.id);
+      const overId = String(over.id);
+
+      if (over.data.current?.type === 'project') {
+        actions.moveToProject(activeId, overId);
+        return;
+      }
+
+      const sorted = filesByOrdering;
+      const remaining = sorted.filter((f) => f.id !== activeId);
+      const overIdx = remaining.findIndex((f) => f.id === overId);
+      if (overIdx === -1) return;
+
+      const prevKey = overIdx > 0 ? (remaining[overIdx - 1]?.ordering ?? null) : null;
+      const nextKey = remaining[overIdx]?.ordering ?? null;
+      const newKey = generateKeyBetween(prevKey, nextKey);
+
+      platform.reorderFile(activeId, newKey).then(() => view.refresh());
+    },
+    [filesByOrdering, platform, actions, view],
+  );
 
   const handleFileDragStart = useCallback((e: React.DragEvent, entry: FileEntry) => {
     e.dataTransfer.setData('text/strata-file-id', entry.id);
@@ -314,6 +350,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
   };
 
   return (
+    <DndContext sensors={sensors} collisionDetection={undefined} onDragEnd={handleDragEnd}>
     <div
       className={`strata-home ${view.state.sidebarCollapsed ? 'strata-home--collapsed' : ''} ${isDragOver ? 'strata-home--drag-over' : ''}`}
       onDragOver={handleDragOver}
@@ -421,5 +458,6 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
         />
       )}
     </div>
+    </DndContext>
   );
 }

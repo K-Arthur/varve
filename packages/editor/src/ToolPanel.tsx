@@ -1,8 +1,7 @@
 /**
- * Tool panel — the primary toolbar (Strata plan §5.3).
+ * Tool panel — archived.
  *
- * Uses the APG Toolbar component with roving tabindex.
- * A11: each tool wrapped with APG Tooltip showing name + shortcut key.
+ * Replaced by FloatingToolbar in Session 12+.
  */
 import { IconButton, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { type ToolId, useEditor } from './context';
@@ -21,6 +20,7 @@ const TOOLS: { id: ToolId; label: string; shortcut: string }[] = [
   { id: 'zoom', label: 'Zoom', shortcut: 'Z' },
 ];
 
+/** @deprecated Use FloatingToolbar instead. */
 export function ToolPanel() {
   const { state, setTool } = useEditor();
   return (

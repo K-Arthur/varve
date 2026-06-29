@@ -3,12 +3,10 @@
   display: grid;
   grid-template-areas:
     "menubar  menubar   menubar"
-    "toolbar  toolbar   toolbar"
     "tabs     tabs      tabs"
     "layers   canvas    inspector"
     "status   status    status";
-  grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width);
-  grid-template-rows: var(--topbar-height) var(--toolbar-height) 32px 1fr var(--statusbar-height);
+  grid-template-rows: var(--topbar-height) 32px 1fr var(--statusbar-height);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -38,16 +36,6 @@
 }
 .editor-menubar__item:hover {
   background: var(--color-surface-raised);
-}
-
-.editor-toolbar {
-  grid-area: toolbar;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2);
-  background: var(--color-surface-sunken);
-  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 /* Tab strip (A8) */

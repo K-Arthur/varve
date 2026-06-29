@@ -14,7 +14,8 @@
  * `aria-describedby` error and does NOT commit.
  */
 import { evaluate } from '@strata/scene';
-import { useCallback, useId, useRef, useState } from 'react';
+import { useCallback, useContext, useId, useRef, useState } from 'react';
+import { EditorCtx } from '../../../context';
 
 export interface NumberFieldProps {
   /** Visible label text; also the accessible name (plus unit, if any). */
@@ -34,6 +35,10 @@ export interface NumberFieldProps {
   /** When true the field renders a "Mixed" placeholder (multi-select batch edit). */
   mixed?: boolean;
   id?: string;
+  /** Field name for variable binding (e.g. "x", "y", "width", "height"). */
+  fieldName?: string;
+  /** Called when user shift+clicks the field to open binding menu. */
+  onShiftClick?: () => void;
 }
 
 /** Parse a committed string into a number, honouring math + aliases. null = invalid. */
@@ -66,6 +71,8 @@ export function NumberField({
   disabled = false,
   mixed = false,
   id,
+  fieldName,
+  onShiftClick,
 }: NumberFieldProps) {
   const autoId = useId();
   const inputId = id ?? `nf-${autoId}`;
@@ -95,6 +102,9 @@ export function NumberField({
   const displayed = mixed ? '—' : (dirty ?? String(value));
   const name = unit ? `${label} (${unit})` : label;
 
+  // Access editor context for setBindingField
+  const ctx = useContext(EditorCtx);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') {
@@ -118,6 +128,11 @@ export function NumberField({
         onChange(clamp(max));
         return;
       }
+      if (e.key === '=' && fieldName && ctx) {
+        e.preventDefault();
+        ctx.setBindingField(fieldName);
+        return;
+      }
       const factor = e.shiftKey ? shiftStep : e.altKey ? altStep : step;
       if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -127,13 +142,18 @@ export function NumberField({
         onChange(clamp(value - factor));
       }
     },
-    [altStep, clamp, commit, dirty, max, min, onChange, shiftStep, step, value],
+    [altStep, clamp, commit, ctx, dirty, fieldName, max, min, onChange, shiftStep, step, value],
   );
 
   // Drag-on-label scrubbing (Pointer Events — works on Wayland/X11/macOS/Windows).
   const handleLabelPointerDown = useCallback(
     (e: React.PointerEvent<HTMLLabelElement>) => {
       if (disabled || e.button !== 0) return;
+      if (e.shiftKey && onShiftClick) {
+        e.preventDefault();
+        onShiftClick();
+        return;
+      }
       const startX = e.clientX;
       const startValue = value;
       let active = false;
@@ -162,7 +182,7 @@ export function NumberField({
       document.body.style.userSelect = 'none';
       scrub.current = { startX, startValue, active: false };
     },
-    [altStep, clamp, disabled, onChange, shiftStep, step, value],
+    [altStep, clamp, disabled, onChange, onShiftClick, shiftStep, step, value],
   );
 
   const onWheel = useCallback(

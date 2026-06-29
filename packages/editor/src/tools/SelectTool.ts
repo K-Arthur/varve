@@ -72,11 +72,31 @@ export class SelectTool extends BaseTool {
         this.drag.currentCanvas.x - this.drag.startCanvas.x,
         this.drag.currentCanvas.y - this.drag.startCanvas.y,
       );
-      // Save the union of all moved positions for reparenting later
+      const allBounds: Array<{ id: string; b: { x: number; y: number; w: number; h: number } }> = [];
+      for (const n of Object.values(ctx.document.nodes)) {
+        const b = ctx.nodeWorldBounds(n);
+        if (b) allBounds.push({ id: n.id, b });
+      }
       for (const id of sel) {
         const node = ctx.getNode(id);
         if (!node) continue;
-        ctx.setNodePosition(id, node.transform[4] + delta.dx, node.transform[5] + delta.dy);
+        const newX = node.transform[4] + delta.dx;
+        const newY = node.transform[5] + delta.dy;
+        const thisBounds = ctx.nodeWorldBounds(node);
+        if (thisBounds) {
+          const otherBounds = allBounds
+            .filter((entry) => entry.id !== id)
+            .map((entry) => entry.b);
+          if (otherBounds.length > 0) {
+            const snapped = ctx.snapPosition(
+              { x: newX, y: newY, w: thisBounds.w, h: thisBounds.h },
+              otherBounds,
+            );
+            ctx.setNodePosition(id, snapped.x, snapped.y);
+            continue;
+          }
+        }
+        ctx.setNodePosition(id, newX, newY);
       }
     }
   }

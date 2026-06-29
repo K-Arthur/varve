@@ -4,10 +4,14 @@
  * Shows available variables filtered by type, with a search input.
  * Supports entering a math expression to transform the resolved value.
  *
+ * Watches the editor context's `bindingField` — when it matches `targetField`,
+ * the menu auto-opens (entry point for keyboard shortcut and shift+click).
+ *
  * Research basis: Figma variable binding dropdown; APG Listbox + Dialog.
  */
 import type { VariableStore, VariableValue } from '@strata/scene';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { EditorCtx } from '../../../context';
 
 interface BindingMenuProps {
   variableStore: VariableStore;
@@ -15,6 +19,11 @@ interface BindingMenuProps {
   onClose: () => void;
   targetType?: 'color' | 'number' | 'string' | 'boolean';
   triggerRef: React.RefObject<HTMLElement | null>;
+  /**
+   * Optional field name to watch from context bindingField.
+   * When set and context's bindingField matches, the menu opens automatically.
+   */
+  targetField?: string;
 }
 
 const POPOVER_STYLE: React.CSSProperties = {
@@ -71,6 +80,7 @@ export function BindingMenu({
   onClose,
   targetType,
   triggerRef,
+  targetField,
 }: BindingMenuProps) {
   const [query, setQuery] = useState('');
   const [expression, setExpression] = useState('');
@@ -83,6 +93,7 @@ export function BindingMenu({
     return true;
   });
 
+  const ctx = useContext(EditorCtx);
   const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   useEffect(() => {
     const el = triggerRef.current;
@@ -91,6 +102,13 @@ export function BindingMenu({
       setPosition({ top: rect.bottom + 4, left: rect.left });
     }
   }, [triggerRef]);
+
+  // When context bindingField changes to something other than our field, close.
+  useEffect(() => {
+    if (targetField && ctx?.bindingField && ctx.bindingField !== targetField) {
+      onClose();
+    }
+  }, [ctx, targetField, onClose]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

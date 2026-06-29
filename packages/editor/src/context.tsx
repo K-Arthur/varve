@@ -257,9 +257,15 @@ export interface EditorContextValue {
   cutSelected: () => void;
   /** Paste nodes from system clipboard. */
   paste: () => void;
+  /** The field name currently targeted for variable binding, or null. */
+  bindingField: string | null;
+  /** Open the BindingMenu for a specific field, or close it. */
+  setBindingField: (field: string | null) => void;
+  /** F6: batch-edit corner smoothing on all selected shape nodes. */
+  setSelectedCornerSmoothing: (value: number) => void;
 }
 
-const EditorCtx = createContext<EditorContextValue | null>(null);
+export const EditorCtx = createContext<EditorContextValue | null>(null);
 
 /** F2: full snapshot of an inactive session stored in a ref (not state). */
 interface SavedSession {
@@ -458,6 +464,7 @@ export function EditorProvider({
   const inTransactionRef = useRef(false);
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
+  const [bindingField, setBindingField] = useState<string | null>(null);
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -1277,6 +1284,23 @@ export function EditorProvider({
         });
       },
 
+      bindingField,
+      setBindingField,
+
+      setSelectedCornerSmoothing: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (node?.kind !== 'shape') continue;
+            nodes[id] = { ...node, cornerSmoothing: value } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
       setNodeLayout: (id, layout) => {
         updateNodeProp(id, (n) => {
           if (n.kind !== 'frame') return n;
@@ -1471,6 +1495,8 @@ export function EditorProvider({
       beginTransaction,
       commitTransaction,
       abortTransaction,
+      bindingField,
+      setBindingField,
     ],
   );
 
@@ -1498,6 +1524,12 @@ export function useEditor(): EditorContextValue {
   const ctx = useContext(EditorCtx);
   if (!ctx) throw new Error('useEditor must be used within EditorProvider');
   return ctx;
+}
+
+export function useBindingField(): [string | null, (field: string | null) => void] {
+  const ctx = useContext(EditorCtx);
+  if (!ctx) throw new Error('useBindingField must be used within EditorProvider');
+  return [ctx.bindingField, ctx.setBindingField];
 }
 
 // Build a shape with specific dragged size

@@ -16,8 +16,9 @@
  */
 import type { Shape } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
@@ -25,6 +26,7 @@ import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionSta
 export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   const editor = useEditor();
   const [locked, setLocked] = useState(false);
+  const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const xRaw = commonValue(nodes, (n) => n.transform[4] ?? 0);
   const yRaw = commonValue(nodes, (n) => n.transform[5] ?? 0);
@@ -79,20 +81,38 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Position & Size">
-      <NumberField
-        label="X"
-        unit="px"
-        value={isMixed(xRaw) ? 0 : xRaw}
-        mixed={isMixed(xRaw)}
-        onChange={editor.setSelectedX}
-      />
-      <NumberField
-        label="Y"
-        unit="px"
-        value={isMixed(yRaw) ? 0 : yRaw}
-        mixed={isMixed(yRaw)}
-        onChange={editor.setSelectedY}
-      />
+      <div ref={bindingTriggerRef} style={{ position: 'relative' }}>
+        <NumberField
+          label="X"
+          unit="px"
+          value={isMixed(xRaw) ? 0 : xRaw}
+          mixed={isMixed(xRaw)}
+          onChange={editor.setSelectedX}
+          fieldName="x"
+          onShiftClick={() => editor.setBindingField('x')}
+        />
+        <NumberField
+          label="Y"
+          unit="px"
+          value={isMixed(yRaw) ? 0 : yRaw}
+          mixed={isMixed(yRaw)}
+          onChange={editor.setSelectedY}
+          fieldName="y"
+          onShiftClick={() => editor.setBindingField('y')}
+        />
+        {editor.bindingField && ['x', 'y', 'width', 'height', 'rotation'].includes(editor.bindingField) && (
+          <BindingMenu
+            variableStore={editor.state.variableStore as import('@strata/scene').VariableStore}
+            targetType="number"
+            onBind={(variableId, expression) => {
+              editor.setSelectedBinding(editor.bindingField!, { variableId, expression });
+              editor.setBindingField(null);
+            }}
+            onClose={() => editor.setBindingField(null)}
+            triggerRef={bindingTriggerRef}
+          />
+        )}
+      </div>
       {allShapes && (
         <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
           <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
@@ -103,6 +123,8 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               mixed={wRaw !== null && isMixed(wRaw)}
               min={0}
               onChange={handleW}
+              fieldName="width"
+              onShiftClick={() => editor.setBindingField('width')}
             />
             <label
               aria-label="Constrain proportions"
@@ -155,6 +177,8 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               mixed={hRaw !== null && isMixed(hRaw)}
               min={0}
               onChange={handleH}
+              fieldName="height"
+              onShiftClick={() => editor.setBindingField('height')}
             />
           </div>
         </div>
@@ -169,6 +193,8 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           min={0}
           max={360}
           onChange={(v) => editor.setSelectedRotation(v % 360 < 0 ? (v % 360) + 360 : v % 360)}
+          fieldName="rotation"
+          onShiftClick={() => editor.setBindingField('rotation')}
         />
         <button
           type="button"

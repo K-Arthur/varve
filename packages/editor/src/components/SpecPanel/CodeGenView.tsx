@@ -17,7 +17,7 @@ import {
   exportNodeToSwiftUI,
   exportNodeToTailwind,
 } from '@strata/codegen';
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode, VariableStore } from '@strata/scene';
 import { CopyButton, type Tab, Tabs } from '@strata/ui';
 import { useMemo, useRef, useState } from 'react';
 import { highlight } from './syntax';
@@ -36,32 +36,33 @@ const CODE_TABS: readonly Tab<CodeTarget>[] = [
 export interface CodeGenViewProps {
   node: SceneNode;
   doc: Document;
+  variableStore?: VariableStore;
 }
 
-function generateCode(node: SceneNode, doc: Document, target: CodeTarget): string {
+function generateCode(node: SceneNode, doc: Document, target: CodeTarget, variableStore?: VariableStore): string {
   switch (target) {
     case 'svg':
       return exportNodeToSvg(node, doc);
     case 'css':
-      return exportNodeToCss(node, doc);
+      return exportNodeToCss(node, doc, { variableStore });
     case 'tailwind':
-      return exportNodeToTailwind(node, doc);
+      return exportNodeToTailwind(node, doc, { variableStore });
     case 'modules': {
       const result = exportNodeToCssModules(node, doc);
       return `// JSX:\n${result.jsx}\n\n// CSS:\n${result.css}`;
     }
     case 'flutter':
-      return exportNodeToFlutter(node);
+      return exportNodeToFlutter(node, doc, { variableStore });
     case 'swiftui':
-      return exportNodeToSwiftUI(node);
+      return exportNodeToSwiftUI(node, doc, { variableStore });
   }
 }
 
-export function CodeGenView({ node, doc }: CodeGenViewProps) {
+export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
   const [activeTab, setActiveTab] = useState<CodeTarget>('css');
   const prevCode = useRef<Map<string, string>>(new Map());
 
-  const code = useMemo(() => generateCode(node, doc, activeTab), [node, doc, activeTab]);
+  const code = useMemo(() => generateCode(node, doc, activeTab, variableStore), [node, doc, activeTab, variableStore]);
 
   const highlightedLines = useMemo(
     () => highlight(code, activeTab).split('\n'),
