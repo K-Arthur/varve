@@ -22,3 +22,5 @@ export type {
   SceneNode,
   Shape,
 } from './types';
+export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
+export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
