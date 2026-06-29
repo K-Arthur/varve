@@ -57,6 +57,24 @@ enum IpcShape {
         points: u32,
         rotation: f64,
     },
+    #[serde(rename = "text")]
+    Text {
+        text: String,
+        #[serde(rename = "fontSize")]
+        font_size: f64,
+        #[serde(rename = "fontFamily")]
+        font_family: String,
+        #[serde(rename = "fontWeight")]
+        font_weight: u16,
+        #[serde(rename = "fontStyle")]
+        font_style: String,
+        #[serde(rename = "textAlign")]
+        text_align: String,
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+    },
 }
 
 impl IpcShape {
@@ -89,6 +107,18 @@ impl IpcShape {
                 outer_radius,
                 points,
                 rotation,
+            },
+            IpcShape::Text { text, font_size, font_family, font_weight, font_style, text_align, x, y, w, h } => Shape::Text {
+                text,
+                font_size,
+                font_family,
+                font_weight,
+                font_style,
+                text_align,
+                x,
+                y,
+                w,
+                h,
             },
         }
     }
@@ -291,6 +321,22 @@ mod tests {
                 "transform": [1, 0, 0, 1, 0, 0],
                 "shape": { "kind": "line", "from": [0, 0], "to": [10, 10], "tolerance": 2 },
                 "fill": [0, 0, 255, 255]
+            },
+            {
+                "id": "n5",
+                "name": "Text-1",
+                "transform": [1, 0, 0, 1, 25, 25],
+                "shape": {
+                    "kind": "text",
+                    "text": "Hello",
+                    "fontSize": 16,
+                    "fontFamily": "Inter",
+                    "fontWeight": 400,
+                    "fontStyle": "normal",
+                    "textAlign": "left",
+                    "x": 0.0, "y": 0.0, "w": 100.0, "h": 20.0
+                },
+                "fill": [16, 21, 31, 255]
             }
         ])
     }
@@ -299,11 +345,11 @@ mod tests {
     fn round_trip_build_render_ir() {
         let json = ts_wire_json();
         let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
-        assert_eq!(nodes.len(), 4);
+        assert_eq!(nodes.len(), 5);
 
         let scene = convert_scene(nodes);
         let ir = strata_engine::build_render_ir(&scene);
-        assert_eq!(ir.len(), 4);
+        assert_eq!(ir.len(), 5);
 
         // Rect: origin, teal
         assert_eq!(ir[0].transform, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
@@ -352,6 +398,23 @@ mod tests {
                 tolerance: 2.0
             }
         );
+
+        // Text: translated (25,25), text primitive
+        assert_eq!(ir[4].transform, [1.0, 0.0, 0.0, 1.0, 25.0, 25.0]);
+        assert_eq!(ir[4].fill, [16, 21, 31, 255]);
+        assert!(matches!(
+            ir[4].primitive,
+            strata_engine::Primitive::Text { text: _, .. }
+        ));
+        if let strata_engine::Primitive::Text { ref text, font_size, ref font_family, font_weight, ref font_style, .. } = ir[4].primitive {
+            assert_eq!(text, "Hello");
+            assert_eq!(font_size, 16.0);
+            assert_eq!(font_family, "Inter");
+            assert_eq!(font_weight, 400);
+            assert_eq!(font_style, "normal");
+        } else {
+            panic!("expected text primitive");
+        }
     }
 
     #[test]
@@ -395,7 +458,7 @@ mod tests {
         // Verify top-level structure: should be a JSON array
         assert!(serialized.is_array(), "IR should serialize as a JSON array");
         let arr = serialized.as_array().unwrap();
-        assert_eq!(arr.len(), 4);
+        assert_eq!(arr.len(), 5);
 
         // Verify transform is an array (not an object with coeffs key)
         let first = &arr[0];

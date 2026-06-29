@@ -119,6 +119,12 @@ fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
             buf.extend_from_slice(b"h f\nQ\n");
             buf
         }
+        Shape::Text { x, y, w, h, .. } => {
+            let px = x + x_off;
+            let py = page_height - y - h - y_off;
+            format!("q\n{color}\n{px:.2} {py:.2} {w:.2} {h:.2} re\nf\nQ\n")
+                .into_bytes()
+        }
     }
 }
 

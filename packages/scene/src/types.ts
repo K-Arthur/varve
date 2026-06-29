@@ -36,6 +36,12 @@ export interface TextNode extends NodeBase {
   transform: Affine;
   /** Font size in px at 1x; variable-bindable across breakpoints (task 1.3). */
   fontSize: number;
+  fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: 'normal' | 'italic';
+  textAlign?: 'left' | 'center' | 'right';
+  lineHeight?: number;
+  letterSpacing?: number;
 }
 
 /** B2: TypeScript mirror of strata-layout LayoutStyle (Rust). */

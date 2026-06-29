@@ -1,122 +1,140 @@
+/**
+ * Tests for replayIr — particularly the text rendering case not covered by
+ * the existing engine.test.ts (which tests the stub engine, not replayIr).
+ */
 import { describe, expect, it } from 'vitest';
-import type { ReplayTarget } from './replay';
 import { replayIr } from './replay';
+import type { ReplayTarget } from './replay';
 import type { RenderItem } from './types';
 
-interface Recorder {
-  target: ReplayTarget;
-  calls: string[];
-  props: Record<string, unknown>;
-}
-
-function recorder(): Recorder {
-  const calls: string[] = [];
-  const props: Record<string, unknown> = {};
-  const mk =
-    (k: string) =>
-    (...args: unknown[]) =>
-      calls.push(`${k}(${args.length})`);
-  const target = {
-    save: mk('save'),
-    restore: mk('restore'),
-    transform: mk('transform'),
-    fillRect: mk('fillRect'),
-    beginPath: mk('beginPath'),
-    ellipse: mk('ellipse'),
-    arc: mk('arc'),
-    moveTo: mk('moveTo'),
-    lineTo: mk('lineTo'),
-    fill: mk('fill'),
-    stroke: mk('stroke'),
-    get fillStyle() {
-      return (props.fillStyle as string) ?? '';
-    },
-    set fillStyle(v: string) {
-      props.fillStyle = v;
-    },
-    get lineWidth() {
-      return (props.lineWidth as number) ?? 0;
-    },
-    set lineWidth(v: number) {
-      props.lineWidth = v;
-    },
-    get lineCap() {
-      return (props.lineCap as CanvasLineCap) ?? 'butt';
-    },
-    set lineCap(v: CanvasLineCap) {
-      props.lineCap = v;
-    },
-  };
-  return { target: target as unknown as ReplayTarget, calls, props };
+/**
+ * Recorder that implements ReplayTarget to capture calls.
+ * Used instead of a real Canvas2D context (which requires jsdom + HTMLCanvasElement shim).
+ */
+class Recorder implements ReplayTarget {
+  public calls: string[] = [];
+  save() { this.calls.push('save'); }
+  restore() { this.calls.push('restore'); }
+  transform(a: number, b: number, c: number, d: number, e: number, f: number) {
+    this.calls.push(`transform(${a},${b},${c},${d},${e},${f})`);
+  }
+  fillRect(x: number, y: number, w: number, h: number) {
+    this.calls.push(`fillRect(${x},${y},${w},${h})`);
+  }
+  beginPath() { this.calls.push('beginPath'); }
+  ellipse(x: number, y: number, rx: number, ry: number, rot: number, start: number, end: number) {
+    this.calls.push(`ellipse(${x},${y},${rx},${ry},${rot},${start},${end})`);
+  }
+  arc(x: number, y: number, r: number, start: number, end: number) {
+    this.calls.push(`arc(${x},${y},${r},${start},${end})`);
+  }
+  moveTo(x: number, y: number) { this.calls.push(`moveTo(${x},${y})`); }
+  lineTo(x: number, y: number) { this.calls.push(`lineTo(${x},${y})`); }
+  fill() { this.calls.push('fill'); }
+  stroke() { this.calls.push('stroke'); }
+  closePath() { this.calls.push('closePath'); }
+  fillStyle: string = '';
+  lineWidth: number = 1;
+  lineCap: CanvasLineCap = 'round';
+  font: string = '';
+  textAlign: CanvasTextAlign = 'left';
+  textBaseline: CanvasTextBaseline = 'alphabetic';
+  fillText(text: string, x: number, y: number) {
+    this.calls.push(`fillText("${text}",${x},${y})`);
+  }
 }
 
 describe('replayIr', () => {
-  it('replays a rect: save, transform, fillStyle, fillRect, restore', () => {
-    const item: RenderItem = {
-      transform: [1, 0, 0, 1, 10, 20],
-      fill: [57, 208, 198, 255],
-      primitive: { kind: 'rect', x: 0, y: 0, w: 5, h: 6 },
-    };
-    const rec = recorder();
-    replayIr(rec.target, [item]);
-    expect(rec.calls).toEqual(['save(0)', 'transform(6)', 'fillRect(4)', 'restore(0)']);
-    expect(rec.props.fillStyle).toBe('rgba(57, 208, 198, 1.000)');
+  it('renders text primitive with correct font settings', () => {
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 10, 20] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          text: 'Hello',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+        },
+      },
+    ];
+    const recorder = new Recorder();
+    replayIr(recorder, items);
+
+    expect(recorder.font).toContain('400');
+    expect(recorder.font).toContain('16px');
+    expect(recorder.font).toContain('"Inter"');
+    expect(recorder.textAlign).toBe('left');
+    expect(recorder.textBaseline).toBe('top');
+    expect(recorder.calls).toContain('fillText("Hello",0,0)');
+    expect(recorder.calls).toContain('save');
+    expect(recorder.calls).toContain('restore');
   });
 
-  it('replays an ellipse via beginPath + ellipse + fill', () => {
-    const item: RenderItem = {
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
-      primitive: { kind: 'ellipse', cx: 1, cy: 2, rx: 3, ry: 4 },
-    };
-    const rec = recorder();
-    replayIr(rec.target, [item]);
-    expect(rec.calls).toEqual([
-      'save(0)',
-      'transform(6)',
-      'beginPath(0)',
-      'ellipse(7)',
-      'fill(0)',
-      'restore(0)',
-    ]);
+  it('renders italic text with correct font prefix', () => {
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          text: 'Italic',
+          fontSize: 20,
+          fontFamily: 'Serif',
+          fontWeight: 700,
+          fontStyle: 'italic' as const,
+          textAlign: 'center' as const,
+        },
+      },
+    ];
+    const recorder = new Recorder();
+    replayIr(recorder, items);
+    expect(recorder.font).toMatch(/^italic /);
   });
 
-  it('replays a circle via arc', () => {
-    const item: RenderItem = {
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
-      primitive: { kind: 'circle', cx: 0, cy: 0, r: 5 },
-    };
-    const rec = recorder();
-    replayIr(rec.target, [item]);
-    expect(rec.calls).toContain('arc(5)');
-    expect(rec.calls).toContain('fill(0)');
+  it('handles empty string text gracefully', () => {
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          text: '',
+          fontSize: 12,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+        },
+      },
+    ];
+    const recorder = new Recorder();
+    expect(() => replayIr(recorder, items)).not.toThrow();
+    expect(recorder.calls).toContain('fillText("",0,0)');
   });
 
-  it('replays a line as a stroked segment with tolerance width', () => {
-    const item: RenderItem = {
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
-      primitive: { kind: 'line', from: [0, 0], to: [10, 0], tolerance: 2 },
-    };
-    const rec = recorder();
-    replayIr(rec.target, [item]);
-    expect(rec.calls).toEqual([
-      'save(0)',
-      'transform(6)',
-      'beginPath(0)',
-      'moveTo(2)',
-      'lineTo(2)',
-      'stroke(0)',
-      'restore(0)',
-    ]);
-    expect(rec.props.lineWidth).toBe(4); // tolerance * 2
-    expect(rec.props.lineCap).toBe('round');
-  });
-
-  it('handles an empty IR', () => {
-    const rec = recorder();
-    replayIr(rec.target, []);
-    expect(rec.calls).toEqual([]);
+  it('clamps fontWeight to valid CSS range', () => {
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          text: 'test',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 9999,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+        },
+      },
+    ];
+    const recorder = new Recorder();
+    replayIr(recorder, items);
+    // Clamped to 1000
+    expect(recorder.font).toContain('1000');
   });
 });

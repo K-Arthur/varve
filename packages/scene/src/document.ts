@@ -80,7 +80,21 @@ export function makeShapeNode(
 export function makeTextNode(
   id: NodeId,
   text: string,
-  opts: Partial<Pick<TextNode, 'name' | 'transform' | 'fill' | 'fontSize'>> & {
+  opts: Partial<
+    Pick<
+      TextNode,
+      | 'name'
+      | 'transform'
+      | 'fill'
+      | 'fontSize'
+      | 'fontFamily'
+      | 'fontWeight'
+      | 'fontStyle'
+      | 'textAlign'
+      | 'lineHeight'
+      | 'letterSpacing'
+    >
+  > & {
     index?: number;
   } = {},
 ): TextNode {
@@ -95,6 +109,12 @@ export function makeTextNode(
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? ([16, 21, 31, 255] as Color),
     fontSize: opts.fontSize ?? 16,
+    fontFamily: opts.fontFamily ?? 'Inter',
+    fontWeight: opts.fontWeight ?? 400,
+    fontStyle: opts.fontStyle ?? 'normal',
+    textAlign: opts.textAlign ?? 'left',
+    lineHeight: opts.lineHeight ?? 1.2,
+    letterSpacing: opts.letterSpacing ?? 0,
   };
 }
 

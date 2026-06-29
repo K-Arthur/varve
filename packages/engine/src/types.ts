@@ -59,6 +59,15 @@ export type Primitive =
       outerRadius: number;
       points: number;
       rotation: number;
+    }
+  | {
+      kind: 'text';
+      text: string;
+      fontSize: number;
+      fontFamily: string;
+      fontWeight: number;
+      fontStyle: 'normal' | 'italic';
+      textAlign: 'left' | 'center' | 'right';
     };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */

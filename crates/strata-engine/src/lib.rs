@@ -72,6 +72,20 @@ pub enum Primitive {
         points: u32,
         rotation: f64,
     },
+    #[serde(rename = "text")]
+    Text {
+        text: String,
+        #[serde(rename = "fontSize")]
+        font_size: f64,
+        #[serde(rename = "fontFamily")]
+        font_family: String,
+        #[serde(rename = "fontWeight")]
+        font_weight: u16,
+        #[serde(rename = "fontStyle")]
+        font_style: String,
+        #[serde(rename = "textAlign")]
+        text_align: String,
+    },
 }
 
 /// Build the render IR from a scene (paint order preserved). One item per node.
@@ -138,6 +152,14 @@ fn primitive_of(shape: &Shape) -> Primitive {
             outer_radius: *outer_radius,
             points: *points,
             rotation: *rotation,
+        },
+        Shape::Text { text, font_size, font_family, font_weight, font_style, text_align, .. } => Primitive::Text {
+            text: text.clone(),
+            font_size: *font_size,
+            font_family: font_family.clone(),
+            font_weight: *font_weight,
+            font_style: font_style.clone(),
+            text_align: text_align.clone(),
         },
     }
 }

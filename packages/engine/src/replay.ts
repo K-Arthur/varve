@@ -32,6 +32,10 @@ export interface ReplayTarget {
   fillStyle: string;
   lineWidth: number;
   lineCap: CanvasLineCap;
+  font: string;
+  textAlign: CanvasTextAlign;
+  textBaseline: CanvasTextBaseline;
+  fillText(text: string, x: number, y: number): void;
 }
 
 function rgba(c: Color): string {
@@ -117,6 +121,15 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
         }
         target.closePath();
         target.fill();
+        break;
+      }
+      case 'text': {
+        const p = item.primitive;
+        const fw = Math.max(1, Math.min(1000, p.fontWeight));
+        target.font = `${p.fontStyle === 'italic' ? 'italic ' : ''}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+        target.textAlign = p.textAlign;
+        target.textBaseline = 'top';
+        target.fillText(p.text, 0, 0);
         break;
       }
     }
