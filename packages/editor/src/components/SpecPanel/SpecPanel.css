@@ -127,6 +127,208 @@
   outline: 2px solid var(--color-interactive-focus-ring);
 }
 
+/* ── CodeGenView ───────────────────────────────────── */
+.spec-codegen__content {
+  display: flex;
+  flex-direction: column;
+}
+.spec-codegen__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-1);
+}
+.spec-codegen__pre {
+  max-height: 300px;
+  overflow: auto;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  outline: none;
+}
+.spec-codegen__pre:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.spec-codegen__line {
+  display: block;
+}
+.spec-codegen__line-num {
+  display: inline-block;
+  width: 3ch;
+  text-align: right;
+  margin-right: var(--space-2);
+  color: var(--color-text-muted);
+  user-select: none;
+}
+.spec-codegen__line-text {
+  color: var(--color-text-primary);
+  white-space: pre;
+}
+
+/* ── Export controls ───────────────────────────────── */
+.spec-export__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.spec-export__group {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.spec-export__btn {
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  outline-offset: -2px;
+}
+.spec-export__btn--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.spec-export__btn:hover:not(.spec-export__btn--active) {
+  background: var(--color-surface-sunken);
+}
+.spec-export__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+.spec-export__input {
+  width: 5em;
+  padding: var(--space-1) var(--space-1);
+  border: none;
+  border-left: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  outline: none;
+}
+.spec-export__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+.spec-export__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.spec-export__download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.spec-export__download:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.spec-export__download:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.spec-export__message {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Annotations ───────────────────────────────────── */
+.spec-annot {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.spec-annot:last-child {
+  border-bottom: none;
+}
+.spec-annot__body {
+  flex: 1;
+}
+.spec-annot__text {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+.spec-annot__meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.spec-annot__delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  padding: 0 var(--space-1);
+  line-height: 1;
+  border-radius: var(--radius-sm);
+}
+.spec-annot__delete:hover {
+  color: var(--color-feedback-danger);
+  background: var(--color-surface-sunken);
+}
+.spec-annot__delete:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+}
+.spec-annot__compose {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+.spec-annot__input {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  outline-offset: 2px;
+}
+.spec-annot__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  border-color: var(--color-interactive-default);
+}
+.spec-annot__submit {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.spec-annot__submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ── Swatch ─────────────────────────────────────────── */
 .spec-swatch {
   display: inline-block;

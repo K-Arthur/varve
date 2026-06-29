@@ -7,7 +7,12 @@
  * scene graph with zero network round-trips.
  */
 
+import type { Engine } from '@strata/engine';
 import type { Document, SceneNode, VariableStore } from '@strata/scene';
+import { useCallback, useRef, useState } from 'react';
+import { AnnotationsDisplay, type Annotation } from './AnnotationsDisplay';
+import { AssetExportControls } from './AssetExportControls';
+import { CodeGenView } from './CodeGenView';
 import { MeasurementReadout } from './MeasurementReadout';
 import { SpecReadouts } from './SpecReadouts';
 import { UnitSelector, useSpecUnit } from './UnitSelector';
@@ -17,13 +22,30 @@ export interface SpecPanelProps {
   nodes: SceneNode[];
   doc: Document;
   variableStore?: VariableStore;
+  engine?: Engine;
 }
 
 const BASE_FONT_SIZE = 16;
 
-export function SpecPanel({ nodes, doc, variableStore }: SpecPanelProps) {
+export function SpecPanel({ nodes, doc, variableStore, engine }: SpecPanelProps) {
   const node = nodes[0];
   const [unit, setUnit] = useSpecUnit();
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+
+  const annotIdRef = useRef(1);
+  const handleAddAnnotation = useCallback((text: string) => {
+    const a: Annotation = {
+      id: `annot-${annotIdRef.current++}`,
+      nodeId: node?.id ?? '',
+      text,
+      timestamp: Date.now(),
+    };
+    setAnnotations((prev) => [...prev, a]);
+  }, [node]);
+
+  const handleRemoveAnnotation = useCallback((id: string) => {
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+  }, []);
 
   if (!node) return null;
 
@@ -40,16 +62,16 @@ export function SpecPanel({ nodes, doc, variableStore }: SpecPanelProps) {
 
       <MeasurementReadout node={node} doc={doc} unit={unit} baseFontSize={BASE_FONT_SIZE} />
       <SpecReadouts {...readoutsProps} />
+      <CodeGenView node={node} doc={doc} />
 
-      <section className="spec-panel__section" aria-labelledby="spec-code-heading">
-        <h3 id="spec-code-heading">Code</h3>
-        <p className="spec-panel__placeholder">Code generation — Phase 4</p>
-      </section>
+      <AssetExportControls node={node} doc={doc} engine={engine!} />
 
-      <section className="spec-panel__section" aria-labelledby="spec-export-heading">
-        <h3 id="spec-export-heading">Export</h3>
-        <p className="spec-panel__placeholder">Asset export — Phase 5</p>
-      </section>
+      <AnnotationsDisplay
+        nodeId={node.id}
+        annotations={annotations}
+        onAdd={handleAddAnnotation}
+        onRemove={handleRemoveAnnotation}
+      />
     </div>
   );
 }

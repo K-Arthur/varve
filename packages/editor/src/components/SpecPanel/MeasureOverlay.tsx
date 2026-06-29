@@ -11,7 +11,7 @@
 
 import type { Document, SceneNode } from '@strata/scene';
 import { useMemo } from 'react';
-import { type AABB, edgeDistance, worldBBox } from './measurement';
+import { edgeDistance, worldBBox } from './measurement';
 
 interface MeasureOverlayProps {
   zoom: number;
@@ -37,7 +37,7 @@ function renderDimensionLine(
   y2: number,
   label: string,
   key: string,
-): JSX.Element {
+): React.ReactElement {
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
   return (

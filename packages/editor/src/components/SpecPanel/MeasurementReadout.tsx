@@ -9,7 +9,7 @@ import { useMemo } from 'react';
 import type { Document, SceneNode } from '@strata/scene';
 import { convertPx, formatValue, type SpecUnit } from '@strata/shared';
 import { CopyButton } from '@strata/ui';
-import { worldBBox, getAccumulatedTransform } from './measurement';
+import { worldBBox } from './measurement';
 
 export interface MeasurementReadoutProps {
   node: SceneNode;
@@ -20,12 +20,6 @@ export interface MeasurementReadoutProps {
 
 export function MeasurementReadout({ node, doc, unit, baseFontSize }: MeasurementReadoutProps) {
   const bbox = useMemo(() => worldBBox(node, doc), [node, doc]);
-  const parentTransform = useMemo(() => {
-    const p = getParent(doc, node.id);
-    if (!p) return null;
-    const pNode = doc.nodes[p];
-    return pNode?.transform ?? null;
-  }, [node, doc]);
 
   const localX = node.transform[4] ?? 0;
   const localY = node.transform[5] ?? 0;
@@ -79,11 +73,4 @@ export function MeasurementReadout({ node, doc, unit, baseFontSize }: Measuremen
   );
 }
 
-function getParent(doc: Document, id: string): string | null {
-  for (const n of Object.values(doc.nodes)) {
-    if (n.kind === 'frame' || n.kind === 'group') {
-      if ((n as any).children?.includes(id)) return n.id;
-    }
-  }
-  return null;
-}
+

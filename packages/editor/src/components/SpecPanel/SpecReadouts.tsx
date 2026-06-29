@@ -76,7 +76,7 @@ export interface SpecReadoutsProps {
 
 // ── Layout Readout ─────────────────────────────────────────────────────────
 
-function LayoutReadout({ node, doc, unit, baseFontSize }: SpecReadoutsProps) {
+function LayoutReadout({ node, unit, baseFontSize }: SpecReadoutsProps) {
   const fields: { label: string; value: string }[] = [];
   const tx = node.transform;
 
@@ -89,14 +89,15 @@ function LayoutReadout({ node, doc, unit, baseFontSize }: SpecReadoutsProps) {
   fields.push({ label: 'X', value: p(tx[4] ?? 0) });
   fields.push({ label: 'Y', value: p(tx[5] ?? 0) });
 
-  if (node.kind === 'shape') {
+  if (node.kind === 'shape' && node.shape.kind === 'rect') {
     fields.push({ label: 'Width', value: p(node.shape.w) });
     fields.push({ label: 'Height', value: p(node.shape.h) });
   }
 
   if (node.kind === 'text') {
-    fields.push({ label: 'Width', value: p((node.text?.length ?? 0) * (node.fontSize ?? 16) * 0.6) });
-    fields.push({ label: 'Height', value: p(node.fontSize ?? 16) * 1.4 });
+    const fs = node.fontSize ?? 16;
+    fields.push({ label: 'Width', value: p((node.text?.length ?? 0) * fs * 0.6) });
+    fields.push({ label: 'Height', value: p(fs * 1.4) });
   }
 
   if (node.kind === 'frame' && node.layoutStyle) {
@@ -174,12 +175,12 @@ function TypographyReadout({ node, unit, baseFontSize, variableStore }: SpecRead
 
 // ── Color & Fill Readout ───────────────────────────────────────────────────
 
-function ColorReadout({ node, variableStore }: SpecReadoutsProps) {
+function ColorReadout({ node, variableStore: _variableStore }: SpecReadoutsProps) {
   const fill = node.fill;
 
   const hex = useMemo(() => colorToHex(fill), [fill]);
   const rgb = useMemo(() => colorToRgb(fill), [fill]);
-  const tokens = useMemo(() => matchTokens(fill, variableStore), [fill, variableStore]);
+  const tokens = useMemo(() => matchTokens(fill, _variableStore), [fill, _variableStore]);
   const bgLum = 1;
   const fgLum = useMemo(() => luminance(fill), [fill]);
   const cr = useMemo(() => contrastRatio(fgLum, bgLum), [fgLum]);
