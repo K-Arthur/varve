@@ -28,12 +28,15 @@ import type { FileEntry, HomeViewState, OpenFileResult, Project, ThumbnailRecord
 interface TauriCore {
   invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown>;
 }
+interface TauriEvent {
+  listen(event: string, handler: (...args: unknown[]) => void): Promise<() => void>;
+}
 interface TauriGlobal {
-  __TAURI__?: { core: TauriCore };
+  __TAURI__?: { core: TauriCore; event: TauriEvent };
 }
 
 interface WindowWithTauri {
-  __TAURI__?: { core: TauriCore };
+  __TAURI__?: { core: TauriCore; event: TauriEvent };
 }
 
 function core(): TauriCore {
@@ -49,46 +52,7 @@ function core(): TauriCore {
 
 const VIEW_STATE_KV = 'strata-home-view-state';
 
-/** In-memory LRU thumbnail cache (durable persistence is a follow-up). */
-class ThumbnailLru {
-  private readonly max: number;
-  private readonly map: Map<string, string>;
-  constructor(max = 256) {
-    this.max = max;
-    this.map = new Map();
-  }
-  get(hash: string): string | undefined {
-    const v = this.map.get(hash);
-    if (v !== undefined) {
-      // Move to end (most-recent).
-      this.map.delete(hash);
-      this.map.set(hash, v);
-    }
-    return v;
-  }
-  put(hash: string, dataUrl: string): void {
-    if (this.map.has(hash)) this.map.delete(hash);
-    this.map.set(hash, dataUrl);
-    while (this.map.size > this.max) {
-      const oldest = this.map.keys().next().value;
-      if (oldest === undefined) break;
-      this.map.delete(oldest);
-    }
-  }
-  evict(keepCount: number): number {
-    const toEvict = Math.max(0, this.map.size - keepCount);
-    let i = 0;
-    for (const key of [...this.map.keys()]) {
-      if (i >= toEvict) break;
-      this.map.delete(key);
-      i++;
-    }
-    return toEvict;
-  }
-}
-
 export function createTauriPlatform(): Platform {
-  const thumbs = new ThumbnailLru();
 
   const platform: Platform = {
     kind: 'tauri',
@@ -161,13 +125,43 @@ export function createTauriPlatform(): Platform {
     },
 
     async getThumbnail(hash) {
-      return thumbs.get(hash);
+      const c = core();
+      return (await c.invoke('home_get_thumbnail', { hash })) as string | undefined;
     },
     async putThumbnail(record: ThumbnailRecord) {
-      thumbs.put(record.hash, record.dataUrl);
+      const c = core();
+      await c.invoke('home_put_thumbnail', {
+        input: {
+          hash: record.hash,
+          dataUrl: record.dataUrl,
+          width: record.width,
+          height: record.height,
+          createdAt: record.createdAt,
+        },
+      });
     },
     async evictThumbnails(keepCount) {
-      return thumbs.evict(keepCount);
+      const c = core();
+      return (await c.invoke('home_evict_thumbnails', { keepCount })) as number;
+    },
+
+    async searchFiles(query) {
+      const c = core();
+      return (await c.invoke('home_search_files', { query })) as FileEntry[];
+    },
+
+    async reorderFile(id, ordering) {
+      const c = core();
+      await c.invoke('home_reorder_file', { id, ordering });
+    },
+
+    async listenForChanges(callback) {
+      const w = (typeof window !== 'undefined' ? window : globalThis) as WindowWithTauri | undefined;
+      const ev = w?.__TAURI__?.event;
+      if (ev && typeof ev.listen === 'function') {
+        return ev.listen('home:files-changed', callback);
+      }
+      return () => {};
     },
 
     async getViewState() {
@@ -268,6 +262,7 @@ function ingest(filename: string, text: string): OpenFileResult {
     size: text.length,
     pinned: false,
     trashedAt: null,
+    ordering: '',
     contentHash: contentHash(text),
   };
   return { entry, documentJson: text };
@@ -291,6 +286,7 @@ function capture(
     size: text.length,
     pinned: false,
     trashedAt: null,
+    ordering: '',
     contentHash: contentHash(text),
   };
 }

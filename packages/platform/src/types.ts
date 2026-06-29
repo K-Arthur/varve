@@ -36,6 +36,8 @@ export interface FileEntry {
   trashedAt: number | null;
   /** Absolute path on disk (desktop). Undefined when app-managed (web). */
   filePath?: string;
+  /** Ordering key for drag-and-drop reorder (fractional-indexing, empty string = not set). */
+  ordering: string;
   /** Content hash; used as the thumbnail-cache key and invalidation signal. */
   contentHash: string;
 }

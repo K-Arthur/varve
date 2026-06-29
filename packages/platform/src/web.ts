@@ -196,6 +196,26 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       await db.put(STORE_PROJECTS, { ...p, pinned });
     },
 
+    async searchFiles(query) {
+      if (!query.trim()) return [];
+      const q = query.toLowerCase();
+      const all = await db.getAllFromIndex(STORE_FILES, 'updatedAt');
+      return all
+        .map((r) => r.entry)
+        .filter((e) => e.trashedAt === null && e.name.toLowerCase().includes(q))
+        .slice(0, 100);
+    },
+
+    async reorderFile(id, ordering) {
+      const rec = await db.get(STORE_FILES, id);
+      if (!rec) return;
+      await db.put(STORE_FILES, { ...rec, entry: { ...rec.entry, ordering, updatedAt: Date.now() } });
+    },
+
+    async listenForChanges() {
+      return () => {};
+    },
+
     async getThumbnail(hash) {
       const rec = await db.get(STORE_THUMBS, hash);
       return rec?.dataUrl;
@@ -337,6 +357,7 @@ function ingestFile(filename: string, text: string): OpenFileResult {
     size: text.length,
     pinned: false,
     trashedAt: null,
+    ordering: '',
     contentHash: contentHash(text),
   };
   return { entry, documentJson: text };
@@ -347,8 +368,6 @@ async function capturePlaceholder(
   text: string,
   kind: ReturnType<typeof detectFileKind>,
 ): Promise<FileEntry> {
-  // Re-used by importDocumentFromDisk for foreign formats. Persists the raw
-  // payload so the user can locate it later; a future parser upgrades it.
   const name = stripExtension(filename);
   const now = Date.now();
   return {
@@ -362,6 +381,7 @@ async function capturePlaceholder(
     size: text.length,
     pinned: false,
     trashedAt: null,
+    ordering: '',
     contentHash: contentHash(text),
   };
 }

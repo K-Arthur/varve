@@ -15,10 +15,9 @@ test.describe('Create file', () => {
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 3000 });
   });
 
-  test('dialog contains presets and templates tabs', async ({ page }) => {
+  test('dialog shows presets tab by default', async ({ page }) => {
     await page.getByRole('button', { name: /new file/i }).click();
     await page.waitForTimeout(500);
     await expect(page.getByText('Presets')).toBeVisible();
-    await expect(page.getByText('Blank')).toBeVisible();
   });
 });

@@ -50,6 +50,21 @@ export interface Platform {
   deleteProject(id: string): Promise<void>;
   setProjectPinned(id: string, pinned: boolean): Promise<void>;
 
+  // ─── Search ───────────────────────────────────────────────────────────────
+  /** Full-text search across files by name/kind. Returns matching files. */
+  searchFiles(query: string): Promise<FileEntry[]>;
+
+  // ─── Reorder ───────────────────────────────────────────────────────────────
+  /** Update the ordering key for a file (fractional-indexing based DnD). */
+  reorderFile(id: string, ordering: string): Promise<void>;
+
+  // ─── File watcher ──────────────────────────────────────────────────────────
+  /**
+   * Listen for external file changes (rename/delete/create by the OS or another
+   * process). Returns an unlisten function. Memory/web implementations are no-ops.
+   */
+  listenForChanges(callback: () => void): Promise<() => void>;
+
   // ─── Thumbnails ──────────────────────────────────────────────────────────
   /** Cached data URL for a content hash, or undefined. */
   getThumbnail(hash: string): Promise<string | undefined>;

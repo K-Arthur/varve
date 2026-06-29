@@ -148,6 +148,25 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       state.projects.set(id, { ...p, pinned });
     },
 
+    async searchFiles(query) {
+      if (!query.trim()) return [];
+      const q = query.toLowerCase();
+      return [...state.files.values()]
+        .map((r) => r.entry)
+        .filter((e) => e.trashedAt === null && e.name.toLowerCase().includes(q))
+        .slice(0, 100);
+    },
+
+    async reorderFile(id, ordering) {
+      const rec = state.files.get(id);
+      if (!rec) return;
+      rec.entry = { ...rec.entry, ordering, updatedAt: Date.now() };
+    },
+
+    async listenForChanges() {
+      return () => {};
+    },
+
     async getThumbnail(hash) {
       return state.thumbnails.get(hash)?.dataUrl;
     },
@@ -212,6 +231,7 @@ export function makeFileEntry(
     size: 0,
     pinned: false,
     trashedAt: null,
+    ordering: '',
     contentHash: '00000000',
     ...partial,
   };

@@ -1,5 +1,5 @@
-import { detectFileKind, type FileEntry, type Platform } from '@strata/platform';
-import { useCallback, useState } from 'react';
+import { contentHash, detectFileKind, type FileEntry, type Platform } from '@strata/platform';
+import { useCallback, useEffect, useState } from 'react';
 import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
@@ -20,6 +20,25 @@ export interface HomeShellProps {
   onOpenFile: (entry: FileEntry) => void;
 }
 
+async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson: string) {
+  try {
+    const { renderThumbnail } = await import('@strata/engine');
+    const doc = JSON.parse(docJson);
+    const dataUrl = await renderThumbnail(doc);
+    if (dataUrl) {
+      await platform.putThumbnail({
+        hash: contentHash(docJson),
+        dataUrl,
+        width: 256,
+        height: 192,
+        createdAt: Date.now(),
+      });
+    }
+  } catch {
+    // Thumbnail generation is best-effort; non-fatal if it fails.
+  }
+}
+
 export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
   const view = useHomeView(platform);
   const actions = useFileActions(platform, view.refresh);
@@ -30,6 +49,14 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
   const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
   const [contextFile, setContextFile] = useState<FileEntry | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    platform.listenForChanges(() => view.refresh()).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [platform, view]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -68,6 +95,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
           size: text.length,
           pinned: false,
           trashedAt: null,
+          ordering: '',
           contentHash: '',
         };
         await platform.upsertFile(entry, text);
@@ -200,19 +228,24 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
           <TemplatesGallery
             onSelect={(template) => {
               const id = crypto.randomUUID();
+              const now = Date.now();
+              const docJson = template.documentJson;
               const entry: FileEntry = {
                 id,
                 name: template.name,
                 kind: 'strata',
                 projectId: null,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                openedAt: Date.now(),
-                size: template.documentJson.length,
+                createdAt: now,
+                updatedAt: now,
+                openedAt: now,
+                size: docJson.length,
                 pinned: false,
                 trashedAt: null,
+                ordering: '',
                 contentHash: '',
               };
+              platform.upsertFile(entry, docJson);
+              generateThumbnail(platform, entry, docJson);
               onOpenFile(entry);
             }}
           />
@@ -343,19 +376,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
         onClose={() => setNewFileOpen(false)}
         onCreate={(preset) => {
           const id = crypto.randomUUID();
-          const entry: FileEntry = {
-            id,
-            name: preset.name,
-            kind: 'strata',
-            projectId: null,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            openedAt: Date.now(),
-            size: 0,
-            pinned: false,
-            trashedAt: null,
-            contentHash: '',
-          };
+          const now = Date.now();
           const doc = {
             id,
             name: preset.name,
@@ -365,7 +386,22 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             nextId: 1,
           };
           const docJson = JSON.stringify(doc);
+          const entry: FileEntry = {
+            id,
+            name: preset.name,
+            kind: 'strata',
+            projectId: null,
+            createdAt: now,
+            updatedAt: now,
+            openedAt: now,
+            size: docJson.length,
+            pinned: false,
+            trashedAt: null,
+            ordering: '',
+            contentHash: '',
+          };
           platform.upsertFile(entry, docJson);
+          generateThumbnail(platform, entry, docJson);
           onOpenFile(entry);
           setNewFileOpen(false);
         }}

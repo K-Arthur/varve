@@ -37,6 +37,7 @@ export function useFileActions(platform: Platform, onRefresh: () => void): FileA
         size: entry.size,
         pinned: false,
         trashedAt: null,
+        ordering: '',
         contentHash: entry.contentHash,
       };
       await platform.upsertFile(newEntry, docJson);

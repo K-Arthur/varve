@@ -41,8 +41,9 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 ```
 
 ## Current test counts
-- **Rust:** 75 workspace tests (strata-core: 32, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 10, strata-trace: 8)
-- **JS:** 327+ tests across 43 files (codegen 14, editor 130+, scene 70, engine 21, shared 24; full run includes ui/platform/home)
+- **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
+- **JS:** 396+ tests across 58+ files: codegen 8, editor 130+, scene 70, engine 21, shared 24, ui 20, platform 41, home 13, E2E 21
+- **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 51/51 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
