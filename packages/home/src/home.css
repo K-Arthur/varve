@@ -12,6 +12,17 @@
 .strata-home--collapsed {
   grid-template-columns: 0 1fr;
 }
+.strata-home--drag-over {
+  outline: 3px dashed var(--color-accent-primary);
+  outline-offset: -3px;
+  background: var(--color-accent-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strata-home__sidebar {
+    transition: none;
+  }
+}
 .strata-home__sidebar {
   grid-row: 1 / -1;
   grid-column: 1;

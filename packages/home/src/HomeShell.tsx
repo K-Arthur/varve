@@ -1,4 +1,4 @@
-import type { FileEntry, Platform } from '@strata/platform';
+import { detectFileKind, type FileEntry, type Platform } from '@strata/platform';
 import { useCallback, useState } from 'react';
 import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
@@ -11,6 +11,7 @@ import { type SidebarEntry, SidebarNav } from './SidebarNav';
 import { TemplatesGallery } from './TemplatesGallery';
 import { TrashSection } from './TrashSection';
 import { useFileActions } from './useFileActions';
+import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
 import { useHomeView } from './useHomeView';
 import { useThumbnailLoader } from './useThumbnailLoader';
 
@@ -28,6 +29,72 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
   const [newFileOpen, setNewFileOpen] = useState(false);
   const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
   const [contextFile, setContextFile] = useState<FileEntry | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+
+      for (const file of files) {
+        const name = file.name.replace(/\.[^.]+$/, '');
+        const kind = detectFileKind(file.name);
+        if (kind === 'unknown') continue;
+
+        const text = await file.text();
+        const id = crypto.randomUUID();
+        const now = Date.now();
+        const entry: FileEntry = {
+          id,
+          name,
+          kind,
+          projectId: null,
+          createdAt: now,
+          updatedAt: now,
+          openedAt: now,
+          size: text.length,
+          pinned: false,
+          trashedAt: null,
+          contentHash: '',
+        };
+        await platform.upsertFile(entry, text);
+        if (files.length === 1) onOpenFile(entry);
+      }
+      view.refresh();
+    },
+    [platform, onOpenFile, view],
+  );
+
+  const dialogOpen = newFileOpen || contextPos !== null;
+
+  const shortcutHandlers: HomeShortcutHandlers = {
+    newFile: useCallback(() => setNewFileOpen(true), []),
+    openFromDisk: useCallback(async () => {
+      const result = await platform.openDocumentFromDisk();
+      if (result) onOpenFile(result.entry);
+    }, [platform, onOpenFile]),
+    templates: useCallback(() => view.setSection('templates'), [view]),
+    closeDialog: useCallback(() => {
+      setNewFileOpen(false);
+      setContextPos(null);
+      setContextFile(null);
+    }, []),
+    selectAll: useCallback(() => {}, []),
+  };
+  useHomeShortcuts(shortcutHandlers, dialogOpen);
 
   const sidebarEntries: SidebarEntry[] = [
     { id: 'recent', label: 'Recent', icon: 'Clock', count: view.recentFiles.length },
@@ -201,7 +268,12 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
   };
 
   return (
-    <div className={`strata-home ${view.state.sidebarCollapsed ? 'strata-home--collapsed' : ''}`}>
+    <div
+      className={`strata-home ${view.state.sidebarCollapsed ? 'strata-home--collapsed' : ''} ${isDragOver ? 'strata-home--drag-over' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {sidebarOpen && (
         <div
           className="drawer-overlay drawer-overlay--visible"

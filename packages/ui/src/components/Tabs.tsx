@@ -6,7 +6,7 @@
  *   - Roving tabindex (only the active tab is in tab order)
  *   - ArrowLeft/Right (horizontal), Home/End navigation
  *   - Automatic activation on focus (Enter/Space not required)
- *   - aria-controls ↔ aria-labelledby bidirectional wiring
+ *   - aria-controls <-> aria-labelledby bidirectional wiring
  *
  * Research basis: https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
