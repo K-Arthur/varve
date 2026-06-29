@@ -193,7 +193,10 @@ export interface EditorContextValue {
   /** F6: distribute selected nodes equally along the given axis. */
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   /** F6: batch-set a variable binding on all selected nodes. */
-  setSelectedBinding: (target: string, binding: import('@strata/scene').PropertyBinding | null) => void;
+  setSelectedBinding: (
+    target: string,
+    binding: import('@strata/scene').PropertyBinding | null,
+  ) => void;
   /** F6: transaction API — begin, commit, abort for single-undo scrubbing. */
   beginTransaction: () => void;
   commitTransaction: () => void;
@@ -289,6 +292,10 @@ function typeNameForTool(tool: ToolId): string {
       return 'Text';
     case 'pen':
       return 'Path';
+    case 'pencil':
+      return 'Path';
+    case 'arrow':
+      return 'Arrow';
     default:
       return 'Shape';
   }
@@ -325,6 +332,10 @@ function shapeForTool(tool: ToolId): Shape {
       };
     case 'line':
       return { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 3 };
+    case 'arrow':
+      return { kind: 'arrow', from: [0, 0], to: [100, 0], tolerance: 3, arrowheadSize: 10 };
+    case 'pen':
+      return { kind: 'path', points: [{ x: 0, y: 0, handleIn: null, handleOut: null }], closed: false, tolerance: 3 };
     case 'text':
       return { kind: 'rect', x: 0, y: 0, w: 120, h: 32 };
     default:
@@ -567,7 +578,7 @@ export function EditorProvider({
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
 
           let node: SceneNode;
-          if (s.tool === 'frame') {
+          if (s.tool === 'frame' || s.tool === 'slice') {
             node = makeFrameNode(id, {
               name: autoName,
               transform,
@@ -892,7 +903,14 @@ export function EditorProvider({
             if (!node) continue;
             nodes[id] = {
               ...node,
-              transform: [-node.transform[0], node.transform[1], node.transform[2], node.transform[3], node.transform[4], node.transform[5]] as Affine,
+              transform: [
+                -node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                node.transform[4],
+                node.transform[5],
+              ] as Affine,
             } as SceneNode;
           }
           return { ...doc, nodes };
@@ -910,7 +928,14 @@ export function EditorProvider({
             if (!node) continue;
             nodes[id] = {
               ...node,
-              transform: [node.transform[0], node.transform[1], node.transform[2], -node.transform[3], node.transform[4], node.transform[5]] as Affine,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                -node.transform[3],
+                node.transform[4],
+                node.transform[5],
+              ] as Affine,
             } as SceneNode;
           }
           return { ...doc, nodes };
@@ -936,12 +961,22 @@ export function EditorProvider({
       alignSelected: (axis) => {
         const sel = state.selection;
         if (sel.length < 2) return;
-        const items = sel.map((id) => {
-          const node = state.document.nodes[id];
-          if (!node) return null;
-          const bounds = nodeWorldBoundsFn(node);
-          return { id, node, bounds };
-        }).filter((x): x is { id: NodeId; node: SceneNode; bounds: NonNullable<ReturnType<typeof nodeWorldBoundsFn>> } => x !== null && x.bounds !== null);
+        const items = sel
+          .map((id) => {
+            const node = state.document.nodes[id];
+            if (!node) return null;
+            const bounds = nodeWorldBoundsFn(node);
+            return { id, node, bounds };
+          })
+          .filter(
+            (
+              x,
+            ): x is {
+              id: NodeId;
+              node: SceneNode;
+              bounds: NonNullable<ReturnType<typeof nodeWorldBoundsFn>>;
+            } => x !== null && x.bounds !== null,
+          );
         if (items.length < 2) return;
 
         const minX = Math.min(...items.map((i) => i.bounds.x));
@@ -966,7 +1001,14 @@ export function EditorProvider({
             else if (axis === 'bottom') newY = maxY - b.h;
             nodes[id] = {
               ...node,
-              transform: [node.transform[0], node.transform[1], node.transform[2], node.transform[3], newX, newY] as Affine,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                newX,
+                newY,
+              ] as Affine,
             } as SceneNode;
           }
           return { ...doc, nodes };
@@ -977,23 +1019,40 @@ export function EditorProvider({
       distributeSelected: (axis) => {
         const sel = state.selection;
         if (sel.length < 3) return;
-        const items = sel.map((id) => {
-          const node = state.document.nodes[id];
-          if (!node) return null;
-          const bounds = nodeWorldBoundsFn(node);
-          return { id, node, bounds };
-        }).filter((x): x is { id: NodeId; node: SceneNode; bounds: NonNullable<ReturnType<typeof nodeWorldBoundsFn>> } => x !== null && x.bounds !== null);
+        const items = sel
+          .map((id) => {
+            const node = state.document.nodes[id];
+            if (!node) return null;
+            const bounds = nodeWorldBoundsFn(node);
+            return { id, node, bounds };
+          })
+          .filter(
+            (
+              x,
+            ): x is {
+              id: NodeId;
+              node: SceneNode;
+              bounds: NonNullable<ReturnType<typeof nodeWorldBoundsFn>>;
+            } => x !== null && x.bounds !== null,
+          );
         if (items.length < 3) return;
 
         const sorted = [...items].sort((a, b) => {
-          return (axis === 'horizontal' ? a.bounds.x : a.bounds.y) - (axis === 'horizontal' ? b.bounds.x : b.bounds.y);
+          return (
+            (axis === 'horizontal' ? a.bounds.x : a.bounds.y) -
+            (axis === 'horizontal' ? b.bounds.x : b.bounds.y)
+          );
         });
 
         const first = sorted[0]!;
         const last = sorted[sorted.length - 1]!;
         const start = axis === 'horizontal' ? first.bounds.x : first.bounds.y;
-        const end = axis === 'horizontal' ? last.bounds.x + last.bounds.w : last.bounds.y + last.bounds.h;
-        const totalSize = sorted.reduce((s, i) => s + (axis === 'horizontal' ? i.bounds.w : i.bounds.h), 0);
+        const end =
+          axis === 'horizontal' ? last.bounds.x + last.bounds.w : last.bounds.y + last.bounds.h;
+        const totalSize = sorted.reduce(
+          (s, i) => s + (axis === 'horizontal' ? i.bounds.w : i.bounds.h),
+          0,
+        );
         const gap = (end - start - totalSize) / (sorted.length - 1);
 
         updateDoc((doc) => {
@@ -1004,9 +1063,24 @@ export function EditorProvider({
             if (!node) continue;
             nodes[id] = {
               ...node,
-              transform: axis === 'horizontal'
-                ? [node.transform[0], node.transform[1], node.transform[2], node.transform[3], cursor, node.transform[5]] as Affine
-                : [node.transform[0], node.transform[1], node.transform[2], node.transform[3], node.transform[4], cursor] as Affine,
+              transform:
+                axis === 'horizontal'
+                  ? ([
+                      node.transform[0],
+                      node.transform[1],
+                      node.transform[2],
+                      node.transform[3],
+                      cursor,
+                      node.transform[5],
+                    ] as Affine)
+                  : ([
+                      node.transform[0],
+                      node.transform[1],
+                      node.transform[2],
+                      node.transform[3],
+                      node.transform[4],
+                      cursor,
+                    ] as Affine),
             } as SceneNode;
             cursor += (axis === 'horizontal' ? b.w : b.h) + gap;
           }
@@ -1449,6 +1523,8 @@ function buildShapeWithSize(tool: ToolId, size: { w: number; h: number }): Shape
     }
     case 'line':
       return { kind: 'line', from: [0, 0], to: [size.w, size.h], tolerance: 3 };
+    case 'arrow':
+      return { kind: 'arrow', from: [0, 0], to: [size.w, size.h], tolerance: 3, arrowheadSize: 10 };
     case 'text':
       return { kind: 'rect', x: 0, y: 0, w: size.w, h: size.h };
     default:

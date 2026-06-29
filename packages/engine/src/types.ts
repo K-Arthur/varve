@@ -81,6 +81,13 @@ export type Effect =
   | { type: 'layerBlur'; radius: number; visible: boolean }
   | { type: 'backgroundBlur'; radius: number; visible: boolean };
 
+export interface PathPoint {
+  x: number;
+  y: number;
+  handleIn: [number, number] | null;
+  handleOut: [number, number] | null;
+}
+
 export type Shape =
   | { kind: 'rect'; x: number; y: number; w: number; h: number }
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
@@ -95,14 +102,20 @@ export type Shape =
       outerRadius: number;
       points: number;
       rotation: number;
-    };
+    }
+  | { kind: 'arrow'; from: Point; to: Point; tolerance: number; arrowheadSize: number }
+  | { kind: 'path'; points: PathPoint[]; closed: boolean; tolerance: number };
 
 export interface SceneNode {
   id: string;
   name: string;
   transform: Affine;
-  shape: Shape;
-  fill: Color;
+  kind?: string;
+  shape?: Shape;
+  fill?: Color;
+  src?: string;
+  w?: number;
+  h?: number;
   opacity?: number;
   blendMode?: BlendMode;
   rotation?: number;
@@ -128,7 +141,10 @@ export type Primitive =
       outerRadius: number;
       points: number;
       rotation: number;
-    };
+    }
+  | { kind: 'arrow'; from: Point; to: Point; tolerance: number; arrowheadSize: number }
+  | { kind: 'path'; points: PathPoint[]; closed: boolean; tolerance: number }
+  | { kind: 'image'; w: number; h: number; src: string };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */
 export interface RenderItem {

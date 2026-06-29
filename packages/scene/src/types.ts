@@ -270,6 +270,13 @@ export function shapeWidth(shape: Shape): number {
       return shape.outerRadius * 2;
     case 'line':
       return Math.abs(shape.to[0] - shape.from[0]);
+    case 'arrow':
+      return Math.abs(shape.to[0] - shape.from[0]);
+    case 'path': {
+      if (shape.points.length === 0) return 0;
+      const xs = shape.points.map((p) => p.x);
+      return Math.max(...xs) - Math.min(...xs);
+    }
   }
 }
 
@@ -288,5 +295,12 @@ export function shapeHeight(shape: Shape): number {
       return shape.outerRadius * 2;
     case 'line':
       return Math.abs(shape.to[1] - shape.from[1]);
+    case 'arrow':
+      return Math.abs(shape.to[1] - shape.from[1]);
+    case 'path': {
+      if (shape.points.length === 0) return 0;
+      const ys = shape.points.map((p) => p.y);
+      return Math.max(...ys) - Math.min(...ys);
+    }
   }
 }

@@ -9,8 +9,9 @@
  * F2: CursorSpec allows per-sub-state cursor resolution through the ToolManager.
  * F3: GestureResult tells the ToolManager whether to fall through or consume.
  */
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+
 import type { Engine } from '@strata/engine';
+import type { Document, NodeId, SceneNode } from '@strata/scene';
 
 export type ToolId =
   | 'select'
@@ -38,19 +39,27 @@ export type ToolId =
   | 'inspect';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
-  'frame', 'rect', 'ellipse', 'polygon', 'star', 'line', 'arrow', 'pen', 'pencil', 'text', 'image',
+  'frame',
+  'rect',
+  'ellipse',
+  'polygon',
+  'star',
+  'line',
+  'arrow',
+  'pen',
+  'pencil',
+  'text',
+  'image',
 ] as const;
 
-export const NAV_TOOL_IDS: readonly ToolId[] = [
-  'select', 'hand', 'zoom', 'scale',
-] as const;
+export const NAV_TOOL_IDS: readonly ToolId[] = ['select', 'hand', 'zoom', 'scale'] as const;
 
 export function isDrawTool(id: ToolId): boolean {
-  return DRAW_TOOL_IDS.includes(id as typeof DRAW_TOOL_IDS[number]);
+  return DRAW_TOOL_IDS.includes(id as (typeof DRAW_TOOL_IDS)[number]);
 }
 
 export function isNavTool(id: ToolId): boolean {
-  return NAV_TOOL_IDS.includes(id as typeof NAV_TOOL_IDS[number]);
+  return NAV_TOOL_IDS.includes(id as (typeof NAV_TOOL_IDS)[number]);
 }
 
 export interface CursorSpec {
@@ -118,11 +127,16 @@ export interface ToolContext {
   engine: Engine | null;
   hitTest: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
 
+  canvasElement: HTMLCanvasElement | null;
+
   beginTransaction: () => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
 
-  snapPosition: (world: { x: number; y: number }, targets: { x: number; y: number; w: number; h: number }[]) => {
+  snapPosition: (
+    world: { x: number; y: number },
+    targets: { x: number; y: number; w: number; h: number }[],
+  ) => {
     x: number;
     y: number;
     snappedX: boolean;

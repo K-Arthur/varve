@@ -14,7 +14,7 @@
  *
  * Research basis: Figma/Sketch position/size panel with aspect lock.
  */
-import type { Affine, Shape } from '@strata/engine';
+import type { Shape } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -169,7 +169,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           mixed={isMixed(rotationRaw)}
           min={0}
           max={360}
-          onChange={(v) => editor.setSelectedRotation(v % 360 < 0 ? v % 360 + 360 : v % 360)}
+          onChange={(v) => editor.setSelectedRotation(v % 360 < 0 ? (v % 360) + 360 : v % 360)}
         />
         <button
           type="button"
@@ -177,15 +177,36 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           title="Flip horizontally"
           onClick={editor.setSelectedFlipH}
           style={{
-            width: 'var(--space-4)', height: 'var(--space-4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--color-text-muted)', padding: 0, flexShrink: 0,
+            width: 'var(--space-4)',
+            height: 'var(--space-4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--color-text-muted)',
+            padding: 0,
+            flexShrink: 0,
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" /><path d="M16 3h3a2 2 0 0 1 2 2v14c0 1.1-.9 2-2 2h-3" />
-            <path d="M12 20v2" /><path d="M12 14v2" /><path d="M12 8v2" /><path d="M12 2v2" />
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" />
+            <path d="M16 3h3a2 2 0 0 1 2 2v14c0 1.1-.9 2-2 2h-3" />
+            <path d="M12 20v2" />
+            <path d="M12 14v2" />
+            <path d="M12 8v2" />
+            <path d="M12 2v2" />
           </svg>
         </button>
         <button
@@ -194,15 +215,36 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           title="Flip vertically"
           onClick={editor.setSelectedFlipV}
           style={{
-            width: 'var(--space-4)', height: 'var(--space-4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--color-text-muted)', padding: 0, flexShrink: 0,
+            width: 'var(--space-4)',
+            height: 'var(--space-4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--color-text-muted)',
+            padding: 0,
+            flexShrink: 0,
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 8V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v3" /><path d="M3 16v3c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-3" />
-            <path d="M4 12H2" /><path d="M10 12H8" /><path d="M16 12h-2" /><path d="M22 12h-2" />
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 8V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v3" />
+            <path d="M3 16v3c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-3" />
+            <path d="M4 12H2" />
+            <path d="M10 12H8" />
+            <path d="M16 12h-2" />
+            <path d="M22 12h-2" />
           </svg>
         </button>
       </div>

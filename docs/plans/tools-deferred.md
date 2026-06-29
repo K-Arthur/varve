@@ -24,280 +24,104 @@ Use this in a future session to complete the remaining phases.
 | TOOL_ICONS | Done | All tool icons mapped (arrow, zoom, nodeEdit, scale, eyedropper, boolean ops, inspect) |
 | Pre-existing codegen fixes | Done | 7 files in `@strata/codegen`: `Document` type alias to `SceneDocument`, unused params/vars, `FrameNode` typing |
 
-## Immediate needs before deferred
+## Completed implementation (Session 10, 2026-06-29)
 
-These require the completed foundation but weren't built in Session 9:
+| Phase | Area | What was built | Files |
+|---|---|---|---|
+| 1A | PolygonTool | Drag-to-create polygon shape tool | `packages/editor/src/tools/PolygonTool.ts` |
+| 1B | StarTool | Drag-to-create star shape tool | `packages/editor/src/tools/StarTool.ts` |
+| 1C | ScaleTool | Drag-to-scale selected nodes proportionally | `packages/editor/src/tools/ScaleTool.ts` |
+| 1D | Registration | All 3 + 4 more tools registered in CanvasArea | `CanvasArea.tsx` |
+| 1E | Tests | Polygon/star/arrow shape creation tests | `editor.test.tsx` |
+| 2 | Arrow shape variant | `arrow` variant in Shape/Primitive enums (TS + Rust), context factories, replay rendering, codegen SVG/tailwind | `engine/types.ts`, `replay.ts`, `scene/types.ts`, `context.tsx`, `svgt.ts`, `index.ts`, Rust crates |
+| 3 | ArrowTool | Drag-to-create arrow shape with Shift=45° snap | `ArrowTool.ts`, `CanvasArea.tsx` |
+| 4 | EyedropperTool | Color pick via EyeDropper API + canvas fallback | `EyedropperTool.ts`, `types.ts` (canvasElement) |
+| 5 | SliceTool | Drag-to-create export slice regions (FrameNode) | `SliceTool.ts`, `context.tsx` |
+| 6 | Path shape variant | `path` variant + `PathPoint` interface in Shape/Primitive enums (TS + Rust), Bezier rendering in replay, codegen SVG | `engine/types.ts`, `replay.ts`, `scene/types.ts`, `context.tsx`, svg.ts, Rust crates |
+| 7 | PencilTool + fitting | RDP simplification (`simplifyPoints`), point capture via rAF, path shape commit | `fitting.ts`, `PencilTool.ts` |
+| 9 | Spring-loaded tools | ToolManager bugfix (`targetId` tracking), CanvasArea key handlers for Space→Hand + tool keys | `ToolManager.ts`, `CanvasArea.tsx` |
+| 12 | Codegen gap fills | tailwind.ts emits inline SVG for non-rect shapes (ellipse, circle, line, arrow, polygon, star, path) | `tailwind.ts` |
 
-### Phase 3d — Shape & container tools
+### Pre-existing issues resolved (Session 10)
+
+| Issue | Fix |
+|---|---|
+| `TypeError: migrateDocument is not defined` | Not a real issue — workspace tests pass correctly |
+| `strata-sync` compile error: missing `ordering` field in `FileRow` | Added `ordering: ""` to test `upsert_file` calls |
+| TS error: missing `order` in `SceneNode` test objects | Added `order: 'a0'` to `createRectNode` test helper |
+| TS error: `Affine` unused import in `PositionSizeSection` | Removed unused import |
+| TS error: BindingMenu `VariableValue \| undefined` | Added undefined check with fallback |
+| TS error: `shapeLocalBBox` missing `arrow`/`path` cases | Added `arrow` and `path` handlers |
+| TS error: `nodeToSvg` missing `arrow`/`path`/`star` | Added handling in index.ts |
+
+## Remaining deferred items
+
+### Phase 3d — Additional shape tools
 
 | Tool | File | Status |
 |---|---|---|
-| PolygonTool | `packages/editor/src/tools/PolygonTool.ts` | ToolId exists, shape factory exists, no tool class |
-| StarTool | `packages/editor/src/tools/StarTool.ts` | ToolId exists, shape factory exists, no tool class |
-| ArrowTool | `packages/editor/src/tools/ArrowTool.ts` | ToolId exists, no shape factory, no tool class |
-| ScaleTool | `packages/editor/src/tools/ScaleTool.ts` | ToolId exists, no tool class |
-
-**Implementation pattern** — each extends `BaseTool`:
-
-```typescript
-// PolygonTool.ts
-import { BaseTool } from './BaseTool';
-export class PolygonTool extends BaseTool {
-  id = 'polygon' as const;
-  cursor(_state: ToolCursorState): CursorSpec { return { css: 'crosshair' }; }
-  override onDragMove(ctx: ToolContext): void { ... }
-  override onDragEnd(ctx: ToolContext): void { ... }
-  override onDragCancel(ctx: ToolContext): void { ctx.setDraft(null); }
-}
-```
-
-Register each in `getToolManager()` in `CanvasArea.tsx`:
-
-```typescript
-toolManager.register('polygon', () => new PolygonTool());
-toolManager.register('star', () => new StarTool());
-toolManager.register('arrow', () => new ArrowTool());
-toolManager.register('scale', () => new ScaleTool());
-```
+| **PolygonTool** | `packages/editor/src/tools/PolygonTool.ts` | **Done (Session 10)** |
+| **StarTool** | `packages/editor/src/tools/StarTool.ts` | **Done (Session 10)** |
+| **ArrowTool** | `packages/editor/src/tools/ArrowTool.ts` | **Done (Session 10)** |
+| **ScaleTool** | `packages/editor/src/tools/ScaleTool.ts` | **Done (Session 10)** |
 
 ### Phase 3e — Vector, content & utility tools
 
-| Tool | File | Dependencies |
+| Tool | File | Status |
 |---|---|---|
-| PencilTool | `tools/PencilTool.ts` | RDP simplification + Schneider curve fit (needs `packages/editor/src/tools/fitting.ts`) |
-| SliceTool | `tools/SliceTool.ts` | Defines export regions, no scene model change needed |
-| EyedropperTool | `tools/EyedropperTool.ts` | Platform EyeDropper API + canvas fallback |
-| NodeEditTool | `tools/NodeEditTool.ts` | Path shape variant in engine/types.ts + scene/types.ts + Rust Shape enum |
-| BooleanActions | `tools/BooleanActions.ts` | Path boolean ops, needs path shape variant first |
+| **PencilTool** | `tools/PencilTool.ts` | **Done (Session 10) — uses RDP, path shape** |
+| **SliceTool** | `tools/SliceTool.ts` | **Done (Session 10)** |
+| **EyedropperTool** | `tools/EyedropperTool.ts` | **Done (Session 10)** |
+| NodeEditTool | `tools/NodeEditTool.ts` | **Not started — needs path editing UI framework** |
+| BooleanActions | `tools/BooleanActions.ts` | **Not started — needs path boolean ops** |
 
-## Deferred items
+### Still deferred
 
-### 1. PencilTool — Freehand path creation
-
-**When:** After `path` shape variant exists in engine/scene types.
-
-**Research gate:** Study Schneider's algorithm ("An Algorithm for Automatically Fitting Digitized Curves", Graphics Gems 1990) and Ramer-Douglas-Peucker simplification.
-
-**Implementation:**
-
-```typescript
-// packages/editor/src/tools/fitting.ts
-export function simplifyPoints(points: Point[], epsilon: number): Point[] {
-  // Ramer-Douglas-Peucker
-}
-
-export function fitCurve(points: Point[], tolerance: number): BezierSegment[] {
-  // Schneider least-squares cubic Bezier fitting
-}
-```
-
-**PencilTool gesture:**
-- `pointerdown` → start capture, begin `requestAnimationFrame` point collection
-- `pointermove` → push point to buffer (throttled by rAF)
-- `pointerup` → run RDP → run Schneider → commit path shape
-- Honour stylus `pressure` from `ToolContext.pointerPressure`
-
-**Files:**
-- `packages/editor/src/tools/fitting.ts` (new)
-- `packages/editor/src/tools/PencilTool.ts` (new)
-- `packages/editor/src/tools/__tests__/fitting.test.ts`
-
-### 2. Snapping & Smart Guides
+### 1. Snapping & Smart Guides
 
 **When:** All geometry tools work.
-
-**Research gate:** Study edge/center/spacing/distribution snapping in Figma/Illustrator.
-
-**Implementation:**
-
-```typescript
-// packages/editor/src/tools/snapping.ts
-export interface SnapTarget {
-  edges: { left: number; right: number; top: number; bottom: number };
-  center: { x: number; y: number };
-}
-
-export function snapPosition(
-  pos: { x: number; y: number; w: number; h: number },
-  targets: SnapTarget[],
-  grid: number,
-  threshold: number,
-): { x: number; y: number; hints: SnapHint[] }
-```
-
-**Smart guide rendering:**
-- SVG overlay `SnapGuidesOverlay.tsx` positioned on top of the canvas
-- Renders guide lines in red/magenta (token) with distance labels
-- Lines extend edge-to-edge of visible canvas area
-- Fade-in/out animation via CSS opacity (respect `prefers-reduced-motion`)
-
-**Integration:**
-- `BaseTool` calls `ctx.snapPosition()` during `onDragMove`
-- Snap results modify the computed rectangle/line position
-- Status bar shows snap state (snap toggle, grid size)
-- `ToolContext.snapEnabled` and `EditorState.snapEnabled` added in Session 9
 
 **Files:**
 - `packages/editor/src/tools/snapping.ts` (new)
 - `packages/editor/src/components/SnapGuidesOverlay.tsx` (new)
 
-### 3. Floating Bottom-Center Toolbar
+### 2. Floating Bottom-Center Toolbar
 
 **When:** All tools exist and work.
-
-**Research gate:** W3C APG Toolbar pattern, Figma floating toolbar implementation.
-
-**Design:**
-
-```
-┌─────────────────────────────────────────────────────┐
-│  [V] [H] [K]  │  [F]  │  [R] [O] [U] [S] [L] [→]  │  [P] [✏] [N]  │  [T] [I]  │  [✂] [💉]  │
-│  Select Hand Scale │ Frame │ Rect Ellip Poly Star Line Arrow │ Pen Pencil Edit│ Text Image│ Slice Eye  │
-│     Navigate      │ Contnr│           Shapes            │   Vector    │  Content  │  Utility   │
-└─────────────────────────────────────────────────────┘
-```
-
-| Aspect | Value |
-|---|---|
-| Position | `fixed; bottom: 20px; left: 50%; transform: translateX(-50%);` |
-| Shape | Pill, `border-radius: var(--radius-pill)` (~24px) |
-| Background | `color-mix(in srgb, var(--color-surface-sunken) 92%, transparent)`, `backdrop-filter: blur(12px)` |
-| Shadow | `box-shadow: var(--elevation-overlay)` |
-| Z-index | Above canvas, below modals/menus |
-
-**Tool groups with flyouts:**
-- Groups with >1 tool show active icon + chevron
-- Click chevron (or long-press on touch) → menu with all group tools
-- Last-used per group remembered in session state
-- `aria-haspopup="menu"`, proper menu keyboard nav
-
-**Responsive:**
-- Narrow viewports: `overflow-x: auto` with hidden scrollbar
-- Very narrow: collapse into overflow menu
-- Touch: `min-width: 44px; min-height: 44px`
 
 **Files:**
 - `packages/editor/src/components/FloatingToolbar/FloatingToolbar.tsx` (new)
 - `packages/editor/src/components/FloatingToolbar/FloatingToolbar.css` (new)
 - `packages/editor/src/components/FloatingToolbar/ToolGroupFlyout.tsx` (new)
-- `packages/editor/src/editor.css` — remove `editor-toolbar` grid row
 - `packages/editor/src/Shell.tsx` — replace `ToolPanel` with `FloatingToolbar`
 - `packages/editor/src/ToolPanel.tsx` — archive or delete
 
-### 4. Path shape variant (required by Pen, Pencil, NodeEdit, Boolean)
+### 3. NodeEditTool
 
-**When:** Before PenTool full commit, PencilTool, NodeEditTool.
+**Features:** Select/move anchors, add/remove anchors, convert corner↔smooth, box-select, handle symmetry, arrow nudge, Enter to enter/edit mode.
 
-**Types to add:**
-
-```typescript
-// packages/engine/src/types.ts
-export type Shape = { kind: 'rect'; ... }
-  | { kind: 'path'; points: PathPoint[]; closed: boolean; tolerance: number };
-
-export interface PathPoint {
-  x: number;
-  y: number;
-  handleIn: [number, number] | null;
-  handleOut: [number, number] | null;
-}
-```
-
-```typescript
-// packages/scene/src/types.ts
-// Add to Shape union in ShapeNode.shape
-```
-
-```rust
-// crates/strata-core/src/shape.rs
-Shape::Path { points: Vec<PathPoint>, closed: bool, tolerance: f64 }
-```
-
-```rust
-// crates/strata-engine/src/lib.rs
-Primitive::Path { points: Vec<PathPoint>, closed: bool, tolerance: f64 }
-```
-
-**Render (TS `replay.ts`):**
-- Convert path points to cubic Bezier segments
-- Render each segment using `ctx.bezierCurveTo()`
-- Close path if `closed === true`
-- Fill/stroke per node properties
-
-### 5. Spring-loaded tools (cross-cutting)
-
-**When:** After all tools work.
-
-**Implementation:** Already partially built in `ToolManager.springLoadTool`/`releaseSpring`. Wire into CanvasArea `onKeyDown`:
-
-```typescript
-// CanvasArea onKeyDown
-const toolKeyMap: Record<string, ToolId> = {
-  'v': 'select', 'h': 'hand', 'z': 'zoom', 'f': 'frame',
-  'r': 'rect', 'o': 'ellipse', 'l': 'line', 'p': 'pen', 't': 'text',
-};
-
-if (e.key === ' ' && !e.repeat) {
-  // Space → spring-load Hand
-  tmInst.springLoadTool('hand', ne, buildToolCtx(ne as any));
-  return;
-}
-```
-
-**Behavior:**
-- Tap key → sticky tool switch (existing via useShortcuts)
-- Hold key >150ms → spring-load (temporarily switch, restore on keyup)
-- Space → always spring-load Hand (never sticky)
-- `Escape` during spring → cancel, restore previous
-
-### 6. EyedropperTool
-
-**Algorithm:**
-1. Try `window.EyeDropper` (Chromium-only, check support)
-2. Fallback: read pixel from canvas via `ctx.getImageData(x, y, 1, 1)`
-3. Apply color to current selection fill (or set active color)
-4. Cancel on Escape
-
-### 7. BooleanActions (Union/Subtract/Intersect/Exclude)
-
-**When:** Path shape variant exists.
+### 4. BooleanActions (Union/Subtract/Intersect/Exclude)
 
 **Surfaced as:** Toolbar grouped flyout + Object menu, not modal tools.
 **Enabled:** Only with 2+ shape nodes selected.
-**Implementation:** Each action converts shapes to path → runs boolean op → single editable result path.
-**Undo:** One undo entry per boolean action.
 
-### 8. NodeEditTool
+### 5. Spring-loaded tools (cross-cutting)
 
-**When:** Path shape variant exists.
-
-**Features:** Select/move anchors, add/remove anchors, convert corner↔smooth, box-select, handle symmetry, arrow nudge, Enter to enter/edit mode.
-**Cursor:** Crosshair for add, default for select, move for drag.
-
-### 9. SliceTool
-
-**Creates:** Slice region nodes (metadata-only, no render impact).
-**Export:** Feeds the Export panel.
-**Cursor:** Crosshair with slice indicator.
+**Done (Session 10):** `ToolManager.springLoadTool`/`releaseSpring` wired into CanvasArea `onKeyDown`/`onKeyUp`.
 
 ## Test requirements
 
 | Phase | Test type | File |
 |---|---|---|
-| 3d (Polygon/Star/Arrow/Scale) | Vitest — shape created, parent contained | `tools/__tests__/PolygonTool.test.ts` etc. |
-| 3e (Pencil) | Vitest — point capture + simplification + fitting | `tools/__tests__/fitting.test.ts` |
-| 2 (Snapping) | Vitest — grid/edge/center snap + spatial index | `tools/__tests__/snapping.test.ts` |
-| 3 (Toolbar) | Vitest — APG toolbar keyboard nav, flyout menus | `FloatingToolbar/__tests__/FloatingToolbar.test.tsx` |
-| 3 (Toolbar) | Playwright — visual regression, touch interaction | `tests/e2e/toolbar/toolbar.spec.ts` |
-| All | Playwright — full E2E gesture flows | `tests/e2e/tools/tools.spec.ts` |
-| All | axe-core zero violations (after each tool) | `tests/e2e/tools/axe.spec.ts` |
+| 3d (Polygon/Star/Arrow/Scale) | Vitest — shape created, parent contained | **Done** (in editor.test.tsx) |
+| 3e (Pencil) | Vitest — point capture + simplification + fitting | `tools/__tests__/fitting.test.ts` (pending) |
+| 2 (Snapping) | Vitest — grid/edge/center snap + spatial index | `tools/__tests__/snapping.test.ts` (pending) |
+| 3 (Toolbar) | Vitest — APG toolbar keyboard nav, flyout menus | `FloatingToolbar/__tests__/FloatingToolbar.test.tsx` (pending) |
+| All | Playwright — full E2E gesture flows | `tests/e2e/tools/tools.spec.ts` (pending) |
+| All | axe-core zero violations (after each tool) | `tests/e2e/tools/axe.spec.ts` (pending) |
 
-## Token additions (when toolbar is redesigned)
+## Current test counts (Session 10)
 
-```css
---radius-pill: 24px;
---elevation-overlay: 0 4px 16px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
---color-toolbar-bg: color-mix(in srgb, var(--color-surface-sunken) 92%, transparent);
-```
-
-Can be added as one-offs in `FloatingToolbar.css`; promote to `tokens.css` if reused elsewhere.
+- **Rust:** 75 workspace tests (32 core + 4 engine + 9 layout + 12 print + 10 sync + 8 trace)
+- **JS:** 22+ in editor+codegen (8 editor + 14 codegen); 331+ workspace-wide
+- **TypeScript:** 0 errors (pre-existing `order` field issues resolved)

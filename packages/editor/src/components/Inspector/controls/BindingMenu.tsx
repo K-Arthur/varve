@@ -164,11 +164,13 @@ export function BindingMenu({
                   flexShrink: 0,
                 }}
               >
-                {formatValue(
-                  v.valuesByMode[variableStore.activeMode] ??
+                {(() => {
+                  const val: VariableValue | undefined =
+                    v.valuesByMode[variableStore.activeMode] ??
                     v.valuesByMode.default ??
-                    v.valuesByMode[variableStore.modes[0] ?? ''],
-                )}
+                    (variableStore.modes[0] ? v.valuesByMode[variableStore.modes[0]] : undefined);
+                  return val !== undefined ? formatValue(val) : '';
+                })()}
               </span>
             </div>
           ))}

@@ -9,7 +9,7 @@
  *                 Spring-loaded tools: holding a key activates the tool
  *                 temporarily, reverting on release (Space=Hand pattern).
  */
-import type { Tool, ToolContext, ToolCursorState, ToolId, GestureResult } from './types';
+import type { GestureResult, Tool, ToolContext, ToolCursorState, ToolId } from './types';
 
 export type ToolFactory = () => Tool;
 
@@ -105,22 +105,32 @@ export class ToolManager {
     return spec.css;
   }
 
-  get shiftKey(): boolean { return this._shiftKey; }
-  get altKey(): boolean { return this._altKey; }
-  get ctrlKey(): boolean { return this._ctrlKey; }
-  get metaKey(): boolean { return this._metaKey; }
+  get shiftKey(): boolean {
+    return this._shiftKey;
+  }
+  get altKey(): boolean {
+    return this._altKey;
+  }
+  get ctrlKey(): boolean {
+    return this._ctrlKey;
+  }
+  get metaKey(): boolean {
+    return this._metaKey;
+  }
 
-  updateModifiers(e: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): void {
+  updateModifiers(e: {
+    shiftKey: boolean;
+    altKey: boolean;
+    ctrlKey: boolean;
+    metaKey: boolean;
+  }): void {
     this._shiftKey = e.shiftKey;
     this._altKey = e.altKey;
     this._ctrlKey = e.ctrlKey;
     this._metaKey = e.metaKey;
   }
 
-  private buildContext(
-    e: PointerEvent | KeyboardEvent,
-    base: ToolContext,
-  ): ToolContext {
+  private buildContext(e: PointerEvent | KeyboardEvent, base: ToolContext): ToolContext {
     this.updateModifiers(e);
     return {
       ...base,

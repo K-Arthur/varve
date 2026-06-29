@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use rusqlite::Connection;
+use rusqlite::params;
 
 /// Persistent storage for Strata documents.
 /// Row type for file entries (mirrors TS FileEntry).
@@ -20,6 +21,7 @@ pub struct FileRow {
     pub pinned: bool,
     pub trashed_at: Option<String>,
     pub file_path: Option<String>,
+    pub ordering: String,
     pub content_hash: String,
 }
 
@@ -60,6 +62,7 @@ impl DocumentStore {
                 pinned INTEGER NOT NULL DEFAULT 0,
                 trashed_at TEXT,
                 file_path TEXT,
+                ordering TEXT NOT NULL DEFAULT '',
                 content_hash TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS projects (
@@ -82,6 +85,24 @@ impl DocumentStore {
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );",
+        )?;
+        conn.execute_batch(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
+                name, kind,
+                content='files',
+                content_rowid='rowid'
+            );
+            CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN
+                INSERT INTO files_fts(rowid, name, kind) VALUES (new.rowid, new.name, new.kind);
+            END;
+            CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON files BEGIN
+                INSERT INTO files_fts(files_fts, rowid, name, kind) VALUES('delete', old.rowid, old.name, old.kind);
+            END;
+            CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
+                INSERT INTO files_fts(files_fts, rowid, name, kind) VALUES('delete', old.rowid, old.name, old.kind);
+                INSERT INTO files_fts(rowid, name, kind) VALUES (new.rowid, new.name, new.kind);
+            END;
+            INSERT INTO files_fts(files_fts) VALUES('rebuild');",
         )?;
         Ok(DocumentStore {
             conn: Mutex::new(conn),
@@ -136,15 +157,16 @@ impl DocumentStore {
             pinned: row.get::<_, i64>(8)? != 0,
             trashed_at: row.get(9)?,
             file_path: row.get(10)?,
-            content_hash: row.get(11)?,
+            ordering: row.get(11)?,
+            content_hash: row.get(12)?,
         })
     }
 
     pub fn list_files(&self) -> Result<Vec<FileRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, content_hash
-             FROM files WHERE trashed_at IS NULL ORDER BY updated_at DESC",
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash
+             FROM files WHERE trashed_at IS NULL ORDER BY ordering ASC, updated_at DESC",
         )?;
         let rows = stmt.query_map([], |r| Self::row_to_file(r))?;
         rows.collect()
@@ -153,7 +175,7 @@ impl DocumentStore {
     pub fn list_trashed_files(&self) -> Result<Vec<FileRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, content_hash
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash
              FROM files WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC",
         )?;
         let rows = stmt.query_map([], |r| Self::row_to_file(r))?;
@@ -163,7 +185,7 @@ impl DocumentStore {
     pub fn get_file(&self, id: &str) -> Result<Option<FileRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, content_hash
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash
              FROM files WHERE id = ?1",
         )?;
         let mut rows = stmt.query(rusqlite::params![id])?;
@@ -186,12 +208,13 @@ impl DocumentStore {
         pinned: bool,
         trashed_at: Option<&str>,
         file_path: Option<&str>,
+        ordering: &str,
         content_hash: &str,
     ) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO files (id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, content_hash)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            "INSERT INTO files (id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 kind = excluded.kind,
@@ -202,10 +225,11 @@ impl DocumentStore {
                 pinned = excluded.pinned,
                 trashed_at = excluded.trashed_at,
                 file_path = excluded.file_path,
+                ordering = excluded.ordering,
                 content_hash = excluded.content_hash",
             rusqlite::params![
                 id, name, kind, project_id, created_at, updated_at, opened_at, size,
-                pinned as i64, trashed_at, file_path, content_hash
+                pinned as i64, trashed_at, file_path, ordering, content_hash
             ],
         )?;
         Ok(())
@@ -273,6 +297,32 @@ impl DocumentStore {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM documents WHERE id = ?1", rusqlite::params![id])?;
         conn.execute("DELETE FROM files WHERE id = ?1", rusqlite::params![id])?;
+        Ok(())
+    }
+
+    pub fn search_files(&self, query: &str) -> Result<Vec<FileRow>, rusqlite::Error> {
+        if query.trim().is_empty() {
+            return Ok(Vec::new());
+        }
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT f.id, f.name, f.kind, f.project_id, f.created_at, f.updated_at, f.opened_at, f.size, f.pinned, f.trashed_at, f.file_path, f.ordering, f.content_hash
+             FROM files f
+             JOIN files_fts ft ON f.rowid = ft.rowid
+             WHERE files_fts MATCH ?1 AND f.trashed_at IS NULL
+             ORDER BY rank
+             LIMIT 100",
+        )?;
+        let rows = stmt.query_map(rusqlite::params![query], |r| Self::row_to_file(r))?;
+        rows.collect()
+    }
+
+    pub fn reorder_file(&self, id: &str, order: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET ordering = ?2 WHERE id = ?1",
+            rusqlite::params![id, order],
+        )?;
         Ok(())
     }
 
@@ -449,7 +499,7 @@ mod tests {
         let store = temp_store();
         let t = now();
         store
-            .upsert_file("f1", "Test Design", "strata", None, &t, &t, &t, 1024, false, None, None, "abc123")
+            .upsert_file("f1", "Test Design", "strata", None, &t, &t, &t, 1024, false, None, None, "", "abc123")
             .expect("upsert");
         let files = store.list_files().expect("list");
         assert_eq!(files.len(), 1);
@@ -463,7 +513,7 @@ mod tests {
         let store = temp_store();
         let t = now();
         store
-            .upsert_file("f2", "To Delete", "strata", None, &t, &t, &t, 0, false, None, None, "")
+            .upsert_file("f2", "To Delete", "strata", None, &t, &t, &t, 0, false, None, None, "", "")
             .expect("upsert");
         let trash_t = now();
         store.trash_file("f2", &trash_t).expect("trash");
@@ -479,7 +529,7 @@ mod tests {
         let t = now();
         store.save_document("f3", "{}").expect("save doc");
         store
-            .upsert_file("f3", "Purge Me", "strata", None, &t, &t, &t, 0, false, None, None, "")
+            .upsert_file("f3", "Purge Me", "strata", None, &t, &t, &t, 0, false, None, None, "", "")
             .expect("upsert");
         store.purge_file("f3").expect("purge");
         assert!(store.load_document("f3").expect("load").is_none());
@@ -524,5 +574,30 @@ mod tests {
         assert_eq!(val, Some("collapsed".to_string()));
 
         assert_eq!(store.get_view_state("missing").expect("get"), None);
+    }
+
+    #[test]
+    fn search_files_by_name() {
+        let store = temp_store();
+        let t = now();
+        store.upsert_file("f1", "Alpha", "strata", None, &t, &t, &t, 100, false, None, None, "", "hash1").expect("upsert");
+        store.upsert_file("f2", "Beta", "strata", None, &t, &t, &t, 200, false, None, None, "", "hash2").expect("upsert");
+        store.upsert_file("f3", "Gamma", "strata", None, &t, &t, &t, 300, false, None, None, "", "hash3").expect("upsert");
+        let results = store.search_files("alpha").expect("search");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Alpha");
+        let empty = store.search_files("nonexistent").expect("search");
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn reorder_file() {
+        let store = temp_store();
+        let t = now();
+        store.upsert_file("f1", "First", "strata", None, &t, &t, &t, 0, false, None, None, "a0", "hash1").expect("upsert");
+        store.reorder_file("f1", "z0").expect("reorder");
+        let files = store.list_files().expect("list");
+        let f = files.iter().find(|f| f.id == "f1").expect("find");
+        assert_eq!(f.ordering, "z0");
     }
 }

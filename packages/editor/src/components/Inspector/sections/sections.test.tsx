@@ -17,6 +17,7 @@ function createRectNode(id: string, overrides: Record<string, unknown> = {}) {
     opacity: 1,
     blendMode: 'normal' as const,
     rotation: 0,
+    order: 'a0',
     shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
     transform: [1, 0, 0, 1, 10, 20] as const,
     fill: [57, 208, 198, 255] as const,

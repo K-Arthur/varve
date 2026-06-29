@@ -104,6 +104,18 @@ function shapeLocalBBox(shape: Shape): AABB {
           shape.rotation,
         ),
       );
+    case 'arrow': {
+      const from = shape.from;
+      const to = shape.to;
+      const x0 = Math.min(from[0], to[0]) - shape.tolerance;
+      const y0 = Math.min(from[1], to[1]) - shape.tolerance;
+      const x1 = Math.max(from[0], to[0]) + shape.tolerance;
+      const y1 = Math.max(from[1], to[1]) + shape.tolerance;
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    case 'path':
+      if (shape.points.length === 0) return { x: 0, y: 0, w: 100, h: 100 };
+      return pointsAABB(shape.points.map((p) => [p.x, p.y] as [number, number]));
   }
 }
 

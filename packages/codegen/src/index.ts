@@ -88,12 +88,14 @@ function nodeToSvg(node: SceneNode, doc: Document, depth: number): string {
           return `${indent}<polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" transform="${transform}" />`;
         case 'star':
           return `${indent}<polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" transform="${transform}" />`;
+        default:
+          return `${indent}<!-- unsupported shape: ${s.kind} -->`;
       }
-      break;
     }
     case 'text':
       return `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" transform="${transform}">${escapeXml(node.text)}</text>`;
-    case 'frame': {
+    case 'frame':
+    case 'group': {
       const children = (node.children ?? [])
         .map((cid: NodeId) => {
           const child = doc.nodes[cid];

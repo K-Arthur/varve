@@ -12,18 +12,18 @@ import type { Engine, SceneNode as EngineNode } from '@strata/engine';
 import { createEngine, type ReplayTarget, replayIr } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useEditor, nodeWorldBoundsFn } from './context';
+import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
-import { ToolManager, type ToolContext } from './tools';
-import { SelectTool } from './tools/SelectTool';
-import { HandTool } from './tools/HandTool';
-import { ZoomTool } from './tools/ZoomTool';
-import { FrameTool } from './tools/FrameTool';
-import { RectangleTool } from './tools/RectangleTool';
+import { type ToolContext, ToolManager } from './tools';
 import { EllipseTool } from './tools/EllipseTool';
+import { FrameTool } from './tools/FrameTool';
+import { HandTool } from './tools/HandTool';
 import { LineTool } from './tools/LineTool';
 import { PenTool } from './tools/PenTool';
+import { RectangleTool } from './tools/RectangleTool';
+import { SelectTool } from './tools/SelectTool';
 import { TextTool } from './tools/TextTool';
+import { ZoomTool } from './tools/ZoomTool';
 
 type DocNode = SceneNode;
 
@@ -143,7 +143,8 @@ export function CanvasArea() {
       snapGrid: 8,
 
       createShapeAt: (world, size, parentId) => e.createShapeAt(world, size, parentId),
-      createTextNodeAt: (world, size, parentId, text) => e.createTextNodeAt(world, size, parentId, text),
+      createTextNodeAt: (world, size, parentId, text) =>
+        e.createTextNodeAt(world, size, parentId, text),
       setSelection: (id) => e.setSelection(id),
       toggleSelection: (id, additive) => e.toggleSelection(id, additive),
       isSelected: (id) => e.isSelected(id),
@@ -176,6 +177,7 @@ export function CanvasArea() {
       nodeWorldBounds: (n) => nodeWorldBoundsFn(n),
 
       engine: eng,
+      canvasElement: canvasRef.current,
       hitTest: (world) => e.hitTestNode(world),
 
       beginTransaction: () => e.beginTransaction(),
@@ -189,10 +191,22 @@ export function CanvasArea() {
         let snappedY = false;
         const threshold = 6 / s.zoom;
         for (const t of targets) {
-          if (Math.abs(world.x - t.x) < threshold) { x = t.x; snappedX = true; }
-          if (Math.abs(world.x - (t.x + t.w)) < threshold) { x = t.x + t.w; snappedX = true; }
-          if (Math.abs(world.y - t.y) < threshold) { y = t.y; snappedY = true; }
-          if (Math.abs(world.y - (t.y + t.h)) < threshold) { y = t.y + t.h; snappedY = true; }
+          if (Math.abs(world.x - t.x) < threshold) {
+            x = t.x;
+            snappedX = true;
+          }
+          if (Math.abs(world.x - (t.x + t.w)) < threshold) {
+            x = t.x + t.w;
+            snappedX = true;
+          }
+          if (Math.abs(world.y - t.y) < threshold) {
+            y = t.y;
+            snappedY = true;
+          }
+          if (Math.abs(world.y - (t.y + t.h)) < threshold) {
+            y = t.y + t.h;
+            snappedY = true;
+          }
         }
         return { x, y, snappedX, snappedY };
       },
@@ -229,14 +243,7 @@ export function CanvasArea() {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.setTransform(
-        dpr * s.zoom,
-        0,
-        0,
-        dpr * s.zoom,
-        dpr * s.pan.x,
-        dpr * s.pan.y,
-      );
+      ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
       replayIr(ctx as unknown as ReplayTarget, ir);
 
       if (draft) {
@@ -265,8 +272,10 @@ export function CanvasArea() {
   // ─── Middle-button pan (bypasses ToolManager) ──────────────────────────
 
   const midPanRef = useRef<{
-    startX: number; startY: number;
-    panX: number; panY: number;
+    startX: number;
+    startY: number;
+    panX: number;
+    panY: number;
   } | null>(null);
 
   // ─── Pointer Events ──────────────────────────────────────────────────────
@@ -280,8 +289,10 @@ export function CanvasArea() {
     if (e.button === 1) {
       e.currentTarget.setPointerCapture(e.pointerId);
       midPanRef.current = {
-        startX: e.clientX, startY: e.clientY,
-        panX: state.pan.x, panY: state.pan.y,
+        startX: e.clientX,
+        startY: e.clientY,
+        panX: state.pan.x,
+        panY: state.pan.y,
       };
       return;
     }
@@ -364,10 +375,16 @@ export function CanvasArea() {
         e.preventDefault();
         if (e.shiftKey) {
           const prev = nodes[(idx <= 0 ? nodes.length : idx) - 1];
-          if (prev) { eRef.setSelection(prev.id); eRef.announce(`Selected ${prev.name}`); }
+          if (prev) {
+            eRef.setSelection(prev.id);
+            eRef.announce(`Selected ${prev.name}`);
+          }
         } else {
           const next = nodes[(idx + 1) % nodes.length];
-          if (next) { eRef.setSelection(next.id); eRef.announce(`Selected ${next.name}`); }
+          if (next) {
+            eRef.setSelection(next.id);
+            eRef.announce(`Selected ${next.name}`);
+          }
         }
         return;
       }
