@@ -31,6 +31,15 @@ export const TOOL_ICONS = {
   slice: 'Scissors',
   hand: 'Hand',
   zoomIn: 'ZoomIn',
+  zoom: 'ZoomIn',
+  arrow: 'ArrowRight',
+  nodeEdit: 'Pointer',
+  scale: 'Maximize2',
+  eyedropper: 'Pipette',
+  booleanUnion: 'Combine',
+  booleanSubtract: 'Diff',
+  booleanIntersect: 'Combine',
+  booleanExclude: 'Diff',
   inspect: 'SearchCode',
 } as const satisfies Record<string, IconName>;
 

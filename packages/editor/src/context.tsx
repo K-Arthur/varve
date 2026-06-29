@@ -13,8 +13,10 @@
  *     Frame tool now correctly creates a FrameNode (container), not a ShapeNode.
  */
 import type { Affine, Color, Shape } from '@strata/engine';
+import { applyAffine, invertAffine, shapeContains, rectContains } from '@strata/engine';
 import type { NodeId, Slot } from '@strata/scene';
 import {
+  addChild,
   addNode,
   createComponent,
   createDocument,
@@ -27,6 +29,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTextNode,
   moveNode,
   nextNodeId,
   removeNode,
@@ -35,6 +38,7 @@ import {
   resolve,
   type SceneNode,
   ungroupNode as ungroupNodeDoc,
+  walkNodes,
   type Variable,
   type VariableStore,
   type VariableValue,
@@ -57,11 +61,22 @@ export type ToolId =
   | 'polygon'
   | 'star'
   | 'line'
+  | 'arrow'
   | 'pen'
+  | 'pencil'
+  | 'nodeEdit'
   | 'text'
   | 'hand'
-  | 'zoomIn'
-  | 'inspect';
+  | 'zoom'
+  | 'scale'
+  | 'image'
+  | 'slice'
+  | 'eyedropper'
+  | 'inspect'
+  | 'booleanUnion'
+  | 'booleanSubtract'
+  | 'booleanIntersect'
+  | 'booleanExclude';
 
 /** F2: metadata for each open document tab. */
 export interface SessionMeta {
@@ -100,7 +115,36 @@ export interface EditorContextValue {
   /** All selected scene nodes — works for nested nodes (uses doc.nodes lookup). */
   selectedNodes: () => SceneNode[];
   /** Create a shape/frame node from the current tool at the given world-space point. */
-  createShapeAt: (world: { x: number; y: number }, size?: { w: number; h: number }) => void;
+  createShapeAt: (
+    world: { x: number; y: number },
+    size?: { w: number; h: number },
+    parentId?: NodeId | null,
+  ) => void;
+  /** Create a text node at the given world-space point. */
+  createTextNodeAt: (
+    world: { x: number; y: number },
+    size?: { w: number; h: number },
+    parentId?: NodeId | null,
+    text?: string,
+  ) => void;
+  /** Find the deepest frame/group containing a world point (spatial containment). */
+  findContainingFrame: (world: { x: number; y: number }) => NodeId | null;
+  /** Compute world-space bounding box for a node. */
+  nodeWorldBounds: (n: SceneNode) => { x: number; y: number; w: number; h: number } | null;
+  /** Convert canvas CSS-px coordinates to world coordinates. */
+  canvasToWorld: (cx: number, cy: number) => { x: number; y: number };
+  /** Convert world coordinates to canvas CSS-px coordinates. */
+  worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
+  /** Convert a canvas CSS-px delta to a world-space delta (divides by zoom). */
+  canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
+  /** Efficient hit-test that returns the full node info. */
+  hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
+  /** Get a node by ID from the document. */
+  getNode: (id: NodeId) => SceneNode | undefined;
+  /** Walk all nodes in the document, returning entries with parent/depth info. */
+  walkNodes: () => Map<NodeId, { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }>;
+  /** Set a draft rectangle for live feedback during gestures. */
+  setDraft: (draft: { x: number; y: number; w: number; h: number; label?: string } | null) => void;
   /** Remove all currently selected nodes. */
   removeSelected: () => void;
   /** Rename the first selected node. */
@@ -265,6 +309,56 @@ function shapeForTool(tool: ToolId): Shape {
 
 const INITIAL_SESSION_ID = 'session-0';
 
+// ─── standalone helpers ─────────────────────────────────────────────────
+
+/** Compute world-space bounding box for any node type. */
+export function nodeWorldBoundsFn(n: SceneNode): { x: number; y: number; w: number; h: number } | null {
+  const tx = n.transform[4] ?? 0;
+  const ty = n.transform[5] ?? 0;
+  if (n.kind === 'shape') {
+    const s = n.shape;
+    if (s.kind === 'rect') return { x: tx + s.x, y: ty + s.y, w: s.w, h: s.h };
+    if (s.kind === 'ellipse') return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
+    if (s.kind === 'circle') return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
+    if (s.kind === 'line') {
+      const minX = Math.min(s.from[0], s.to[0]);
+      const minY = Math.min(s.from[1], s.to[1]);
+      return { x: tx + minX, y: ty + minY, w: Math.abs(s.to[0] - s.from[0]) || 4, h: Math.abs(s.to[1] - s.from[1]) || 4 };
+    }
+    if (s.kind === 'polygon') return { x: tx + s.cx - s.radius, y: ty + s.cy - s.radius, w: s.radius * 2, h: s.radius * 2 };
+    if (s.kind === 'star') return { x: tx + s.cx - s.outerRadius, y: ty + s.cy - s.outerRadius, w: s.outerRadius * 2, h: s.outerRadius * 2 };
+  }
+  if (n.kind === 'text') return { x: tx, y: ty, w: (n.fontSize ?? 16) * 3, h: (n.fontSize ?? 16) * 1.4 };
+  if (n.kind === 'frame') return { x: tx, y: ty, w: 200, h: 160 };
+  return null;
+}
+
+/** Deepest containing frame/group at the given world point. Skips locked/hidden. */
+export function findContainingFrameInDoc(
+  doc: Document,
+  world: { x: number; y: number },
+): NodeId | null {
+  let deepest: NodeId | null = null;
+  let deepestDepth = -1;
+
+  const entries = walkNodes(doc);
+  for (const [nid, entry] of entries) {
+    const n = entry.node;
+    if (n.locked || n.visible === false) continue;
+    if (n.kind !== 'frame' && n.kind !== 'group') continue;
+    const bbox = nodeWorldBoundsFn(n);
+    if (!bbox) continue;
+    const wPt: [number, number] = [world.x, world.y];
+    if (rectContains(bbox.x, bbox.y, bbox.w, bbox.h, wPt)) {
+      if (entry.depth > deepestDepth) {
+        deepest = nid;
+        deepestDepth = entry.depth;
+      }
+    }
+  }
+  return deepest;
+}
+
 export function EditorProvider({
   children,
   onBackToHome,
@@ -420,9 +514,8 @@ export function EditorProvider({
           .filter((n): n is SceneNode => Boolean(n)),
 
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
-      createShapeAt: (world, size) => {
+      createShapeAt: (world, size, parentId) => {
         setState((s) => {
-          // Push undo snapshot atomically with the creation
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
 
@@ -431,23 +524,112 @@ export function EditorProvider({
           const autoName = nextAutoName(d2, typeName);
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
 
-          let newDoc: Document;
+          let node: SceneNode;
           if (s.tool === 'frame') {
-            const node = makeFrameNode(id, {
+            node = makeFrameNode(id, {
               name: autoName,
               transform,
               fill: [200, 200, 200, 255] as Color,
               children: [],
             });
-            newDoc = addNode(d2, node);
           } else {
             const shape: Shape = size ? buildShapeWithSize(s.tool, size) : shapeForTool(s.tool);
-            const node = makeShapeNode(id, shape, { name: autoName, transform });
+            node = makeShapeNode(id, shape, { name: autoName, transform });
+          }
+
+          const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
+          let newDoc: Document;
+          if (effectiveParentId) {
+            newDoc = addChild(d2, effectiveParentId, node);
+          } else {
             newDoc = addNode(d2, node);
           }
 
           return { ...s, document: newDoc, selection: [id] };
         });
+      },
+
+      createTextNodeAt: (world, _size, parentId, text = '') => {
+        setState((s) => {
+          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          redoStackRef.current = [];
+
+          const { id, doc: d2 } = nextNodeId(s.document);
+          const autoName = nextAutoName(d2, 'Text');
+          const transform: Affine = [1, 0, 0, 1, world.x, world.y];
+
+          const node = makeTextNode(id, text, {
+            name: autoName,
+            transform,
+            fontSize: 16,
+          });
+
+          const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
+          let newDoc: Document;
+          if (effectiveParentId) {
+            newDoc = addChild(d2, effectiveParentId, node);
+          } else {
+            newDoc = addNode(d2, node);
+          }
+
+          return { ...s, document: newDoc, selection: [id] };
+        });
+      },
+
+      findContainingFrame: (world) => {
+        return findContainingFrameInDoc(state.document, world);
+      },
+
+      nodeWorldBounds: (n) => nodeWorldBoundsFn(n),
+
+      canvasToWorld: (cx, cy) => {
+        return { x: (cx - state.pan.x) / state.zoom, y: (cy - state.pan.y) / state.zoom };
+      },
+
+      worldToCanvas: (wx, wy) => {
+        return { x: wx * state.zoom + state.pan.x, y: wy * state.zoom + state.pan.y };
+      },
+
+      canvasDeltaToWorld: (dx, dy) => {
+        return { dx: dx / state.zoom, dy: dy / state.zoom };
+      },
+
+      hitTestNode: (world) => {
+        // Walk all nodes in paint order, test containment
+        const entries = walkNodes(state.document);
+        const ordered = [...entries.values()].sort((a, b) => a.depth - b.depth);
+        for (let i = ordered.length - 1; i >= 0; i--) {
+          const entry = ordered[i];
+          if (!entry) continue;
+          const n = entry.node;
+          const local = applyAffine(invertAffine(n.transform as Affine), [world.x, world.y]);
+          if (n.kind === 'shape' && shapeContains(n.shape, local)) {
+            return { nodeId: entry.nodeId, node: n };
+          }
+          if (n.kind === 'frame' || n.kind === 'group') {
+            const bbox = nodeWorldBoundsFn(n);
+            if (bbox && rectContains(bbox.x, bbox.y, bbox.w, bbox.h, [world.x, world.y])) {
+              return { nodeId: entry.nodeId, node: n };
+            }
+          }
+        }
+        return null;
+      },
+
+      getNode: (id) => state.document.nodes[id],
+
+      walkNodes: () => {
+        const map = walkNodes(state.document);
+        const result = new Map<string, { nodeId: string; node: SceneNode; parentId: string | null; depth: number }>();
+        for (const [key, val] of map) {
+          result.set(key, val);
+        }
+        return result as any;
+      },
+
+      setDraft: (_draft) => {
+        // setDraft is injected by CanvasArea; this stub ensures the context
+        // value structure is always valid. CanvasArea overrides it.
       },
 
       removeSelected: () => {

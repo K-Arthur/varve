@@ -1,0 +1,50 @@
+/**
+ * LineTool — drag start→end, Shift=45° increments.
+ *
+ * Research basis: Figma Line (L), Illustrator Line Segment (\).
+ */
+import type { ToolContext, ToolCursorState, CursorSpec } from './types';
+import { BaseTool } from './BaseTool';
+
+export class LineTool extends BaseTool {
+  id = 'line' as const;
+
+  override cursor(_state: ToolCursorState): CursorSpec {
+    return { css: 'crosshair' };
+  }
+
+  override onDragMove(ctx: ToolContext): void {
+    const line = this.computeDragLine(ctx);
+    const x = Math.min(line.x1, line.x2);
+    const y = Math.min(line.y1, line.y2);
+    const w = Math.abs(line.x2 - line.x1) || 4;
+    const h = Math.abs(line.y2 - line.y1) || 4;
+    const len = Math.sqrt(w * w + h * h);
+    ctx.setDraft({ x, y, w, h, label: `${Math.round(len)}px` });
+  }
+
+  override onDragEnd(ctx: ToolContext): void {
+    ctx.setDraft(null);
+    const line = this.computeDragLine(ctx);
+    const w = Math.abs(line.x2 - line.x1) || 4;
+    const h = Math.abs(line.y2 - line.y1) || 4;
+    const cx = Math.min(line.x1, line.x2) + w / 2;
+    const cy = Math.min(line.y1, line.y2) + h / 2;
+    const parentId = this.commitToParent({ x: cx, y: cy }, ctx);
+
+    if (this.isBelowThreshold(ctx)) {
+      ctx.createShapeAt(this.drag.startWorld, undefined, parentId);
+    } else {
+      // Line is at its own position via shape coordinates, not transform
+      ctx.createShapeAt(
+        { x: Math.min(line.x1, line.x2) + w / 2, y: Math.min(line.y1, line.y2) + h / 2 },
+        { w, h },
+        parentId,
+      );
+    }
+  }
+
+  override onDragCancel(ctx: ToolContext): void {
+    ctx.setDraft(null);
+  }
+}
