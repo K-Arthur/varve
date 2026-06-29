@@ -41,8 +41,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 ```
 
 ## Current test counts
-- **Rust:** 73 workspace + 7 src-tauri = 80 tests (strata-core: 32, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 8, strata-trace: 8 + src-tauri round-trip)
-- **JS:** 331 tests (scene 115, engine 21, ui 47, shared 24, editor 84, codegen 11, platform 41, home 13)
+- **Rust:** 75 workspace tests (strata-core: 32, strata-engine: 4, strata-layout: 9, strata-print: 12, strata-sync: 10, strata-trace: 8)
+- **JS:** 331+ tests (scene 115, engine 21, ui 47, shared 24, editor 84+, codegen 14, platform 41, home 13)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 51/51 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
@@ -60,10 +60,10 @@ git worktree add .worktrees/home-start-page feat/home-start-page
 
 | Artifact | Location |
 |---|---|---|
-| Last commit | `git log --oneline -3` — run to see |
+| Last commit | `9def86b` — "feat: complete tools system" |
 | Branch | `feat/home-start-page` |
 | Deferred plan | `docs/plans/inspector-deferred.md` |
-| Unstaged pre-existing | Tool/SpecPanel/Home/Codegen WIP — remaining from branch history |
+| Tools plan | `docs/plans/tools-deferred.md` (updated Session 10) |
 
 Always verify the commit exists before claiming work persisted:
 ```bash
