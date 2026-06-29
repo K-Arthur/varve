@@ -21,13 +21,16 @@
     "audit:a11y": "echo 'axe-core runs in Playwright E2E (task 0.9+)'"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@biomejs/biome": "^2.0.0",
-    "@testing-library/react": "^16.0.0",
+    "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "jsdom": "^25.0.0",
+    "playwright": "^1.61.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "typescript": "^5.6.0",

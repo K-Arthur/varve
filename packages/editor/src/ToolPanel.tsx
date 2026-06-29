@@ -19,6 +19,7 @@ const TOOLS: { id: ToolId; label: string; shortcut: string }[] = [
   { id: 'text', label: 'Text', shortcut: 'T' },
   { id: 'hand', label: 'Hand', shortcut: 'H' },
   { id: 'zoomIn', label: 'Zoom in', shortcut: 'Z' },
+  { id: 'inspect', label: 'Inspect', shortcut: 'I' },
 ];
 
 export function ToolPanel() {

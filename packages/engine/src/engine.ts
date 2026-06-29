@@ -64,6 +64,10 @@ function stubEngine(): Engine {
         transform: n.transform,
         fill: n.fill,
         primitive: shapeToPrimitive(n),
+        opacity: n.opacity ?? 1,
+        blendMode: n.blendMode ?? 'normal',
+        strokes: n.strokes ?? [],
+        effects: n.effects ?? [],
       }));
     },
     async hitTest(scene, world) {

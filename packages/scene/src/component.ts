@@ -143,11 +143,16 @@ export function instantiate(
     index: 0,
     visible: true,
     locked: false,
+    opacity: 1,
+    blendMode: 'normal',
+    rotation: 0,
     transform: [1, 0, 0, 1, 0, 0],
     fill: [200, 200, 200, 255],
     children: newChildren,
     componentId: componentDef.id,
     slots: Object.keys(slots).length > 0 ? slots : undefined,
+    strokes: [],
+    effects: [],
   };
 
   return {

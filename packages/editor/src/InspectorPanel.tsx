@@ -17,6 +17,7 @@ import type { Color } from '@strata/engine';
 import type { FlexDirection, FrameNode, LayoutMode, LayoutStyle } from '@strata/scene';
 import { NumberInput } from '@strata/ui';
 import { useState } from 'react';
+import { SpecPanel } from './components/SpecPanel/SpecPanel';
 import { useEditor } from './context';
 
 type InspectorTab = 'properties' | 'export' | 'spec';
@@ -243,8 +244,11 @@ export function InspectorPanel() {
         </>
       )}
 
-      {activeTab === 'export' && <ExportTab doc={state.document} />}
-      {activeTab === 'spec' && <SpecTab doc={state.document} />}
+      {state.tool === 'inspect' && sel.length > 0 && (
+        <SpecPanel nodes={sel} doc={state.document} />
+      )}
+      {state.tool !== 'inspect' && activeTab === 'export' && <ExportTab doc={state.document} />}
+      {state.tool !== 'inspect' && activeTab === 'spec' && <SpecTab doc={state.document} />}
     </section>
   );
 }

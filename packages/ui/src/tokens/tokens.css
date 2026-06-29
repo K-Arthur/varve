@@ -22,6 +22,11 @@
   --color-feedback-success: #38a169;
   --color-feedback-warning: #b48218;
   --color-feedback-danger: #cd4045;
+  --color-tree-row: #f5f7fa;
+  --color-tree-row-hover: #6d788a;
+  --color-tree-row-selected: #1d807b;
+  --color-tree-row-focus: #1d807b;
+  --color-tree-indent-guide: #6d788a;
 
   /* --- Typography --- */
   /* First pass uses offline-safe system stacks. Real font files (display + body)
@@ -119,6 +124,11 @@
   --color-feedback-success: #38a169;
   --color-feedback-warning: #b48218;
   --color-feedback-danger: #cd4045;
+  --color-tree-row: #1e2532;
+  --color-tree-row-hover: #8e99aa;
+  --color-tree-row-selected: #52d1c5;
+  --color-tree-row-focus: #52d1c5;
+  --color-tree-indent-guide: #6d788a;
 }
 
 [data-theme="high-contrast"] {
@@ -140,6 +150,11 @@
   --color-feedback-success: #00ff00;
   --color-feedback-warning: #ffc800;
   --color-feedback-danger: #ff5050;
+  --color-tree-row: #0a0a0a;
+  --color-tree-row-hover: #646464;
+  --color-tree-row-selected: #ffff00;
+  --color-tree-row-focus: #ffff00;
+  --color-tree-indent-guide: #ffffff;
 }
 
 /* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
@@ -163,6 +178,11 @@
     --color-feedback-success: #38a169;
     --color-feedback-warning: #b48218;
     --color-feedback-danger: #cd4045;
+    --color-tree-row: #1e2532;
+    --color-tree-row-hover: #8e99aa;
+    --color-tree-row-selected: #52d1c5;
+    --color-tree-row-focus: #52d1c5;
+    --color-tree-indent-guide: #6d788a;
   }
 }
 
@@ -187,6 +207,11 @@
     --color-feedback-success: #00ff00;
     --color-feedback-warning: #ffc800;
     --color-feedback-danger: #ff5050;
+    --color-tree-row: #0a0a0a;
+    --color-tree-row-hover: #646464;
+    --color-tree-row-selected: #ffff00;
+    --color-tree-row-focus: #ffff00;
+    --color-tree-indent-guide: #ffffff;
   }
 }
 

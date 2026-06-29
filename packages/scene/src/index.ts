@@ -8,5 +8,6 @@
 
 export * from './component';
 export * from './document';
+export * from './expr';
 export * from './types';
 export * from './variables';

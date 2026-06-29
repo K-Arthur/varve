@@ -12,22 +12,31 @@
  */
 import type { Engine, SceneNode as EngineNode } from '@strata/engine';
 import { createEngine, type ReplayTarget, replayIr } from '@strata/engine';
-import type { FrameNode, ShapeNode, TextNode } from '@strata/scene';
+import type { SceneNode } from '@strata/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
 
-type DocNode = ShapeNode | TextNode | FrameNode;
+type DocNode = SceneNode;
 
 function toEngineNode(n: DocNode): EngineNode {
-  const base = { id: n.id, name: n.name, fill: n.fill, transform: n.transform };
+  const base = {
+    id: n.id,
+    name: n.name,
+    fill: n.fill,
+    transform: n.transform,
+    opacity: n.opacity ?? 1,
+    blendMode: n.blendMode ?? ('normal' as const),
+    rotation: n.rotation ?? 0,
+    strokes: 'strokes' in n ? (n.strokes ?? []) : [],
+    effects: 'effects' in n ? (n.effects ?? []) : [],
+  };
   if (n.kind === 'shape') return { ...base, shape: n.shape };
   if (n.kind === 'text')
     return {
       ...base,
       shape: { kind: 'rect', x: 0, y: 0, w: n.fontSize * 3, h: n.fontSize * 1.4 } as const,
     };
-  // frame: default visual bounds; real layout from strata-layout (Phase B)
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
 }
 
@@ -218,7 +227,7 @@ export function CanvasArea() {
       'pen',
     ].includes(state.tool);
 
-    if (state.tool === 'select' || state.tool === 'zoomIn') {
+    if (state.tool === 'select' || state.tool === 'zoomIn' || state.tool === 'inspect') {
       const eng = engineRef.current;
       if (!eng) return;
       const nodes = rootNodes().map(toEngineNode);
@@ -227,6 +236,32 @@ export function CanvasArea() {
       if (state.tool === 'zoomIn') {
         const factor = e.shiftKey ? 0.9 : 1.1;
         setZoom(Math.max(0.1, Math.min(10, state.zoom * factor)));
+        return;
+      }
+
+      if (state.tool === 'inspect') {
+        if (idx !== null) {
+          const hit = nodes[idx];
+          if (hit) {
+            const docNode = state.document.nodes[hit.id];
+            if (docNode?.locked) return;
+            if (e.shiftKey) {
+              toggleSelection(hit.id, true);
+            } else if (!isSelected(hit.id)) {
+              setSelection(hit.id);
+            }
+            announce(`Selected ${hit.name}`);
+          }
+        } else {
+          if (!e.shiftKey) setSelection(null);
+        }
+        gesture.current = {
+          ...gesture.current,
+          kind: 'idle',
+          pointerId: -1,
+          movingId: null,
+          movingOrigin: null,
+        };
         return;
       }
 
@@ -532,7 +567,13 @@ export function CanvasArea() {
           width: '100%',
           height: '100%',
           touchAction: 'none',
-          cursor: isDrawTool ? 'crosshair' : state.tool === 'hand' ? 'grab' : 'default',
+          cursor: isDrawTool
+            ? 'crosshair'
+            : state.tool === 'hand'
+              ? 'grab'
+              : state.tool === 'inspect'
+                ? 'crosshair'
+                : 'default',
         }}
         onKeyDown={handleKeyDown}
         onPointerDown={handlePointerDown}
@@ -541,7 +582,7 @@ export function CanvasArea() {
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
       />
-      <SelectionOverlay />
+      {state.tool !== 'inspect' && <SelectionOverlay />}
       <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" />
     </section>
   );

@@ -77,7 +77,12 @@ export type SemanticToken =
   | 'interactive-focus-ring'
   | 'feedback-success'
   | 'feedback-warning'
-  | 'feedback-danger';
+  | 'feedback-danger'
+  | 'tree-row'
+  | 'tree-row-hover'
+  | 'tree-row-selected'
+  | 'tree-row-focus'
+  | 'tree-indent-guide';
 
 const N = (i: number): Rgb => NEUTRAL[i - 1] as Rgb;
 const T = (i: number): Rgb => TEAL[i - 1] as Rgb;
@@ -103,6 +108,11 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'feedback-success': SUCCESS,
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
+    'tree-row': N(2),
+    'tree-row-hover': N(7),
+    'tree-row-selected': T(8),
+    'tree-row-focus': T(8),
+    'tree-indent-guide': N(7),
   },
   dark: {
     'surface-app': N(12),
@@ -123,6 +133,11 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'feedback-success': SUCCESS,
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
+    'tree-row': N(11),
+    'tree-row-hover': N(6),
+    'tree-row-selected': T(5),
+    'tree-row-focus': T(5),
+    'tree-indent-guide': N(7),
   },
   'high-contrast': {
     'surface-app': [0, 0, 0],
@@ -143,6 +158,11 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'feedback-success': [0, 255, 0],
     'feedback-warning': [255, 200, 0],
     'feedback-danger': [255, 80, 80],
+    'tree-row': [10, 10, 10],
+    'tree-row-hover': [100, 100, 100],
+    'tree-row-selected': [255, 255, 0],
+    'tree-row-focus': [255, 255, 0],
+    'tree-indent-guide': [255, 255, 255],
   },
 };
 
@@ -206,4 +226,12 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
     grade: 'UI',
   },
   { name: 'feedback-danger on surface-app', fg: 'feedback-danger', bg: 'surface-app', grade: 'UI' },
+  { name: 'tree-row-selected on tree-row', fg: 'tree-row-selected', bg: 'tree-row', grade: 'UI' },
+  { name: 'tree-row-hover on tree-row', fg: 'tree-row-hover', bg: 'tree-row', grade: 'UI' },
+  {
+    name: 'tree-indent-guide on tree-row',
+    fg: 'tree-indent-guide',
+    bg: 'tree-row',
+    grade: 'UI',
+  },
 ];

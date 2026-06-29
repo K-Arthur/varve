@@ -5,9 +5,9 @@
  * root is an ordered list of node ids; nodes live in a map. Paint order within
  * siblings is the array order; reorder via `moveNode` / `moveChild`.
  *
- * Task 1.1 extends the model for nested FrameNode children: `addChild`,
- * `removeChild`, `moveChild`, and the `walkNodes` helper. Existing root-level
- * ops (`addNode`, `removeNode`, `moveNode`) are updated to handle nested nodes.
+ * Container types: FrameNode + GroupNode (via `isContainer`/`getChildren`).
+ * Reparent, group/ungroup, and detach-instance ops are available.
+ * `walkNodes` recurses into both frame and group children.
  *
  * Ordering is array-index for the local-first editor (sufficient without sync).
  * CRDT-safe fractional ordering replaces it when sync lands (Phase 2, plan §1.1).
@@ -15,7 +15,9 @@
 import type { Affine, Color, Shape } from '@strata/engine';
 import type {
   ComponentDefinition,
+  ContainerNode,
   FrameNode,
+  GroupNode,
   NodeId,
   SceneNode,
   ShapeNode,
@@ -60,7 +62,22 @@ export function nextNodeId(doc: Document): { id: NodeId; doc: Document } {
 export function makeShapeNode(
   id: NodeId,
   shape: Shape,
-  opts: Partial<Pick<ShapeNode, 'name' | 'transform' | 'fill' | 'visible' | 'locked'>> & {
+  opts: Partial<
+    Pick<
+      ShapeNode,
+      | 'name'
+      | 'transform'
+      | 'fill'
+      | 'visible'
+      | 'locked'
+      | 'opacity'
+      | 'blendMode'
+      | 'rotation'
+      | 'strokes'
+      | 'effects'
+      | 'cornerRadius'
+    >
+  > & {
     index?: number;
   } = {},
 ): ShapeNode {
@@ -71,16 +88,42 @@ export function makeShapeNode(
     index: opts.index ?? 0,
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    rotation: opts.rotation ?? 0,
     shape,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? ([57, 208, 198, 255] as Color),
+    strokes: opts.strokes ?? [],
+    effects: opts.effects ?? [],
+    cornerRadius: opts.cornerRadius,
   };
 }
 
 export function makeTextNode(
   id: NodeId,
   text: string,
-  opts: Partial<Pick<TextNode, 'name' | 'transform' | 'fill' | 'fontSize'>> & {
+  opts: Partial<
+    Pick<
+      TextNode,
+      | 'name'
+      | 'transform'
+      | 'fill'
+      | 'fontSize'
+      | 'fontFamily'
+      | 'fontWeight'
+      | 'lineHeight'
+      | 'letterSpacing'
+      | 'textAlign'
+      | 'textCase'
+      | 'textDecoration'
+      | 'opacity'
+      | 'blendMode'
+      | 'rotation'
+      | 'strokes'
+      | 'effects'
+    >
+  > & {
     index?: number;
   } = {},
 ): TextNode {
@@ -91,10 +134,57 @@ export function makeTextNode(
     index: opts.index ?? 0,
     visible: true,
     locked: false,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    rotation: opts.rotation ?? 0,
     text,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? ([16, 21, 31, 255] as Color),
     fontSize: opts.fontSize ?? 16,
+    fontFamily: opts.fontFamily,
+    fontWeight: opts.fontWeight,
+    lineHeight: opts.lineHeight,
+    letterSpacing: opts.letterSpacing,
+    textAlign: opts.textAlign,
+    textCase: opts.textCase,
+    textDecoration: opts.textDecoration,
+    strokes: opts.strokes ?? [],
+    effects: opts.effects ?? [],
+  };
+}
+
+export function makeGroupNode(
+  id: NodeId,
+  opts: Partial<
+    Pick<
+      GroupNode,
+      | 'name'
+      | 'transform'
+      | 'fill'
+      | 'visible'
+      | 'locked'
+      | 'children'
+      | 'opacity'
+      | 'blendMode'
+      | 'rotation'
+    >
+  > & {
+    index?: number;
+  } = {},
+): GroupNode {
+  return {
+    id,
+    kind: 'group',
+    name: opts.name ?? 'Group',
+    index: opts.index ?? 0,
+    visible: opts.visible ?? true,
+    locked: opts.locked ?? false,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    rotation: opts.rotation ?? 0,
+    transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
+    fill: opts.fill ?? ([0, 0, 0, 0] as Color),
+    children: opts.children ?? [],
   };
 }
 
@@ -103,7 +193,19 @@ export function makeFrameNode(
   opts: Partial<
     Pick<
       FrameNode,
-      'name' | 'transform' | 'fill' | 'visible' | 'locked' | 'children' | 'componentId' | 'slots'
+      | 'name'
+      | 'transform'
+      | 'fill'
+      | 'visible'
+      | 'locked'
+      | 'children'
+      | 'componentId'
+      | 'slots'
+      | 'opacity'
+      | 'blendMode'
+      | 'rotation'
+      | 'strokes'
+      | 'effects'
     >
   > & {
     index?: number;
@@ -116,11 +218,16 @@ export function makeFrameNode(
     index: opts.index ?? 0,
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    rotation: opts.rotation ?? 0,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? ([200, 200, 200, 255] as Color),
     children: opts.children ?? [],
     componentId: opts.componentId,
     slots: opts.slots,
+    strokes: opts.strokes ?? [],
+    effects: opts.effects ?? [],
   };
 }
 
@@ -132,7 +239,7 @@ export function walkNodes(doc: Document): Map<NodeId, NodeEntry> {
       const node = doc.nodes[nid];
       if (!node) continue;
       entries.set(nid, { nodeId: nid, node, parentId, depth });
-      if (node.kind === 'frame' && node.children.length > 0) {
+      if (isContainer(node) && node.children.length > 0) {
         walk(nid, node.children, depth + 1);
       }
     }
@@ -145,9 +252,21 @@ export function walkNodes(doc: Document): Map<NodeId, NodeEntry> {
 export function getParent(doc: Document, id: NodeId): NodeId | null {
   if (doc.rootChildren.includes(id)) return null;
   for (const [nid, node] of Object.entries(doc.nodes)) {
-    if (node.kind === 'frame' && node.children.includes(id)) return nid as NodeId;
+    if (isContainer(node) && node.children.includes(id)) return nid as NodeId;
   }
   return null;
+}
+
+/** True if the node is a container (has a children array). */
+export function isContainer(node: SceneNode): node is ContainerNode {
+  return node.kind === 'frame' || node.kind === 'group';
+}
+
+/** Get the children array of a container node, or null if not a container. */
+export function getChildren(doc: Document, id: NodeId): NodeId[] | null {
+  const node = doc.nodes[id];
+  if (!node || !isContainer(node)) return null;
+  return node.children;
 }
 
 /** Append a node to the root paint order. */
@@ -170,7 +289,7 @@ export function insertNode(doc: Document, node: SceneNode, atIndex: number): Doc
   return { ...doc, rootChildren: next, nodes };
 }
 
-/** Add a child to a FrameNode. Optionally fills a slot. */
+/** Add a child to a container (FrameNode or GroupNode). Optionally fills a slot (frame only). */
 export function addChild(
   doc: Document,
   parentId: NodeId,
@@ -178,19 +297,21 @@ export function addChild(
   slotId?: string,
 ): Document {
   const parent = doc.nodes[parentId];
-  if (parent?.kind !== 'frame') return doc;
-  const parentFrame = parent as FrameNode;
-  const childIndex = parentFrame.children.length;
+  if (!parent || !isContainer(parent)) return doc;
+  const childIndex = parent.children.length;
   const indexed = { ...child, index: childIndex };
-  const newChildren = [...parentFrame.children, child.id];
-  const newSlots = slotId
-    ? { ...(parentFrame.slots ?? {}), [slotId]: child.id }
-    : parentFrame.slots;
+  const newChildren = [...parent.children, child.id];
+  const updated = { ...parent, children: newChildren } as SceneNode;
+  if ('slots' in parent && slotId) {
+    (updated as FrameNode).slots = { ...(parent.slots ?? {}), [slotId]: child.id };
+  } else if ('slots' in parent && slotId === undefined) {
+    (updated as FrameNode).slots = parent.slots;
+  }
   return {
     ...doc,
     nodes: {
       ...doc.nodes,
-      [parentId]: { ...parentFrame, children: newChildren, slots: newSlots } as FrameNode,
+      [parentId]: updated,
       [child.id]: indexed,
     },
   };
@@ -208,7 +329,7 @@ export function removeNode(doc: Document, id: NodeId): Document {
     if (toRemove.has(nid)) return;
     toRemove.add(nid);
     const n = nodes[nid];
-    if (n && n.kind === 'frame') {
+    if (n && isContainer(n)) {
       for (const cId of n.children) collect(cId);
     }
   }
@@ -218,19 +339,18 @@ export function removeNode(doc: Document, id: NodeId): Document {
   const parentId = getParent(doc, id);
   let rootChildren = doc.rootChildren;
   if (parentId) {
-    const parent = nodes[parentId] as FrameNode | undefined;
-    if (parent && parent.kind === 'frame') {
+    const parent = nodes[parentId] as SceneNode | undefined;
+    if (parent && isContainer(parent)) {
       const newParentChildren = parent.children.filter((c) => !toRemove.has(c));
-      const newParentSlots = parent.slots
-        ? Object.fromEntries(Object.entries(parent.slots).filter(([_, v]) => !toRemove.has(v)))
-        : undefined;
-      const cleanedSlots =
-        newParentSlots && Object.keys(newParentSlots).length > 0 ? newParentSlots : undefined;
-      nodes[parentId] = {
-        ...parent,
-        children: newParentChildren,
-        slots: cleanedSlots,
-      } as FrameNode;
+      const updated = { ...parent, children: newParentChildren } as SceneNode;
+      if ('slots' in parent && parent.slots) {
+        const filteredSlots = Object.fromEntries(
+          Object.entries(parent.slots).filter(([_, v]) => !toRemove.has(v)),
+        );
+        (updated as FrameNode).slots =
+          Object.keys(filteredSlots).length > 0 ? filteredSlots : undefined;
+      }
+      nodes[parentId] = updated;
     }
   } else {
     rootChildren = doc.rootChildren.filter((x) => !toRemove.has(x));
@@ -258,17 +378,16 @@ export function moveNode(doc: Document, id: NodeId, toIndex: number): Document {
 /** Move a nested child within its parent's children array. */
 export function moveChild(doc: Document, parentId: NodeId, id: NodeId, toIndex: number): Document {
   const parent = doc.nodes[parentId];
-  if (parent?.kind !== 'frame') return doc;
-  const frame = parent as FrameNode;
-  const from = frame.children.indexOf(id);
+  if (!parent || !isContainer(parent)) return doc;
+  const from = parent.children.indexOf(id);
   if (from < 0) return doc;
-  const newChildren = [...frame.children];
+  const newChildren = [...parent.children];
   newChildren.splice(from, 1);
   const clamped = Math.max(0, Math.min(toIndex, newChildren.length));
   newChildren.splice(clamped, 0, id);
   return {
     ...doc,
-    nodes: { ...doc.nodes, [parentId]: { ...frame, children: newChildren } as FrameNode },
+    nodes: { ...doc.nodes, [parentId]: { ...parent, children: newChildren } as SceneNode },
   };
 }
 
@@ -285,4 +404,175 @@ export function getById(doc: Document, id: NodeId): SceneNode | undefined {
 /** Convenience: list root nodes in paint order. */
 export function rootNodes(doc: Document): SceneNode[] {
   return doc.rootChildren.map((id) => doc.nodes[id]).filter((n): n is SceneNode => Boolean(n));
+}
+
+/**
+ * Reparent a node from its current parent to a new parent (or root).
+ * Validates: newParent is a container, node is not its own ancestor.
+ * Removes from old parent, inserts into new parent — all in one atomic op.
+ */
+export function reparentNode(
+  doc: Document,
+  id: NodeId,
+  newParentId: NodeId | null,
+  toIndex: number,
+): Document {
+  const node = doc.nodes[id];
+  if (!node) return doc;
+
+  // Validate new parent
+  if (newParentId) {
+    const newParent = doc.nodes[newParentId];
+    if (!newParent || !isContainer(newParent)) return doc;
+    if (isAncestor(doc, id, newParentId)) return doc;
+  }
+
+  const nodes = { ...doc.nodes };
+
+  // Remove from old parent
+  const oldParentId = getParent(doc, id);
+  let rootChildren = [...doc.rootChildren];
+  if (oldParentId) {
+    const oldParent = nodes[oldParentId] as SceneNode | undefined;
+    if (oldParent && isContainer(oldParent)) {
+      const updated = {
+        ...oldParent,
+        children: oldParent.children.filter((c) => c !== id),
+      } as SceneNode;
+      if ('slots' in oldParent && oldParent.slots) {
+        const filteredSlots = Object.fromEntries(
+          Object.entries(oldParent.slots).filter(([_, v]) => v !== id),
+        );
+        (updated as FrameNode).slots =
+          Object.keys(filteredSlots).length > 0 ? filteredSlots : undefined;
+      }
+      nodes[oldParentId] = updated;
+    }
+  } else {
+    rootChildren = rootChildren.filter((x) => x !== id);
+  }
+
+  // Insert into new parent (or root)
+  if (newParentId) {
+    const newParent = nodes[newParentId];
+    if (!newParent || !isContainer(newParent)) return { ...doc, rootChildren, nodes };
+    const children = [...newParent.children];
+    const clamped = Math.max(0, Math.min(toIndex, children.length));
+    children.splice(clamped, 0, id);
+    nodes[newParentId] = { ...newParent, children } as SceneNode;
+    nodes[id] = { ...node, index: clamped } as SceneNode;
+  } else {
+    const clamped = Math.max(0, Math.min(toIndex, rootChildren.length));
+    rootChildren.splice(clamped, 0, id);
+    nodes[id] = { ...node, index: clamped } as SceneNode;
+  }
+
+  return { ...doc, rootChildren, nodes };
+}
+
+function isAncestor(doc: Document, parent: NodeId, child: NodeId): boolean {
+  if (parent === child) return true;
+  const node = doc.nodes[child];
+  if (!node || !isContainer(node)) return false;
+  for (const c of node.children) {
+    if (isAncestor(doc, parent, c)) return true;
+  }
+  return false;
+}
+
+/**
+ * Group a set of sibling nodes into a new GroupNode.
+ * All nodes must share the same parent (or be root-level).
+ */
+export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): Document {
+  if (ids.length < 2) return doc;
+
+  const firstId = ids[0]!;
+  const first = doc.nodes[firstId];
+  if (!first) return doc;
+  const parentId: NodeId | null = getParent(doc, firstId);
+
+  for (let i = 1; i < ids.length; i++) {
+    const n = doc.nodes[ids[i]!];
+    if (!n) return doc;
+    if (getParent(doc, ids[i]!) !== parentId) return doc;
+  }
+
+  const children = [...groupNode.children];
+  let d = addNode(doc, groupNode);
+
+  const parentIdNonNull = parentId as NodeId;
+  const sorted = [...ids].sort((a, b) => {
+    const idxA = parentId
+      ? d.nodes[parentIdNonNull] && isContainer(d.nodes[parentIdNonNull])
+        ? (d.nodes[parentIdNonNull] as ContainerNode).children.indexOf(a)
+        : -1
+      : d.rootChildren.indexOf(a);
+    const idxB = parentId
+      ? d.nodes[parentIdNonNull] && isContainer(d.nodes[parentIdNonNull])
+        ? (d.nodes[parentIdNonNull] as ContainerNode).children.indexOf(b)
+        : -1
+      : d.rootChildren.indexOf(b);
+    return idxA - idxB;
+  });
+
+  for (const sid of sorted) {
+    d = reparentNode(d, sid, groupNode.id, children.length);
+    children.push(sid);
+  }
+
+  if (parentId === null) {
+    const firstIdxInRoot = d.rootChildren.indexOf(sorted[0]!);
+    if (firstIdxInRoot >= 0) {
+      d = moveNode(d, groupNode.id, Math.min(firstIdxInRoot, d.rootChildren.length - 1));
+    }
+  }
+
+  d = {
+    ...d,
+    nodes: { ...d.nodes, [groupNode.id]: { ...d.nodes[groupNode.id]!, children } as GroupNode },
+  };
+
+  return d;
+}
+
+/**
+ * Ungroup a GroupNode: move all children to the group's parent and remove the group.
+ */
+export function ungroupNode(doc: Document, id: NodeId): Document {
+  const node = doc.nodes[id];
+  if (node?.kind !== 'group') return doc;
+  const group = node as GroupNode;
+  const parentId: NodeId | null = getParent(doc, id);
+  const children = [...group.children];
+
+  let d = doc;
+  for (let i = 0; i < children.length; i++) {
+    const toIndex = parentId
+      ? (d.nodes[parentId] && isContainer(d.nodes[parentId])
+          ? (d.nodes[parentId] as ContainerNode).children.indexOf(id)
+          : -1) + i
+      : d.rootChildren.indexOf(id) + i;
+    d = reparentNode(d, children[i]!, parentId, toIndex);
+  }
+
+  d = removeNode(d, id);
+  return d;
+}
+
+/**
+ * Detach a component instance: clear its componentId so it becomes a plain frame.
+ */
+export function detachInstance(doc: Document, id: NodeId): Document {
+  const node = doc.nodes[id];
+  if (node?.kind !== 'frame') return doc;
+  const frame = node as FrameNode;
+  if (!frame.componentId) return doc;
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [id]: { ...frame, componentId: undefined } as FrameNode,
+    },
+  };
 }

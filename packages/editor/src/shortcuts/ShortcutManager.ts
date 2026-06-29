@@ -42,6 +42,7 @@ export const SHORTCUT_DEFS = {
   toolText: { binding: { key: 't' }, label: 'Text tool', category: 'Tools' },
   toolHand: { binding: { key: 'h' }, label: 'Hand tool', category: 'Tools' },
   toolZoom: { binding: { key: 'z' }, label: 'Zoom tool', category: 'Tools' },
+  toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
 } satisfies Record<string, ShortcutDef>;
 
 export function isMac(): boolean {

@@ -1,0 +1,358 @@
+/* Layers panel — APG Tree View styles. All values trace to CSS custom properties. */
+
+/* ─── Container ─────────────────────────────────────────────── */
+.layers-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.layers-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+/* ─── Filter ────────────────────────────────────────────────── */
+.layers-panel__filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.layers-panel__filter-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  outline: none;
+  padding: var(--space-1) 0;
+}
+
+.layers-panel__filter-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.layers-panel__filter-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.layers-panel__filter-clear:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+}
+
+/* ─── Tree container ────────────────────────────────────────── */
+.layers-panel__tree {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  outline: none;
+  padding: var(--space-1) 0;
+}
+
+.layers-panel__tree:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+/* ─── Row ────────────────────────────────────────────────────── */
+.layers-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: default;
+  user-select: none;
+  min-height: 28px;
+  background: var(--color-tree-row);
+  color: var(--color-text-primary);
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+
+.layers-row:hover {
+  background: var(--color-tree-row-hover);
+}
+
+.layers-row--selected {
+  background: var(--color-tree-row-selected);
+  color: var(--color-text-on-accent);
+}
+
+.layers-row--selected:hover {
+  background: var(--color-tree-row-selected);
+}
+
+.layers-row--focused {
+  outline: 2px solid var(--color-tree-row-focus);
+  outline-offset: -2px;
+}
+
+.layers-row--hidden {
+  opacity: 0.4;
+}
+
+.layers-row--locked {
+  cursor: not-allowed;
+}
+
+/* ─── Disclosure ────────────────────────────────────────────── */
+.layers-row__disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  opacity: 0.6;
+}
+
+.layers-row__disclosure:hover {
+  opacity: 1;
+}
+
+.layers-row__disclosure-spacer {
+  width: 1em;
+  flex-shrink: 0;
+}
+
+/* ─── Indent guide ──────────────────────────────────────────── */
+.layers-row__indent {
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-tree-indent-guide);
+  height: 100%;
+  margin-right: var(--space-1);
+}
+
+/* ─── Type icon ─────────────────────────────────────────────── */
+.layers-row__type-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* ─── Name ──────────────────────────────────────────────────── */
+.layers-row__name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.layers-row__name--instance {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.layers-row__name-input {
+  flex: 1;
+  border: 1px solid var(--color-interactive-focus-ring);
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-sm);
+  outline: none;
+  min-width: 0;
+}
+
+/* ─── Instance badge ────────────────────────────────────────── */
+.layers-row__instance-badge {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  flex-shrink: 0;
+}
+
+/* ─── Toggles ───────────────────────────────────────────────── */
+.layers-row__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  opacity: 0.25;
+  transition: opacity var(--duration-quick) var(--ease-standard);
+}
+
+.layers-row__toggle:hover {
+  opacity: 1;
+}
+
+.layers-row__toggle--active {
+  opacity: 1;
+}
+
+.layers-row__toggle--visibility-on {
+  opacity: 0.4;
+}
+
+.layers-row__toggle--visibility-off {
+  opacity: 1;
+}
+
+.layers-row__toggle--locked-on {
+  opacity: 1;
+}
+
+.layers-row__toggle--locked-off {
+  opacity: 0.25;
+}
+
+/* ─── Empty state ────────────────────────────────────────────── */
+.layers-panel__empty {
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+/* ─── Drag handle ───────────────────────────────────────────── */
+.layers-row__drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 100%;
+  flex-shrink: 0;
+  cursor: grab;
+  opacity: 0;
+  color: var(--color-text-subtle);
+  touch-action: none;
+}
+
+.layers-row:hover .layers-row__drag-handle,
+.layers-row:focus-within .layers-row__drag-handle {
+  opacity: 1;
+}
+
+.layers-row__drag-handle:active {
+  cursor: grabbing;
+}
+
+/* ─── Drop zone indicators (DnD) ────────────────────────────── */
+.layers-row--drop-before {
+  border-top: 2px solid var(--color-interactive-default);
+}
+
+.layers-row--drop-after {
+  border-bottom: 2px solid var(--color-interactive-default);
+}
+
+.layers-row--drop-into {
+  background: var(--color-interactive-hover);
+}
+
+.layers-row--dragging {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* ─── Match highlight for search ────────────────────────────── */
+.layers-row__match {
+  background: var(--color-feedback-warning);
+  color: var(--color-text-primary);
+  border-radius: 2px;
+}
+
+/* ─── Reduced motion ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .layers-row,
+  .layers-row__toggle,
+  .layers-row__disclosure {
+    transition: none;
+  }
+}
+
+/* ─── Context menu portal ───────────────────────────────────── */
+.layers-context-menu {
+  position: fixed;
+  z-index: var(--z-overlay);
+  min-width: 180px;
+  padding: var(--space-1) 0;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.layers-context-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  background: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.layers-context-menu__item:hover,
+.layers-context-menu__item:focus {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  outline: none;
+}
+
+.layers-context-menu__item[aria-disabled="true"] {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.layers-context-menu__shortcut {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.layers-context-menu__item:hover .layers-context-menu__shortcut,
+.layers-context-menu__item:focus .layers-context-menu__shortcut {
+  color: var(--color-text-on-accent);
+}
+
+.layers-context-menu__separator {
+  height: 1px;
+  background: var(--color-border-subtle);
+  margin: var(--space-1) 0;
+}

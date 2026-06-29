@@ -1,0 +1,757 @@
+/**
+ * LayersTree — virtualized APG Tree View with full keyboard navigation,
+ * multi-select, expand/collapse, and type-ahead.
+ *
+ * Keyboard map (APG Tree View, multi-select variant):
+ *   ↑↓          — move focus among visible rows
+ *   →           — expand (if collapsed) or step into first child
+ *   ←           — collapse (if expanded) or step to parent
+ *   Home / End  — first / last row
+ *   Enter       — select focused node
+ *   Space       — toggle selection of focused node (multi-select)
+ *   Shift+↑↓    — extend selection range
+ *   Ctrl+A      — select all visible
+ *   F2          — rename focused node
+ *   Type-ahead  — quick-jump to node by name prefix
+ *
+ * Research basis: W3C APG Tree View pattern, @tanstack/react-virtual,
+ * WICG virtual-scroller principles.
+ */
+
+import type { ContainerNode, NodeId } from '@strata/scene';
+import { isContainer } from '@strata/scene';
+import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
+import {
+  DndContext,
+  DragOverlay,
+  type DragEndEvent,
+  type DragMoveEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEditor } from '../../context';
+import { LayersRow } from './LayersRow';
+import { useFlatTree } from './useFlatTree';
+import { useTreeFocus } from './useTreeFocus';
+import { useTypeAhead } from './useTypeAhead';
+
+export interface LayersTreeProps {
+  filter?: string;
+  onContextMenu?: (e: React.MouseEvent, id: NodeId) => void;
+}
+
+export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
+  const { state, isSelected, toggleSelection, renameSelected, setNodeVisible, setNodeLocked, reparentNode, announce } =
+    useEditor();
+
+  const [expanded, setExpanded] = useState<Set<NodeId>>(new Set());
+  const [renamingId, setRenamingId] = useState<NodeId | null>(null);
+  const [activeId, setActiveId] = useState<NodeId | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{ nodeId: NodeId; zone: 'before' | 'after' | 'into' } | null>(null);
+  const entries = useFlatTree(state.document, expanded, filter);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const { focusIdx, anchorIdx, setFocusIdx, setAnchorIdx, jumpToStart, jumpToEnd } = useTreeFocus();
+  const { handleTypeAhead } = useTypeAhead();
+
+  const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const rowRefs = useRef<Map<NodeId, HTMLDivElement>>(new Map());
+  const autoExpandTimerRef = useRef<number | null>(null);
+  const autoScrollRafRef = useRef<number | null>(null);
+
+  const virtualizer = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => treeRef.current,
+    estimateSize: () => 28,
+    getItemKey: (i) => entries[i]!.node.id,
+    overscan: 10,
+  });
+
+  // Sync focus to selection when selection changes externally (e.g. canvas click)
+  useEffect(() => {
+    if (state.selection.length > 0) {
+      const firstSel = state.selection[0]!;
+      const idx = entries.findIndex((e) => e.node.id === firstSel);
+      if (idx >= 0) {
+        setFocusIdx(idx);
+        virtualizer.scrollToIndex(idx, { align: 'auto' });
+      }
+    }
+  }, [state.selection, entries, setFocusIdx, virtualizer]);
+
+  const toggleExpand = useCallback((id: NodeId) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleSelect = useCallback(
+    (id: NodeId, shift: boolean, ctrl: boolean) => {
+      if (shift && anchorIdx >= 0) {
+        const clickIdx = entries.findIndex((e) => e.node.id === id);
+        if (clickIdx >= 0) {
+          const start = Math.min(anchorIdx, clickIdx);
+          const end = Math.max(anchorIdx, clickIdx);
+          toggleSelection(entries[start]!.node.id, false);
+          for (let i = start + 1; i <= end; i++) {
+            toggleSelection(entries[i]!.node.id, true);
+          }
+          return;
+        }
+      }
+      toggleSelection(id, ctrl);
+      if (!ctrl) setAnchorIdx(entries.findIndex((e) => e.node.id === id));
+    },
+    [anchorIdx, entries, toggleSelection, setAnchorIdx],
+  );
+
+  const handleRenameStart = useCallback((id: NodeId, _name: string) => {
+    setRenamingId(id);
+  }, []);
+
+  const handleRename = useCallback(
+    (_id: NodeId, name: string) => {
+      renameSelected(name);
+      setRenamingId(null);
+    },
+    [renameSelected],
+  );
+
+  const handleRenameCommit = useCallback(() => {
+    setRenamingId(null);
+  }, []);
+
+  const handleRenameCancel = useCallback(() => {
+    setRenamingId(null);
+  }, []);
+
+  const selectAll = useCallback(() => {
+    if (entries.length === 0) return;
+    toggleSelection(entries[0]!.node.id, false);
+    for (let i = 1; i < entries.length; i++) {
+      toggleSelection(entries[i]!.node.id, true);
+    }
+  }, [entries, toggleSelection]);
+
+  const doKeyboardMove = useCallback(
+    (delta: number) => {
+      const next = Math.max(0, Math.min(focusIdx + delta, entries.length - 1));
+      setFocusIdx(next);
+      toggleSelection(entries[next]!.node.id);
+      setAnchorIdx(next);
+      virtualizer.scrollToIndex(next, { align: 'auto' });
+    },
+    [focusIdx, entries, setFocusIdx, toggleSelection, setAnchorIdx, virtualizer],
+  );
+
+  const handleRowFocus = useCallback(
+    (idx: number) => {
+      setFocusIdx(idx);
+    },
+    [setFocusIdx],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (entries.length === 0) return;
+
+      const focusedNode = entries[focusIdx]?.node;
+
+      // Arrow navigation
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        doKeyboardMove(1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        doKeyboardMove(-1);
+        return;
+      }
+
+      // Shift+Arrow: extend selection
+      if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        const delta = e.key === 'ArrowDown' ? 1 : -1;
+        const next = Math.max(0, Math.min(focusIdx + delta, entries.length - 1));
+        setFocusIdx(next);
+        toggleSelection(entries[next]!.node.id, true);
+        virtualizer.scrollToIndex(next, { align: 'auto' });
+        return;
+      }
+
+      // Right arrow: expand or step into children
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (focusedNode && isContainer(focusedNode)) {
+          if (expanded.has(focusedNode.id)) {
+            // Step into first child
+            const childId = focusedNode.children[0];
+            if (childId) {
+              const childIdx = entries.findIndex((e) => e.node.id === childId);
+              if (childIdx >= 0) {
+                setFocusIdx(childIdx);
+                toggleSelection(childId);
+                setAnchorIdx(childIdx);
+                virtualizer.scrollToIndex(childIdx, { align: 'auto' });
+              }
+            }
+          } else {
+            toggleExpand(focusedNode.id);
+          }
+        }
+        return;
+      }
+
+      // Left arrow: collapse or step to parent
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (focusedNode && isContainer(focusedNode) && expanded.has(focusedNode.id)) {
+          toggleExpand(focusedNode.id);
+        } else if (focusedNode) {
+          const parentId = entries[focusIdx]?.parentId;
+          if (parentId) {
+            const parentIdx = entries.findIndex((e) => e.node.id === parentId);
+            if (parentIdx >= 0) {
+              setFocusIdx(parentIdx);
+              toggleSelection(parentId);
+              setAnchorIdx(parentIdx);
+              virtualizer.scrollToIndex(parentIdx, { align: 'auto' });
+            }
+          }
+        }
+        return;
+      }
+
+      // Home/End
+      if (e.key === 'Home') {
+        e.preventDefault();
+        jumpToStart();
+        toggleSelection(entries[0]!.node.id);
+        setAnchorIdx(0);
+        virtualizer.scrollToIndex(0, { align: 'start' });
+        return;
+      }
+      if (e.key === 'End') {
+        e.preventDefault();
+        jumpToEnd(entries.length);
+        toggleSelection(entries[entries.length - 1]!.node.id);
+        setAnchorIdx(entries.length - 1);
+        virtualizer.scrollToIndex(entries.length - 1, { align: 'end' });
+        return;
+      }
+
+      // Enter
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (focusedNode) {
+          toggleSelection(focusedNode.id);
+          setAnchorIdx(focusIdx);
+        }
+        return;
+      }
+
+      // Space: toggle selection
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (focusedNode) {
+          toggleSelection(focusedNode.id, true);
+        }
+        return;
+      }
+
+      // Ctrl+A: select all
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        selectAll();
+        return;
+      }
+
+      // F2: rename
+      if (e.key === 'F2') {
+        e.preventDefault();
+        if (focusedNode) {
+          setRenamingId(focusedNode.id);
+        }
+        return;
+      }
+
+      // Keyboard reorder: Ctrl+[ move up, Ctrl+] move down
+      if ((e.ctrlKey || e.metaKey) && (e.key === '[' || e.key === ']')) {
+        e.preventDefault();
+        const focusEntry = entries[focusIdx];
+        if (!focusEntry) return;
+        const parentId = focusEntry.parentId;
+        const doc = state.document;
+        const siblings = parentId
+          ? ((doc.nodes[parentId] as ContainerNode | undefined)?.children ?? doc.rootChildren)
+          : doc.rootChildren;
+        const myIdx = siblings.indexOf(focusEntry.node.id);
+        if (myIdx < 0) return;
+        const delta = e.key === '[' ? -1 : 1;
+        const newIdx = myIdx + delta;
+        if (newIdx < 0 || newIdx >= siblings.length) return;
+        reparentNode(focusEntry.node.id, parentId, newIdx);
+        const otherNode = doc.nodes[siblings[newIdx]!];
+        announce(
+          delta < 0
+            ? `Moved ${focusEntry.node.name} above ${otherNode?.name || ''}`
+            : `Moved ${focusEntry.node.name} below ${otherNode?.name || ''}`,
+        );
+        return;
+      }
+
+      // Type-ahead: single character
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        const matchIdx = handleTypeAhead(
+          e.key,
+          (i) => entries[i]?.node.name ?? '',
+          focusIdx,
+          entries.length,
+        );
+        if (matchIdx !== null) {
+          setFocusIdx(matchIdx);
+          toggleSelection(entries[matchIdx]!.node.id);
+          setAnchorIdx(matchIdx);
+          virtualizer.scrollToIndex(matchIdx, { align: 'auto' });
+        }
+      }
+    },
+    [
+      entries,
+      focusIdx,
+      expanded,
+      state.document,
+      doKeyboardMove,
+      toggleExpand,
+      toggleSelection,
+      setFocusIdx,
+      setAnchorIdx,
+      jumpToStart,
+      jumpToEnd,
+      selectAll,
+      handleTypeAhead,
+      handleRename,
+      reparentNode,
+      announce,
+      virtualizer,
+    ],
+  );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const el = (e.target as HTMLElement).closest<HTMLElement>('[data-node-id]');
+      const id = el?.dataset.nodeId as NodeId | undefined;
+      if (id) {
+        onContextMenu?.(e, id);
+      }
+    },
+    [onContextMenu],
+  );
+
+  // DnD ----------------------------------------------------------------
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+  );
+
+  const cancelAutoExpand = useCallback(() => {
+    if (autoExpandTimerRef.current !== null) {
+      clearTimeout(autoExpandTimerRef.current);
+      autoExpandTimerRef.current = null;
+    }
+  }, []);
+
+  const startAutoExpand = useCallback(
+    (nodeId: NodeId) => {
+      cancelAutoExpand();
+      autoExpandTimerRef.current = window.setTimeout(() => {
+        setExpanded((prev) => {
+          if (prev.has(nodeId)) return prev;
+          const next = new Set(prev);
+          next.add(nodeId);
+          return next;
+        });
+        autoExpandTimerRef.current = null;
+      }, 600);
+    },
+    [cancelAutoExpand],
+  );
+
+  const cancelAutoScroll = useCallback(() => {
+    if (autoScrollRafRef.current !== null) {
+      cancelAnimationFrame(autoScrollRafRef.current);
+      autoScrollRafRef.current = null;
+    }
+  }, []);
+
+  const handleAutoScroll = useCallback((pointerY: number) => {
+    if (autoScrollRafRef.current !== null) return;
+    const container = treeRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const threshold = 80;
+
+    if (pointerY - rect.top < threshold) {
+      const speed = ((threshold - (pointerY - rect.top)) / threshold) * 12;
+      autoScrollRafRef.current = requestAnimationFrame(() => {
+        container.scrollBy(0, -Math.max(1, speed));
+        autoScrollRafRef.current = null;
+      });
+    } else if (rect.bottom - pointerY < threshold) {
+      const speed = ((threshold - (rect.bottom - pointerY)) / threshold) * 12;
+      autoScrollRafRef.current = requestAnimationFrame(() => {
+        container.scrollBy(0, Math.max(1, speed));
+        autoScrollRafRef.current = null;
+      });
+    }
+  }, []);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as NodeId);
+    cancelAutoScroll();
+  }, [cancelAutoScroll]);
+
+  const handleDragMove = useCallback((event: DragMoveEvent) => {
+    const { activatorEvent, delta } = event;
+    if (activatorEvent instanceof MouseEvent || activatorEvent instanceof PointerEvent) {
+      lastPointerRef.current = {
+        x: activatorEvent.clientX + delta.x,
+        y: activatorEvent.clientY + delta.y,
+      };
+    }
+  }, []);
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { over, active } = event;
+      const overId = over?.id as NodeId | undefined;
+      const activeNodeId = active.id as NodeId;
+      if (!overId || overId === activeNodeId) {
+        setDropIndicator(null);
+        cancelAutoExpand();
+        return;
+      }
+
+      const overEl = rowRefs.current.get(overId);
+      if (!overEl) return;
+
+      const rect = overEl.getBoundingClientRect();
+      const relativeY = (lastPointerRef.current.y - rect.top) / rect.height;
+      const doc = state.document;
+      const overNode = doc.nodes[overId];
+      const overIsContainer = overNode && isContainer(overNode);
+
+      const isDescendant =
+        overIsContainer &&
+        (function isAncestor(id: NodeId, target: NodeId): boolean {
+          if (id === target) return true;
+          const node = doc.nodes[target];
+          if (!node || !isContainer(node)) return false;
+          return node.children.some((c) => isAncestor(id, c));
+        })(activeNodeId, overId);
+
+      let zone: 'before' | 'after' | 'into' = 'after';
+      if (overIsContainer && !isDescendant && relativeY > 0.33 && relativeY < 0.67) {
+        zone = 'into';
+      } else if (relativeY < 0.5) {
+        zone = 'before';
+      }
+      setDropIndicator({ nodeId: overId, zone });
+
+      if (!isDescendant && overIsContainer && zone === 'into' && !expanded.has(overId)) {
+        startAutoExpand(overId);
+      } else {
+        cancelAutoExpand();
+      }
+
+      handleAutoScroll(lastPointerRef.current.y);
+    },
+    [state.document, expanded, cancelAutoExpand, startAutoExpand, handleAutoScroll],
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveId(null);
+      cancelAutoExpand();
+      cancelAutoScroll();
+      if (!over || active.id === over.id) {
+        setDropIndicator(null);
+        return;
+      }
+      if (!dropIndicator) {
+        setDropIndicator(null);
+        return;
+      }
+
+      const activeNodeId = active.id as NodeId;
+      const overId = over.id as NodeId;
+      const { zone } = dropIndicator;
+      setDropIndicator(null);
+
+      const doc = state.document;
+      const overNode = doc.nodes[overId];
+      const activeNode = doc.nodes[activeNodeId];
+      if (!overNode || !activeNode) return;
+
+      if (zone === 'into') {
+        const overContainer = doc.nodes[overId];
+        const children = overContainer && isContainer(overContainer)
+          ? (overContainer as ContainerNode).children
+          : [];
+        reparentNode(activeNodeId, overId, children.length);
+        announce(`Moved ${activeNode.name} into ${overNode.name}`);
+        return;
+      }
+
+      const overEntry = entries.find((e) => e.node.id === overId);
+      const targetParentId = overEntry?.parentId ?? null;
+      const targetSiblings = targetParentId
+        ? ((doc.nodes[targetParentId] as ContainerNode | undefined)?.children ?? doc.rootChildren)
+        : doc.rootChildren;
+
+      let overIdx = targetSiblings.indexOf(overId);
+      if (overIdx < 0) overIdx = targetSiblings.length;
+
+      const newIndex = zone === 'before' ? overIdx : overIdx + 1;
+      reparentNode(activeNodeId, targetParentId, newIndex);
+
+      announce(
+        zone === 'before'
+          ? `Moved ${activeNode.name} above ${overNode.name}`
+          : `Moved ${activeNode.name} below ${overNode.name}`,
+      );
+    },
+    [state.document, entries, dropIndicator, reparentNode, announce, cancelAutoExpand, cancelAutoScroll],
+  );
+
+  if (entries.length === 0 && !filter) {
+    return (
+      <div className="layers-panel__empty" role="tree" aria-label="Layers">
+        No layers
+      </div>
+    );
+  }
+
+  if (entries.length === 0 && filter) {
+    return (
+      <div className="layers-panel__empty" role="tree" aria-label="Layers">
+        No layers match &quot;{filter}&quot;
+      </div>
+    );
+  }
+
+  const activeEntry = activeId ? entries.find((e) => e.node.id === activeId) : null;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div
+        ref={treeRef}
+        className="layers-panel__tree"
+        role="tree"
+        aria-label="Layers"
+        aria-multiselectable="true"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        onContextMenu={handleContextMenu}
+      >
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            position: 'relative',
+          }}
+        >
+          <SortableContext
+            items={entries.map((e) => e.node.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const entry = entries[virtualItem.index];
+              if (!entry) return null;
+              const { node, depth } = entry;
+              const selected = isSelected(node.id);
+              const focused = virtualItem.index === focusIdx;
+              const isExpanded = expanded.has(node.id);
+              const dropClass = dropIndicator?.nodeId === node.id
+                ? `layers-row--drop-${dropIndicator.zone}`
+                : '';
+
+              return (
+                <SortableVirtualRow
+                  key={virtualItem.key}
+                  node={node}
+                  depth={depth}
+                  selected={selected}
+                  focused={focused}
+                  expanded={isExpanded}
+                  editing={renamingId === node.id}
+                  virtualItem={virtualItem}
+                  virtualizer={virtualizer}
+                  dropClass={dropClass}
+                  onToggleExpand={toggleExpand}
+                  onSelect={handleSelect}
+                  onRename={handleRenameStart}
+                  onRenameCommit={handleRenameCommit}
+                  onRenameCancel={handleRenameCancel}
+                  onToggleVisibility={(id) => {
+                    const n = state.document.nodes[id];
+                    if (n) setNodeVisible(id, !n.visible);
+                  }}
+                  onToggleLock={(id) => {
+                    const n = state.document.nodes[id];
+                    if (n) setNodeLocked(id, !n.locked);
+                  }}
+                  onFocus={handleRowFocus}
+                  idx={virtualItem.index}
+                />
+              );
+            })}
+          </SortableContext>
+        </div>
+      </div>
+
+      <DragOverlay dropAnimation={null}>
+        {activeEntry && (
+          <div className="layers-row layers-row--dragging" style={{ width: 260 }}>
+            <LayersRow
+              node={activeEntry.node}
+              depth={activeEntry.depth}
+              selected={false}
+              focused={false}
+              expanded={false}
+              editing={false}
+              onToggleExpand={() => {}}
+              onSelect={() => {}}
+              onRename={() => {}}
+              onRenameCommit={() => {}}
+              onRenameCancel={() => {}}
+              onToggleVisibility={() => {}}
+              onToggleLock={() => {}}
+              onFocus={() => {}}
+              idx={-1}
+            />
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+interface SortableVirtualRowProps {
+  node: import('@strata/scene').SceneNode;
+  depth: number;
+  selected: boolean;
+  focused: boolean;
+  expanded: boolean;
+  editing: boolean;
+  virtualItem: import('@tanstack/react-virtual').VirtualItem;
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
+  dropClass: string;
+  onToggleExpand: (id: NodeId) => void;
+  onSelect: (id: NodeId, shift: boolean, ctrl: boolean) => void;
+  onRename: (id: NodeId, name: string) => void;
+  onRenameCommit: () => void;
+  onRenameCancel: () => void;
+  onToggleVisibility: (id: NodeId) => void;
+  onToggleLock: (id: NodeId) => void;
+  onFocus: (idx: number) => void;
+  idx: number;
+}
+
+function SortableVirtualRow({
+  node,
+  depth,
+  selected,
+  focused,
+  expanded,
+  editing,
+  virtualItem,
+  virtualizer,
+  dropClass,
+  onToggleExpand,
+  onSelect,
+  onRename,
+  onRenameCommit,
+  onRenameCancel,
+  onToggleVisibility,
+  onToggleLock,
+  onFocus,
+  idx,
+}: SortableVirtualRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: node.id });
+
+  const style = {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    width: '100%',
+    transform: isDragging
+      ? `translateY(${virtualItem.start}px)`
+      : `${CSS.Transform.toString(transform)} translateY(${virtualItem.start}px)`,
+    transition: `${transition || ''}`,
+    opacity: isDragging ? 0.3 : undefined,
+  };
+
+  return (
+    <div
+      ref={(el) => {
+        setSortableRef(el);
+        virtualizer.measureElement(el);
+      }}
+      data-index={virtualItem.index}
+      style={style}
+      className={dropClass}
+    >
+      <LayersRow
+        node={node}
+        depth={depth}
+        selected={selected}
+        focused={focused}
+        expanded={expanded}
+        editing={editing}
+        onToggleExpand={onToggleExpand}
+        onSelect={onSelect}
+        onRename={onRename}
+        onRenameCommit={onRenameCommit}
+        onRenameCancel={onRenameCancel}
+        onToggleVisibility={onToggleVisibility}
+        onToggleLock={onToggleLock}
+        onFocus={onFocus}
+        idx={idx}
+        dragListeners={isDragging ? undefined : listeners}
+        dragAttributes={isDragging ? undefined : attributes}
+      />
+    </div>
+  );
+}

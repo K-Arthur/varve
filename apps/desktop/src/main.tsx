@@ -1,6 +1,7 @@
 import './global.css';
 import '@strata/ui/tokens.css';
 import '@strata/editor/editor.css';
+import '@strata/home/home.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

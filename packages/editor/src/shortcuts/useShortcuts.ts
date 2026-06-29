@@ -111,6 +111,8 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => e.setTool('hand' as ToolId);
       case 'toolZoom':
         return () => e.setTool('zoomIn' as ToolId);
+      case 'toolInspect':
+        return () => e.setTool('inspect' as ToolId);
       default:
         return null;
     }
