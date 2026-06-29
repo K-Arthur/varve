@@ -13,7 +13,7 @@
  *     Frame tool now correctly creates a FrameNode (container), not a ShapeNode.
  */
 import type { Affine, Color, Shape } from '@strata/engine';
-import type { NodeId, Slot } from '@strata/scene';
+import type { ExportPreset, ExportJob, NodeId, Slot } from '@strata/scene';
 import {
   addNode,
   createComponent,
@@ -147,6 +147,15 @@ export interface EditorContextValue {
   switchTab: (id: string) => void;
   /** F2/A8: close a tab. Returns false if dirty and force is not set (caller should confirm). */
   closeTab: (id: string, force?: boolean) => boolean;
+  /** Show the export dialog modal. */
+  showExportDialog: boolean;
+  setShowExportDialog: (show: boolean) => void;
+  /** Add an export preset to a node. */
+  addPreset: (nodeId: NodeId, preset: ExportPreset) => void;
+  /** Update an export preset on a node. */
+  updatePreset: (nodeId: NodeId, preset: ExportPreset) => void;
+  /** Remove an export preset from a node. */
+  removePreset: (nodeId: NodeId, presetId: string) => void;
 }
 
 const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -226,6 +235,7 @@ function shapeForTool(tool: ToolId): Shape {
 const INITIAL_SESSION_ID = 'session-0';
 
 export function EditorProvider({ children }: { children: ReactNode }) {
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [state, setState] = useState<EditorState>({
     tool: 'select',
     zoom: 1,
@@ -589,6 +599,56 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         });
       },
 
+      showExportDialog,
+      setShowExportDialog,
+
+      addPreset: (nodeId, preset) => {
+        updateDoc((doc) => {
+          const node = doc.nodes[nodeId];
+          if (!node) return doc;
+          const existing = node.presets ?? [];
+          return {
+            ...doc,
+            nodes: {
+              ...doc.nodes,
+              [nodeId]: { ...node, presets: [...existing, preset] },
+            },
+          };
+        });
+      },
+
+      updatePreset: (nodeId, updatedPreset) => {
+        updateDoc((doc) => {
+          const node = doc.nodes[nodeId];
+          if (!node) return doc;
+          const existing = node.presets ?? [];
+          return {
+            ...doc,
+            nodes: {
+              ...doc.nodes,
+              [nodeId]: {
+                ...node,
+                presets: existing.map((p) => (p.id === updatedPreset.id ? updatedPreset : p)),
+              },
+            },
+          };
+        });
+      },
+
+      removePreset: (nodeId, presetId) => {
+        updateDoc((doc) => {
+          const node = doc.nodes[nodeId];
+          if (!node) return doc;
+          return {
+            ...doc,
+            nodes: {
+              ...doc.nodes,
+              [nodeId]: { ...node, presets: (node.presets ?? []).filter((p) => p.id !== presetId) },
+            },
+          };
+        });
+      },
+
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
@@ -638,7 +698,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         return true;
       },
     }),
-    [state, patch, updateDoc, rootNodes, updateNodeProp],
+    [state, patch, updateDoc, rootNodes, updateNodeProp, showExportDialog],
   );
 
   return <EditorCtx.Provider value={value}>{children}</EditorCtx.Provider>;

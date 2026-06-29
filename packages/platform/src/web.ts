@@ -324,7 +324,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
         return handle.name;
       }
       // Fallback: Blob download.
-      const blob = new Blob([data], { type: mimeType });
+      const blob = new Blob([data as unknown as ArrayBuffer], { type: mimeType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
