@@ -240,6 +240,11 @@ fn done(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+#[tauri::command]
+fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    std::fs::write(&path, data).map_err(|e| e.to_string())
+}
+
 /// Persist a document. Receives the full document JSON from the TS editor.
 #[tauri::command]
 fn sync_save(
@@ -262,6 +267,9 @@ fn sync_load(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&data_dir).expect("create data dir");
@@ -279,7 +287,8 @@ pub fn run() {
             render_frame_ir,
             render_frame_pixels,
             report,
-            done
+            done,
+            write_binary_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
