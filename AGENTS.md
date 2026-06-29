@@ -60,7 +60,7 @@ git worktree add .worktrees/home-start-page feat/home-start-page
 
 | Artifact | Location |
 |---|---|---|
-| Last commit | `154a7b0` — "feat: Inspector P1 deferred items — align/distribute, rotation/flip, corner radius, token binding" |
+| Last commit | `git log --oneline -3` — run to see |
 | Branch | `feat/home-start-page` |
 | Deferred plan | `docs/plans/inspector-deferred.md` |
 | Unstaged pre-existing | Tool/SpecPanel/Home/Codegen WIP — remaining from branch history |
