@@ -4,6 +4,17 @@
   color: var(--color-text-primary);
   overflow-y: auto;
   height: 100%;
+  /* In light theme the code block is dark to ensure syntax-token contrast.
+     In dark theme it follows the sunken surface. */
+  --spec-code-bg: var(--color-surface-sunken);
+  --spec-code-text: var(--color-text-primary);
+}
+
+@media (prefers-color-scheme: light) {
+  .spec-panel {
+    --spec-code-bg: var(--color-text-primary);
+    --spec-code-text: var(--color-surface-raised);
+  }
 }
 
 .spec-panel__header {
@@ -55,6 +66,28 @@
   color: var(--color-text-muted);
   font-style: italic;
   font-size: var(--font-size-xs);
+}
+
+.spec-panel__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.spec-panel__empty-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.spec-panel__empty-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
 }
 
 /* ── Unit selector ──────────────────────────────────── */
@@ -142,7 +175,8 @@
 .spec-codegen__pre {
   max-height: 300px;
   overflow: auto;
-  background: var(--color-surface-sunken);
+  background: var(--spec-code-bg);
+  color: var(--spec-code-text);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   padding: var(--space-2);
@@ -392,7 +426,8 @@
 .spec-codegen__pre .token.constant,
 .spec-codegen__pre .token.symbol,
 .spec-codegen__pre .token.deleted {
-  color: var(--color-feedback-danger, #ef4444);
+  /* Lighten the danger color so it passes AA on the dark code background. */
+  color: color-mix(in srgb, var(--color-feedback-danger), white 30%);
 }
 .spec-codegen__pre .token.selector,
 .spec-codegen__pre .token.attr-name,

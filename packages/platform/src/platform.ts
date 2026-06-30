@@ -65,6 +65,13 @@ export interface Platform {
    */
   listenForChanges(callback: () => void): Promise<() => void>;
 
+  // ─── File existence ───────────────────────────────────────────────────────
+  /**
+   * Check if a file exists on disk (desktop only). Memory/web implementations
+   * always return true (files are virtual).
+   */
+  fileExists(path: string): Promise<boolean>;
+
   // ─── Thumbnails ──────────────────────────────────────────────────────────
   /** Cached data URL for a content hash, or undefined. */
   getThumbnail(hash: string): Promise<string | undefined>;

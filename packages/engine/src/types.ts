@@ -113,6 +113,8 @@ export interface SceneNode {
   kind?: string;
   shape?: Shape;
   fill?: Color;
+  /** P2: stacked fills (solid/gradient). */
+  fills?: EngineFill[];
   src?: string;
   w?: number;
   h?: number;
@@ -121,6 +123,27 @@ export interface SceneNode {
   rotation?: number;
   strokes?: Stroke[];
   effects?: Effect[];
+}
+
+/** P2: Fill type for the engine (mirrors @strata/scene Fill). */
+export interface EngineGradientStop {
+  position: number;
+  color: Color;
+}
+
+export interface EngineGradientFill {
+  type: 'linear' | 'radial' | 'angular' | 'diamond';
+  stops: EngineGradientStop[];
+  rotation?: number;
+}
+
+export interface EngineFill {
+  type: 'solid' | 'gradient' | 'image' | 'pattern';
+  color?: Color;
+  gradient?: EngineGradientFill;
+  opacity: number;
+  blendMode: BlendMode;
+  visible: boolean;
 }
 
 export interface Scene {
@@ -150,6 +173,8 @@ export type Primitive =
 export interface RenderItem {
   transform: Affine;
   fill: Color;
+  /** P2: stacked fills (solid/gradient). When present, paint bottom→top. */
+  fills?: FillIR[];
   primitive: Primitive;
   /** F6: layer opacity (0-1). */
   opacity?: number;
@@ -160,5 +185,18 @@ export interface RenderItem {
   /** F6: stacked effects. */
   effects?: Effect[];
 }
+
+/** P2: Fill IR — a single fill in the render IR (solid or gradient). */
+export type FillIR =
+  | { type: 'solid'; color: Color; opacity: number; blendMode: BlendMode; visible: boolean }
+  | {
+      type: 'gradient';
+      gradientType: 'linear' | 'radial' | 'angular' | 'diamond';
+      stops: { position: number; color: Color }[];
+      rotation: number;
+      opacity: number;
+      blendMode: BlendMode;
+      visible: boolean;
+    };
 
 export type Backend = 'native' | 'wasm' | 'stub';

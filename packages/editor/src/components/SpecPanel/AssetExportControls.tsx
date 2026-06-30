@@ -35,7 +35,12 @@ function isTauriPlatform(p?: Platform): boolean {
   return p?.kind === 'tauri';
 }
 
-export function AssetExportControls({ node, doc, engine: _engine, platform }: AssetExportControlsProps) {
+export function AssetExportControls({
+  node,
+  doc,
+  engine: _engine,
+  platform,
+}: AssetExportControlsProps) {
   const [engine, setEngine] = useState<Engine | null>(null);
   const [format, setFormat] = useState<ExportFormat>('image/png');
   const [scale, setScale] = useState(2);
@@ -80,7 +85,11 @@ export function AssetExportControls({ node, doc, engine: _engine, platform }: As
         });
         if (isTauri && platform) {
           const buf = await blob.arrayBuffer();
-          await platform.saveBlob(buildFilename(node.name, 'svg'), new Uint8Array(buf), 'image/svg+xml');
+          await platform.saveBlob(
+            buildFilename(node.name, 'svg'),
+            new Uint8Array(buf),
+            'image/svg+xml',
+          );
           setMessage(`Exported ${node.name} as SVG`);
         } else {
           downloadBlob(blob, buildFilename(node.name, 'svg'));
@@ -142,7 +151,10 @@ export function AssetExportControls({ node, doc, engine: _engine, platform }: As
                 type="button"
                 className={`spec-export__btn${effectiveScale === s && !customScale ? ' spec-export__btn--active' : ''}`}
                 aria-pressed={effectiveScale === s && !customScale}
-                onClick={() => { setScale(s); setCustomScale(''); }}
+                onClick={() => {
+                  setScale(s);
+                  setCustomScale('');
+                }}
               >
                 {s}x
               </button>
@@ -172,7 +184,11 @@ export function AssetExportControls({ node, doc, engine: _engine, platform }: As
           {exporting ? 'Exporting\u2026' : 'Download'}
         </button>
         {format === 'svg' && (
-          <CopyButton value={exportNodeToSvg(node, doc)} label="SVG markup" className="spec-row__copy" />
+          <CopyButton
+            value={exportNodeToSvg(node, doc)}
+            label="SVG markup"
+            className="spec-row__copy"
+          />
         )}
       </div>
 

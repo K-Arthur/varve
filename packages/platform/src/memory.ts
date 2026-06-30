@@ -167,6 +167,11 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       return () => {};
     },
 
+    async fileExists() {
+      // Memory platform doesn't have file paths; always return true
+      return true;
+    },
+
     async getThumbnail(hash) {
       return state.thumbnails.get(hash)?.dataUrl;
     },

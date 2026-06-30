@@ -91,6 +91,28 @@ export function useShortcuts(editor: EditorContextValue): {
       }
       case 'group':
         return null;
+      case 'alignLeft':
+        return () => e.alignSelected('left');
+      case 'alignCenterH':
+        return () => e.alignSelected('centerH');
+      case 'alignRight':
+        return () => e.alignSelected('right');
+      case 'alignTop':
+        return () => e.alignSelected('top');
+      case 'alignCenterV':
+        return () => e.alignSelected('centerV');
+      case 'alignBottom':
+        return () => e.alignSelected('bottom');
+      case 'distributeHorizontal':
+        return () => e.distributeSelected('horizontal');
+      case 'distributeVertical':
+        return () => e.distributeSelected('vertical');
+      case 'bindField':
+        return () => {
+          if (e.focusedField) {
+            e.setBindingField(e.focusedField);
+          }
+        };
       case 'shortcutPalette':
         return () => setPaletteOpen((p) => !p);
       case 'toolSelect':

@@ -40,6 +40,8 @@ export interface FileEntry {
   ordering: string;
   /** Content hash; used as the thumbnail-cache key and invalidation signal. */
   contentHash: string;
+  /** True if the file no longer exists on disk (desktop only). */
+  isMissing?: boolean;
 }
 
 /** A user-created collection that groups files. */

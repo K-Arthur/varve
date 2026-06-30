@@ -31,7 +31,12 @@ function emitText(node: TextNode, depth: number, opts?: FlutterExportOptions): s
   return `${'  '.repeat(depth)}Text(\n${'  '.repeat(depth + 1)}'${node.text}',\n${'  '.repeat(depth + 1)}style: TextStyle(\n${'  '.repeat(depth + 2)}fontSize: ${node.fontSize ?? 16},\n${'  '.repeat(depth + 2)}color: ${colorText},\n${'  '.repeat(depth + 1)}),\n${'  '.repeat(depth)});`;
 }
 
-function emitContainer(node: SceneNode, doc: SceneDocument, depth: number, opts?: FlutterExportOptions): string {
+function emitContainer(
+  node: SceneNode,
+  doc: SceneDocument,
+  depth: number,
+  opts?: FlutterExportOptions,
+): string {
   const children = getChildren(doc, node);
   const body = children.map((child) => emitNode(child, doc, depth + 2, opts)).join(',\n');
 
@@ -59,7 +64,12 @@ function emitContainer(node: SceneNode, doc: SceneDocument, depth: number, opts?
   return `${'  '.repeat(depth)}Stack(\n${'  '.repeat(depth + 1)}children: [\n${body}\n${'  '.repeat(depth + 1)}],\n${'  '.repeat(depth)});`;
 }
 
-function emitNode(node: SceneNode, doc: SceneDocument, depth: number, opts?: FlutterExportOptions): string {
+function emitNode(
+  node: SceneNode,
+  doc: SceneDocument,
+  depth: number,
+  opts?: FlutterExportOptions,
+): string {
   if (node.kind === 'text') return emitText(node, depth, opts);
   if (node.kind === 'frame' || node.kind === 'group') {
     return emitContainer(node, doc, depth, opts);

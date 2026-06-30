@@ -100,7 +100,9 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
             variableStore={editor.state.variableStore as import('@strata/scene').VariableStore}
             targetType="number"
             onBind={(variableId, expression) => {
-              editor.setSelectedBinding(editor.bindingField!, { variableId, expression });
+              if (editor.bindingField) {
+                editor.setSelectedBinding(editor.bindingField, { variableId, expression });
+              }
               editor.setBindingField(null);
             }}
             onClose={() => editor.setBindingField(null)}
@@ -156,7 +158,9 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
         className="insp-field"
         style={{ marginTop: 'var(--space-1)', flexDirection: 'column', gap: 'var(--space-1)' }}
       >
-        <label className="insp-field__label">Smoothing</label>
+        <label className="insp-field__label" htmlFor="corner-smoothing">
+          Smoothing
+        </label>
         <div
           style={{
             display: 'flex',
@@ -165,6 +169,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
           }}
         >
           <input
+            id="corner-smoothing"
             type="range"
             min={0}
             max={100}
@@ -173,7 +178,10 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
             aria-label="Corner smoothing"
             style={{ flex: 1 }}
           />
-          <span className="insp-value" style={{ fontSize: 'var(--font-size-xs)', minWidth: 32, textAlign: 'right' }}>
+          <span
+            className="insp-value"
+            style={{ fontSize: 'var(--font-size-xs)', minWidth: 32, textAlign: 'right' }}
+          >
             {smoothing}%
           </span>
         </div>

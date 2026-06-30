@@ -29,7 +29,14 @@ export function snapPosition(
   for (const b of otherBounds) {
     const bCX = b.x + b.w / 2;
     const bCY = b.y + b.h / 2;
-    const bEdges = { left: b.x, right: b.x + b.w, centerX: bCX, top: b.y, bottom: b.y + b.h, centerY: bCY };
+    const bEdges = {
+      left: b.x,
+      right: b.x + b.w,
+      centerX: bCX,
+      top: b.y,
+      bottom: b.y + b.h,
+      centerY: bCY,
+    };
 
     for (const key of ['left', 'centerX', 'right'] as const) {
       const diff = edges[key] - bEdges[key];

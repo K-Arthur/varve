@@ -10,7 +10,9 @@ export type FileMenuAction =
   | 'purge'
   | 'pin'
   | 'reveal'
-  | 'export';
+  | 'export'
+  | 'locate'
+  | 'remove';
 
 export interface FileContextMenuProps {
   file: FileEntry;
@@ -20,6 +22,7 @@ export interface FileContextMenuProps {
   onClose: () => void;
   projects: Project[];
   isTrash?: boolean;
+  isMissing?: boolean;
 }
 
 export function FileContextMenu({
@@ -30,10 +33,19 @@ export function FileContextMenu({
   onClose,
   projects,
   isTrash = false,
+  isMissing = false,
 }: FileContextMenuProps) {
   const items: MenuEntry[] = [];
 
-  if (isTrash) {
+  if (isMissing) {
+    items.push({ id: 'locate', label: 'Locate file...', onAction: () => onAction('locate') });
+    items.push({ id: 'sep1', separator: true });
+    items.push({
+      id: 'remove',
+      label: 'Remove from recents',
+      onAction: () => onAction('remove'),
+    });
+  } else if (isTrash) {
     items.push({ id: 'restore', label: 'Restore', onAction: () => onAction('restore') });
     items.push({ id: 'sep1', separator: true });
     items.push({

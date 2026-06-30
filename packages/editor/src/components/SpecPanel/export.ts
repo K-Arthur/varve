@@ -113,7 +113,7 @@ export async function exportNodeAsPdf(
     throw new Error('PDF export requires the desktop app');
   }
 
-  const bytes = await tauri.core.invoke('export_node_pdf', { nodes, opts }) as number[];
+  const bytes = (await tauri.core.invoke('export_node_pdf', { nodes, opts })) as number[];
   const filename = buildFilename(node.name, 'pdf');
   return { bytes: new Uint8Array(bytes), filename };
 }

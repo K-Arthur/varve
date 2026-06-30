@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { CanvasArea } from './CanvasArea';
+import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import { EditorProvider, useEditor } from './context';
 import { LayersPanel } from './LayersPanel';
@@ -7,7 +8,6 @@ import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
-import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 
 export interface ShellProps {
   onBackToHome?: () => void;

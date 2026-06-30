@@ -19,6 +19,8 @@ export type {
   BlendMode,
   Color,
   Effect,
+  EngineFill,
+  FillIR,
   Point,
   Primitive,
   RenderItem,

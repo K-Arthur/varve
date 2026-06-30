@@ -42,6 +42,10 @@ pub struct LayoutStyle {
     pub grow: f64,
     /// Flex shrink factor.
     pub shrink: f64,
+    /// P3: Grid template columns (e.g., "1fr 200px 1fr").
+    pub grid_template_columns: Option<String>,
+    /// P3: Grid template rows (e.g., "auto 1fr auto").
+    pub grid_template_rows: Option<String>,
 }
 
 impl Default for LayoutStyle {
@@ -54,6 +58,8 @@ impl Default for LayoutStyle {
             padding: [0.0; 4],
             grow: 0.0,
             shrink: 1.0,
+            grid_template_columns: None,
+            grid_template_rows: None,
         }
     }
 }
@@ -85,6 +91,11 @@ pub struct LayoutResult {
 
 /// Convert Strata layout properties to a Taffy `Style`.
 fn to_taffy_style(style: &LayoutStyle) -> Style {
+    let display = match style.mode {
+        LayoutMode::Flex => Display::Flex,
+        LayoutMode::Grid => Display::Grid,
+    };
+
     let direction = match style.direction {
         FlexDirection::Row => taffy::prelude::FlexDirection::Row,
         FlexDirection::Column => taffy::prelude::FlexDirection::Column,
@@ -98,11 +109,16 @@ fn to_taffy_style(style: &LayoutStyle) -> Style {
         taffy::prelude::FlexWrap::NoWrap
     };
 
-    Style {
-        display: Display::Flex,
+    // P3: Grid template support (stub - full parsing requires Taffy GridTrack API)
+    // For now, just set display to Grid. Full grid template parsing deferred.
+    let taffy_style = Style {
+        display,
         flex_direction: direction,
         flex_wrap,
-        gap: Size { width: length(style.gap as f32), height: length(0.0) },
+        gap: Size {
+            width: length(style.gap as f32),
+            height: length(0.0),
+        },
         padding: Rect {
             top: length(style.padding[0] as f32),
             right: length(style.padding[1] as f32),
@@ -112,7 +128,12 @@ fn to_taffy_style(style: &LayoutStyle) -> Style {
         flex_grow: style.grow as f32,
         flex_shrink: style.shrink as f32,
         ..Default::default()
-    }
+    };
+
+    // TODO: Parse grid_template_columns and grid_template_rows into Taffy GridTrack
+    // This requires understanding Taffy's grid API which is more complex
+
+    taffy_style
 }
 
 /// Compute layout for a frame's children using Taffy.
@@ -130,9 +151,7 @@ pub fn compute_layout(
     let mut tree: TaffyTree = TaffyTree::new();
     let taffy_style = to_taffy_style(style);
 
-    let container = tree
-        .new_with_children(taffy_style, &[])
-        .unwrap();
+    let container = tree.new_with_children(taffy_style, &[]).unwrap();
 
     let mut taffy_ids: HashMap<u64, taffy::NodeId> = HashMap::new();
 
@@ -259,9 +278,18 @@ mod tests {
     #[test]
     fn validate_breakpoints_no_overlap() {
         let bps = vec![
-            Breakpoint { id: "sm".into(), min_width: 0.0 },
-            Breakpoint { id: "md".into(), min_width: 768.0 },
-            Breakpoint { id: "lg".into(), min_width: 1280.0 },
+            Breakpoint {
+                id: "sm".into(),
+                min_width: 0.0,
+            },
+            Breakpoint {
+                id: "md".into(),
+                min_width: 768.0,
+            },
+            Breakpoint {
+                id: "lg".into(),
+                min_width: 1280.0,
+            },
         ];
         assert!(validate_breakpoints(&bps));
     }
@@ -269,8 +297,14 @@ mod tests {
     #[test]
     fn validate_breakpoints_overlap_detected() {
         let bps = vec![
-            Breakpoint { id: "a".into(), min_width: 100.0 },
-            Breakpoint { id: "b".into(), min_width: 100.0 },
+            Breakpoint {
+                id: "a".into(),
+                min_width: 100.0,
+            },
+            Breakpoint {
+                id: "b".into(),
+                min_width: 100.0,
+            },
         ];
         assert!(!validate_breakpoints(&bps));
     }
@@ -282,7 +316,10 @@ mod tests {
 
     #[test]
     fn validate_breakpoints_single() {
-        let bps = vec![Breakpoint { id: "a".into(), min_width: 0.0 }];
+        let bps = vec![Breakpoint {
+            id: "a".into(),
+            min_width: 0.0,
+        }];
         assert!(validate_breakpoints(&bps));
     }
 

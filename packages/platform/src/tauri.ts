@@ -53,7 +53,6 @@ function core(): TauriCore {
 const VIEW_STATE_KV = 'strata-home-view-state';
 
 export function createTauriPlatform(): Platform {
-
   const platform: Platform = {
     kind: 'tauri',
 
@@ -156,12 +155,23 @@ export function createTauriPlatform(): Platform {
     },
 
     async listenForChanges(callback) {
-      const w = (typeof window !== 'undefined' ? window : globalThis) as WindowWithTauri | undefined;
+      const w = (typeof window !== 'undefined' ? window : globalThis) as
+        | WindowWithTauri
+        | undefined;
       const ev = w?.__TAURI__?.event;
       if (ev && typeof ev.listen === 'function') {
         return ev.listen('home:files-changed', callback);
       }
       return () => {};
+    },
+
+    async fileExists(path) {
+      const c = core();
+      try {
+        return (await c.invoke('home_file_exists', { path })) as boolean;
+      } catch {
+        return false;
+      }
     },
 
     async getViewState() {

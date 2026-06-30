@@ -31,8 +31,8 @@ pub struct Stroke {
     pub align: String, // "inside", "center", "outside"
     pub dash_pattern: Vec<f64>,
     pub dash_offset: f64,
-    pub cap: String,   // "butt", "round", "square"
-    pub join: String,  // "miter", "round", "bevel"
+    pub cap: String,  // "butt", "round", "square"
+    pub join: String, // "miter", "round", "bevel"
     pub miter_limit: f64,
     pub visible: bool,
 }
@@ -58,13 +58,25 @@ impl Default for Stroke {
 pub enum Effect {
     #[serde(rename = "dropShadow")]
     DropShadow {
-        x: f64, y: f64, blur: f64, spread: f64,
-        color: [u8; 4], opacity: f64, blend_mode: BlendMode, visible: bool,
+        x: f64,
+        y: f64,
+        blur: f64,
+        spread: f64,
+        color: [u8; 4],
+        opacity: f64,
+        blend_mode: BlendMode,
+        visible: bool,
     },
     #[serde(rename = "innerShadow")]
     InnerShadow {
-        x: f64, y: f64, blur: f64, spread: f64,
-        color: [u8; 4], opacity: f64, blend_mode: BlendMode, visible: bool,
+        x: f64,
+        y: f64,
+        blur: f64,
+        spread: f64,
+        color: [u8; 4],
+        opacity: f64,
+        blend_mode: BlendMode,
+        visible: bool,
     },
     #[serde(rename = "layerBlur")]
     LayerBlur { radius: f64, visible: bool },
@@ -104,8 +116,12 @@ pub struct SceneNode {
     pub effects: Vec<Effect>,
 }
 
-fn default_opacity() -> f64 { 1.0 }
-fn default_blend_mode() -> BlendMode { "normal".into() }
+fn default_opacity() -> f64 {
+    1.0
+}
+fn default_blend_mode() -> BlendMode {
+    "normal".into()
+}
 
 /// Find the topmost node (highest paint-order index) whose shape contains the
 /// world-space `pt`. Returns its index in `nodes`, or `None`.

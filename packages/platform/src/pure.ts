@@ -163,7 +163,14 @@ export function compareBy(
   key: 'updated' | 'opened' | 'created' | 'size' | 'name' | 'ordering',
   direction: SortDirection,
 ): (
-  a: { updatedAt: number; openedAt?: number; createdAt: number; size?: number; name: string; ordering?: string },
+  a: {
+    updatedAt: number;
+    openedAt?: number;
+    createdAt: number;
+    size?: number;
+    name: string;
+    ordering?: string;
+  },
   b: typeof a,
 ) => number {
   const mul = direction === 'asc' ? 1 : -1;

@@ -36,6 +36,7 @@ import {
   renameNode,
   reparentNode as reparentNodeDoc,
   resolve,
+  resolveNodeFills,
   type SceneNode,
   ungroupNode as ungroupNodeDoc,
   type Variable,
@@ -57,6 +58,7 @@ import {
   writeClipboard as writeToClipboard,
 } from './clipboard';
 
+// Forward declaration for use in createShapeAt guard
 export type ToolId =
   | 'select'
   | 'frame'
@@ -160,6 +162,16 @@ export interface EditorContextValue {
   moveNode: (id: NodeId, toIndex: number) => void;
   /** Update the fill of all selected nodes. */
   setSelectedFill: (color: Color) => void;
+  /** P2: Set the entire fill stack on all selected nodes. */
+  setSelectedFills: (fills: import('@strata/scene').Fill[]) => void;
+  /** P2: Update a single fill in the stack at a given index on all selected nodes. */
+  updateSelectedFillAt: (index: number, fill: import('@strata/scene').Fill) => void;
+  /** P2: Add a fill to the stack on all selected nodes. */
+  addSelectedFill: (fill: import('@strata/scene').Fill) => void;
+  /** P2: Remove a fill at a given index from the stack on all selected nodes. */
+  removeSelectedFillAt: (index: number) => void;
+  /** P2: Reorder fills: move from one index to another on all selected nodes. */
+  reorderSelectedFill: (from: number, to: number) => void;
   /** Update the position (transform) of a node. */
   setNodePosition: (id: NodeId, x: number, y: number) => void;
   /** Update the size of a shape node. */
@@ -192,6 +204,14 @@ export interface EditorContextValue {
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   /** F6: distribute selected nodes equally along the given axis. */
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
+  /** P3: batch-set min width on all selected nodes. */
+  setSelectedMinWidth: (value: number) => void;
+  /** P3: batch-set max width on all selected nodes. */
+  setSelectedMaxWidth: (value: number) => void;
+  /** P3: batch-set min height on all selected nodes. */
+  setSelectedMinHeight: (value: number) => void;
+  /** P3: batch-set max height on all selected nodes. */
+  setSelectedMaxHeight: (value: number) => void;
   /** F6: batch-set a variable binding on all selected nodes. */
   setSelectedBinding: (
     target: string,
@@ -261,6 +281,10 @@ export interface EditorContextValue {
   bindingField: string | null;
   /** Open the BindingMenu for a specific field, or close it. */
   setBindingField: (field: string | null) => void;
+  /** The field name currently focused (for `=` binding shortcut), or null. */
+  focusedField: string | null;
+  /** Set the focused field (called by NumberField on focus/blur). */
+  setFocusedField: (field: string | null) => void;
   /** F6: batch-edit corner smoothing on all selected shape nodes. */
   setSelectedCornerSmoothing: (value: number) => void;
 }
@@ -320,8 +344,11 @@ function nextAutoName(doc: Document, typeName: string): string {
 }
 
 // F4: default shape geometry per tool
+// Research basis: Figma/Illustrator default sizes for shape tools
 function shapeForTool(tool: ToolId): Shape {
   switch (tool) {
+    case 'rect':
+      return { kind: 'rect', x: 0, y: 0, w: 100, h: 80 };
     case 'ellipse':
       return { kind: 'ellipse', cx: 50, cy: 40, rx: 50, ry: 40 };
     case 'polygon':
@@ -341,11 +368,44 @@ function shapeForTool(tool: ToolId): Shape {
     case 'arrow':
       return { kind: 'arrow', from: [0, 0], to: [100, 0], tolerance: 3, arrowheadSize: 10 };
     case 'pen':
-      return { kind: 'path', points: [{ x: 0, y: 0, handleIn: null, handleOut: null }], closed: false, tolerance: 3 };
+      return {
+        kind: 'path',
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: false,
+        tolerance: 3,
+      };
+    case 'pencil':
+      return {
+        kind: 'path',
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: false,
+        tolerance: 3,
+      };
     case 'text':
       return { kind: 'rect', x: 0, y: 0, w: 120, h: 32 };
-    default:
-      return { kind: 'rect', x: 0, y: 0, w: 100, h: 80 };
+    case 'frame':
+    case 'slice':
+      // These are containers, not shapes — should never reach here
+      return { kind: 'rect', x: 0, y: 0, w: 200, h: 160 };
+    case 'select':
+    case 'hand':
+    case 'zoom':
+    case 'scale':
+    case 'nodeEdit':
+    case 'image':
+    case 'eyedropper':
+    case 'inspect':
+    case 'booleanUnion':
+    case 'booleanSubtract':
+    case 'booleanIntersect':
+    case 'booleanExclude':
+      // These tools don't create shapes — should never reach here
+      throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
+    default: {
+      // Exhaustiveness check — if we get here, there's a missing tool case
+      const _exhaustiveCheck: never = tool;
+      throw new Error(`Unknown tool in shapeForTool: ${_exhaustiveCheck}`);
+    }
   }
 }
 
@@ -465,6 +525,7 @@ export function EditorProvider({
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
   const [bindingField, setBindingField] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -576,6 +637,25 @@ export function EditorProvider({
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
       createShapeAt: (world, size, parentId) => {
         setState((s) => {
+          // Prevent shape creation for non-drawing tools
+          const nonDrawingTools: ToolId[] = [
+            'select',
+            'hand',
+            'zoom',
+            'scale',
+            'nodeEdit',
+            'image',
+            'eyedropper',
+            'inspect',
+            'booleanUnion',
+            'booleanSubtract',
+            'booleanIntersect',
+            'booleanExclude',
+          ];
+          if (nonDrawingTools.includes(s.tool as ToolId)) {
+            throw new Error(`createShapeAt called for non-drawing tool: ${s.tool}`);
+          }
+
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
 
@@ -727,6 +807,90 @@ export function EditorProvider({
             d = { ...d, nodes: { ...d.nodes, [id]: { ...node, fill: color } } };
           }
           return d;
+        });
+      },
+
+      setSelectedFills: (fills) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, fills } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      updateSelectedFillAt: (index, fill) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const current = resolveNodeFills(node);
+            const next = [...current];
+            if (index >= 0 && index < next.length) next[index] = fill;
+            else next.push(fill);
+            nodes[id] = { ...node, fills: next } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      addSelectedFill: (fill) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const current = resolveNodeFills(node);
+            nodes[id] = { ...node, fills: [...current, fill] } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      removeSelectedFillAt: (index) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const current = resolveNodeFills(node);
+            if (current.length <= 1) continue; // keep at least one fill
+            const next = current.filter((_, i) => i !== index);
+            nodes[id] = { ...node, fills: next } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      reorderSelectedFill: (from, to) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const current = [...resolveNodeFills(node)];
+            if (from < 0 || from >= current.length || to < 0 || to >= current.length) continue;
+            const [item] = current.splice(from, 1);
+            if (item) {
+              current.splice(to, 0, item);
+              nodes[id] = { ...node, fills: current } as SceneNode;
+            }
+          }
+          return { ...doc, nodes };
         });
       },
 
@@ -1286,6 +1450,8 @@ export function EditorProvider({
 
       bindingField,
       setBindingField,
+      focusedField,
+      setFocusedField,
 
       setSelectedCornerSmoothing: (value) => {
         const sel = state.selection;
@@ -1305,6 +1471,62 @@ export function EditorProvider({
         updateNodeProp(id, (n) => {
           if (n.kind !== 'frame') return n;
           return { ...n, layoutStyle: layout };
+        });
+      },
+
+      setSelectedMinWidth: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, minWidth: value };
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setSelectedMaxWidth: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, maxWidth: value };
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setSelectedMinHeight: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, minHeight: value };
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setSelectedMaxHeight: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, maxHeight: value };
+          }
+          return { ...doc, nodes };
         });
       },
 
@@ -1497,6 +1719,8 @@ export function EditorProvider({
       abortTransaction,
       bindingField,
       setBindingField,
+      focusedField,
+      setFocusedField,
     ],
   );
 

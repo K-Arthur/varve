@@ -10,7 +10,13 @@ export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps)
   if (guides.length === 0) return null;
   return (
     <svg
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+      }}
       aria-hidden
     >
       {guides.map((g, i) => {

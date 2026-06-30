@@ -29,7 +29,9 @@ test.describe('Home search, sort, and filter', () => {
   });
 
   test('sort direction toggle button exists', async ({ page }) => {
-    const sortBtn = page.locator('.search-sort-group button[aria-label*="ascending"], .search-sort-group button[aria-label*="descending"]');
+    const sortBtn = page.locator(
+      '.search-sort-group button[aria-label*="ascending"], .search-sort-group button[aria-label*="descending"]',
+    );
     await expect(sortBtn).toBeVisible();
   });
 

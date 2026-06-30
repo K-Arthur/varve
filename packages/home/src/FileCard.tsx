@@ -9,6 +9,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from 'react';
 
 export interface FileCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -19,6 +20,11 @@ export interface FileCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   onOpen: (entry: FileEntry) => void;
   onContext: (e: React.MouseEvent, entry: FileEntry) => void;
   onFileDragStart?: (e: React.DragEvent, entry: FileEntry) => void;
+  onClick?: (e: React.MouseEvent) => void;
+  onRename?: (id: string, newName: string) => void;
+  isRenaming?: boolean;
+  onStartRename?: () => void;
+  isMissing?: boolean;
 }
 
 export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function FileCard(
@@ -30,6 +36,11 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
     onOpen,
     onContext,
     onFileDragStart,
+    onClick,
+    onRename,
+    isRenaming = false,
+    onStartRename,
+    isMissing = false,
     className = '',
     style: styleProp,
     ...rest
@@ -37,14 +48,11 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
   ref,
 ) {
   const thumbRef = useRef<HTMLDivElement>(null);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: entry.id });
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const [renameValue, setRenameValue] = useState(entry.name);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: entry.id,
+  });
   const dndStyle: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -61,6 +69,48 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
     [ref, setNodeRef],
   );
 
+  // Focus rename input when renaming starts
+  useEffect(() => {
+    if (isRenaming && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  // Reset rename value when entry changes
+  useEffect(() => {
+    setRenameValue(entry.name);
+  }, [entry.name]);
+
+  const handleRenameKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (renameValue.trim() && renameValue !== entry.name) {
+          onRename?.(entry.id, renameValue.trim());
+        } else {
+          setRenameValue(entry.name);
+        }
+        onStartRename?.(); // Exit rename mode
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setRenameValue(entry.name);
+        onStartRename?.(); // Exit rename mode
+      }
+    },
+    [renameValue, entry.id, entry.name, onRename, onStartRename],
+  );
+
+  const handleRenameBlur = useCallback(() => {
+    if (renameValue.trim() && renameValue !== entry.name) {
+      onRename?.(entry.id, renameValue.trim());
+    } else {
+      setRenameValue(entry.name);
+    }
+    onStartRename?.(); // Exit rename mode
+  }, [renameValue, entry.id, entry.name, onRename, onStartRename]);
+
   useEffect(() => {
     if (thumbnail && thumbRef.current) {
       const img = new Image();
@@ -75,7 +125,11 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
   const handleKey = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      onOpen(entry);
+      onClick?.(e as any);
+    }
+    if (e.key === 'F2') {
+      e.preventDefault();
+      onStartRename?.();
     }
   };
 
@@ -83,12 +137,12 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
     <button
       ref={mergedRef}
       type="button"
-      aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}`}
+      aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
       aria-selected={selected}
       draggable
-      className={`file-card ${selected ? 'file-card--selected' : ''} ${className}`.trim()}
+      className={`file-card ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
       style={mergedStyle}
-      onClick={() => onOpen(entry)}
+      onClick={onClick}
       onContextMenu={(e) => onContext(e, entry)}
       onKeyDown={handleKey}
       onDragStart={(e) => onFileDragStart?.(e, entry)}
@@ -101,9 +155,32 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
         {thumbnailLoading && !thumbnail && <div className="file-card__skeleton" />}
       </div>
       <div className="file-card__body">
-        <span className="file-card__name" title={entry.name}>
-          {entry.name}
-        </span>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={handleRenameKeyDown}
+            onBlur={handleRenameBlur}
+            className="file-card__rename-input"
+            style={{
+              width: '100%',
+              background: 'var(--color-surface-raised)',
+              border: '1px solid var(--color-interactive-default)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '2px 4px',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 'var(--font-weight-medium)',
+              color: 'var(--color-text-primary)',
+              outline: 'none',
+            }}
+          />
+        ) : (
+          <span className="file-card__name" title={entry.name}>
+            {entry.name}
+          </span>
+        )}
         <div className="file-card__meta">
           <span className="file-card__badge">{entry.kind}</span>
           <span>{formatRelativeTime(entry.updatedAt)}</span>

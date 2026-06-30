@@ -194,7 +194,12 @@ describe('exportNodeToSwiftUI', () => {
 describe('resolveTokenName', () => {
   it('returns token name for bound property', () => {
     const store = createVariableStore();
-    store.variables.v1 = { id: 'v1', name: 'primary', type: 'color', valuesByMode: { default: 'rgba(57,208,198,1.00)' } };
+    store.variables.v1 = {
+      id: 'v1',
+      name: 'primary',
+      type: 'color',
+      valuesByMode: { default: 'rgba(57,208,198,1.00)' },
+    };
     const name = resolveTokenName({ fill: { variableId: 'v1' } }, 'fill', store);
     expect(name).toBe('primary');
   });
@@ -223,7 +228,12 @@ describe('token-aware codegen', () => {
       { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
     );
     (node as unknown as Record<string, unknown>).bindings = { fill: { variableId: 'v1' } };
-    store.variables.v1 = { id: 'v1', name: 'primary', type: 'color', valuesByMode: { default: 'rgba(57,208,198,1.00)' } };
+    store.variables.v1 = {
+      id: 'v1',
+      name: 'primary',
+      type: 'color',
+      valuesByMode: { default: 'rgba(57,208,198,1.00)' },
+    };
     return node;
   }
 
@@ -266,6 +276,33 @@ describe('token-aware codegen', () => {
     );
     const tw = exportNodeToTailwind(node, doc);
     expect(tw).toContain('bg-[#39d0c6]');
+  });
+
+  it('CSS Modules emit var(--token-name) when fill is bound', () => {
+    const doc: SceneDoc = createDocument('Test');
+    const store = createVariableStore();
+    const node = nodeWithBindings(store);
+    const { css } = exportNodeToCssModules(node, doc, { variableStore: store });
+    expect(css).toContain('var(--primary)');
+    expect(css).not.toContain('#39d0c6');
+  });
+
+  it('Flutter emits Theme color when fill is bound', () => {
+    const doc: SceneDoc = createDocument('Test');
+    const store = createVariableStore();
+    const node = nodeWithBindings(store);
+    const fl = exportNodeToFlutter(node, doc, { variableStore: store });
+    expect(fl).toContain('Theme.of(context).colorScheme.primary');
+    expect(fl).not.toContain('Color(0xFF39D0C6)');
+  });
+
+  it('SwiftUI emits named Color when fill is bound', () => {
+    const doc: SceneDoc = createDocument('Test');
+    const store = createVariableStore();
+    const node = nodeWithBindings(store);
+    const sw = exportNodeToSwiftUI(node, doc, { variableStore: store });
+    expect(sw).toContain('Color("primary")');
+    expect(sw).not.toContain('Color(hex: "#39D0C6")');
   });
 });
 

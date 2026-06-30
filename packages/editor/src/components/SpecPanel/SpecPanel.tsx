@@ -52,12 +52,23 @@ export function SpecPanel({ nodes, doc, variableStore, engine, platform }: SpecP
     setAnnotations((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
-  if (!node) return null;
+  if (!node) {
+    return (
+      <section className="spec-panel" aria-label="Specification inspector">
+        <div className="spec-panel__empty">
+          <p className="spec-panel__empty-title">No selection</p>
+          <p className="spec-panel__empty-desc">
+            Select a layer or hover over the canvas to inspect measurements.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   const readoutsProps = { node, doc, unit, baseFontSize: BASE_FONT_SIZE, variableStore };
 
   return (
-    <div className="spec-panel" role="region" aria-label="Specification inspector">
+    <section className="spec-panel" aria-label="Specification inspector">
       <div className="spec-panel__header">
         <span className="spec-panel__name">{node.name}</span>
         <span className="spec-panel__kind">{node.kind}</span>
@@ -77,6 +88,6 @@ export function SpecPanel({ nodes, doc, variableStore, engine, platform }: SpecP
         onAdd={handleAddAnnotation}
         onRemove={handleRemoveAnnotation}
       />
-    </div>
+    </section>
   );
 }
