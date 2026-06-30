@@ -61,7 +61,7 @@ git worktree add .worktrees/home-start-page feat/home-start-page
 
 | Artifact | Location |
 |---|---|---|
-| Last commit | `9def86b` — "feat: complete tools system" |
+| Last commit | `5ea0e17` — "fix: tool system regressions — shape dispatch and frame parenting" |
 | Branch | `feat/home-start-page` |
 | Deferred plan | `docs/plans/layers-panel-deferred.md` (updated Session 11) |
 | Tools plan | `docs/plans/tools-deferred.md` (updated Session 10) |
