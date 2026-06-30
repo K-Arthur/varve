@@ -66,7 +66,8 @@ export class PenTool extends BaseTool {
 
     if (this.penState === PenState.Placing) {
       // Check for close (click on first point)
-      const first = this.points[0]!;
+      const first = this.points[0];
+      if (!first) throw new Error('first point not found');
       const dist = Math.sqrt((world.x - first.x) ** 2 + (world.y - first.y) ** 2);
       if (dist < 8 / ctx.zoom) {
         // Close path
@@ -112,7 +113,8 @@ export class PenTool extends BaseTool {
     if (this.penState !== PenState.Placing || this.points.length === 0) return;
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    const last = this.points[this.points.length - 1]!;
+    const last = this.points[this.points.length - 1];
+    if (!last) throw new Error('last point not found');
 
     // Rubber-band preview as draft line from last point to cursor
     const x = Math.min(last.x, world.x);
