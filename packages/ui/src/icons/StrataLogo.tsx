@@ -33,20 +33,16 @@ export const StrataLogo = forwardRef<SVGSVGElement, StrataLogoProps>(function St
         fill="currentColor"
         {...commonProps}
       >
-        <title>{label ?? 'Strata logo'}</title>
-        <path d="M 2 2 H 11 L 14 5 H 5 Z M 5 6 H 14 L 11 9 H 2 Z M 2 10 H 11 L 14 13 H 5 Z" />
+        <path d="M 5 3 H 14 L 11 6 H 2 Z M 2 6 H 11 L 14 9 H 5 Z M 5 9 H 14 L 11 12 H 2 Z" />
       </svg>
     );
   }
 
-  // Master full-color mark using CSS tokens
-  // Uses var(--color-brand-teal), var(--color-brand-sandstone), var(--color-brand-terracotta)
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" {...commonProps}>
-      <title>{label ?? 'Strata logo'}</title>
-      <path d="M 16 20 H 88 L 112 44 H 40 Z" fill="var(--color-brand-teal)" />
-      <path d="M 40 52 H 112 L 88 76 H 16 Z" fill="var(--color-brand-sandstone)" />
-      <path d="M 16 84 H 88 L 112 108 H 40 Z" fill="var(--color-brand-terracotta)" />
+      <path d="M 40 28 H 112 L 88 52 H 16 Z" fill="var(--color-brand-teal)" />
+      <path d="M 16 52 H 88 L 112 76 H 40 Z" fill="var(--color-brand-sandstone)" />
+      <path d="M 40 76 H 112 L 88 100 H 16 Z" fill="var(--color-brand-terracotta)" />
     </svg>
   );
 });

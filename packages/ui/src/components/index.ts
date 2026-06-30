@@ -28,6 +28,8 @@ export type {
 export { ContextMenu, Menu, MenuButton, useContextMenu } from './Menu';
 export type { NumberInputProps } from './NumberInput';
 export { NumberInput } from './NumberInput';
+export type { PopoverProps } from './Popover';
+export { Popover } from './Popover';
 export type { PanelProps } from './Panel';
 export { Panel } from './Panel';
 export type { SearchFieldProps } from './SearchField';
@@ -45,3 +47,6 @@ export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';
 export type { TooltipProps } from './Tooltip';
 export { Tooltip } from './Tooltip';
+export { ColorArea, ColorPicker, ColorFields, ColorSlider, EyeDropperButton, SwatchPalette } from './ColorPicker';
+export type { Color, ColorPickerProps, ColorSliderProps, SwatchPaletteProps } from './ColorPicker';
+// contrastRatio/formatContrast/relativeLuminance/wcagLevel are exported via @strata/ui tokens

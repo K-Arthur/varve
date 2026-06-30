@@ -1,5 +1,5 @@
-import type { Color } from '@strata/engine';
 import { useCallback, useRef } from 'react';
+import type { Color } from './color-utils';
 import { rgbToHex } from './color-utils';
 
 export interface SwatchPaletteProps {

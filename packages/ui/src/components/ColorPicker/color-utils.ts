@@ -1,3 +1,5 @@
+export type Color = readonly [number, number, number, number];
+
 export function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
   const hh = ((h % 360) + 360) % 360;
   const ss = s / 100;
@@ -110,4 +112,12 @@ export function hexToRgb(hex: string): [number, number, number] | null {
   const g = Number.parseInt(m[2] as string, 16);
   const b = Number.parseInt(m[3] as string, 16);
   return [r, g, b];
+}
+
+export function rgbToHsb(r: number, g: number, b: number): [number, number, number] {
+  return rgbToHsv(r, g, b);
+}
+
+export function hsbToRgb(h: number, s: number, b: number): [number, number, number] {
+  return hsvToRgb(h, s, b);
 }

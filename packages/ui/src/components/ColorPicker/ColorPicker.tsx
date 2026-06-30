@@ -1,8 +1,8 @@
-import type { Color } from '@strata/engine';
 import { useCallback, useMemo, useState } from 'react';
 import { ColorArea } from './ColorArea';
 import { ColorFields } from './ColorFields';
 import { ColorSlider } from './ColorSlider';
+import type { Color } from './color-utils';
 import { hsvToRgb, rgbToHex, rgbToHsv } from './color-utils';
 import { contrastRatio, formatContrast, relativeLuminance, wcagLevel } from './contrast';
 import { EyeDropperButton } from './EyeDropperButton';

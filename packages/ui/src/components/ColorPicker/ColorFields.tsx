@@ -1,18 +1,19 @@
-import type { Color } from '@strata/engine';
 import { useCallback, useId, useState } from 'react';
-import { hexToRgb, hslToRgb, rgbToHex, rgbToHsl } from './color-utils';
+import type { Color } from './color-utils';
+import { hexToRgb, hslToRgb, hsbToRgb, rgbToHex, rgbToHsl, rgbToHsb } from './color-utils';
 
 export interface ColorFieldsProps {
   color: Color;
   onChange: (color: Color) => void;
 }
 
-type ColorMode = 'hex' | 'rgb' | 'hsl';
+type ColorMode = 'hex' | 'rgb' | 'hsl' | 'hsb';
 
 const MODES: { key: ColorMode; label: string }[] = [
   { key: 'hex', label: 'HEX' },
   { key: 'rgb', label: 'RGB' },
   { key: 'hsl', label: 'HSL' },
+  { key: 'hsb', label: 'HSB' },
 ];
 
 export function ColorFields({ color, onChange }: ColorFieldsProps) {
@@ -48,6 +49,7 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
   const currentHex = rgbToHex(color[0], color[1], color[2]);
 
   const [hslH, hslS, hslL] = rgbToHsl(color[0], color[1], color[2]);
+  const [hsbH, hsbS, hsbB] = rgbToHsb(color[0], color[1], color[2]);
 
   const rgbOnChange = useCallback(
     (r: number, g: number, b: number, a: number) => {
@@ -89,6 +91,28 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
       onChange([r, g, b, color[3]]);
     },
     [hslH, hslS, color, onChange],
+  );
+
+  const setHsbH = useCallback(
+    (h: number) => {
+      const [r, g, b] = hsbToRgb(h, hsbS, hsbB);
+      onChange([r, g, b, color[3]]);
+    },
+    [hsbS, hsbB, color, onChange],
+  );
+  const setHsbS = useCallback(
+    (s: number) => {
+      const [r, g, b] = hsbToRgb(hsbH, s, hsbB);
+      onChange([r, g, b, color[3]]);
+    },
+    [hsbH, hsbB, color, onChange],
+  );
+  const setHsbB = useCallback(
+    (b: number) => {
+      const [r, g, b2] = hsbToRgb(hsbH, hsbS, b);
+      onChange([r, g, b2, color[3]]);
+    },
+    [hsbH, hsbS, color, onChange],
   );
 
   const setAlpha = useCallback(
@@ -176,6 +200,22 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
           <SpinbuttonRow label="H" value={hslH} min={0} max={360} onChange={setH} unit="°" />
           <SpinbuttonRow label="S" value={hslS} min={0} max={100} onChange={setS} unit="%" />
           <SpinbuttonRow label="L" value={hslL} min={0} max={100} onChange={setL} unit="%" />
+          <SpinbuttonRow
+            label="A"
+            value={alphaPct}
+            min={0}
+            max={100}
+            onChange={setAlpha}
+            unit="%"
+          />
+        </>
+      )}
+
+      {mode === 'hsb' && (
+        <>
+          <SpinbuttonRow label="H" value={hsbH} min={0} max={360} onChange={setHsbH} unit="°" />
+          <SpinbuttonRow label="S" value={hsbS} min={0} max={100} onChange={setHsbS} unit="%" />
+          <SpinbuttonRow label="B" value={hsbB} min={0} max={100} onChange={setHsbB} unit="%" />
           <SpinbuttonRow
             label="A"
             value={alphaPct}

@@ -17,6 +17,10 @@
     "./icons": {
       "types": "./src/icons/index.ts",
       "default": "./src/icons/index.ts"
+    },
+    "./components/ColorPicker": {
+      "types": "./src/components/ColorPicker/index.ts",
+      "default": "./src/components/ColorPicker/index.ts"
     }
   },
   "scripts": {

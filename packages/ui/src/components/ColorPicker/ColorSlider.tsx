@@ -1,5 +1,5 @@
-import type { Color } from '@strata/engine';
 import { useCallback, useId, useRef } from 'react';
+import type { Color } from './color-utils';
 
 export interface ColorSliderProps {
   channel: 'hue' | 'alpha';
@@ -20,7 +20,7 @@ const CHECKERBOARD_ID = 'alpha-checker';
 export function ColorSlider({
   channel,
   value,
-  baseColor = [0, 0, 0, 255],
+  baseColor = [0, 0, 0, 255] as Color,
   onChange,
 }: ColorSliderProps) {
   const autoId = useId();

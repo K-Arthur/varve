@@ -107,6 +107,33 @@ Object.defineProperty(globalThis, 'matchMedia', {
   })),
 });
 
+// jsdom does not implement the popover API
+if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.showPopover) {
+  const popoverState = new WeakMap<HTMLElement, boolean>();
+
+  HTMLElement.prototype.showPopover = vi.fn(function (this: HTMLElement) {
+    if (popoverState.get(this)) throw new DOMException('Already showing');
+    popoverState.set(this, true);
+    this.style.removeProperty('display');
+    this.dispatchEvent(new Event('toggle', { bubbles: false }));
+  });
+
+  HTMLElement.prototype.hidePopover = vi.fn(function (this: HTMLElement) {
+    if (!popoverState.get(this)) throw new DOMException('Already hidden');
+    popoverState.set(this, false);
+    this.style.display = 'none';
+    this.dispatchEvent(new Event('toggle', { bubbles: false }));
+  });
+
+  HTMLElement.prototype.togglePopover = vi.fn(function (this: HTMLElement) {
+    if (popoverState.get(this)) {
+      this.hidePopover();
+    } else {
+      this.showPopover();
+    }
+  });
+}
+
 // jsdom does not implement HTMLDialogElement
 if (typeof HTMLDialogElement !== 'undefined') {
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
