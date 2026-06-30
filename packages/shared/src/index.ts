@@ -3,22 +3,6 @@
  * and UI. Runs in Rust-wasm bindings, web workers, and React components alike.
  */
 
-export { debounce, throttle } from './debounce';
-export type { OrderKey } from './ordering';
-export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
-export type { SpecUnit } from './units';
-export {
-  convertPx,
-  convertToPx,
-  formatValue,
-  percentToPx,
-  ptToPx,
-  pxToPercent,
-  pxToPt,
-  pxToRem,
-  remToPx,
-} from './units';
-
 export type { Affine, Point, Rect } from './affine';
 export {
   applyAffine,
@@ -34,10 +18,25 @@ export {
   scale,
   scaleXY,
   transform,
-  translate,
   transformRect,
+  translate,
   tryInvertAffine,
 } from './affine';
+export { debounce, throttle } from './debounce';
+export type { OrderKey } from './ordering';
+export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
+export type { SpecUnit } from './units';
+export {
+  convertPx,
+  convertToPx,
+  formatValue,
+  percentToPx,
+  ptToPx,
+  pxToPercent,
+  pxToPt,
+  pxToRem,
+  remToPx,
+} from './units';
 
 export type { Camera, Viewport } from './viewport';
 export {

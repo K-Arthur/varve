@@ -20,7 +20,13 @@
  */
 
 import type { Affine, Point, Rect } from './affine';
-import { multiplyAffine, rotateRad, scale as scaleAffine, translate, transformRect } from './affine';
+import {
+  multiplyAffine,
+  rotateRad,
+  scale as scaleAffine,
+  transformRect,
+  translate,
+} from './affine';
 
 /** Minimum supported zoom (10%). Below this, content becomes unreadable. */
 export const MIN_ZOOM = 0.1;
@@ -130,11 +136,7 @@ export function fitZoom(
  * Used by zoom-to-fit / zoom-to-selection: caller computes zoom via
  * {@link fitZoom}, then calls this to get the matching pan.
  */
-export function centerBoundsCamera(
-  worldRect: Rect,
-  viewport: Viewport,
-  zoom: number,
-): Camera {
+export function centerBoundsCamera(worldRect: Rect, viewport: Viewport, zoom: number): Camera {
   const cx = worldRect.x + worldRect.w / 2;
   const cy = worldRect.y + worldRect.h / 2;
   return {
@@ -214,9 +216,9 @@ export function revealBoundsCamera(
   }
 
   // ── X axis ─────────────────────────────────────────────────────────
-  const leftReqX = -z * rectMinX + padding;  // min pan to satisfy left edge
+  const leftReqX = -z * rectMinX + padding; // min pan to satisfy left edge
   const rightReqX = viewport.width - z * rectMaxX - padding; // max pan to satisfy right edge
-  const vpWidthWorld = vpMaxX - vpMinX;      // viewport width in world units
+  const vpWidthWorld = vpMaxX - vpMinX; // viewport width in world units
   const fitsX = worldRect.w <= vpWidthWorld - 2 * pz;
 
   let newPanX: number;
@@ -290,11 +292,7 @@ export function zoomAboutPoint(cam: Camera, worldAnchor: Point, newZoom: number)
  * Transform a local-space rect to a screen-space rect by composing
  * `local→world` (the node's world matrix) with the camera. Used by overlays.
  */
-export function localRectToScreen(
-  worldMatrix: Affine,
-  cam: Camera,
-  localRect: Rect,
-): Rect {
+export function localRectToScreen(worldMatrix: Affine, cam: Camera, localRect: Rect): Rect {
   return transformRect(worldToScreenAffine(cam), transformRect(worldMatrix, localRect));
 }
 

@@ -23,8 +23,8 @@ import {
   scale,
   scaleXY,
   transform,
-  translate,
   transformRect,
+  translate,
   tryInvertAffine,
 } from '@strata/shared';
 
@@ -42,13 +42,13 @@ export {
   scale,
   scaleXY,
   transform,
-  translate,
   transformRect,
+  translate,
   tryInvertAffine,
 };
 
-import type { PathPoint, SceneNode, Shape } from './types';
 import type { Affine, Point } from '@strata/shared';
+import type { PathPoint, SceneNode, Shape } from './types';
 
 function polygonVertices(
   cx: number,
@@ -163,7 +163,7 @@ export function shapeContains(shape: Shape, p: Point): boolean {
 export function hitTest(nodes: SceneNode[], world: Point): number | null {
   for (let i = nodes.length - 1; i >= 0; i--) {
     const n = nodes[i];
-    if (!n || !n.shape) continue;
+    if (!n?.shape) continue;
     const local = applyAffine(invertAffine(n.transform as Affine), world);
     if (shapeContains(n.shape, local)) return i;
   }

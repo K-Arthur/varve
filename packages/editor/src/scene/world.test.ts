@@ -1,5 +1,3 @@
-import { describe, expect, it } from 'vitest';
-import type { Affine } from '@strata/shared';
 import {
   addChild,
   addNode,
@@ -8,6 +6,8 @@ import {
   makeGroupNode,
   makeShapeNode,
 } from '@strata/scene';
+import type { Affine } from '@strata/shared';
+import { describe, expect, it } from 'vitest';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
 
 function buildDoc() {
@@ -86,7 +86,7 @@ describe('nodeWorldTransform', () => {
 describe('nodeLocalBounds', () => {
   it('returns the shape bounds for a rect', () => {
     const doc = buildDoc();
-    const node = doc.nodes['s1'];
+    const node = doc.nodes.s1;
     if (!node) return;
     const b = nodeLocalBounds(node);
     expect(b).toEqual({ x: 0, y: 0, w: 40, h: 30 });
@@ -96,8 +96,8 @@ describe('nodeLocalBounds', () => {
     const doc = createDocument();
     // Group node has no shape → kind === 'group' falls to null.
     const g = makeGroupNode('g1', { name: 'Group' });
-    let d = addNode(doc, g);
-    const b = nodeLocalBounds(d.nodes['g1']!);
+    const d = addNode(doc, g);
+    const b = nodeLocalBounds(d.nodes.g1!);
     expect(b).toBeNull();
   });
 });
