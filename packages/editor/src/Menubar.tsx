@@ -37,6 +37,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
         action: 'exportSvg',
       },
+      {
+        label: 'Export\u2026',
+        shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
+        action: 'export',
+      },
       { label: '---' },
       { label: 'Settings\u2026', action: 'settings' },
     ],
@@ -123,6 +128,7 @@ export function Menubar({
     removeSelected,
     setTool,
     setZoom,
+    setShowExportDialog,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -229,6 +235,9 @@ export function Menubar({
           URL.revokeObjectURL(url);
           break;
         }
+        case 'export':
+          setShowExportDialog(true);
+          break;
         case 'zoomReset':
           setZoom(1);
           break;

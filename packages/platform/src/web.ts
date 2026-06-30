@@ -326,25 +326,47 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       URL.revokeObjectURL(url);
       return suggested;
     },
+    async saveBinaryFile(name, data, mimeType, extension) {
+      const w = getWindow();
+      const ext = extension.replace(/^\./, '');
+      const suggested = name.endsWith(`.${ext}`) ? name : `${name}.${ext}`;
+      const acceptType = { description: mimeType, accept: { [mimeType]: [`.${ext}`] } };
+      if (w?.showSaveFilePicker) {
+        let handle: FileSystemFileHandle | undefined;
+        try {
+          handle = await w.showSaveFilePicker({ suggestedName: suggested, types: [acceptType] });
+        } catch {
+          return null;
+        }
+        if (!handle) return null;
+        const writable = await (
+          handle as unknown as {
+            createWritable: () => Promise<{
+              write: (d: Uint8Array) => Promise<void>;
+              close: () => Promise<void>;
+            }>;
+          }
+        ).createWritable();
+        await writable.write(data);
+        await writable.close();
+        return handle.name;
+      }
+      // Fallback: Blob download.
+      const blob = new Blob([data as unknown as ArrayBuffer], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = suggested;
+      a.click();
+      URL.revokeObjectURL(url);
+      return suggested;
+    },
 
     async revealInFileManager() {
       // Browsers cannot shell out to the OS file manager.
     },
     fileManagerLabel() {
       return 'Reveal in Files';
-    },
-
-    async saveBlob(name, data, mimeType) {
-      const blob = new Blob([data as BlobPart], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      return name;
     },
   };
 

@@ -89,6 +89,27 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 | **Different crates/packages** | Safe in parallel. Package boundary (`crates/` vs `packages/`, or different crates/packages) is the isolation layer. E.g., Rust `strata-core` and TS `@strata/ui` never conflict. |
 | **Same package, different files** | Safe in parallel if files are independent (no cross-imports). File is the unit of conflict. |
 | **Same file** | **Must be sequential.** One agent finishes (commits), then the next rebases/merges. Use `git worktree add` for filesystem isolation — each agent/session gets its own worktree on its own branch. |
+
+## Ephemeral tree recovery
+
+If the working tree is recycled, recover with:
+
+```bash
+# The branch has the complete export system implementation
+git checkout feat/export-system
+# Or if the worktree was deleted:
+git worktree add .worktrees/export-system feat/export-system
+# Then resume work there
+```
+
+| Artifact | Location |
+|---|---|
+| Last commit | `c60d256` — "docs: deferred export system items implementation plan" |
+| Branch | `feat/export-system` |
+| Deferred plan | `docs/plans/export-system-deferred.md` |
+| Working tree | `.worktrees/export-system/` |
+| Test counts | 206 JS, 80 Rust (72 workspace + 8 Tauri) |
+| Uncommitted | 0 — working tree clean |
 | **Hub files intersect** | Files like `CanvasArea.tsx` (imports from engine, scene, editor context) or `Shell.tsx` are integration hubs. Changes to dependencies may require hub updates. After parallel agents finish, the coordinating session runs `just gate` to catch integration breakage. |
 
 **Worktree protocol** (via `using-git-worktrees` skill):

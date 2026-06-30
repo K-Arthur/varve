@@ -2262,6 +2262,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "notify"
 version = "6.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2281,6 +2282,8 @@ dependencies = [
 ]
 
 [[package]]
+=======
+>>>>>>> feat/export-system
 name = "num-conv"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3443,6 +3446,10 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+<<<<<<< HEAD
+=======
+ "tauri-plugin-fs",
+>>>>>>> feat/export-system
  "tauri-plugin-opener",
 ]
 

@@ -178,3 +178,22 @@ describe('makeFileEntry / makeProject helpers', () => {
     expect(pr.trashedAt).toBeNull();
   });
 });
+
+describe('saveBinaryFile', () => {
+  it('returns a memory:// path for a binary buffer', async () => {
+    const p = createMemoryPlatform();
+    const data = new Uint8Array([1, 2, 3, 4]);
+    const path = await p.saveBinaryFile('test.pdf', data, 'application/pdf', '.pdf');
+    expect(path).toMatch(/^memory:\/\/test/);
+  });
+
+  it('accepts different extensions and mime types', async () => {
+    const p = createMemoryPlatform();
+    const png = new Uint8Array([137, 80, 78, 71]);
+    const svg = new Uint8Array([60, 115, 118, 103]);
+    const pngPath = await p.saveBinaryFile('icon@2x', png, 'image/png', '.png');
+    const svgPath = await p.saveBinaryFile('icon', svg, 'image/svg+xml', '.svg');
+    expect(pngPath).toMatch(/^memory:\/\//);
+    expect(svgPath).toMatch(/^memory:\/\//);
+  });
+});

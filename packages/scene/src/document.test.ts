@@ -13,6 +13,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTextNode,
   moveChild,
   moveNode,
   nextNodeId,
@@ -23,7 +24,7 @@ import {
   ungroupNode,
   walkNodes,
 } from './document';
-import type { FrameNode, GroupNode } from './types';
+import type { FrameNode, GroupNode, TextNode } from './types';
 
 function shape(doc: ReturnType<typeof createDocument>, name: string) {
   const { id, doc: d2 } = nextNodeId(doc);
@@ -404,5 +405,50 @@ describe('detachInstance', () => {
     doc = a.doc;
     doc = addNode(doc, a.node);
     expect(detachInstance(doc, a.id)).toBe(doc);
+  });
+});
+
+describe('makeTextNode', () => {
+  it('creates a text node with defaults', () => {
+    const node = makeTextNode('t1', 'Hello');
+    expect(node.text).toBe('Hello');
+    expect(node.fontSize).toBe(16);
+    expect(node.fontFamily).toBe('Inter');
+    expect(node.fontWeight).toBe(400);
+    expect(node.fontStyle).toBe('normal');
+    expect(node.textAlign).toBe('left');
+    expect(node.lineHeight).toBe(1.2);
+    expect(node.letterSpacing).toBe(0);
+  });
+
+  it('accepts overrides for font fields', () => {
+    const node = makeTextNode('t2', 'Bold Italic', {
+      fontSize: 24,
+      fontFamily: 'Georgia',
+      fontWeight: 700,
+      fontStyle: 'italic',
+      textAlign: 'center',
+      lineHeight: 1.5,
+      letterSpacing: 2,
+    });
+    expect(node.fontSize).toBe(24);
+    expect(node.fontFamily).toBe('Georgia');
+    expect(node.fontWeight).toBe(700);
+    expect(node.fontStyle).toBe('italic');
+    expect(node.textAlign).toBe('center');
+    expect(node.lineHeight).toBe(1.5);
+    expect(node.letterSpacing).toBe(2);
+  });
+
+  it('produces a valid TextNode that can be added to a document', () => {
+    let doc = createDocument();
+    const { id, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const node = makeTextNode(id, 'Test node');
+    doc = addNode(doc, node);
+    const stored = doc.nodes[id] as TextNode | undefined;
+    expect(stored).toBeDefined();
+    expect(stored!.kind).toBe('text');
+    expect(stored!.text).toBe('Test node');
   });
 });

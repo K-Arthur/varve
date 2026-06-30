@@ -207,15 +207,14 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async saveDocumentToDisk() {
       return null;
     },
+    async saveBinaryFile(name) {
+      return `memory://${name}`;
+    },
     async revealInFileManager() {
       // No-op in memory/web.
     },
     fileManagerLabel() {
       return 'Reveal in Files';
-    },
-
-    async saveBlob() {
-      return null;
     },
   };
 

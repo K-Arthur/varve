@@ -8,6 +8,7 @@
 
 export * from './component';
 export * from './document';
+export * from './export-types';
 export * from './expr';
 export * from './fills';
 export * from './types';

@@ -231,6 +231,19 @@ export function createTauriPlatform(): Platform {
       await c.invoke('home_write_text_file', { path, contents: documentJson });
       return path;
     },
+    async saveBinaryFile(name, data, mimeType, extension) {
+      const c = core();
+      const ext = extension.replace(/^\./, '');
+      const suggested = name.endsWith(`.${ext}`) ? name : `${name}.${ext}`;
+      const path = (await c.invoke('plugin:dialog|save', {
+        defaultPath: suggested,
+        filters: [{ name: mimeType, extensions: [ext] }],
+      })) as string | null;
+      if (!path) return null;
+      const bytes: number[] = Array.from(data);
+      await c.invoke('write_binary_file', { path, data: bytes });
+      return path;
+    },
 
     async revealInFileManager(path) {
       await core().invoke('plugin:opener|reveal_item_in_dir', { path });
@@ -241,17 +254,6 @@ export function createTauriPlatform(): Platform {
       if (typeof navigator !== 'undefined' && /win/i.test(navigator.platform))
         return 'Reveal in Explorer';
       return 'Reveal in Files';
-    },
-
-    async saveBlob(name, data, _mimeType) {
-      const c = core();
-      const path = (await c.invoke('plugin:dialog|save', {
-        defaultPath: name,
-        filters: [{ name: 'Export', extensions: [name.split('.').pop() ?? 'png'] }],
-      })) as string | null;
-      if (!path) return null;
-      await c.invoke('save_file_bytes', { path, bytes: Array.from(data) });
-      return path;
     },
   };
 

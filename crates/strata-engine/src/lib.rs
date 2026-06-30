@@ -102,6 +102,24 @@ pub enum Primitive {
         closed: bool,
         tolerance: f64,
     },
+    #[serde(rename = "text")]
+    Text {
+        text: String,
+        #[serde(rename = "fontSize")]
+        font_size: f64,
+        #[serde(rename = "fontFamily")]
+        font_family: String,
+        #[serde(rename = "fontWeight")]
+        font_weight: u16,
+        #[serde(rename = "fontStyle")]
+        font_style: String,
+        #[serde(rename = "textAlign")]
+        text_align: String,
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+    },
 }
 
 /// Build the render IR from a scene (paint order preserved). One item per node.
@@ -211,6 +229,18 @@ fn primitive_of(shape: &Shape) -> Primitive {
             points: points.clone(),
             closed: *closed,
             tolerance: *tolerance,
+        },
+        Shape::Text { text, font_size, font_family, font_weight, font_style, text_align, x, y, w, h } => Primitive::Text {
+            text: text.clone(),
+            font_size: *font_size,
+            font_family: font_family.clone(),
+            font_weight: *font_weight,
+            font_style: font_style.clone(),
+            text_align: text_align.clone(),
+            x: *x,
+            y: *y,
+            w: *w,
+            h: *h,
         },
     }
 }

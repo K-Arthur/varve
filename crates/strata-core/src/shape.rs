@@ -63,6 +63,24 @@ pub enum Shape {
         closed: bool,
         tolerance: f64,
     },
+    #[serde(rename = "text")]
+    Text {
+        text: String,
+        #[serde(rename = "fontSize")]
+        font_size: f64,
+        #[serde(rename = "fontFamily")]
+        font_family: String,
+        #[serde(rename = "fontWeight")]
+        font_weight: u16,
+        #[serde(rename = "fontStyle")]
+        font_style: String,
+        #[serde(rename = "textAlign")]
+        text_align: String,
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+    },
 }
 
 impl Shape {
@@ -129,6 +147,9 @@ impl Shape {
                     }
                     false
                 }
+            }
+            Shape::Text { x, y, w, h, .. } => {
+                crate::geom::rect_contains(Rect::new(*x, *y, *x + *w, *y + *h), pt)
             }
         }
     }

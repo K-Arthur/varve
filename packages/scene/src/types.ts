@@ -14,6 +14,7 @@
  * defaults so existing documents deserialize correctly.
  */
 import type { Affine, Color, Shape } from '@strata/engine';
+import type { ExportPreset } from './export-types';
 
 export type NodeId = string;
 
@@ -197,6 +198,8 @@ export interface NodeBase {
   layoutSizing?: LayoutSizing;
   /** P3: grid item placement within a grid parent. */
   gridPlacement?: GridItemPlacement;
+  /** Export presets for this node. */
+  presets?: ExportPreset[];
 }
 
 export interface ShapeNode extends NodeBase {
