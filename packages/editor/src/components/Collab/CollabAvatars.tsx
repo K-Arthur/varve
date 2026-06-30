@@ -11,31 +11,37 @@ export function CollabAvatars() {
   if (users.length === 0) return null;
 
   return (
-    <div className="collab-avatars" role="group" aria-label="Active collaborators">
-      {visible.map((user) => (
-        <Tooltip key={user.id} label={user.name}>
-          <div
-            className="collab-avatars__item"
-            aria-label={`Collaborator: ${user.name}`}
-            style={{ background: user.color }}
-          >
-            {user.avatar ? (
-              <img src={user.avatar} alt="" className="collab-avatars__img" />
-            ) : (
-              <span className="collab-avatars__initial">
-                {user.name.charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-        </Tooltip>
-      ))}
-      {overflow > 0 && (
-        <Tooltip label={`${overflow} more collaborator${overflow > 1 ? 's' : ''}`}>
-          <div className="collab-avatars__item collab-avatars__item--overflow" aria-label={`${overflow} more collaborators`}>
-            <span className="collab-avatars__initial">+{overflow}</span>
-          </div>
-        </Tooltip>
-      )}
-    </div>
+    <>
+      {/* biome-ignore lint/a11y/useSemanticElements: div with role="group" is intentional for flex layout */}
+      <div className="collab-avatars" role="group" aria-label="Active collaborators">
+        {visible.map((user) => (
+          <Tooltip key={user.id} label={user.name}>
+            <div
+              className="collab-avatars__item"
+              role="img"
+              aria-label={`Collaborator: ${user.name}`}
+              style={{ background: user.color }}
+            >
+              {user.avatar ? (
+                <img src={user.avatar} alt="" className="collab-avatars__img" />
+              ) : (
+                <span className="collab-avatars__initial">{user.name.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+          </Tooltip>
+        ))}
+        {overflow > 0 && (
+          <Tooltip label={`${overflow} more collaborator${overflow > 1 ? 's' : ''}`}>
+            <div
+              className="collab-avatars__item collab-avatars__item--overflow"
+              role="img"
+              aria-label={`${overflow} more collaborators`}
+            >
+              <span className="collab-avatars__initial">+{overflow}</span>
+            </div>
+          </Tooltip>
+        )}
+      </div>
+    </>
   );
 }

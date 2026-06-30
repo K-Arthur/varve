@@ -1,5 +1,10 @@
-import { listInstalledPlugins, removePlugin, togglePlugin, type StrataPlugin } from '@strata/plugin-sandbox';
-import { type IconName, Button, EmptyState, Icon, Tooltip } from '@strata/ui';
+import {
+  listInstalledPlugins,
+  removePlugin,
+  type StrataPlugin,
+  togglePlugin,
+} from '@strata/plugin-sandbox';
+import { EmptyState, Icon, type IconName, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { PermissionDialog } from './PermissionDialog';
 
@@ -13,23 +18,40 @@ export function PluginList() {
 
   useEffect(load, [load]);
 
-  const handleToggle = useCallback(async (id: string, enabled: boolean) => {
-    await togglePlugin(id, enabled);
-    load();
-  }, [load]);
+  const handleToggle = useCallback(
+    async (id: string, enabled: boolean) => {
+      await togglePlugin(id, enabled);
+      load();
+    },
+    [load],
+  );
 
-  const handleRemove = useCallback(async (id: string) => {
-    await removePlugin(id);
-    load();
-  }, [load]);
+  const handleRemove = useCallback(
+    async (id: string) => {
+      await removePlugin(id);
+      load();
+    },
+    [load],
+  );
 
   if (plugins.length === 0) {
     return (
       <div className="plugin-list">
         <EmptyState
           illustration={
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <title>No plugins</title>
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
           }
           headline="No plugins installed"
@@ -45,8 +67,10 @@ export function PluginList() {
         <h3 className="plugin-list__title">Installed Plugins</h3>
         <span className="plugin-list__count">{plugins.length}</span>
       </div>
+      {/* biome-ignore lint/a11y/useSemanticElements: intentional div with role for custom component */}
       <div className="plugin-list__items" role="list" aria-label="Installed plugins">
         {plugins.map((plugin) => (
+          // biome-ignore lint/a11y/useSemanticElements: intentional div with role for custom component
           <div key={plugin.id} className="plugin-list__item" role="listitem">
             <div className="plugin-list__item-icon">
               <Icon name={plugin.icon as IconName} size={20} />
@@ -86,12 +110,7 @@ export function PluginList() {
           </div>
         ))}
       </div>
-      {permPlugin && (
-        <PermissionDialog
-          plugin={permPlugin}
-          onClose={() => setPermPlugin(null)}
-        />
-      )}
+      {permPlugin && <PermissionDialog plugin={permPlugin} onClose={() => setPermPlugin(null)} />}
     </div>
   );
 }

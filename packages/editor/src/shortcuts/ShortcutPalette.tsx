@@ -393,6 +393,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
                     key={id}
                     role="option"
                     aria-selected={false}
+                    tabIndex={0}
                     style={{
                       ...rowStyle,
                       background: isRemapping
@@ -408,6 +409,12 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
                       if (!isRemapping) (e.currentTarget as HTMLElement).style.background = 'none';
                     }}
                     onClick={() => handleRowClick(id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleRowClick(id);
+                      }
+                    }}
                   >
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {def.label}

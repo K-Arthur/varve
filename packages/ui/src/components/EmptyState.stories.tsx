@@ -21,6 +21,7 @@ function DefaultIllustration() {
       stroke="currentColor"
       strokeWidth="2"
     >
+      <title>Empty state illustration</title>
       <rect x="8" y="8" width="48" height="48" rx="4" opacity="0.3" />
       <path d="M24 32h16M32 24v16" />
     </svg>

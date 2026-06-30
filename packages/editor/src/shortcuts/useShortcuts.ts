@@ -58,7 +58,7 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => {
           const nodes = e.rootNodes();
           if (nodes.length === 0) return;
-          e.setSelection(nodes[0]!.id);
+          e.setSelection(nodes[0]?.id ?? null);
           for (let i = 1; i < nodes.length; i++) {
             const n = nodes[i];
             if (n) e.toggleSelection(n.id, true);

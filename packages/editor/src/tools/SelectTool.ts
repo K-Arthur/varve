@@ -116,7 +116,8 @@ export class SelectTool extends BaseTool {
         }
       }
       if (selectedIds.length > 0) {
-        const first = selectedIds[0]!;
+        const first = selectedIds[0];
+        if (!first) return;
         ctx.setSelection(first);
         for (let i = 1; i < selectedIds.length; i++) {
           const id = selectedIds[i];

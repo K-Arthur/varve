@@ -1,5 +1,5 @@
 import { installPlugin, listMarketplacePlugins, type StrataPlugin } from '@strata/plugin-sandbox';
-import { type IconName, Button, Icon } from '@strata/ui';
+import { Button, Icon, type IconName } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const CATEGORIES = [
@@ -65,8 +65,10 @@ export function PluginMarketplace() {
         </select>
       </div>
 
+      {/* biome-ignore lint/a11y/useSemanticElements: intentional div with role for custom layout */}
       <div className="plugin-marketplace__grid" role="list" aria-label="Available plugins">
         {filtered.map((plugin) => (
+          // biome-ignore lint/a11y/useSemanticElements: intentional div with role for custom layout
           <div key={plugin.id} className="plugin-marketplace__card" role="listitem">
             <div className="plugin-marketplace__card-icon">
               <Icon name={plugin.icon as IconName} size={24} />
@@ -77,11 +79,7 @@ export function PluginMarketplace() {
               <div className="plugin-marketplace__card-version">v{plugin.version}</div>
             </div>
             <div className="plugin-marketplace__card-actions">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handleInstall(plugin.id)}
-              >
+              <Button variant="secondary" size="sm" onClick={() => handleInstall(plugin.id)}>
                 Install
               </Button>
               <button

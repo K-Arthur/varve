@@ -3,7 +3,8 @@ export type { AIMessage, AIModel, AISession } from './types';
 export const PACKAGE = '@strata/ai' as const;
 
 const MOCK_RESPONSES = {
-  default: "I'm the Strata AI assistant. I can help you with design suggestions, generate shapes, or automate repetitive tasks.",
+  default:
+    "I'm the Strata AI assistant. I can help you with design suggestions, generate shapes, or automate repetitive tasks.",
   help: 'Here are some things I can do:\n- Suggest color palettes\n- Generate layout ideas\n- Optimize your design for accessibility\n- Automate repetitive tasks\n\nTry asking me to "make this pop" or "suggest a better layout."',
 };
 

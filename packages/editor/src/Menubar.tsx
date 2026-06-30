@@ -329,7 +329,7 @@ export function Menubar({
           case 'ArrowLeft': {
             e.preventDefault();
             const prev = (openIdx - 1 + MENUS.length) % MENUS.length;
-            setOpenMenu(MENUS[prev]?.id);
+            setOpenMenu(MENUS[prev]?.id ?? null);
             setActiveItemIndex(0);
             setFocusedIndex(prev);
             return;
@@ -337,7 +337,7 @@ export function Menubar({
           case 'ArrowRight': {
             e.preventDefault();
             const next = (openIdx + 1) % MENUS.length;
-            setOpenMenu(MENUS[next]?.id);
+            setOpenMenu(MENUS[next]?.id ?? null);
             setActiveItemIndex(0);
             setFocusedIndex(next);
             return;
@@ -450,7 +450,6 @@ export function Menubar({
                     return (
                       <hr
                         key="sep"
-                        role="separator"
                         tabIndex={-1}
                         style={{
                           margin: 'var(--space-1) 0',
@@ -461,12 +460,12 @@ export function Menubar({
                     );
                   }
                   return (
-                    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio role
+                    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio role per ARIA spec
                     <button
                       key={item.label}
                       role={itemRole(item)}
                       type="button"
-                      aria-pressed={
+                      aria-checked={
                         item.action?.startsWith('theme:')
                           ? currentTheme === item.action.slice(6)
                           : undefined
@@ -536,8 +535,7 @@ export function Menubar({
             aria-label="Document name"
           />
         ) : (
-          // biome-ignore lint/a11y/noStaticElementInteractions: span with role="button" is used for inline clickable text; keyboard handler is present
-          // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handler is present alongside onClick
+          // biome-ignore lint/a11y/useSemanticElements: span with role="button" is intentional for inline clickable text; keyboard + click handlers present
           <span
             role="button"
             tabIndex={0}

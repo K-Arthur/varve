@@ -1,4 +1,4 @@
-import { createAssistant, type AIMessage } from '@strata/ai';
+import { type AIMessage, createAssistant } from '@strata/ai';
 import { Button, Icon } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -58,14 +58,11 @@ export function AIPanel() {
     [handleSend],
   );
 
-  const handleSuggestion = useCallback(
-    async (text: string) => {
-      setInput(text);
-      await new Promise((r) => setTimeout(r, 0));
-      textareaRef.current?.focus();
-    },
-    [],
-  );
+  const handleSuggestion = useCallback(async (text: string) => {
+    setInput(text);
+    await new Promise((r) => setTimeout(r, 0));
+    textareaRef.current?.focus();
+  }, []);
 
   const handleRetry = useCallback(async () => {
     setError(null);
@@ -89,7 +86,13 @@ export function AIPanel() {
         <span>AI Assistant</span>
       </div>
 
-      <div ref={chatLogRef} className="ai-panel__log" role="log" aria-live="polite" aria-label="Chat messages">
+      <div
+        ref={chatLogRef}
+        className="ai-panel__log"
+        role="log"
+        aria-live="polite"
+        aria-label="Chat messages"
+      >
         {messages.length === 0 && !loading && (
           <div className="ai-panel__suggestions">
             <p className="ai-panel__suggestions-title">Try asking:</p>
@@ -107,18 +110,23 @@ export function AIPanel() {
         )}
 
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`ai-panel__bubble ai-panel__bubble--${msg.role}`}
-          >
+          <div key={msg.id} className={`ai-panel__bubble ai-panel__bubble--${msg.role}`}>
             <div className="ai-panel__bubble-content">{msg.content}</div>
             {msg.role === 'assistant' && (
               <div className="ai-panel__bubble-actions">
-                <button type="button" className="ai-panel__action-btn" aria-label="Apply suggestion">
+                <button
+                  type="button"
+                  className="ai-panel__action-btn"
+                  aria-label="Apply suggestion"
+                >
                   <Icon name="Check" size={14} />
                   Apply
                 </button>
-                <button type="button" className="ai-panel__action-btn" aria-label="Preview suggestion">
+                <button
+                  type="button"
+                  className="ai-panel__action-btn"
+                  aria-label="Preview suggestion"
+                >
                   <Icon name="Eye" size={14} />
                   Preview
                 </button>
@@ -129,7 +137,7 @@ export function AIPanel() {
 
         {loading && (
           <div className="ai-panel__bubble ai-panel__bubble--assistant">
-            <div className="ai-panel__typing" aria-label="AI is typing">
+            <div className="ai-panel__typing" role="img" aria-label="AI is typing">
               <span className="ai-panel__typing-dot" />
               <span className="ai-panel__typing-dot" />
               <span className="ai-panel__typing-dot" />

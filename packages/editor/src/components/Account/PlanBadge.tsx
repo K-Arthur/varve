@@ -25,10 +25,7 @@ export function PlanBadge({ entitlement }: { entitlement: Entitlement }) {
 
   return (
     <div className="plan-badge">
-      <div
-        className="plan-badge__tier"
-        style={{ color: TIER_COLORS[entitlement.tier] }}
-      >
+      <div className="plan-badge__tier" style={{ color: TIER_COLORS[entitlement.tier] }}>
         {TIER_LABELS[entitlement.tier]}
       </div>
       {isFree && (
