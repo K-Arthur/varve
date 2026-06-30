@@ -355,6 +355,27 @@ render, layer-click not revealing. 4 phases committed onto `feat/home-start-page
 | `packages/platform/src/platform.ts` | Platform interface with saveBlob, searchFiles, reorderFile, listenForChanges |
 | `pnpm-workspace.yaml` | Workspace config + allowBuilds |
 
+## Session 14 — Frame dimensions, clipping, and Rust IR completeness (2026-06-30)
+
+Implemented Prompt 11 (render pipeline) and Prompt 13 (frames) fixes confirmed against live code:
+
+| Area | Update |
+|---|---|
+| `packages/scene/src/types.ts` | Added `w: number; h: number;` to `FrameNode`. These are the frame's world-space dimensions set at creation and updated by resize. |
+| `packages/scene/src/document.ts` | `makeFrameNode` now accepts and stores `w`/`h` (defaults 200×160). |
+| `packages/scene/src/component.ts` | Added `w: 200, h: 160` to inline `FrameNode` literal in `instantiateComponent`. |
+| `packages/editor/src/context.tsx` | `createShapeAt` passes `size.w`/`size.h` to `makeFrameNode` for frame/slice tools (default 375×812). `setNodeSize` now handles `FrameNode` by updating `n.w`/`n.h`. `nodeWorldBoundsFn` and `findContainingFrameInDoc` use `n.w`/`n.h` instead of hardcoded 200×160. |
+| `packages/editor/src/scene/world.ts` | `nodeLocalBounds` for frames now returns `{ x: 0, y: 0, w: node.w, h: node.h }`. |
+| `packages/editor/src/CanvasArea.tsx` | `toEngineNode` for frames uses `node.w`/`node.h`. `draw()` completely restructured: pre-builds all IR in one batch call, then does a recursive DFS `replaySubtree()` that (a) paints frame backgrounds, (b) saves canvas state + clips to the frame's world-space polygon, (c) recurses into children, (d) restores. Groups are transparent pass-throughs; leaf shapes render their IR item directly. |
+| `packages/editor/src/SelectionOverlay.tsx` | `nodeScreenBBox` for frames uses `node.w`/`node.h`. |
+| `crates/strata-core/src/shape.rs` | Added `PathPoint` struct. Added `Arrow` and `Path` variants to `Shape` enum. `contains()` handles both (Arrow = line tolerance, Path = point-in-polygon for closed / segment tolerance for open). |
+| `crates/strata-core/src/lib.rs` | Exported `PathPoint`. |
+| `crates/strata-engine/src/lib.rs` | Added `Arrow` and `Path` variants to `Primitive` enum. `primitive_of()` handles both. Now parity-complete with the TS stub engine for all 8 primitive types. |
+| `crates/strata-print/src/lib.rs` | Added Arrow (stroked line) and Path (moveto/lineto fill or stroke) PDF export operators. |
+| Root scripts | Fixed 6 pre-existing Biome lint errors in `check_styles.mjs`, `open_editor.mjs`, `clean_editor.mjs`, `inspect_fonts.mjs`. |
+
+**Verification:** 552/552 JS tests, 75/75 Rust workspace tests, typecheck clean, lint 0 errors, emoji audit clean, tokens 72/72 WCAG-AA.
+
 ## Stabilization pass (latest)
 
 Fixed pre-existing failures and resolved all JS/TS quality gates:

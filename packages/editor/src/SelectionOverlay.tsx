@@ -115,8 +115,8 @@ function nodeScreenBBox(
   } else if (node.kind === 'frame') {
     wx = tx;
     wy = ty;
-    ww = 200;
-    wh = 160;
+    ww = node.w;
+    wh = node.h;
   } else {
     return null;
   }

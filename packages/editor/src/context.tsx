@@ -497,7 +497,7 @@ export function nodeWorldBoundsFn(
   }
   if (n.kind === 'text')
     return { x: tx, y: ty, w: (n.fontSize ?? 16) * 3, h: (n.fontSize ?? 16) * 1.4 };
-  if (n.kind === 'frame') return { x: tx, y: ty, w: 200, h: 160 };
+  if (n.kind === 'frame') return { x: tx, y: ty, w: n.w, h: n.h };
   return null;
 }
 
@@ -514,11 +514,11 @@ export function findContainingFrameInDoc(
     const n = entry.node;
     if (n.locked || n.visible === false) continue;
     if (n.kind !== 'frame' && n.kind !== 'group') continue;
-    // Frames don't have stored w/h; use fixed estimate from the node's
-    // own transform translation (not ancestor-composed world bounds).
     const tx = n.transform[4] ?? 0;
     const ty = n.transform[5] ?? 0;
-    const bbox = { x: tx, y: ty, w: 200, h: 160 };
+    const fw = n.kind === 'frame' ? n.w : 200;
+    const fh = n.kind === 'frame' ? n.h : 160;
+    const bbox = { x: tx, y: ty, w: fw, h: fh };
     const wPt: [number, number] = [world.x, world.y];
     if (rectContains(bbox, wPt)) {
       if (entry.depth > deepestDepth) {
@@ -770,6 +770,8 @@ export function EditorProvider({
               transform,
               fill: [200, 200, 200, 255] as Color,
               children: [],
+              w: size?.w ?? 375,
+              h: size?.h ?? 812,
             });
           } else {
             const shape: Shape = size
@@ -1032,6 +1034,7 @@ export function EditorProvider({
 
       setNodeSize: (id, w, h) => {
         updateNodeProp(id, (n) => {
+          if (n.kind === 'frame') return { ...n, w, h };
           if (n.kind !== 'shape') return n;
           const s = n.shape;
           switch (s.kind) {

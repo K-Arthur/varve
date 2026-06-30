@@ -133,6 +133,42 @@ fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
             buf.extend_from_slice(b"h f\nQ\n");
             buf
         }
+        Shape::Arrow {
+            from,
+            to,
+            tolerance,
+            ..
+        } => {
+            // Render as a stroked line segment (PDF "S" operator).
+            let lw = tolerance * 2.0;
+            let x0 = from[0] + x_off;
+            let y0 = page_height - from[1] - y_off;
+            let x1 = to[0] + x_off;
+            let y1 = page_height - to[1] - y_off;
+            format!("q\n{color}\n{lw:.2} w\n{x0:.2} {y0:.2} m\n{x1:.2} {y1:.2} l\nS\nQ\n")
+                .into_bytes()
+        }
+        Shape::Path { points, closed, .. } => {
+            if points.is_empty() {
+                return Vec::new();
+            }
+            let mut buf = format!("q\n{color}\n").into_bytes();
+            for (i, pt) in points.iter().enumerate() {
+                let px = pt.x + x_off;
+                let py = page_height - pt.y - y_off;
+                if i == 0 {
+                    buf.extend(format!("{px:.2} {py:.2} m\n").as_bytes());
+                } else {
+                    buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
+                }
+            }
+            if *closed {
+                buf.extend_from_slice(b"h f\nQ\n");
+            } else {
+                buf.extend_from_slice(b"S\nQ\n");
+            }
+            buf
+        }
     }
 }
 

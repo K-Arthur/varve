@@ -13,7 +13,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
-use strata_core::{SceneNode, Shape};
+use strata_core::{PathPoint, SceneNode, Shape};
 
 /// One drawable record in the render IR. The webview replays these in order.
 ///
@@ -87,6 +87,20 @@ pub enum Primitive {
         outer_radius: f64,
         points: u32,
         rotation: f64,
+    },
+    #[serde(rename = "arrow")]
+    Arrow {
+        from: [f64; 2],
+        to: [f64; 2],
+        tolerance: f64,
+        #[serde(rename = "arrowheadSize")]
+        arrowhead_size: f64,
+    },
+    #[serde(rename = "path")]
+    Path {
+        points: Vec<PathPoint>,
+        closed: bool,
+        tolerance: f64,
     },
 }
 
@@ -177,6 +191,26 @@ fn primitive_of(shape: &Shape) -> Primitive {
             outer_radius: *outer_radius,
             points: *points,
             rotation: *rotation,
+        },
+        Shape::Arrow {
+            from,
+            to,
+            tolerance,
+            arrowhead_size,
+        } => Primitive::Arrow {
+            from: *from,
+            to: *to,
+            tolerance: *tolerance,
+            arrowhead_size: *arrowhead_size,
+        },
+        Shape::Path {
+            points,
+            closed,
+            tolerance,
+        } => Primitive::Path {
+            points: points.clone(),
+            closed: *closed,
+            tolerance: *tolerance,
         },
     }
 }

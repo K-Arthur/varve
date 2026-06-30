@@ -149,6 +149,8 @@ export function instantiate(
     rotation: 0,
     transform: [1, 0, 0, 1, 0, 0],
     fill: [200, 200, 200, 255],
+    w: 200,
+    h: 160,
     children: newChildren,
     componentId: componentDef.id,
     slots: Object.keys(slots).length > 0 ? slots : undefined,

@@ -5,6 +5,17 @@
 
 use crate::geom::{point_to_segment_dist_sq, Circle, Line, Point, Rect};
 
+/// A single point in a bezier path (mirrors TS `PathPoint`).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PathPoint {
+    pub x: f64,
+    pub y: f64,
+    #[serde(rename = "handleIn")]
+    pub handle_in: Option<[f64; 2]>,
+    #[serde(rename = "handleOut")]
+    pub handle_out: Option<[f64; 2]>,
+}
+
 /// First-pass shape set. Bézier paths arrive with the lyon integration.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Shape {
@@ -37,6 +48,20 @@ pub enum Shape {
         outer_radius: f64,
         points: u32,
         rotation: f64,
+    },
+    /// Directed line segment with an arrowhead at the `to` end.
+    Arrow {
+        from: [f64; 2],
+        to: [f64; 2],
+        tolerance: f64,
+        #[serde(rename = "arrowheadSize")]
+        arrowhead_size: f64,
+    },
+    /// Bezier path (open or closed).
+    Path {
+        points: Vec<PathPoint>,
+        closed: bool,
+        tolerance: f64,
     },
 }
 
@@ -71,6 +96,39 @@ impl Shape {
                 let verts =
                     star_vertices(*cx, *cy, *inner_radius, *outer_radius, *points, *rotation);
                 point_in_polygon(&verts, pt)
+            }
+            Shape::Arrow {
+                from,
+                to,
+                tolerance,
+                ..
+            } => {
+                let line = Line::new(Point::new(from[0], from[1]), Point::new(to[0], to[1]));
+                point_to_segment_dist_sq(line, pt) <= tolerance * tolerance
+            }
+            Shape::Path {
+                points,
+                closed,
+                tolerance,
+            } => {
+                if points.is_empty() {
+                    return false;
+                }
+                if *closed && points.len() >= 3 {
+                    let verts: Vec<Point> = points.iter().map(|p| Point::new(p.x, p.y)).collect();
+                    point_in_polygon(&verts, pt)
+                } else {
+                    // Open path: hit if within tolerance of any segment.
+                    for i in 0..points.len().saturating_sub(1) {
+                        let a = Point::new(points[i].x, points[i].y);
+                        let b = Point::new(points[i + 1].x, points[i + 1].y);
+                        let line = Line::new(a, b);
+                        if point_to_segment_dist_sq(line, pt) <= tolerance * tolerance {
+                            return true;
+                        }
+                    }
+                    false
+                }
             }
         }
     }
