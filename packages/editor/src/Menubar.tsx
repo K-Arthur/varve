@@ -451,6 +451,7 @@ export function Menubar({
                       <div
                         key="sep"
                         role="separator"
+                        tabIndex={-1}
                         style={{
                           margin: 'var(--space-1) 0',
                           borderTop: '1px solid var(--color-border-subtle)',

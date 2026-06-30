@@ -244,6 +244,9 @@
   padding: var(--space-2);
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
+  content-visibility: auto;
+  contain-intrinsic-size: 600px;
+  contain: layout style;
 }
 
 .editor-inspector__group {
