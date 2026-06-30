@@ -334,7 +334,9 @@ function MenuInternal({
             setFocusIdx(idx);
           }}
         >
-          <span className="strata-menu__indicator">{entry.checked ? <Icon name="Check" size="0.85em" /> : ''}</span>
+          <span className="strata-menu__indicator">
+            {entry.checked ? <Icon name="Check" size="0.85em" /> : ''}
+          </span>
           <span>{entry.label}</span>
         </button>
       );
@@ -360,9 +362,29 @@ function MenuInternal({
           }}
         >
           <span className="strata-menu__indicator">
-            {entry.checked
-              ? <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="6" /></svg>
-              : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="6" /></svg>}
+            {entry.checked ? (
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="6" />
+              </svg>
+            ) : (
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="6" />
+              </svg>
+            )}
           </span>
           <span>{entry.label}</span>
         </button>

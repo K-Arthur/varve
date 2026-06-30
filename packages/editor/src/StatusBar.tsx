@@ -24,12 +24,7 @@ export function StatusBar() {
     if (e.key === 'Escape') (e.target as HTMLInputElement).blur();
   }
 
-  const selText =
-    sel.length === 1
-      ? `${sel[0]?.name ?? 'unknown'}`
-      : sel.length > 1
-        ? `${sel.length} selected`
-        : `${rootNodes().length} layers`;
+  const singleSel = sel.length === 1;
 
   return (
     <div className="editor-status">
@@ -118,19 +113,11 @@ export function StatusBar() {
         onChange={handleZoomInput}
         onKeyDown={handleZoomKey}
         aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
-        style={{
-          width: 44,
-          background: 'none',
-          border: 'none',
-          color: 'inherit',
-          font: 'inherit',
-          fontSize: 'var(--font-size-xs)',
-          textAlign: 'right',
-          cursor: 'text',
-          padding: 0,
-        }}
+        className="editor-status__zoom-value"
       />
-      <span style={{ color: 'var(--color-text-muted)' }}>%</span>
+      <span className="num-display__suffix" style={{ marginLeft: 0 }}>
+        %
+      </span>
       <button
         type="button"
         onClick={() => revealSelection({ fit: true })}
@@ -147,7 +134,18 @@ export function StatusBar() {
       >
         Fit
       </button>
-      <span style={{ marginLeft: 'auto' }}>{selText}</span>
+      <span
+        style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.15em' }}
+      >
+        {singleSel ? (
+          <span>{sel[0]?.name ?? 'unknown'}</span>
+        ) : (
+          <>
+            <span className="num-display">{sel.length > 1 ? sel.length : rootNodes().length}</span>
+            <span className="num-display__suffix">{sel.length > 1 ? 'selected' : 'layers'}</span>
+          </>
+        )}
+      </span>
     </div>
   );
 }

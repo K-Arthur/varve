@@ -467,7 +467,7 @@ struct AiResponse {
 }
 
 #[tauri::command]
-fn ai_chat(session_id: String, message: String) -> Result<AiResponse, String> {
+fn ai_chat(_session_id: String, message: String) -> Result<AiResponse, String> {
     let reply = format!("(AI stub) You said: {}", message);
     Ok(AiResponse {
         id: uuid(),

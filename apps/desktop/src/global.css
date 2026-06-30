@@ -16,6 +16,16 @@ body {
   overflow: hidden;
 }
 
+body {
+  font-family: var(--font-body);
+  font-size: var(--font-size-md);
+  line-height: var(--font-line-normal);
+  color: var(--color-text-primary);
+  background: var(--color-surface-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 #root {
   width: 100dvw;
   height: 100dvh;

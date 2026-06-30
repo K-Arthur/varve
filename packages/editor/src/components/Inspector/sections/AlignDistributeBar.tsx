@@ -4,30 +4,16 @@
  * 6 alignment buttons + 2 distribute buttons.
  * Uses the batch alignSelected/distributeSelected context methods.
  *
- * Research basis: Figma/Sketch align toolbar; APG Toolbar pattern.
+ * Research basis: Figma/Sketch align toolbar; APG Toolbar pattern; pill-chip pattern.
  */
 import { useEditor } from '../../../context';
 
 const TOOLBAR_STYLE: React.CSSProperties = {
   display: 'flex',
-  gap: 2,
+  gap: 'var(--space-1)',
   padding: 'var(--space-1) var(--space-2)',
   borderBottom: '1px solid var(--color-border-subtle)',
   justifyContent: 'center',
-};
-
-const BTN_STYLE: React.CSSProperties = {
-  width: 24,
-  height: 24,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'none',
-  border: 'none',
-  borderRadius: 'var(--radius-sm)',
-  cursor: 'pointer',
-  color: 'var(--color-text-muted)',
-  padding: 0,
 };
 
 interface AlignIconProps {
@@ -176,7 +162,7 @@ export function AlignDistributeBar() {
     >
       <button
         type="button"
-        style={BTN_STYLE}
+        className="pill-group__btn"
         aria-label="Align left edges"
         title="Align left edges"
         onClick={() => alignSelected('left')}
@@ -185,7 +171,7 @@ export function AlignDistributeBar() {
       </button>
       <button
         type="button"
-        style={BTN_STYLE}
+        className="pill-group__btn"
         aria-label="Align horizontal centers"
         title="Align horizontal centers"
         onClick={() => alignSelected('centerH')}
@@ -194,7 +180,7 @@ export function AlignDistributeBar() {
       </button>
       <button
         type="button"
-        style={BTN_STYLE}
+        className="pill-group__btn"
         aria-label="Align right edges"
         title="Align right edges"
         onClick={() => alignSelected('right')}
@@ -204,7 +190,7 @@ export function AlignDistributeBar() {
       <div style={{ width: 1, background: 'var(--color-border-subtle)', margin: '0 2px' }} />
       <button
         type="button"
-        style={BTN_STYLE}
+        className="pill-group__btn"
         aria-label="Align top edges"
         title="Align top edges"
         onClick={() => alignSelected('top')}
@@ -213,7 +199,7 @@ export function AlignDistributeBar() {
       </button>
       <button
         type="button"
-        style={BTN_STYLE}
+        className="pill-group__btn"
         aria-label="Align vertical centers"
         title="Align vertical centers"
         onClick={() => alignSelected('centerV')}
@@ -222,7 +208,7 @@ export function AlignDistributeBar() {
       </button>
       <button
         type="button"
-        style={BTN_STYLE}
+        className="pill-group__btn"
         aria-label="Align bottom edges"
         title="Align bottom edges"
         onClick={() => alignSelected('bottom')}
@@ -232,7 +218,7 @@ export function AlignDistributeBar() {
       <div style={{ width: 1, background: 'var(--color-border-subtle)', margin: '0 2px' }} />
       <button
         type="button"
-        style={BTN_STYLE}
+        className="pill-group__btn"
         aria-label="Distribute horizontal spacing"
         title="Distribute horizontal spacing"
         onClick={() => distributeSelected('horizontal')}
@@ -241,7 +227,7 @@ export function AlignDistributeBar() {
       </button>
       <button
         type="button"
-        style={BTN_STYLE}
+        className="pill-group__btn"
         aria-label="Distribute vertical spacing"
         title="Distribute vertical spacing"
         onClick={() => distributeSelected('vertical')}

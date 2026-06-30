@@ -138,6 +138,9 @@
 .spec-row__value {
   flex: 1;
   font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  font-feature-settings: "tnum";
   color: var(--color-text-primary);
   text-align: right;
 }

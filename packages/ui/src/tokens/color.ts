@@ -20,6 +20,70 @@ import type { Rgb } from './contrast';
 export type Theme = 'light' | 'dark' | 'high-contrast';
 export const THEMES: readonly Theme[] = ['light', 'dark', 'high-contrast'];
 
+/** 12-step blue ramp (cool blue, 1 lightest → 12 darkest). */
+export const BLUE: readonly Rgb[] = [
+  [232, 243, 255], // 1
+  [209, 228, 250], // 2
+  [186, 213, 245], // 3
+  [153, 193, 237], // 4
+  [118, 170, 226], // 5
+  [75, 145, 213], // 6
+  [55, 123, 195], // 7
+  [40, 101, 175], // 8
+  [30, 82, 152], // 9
+  [23, 66, 128], // 10
+  [16, 48, 100], // 11
+  [10, 30, 70], // 12
+];
+
+/** 12-step violet ramp (1 lightest → 12 darkest). */
+export const VIOLET: readonly Rgb[] = [
+  [245, 240, 255], // 1
+  [235, 225, 250], // 2
+  [222, 206, 245], // 3
+  [205, 182, 237], // 4
+  [185, 155, 226], // 5
+  [160, 125, 213], // 6
+  [135, 102, 195], // 7
+  [110, 82, 175], // 8
+  [88, 64, 152], // 9
+  [70, 48, 128], // 10
+  [50, 34, 100], // 11
+  [32, 20, 70], // 12
+];
+
+/** 12-step amber ramp (warm golden, 1 lightest → 12 darkest). */
+export const AMBER: readonly Rgb[] = [
+  [255, 248, 235], // 1
+  [252, 239, 210], // 2
+  [248, 228, 182], // 3
+  [240, 213, 150], // 4
+  [230, 195, 115], // 5
+  [218, 175, 80], // 6
+  [192, 152, 58], // 7
+  [168, 130, 40], // 8
+  [142, 110, 28], // 9
+  [118, 92, 20], // 10
+  [92, 72, 14], // 11
+  [64, 48, 8], // 12
+];
+
+/** 12-step green ramp (fresh green, 1 lightest → 12 darkest). */
+export const GREEN: readonly Rgb[] = [
+  [237, 250, 240], // 1
+  [215, 244, 220], // 2
+  [190, 235, 198], // 3
+  [160, 223, 172], // 4
+  [128, 210, 145], // 5
+  [85, 195, 110], // 6
+  [60, 170, 86], // 7
+  [42, 145, 68], // 8
+  [30, 120, 54], // 9
+  [22, 98, 42], // 10
+  [16, 74, 32], // 11
+  [10, 50, 20], // 12
+];
+
 /** 12-step cool-gray neutral ramp (1 lightest → 12 darkest). */
 export const NEUTRAL: readonly Rgb[] = [
   [255, 255, 255], // 1
@@ -67,6 +131,7 @@ export type SemanticToken =
   | 'surface-overlay'
   | 'text-primary'
   | 'text-secondary'
+  | 'text-subtle'
   | 'text-muted'
   | 'text-disabled'
   | 'text-on-accent'
@@ -92,12 +157,28 @@ export type SemanticToken =
   | 'tree-row-selected'
   | 'tree-row-focus'
   | 'tree-indent-guide'
+  | 'layer-accent-frame'
+  | 'layer-wash-frame'
+  | 'layer-accent-group'
+  | 'layer-wash-group'
+  | 'layer-accent-text'
+  | 'layer-wash-text'
+  | 'layer-accent-shape'
+  | 'layer-wash-shape'
+  | 'layer-accent-component'
+  | 'layer-wash-component'
+  | 'hero-glow'
   | 'brand-teal'
   | 'brand-sandstone'
+  | 'brand-sandstone-light'
   | 'brand-terracotta';
 
 const N = (i: number): Rgb => NEUTRAL[i - 1] as Rgb;
 const T = (i: number): Rgb => TEAL[i - 1] as Rgb;
+const B = (i: number): Rgb => BLUE[i - 1] as Rgb;
+const V = (i: number): Rgb => VIOLET[i - 1] as Rgb;
+const A = (i: number): Rgb => AMBER[i - 1] as Rgb;
+const G = (i: number): Rgb => GREEN[i - 1] as Rgb;
 
 /** Semantic value per theme. Each token maps to a concrete RGB. */
 export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
@@ -109,6 +190,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'surface-overlay': N(1),
     'text-primary': N(12),
     'text-secondary': N(10),
+    'text-subtle': N(6),
     'text-muted': N(8),
     'text-disabled': N(6),
     'text-on-accent': N(1),
@@ -134,8 +216,20 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'tree-row-selected': T(8),
     'tree-row-focus': T(8),
     'tree-indent-guide': N(7),
+    'layer-accent-frame': B(6),
+    'layer-wash-frame': B(1),
+    'layer-accent-group': A(8),
+    'layer-wash-group': A(1),
+    'layer-accent-text': G(8),
+    'layer-wash-text': G(1),
+    'layer-accent-shape': [190, 110, 40],
+    'layer-wash-shape': [252, 242, 228],
+    'layer-accent-component': V(6),
+    'layer-wash-component': V(1),
+    'hero-glow': T(6),
     'brand-teal': T(6),
     'brand-sandstone': [226, 140, 60],
+    'brand-sandstone-light': [252, 242, 228],
     'brand-terracotta': [197, 75, 58],
   },
   dark: {
@@ -146,6 +240,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'surface-overlay': [5, 8, 14],
     'text-primary': N(2),
     'text-secondary': N(4),
+    'text-subtle': N(6),
     'text-muted': N(6),
     'text-disabled': N(8),
     'text-on-accent': N(12),
@@ -171,8 +266,20 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'tree-row-selected': T(5),
     'tree-row-focus': T(5),
     'tree-indent-guide': N(7),
+    'layer-accent-frame': B(3),
+    'layer-wash-frame': B(11),
+    'layer-accent-group': A(3),
+    'layer-wash-group': A(11),
+    'layer-accent-text': G(3),
+    'layer-wash-text': G(11),
+    'layer-accent-shape': [245, 224, 180],
+    'layer-wash-shape': [50, 40, 30],
+    'layer-accent-component': V(3),
+    'layer-wash-component': V(11),
+    'hero-glow': T(6),
     'brand-teal': T(6),
     'brand-sandstone': [226, 140, 60],
+    'brand-sandstone-light': [245, 224, 180],
     'brand-terracotta': [197, 75, 58],
   },
   'high-contrast': {
@@ -183,6 +290,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'surface-overlay': [0, 0, 0],
     'text-primary': [255, 255, 255],
     'text-secondary': [255, 255, 255],
+    'text-subtle': [220, 220, 220],
     'text-muted': [220, 220, 220],
     'text-disabled': [128, 128, 128],
     'text-on-accent': [0, 0, 0],
@@ -208,8 +316,20 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'tree-row-selected': [255, 255, 0],
     'tree-row-focus': [255, 255, 0],
     'tree-indent-guide': [255, 255, 255],
+    'layer-accent-frame': [255, 255, 0],
+    'layer-wash-frame': [60, 60, 60],
+    'layer-accent-group': [255, 255, 0],
+    'layer-wash-group': [60, 60, 60],
+    'layer-accent-text': [255, 255, 0],
+    'layer-wash-text': [60, 60, 60],
+    'layer-accent-shape': [255, 255, 0],
+    'layer-wash-shape': [60, 60, 60],
+    'layer-accent-component': [255, 255, 0],
+    'layer-wash-component': [60, 60, 60],
+    'hero-glow': [0, 0, 0],
     'brand-teal': [255, 255, 0],
     'brand-sandstone': [255, 128, 0],
+    'brand-sandstone-light': [255, 180, 64],
     'brand-terracotta': [255, 64, 64],
   },
 };
@@ -281,6 +401,16 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   {
     name: 'tree-indent-guide on tree-row',
     fg: 'tree-indent-guide',
+    bg: 'tree-row',
+    grade: 'UI',
+  },
+  { name: 'layer-accent-frame on tree-row', fg: 'layer-accent-frame', bg: 'tree-row', grade: 'UI' },
+  { name: 'layer-accent-group on tree-row', fg: 'layer-accent-group', bg: 'tree-row', grade: 'UI' },
+  { name: 'layer-accent-text on tree-row', fg: 'layer-accent-text', bg: 'tree-row', grade: 'UI' },
+  { name: 'layer-accent-shape on tree-row', fg: 'layer-accent-shape', bg: 'tree-row', grade: 'UI' },
+  {
+    name: 'layer-accent-component on tree-row',
+    fg: 'layer-accent-component',
     bg: 'tree-row',
     grade: 'UI',
   },

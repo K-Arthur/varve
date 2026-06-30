@@ -6,7 +6,8 @@
  * and follows its ARIA APG pattern.
  */
 
+import './components/components.css';
+
 export * from './components';
 export * from './icons';
-export * from './tokens';
 export * from './tokens';

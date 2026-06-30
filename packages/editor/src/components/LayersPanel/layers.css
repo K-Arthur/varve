@@ -93,6 +93,54 @@
   background: var(--color-tree-row);
   color: var(--color-text-primary);
   transition: background var(--duration-quick) var(--ease-standard);
+  position: relative;
+}
+
+/* Type-coded accent bar (persists through all states) */
+.layers-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  pointer-events: none;
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+
+/* Type-coded row wash (visible on resting state, overridden by hover/selected) */
+.layers-row[data-layer-type="frame"] {
+  background: var(--color-layer-wash-frame);
+}
+.layers-row[data-layer-type="group"] {
+  background: var(--color-layer-wash-group);
+}
+.layers-row[data-layer-type="text"] {
+  background: var(--color-layer-wash-text);
+}
+.layers-row[data-layer-type="shape"] {
+  background: var(--color-layer-wash-shape);
+}
+.layers-row[data-layer-type="component"] {
+  background: var(--color-layer-wash-component);
+}
+
+/* Accent bar colors per type */
+.layers-row[data-layer-type="frame"]::before {
+  background: var(--color-layer-accent-frame);
+}
+.layers-row[data-layer-type="group"]::before {
+  background: var(--color-layer-accent-group);
+}
+.layers-row[data-layer-type="text"]::before {
+  background: var(--color-layer-accent-text);
+}
+.layers-row[data-layer-type="shape"]::before {
+  background: var(--color-layer-accent-shape);
+}
+.layers-row[data-layer-type="component"]::before {
+  background: var(--color-layer-accent-component);
 }
 
 .layers-row:hover {
@@ -145,14 +193,6 @@
 .layers-row__disclosure-spacer {
   width: 1em;
   flex-shrink: 0;
-}
-
-/* ─── Indent guide ──────────────────────────────────────────── */
-.layers-row__indent {
-  flex-shrink: 0;
-  border-right: 1px solid var(--color-tree-indent-guide);
-  height: 100%;
-  margin-right: var(--space-1);
 }
 
 /* ─── Type icon ─────────────────────────────────────────────── */
