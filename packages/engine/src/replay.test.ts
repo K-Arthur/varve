@@ -16,14 +16,6 @@ function recorder(): Recorder {
     (k: string) =>
     (...args: unknown[]) =>
       calls.push(`${k}(${args.length})`);
-  // Record property writes too.
-  const _prop = (name: string) => ({
-    get: () => props[name],
-    set: (v: unknown) => {
-      props[name] = v;
-      calls.push(`set ${name}`);
-    },
-  });
   const target: Record<string, unknown> = {
     save: mk('save'),
     restore: mk('restore'),
