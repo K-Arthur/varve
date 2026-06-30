@@ -47,6 +47,8 @@ export interface ReplayTarget {
   filter: string;
   lineDashOffset: number;
   setLineDash(segments: number[]): void;
+  /** F6: draw an image. */
+  drawImage?(image: CanvasImageSource | string, dx: number, dy: number, dw: number, dh: number): void;
   /** P2: create a linear gradient for gradient fills. */
   createLinearGradient?(x0: number, y0: number, x1: number, y1: number): ReplayGradient;
   /** P2: create a radial gradient for gradient fills. */
@@ -326,10 +328,11 @@ function paintPathFill(
 ): void {
   if (p.points.length < 2) return;
   target.beginPath();
-  target.moveTo(p.points[0]?.x, p.points[0]?.y);
+  target.moveTo(p.points[0]?.x ?? 0, p.points[0]?.y ?? 0);
   for (let i = 1; i < p.points.length; i++) {
-    const pt = p.points[i]!;
-    const prev = p.points[i - 1]!;
+    const pt = p.points[i];
+    const prev = p.points[i - 1];
+    if (!pt || !prev) continue;
     if (prev.handleOut && pt.handleIn) {
       target.bezierCurveTo(
         prev.x + prev.handleOut[0],
@@ -387,9 +390,9 @@ function paintStroke(
       break;
     case 'path':
       target.beginPath();
-      target.moveTo(p.points[0]?.x, p.points[0]?.y);
+      target.moveTo(p.points[0]?.x ?? 0, p.points[0]?.y ?? 0);
       for (let i = 1; i < p.points.length; i++) {
-        target.lineTo(p.points[i]?.x, p.points[i]?.y);
+        target.lineTo(p.points[i]?.x ?? 0, p.points[i]?.y ?? 0);
       }
       target.stroke();
       break;
