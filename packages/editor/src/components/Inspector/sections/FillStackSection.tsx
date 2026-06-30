@@ -11,7 +11,7 @@ import type { Color } from '@strata/engine';
 import { type Fill, gradientFill } from '@strata/scene';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../../context';
-import { ColorPicker } from '../color/ColorPicker';
+import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { commonValue, isMixed } from '../selection/selectionState';
 import { GradientStopEditor } from './GradientStopEditor';

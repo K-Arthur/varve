@@ -16,7 +16,7 @@ import { useEditor } from '../../context';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
-import { ColorPicker } from './color/ColorPicker';
+import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { NumberField } from './controls/NumberField';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';

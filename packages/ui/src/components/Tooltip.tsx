@@ -116,6 +116,12 @@ export function Tooltip({
       onMouseLeave={hide}
       onFocus={() => show(true)}
       onBlur={hide}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          hide();
+        }
+      }}
       aria-describedby={visible ? tooltipId : undefined}
     >
       {children}

@@ -53,22 +53,17 @@ describe('Toast', () => {
   });
 
   it('toast auto-dismisses after duration', async () => {
-    renderWithProvider(
-      <ToastTrigger toastItem={{ message: 'Auto', duration: 1000 }} />,
-    );
+    renderWithProvider(<ToastTrigger toastItem={{ message: 'Auto', duration: 1000 }} />);
     const user = userEvent.setup();
     await user.click(screen.getByText('Show Toast'));
     expect(screen.getByText('Auto')).toBeInTheDocument();
-    await waitFor(
-      () => expect(screen.queryByText('Auto')).not.toBeInTheDocument(),
-      { timeout: 3000 },
-    );
+    await waitFor(() => expect(screen.queryByText('Auto')).not.toBeInTheDocument(), {
+      timeout: 3000,
+    });
   }, 10000);
 
   it('toast does not auto-dismiss on hover', async () => {
-    renderWithProvider(
-      <ToastTrigger toastItem={{ message: 'Hover', duration: 1000 }} />,
-    );
+    renderWithProvider(<ToastTrigger toastItem={{ message: 'Hover', duration: 1000 }} />);
     const user = userEvent.setup();
     await user.click(screen.getByText('Show Toast'));
     const toastEl = screen.getByText('Hover').closest('.strata-toast');
@@ -78,10 +73,9 @@ describe('Toast', () => {
     await new Promise((r) => setTimeout(r, 2000));
     expect(screen.getByText('Hover')).toBeInTheDocument();
     fireEvent.mouseLeave(toastEl);
-    await waitFor(
-      () => expect(screen.queryByText('Hover')).not.toBeInTheDocument(),
-      { timeout: 3000 },
-    );
+    await waitFor(() => expect(screen.queryByText('Hover')).not.toBeInTheDocument(), {
+      timeout: 3000,
+    });
   }, 10000);
 
   it('max 3 visible toasts, queues excess', async () => {
@@ -101,6 +95,10 @@ describe('Toast', () => {
       expect(typeof toast).toBe('function');
       return null;
     }
-    render(<ToastProvider><TestComponent /></ToastProvider>);
+    render(
+      <ToastProvider>
+        <TestComponent />
+      </ToastProvider>,
+    );
   });
 });

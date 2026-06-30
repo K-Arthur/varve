@@ -503,6 +503,42 @@
   margin-top: var(--space-2);
 }
 
+.strata-popover {
+  background: var(--color-surface-overlay);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  padding: var(--space-3);
+  min-width: 160px;
+  border: none;
+  opacity: 0;
+  transform: scale(0.95);
+  transition:
+    opacity var(--duration-base) ease,
+    transform var(--duration-base) ease;
+}
+
+.strata-popover:popover-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@starting-style {
+  .strata-popover:popover-open {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+.strata-popover__arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--color-surface-overlay);
+  transform: rotate(45deg);
+  border: 1px solid var(--color-border-subtle);
+}
+
 .strata-visually-hidden {
   position: absolute;
   width: 1px;
@@ -734,6 +770,102 @@
 
 .strata-toast--exiting {
   animation: strata-toast-exit var(--duration-fast) var(--ease-in) both;
+}
+
+/* ---------- ColorPicker: visually-hidden but available to SR (WCAG 1.3.1) ---------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- ColorPicker: field row ---------- */
+.insp-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.insp-field__label {
+  display: inline-flex;
+  align-items: center;
+  width: 3.75rem;
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  cursor: ew-resize;
+  user-select: none;
+}
+.insp-field__control {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* ---------- ColorPicker: spinbutton input ---------- */
+.insp-num__input {
+  flex: 1;
+  min-width: 0;
+  height: var(--space-5);
+  padding: 0 var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: ew-resize;
+  outline: none;
+}
+.insp-num__input:focus-visible,
+.insp-num__input:focus {
+  border-color: var(--color-interactive-default);
+}
+.insp-num__input[aria-invalid="true"] {
+  border-color: var(--color-feedback-danger);
+}
+
+/* ---------- ColorPicker: slider (APG Slider) ---------- */
+.insp-slider {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.insp-slider__track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+}
+.insp-slider__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+}
+.insp-slider__thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+.insp-slider__thumb:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

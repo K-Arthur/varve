@@ -1,6 +1,6 @@
-import type { Color } from '@strata/engine';
-import { Icon } from '@strata/ui';
+import { Icon } from '../../icons';
 import { useCallback, useEffect, useState } from 'react';
+import type { Color } from './color-utils';
 import { hexToRgb } from './color-utils';
 
 export interface EyeDropperButtonProps {

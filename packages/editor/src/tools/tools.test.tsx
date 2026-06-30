@@ -29,24 +29,24 @@ describe('Tool system regression tests', () => {
 
     expect(ctx).toBeDefined();
     if (!ctx) throw new Error('ctx not found');
-    const editor = ctx;
+    const getCtx = (): NonNullable<typeof ctx> => ctx as NonNullable<typeof ctx>;
 
     // Set tool to rectangle BEFORE creating shape
-    editor.setTool('rect' as ToolId);
+    getCtx().setTool('rect' as ToolId);
 
-    const initialNodes = Object.keys(editor.state.document.nodes).length;
+    const initialNodes = Object.keys(getCtx().state.document.nodes).length;
 
     // Create a rectangle at a specific position with size
-    editor.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
+    getCtx().createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
 
     // Wait for state to update
     await waitFor(() => {
-      const finalNodes = Object.keys(editor.state.document.nodes).length;
+      const finalNodes = Object.keys(getCtx().state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
     // Verify the created node is a rectangle
-    const nodes = Object.values(editor.state.document.nodes);
+    const nodes = Object.values(getCtx().state.document.nodes);
     const newNode = nodes[nodes.length - 1];
     if (!newNode) {
       throw new Error('Expected new node to be created');
@@ -73,19 +73,19 @@ describe('Tool system regression tests', () => {
 
     expect(ctx).toBeDefined();
     if (!ctx) throw new Error('ctx not found');
-    const editor = ctx;
+    const getCtx = (): NonNullable<typeof ctx> => ctx as NonNullable<typeof ctx>;
 
-    editor.setTool('ellipse' as ToolId);
+    getCtx().setTool('ellipse' as ToolId);
 
-    const initialNodes = Object.keys(editor.state.document.nodes).length;
-    editor.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
+    const initialNodes = Object.keys(getCtx().state.document.nodes).length;
+    getCtx().createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(editor.state.document.nodes).length;
+      const finalNodes = Object.keys(getCtx().state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
-    const nodes = Object.values(editor.state.document.nodes);
+    const nodes = Object.values(getCtx().state.document.nodes);
     const newNode = nodes[nodes.length - 1];
     if (!newNode) {
       throw new Error('Expected new node to be created');
@@ -112,19 +112,19 @@ describe('Tool system regression tests', () => {
 
     expect(ctx).toBeDefined();
     if (!ctx) throw new Error('ctx not found');
-    const editor = ctx;
+    const getCtx = (): NonNullable<typeof ctx> => ctx as NonNullable<typeof ctx>;
 
-    editor.setTool('polygon' as ToolId);
+    getCtx().setTool('polygon' as ToolId);
 
-    const initialNodes = Object.keys(editor.state.document.nodes).length;
-    editor.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 50 });
+    const initialNodes = Object.keys(getCtx().state.document.nodes).length;
+    getCtx().createShapeAt({ x: 100, y: 100 }, { w: 50, h: 50 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(editor.state.document.nodes).length;
+      const finalNodes = Object.keys(getCtx().state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
-    const nodes = Object.values(editor.state.document.nodes);
+    const nodes = Object.values(getCtx().state.document.nodes);
     const newNode = nodes[nodes.length - 1];
     if (!newNode) {
       throw new Error('Expected new node to be created');
@@ -151,19 +151,19 @@ describe('Tool system regression tests', () => {
 
     expect(ctx).toBeDefined();
     if (!ctx) throw new Error('ctx not found');
-    const editor = ctx;
+    const getCtx = (): NonNullable<typeof ctx> => ctx as NonNullable<typeof ctx>;
 
-    editor.setTool('line' as ToolId);
+    getCtx().setTool('line' as ToolId);
 
-    const initialNodes = Object.keys(editor.state.document.nodes).length;
-    editor.createShapeAt({ x: 100, y: 100 }, { w: 80, h: 30 });
+    const initialNodes = Object.keys(getCtx().state.document.nodes).length;
+    getCtx().createShapeAt({ x: 100, y: 100 }, { w: 80, h: 30 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(editor.state.document.nodes).length;
+      const finalNodes = Object.keys(getCtx().state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
-    const nodes = Object.values(editor.state.document.nodes);
+    const nodes = Object.values(getCtx().state.document.nodes);
     const newNode = nodes[nodes.length - 1];
     if (!newNode) {
       throw new Error('Expected new node to be created');
