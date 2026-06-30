@@ -324,6 +324,14 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
     setSelectedIds(view.visibleFiles.map((f) => f.id));
   }, [view.visibleFiles]);
 
+  const handleRename = useCallback(
+    (id: string, newName: string) => {
+      actions.rename(id, newName);
+      setRenamingId(null);
+    },
+    [actions],
+  );
+
   const renderContent = () => {
     if (view.loading) {
       return (
@@ -384,12 +392,12 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             onContext={handleFileContext}
             onRename={actions.renameProject}
             onDelete={actions.deleteProject}
+            onFileRename={handleRename}
             selectedIds={selectedIds}
             onSelect={handleSelect}
             onToggleSelect={handleToggleSelect}
             onSelectRange={handleSelectRange}
             onSelectAll={handleSelectAll}
-            onFileRename={handleRename}
             renamingId={renamingId}
             onStartRename={handleStartRename}
             missingFiles={missingFiles}
@@ -461,8 +469,10 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
         onDrop={handleDrop}
       >
         {sidebarOpen && (
-          <div
+          <button
+            type="button"
             className="drawer-overlay drawer-overlay--visible"
+            aria-label="Close sidebar"
             onClick={() => setSidebarOpen(false)}
           />
         )}
