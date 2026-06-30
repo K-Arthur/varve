@@ -1,0 +1,15 @@
+{
+  "project": "Strata",
+  "ephemeral_tree": true,
+  "branch": "feat/home-start-page",
+  "last_commit": "5d1c090",
+  "recovery": {
+    "branch_command": "git checkout feat/home-start-page",
+    "worktree_command": "git worktree add .worktrees/home-start-page feat/home-start-page",
+    "verify_command": "git log --oneline -3"
+  },
+  "deferred_plan": "docs/plans/home-surface-deferred.md",
+  "agent_files": {
+    "AGENTS.md": "Main agent instructions with recovery info"
+  }
+}

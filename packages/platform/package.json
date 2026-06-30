@@ -1,0 +1,21 @@
+{
+  "name": "@strata/platform",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strata platform facade — local-first persistence, native dialogs, and OS integration. One interface, web + Tauri implementations.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/platform"
+  },
+  "dependencies": {
+    "idb": "^8.0.0"
+  }
+}

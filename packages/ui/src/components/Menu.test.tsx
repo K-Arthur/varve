@@ -1,0 +1,536 @@
+/** @vitest-environment jsdom */
+
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useRef, useState } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  ContextMenu,
+  Menu,
+  MenuButton,
+  type MenuEntry,
+  type MenuItemCheckbox,
+  type MenuItemRadio,
+  type SubmenuItem,
+} from './Menu';
+
+afterEach(() => {
+  document.body.innerHTML = '';
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function TestMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const items: MenuEntry[] = [
+    { id: 'open', label: 'Open', onAction: vi.fn() },
+    { id: 'sep1', separator: true },
+    { id: 'delete', label: 'Delete', onAction: vi.fn(), dialog: true },
+  ];
+  return (
+    <>
+      <button type="button" ref={ref}>
+        trigger
+      </button>
+      <Menu items={items} triggerRef={ref} open={open} onClose={onClose} label="test" />
+    </>
+  );
+}
+
+function TestMenuWithSubmenus({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const subAction = vi.fn();
+  const items: MenuEntry[] = [
+    { id: 'open', label: 'Open', onAction: vi.fn() },
+    {
+      id: 'recent',
+      label: 'Open Recent',
+      type: 'submenu',
+      submenu: [
+        { id: 'file1', label: 'File 1', onAction: subAction },
+        { id: 'file2', label: 'File 2', onAction: subAction },
+      ],
+    } satisfies SubmenuItem,
+    { id: 'sep1', separator: true },
+    { id: 'delete', label: 'Delete', onAction: vi.fn() },
+  ];
+  return (
+    <>
+      <button type="button" ref={ref}>
+        trigger
+      </button>
+      <Menu items={items} triggerRef={ref} open={open} onClose={onClose} label="test" />
+    </>
+  );
+}
+
+function TestMenuWithCheckbox({
+  open,
+  onClose,
+  checked = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  checked?: boolean;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [isChecked, setIsChecked] = useState(checked);
+  const onToggle = vi.fn(() => setIsChecked((c) => !c));
+  const items: MenuEntry[] = [
+    {
+      id: 'bold',
+      label: 'Bold',
+      type: 'checkbox',
+      checked: isChecked,
+      onToggle,
+    } satisfies MenuItemCheckbox,
+    { id: 'sep1', separator: true },
+    { id: 'delete', label: 'Delete', onAction: vi.fn() },
+  ];
+  return (
+    <>
+      <button type="button" ref={ref}>
+        trigger
+      </button>
+      <Menu items={items} triggerRef={ref} open={open} onClose={onClose} label="test" />
+    </>
+  );
+}
+
+function TestMenuWithRadios({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [alignment, setAlignment] = useState('left');
+  const onLeft = vi.fn(() => setAlignment('left'));
+  const onCenter = vi.fn(() => setAlignment('center'));
+  const onRight = vi.fn(() => setAlignment('right'));
+  const items: MenuEntry[] = [
+    {
+      id: 'left',
+      label: 'Left',
+      type: 'radio',
+      group: 'align',
+      checked: alignment === 'left',
+      onToggle: onLeft,
+    } satisfies MenuItemRadio,
+    {
+      id: 'center',
+      label: 'Center',
+      type: 'radio',
+      group: 'align',
+      checked: alignment === 'center',
+      onToggle: onCenter,
+    } satisfies MenuItemRadio,
+    {
+      id: 'right',
+      label: 'Right',
+      type: 'radio',
+      group: 'align',
+      checked: alignment === 'right',
+      onToggle: onRight,
+    } satisfies MenuItemRadio,
+    { id: 'sep1', separator: true },
+    { id: 'delete', label: 'Delete', onAction: vi.fn() },
+  ];
+  return (
+    <>
+      <button type="button" ref={ref}>
+        trigger
+      </button>
+      <Menu items={items} triggerRef={ref} open={open} onClose={onClose} label="test" />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Menu component tests
+// ---------------------------------------------------------------------------
+
+describe('Menu', () => {
+  it('renders items when open', () => {
+    const { container } = render(<TestMenu open onClose={vi.fn()} />);
+    const items = container.querySelectorAll('[role="menuitem"]');
+    expect(items.length).toBe(2);
+  });
+
+  it('does not render items when closed', () => {
+    const { container } = render(<TestMenu open={false} onClose={vi.fn()} />);
+    const menuEl = container.querySelector('[role="menu"]');
+    expect(menuEl).toBeTruthy();
+    expect((menuEl as HTMLElement | null)?.style.display).toBe('none');
+  });
+
+  it('shows ellipsis for dialog items', () => {
+    const { container } = render(<TestMenu open onClose={vi.fn()} />);
+    const ellipses = container.querySelectorAll('.strata-menu__ellipsis');
+    expect(ellipses.length).toBe(1);
+  });
+
+  it('calls onAction and onClose on item click', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { container } = render(<TestMenu open onClose={onClose} />);
+    const btn = container.querySelector('[role="menuitem"]') as HTMLElement;
+    await user.click(btn);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on Escape', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<TestMenu open onClose={onClose} />);
+    const menu = screen.getByRole('menu');
+    menu.focus();
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('navigates with ArrowDown and ArrowUp', async () => {
+    const user = userEvent.setup();
+    render(<TestMenu open onClose={vi.fn()} />);
+    const items = screen.getAllByRole('menuitem');
+    expect(items[0]).toHaveAttribute('tabIndex', '0');
+
+    {
+      const el = items[0] as HTMLElement | undefined;
+      if (el) el.focus();
+    }
+    await user.keyboard('{ArrowDown}');
+    expect(items[1]).toHaveAttribute('tabIndex', '0');
+    expect(items[0]).toHaveAttribute('tabIndex', '-1');
+
+    await user.keyboard('{ArrowUp}');
+    expect(items[0]).toHaveAttribute('tabIndex', '0');
+  });
+
+  it('navigates to first/last with Home/End', async () => {
+    const user = userEvent.setup();
+    render(<TestMenu open onClose={vi.fn()} />);
+    const items = screen.getAllByRole('menuitem');
+    {
+      const el = items[0] as HTMLElement | undefined;
+      if (el) el.focus();
+    }
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{Home}');
+    expect(items[0]).toHaveAttribute('tabIndex', '0');
+    await user.keyboard('{End}');
+    expect(items[1]).toHaveAttribute('tabIndex', '0');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Submenu tests
+// ---------------------------------------------------------------------------
+
+describe('Menu submenus', () => {
+  it('opens submenu on ArrowRight and shows submenu items', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { container } = render(<TestMenuWithSubmenus open onClose={onClose} />);
+
+    const items = container.querySelectorAll('[role="menuitem"]');
+    expect(items.length).toBe(3);
+
+    {
+      const el = items[0] as HTMLElement | undefined;
+      if (el) el.focus();
+    }
+    await user.keyboard('{ArrowDown}');
+    // Focus "Open Recent" (index 1) — the submenu item
+    await user.keyboard('{ArrowRight}');
+
+    const menus = container.querySelectorAll('[role="menu"]');
+    expect(menus.length).toBe(2);
+
+    const submenuItems = menus[1]?.querySelectorAll('[role="menuitem"]');
+    expect(submenuItems?.length).toBe(2);
+    expect(submenuItems?.[0]?.textContent).toBe('File 1');
+  });
+
+  it('closes submenu on ArrowLeft', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { container } = render(<TestMenuWithSubmenus open onClose={onClose} />);
+
+    const items = container.querySelectorAll('[role="menuitem"]');
+    {
+      const el = items[0] as HTMLElement | undefined;
+      if (el) el.focus();
+    }
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowRight}');
+    expect(container.querySelectorAll('[role="menu"]').length).toBe(2);
+
+    await user.keyboard('{ArrowLeft}');
+    expect(container.querySelectorAll('[role="menu"]').length).toBe(1);
+  });
+
+  it('closes submenu on Escape', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { container } = render(<TestMenuWithSubmenus open onClose={onClose} />);
+
+    const items = container.querySelectorAll('[role="menuitem"]');
+    {
+      const el = items[0] as HTMLElement | undefined;
+      if (el) el.focus();
+    }
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowRight}');
+    expect(container.querySelectorAll('[role="menu"]').length).toBe(2);
+
+    await user.keyboard('{Escape}');
+    expect(container.querySelectorAll('[role="menu"]').length).toBe(1);
+  });
+
+  it('submenu item has aria-haspopup and aria-expanded after opening', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<TestMenuWithSubmenus open onClose={vi.fn()} />);
+
+    const items = container.querySelectorAll('[role="menuitem"]');
+    {
+      const el = items[0] as HTMLElement | undefined;
+      if (el) el.focus();
+    }
+    await user.keyboard('{ArrowDown}');
+
+    const submenuTrigger = items[1];
+    expect(submenuTrigger).toHaveAttribute('aria-haspopup', 'menu');
+
+    await user.keyboard('{ArrowRight}');
+    expect(submenuTrigger).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('calls item action in submenu and closes through closeAll', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { container } = render(<TestMenuWithSubmenus open onClose={onClose} />);
+
+    const items = container.querySelectorAll('[role="menuitem"]');
+    {
+      const el = items[0] as HTMLElement | undefined;
+      if (el) el.focus();
+    }
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowRight}');
+
+    const submenuItems = container
+      .querySelectorAll('[role="menu"]')[1]
+      ?.querySelectorAll('[role="menuitem"]');
+    const targetItem = submenuItems?.[0];
+    if (targetItem) await user.click(targetItem);
+
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Checkbox tests
+// ---------------------------------------------------------------------------
+
+describe('Menu checkbox items', () => {
+  it('renders menuitemcheckbox with aria-checked', () => {
+    render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
+    const cb = screen.getByRole('menuitemcheckbox');
+    expect(cb).toBeInTheDocument();
+    expect(cb).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('toggles aria-checked on click', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
+    const cb = container.querySelector('[role="menuitemcheckbox"]') as HTMLElement;
+    await user.click(cb);
+    expect(cb).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('does not close menu when toggling checkbox', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { container } = render(<TestMenuWithCheckbox open onClose={onClose} checked={false} />);
+    const cb = container.querySelector('[role="menuitemcheckbox"]') as HTMLElement;
+    await user.click(cb);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('toggles on Enter key', async () => {
+    const user = userEvent.setup();
+    render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
+    const cb = screen.getByRole('menuitemcheckbox');
+    cb.focus();
+    await user.keyboard('{Enter}');
+    expect(cb).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('toggles on Space key', async () => {
+    const user = userEvent.setup();
+    render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
+    const cb = screen.getByRole('menuitemcheckbox');
+    cb.focus();
+    await user.keyboard(' ');
+    expect(cb).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Radio item tests
+// ---------------------------------------------------------------------------
+
+describe('Menu radio items', () => {
+  it('renders menuitemradio with aria-checked', () => {
+    render(<TestMenuWithRadios open onClose={vi.fn()} />);
+    const radios = screen.getAllByRole('menuitemradio');
+    expect(radios.length).toBe(3);
+    expect(radios[0] as HTMLElement).toHaveAttribute('aria-checked', 'true');
+    expect(radios[1] as HTMLElement).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('toggles radio group on click, unchecking siblings', async () => {
+    const user = userEvent.setup();
+    render(<TestMenuWithRadios open onClose={vi.fn()} />);
+    const radios = screen.getAllByRole('menuitemradio');
+    expect(radios.length).toBe(3);
+    const [r0, r1, r2] = radios;
+    if (!r0 || !r1 || !r2) throw new Error('missing radio');
+
+    await user.click(r1);
+    expect(r0).toHaveAttribute('aria-checked', 'false');
+    expect(r1).toHaveAttribute('aria-checked', 'true');
+    expect(r2).toHaveAttribute('aria-checked', 'false');
+
+    await user.click(r2);
+    expect(r0).toHaveAttribute('aria-checked', 'false');
+    expect(r1).toHaveAttribute('aria-checked', 'false');
+    expect(r2).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Type-ahead tests
+// ---------------------------------------------------------------------------
+
+describe('Menu type-ahead', () => {
+  it('focuses item matching typed characters', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<TestMenu open onClose={vi.fn()} />);
+    const menu = container.querySelector('[role="menu"]') as HTMLElement;
+    menu.focus();
+    // Type 'O' to match "Open"
+    await user.keyboard('o');
+    const items = container.querySelectorAll('[role="menuitem"]');
+    expect(items[0]).toHaveAttribute('tabIndex', '0');
+  });
+
+  it('focuses different item on subsequent typing', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<TestMenu open onClose={vi.fn()} />);
+    const menu = container.querySelector('[role="menu"]') as HTMLElement;
+    menu.focus();
+    // 'd' should match "Delete"
+    await user.keyboard('d');
+    const items = container.querySelectorAll('[role="menuitem"]');
+    expect(items[1]).toHaveAttribute('tabIndex', '0');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ContextMenu tests
+// ---------------------------------------------------------------------------
+
+describe('ContextMenu', () => {
+  it('renders at the given position', () => {
+    render(
+      <ContextMenu
+        items={[{ id: 'a', label: 'Action A', onAction: vi.fn() }]}
+        position={{ x: 100, y: 200 }}
+        onClose={vi.fn()}
+      />,
+    );
+    const menu = screen.getByRole('menu');
+    expect(menu).toBeInTheDocument();
+    expect(screen.getByText('Action A')).toBeInTheDocument();
+  });
+
+  it('returns null when position is null', () => {
+    const { container } = render(
+      <ContextMenu
+        items={[{ id: 'a', label: 'Action A', onAction: vi.fn() }]}
+        position={null}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it('adjusts position when near viewport edge', () => {
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+
+    // Override window dimensions for test
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 500,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 500,
+    });
+
+    const { container } = render(
+      <ContextMenu
+        items={[
+          { id: 'a', label: 'Action A', onAction: vi.fn() },
+          { id: 'b', label: 'Action B', onAction: vi.fn() },
+        ]}
+        position={{ x: 450, y: 450 }}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const menu = container.querySelector('[role="menu"]') as HTMLElement;
+    // The layout effect will adjust the position. Check that it's clamped.
+    const left = parseInt(menu.style.left, 10);
+    const top = parseInt(menu.style.top, 10);
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(top).toBeGreaterThanOrEqual(0);
+
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: originalWidth,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: originalHeight,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MenuButton tests
+// ---------------------------------------------------------------------------
+
+describe('MenuButton', () => {
+  it('renders with aria attributes', () => {
+    render(<MenuButton label="File" menuId="file-menu" expanded={false} onClick={vi.fn()} />);
+    const btn = screen.getByRole('button', { name: 'File' });
+    expect(btn).toHaveAttribute('aria-haspopup', 'menu');
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    expect(btn).toHaveAttribute('aria-controls', 'file-menu');
+  });
+
+  it('reflects expanded state', () => {
+    render(<MenuButton label="File" menuId="file-menu" expanded onClick={vi.fn()} />);
+    const btn = screen.getByRole('button', { name: 'File' });
+    expect(btn).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('fires onClick', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(<MenuButton label="File" menuId="file-menu" expanded={false} onClick={onClick} />);
+    await user.click(screen.getByRole('button'));
+    expect(onClick).toHaveBeenCalled();
+  });
+});

@@ -28,6 +28,9 @@ apps/desktop/.tauri
 .DS_Store
 Thumbs.db
 
+# --- Worktrees ---
+.worktrees
+
 # --- Env / secrets ---
 .env
 .env.*
@@ -36,3 +39,7 @@ Thumbs.db
 # --- Logs ---
 *.log
 npm-debug.log*
+
+# --- Test artifacts ---
+test-results/
+playwright-report/

@@ -1,8 +1,7 @@
 /**
- * Tool panel — the primary toolbar (Strata plan §5.3).
+ * Tool panel — archived.
  *
- * Uses the APG Toolbar component with roving tabindex.
- * A11: each tool wrapped with APG Tooltip showing name + shortcut key.
+ * Replaced by FloatingToolbar in Session 12+.
  */
 import { IconButton, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { type ToolId, useEditor } from './context';
@@ -18,32 +17,17 @@ const TOOLS: { id: ToolId; label: string; shortcut: string }[] = [
   { id: 'pen', label: 'Pen', shortcut: 'P' },
   { id: 'text', label: 'Text', shortcut: 'T' },
   { id: 'hand', label: 'Hand', shortcut: 'H' },
-  { id: 'zoomIn', label: 'Zoom in', shortcut: 'Z' },
+  { id: 'zoom', label: 'Zoom', shortcut: 'Z' },
 ];
 
+/** @deprecated Use FloatingToolbar instead. */
 export function ToolPanel() {
   const { state, setTool } = useEditor();
   return (
     <div className="editor-toolbar">
       <Toolbar label="Drawing tools">
         {TOOLS.map((t) => (
-          <Tooltip
-            key={t.id}
-            content={
-              <span>
-                {t.label}
-                <span
-                  style={{
-                    marginLeft: 6,
-                    opacity: 0.65,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {t.shortcut}
-                </span>
-              </span>
-            }
-          >
+          <Tooltip key={t.id} label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}>
             <IconButton
               icon={TOOL_ICONS[t.id]}
               label={t.label}

@@ -141,13 +141,21 @@ export function instantiate(
     kind: 'frame',
     name: `${componentDef.name} Instance`,
     index: 0,
+    order: 'a0',
     visible: true,
     locked: false,
+    opacity: 1,
+    blendMode: 'normal',
+    rotation: 0,
     transform: [1, 0, 0, 1, 0, 0],
     fill: [200, 200, 200, 255],
+    w: 200,
+    h: 160,
     children: newChildren,
     componentId: componentDef.id,
     slots: Object.keys(slots).length > 0 ? slots : undefined,
+    strokes: [],
+    effects: [],
   };
 
   return {
@@ -256,7 +264,8 @@ export function propagateMaster(
     const slotDef = componentDef.slots.find((s) => s.defaultContentId === childId);
     if (slotDef && frame.slots && Object.hasOwn(frame.slots, slotDef.id)) {
       // Preserve the slot fill — reference existing node
-      newChildren.push(frame.slots[slotDef.id]!);
+      const slotFill = frame.slots[slotDef.id];
+      if (slotFill) newChildren.push(slotFill);
     } else {
       // Deep clone the non-slot child
       const result = cloneSubtree(doc, childId, idGen);

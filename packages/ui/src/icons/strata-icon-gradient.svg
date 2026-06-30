@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!--
+    Strata mark — per-layer gradient variant.
+    Each layer keeps its identity colour (teal / sandstone / terracotta) but has
+    a diagonal gradient within the layer: lighter at the upper-left, darker at the
+    lower-right — following the shear direction to add depth without breaking the
+    three-colour distinction.
+    Gradient direction per layer: upper-left corner → lower-right corner of each parallelogram.
+  -->
+  <defs>
+    <!-- Layer 1: teal family -->
+    <linearGradient id="g1" gradientUnits="userSpaceOnUse"
+                    x1="20" y1="26" x2="92" y2="46">
+      <stop offset="0%"   stop-color="#52D8CE"/>
+      <stop offset="100%" stop-color="#2BADA3"/>
+    </linearGradient>
+    <!-- Layer 2: sandstone family -->
+    <linearGradient id="g2" gradientUnits="userSpaceOnUse"
+                    x1="28" y1="54" x2="100" y2="74">
+      <stop offset="0%"   stop-color="#EEA860"/>
+      <stop offset="100%" stop-color="#C0702A"/>
+    </linearGradient>
+    <!-- Layer 3: terracotta family -->
+    <linearGradient id="g3" gradientUnits="userSpaceOnUse"
+                    x1="36" y1="82" x2="108" y2="102">
+      <stop offset="0%"   stop-color="#D46050"/>
+      <stop offset="100%" stop-color="#A03030"/>
+    </linearGradient>
+  </defs>
+  <path d="M20,26 H84 L92,46 H28 Z" fill="url(#g1)"/>
+  <path d="M28,54 H92 L100,74 H36 Z" fill="url(#g2)"/>
+  <path d="M36,82 H100 L108,102 H44 Z" fill="url(#g3)"/>
+</svg>

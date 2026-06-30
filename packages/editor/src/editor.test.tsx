@@ -103,4 +103,100 @@ describe('EditorContext', () => {
       tolerance: 3,
     });
   });
+
+  it('creates a named polygon shape from polygon tool', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            ctx?.setTool('polygon' as ToolId);
+            ctx?.createShapeAt({ x: 50, y: 50 }, { w: 100, h: 80 });
+          }}
+        >
+          draw polygon
+        </button>
+      );
+    }
+    render(
+      <EditorProvider>
+        <Test />
+      </EditorProvider>,
+    );
+
+    screen.getByText('draw polygon').click();
+
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const id = ctx?.state.selection[0];
+    const node = id ? ctx?.state.document.nodes[id] : undefined;
+    expect(node?.name).toBe('Polygon 1');
+    expect(node?.kind).toBe('shape');
+    expect(node?.kind === 'shape' ? node.shape.kind : undefined).toBe('polygon');
+  });
+
+  it('creates a named arrow shape from arrow tool', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            ctx?.setTool('arrow' as ToolId);
+            ctx?.createShapeAt({ x: 10, y: 20 }, { w: 80, h: 30 });
+          }}
+        >
+          draw arrow
+        </button>
+      );
+    }
+    render(
+      <EditorProvider>
+        <Test />
+      </EditorProvider>,
+    );
+
+    screen.getByText('draw arrow').click();
+
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const id = ctx?.state.selection[0];
+    const node = id ? ctx?.state.document.nodes[id] : undefined;
+    expect(node?.name).toBe('Arrow 1');
+    expect(node?.kind).toBe('shape');
+    expect(node?.kind === 'shape' ? node.shape.kind : undefined).toBe('arrow');
+  });
+
+  it('creates a named star shape from star tool', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            ctx?.setTool('star' as ToolId);
+            ctx?.createShapeAt({ x: 50, y: 50 }, { w: 100, h: 80 });
+          }}
+        >
+          draw star
+        </button>
+      );
+    }
+    render(
+      <EditorProvider>
+        <Test />
+      </EditorProvider>,
+    );
+
+    screen.getByText('draw star').click();
+
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const id = ctx?.state.selection[0];
+    const node = id ? ctx?.state.document.nodes[id] : undefined;
+    expect(node?.name).toBe('Star 1');
+    expect(node?.kind).toBe('shape');
+    expect(node?.kind === 'shape' ? node.shape.kind : undefined).toBe('star');
+  });
 });

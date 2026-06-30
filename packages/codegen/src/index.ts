@@ -1,13 +1,22 @@
 /**
  * @strata/codegen — Scene → code export (Strata plan §3.3, task 0.10).
  *
- * Exports the scene model to SVG markup, React Tailwind JSX, and later Flutter,
- * SwiftUI, and .fig/.AI parsers.
+ * Exports the scene model to CSS, React+Tailwind, React+CSS-Modules,
+ * SVG, Flutter, and SwiftUI output. All exports are local-only:
+ * zero network round-trips.
  */
 import type { Affine, Color } from '@strata/engine';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 
+export { exportNodeToCss } from './css';
+export { exportNodeToCssModules } from './css-modules';
+export { exportNodeToFlutter } from './flutter';
+export * from './shared';
 export * from './spec';
+export { exportNodeToSvg } from './svg';
+export { exportNodeToSwiftUI } from './swiftui';
+export { exportNodeToTailwind } from './tailwind';
+export { resolveTokenName } from './tokens';
 
 export const PACKAGE = '@strata/codegen' as const;
 
@@ -80,12 +89,14 @@ function nodeToSvg(node: SceneNode, doc: Document, depth: number): string {
           return `${indent}<polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" transform="${transform}" />`;
         case 'star':
           return `${indent}<polygon points="${shapeVerticesToPoints(s)}" fill="${fill}" transform="${transform}" />`;
+        default:
+          return `${indent}<!-- unsupported shape: ${s.kind} -->`;
       }
-      break;
     }
     case 'text':
       return `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" transform="${transform}">${escapeXml(node.text)}</text>`;
-    case 'frame': {
+    case 'frame':
+    case 'group': {
       const children = (node.children ?? [])
         .map((cid: NodeId) => {
           const child = doc.nodes[cid];
@@ -94,10 +105,12 @@ function nodeToSvg(node: SceneNode, doc: Document, depth: number): string {
         .join('\n');
       return `${indent}<g transform="${transform}">\n${children}\n${indent}</g>`;
     }
+    default:
+      return '';
   }
 }
 
-/** Export a Document to a standalone SVG string. */
+/** Export a Document to a standalone SVG string. (legacy, backward-compatible) */
 export function exportDocumentToSvg(doc: Document): string {
   const children = doc.rootChildren
     .map((id: NodeId) => {
@@ -116,7 +129,7 @@ export function exportDocumentToSvg(doc: Document): string {
   ].join('\n');
 }
 
-/** Export a Document to React/Tailwind JSX. */
+/** Export a Document to React/Tailwind JSX. (legacy, backward-compatible) */
 export function exportDocumentToReact(doc: Document): string {
   const children = doc.rootChildren
     .map((id: NodeId) => {
@@ -146,6 +159,8 @@ export function exportDocumentToReact(doc: Document): string {
           return `        <text x={0} y={0} fill="${fill}" fontSize={${node.fontSize}} style={{ transform: "${affineToSvg(node.transform)}" }}>${escapeXml(node.text)}</text>`;
         case 'frame':
           return `        <g style={{ transform: "${affineToSvg(node.transform)}" }}>\n          {/* frame children */}\n        </g>`;
+        default:
+          return '';
       }
       return '';
     })

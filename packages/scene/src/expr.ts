@@ -43,7 +43,8 @@ export function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   while (i < input.length) {
-    const ch = input[i]!;
+    const ch = input[i];
+    if (!ch) break;
     if (ch === ' ' || ch === '\t' || ch === '\n') {
       i++;
       continue;
@@ -57,7 +58,12 @@ export function tokenize(input: string): Token[] {
     }
     if (ch >= '0' && ch <= '9') {
       let j = i;
-      while (j < input.length && ((input[j]! >= '0' && input[j]! <= '9') || input[j] === '.')) j++;
+      while (j < input.length) {
+        const cj = input[j];
+        if (cj === undefined) break;
+        if (!((cj >= '0' && cj <= '9') || cj === '.')) break;
+        j++;
+      }
       tokens.push({ kind: 'number', value: Number.parseFloat(input.slice(i, j)) });
       i = j;
       continue;

@@ -115,8 +115,8 @@ function nodeScreenBBox(
   } else if (node.kind === 'frame') {
     wx = tx;
     wy = ty;
-    ww = 200;
-    wh = 160;
+    ww = node.w;
+    wh = node.h;
   } else {
     return null;
   }
@@ -352,7 +352,7 @@ export function SelectionOverlay() {
           fill="#3b82f6"
           fontFamily="system-ui, sans-serif"
         >
-          {Math.round(w / state.zoom)} × {Math.round(h / state.zoom)}
+          {Math.round(w / state.zoom)} by {Math.round(h / state.zoom)}
         </text>
       )}
 

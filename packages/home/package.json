@@ -1,0 +1,35 @@
+{
+  "name": "@strata/home",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strata Home/Start surface: recent files, projects, templates, and file management.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./home.css": "./src/home.css"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/home",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts"
+  },
+  "dependencies": {
+    "@strata/engine": "workspace:*",
+    "@strata/platform": "workspace:*",
+    "@strata/scene": "workspace:*",
+    "@strata/shared": "workspace:*",
+    "@strata/ui": "workspace:*",
+    "@tanstack/react-virtual": "^3.14.4",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  }
+}
