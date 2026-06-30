@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { translate } from './affine';
 import {
+  type Camera,
   centerBoundsCamera,
   clampZoom,
   clientToCanvas,
@@ -7,18 +9,16 @@ import {
   fitZoom,
   isRectInView,
   localRectToScreen,
+  MAX_ZOOM,
+  MIN_ZOOM,
   revealBoundsCamera,
   screenDeltaToWorld,
   screenToWorld,
+  type Viewport,
   worldToScreen,
   worldToScreenAffine,
   zoomAboutPoint,
-  MAX_ZOOM,
-  MIN_ZOOM,
-  type Camera,
-  type Viewport,
 } from './viewport';
-import { translate } from './affine';
 
 const EPS = 1e-9;
 const vp: Viewport = { width: 1920, height: 1080 };
@@ -71,7 +71,10 @@ describe('worldToScreenAffine', () => {
     const c = cam(50, 60, 2);
     const m = worldToScreenAffine(c);
     const pts: [number, number][] = [
-      [0, 0], [10, 20], [-5, 3], [100, 200],
+      [0, 0],
+      [10, 20],
+      [-5, 3],
+      [100, 200],
     ];
     for (const [wx, wy] of pts) {
       const viaFn = worldToScreen(c, wx, wy);

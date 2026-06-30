@@ -14,8 +14,8 @@ import {
   scale,
   scaleXY,
   transform,
-  translate,
   transformRect,
+  translate,
   tryInvertAffine,
 } from './affine';
 

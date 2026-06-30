@@ -15,8 +15,13 @@
 
 import { getTransactionHooks } from '@strata/collab';
 import type { Affine, Color, Shape } from '@strata/engine';
-import { applyAffine, invertAffine, rectContains, shapeContains } from '@strata/engine';
-import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import {
+  applyAffine,
+  invertAffine,
+  multiplyAffine,
+  rectContains,
+  shapeContains,
+} from '@strata/engine';
 import type { NodeId, Slot } from '@strata/scene';
 import {
   addChild,
@@ -62,6 +67,7 @@ import {
   readClipboard as readFromClipboard,
   writeClipboard as writeToClipboard,
 } from './clipboard';
+import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -484,8 +490,11 @@ export function findContainingFrameInDoc(
     const n = entry.node;
     if (n.locked || n.visible === false) continue;
     if (n.kind !== 'frame' && n.kind !== 'group') continue;
-    const bbox = nodeWorldBounds(doc, nid);
-    if (!bbox) continue;
+    // Frames don't have stored w/h; use fixed estimate from the node's
+    // own transform translation (not ancestor-composed world bounds).
+    const tx = n.transform[4] ?? 0;
+    const ty = n.transform[5] ?? 0;
+    const bbox = { x: tx, y: ty, w: 200, h: 160 };
     const wPt: [number, number] = [world.x, world.y];
     if (rectContains(bbox, wPt)) {
       if (entry.depth > deepestDepth) {
@@ -1417,7 +1426,20 @@ export function EditorProvider({
       },
 
       reparentNode: (id, newParentId, toIndex) => {
-        updateDoc((doc) => reparentNodeDoc(doc, id, newParentId, toIndex));
+        updateDoc((doc) => {
+          const node = doc.nodes[id];
+          if (!node) return doc;
+          const oldWorld = nodeWorldTransform(doc, id);
+          if (newParentId) {
+            // Convert old world pos → new parent's local space.
+            const pWorld = nodeWorldTransform(doc, newParentId);
+            const pInv = invertAffine(pWorld);
+            const newLocal = multiplyAffine(pInv, oldWorld);
+            return reparentNodeDoc(doc, id, newParentId, toIndex, newLocal);
+          }
+          // Move to root: local = world (root has identity transform).
+          return reparentNodeDoc(doc, id, null, toIndex, oldWorld);
+        });
       },
 
       groupSelected: () => {

@@ -10,14 +10,10 @@
  * product of all ancestor transforms left-multiplied by the node's own.
  */
 
-import type { Affine, Rect } from '@strata/shared';
-import {
-  identity,
-  multiplyAffine,
-  transformRect as affineTransformRect,
-} from '@strata/shared';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import { getParent } from '@strata/scene';
+import type { Affine, Rect } from '@strata/shared';
+import { transformRect as affineTransformRect, identity, multiplyAffine } from '@strata/shared';
 
 /**
  * Walk the ancestor chain from `id` up to the root, composing local→parent

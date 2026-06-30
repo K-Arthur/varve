@@ -424,12 +424,19 @@ export function rootNodes(doc: Document): SceneNode[] {
  * Reparent a node from its current parent to a new parent (or root).
  * Validates: newParent is a container, node is not its own ancestor.
  * Removes from old parent, inserts into new parent — all in one atomic op.
+ *
+ * If `localTransform` is provided, it replaces the node's transform in the
+ * new position (used by the editor to preserve world position when the old
+ * and new parents have different transforms). Otherwise the node's current
+ * transform is kept verbatim (legacy behaviour that causes a world-position
+ * jump when parents differ).
  */
 export function reparentNode(
   doc: Document,
   id: NodeId,
   newParentId: NodeId | null,
   toIndex: number,
+  localTransform?: Affine,
 ): Document {
   const node = doc.nodes[id];
   if (!node) return doc;
@@ -474,11 +481,19 @@ export function reparentNode(
     const clamped = Math.max(0, Math.min(toIndex, children.length));
     children.splice(clamped, 0, id);
     nodes[newParentId] = { ...newParent, children } as SceneNode;
-    nodes[id] = { ...node, index: clamped } as SceneNode;
+    nodes[id] = {
+      ...node,
+      index: clamped,
+      transform: (localTransform ?? node.transform) as Affine,
+    } as SceneNode;
   } else {
     const clamped = Math.max(0, Math.min(toIndex, rootChildren.length));
     rootChildren.splice(clamped, 0, id);
-    nodes[id] = { ...node, index: clamped } as SceneNode;
+    nodes[id] = {
+      ...node,
+      index: clamped,
+      transform: (localTransform ?? node.transform) as Affine,
+    } as SceneNode;
   }
 
   return { ...doc, rootChildren, nodes };
