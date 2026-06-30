@@ -69,6 +69,44 @@ if (typeof OffscreenCanvas === 'undefined') {
   } as unknown as typeof OffscreenCanvas;
 }
 
+// jsdom does not implement localStorage
+const store = new Map<string, string>();
+const localStorageMock: Storage = {
+  getItem: (key: string) => store.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    store.set(key, value);
+  },
+  removeItem: (key: string) => {
+    store.delete(key);
+  },
+  clear: () => {
+    store.clear();
+  },
+  get length() {
+    return store.size;
+  },
+  key: (index: number) => [...store.keys()][index] ?? null,
+};
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: localStorageMock,
+});
+
+// jsdom does not implement matchMedia
+Object.defineProperty(globalThis, 'matchMedia', {
+  configurable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 // jsdom does not implement HTMLDialogElement
 if (typeof HTMLDialogElement !== 'undefined') {
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {

@@ -103,13 +103,6 @@ export function Tooltip({
     return () => document.removeEventListener('mousedown', handler);
   }, [visible, hide]);
 
-  const _handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') hide();
-    },
-    [hide],
-  );
-
   if (!label) {
     return <>{children}</>;
   }

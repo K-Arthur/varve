@@ -76,7 +76,9 @@ function TabsInner<T extends string>({
           return;
       }
       if (next < 0 || next >= tabs.length) return;
-      onTabChange(tabs[next]?.value);
+      const nextTab = tabs[next];
+      if (!nextTab) return;
+      onTabChange(nextTab.value);
       const btn = document.getElementById(`${baseId}-tab-${next}`);
       btn?.focus();
     },

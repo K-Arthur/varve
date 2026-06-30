@@ -91,7 +91,10 @@ export type SemanticToken =
   | 'tree-row-hover'
   | 'tree-row-selected'
   | 'tree-row-focus'
-  | 'tree-indent-guide';
+  | 'tree-indent-guide'
+  | 'brand-teal'
+  | 'brand-sandstone'
+  | 'brand-terracotta';
 
 const N = (i: number): Rgb => NEUTRAL[i - 1] as Rgb;
 const T = (i: number): Rgb => TEAL[i - 1] as Rgb;
@@ -131,6 +134,9 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'tree-row-selected': T(8),
     'tree-row-focus': T(8),
     'tree-indent-guide': N(7),
+    'brand-teal': T(6),
+    'brand-sandstone': [226, 140, 60],
+    'brand-terracotta': [197, 75, 58],
   },
   dark: {
     'surface-app': N(12),
@@ -165,6 +171,9 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'tree-row-selected': T(5),
     'tree-row-focus': T(5),
     'tree-indent-guide': N(7),
+    'brand-teal': T(6),
+    'brand-sandstone': [226, 140, 60],
+    'brand-terracotta': [197, 75, 58],
   },
   'high-contrast': {
     'surface-app': [0, 0, 0],
@@ -199,6 +208,9 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'tree-row-selected': [255, 255, 0],
     'tree-row-focus': [255, 255, 0],
     'tree-indent-guide': [255, 255, 255],
+    'brand-teal': [255, 255, 0],
+    'brand-sandstone': [255, 128, 0],
+    'brand-terracotta': [255, 64, 64],
   },
 };
 

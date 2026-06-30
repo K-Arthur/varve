@@ -36,6 +36,9 @@
   --color-tree-row-selected: #1d807b;
   --color-tree-row-focus: #1d807b;
   --color-tree-indent-guide: #6d788a;
+  --color-brand-teal: #39d0c6;
+  --color-brand-sandstone: #e28c3c;
+  --color-brand-terracotta: #c54b3a;
 
   /* --- Typography --- */
   --font-display:
@@ -169,6 +172,9 @@
   --color-tree-row-selected: #52d1c5;
   --color-tree-row-focus: #52d1c5;
   --color-tree-indent-guide: #6d788a;
+  --color-brand-teal: #39d0c6;
+  --color-brand-sandstone: #e28c3c;
+  --color-brand-terracotta: #c54b3a;
 }
 
 [data-theme="high-contrast"] {
@@ -204,6 +210,9 @@
   --color-tree-row-selected: #ffff00;
   --color-tree-row-focus: #ffff00;
   --color-tree-indent-guide: #ffffff;
+  --color-brand-teal: #ffff00;
+  --color-brand-sandstone: #ff8000;
+  --color-brand-terracotta: #ff4040;
 }
 
 /* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
@@ -241,6 +250,9 @@
     --color-tree-row-selected: #52d1c5;
     --color-tree-row-focus: #52d1c5;
     --color-tree-indent-guide: #6d788a;
+    --color-brand-teal: #39d0c6;
+    --color-brand-sandstone: #e28c3c;
+    --color-brand-terracotta: #c54b3a;
   }
 }
 

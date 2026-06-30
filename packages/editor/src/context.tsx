@@ -54,6 +54,7 @@ import {
   type VariableValue,
   walkNodes,
 } from '@strata/scene';
+import { fitBoundsCamera, revealBoundsCamera, type Viewport } from '@strata/shared';
 import {
   createContext,
   type ReactNode,
@@ -68,11 +69,6 @@ import {
   writeClipboard as writeToClipboard,
 } from './clipboard';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
-import {
-  revealBoundsCamera,
-  fitBoundsCamera,
-  type Viewport,
-} from '@strata/shared';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -561,6 +557,12 @@ export function EditorProvider({
   const txSelRef = useRef<NodeId[] | null>(null);
   const [bindingField, setBindingField] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  /** Ref mirror of the active tool, updated synchronously in setTool so that
+   *  createShapeAt sees the latest tool even when React 18 automatic batching
+   *  queues a setTool + createShapeAt together. Without this, createShapeAt
+   *  reads the stale tool from the state closure and throws "non-drawing tool"
+   *  for tools that were just set. */
+  const toolRef = useRef<ToolId>(state.tool);
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -645,11 +647,14 @@ export function EditorProvider({
   const value = useMemo<EditorContextValue>(
     () => ({
       state,
-      setTool: (t) => patch({ tool: t }),
+      setTool: (t) => {
+        toolRef.current = t;
+        patch({ tool: t });
+      },
       setZoom: (z) => patch({ zoom: z }),
       setPan: (p) => patch({ pan: p }),
       revealSelection: (opts) => {
-        let id = opts?.nodeId ?? state.selection[0];
+        const id = opts?.nodeId ?? state.selection[0];
         if (!id) return;
         const viewportEst: Viewport = {
           width: window.innerWidth,
@@ -700,6 +705,9 @@ export function EditorProvider({
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
       createShapeAt: (world, size, parentId) => {
         setState((s) => {
+          // Read the tool from the ref (synchronously current) instead of the
+          // state closure, which may be stale due to React 18 automatic batching.
+          const activeTool = toolRef.current;
           // Prevent shape creation for non-drawing tools
           const nonDrawingTools: ToolId[] = [
             'select',
@@ -715,20 +723,20 @@ export function EditorProvider({
             'booleanIntersect',
             'booleanExclude',
           ];
-          if (nonDrawingTools.includes(s.tool as ToolId)) {
-            throw new Error(`createShapeAt called for non-drawing tool: ${s.tool}`);
+          if (nonDrawingTools.includes(activeTool)) {
+            throw new Error(`createShapeAt called for non-drawing tool: ${activeTool}`);
           }
 
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
 
           const { id, doc: d2 } = nextNodeId(s.document);
-          const typeName = typeNameForTool(s.tool);
+          const typeName = typeNameForTool(activeTool);
           const autoName = nextAutoName(d2, typeName);
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
 
           let node: SceneNode;
-          if (s.tool === 'frame' || s.tool === 'slice') {
+          if (activeTool === 'frame' || activeTool === 'slice') {
             node = makeFrameNode(id, {
               name: autoName,
               transform,
@@ -736,7 +744,9 @@ export function EditorProvider({
               children: [],
             });
           } else {
-            const shape: Shape = size ? buildShapeWithSize(s.tool, size) : shapeForTool(s.tool);
+            const shape: Shape = size
+              ? buildShapeWithSize(activeTool, size)
+              : shapeForTool(activeTool);
             node = makeShapeNode(id, shape, { name: autoName, transform });
           }
 
