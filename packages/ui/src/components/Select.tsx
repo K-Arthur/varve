@@ -165,7 +165,7 @@ export function Select({
   );
 
   const typeAheadBuffer = useRef('');
-  const typeAheadTimer = useRef<ReturnType<typeof setTimeout>>();
+  const typeAheadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
@@ -182,7 +182,7 @@ export function Select({
       if (idx !== -1) {
         setHighlightedIdx(idx);
       }
-      clearTimeout(typeAheadTimer.current);
+      if (typeAheadTimer.current) clearTimeout(typeAheadTimer.current);
       typeAheadTimer.current = setTimeout(() => {
         typeAheadBuffer.current = '';
       }, 500);

@@ -8,6 +8,8 @@
 
 export type { IconName, IconProps } from './Icon';
 export { Icon } from './Icon';
+export type { StrataLogoProps } from './StrataLogo';
+export { StrataLogo } from './StrataLogo';
 
 import type { IconName } from './Icon';
 

@@ -1,7 +1,7 @@
 /**
  * Tests for colorCollections — document color extraction and recent color management.
  */
-import { createDocument, makeShapeNode, solidFill } from '@strata/scene';
+import { createDocument, type Document, makeShapeNode, nextNodeId, solidFill } from '@strata/scene';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addRecentColor, extractDocumentColors, getRecentColors } from './colorCollections';
 
@@ -22,7 +22,9 @@ describe('colorCollections', () => {
 
     it('extracts colors from node fills', () => {
       let doc = createDocument('Test');
-      const shape = makeShapeNode('Rect', { x: 0, y: 0, width: 100, height: 100 }, 'rect');
+      const r = nextNodeId(doc);
+      doc = r.doc;
+      const shape = makeShapeNode(r.id, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
       shape.fills = [solidFill([255, 0, 0, 255]), solidFill([0, 255, 0, 255])];
       doc = { ...doc, nodes: { ...doc.nodes, [shape.id]: shape } };
       const colors = extractDocumentColors(doc);
@@ -33,14 +35,18 @@ describe('colorCollections', () => {
 
     it('deduplicates identical colors', () => {
       let doc = createDocument('Test');
-      const shape1 = makeShapeNode('R1', { x: 0, y: 0, width: 50, height: 50 }, 'rect');
+      const r1 = nextNodeId(doc);
+      doc = r1.doc;
+      const shape1 = makeShapeNode(r1.id, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
       shape1.fills = [solidFill([255, 0, 0, 255])];
-      const shape2 = makeShapeNode('R2', { x: 50, y: 0, width: 50, height: 50 }, 'rect');
+      const r2 = nextNodeId(doc);
+      doc = r2.doc;
+      const shape2 = makeShapeNode(r2.id, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
       shape2.fills = [solidFill([255, 0, 0, 255])];
       doc = {
         ...doc,
         nodes: { ...doc.nodes, [shape1.id]: shape1, [shape2.id]: shape2 },
-      };
+      } as Document;
       const colors = extractDocumentColors(doc);
       expect(colors).toHaveLength(1);
     });

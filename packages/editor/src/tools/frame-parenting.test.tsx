@@ -27,13 +27,14 @@ describe('Frame parenting tests', () => {
 
     expect(ctx).toBeDefined();
     if (!ctx) throw new Error('ctx not found');
+    const editor = ctx;
 
     // Create a frame at position (100, 100) with size (200, 200)
-    ctx.setTool('frame');
-    ctx.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
+    editor.setTool('frame');
+    editor.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
 
     await waitFor(() => {
-      const nodes = Object.values(ctx.state.document.nodes);
+      const nodes = Object.values(editor.state.document.nodes);
       const frame = nodes.find((n) => n.kind === 'frame');
       expect(frame).toBeDefined();
       if (!frame) throw new Error('frame not found');
@@ -41,17 +42,17 @@ describe('Frame parenting tests', () => {
     });
 
     // Now create a rectangle inside the frame at (150, 150)
-    ctx.setTool('rect');
-    const initialNodes = Object.keys(ctx.state.document.nodes).length;
-    ctx.createShapeAt({ x: 150, y: 150 }, { w: 50, h: 30 });
+    editor.setTool('rect');
+    const initialNodes = Object.keys(editor.state.document.nodes).length;
+    editor.createShapeAt({ x: 150, y: 150 }, { w: 50, h: 30 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(ctx.state.document.nodes).length;
+      const finalNodes = Object.keys(editor.state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
     // Verify the rectangle is a child of the frame
-    const nodes = Object.values(ctx.state.document.nodes);
+    const nodes = Object.values(editor.state.document.nodes);
     const frame = nodes.find((n) => n.kind === 'frame');
     const rect = nodes.find((n) => n.kind === 'shape' && n.shape.kind === 'rect');
 
@@ -80,29 +81,30 @@ describe('Frame parenting tests', () => {
 
     expect(ctx).toBeDefined();
     if (!ctx) throw new Error('ctx not found');
+    const editor = ctx;
 
     // Create a frame at position (100, 100) with size (200, 200)
-    ctx.setTool('frame');
-    ctx.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
+    editor.setTool('frame');
+    editor.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
 
     await waitFor(() => {
-      const nodes = Object.values(ctx.state.document.nodes);
+      const nodes = Object.values(editor.state.document.nodes);
       const frame = nodes.find((n) => n.kind === 'frame');
       expect(frame).toBeDefined();
     });
 
     // Create a rectangle outside the frame at (400, 400)
-    ctx.setTool('rect');
-    const initialNodes = Object.keys(ctx.state.document.nodes).length;
-    ctx.createShapeAt({ x: 400, y: 400 }, { w: 50, h: 30 });
+    editor.setTool('rect');
+    const initialNodes = Object.keys(editor.state.document.nodes).length;
+    editor.createShapeAt({ x: 400, y: 400 }, { w: 50, h: 30 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(ctx.state.document.nodes).length;
+      const finalNodes = Object.keys(editor.state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
     // Verify the rectangle is NOT a child of the frame
-    const nodes = Object.values(ctx.state.document.nodes);
+    const nodes = Object.values(editor.state.document.nodes);
     const frame = nodes.find((n) => n.kind === 'frame');
     const rect = nodes.find((n) => n.kind === 'shape' && n.shape.kind === 'rect');
 
@@ -131,39 +133,40 @@ describe('Frame parenting tests', () => {
 
     expect(ctx).toBeDefined();
     if (!ctx) throw new Error('ctx not found');
+    const editor = ctx;
 
     // Create outer frame at (100, 100) with size (400, 400)
-    ctx.setTool('frame');
-    ctx.createShapeAt({ x: 100, y: 100 }, { w: 400, h: 400 });
+    editor.setTool('frame');
+    editor.createShapeAt({ x: 100, y: 100 }, { w: 400, h: 400 });
 
     await waitFor(() => {
-      const nodes = Object.values(ctx.state.document.nodes);
+      const nodes = Object.values(editor.state.document.nodes);
       const frames = nodes.filter((n) => n.kind === 'frame');
       expect(frames.length).toBe(1);
     });
 
     // Create inner frame at (200, 200) with size (200, 200)
-    ctx.setTool('frame');
-    ctx.createShapeAt({ x: 200, y: 200 }, { w: 200, h: 200 });
+    editor.setTool('frame');
+    editor.createShapeAt({ x: 200, y: 200 }, { w: 200, h: 200 });
 
     await waitFor(() => {
-      const nodes = Object.values(ctx.state.document.nodes);
+      const nodes = Object.values(editor.state.document.nodes);
       const frames = nodes.filter((n) => n.kind === 'frame');
       expect(frames.length).toBe(2);
     });
 
     // Create a rectangle inside the inner frame at (250, 250)
-    ctx.setTool('rect');
-    const initialNodes = Object.keys(ctx.state.document.nodes).length;
-    ctx.createShapeAt({ x: 250, y: 250 }, { w: 50, h: 30 });
+    editor.setTool('rect');
+    const initialNodes = Object.keys(editor.state.document.nodes).length;
+    editor.createShapeAt({ x: 250, y: 250 }, { w: 50, h: 30 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(ctx.state.document.nodes).length;
+      const finalNodes = Object.keys(editor.state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
     // Verify the rectangle is a child of the inner frame, not the outer
-    const nodes = Object.values(ctx.state.document.nodes);
+    const nodes = Object.values(editor.state.document.nodes);
     const frames = nodes.filter((n) => n.kind === 'frame');
     const rect = nodes.find((n) => n.kind === 'shape' && n.shape.kind === 'rect');
 
@@ -197,36 +200,37 @@ describe('Frame parenting tests', () => {
 
     expect(ctx).toBeDefined();
     if (!ctx) throw new Error('ctx not found');
+    const editor = ctx;
 
     // Create a frame at (100, 100) with size (200, 200)
-    ctx.setTool('frame');
-    ctx.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
+    editor.setTool('frame');
+    editor.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
 
     await waitFor(() => {
-      const nodes = Object.values(ctx.state.document.nodes);
+      const nodes = Object.values(editor.state.document.nodes);
       const frames = nodes.filter((n) => n.kind === 'frame');
       expect(frames.length).toBe(1);
     });
 
     // Get the frame ID
-    const nodes = Object.values(ctx.state.document.nodes);
+    const nodes = Object.values(editor.state.document.nodes);
     const frame = nodes.find((n) => n.kind === 'frame');
     expect(frame).toBeDefined();
 
     // Test point inside frame (150, 150)
-    const resultInside = ctx.findContainingFrame({ x: 150, y: 150 });
+    const resultInside = editor.findContainingFrame({ x: 150, y: 150 });
 
     // Should return the frame
     expect(resultInside).toBe(frame?.id ?? null);
 
     // Test point outside frame (50, 50)
-    const resultOutside = ctx.findContainingFrame({ x: 50, y: 50 });
+    const resultOutside = editor.findContainingFrame({ x: 50, y: 50 });
 
     // Should return null
     expect(resultOutside).toBeNull();
 
     // Test point on frame edge (100, 100) - should be inside
-    const resultEdge = ctx.findContainingFrame({ x: 100, y: 100 });
+    const resultEdge = editor.findContainingFrame({ x: 100, y: 100 });
 
     // Should return the frame (edge is considered inside)
     expect(resultEdge).toBe(frame?.id ?? null);

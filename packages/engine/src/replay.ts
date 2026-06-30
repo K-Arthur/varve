@@ -48,7 +48,13 @@ export interface ReplayTarget {
   lineDashOffset: number;
   setLineDash(segments: number[]): void;
   /** F6: draw an image. */
-  drawImage?(image: CanvasImageSource | string, dx: number, dy: number, dw: number, dh: number): void;
+  drawImage?(
+    image: CanvasImageSource | string,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+  ): void;
   /** P2: create a linear gradient for gradient fills. */
   createLinearGradient?(x0: number, y0: number, x1: number, y1: number): ReplayGradient;
   /** P2: create a radial gradient for gradient fills. */
