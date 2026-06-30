@@ -1,3 +1,69 @@
+/*
+ * Research basis: WCAG 2.2, APG patterns, CSS-Tricks, MDN.
+ * Micro-interaction table (Strata spec §6.2): all animations use
+ * transform + opacity only, governed by prefers-reduced-motion.
+ */
+
+/* ── Modal / dialog open ────────────────────────── */
+.strata-dialog {
+  animation: strata-modal-in var(--duration-base) var(--ease-spring);
+}
+.strata-dialog.closing {
+  animation: strata-modal-out var(--duration-fast) var(--ease-in);
+}
+@keyframes strata-modal-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes strata-modal-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.95); }
+}
+
+/* ── Selection highlight ────────────────────────── */
+.strata-selection-highlight {
+  animation: strata-fade-in var(--duration-instant) linear;
+}
+@keyframes strata-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Panel open/close ───────────────────────────── */
+.strata-panel-enter {
+  animation: strata-panel-in var(--duration-base) var(--ease-spring);
+}
+.strata-panel-exit {
+  animation: strata-panel-out var(--duration-base) var(--ease-in);
+}
+@keyframes strata-panel-in {
+  from { opacity: 0; transform: scaleX(0); }
+  to   { opacity: 1; transform: scaleX(1); }
+}
+@keyframes strata-panel-out {
+  from { opacity: 1; transform: scaleX(1); }
+  to   { opacity: 0; transform: scaleX(0); }
+}
+
+/* ── Layer expand (max-height trick) ────────────── */
+.strata-layer-expand {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height var(--duration-base) var(--ease-out);
+}
+.strata-layer-expand.open {
+  max-height: 1000px;
+}
+
+/* ── Drag feedback ──────────────────────────────── */
+.strata-dragging {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+  transition: transform var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+
+/* ── Button (base) ─────────────────────────────── */
 .strata-btn {
   display: inline-flex;
   align-items: center;
