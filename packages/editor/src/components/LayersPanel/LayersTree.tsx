@@ -82,14 +82,19 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
     count: entries.length,
     getScrollElement: () => treeRef.current,
     estimateSize: () => 28,
-    getItemKey: (i) => entries[i]!.node.id,
+    getItemKey: (i) => {
+      const entry = entries[i];
+      if (!entry) throw new Error('entry not found');
+      return entry.node.id;
+    },
     overscan: 10,
   });
 
   // Sync focus to selection when selection changes externally (e.g. canvas click)
   useEffect(() => {
     if (state.selection.length > 0) {
-      const firstSel = state.selection[0]!;
+      const firstSel = state.selection[0];
+      if (!firstSel) return;
       const idx = entries.findIndex((e) => e.node.id === firstSel);
       if (idx >= 0) {
         setFocusIdx(idx);
@@ -114,9 +119,13 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
         if (clickIdx >= 0) {
           const start = Math.min(anchorIdx, clickIdx);
           const end = Math.max(anchorIdx, clickIdx);
-          toggleSelection(entries[start]!.node.id, false);
+          const startEntry = entries[start];
+          if (!startEntry) throw new Error('start entry not found');
+          toggleSelection(startEntry.node.id, false);
           for (let i = start + 1; i <= end; i++) {
-            toggleSelection(entries[i]!.node.id, true);
+            const entry = entries[i];
+            if (!entry) throw new Error('entry not found');
+            toggleSelection(entry.node.id, true);
           }
           return;
         }
@@ -149,9 +158,13 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
 
   const selectAll = useCallback(() => {
     if (entries.length === 0) return;
-    toggleSelection(entries[0]!.node.id, false);
+    const firstEntry = entries[0];
+    if (!firstEntry) throw new Error('first entry not found');
+    toggleSelection(firstEntry.node.id, false);
     for (let i = 1; i < entries.length; i++) {
-      toggleSelection(entries[i]!.node.id, true);
+      const entry = entries[i];
+      if (!entry) throw new Error('entry not found');
+      toggleSelection(entry.node.id, true);
     }
   }, [entries, toggleSelection]);
 
@@ -159,7 +172,9 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
     (delta: number) => {
       const next = Math.max(0, Math.min(focusIdx + delta, entries.length - 1));
       setFocusIdx(next);
-      toggleSelection(entries[next]!.node.id);
+      const nextEntry = entries[next];
+      if (!nextEntry) throw new Error('next entry not found');
+      toggleSelection(nextEntry.node.id);
       setAnchorIdx(next);
       virtualizer.scrollToIndex(next, { align: 'auto' });
     },
@@ -197,7 +212,9 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
         const delta = e.key === 'ArrowDown' ? 1 : -1;
         const next = Math.max(0, Math.min(focusIdx + delta, entries.length - 1));
         setFocusIdx(next);
-        toggleSelection(entries[next]!.node.id, true);
+        const nextEntry = entries[next];
+        if (!nextEntry) throw new Error('next entry not found');
+        toggleSelection(nextEntry.node.id, true);
         virtualizer.scrollToIndex(next, { align: 'auto' });
         return;
       }
@@ -249,7 +266,9 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
       if (e.key === 'Home') {
         e.preventDefault();
         jumpToStart();
-        toggleSelection(entries[0]!.node.id);
+        const homeEntry = entries[0];
+        if (!homeEntry) throw new Error('home entry not found');
+        toggleSelection(homeEntry.node.id);
         setAnchorIdx(0);
         virtualizer.scrollToIndex(0, { align: 'start' });
         return;
@@ -257,7 +276,9 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
       if (e.key === 'End') {
         e.preventDefault();
         jumpToEnd(entries.length);
-        toggleSelection(entries[entries.length - 1]!.node.id);
+        const endEntry = entries[entries.length - 1];
+        if (!endEntry) throw new Error('end entry not found');
+        toggleSelection(endEntry.node.id);
         setAnchorIdx(entries.length - 1);
         virtualizer.scrollToIndex(entries.length - 1, { align: 'end' });
         return;
@@ -314,7 +335,9 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
         const newIdx = myIdx + delta;
         if (newIdx < 0 || newIdx >= siblings.length) return;
         reparentNode(focusEntry.node.id, parentId, newIdx);
-        const otherNode = doc.nodes[siblings[newIdx]!];
+        const siblingId = siblings[newIdx];
+        if (!siblingId) throw new Error('sibling not found');
+        const otherNode = doc.nodes[siblingId];
         announce(
           delta < 0
             ? `Moved ${focusEntry.node.name} above ${otherNode?.name || ''}`
@@ -333,7 +356,9 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
         );
         if (matchIdx !== null) {
           setFocusIdx(matchIdx);
-          toggleSelection(entries[matchIdx]!.node.id);
+          const matchEntry = entries[matchIdx];
+          if (!matchEntry) throw new Error('match entry not found');
+          toggleSelection(matchEntry.node.id);
           setAnchorIdx(matchIdx);
           virtualizer.scrollToIndex(matchIdx, { align: 'auto' });
         }

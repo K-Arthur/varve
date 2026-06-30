@@ -16,6 +16,7 @@
 import { getTransactionHooks } from '@strata/collab';
 import type { Affine, Color, Shape } from '@strata/engine';
 import { applyAffine, invertAffine, rectContains, shapeContains } from '@strata/engine';
+import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import type { NodeId, Slot } from '@strata/scene';
 import {
   addChild,
@@ -483,7 +484,7 @@ export function findContainingFrameInDoc(
     const n = entry.node;
     if (n.locked || n.visible === false) continue;
     if (n.kind !== 'frame' && n.kind !== 'group') continue;
-    const bbox = nodeWorldBoundsFn(n);
+    const bbox = nodeWorldBounds(doc, nid);
     if (!bbox) continue;
     const wPt: [number, number] = [world.x, world.y];
     if (rectContains(bbox, wPt)) {
@@ -702,6 +703,15 @@ export function EditorProvider({
           const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
           let newDoc: Document;
           if (effectiveParentId) {
+            // Convert world→local: the node's transform must be in the
+            // parent's coordinate space so that composing parent · child
+            // yields the original world position. Without this, a shape
+            // placed inside a translated frame jumps by the frame's offset.
+            const pWorld = nodeWorldTransform(d2, effectiveParentId);
+            const pInv = invertAffine(pWorld);
+            const localPos = applyAffine(pInv, [world.x, world.y]);
+            const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
+            node = { ...node, transform: localTransform } as SceneNode;
             newDoc = addChild(d2, effectiveParentId, node);
           } else {
             newDoc = addNode(d2, node);
@@ -742,7 +752,7 @@ export function EditorProvider({
         return findContainingFrameInDoc(state.document, world);
       },
 
-      nodeWorldBounds: (n) => nodeWorldBoundsFn(n),
+      nodeWorldBounds: (n) => nodeWorldBounds(state.document, n.id) ?? nodeWorldBoundsFn(n),
 
       canvasToWorld: (cx, cy) => {
         return { x: (cx - state.pan.x) / state.zoom, y: (cy - state.pan.y) / state.zoom };
@@ -757,19 +767,26 @@ export function EditorProvider({
       },
 
       hitTestNode: (world) => {
-        // Walk all nodes in paint order, test containment
+        // Walk all nodes in paint order, test containment using world
+        // transforms (composes ancestor chain so nested nodes hit correctly).
         const entries = walkNodes(state.document);
         const ordered = [...entries.values()].sort((a, b) => a.depth - b.depth);
         for (let i = ordered.length - 1; i >= 0; i--) {
           const entry = ordered[i];
           if (!entry) continue;
           const n = entry.node;
-          const local = applyAffine(invertAffine(n.transform as Affine), [world.x, world.y]);
-          if (n.kind === 'shape' && shapeContains(n.shape, local)) {
-            return { nodeId: entry.nodeId, node: n };
+          if (n.locked || !n.visible) continue;
+          if (n.kind === 'shape') {
+            // Compose world→local: invert the full ancestor chain.
+            const worldMat = nodeWorldTransform(state.document, entry.nodeId);
+            const wInv = invertAffine(worldMat);
+            const local = applyAffine(wInv, [world.x, world.y]);
+            if (shapeContains(n.shape, local)) {
+              return { nodeId: entry.nodeId, node: n };
+            }
           }
           if (n.kind === 'frame' || n.kind === 'group') {
-            const bbox = nodeWorldBoundsFn(n);
+            const bbox = nodeWorldBounds(state.document, entry.nodeId);
             if (bbox && rectContains(bbox, [world.x, world.y])) {
               return { nodeId: entry.nodeId, node: n };
             }

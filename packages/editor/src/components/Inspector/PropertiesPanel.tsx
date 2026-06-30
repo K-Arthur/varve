@@ -83,10 +83,7 @@ export function PropertiesPanel() {
         <div className="insp-panel">
           {selNodes.length > 0 ? (
             <>
-              <AssetExportControls
-                node={selNodes[0] as SceneNode}
-                doc={state.document}
-              />
+              <AssetExportControls node={selNodes[0] as SceneNode} doc={state.document} />
               <CodeGenView
                 node={selNodes[0] as SceneNode}
                 doc={state.document}

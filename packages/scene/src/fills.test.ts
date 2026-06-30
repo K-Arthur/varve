@@ -2,8 +2,9 @@
  * Tests for the fill system — imageFill, patternFill, gradientFill helpers
  * and Fill type operations.
  */
-import { describe, expect, it } from 'vitest';
+
 import { gradientFill, imageFill, patternFill, solidFill } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
 
 describe('fill constructors', () => {
   describe('solidFill', () => {
@@ -37,10 +38,14 @@ describe('fill constructors', () => {
     });
 
     it('creates a radial gradient with rotation', () => {
-      const fill = gradientFill('radial', [
-        { position: 0, color: [255, 255, 255, 255] },
-        { position: 1, color: [0, 0, 0, 255] },
-      ], { rotation: 45 });
+      const fill = gradientFill(
+        'radial',
+        [
+          { position: 0, color: [255, 255, 255, 255] },
+          { position: 1, color: [0, 0, 0, 255] },
+        ],
+        { rotation: 45 },
+      );
       expect(fill.gradient?.type).toBe('radial');
       expect(fill.gradient?.rotation).toBe(45);
     });

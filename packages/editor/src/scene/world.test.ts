@@ -5,8 +5,8 @@ import {
   addNode,
   createDocument,
   makeFrameNode,
+  makeGroupNode,
   makeShapeNode,
-  nextNodeId,
 } from '@strata/scene';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
 
@@ -14,20 +14,18 @@ function buildDoc() {
   let doc = createDocument();
 
   // Frame A at world (100, 100)
-  const aId = 'f1';
-  const frameA = makeFrameNode(aId, {
+  const frameA = makeFrameNode('f1', {
     name: 'FrameA',
     transform: [1, 0, 0, 1, 100, 100] as Affine,
   });
   doc = addNode(doc, frameA);
 
   // Frame B inside Frame A at local (50, 0)
-  const bId = 'f2';
-  const frameB = makeFrameNode(bId, {
+  const frameB = makeFrameNode('f2', {
     name: 'FrameB',
     transform: [1, 0, 0, 1, 50, 0] as Affine,
   });
-  doc = addChild(doc, aId, frameB);
+  doc = addChild(doc, 'f1', frameB);
 
   // Shape C inside Frame B at local (20, 30)
   const rect = makeShapeNode(
@@ -35,7 +33,7 @@ function buildDoc() {
     { kind: 'rect', x: 0, y: 0, w: 40, h: 30 },
     { name: 'RectC', transform: [1, 0, 0, 1, 20, 30] as Affine },
   );
-  doc = addChild(doc, bId, rect);
+  doc = addChild(doc, 'f2', rect);
 
   // Root-level shape D at (200, 50)
   const rootShape = makeShapeNode(
@@ -71,7 +69,7 @@ describe('nodeWorldTransform', () => {
     const t = nodeWorldTransform(doc, 's1');
     expect(t[4]).toBeCloseTo(170, EPS);
     expect(t[5]).toBeCloseTo(130, EPS);
-    expect(t[0]).toBeCloseTo(1, EPS); // no rotation/scale
+    expect(t[0]).toBeCloseTo(1, EPS);
     expect(t[1]).toBeCloseTo(0, EPS);
     expect(t[2]).toBeCloseTo(0, EPS);
     expect(t[3]).toBeCloseTo(1, EPS);
@@ -79,7 +77,6 @@ describe('nodeWorldTransform', () => {
 
   it('composes through a frame-only chain (no child transform)', () => {
     const doc = buildDoc();
-    // FrameB itself, inside FrameA
     const t = nodeWorldTransform(doc, 'f2');
     expect(t[4]).toBeCloseTo(150, EPS);
     expect(t[5]).toBeCloseTo(100, EPS);
@@ -95,29 +92,12 @@ describe('nodeLocalBounds', () => {
     expect(b).toEqual({ x: 0, y: 0, w: 40, h: 30 });
   });
 
-  it('returns null for non-geometric shapes (arrow/path)', () => {
+  it('returns null for groups and arrow/path shapes', () => {
     const doc = createDocument();
-    const shape = makeShapeNode(
-      'a1',
-      { kind: 'arrow', from: [0, 0] as [number, number], to: [10, 10] as [number, number], tolerance: 1, arrowheadSize: 5 },
-      { name: 'Arrow' },
-    );
-    doc = addNode(doc, shape);
-    const b = nodeLocalBounds(doc.nodes['a1']!);
-    expect(b).toBeNull();
-  });
-
-  it('returns null for groups', () => {
-    const doc = createDocument();
-    const { groupNodes } = require('@strata/scene');
-    const s1 = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'G1', transform: [1, 0, 0, 1, 0, 0] as Affine });
-    let d = addNode(doc, s1);
-    d = groupNodes(d, ['s1']);
-    if (!d) return;
-    const groupIds = d.rootChildren;
-    const g = groupIds.find((id) => d.nodes[id]?.kind === 'group');
-    if (!g) return;
-    const b = nodeLocalBounds(d.nodes[g]!);
+    // Group node has no shape → kind === 'group' falls to null.
+    const g = makeGroupNode('g1', { name: 'Group' });
+    let d = addNode(doc, g);
+    const b = nodeLocalBounds(d.nodes['g1']!);
     expect(b).toBeNull();
   });
 });

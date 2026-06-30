@@ -23,9 +23,12 @@ import {
 const EPS = 1e-9;
 
 function approxEqual(a: Affine, b: Affine, tol = EPS): void {
-  for (let i = 0; i < 6; i++) {
-    expect(Math.abs(a[i] - b[i])).toBeLessThanOrEqual(tol);
-  }
+  expect(Math.abs(a[0] - b[0])).toBeLessThanOrEqual(tol);
+  expect(Math.abs(a[1] - b[1])).toBeLessThanOrEqual(tol);
+  expect(Math.abs(a[2] - b[2])).toBeLessThanOrEqual(tol);
+  expect(Math.abs(a[3] - b[3])).toBeLessThanOrEqual(tol);
+  expect(Math.abs(a[4] - b[4])).toBeLessThanOrEqual(tol);
+  expect(Math.abs(a[5] - b[5])).toBeLessThanOrEqual(tol);
 }
 
 describe('affine constructors', () => {

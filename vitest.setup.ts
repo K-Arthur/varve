@@ -5,6 +5,7 @@
  * optional native canvas package is installed; shell tests only need a no-op
  * target so React effects can mount without noisy environment errors.
  */
+import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
 if (typeof HTMLCanvasElement !== 'undefined') {

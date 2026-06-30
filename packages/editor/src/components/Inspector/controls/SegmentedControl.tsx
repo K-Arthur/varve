@@ -86,7 +86,8 @@ export function SegmentedControl<T extends string>({
             key={opt.value}
             id={`${groupId}-${i}`}
             type="button"
-            aria-pressed={checked}
+            role="radio"
+            aria-checked={checked}
             tabIndex={i === focusIndex ? 0 : -1}
             disabled={disabled}
             className="insp-segmented__btn"

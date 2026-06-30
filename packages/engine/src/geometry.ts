@@ -108,8 +108,11 @@ function pathSegmentDistSq(points: PathPoint[], p: Point): number {
   if (points.length < 2) return Infinity;
   let minDist = Infinity;
   for (let i = 0; i < points.length - 1; i++) {
-    const from: Point = [points[i]!.x, points[i]!.y];
-    const to: Point = [points[i + 1]!.x, points[i + 1]!.y];
+    const fromPt = points[i];
+    const toPt = points[i + 1];
+    if (!fromPt || !toPt) continue;
+    const from: Point = [fromPt.x, fromPt.y];
+    const to: Point = [toPt.x, toPt.y];
     const dist = pointToSegmentDistSq(from, to, p);
     if (dist < minDist) minDist = dist;
   }

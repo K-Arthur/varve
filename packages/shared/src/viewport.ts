@@ -189,8 +189,6 @@ export function revealBoundsCamera(
 ): Camera {
   const z = cam.zoom;
   const pz = padding / z; // padding in world units
-  const vsz = viewport.width / z;
-  const vsy = viewport.height / z;
 
   // Current pan-derived constraints.
   const panX = cam.pan[0];
@@ -223,18 +221,10 @@ export function revealBoundsCamera(
 
   let newPanX: number;
   if (fitsX) {
-    // Both constraints must be satisfied. Pick the most restrictive one
-    // that is currently violated, preferring the one that preserves the
-    // other constraint.
-    const candidateLeft = Math.max(panX, leftReqX);
-    const candidateRight = Math.min(panX, rightReqX);
-    // If left is violated, snap to leftReqX.
     if (panX < leftReqX) {
-      const snap = leftReqX;
-      newPanX = snap <= rightReqX ? snap : (leftReqX + rightReqX) / 2;
+      newPanX = leftReqX <= rightReqX ? leftReqX : (leftReqX + rightReqX) / 2;
     } else if (panX > rightReqX) {
-      const snap = rightReqX;
-      newPanX = snap >= leftReqX ? snap : (leftReqX + rightReqX) / 2;
+      newPanX = rightReqX >= leftReqX ? rightReqX : (leftReqX + rightReqX) / 2;
     } else {
       newPanX = panX;
     }
@@ -256,11 +246,9 @@ export function revealBoundsCamera(
   let newPanY: number;
   if (fitsY) {
     if (panY < leftReqY) {
-      const snap = leftReqY;
-      newPanY = snap <= rightReqY ? snap : (leftReqY + rightReqY) / 2;
+      newPanY = leftReqY <= rightReqY ? leftReqY : (leftReqY + rightReqY) / 2;
     } else if (panY > rightReqY) {
-      const snap = rightReqY;
-      newPanY = snap >= leftReqY ? snap : (leftReqY + rightReqY) / 2;
+      newPanY = rightReqY >= leftReqY ? rightReqY : (leftReqY + rightReqY) / 2;
     } else {
       newPanY = panY;
     }

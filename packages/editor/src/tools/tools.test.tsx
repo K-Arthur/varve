@@ -28,23 +28,24 @@ describe('Tool system regression tests', () => {
     );
 
     expect(ctx).toBeDefined();
+    if (!ctx) throw new Error('ctx not found');
 
     // Set tool to rectangle BEFORE creating shape
-    ctx!.setTool('rect' as ToolId);
+    ctx.setTool('rect' as ToolId);
 
-    const initialNodes = Object.keys(ctx!.state.document.nodes).length;
+    const initialNodes = Object.keys(ctx.state.document.nodes).length;
 
     // Create a rectangle at a specific position with size
-    ctx!.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
+    ctx.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
 
     // Wait for state to update
     await waitFor(() => {
-      const finalNodes = Object.keys(ctx!.state.document.nodes).length;
+      const finalNodes = Object.keys(ctx.state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
     // Verify the created node is a rectangle
-    const nodes = Object.values(ctx!.state.document.nodes);
+    const nodes = Object.values(ctx.state.document.nodes);
     const newNode = nodes[nodes.length - 1];
     if (!newNode) {
       throw new Error('Expected new node to be created');
@@ -70,18 +71,19 @@ describe('Tool system regression tests', () => {
     );
 
     expect(ctx).toBeDefined();
+    if (!ctx) throw new Error('ctx not found');
 
-    ctx!.setTool('ellipse' as ToolId);
+    ctx.setTool('ellipse' as ToolId);
 
-    const initialNodes = Object.keys(ctx!.state.document.nodes).length;
-    ctx!.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
+    const initialNodes = Object.keys(ctx.state.document.nodes).length;
+    ctx.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(ctx!.state.document.nodes).length;
+      const finalNodes = Object.keys(ctx.state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
-    const nodes = Object.values(ctx!.state.document.nodes);
+    const nodes = Object.values(ctx.state.document.nodes);
     const newNode = nodes[nodes.length - 1];
     if (!newNode) {
       throw new Error('Expected new node to be created');
@@ -107,18 +109,19 @@ describe('Tool system regression tests', () => {
     );
 
     expect(ctx).toBeDefined();
+    if (!ctx) throw new Error('ctx not found');
 
-    ctx!.setTool('polygon' as ToolId);
+    ctx.setTool('polygon' as ToolId);
 
-    const initialNodes = Object.keys(ctx!.state.document.nodes).length;
-    ctx!.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 50 });
+    const initialNodes = Object.keys(ctx.state.document.nodes).length;
+    ctx.createShapeAt({ x: 100, y: 100 }, { w: 50, h: 50 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(ctx!.state.document.nodes).length;
+      const finalNodes = Object.keys(ctx.state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
-    const nodes = Object.values(ctx!.state.document.nodes);
+    const nodes = Object.values(ctx.state.document.nodes);
     const newNode = nodes[nodes.length - 1];
     if (!newNode) {
       throw new Error('Expected new node to be created');
@@ -144,18 +147,19 @@ describe('Tool system regression tests', () => {
     );
 
     expect(ctx).toBeDefined();
+    if (!ctx) throw new Error('ctx not found');
 
-    ctx!.setTool('line' as ToolId);
+    ctx.setTool('line' as ToolId);
 
-    const initialNodes = Object.keys(ctx!.state.document.nodes).length;
-    ctx!.createShapeAt({ x: 100, y: 100 }, { w: 80, h: 30 });
+    const initialNodes = Object.keys(ctx.state.document.nodes).length;
+    ctx.createShapeAt({ x: 100, y: 100 }, { w: 80, h: 30 });
 
     await waitFor(() => {
-      const finalNodes = Object.keys(ctx!.state.document.nodes).length;
+      const finalNodes = Object.keys(ctx.state.document.nodes).length;
       expect(finalNodes).toBe(initialNodes + 1);
     });
 
-    const nodes = Object.values(ctx!.state.document.nodes);
+    const nodes = Object.values(ctx.state.document.nodes);
     const newNode = nodes[nodes.length - 1];
     if (!newNode) {
       throw new Error('Expected new node to be created');

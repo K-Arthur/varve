@@ -10,7 +10,7 @@
  * product of all ancestor transforms left-multiplied by the node's own.
  */
 
-import type { Affine, Point, Rect } from '@strata/shared';
+import type { Affine, Rect } from '@strata/shared';
 import {
   identity,
   multiplyAffine,
@@ -32,7 +32,10 @@ export function nodeWorldTransform(doc: Document, id: NodeId): Affine {
   const node = doc.nodes[id];
   if (!node) return identity;
 
-  const chain: Affine[] = [node.transform as Affine];
+  // SceneNode union guarantees transform on all member types (ShapeNode,
+  // TextNode, GroupNode, FrameNode all have `transform: Affine`).
+  const nodeTransform = node.transform as Affine;
+  const chain: Affine[] = [nodeTransform];
 
   // Walk up: getParent does a linear scan — for deep chains we could cache.
   let parentId = getParent(doc, id);
@@ -44,9 +47,10 @@ export function nodeWorldTransform(doc: Document, id: NodeId): Affine {
   }
 
   // Compose in scene-graph order (children last → applied first, parents first → applied last).
-  let world = identity;
+  let world: Affine = identity;
   for (let i = chain.length - 1; i >= 0; i--) {
-    world = multiplyAffine(world, chain[i]);
+    const m = chain[i]!;
+    world = multiplyAffine(world, m);
   }
   return world;
 }

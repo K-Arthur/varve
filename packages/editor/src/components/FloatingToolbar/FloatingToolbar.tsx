@@ -42,22 +42,7 @@ function ToolGroup({ tools }: { tools: ToolDef[] }) {
       {tools.map((t) => (
         <Tooltip
           key={t.id}
-          content={
-            <span>
-              {t.label}
-              {t.shortcut && (
-                <span
-                  style={{
-                    marginLeft: 6,
-                    opacity: 0.65,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {t.shortcut}
-                </span>
-              )}
-            </span>
-          }
+          label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}
         >
           <button
             type="button"

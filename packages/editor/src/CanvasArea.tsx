@@ -118,21 +118,11 @@ export function CanvasArea() {
   }, [state.tool]);
 
   // ─── ToolContext builder ─────────────────────────────────────────────────
-
-  function canvasToWorld(cx: number, cy: number) {
-    const s = stateRef.current;
-    return { x: (cx - s.pan.x) / s.zoom, y: (cy - s.pan.y) / s.zoom };
-  }
-
-  function worldToCanvas(wx: number, wy: number) {
-    const s = stateRef.current;
-    return { x: wx * s.zoom + s.pan.x, y: wy * s.zoom + s.pan.y };
-  }
-
-  function canvasDeltaToWorld(dx: number, dy: number) {
-    const s = stateRef.current;
-    return { dx: dx / s.zoom, dy: dy / s.zoom };
-  }
+  // `canvasToWorld`/`worldToCanvas`/`canvasDeltaToWorld` are defined inside
+  // `buildToolCtx` (below) and include the `getBoundingClientRect()`
+  // subtraction. The standalone functions were removed in the coordinate-model
+  // repair (Phase 1) — tools must use ctx.canvasToWorld, which accepts
+  // viewport-relative clientX/Y.
 
   function buildToolCtx(ev: PointerEvent): ToolContext {
     const s = stateRef.current;
@@ -170,9 +160,24 @@ export function CanvasArea() {
       rootNodes: () => rootNodes(),
       getNode: (id) => s.document.nodes[id],
 
-      canvasToWorld,
-      worldToCanvas,
-      canvasDeltaToWorld,
+      // FIX: `canvasToWorld` now accepts viewport-relative clientX/Y and
+      // subtracts the canvas bounding rect internally. This fixes the
+      // placement bug where all drawing tools passed raw clientX/Y without
+      // accounting for the canvas element's screen offset below the menubar.
+      // See BaseTool.ts:66-67.
+      canvasToWorld: (cx, cy) => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        return {
+          x: (cx - (rect?.left ?? 0) - s.pan.x) / s.zoom,
+          y: (cy - (rect?.top ?? 0) - s.pan.y) / s.zoom,
+        };
+      },
+      worldToCanvas: (wx, wy) => {
+        return { x: wx * s.zoom + s.pan.x, y: wy * s.zoom + s.pan.y };
+      },
+      canvasDeltaToWorld: (dx, dy) => {
+        return { dx: dx / s.zoom, dy: dy / s.zoom };
+      },
 
       setPointerCapture: (pointerId) => {
         const el = canvasRef.current;
@@ -305,8 +310,9 @@ export function CanvasArea() {
     if (!tmInst) return;
 
     if (state.tool === 'inspect') {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const world = canvasToWorld(ne.clientX - rect.left, ne.clientY - rect.top);
+      const ctx = buildToolCtx(ne);
+      // canvasToWorld now includes rect subtraction; pass raw clientX/Y.
+      const world = ctx.canvasToWorld(ne.clientX, ne.clientY);
       const hit = editor.hitTestNode(world);
       setHoveredNode(hit?.node ?? null);
     }
