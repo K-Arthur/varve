@@ -14,7 +14,12 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     permissions: ['clipboard-read', 'clipboard-write'],
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    // Safari/WebKit requires macOS for full testing — runs basic smoke tests on Linux
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
   webServer: {
     command: 'pnpm --filter @strata/desktop dev',
     url: 'http://localhost:1420',

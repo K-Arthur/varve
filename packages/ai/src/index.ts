@@ -1,2 +1,63 @@
-/** @strata/ai — auto-trace controller + assist (Strata plan §3.1, task 1.7). */
+/** @strata/ai — AI assistant chat controller. */
+export type { AIMessage, AIModel, AISession } from './types';
 export const PACKAGE = '@strata/ai' as const;
+
+const MOCK_RESPONSES = {
+  default: "I'm the Strata AI assistant. I can help you with design suggestions, generate shapes, or automate repetitive tasks.",
+  help: 'Here are some things I can do:\n- Suggest color palettes\n- Generate layout ideas\n- Optimize your design for accessibility\n- Automate repetitive tasks\n\nTry asking me to "make this pop" or "suggest a better layout."',
+};
+
+export async function chat(
+  _sessionId: string,
+  message: string,
+): Promise<import('./types').AIMessage> {
+  const lower = message.toLowerCase();
+  let reply = MOCK_RESPONSES.default;
+  if (lower.includes('help') || lower.includes('what')) {
+    reply = MOCK_RESPONSES.help;
+  } else if (lower.includes('hello') || lower.includes('hi')) {
+    reply = 'Hello! How can I help with your design today?';
+  }
+
+  await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
+
+  return {
+    id: crypto.randomUUID(),
+    role: 'assistant',
+    content: reply,
+    timestamp: Date.now(),
+  };
+}
+
+export interface AIAssistant {
+  session: import('./types').AISession;
+  sendMessage(content: string): Promise<import('./types').AIMessage>;
+  clear(): void;
+}
+
+export function createAssistant(sessionId?: string): AIAssistant {
+  const session: import('./types').AISession = {
+    id: sessionId ?? crypto.randomUUID(),
+    messages: [],
+    createdAt: Date.now(),
+  };
+
+  return {
+    session,
+    async sendMessage(content: string) {
+      const userMsg: import('./types').AIMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content,
+        timestamp: Date.now(),
+      };
+      session.messages.push(userMsg);
+      const reply = await chat(session.id, content);
+      session.messages.push(reply);
+      return reply;
+    },
+    clear() {
+      session.messages = [];
+    },
+  };
+}
