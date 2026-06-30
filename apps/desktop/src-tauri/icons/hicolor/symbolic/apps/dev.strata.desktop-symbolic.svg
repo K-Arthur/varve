@@ -1,14 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
   <!--
-    Strata symbolic icon — monochrome single-color variant.
-    Designed for Linux symbolic icon themes (GNOME/KDE/elementary).
-    Fill is #000000; the desktop environment recolors via CSS / -gtk-icon-filter.
-    Same geometry as the full-color mark but unified fill.
+    Strata symbolic icon — freedesktop symbolic convention.
+    16×16 viewBox; fill="currentColor" — GTK/GNOME recolours via CSS color property
+    or -gtk-icon-filter. KDE Plasma and elementary OS similarly recolour via CSS.
+    File installed as dev.strata.desktop-symbolic.svg.
+    Shape: three parallelogram layers cascading right — matches master mark geometry
+    (same consistent-tilt direction, no alternating). Single combined path.
+    L1: (1,2)→(8,2)→(10,5)→(3,5)   width 7, shear 2, height 3
+    L2: (3,7)→(10,7)→(12,10)→(5,10) cascade +2px right
+    L3: (5,12)→(12,12)→(14,15)→(7,15) cascade +2px right; max x=14, y=15 ✓
   -->
-  <g fill="#000000">
-    <rect x="16" y="26" width="96" height="16" rx="2"/>
-    <rect x="0" y="46" width="108" height="16" rx="2"/>
-    <rect x="16" y="66" width="96" height="16" rx="2"/>
-    <rect x="0" y="86" width="108" height="16" rx="2"/>
-  </g>
+  <path d="M1,2 H8 L10,5 H3 Z M3,7 H10 L12,10 H5 Z M5,12 H12 L14,15 H7 Z"
+        fill="currentColor"/>
 </svg>
