@@ -8,6 +8,8 @@
 
 export type { IconName, IconProps } from './Icon';
 export { Icon } from './Icon';
+export type { StrataLogoProps } from './StrataLogo';
+export { StrataLogo } from './StrataLogo';
 
 import type { IconName } from './Icon';
 
@@ -25,11 +27,22 @@ export const TOOL_ICONS = {
   text: 'Type',
   image: 'Image',
   component: 'Component',
+  group: 'Group',
   union: 'Combine',
   subtract: 'Diff',
   slice: 'Scissors',
   hand: 'Hand',
   zoomIn: 'ZoomIn',
+  zoom: 'ZoomIn',
+  arrow: 'ArrowRight',
+  nodeEdit: 'Pointer',
+  scale: 'Maximize2',
+  eyedropper: 'Pipette',
+  booleanUnion: 'Combine',
+  booleanSubtract: 'Diff',
+  booleanIntersect: 'Combine',
+  booleanExclude: 'Diff',
+  inspect: 'SearchCode',
 } as const satisfies Record<string, IconName>;
 
 /** General chrome icons. */
@@ -37,6 +50,7 @@ export const CHROME_ICONS = {
   menu: 'Menu',
   close: 'X',
   chevronDown: 'ChevronDown',
+  chevronUp: 'ChevronUp',
   chevronRight: 'ChevronRight',
   check: 'Check',
   visibility: 'Eye',
@@ -48,4 +62,31 @@ export const CHROME_ICONS = {
   plus: 'Plus',
   trash: 'Trash2',
   spinner: 'LoaderCircle',
+  clock: 'Clock',
+  history: 'History',
+  pin: 'Pin',
+  pinOff: 'PinOff',
+  fileText: 'FileText',
+  folder: 'Folder',
+  folderOpen: 'FolderOpen',
+  filter: 'Filter',
+  layoutGrid: 'LayoutGrid',
+  list: 'List',
+  ellipsis: 'Ellipsis',
+  rotateCcw: 'RotateCcw',
+  upload: 'Upload',
+  download: 'Download',
+  star: 'Star',
+  archive: 'Archive',
+  copy: 'Copy',
+  externalLink: 'ExternalLink',
+  inspect: 'SearchCode',
+  ruler: 'Ruler',
+  code: 'Code',
+  palette: 'Palette',
+  maximize: 'Maximize',
+  crosshair: 'Crosshair',
+  gripVertical: 'GripVertical',
+  undo: 'Undo2',
+  redo: 'Redo2',
 } as const satisfies Record<string, IconName>;

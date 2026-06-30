@@ -104,7 +104,9 @@ describe('Component functions (Task 1.1)', () => {
     expect(node.name).toBe('Button Instance');
     expect(node.children.length).toBeGreaterThan(0);
     // The instance child should be a clone of the master's bg
-    const instanceChild = getById(doc, node.children[0]!);
+    const firstChild = node.children[0];
+    if (!firstChild) throw new Error('no child');
+    const instanceChild = getById(doc, firstChild);
     expect(instanceChild).toBeDefined();
     expect(instanceChild?.id).not.toBe(bgId); // Cloned, different id
   });
@@ -174,7 +176,9 @@ describe('Component functions (Task 1.1)', () => {
     doc = fillSlot(doc, instance.id, 'label', customId);
 
     // Now propagate master changes (simulate editing the master: rename bg)
-    const renamedBg = { ...getById(doc, bgId)!, name: 'bg-v2' };
+    const existingBg = getById(doc, bgId);
+    if (!existingBg) throw new Error('bg not found');
+    const renamedBg = { ...existingBg, name: 'bg-v2' };
     doc = { ...doc, nodes: { ...doc.nodes, [bgId]: renamedBg } };
 
     doc = propagateMaster(doc, component, instance.id);
@@ -185,7 +189,9 @@ describe('Component functions (Task 1.1)', () => {
     expect(updatedInstance.children).toContain(customId);
 
     // The bg child should be re-cloned (new name should propagate)
-    const instanceBg = getById(doc, updatedInstance.children.find((c) => c !== customId)!);
+    const nonCustomChild = updatedInstance.children.find((c) => c !== customId);
+    if (!nonCustomChild) throw new Error('no non-custom child');
+    const instanceBg = getById(doc, nonCustomChild);
     expect(instanceBg).toBeDefined();
     expect(instanceBg?.name).toBe('bg-v2');
   });

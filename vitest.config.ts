@@ -11,16 +11,25 @@ export default defineConfig({
       'apps/**/src/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.{test,spec}.{ts,tsx}',
     ],
+    exclude: ['tests/e2e/**', '**/node_modules/**'],
     environment: 'node',
     environmentMatchGlobs: [
       ['packages/ui/src/components/**', 'jsdom'],
       ['packages/editor/**', 'jsdom'],
+      ['packages/home/**', 'jsdom'],
     ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
       include: ['packages/*/src/**'],
       exclude: ['**/*.test.*', '**/*.spec.*', '**/dist/**'],
+      thresholds: {
+        perFile: true,
+        statements: 80,
+        branches: 70,
+        functions: 80,
+        lines: 80,
+      },
     },
   },
 });

@@ -1,12 +1,17 @@
-/**
- * Status bar — tool, zoom, selection count.
- * F1: uses selectedNodes() which works for nested nodes (doc.nodes lookup).
- * A12: zoom is editable; Fit button resets to 1.
- */
+import { Icon } from '@strata/ui';
 import { useEditor } from './context';
 
 export function StatusBar() {
-  const { state, setZoom, selectedNodes, rootNodes } = useEditor();
+  const {
+    state,
+    setZoom,
+    setUnitType,
+    setPixelGridEnabled,
+    setSnapEnabled,
+    revealSelection,
+    selectedNodes,
+    rootNodes,
+  } = useEditor();
   const sel = selectedNodes();
 
   function handleZoomInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -19,16 +24,81 @@ export function StatusBar() {
     if (e.key === 'Escape') (e.target as HTMLInputElement).blur();
   }
 
-  const selText =
-    sel.length === 1
-      ? `${sel[0]?.name ?? 'unknown'}`
-      : sel.length > 1
-        ? `${sel.length} selected`
-        : `${rootNodes().length} layers`;
+  const singleSel = sel.length === 1;
 
   return (
     <div className="editor-status">
       <span>{state.tool}</span>
+      {state.cursorPos && (
+        <span>
+          X: {state.cursorPos.x} Y: {state.cursorPos.y}
+        </span>
+      )}
+      <span aria-hidden>—</span>
+      <select
+        value={state.unitType}
+        onChange={(e) => setUnitType(e.target.value as typeof state.unitType)}
+        aria-label="Units"
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'inherit',
+          font: 'inherit',
+          fontSize: 'var(--font-size-xs)',
+          cursor: 'pointer',
+          padding: 0,
+          outline: 'none',
+        }}
+      >
+        <option value="px">px</option>
+        <option value="pt">pt</option>
+        <option value="cm">cm</option>
+        <option value="mm">mm</option>
+        <option value="in">in</option>
+        <option value="%">%</option>
+      </select>
+      <button
+        type="button"
+        aria-pressed={state.pixelGridEnabled}
+        onClick={() => setPixelGridEnabled(!state.pixelGridEnabled)}
+        aria-label="Toggle pixel grid"
+        style={{
+          background: state.pixelGridEnabled ? 'var(--color-interactive-default)' : 'none',
+          border: 'none',
+          color: state.pixelGridEnabled ? 'var(--color-text-on-accent)' : 'var(--color-text-muted)',
+          cursor: 'pointer',
+          borderRadius: 'var(--radius-sm)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 20,
+          height: 20,
+          padding: 0,
+        }}
+      >
+        <Icon name="Grid3x3" size={12} />
+      </button>
+      <button
+        type="button"
+        aria-pressed={state.snapEnabled}
+        onClick={() => setSnapEnabled(!state.snapEnabled)}
+        aria-label="Toggle snapping"
+        style={{
+          background: state.snapEnabled ? 'var(--color-interactive-default)' : 'none',
+          border: 'none',
+          color: state.snapEnabled ? 'var(--color-text-on-accent)' : 'var(--color-text-muted)',
+          cursor: 'pointer',
+          borderRadius: 'var(--radius-sm)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 20,
+          height: 20,
+          padding: 0,
+        }}
+      >
+        <Icon name="Magnet" size={12} />
+      </button>
       <span aria-hidden>—</span>
       <label htmlFor="status-zoom" className="visually-hidden">
         Zoom
@@ -43,23 +113,15 @@ export function StatusBar() {
         onChange={handleZoomInput}
         onKeyDown={handleZoomKey}
         aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
-        style={{
-          width: 52,
-          background: 'none',
-          border: 'none',
-          color: 'inherit',
-          font: 'inherit',
-          fontSize: 'var(--font-size-xs)',
-          textAlign: 'right',
-          cursor: 'text',
-          padding: 0,
-        }}
+        className="editor-status__zoom-value"
       />
-      <span style={{ color: 'var(--color-text-muted)' }}>%</span>
+      <span className="num-display__suffix" style={{ marginLeft: 0 }}>
+        %
+      </span>
       <button
         type="button"
-        onClick={() => setZoom(1)}
-        aria-label="Reset zoom to 100%"
+        onClick={() => revealSelection({ fit: true })}
+        aria-label="Fit selection to viewport"
         style={{
           background: 'none',
           border: 'none',
@@ -72,7 +134,18 @@ export function StatusBar() {
       >
         Fit
       </button>
-      <span style={{ marginLeft: 'auto' }}>{selText}</span>
+      <span
+        style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.15em' }}
+      >
+        {singleSel ? (
+          <span>{sel[0]?.name ?? 'unknown'}</span>
+        ) : (
+          <>
+            <span className="num-display">{sel.length > 1 ? sel.length : rootNodes().length}</span>
+            <span className="num-display__suffix">{sel.length > 1 ? 'selected' : 'layers'}</span>
+          </>
+        )}
+      </span>
     </div>
   );
 }

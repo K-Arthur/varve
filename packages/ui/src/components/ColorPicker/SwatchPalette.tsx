@@ -1,0 +1,171 @@
+import { useCallback, useRef } from 'react';
+import type { Color } from './color-utils';
+import { rgbToHex } from './color-utils';
+
+export interface SwatchPaletteProps {
+  onSelect: (color: Color) => void;
+  documentColors?: Color[];
+  recentColors?: Color[];
+  label?: string;
+}
+
+const THEME_PALETTE: { name: string; color: Color }[] = [
+  { name: 'White', color: [255, 255, 255, 255] },
+  { name: 'Light Gray', color: [230, 230, 230, 255] },
+  { name: 'Gray', color: [150, 150, 150, 255] },
+  { name: 'Dark Gray', color: [80, 80, 80, 255] },
+  { name: 'Black', color: [0, 0, 0, 255] },
+  { name: 'Red 500', color: [220, 38, 38, 255] },
+  { name: 'Orange 500', color: [234, 88, 12, 255] },
+  { name: 'Yellow 500', color: [202, 138, 4, 255] },
+  { name: 'Green 500', color: [22, 163, 74, 255] },
+  { name: 'Teal 500', color: [20, 184, 166, 255] },
+  { name: 'Blue 500', color: [37, 99, 235, 255] },
+  { name: 'Purple 500', color: [124, 58, 237, 255] },
+  { name: 'Pink 500', color: [219, 39, 119, 255] },
+  { name: 'Brown 500', color: [120, 70, 40, 255] },
+];
+
+const SWATCH_SIZE = 22;
+
+function luminance(c: Color): number {
+  return c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
+}
+
+function swatchBorder(c: Color): string {
+  return luminance(c) > 160
+    ? '1px solid var(--color-border-strong)'
+    : '1px solid rgba(255,255,255,0.3)';
+}
+
+export function SwatchPalette({
+  onSelect,
+  documentColors,
+  recentColors,
+  label = 'Colors',
+}: SwatchPaletteProps) {
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    const items = Array.from(
+      listRef.current?.querySelectorAll('[role="option"]') ?? [],
+    ) as HTMLElement[];
+    const idx = items.indexOf(target);
+    if (idx === -1) return;
+    let nextIdx = idx;
+    const cols = Math.floor((listRef.current?.clientWidth ?? 140) / (SWATCH_SIZE + 4));
+    switch (e.key) {
+      case 'ArrowRight':
+        nextIdx = Math.min(items.length - 1, idx + 1);
+        break;
+      case 'ArrowLeft':
+        nextIdx = Math.max(0, idx - 1);
+        break;
+      case 'ArrowDown':
+        nextIdx = Math.min(items.length - 1, idx + cols);
+        break;
+      case 'ArrowUp':
+        nextIdx = Math.max(0, idx - cols);
+        break;
+      case 'Home':
+        nextIdx = 0;
+        break;
+      case 'End':
+        nextIdx = items.length - 1;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    items[nextIdx]?.focus();
+  }, []);
+
+  interface SwatchSectionProps {
+    title: string;
+    colors: { name: string; color: Color }[];
+  }
+
+  function SwatchSection({ title, colors }: SwatchSectionProps) {
+    return (
+      <div>
+        <div
+          style={{
+            fontSize: 'var(--font-size-xs)',
+            color: 'var(--color-text-muted)',
+            marginBottom: 'var(--space-1)',
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 4,
+          }}
+        >
+          {colors.map(({ name, color }) => (
+            <button
+              key={`${name}-${color.join(',')}`}
+              type="button"
+              role="option"
+              aria-selected={false}
+              aria-label={name}
+              title={name}
+              onClick={() => onSelect(color)}
+              style={{
+                width: SWATCH_SIZE,
+                height: SWATCH_SIZE,
+                borderRadius: 'var(--radius-sm)',
+                background: `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`,
+                border: swatchBorder(color),
+                cursor: 'pointer',
+                padding: 0,
+                outline: 'none',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.outline = '2px solid var(--color-interactive-focus-ring)';
+                e.currentTarget.style.outlineOffset = '2px';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.outline = '';
+                e.currentTarget.style.outlineOffset = '';
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const recentSwatches = (recentColors ?? []).map((c) => ({
+    name: rgbToHex(c[0], c[1], c[2]),
+    color: c,
+  }));
+
+  const docSwatches = (documentColors ?? []).map((c) => ({
+    name: rgbToHex(c[0], c[1], c[2]),
+    color: c,
+  }));
+
+  const themeSwatches = THEME_PALETTE;
+
+  return (
+    <div
+      ref={listRef}
+      role="listbox"
+      aria-label={label}
+      onKeyDown={handleKeyDown}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-2)',
+      }}
+    >
+      {docSwatches.length > 0 && <SwatchSection title="Document Colors" colors={docSwatches} />}
+      {recentSwatches.length > 0 && <SwatchSection title="Recent Colors" colors={recentSwatches} />}
+      <SwatchSection title="Theme Palette" colors={themeSwatches} />
+    </div>
+  );
+}

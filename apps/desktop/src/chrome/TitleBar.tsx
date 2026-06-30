@@ -75,7 +75,7 @@ export function TitleBar({ title = 'Strata' }: { title?: string }) {
           display: 'flex',
           alignItems: 'center',
           flexShrink: 0,
-          width: 108 /* 3 × 36px; bounded so no overflow/clipping */,
+          width: 108 /* 3 x 36px; bounded so no overflow/clipping */,
           justifyContent: 'flex-end',
         }}
       >

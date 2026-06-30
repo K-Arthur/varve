@@ -17,10 +17,22 @@
     "test": "cd ../.. && vitest run packages/editor"
   },
   "dependencies": {
+    "@strata/ai": "workspace:*",
     "@strata/codegen": "workspace:*",
-    "@strata/shared": "workspace:*",
-    "@strata/scene": "workspace:*",
+    "@strata/collab": "workspace:*",
     "@strata/engine": "workspace:*",
-    "@strata/ui": "workspace:*"
+    "@strata/platform": "workspace:*",
+    "@strata/plugin-sandbox": "workspace:*",
+    "@strata/scene": "workspace:*",
+    "@strata/shared": "workspace:*",
+    "@strata/ui": "workspace:*",
+    "@tanstack/react-virtual": "^3.14.4",
+    "prismjs": "^1.30.0"
+  },
+  "devDependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@types/prismjs": "^1.26.6"
   }
 }

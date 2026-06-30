@@ -47,12 +47,7 @@ impl Default for TraceOptions {
 ///
 /// `pixels` is a flat array of grayscale values (0-255) in row-major order.
 /// Returns a list of closed vector paths (polygons approximating each contour).
-pub fn trace_contours(
-    pixels: &[u8],
-    width: u32,
-    height: u32,
-    opts: &TraceOptions,
-) -> Vec<Path> {
+pub fn trace_contours(pixels: &[u8], width: u32, height: u32, opts: &TraceOptions) -> Vec<Path> {
     if pixels.len() as u32 != width * height {
         return Vec::new();
     }
@@ -73,9 +68,20 @@ pub fn trace_contours(
                 if visited[(sy * width + sx) as usize] {
                     continue;
                 }
-                let pts = trace_one(&binary, width, height, sx, sy, &mut visited, opts.min_pixels);
+                let pts = trace_one(
+                    &binary,
+                    width,
+                    height,
+                    sx,
+                    sy,
+                    &mut visited,
+                    opts.min_pixels,
+                );
                 if !pts.is_empty() {
-                    traced.push(Path { points: pts, closed: true });
+                    traced.push(Path {
+                        points: pts,
+                        closed: true,
+                    });
                 }
             }
             traced
@@ -127,7 +133,14 @@ fn trace_one(
 ) -> Vec<Point> {
     // 8-direction offsets: right, down-right, down, down-left, left, up-left, up, up-right
     let dirs: [(i32, i32); 8] = [
-        (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1),
+        (1, 0),
+        (1, 1),
+        (0, 1),
+        (-1, 1),
+        (-1, 0),
+        (-1, -1),
+        (0, -1),
+        (1, -1),
     ];
 
     let mut path = Vec::new();
@@ -170,7 +183,8 @@ fn trace_one(
             }
         }
 
-        if !found || (cx == sx as i32 && cy == sy as i32) || path.len() > (width * height) as usize {
+        if !found || (cx == sx as i32 && cy == sy as i32) || path.len() > (width * height) as usize
+        {
             break;
         }
     }

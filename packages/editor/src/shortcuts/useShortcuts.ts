@@ -1,11 +1,12 @@
 import { exportDocumentToSvg } from '@strata/codegen';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorContextValue, ToolId } from '../context';
-import { bindingMatchesEvent, SHORTCUT_DEFS } from './ShortcutManager';
+import { bindingMatchesEvent, getEffectiveBinding, SHORTCUT_DEFS } from './ShortcutManager';
 
 export function useShortcuts(editor: EditorContextValue): {
   paletteOpen: boolean;
   closePalette: () => void;
+  openPalette: () => void;
 } {
   const ref = useRef(editor);
   ref.current = editor;
@@ -56,11 +57,13 @@ export function useShortcuts(editor: EditorContextValue): {
       case 'selectAll':
         return () => {
           const nodes = e.rootNodes();
-          if (nodes.length > 0) {
-            // Select the first node; real multi-select-all deferred to Phase D
-            const first = nodes[0];
-            if (first) e.setSelection(first.id);
+          if (nodes.length === 0) return;
+          e.setSelection(nodes[0]?.id ?? null);
+          for (let i = 1; i < nodes.length; i++) {
+            const n = nodes[i];
+            if (n) e.toggleSelection(n.id, true);
           }
+          e.announceSelection(nodes);
         };
       case 'tabNew':
         return () => e.newTab();
@@ -91,6 +94,28 @@ export function useShortcuts(editor: EditorContextValue): {
       }
       case 'group':
         return null;
+      case 'alignLeft':
+        return () => e.alignSelected('left');
+      case 'alignCenterH':
+        return () => e.alignSelected('centerH');
+      case 'alignRight':
+        return () => e.alignSelected('right');
+      case 'alignTop':
+        return () => e.alignSelected('top');
+      case 'alignCenterV':
+        return () => e.alignSelected('centerV');
+      case 'alignBottom':
+        return () => e.alignSelected('bottom');
+      case 'distributeHorizontal':
+        return () => e.distributeSelected('horizontal');
+      case 'distributeVertical':
+        return () => e.distributeSelected('vertical');
+      case 'bindField':
+        return () => {
+          if (e.focusedField) {
+            e.setBindingField(e.focusedField);
+          }
+        };
       case 'shortcutPalette':
         return () => setPaletteOpen((p) => !p);
       case 'toolSelect':
@@ -110,7 +135,9 @@ export function useShortcuts(editor: EditorContextValue): {
       case 'toolHand':
         return () => e.setTool('hand' as ToolId);
       case 'toolZoom':
-        return () => e.setTool('zoomIn' as ToolId);
+        return () => e.setTool('zoom' as ToolId);
+      case 'toolInspect':
+        return () => e.setTool('inspect' as ToolId);
       default:
         return null;
     }
@@ -128,8 +155,9 @@ export function useShortcuts(editor: EditorContextValue): {
         return;
       if ((e.target as HTMLElement).closest?.('[data-shortcut-ignore]')) return;
 
-      for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
-        if (!bindingMatchesEvent(e, def.binding)) continue;
+      for (const [id, _def] of Object.entries(SHORTCUT_DEFS)) {
+        const binding = getEffectiveBinding(id);
+        if (!binding?.key || !bindingMatchesEvent(e, binding)) continue;
         e.preventDefault();
         getHandler(id)?.();
         return;
@@ -150,5 +178,9 @@ export function useShortcuts(editor: EditorContextValue): {
     return () => window.removeEventListener('keydown', handler);
   }, [getHandler]);
 
-  return { paletteOpen, closePalette: () => setPaletteOpen(false) };
+  return {
+    paletteOpen,
+    closePalette: () => setPaletteOpen(false),
+    openPalette: () => setPaletteOpen(true),
+  };
 }

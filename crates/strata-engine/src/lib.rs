@@ -13,7 +13,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
-use strata_core::{SceneNode, Shape};
+use strata_core::{PathPoint, SceneNode, Shape};
 
 /// One drawable record in the render IR. The webview replays these in order.
 ///
@@ -26,6 +26,22 @@ pub struct RenderItem {
     /// RGBA fill, 0-255 per channel.
     pub fill: [u8; 4],
     pub primitive: Primitive,
+    // ── F6: appearance (serde(default) for backward compat with old IR) ─────
+    #[serde(default = "default_opacity")]
+    pub opacity: f64,
+    #[serde(default = "default_blend_mode")]
+    pub blend_mode: String,
+    #[serde(default)]
+    pub strokes: Vec<strata_core::Stroke>,
+    #[serde(default)]
+    pub effects: Vec<strata_core::Effect>,
+}
+
+fn default_opacity() -> f64 {
+    1.0
+}
+fn default_blend_mode() -> String {
+    "normal".into()
 }
 
 /// Geometry primitive in a node's LOCAL space (pre-transform).
@@ -72,6 +88,20 @@ pub enum Primitive {
         points: u32,
         rotation: f64,
     },
+    #[serde(rename = "arrow")]
+    Arrow {
+        from: [f64; 2],
+        to: [f64; 2],
+        tolerance: f64,
+        #[serde(rename = "arrowheadSize")]
+        arrowhead_size: f64,
+    },
+    #[serde(rename = "path")]
+    Path {
+        points: Vec<PathPoint>,
+        closed: bool,
+        tolerance: f64,
+    },
 }
 
 /// Build the render IR from a scene (paint order preserved). One item per node.
@@ -82,6 +112,10 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
             transform: n.transform.as_coeffs(),
             fill: n.fill,
             primitive: primitive_of(&n.shape),
+            opacity: n.opacity,
+            blend_mode: n.blend_mode.clone(),
+            strokes: n.strokes.clone(),
+            effects: n.effects.clone(),
         })
         .collect()
 }
@@ -89,13 +123,19 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
 /// Build the render IR from a DFS-walked scene (from `walk_nodes`).
 /// Emits one item per visited node, recursively flattening frame children
 /// in paint order. Use this for nested frame-based scenes.
-pub fn build_render_ir_flat(walked: &[(strata_core::NodeId, &SceneNode, Option<strata_core::NodeId>)]) -> Vec<RenderItem> {
+pub fn build_render_ir_flat(
+    walked: &[(strata_core::NodeId, &SceneNode, Option<strata_core::NodeId>)],
+) -> Vec<RenderItem> {
     walked
         .iter()
         .map(|(_, node, _)| RenderItem {
             transform: node.transform.as_coeffs(),
             fill: node.fill,
             primitive: primitive_of(&node.shape),
+            opacity: node.opacity,
+            blend_mode: node.blend_mode.clone(),
+            strokes: node.strokes.clone(),
+            effects: node.effects.clone(),
         })
         .collect()
 }
@@ -124,20 +164,53 @@ fn primitive_of(shape: &Shape) -> Primitive {
             to: [line.p1.x, line.p1.y],
             tolerance: *tolerance,
         },
-        Shape::Polygon { cx, cy, radius, sides, rotation } => Primitive::Polygon {
+        Shape::Polygon {
+            cx,
+            cy,
+            radius,
+            sides,
+            rotation,
+        } => Primitive::Polygon {
             cx: *cx,
             cy: *cy,
             radius: *radius,
             sides: *sides,
             rotation: *rotation,
         },
-        Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation } => Primitive::Star {
+        Shape::Star {
+            cx,
+            cy,
+            inner_radius,
+            outer_radius,
+            points,
+            rotation,
+        } => Primitive::Star {
             cx: *cx,
             cy: *cy,
             inner_radius: *inner_radius,
             outer_radius: *outer_radius,
             points: *points,
             rotation: *rotation,
+        },
+        Shape::Arrow {
+            from,
+            to,
+            tolerance,
+            arrowhead_size,
+        } => Primitive::Arrow {
+            from: *from,
+            to: *to,
+            tolerance: *tolerance,
+            arrowhead_size: *arrowhead_size,
+        },
+        Shape::Path {
+            points,
+            closed,
+            tolerance,
+        } => Primitive::Path {
+            points: points.clone(),
+            closed: *closed,
+            tolerance: *tolerance,
         },
     }
 }
@@ -157,6 +230,11 @@ mod tests {
             children: Vec::new(),
             component_id: None,
             slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
         }
     }
 
@@ -202,6 +280,11 @@ mod tests {
                 children: vec![strata_core::NodeId(2), strata_core::NodeId(3)],
                 component_id: None,
                 slots: None,
+                opacity: 1.0,
+                blend_mode: "normal".into(),
+                rotation: 0.0,
+                strokes: Vec::new(),
+                effects: Vec::new(),
             },
             SceneNode {
                 id: strata_core::NodeId(2),
@@ -212,6 +295,11 @@ mod tests {
                 children: Vec::new(),
                 component_id: None,
                 slots: None,
+                opacity: 1.0,
+                blend_mode: "normal".into(),
+                rotation: 0.0,
+                strokes: Vec::new(),
+                effects: Vec::new(),
             },
             SceneNode {
                 id: strata_core::NodeId(3),
@@ -222,6 +310,11 @@ mod tests {
                 children: Vec::new(),
                 component_id: None,
                 slots: None,
+                opacity: 1.0,
+                blend_mode: "normal".into(),
+                rotation: 0.0,
+                strokes: Vec::new(),
+                effects: Vec::new(),
             },
             SceneNode {
                 id: strata_core::NodeId(4),
@@ -232,13 +325,17 @@ mod tests {
                 children: Vec::new(),
                 component_id: None,
                 slots: None,
+                opacity: 1.0,
+                blend_mode: "normal".into(),
+                rotation: 0.0,
+                strokes: Vec::new(),
+                effects: Vec::new(),
             },
         ];
 
         let walked = walk_nodes(&scene);
         assert_eq!(walked.len(), 4);
 
-        // DFS order: frame, child1, child2, root-shape
         assert_eq!(walked[0].0, strata_core::NodeId(1));
         assert_eq!(walked[0].2, None);
 
@@ -254,20 +351,37 @@ mod tests {
         let ir = build_render_ir_flat(&walked);
         assert_eq!(ir.len(), 4);
 
-        // Frame (node 1): rect backdrop
-        assert!(matches!(ir[0].primitive, Primitive::Rect { w: 100.0, h: 100.0, .. }));
+        assert!(matches!(
+            ir[0].primitive,
+            Primitive::Rect {
+                w: 100.0,
+                h: 100.0,
+                ..
+            }
+        ));
         assert_eq!(ir[0].fill, [200, 200, 200, 255]);
 
-        // child1 (node 2): circle
         assert!(matches!(ir[1].primitive, Primitive::Circle { r: 5.0, .. }));
         assert_eq!(ir[1].fill, [255, 0, 0, 255]);
 
-        // child2 (node 3): rect
-        assert!(matches!(ir[2].primitive, Primitive::Rect { w: 20.0, h: 20.0, .. }));
+        assert!(matches!(
+            ir[2].primitive,
+            Primitive::Rect {
+                w: 20.0,
+                h: 20.0,
+                ..
+            }
+        ));
         assert_eq!(ir[2].fill, [0, 255, 0, 255]);
 
-        // root-shape (node 4)
-        assert!(matches!(ir[3].primitive, Primitive::Rect { w: 50.0, h: 50.0, .. }));
+        assert!(matches!(
+            ir[3].primitive,
+            Primitive::Rect {
+                w: 50.0,
+                h: 50.0,
+                ..
+            }
+        ));
         assert_eq!(ir[3].fill, [57, 208, 198, 255]);
     }
 
@@ -282,6 +396,11 @@ mod tests {
             children: Vec::new(),
             component_id: None,
             slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
         };
         let ir = build_render_ir(&[node]);
         assert!(matches!(ir[0].primitive, Primitive::Circle { r: 8.0, .. }));
@@ -294,7 +413,6 @@ mod tests {
                 r: 8.0
             }
         );
-        // transform survives into the IR (translate(40,40) matrix coefficients).
         assert_eq!(ir[0].transform, [1.0, 0.0, 0.0, 1.0, 40.0, 40.0]);
     }
 }

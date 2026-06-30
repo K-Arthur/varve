@@ -11,7 +11,7 @@
  * (no WASM memory ceiling). The web build selects wasm.
  */
 import { hitTest } from './geometry';
-import type { Backend, Point, RenderItem, Scene, SceneNode } from './types';
+import type { Backend, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
 
 export interface Engine {
   readonly backend: Backend;
@@ -23,10 +23,36 @@ export interface Engine {
 }
 
 function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
+  if (node.kind === 'image') {
+    return { kind: 'image', w: node.w ?? 100, h: node.h ?? 100, src: node.src ?? '' };
+  }
+  if (node.kind === 'text') {
+    const fontSize = node.fontSize ?? 14;
+    return {
+      kind: 'text',
+      x: 0,
+      y: 0,
+      w: fontSize * 6,
+      h: fontSize * 1.4,
+      text: node.text ?? '',
+      fontSize,
+      fontFamily: node.fontFamily ?? 'sans-serif',
+      fontWeight: node.fontWeight ?? 400,
+      fontStyle: node.fontStyle ?? 'normal',
+    };
+  }
   const s = node.shape;
+  if (!s) return { kind: 'rect', x: 0, y: 0, w: 100, h: 100 };
   switch (s.kind) {
     case 'rect':
-      return { kind: 'rect', x: s.x, y: s.y, w: s.w, h: s.h };
+      return {
+        kind: 'rect',
+        x: s.x,
+        y: s.y,
+        w: s.w,
+        h: s.h,
+        ...(node.cornerRadius ? { cornerRadius: node.cornerRadius } : {}),
+      };
     case 'ellipse':
       return { kind: 'ellipse', cx: s.cx, cy: s.cy, rx: s.rx, ry: s.ry };
     case 'circle':
@@ -52,6 +78,16 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
         points: s.points,
         rotation: s.rotation,
       };
+    case 'arrow':
+      return {
+        kind: 'arrow',
+        from: s.from,
+        to: s.to,
+        tolerance: s.tolerance,
+        arrowheadSize: s.arrowheadSize,
+      };
+    case 'path':
+      return { kind: 'path', points: s.points, closed: s.closed, tolerance: s.tolerance };
   }
 }
 
@@ -60,11 +96,50 @@ function stubEngine(): Engine {
   return {
     backend: 'stub',
     async buildIr(scene) {
-      return scene.nodes.map((n) => ({
-        transform: n.transform,
-        fill: n.fill,
-        primitive: shapeToPrimitive(n),
-      }));
+      return scene.nodes.map((n) => {
+        const item: RenderItem = {
+          transform: n.transform,
+          fill: n.fill ?? ([0, 0, 0, 0] as [number, number, number, number]),
+          primitive: shapeToPrimitive(n),
+          opacity: n.opacity ?? 1,
+          blendMode: n.blendMode ?? 'normal',
+          strokes: n.strokes ?? [],
+          effects: n.effects ?? [],
+        };
+        // P2: populate fills stack if present
+        if (n.fills && n.fills.length > 0) {
+          item.fills = n.fills
+            .filter((f: EngineFill) => f.visible)
+            .map((f: EngineFill): FillIR | null => {
+              if (f.type === 'solid' && f.color) {
+                return {
+                  type: 'solid' as const,
+                  color: f.color,
+                  opacity: f.opacity,
+                  blendMode: f.blendMode,
+                  visible: f.visible,
+                };
+              }
+              if (f.type === 'gradient' && f.gradient) {
+                return {
+                  type: 'gradient' as const,
+                  gradientType: f.gradient.type,
+                  stops: f.gradient.stops.map((s) => ({
+                    position: s.position,
+                    color: s.color,
+                  })),
+                  rotation: f.gradient.rotation ?? 0,
+                  opacity: f.opacity,
+                  blendMode: f.blendMode,
+                  visible: f.visible,
+                };
+              }
+              return null;
+            })
+            .filter((f): f is FillIR => f !== null);
+        }
+        return item;
+      });
     },
     async hitTest(scene, world) {
       return hitTest(scene.nodes, world);

@@ -164,16 +164,18 @@ export function buildSpec(doc: Document): SpecSheet {
         detail.fontSize = node.fontSize;
 
         const typeKey = `${node.fontSize}`;
-        if (!typeStyles.has(typeKey)) {
-          typeStyles.set(typeKey, {
+        let ts = typeStyles.get(typeKey);
+        if (!ts) {
+          ts = {
             id: `type-${typeKey}`,
             name: `${node.fontSize}px`,
             fontSize: node.fontSize,
             fill: node.fill,
             count: 0,
-          });
+          };
+          typeStyles.set(typeKey, ts);
         }
-        typeStyles.get(typeKey)!.count++;
+        ts.count++;
 
         nodes.push(detail);
         continue;

@@ -28,10 +28,8 @@ function colorBlock(theme: string): string {
 
 const NON_COLOR = `
   /* --- Typography --- */
-  /* First pass uses offline-safe system stacks. Real font files (display + body)
-     with font-display: swap + subset/unicode-range land in task 0.4/0.9. */
-  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: "IBM Plex Sans Variable", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -40,7 +38,11 @@ const NON_COLOR = `
   --font-line-tight: 1.15;
   --font-line-normal: 1.5;
   --font-line-relaxed: 1.65;
+  --tracking-tight: -0.025em;
+  --tracking-base: 0;
+  --tracking-wide: 0.05em;
   /* Fluid modular scale (clamp). */
+  --font-size-2xs: clamp(0.60rem, 0.58rem + 0.08vw, 0.68rem);
   --font-size-xs: clamp(0.72rem, 0.70rem + 0.10vw, 0.78rem);
   --font-size-sm: clamp(0.83rem, 0.80rem + 0.15vw, 0.92rem);
   --font-size-md: clamp(0.95rem, 0.91rem + 0.20vw, 1.06rem);
@@ -59,7 +61,19 @@ const NON_COLOR = `
   --space-6: clamp(1.40rem, 1.31rem + 0.45vw, 1.85rem);
   --space-7: clamp(2.00rem, 1.87rem + 0.65vw, 2.65rem);
   --space-8: clamp(2.80rem, 2.60rem + 1.00vw, 3.80rem);
+  --space-9: clamp(3.60rem, 3.30rem + 1.50vw, 5.00rem);
+  --space-10: clamp(4.50rem, 4.00rem + 2.00vw, 6.50rem);
+  --space-11: clamp(5.60rem, 5.00rem + 2.50vw, 8.00rem);
+  --space-12: clamp(7.00rem, 6.00rem + 3.00vw, 10.00rem);
+  --space-13: clamp(8.50rem, 7.50rem + 3.50vw, 12.00rem);
+  --space-14: clamp(10.00rem, 9.00rem + 4.00vw, 14.00rem);
+  --space-15: clamp(12.00rem, 10.50rem + 5.00vw, 16.00rem);
+  --space-16: clamp(14.00rem, 12.00rem + 6.00vw, 18.50rem);
+  --space-20: clamp(17.00rem, 15.00rem + 7.00vw, 22.00rem);
+  --space-24: clamp(21.00rem, 18.00rem + 9.00vw, 27.00rem);
+  --space-32: clamp(28.00rem, 24.00rem + 12.00vw, 36.00rem);
   /* Component aliases. */
+  --panel-padding: clamp(0.70rem, 0.66rem + 0.20vw, 0.90rem);
   --toolbar-height: clamp(2.5rem, 2.4rem + 0.5vw, 3rem);
   --topbar-height: clamp(2rem, 1.95rem + 0.25vw, 2.25rem);
   --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
@@ -74,18 +88,25 @@ const NON_COLOR = `
   --radius-pill: 9999px;
 
   /* --- Shadow --- */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.06);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.10);
   --shadow-md: 0 4px 12px rgb(0 0 0 / 0.14);
   --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.20);
+  --shadow-xl: 0 24px 48px rgb(0 0 0 / 0.25);
 
   /* --- Motion --- */
-  --duration-instant: 60ms;
-  --duration-quick: 120ms;
-  --duration-base: 200ms;
-  --duration-slow: 320ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-instant: 50ms;
+  --duration-quick: 100ms;
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 600ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
 
   /* --- z-index --- */
   --z-base: 0;
@@ -129,10 +150,49 @@ ${colorBlock('dark')}
   }
 }
 
-/* High-contrast honors the OS forced-colors mode. */
+/* High-contrast honors the OS forced-colors mode using system color keywords. */
 @media (forced-colors: active) {
   :root:not([data-theme="high-contrast"]) {
-${colorBlock('high-contrast')}
+    --color-surface-app: Canvas;
+    --color-surface-base: Canvas;
+    --color-surface-raised: Canvas;
+    --color-surface-sunken: Canvas;
+    --color-surface-overlay: Canvas;
+    --color-text-primary: CanvasText;
+    --color-text-secondary: CanvasText;
+    --color-text-subtle: GrayText;
+    --color-text-muted: GrayText;
+    --color-text-disabled: GrayText;
+    --color-text-on-accent: ButtonText;
+    --color-text-on-danger: ButtonText;
+    --color-border-subtle: ButtonBorder;
+    --color-border-strong: ButtonBorder;
+    --color-border-focus: Highlight;
+    --color-interactive-default: ButtonFace;
+    --color-interactive-hover: ButtonFace;
+    --color-interactive-active: ButtonFace;
+    --color-interactive-disabled: ButtonFace;
+    --color-interactive-focus-ring: Highlight;
+    --color-feedback-success: CanvasText;
+    --color-feedback-warning: CanvasText;
+    --color-feedback-danger: CanvasText;
+    --color-feedback-info: CanvasText;
+    --color-tree-row: Canvas;
+    --color-tree-row-hover: Canvas;
+    --color-tree-row-selected: Highlight;
+    --color-tree-row-focus: Highlight;
+    --color-tree-indent-guide: CanvasText;
+    --color-layer-accent-frame: Highlight;
+    --color-layer-wash-frame: Canvas;
+    --color-layer-accent-group: Highlight;
+    --color-layer-wash-group: Canvas;
+    --color-layer-accent-text: Highlight;
+    --color-layer-wash-text: Canvas;
+    --color-layer-accent-shape: Highlight;
+    --color-layer-wash-shape: Canvas;
+    --color-layer-accent-component: Highlight;
+    --color-layer-wash-component: Canvas;
+    --color-hero-glow: transparent;
   }
 }
 
@@ -141,8 +201,10 @@ ${colorBlock('high-contrast')}
   :root {
     --duration-instant: 0ms;
     --duration-quick: 0ms;
+    --duration-fast: 0ms;
     --duration-base: 0ms;
     --duration-slow: 0ms;
+    --duration-slower: 0ms;
   }
 }
 `;

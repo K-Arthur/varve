@@ -1,0 +1,43 @@
+name: Build + Package
+
+on:
+  push:
+    branches: [main, feat/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: JS tests
+        run: pnpm test
+      - name: Rust tests
+        run: cargo test --workspace
+      - name: Rust tests (desktop)
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+      - name: Tauri build
+        run: pnpm --filter @strata/desktop tauri build
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: strata-${{ matrix.os }}
+          path: apps/desktop/src-tauri/target/release/bundle/

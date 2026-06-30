@@ -1,4 +1,6 @@
-import type { ShortcutBinding, ShortcutDef } from './types';
+import type { KeymapExport, ShortcutBinding, ShortcutDef } from './types';
+
+const STORAGE_KEY = 'strata-shortcut-overrides';
 
 export const SHORTCUT_DEFS = {
   undo: { binding: { key: 'z', ctrl: true }, label: 'Undo', category: 'Edit' },
@@ -18,8 +20,55 @@ export const SHORTCUT_DEFS = {
     category: 'File',
   },
   zoomReset: { binding: { key: '0', ctrl: true }, label: 'Zoom to 100%', category: 'View' },
+  zoom50: { binding: { key: '1' }, label: 'Zoom to 50%', category: 'View' },
+  zoom75: { binding: { key: '2' }, label: 'Zoom to 75%', category: 'View' },
+  zoom100: { binding: { key: '3' }, label: 'Zoom to 100%', category: 'View' },
+  zoom150: { binding: { key: '4' }, label: 'Zoom to 150%', category: 'View' },
+  zoom200: { binding: { key: '5' }, label: 'Zoom to 200%', category: 'View' },
+  zoom400: { binding: { key: '6' }, label: 'Zoom to 400%', category: 'View' },
   selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
   group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
+  alignLeft: {
+    binding: { key: 'ArrowLeft', ctrl: true, shift: true },
+    label: 'Align left',
+    category: 'Object',
+  },
+  alignCenterH: {
+    binding: { key: 'Home', ctrl: true, shift: true },
+    label: 'Align horizontal center',
+    category: 'Object',
+  },
+  alignRight: {
+    binding: { key: 'ArrowRight', ctrl: true, shift: true },
+    label: 'Align right',
+    category: 'Object',
+  },
+  alignTop: {
+    binding: { key: 'ArrowUp', ctrl: true, shift: true },
+    label: 'Align top',
+    category: 'Object',
+  },
+  alignCenterV: {
+    binding: { key: 'PageUp', ctrl: true, shift: true },
+    label: 'Align vertical center',
+    category: 'Object',
+  },
+  alignBottom: {
+    binding: { key: 'ArrowDown', ctrl: true, shift: true },
+    label: 'Align bottom',
+    category: 'Object',
+  },
+  distributeHorizontal: {
+    binding: { key: 'h', ctrl: true, alt: true },
+    label: 'Distribute horizontally',
+    category: 'Object',
+  },
+  distributeVertical: {
+    binding: { key: 'v', ctrl: true, alt: true },
+    label: 'Distribute vertically',
+    category: 'Object',
+  },
+  bindField: { binding: { key: '=' }, label: 'Bind field', category: 'Object' },
   shortcutPalette: {
     binding: { key: '/', ctrl: true },
     label: 'Command Palette',
@@ -42,7 +91,95 @@ export const SHORTCUT_DEFS = {
   toolText: { binding: { key: 't' }, label: 'Text tool', category: 'Tools' },
   toolHand: { binding: { key: 'h' }, label: 'Hand tool', category: 'Tools' },
   toolZoom: { binding: { key: 'z' }, label: 'Zoom tool', category: 'Tools' },
+  toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
 } satisfies Record<string, ShortcutDef>;
+
+// ── Persistence ────────────────────────────────────────────────────────
+
+export function getOverrides(): Record<string, ShortcutBinding> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, ShortcutBinding>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function setOverride(id: string, binding: ShortcutBinding): void {
+  const overrides = getOverrides();
+  overrides[id] = binding;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+}
+
+export function clearOverride(id: string): void {
+  const overrides = getOverrides();
+  delete overrides[id];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+}
+
+export function clearAllOverrides(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+export function getEffectiveBinding(id: string): ShortcutBinding {
+  const overrides = getOverrides();
+  if (overrides[id]) return overrides[id];
+  const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
+  return def?.binding ?? { key: '' };
+}
+
+// ── Key capture ────────────────────────────────────────────────────────
+
+export function captureKeyCombo(e: KeyboardEvent): ShortcutBinding | null {
+  const key = e.key;
+
+  if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') {
+    return null;
+  }
+  if (key === 'Dead' || key === 'Unidentified') {
+    return null;
+  }
+  if (key === 'Escape') {
+    return null;
+  }
+
+  return {
+    key: key === 'Backspace' || key === 'Delete' ? 'Backspace' : key.toLowerCase(),
+    ctrl: isMac() ? e.metaKey : e.ctrlKey,
+    shift: e.shiftKey,
+    alt: e.altKey,
+  };
+}
+
+// ── Export / Import ─────────────────────────────────────────────────────
+
+export function exportKeymap(): KeymapExport {
+  const overrides = getOverrides();
+  const shortcuts: KeymapExport['shortcuts'] = {};
+  for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
+    shortcuts[id] = {
+      binding: overrides[id] ?? def.binding,
+      label: def.label,
+    };
+  }
+  return {
+    version: 1,
+    generated: new Date().toISOString(),
+    shortcuts,
+  };
+}
+
+export function importKeymap(data: KeymapExport): number {
+  let count = 0;
+  if (!data.shortcuts || typeof data.shortcuts !== 'object') return 0;
+  for (const [id, entry] of Object.entries(data.shortcuts)) {
+    if (entry && typeof entry === 'object' && 'binding' in entry) {
+      setOverride(id, entry.binding as ShortcutBinding);
+      count++;
+    }
+  }
+  return count;
+}
 
 export function isMac(): boolean {
   return navigator.platform?.toLowerCase().includes('mac') ?? false;

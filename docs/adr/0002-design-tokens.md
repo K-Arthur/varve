@@ -35,13 +35,13 @@ accent hue — explicitly not the default blue.
   that users stare at for hours.
 - **Contrast-friendly.** High-luminance teal pairs cleanly with cool-gray
   neutrals on both light and dark surfaces, which lets the ramp hit AA with
-  conservative pairings (validated: 42/42 pairs pass).
+  conservative pairings (validated: 51/51 pairs pass).
 - **Brand mark coherence.** The layered "strata" icon (ADR: app icon) is drawn
   in the teal ramp; tokens and mark share one identity.
 
 ## Evidence
 
-`pnpm audit:tokens` (task 0.3) verifies all 14 contrast pairs × 3 themes = 42
+`pnpm audit:tokens` (task 0.3) verifies all 17 contrast pairs × 3 themes = 51
 checks pass. The drift-guard vitest proves `tokens.css` matches the audited TS.
 
 ## Consequences

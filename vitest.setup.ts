@@ -5,6 +5,7 @@
  * optional native canvas package is installed; shell tests only need a no-op
  * target so React effects can mount without noisy environment errors.
  */
+import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
 if (typeof HTMLCanvasElement !== 'undefined') {
@@ -13,7 +14,9 @@ if (typeof HTMLCanvasElement !== 'undefined') {
     value(contextId: string) {
       if (contextId !== '2d') return null;
 
-      const context: Partial<CanvasRenderingContext2D> = {
+      (this as HTMLCanvasElement).toDataURL = vi.fn(() => 'data:image/png;base64,test');
+
+      const ctx: Partial<CanvasRenderingContext2D> = {
         canvas: this as HTMLCanvasElement,
         fillStyle: '',
         strokeStyle: '',
@@ -35,9 +38,131 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         stroke: vi.fn(),
         setLineDash: vi.fn(),
         fillText: vi.fn(),
+        translate: vi.fn(),
+        scale: vi.fn(),
+        clearRect: vi.fn(),
+        createImageData: vi.fn(),
+        putImageData: vi.fn(),
+        getImageData: vi.fn(),
       };
 
-      return context as CanvasRenderingContext2D;
+      return ctx as CanvasRenderingContext2D;
     },
+  });
+}
+
+// jsdom does not implement OffscreenCanvas
+if (typeof OffscreenCanvas === 'undefined') {
+  globalThis.OffscreenCanvas = class OffscreenCanvas {
+    width: number;
+    height: number;
+    constructor(w: number, h: number) {
+      this.width = w;
+      this.height = h;
+    }
+    getContext() {
+      return null;
+    }
+    convertToBlob() {
+      return Promise.resolve(new Blob());
+    }
+  } as unknown as typeof OffscreenCanvas;
+}
+
+// jsdom does not implement localStorage
+const store = new Map<string, string>();
+const localStorageMock: Storage = {
+  getItem: (key: string) => store.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    store.set(key, value);
+  },
+  removeItem: (key: string) => {
+    store.delete(key);
+  },
+  clear: () => {
+    store.clear();
+  },
+  get length() {
+    return store.size;
+  },
+  key: (index: number) => [...store.keys()][index] ?? null,
+};
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: localStorageMock,
+});
+
+// jsdom does not implement sessionStorage
+const sessionStore = new Map<string, string>();
+const sessionStorageMock: Storage = {
+  getItem: (key: string) => sessionStore.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    sessionStore.set(key, value);
+  },
+  removeItem: (key: string) => {
+    sessionStore.delete(key);
+  },
+  clear: () => {
+    sessionStore.clear();
+  },
+  get length() {
+    return sessionStore.size;
+  },
+  key: (index: number) => [...sessionStore.keys()][index] ?? null,
+};
+Object.defineProperty(globalThis, 'sessionStorage', {
+  configurable: true,
+  value: sessionStorageMock,
+});
+
+// jsdom does not implement matchMedia
+Object.defineProperty(globalThis, 'matchMedia', {
+  configurable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+// jsdom does not implement the popover API
+if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.showPopover) {
+  const popoverState = new WeakMap<HTMLElement, boolean>();
+
+  HTMLElement.prototype.showPopover = vi.fn(function (this: HTMLElement) {
+    if (popoverState.get(this)) throw new DOMException('Already showing');
+    popoverState.set(this, true);
+    this.style.removeProperty('display');
+    this.dispatchEvent(new Event('toggle', { bubbles: false }));
+  });
+
+  HTMLElement.prototype.hidePopover = vi.fn(function (this: HTMLElement) {
+    if (!popoverState.get(this)) throw new DOMException('Already hidden');
+    popoverState.set(this, false);
+    this.style.display = 'none';
+    this.dispatchEvent(new Event('toggle', { bubbles: false }));
+  });
+
+  HTMLElement.prototype.togglePopover = vi.fn(function (this: HTMLElement) {
+    if (popoverState.get(this)) {
+      this.hidePopover();
+    } else {
+      this.showPopover();
+    }
+  });
+}
+
+// jsdom does not implement HTMLDialogElement
+if (typeof HTMLDialogElement !== 'undefined') {
+  HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
   });
 }

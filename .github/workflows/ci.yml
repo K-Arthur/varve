@@ -37,6 +37,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: cargo test
         run: cargo test --workspace --all-targets
+      - name: cargo test (desktop)
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
 
   js:
     name: JS (pnpm)
@@ -48,14 +50,16 @@ jobs:
           version: 11
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: typecheck
         run: pnpm typecheck
       - name: lint
         run: pnpm lint
-      - name: test
-        run: pnpm test
+      - name: token gate
+        run: pnpm audit:tokens
       - name: emoji gate
         run: pnpm audit:emoji
+      - name: test
+        run: pnpm test
