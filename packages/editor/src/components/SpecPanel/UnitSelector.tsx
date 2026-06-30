@@ -30,6 +30,7 @@ export function UnitSelector({ value, onChange }: UnitSelectorProps) {
   return (
     <div className="spec-unit-selector" role="radiogroup" aria-label="Measurement unit">
       {UNIT_OPTIONS.map((opt) => (
+        // biome-ignore lint/a11y/useSemanticElements: APG radiogroup pattern uses role="radio" on buttons
         <button
           key={opt.value}
           type="button"

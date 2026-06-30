@@ -27,6 +27,7 @@
     "tokens:generate": "tsx scripts/generate-token-css.ts"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.6.13",
     "@fontsource-variable/ibm-plex-sans": "^5.2.0",
     "@fontsource-variable/geist": "^5.2.0",
     "lucide-react": "^0.469.0"
@@ -34,9 +35,6 @@
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
-  },
-  "dependencies": {
-    "@floating-ui/dom": "^1.6.13"
   },
   "devDependencies": {
     "tsx": "^4.19.0"

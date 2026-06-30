@@ -83,6 +83,10 @@ export type SemanticToken =
   | 'feedback-warning'
   | 'feedback-danger'
   | 'feedback-info'
+  | 'accent-primary'
+  | 'accent-default'
+  | 'accent-teal'
+  | 'accent-subtle'
   | 'tree-row'
   | 'tree-row-hover'
   | 'tree-row-selected'
@@ -118,6 +122,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
     'feedback-info': INFO,
+    'accent-primary': T(6),
+    'accent-default': T(6),
+    'accent-teal': T(6),
+    'accent-subtle': T(2),
     'tree-row': N(2),
     'tree-row-hover': N(7),
     'tree-row-selected': T(8),
@@ -148,6 +156,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
     'feedback-info': INFO,
+    'accent-primary': T(6),
+    'accent-default': T(6),
+    'accent-teal': T(6),
+    'accent-subtle': T(11),
     'tree-row': N(11),
     'tree-row-hover': N(6),
     'tree-row-selected': T(5),
@@ -178,6 +190,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'feedback-warning': [255, 200, 0],
     'feedback-danger': [255, 80, 80],
     'feedback-info': [100, 180, 255],
+    'accent-primary': [255, 255, 0],
+    'accent-default': [255, 255, 0],
+    'accent-teal': [255, 255, 0],
+    'accent-subtle': [80, 80, 80],
     'tree-row': [10, 10, 10],
     'tree-row-hover': [100, 100, 100],
     'tree-row-selected': [255, 255, 0],

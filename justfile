@@ -50,6 +50,10 @@ audit-tokens:
 audit-emoji:
     pnpm audit:emoji
 
+# --- Icon generation ---
+generate-icons:
+    bash scripts/generate-icons.sh
+
 # --- Combined pre-commit gate ---
 gate: format-check lint test gates
     @echo "Cascade Review gate passed."

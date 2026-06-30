@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80">
+  <!--
+    Strata wordmark-only — text in Geist Variable, the brand display font.
+    For use in menus, title bars, and compact contexts.
+  -->
+  <text x="0" y="64" font-family="'Geist Variable','Geist',ui-sans-serif,system-ui,sans-serif" font-weight="600" font-size="64" letter-spacing="-0.03em" fill="#10151f">Strata</text>
+</svg>

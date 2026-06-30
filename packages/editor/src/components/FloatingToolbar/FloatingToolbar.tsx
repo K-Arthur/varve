@@ -40,10 +40,7 @@ function ToolGroup({ tools }: { tools: ToolDef[] }) {
   return (
     <div className="floating-toolbar__group">
       {tools.map((t) => (
-        <Tooltip
-          key={t.id}
-          label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}
-        >
+        <Tooltip key={t.id} label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}>
           <button
             type="button"
             className={`floating-toolbar__btn${state.tool === t.id ? ' floating-toolbar__btn--active' : ''}`}

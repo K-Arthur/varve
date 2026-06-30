@@ -97,7 +97,9 @@ describe('nodeLocalBounds', () => {
     // Group node has no shape → kind === 'group' falls to null.
     const g = makeGroupNode('g1', { name: 'Group' });
     const d = addNode(doc, g);
-    const b = nodeLocalBounds(d.nodes.g1!);
+    const node = d.nodes.g1;
+    if (!node) throw new Error('g1 not found');
+    const b = nodeLocalBounds(node);
     expect(b).toBeNull();
   });
 });

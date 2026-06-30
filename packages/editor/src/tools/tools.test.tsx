@@ -8,9 +8,9 @@
  * Research basis: Tool state machine architecture, pointer event dispatch.
  */
 import { render, waitFor } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import { EditorProvider, useEditor } from '../context';
+import { describe, expect, it } from 'vitest';
 import type { ToolId } from '../context';
+import { EditorProvider, useEditor } from '../context';
 
 describe('Tool system regression tests', () => {
   it('Rectangle tool: creates rectangle shape when called with rect tool active', async () => {
