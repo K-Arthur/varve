@@ -390,3 +390,20 @@ Fixed pre-existing failures and resolved all JS/TS quality gates:
 | `vitest.setup.ts` | Added `sessionStorage` mock alongside the existing `localStorage` mock for jsdom tests. |
 | Lint cleanup | Fixed 36 pre-existing Biome errors across 20+ files (import ordering, formatting, non-null assertions, a11y roles/labels on intentional `div`/`span`/`svg` elements). |
 | Verification | `pnpm typecheck` (13 packages), `pnpm lint`, `pnpm audit:emoji`, `pnpm audit:tokens` (57/57 WCAG-AA), and `pnpm test` (552/552 JS tests across 61 files) all pass. `apps/desktop` production build also passes. |
+
+## Session 15 — Render IR completeness: text, rounded corners, arrowheads (2026-06-30)
+
+Closed the remaining gaps in scene→IR→paint coverage so every primitive kind the TS engine can express now actually renders, with regression tests guarding paint order and frame clipping.
+
+| Area | Update |
+|---|---|
+| `packages/engine/src/types.ts` | Added `cornerRadius?: number \| [number, number, number, number]` to the `rect` `Primitive` variant and `SceneNode`. Added a new `text` `Primitive` variant (`x, y, w, h, text, fontSize, fontFamily, fontWeight, fontStyle`) and matching `SceneNode` fields. |
+| `packages/engine/src/engine.ts` | `shapeToPrimitive` now produces a `text` primitive for `node.kind === 'text'` (carrying real font/text data instead of degrading to an invisible rect), and spreads `cornerRadius` onto the `rect` case when present. |
+| `packages/engine/src/replay.ts` | `ReplayTarget` extended with `roundRect`, `fillText`, `font`, `textBaseline`. `paintShapeFill` rect case uses `roundRect` + `fill` when `cornerRadius` is set, else `fillRect`. Split the combined `line`/`arrow` case so `arrow` draws a triangular arrowhead via a new `drawArrowhead()` helper; same split applied in `paintStroke`. Added `paintText()` (sets `font`/`textBaseline`, calls `fillText`). Fixed the image placeholder so `fillRect` always fires (was previously gated behind an `if (target.drawImage)` check that could never be true in tests). Added `text` to `primitiveBounds()`. |
+| `packages/editor/src/CanvasArea.tsx` | `toEngineNode` now passes `cornerRadius` through for shape nodes, and for text nodes emits `kind: 'text'` with real `text`/`fontSize`/`fontFamily`/`fontWeight`/`fontStyle` instead of synthesizing a fake rect shape. |
+| `packages/engine/src/replay.test.ts` | Added 9 tests: polygon, star, arrow (with arrowhead), path (bezier), text (`fillText`), image placeholder, rounded-rect (`roundRect`), plain-rect regression, and a paint-order/clip-balance regression test (`save`/`restore` counts match across a frame-background + sibling-shape pair) guarding against "new frames hiding old ones". 8 → 17 tests. |
+| `packages/engine/src/engine.test.ts` | Added 9 golden-IR tests, one per primitive kind (ellipse, circle, line, polygon, star, arrow, path, text, opacity/blendMode), each asserting the mapped `Primitive` shape via `toMatchObject`. 4 → 13 tests. |
+
+**Scope notes:** `replaySubtree()`'s frame-clipping and DFS paint-order logic (added in Session 14) were verified correct by re-reading `CanvasArea.tsx` and were not modified — only given regression-test coverage, since that logic lives inside a React component and isn't directly unit-testable. `ImageNode` and Rust-side `text`/`image` `Primitive` parity were confirmed out of scope: no `ImageNode` kind exists in `packages/scene/src/types.ts` (images are a `Fill` type, not a node kind), and `crates/strata-engine/src/lib.rs`'s `Primitive` enum has no scene-level text/image source to map from yet.
+
+**Verification:** 570/570 JS tests (was 552), 13/13 packages typecheck clean, Biome format + lint clean on all changed files, `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` clean, `pnpm audit:tokens` (72/72 WCAG-AA), `pnpm audit:emoji` clean.

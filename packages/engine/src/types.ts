@@ -123,6 +123,14 @@ export interface SceneNode {
   rotation?: number;
   strokes?: Stroke[];
   effects?: Effect[];
+  /** Text node content (kind === 'text'). */
+  text?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: string;
+  /** Uniform or per-corner radius for rect-anchored shapes. */
+  cornerRadius?: number | [number, number, number, number];
 }
 
 /** P2: Fill type for the engine (mirrors @strata/scene Fill). */
@@ -151,7 +159,14 @@ export interface Scene {
 }
 
 export type Primitive =
-  | { kind: 'rect'; x: number; y: number; w: number; h: number }
+  | {
+      kind: 'rect';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      cornerRadius?: number | [number, number, number, number];
+    }
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
   | { kind: 'circle'; cx: number; cy: number; r: number }
   | { kind: 'line'; from: Point; to: Point; tolerance: number }
@@ -167,7 +182,19 @@ export type Primitive =
     }
   | { kind: 'arrow'; from: Point; to: Point; tolerance: number; arrowheadSize: number }
   | { kind: 'path'; points: PathPoint[]; closed: boolean; tolerance: number }
-  | { kind: 'image'; w: number; h: number; src: string };
+  | { kind: 'image'; w: number; h: number; src: string }
+  | {
+      kind: 'text';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      text: string;
+      fontSize: number;
+      fontFamily: string;
+      fontWeight: number;
+      fontStyle: string;
+    };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */
 export interface RenderItem {

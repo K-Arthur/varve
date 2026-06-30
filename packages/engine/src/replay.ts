@@ -31,9 +31,14 @@ export interface ReplayTarget {
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
   bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void;
+  /** Rounded-rect path (Canvas2D `roundRect`); radii mirror the CSS shorthand forms. */
+  roundRect?(x: number, y: number, w: number, h: number, radii: number | number[]): void;
   fill(): void;
   stroke(): void;
   closePath(): void;
+  fillText(text: string, x: number, y: number): void;
+  font: string;
+  textBaseline: CanvasTextBaseline;
   fillStyle: string;
   lineWidth: number;
   lineCap: CanvasLineCap;
@@ -252,7 +257,13 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
   const p = item.primitive;
   switch (p.kind) {
     case 'rect':
-      target.fillRect(p.x, p.y, p.w, p.h);
+      if (p.cornerRadius && target.roundRect) {
+        target.beginPath();
+        target.roundRect(p.x, p.y, p.w, p.h, p.cornerRadius);
+        target.fill();
+      } else {
+        target.fillRect(p.x, p.y, p.w, p.h);
+      }
       break;
     case 'ellipse':
       target.beginPath();
@@ -265,7 +276,6 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
       target.fill();
       break;
     case 'line':
-    case 'arrow':
       // Lines stroke — handled in main loop via strokes pass.
       // For fill-only path, stroke the segment.
       target.lineWidth = p.tolerance * 2;
@@ -274,6 +284,15 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
       target.moveTo(p.from[0], p.from[1]);
       target.lineTo(p.to[0], p.to[1]);
       target.stroke();
+      break;
+    case 'arrow':
+      target.lineWidth = p.tolerance * 2;
+      target.lineCap = 'round';
+      target.beginPath();
+      target.moveTo(p.from[0], p.from[1]);
+      target.lineTo(p.to[0], p.to[1]);
+      target.stroke();
+      drawArrowhead(target, p.from, p.to, p.arrowheadSize);
       break;
     case 'polygon': {
       target.beginPath();
@@ -309,13 +328,26 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
       // Image rendering placeholder. Actual `drawImage(src, 0, 0, w, h)`
       // requires an ImageCache with progressive async loading (deferred).
       // The item transform positions the image, so local origin is (0,0).
-      if (target.drawImage) {
-        target.fillRect(0, 0, p.w, p.h);
-      }
+      target.fillRect(0, 0, p.w, p.h);
+      break;
+    case 'text':
+      paintText(target, p);
       break;
     default:
       break;
   }
+}
+
+/** Paint a text primitive via Canvas2D `fillText`. */
+function paintText(
+  target: ReplayTarget,
+  p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+): void {
+  const style = p.fontStyle === 'italic' ? 'italic ' : '';
+  const weight = p.fontWeight && p.fontWeight !== 400 ? `${p.fontWeight} ` : '';
+  target.font = `${style}${weight}${p.fontSize}px ${p.fontFamily}`;
+  target.textBaseline = 'top';
+  target.fillText(p.text, p.x, p.y);
 }
 
 /** Paint a closed/open path fill. */
@@ -388,11 +420,18 @@ function paintStroke(
       break;
     }
     case 'line':
+      target.beginPath();
+      target.moveTo(p.from[0], p.from[1]);
+      target.lineTo(p.to[0], p.to[1]);
+      target.stroke();
+      break;
     case 'arrow':
       target.beginPath();
       target.moveTo(p.from[0], p.from[1]);
       target.lineTo(p.to[0], p.to[1]);
       target.stroke();
+      target.fillStyle = rgba(stroke.color);
+      drawArrowhead(target, p.from, p.to, p.arrowheadSize);
       break;
     case 'path':
       target.beginPath();
@@ -407,6 +446,27 @@ function paintStroke(
   }
 
   target.restore();
+}
+
+/** Draw a filled triangular arrowhead at `to`, oriented along the from→to direction. */
+function drawArrowhead(
+  target: ReplayTarget,
+  from: readonly [number, number],
+  to: readonly [number, number],
+  size: number,
+): void {
+  const angle = Math.atan2(to[1] - from[1], to[0] - from[0]);
+  const spread = Math.PI / 7;
+  const x1 = to[0] - size * Math.cos(angle - spread);
+  const y1 = to[1] - size * Math.sin(angle - spread);
+  const x2 = to[0] - size * Math.cos(angle + spread);
+  const y2 = to[1] - size * Math.sin(angle + spread);
+  target.beginPath();
+  target.moveTo(to[0], to[1]);
+  target.lineTo(x1, y1);
+  target.lineTo(x2, y2);
+  target.closePath();
+  target.fill();
 }
 
 /** Trace the outline of a primitive without filling. */
@@ -477,6 +537,8 @@ function primitiveBounds(p: RenderItem['primitive']): {
       };
     case 'image':
       return { x: 0, y: 0, w: p.w, h: p.h };
+    case 'text':
+      return { x: p.x, y: p.y, w: p.w, h: p.h };
     default:
       return { x: 0, y: 0, w: 100, h: 100 };
   }

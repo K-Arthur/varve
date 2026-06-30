@@ -47,4 +47,200 @@ describe('createEngine (stub)', () => {
     const eng = await createEngine();
     expect(await eng.buildIr({ nodes: [] })).toEqual([]);
   });
+
+  // ── Golden IR tests — one per shape kind ─────────────────────────────────
+
+  it('buildIr maps ellipse shape to ellipse primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'e1',
+          name: 'ellipse',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'ellipse', cx: 50, cy: 50, rx: 40, ry: 30 },
+          fill: [255, 0, 0, 255],
+        },
+      ],
+    });
+    expect(ir[0]?.primitive.kind).toBe('ellipse');
+    const p = ir[0]?.primitive;
+    expect(p).toMatchObject({ kind: 'ellipse', cx: 50, cy: 50, rx: 40, ry: 30 });
+  });
+
+  it('buildIr maps circle shape to circle primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'c1',
+          name: 'circle',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'circle', cx: 25, cy: 25, r: 20 },
+          fill: [0, 255, 0, 255],
+        },
+      ],
+    });
+    expect(ir[0]?.primitive).toMatchObject({ kind: 'circle', cx: 25, cy: 25, r: 20 });
+  });
+
+  it('buildIr maps line shape to line primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'l1',
+          name: 'line',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'line', from: [0, 0], to: [100, 100], tolerance: 1 },
+          fill: [0, 0, 0, 255],
+        },
+      ],
+    });
+    expect(ir[0]?.primitive).toMatchObject({ kind: 'line', from: [0, 0], to: [100, 100] });
+  });
+
+  it('buildIr maps polygon shape to polygon primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'p1',
+          name: 'polygon',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'polygon', cx: 50, cy: 50, radius: 40, sides: 6, rotation: 0 },
+          fill: [0, 128, 255, 255],
+        },
+      ],
+    });
+    expect(ir[0]?.primitive).toMatchObject({
+      kind: 'polygon',
+      cx: 50,
+      cy: 50,
+      radius: 40,
+      sides: 6,
+    });
+  });
+
+  it('buildIr maps star shape to star primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 's1',
+          name: 'star',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: {
+            kind: 'star',
+            cx: 50,
+            cy: 50,
+            innerRadius: 20,
+            outerRadius: 40,
+            points: 5,
+            rotation: 0,
+          },
+          fill: [255, 200, 0, 255],
+        },
+      ],
+    });
+    expect(ir[0]?.primitive).toMatchObject({
+      kind: 'star',
+      cx: 50,
+      cy: 50,
+      innerRadius: 20,
+      outerRadius: 40,
+      points: 5,
+    });
+  });
+
+  it('buildIr maps arrow shape to arrow primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'a1',
+          name: 'arrow',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'arrow', from: [0, 0], to: [100, 0], tolerance: 1, arrowheadSize: 10 },
+          fill: [0, 0, 0, 255],
+        },
+      ],
+    });
+    expect(ir[0]?.primitive).toMatchObject({
+      kind: 'arrow',
+      from: [0, 0],
+      to: [100, 0],
+      arrowheadSize: 10,
+    });
+  });
+
+  it('buildIr maps path shape to path primitive', async () => {
+    const eng = await createEngine();
+    const pts = [
+      { x: 0, y: 0, handleIn: null as null, handleOut: [10, 0] as [number, number] },
+      { x: 50, y: 50, handleIn: [-10, 0] as [number, number], handleOut: null as null },
+    ];
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'path1',
+          name: 'path',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'path', points: pts, closed: false, tolerance: 1 },
+          fill: [255, 0, 255, 255],
+        },
+      ],
+    });
+    const p = ir[0]?.primitive;
+    expect(p?.kind).toBe('path');
+    if (p?.kind === 'path') {
+      expect(p.points).toHaveLength(2);
+      expect(p.closed).toBe(false);
+    }
+  });
+
+  it('buildIr maps text node to text primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 't1',
+          name: 'text',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 10, 20],
+          fill: [0, 0, 0, 255],
+          text: 'Hello world',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+        },
+      ],
+    });
+    expect(ir[0]?.primitive.kind).toBe('text');
+    const p = ir[0]?.primitive;
+    if (p?.kind === 'text') {
+      expect(p.text).toBe('Hello world');
+      expect(p.fontSize).toBe(16);
+    }
+  });
+
+  it('buildIr preserves opacity and blendMode on IR items', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'o1',
+          name: 'fade',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+          fill: [255, 0, 0, 255],
+          opacity: 0.5,
+          blendMode: 'multiply',
+        },
+      ],
+    });
+    expect(ir[0]?.opacity).toBe(0.5);
+    expect(ir[0]?.blendMode).toBe('multiply');
+  });
 });
