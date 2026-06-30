@@ -315,7 +315,7 @@ fn home_upsert_file(store: tauri::State<'_, strata_sync::DocumentStore>, entry: 
         &epoch_ms_to_rfc3339(entry.updated_at),
         &epoch_ms_to_rfc3339(entry.opened_at),
         entry.size, entry.pinned,
-        entry.trashed_at.map(|ms| epoch_ms_to_rfc3339(ms)).as_deref(),
+        entry.trashed_at.map(epoch_ms_to_rfc3339).as_deref(),
         entry.file_path.as_deref(), &entry.ordering, &entry.content_hash,
     ).map_err(|e| e.to_string())
 }

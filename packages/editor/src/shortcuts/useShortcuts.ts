@@ -56,11 +56,13 @@ export function useShortcuts(editor: EditorContextValue): {
       case 'selectAll':
         return () => {
           const nodes = e.rootNodes();
-          if (nodes.length > 0) {
-            // Select the first node; real multi-select-all deferred to Phase D
-            const first = nodes[0];
-            if (first) e.setSelection(first.id);
+          if (nodes.length === 0) return;
+          e.setSelection(nodes[0]!.id);
+          for (let i = 1; i < nodes.length; i++) {
+            const n = nodes[i];
+            if (n) e.toggleSelection(n.id, true);
           }
+          e.announceSelection(nodes);
         };
       case 'tabNew':
         return () => e.newTab();

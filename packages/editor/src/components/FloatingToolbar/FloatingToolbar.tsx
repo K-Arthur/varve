@@ -1,67 +1,181 @@
-import { Icon, TOOL_ICONS, Tooltip } from '@strata/ui';
+import type { MenuEntry } from '@strata/ui';
+import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
+import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import './FloatingToolbar.css';
 
-interface ToolDef {
+const SHAPE_SUB_TOOLS: ToolId[] = ['rect', 'ellipse', 'polygon', 'star'];
+const BOOLEAN_SUB_TOOLS: ToolId[] = [
+  'booleanUnion',
+  'booleanSubtract',
+  'booleanIntersect',
+  'booleanExclude',
+];
+
+const TOOL_LABELS: Partial<Record<ToolId, string>> = {
+  rect: 'Rectangle',
+  ellipse: 'Ellipse',
+  polygon: 'Polygon',
+  star: 'Star',
+  line: 'Line',
+  arrow: 'Arrow',
+  text: 'Text',
+  pen: 'Pen',
+  pencil: 'Pencil',
+  frame: 'Frame',
+  select: 'Select',
+  hand: 'Hand',
+  zoom: 'Zoom',
+  slice: 'Slice',
+  eyedropper: 'Eyedropper',
+  scale: 'Scale',
+  inspect: 'Inspect',
+  booleanUnion: 'Union',
+  booleanSubtract: 'Subtract',
+  booleanIntersect: 'Intersect',
+  booleanExclude: 'Exclude',
+};
+
+interface ToolButtonProps {
   id: ToolId;
-  label: string;
-  shortcut?: string;
+  groupStart?: boolean;
 }
 
-const SHAPE_TOOLS: ToolDef[] = [
-  { id: 'rect', label: 'Rectangle', shortcut: 'R' },
-  { id: 'ellipse', label: 'Ellipse', shortcut: 'O' },
-  { id: 'polygon', label: 'Polygon' },
-  { id: 'star', label: 'Star' },
-  { id: 'line', label: 'Line', shortcut: 'L' },
-  { id: 'arrow', label: 'Arrow' },
-  { id: 'text', label: 'Text', shortcut: 'T' },
-];
-
-const DRAW_TOOLS: ToolDef[] = [
-  { id: 'pen', label: 'Pen', shortcut: 'P' },
-  { id: 'pencil', label: 'Pencil' },
-  { id: 'image', label: 'Image' },
-  { id: 'frame', label: 'Frame', shortcut: 'F' },
-];
-
-const UTILITY_TOOLS: ToolDef[] = [
-  { id: 'select', label: 'Select', shortcut: 'V' },
-  { id: 'hand', label: 'Hand', shortcut: 'H' },
-  { id: 'zoom', label: 'Zoom', shortcut: 'Z' },
-  { id: 'slice', label: 'Slice' },
-  { id: 'eyedropper', label: 'Eyedropper' },
-  { id: 'scale', label: 'Scale' },
-  { id: 'inspect', label: 'Inspect', shortcut: 'I' },
-];
-
-function ToolGroup({ tools }: { tools: ToolDef[] }) {
+function ToolButton({ id, groupStart }: ToolButtonProps) {
   const { state, setTool } = useEditor();
+  const label = TOOL_LABELS[id] ?? id;
   return (
-    <div className="floating-toolbar__group">
-      {tools.map((t) => (
-        <Tooltip key={t.id} label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}>
-          <button
-            type="button"
-            className={`floating-toolbar__btn${state.tool === t.id ? ' floating-toolbar__btn--active' : ''}`}
-            aria-pressed={state.tool === t.id}
-            aria-label={t.label}
-            onClick={() => setTool(t.id)}
-          >
-            <Icon name={TOOL_ICONS[t.id]} size={16} />
-          </button>
-        </Tooltip>
-      ))}
-    </div>
+    <Tooltip label={label}>
+      <button
+        type="button"
+        className={`floating-toolbar__btn${state.tool === id ? ' floating-toolbar__btn--active' : ''}${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        aria-pressed={state.tool === id}
+        aria-label={label}
+        onClick={() => setTool(id)}
+      >
+        <Icon name={TOOL_ICONS[id] ?? 'MousePointer2'} size={16} />
+      </button>
+    </Tooltip>
   );
 }
 
+const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
+  { id: 'line' },
+  { id: 'arrow' },
+  { id: 'text' },
+  { id: 'pen', groupStart: true },
+  { id: 'pencil' },
+  { id: 'frame' },
+  { id: 'select', groupStart: true },
+  { id: 'hand' },
+  { id: 'zoom' },
+  { id: 'slice' },
+  { id: 'eyedropper' },
+  { id: 'scale' },
+  { id: 'inspect' },
+];
+
 export function FloatingToolbar() {
+  const { state, setTool } = useEditor();
+  const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [booleanMenuPos, setBooleanMenuPos] = useState<{ x: number; y: number } | null>(null);
+
+  const currentShape = (SHAPE_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
+    ? state.tool
+    : ('rect' as ToolId);
+  const currentBoolean = (BOOLEAN_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
+    ? state.tool
+    : ('booleanUnion' as ToolId);
+
+  const shapeItems: MenuEntry[] = SHAPE_SUB_TOOLS.map((id) => ({
+    id,
+    label: TOOL_LABELS[id] ?? id,
+    onAction: () => {
+      setTool(id);
+      setShapeMenuPos(null);
+    },
+  }));
+
+  const booleanItems: MenuEntry[] = BOOLEAN_SUB_TOOLS.map((id) => ({
+    id,
+    label: TOOL_LABELS[id] ?? id,
+    onAction: () => {
+      setTool(id);
+      setBooleanMenuPos(null);
+    },
+  }));
+
   return (
-    <div className="floating-toolbar" role="toolbar" aria-label="Drawing tools">
-      <ToolGroup tools={SHAPE_TOOLS} />
-      <ToolGroup tools={DRAW_TOOLS} />
-      <ToolGroup tools={UTILITY_TOOLS} />
+    <div className="floating-toolbar">
+      <Toolbar label="Drawing tools">
+        <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
+          <button
+            type="button"
+            className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
+            aria-pressed={state.tool === currentShape}
+            aria-label={TOOL_LABELS[currentShape] ?? currentShape}
+            onClick={() => setTool(currentShape)}
+          >
+            <Icon name={TOOL_ICONS[currentShape] ?? 'MousePointer2'} size={16} />
+          </button>
+        </Tooltip>
+        <button
+          type="button"
+          className="floating-toolbar__chevron"
+          aria-label="Shapes menu"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            if (shapeMenuPos) {
+              setShapeMenuPos(null);
+              return;
+            }
+            setShapeMenuPos({ x: r.left, y: r.bottom + 4 });
+          }}
+        >
+          <Icon name="ChevronDown" size={12} />
+        </button>
+        {INDIVIDUAL_TOOLS.map((t) => (
+          <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
+        ))}
+        <Tooltip label={TOOL_LABELS[currentBoolean] ?? currentBoolean}>
+          <button
+            type="button"
+            className={`floating-toolbar__btn${state.tool === currentBoolean ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
+            aria-pressed={state.tool === currentBoolean}
+            aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
+            onClick={() => setTool(currentBoolean)}
+          >
+            <Icon name={TOOL_ICONS[currentBoolean] ?? 'MousePointer2'} size={16} />
+          </button>
+        </Tooltip>
+        <button
+          type="button"
+          className="floating-toolbar__chevron"
+          aria-label="Boolean operations menu"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            if (booleanMenuPos) {
+              setBooleanMenuPos(null);
+              return;
+            }
+            setBooleanMenuPos({ x: r.left, y: r.bottom + 4 });
+          }}
+        >
+          <Icon name="ChevronDown" size={12} />
+        </button>
+      </Toolbar>
+      <ContextMenu
+        items={shapeItems}
+        position={shapeMenuPos}
+        onClose={() => setShapeMenuPos(null)}
+        label="Shapes"
+      />
+      <ContextMenu
+        items={booleanItems}
+        position={booleanMenuPos}
+        onClose={() => setBooleanMenuPos(null)}
+        label="Boolean operations"
+      />
     </div>
   );
 }

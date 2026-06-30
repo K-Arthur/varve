@@ -69,6 +69,7 @@ import {
   writeClipboard as writeToClipboard,
 } from './clipboard';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -117,6 +118,14 @@ export interface EditorState {
   dirty: boolean;
   /** B1: per-session variable store. */
   variableStore: VariableStore;
+  /** Cursor position on canvas (world coords), null when not over canvas. */
+  cursorPos: { x: number; y: number } | null;
+  /** Current display unit. */
+  unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
+  /** Pixel grid overlay toggle. */
+  pixelGridEnabled: boolean;
+  /** Snap-to-grid toggle. */
+  snapEnabled: boolean;
 }
 
 export interface EditorContextValue {
@@ -291,6 +300,10 @@ export interface EditorContextValue {
   closeTab: (id: string, force?: boolean) => boolean;
   /** Announce a message to screen readers via the shared aria-live region. */
   announce: (msg: string) => void;
+  /** Announce a selection change with formatted details. */
+  announceSelection: (selected: SceneNode[]) => void;
+  /** Announce an operation result. */
+  announceOperation: (op: string, result: string) => void;
   /** Reparent a node to a new container (or root). One undo step. */
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
   /** Group selected nodes into a GroupNode. */
@@ -315,6 +328,14 @@ export interface EditorContextValue {
   setFocusedField: (field: string | null) => void;
   /** F6: batch-edit corner smoothing on all selected shape nodes. */
   setSelectedCornerSmoothing: (value: number) => void;
+  /** Set cursor position on canvas (null when pointer leaves). */
+  setCursorPos: (pos: { x: number; y: number } | null) => void;
+  /** Set the display unit type. */
+  setUnitType: (t: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%') => void;
+  /** Toggle pixel grid overlay. */
+  setPixelGridEnabled: (v: boolean) => void;
+  /** Toggle snap-to-grid. */
+  setSnapEnabled: (v: boolean) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -541,6 +562,10 @@ export function EditorProvider({
       activeId: INITIAL_SESSION_ID,
       dirty: false,
       variableStore: createVariableStore(),
+      cursorPos: null,
+      unitType: 'px',
+      pixelGridEnabled: false,
+      snapEnabled: false,
     };
   });
   const undoStackRef = useRef<Document[]>([]);
@@ -550,7 +575,10 @@ export function EditorProvider({
   /** F2: snapshots of all inactive sessions, keyed by session ID. */
   const sessionStoreRef = useRef<Map<string, SavedSession>>(new Map());
   /** Shared aria-live announcer for screen-reader messages. */
-  const announcerRef = useRef<HTMLDivElement>(null);
+  const announcerRef = useRef<CanvasAnnouncer>(null);
+  if (!announcerRef.current) {
+    announcerRef.current = new CanvasAnnouncer();
+  }
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
   const txSnapshotRef = useRef<Document | null>(null);
@@ -867,6 +895,7 @@ export function EditorProvider({
       removeSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
+        if (sel.length > 5 && !window.confirm(`Are you sure you want to delete ${sel.length} objects?`)) return;
         updateDoc((doc) => {
           let d = doc;
           for (const id of sel) d = removeNode(d, id);
@@ -1463,7 +1492,13 @@ export function EditorProvider({
       },
 
       announce: (msg) => {
-        if (announcerRef.current) announcerRef.current.textContent = msg;
+        announcerRef.current?.announce(msg);
+      },
+      announceSelection: (selected) => {
+        announcerRef.current?.announceSelection(selected);
+      },
+      announceOperation: (op, result) => {
+        announcerRef.current?.announceOperation(op, result);
       },
 
       reparentNode: (id, newParentId, toIndex) => {
@@ -1515,8 +1550,9 @@ export function EditorProvider({
           .filter((n): n is SceneNode => Boolean(n));
         if (nodes.length === 0) return;
         writeToClipboard(nodes);
-        if (announcerRef.current)
-          announcerRef.current.textContent = `Copied ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`;
+        announcerRef.current?.announce(
+          `Copied ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`,
+        );
       },
 
       cutSelected: () => {
@@ -1533,8 +1569,9 @@ export function EditorProvider({
           return d;
         });
         patch({ selection: [] });
-        if (announcerRef.current)
-          announcerRef.current.textContent = `Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`;
+        announcerRef.current?.announce(
+          `Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`,
+        );
       },
 
       paste: () => {
@@ -1554,8 +1591,9 @@ export function EditorProvider({
             }
             return { ...s, document: doc, selection: newIds };
           });
-          if (announcerRef.current)
-            announcerRef.current.textContent = `Pasted ${data.nodes.length} layer${data.nodes.length > 1 ? 's' : ''}`;
+          announcerRef.current?.announce(
+            `Pasted ${data.nodes.length} layer${data.nodes.length > 1 ? 's' : ''}`,
+          );
         });
       },
 
@@ -1577,6 +1615,10 @@ export function EditorProvider({
           return { ...doc, nodes };
         });
       },
+      setCursorPos: (pos) => patch({ cursorPos: pos }),
+      setUnitType: (t) => patch({ unitType: t }),
+      setPixelGridEnabled: (v) => patch({ pixelGridEnabled: v }),
+      setSnapEnabled: (v) => patch({ snapEnabled: v }),
 
       setNodeLayout: (id, layout) => {
         updateNodeProp(id, (n) => {
@@ -1875,24 +1917,7 @@ export function EditorProvider({
     ],
   );
 
-  return (
-    <EditorCtx.Provider value={value}>
-      <div
-        ref={announcerRef}
-        role="status"
-        aria-live="polite"
-        className="editor-announcer"
-        style={{
-          position: 'absolute',
-          width: 1,
-          height: 1,
-          overflow: 'hidden',
-          clip: 'rect(0 0 0 0)',
-        }}
-      />
-      {children}
-    </EditorCtx.Provider>
-  );
+  return <EditorCtx.Provider value={value}>{children}</EditorCtx.Provider>;
 }
 
 export function useEditor(): EditorContextValue {

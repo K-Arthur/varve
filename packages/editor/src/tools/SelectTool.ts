@@ -51,10 +51,13 @@ export class SelectTool extends BaseTool {
       } else if (!ctx.isSelected(hit.nodeId)) {
         ctx.setSelection(hit.nodeId);
       }
-      ctx.announce(`Selected ${hit.node.name}`);
+      ctx.announceSelection([hit.node]);
       this.marqueeActive = false;
     } else {
-      if (!e.shiftKey) ctx.setSelection(null);
+      if (!e.shiftKey) {
+        ctx.setSelection(null);
+        ctx.announceSelection([]);
+      }
       this.marqueeActive = true;
     }
 
@@ -112,15 +115,18 @@ export class SelectTool extends BaseTool {
           selectedIds.push(n.id);
         }
       }
-      const first = selectedIds[0];
-      if (first) {
+      if (selectedIds.length > 0) {
+        const first = selectedIds[0]!;
         ctx.setSelection(first);
         for (let i = 1; i < selectedIds.length; i++) {
           const id = selectedIds[i];
           if (!id) throw new Error('selected id not found');
           ctx.toggleSelection(id, true);
         }
-        ctx.announce(`Selected ${selectedIds.length} layers`);
+        const selectedNodes = selectedIds
+          .map((id) => ctx.getNode(id))
+          .filter((n): n is import('@strata/scene').SceneNode => Boolean(n));
+        ctx.announceSelection(selectedNodes);
       }
     } else {
       // After move, re-parent if inside a frame
@@ -159,7 +165,7 @@ export class SelectTool extends BaseTool {
     if (e.key.startsWith('Arrow')) {
       const sel = ctx.selection;
       if (sel.length === 0) return false;
-      const step = e.shiftKey ? 10 : 1;
+      const step = e.shiftKey ? 10 : e.altKey ? 0.5 : 1;
       for (const id of sel) {
         const node = ctx.getNode(id);
         if (!node) continue;
@@ -170,12 +176,12 @@ export class SelectTool extends BaseTool {
           t[5] + (e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0),
         );
       }
-      ctx.announce(`Moved ${step}${e.shiftKey ? '0' : ''}px`);
+      ctx.announceOperation('Nudge', `${step}px`);
       return true;
     }
     if (e.key === 'Escape') {
       ctx.setSelection(null);
-      ctx.announce('Selection cleared');
+      ctx.announceSelection([]);
       return true;
     }
     return false;
@@ -188,7 +194,7 @@ export class SelectTool extends BaseTool {
     if (hit) {
       const node = ctx.getNode(hit.nodeId);
       if (node && (node.kind === 'frame' || node.kind === 'group')) {
-        ctx.announce(`Entered ${node.name}`);
+        ctx.announceOperation('Enter', node.name);
       }
     }
   }
