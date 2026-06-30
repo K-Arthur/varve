@@ -51,7 +51,7 @@ render_png() {
   if [ "$HAS_RSVG" -eq 1 ]; then
     rsvg-convert "$svg" -w "$size" -h "$size" -o "$out"
   else
-    magick convert -background none "$svg" -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$out"
+    magick -background none "$svg" -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$out"
   fi
 }
 
@@ -70,7 +70,7 @@ for size in 32 64 128 256 512; do
 done
 # 256 → 128x128@2x
 if [ "$HAS_MAGICK" -eq 1 ]; then
-  magick convert "$TAURI_ICONS/256x256.png" "$TAURI_ICONS/128x128@2x.png"
+  magick "$TAURI_ICONS/256x256.png" "$TAURI_ICONS/128x128@2x.png"
   echo "  $TAURI_ICONS/128x128@2x.png (copy from 256)"
 fi
 render_png "$APP_SVG" "$TAURI_ICONS/icon.png" 512
@@ -89,11 +89,17 @@ for size in 16 22 24 32 48 64 96 128 256 512; do
 done
 
 # ── 5. Linux scalable + symbolic ──────────────────────────────────────
-echo "==> Generating Linux scalable + symbolic..."
-cp "$ICONS_SRC/strata-app-icon.svg" "$HICOLOR/scalable/apps/dev.strata.desktop.svg"
-echo "  $HICOLOR/scalable/apps/dev.strata.desktop.svg"
+# The scalable SVG lives at src-tauri/icons/hicolor/scalable/apps/ and is
+# authored directly there — it uses a 128px coordinate space with rx=20 corners
+# appropriate for freedesktop use. Do NOT overwrite it with the 1024px master.
+echo "==> Syncing Linux symbolic..."
 cp "$SYMBOLIC_SVG" "$HICOLOR/symbolic/apps/dev.strata.desktop-symbolic.svg"
 echo "  $HICOLOR/symbolic/apps/dev.strata.desktop-symbolic.svg"
+
+# 1024px hicolor slot — use the high-res master with background
+mkdir -p "$HICOLOR/1024x1024/apps"
+render_png "$APP_SVG" "$HICOLOR/1024x1024/apps/dev.strata.desktop.png" 1024
+echo "  $HICOLOR/1024x1024/apps/dev.strata.desktop.png"
 
 # ── 6. Windows .ico (multi-resolution) ────────────────────────────────
 echo "==> Generating Windows .ico..."
@@ -103,7 +109,7 @@ if [ "$HAS_MAGICK" -eq 1 ]; then
   for size in 16 24 32 48 64 96 256; do
     render_png "$APP_SVG" "$ICO_DIR/ico_${size}.png" "$size"
   done
-  magick convert "$ICO_DIR/ico_16.png" "$ICO_DIR/ico_24.png" "$ICO_DIR/ico_32.png" \
+  magick "$ICO_DIR/ico_16.png" "$ICO_DIR/ico_24.png" "$ICO_DIR/ico_32.png" \
     "$ICO_DIR/ico_48.png" "$ICO_DIR/ico_64.png" "$ICO_DIR/ico_96.png" \
     "$ICO_DIR/ico_256.png" "$TAURI_ICONS/icon.ico"
   rm -rf "$ICO_DIR"
@@ -190,7 +196,7 @@ for (ostype, fname) in icns_files:
         continue
     with open(fpath, 'rb') as f:
         png_data = f.read()
-    icon_entry = struct.pack('>4sII', ostype.encode(), 8 + len(png_data), 0) + png_data
+    icon_entry = struct.pack('>4sI', ostype.encode(), 8 + len(png_data)) + png_data
     entries += icon_entry
 
 total_size = 8 + len(entries)
@@ -230,7 +236,7 @@ if [ "$HAS_MAGICK" -eq 1 ]; then
   for size in 16 32 48; do
     render_png "$APP_SVG" "$FAV_DIR/fav_${size}.png" "$size"
   done
-  magick convert "$FAV_DIR/fav_16.png" "$FAV_DIR/fav_32.png" "$FAV_DIR/fav_48.png" \
+  magick "$FAV_DIR/fav_16.png" "$FAV_DIR/fav_32.png" "$FAV_DIR/fav_48.png" \
     "$PUBLIC_ICONS/favicon.ico"
   rm -rf "$FAV_DIR"
   echo "  $PUBLIC_ICONS/favicon.ico"

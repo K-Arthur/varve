@@ -22,6 +22,13 @@ export interface HomeShellProps {
   onOpenFile: (entry: FileEntry) => void;
 }
 
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson: string) {
   try {
     const { renderThumbnail } = await import('@strata/engine');
@@ -418,44 +425,57 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             />
           );
         }
-        return state.view === 'grid' ? (
-          <FileGrid
-            files={visibleFiles}
-            thumbnails={thumbnails.thumbnails}
-            onLoadThumbnail={thumbnails.load}
-            onOpen={onOpenFile}
-            onContext={handleFileContext}
-            onFileDragStart={handleFileDragStart}
-            selectedIds={selectedIds}
-            onSelect={handleSelect}
-            onToggleSelect={handleToggleSelect}
-            onSelectRange={handleSelectRange}
-            onSelectAll={handleSelectAll}
-            onRename={handleRename}
-            renamingId={renamingId}
-            onStartRename={handleStartRename}
-            missingFiles={missingFiles}
-          />
-        ) : (
-          <FileList
-            files={visibleFiles}
-            thumbnails={thumbnails.thumbnails}
-            onLoadThumbnail={thumbnails.load}
-            onOpen={onOpenFile}
-            onContext={handleFileContext}
-            sortKey={state.sort.key}
-            sortDirection={state.sort.direction}
-            onSort={view.setSortKey}
-            selectedIds={selectedIds}
-            onSelect={handleSelect}
-            onToggleSelect={handleToggleSelect}
-            onSelectRange={handleSelectRange}
-            onSelectAll={handleSelectAll}
-            onRename={handleRename}
-            renamingId={renamingId}
-            onStartRename={handleStartRename}
-            missingFiles={missingFiles}
-          />
+        return (
+          <>
+            <header className="strata-home__hero">
+              <p className="strata-home__hero-greeting">
+                {greeting()}
+                {state.section === 'all' ? '' : ', welcome back'}
+              </p>
+              <p className="strata-home__hero-subtitle">
+                {state.section === 'recent' ? 'Recent files' : 'All files'}
+              </p>
+            </header>
+            {state.view === 'grid' ? (
+              <FileGrid
+                files={visibleFiles}
+                thumbnails={thumbnails.thumbnails}
+                onLoadThumbnail={thumbnails.load}
+                onOpen={onOpenFile}
+                onContext={handleFileContext}
+                onFileDragStart={handleFileDragStart}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                onToggleSelect={handleToggleSelect}
+                onSelectRange={handleSelectRange}
+                onSelectAll={handleSelectAll}
+                onRename={handleRename}
+                renamingId={renamingId}
+                onStartRename={handleStartRename}
+                missingFiles={missingFiles}
+              />
+            ) : (
+              <FileList
+                files={visibleFiles}
+                thumbnails={thumbnails.thumbnails}
+                onLoadThumbnail={thumbnails.load}
+                onOpen={onOpenFile}
+                onContext={handleFileContext}
+                sortKey={state.sort.key}
+                sortDirection={state.sort.direction}
+                onSort={view.setSortKey}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                onToggleSelect={handleToggleSelect}
+                onSelectRange={handleSelectRange}
+                onSelectAll={handleSelectAll}
+                onRename={handleRename}
+                renamingId={renamingId}
+                onStartRename={handleStartRename}
+                missingFiles={missingFiles}
+              />
+            )}
+          </>
         );
     }
   };

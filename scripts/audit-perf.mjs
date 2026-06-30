@@ -14,8 +14,17 @@ import { extname, join, relative } from 'node:path';
 
 const ROOT = new URL('../', import.meta.url).pathname;
 const SKIP_DIRS = new Set([
-  'node_modules', 'target', 'dist', '.next', '.git', 'coverage',
-  '.pnpm-store', '.tauri', 'playwright-report', 'test-results', 'icons',
+  'node_modules',
+  'target',
+  'dist',
+  '.next',
+  '.git',
+  'coverage',
+  '.pnpm-store',
+  '.tauri',
+  'playwright-report',
+  'test-results',
+  'icons',
 ]);
 const CSS_EXT = new Set(['.css']);
 
@@ -45,7 +54,9 @@ async function walk(dir) {
       const lines = text.split('\n');
       for (let i = 0; i < lines.length; i++) {
         if (LAYOUT_ANIM_RE.test(lines[i])) {
-          violations.push(`${relative(ROOT, join(dir, e.name))}:${i + 1}: ${lines[i].trim().slice(0, 100)}`);
+          violations.push(
+            `${relative(ROOT, join(dir, e.name))}:${i + 1}: ${lines[i].trim().slice(0, 100)}`,
+          );
         }
       }
     }

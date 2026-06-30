@@ -53,6 +53,17 @@ function nodeTypeIcon(n: SceneNode): IconName {
   return NODE_ICONS[n.kind] ?? TOOL_ICONS.rect;
 }
 
+function resolveLayerType(node: SceneNode): string {
+  if (
+    node.kind === 'frame' &&
+    'componentId' in node &&
+    (node as { componentId?: string }).componentId != null
+  ) {
+    return 'component';
+  }
+  return node.kind;
+}
+
 export const LayersRow = memo(function LayersRow({
   node,
   depth,
@@ -80,7 +91,7 @@ export const LayersRow = memo(function LayersRow({
   const isContainerNode = isContainer(node);
   const typeIcon = nodeTypeIcon(node);
   const isInstance =
-    isFrame && 'componentId' in node && !!(node as { componentId?: string }).componentId;
+    isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       onSelect(node.id, e.shiftKey, e.ctrlKey || e.metaKey);
@@ -148,6 +159,7 @@ export const LayersRow = memo(function LayersRow({
       <div
         role="treeitem"
         data-node-id={node.id}
+        data-layer-type={resolveLayerType(node)}
         aria-selected={selected}
         aria-expanded={container ? expanded : undefined}
         aria-level={depth + 1}

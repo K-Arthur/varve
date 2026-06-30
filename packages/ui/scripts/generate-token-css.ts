@@ -42,6 +42,7 @@ const NON_COLOR = `
   --tracking-base: 0;
   --tracking-wide: 0.05em;
   /* Fluid modular scale (clamp). */
+  --font-size-2xs: clamp(0.60rem, 0.58rem + 0.08vw, 0.68rem);
   --font-size-xs: clamp(0.72rem, 0.70rem + 0.10vw, 0.78rem);
   --font-size-sm: clamp(0.83rem, 0.80rem + 0.15vw, 0.92rem);
   --font-size-md: clamp(0.95rem, 0.91rem + 0.20vw, 1.06rem);
@@ -96,11 +97,13 @@ const NON_COLOR = `
 
   /* --- Motion --- */
   --duration-instant: 50ms;
+  --duration-quick: 100ms;
   --duration-fast: 150ms;
   --duration-base: 250ms;
   --duration-slow: 400ms;
   --duration-slower: 600ms;
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
@@ -157,6 +160,7 @@ ${colorBlock('dark')}
     --color-surface-overlay: Canvas;
     --color-text-primary: CanvasText;
     --color-text-secondary: CanvasText;
+    --color-text-subtle: GrayText;
     --color-text-muted: GrayText;
     --color-text-disabled: GrayText;
     --color-text-on-accent: ButtonText;
@@ -178,6 +182,17 @@ ${colorBlock('dark')}
     --color-tree-row-selected: Highlight;
     --color-tree-row-focus: Highlight;
     --color-tree-indent-guide: CanvasText;
+    --color-layer-accent-frame: Highlight;
+    --color-layer-wash-frame: Canvas;
+    --color-layer-accent-group: Highlight;
+    --color-layer-wash-group: Canvas;
+    --color-layer-accent-text: Highlight;
+    --color-layer-wash-text: Canvas;
+    --color-layer-accent-shape: Highlight;
+    --color-layer-wash-shape: Canvas;
+    --color-layer-accent-component: Highlight;
+    --color-layer-wash-component: Canvas;
+    --color-hero-glow: transparent;
   }
 }
 
@@ -185,6 +200,7 @@ ${colorBlock('dark')}
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-instant: 0ms;
+    --duration-quick: 0ms;
     --duration-fast: 0ms;
     --duration-base: 0ms;
     --duration-slow: 0ms;

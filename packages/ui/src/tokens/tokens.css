@@ -11,6 +11,7 @@
   --color-surface-overlay: #ffffff;
   --color-text-primary: #10151f;
   --color-text-secondary: #293140;
+  --color-text-subtle: #8e99aa;
   --color-text-muted: #525c6e;
   --color-text-disabled: #8e99aa;
   --color-text-on-accent: #ffffff;
@@ -36,8 +37,20 @@
   --color-tree-row-selected: #1d807b;
   --color-tree-row-focus: #1d807b;
   --color-tree-indent-guide: #6d788a;
+  --color-layer-accent-frame: #4b91d5;
+  --color-layer-wash-frame: #e8f3ff;
+  --color-layer-accent-group: #a88228;
+  --color-layer-wash-group: #fff8eb;
+  --color-layer-accent-text: #2a9144;
+  --color-layer-wash-text: #edfaf0;
+  --color-layer-accent-shape: #be6e28;
+  --color-layer-wash-shape: #fcf2e4;
+  --color-layer-accent-component: #a07dd5;
+  --color-layer-wash-component: #f5f0ff;
+  --color-hero-glow: #39d0c6;
   --color-brand-teal: #39d0c6;
   --color-brand-sandstone: #e28c3c;
+  --color-brand-sandstone-light: #fcf2e4;
   --color-brand-terracotta: #c54b3a;
 
   /* --- Typography --- */
@@ -59,6 +72,7 @@
   --tracking-base: 0;
   --tracking-wide: 0.05em;
   /* Fluid modular scale (clamp). */
+  --font-size-2xs: clamp(0.6rem, 0.58rem + 0.08vw, 0.68rem);
   --font-size-xs: clamp(0.72rem, 0.7rem + 0.1vw, 0.78rem);
   --font-size-sm: clamp(0.83rem, 0.8rem + 0.15vw, 0.92rem);
   --font-size-md: clamp(0.95rem, 0.91rem + 0.2vw, 1.06rem);
@@ -113,11 +127,13 @@
 
   /* --- Motion --- */
   --duration-instant: 50ms;
+  --duration-quick: 100ms;
   --duration-fast: 150ms;
   --duration-base: 250ms;
   --duration-slow: 400ms;
   --duration-slower: 600ms;
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
@@ -147,6 +163,7 @@
   --color-surface-overlay: #05080e;
   --color-text-primary: #f5f7fa;
   --color-text-secondary: #d6dde6;
+  --color-text-subtle: #8e99aa;
   --color-text-muted: #8e99aa;
   --color-text-disabled: #525c6e;
   --color-text-on-accent: #10151f;
@@ -172,8 +189,20 @@
   --color-tree-row-selected: #52d1c5;
   --color-tree-row-focus: #52d1c5;
   --color-tree-indent-guide: #6d788a;
+  --color-layer-accent-frame: #bad5f5;
+  --color-layer-wash-frame: #103064;
+  --color-layer-accent-group: #f8e4b6;
+  --color-layer-wash-group: #5c480e;
+  --color-layer-accent-text: #beebc6;
+  --color-layer-wash-text: #104a20;
+  --color-layer-accent-shape: #f5e0b4;
+  --color-layer-wash-shape: #32281e;
+  --color-layer-accent-component: #decef5;
+  --color-layer-wash-component: #322264;
+  --color-hero-glow: #39d0c6;
   --color-brand-teal: #39d0c6;
   --color-brand-sandstone: #e28c3c;
+  --color-brand-sandstone-light: #f5e0b4;
   --color-brand-terracotta: #c54b3a;
 }
 
@@ -185,6 +214,7 @@
   --color-surface-overlay: #000000;
   --color-text-primary: #ffffff;
   --color-text-secondary: #ffffff;
+  --color-text-subtle: #dcdcdc;
   --color-text-muted: #dcdcdc;
   --color-text-disabled: #808080;
   --color-text-on-accent: #000000;
@@ -210,8 +240,20 @@
   --color-tree-row-selected: #ffff00;
   --color-tree-row-focus: #ffff00;
   --color-tree-indent-guide: #ffffff;
+  --color-layer-accent-frame: #ffff00;
+  --color-layer-wash-frame: #3c3c3c;
+  --color-layer-accent-group: #ffff00;
+  --color-layer-wash-group: #3c3c3c;
+  --color-layer-accent-text: #ffff00;
+  --color-layer-wash-text: #3c3c3c;
+  --color-layer-accent-shape: #ffff00;
+  --color-layer-wash-shape: #3c3c3c;
+  --color-layer-accent-component: #ffff00;
+  --color-layer-wash-component: #3c3c3c;
+  --color-hero-glow: #000000;
   --color-brand-teal: #ffff00;
   --color-brand-sandstone: #ff8000;
+  --color-brand-sandstone-light: #ffb440;
   --color-brand-terracotta: #ff4040;
 }
 
@@ -225,6 +267,7 @@
     --color-surface-overlay: #05080e;
     --color-text-primary: #f5f7fa;
     --color-text-secondary: #d6dde6;
+    --color-text-subtle: #8e99aa;
     --color-text-muted: #8e99aa;
     --color-text-disabled: #525c6e;
     --color-text-on-accent: #10151f;
@@ -250,8 +293,20 @@
     --color-tree-row-selected: #52d1c5;
     --color-tree-row-focus: #52d1c5;
     --color-tree-indent-guide: #6d788a;
+    --color-layer-accent-frame: #bad5f5;
+    --color-layer-wash-frame: #103064;
+    --color-layer-accent-group: #f8e4b6;
+    --color-layer-wash-group: #5c480e;
+    --color-layer-accent-text: #beebc6;
+    --color-layer-wash-text: #104a20;
+    --color-layer-accent-shape: #f5e0b4;
+    --color-layer-wash-shape: #32281e;
+    --color-layer-accent-component: #decef5;
+    --color-layer-wash-component: #322264;
+    --color-hero-glow: #39d0c6;
     --color-brand-teal: #39d0c6;
     --color-brand-sandstone: #e28c3c;
+    --color-brand-sandstone-light: #f5e0b4;
     --color-brand-terracotta: #c54b3a;
   }
 }
@@ -287,6 +342,17 @@
     --color-tree-row-selected: Highlight;
     --color-tree-row-focus: Highlight;
     --color-tree-indent-guide: CanvasText;
+    --color-layer-accent-frame: Highlight;
+    --color-layer-wash-frame: Canvas;
+    --color-layer-accent-group: Highlight;
+    --color-layer-wash-group: Canvas;
+    --color-layer-accent-text: Highlight;
+    --color-layer-wash-text: Canvas;
+    --color-layer-accent-shape: Highlight;
+    --color-layer-wash-shape: Canvas;
+    --color-layer-accent-component: Highlight;
+    --color-layer-wash-component: Canvas;
+    --color-hero-glow: transparent;
   }
 }
 

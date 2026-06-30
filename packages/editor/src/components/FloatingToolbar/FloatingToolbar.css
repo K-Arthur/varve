@@ -37,7 +37,7 @@
 }
 
 .floating-toolbar__btn--active {
-  background: var(--color-interactive-default);
+  background: var(--color-accent-primary);
   color: var(--color-text-on-accent);
 }
 
@@ -62,7 +62,7 @@
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
   margin-right: var(--space-1);
