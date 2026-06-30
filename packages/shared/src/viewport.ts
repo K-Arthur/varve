@@ -1,6 +1,6 @@
 /**
  * Viewport / camera math — the single source of truth for the canvas camera
- * and screen↔world conversions. All editor code (canvas draw, tools,
+ * and screen<->world conversions. All editor code (canvas draw, tools,
  * overlays, reveal) imports from here instead of duplicating the math.
  *
  * Coordinate convention (verified against CanvasArea.tsx:235):
@@ -166,6 +166,20 @@ export function fitBoundsCamera(
  *   (snapping the nearer edge to `padding`). For rects larger than the
  *   viewport, aligns the rect's near edge with padding and lets the far edge
  *   overflow.
+ *
+ * Derivation for each axis independently:
+ *
+ *   viewportMinWorld = -pan / zoom           (screenX = 0)
+ *   viewportMaxWorld = (vpSize - pan) / zoom (screenX = vpSize)
+ *
+ *   Left-edge constraint: rectMin >= viewportMinWorld + pad/zoom
+ *     → pan >= -zoom · rectMin + pad
+ *
+ *   Right-edge constraint: rectMax <= viewportMaxWorld - pad/zoom
+ *     → pan <= vpSize - zoom · rectMax - pad
+ *
+ * The tightest valid pan is the midpoint of the two constraints (fits case)
+ * or the single active constraint (overflow case).
  */
 export function revealBoundsCamera(
   cam: Camera,
@@ -173,68 +187,94 @@ export function revealBoundsCamera(
   worldRect: Rect,
   padding: number = DEFAULT_REVEAL_PADDING,
 ): Camera {
-  // World-space viewport bounds.
-  const viewMinX = -cam.pan[0] / cam.zoom;
-  const viewMinY = -cam.pan[1] / cam.zoom;
-  const viewMaxX = (viewport.width - cam.pan[0]) / cam.zoom;
-  const viewMaxY = (viewport.height - cam.pan[1]) / cam.zoom;
-  const pad = padding / cam.zoom; // padding in world units
+  const z = cam.zoom;
+  const pz = padding / z; // padding in world units
+  const vsz = viewport.width / z;
+  const vsy = viewport.height / z;
+
+  // Current pan-derived constraints.
+  const panX = cam.pan[0];
+  const panY = cam.pan[1];
 
   const rectMinX = worldRect.x;
   const rectMinY = worldRect.y;
   const rectMaxX = worldRect.x + worldRect.w;
   const rectMaxY = worldRect.y + worldRect.h;
 
-  // No shift needed if rect is already in view (with padding).
+  // Check if already in view.
+  const vpMinX = -panX / z;
+  const vpMinY = -panY / z;
+  const vpMaxX = (viewport.width - panX) / z;
+  const vpMaxY = (viewport.height - panY) / z;
   if (
-    rectMinX >= viewMinX + pad &&
-    rectMinY >= viewMinY + pad &&
-    rectMaxX <= viewMaxX - pad &&
-    rectMaxY <= viewMaxY - pad
+    rectMinX >= vpMinX + pz &&
+    rectMinY >= vpMinY + pz &&
+    rectMaxX <= vpMaxX - pz &&
+    rectMaxY <= vpMaxY - pz
   ) {
     return cam;
   }
 
-  // Compute world-space deltas. For each axis:
-  // - If rect is smaller than viewport-inner, snap the nearer edge to padding.
-  // - If rect is larger, align the rect's near edge (top or left) to padding.
-  let dxWorld = 0;
-  let dyWorld = 0;
+  // ── X axis ─────────────────────────────────────────────────────────
+  const leftReqX = -z * rectMinX + padding;  // min pan to satisfy left edge
+  const rightReqX = viewport.width - z * rectMaxX - padding; // max pan to satisfy right edge
+  const vpWidthWorld = vpMaxX - vpMinX;      // viewport width in world units
+  const fitsX = worldRect.w <= vpWidthWorld - 2 * pz;
 
-  // X axis.
-  const fitsX = worldRect.w <= (viewMaxX - viewMinX) - 2 * pad;
+  let newPanX: number;
   if (fitsX) {
-    if (rectMinX < viewMinX + pad) {
-      dxWorld = rectMinX - (viewMinX + pad); // shift left edge into view
-    } else if (rectMaxX > viewMaxX - pad) {
-      dxWorld = rectMaxX - (viewMaxX - pad); // shift right edge into view
+    // Both constraints must be satisfied. Pick the most restrictive one
+    // that is currently violated, preferring the one that preserves the
+    // other constraint.
+    const candidateLeft = Math.max(panX, leftReqX);
+    const candidateRight = Math.min(panX, rightReqX);
+    // If left is violated, snap to leftReqX.
+    if (panX < leftReqX) {
+      const snap = leftReqX;
+      newPanX = snap <= rightReqX ? snap : (leftReqX + rightReqX) / 2;
+    } else if (panX > rightReqX) {
+      const snap = rightReqX;
+      newPanX = snap >= leftReqX ? snap : (leftReqX + rightReqX) / 2;
+    } else {
+      newPanX = panX;
     }
-  } else if (rectMinX < viewMinX + pad) {
-    dxWorld = rectMinX - (viewMinX + pad);
-  } else if (rectMaxX > viewMaxX - pad) {
-    dxWorld = rectMaxX - (viewMaxX - pad);
+  } else {
+    // Rect wider than viewport: snap the near edge.
+    if (rectMinX < vpMinX + pz) {
+      newPanX = leftReqX;
+    } else {
+      newPanX = rightReqX;
+    }
   }
 
-  // Y axis.
-  const fitsY = worldRect.h <= (viewMaxY - viewMinY) - 2 * pad;
+  // ── Y axis ─────────────────────────────────────────────────────────
+  const leftReqY = -z * rectMinY + padding;
+  const rightReqY = viewport.height - z * rectMaxY - padding;
+  const vpHeightWorld = vpMaxY - vpMinY;
+  const fitsY = worldRect.h <= vpHeightWorld - 2 * pz;
+
+  let newPanY: number;
   if (fitsY) {
-    if (rectMinY < viewMinY + pad) {
-      dyWorld = rectMinY - (viewMinY + pad);
-    } else if (rectMaxY > viewMaxY - pad) {
-      dyWorld = rectMaxY - (viewMaxY - pad);
+    if (panY < leftReqY) {
+      const snap = leftReqY;
+      newPanY = snap <= rightReqY ? snap : (leftReqY + rightReqY) / 2;
+    } else if (panY > rightReqY) {
+      const snap = rightReqY;
+      newPanY = snap >= leftReqY ? snap : (leftReqY + rightReqY) / 2;
+    } else {
+      newPanY = panY;
     }
-  } else if (rectMinY < viewMinY + pad) {
-    dyWorld = rectMinY - (viewMinY + pad);
-  } else if (rectMaxY > viewMaxY - pad) {
-    dyWorld = rectMaxY - (viewMaxY - pad);
+  } else {
+    if (rectMinY < vpMinY + pz) {
+      newPanY = leftReqY;
+    } else {
+      newPanY = rightReqY;
+    }
   }
 
-  if (dxWorld === 0 && dyWorld === 0) return cam;
-
-  // Pan shift in CSS px (world delta × zoom).
   return {
-    pan: [cam.pan[0] + dxWorld * cam.zoom, cam.pan[1] + dyWorld * cam.zoom],
-    zoom: cam.zoom,
+    pan: [Math.round(newPanX * 1000) / 1000, Math.round(newPanY * 1000) / 1000],
+    zoom: z,
   };
 }
 

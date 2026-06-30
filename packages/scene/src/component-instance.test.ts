@@ -1,13 +1,14 @@
 /**
  * Tests for component instance operations — swap, reset overrides, detect overrides.
  */
+import { createComponent } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import {
-  createComponent,
   createDocument,
   detachInstance,
   instanceOverrides,
   makeFrameNode,
+  nextNodeId,
   resetInstanceOverrides,
   swapInstance,
 } from '@strata/scene';
@@ -16,24 +17,30 @@ describe('component instance operations', () => {
   function setupComponent() {
     let doc = createDocument('Test');
     // Master frame
-    const master = makeFrameNode('Master', { x: 0, y: 0, width: 100, height: 100 });
+    const masterResult = nextNodeId(doc);
+    doc = masterResult.doc;
+    const masterId = masterResult.id;
+    const master = makeFrameNode(masterId, { name: 'Master' });
     doc = {
       ...doc,
-      nodes: { ...doc.nodes, [master.id]: master },
-      rootChildren: [master.id],
+      nodes: { ...doc.nodes, [masterId]: master },
+      rootChildren: [masterId],
     };
     // Register component
-    doc = createComponent(doc, 'Button', master.id, []);
-    const componentId = Object.keys(doc.components)[0]!;
+    const result = createComponent(doc, 'Button', masterId, []);
+    doc = result.doc;
+    const componentId = result.component.id;
     // Create instance
-    const instance = makeFrameNode('Instance', { x: 200, y: 0, width: 100, height: 100 });
-    instance.componentId = componentId;
+    const instanceResult = nextNodeId(doc);
+    doc = instanceResult.doc;
+    const instanceId = instanceResult.id;
+    const instance = makeFrameNode(instanceId, { name: 'Instance', componentId });
     doc = {
       ...doc,
-      nodes: { ...doc.nodes, [instance.id]: instance },
-      rootChildren: [...doc.rootChildren, instance.id],
+      nodes: { ...doc.nodes, [instanceId]: instance },
+      rootChildren: [...doc.rootChildren, instanceId],
     };
-    return { doc, masterId: master.id, instanceId: instance.id, componentId };
+    return { doc, masterId, instanceId, componentId };
   }
 
   describe('detachInstance', () => {
@@ -87,6 +94,7 @@ describe('component instance operations', () => {
   describe('resetInstanceOverrides', () => {
     it('restores opacity from master', () => {
       const { doc, instanceId } = setupComponent();
+      const masterOpacity = doc.nodes[instanceId]?.opacity;
       const modified = {
         ...doc,
         nodes: {
@@ -95,7 +103,7 @@ describe('component instance operations', () => {
         },
       };
       const reset = resetInstanceOverrides(modified, instanceId);
-      expect(reset.nodes[instanceId]?.opacity).toBe(doc.nodes[instanceId]?.opacity);
+      expect(reset.nodes[instanceId]?.opacity).toBe(masterOpacity);
     });
   });
 

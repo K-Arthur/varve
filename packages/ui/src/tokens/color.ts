@@ -61,23 +61,28 @@ export const INFO: Rgb = [57, 138, 208];
 /** Semantic token names exposed as CSS custom properties. */
 export type SemanticToken =
   | 'surface-app'
+  | 'surface-base'
   | 'surface-raised'
   | 'surface-sunken'
   | 'surface-overlay'
   | 'text-primary'
   | 'text-secondary'
   | 'text-muted'
+  | 'text-disabled'
   | 'text-on-accent'
   | 'text-on-danger'
   | 'border-subtle'
   | 'border-strong'
+  | 'border-focus'
   | 'interactive-default'
   | 'interactive-hover'
   | 'interactive-active'
+  | 'interactive-disabled'
   | 'interactive-focus-ring'
   | 'feedback-success'
   | 'feedback-warning'
   | 'feedback-danger'
+  | 'feedback-info'
   | 'tree-row'
   | 'tree-row-hover'
   | 'tree-row-selected'
@@ -91,23 +96,28 @@ const T = (i: number): Rgb => TEAL[i - 1] as Rgb;
 export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
   light: {
     'surface-app': N(2),
+    'surface-base': N(2),
     'surface-raised': N(1),
     'surface-sunken': N(3),
     'surface-overlay': N(1),
     'text-primary': N(12),
     'text-secondary': N(10),
     'text-muted': N(8),
+    'text-disabled': N(6),
     'text-on-accent': N(1),
     'text-on-danger': N(1),
     'border-subtle': N(4),
     'border-strong': N(7),
+    'border-focus': T(8),
     'interactive-default': T(9),
     'interactive-hover': T(10),
     'interactive-active': T(11),
+    'interactive-disabled': N(3),
     'interactive-focus-ring': T(8),
     'feedback-success': SUCCESS,
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
+    'feedback-info': INFO,
     'tree-row': N(2),
     'tree-row-hover': N(7),
     'tree-row-selected': T(8),
@@ -116,23 +126,28 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
   },
   dark: {
     'surface-app': N(12),
+    'surface-base': N(12),
     'surface-raised': N(11),
     'surface-sunken': [11, 16, 24],
     'surface-overlay': [5, 8, 14],
     'text-primary': N(2),
     'text-secondary': N(4),
     'text-muted': N(6),
+    'text-disabled': N(8),
     'text-on-accent': N(12),
     'text-on-danger': N(1),
     'border-subtle': N(10),
     'border-strong': N(7),
+    'border-focus': T(5),
     'interactive-default': T(5),
     'interactive-hover': T(4),
     'interactive-active': T(3),
+    'interactive-disabled': N(10),
     'interactive-focus-ring': T(5),
     'feedback-success': SUCCESS,
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
+    'feedback-info': INFO,
     'tree-row': N(11),
     'tree-row-hover': N(6),
     'tree-row-selected': T(5),
@@ -141,23 +156,28 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
   },
   'high-contrast': {
     'surface-app': [0, 0, 0],
+    'surface-base': [0, 0, 0],
     'surface-raised': [10, 10, 10],
     'surface-sunken': [0, 0, 0],
     'surface-overlay': [0, 0, 0],
     'text-primary': [255, 255, 255],
     'text-secondary': [255, 255, 255],
     'text-muted': [220, 220, 220],
+    'text-disabled': [128, 128, 128],
     'text-on-accent': [0, 0, 0],
     'text-on-danger': [0, 0, 0],
     'border-subtle': [255, 255, 255],
     'border-strong': [255, 255, 255],
+    'border-focus': [255, 255, 0],
     'interactive-default': [255, 255, 0],
     'interactive-hover': [255, 255, 0],
     'interactive-active': [255, 235, 60],
+    'interactive-disabled': [80, 80, 80],
     'interactive-focus-ring': [255, 255, 0],
     'feedback-success': [0, 255, 0],
     'feedback-warning': [255, 200, 0],
     'feedback-danger': [255, 80, 80],
+    'feedback-info': [100, 180, 255],
     'tree-row': [10, 10, 10],
     'tree-row-hover': [100, 100, 100],
     'tree-row-selected': [255, 255, 0],
@@ -213,6 +233,7 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
     grade: 'UI',
   },
   { name: 'border-strong on surface-app', fg: 'border-strong', bg: 'surface-app', grade: 'UI' },
+  { name: 'border-focus on surface-app', fg: 'border-focus', bg: 'surface-app', grade: 'UI' },
   {
     name: 'feedback-success on surface-app',
     fg: 'feedback-success',
@@ -226,6 +247,7 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
     grade: 'UI',
   },
   { name: 'feedback-danger on surface-app', fg: 'feedback-danger', bg: 'surface-app', grade: 'UI' },
+  { name: 'feedback-info on surface-app', fg: 'feedback-info', bg: 'surface-app', grade: 'UI' },
   { name: 'tree-row-selected on tree-row', fg: 'tree-row-selected', bg: 'tree-row', grade: 'UI' },
   { name: 'tree-row-hover on tree-row', fg: 'tree-row-hover', bg: 'tree-row', grade: 'UI' },
   {

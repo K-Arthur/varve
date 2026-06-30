@@ -37,9 +37,10 @@ describe('affine', () => {
 
 describe('containment', () => {
   it('rectContains is closed', () => {
-    expect(rectContains(0, 0, 10, 10, [5, 5])).toBe(true);
-    expect(rectContains(0, 0, 10, 10, [0, 0])).toBe(true);
-    expect(rectContains(0, 0, 10, 10, [10.01, 5])).toBe(false);
+    const r = { x: 0, y: 0, w: 10, h: 10 };
+    expect(rectContains(r, [5, 5])).toBe(true);
+    expect(rectContains(r, [0, 0])).toBe(true);
+    expect(rectContains(r, [10.01, 5])).toBe(false);
   });
 
   it('pointInEllipse', () => {

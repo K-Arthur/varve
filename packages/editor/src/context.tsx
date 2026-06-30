@@ -486,7 +486,7 @@ export function findContainingFrameInDoc(
     const bbox = nodeWorldBoundsFn(n);
     if (!bbox) continue;
     const wPt: [number, number] = [world.x, world.y];
-    if (rectContains(bbox.x, bbox.y, bbox.w, bbox.h, wPt)) {
+    if (rectContains(bbox, wPt)) {
       if (entry.depth > deepestDepth) {
         deepest = nid;
         deepestDepth = entry.depth;
@@ -770,7 +770,7 @@ export function EditorProvider({
           }
           if (n.kind === 'frame' || n.kind === 'group') {
             const bbox = nodeWorldBoundsFn(n);
-            if (bbox && rectContains(bbox.x, bbox.y, bbox.w, bbox.h, [world.x, world.y])) {
+            if (bbox && rectContains(bbox, [world.x, world.y])) {
               return { nodeId: entry.nodeId, node: n };
             }
           }

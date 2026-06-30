@@ -81,7 +81,8 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
         const a = sorted[i] as GradientStop;
         const b = sorted[i + 1] as GradientStop;
         if (position >= a.position && position <= b.position) {
-          const t = b.position === a.position ? 0 : (position - a.position) / (b.position - a.position);
+          const t =
+            b.position === a.position ? 0 : (position - a.position) / (b.position - a.position);
           color = [
             Math.round(a.color[0] + (b.color[0] - a.color[0]) * t),
             Math.round(a.color[1] + (b.color[1] - a.color[1]) * t),
@@ -221,7 +222,10 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
               width: 14,
               height: 14,
               borderRadius: '50%',
-              border: selectedStop === i ? '2px solid var(--color-interactive-default)' : '2px solid var(--color-surface-overlay)',
+              border:
+                selectedStop === i
+                  ? '2px solid var(--color-interactive-default)'
+                  : '2px solid var(--color-surface-overlay)',
               background: stopColorCss(stop.color),
               cursor: 'grab',
               padding: 0,
@@ -251,7 +255,9 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
                 className="insp-num__input"
                 style={{ width: 60 }}
               />
-              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>%</span>
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                %
+              </span>
               <button
                 type="button"
                 aria-label={`Remove stop ${selectedStop + 1}`}
@@ -299,7 +305,9 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
               className="insp-num__input"
               style={{ width: 60 }}
             />
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>deg</span>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+              deg
+            </span>
           </div>
         </div>
       )}
