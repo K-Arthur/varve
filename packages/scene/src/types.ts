@@ -302,6 +302,10 @@ export interface GridItemPlacement {
 export interface FrameNode extends NodeBase {
   kind: 'frame';
   transform: Affine;
+  /** Frame width in world-space px. Set at creation; updated by resize. */
+  w: number;
+  /** Frame height in world-space px. Set at creation; updated by resize. */
+  h: number;
   /** Child node ids in paint order. Slot bindings (task 1.1) extend this. */
   children: NodeId[];
   /** If this frame is a component instance, the component it instantiates. */

@@ -65,6 +65,8 @@ function toEngineNode(n: DocNode): EngineNode {
       ...base,
       shape: { kind: 'rect', x: 0, y: 0, w: n.fontSize * 3, h: n.fontSize * 1.4 } as const,
     };
+  if (n.kind === 'frame')
+    return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
 }
 
@@ -253,27 +255,88 @@ export function CanvasArea() {
     if (!eng) return;
 
     (async () => {
+      if (!ctx) return;
+      // Capture narrowed ctx into a const so TypeScript propagates the
+      // non-null type into nested function closures (replaySubtree).
+      const ctxNN = ctx;
       const s = stateRef.current;
-      // DFS flatten: walk all nodes (including children of frames/groups)
-      // and compute world transforms per node. This replaces the old
-      // `rootNodes().map(toEngineNode)` which skipped nested nodes.
       const doc = s.document;
+
+      // Pre-build all IR items in one call (single IPC round-trip for native engine).
+      // Nodes are in DFS paint order so the indices align with the IR array.
       const entries = walkNodes(doc);
+      const nodeIds: string[] = [];
       const flatNodes: EngineNode[] = [];
       for (const [id] of entries) {
         const n = doc.nodes[id];
         if (!n) continue;
         const world = nodeWorldTransform(doc, id);
+        nodeIds.push(id);
         flatNodes.push({ ...toEngineNode(n), transform: world });
       }
       const ir = await eng.buildIr({ nodes: flatNodes });
 
+      // Map NodeId → RenderItem for O(1) lookup during tree-aware replay.
+      type IrItem = (typeof ir)[number];
+      const irByNodeId = new Map<string, IrItem>();
+      for (let i = 0; i < nodeIds.length; i++) {
+        const nid = nodeIds[i];
+        const item = ir[i];
+        if (nid && item) irByNodeId.set(nid, item);
+      }
+
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
-      replayIr(ctx as unknown as ReplayTarget, ir);
+
+      // Tree-aware replay: frames clip their children; groups are transparent containers.
+      // The clip polygon is computed in world space (current CTM = camera) by transforming
+      // the frame's local rect corners via its world transform.
+      function replaySubtree(nodeId: string): void {
+        const n = doc.nodes[nodeId];
+        if (!n || n.visible === false) return;
+        const item = irByNodeId.get(nodeId);
+
+        if (n.kind === 'frame') {
+          // Paint frame background before establishing child clip.
+          if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);
+          if (n.children.length > 0) {
+            // Compute frame rect corners in world space from the item's world transform.
+            // Affine [a,b,c,d,e,f]: point (x,y) → (a·x + c·y + e, b·x + d·y + f).
+            const t = item?.transform ?? ([1, 0, 0, 1, 0, 0] as const);
+            const [a, b, c, d, e, f] = t;
+            const fw = n.w;
+            const fh = n.h;
+            ctxNN.save();
+            ctxNN.beginPath();
+            ctxNN.moveTo(e, f);
+            ctxNN.lineTo(a * fw + e, b * fw + f);
+            ctxNN.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
+            ctxNN.lineTo(c * fh + e, d * fh + f);
+            ctxNN.closePath();
+            ctxNN.clip();
+            for (const childId of n.children) {
+              replaySubtree(childId);
+            }
+            ctxNN.restore();
+          }
+        } else if (n.kind === 'group') {
+          // Groups are transparent pass-through containers; no background painted.
+          for (const childId of n.children) {
+            replaySubtree(childId);
+          }
+        } else {
+          if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);
+        }
+      }
+
+      // Render root-level nodes in DFS paint order.
+      for (const [id, entry] of entries) {
+        if (entry.parentId === null) {
+          replaySubtree(id);
+        }
+      }
 
       if (draft) {
         ctx.strokeStyle = '#3b82f6';

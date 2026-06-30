@@ -99,8 +99,7 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
     return { x: 0, y: 0, w: fs * 3, h: fs * 1.4 };
   }
   if (node.kind === 'frame') {
-    // Fixed default — actual bounds should include children; deferred.
-    return { x: -100, y: -80, w: 200, h: 160 };
+    return { x: 0, y: 0, w: node.w, h: node.h };
   }
   if (node.kind === 'group') {
     return null;

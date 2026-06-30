@@ -219,6 +219,8 @@ export function makeFrameNode(
       | 'strokes'
       | 'effects'
       | 'order'
+      | 'w'
+      | 'h'
     >
   > & {
     index?: number;
@@ -237,6 +239,8 @@ export function makeFrameNode(
     rotation: opts.rotation ?? 0,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? ([200, 200, 200, 255] as Color),
+    w: opts.w ?? 200,
+    h: opts.h ?? 160,
     children: opts.children ?? [],
     componentId: opts.componentId,
     slots: opts.slots,
