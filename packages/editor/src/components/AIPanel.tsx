@@ -139,7 +139,7 @@ export function AIPanel() {
 
         {error && (
           <div className="ai-panel__error" role="alert">
-            <Icon name="AlertCircle" size={14} />
+            <Icon name="CircleAlert" size={14} />
             <span>{error}</span>
             <Button variant="ghost" size="sm" onClick={handleRetry}>
               Retry

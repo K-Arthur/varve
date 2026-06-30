@@ -41,7 +41,13 @@ export const WithError: Story = {
       { value: 'option-2', label: 'Option 2' },
     ];
     return (
-      <Select options={options} value={value} onChange={setValue} label="Select with error" error="This field is required" />
+      <Select
+        options={options}
+        value={value}
+        onChange={setValue}
+        label="Select with error"
+        error="This field is required"
+      />
     );
   },
 };
@@ -53,14 +59,30 @@ export const Disabled: Story = {
       { value: 'option-1', label: 'Option 1' },
       { value: 'option-2', label: 'Option 2' },
     ];
-    return <Select options={options} value={value} onChange={setValue} label="Disabled select" disabled />;
+    return (
+      <Select
+        options={options}
+        value={value}
+        onChange={setValue}
+        label="Disabled select"
+        disabled
+      />
+    );
   },
 };
 
 export const Searchable: Story = {
   render: () => {
     const [value, setValue] = useState('fruit-0');
-    return <Select options={fruitOptions} value={value} onChange={setValue} label="Searchable select" searchable />;
+    return (
+      <Select
+        options={fruitOptions}
+        value={value}
+        onChange={setValue}
+        label="Searchable select"
+        searchable
+      />
+    );
   },
 };
 
