@@ -27,6 +27,8 @@
     "tokens:generate": "tsx scripts/generate-token-css.ts"
   },
   "dependencies": {
+    "@fontsource-variable/ibm-plex-sans": "^5.2.0",
+    "@fontsource-variable/geist": "^5.2.0",
     "lucide-react": "^0.469.0"
   },
   "peerDependencies": {

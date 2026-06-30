@@ -76,7 +76,8 @@ export class PenTool extends BaseTool {
       }
 
       // Add new point
-      const prev = this.points[this.points.length - 1]!;
+      const prev = this.points[this.points.length - 1];
+      if (!prev) throw new Error('previous point not found');
       const now = Date.now();
       if (now - this.lastPointTime < 300 && this.points.length > 1) {
         // Rapid double-click → finish path
@@ -152,11 +153,14 @@ export class PenTool extends BaseTool {
   private commitPath(ctx: ToolContext, closed: boolean): void {
     ctx.setDraft(null);
     if (this.points.length < 2 && !closed) {
-      const pt = this.points[0]!;
+      const pt = this.points[0];
+      if (!pt) throw new Error('point not found');
       ctx.createShapeAt({ x: pt.x, y: pt.y }, { w: 4, h: 4 });
     } else if (this.points.length >= 2 || closed) {
-      const first = this.points[0]!;
-      const last = this.points[this.points.length - 1]!;
+      const first = this.points[0];
+      if (!first) throw new Error('first point not found');
+      const last = this.points[this.points.length - 1];
+      if (!last) throw new Error('last point not found');
       ctx.createShapeAt(
         { x: first.x, y: first.y },
         { w: Math.abs(last.x - first.x) || 100, h: Math.abs(last.y - first.y) || 4 },

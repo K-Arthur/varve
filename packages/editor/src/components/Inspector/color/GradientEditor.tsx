@@ -195,7 +195,7 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
             key={`stop-${i}-${autoId}`}
             type="button"
             aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%, colour ${rgbToHex(stop.color[0], stop.color[1], stop.color[2])}`}
-            aria-selected={selectedStop === i}
+            aria-pressed={selectedStop === i}
             onPointerDown={(e) => {
               e.stopPropagation();
               setSelectedStop(i);

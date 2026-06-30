@@ -80,7 +80,7 @@ export function SpecPanel({ nodes, doc, variableStore, engine, platform }: SpecP
       <SpecReadouts {...readoutsProps} />
       <CodeGenView node={node} doc={doc} variableStore={variableStore} />
 
-      <AssetExportControls node={node} doc={doc} engine={engine!} platform={platform} />
+      <AssetExportControls node={node} doc={doc} engine={engine} platform={platform} />
 
       <AnnotationsDisplay
         nodeId={node.id}

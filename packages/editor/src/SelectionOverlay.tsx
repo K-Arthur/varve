@@ -352,7 +352,7 @@ export function SelectionOverlay() {
           fill="#3b82f6"
           fontFamily="system-ui, sans-serif"
         >
-          {Math.round(w / state.zoom)} × {Math.round(h / state.zoom)}
+          {Math.round(w / state.zoom)} by {Math.round(h / state.zoom)}
         </text>
       )}
 

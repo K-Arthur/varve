@@ -38,7 +38,9 @@ const FILES = Array.from({ length: 20 }, (_, i) => {
 });
 
 const platform = createMemoryPlatform({ files: FILES, projects: PROJECTS });
-const root = createRoot(document.getElementById('root')!);
+const rootEl = document.getElementById('root');
+if (!rootEl) throw new Error('root element not found');
+const root = createRoot(rootEl);
 root.render(
   React.createElement(HomeShell, {
     platform,

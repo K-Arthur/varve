@@ -19,6 +19,7 @@ export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps)
       }}
       aria-hidden
     >
+      <title>Snap guides overlay</title>
       {guides.map((g, i) => {
         const pos = g.axis === 'vertical' ? g.position * zoom + pan.x : g.position * zoom + pan.y;
         return (

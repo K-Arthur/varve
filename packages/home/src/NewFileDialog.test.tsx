@@ -15,7 +15,8 @@ describe('NewFileDialog', () => {
     const tabs = container.querySelectorAll('button');
     const templateTab = Array.from(tabs).find((b) => b.textContent?.trim() === 'Templates');
     expect(templateTab).toBeDefined();
-    fireEvent.click(templateTab!);
+    if (!templateTab) throw new Error('templateTab not found');
+    fireEvent.click(templateTab);
     expect(container.textContent).toContain('Blank Canvas');
   });
 
@@ -25,7 +26,8 @@ describe('NewFileDialog', () => {
     const buttons = container.querySelectorAll('button');
     const cancelBtn = Array.from(buttons).find((b) => b.textContent?.trim() === 'Cancel');
     expect(cancelBtn).toBeDefined();
-    fireEvent.click(cancelBtn!);
+    if (!cancelBtn) throw new Error('cancelBtn not found');
+    fireEvent.click(cancelBtn);
     // The onClose is called by the button inside the Dialog
     expect(onClose).toHaveBeenCalledOnce();
   });
