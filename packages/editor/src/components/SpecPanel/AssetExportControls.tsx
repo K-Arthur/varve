@@ -76,7 +76,7 @@ export function AssetExportControls({
           return;
         }
         const { bytes, filename } = await exportNodeAsPdf(node, doc, effectiveScale);
-        const saved = await platform?.saveBlob(filename, bytes, 'application/pdf');
+        const saved = await platform?.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
         setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
       } else if (format === 'svg') {
         const blob = await exportNodeAsRaster(node, doc, eng, {
@@ -85,10 +85,11 @@ export function AssetExportControls({
         });
         if (isTauri && platform) {
           const buf = await blob.arrayBuffer();
-          await platform.saveBlob(
+          await platform.saveBinaryFile(
             buildFilename(node.name, 'svg'),
             new Uint8Array(buf),
             'image/svg+xml',
+            '.svg',
           );
           setMessage(`Exported ${node.name} as SVG`);
         } else {
@@ -104,7 +105,12 @@ export function AssetExportControls({
         const ext = format === 'image/png' ? 'png' : format === 'image/jpeg' ? 'jpg' : 'webp';
         if (isTauri && platform) {
           const buf = await blob.arrayBuffer();
-          await platform.saveBlob(buildFilename(node.name, ext), new Uint8Array(buf), blob.type);
+          await platform.saveBinaryFile(
+            buildFilename(node.name, ext),
+            new Uint8Array(buf),
+            blob.type,
+            `.${ext}`,
+          );
           setMessage(`Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x`);
         } else {
           downloadBlob(blob, buildFilename(node.name, ext));

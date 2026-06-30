@@ -24,6 +24,24 @@ enum IpcShape {
     Polygon { cx: f64, cy: f64, radius: f64, sides: u32, rotation: f64 },
     #[serde(rename = "star")]
     Star { cx: f64, cy: f64, #[serde(rename = "innerRadius")] inner_radius: f64, #[serde(rename = "outerRadius")] outer_radius: f64, points: u32, rotation: f64 },
+    #[serde(rename = "text")]
+    Text {
+        text: String,
+        #[serde(rename = "fontSize")]
+        font_size: f64,
+        #[serde(rename = "fontFamily")]
+        font_family: String,
+        #[serde(rename = "fontWeight")]
+        font_weight: u16,
+        #[serde(rename = "fontStyle")]
+        font_style: String,
+        #[serde(rename = "textAlign")]
+        text_align: String,
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+    },
 }
 
 impl IpcShape {
@@ -35,6 +53,18 @@ impl IpcShape {
             IpcShape::Line { from, to, tolerance } => Shape::Line { line: Line::new(Point::new(from[0], from[1]), Point::new(to[0], to[1])), tolerance },
             IpcShape::Polygon { cx, cy, radius, sides, rotation } => Shape::Polygon { cx, cy, radius, sides, rotation },
             IpcShape::Star { inner_radius, outer_radius, cx, cy, points, rotation } => Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation },
+            IpcShape::Text { text, font_size, font_family, font_weight, font_style, text_align, x, y, w, h } => Shape::Text {
+                text,
+                font_size,
+                font_family,
+                font_weight,
+                font_style,
+                text_align,
+                x,
+                y,
+                w,
+                h,
+            },
         }
     }
 }
@@ -137,8 +167,14 @@ fn done(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+#[tauri::command]
+fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    std::fs::write(&path, data).map_err(|e| e.to_string())
+}
+
 // ── Legacy Sync ──────────────────────────────────────────────────────────
 
+/// Persist a document. Receives the full document JSON from the TS editor.
 #[tauri::command]
 fn sync_save(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String, json: String) -> Result<(), String> {
     store.save_document(&doc_id, &json).map_err(|e| e.to_string())
@@ -147,13 +183,6 @@ fn sync_save(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String
 #[tauri::command]
 fn sync_load(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String) -> Result<Option<String>, String> {
     store.load_document(&doc_id).map_err(|e| e.to_string())
-}
-
-// ── File save binary (for asset export) ────────────────
-
-#[tauri::command]
-fn save_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
-    std::fs::write(&path, &bytes).map_err(|e| e.to_string())
 }
 
 // ── PDF export ─────────────────────────────────────────
@@ -517,6 +546,7 @@ fn list_plugins() -> Result<Vec<PluginInfo>, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir().expect("no app data dir");
@@ -592,7 +622,7 @@ pub fn run() {
             home_reorder_file,
             home_read_text_file,
             home_write_text_file,
-            save_file_bytes,
+            write_binary_file,
             export_node_pdf,
             // W6: backend-dependent UI stubs
             ai_chat,
@@ -610,10 +640,50 @@ mod tests {
 
     fn ts_wire_json() -> serde_json::Value {
         serde_json::json!([
-            { "id": "n1", "name": "Rect-1", "transform": [1, 0, 0, 1, 0, 0], "shape": { "kind": "rect", "x": 0, "y": 0, "w": 10, "h": 10 }, "fill": [57, 208, 198, 255] },
-            { "id": "n2", "name": "Circle-1", "transform": [1, 0, 0, 1, 50, 50], "shape": { "kind": "circle", "cx": 0, "cy": 0, "r": 5 }, "fill": [255, 0, 0, 255] },
-            { "id": "n3", "name": "Ellipse-1", "transform": [1, 0, 0, 1, 100, 100], "shape": { "kind": "ellipse", "cx": 10, "cy": 5, "rx": 8, "ry": 4 }, "fill": [0, 255, 0, 255] },
-            { "id": "n4", "name": "Line-1", "transform": [1, 0, 0, 1, 0, 0], "shape": { "kind": "line", "from": [0, 0], "to": [10, 10], "tolerance": 2 }, "fill": [0, 0, 255, 255] }
+            {
+                "id": "n1",
+                "name": "Rect-1",
+                "transform": [1, 0, 0, 1, 0, 0],
+                "shape": { "kind": "rect", "x": 0, "y": 0, "w": 10, "h": 10 },
+                "fill": [57, 208, 198, 255]
+            },
+            {
+                "id": "n2",
+                "name": "Circle-1",
+                "transform": [1, 0, 0, 1, 50, 50],
+                "shape": { "kind": "circle", "cx": 0, "cy": 0, "r": 5 },
+                "fill": [255, 0, 0, 255]
+            },
+            {
+                "id": "n3",
+                "name": "Ellipse-1",
+                "transform": [1, 0, 0, 1, 100, 100],
+                "shape": { "kind": "ellipse", "cx": 10, "cy": 5, "rx": 8, "ry": 4 },
+                "fill": [0, 255, 0, 255]
+            },
+            {
+                "id": "n4",
+                "name": "Line-1",
+                "transform": [1, 0, 0, 1, 0, 0],
+                "shape": { "kind": "line", "from": [0, 0], "to": [10, 10], "tolerance": 2 },
+                "fill": [0, 0, 255, 255]
+            },
+            {
+                "id": "n5",
+                "name": "Text-1",
+                "transform": [1, 0, 0, 1, 25, 25],
+                "shape": {
+                    "kind": "text",
+                    "text": "Hello",
+                    "fontSize": 16,
+                    "fontFamily": "Inter",
+                    "fontWeight": 400,
+                    "fontStyle": "normal",
+                    "textAlign": "left",
+                    "x": 0.0, "y": 0.0, "w": 100.0, "h": 20.0
+                },
+                "fill": [16, 21, 31, 255]
+            }
         ])
     }
 
@@ -621,10 +691,76 @@ mod tests {
     fn round_trip_build_render_ir() {
         let json = ts_wire_json();
         let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
-        assert_eq!(nodes.len(), 4);
+        assert_eq!(nodes.len(), 5);
+
         let scene = convert_scene(nodes);
         let ir = strata_engine::build_render_ir(&scene);
-        assert_eq!(ir.len(), 4);
+        assert_eq!(ir.len(), 5);
+
+        // Rect: origin, teal
+        assert_eq!(ir[0].transform, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        assert_eq!(ir[0].fill, [57, 208, 198, 255]);
+        assert_eq!(
+            ir[0].primitive,
+            strata_engine::Primitive::Rect {
+                x: 0.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            }
+        );
+
+        // Circle: translated (50,50), red
+        assert_eq!(ir[1].transform, [1.0, 0.0, 0.0, 1.0, 50.0, 50.0]);
+        assert_eq!(ir[1].fill, [255, 0, 0, 255]);
+        assert_eq!(
+            ir[1].primitive,
+            strata_engine::Primitive::Circle {
+                cx: 0.0,
+                cy: 0.0,
+                r: 5.0
+            }
+        );
+
+        // Ellipse: translated (100,100)
+        assert_eq!(ir[2].transform, [1.0, 0.0, 0.0, 1.0, 100.0, 100.0]);
+        assert_eq!(
+            ir[2].primitive,
+            strata_engine::Primitive::Ellipse {
+                cx: 10.0,
+                cy: 5.0,
+                rx: 8.0,
+                ry: 4.0
+            }
+        );
+
+        // Line: at origin
+        assert_eq!(ir[3].transform, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        assert_eq!(
+            ir[3].primitive,
+            strata_engine::Primitive::Line {
+                from: [0.0, 0.0],
+                to: [10.0, 10.0],
+                tolerance: 2.0
+            }
+        );
+
+        // Text: translated (25,25), text primitive
+        assert_eq!(ir[4].transform, [1.0, 0.0, 0.0, 1.0, 25.0, 25.0]);
+        assert_eq!(ir[4].fill, [16, 21, 31, 255]);
+        assert!(matches!(
+            ir[4].primitive,
+            strata_engine::Primitive::Text { text: _, .. }
+        ));
+        if let strata_engine::Primitive::Text { ref text, font_size, ref font_family, font_weight, ref font_style, .. } = ir[4].primitive {
+            assert_eq!(text, "Hello");
+            assert_eq!(font_size, 16.0);
+            assert_eq!(font_family, "Inter");
+            assert_eq!(font_weight, 400);
+            assert_eq!(font_style, "normal");
+        } else {
+            panic!("expected text primitive");
+        }
     }
 
     #[test]
@@ -634,5 +770,67 @@ mod tests {
         let scene = convert_scene(nodes);
         let hit = strata_core::hit_test(&scene, Point::new(2.0, 8.0));
         assert_eq!(hit, Some(0));
+
+        // Circle at world (50,50) radius 5: (52,50) is inside.
+        let hit = strata_core::hit_test(&scene, Point::new(52.0, 50.0));
+        assert_eq!(hit, Some(1));
+
+        // Ellipse at world center (110,105), rx=8 ry=4: (115,105) is inside.
+        let hit = strata_core::hit_test(&scene, Point::new(115.0, 105.0));
+        assert_eq!(hit, Some(2));
+
+        // Point (5,5) is inside both the rect and the line (tolerance 2).
+        // hit_test returns the topmost (highest index) — line at index 3.
+        let hit = strata_core::hit_test(&scene, Point::new(5.0, 5.0));
+        assert_eq!(hit, Some(3));
+
+        // Point outside all shapes
+        let hit = strata_core::hit_test(&scene, Point::new(999.0, 999.0));
+        assert_eq!(hit, None);
+    }
+
+    #[test]
+    fn output_serialization_matches_ts_wire_format() {
+        let json = ts_wire_json();
+        let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
+        let scene = convert_scene(nodes);
+        let ir = strata_engine::build_render_ir(&scene);
+
+        let serialized = serde_json::to_value(&ir).expect("serialize IR");
+
+        // Verify top-level structure: should be a JSON array
+        assert!(serialized.is_array(), "IR should serialize as a JSON array");
+        let arr = serialized.as_array().unwrap();
+        assert_eq!(arr.len(), 5);
+
+        // Verify transform is an array (not an object with coeffs key)
+        let first = &arr[0];
+        let tx = first.get("transform").expect("transform field");
+        assert!(tx.is_array(), "transform should be a JSON array, got {tx}");
+        assert_eq!(tx.as_array().unwrap().len(), 6);
+
+        // Verify primitive has "kind" tag (internally-tagged)
+        let prim = first.get("primitive").expect("primitive field");
+        assert!(prim.is_object(), "primitive should be an object");
+        assert!(
+            prim.get("kind").is_some(),
+            "primitive should have 'kind' tag"
+        );
+
+        // Verify line primitive from/to are arrays (not objects with x,y)
+        let line_prim = &arr[3].get("primitive").unwrap();
+        assert_eq!(line_prim.get("kind").unwrap(), "line");
+        let from = line_prim.get("from").unwrap();
+        assert!(
+            from.is_array(),
+            "line.from should be a JSON array, got {from}"
+        );
+        let to = line_prim.get("to").unwrap();
+        assert!(to.is_array(), "line.to should be a JSON array, got {to}");
+
+        // Verify fill is an array of 4 numbers
+        let fill = first.get("fill").unwrap();
+        assert!(fill.is_array(), "fill should be a JSON array");
+        assert_eq!(fill.as_array().unwrap().len(), 4);
     }
 }

@@ -13,6 +13,7 @@
  * CRDT-safe fractional ordering replaces it when sync lands (Phase 2, plan §1.1).
  */
 import type { Affine, Color, Shape } from '@strata/engine';
+import type { ExportSettings } from './export-types';
 import type {
   ComponentDefinition,
   ContainerNode,
@@ -40,6 +41,8 @@ export interface Document {
   canvasHeight?: number;
   /** Canvas background color (RGBA). */
   canvasBackground?: Color;
+  /** Per-document export defaults (optional — falls back to ExportSettings globals). */
+  exportDefaults?: Partial<ExportSettings>;
 }
 
 export interface NodeEntry {
@@ -120,6 +123,7 @@ export function makeTextNode(
       | 'fontSize'
       | 'fontFamily'
       | 'fontWeight'
+      | 'fontStyle'
       | 'lineHeight'
       | 'letterSpacing'
       | 'textAlign'
@@ -151,11 +155,12 @@ export function makeTextNode(
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? ([16, 21, 31, 255] as Color),
     fontSize: opts.fontSize ?? 16,
-    fontFamily: opts.fontFamily,
-    fontWeight: opts.fontWeight,
-    lineHeight: opts.lineHeight,
-    letterSpacing: opts.letterSpacing,
-    textAlign: opts.textAlign,
+    fontFamily: opts.fontFamily ?? 'Inter',
+    fontWeight: opts.fontWeight ?? 400,
+    fontStyle: opts.fontStyle ?? 'normal',
+    lineHeight: opts.lineHeight ?? 1.2,
+    letterSpacing: opts.letterSpacing ?? 0,
+    textAlign: opts.textAlign ?? 'left',
     textCase: opts.textCase,
     textDecoration: opts.textDecoration,
     strokes: opts.strokes ?? [],

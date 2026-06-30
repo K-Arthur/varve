@@ -9,6 +9,8 @@
 export type { Engine } from './engine';
 export { createEngine } from './engine';
 export * from './geometry';
+export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
+export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type { ReplayTarget } from './replay';
 export { replayIr } from './replay';
 export type { ThumbnailOptions } from './thumbnail';

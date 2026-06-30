@@ -97,15 +97,18 @@ export interface Platform {
   ): Promise<{ result: OpenFileResult | null; unsupported: boolean }>;
   /** Save a document to disk via the OS save dialog; returns the path or null. */
   saveDocumentToDisk(name: string, documentJson: string): Promise<string | null>;
+  /**
+   * Save a binary file (PDF, PNG, SVG, etc.) via the OS save dialog.
+   * Returns the chosen path, or null if cancelled.
+   */
+  saveBinaryFile(
+    name: string,
+    data: Uint8Array,
+    mimeType: string,
+    extension: string,
+  ): Promise<string | null>;
   /** Reveal a path in the OS file manager. */
   revealInFileManager(path: string): Promise<void>;
   /** Platform-appropriate verb for the "reveal" action ("Reveal in Finder", etc.). */
   fileManagerLabel(): string;
-
-  /**
-   * Save binary data to disk via the OS save dialog.
-   * Returns the file path or null if cancelled.
-   * In the browser, triggers a Blob download and returns the filename.
-   */
-  saveBlob(name: string, data: Uint8Array, mimeType: string): Promise<string | null>;
 }

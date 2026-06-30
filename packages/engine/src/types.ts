@@ -193,7 +193,8 @@ export type Primitive =
       fontSize: number;
       fontFamily: string;
       fontWeight: number;
-      fontStyle: string;
+      fontStyle: 'normal' | 'italic';
+      textAlign: 'left' | 'center' | 'right';
     };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */

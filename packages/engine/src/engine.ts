@@ -38,7 +38,8 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
       fontSize,
       fontFamily: node.fontFamily ?? 'sans-serif',
       fontWeight: node.fontWeight ?? 400,
-      fontStyle: node.fontStyle ?? 'normal',
+      fontStyle: (node.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
+      textAlign: 'left' as const,
     };
   }
   const s = node.shape;

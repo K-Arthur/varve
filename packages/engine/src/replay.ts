@@ -42,6 +42,7 @@ export interface ReplayTarget {
   fillStyle: string;
   lineWidth: number;
   lineCap: CanvasLineCap;
+  textAlign: CanvasTextAlign;
   lineJoin: CanvasLineJoin;
   strokeStyle: string;
   /** F6: opacity for the item layer. */
@@ -344,10 +345,13 @@ function paintText(
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
 ): void {
   const style = p.fontStyle === 'italic' ? 'italic ' : '';
-  const weight = p.fontWeight && p.fontWeight !== 400 ? `${p.fontWeight} ` : '';
-  target.font = `${style}${weight}${p.fontSize}px ${p.fontFamily}`;
+  const fw = Math.max(1, Math.min(1000, p.fontWeight));
+  target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
   target.textBaseline = 'top';
-  target.fillText(p.text, p.x, p.y);
+  target.textAlign = p.textAlign as CanvasTextAlign;
+  const xOrigin =
+    p.textAlign === 'center' ? p.x + p.w / 2 : p.textAlign === 'right' ? p.x + p.w : p.x;
+  target.fillText(p.text, xOrigin, p.y);
 }
 
 /** Paint a closed/open path fill. */

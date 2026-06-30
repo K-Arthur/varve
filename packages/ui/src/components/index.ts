@@ -47,6 +47,8 @@ export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl'
 export { SegmentedControl } from './SegmentedControl';
 export type { SelectOption, SelectProps } from './Select';
 export { Select } from './Select';
+export type { SliderProps } from './Slider';
+export { Slider } from './Slider';
 export type { Tab, TabsProps } from './Tabs';
 export { Tabs } from './Tabs';
 export type { ToastItem, ToastProps } from './Toast';

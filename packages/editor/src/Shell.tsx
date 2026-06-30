@@ -2,12 +2,12 @@ import { Icon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { CanvasArea } from './CanvasArea';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
-import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { EditorProvider, useEditor } from './context';
+import { InspectorPanel } from './InspectorPanel';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
@@ -54,7 +54,7 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
         <LayersPanel />
       </div>
       <div className="editor__inspector-panel" data-visible={inspectorVisible || undefined}>
-        <PropertiesPanel />
+        <InspectorPanel />
       </div>
       <StatusBar />
       {/* FAB for layers (responsive) */}

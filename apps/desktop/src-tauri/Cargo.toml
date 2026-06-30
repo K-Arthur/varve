@@ -27,6 +27,7 @@ strata-engine = { path = "../../../crates/strata-engine" }
 notify = "6"
 strata-sync = { path = "../../../crates/strata-sync" }
 strata-print = { path = "../../../crates/strata-print" }
+tauri-plugin-fs = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

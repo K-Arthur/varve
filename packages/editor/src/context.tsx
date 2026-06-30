@@ -22,7 +22,7 @@ import {
   rectContains,
   shapeContains,
 } from '@strata/engine';
-import type { NodeId, Slot } from '@strata/scene';
+import type { ExportPreset, NodeId, Slot } from '@strata/scene';
 import {
   addChild,
   addNode,
@@ -336,6 +336,15 @@ export interface EditorContextValue {
   setPixelGridEnabled: (v: boolean) => void;
   /** Toggle snap-to-grid. */
   setSnapEnabled: (v: boolean) => void;
+  /** Show the export dialog modal. */
+  showExportDialog: boolean;
+  setShowExportDialog: (show: boolean) => void;
+  /** Add an export preset to a node. */
+  addPreset: (nodeId: NodeId, preset: ExportPreset) => void;
+  /** Update an export preset on a node. */
+  updatePreset: (nodeId: NodeId, preset: ExportPreset) => void;
+  /** Remove an export preset from a node. */
+  removePreset: (nodeId: NodeId, presetId: string) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -568,6 +577,7 @@ export function EditorProvider({
       snapEnabled: false,
     };
   });
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const undoStackRef = useRef<Document[]>([]);
   const redoStackRef = useRef<Document[]>([]);
   const undoSelStackRef = useRef<NodeId[][]>([]);
@@ -1866,6 +1876,56 @@ export function EditorProvider({
         }
       },
 
+      showExportDialog,
+      setShowExportDialog,
+
+      addPreset: (nodeId, preset) => {
+        updateDoc((doc) => {
+          const node = doc.nodes[nodeId];
+          if (!node) return doc;
+          const existing = node.presets ?? [];
+          return {
+            ...doc,
+            nodes: {
+              ...doc.nodes,
+              [nodeId]: { ...node, presets: [...existing, preset] },
+            },
+          };
+        });
+      },
+
+      updatePreset: (nodeId, updatedPreset) => {
+        updateDoc((doc) => {
+          const node = doc.nodes[nodeId];
+          if (!node) return doc;
+          const existing = node.presets ?? [];
+          return {
+            ...doc,
+            nodes: {
+              ...doc.nodes,
+              [nodeId]: {
+                ...node,
+                presets: existing.map((p) => (p.id === updatedPreset.id ? updatedPreset : p)),
+              },
+            },
+          };
+        });
+      },
+
+      removePreset: (nodeId, presetId) => {
+        updateDoc((doc) => {
+          const node = doc.nodes[nodeId];
+          if (!node) return doc;
+          return {
+            ...doc,
+            nodes: {
+              ...doc.nodes,
+              [nodeId]: { ...node, presets: (node.presets ?? []).filter((p) => p.id !== presetId) },
+            },
+          };
+        });
+      },
+
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
@@ -1919,6 +1979,7 @@ export function EditorProvider({
       setBindingField,
       focusedField,
       setFocusedField,
+      showExportDialog,
     ],
   );
 
