@@ -1,4 +1,6 @@
-import type { ShortcutBinding, ShortcutDef } from './types';
+import type { KeymapExport, ShortcutBinding, ShortcutDef } from './types';
+
+const STORAGE_KEY = 'strata-shortcut-overrides';
 
 export const SHORTCUT_DEFS = {
   undo: { binding: { key: 'z', ctrl: true }, label: 'Undo', category: 'Edit' },
@@ -91,6 +93,93 @@ export const SHORTCUT_DEFS = {
   toolZoom: { binding: { key: 'z' }, label: 'Zoom tool', category: 'Tools' },
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
 } satisfies Record<string, ShortcutDef>;
+
+// ── Persistence ────────────────────────────────────────────────────────
+
+export function getOverrides(): Record<string, ShortcutBinding> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, ShortcutBinding>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function setOverride(id: string, binding: ShortcutBinding): void {
+  const overrides = getOverrides();
+  overrides[id] = binding;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+}
+
+export function clearOverride(id: string): void {
+  const overrides = getOverrides();
+  delete overrides[id];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+}
+
+export function clearAllOverrides(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+export function getEffectiveBinding(id: string): ShortcutBinding {
+  const overrides = getOverrides();
+  if (overrides[id]) return overrides[id];
+  const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
+  return def?.binding ?? { key: '' };
+}
+
+// ── Key capture ────────────────────────────────────────────────────────
+
+export function captureKeyCombo(e: KeyboardEvent): ShortcutBinding | null {
+  const key = e.key;
+
+  if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') {
+    return null;
+  }
+  if (key === 'Dead' || key === 'Unidentified') {
+    return null;
+  }
+  if (key === 'Escape') {
+    return null;
+  }
+
+  return {
+    key: key === 'Backspace' || key === 'Delete' ? 'Backspace' : key.toLowerCase(),
+    ctrl: isMac() ? e.metaKey : e.ctrlKey,
+    shift: e.shiftKey,
+    alt: e.altKey,
+  };
+}
+
+// ── Export / Import ─────────────────────────────────────────────────────
+
+export function exportKeymap(): KeymapExport {
+  const overrides = getOverrides();
+  const shortcuts: KeymapExport['shortcuts'] = {};
+  for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
+    shortcuts[id] = {
+      binding: overrides[id] ?? def.binding,
+      label: def.label,
+    };
+  }
+  return {
+    version: 1,
+    generated: new Date().toISOString(),
+    shortcuts,
+  };
+}
+
+export function importKeymap(data: KeymapExport): number {
+  let count = 0;
+  if (!data.shortcuts || typeof data.shortcuts !== 'object') return 0;
+  for (const [id, entry] of Object.entries(data.shortcuts)) {
+    if (entry && typeof entry === 'object' && 'binding' in entry) {
+      setOverride(id, entry.binding as ShortcutBinding);
+      count++;
+    }
+  }
+  return count;
+}
 
 export function isMac(): boolean {
   return navigator.platform?.toLowerCase().includes('mac') ?? false;

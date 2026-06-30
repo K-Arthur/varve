@@ -34,7 +34,7 @@ export function ColorSlider({
   const valueText = channel === 'hue' ? `${displayValue} degrees` : `${displayValue}% opacity`;
   const pct = channel === 'hue' ? (value / max) * 100 : value * 100;
 
-  const clamp = useCallback((v: number) => Math.max(min, Math.min(max, v)), [min, max]);
+  const clamp = useCallback((v: number) => Math.max(min, Math.min(max, v)), [max]);
 
   const valueFromPointer = useCallback(
     (clientX: number) => {
@@ -44,7 +44,7 @@ export function ColorSlider({
       const pct = (clientX - rect.left) / rect.width;
       return clamp(pct * (max - min) + min);
     },
-    [max, min, value, clamp],
+    [max, value, clamp],
   );
 
   const handlePointerDown = useCallback(
@@ -91,7 +91,7 @@ export function ColorSlider({
       e.preventDefault();
       onChange(newValue);
     },
-    [channel, value, clamp, min, max, onChange],
+    [channel, value, clamp, max, onChange],
   );
 
   return (

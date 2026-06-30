@@ -23,9 +23,9 @@ import type {
 } from '@strata/scene';
 import { gradientFill, imageFill, patternFill, resolveNodeFills, solidFill } from '@strata/scene';
 import { Icon } from '@strata/ui';
+import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { GradientEditor } from '../color/GradientEditor';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';

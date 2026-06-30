@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { ColorFields } from './ColorFields';
 import { ColorPicker } from './ColorPicker';
 import { ColorSlider } from './ColorSlider';
-import { SwatchPalette } from './SwatchPalette';
-import { EyeDropperButton } from './EyeDropperButton';
-import { ColorFields } from './ColorFields';
 import type { Color } from './color-utils';
+import { EyeDropperButton } from './EyeDropperButton';
+import { SwatchPalette } from './SwatchPalette';
 
 afterEach(cleanup);
 

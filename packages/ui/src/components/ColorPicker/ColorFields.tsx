@@ -1,6 +1,6 @@
 import { useCallback, useId, useState } from 'react';
 import type { Color } from './color-utils';
-import { hexToRgb, hslToRgb, hsbToRgb, rgbToHex, rgbToHsl, rgbToHsb } from './color-utils';
+import { hexToRgb, hsbToRgb, hslToRgb, rgbToHex, rgbToHsb, rgbToHsl } from './color-utils';
 
 export interface ColorFieldsProps {
   color: Color;

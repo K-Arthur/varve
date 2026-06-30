@@ -1,5 +1,5 @@
-import { Icon } from '../../icons';
 import { useCallback, useEffect, useState } from 'react';
+import { Icon } from '../../icons';
 import type { Color } from './color-utils';
 import { hexToRgb } from './color-utils';
 

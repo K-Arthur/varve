@@ -1,11 +1,12 @@
 import { exportDocumentToSvg } from '@strata/codegen';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorContextValue, ToolId } from '../context';
-import { bindingMatchesEvent, SHORTCUT_DEFS } from './ShortcutManager';
+import { bindingMatchesEvent, getEffectiveBinding, SHORTCUT_DEFS } from './ShortcutManager';
 
 export function useShortcuts(editor: EditorContextValue): {
   paletteOpen: boolean;
   closePalette: () => void;
+  openPalette: () => void;
 } {
   const ref = useRef(editor);
   ref.current = editor;
@@ -154,8 +155,9 @@ export function useShortcuts(editor: EditorContextValue): {
         return;
       if ((e.target as HTMLElement).closest?.('[data-shortcut-ignore]')) return;
 
-      for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
-        if (!bindingMatchesEvent(e, def.binding)) continue;
+      for (const [id, _def] of Object.entries(SHORTCUT_DEFS)) {
+        const binding = getEffectiveBinding(id);
+        if (!binding?.key || !bindingMatchesEvent(e, binding)) continue;
         e.preventDefault();
         getHandler(id)?.();
         return;
@@ -176,5 +178,9 @@ export function useShortcuts(editor: EditorContextValue): {
     return () => window.removeEventListener('keydown', handler);
   }, [getHandler]);
 
-  return { paletteOpen, closePalette: () => setPaletteOpen(false) };
+  return {
+    paletteOpen,
+    closePalette: () => setPaletteOpen(false),
+    openPalette: () => setPaletteOpen(true),
+  };
 }

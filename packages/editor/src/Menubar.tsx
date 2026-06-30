@@ -37,6 +37,8 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
         action: 'exportSvg',
       },
+      { label: '---' },
+      { label: 'Settings\u2026', action: 'settings' },
     ],
   },
   {
@@ -65,6 +67,12 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.toolInspect.binding),
         action: 'inspectMode',
       },
+      { label: '---' },
+      {
+        label: 'Keyboard Shortcuts',
+        shortcut: formatShortcut(SHORTCUT_DEFS.shortcutPalette.binding),
+        action: 'shortcutPalette',
+      },
       { label: 'Home', shortcut: '\u21E7\u2318H', action: 'home' },
     ],
   },
@@ -79,7 +87,14 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
     items: [{ label: 'Bring to Front', shortcut: '\u21E7\u2318]', action: 'bringFront' }],
   },
   { id: 'Plugins', items: [{ label: 'No plugins loaded', action: '' }] },
-  { id: 'Help', items: [{ label: 'About Strata', action: 'about' }] },
+  {
+    id: 'Help',
+    items: [
+      { label: 'Take a tour', action: 'startTour' },
+      { label: '---' },
+      { label: 'About Strata', action: 'about' },
+    ],
+  },
 ];
 
 function itemRole(item: MenuItem): string {
@@ -87,7 +102,17 @@ function itemRole(item: MenuItem): string {
   return 'menuitem';
 }
 
-export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
+export function Menubar({
+  onBackToHome,
+  onOpenSettings,
+  onStartTour,
+  onOpenPalette,
+}: {
+  onBackToHome?: () => void;
+  onOpenSettings?: () => void;
+  onStartTour?: () => void;
+  onOpenPalette?: () => void;
+}) {
   const {
     state,
     newDocument,
@@ -213,6 +238,15 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
         case 'home':
           onBackToHome?.();
           break;
+        case 'settings':
+          onOpenSettings?.();
+          break;
+        case 'startTour':
+          onStartTour?.();
+          break;
+        case 'shortcutPalette':
+          onOpenPalette?.();
+          break;
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
@@ -233,6 +267,8 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
       setZoom,
       state,
       onBackToHome,
+      onOpenSettings,
+      onStartTour,
     ],
   );
 
@@ -259,7 +295,8 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
 
       if (openIdx >= 0 && openMenu) {
         // Dropdown is open — navigate items
-        const menu = MENUS[openIdx]!;
+        const menu = MENUS[openIdx];
+        if (!menu) return;
         const items = menu.items.filter((i) => i.label !== '---');
 
         switch (e.key) {
@@ -292,7 +329,7 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
           case 'ArrowLeft': {
             e.preventDefault();
             const prev = (openIdx - 1 + MENUS.length) % MENUS.length;
-            setOpenMenu(MENUS[prev]!.id);
+            setOpenMenu(MENUS[prev]?.id);
             setActiveItemIndex(0);
             setFocusedIndex(prev);
             return;
@@ -300,7 +337,7 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
           case 'ArrowRight': {
             e.preventDefault();
             const next = (openIdx + 1) % MENUS.length;
-            setOpenMenu(MENUS[next]!.id);
+            setOpenMenu(MENUS[next]?.id);
             setActiveItemIndex(0);
             setFocusedIndex(next);
             return;
