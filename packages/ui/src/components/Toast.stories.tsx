@@ -45,16 +45,32 @@ function ToastDemo() {
   const { toast } = useToast();
   return (
     <div style={{ display: 'flex', gap: '8px', flexDirection: 'column', alignItems: 'flex-start' }}>
-      <button type="button" className="strata-btn strata-btn--primary" onClick={() => toast({ message: 'Info toast', type: 'info' })}>
+      <button
+        type="button"
+        className="strata-btn strata-btn--primary"
+        onClick={() => toast({ message: 'Info toast', type: 'info' })}
+      >
         Show Info
       </button>
-      <button type="button" className="strata-btn strata-btn--secondary" onClick={() => toast({ message: 'Success toast', type: 'success' })}>
+      <button
+        type="button"
+        className="strata-btn strata-btn--secondary"
+        onClick={() => toast({ message: 'Success toast', type: 'success' })}
+      >
         Show Success
       </button>
-      <button type="button" className="strata-btn strata-btn--ghost" onClick={() => toast({ message: 'Warning toast', type: 'warning' })}>
+      <button
+        type="button"
+        className="strata-btn strata-btn--ghost"
+        onClick={() => toast({ message: 'Warning toast', type: 'warning' })}
+      >
         Show Warning
       </button>
-      <button type="button" className="strata-btn strata-btn--danger" onClick={() => toast({ message: 'Error toast', type: 'error' })}>
+      <button
+        type="button"
+        className="strata-btn strata-btn--danger"
+        onClick={() => toast({ message: 'Error toast', type: 'error' })}
+      >
         Show Error
       </button>
     </div>

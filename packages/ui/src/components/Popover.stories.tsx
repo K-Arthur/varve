@@ -21,7 +21,9 @@ export const Default: Story = {
     popover: (
       <div style={{ padding: '8px', minWidth: '160px' }}>
         <p style={{ margin: '0 0 8px', fontSize: '14px' }}>Popover content here.</p>
-        <Button variant="secondary" size="sm">Action</Button>
+        <Button variant="secondary" size="sm">
+          Action
+        </Button>
       </div>
     ),
   },

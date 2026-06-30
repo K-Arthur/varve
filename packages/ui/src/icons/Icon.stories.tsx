@@ -6,7 +6,21 @@ const meta: Meta<typeof Icon> = {
   component: Icon,
   tags: ['autodocs', 'a11y'],
   argTypes: {
-    name: { control: 'select', options: ['MousePointer2', 'Square', 'Circle', 'Type', 'Pen', 'Trash2', 'Check', 'X', 'ChevronDown', 'Settings'] },
+    name: {
+      control: 'select',
+      options: [
+        'MousePointer2',
+        'Square',
+        'Circle',
+        'Type',
+        'Pen',
+        'Trash2',
+        'Check',
+        'X',
+        'ChevronDown',
+        'Settings',
+      ],
+    },
     size: { control: 'number' },
     label: { control: 'text' },
   },
@@ -33,13 +47,44 @@ export const CustomColor: Story = {
 
 export const AllIcons: Story = {
   render: () => {
-    const iconNames: IconName[] = ['MousePointer2', 'Square', 'Circle', 'Type', 'Pen', 'Trash2', 'Check', 'X', 'ChevronDown', 'Settings', 'Eye', 'Lock', 'Search', 'Plus', 'Filter', 'Star', 'Copy', 'Undo2', 'Redo2'];
+    const iconNames: IconName[] = [
+      'MousePointer2',
+      'Square',
+      'Circle',
+      'Type',
+      'Pen',
+      'Trash2',
+      'Check',
+      'X',
+      'ChevronDown',
+      'Settings',
+      'Eye',
+      'Lock',
+      'Search',
+      'Plus',
+      'Filter',
+      'Star',
+      'Copy',
+      'Undo2',
+      'Redo2',
+    ];
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         {iconNames.map((name) => (
-          <div key={name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: '80px' }}>
+          <div
+            key={name}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+              width: '80px',
+            }}
+          >
             <Icon name={name} size={24} />
-            <span style={{ fontSize: '10px', textAlign: 'center', wordBreak: 'break-all' }}>{name}</span>
+            <span style={{ fontSize: '10px', textAlign: 'center', wordBreak: 'break-all' }}>
+              {name}
+            </span>
           </div>
         ))}
       </div>

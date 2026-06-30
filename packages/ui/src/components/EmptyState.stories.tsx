@@ -13,7 +13,14 @@ type Story = StoryObj<typeof EmptyState>;
 
 function DefaultIllustration() {
   return (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="64"
+      height="64"
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <rect x="8" y="8" width="48" height="48" rx="4" opacity="0.3" />
       <path d="M24 32h16M32 24v16" />
     </svg>
