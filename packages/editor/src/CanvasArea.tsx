@@ -17,7 +17,8 @@ import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
-import { nodeWorldTransform } from './scene/world';
+import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import { fitBoundsCamera } from '@strata/shared';
 import { type ToolContext, ToolManager } from './tools';
 import { EllipseTool } from './tools/EllipseTool';
 import { FrameTool } from './tools/FrameTool';
@@ -415,6 +416,39 @@ export function CanvasArea() {
       if ((e.key === 'Enter' || e.key === 'F2') && firstSel) {
         const name = prompt('Rename layer', nodes[idx]?.name ?? '');
         if (name) eRef.renameSelected(name);
+      }
+
+      // ── Reveal shortcuts ──────────────────────────────────────────────
+      if (e.key === '1' && e.shiftKey) {
+        e.preventDefault();
+        // Shift+1: fit all nodes
+        const allBounds = rootNodes().reduce<{ x: number; y: number; w: number; h: number } | null>(
+          (acc, n) => {
+            const b = nodeWorldBounds(state.document, n.id);
+            if (!b) return acc;
+            if (!acc) return b;
+            const minX = Math.min(acc.x, b.x);
+            const minY = Math.min(acc.y, b.y);
+            const maxX = Math.max(acc.x + acc.w, b.x + b.w);
+            const maxY = Math.max(acc.y + acc.h, b.y + b.h);
+            return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+          },
+          null,
+        );
+        if (allBounds) {
+          const viewportEst = { width: window.innerWidth, height: window.innerHeight - 120 };
+          const cam = fitBoundsCamera(allBounds, viewportEst, 40);
+          eRef.setZoom(cam.zoom);
+          eRef.setPan({ x: cam.pan[0], y: cam.pan[1] });
+          eRef.announce('Zoom to fit all');
+        }
+      }
+      if (e.key === '2' && e.shiftKey) {
+        e.preventDefault();
+        if (selArr.length > 0) {
+          eRef.revealSelection({ fit: true });
+          eRef.announce('Zoom to selection');
+        }
       }
     },
     [rootNodes],

@@ -59,6 +59,7 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
     setNodeLocked,
     reparentNode,
     announce,
+    revealSelection,
   } = useEditor();
 
   const [expanded, setExpanded] = useState<Set<NodeId>>(new Set());
@@ -131,9 +132,13 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
         }
       }
       toggleSelection(id, ctrl);
-      if (!ctrl) setAnchorIdx(entries.findIndex((e) => e.node.id === id));
+      if (!ctrl) {
+        setAnchorIdx(entries.findIndex((e) => e.node.id === id));
+        // Reveal the selected node (pan into view if off-screen).
+        revealSelection({ nodeId: id });
+      }
     },
-    [anchorIdx, entries, toggleSelection, setAnchorIdx],
+    [anchorIdx, entries, toggleSelection, setAnchorIdx, revealSelection],
   );
 
   const handleRenameStart = useCallback((id: NodeId, _name: string) => {

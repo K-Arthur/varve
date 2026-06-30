@@ -68,6 +68,11 @@ import {
   writeClipboard as writeToClipboard,
 } from './clipboard';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import {
+  revealBoundsCamera,
+  fitBoundsCamera,
+  type Viewport,
+} from '@strata/shared';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -156,6 +161,8 @@ export interface EditorContextValue {
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   /** Efficient hit-test that returns the full node info. */
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
+  /** Pan (and optionally zoom) to reveal the selection or a specific node. */
+  revealSelection: (opts?: { nodeId?: NodeId; fit?: boolean; padding?: number }) => void;
   /** Get a node by ID from the document. */
   getNode: (id: NodeId) => SceneNode | undefined;
   /** Walk all nodes in the document, returning entries with parent/depth info. */
@@ -641,6 +648,30 @@ export function EditorProvider({
       setTool: (t) => patch({ tool: t }),
       setZoom: (z) => patch({ zoom: z }),
       setPan: (p) => patch({ pan: p }),
+      revealSelection: (opts) => {
+        let id = opts?.nodeId ?? state.selection[0];
+        if (!id) return;
+        const viewportEst: Viewport = {
+          width: window.innerWidth,
+          height: window.innerHeight - 120,
+        };
+        const bounds = nodeWorldBounds(state.document, id);
+        if (!bounds) return;
+        const padding = opts?.padding ?? 40;
+        if (opts?.fit) {
+          const cam = fitBoundsCamera(bounds, viewportEst, padding);
+          patch({ zoom: cam.zoom, pan: { x: cam.pan[0], y: cam.pan[1] } });
+        } else {
+          const current: import('@strata/shared').Camera = {
+            pan: [state.pan.x, state.pan.y],
+            zoom: state.zoom,
+          };
+          const cam = revealBoundsCamera(current, viewportEst, bounds, padding);
+          if (cam.pan[0] !== state.pan.x || cam.pan[1] !== state.pan.y) {
+            patch({ pan: { x: cam.pan[0], y: cam.pan[1] }, zoom: cam.zoom });
+          }
+        }
+      },
 
       // F1: single-select replaces the whole set
       setSelection: (id) => patch({ selection: id ? [id] : [] }),
