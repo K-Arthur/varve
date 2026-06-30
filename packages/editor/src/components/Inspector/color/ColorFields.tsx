@@ -235,7 +235,9 @@ function SpinbuttonRow({ label, value, min, max, onChange, unit }: SpinbuttonRow
 
   return (
     <div className="insp-field">
-      <label className="insp-field__label" htmlFor={inputId}>{unit ? `${label} (${unit})` : label}</label>
+      <label className="insp-field__label" htmlFor={inputId}>
+        {unit ? `${label} (${unit})` : label}
+      </label>
       <div className="insp-field__control">
         <input
           id={inputId}

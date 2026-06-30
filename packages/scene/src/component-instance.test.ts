@@ -47,7 +47,7 @@ describe('component instance operations', () => {
     it('clears componentId on the instance', () => {
       const { doc, instanceId } = setupComponent();
       const detached = detachInstance(doc, instanceId);
-      expect(detached.nodes[instanceId]?.componentId).toBeUndefined();
+      expect((detached.nodes[instanceId] as { componentId?: string })?.componentId).toBeUndefined();
     });
 
     it('is a no-op for non-frame nodes', () => {
