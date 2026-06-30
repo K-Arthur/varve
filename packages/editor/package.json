@@ -17,10 +17,12 @@
     "test": "cd ../.. && vitest run packages/editor"
   },
   "dependencies": {
+    "@strata/ai": "workspace:*",
     "@strata/codegen": "workspace:*",
     "@strata/collab": "workspace:*",
     "@strata/engine": "workspace:*",
     "@strata/platform": "workspace:*",
+    "@strata/plugin-sandbox": "workspace:*",
     "@strata/scene": "workspace:*",
     "@strata/shared": "workspace:*",
     "@strata/ui": "workspace:*",

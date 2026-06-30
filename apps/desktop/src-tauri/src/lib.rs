@@ -456,6 +456,63 @@ fn uuid() -> String {
     format!("{:x}-{:x}", t.as_nanos(), t.as_micros())
 }
 
+// ── AI chat stub ──────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+struct AiResponse {
+    id: String,
+    role: String,
+    content: String,
+    timestamp: i64,
+}
+
+#[tauri::command]
+fn ai_chat(session_id: String, message: String) -> Result<AiResponse, String> {
+    let reply = format!("(AI stub) You said: {}", message);
+    Ok(AiResponse {
+        id: uuid(),
+        role: "assistant".into(),
+        content: reply,
+        timestamp: chrono::Utc::now().timestamp_millis(),
+    })
+}
+
+// ── Collab stub commands ──────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CollabUser {
+    id: String,
+    name: String,
+    color: String,
+}
+
+#[tauri::command]
+fn get_collab_users(document_id: String) -> Result<Vec<CollabUser>, String> {
+    let _ = document_id;
+    Ok(vec![])
+}
+
+#[tauri::command]
+fn update_cursor(document_id: String, x: f64, y: f64) -> Result<(), String> {
+    let _ = (document_id, x, y);
+    Ok(())
+}
+
+// ── Plugin sandbox stub commands ──────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PluginInfo {
+    id: String,
+    name: String,
+    version: String,
+    description: String,
+}
+
+#[tauri::command]
+fn list_plugins() -> Result<Vec<PluginInfo>, String> {
+    Ok(vec![])
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -537,6 +594,11 @@ pub fn run() {
             home_write_text_file,
             save_file_bytes,
             export_node_pdf,
+            // W6: backend-dependent UI stubs
+            ai_chat,
+            get_collab_users,
+            update_cursor,
+            list_plugins,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

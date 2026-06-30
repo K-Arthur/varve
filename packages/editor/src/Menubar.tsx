@@ -448,23 +448,25 @@ export function Menubar({
                 {menu.items.map((item) => {
                   if (item.label === '---') {
                     return (
-                      <div
+                      <hr
                         key="sep"
                         role="separator"
                         tabIndex={-1}
                         style={{
                           margin: 'var(--space-1) 0',
+                          border: 'none',
                           borderTop: '1px solid var(--color-border-subtle)',
                         }}
                       />
                     );
                   }
                   return (
+                    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio role
                     <button
                       key={item.label}
                       role={itemRole(item)}
                       type="button"
-                      aria-checked={
+                      aria-pressed={
                         item.action?.startsWith('theme:')
                           ? currentTheme === item.action.slice(6)
                           : undefined
@@ -534,7 +536,21 @@ export function Menubar({
             aria-label="Document name"
           />
         ) : (
-          <span onClick={startNameEdit} title="Click to rename" style={{ cursor: 'pointer' }}>
+          // biome-ignore lint/a11y/noStaticElementInteractions: span with role="button" is used for inline clickable text; keyboard handler is present
+          // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handler is present alongside onClick
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={startNameEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                startNameEdit();
+              }
+            }}
+            title="Click to rename"
+            style={{ cursor: 'pointer' }}
+          >
             {state.document.name || 'Untitled'}
           </span>
         )}
