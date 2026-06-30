@@ -45,7 +45,8 @@ export function nodeWorldTransform(doc: Document, id: NodeId): Affine {
   // Compose in scene-graph order (children last → applied first, parents first → applied last).
   let world: Affine = identity;
   for (let i = chain.length - 1; i >= 0; i--) {
-    const m = chain[i]!;
+    const m = chain[i];
+    if (!m) continue;
     world = multiplyAffine(world, m);
   }
   return world;

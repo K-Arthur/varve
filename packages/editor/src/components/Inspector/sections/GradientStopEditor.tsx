@@ -126,7 +126,6 @@ export function GradientStopEditor({ stops, rotation, onChange }: GradientStopEd
           }
         }}
         aria-label="Gradient preview, click or press Enter to add stop"
-        tabIndex={0}
         style={{
           position: 'relative',
           height: 24,

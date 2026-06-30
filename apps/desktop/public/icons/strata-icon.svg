@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!--
+    Strata icon — stacked offset bands ("strata" = layers).
+    4 horizontal bands in the teal ramp, alternating left/right offset,
+    creating a geological cross-section / Layers panel abstraction.
+    Teal-5 (lightest, top) → Teal-8 (darkest, bottom).
+  -->
+  <g>
+    <rect x="16" y="26" width="96" height="16" rx="2" fill="#52d1c5"/>
+    <rect x="0" y="46" width="108" height="16" rx="2" fill="#39d0c6"/>
+    <rect x="16" y="66" width="96" height="16" rx="2" fill="#26a69e"/>
+    <rect x="0" y="86" width="108" height="16" rx="2" fill="#1d807b"/>
+  </g>
+</svg>

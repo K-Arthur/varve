@@ -18,7 +18,7 @@ describe('Tooltip', () => {
   it('does not render tooltip initially', () => {
     render(
       <Tooltip label="Helpful tip">
-        <button>Trigger</button>
+        <button type="button">Trigger</button>
       </Tooltip>,
     );
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
@@ -27,7 +27,7 @@ describe('Tooltip', () => {
   it('renders tooltip on hover after delay', async () => {
     render(
       <Tooltip label="Helpful tip" delay={200}>
-        <button>Trigger</button>
+        <button type="button">Trigger</button>
       </Tooltip>,
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
@@ -42,7 +42,7 @@ describe('Tooltip', () => {
   it('shows immediately on focus', () => {
     render(
       <Tooltip label="Helpful tip">
-        <button>Trigger</button>
+        <button type="button">Trigger</button>
       </Tooltip>,
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
@@ -54,7 +54,7 @@ describe('Tooltip', () => {
   it('hides on Escape', () => {
     render(
       <Tooltip label="Helpful tip">
-        <button>Trigger</button>
+        <button type="button">Trigger</button>
       </Tooltip>,
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
@@ -68,7 +68,7 @@ describe('Tooltip', () => {
   it('has correct role and aria-describedby linkage', () => {
     render(
       <Tooltip label="Helpful tip">
-        <button>Trigger</button>
+        <button type="button">Trigger</button>
       </Tooltip>,
     );
     const button = screen.getByRole('button', { name: 'Trigger' });
@@ -82,7 +82,7 @@ describe('Tooltip', () => {
   it('does not render when label is empty', () => {
     render(
       <Tooltip label="">
-        <button>Trigger</button>
+        <button type="button">Trigger</button>
       </Tooltip>,
     );
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();

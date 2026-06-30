@@ -147,15 +147,17 @@ const colorModeOptions: SegmentedOption<ColorMode>[] = [
 export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
   const [activeTab, setActiveTab] = useState<'presets' | 'template'>('presets');
   const [category, setCategory] = useState('all');
-  const [selectedPreset, setSelectedPreset] = useState<NewDocPreset>(PRESETS[0] ?? {
-    id: 'blank',
-    name: 'Blank',
-    category: 'blank',
-    width: 1920,
-    height: 1080,
-    unit: 'px',
-    colorMode: 'rgb',
-  });
+  const [selectedPreset, setSelectedPreset] = useState<NewDocPreset>(
+    PRESETS[0] ?? {
+      id: 'blank',
+      name: 'Blank',
+      category: 'blank',
+      width: 1920,
+      height: 1080,
+      unit: 'px',
+      colorMode: 'rgb',
+    },
+  );
   const [customW, setCustomW] = useState(1920);
   const [customH, setCustomH] = useState(1080);
   const [unit, setUnit] = useState<Unit>('px');

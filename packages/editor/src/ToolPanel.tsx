@@ -27,10 +27,7 @@ export function ToolPanel() {
     <div className="editor-toolbar">
       <Toolbar label="Drawing tools">
         {TOOLS.map((t) => (
-          <Tooltip
-            key={t.id}
-            label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}
-          >
+          <Tooltip key={t.id} label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}>
             <IconButton
               icon={TOOL_ICONS[t.id]}
               label={t.label}

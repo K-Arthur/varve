@@ -28,7 +28,8 @@ const EMOJI_RE =
 // Covers: Arrows block (U+2190-U+21FF), Geometric Shapes (U+25A0-U+25FF),
 // multiplication sign (U+00D7), division sign (U+00F7).
 // These are never acceptable as UI elements; SVG icons must be used instead.
-const ICON_RE = /[\u{00D7}\u{00F7}\u{2190}\u{2191}\u{2192}\u{2193}\u{25A0}\u{25A1}\u{25B2}\u{25B6}\u{25BC}\u{25C0}\u{25C6}\u{25C7}\u{25CB}\u{25CF}]/u;
+const ICON_RE =
+  /[\u{00D7}\u{00F7}\u{2190}\u{2191}\u{2192}\u{2193}\u{25A0}\u{25A1}\u{25B2}\u{25B6}\u{25BC}\u{25C0}\u{25C6}\u{25C7}\u{25CB}\u{25CF}]/u;
 const ICON_EXT = new Set(['.tsx']);
 
 const ALL_EXT = new Set(['.ts', '.tsx', '.css', '.html']);
@@ -54,7 +55,8 @@ async function walk(dir, out = []) {
   }
   for (const e of entries) {
     if (e.isDirectory()) {
-      if (!SKIP_DIRS.has(e.name) && !e.name.startsWith('.worktrees')) await walk(join(dir, e.name), out);
+      if (!SKIP_DIRS.has(e.name) && !e.name.startsWith('.worktrees'))
+        await walk(join(dir, e.name), out);
     } else if (e.isFile() && ALL_EXT.has(extname(e.name))) {
       out.push(join(dir, e.name));
     }
@@ -82,7 +84,8 @@ for (const f of files) {
     // Pass 2: icon-like char check — .tsx only
     if (ICON_EXT.has(ext) && ICON_RE.test(line)) {
       const trimmed = line.trim();
-      const isComment = trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*');
+      const isComment =
+        trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*');
       if (!isComment) {
         offenders.push(`ICON:  ${relative(ROOT, f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
       }

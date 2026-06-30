@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 200">
+  <!--
+    Strata stacked lockup — mark above wordmark, centered.
+    For use on About screens, splash pages, and vertical layouts.
+  -->
+  <g>
+    <rect x="16" y="0" width="96" height="16" rx="2" fill="#52d1c5"/>
+    <rect x="0" y="20" width="108" height="16" rx="2" fill="#39d0c6"/>
+    <rect x="16" y="40" width="96" height="16" rx="2" fill="#26a69e"/>
+    <rect x="0" y="60" width="108" height="16" rx="2" fill="#1d807b"/>
+  </g>
+  <text x="64" y="130" font-family="'Geist Variable','Geist',ui-sans-serif,system-ui,sans-serif" font-weight="600" font-size="48" letter-spacing="-0.03em" text-anchor="middle" fill="#10151f">Strata</text>
+</svg>

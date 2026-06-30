@@ -4,6 +4,8 @@
   justify-content: center;
   gap: var(--space-2);
   height: var(--space-6);
+  min-height: 44px;
+  min-width: 44px;
   padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-md);
@@ -13,9 +15,11 @@
   line-height: 1;
   cursor: pointer;
   outline-offset: 2px;
+  position: relative;
   transition:
     background var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
+    color var(--duration-quick) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-default);
 }
 .strata-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -52,6 +56,40 @@
   height: var(--space-7);
   padding: 0 var(--space-4);
   font-size: var(--font-size-md);
+}
+
+.strata-btn:active {
+  transform: scale(0.97);
+}
+.strata-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.strata-btn[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.5;
+}
+.strata-btn--loading .strata-btn__content {
+  opacity: 0;
+  pointer-events: none;
+}
+.strata-btn__spinner {
+  position: absolute;
+  animation: strata-spin 0.6s linear infinite;
+}
+.strata-btn__content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.strata-btn--confirming .strata-btn__label {
+  text-decoration: line-through;
+}
+@keyframes strata-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .strata-tooltip {

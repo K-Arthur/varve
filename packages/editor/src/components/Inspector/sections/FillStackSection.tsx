@@ -383,9 +383,11 @@ export function FillStackSection({ nodes }: { nodes: import('@strata/scene').Sce
                 stops={fill.gradient.stops}
                 rotation={fill.gradient.rotation ?? 0}
                 onChange={(stops, rotation) => {
+                  const grad = fill.gradient;
+                  if (!grad) return;
                   editor.updateSelectedFillAt(i, {
                     ...fill,
-                    gradient: { ...fill.gradient!, stops, rotation },
+                    gradient: { ...grad, stops, rotation },
                   });
                 }}
               />

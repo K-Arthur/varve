@@ -82,6 +82,7 @@ export function SegmentedControl<T extends string>({
       {options.map((opt, i) => {
         const checked = opt.value === value;
         return (
+          // biome-ignore lint/a11y/useSemanticElements: APG radiogroup pattern uses role="radio" on buttons for custom segmented controls
           <button
             key={opt.value}
             id={`${groupId}-${i}`}

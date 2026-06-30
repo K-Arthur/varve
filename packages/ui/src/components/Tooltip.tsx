@@ -5,21 +5,8 @@
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/
  */
 
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from 'react';
-import {
-  autoUpdate,
-  computePosition,
-  flip,
-  offset,
-  shift,
-} from '@floating-ui/dom';
+import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
+import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 
 export interface TooltipProps {
   children: ReactNode;
@@ -44,9 +31,7 @@ export function Tooltip({
   const tooltipRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipId = useId();
-  const [posStyle, setPosStyle] = useState<{ left: number; top: number } | null>(
-    null,
-  );
+  const [posStyle, setPosStyle] = useState<{ left: number; top: number } | null>(null);
 
   const show = useCallback(
     (immediate = false) => {

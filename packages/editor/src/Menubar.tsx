@@ -1,6 +1,6 @@
 import { exportDocumentToSvg } from '@strata/codegen';
-import { getTheme, setTheme } from '@strata/ui/tokens';
 import type { Theme } from '@strata/ui/tokens';
+import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
@@ -157,7 +157,17 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
           break;
       }
     },
-    [newDocument, serializeDocument, undo, redo, removeSelected, setTool, setZoom, state, onBackToHome],
+    [
+      newDocument,
+      serializeDocument,
+      undo,
+      redo,
+      removeSelected,
+      setTool,
+      setZoom,
+      state,
+      onBackToHome,
+    ],
   );
 
   const isActiveTheme = (item: MenuItem) =>
@@ -205,7 +215,6 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
                 item.label === '---' ? (
                   <hr
                     key="sep"
-                    role="separator"
                     style={{
                       margin: 'var(--space-1) 0',
                       border: 'none',
@@ -227,9 +236,7 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
                       padding: 'var(--space-1) var(--space-2)',
                       border: 'none',
                       borderRadius: 'var(--radius-sm)',
-                      background: isActiveTheme(item)
-                        ? 'var(--color-interactive-default)'
-                        : 'none',
+                      background: isActiveTheme(item) ? 'var(--color-interactive-default)' : 'none',
                       color: item.action ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
                       cursor: 'default',
                       font: 'inherit',
@@ -249,7 +256,10 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
                     <span style={{ flex: 1 }}>{item.label}</span>
                     {item.shortcut && (
                       <span
-                        style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
+                        style={{
+                          fontSize: 'var(--font-size-xs)',
+                          color: 'var(--color-text-muted)',
+                        }}
                       >
                         {item.shortcut}
                       </span>

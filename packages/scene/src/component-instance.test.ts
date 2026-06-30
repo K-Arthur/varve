@@ -1,11 +1,10 @@
 /**
  * Tests for component instance operations — swap, reset overrides, detect overrides.
  */
-import { createComponent } from '@strata/scene';
-import { describe, expect, it } from 'vitest';
 import {
-  type Document,
+  createComponent,
   createDocument,
+  type Document,
   detachInstance,
   instanceOverrides,
   makeFrameNode,
@@ -13,6 +12,7 @@ import {
   resetInstanceOverrides,
   swapInstance,
 } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
 
 describe('component instance operations', () => {
   function setupComponent() {

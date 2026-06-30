@@ -313,7 +313,11 @@ export function FileList({
                 >
                   <div className="file-row__thumb">
                     {thumbnails.get(entry.id) ? (
-                      <img src={thumbnails.get(entry.id) ?? ''} alt="" className="file-row__thumb-img" />
+                      <img
+                        src={thumbnails.get(entry.id) ?? ''}
+                        alt=""
+                        className="file-row__thumb-img"
+                      />
                     ) : (
                       <div className="file-card__skeleton" />
                     )}
