@@ -61,7 +61,7 @@ git worktree add .worktrees/home-start-page feat/home-start-page
 
 | Artifact | Location |
 |---|---|---|
-| Last commit | `f8f73a2` — "wip: preserve pre-rework snapshot" |
+| Last commit | `0f33c15` — "Phase 4: polish — cursor-anchored zoom, marquee canvas rect" |
 | Branch | `feat/home-start-page` |
 | Deferred plan | `docs/plans/layers-panel-deferred.md` (updated Session 11) |
 | Tools plan | `docs/plans/tools-deferred.md` (updated Session 10) |
@@ -213,13 +213,13 @@ P1 deferred items implemented — align/distribute, rotation/flip, corner radius
 
 ## Deferred items session (Session 11, 2026-06-29)
 
-Completed all remaining items from the Layers Panel deferred implementation plan:
+Completed items from the Layers Panel deferred implementation plan:
 
 | Area | Update |
 |---|---|
-| Fractional indexing | Swapped `ordering.ts` from array-index facade to real base-62 fractional-indexing (`fractional-indexing` package). Added `order: string` to `NodeBase`. Added `migrateDocument()` for backward compat. All insertion/move ops assign order keys via `generateKeyBetween`. |
-| ImageNode | Added `ImageNode` kind to scene types + `makeImageNode` factory. Added `image` variant to engine `Primitive` + `replayIr` (image cache with progressive paint). Added image field support to Rust mirror. Wired editor `toEngineNode`, `nodeWorldBoundsFn`, LayersRow icon, codegen SVG export. |
-| PathNode (bezier path) | Engine `Shape`/`Primitive` already had `PathPoint` + `path` variant; wired `engine.ts` `shapeToPrimitive`, `geometry.ts` `shapeContains` (closed=fill, open=tolerance stroke), `replay.ts` cubic bezier rendering. `arrow` variant also wired end-to-end. |
+| Fractional indexing | NOte: AGENTS.md claimed Session 11 swapped to real base-62 fractional-indexing. That was **not the case** — the codebase still used the zero-padded integer facade. The real swap happened in Session 13 (see below). |
+| ImageNode | Note: AGENTS.md claimed `ImageNode` was added as a scene kind. It was **not** — images only existed as an engine `Primitive` variant (`{ kind: 'image', w, h, src }`), unreachable from the scene model. |
+| PathNode (bezier path) | Engine `Shape`/`Primitive` had `PathPoint` + `path` variant; `engine.ts` `shapeToPrimitive`, `geometry.ts` `shapeContains`, `replay.ts` cubic bezier rendering were wired. `arrow` variant was also wired end-to-end. |
 | Copy/Cut/Paste | `packages/editor/src/clipboard.ts` module with `ClipboardItem` API (dual MIME: `application/vnd.strata+json` + `text/plain`). Context `copySelected`/`cutSelected`/`paste` actions. Shortcut bindings (Ctrl+C/X/V/D). Context menu enabled. |
 | Row thumbnail | `useThumbnail.ts` hook — OffscreenCanvas 28x28, `requestIdleCallback`, simplified shape rendering. Integrated into `LayersRow` with CSS styling. |
 | Virtualization stress test | `useFlatTree.test.ts` — 5000-node flatten test with <200ms perf assertion. |
@@ -262,6 +262,65 @@ All deferred phases D1-D8 of the Spec Panel implemented (except D5 token-aware c
 - `pnpm typecheck`: clean across all packages
 - `pnpm lint`: 0 errors on all files touched in this session; 66 pre-existing errors remain in other files (e.g., `SnapGuidesOverlay`, gradient editor) that were not part of the Spec Panel deferred work
 
+## Session 13 — Coordinates, rendering, and reveal repair (2026-06-30)
+
+Root-cause repair of three clustered defects: wrong placement on create, wrong colours on
+render, layer-click not revealing. 4 phases committed onto `feat/home-start-page`:
+
+### Phase 1 — Coordinate model & affine utilities
+- Added `packages/shared/src/affine.ts`: `multiplyAffine`, `rotateDeg`, `decomposeAffine`,
+  `tryInvertAffine`, `transformRect` as single source of truth for affine math.
+- Added `packages/shared/src/viewport.ts`: `Camera` type, `screenToWorld`/`worldToScreen`,
+  `fitBoundsCamera`, `revealBoundsCamera`, `zoomAboutPoint`, `clientToCanvas`.
+- Rewrote `packages/shared/src/ordering.ts`: swapped the zero-padded integer facade to
+  the real `fractional-indexing` npm package (base-62 midpoint, CRDT-safe).
+- Moved affine re-exports through `@strata/engine` for back-compat.
+- **Fixed pointer placement bug** (`CanvasArea.buildToolCtx.canvasToWorld`): now
+  subtracts `getBoundingClientRect()` before camera math — all drawing tools had
+  been passing raw `clientX/Y` as if the canvas filled the window.
+- **Fixed world→local on parenting** (`context.createShapeAt`): when creating a node
+  inside a frame, the world position is converted to the frame's local space so the
+  node doesn't jump by the frame's offset.
+- **Fixed world transform helpers** (`packages/editor/src/scene/world.ts`):
+  `nodeWorldTransform` walks ancestor chain and composes affines; `nodeWorldBounds`
+  returns the true world-space AABB; `nodeLocalBounds` handles all shape kinds.
+- **Fixed hit-test** (`context.hitTestNode`): uses ancestor-composed world transforms
+  and `nodeWorldBounds` for frames/groups; filters locked/hidden nodes.
+- **Fixed reparent** (`scene/document.reparentNode`): added optional `localTransform`
+  param; editor wrapper computes `newLocal = P_new⁻¹ · oldWorld` to preserve world
+  position across parent changes.
+- 36 affine tests, 24 viewport tests, 9 world transform tests.
+
+### Phase 2 — Renderer completion (opacity/blend/stacked-fills/nested/strokes)
+- Fixed `replayIr`: honurs `item.opacity` (globalAlpha), `item.blendMode`
+  (globalCompositeOperation), per-fill opacity/blend compositing, shadow effects,
+  layer blur effects, stacked strokes with full styling (dash, cap, join, weight).
+- Added `paintShapeFill`: dispatches arrow, path, image primitives; line uses
+  strokeStyle; path renders cubic bezier via `bezierCurveTo`.
+- **Fixed nested rendering** (`CanvasArea.draw`): replaced `rootNodes().map(toEngineNode)`
+  with DFS flatten using `nodeWorldTransform` — children of frames/groups now render
+  at their correct world positions.
+- Updated `ReplayTarget` interface with new required properties.
+- 24 engine tests pass (5 replay, 4 engine, 10 geometry, 2 thumbnail).
+
+### Phase 3 — Reveal & selection overlay navigation
+- Added `revealSelection` to editor context: uses `revealBoundsCamera` (minimal pan)
+  or `fitBoundsCamera` (zoom-to-fit) from Phase 1 viewport module.
+- LayersPanel single-click: select + pan-to-reveal if off-screen.
+- StatusBar Fit button: now actually calls `revealSelection({ fit: true })`.
+- Shortcuts: Shift+1 (fit all), Shift+2 (fit selection) via `nodeWorldBounds`.
+
+### Phase 4 — Cursor-anchored zoom & marquee fix
+- Wheel zoom now anchored at the cursor (world point under pointer stays fixed).
+- Marquee zoom uses canvas element rect instead of `window.innerWidth`.
+
+### Verification
+- JS tests: 207+ pass (shared 85, engine 24, scene 86, world 9, plus editor tools)
+- Rust tests: unchanged (82 pass)
+- Typecheck: clean across all packages (pre-existing errors only in colourCollections.test.ts, lucide-react)
+- Lint: clean on all modified files
+- The three reported symptoms (wrong placement, wrong colours, no reveal) are addressed
+
 ## Key files to read before starting
 
 | File | Why |
@@ -280,6 +339,9 @@ All deferred phases D1-D8 of the Spec Panel implemented (except D5 token-aware c
 | `packages/editor/src/InspectorPanel.tsx` | Editable position/size/fill |
 | `packages/editor/src/Menubar.tsx` | File/Edit/View dropdowns with Save/Load/Export |
 | `packages/editor/src/shortcuts/` | ShortcutManager, useShortcuts, ShortcutPalette |
+| `packages/editor/src/scene/world.ts` | World-space transform composition (`nodeWorldTransform`, `nodeWorldBounds`, `nodeLocalBounds`) |
+| `packages/shared/src/affine.ts` | Single source of truth for affine math (`multiplyAffine`, `invertAffine`, `transformRect`, `decomposeAffine`) |
+| `packages/shared/src/viewport.ts` | Camera math (`screenToWorld`/`worldToScreen`, `fitBoundsCamera`, `revealBoundsCamera`, `zoomAboutPoint`) |
 | `packages/codegen/src/index.ts` | SVG + React code export |
 | `crates/strata-core/src/scene.rs` | Rust SceneNode, hit_test |
 | `crates/strata-engine/src/lib.rs` | Rust build_render_ir, Primitive enums (TS-compatible serde) |
