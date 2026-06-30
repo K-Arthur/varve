@@ -103,171 +103,179 @@ export function GradientStopEditor({ stops, rotation, onChange }: GradientStopEd
   );
 
   return (
-    <div
-      style={{ padding: 'var(--space-1)' }}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    >
-      {/* Gradient preview bar */}
+    <>
+      {/* biome-ignore lint/a11y/useSemanticElements: gradient editor container needs mouse drag tracking */}
       <div
-        ref={barRef}
-        onClick={handleBarClick}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            // Add a stop at 50% on Enter/Space
-            const newStop: GradientStop = {
-              position: 0.5,
-              color: [255, 255, 255, 255] as Color,
-            };
-            const newStops = [...stops, newStop].sort((a, b) => a.position - b.position);
-            onChange(newStops, rotation);
-          }
-        }}
-        aria-label="Gradient preview, click or press Enter to add stop"
-        style={{
-          position: 'relative',
-          height: 24,
-          borderRadius: 'var(--radius-sm)',
-          background: `linear-gradient(to right, ${gradientCss})`,
-          border: '1px solid var(--color-border-subtle)',
-          cursor: 'copy',
-          marginBottom: 'var(--space-2)',
-        }}
+        style={{ padding: 'var(--space-1)' }}
+        role="group"
+        aria-label="Gradient stop editor"
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
-        {/* Stop handles */}
-        {stops.map((stop, i) => {
-          const [r, g, b, a] = stop.color;
-          const swatchColor = `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
-          return (
-            <button
-              type="button"
-              key={i}
-              onMouseDown={(e) => handleStopMouseDown(i, e)}
-              onDoubleClick={(e) => handleStopDoubleClick(i, e)}
-              aria-label={`Stop at ${(stop.position * 100).toFixed(0)} percent`}
-              tabIndex={0}
-              style={{
-                position: 'absolute',
-                left: `${stop.position * 100}%`,
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                background: swatchColor,
-                border: '2px solid var(--color-surface-overlay)',
-                boxShadow: 'var(--shadow-sm)',
-                cursor: dragIndex === i ? 'grabbing' : 'grab',
-                zIndex: dragIndex === i ? 2 : 1,
-              }}
-            />
-          );
-        })}
-      </div>
-
-      {/* Rotation control */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-1)',
-          marginBottom: 'var(--space-1)',
-        }}
-      >
-        <label
-          htmlFor="gradient-rotation"
+        {/* Gradient preview bar */}
+        {/* biome-ignore lint/a11y/useSemanticElements: gradient bar needs custom click/keyboard for stop placement */}
+        <div
+          ref={barRef}
+          role="button"
+          tabIndex={0}
+          onClick={handleBarClick}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              // Add a stop at 50% on Enter/Space
+              const newStop: GradientStop = {
+                position: 0.5,
+                color: [255, 255, 255, 255] as Color,
+              };
+              const newStops = [...stops, newStop].sort((a, b) => a.position - b.position);
+              onChange(newStops, rotation);
+            }
+          }}
+          aria-label="Gradient preview, click or press Enter to add stop"
           style={{
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-            flexShrink: 0,
+            position: 'relative',
+            height: 24,
+            borderRadius: 'var(--radius-sm)',
+            background: `linear-gradient(to right, ${gradientCss})`,
+            border: '1px solid var(--color-border-subtle)',
+            cursor: 'copy',
+            marginBottom: 'var(--space-2)',
           }}
         >
-          Rotation
-        </label>
-        <input
-          id="gradient-rotation"
-          type="number"
-          value={rotation}
-          min={0}
-          max={360}
-          onChange={handleRotationChange}
-          aria-label="Gradient rotation in degrees"
-          style={{
-            width: 60,
-            fontSize: 'var(--font-size-xs)',
-            background: 'var(--color-surface-sunken)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '0 var(--space-1)',
-          }}
-        />
-        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-          deg
-        </span>
-      </div>
+          {/* Stop handles */}
+          {stops.map((stop, i) => {
+            const [r, g, b, a] = stop.color;
+            const swatchColor = `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
+            return (
+              <button
+                type="button"
+                key={i}
+                onMouseDown={(e) => handleStopMouseDown(i, e)}
+                onDoubleClick={(e) => handleStopDoubleClick(i, e)}
+                aria-label={`Stop at ${(stop.position * 100).toFixed(0)} percent`}
+                tabIndex={0}
+                style={{
+                  position: 'absolute',
+                  left: `${stop.position * 100}%`,
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  background: swatchColor,
+                  border: '2px solid var(--color-surface-overlay)',
+                  boxShadow: 'var(--shadow-sm)',
+                  cursor: dragIndex === i ? 'grabbing' : 'grab',
+                  zIndex: dragIndex === i ? 2 : 1,
+                }}
+              />
+            );
+          })}
+        </div>
 
-      {/* Stop color inputs */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-        {stops.map((stop, i) => {
-          const [r, g, b, a] = stop.color;
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              <input
-                type="color"
-                value={`#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`}
-                onChange={(e) => {
-                  const hex = e.target.value;
-                  const nr = parseInt(hex.slice(1, 3), 16);
-                  const ng = parseInt(hex.slice(3, 5), 16);
-                  const nb = parseInt(hex.slice(5, 7), 16);
-                  handleStopColorChange(i, [nr, ng, nb, a] as Color);
-                }}
-                aria-label={`Stop ${i + 1} color`}
-                style={{
-                  width: 24,
-                  height: 24,
-                  border: '1px solid var(--color-border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              />
-              <input
-                type="number"
-                value={Math.round(stop.position * 100)}
-                min={0}
-                max={100}
-                onChange={(e) => {
-                  const pos = Number(e.target.value) / 100;
-                  const newStops = stops.map((s, j) =>
-                    j === i ? { ...s, position: Math.max(0, Math.min(1, pos)) } : s,
-                  );
-                  onChange(
-                    newStops.sort((a, b) => a.position - b.position),
-                    rotation,
-                  );
-                }}
-                aria-label={`Stop ${i + 1} position`}
-                style={{
-                  width: 50,
-                  fontSize: 'var(--font-size-xs)',
-                  background: 'var(--color-surface-sunken)',
-                  color: 'var(--color-text-primary)',
-                  border: '1px solid var(--color-border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '0 var(--space-1)',
-                }}
-              />
-              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                %
-              </span>
-            </div>
-          );
-        })}
+        {/* Rotation control */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-1)',
+            marginBottom: 'var(--space-1)',
+          }}
+        >
+          <label
+            htmlFor="gradient-rotation"
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              color: 'var(--color-text-muted)',
+              flexShrink: 0,
+            }}
+          >
+            Rotation
+          </label>
+          <input
+            id="gradient-rotation"
+            type="number"
+            value={rotation}
+            min={0}
+            max={360}
+            onChange={handleRotationChange}
+            aria-label="Gradient rotation in degrees"
+            style={{
+              width: 60,
+              fontSize: 'var(--font-size-xs)',
+              background: 'var(--color-surface-sunken)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0 var(--space-1)',
+            }}
+          />
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+            deg
+          </span>
+        </div>
+
+        {/* Stop color inputs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          {stops.map((stop, i) => {
+            const [r, g, b, a] = stop.color;
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                <input
+                  type="color"
+                  value={`#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`}
+                  onChange={(e) => {
+                    const hex = e.target.value;
+                    const nr = parseInt(hex.slice(1, 3), 16);
+                    const ng = parseInt(hex.slice(3, 5), 16);
+                    const nb = parseInt(hex.slice(5, 7), 16);
+                    handleStopColorChange(i, [nr, ng, nb, a] as Color);
+                  }}
+                  aria-label={`Stop ${i + 1} color`}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    border: '1px solid var(--color-border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                />
+                <input
+                  type="number"
+                  value={Math.round(stop.position * 100)}
+                  min={0}
+                  max={100}
+                  onChange={(e) => {
+                    const pos = Number(e.target.value) / 100;
+                    const newStops = stops.map((s, j) =>
+                      j === i ? { ...s, position: Math.max(0, Math.min(1, pos)) } : s,
+                    );
+                    onChange(
+                      newStops.sort((a, b) => a.position - b.position),
+                      rotation,
+                    );
+                  }}
+                  aria-label={`Stop ${i + 1} position`}
+                  style={{
+                    width: 50,
+                    fontSize: 'var(--font-size-xs)',
+                    background: 'var(--color-surface-sunken)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0 var(--space-1)',
+                  }}
+                />
+                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                  %
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

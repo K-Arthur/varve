@@ -5,23 +5,18 @@
  * computes the scene and emits a compact IR; the webview replays it to a canvas.
  * `ReplayTarget` is a structural slice of CanvasRenderingContext2D so tests can
  * pass a recorder without a real DOM/canvas.
+ *
+ * F6 (Phase 2): opacity, blend modes, per-fill compositing, stacked strokes
+ * and effects, plus arrow/path/image primitive rendering.
  */
 import type { Color, FillIR, RenderItem } from './types';
-
-export interface GradientStop {
-  offset: number;
-  color: string;
-}
-
-export interface ReplayGradient {
-  addColorStop(offset: number, color: string): void;
-}
 
 export interface ReplayTarget {
   save(): void;
   restore(): void;
   transform(a: number, b: number, c: number, d: number, e: number, f: number): void;
   fillRect(x: number, y: number, w: number, h: number): void;
+  strokeRect(x: number, y: number, w: number, h: number): void;
   beginPath(): void;
   ellipse(
     x: number,
@@ -35,12 +30,23 @@ export interface ReplayTarget {
   arc(x: number, y: number, r: number, start: number, end: number): void;
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
+  bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void;
   fill(): void;
   stroke(): void;
   closePath(): void;
   fillStyle: string;
   lineWidth: number;
   lineCap: CanvasLineCap;
+  lineJoin: CanvasLineJoin;
+  strokeStyle: string;
+  /** F6: opacity for the item layer. */
+  globalAlpha: number;
+  /** F6: blend mode compositing. */
+  globalCompositeOperation: string;
+  /** F6: CSS filter for effects. */
+  filter: string;
+  lineDashOffset: number;
+  setLineDash(segments: number[]): void;
   /** P2: create a linear gradient for gradient fills. */
   createLinearGradient?(x0: number, y0: number, x1: number, y1: number): ReplayGradient;
   /** P2: create a radial gradient for gradient fills. */
@@ -52,6 +58,15 @@ export interface ReplayTarget {
     y1: number,
     r1: number,
   ): ReplayGradient;
+  /** P2: for shadow effects (replay clips shadow pass). */
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+}
+
+export interface ReplayGradient {
+  addColorStop(offset: number, color: string): void;
 }
 
 function rgba(c: Color): string {
@@ -64,6 +79,8 @@ const TAU = Math.PI * 2;
 export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void {
   for (const item of ir) {
     target.save();
+
+    // Apply item-level transform
     target.transform(
       item.transform[0],
       item.transform[1],
@@ -73,33 +90,117 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
       item.transform[5],
     );
 
-    // P2: if fills stack is present, paint each fill bottom→top
+    // ── Effects pass (shadows, blur) ──────────────────────────────
+    if (item.effects && item.effects.length > 0) {
+      for (const effect of item.effects) {
+        if (!effect.visible) continue;
+        if (effect.type === 'dropShadow') {
+          target.shadowColor = rgba(effect.color);
+          target.shadowBlur = effect.blur;
+          target.shadowOffsetX = effect.x;
+          target.shadowOffsetY = effect.y;
+        } else if (effect.type === 'layerBlur') {
+          target.filter = `blur(${effect.radius}px)`;
+        }
+      }
+    }
+
+    // ── Item-level opacity and blend ─────────────────────────────
+    const itemAlpha = item.opacity ?? 1;
+    if (itemAlpha < 1) {
+      target.globalAlpha = itemAlpha;
+    }
+    if (item.blendMode && item.blendMode !== 'normal') {
+      target.globalCompositeOperation = mapBlendMode(item.blendMode);
+    }
+
+    // ── Fills pass ────────────────────────────────────────────────
     const fills = item.fills;
     if (fills && fills.length > 0) {
       for (const fill of fills) {
+        if (!fill.visible) continue;
+        // Per-fill opacity multiplies with item alpha.
+        if (fill.opacity < 1) {
+          target.globalAlpha = itemAlpha * fill.opacity;
+        }
+        if (fill.blendMode && fill.blendMode !== 'normal') {
+          target.globalCompositeOperation = mapBlendMode(fill.blendMode);
+        }
         paintFill(target, fill, item);
       }
     } else {
       // Legacy: single fill color
       target.fillStyle = rgba(item.fill);
-      paintShape(target, item);
+      paintShapeFill(target, item);
     }
+
+    // ── Strokes pass ──────────────────────────────────────────────
+    if (item.strokes && item.strokes.length > 0) {
+      for (const stroke of item.strokes) {
+        if (!stroke.visible) continue;
+        paintStroke(target, stroke, item);
+      }
+    }
+
+    // Reset per-item state (shadow, filter, etc.)
+    target.shadowColor = 'transparent';
+    target.shadowBlur = 0;
+    target.shadowOffsetX = 0;
+    target.shadowOffsetY = 0;
+    target.filter = 'none';
+    target.globalAlpha = 1;
+    target.globalCompositeOperation = 'source-over';
 
     target.restore();
   }
 }
 
+/** Map Strata blend mode to CSS compositing operator. */
+function mapBlendMode(mode: string): string {
+  switch (mode) {
+    case 'multiply':
+      return 'multiply';
+    case 'screen':
+      return 'screen';
+    case 'overlay':
+      return 'overlay';
+    case 'darken':
+      return 'darken';
+    case 'lighten':
+      return 'lighten';
+    case 'colorDodge':
+      return 'color-dodge';
+    case 'colorBurn':
+      return 'color-burn';
+    case 'hardLight':
+      return 'hard-light';
+    case 'softLight':
+      return 'soft-light';
+    case 'difference':
+      return 'difference';
+    case 'exclusion':
+      return 'exclusion';
+    case 'hue':
+      return 'hue';
+    case 'saturation':
+      return 'saturation';
+    case 'color':
+      return 'color';
+    case 'luminosity':
+      return 'luminosity';
+    default:
+      return 'source-over';
+  }
+}
+
 /** Paint a single fill (solid or gradient) over the primitive shape. */
 function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
-  if (!fill.visible) return;
-
   if (fill.type === 'solid') {
     target.fillStyle = rgba(fill.color);
   } else if (fill.type === 'gradient') {
     target.fillStyle = createGradientStyle(target, fill, item);
   }
-
-  paintShape(target, item);
+  paintShapeFill(target, item);
 }
 
 /** Create a gradient fillStyle string from a FillIR gradient. */
@@ -111,7 +212,6 @@ function createGradientStyle(
   const stops = fill.stops;
   if (stops.length === 0) return 'rgba(0,0,0,0)';
 
-  // Compute gradient bounds from the primitive
   const bounds = primitiveBounds(item.primitive);
   const rot = (fill.rotation * Math.PI) / 180;
   const cx = (bounds.x + bounds.w) / 2;
@@ -128,7 +228,6 @@ function createGradientStyle(
     return grad as unknown as string;
   }
 
-  // Linear gradient (default, also fallback for angular/diamond)
   if (target.createLinearGradient) {
     const grad = target.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
     for (const s of stops) {
@@ -137,8 +236,203 @@ function createGradientStyle(
     return grad as unknown as string;
   }
 
-  // Fallback: first stop color
   return rgba(stops[0]?.color ?? [0, 0, 0, 0]);
+}
+
+/** Paint the primitive shape fill (without fillStyle). */
+function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
+  const p = item.primitive;
+  switch (p.kind) {
+    case 'rect':
+      target.fillRect(p.x, p.y, p.w, p.h);
+      break;
+    case 'ellipse':
+      target.beginPath();
+      target.ellipse(p.cx, p.cy, p.rx, p.ry, 0, 0, TAU);
+      target.fill();
+      break;
+    case 'circle':
+      target.beginPath();
+      target.arc(p.cx, p.cy, p.r, 0, TAU);
+      target.fill();
+      break;
+    case 'line':
+    case 'arrow':
+      // Lines stroke — handled in main loop via strokes pass.
+      // For fill-only path, stroke the segment.
+      target.lineWidth = p.tolerance * 2;
+      target.lineCap = 'round';
+      target.beginPath();
+      target.moveTo(p.from[0], p.from[1]);
+      target.lineTo(p.to[0], p.to[1]);
+      target.stroke();
+      break;
+    case 'polygon': {
+      target.beginPath();
+      for (let i = 0; i < p.sides; i++) {
+        const a = (2 * Math.PI * i) / p.sides - Math.PI / 2 + p.rotation;
+        const px = p.cx + p.radius * Math.cos(a);
+        const py = p.cy + p.radius * Math.sin(a);
+        if (i === 0) target.moveTo(px, py);
+        else target.lineTo(px, py);
+      }
+      target.closePath();
+      target.fill();
+      break;
+    }
+    case 'star': {
+      target.beginPath();
+      for (let i = 0; i < p.points * 2; i++) {
+        const a = (Math.PI * i) / p.points - Math.PI / 2 + p.rotation;
+        const r = i % 2 === 0 ? p.outerRadius : p.innerRadius;
+        const px = p.cx + r * Math.cos(a);
+        const py = p.cy + r * Math.sin(a);
+        if (i === 0) target.moveTo(px, py);
+        else target.lineTo(px, py);
+      }
+      target.closePath();
+      target.fill();
+      break;
+    }
+    case 'path':
+      paintPathFill(target, p);
+      break;
+    case 'image':
+      // Image rendering placeholder. Actual `drawImage(src, 0, 0, w, h)`
+      // requires an ImageCache with progressive async loading (deferred).
+      // The item transform positions the image, so local origin is (0,0).
+      if (target.drawImage) {
+        target.fillRect(0, 0, p.w, p.h);
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+/** Paint a closed/open path fill. */
+function paintPathFill(
+  target: ReplayTarget,
+  p: {
+    points: {
+      x: number;
+      y: number;
+      handleIn: [number, number] | null;
+      handleOut: [number, number] | null;
+    }[];
+    closed: boolean;
+    tolerance: number;
+  },
+): void {
+  if (p.points.length < 2) return;
+  target.beginPath();
+  target.moveTo(p.points[0]?.x, p.points[0]?.y);
+  for (let i = 1; i < p.points.length; i++) {
+    const pt = p.points[i]!;
+    const prev = p.points[i - 1]!;
+    if (prev.handleOut && pt.handleIn) {
+      target.bezierCurveTo(
+        prev.x + prev.handleOut[0],
+        prev.y + prev.handleOut[1],
+        pt.x + pt.handleIn[0],
+        pt.y + pt.handleIn[1],
+        pt.x,
+        pt.y,
+      );
+    } else {
+      target.lineTo(pt.x, pt.y);
+    }
+  }
+  if (p.closed) target.closePath();
+  target.fill();
+}
+
+/** Paint a single stroke over the primitive path. */
+function paintStroke(
+  target: ReplayTarget,
+  stroke: import('./types').Stroke,
+  item: RenderItem,
+): void {
+  target.save();
+  target.strokeStyle = rgba(stroke.color);
+  target.lineWidth = stroke.weight;
+  target.lineCap = stroke.cap as CanvasLineCap;
+  target.lineJoin = stroke.join as CanvasLineJoin;
+  target.lineDashOffset = stroke.dashOffset ?? 0;
+
+  if (stroke.dashPattern && stroke.dashPattern.length > 0) {
+    target.setLineDash(stroke.dashPattern);
+  }
+
+  const p = item.primitive;
+  switch (p.kind) {
+    case 'rect':
+      target.strokeRect(p.x, p.y, p.w, p.h);
+      break;
+    case 'ellipse':
+    case 'circle':
+    case 'polygon':
+    case 'star': {
+      target.beginPath();
+      traceOutline(target, p);
+      target.stroke();
+      break;
+    }
+    case 'line':
+    case 'arrow':
+      target.beginPath();
+      target.moveTo(p.from[0], p.from[1]);
+      target.lineTo(p.to[0], p.to[1]);
+      target.stroke();
+      break;
+    case 'path':
+      target.beginPath();
+      target.moveTo(p.points[0]?.x, p.points[0]?.y);
+      for (let i = 1; i < p.points.length; i++) {
+        target.lineTo(p.points[i]?.x, p.points[i]?.y);
+      }
+      target.stroke();
+      break;
+    default:
+      break;
+  }
+
+  target.restore();
+}
+
+/** Trace the outline of a primitive without filling. */
+function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
+  switch (p.kind) {
+    case 'ellipse':
+      target.ellipse(p.cx, p.cy, p.rx, p.ry, 0, 0, TAU);
+      break;
+    case 'circle':
+      target.arc(p.cx, p.cy, p.r, 0, TAU);
+      break;
+    case 'polygon':
+      for (let i = 0; i < p.sides; i++) {
+        const a = (2 * Math.PI * i) / p.sides - Math.PI / 2 + p.rotation;
+        const px = p.cx + p.radius * Math.cos(a);
+        const py = p.cy + p.radius * Math.sin(a);
+        if (i === 0) target.moveTo(px, py);
+        else target.lineTo(px, py);
+      }
+      target.closePath();
+      break;
+    case 'star':
+      for (let i = 0; i < p.points * 2; i++) {
+        const a = (Math.PI * i) / p.points - Math.PI / 2 + p.rotation;
+        const r = i % 2 === 0 ? p.outerRadius : p.innerRadius;
+        const px = p.cx + r * Math.cos(a);
+        const py = p.cy + r * Math.sin(a);
+        if (i === 0) target.moveTo(px, py);
+        else target.lineTo(px, py);
+      }
+      target.closePath();
+      break;
+    default:
+      break;
+  }
 }
 
 /** Get the bounding box of a primitive. */
@@ -156,11 +450,12 @@ function primitiveBounds(p: RenderItem['primitive']): {
     case 'circle':
       return { x: p.cx - p.r, y: p.cy - p.r, w: p.r * 2, h: p.r * 2 };
     case 'line':
+    case 'arrow':
       return {
         x: Math.min(p.from[0], p.to[0]),
         y: Math.min(p.from[1], p.to[1]),
-        w: Math.abs(p.to[0] - p.from[0]),
-        h: Math.abs(p.to[1] - p.from[1]),
+        w: Math.max(Math.abs(p.to[0] - p.from[0]), 4),
+        h: Math.max(Math.abs(p.to[1] - p.from[1]), 4),
       };
     case 'polygon':
       return { x: p.cx - p.radius, y: p.cy - p.radius, w: p.radius * 2, h: p.radius * 2 };
@@ -171,71 +466,9 @@ function primitiveBounds(p: RenderItem['primitive']): {
         w: p.outerRadius * 2,
         h: p.outerRadius * 2,
       };
+    case 'image':
+      return { x: 0, y: 0, w: p.w, h: p.h };
     default:
       return { x: 0, y: 0, w: 100, h: 100 };
-  }
-}
-
-/** Paint the primitive shape (without setting fillStyle). */
-function paintShape(target: ReplayTarget, item: RenderItem): void {
-  switch (item.primitive.kind) {
-    case 'rect':
-      target.fillRect(item.primitive.x, item.primitive.y, item.primitive.w, item.primitive.h);
-      break;
-    case 'ellipse':
-      target.beginPath();
-      target.ellipse(
-        item.primitive.cx,
-        item.primitive.cy,
-        item.primitive.rx,
-        item.primitive.ry,
-        0,
-        0,
-        TAU,
-      );
-      target.fill();
-      break;
-    case 'circle':
-      target.beginPath();
-      target.arc(item.primitive.cx, item.primitive.cy, item.primitive.r, 0, TAU);
-      target.fill();
-      break;
-    case 'line':
-      target.lineWidth = item.primitive.tolerance * 2;
-      target.lineCap = 'round';
-      target.beginPath();
-      target.moveTo(item.primitive.from[0], item.primitive.from[1]);
-      target.lineTo(item.primitive.to[0], item.primitive.to[1]);
-      target.stroke();
-      break;
-    case 'polygon': {
-      target.beginPath();
-      const { cx, cy, radius, sides, rotation } = item.primitive;
-      for (let i = 0; i < sides; i++) {
-        const a = (2 * Math.PI * i) / sides - Math.PI / 2 + rotation;
-        const px = cx + radius * Math.cos(a);
-        const py = cy + radius * Math.sin(a);
-        if (i === 0) target.moveTo(px, py);
-        else target.lineTo(px, py);
-      }
-      target.closePath();
-      target.fill();
-      break;
-    }
-    case 'star': {
-      target.beginPath();
-      const { cx: scx, cy: scy, innerRadius, outerRadius, points, rotation: srot } = item.primitive;
-      for (let i = 0; i < points * 2; i++) {
-        const a = (Math.PI * i) / points - Math.PI / 2 + srot;
-        const r = i % 2 === 0 ? outerRadius : innerRadius;
-        const px = scx + r * Math.cos(a);
-        const py = scy + r * Math.sin(a);
-        if (i === 0) target.moveTo(px, py);
-        else target.lineTo(px, py);
-      }
-      target.closePath();
-      target.fill();
-      break;
-    }
   }
 }

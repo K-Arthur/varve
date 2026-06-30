@@ -11,11 +11,13 @@
 import type { Engine, SceneNode as EngineNode } from '@strata/engine';
 import { createEngine, type ReplayTarget, replayIr } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
+import { walkNodes } from '@strata/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
+import { nodeWorldTransform } from './scene/world';
 import { type ToolContext, ToolManager } from './tools';
 import { EllipseTool } from './tools/EllipseTool';
 import { FrameTool } from './tools/FrameTool';
@@ -230,8 +232,19 @@ export function CanvasArea() {
 
     (async () => {
       const s = stateRef.current;
-      const nodes = rootNodes().map(toEngineNode);
-      const ir = await eng.buildIr({ nodes });
+      // DFS flatten: walk all nodes (including children of frames/groups)
+      // and compute world transforms per node. This replaces the old
+      // `rootNodes().map(toEngineNode)` which skipped nested nodes.
+      const doc = s.document;
+      const entries = walkNodes(doc);
+      const flatNodes: EngineNode[] = [];
+      for (const [id] of entries) {
+        const n = doc.nodes[id];
+        if (!n) continue;
+        const world = nodeWorldTransform(doc, id);
+        flatNodes.push({ ...toEngineNode(n), transform: world });
+      }
+      const ir = await eng.buildIr({ nodes: flatNodes });
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = '#ffffff';
