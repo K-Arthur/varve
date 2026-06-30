@@ -1,5 +1,5 @@
+import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable';
 import type { FileEntry } from '@strata/platform';
-import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { FileCard } from './FileCard';
@@ -12,6 +12,14 @@ export interface FileGridProps {
   onContext: (e: React.MouseEvent, entry: FileEntry) => void;
   onFileDragStart?: (e: React.DragEvent, entry: FileEntry) => void;
   selectedIds: string[];
+  onSelect: (id: string) => void;
+  onToggleSelect: (id: string) => void;
+  onSelectRange: (fromIdx: number, toIdx: number) => void;
+  onSelectAll: () => void;
+  onRename?: (id: string, newName: string) => void;
+  renamingId?: string | null;
+  onStartRename?: (id: string | null) => void;
+  missingFiles?: Set<string>;
 }
 
 const COL_WIDTH = 14 * 16 + 24; // 14rem + padding
@@ -26,10 +34,21 @@ export function FileGrid({
   onContext,
   onFileDragStart,
   selectedIds,
+  onSelect,
+  onToggleSelect,
+  onSelectRange,
+  onSelectAll,
+  onRename,
+  renamingId,
+  onStartRename,
+  missingFiles = new Set(),
 }: FileGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(4);
   const [focusIdx, setFocusIdx] = useState(0);
+  const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null);
+  const typeAheadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typeAheadBufferRef = useRef('');
 
   const rowCount = Math.ceil(files.length / columns);
 
@@ -83,6 +102,8 @@ export function FileGrid({
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         navigate(1);
@@ -111,8 +132,73 @@ export function FileGrid({
         e.preventDefault();
         onOpen(files[focusIdx]!);
       }
+      if (isCtrl && e.key === 'a') {
+        e.preventDefault();
+        onSelectAll();
+      }
+
+      // Type-ahead navigation
+      if (!isCtrl && e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+        e.preventDefault();
+        const char = e.key.toLowerCase();
+
+        // Clear existing timeout
+        if (typeAheadTimeoutRef.current) {
+          clearTimeout(typeAheadTimeoutRef.current);
+        }
+
+        // Append to buffer
+        typeAheadBufferRef.current += char;
+
+        // Find first matching file
+        const matchIdx = files.findIndex((f) => f.name.toLowerCase().startsWith(typeAheadBufferRef.current));
+
+        if (matchIdx >= 0) {
+          setFocusIdx(matchIdx);
+        }
+
+        // Set timeout to clear buffer
+        typeAheadTimeoutRef.current = setTimeout(() => {
+          typeAheadBufferRef.current = '';
+        }, 800);
+      }
     },
-    [navigate, columns, focusIdx, onOpen, files],
+    [navigate, columns, focusIdx, onOpen, files, onSelectAll],
+  );
+
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent, fileIdx: number) => {
+      const entry = files[fileIdx];
+      if (!entry) return;
+
+      const isCtrl = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+
+      if (isCtrl && isShift) {
+        // Ctrl+Shift: range selection while preserving existing selection
+        if (lastSelectedIdx !== null) {
+          onSelectRange(lastSelectedIdx, fileIdx);
+        } else {
+          onSelectRange(0, fileIdx);
+        }
+      } else if (isShift) {
+        // Shift: range selection, clear previous selection
+        if (lastSelectedIdx !== null) {
+          onSelectRange(lastSelectedIdx, fileIdx);
+        } else {
+          onSelectRange(0, fileIdx);
+        }
+      } else if (isCtrl) {
+        // Ctrl: toggle selection
+        onToggleSelect(entry.id);
+        setLastSelectedIdx(fileIdx);
+      } else {
+        // Normal click: select single item
+        onSelect(entry.id);
+        setLastSelectedIdx(fileIdx);
+      }
+    },
+    [files, lastSelectedIdx, onSelect, onToggleSelect, onSelectRange],
   );
 
   useEffect(() => {
@@ -139,55 +225,60 @@ export function FileGrid({
     >
       <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
-        const rowIdx = virtualRow.index;
-        const startIdx = rowIdx * columns;
-        return (
-          <div
-            key={rowIdx}
-            role="row"
-            aria-rowindex={rowIdx + 1}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: virtualRow.size,
-              transform: `translateY(${virtualRow.start}px)`,
-              display: 'flex',
-              gap: `${GAP}px`,
-            }}
-          >
-            {Array.from({ length: columns }, (_, colIdx) => {
-              const fileIdx = startIdx + colIdx;
-              const entry = files[fileIdx];
-              if (!entry) return <div key={colIdx} style={{ flex: 1 }} />;
-              const isSelected = selectedIds.includes(entry.id);
-              const thumb = thumbnails.get(entry.id);
-              const loading = thumb === undefined;
-              return (
-                <FileCard
-                  key={entry.id}
-                  entry={entry}
-                  thumbnail={thumb ?? null}
-                  thumbnailLoading={loading}
-                  selected={isSelected}
-                  onOpen={onOpen}
-                  onContext={onContext}
-                  onFileDragStart={onFileDragStart}
-                  tabIndex={fileIdx === focusIdx ? 0 : -1}
-                  style={{
-                    flex: `0 0 ${COL_WIDTH}px`,
-                  }}
-                  onFocus={() => setFocusIdx(fileIdx)}
-                  ref={(el) => {
-                    if (fileIdx === focusIdx) el?.focus();
-                  }}
-                />
-              );
-            })}
-          </div>
-        );
-      })}
+          const rowIdx = virtualRow.index;
+          const startIdx = rowIdx * columns;
+          return (
+            <div
+              key={rowIdx}
+              role="row"
+              aria-rowindex={rowIdx + 1}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: virtualRow.size,
+                transform: `translateY(${virtualRow.start}px)`,
+                display: 'flex',
+                gap: `${GAP}px`,
+              }}
+            >
+              {Array.from({ length: columns }, (_, colIdx) => {
+                const fileIdx = startIdx + colIdx;
+                const entry = files[fileIdx];
+                if (!entry) return <div key={colIdx} style={{ flex: 1 }} />;
+                const isSelected = selectedIds.includes(entry.id);
+                const thumb = thumbnails.get(entry.id);
+                const loading = thumb === undefined;
+                return (
+                  <FileCard
+                    key={entry.id}
+                    entry={entry}
+                    thumbnail={thumb ?? null}
+                    thumbnailLoading={loading}
+                    selected={isSelected}
+                    onOpen={onOpen}
+                    onContext={onContext}
+                    onFileDragStart={onFileDragStart}
+                    onClick={(e) => handleCardClick(e, fileIdx)}
+                    onRename={onRename}
+                    isRenaming={renamingId === entry.id}
+                    onStartRename={() => onStartRename?.(entry.id)}
+                    isMissing={missingFiles.has(entry.id)}
+                    tabIndex={fileIdx === focusIdx ? 0 : -1}
+                    style={{
+                      flex: `0 0 ${COL_WIDTH}px`,
+                    }}
+                    onFocus={() => setFocusIdx(fileIdx)}
+                    ref={(el) => {
+                      if (fileIdx === focusIdx) el?.focus();
+                    }}
+                  />
+                );
+              })}
+            </div>
+          );
+        })}
       </SortableContext>
     </div>
   );

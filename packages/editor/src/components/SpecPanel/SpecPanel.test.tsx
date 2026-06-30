@@ -37,9 +37,10 @@ describe('SpecPanel', () => {
     expect(sections.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('returns null for empty nodes', () => {
+  it('renders an empty state when no node is selected', () => {
     const doc = createDocument('Test');
     const { container } = render(<SpecPanel nodes={[]} doc={doc} />);
-    expect(container.innerHTML).toBe('');
+    expect(container.querySelector('.spec-panel__empty')).toBeTruthy();
+    expect(container.querySelector('.spec-panel__empty-title')?.textContent).toBe('No selection');
   });
 });

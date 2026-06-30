@@ -39,7 +39,12 @@ export interface CodeGenViewProps {
   variableStore?: VariableStore;
 }
 
-function generateCode(node: SceneNode, doc: Document, target: CodeTarget, variableStore?: VariableStore): string {
+function generateCode(
+  node: SceneNode,
+  doc: Document,
+  target: CodeTarget,
+  variableStore?: VariableStore,
+): string {
   switch (target) {
     case 'svg':
       return exportNodeToSvg(node, doc);
@@ -62,12 +67,12 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
   const [activeTab, setActiveTab] = useState<CodeTarget>('css');
   const prevCode = useRef<Map<string, string>>(new Map());
 
-  const code = useMemo(() => generateCode(node, doc, activeTab, variableStore), [node, doc, activeTab, variableStore]);
-
-  const highlightedLines = useMemo(
-    () => highlight(code, activeTab).split('\n'),
-    [code, activeTab],
+  const code = useMemo(
+    () => generateCode(node, doc, activeTab, variableStore),
+    [node, doc, activeTab, variableStore],
   );
+
+  const highlightedLines = useMemo(() => highlight(code, activeTab).split('\n'), [code, activeTab]);
 
   const lineCount = highlightedLines.length;
 
@@ -112,7 +117,10 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
                       <span className="spec-codegen__line-num">
                         {String(i + 1).padStart(String(lineCount).length, ' ')}
                       </span>
-                      <span className="spec-codegen__line-text" dangerouslySetInnerHTML={{ __html: html || ' ' }} />
+                      <span
+                        className="spec-codegen__line-text"
+                        dangerouslySetInnerHTML={{ __html: html || ' ' }}
+                      />
                     </span>
                   ))}
                 </code>

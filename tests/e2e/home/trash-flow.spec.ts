@@ -48,7 +48,10 @@ test.describe('Home trash flow', () => {
     await trashItem.click();
     await page.waitForTimeout(200);
 
-    const hasFiles = await page.locator('button:has-text("Restore")').isVisible().catch(() => false);
+    const hasFiles = await page
+      .locator('button:has-text("Restore")')
+      .isVisible()
+      .catch(() => false);
     if (!hasFiles) return;
 
     await expect(page.locator('button:has-text("Restore")').first()).toBeVisible();

@@ -209,11 +209,19 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     async reorderFile(id, ordering) {
       const rec = await db.get(STORE_FILES, id);
       if (!rec) return;
-      await db.put(STORE_FILES, { ...rec, entry: { ...rec.entry, ordering, updatedAt: Date.now() } });
+      await db.put(STORE_FILES, {
+        ...rec,
+        entry: { ...rec.entry, ordering, updatedAt: Date.now() },
+      });
     },
 
     async listenForChanges() {
       return () => {};
+    },
+
+    async fileExists() {
+      // Web platform doesn't have file paths; always return true
+      return true;
     },
 
     async getThumbnail(hash) {

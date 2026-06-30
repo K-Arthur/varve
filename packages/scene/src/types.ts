@@ -130,6 +130,8 @@ export interface NodeBase {
   id: NodeId;
   name: string;
   fill: Color;
+  /** P2: stacked fills (solid/gradient/image). When present, takes precedence over `fill`. */
+  fills?: Fill[];
   /** Paint order among siblings (0 = bottom). Reorder via Document.move. */
   index: number;
   /** Fractional-indexing order key for CRDT-safe concurrent ordering. */
@@ -148,6 +150,14 @@ export interface NodeBase {
    * "height", "rotation", "fontSize", "strokeWeight").
    */
   bindings?: Record<string, PropertyBinding>;
+  /** P3: min/preferred/max width for clamp sizing. */
+  minWidth?: number;
+  preferredWidth?: number;
+  maxWidth?: number;
+  /** P3: min/preferred/max height for clamp sizing. */
+  minHeight?: number;
+  preferredHeight?: number;
+  maxHeight?: number;
 }
 
 export interface ShapeNode extends NodeBase {
@@ -213,6 +223,10 @@ export interface LayoutStyle {
   /** F6: alignment and justification. */
   alignItems?: 'start' | 'center' | 'end' | 'stretch';
   justifyContent?: 'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround';
+  /** P3: Grid template columns (e.g., "1fr 200px 1fr", "repeat(3, 1fr)"). */
+  gridTemplateColumns?: string;
+  /** P3: Grid template rows (e.g., "auto 1fr auto"). */
+  gridTemplateRows?: string;
 }
 
 export interface FrameNode extends NodeBase {

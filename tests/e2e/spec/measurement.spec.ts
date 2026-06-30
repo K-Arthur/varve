@@ -2,11 +2,25 @@ import { expect, test } from '@playwright/test';
 
 async function navigateToEditor(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.waitForSelector('button:has-text("New File")', { timeout: 10000 });
+  await page.getByRole('button', { name: /new file/i }).waitFor({ timeout: 10000 });
   await page.getByRole('button', { name: /new file/i }).click();
-  await page.waitForSelector('button:has-text("Create")', { timeout: 5000 });
-  await page.getByRole('button', { name: /^create$/i }).click();
-  await page.waitForSelector('.layers-panel', { timeout: 10000 });
+  await page
+    .locator('dialog')
+    .getByRole('button', { name: /^create$/i })
+    .waitFor({ timeout: 5000 });
+  await page
+    .locator('dialog')
+    .getByRole('button', { name: /^create$/i })
+    .click();
+  await page
+    .getByRole('img', { name: 'Design canvas' })
+    .waitFor({ timeout: 10000, state: 'visible' });
+  // Allow the canvas to settle into its final CSS size before pointer events.
+  await page.waitForTimeout(500);
+}
+
+function getCanvas(page: import('@playwright/test').Page) {
+  return page.getByRole('img', { name: 'Design canvas' });
 }
 
 test.describe('Spec Panel Measurement', () => {
@@ -14,18 +28,24 @@ test.describe('Spec Panel Measurement', () => {
     await navigateToEditor(page);
   });
 
+  async function activateTool(page: import('@playwright/test').Page, name: string) {
+    const btn = page.getByRole('button', { name });
+    await btn.waitFor({ state: 'visible', timeout: 5000 });
+    await btn.click();
+    await page.waitForTimeout(200);
+  }
+
   test('enter inspect mode via shortcut I shows spec panel on selection', async ({ page }) => {
     // Create a rect first
-    await page.keyboard.press('r');
-    const canvas = page.locator('canvas').first();
-    await canvas.click({ position: { x: 200, y: 200 } });
-    await page.waitForTimeout(300);
+    await activateTool(page, 'Rectangle');
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await page.waitForTimeout(500);
 
     // Switch to inspect mode
-    await page.keyboard.press('i');
+    await activateTool(page, 'Inspect');
 
     // Click on canvas to select the rect
-    await canvas.click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
     await page.waitForTimeout(300);
 
     // Spec panel should be visible with node name
@@ -38,13 +58,12 @@ test.describe('Spec Panel Measurement', () => {
   });
 
   test('measurement overlay shows dimension label for selected node', async ({ page }) => {
-    await page.keyboard.press('r');
-    const canvas = page.locator('canvas').first();
-    await canvas.click({ position: { x: 200, y: 200 } });
-    await page.waitForTimeout(300);
+    await activateTool(page, 'Rectangle');
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await page.waitForTimeout(500);
 
-    await page.keyboard.press('i');
-    await canvas.click({ position: { x: 200, y: 200 } });
+    await activateTool(page, 'Inspect');
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
     await page.waitForTimeout(500);
 
     // Measure overlay SVG should be rendered
@@ -56,13 +75,12 @@ test.describe('Spec Panel Measurement', () => {
   });
 
   test('spec panel shows layout readout with width and height', async ({ page }) => {
-    await page.keyboard.press('r');
-    const canvas = page.locator('canvas').first();
-    await canvas.click({ position: { x: 200, y: 200 } });
-    await page.waitForTimeout(300);
+    await activateTool(page, 'Rectangle');
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await page.waitForTimeout(500);
 
-    await page.keyboard.press('i');
-    await canvas.click({ position: { x: 200, y: 200 } });
+    await activateTool(page, 'Inspect');
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
     await page.waitForTimeout(300);
 
     // Should render layout section with W/H
@@ -72,13 +90,12 @@ test.describe('Spec Panel Measurement', () => {
   });
 
   test('copy button copies value and announces', async ({ page }) => {
-    await page.keyboard.press('r');
-    const canvas = page.locator('canvas').first();
-    await canvas.click({ position: { x: 200, y: 200 } });
-    await page.waitForTimeout(300);
+    await activateTool(page, 'Rectangle');
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await page.waitForTimeout(500);
 
-    await page.keyboard.press('i');
-    await canvas.click({ position: { x: 200, y: 200 } });
+    await activateTool(page, 'Inspect');
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
     await page.waitForTimeout(300);
 
     // Find the first copy button in measurement readout
@@ -88,8 +105,8 @@ test.describe('Spec Panel Measurement', () => {
     // Click copy button
     await copyBtn.click();
 
-    // Check for aria-live announcement (strata-visually-hidden with role="status")
-    const liveRegion = page.locator('[aria-live="polite"]');
+    // Check for the CopyButton's own aria-live announcement
+    const liveRegion = copyBtn.locator('..').locator('[aria-live="polite"]');
     await expect(liveRegion).toContainText(/copied/i);
   });
 });

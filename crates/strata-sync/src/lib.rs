@@ -3,8 +3,8 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use rusqlite::Connection;
 use rusqlite::params;
+use rusqlite::Connection;
 
 /// Persistent storage for Strata documents.
 /// Row type for file entries (mirrors TS FileEntry).
@@ -377,7 +377,10 @@ impl DocumentStore {
 
     pub fn delete_project(&self, id: &str) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
-        conn.execute("UPDATE files SET project_id = NULL WHERE project_id = ?1", rusqlite::params![id])?;
+        conn.execute(
+            "UPDATE files SET project_id = NULL WHERE project_id = ?1",
+            rusqlite::params![id],
+        )?;
         conn.execute("DELETE FROM projects WHERE id = ?1", rusqlite::params![id])?;
         Ok(())
     }
@@ -482,7 +485,9 @@ mod tests {
     #[test]
     fn save_and_load_round_trip() {
         let store = temp_store();
-        store.save_document("doc-1", r#"{"name":"test"}"#).expect("save");
+        store
+            .save_document("doc-1", r#"{"name":"test"}"#)
+            .expect("save");
         let loaded = store.load_document("doc-1").expect("load");
         assert_eq!(loaded, Some(r#"{"name":"test"}"#.to_string()));
     }
@@ -499,7 +504,21 @@ mod tests {
         let store = temp_store();
         let t = now();
         store
-            .upsert_file("f1", "Test Design", "strata", None, &t, &t, &t, 1024, false, None, None, "", "abc123")
+            .upsert_file(
+                "f1",
+                "Test Design",
+                "strata",
+                None,
+                &t,
+                &t,
+                &t,
+                1024,
+                false,
+                None,
+                None,
+                "",
+                "abc123",
+            )
             .expect("upsert");
         let files = store.list_files().expect("list");
         assert_eq!(files.len(), 1);
@@ -513,7 +532,21 @@ mod tests {
         let store = temp_store();
         let t = now();
         store
-            .upsert_file("f2", "To Delete", "strata", None, &t, &t, &t, 0, false, None, None, "", "")
+            .upsert_file(
+                "f2",
+                "To Delete",
+                "strata",
+                None,
+                &t,
+                &t,
+                &t,
+                0,
+                false,
+                None,
+                None,
+                "",
+                "",
+            )
             .expect("upsert");
         let trash_t = now();
         store.trash_file("f2", &trash_t).expect("trash");
@@ -529,7 +562,9 @@ mod tests {
         let t = now();
         store.save_document("f3", "{}").expect("save doc");
         store
-            .upsert_file("f3", "Purge Me", "strata", None, &t, &t, &t, 0, false, None, None, "", "")
+            .upsert_file(
+                "f3", "Purge Me", "strata", None, &t, &t, &t, 0, false, None, None, "", "",
+            )
             .expect("upsert");
         store.purge_file("f3").expect("purge");
         assert!(store.load_document("f3").expect("load").is_none());
@@ -540,7 +575,9 @@ mod tests {
     fn projects_crud() {
         let store = temp_store();
         let t = now();
-        store.create_project("p1", "My Project", None, &t).expect("create");
+        store
+            .create_project("p1", "My Project", None, &t)
+            .expect("create");
         let projects = store.list_projects().expect("list");
         assert_eq!(projects.len(), 1);
         assert_eq!(projects[0].name, "My Project");
@@ -559,7 +596,9 @@ mod tests {
     fn thumbnails_crud() {
         let store = temp_store();
         let t = now();
-        store.put_thumbnail("hash1", "data:image/png;base64,test", 256, 192, &t).expect("put");
+        store
+            .put_thumbnail("hash1", "data:image/png;base64,test", 256, 192, &t)
+            .expect("put");
         let data = store.get_thumbnail("hash1").expect("get");
         assert_eq!(data, Some("data:image/png;base64,test".to_string()));
 
@@ -580,9 +619,21 @@ mod tests {
     fn search_files_by_name() {
         let store = temp_store();
         let t = now();
-        store.upsert_file("f1", "Alpha", "strata", None, &t, &t, &t, 100, false, None, None, "", "hash1").expect("upsert");
-        store.upsert_file("f2", "Beta", "strata", None, &t, &t, &t, 200, false, None, None, "", "hash2").expect("upsert");
-        store.upsert_file("f3", "Gamma", "strata", None, &t, &t, &t, 300, false, None, None, "", "hash3").expect("upsert");
+        store
+            .upsert_file(
+                "f1", "Alpha", "strata", None, &t, &t, &t, 100, false, None, None, "", "hash1",
+            )
+            .expect("upsert");
+        store
+            .upsert_file(
+                "f2", "Beta", "strata", None, &t, &t, &t, 200, false, None, None, "", "hash2",
+            )
+            .expect("upsert");
+        store
+            .upsert_file(
+                "f3", "Gamma", "strata", None, &t, &t, &t, 300, false, None, None, "", "hash3",
+            )
+            .expect("upsert");
         let results = store.search_files("alpha").expect("search");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "Alpha");
@@ -594,7 +645,11 @@ mod tests {
     fn reorder_file() {
         let store = temp_store();
         let t = now();
-        store.upsert_file("f1", "First", "strata", None, &t, &t, &t, 0, false, None, None, "a0", "hash1").expect("upsert");
+        store
+            .upsert_file(
+                "f1", "First", "strata", None, &t, &t, &t, 0, false, None, None, "a0", "hash1",
+            )
+            .expect("upsert");
         store.reorder_file("f1", "z0").expect("reorder");
         let files = store.list_files().expect("list");
         let f = files.iter().find(|f| f.id == "f1").expect("find");

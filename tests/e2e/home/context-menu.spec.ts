@@ -30,7 +30,9 @@ test.describe('Home context menu', () => {
     const ctxMenu = page.locator('.strata-ctxmenu[role="menu"]');
     await expect(ctxMenu.locator('[role="menuitem"]').filter({ hasText: 'Open' })).toBeVisible();
     await expect(ctxMenu.locator('[role="menuitem"]').filter({ hasText: 'Rename' })).toBeVisible();
-    await expect(ctxMenu.locator('[role="menuitem"]').filter({ hasText: 'Duplicate' })).toBeVisible();
+    await expect(
+      ctxMenu.locator('[role="menuitem"]').filter({ hasText: 'Duplicate' }),
+    ).toBeVisible();
   });
 
   test('Escape closes context menu', async ({ page }) => {

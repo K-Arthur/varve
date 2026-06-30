@@ -10,13 +10,16 @@ import type { Color } from '@strata/engine';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { ColorPicker } from '../color/ColorPicker';
+import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { commonValue, isMixed } from '../selection/selectionState';
 
 export function FillSection({ nodes }: { nodes: import('@strata/scene').SceneNode[] }) {
-  const { setSelectedFill } = useEditor();
+  const editor = useEditor();
+  const { setSelectedFill } = editor;
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const fillRaw = commonValue(nodes, (n) => n.fill);
   const mixed = isMixed(fillRaw);
@@ -34,14 +37,26 @@ export function FillSection({ nodes }: { nodes: import('@strata/scene').SceneNod
 
   const toggleOpen = useCallback(() => setOpen((p) => !p), []);
 
+  const handleSwatchClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.shiftKey) {
+        editor.setBindingField('fill');
+        e.stopPropagation();
+      } else {
+        toggleOpen();
+      }
+    },
+    [editor, toggleOpen],
+  );
+
   return (
     <DisclosureSection title="Fill">
       <div className="insp-field">
         <span className="insp-field__label">Colour</span>
         <div className="insp-field__control" style={{ position: 'relative' }}>
-          <div
+          <button
             ref={triggerRef}
-            role="button"
+            type="button"
             tabIndex={0}
             aria-label={`Fill colour${fill ? ` ${fill[0]},${fill[1]},${fill[2]}` : ''}`}
             aria-haspopup="dialog"
@@ -52,7 +67,7 @@ export function FillSection({ nodes }: { nodes: import('@strata/scene').SceneNod
                 toggleOpen();
               }
             }}
-            onClick={toggleOpen}
+            onClick={handleSwatchClick}
             style={{
               width: 24,
               height: 24,
@@ -94,6 +109,20 @@ export function FillSection({ nodes }: { nodes: import('@strata/scene').SceneNod
             </div>
           )}
         </div>
+      </div>
+      <div ref={bindingTriggerRef} style={{ position: 'relative' }}>
+        {editor.bindingField === 'fill' && (
+          <BindingMenu
+            variableStore={editor.state.variableStore as import('@strata/scene').VariableStore}
+            targetType="color"
+            onBind={(variableId, expression) => {
+              editor.setSelectedBinding('fill', { variableId, expression });
+              editor.setBindingField(null);
+            }}
+            onClose={() => editor.setBindingField(null)}
+            triggerRef={bindingTriggerRef}
+          />
+        )}
       </div>
     </DisclosureSection>
   );

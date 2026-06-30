@@ -11,7 +11,7 @@
  * (no WASM memory ceiling). The web build selects wasm.
  */
 import { hitTest } from './geometry';
-import type { Backend, Point, RenderItem, Scene, SceneNode } from './types';
+import type { Backend, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
 
 export interface Engine {
   readonly backend: Backend;
@@ -74,15 +74,50 @@ function stubEngine(): Engine {
   return {
     backend: 'stub',
     async buildIr(scene) {
-      return scene.nodes.map((n) => ({
-        transform: n.transform,
-        fill: n.fill ?? ([0, 0, 0, 0] as [number, number, number, number]),
-        primitive: shapeToPrimitive(n),
-        opacity: n.opacity ?? 1,
-        blendMode: n.blendMode ?? 'normal',
-        strokes: n.strokes ?? [],
-        effects: n.effects ?? [],
-      }));
+      return scene.nodes.map((n) => {
+        const item: RenderItem = {
+          transform: n.transform,
+          fill: n.fill ?? ([0, 0, 0, 0] as [number, number, number, number]),
+          primitive: shapeToPrimitive(n),
+          opacity: n.opacity ?? 1,
+          blendMode: n.blendMode ?? 'normal',
+          strokes: n.strokes ?? [],
+          effects: n.effects ?? [],
+        };
+        // P2: populate fills stack if present
+        if (n.fills && n.fills.length > 0) {
+          item.fills = n.fills
+            .filter((f: EngineFill) => f.visible)
+            .map((f: EngineFill): FillIR | null => {
+              if (f.type === 'solid' && f.color) {
+                return {
+                  type: 'solid' as const,
+                  color: f.color,
+                  opacity: f.opacity,
+                  blendMode: f.blendMode,
+                  visible: f.visible,
+                };
+              }
+              if (f.type === 'gradient' && f.gradient) {
+                return {
+                  type: 'gradient' as const,
+                  gradientType: f.gradient.type,
+                  stops: f.gradient.stops.map((s) => ({
+                    position: s.position,
+                    color: s.color,
+                  })),
+                  rotation: f.gradient.rotation ?? 0,
+                  opacity: f.opacity,
+                  blendMode: f.blendMode,
+                  visible: f.visible,
+                };
+              }
+              return null;
+            })
+            .filter((f): f is FillIR => f !== null);
+        }
+        return item;
+      });
     },
     async hitTest(scene, world) {
       return hitTest(scene.nodes, world);

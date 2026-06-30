@@ -37,8 +37,12 @@ pub struct RenderItem {
     pub effects: Vec<strata_core::Effect>,
 }
 
-fn default_opacity() -> f64 { 1.0 }
-fn default_blend_mode() -> String { "normal".into() }
+fn default_opacity() -> f64 {
+    1.0
+}
+fn default_blend_mode() -> String {
+    "normal".into()
+}
 
 /// Geometry primitive in a node's LOCAL space (pre-transform).
 ///
@@ -105,7 +109,9 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
 /// Build the render IR from a DFS-walked scene (from `walk_nodes`).
 /// Emits one item per visited node, recursively flattening frame children
 /// in paint order. Use this for nested frame-based scenes.
-pub fn build_render_ir_flat(walked: &[(strata_core::NodeId, &SceneNode, Option<strata_core::NodeId>)]) -> Vec<RenderItem> {
+pub fn build_render_ir_flat(
+    walked: &[(strata_core::NodeId, &SceneNode, Option<strata_core::NodeId>)],
+) -> Vec<RenderItem> {
     walked
         .iter()
         .map(|(_, node, _)| RenderItem {
@@ -144,14 +150,27 @@ fn primitive_of(shape: &Shape) -> Primitive {
             to: [line.p1.x, line.p1.y],
             tolerance: *tolerance,
         },
-        Shape::Polygon { cx, cy, radius, sides, rotation } => Primitive::Polygon {
+        Shape::Polygon {
+            cx,
+            cy,
+            radius,
+            sides,
+            rotation,
+        } => Primitive::Polygon {
             cx: *cx,
             cy: *cy,
             radius: *radius,
             sides: *sides,
             rotation: *rotation,
         },
-        Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation } => Primitive::Star {
+        Shape::Star {
+            cx,
+            cy,
+            inner_radius,
+            outer_radius,
+            points,
+            rotation,
+        } => Primitive::Star {
             cx: *cx,
             cy: *cy,
             inner_radius: *inner_radius,
@@ -298,16 +317,37 @@ mod tests {
         let ir = build_render_ir_flat(&walked);
         assert_eq!(ir.len(), 4);
 
-        assert!(matches!(ir[0].primitive, Primitive::Rect { w: 100.0, h: 100.0, .. }));
+        assert!(matches!(
+            ir[0].primitive,
+            Primitive::Rect {
+                w: 100.0,
+                h: 100.0,
+                ..
+            }
+        ));
         assert_eq!(ir[0].fill, [200, 200, 200, 255]);
 
         assert!(matches!(ir[1].primitive, Primitive::Circle { r: 5.0, .. }));
         assert_eq!(ir[1].fill, [255, 0, 0, 255]);
 
-        assert!(matches!(ir[2].primitive, Primitive::Rect { w: 20.0, h: 20.0, .. }));
+        assert!(matches!(
+            ir[2].primitive,
+            Primitive::Rect {
+                w: 20.0,
+                h: 20.0,
+                ..
+            }
+        ));
         assert_eq!(ir[2].fill, [0, 255, 0, 255]);
 
-        assert!(matches!(ir[3].primitive, Primitive::Rect { w: 50.0, h: 50.0, .. }));
+        assert!(matches!(
+            ir[3].primitive,
+            Primitive::Rect {
+                w: 50.0,
+                h: 50.0,
+                ..
+            }
+        ));
         assert_eq!(ir[3].fill, [57, 208, 198, 255]);
     }
 

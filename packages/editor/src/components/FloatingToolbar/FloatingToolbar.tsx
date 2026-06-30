@@ -38,7 +38,7 @@ const UTILITY_TOOLS: ToolDef[] = [
 function ToolGroup({ tools }: { tools: ToolDef[] }) {
   const { state, setTool } = useEditor();
   return (
-    <div className="floating-toolbar__group" role="group">
+    <div className="floating-toolbar__group">
       {tools.map((t) => (
         <Tooltip
           key={t.id}
@@ -60,6 +60,7 @@ function ToolGroup({ tools }: { tools: ToolDef[] }) {
           }
         >
           <button
+            type="button"
             className={`floating-toolbar__btn${state.tool === t.id ? ' floating-toolbar__btn--active' : ''}`}
             aria-pressed={state.tool === t.id}
             aria-label={t.label}

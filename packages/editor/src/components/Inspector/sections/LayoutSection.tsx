@@ -71,6 +71,32 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               <option value="columnReverse">Column reverse</option>
             </select>
           </FieldRow>
+          {ls.mode === 'grid' && (
+            <>
+              <FieldRow label="Grid Columns" htmlFor={`layout-grid-cols-${node.id}`}>
+                <input
+                  id={`layout-grid-cols-${node.id}`}
+                  type="text"
+                  value={ls.gridTemplateColumns ?? ''}
+                  placeholder="e.g., 1fr 1fr 1fr"
+                  style={NATIVE_SELECT}
+                  onChange={(e) => patch({ gridTemplateColumns: e.target.value || undefined })}
+                  aria-label="Grid template columns"
+                />
+              </FieldRow>
+              <FieldRow label="Grid Rows" htmlFor={`layout-grid-rows-${node.id}`}>
+                <input
+                  id={`layout-grid-rows-${node.id}`}
+                  type="text"
+                  value={ls.gridTemplateRows ?? ''}
+                  placeholder="e.g., auto 1fr auto"
+                  style={NATIVE_SELECT}
+                  onChange={(e) => patch({ gridTemplateRows: e.target.value || undefined })}
+                  aria-label="Grid template rows"
+                />
+              </FieldRow>
+            </>
+          )}
           <NumberField
             label="Gap"
             unit="px"

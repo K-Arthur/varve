@@ -27,7 +27,18 @@ export interface SidebarNavProps {
   onDropOnProject?: (fileId: string, projectId: string) => void;
 }
 
-function SidebarProjectRow({ entry, isActive, focusIdx, idx, onSelect, setFocusIdx, onPin, onDropOnProject, dropTargetId, setDropTargetId }: {
+function SidebarProjectRow({
+  entry,
+  isActive,
+  focusIdx,
+  idx,
+  onSelect,
+  setFocusIdx,
+  onPin,
+  onDropOnProject,
+  dropTargetId,
+  setDropTargetId,
+}: {
   entry: SidebarEntry;
   isActive: boolean;
   focusIdx: number;
@@ -176,7 +187,12 @@ export function SidebarNav({
 
         if (isProject) {
           return (
-            <div key={entry.id} ref={(el) => { itemRefs.current[i] = el; }}>
+            <div
+              key={entry.id}
+              ref={(el) => {
+                itemRefs.current[i] = el;
+              }}
+            >
               <SidebarProjectRow
                 entry={entry}
                 isActive={isActive}

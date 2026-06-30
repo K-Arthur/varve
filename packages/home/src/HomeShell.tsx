@@ -51,14 +51,39 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
   const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
   const [contextFile, setContextFile] = useState<FileEntry | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [missingFiles, setMissingFiles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    platform.listenForChanges(() => view.refresh()).then((fn) => {
-      unlisten = fn;
-    });
+    platform
+      .listenForChanges(() => view.refresh())
+      .then((fn) => {
+        unlisten = fn;
+      });
     return () => unlisten?.();
   }, [platform, view]);
+
+  // Check for missing files on desktop
+  useEffect(() => {
+    if (platform.kind !== 'tauri') return; // Only check on desktop
+
+    const checkMissingFiles = async () => {
+      const missing = new Set<string>();
+      for (const file of view.files) {
+        if (file.filePath) {
+          const exists = await platform.fileExists(file.filePath);
+          if (!exists) {
+            missing.add(file.id);
+          }
+        }
+      }
+      setMissingFiles(missing);
+    };
+
+    checkMissingFiles();
+  }, [platform, view.files]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -122,7 +147,9 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
       setContextPos(null);
       setContextFile(null);
     }, []),
-    selectAll: useCallback(() => {}, []),
+    selectAll: useCallback(() => {
+      setSelectedIds(view.visibleFiles.map((f) => f.id));
+    }, [view.visibleFiles]),
   };
   useHomeShortcuts(shortcutHandlers, dialogOpen);
 
@@ -149,7 +176,16 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
   const sensors = useSensors(pointerSensor);
 
   const filesByOrdering = useMemo(
-    () => [...view.files].filter((f) => !f.trashedAt).sort((a, b) => (a.ordering || '') < (b.ordering || '') ? -1 : (a.ordering || '') > (b.ordering || '') ? 1 : 0),
+    () =>
+      [...view.files]
+        .filter((f) => !f.trashedAt)
+        .sort((a, b) =>
+          (a.ordering || '') < (b.ordering || '')
+            ? -1
+            : (a.ordering || '') > (b.ordering || '')
+              ? 1
+              : 0,
+        ),
     [view.files],
   );
 
@@ -197,6 +233,10 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
     setContextPos({ x: e.clientX, y: e.clientY });
   }, []);
 
+  const handleStartRename = useCallback((id: string | null) => {
+    setRenamingId(id);
+  }, []);
+
   const handleContextAction = useCallback(
     (action: FileMenuAction) => {
       if (!contextFile) return;
@@ -205,8 +245,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
           onOpenFile(contextFile);
           break;
         case 'rename': {
-          const name = prompt('Rename file:', contextFile.name);
-          if (name) actions.rename(contextFile.id, name);
+          handleStartRename(contextFile.id);
           break;
         }
         case 'duplicate': {
@@ -230,11 +269,21 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
         case 'pin':
           actions.togglePin(contextFile);
           break;
+        case 'locate': {
+          if (contextFile.filePath) {
+            platform.revealInFileManager(contextFile.filePath);
+          }
+          break;
+        }
+        case 'remove': {
+          actions.purge(contextFile.id);
+          break;
+        }
       }
       setContextPos(null);
       setContextFile(null);
     },
-    [contextFile, actions, onOpenFile, platform],
+    [contextFile, actions, onOpenFile, platform, handleStartRename],
   );
 
   const handleMoveToProject = useCallback(
@@ -246,6 +295,34 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
     },
     [contextFile, actions],
   );
+
+  const handleSelect = useCallback((id: string) => {
+    setSelectedIds([id]);
+  }, []);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((x) => x !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  }, []);
+
+  const handleSelectRange = useCallback(
+    (fromIdx: number, toIdx: number) => {
+      const start = Math.min(fromIdx, toIdx);
+      const end = Math.max(fromIdx, toIdx);
+      const range = view.visibleFiles.slice(start, end + 1);
+      setSelectedIds(range.map((f) => f.id));
+    },
+    [view.visibleFiles],
+  );
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(view.visibleFiles.map((f) => f.id));
+  }, [view.visibleFiles]);
 
   const renderContent = () => {
     if (view.loading) {
@@ -307,6 +384,15 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             onContext={handleFileContext}
             onRename={actions.renameProject}
             onDelete={actions.deleteProject}
+            selectedIds={selectedIds}
+            onSelect={handleSelect}
+            onToggleSelect={handleToggleSelect}
+            onSelectRange={handleSelectRange}
+            onSelectAll={handleSelectAll}
+            onFileRename={handleRename}
+            renamingId={renamingId}
+            onStartRename={handleStartRename}
+            missingFiles={missingFiles}
           />
         ) : (
           <EmptyStates section="project" onAction={() => view.setSection('recent')} />
@@ -332,7 +418,15 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             onOpen={onOpenFile}
             onContext={handleFileContext}
             onFileDragStart={handleFileDragStart}
-            selectedIds={[]}
+            selectedIds={selectedIds}
+            onSelect={handleSelect}
+            onToggleSelect={handleToggleSelect}
+            onSelectRange={handleSelectRange}
+            onSelectAll={handleSelectAll}
+            onRename={handleRename}
+            renamingId={renamingId}
+            onStartRename={handleStartRename}
+            missingFiles={missingFiles}
           />
         ) : (
           <FileList
@@ -344,6 +438,15 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             sortKey={state.sort.key}
             sortDirection={state.sort.direction}
             onSort={view.setSortKey}
+            selectedIds={selectedIds}
+            onSelect={handleSelect}
+            onToggleSelect={handleToggleSelect}
+            onSelectRange={handleSelectRange}
+            onSelectAll={handleSelectAll}
+            onRename={handleRename}
+            renamingId={renamingId}
+            onStartRename={handleStartRename}
+            missingFiles={missingFiles}
           />
         );
     }
@@ -351,113 +454,114 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
 
   return (
     <DndContext sensors={sensors} collisionDetection={undefined} onDragEnd={handleDragEnd}>
-    <div
-      className={`strata-home ${view.state.sidebarCollapsed ? 'strata-home--collapsed' : ''} ${isDragOver ? 'strata-home--drag-over' : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {sidebarOpen && (
-        <div
-          className="drawer-overlay drawer-overlay--visible"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-      <div className={`strata-home__sidebar ${sidebarOpen ? 'strata-home__sidebar--open' : ''}`}>
-        <SidebarNav
-          entries={sidebarEntries}
-          activeId={
-            view.state.section === 'project'
-              ? (view.state.activeProjectId ?? 'all')
-              : view.state.section
-          }
-          onSelect={(id) => {
-            if (['recent', 'all', 'templates', 'trash'].includes(id)) {
-              view.setSection(id as 'recent' | 'all' | 'templates' | 'trash');
-            } else {
-              view.setActiveProject(id);
+      <div
+        className={`strata-home ${view.state.sidebarCollapsed ? 'strata-home--collapsed' : ''} ${isDragOver ? 'strata-home--drag-over' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {sidebarOpen && (
+          <div
+            className="drawer-overlay drawer-overlay--visible"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        <div className={`strata-home__sidebar ${sidebarOpen ? 'strata-home__sidebar--open' : ''}`}>
+          <SidebarNav
+            entries={sidebarEntries}
+            activeId={
+              view.state.section === 'project'
+                ? (view.state.activeProjectId ?? 'all')
+                : view.state.section
             }
-            setSidebarOpen(false);
-          }}
-          onPin={(id) => {
-            const proj = view.projects.find((p) => p.id === id);
-            if (proj) platform.setProjectPinned(proj.id, !proj.pinned);
-          }}
-          onDropOnProject={handleDropOnProject}
-        />
-      </div>
-      <div className="strata-home__toolbar">
-        <HomeToolbar
-          sidebarCollapsed={view.state.sidebarCollapsed}
-          onToggleSidebar={view.toggleSidebar}
-          viewMode={view.state.view}
-          onViewModeChange={view.setView}
-          query={view.state.filter.query}
-          onQueryChange={(q) => view.setFilter({ query: q })}
-          resultCount={view.visibleFiles.length}
-          sortKey={view.state.sort.key}
-          sortDirection={view.state.sort.direction}
-          onSortKeyChange={view.setSortKey}
-          onSortDirToggle={view.toggleSortDir}
-          onNewFile={() => setNewFileOpen(true)}
-          onOpenFromDisk={async () => {
-            const result = await platform.openDocumentFromDisk();
-            if (result) onOpenFile(result.entry);
-          }}
-        />
-      </div>
-      <main className="strata-home__content">{renderContent()}</main>
+            onSelect={(id) => {
+              if (['recent', 'all', 'templates', 'trash'].includes(id)) {
+                view.setSection(id as 'recent' | 'all' | 'templates' | 'trash');
+              } else {
+                view.setActiveProject(id);
+              }
+              setSidebarOpen(false);
+            }}
+            onPin={(id) => {
+              const proj = view.projects.find((p) => p.id === id);
+              if (proj) platform.setProjectPinned(proj.id, !proj.pinned);
+            }}
+            onDropOnProject={handleDropOnProject}
+          />
+        </div>
+        <div className="strata-home__toolbar">
+          <HomeToolbar
+            sidebarCollapsed={view.state.sidebarCollapsed}
+            onToggleSidebar={view.toggleSidebar}
+            viewMode={view.state.view}
+            onViewModeChange={view.setView}
+            query={view.state.filter.query}
+            onQueryChange={(q) => view.setFilter({ query: q })}
+            resultCount={view.visibleFiles.length}
+            sortKey={view.state.sort.key}
+            sortDirection={view.state.sort.direction}
+            onSortKeyChange={view.setSortKey}
+            onSortDirToggle={view.toggleSortDir}
+            onNewFile={() => setNewFileOpen(true)}
+            onOpenFromDisk={async () => {
+              const result = await platform.openDocumentFromDisk();
+              if (result) onOpenFile(result.entry);
+            }}
+          />
+        </div>
+        <main className="strata-home__content">{renderContent()}</main>
 
-      <NewFileDialog
-        open={newFileOpen}
-        onClose={() => setNewFileOpen(false)}
-        onCreate={(preset) => {
-          const id = crypto.randomUUID();
-          const now = Date.now();
-          const doc = {
-            id,
-            name: preset.name,
-            rootChildren: [] as string[],
-            nodes: {},
-            components: {},
-            nextId: 1,
-          };
-          const docJson = JSON.stringify(doc);
-          const entry: FileEntry = {
-            id,
-            name: preset.name,
-            kind: 'strata',
-            projectId: null,
-            createdAt: now,
-            updatedAt: now,
-            openedAt: now,
-            size: docJson.length,
-            pinned: false,
-            trashedAt: null,
-            ordering: '',
-            contentHash: '',
-          };
-          platform.upsertFile(entry, docJson);
-          generateThumbnail(platform, entry, docJson);
-          onOpenFile(entry);
-          setNewFileOpen(false);
-        }}
-      />
-      {contextPos && contextFile && (
-        <FileContextMenu
-          file={contextFile}
-          position={contextPos}
-          onAction={handleContextAction}
-          onMoveToProject={handleMoveToProject}
-          onClose={() => {
-            setContextPos(null);
-            setContextFile(null);
+        <NewFileDialog
+          open={newFileOpen}
+          onClose={() => setNewFileOpen(false)}
+          onCreate={(preset) => {
+            const id = crypto.randomUUID();
+            const now = Date.now();
+            const doc = {
+              id,
+              name: preset.name,
+              rootChildren: [] as string[],
+              nodes: {},
+              components: {},
+              nextId: 1,
+            };
+            const docJson = JSON.stringify(doc);
+            const entry: FileEntry = {
+              id,
+              name: preset.name,
+              kind: 'strata',
+              projectId: null,
+              createdAt: now,
+              updatedAt: now,
+              openedAt: now,
+              size: docJson.length,
+              pinned: false,
+              trashedAt: null,
+              ordering: '',
+              contentHash: '',
+            };
+            platform.upsertFile(entry, docJson);
+            generateThumbnail(platform, entry, docJson);
+            onOpenFile(entry);
+            setNewFileOpen(false);
           }}
-          projects={view.projects}
-          isTrash={view.state.section === 'trash'}
         />
-      )}
-    </div>
+        {contextPos && contextFile && (
+          <FileContextMenu
+            file={contextFile}
+            position={contextPos}
+            onAction={handleContextAction}
+            onMoveToProject={handleMoveToProject}
+            onClose={() => {
+              setContextPos(null);
+              setContextFile(null);
+            }}
+            projects={view.projects}
+            isTrash={view.state.section === 'trash'}
+            isMissing={missingFiles.has(contextFile.id)}
+          />
+        )}
+      </div>
     </DndContext>
   );
 }

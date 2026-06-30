@@ -18,9 +18,11 @@ import { DisclosureSection } from './controls/DisclosureSection';
 import { NumberField } from './controls/NumberField';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
+import { ComponentSection } from './sections/ComponentSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
+import { FillStackSection } from './sections/FillStackSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
@@ -37,7 +39,7 @@ export function PropertiesPanel() {
   const summary = summarize(selNodes);
   const [tab, setTab] = useState<Tab>('properties');
 
-  if (state.tool === 'inspect' && selNodes.length > 0) {
+  if (state.tool === 'inspect') {
     return (
       <section className="editor-inspector" aria-label="Inspector">
         <SpecPanel
@@ -132,6 +134,7 @@ function EmptyState() {
 function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
   const node = nodes[0] as SceneNode;
   const isFrame = node.kind === 'frame';
+  const isComponentInstance = isFrame && (node as import('@strata/scene').FrameNode).componentId;
   const isRect =
     node.kind === 'shape' && (node as import('@strata/scene').ShapeNode).shape.kind === 'rect';
 
@@ -151,10 +154,12 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
           </span>
         </p>
       </header>
+      {isComponentInstance && <ComponentSection node={node as import('@strata/scene').FrameNode} />}
       <PositionSizeSection nodes={nodes} />
       {isRect && <CornerRadiusSection nodes={nodes} />}
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
+      <FillStackSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />
@@ -181,6 +186,7 @@ function MultiSelectionPanel({
       <PositionSizeSection nodes={nodes} />
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
+      <FillStackSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />

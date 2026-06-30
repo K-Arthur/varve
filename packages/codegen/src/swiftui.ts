@@ -32,7 +32,12 @@ function emitText(node: TextNode, depth: number, opts?: SwiftUIExportOptions): s
   return `${'  '.repeat(depth)}Text("${node.text}")\n${'  '.repeat(depth)}  .font(.system(size: ${node.fontSize ?? 16}))\n${'  '.repeat(depth)}  .foregroundColor(${color})`;
 }
 
-function emitContainer(node: SceneNode, doc: SceneDocument, depth: number, opts?: SwiftUIExportOptions): string {
+function emitContainer(
+  node: SceneNode,
+  doc: SceneDocument,
+  depth: number,
+  opts?: SwiftUIExportOptions,
+): string {
   const children = getChildren(doc, node);
   const body = children.map((child) => emitNode(child, doc, depth + 1, opts)).join('\n');
 
@@ -62,7 +67,12 @@ function emitContainer(node: SceneNode, doc: SceneDocument, depth: number, opts?
   return `${'  '.repeat(depth)}ZStack {\n${body}\n${'  '.repeat(depth)}}`;
 }
 
-function emitNode(node: SceneNode, doc: SceneDocument, depth: number, opts?: SwiftUIExportOptions): string {
+function emitNode(
+  node: SceneNode,
+  doc: SceneDocument,
+  depth: number,
+  opts?: SwiftUIExportOptions,
+): string {
   if (node.kind === 'text') return emitText(node, depth, opts);
   if (node.kind === 'frame' || node.kind === 'group') {
     return emitContainer(node, doc, depth, opts);

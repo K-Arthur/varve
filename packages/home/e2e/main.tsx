@@ -1,10 +1,5 @@
-import {
-  createMemoryPlatform,
-  makeFileEntry,
-  makeProject,
-  uuid,
-} from '@strata/platform';
 import { HomeShell } from '@strata/home';
+import { createMemoryPlatform, makeFileEntry, makeProject, uuid } from '@strata/platform';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -15,7 +10,12 @@ const PROJECTS = [
 ];
 
 const TEMPLATE_JSON = JSON.stringify({
-  id: 't1', name: 'Template', rootChildren: [], nodes: {}, components: {}, nextId: 1,
+  id: 't1',
+  name: 'Template',
+  rootChildren: [],
+  nodes: {},
+  components: {},
+  nextId: 1,
 });
 
 const FILES = Array.from({ length: 20 }, (_, i) => {

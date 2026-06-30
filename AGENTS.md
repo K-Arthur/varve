@@ -242,6 +242,25 @@ All deferred phases D1-D8 of the Spec Panel implemented (except D5 token-aware c
 
 **Verification:** 43 JS test files (327 tests, +11 from prior session), Rust 75+ workspace + 7 src-tauri (80 total), emoji audit clean, typecheck clean across all packages.
 
+## Spec Panel deferred-phases completion (Session 12, 2026-06-29)
+
+| Phase | What was done |
+|---|---|
+| **D1** E2E + axe-core | Fixed `inspect` tool registration in `CanvasArea` so the Spec Panel appears; switched E2E to toolbar button activation; granted clipboard permissions; fixed swatch `role="img"` and code-block dark-background contrast so axe-core scans pass. 6/6 E2E tests pass. |
+| **D5** Token-aware codegen | Verified token binding already wired for CSS, Tailwind, Flutter, SwiftUI; added explicit tests for CSS Modules, Flutter, SwiftUI token paths. |
+| **D8** Flutter/SwiftUI auto-layout | Verified existing Row/Column/HStack/VStack/Stack/ZStack recursion; wired `MeasureOverlay` into `CanvasArea` for inspect-mode dimension overlays. |
+| **D6** Cross-platform verification | Verified on Linux/Wayland: Chromium E2E passes, Rust workspace + src-tauri tests pass, token/emoji audits pass. macOS Safari + Firefox cannot be tested in this environment; documented. |
+| **Fixes** | Removed duplicate `ToolId` type alias in `context.tsx`; fixed `packages/scene/src/fills.ts` type narrowing; `playwright.config.ts` now grants `clipboard-read`/`clipboard-write`. |
+
+**Verification:**
+- JS tests: 346 tests pass (packages/* Vitest)
+- Rust tests: 75 workspace + 7 src-tauri = 82 pass
+- Spec E2E: 6/6 pass (`tests/e2e/spec`)
+- `pnpm audit:tokens`: 51/51 pass
+- `pnpm audit:emoji`: clean
+- `pnpm lint`: 0 errors on new/modified Spec Panel / codegen files
+- `pnpm typecheck`: clean for `editor`, `codegen`, `scene`; pre-existing errors remain in `packages/home` (unrelated to this session)
+
 ## Key files to read before starting
 
 | File | Why |

@@ -100,18 +100,21 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           fieldName="y"
           onShiftClick={() => editor.setBindingField('y')}
         />
-        {editor.bindingField && ['x', 'y', 'width', 'height', 'rotation'].includes(editor.bindingField) && (
-          <BindingMenu
-            variableStore={editor.state.variableStore as import('@strata/scene').VariableStore}
-            targetType="number"
-            onBind={(variableId, expression) => {
-              editor.setSelectedBinding(editor.bindingField!, { variableId, expression });
-              editor.setBindingField(null);
-            }}
-            onClose={() => editor.setBindingField(null)}
-            triggerRef={bindingTriggerRef}
-          />
-        )}
+        {editor.bindingField &&
+          ['x', 'y', 'width', 'height', 'rotation'].includes(editor.bindingField) && (
+            <BindingMenu
+              variableStore={editor.state.variableStore as import('@strata/scene').VariableStore}
+              targetType="number"
+              onBind={(variableId, expression) => {
+                if (editor.bindingField) {
+                  editor.setSelectedBinding(editor.bindingField, { variableId, expression });
+                }
+                editor.setBindingField(null);
+              }}
+              onClose={() => editor.setBindingField(null)}
+              triggerRef={bindingTriggerRef}
+            />
+          )}
       </div>
       {allShapes && (
         <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
@@ -273,6 +276,63 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           </svg>
         </button>
       </div>
+      {/* P3: Clamp sizing controls */}
+      {allShapes && (
+        <div style={{ marginTop: 'var(--space-1)' }}>
+          {(() => {
+            const minWRaw = commonValue(nodes, (n) => n.minWidth);
+            return (
+              <NumberField
+                label="Min W"
+                unit="px"
+                value={isMixed(minWRaw) ? 0 : (minWRaw ?? 0)}
+                mixed={isMixed(minWRaw)}
+                min={0}
+                onChange={editor.setSelectedMinWidth}
+              />
+            );
+          })()}
+          {(() => {
+            const maxWRaw = commonValue(nodes, (n) => n.maxWidth);
+            return (
+              <NumberField
+                label="Max W"
+                unit="px"
+                value={isMixed(maxWRaw) ? 0 : (maxWRaw ?? 0)}
+                mixed={isMixed(maxWRaw)}
+                min={0}
+                onChange={editor.setSelectedMaxWidth}
+              />
+            );
+          })()}
+          {(() => {
+            const minHRaw = commonValue(nodes, (n) => n.minHeight);
+            return (
+              <NumberField
+                label="Min H"
+                unit="px"
+                value={isMixed(minHRaw) ? 0 : (minHRaw ?? 0)}
+                mixed={isMixed(minHRaw)}
+                min={0}
+                onChange={editor.setSelectedMinHeight}
+              />
+            );
+          })()}
+          {(() => {
+            const maxHRaw = commonValue(nodes, (n) => n.maxHeight);
+            return (
+              <NumberField
+                label="Max H"
+                unit="px"
+                value={isMixed(maxHRaw) ? 0 : (maxHRaw ?? 0)}
+                mixed={isMixed(maxHRaw)}
+                min={0}
+                onChange={editor.setSelectedMaxHeight}
+              />
+            );
+          })()}
+        </div>
+      )}
     </DisclosureSection>
   );
 }

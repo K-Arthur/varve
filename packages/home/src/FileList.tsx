@@ -14,6 +14,14 @@ export interface FileListProps {
   sortDirection: SortDirection;
   onSort: (key: SortKey) => void;
   selectedIds?: string[];
+  onSelect: (id: string) => void;
+  onToggleSelect: (id: string) => void;
+  onSelectRange: (fromIdx: number, toIdx: number) => void;
+  onSelectAll: () => void;
+  onRename?: (id: string, newName: string) => void;
+  renamingId?: string | null;
+  onStartRename?: (id: string | null) => void;
+  missingFiles?: Set<string>;
 }
 
 const ROW_HEIGHT = 48;
@@ -28,9 +36,21 @@ export function FileList({
   sortDirection,
   onSort,
   selectedIds = [],
+  onSelect,
+  onToggleSelect,
+  onSelectRange,
+  onSelectAll,
+  onRename,
+  renamingId,
+  onStartRename,
+  missingFiles = new Set(),
 }: FileListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusIdx, setFocusIdx] = useState(0);
+  const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null);
+  const typeAheadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typeAheadBufferRef = useRef('');
+  const [renameValues, setRenameValues] = useState<Record<string, string>>({});
 
   const virtualizer = useVirtualizer({
     count: files.length,
@@ -59,6 +79,8 @@ export function FileList({
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         navigate(1);
@@ -79,8 +101,113 @@ export function FileList({
         e.preventDefault();
         onOpen(files[focusIdx]!);
       }
+      if (isCtrl && e.key === 'a') {
+        e.preventDefault();
+        onSelectAll();
+      }
+      if (e.key === 'F2') {
+        e.preventDefault();
+        const entry = files[focusIdx];
+        if (entry) {
+          onStartRename?.(entry.id);
+          setRenameValues((prev) => ({ ...prev, [entry.id]: entry.name }));
+        }
+      }
+
+      // Type-ahead navigation
+      if (!isCtrl && e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+        e.preventDefault();
+        const char = e.key.toLowerCase();
+
+        // Clear existing timeout
+        if (typeAheadTimeoutRef.current) {
+          clearTimeout(typeAheadTimeoutRef.current);
+        }
+
+        // Append to buffer
+        typeAheadBufferRef.current += char;
+
+        // Find first matching file
+        const matchIdx = files.findIndex((f) =>
+          f.name.toLowerCase().startsWith(typeAheadBufferRef.current),
+        );
+
+        if (matchIdx >= 0) {
+          setFocusIdx(matchIdx);
+        }
+
+        // Set timeout to clear buffer
+        typeAheadTimeoutRef.current = setTimeout(() => {
+          typeAheadBufferRef.current = '';
+        }, 800);
+      }
     },
-    [navigate, focusIdx, onOpen, files],
+    [navigate, focusIdx, onOpen, files, onSelectAll, onStartRename],
+  );
+
+  const handleRenameKeyDown = useCallback(
+    (e: React.KeyboardEvent, id: string) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = renameValues[id];
+        if (value?.trim() && value !== files.find((f) => f.id === id)?.name) {
+          onRename?.(id, value.trim());
+        }
+        onStartRename?.(null); // Exit rename mode
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setRenameValues((prev) => ({ ...prev, [id]: files.find((f) => f.id === id)?.name ?? '' }));
+        onStartRename?.(null); // Exit rename mode
+      }
+    },
+    [renameValues, files, onRename, onStartRename],
+  );
+
+  const handleRenameBlur = useCallback(
+    (id: string) => {
+      const value = renameValues[id];
+      if (value?.trim() && value !== files.find((f) => f.id === id)?.name) {
+        onRename?.(id, value.trim());
+      }
+      onStartRename?.(null); // Exit rename mode
+    },
+    [renameValues, files, onRename, onStartRename],
+  );
+
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent, fileIdx: number) => {
+      const entry = files[fileIdx];
+      if (!entry) return;
+
+      const isCtrl = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+
+      if (isCtrl && isShift) {
+        // Ctrl+Shift: range selection while preserving existing selection
+        if (lastSelectedIdx !== null) {
+          onSelectRange(lastSelectedIdx, fileIdx);
+        } else {
+          onSelectRange(0, fileIdx);
+        }
+      } else if (isShift) {
+        // Shift: range selection, clear previous selection
+        if (lastSelectedIdx !== null) {
+          onSelectRange(lastSelectedIdx, fileIdx);
+        } else {
+          onSelectRange(0, fileIdx);
+        }
+      } else if (isCtrl) {
+        // Ctrl: toggle selection
+        onToggleSelect(entry.id);
+        setLastSelectedIdx(fileIdx);
+      } else {
+        // Normal click: select single item
+        onSelect(entry.id);
+        setLastSelectedIdx(fileIdx);
+      }
+    },
+    [files, lastSelectedIdx, onSelect, onToggleSelect, onSelectRange],
   );
 
   const columns: { key: SortKey; label: string; sortable: boolean }[] = [
@@ -154,7 +281,7 @@ export function FileList({
               role="row"
               aria-rowindex={virtualRow.index + 2}
               aria-selected={isSelected}
-              className={`file-row ${isSelected ? 'file-row--selected' : ''}`}
+              className={`file-row ${isSelected ? 'file-row--selected' : ''} ${missingFiles.has(entry.id) ? 'file-row--missing' : ''}`}
               tabIndex={virtualRow.index === focusIdx ? 0 : -1}
               style={{
                 position: 'absolute',
@@ -164,7 +291,7 @@ export function FileList({
                 height: `${ROW_HEIGHT}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
-              onClick={() => onOpen(entry)}
+              onClick={(e) => handleRowClick(e, virtualRow.index)}
               onContextMenu={(e) => onContext(e, entry)}
               onFocus={() => setFocusIdx(virtualRow.index)}
             >
@@ -175,7 +302,32 @@ export function FileList({
                   <div className="file-card__skeleton" />
                 )}
               </div>
-              <span className="file-row__name">{entry.name}</span>
+              {renamingId === entry.id ? (
+                <input
+                  type="text"
+                  value={renameValues[entry.id] ?? entry.name}
+                  onChange={(e) =>
+                    setRenameValues((prev) => ({ ...prev, [entry.id]: e.target.value }))
+                  }
+                  onKeyDown={(e) => handleRenameKeyDown(e, entry.id)}
+                  onBlur={() => handleRenameBlur(entry.id)}
+                  className="file-row__rename-input"
+                  style={{
+                    background: 'var(--color-surface-raised)',
+                    border: '1px solid var(--color-interactive-default)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '2px 4px',
+                    fontSize: 'var(--font-size-sm)',
+                    fontWeight: 'var(--font-weight-medium)',
+                    color: 'var(--color-text-primary)',
+                    outline: 'none',
+                    width: '100%',
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <span className="file-row__name">{entry.name}</span>
+              )}
               <span className="file-row__meta">{formatRelativeTime(entry.updatedAt)}</span>
               <span className="file-row__meta">
                 {entry.size > 0 ? formatBytes(entry.size) : ''}

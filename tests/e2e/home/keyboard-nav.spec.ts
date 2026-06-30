@@ -38,8 +38,14 @@ test.describe('Home keyboard navigation', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
 
-    const hasNavigated = await page.locator('.layers-panel').isVisible().catch(() => false);
-    const staysOnHome = await page.locator('.strata-home').isVisible().catch(() => false);
+    const hasNavigated = await page
+      .locator('.layers-panel')
+      .isVisible()
+      .catch(() => false);
+    const staysOnHome = await page
+      .locator('.strata-home')
+      .isVisible()
+      .catch(() => false);
     expect(hasNavigated || staysOnHome).toBe(true);
   });
 

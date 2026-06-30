@@ -20,6 +20,47 @@ export const SHORTCUT_DEFS = {
   zoomReset: { binding: { key: '0', ctrl: true }, label: 'Zoom to 100%', category: 'View' },
   selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
   group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
+  alignLeft: {
+    binding: { key: 'ArrowLeft', ctrl: true, shift: true },
+    label: 'Align left',
+    category: 'Object',
+  },
+  alignCenterH: {
+    binding: { key: 'Home', ctrl: true, shift: true },
+    label: 'Align horizontal center',
+    category: 'Object',
+  },
+  alignRight: {
+    binding: { key: 'ArrowRight', ctrl: true, shift: true },
+    label: 'Align right',
+    category: 'Object',
+  },
+  alignTop: {
+    binding: { key: 'ArrowUp', ctrl: true, shift: true },
+    label: 'Align top',
+    category: 'Object',
+  },
+  alignCenterV: {
+    binding: { key: 'PageUp', ctrl: true, shift: true },
+    label: 'Align vertical center',
+    category: 'Object',
+  },
+  alignBottom: {
+    binding: { key: 'ArrowDown', ctrl: true, shift: true },
+    label: 'Align bottom',
+    category: 'Object',
+  },
+  distributeHorizontal: {
+    binding: { key: 'h', ctrl: true, alt: true },
+    label: 'Distribute horizontally',
+    category: 'Object',
+  },
+  distributeVertical: {
+    binding: { key: 'v', ctrl: true, alt: true },
+    label: 'Distribute vertically',
+    category: 'Object',
+  },
+  bindField: { binding: { key: '=' }, label: 'Bind field', category: 'Object' },
   shortcutPalette: {
     binding: { key: '/', ctrl: true },
     label: 'Command Palette',

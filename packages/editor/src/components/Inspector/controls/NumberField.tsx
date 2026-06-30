@@ -228,10 +228,12 @@ export function NumberField({
             if (error) setError(null);
           }}
           onKeyDown={handleKeyDown}
-          onWheel={onWheel}
+          onFocus={() => fieldName && ctx?.setFocusedField(fieldName)}
           onBlur={() => {
             if (dirty !== null) commit(dirty);
+            if (fieldName && ctx?.setFocusedField) ctx.setFocusedField(null);
           }}
+          onWheel={onWheel}
         />
         {error && (
           <div className="insp-num__error" id={errorId} role="alert">

@@ -52,25 +52,18 @@ fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
             let y = page_height - r.max_y() - y_off;
             let w = r.width();
             let h = r.height();
-            format!("q\n{color}\n{x:.2} {y:.2} {w:.2} {h:.2} re\nf\nQ\n")
-                .into_bytes()
+            format!("q\n{color}\n{x:.2} {y:.2} {w:.2} {h:.2} re\nf\nQ\n").into_bytes()
         }
         Shape::Circle(c) => {
             let cx = c.center.x + x_off;
             let cy = page_height - c.center.y - y_off;
             let r = c.radius;
-            format!(
-                "q\n{color}\n{cx:.2} {cy:.2} {r:.2} 0 360 arc\nf\nQ\n"
-            )
-            .into_bytes()
+            format!("q\n{color}\n{cx:.2} {cy:.2} {r:.2} 0 360 arc\nf\nQ\n").into_bytes()
         }
         Shape::Ellipse { center, rx, ry } => {
             let cx = center.x + x_off;
             let cy = page_height - center.y - y_off;
-            format!(
-                "q\n{color}\n{cx:.2} {cy:.2} {rx:.2} {ry:.2} 0 360 arc\nf\nQ\n"
-            )
-            .into_bytes()
+            format!("q\n{color}\n{cx:.2} {cy:.2} {rx:.2} {ry:.2} 0 360 arc\nf\nQ\n").into_bytes()
         }
         Shape::Line { line, tolerance: _ } => {
             let x1 = line.p0.x + x_off;
@@ -83,12 +76,20 @@ fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
             )
             .into_bytes()
         }
-        Shape::Polygon { cx, cy, radius, sides, rotation } => {
+        Shape::Polygon {
+            cx,
+            cy,
+            radius,
+            sides,
+            rotation,
+        } => {
             let scx = cx + x_off;
             let scy = page_height - cy - y_off;
             let mut buf = format!("q\n{color}\n").into_bytes();
             for i in 0..*sides {
-                let a = 2.0 * std::f64::consts::PI * i as f64 / *sides as f64 - std::f64::consts::FRAC_PI_2 + rotation;
+                let a = 2.0 * std::f64::consts::PI * i as f64 / *sides as f64
+                    - std::f64::consts::FRAC_PI_2
+                    + rotation;
                 let px = scx + radius * a.cos();
                 let py = scy + radius * a.sin();
                 if i == 0 {
@@ -100,14 +101,27 @@ fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
             buf.extend_from_slice(b"h f\nQ\n");
             buf
         }
-        Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation } => {
+        Shape::Star {
+            cx,
+            cy,
+            inner_radius,
+            outer_radius,
+            points,
+            rotation,
+        } => {
             let scx = cx + x_off;
             let scy = page_height - cy - y_off;
             let mut buf = format!("q\n{color}\n").into_bytes();
             let total = points * 2;
             for i in 0..total {
-                let a = std::f64::consts::PI * i as f64 / *points as f64 - std::f64::consts::FRAC_PI_2 + rotation;
-                let r = if i % 2 == 0 { *outer_radius } else { *inner_radius };
+                let a = std::f64::consts::PI * i as f64 / *points as f64
+                    - std::f64::consts::FRAC_PI_2
+                    + rotation;
+                let r = if i % 2 == 0 {
+                    *outer_radius
+                } else {
+                    *inner_radius
+                };
                 let px = scx + r * a.cos();
                 let py = scy + r * a.sin();
                 if i == 0 {
@@ -134,7 +148,11 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     content.extend_from_slice(b"q\n");
     // White background
     content.extend_from_slice(
-        format!("1.0 1.0 1.0 rg\n0 0 {:.2} {:.2} re\nf\n", opts.page_width, opts.page_height).as_bytes(),
+        format!(
+            "1.0 1.0 1.0 rg\n0 0 {:.2} {:.2} re\nf\n",
+            opts.page_width, opts.page_height
+        )
+        .as_bytes(),
     );
 
     for node in nodes {
@@ -145,7 +163,8 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
 
     let content_stream = Stream::new(dictionary! {}, content);
     let content_id = doc.new_object_id();
-    doc.objects.insert(content_id, Object::Stream(content_stream));
+    doc.objects
+        .insert(content_id, Object::Stream(content_stream));
 
     // Font resource (required by PDF spec even if unused)
     let font_dict = dictionary! {
@@ -194,7 +213,8 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     doc.compress();
 
     let mut output = Vec::new();
-    doc.save_to(&mut output).map_err(|e| format!("PDF save failed: {e}"))?;
+    doc.save_to(&mut output)
+        .map_err(|e| format!("PDF save failed: {e}"))?;
     Ok(output)
 }
 
@@ -234,7 +254,10 @@ mod tests {
         ];
         let opts = PdfOptions::default();
         let bytes = export_pdf(&nodes, &opts).expect("pdf export");
-        assert!(bytes.starts_with(b"%PDF"), "bytes should start with PDF header");
+        assert!(
+            bytes.starts_with(b"%PDF"),
+            "bytes should start with PDF header"
+        );
         assert!(bytes.len() > 200, "PDF should have meaningful content");
     }
 
@@ -246,23 +269,21 @@ mod tests {
 
     #[test]
     fn export_pdf_with_circle() {
-        let nodes = vec![
-            SceneNode {
-                id: strata_core::NodeId(1),
-                name: "circle".into(),
-                transform: Affine::translate((100.0, 100.0)),
-                shape: Shape::Circle(Circle::new(Point::new(0.0, 0.0), 50.0)),
-                fill: [255, 0, 0, 255],
-                children: Vec::new(),
-                component_id: None,
-                slots: None,
-                opacity: 1.0,
-                blend_mode: "normal".into(),
-                rotation: 0.0,
-                strokes: Vec::new(),
-                effects: Vec::new(),
-            },
-        ];
+        let nodes = vec![SceneNode {
+            id: strata_core::NodeId(1),
+            name: "circle".into(),
+            transform: Affine::translate((100.0, 100.0)),
+            shape: Shape::Circle(Circle::new(Point::new(0.0, 0.0), 50.0)),
+            fill: [255, 0, 0, 255],
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
+        }];
         let bytes = export_pdf(&nodes, &PdfOptions::default()).expect("pdf with circle");
         assert!(bytes.starts_with(b"%PDF"));
     }
@@ -272,7 +293,9 @@ mod tests {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf");
         let content = String::from_utf8_lossy(&bytes);
-        assert!(!content.contains("/Tj") && !content.contains("/TJ"),
-            "should not contain text operators");
+        assert!(
+            !content.contains("/Tj") && !content.contains("/TJ"),
+            "should not contain text operators"
+        );
     }
 }

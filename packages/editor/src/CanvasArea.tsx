@@ -12,10 +12,10 @@ import type { Engine, SceneNode as EngineNode } from '@strata/engine';
 import { createEngine, type ReplayTarget, replayIr } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
+import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
-import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
-import { snapPosition, type SnapGuide } from './tools/snapping';
 import { type ToolContext, ToolManager } from './tools';
 import { EllipseTool } from './tools/EllipseTool';
 import { FrameTool } from './tools/FrameTool';
@@ -23,7 +23,9 @@ import { HandTool } from './tools/HandTool';
 import { LineTool } from './tools/LineTool';
 import { PenTool } from './tools/PenTool';
 import { RectangleTool } from './tools/RectangleTool';
+import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
+import { type SnapGuide, snapPosition } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
 
@@ -34,6 +36,7 @@ function toEngineNode(n: DocNode): EngineNode {
     id: n.id,
     name: n.name,
     fill: n.fill,
+    fills: n.fills,
     transform: n.transform,
     opacity: n.opacity ?? 1,
     blendMode: n.blendMode ?? ('normal' as const),
@@ -56,8 +59,10 @@ function getToolManager(): ToolManager {
   if (!toolManager) {
     toolManager = new ToolManager('select');
     toolManager.register('select', () => new SelectTool());
+    toolManager.register('inspect', () => new SelectTool());
     toolManager.register('hand', () => new HandTool());
     toolManager.register('zoom', () => new ZoomTool());
+    toolManager.register('scale', () => new ScaleTool());
     toolManager.register('frame', () => new FrameTool());
     toolManager.register('rect', () => new RectangleTool());
     toolManager.register('ellipse', () => new EllipseTool());
@@ -90,6 +95,7 @@ export function CanvasArea() {
   } | null>(null);
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
+  const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
 
   useEffect(() => {
     createEngine('auto').then((eng) => {
@@ -298,6 +304,13 @@ export function CanvasArea() {
     const tmInst = tm.current;
     if (!tmInst) return;
 
+    if (state.tool === 'inspect') {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const world = canvasToWorld(ne.clientX - rect.left, ne.clientY - rect.top);
+      const hit = editor.hitTestNode(world);
+      setHoveredNode(hit?.node ?? null);
+    }
+
     tmInst.handlePointerMove(ne, buildToolCtx(ne));
   }
 
@@ -417,6 +430,15 @@ export function CanvasArea() {
       />
       <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />
       <SelectionOverlay />
+      {state.tool === 'inspect' && (
+        <MeasureOverlay
+          zoom={state.zoom}
+          pan={state.pan}
+          selectedNodes={editor.selectedNodes()}
+          doc={state.document}
+          hoveredNode={hoveredNode}
+        />
+      )}
       <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" />
     </section>
   );

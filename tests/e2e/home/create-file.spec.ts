@@ -32,7 +32,9 @@ test.describe('Create File dialog', () => {
     await page.waitForTimeout(200);
 
     await expect(dialog.locator('.templates-gallery')).toBeVisible();
-    await expect(dialog.locator('.template-card')).toHaveCount(await dialog.locator('.template-card').count());
+    await expect(dialog.locator('.template-card')).toHaveCount(
+      await dialog.locator('.template-card').count(),
+    );
   });
 
   test('clicking Create navigates to editor', async ({ page }) => {

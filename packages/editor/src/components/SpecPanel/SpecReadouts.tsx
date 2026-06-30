@@ -201,6 +201,7 @@ function ColorReadout({ node, variableStore }: SpecReadoutsProps) {
         <span className="spec-row__label">Fill</span>
         <span
           className="spec-swatch"
+          role="img"
           style={{ backgroundColor: `rgba(${fill[0]},${fill[1]},${fill[2]},${fill[3] / 255})` }}
           aria-label={`Fill color: ${hex}`}
         />
