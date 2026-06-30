@@ -18,7 +18,8 @@ describe('TemplatesGallery', () => {
     const buttons = container.querySelectorAll('button.template-card');
     const blankBtn = Array.from(buttons).find((b) => b.textContent?.includes('Blank Canvas'));
     expect(blankBtn).toBeDefined();
-    fireEvent.click(blankBtn!);
+    if (!blankBtn) throw new Error('blankBtn not found');
+    fireEvent.click(blankBtn);
     expect(onSelect).toHaveBeenCalledOnce();
   });
 });

@@ -148,7 +148,8 @@ function TypographyReadout({ node, unit, baseFontSize, variableStore }: SpecRead
 
   const tokens = matchTokens(t.fontSize, variableStore);
   if (tokens.length > 0) {
-    fields[fields.length - 1]!.tokenName = tokens[0];
+    const lastField = fields[fields.length - 1];
+    if (lastField) lastField.tokenName = tokens[0];
   }
 
   fields.push({ label: 'Font Weight', value: '—' });
@@ -214,7 +215,7 @@ function ColorReadout({ node, variableStore }: SpecReadoutsProps) {
         <div className="spec-row">
           <span className="spec-row__label">Token</span>
           <span className="spec-row__value">{tokens[0]}</span>
-          <CopyButton value={tokens[0]!} label="Token name" className="spec-row__copy" />
+          <CopyButton value={tokens[0] ?? ''} label="Token name" className="spec-row__copy" />
         </div>
       )}
 

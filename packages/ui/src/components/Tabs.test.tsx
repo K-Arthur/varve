@@ -76,7 +76,8 @@ describe('Tabs', () => {
         <div>SVG</div>
       </Tabs>,
     );
-    const cssTab = container.querySelectorAll('[role="tab"]')[0]!;
+    const cssTab = container.querySelectorAll('[role="tab"]')[0];
+    if (!cssTab) throw new Error('cssTab not found');
     const panelId = cssTab.getAttribute('aria-controls');
     expect(panelId).toBeTruthy();
     const panel = container.querySelector(`#${panelId}`);

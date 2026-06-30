@@ -108,6 +108,7 @@ export function SwatchPalette({
           {colors.map(({ name, color }) => (
             <button
               key={`${name}-${color.join(',')}`}
+              type="button"
               role="option"
               aria-selected={false}
               aria-label={name}

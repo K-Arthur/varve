@@ -69,8 +69,10 @@ const EMPTY_COPY: Record<string, CopyEntry> = {
 };
 
 export function EmptyStates({ section, query, onAction }: EmptyStatesProps) {
-  const svgHtml: string = (ILLUSTRATIONS[section] ?? ILLUSTRATIONS.recent)!;
-  const copy: CopyEntry = (EMPTY_COPY[section] ?? EMPTY_COPY.default)!;
+  const svgHtml = ILLUSTRATIONS[section] ?? ILLUSTRATIONS.recent;
+  if (!svgHtml) throw new Error('illustration not found');
+  const copy = EMPTY_COPY[section] ?? EMPTY_COPY.default;
+  if (!copy) throw new Error('copy not found');
 
   const illustration = (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: static safe SVG content from constant lookup table

@@ -193,7 +193,7 @@
 .insp-segmented__btn:last-child {
   border-right: none;
 }
-.insp-segmented__btn[aria-checked="true"] {
+.insp-segmented__btn[aria-pressed="true"] {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }

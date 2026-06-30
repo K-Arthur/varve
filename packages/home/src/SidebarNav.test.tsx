@@ -26,7 +26,8 @@ describe('SidebarNav', () => {
     const buttons = container.querySelectorAll('button[role="option"]');
     const recentBtn = Array.from(buttons).find((b) => b.textContent?.includes('Recent'));
     expect(recentBtn).toBeDefined();
-    fireEvent.click(recentBtn!);
+    if (!recentBtn) throw new Error('recentBtn not found');
+    fireEvent.click(recentBtn);
     expect(onSelect).toHaveBeenCalledWith('recent');
   });
 

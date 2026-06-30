@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useRef,
 } from 'react';
 
@@ -21,6 +22,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
   ref,
 ) {
   const innerRef = useRef<HTMLDialogElement | null>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const el = innerRef.current;
@@ -58,7 +60,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
 
   const handleBackdropKey = useCallback(
     (e: React.KeyboardEvent<HTMLDialogElement>) => {
-      if (dismissible && (e.key === 'Enter' || e.key === 'Escape')) onClose();
+      if (dismissible && e.key === 'Escape') onClose();
     },
     [dismissible, onClose],
   );
@@ -66,7 +68,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
   return (
     <dialog
       ref={handleRef}
-      aria-labelledby="dialog-title"
+      aria-labelledby={titleId}
       onCancel={handleCancel}
       onClick={handleBackdrop}
       onKeyDown={handleBackdropKey}
@@ -74,7 +76,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
       {...rest}
     >
       <div className="strata-dialog__header">
-        <h2 id="dialog-title" className="strata-dialog__title">
+        <h2 id={titleId} className="strata-dialog__title">
           {title}
         </h2>
         <button
@@ -83,7 +85,10 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
           aria-label="Close dialog"
           onClick={onClose}
         >
-          &times;
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
         </button>
       </div>
       <div className="strata-dialog__body">{children}</div>

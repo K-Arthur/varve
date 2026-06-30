@@ -14,7 +14,8 @@ describe('SearchField', () => {
   it('calls onChange when typed into', () => {
     const onChange = vi.fn();
     const { container } = render(<SearchField value="" onChange={onChange} />);
-    const input = container.querySelector('input')!;
+    const input = container.querySelector('input');
+    if (!input) throw new Error('input not found');
     fireEvent.change(input, { target: { value: 'test' } });
     expect(onChange).toHaveBeenCalledWith('test');
   });

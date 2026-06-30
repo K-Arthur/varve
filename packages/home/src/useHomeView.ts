@@ -175,10 +175,12 @@ function computeVisibleFiles(
     result = result.filter((f) => f.pinned);
   }
   if (filter.dateFrom) {
-    result = result.filter((f) => f.updatedAt >= filter.dateFrom!);
+    const dateFrom = filter.dateFrom;
+    result = result.filter((f) => f.updatedAt >= dateFrom);
   }
   if (filter.dateTo) {
-    result = result.filter((f) => f.updatedAt <= filter.dateTo!);
+    const dateTo = filter.dateTo;
+    result = result.filter((f) => f.updatedAt <= dateTo);
   }
 
   const pinned = result.filter((f) => f.pinned);

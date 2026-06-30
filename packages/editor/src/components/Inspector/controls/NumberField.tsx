@@ -134,18 +134,38 @@ export function NumberField({
         return;
       }
       const factor = e.shiftKey ? shiftStep : e.altKey ? altStep : step;
-      if (e.key === 'ArrowUp') {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
-        onChange(clamp(value + factor));
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        onChange(clamp(value - factor));
+        // Coalesce rapid arrow repeats into a single undo step.
+        // On first press (not repeat), begin a transaction. On repeat, keep
+        // updating within the same transaction. On key up, commit.
+        if (ctx) {
+          if (!e.repeat) {
+            ctx.beginTransaction();
+          }
+          const dir = e.key === 'ArrowUp' ? 1 : -1;
+          onChange(clamp(value + dir * factor));
+          // Commit on key up via a one-shot listener
+          if (!e.repeat) {
+            const onKeyUp = (ke: KeyboardEvent) => {
+              if (ke.key === 'ArrowUp' || ke.key === 'ArrowDown') {
+                ctx.commitTransaction();
+                window.removeEventListener('keyup', onKeyUp);
+              }
+            };
+            window.addEventListener('keyup', onKeyUp);
+          }
+        } else {
+          const dir = e.key === 'ArrowUp' ? 1 : -1;
+          onChange(clamp(value + dir * factor));
+        }
       }
     },
     [altStep, clamp, commit, ctx, dirty, fieldName, max, min, onChange, shiftStep, step, value],
   );
 
   // Drag-on-label scrubbing (Pointer Events — works on Wayland/X11/macOS/Windows).
+  // Transaction coalescing: begin on first move, commit on pointer up → single undo.
   const handleLabelPointerDown = useCallback(
     (e: React.PointerEvent<HTMLLabelElement>) => {
       if (disabled || e.button !== 0) return;
@@ -157,10 +177,18 @@ export function NumberField({
       const startX = e.clientX;
       const startValue = value;
       let active = false;
+      let transactionOpen = false;
       const onMove = (me: PointerEvent) => {
         const dx = me.clientX - startX;
         if (!active && Math.abs(dx) < 2) return;
-        active = true;
+        if (!active) {
+          active = true;
+          // Begin transaction on first actual move — coalesces all scrub updates
+          if (ctx) {
+            ctx.beginTransaction();
+            transactionOpen = true;
+          }
+        }
         const f = me.shiftKey ? shiftStep / step : me.altKey ? altStep / step : 1;
         const next = clamp(Math.round((startValue + dx * step * f) * 100) / 100);
         onChange(next);
@@ -170,6 +198,10 @@ export function NumberField({
         window.removeEventListener('pointerup', onUp);
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
+        // Commit the scrub transaction — all intermediate values become one undo step
+        if (transactionOpen && ctx) {
+          ctx.commitTransaction();
+        }
         if (!active) {
           // treat as a label click — focus & select the field
           inputRef.current?.focus();
@@ -182,7 +214,7 @@ export function NumberField({
       document.body.style.userSelect = 'none';
       scrub.current = { startX, startValue, active: false };
     },
-    [altStep, clamp, disabled, onChange, onShiftClick, shiftStep, step, value],
+    [altStep, clamp, ctx, disabled, onChange, onShiftClick, shiftStep, step, value],
   );
 
   const onWheel = useCallback(

@@ -4,7 +4,7 @@ Local-first, cross-platform design suite. Native Rust engine on desktop
 (Tauri 2), WASM behind the same facade on web. Linux (CachyOS/Arch) is the
 primary dev OS.
 
-## Toolchain (confirmed working, 2026-06-28)
+## Toolchain (confirmed working, 2026-06-29)
 - Rust: `~/.cargo/bin` (rustc 1.96 / cargo 1.96). Source with `. "$HOME/.cargo/env"`.
 - pnpm 11.9: `~/.local/share/pnpm/bin`. Export `PNPM_HOME="$HOME/.local/share/pnpm"` and add `$PNPM_HOME/bin` to PATH.
 - just 1.54: `~/.local/bin`.
@@ -61,7 +61,7 @@ git worktree add .worktrees/home-start-page feat/home-start-page
 
 | Artifact | Location |
 |---|---|---|
-| Last commit | `5ea0e17` — "fix: tool system regressions — shape dispatch and frame parenting" |
+| Last commit | `f8f73a2` — "wip: preserve pre-rework snapshot" |
 | Branch | `feat/home-start-page` |
 | Deferred plan | `docs/plans/layers-panel-deferred.md` (updated Session 11) |
 | Tools plan | `docs/plans/tools-deferred.md` (updated Session 10) |

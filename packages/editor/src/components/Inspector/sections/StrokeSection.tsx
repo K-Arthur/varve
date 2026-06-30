@@ -461,7 +461,7 @@ function StrokeRow({
           {showGradient && !isMixed(gradientRaw) && gradientRaw && (
             <GradientEditor
               gradient={gradientRaw as GradientFill}
-              onChange={(g) => onChange((s) => ({ ...s, gradient: g }))}
+              onChange={(g: GradientFill) => onChange((s) => ({ ...s, gradient: g }))}
             />
           )}
           {/* Per-side weights for rects/frames */}

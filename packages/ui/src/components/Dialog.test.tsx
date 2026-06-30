@@ -59,7 +59,8 @@ describe('AlertDialog', () => {
     const buttons = container.querySelectorAll('button');
     const confirmBtn = Array.from(buttons).find((b) => b.textContent?.trim() === 'Confirm');
     expect(confirmBtn).toBeDefined();
-    fireEvent.click(confirmBtn!);
+    if (!confirmBtn) throw new Error('confirmBtn not found');
+    fireEvent.click(confirmBtn);
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 });
