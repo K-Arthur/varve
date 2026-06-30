@@ -116,7 +116,9 @@ export class SelectTool extends BaseTool {
       if (first) {
         ctx.setSelection(first);
         for (let i = 1; i < selectedIds.length; i++) {
-          ctx.toggleSelection(selectedIds[i]!, true);
+          const id = selectedIds[i];
+          if (!id) throw new Error('selected id not found');
+          ctx.toggleSelection(id, true);
         }
         ctx.announce(`Selected ${selectedIds.length} layers`);
       }
@@ -124,20 +126,22 @@ export class SelectTool extends BaseTool {
       // After move, re-parent if inside a frame
       const sel = ctx.selection;
       if (sel.length === 1) {
-        const node = ctx.getNode(sel[0]!);
+        const selId = sel[0];
+        if (!selId) throw new Error('selection id not found');
+        const node = ctx.getNode(selId);
         if (node) {
           const centerX = node.transform[4];
           const centerY = node.transform[5];
           const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
           if (frameId) {
-            const currentParent = getParent(ctx.document, sel[0]!);
+            const currentParent = getParent(ctx.document, selId);
             if (currentParent !== frameId) {
-              ctx.reparentNode(sel[0]!, frameId, childrenCount(ctx.document, frameId));
+              ctx.reparentNode(selId, frameId, childrenCount(ctx.document, frameId));
             }
           } else {
-            const currentParent = getParent(ctx.document, sel[0]!);
+            const currentParent = getParent(ctx.document, selId);
             if (currentParent !== null) {
-              ctx.reparentNode(sel[0]!, null, ctx.rootNodes().length);
+              ctx.reparentNode(selId, null, ctx.rootNodes().length);
             }
           }
         }

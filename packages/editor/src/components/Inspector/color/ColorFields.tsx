@@ -136,7 +136,9 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
 
       {mode === 'hex' && (
         <div className="insp-field">
-          <label className="insp-field__label" htmlFor={hexId}>HEX</label>
+          <label className="insp-field__label" htmlFor={hexId}>
+            HEX
+          </label>
           <div className="insp-field__control">
             <input
               id={hexId}
