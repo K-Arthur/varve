@@ -685,11 +685,13 @@ export function instanceOverrides(doc: Document, id: NodeId): string[] {
   if (master?.kind !== 'frame') return [];
   const masterFrame = master as FrameNode;
   const overrides: string[] = [];
-  if (frame.fill !== masterFrame.fill) overrides.push('fill');
+  // Compare fill by value (RGBA array) since each makeFrameNode creates a new array
+  if (JSON.stringify(frame.fill) !== JSON.stringify(masterFrame.fill)) overrides.push('fill');
   if (frame.opacity !== masterFrame.opacity) overrides.push('opacity');
   if (frame.blendMode !== masterFrame.blendMode) overrides.push('blendMode');
   if (frame.rotation !== masterFrame.rotation) overrides.push('rotation');
-  if (frame.layoutStyle !== masterFrame.layoutStyle) overrides.push('layout');
+  if (JSON.stringify(frame.layoutStyle) !== JSON.stringify(masterFrame.layoutStyle))
+    overrides.push('layout');
   if (JSON.stringify(frame.strokes) !== JSON.stringify(masterFrame.strokes))
     overrides.push('strokes');
   if (JSON.stringify(frame.effects) !== JSON.stringify(masterFrame.effects))

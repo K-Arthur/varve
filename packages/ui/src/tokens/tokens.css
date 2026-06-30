@@ -5,23 +5,28 @@
 
 :root {
   --color-surface-app: #f5f7fa;
+  --color-surface-base: #f5f7fa;
   --color-surface-raised: #ffffff;
   --color-surface-sunken: #e9edf3;
   --color-surface-overlay: #ffffff;
   --color-text-primary: #10151f;
   --color-text-secondary: #293140;
   --color-text-muted: #525c6e;
+  --color-text-disabled: #8e99aa;
   --color-text-on-accent: #ffffff;
   --color-text-on-danger: #ffffff;
   --color-border-subtle: #d6dde6;
   --color-border-strong: #6d788a;
+  --color-border-focus: #1d807b;
   --color-interactive-default: #16605d;
   --color-interactive-hover: #124c4a;
   --color-interactive-active: #0e3a39;
+  --color-interactive-disabled: #e9edf3;
   --color-interactive-focus-ring: #1d807b;
   --color-feedback-success: #38a169;
   --color-feedback-warning: #b48218;
   --color-feedback-danger: #cd4045;
+  --color-feedback-info: #398ad0;
   --color-tree-row: #f5f7fa;
   --color-tree-row-hover: #6d788a;
   --color-tree-row-selected: #1d807b;
@@ -29,10 +34,8 @@
   --color-tree-indent-guide: #6d788a;
 
   /* --- Typography --- */
-  /* First pass uses offline-safe system stacks. Real font files (display + body)
-     with font-display: swap + subset/unicode-range land in task 0.4/0.9. */
-  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: "IBM Plex Sans Variable", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -41,26 +44,41 @@
   --font-line-tight: 1.15;
   --font-line-normal: 1.5;
   --font-line-relaxed: 1.65;
+  --tracking-tight: -0.025em;
+  --tracking-base: 0;
+  --tracking-wide: 0.05em;
   /* Fluid modular scale (clamp). */
-  --font-size-xs: clamp(0.72rem, 0.7rem + 0.1vw, 0.78rem);
-  --font-size-sm: clamp(0.83rem, 0.8rem + 0.15vw, 0.92rem);
-  --font-size-md: clamp(0.95rem, 0.91rem + 0.2vw, 1.06rem);
-  --font-size-lg: clamp(1.08rem, 1.02rem + 0.3vw, 1.25rem);
-  --font-size-xl: clamp(1.25rem, 1.15rem + 0.5vw, 1.55rem);
-  --font-size-2xl: clamp(1.5rem, 1.35rem + 0.75vw, 2rem);
-  --font-size-3xl: clamp(1.85rem, 1.6rem + 1.25vw, 2.65rem);
+  --font-size-xs: clamp(0.72rem, 0.70rem + 0.10vw, 0.78rem);
+  --font-size-sm: clamp(0.83rem, 0.80rem + 0.15vw, 0.92rem);
+  --font-size-md: clamp(0.95rem, 0.91rem + 0.20vw, 1.06rem);
+  --font-size-lg: clamp(1.08rem, 1.02rem + 0.30vw, 1.25rem);
+  --font-size-xl: clamp(1.25rem, 1.15rem + 0.50vw, 1.55rem);
+  --font-size-2xl: clamp(1.50rem, 1.35rem + 0.75vw, 2.00rem);
+  --font-size-3xl: clamp(1.85rem, 1.60rem + 1.25vw, 2.65rem);
 
   /* --- Spacing (4-pt grid, fluid) --- */
   --space-0: 0;
-  --space-1: clamp(0.15rem, 0.14rem + 0.05vw, 0.2rem);
-  --space-2: clamp(0.3rem, 0.28rem + 0.1vw, 0.4rem);
-  --space-3: clamp(0.5rem, 0.47rem + 0.15vw, 0.65rem);
-  --space-4: clamp(0.7rem, 0.66rem + 0.2vw, 0.9rem);
-  --space-5: clamp(1rem, 0.94rem + 0.3vw, 1.3rem);
-  --space-6: clamp(1.4rem, 1.31rem + 0.45vw, 1.85rem);
-  --space-7: clamp(2rem, 1.87rem + 0.65vw, 2.65rem);
-  --space-8: clamp(2.8rem, 2.6rem + 1vw, 3.8rem);
+  --space-1: clamp(0.15rem, 0.14rem + 0.05vw, 0.20rem);
+  --space-2: clamp(0.30rem, 0.28rem + 0.10vw, 0.40rem);
+  --space-3: clamp(0.50rem, 0.47rem + 0.15vw, 0.65rem);
+  --space-4: clamp(0.70rem, 0.66rem + 0.20vw, 0.90rem);
+  --space-5: clamp(1.00rem, 0.94rem + 0.30vw, 1.30rem);
+  --space-6: clamp(1.40rem, 1.31rem + 0.45vw, 1.85rem);
+  --space-7: clamp(2.00rem, 1.87rem + 0.65vw, 2.65rem);
+  --space-8: clamp(2.80rem, 2.60rem + 1.00vw, 3.80rem);
+  --space-9: clamp(3.60rem, 3.30rem + 1.50vw, 5.00rem);
+  --space-10: clamp(4.50rem, 4.00rem + 2.00vw, 6.50rem);
+  --space-11: clamp(5.60rem, 5.00rem + 2.50vw, 8.00rem);
+  --space-12: clamp(7.00rem, 6.00rem + 3.00vw, 10.00rem);
+  --space-13: clamp(8.50rem, 7.50rem + 3.50vw, 12.00rem);
+  --space-14: clamp(10.00rem, 9.00rem + 4.00vw, 14.00rem);
+  --space-15: clamp(12.00rem, 10.50rem + 5.00vw, 16.00rem);
+  --space-16: clamp(14.00rem, 12.00rem + 6.00vw, 18.50rem);
+  --space-20: clamp(17.00rem, 15.00rem + 7.00vw, 22.00rem);
+  --space-24: clamp(21.00rem, 18.00rem + 9.00vw, 27.00rem);
+  --space-32: clamp(28.00rem, 24.00rem + 12.00vw, 36.00rem);
   /* Component aliases. */
+  --panel-padding: clamp(0.70rem, 0.66rem + 0.20vw, 0.90rem);
   --toolbar-height: clamp(2.5rem, 2.4rem + 0.5vw, 3rem);
   --topbar-height: clamp(2rem, 1.95rem + 0.25vw, 2.25rem);
   --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
@@ -75,18 +93,23 @@
   --radius-pill: 9999px;
 
   /* --- Shadow --- */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.1);
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.10);
   --shadow-md: 0 4px 12px rgb(0 0 0 / 0.14);
-  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.2);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.20);
+  --shadow-xl: 0 24px 48px rgb(0 0 0 / 0.25);
 
   /* --- Motion --- */
-  --duration-instant: 60ms;
-  --duration-quick: 120ms;
-  --duration-base: 200ms;
-  --duration-slow: 320ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-instant: 50ms;
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 600ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
 
   /* --- z-index --- */
   --z-base: 0;
@@ -103,27 +126,33 @@
   --bp-lg: 1024px;
   --bp-xl: 1280px;
   --bp-2xl: 1536px;
+
 }
 
 [data-theme="dark"] {
   --color-surface-app: #10151f;
+  --color-surface-base: #10151f;
   --color-surface-raised: #1e2532;
   --color-surface-sunken: #0b1018;
   --color-surface-overlay: #05080e;
   --color-text-primary: #f5f7fa;
   --color-text-secondary: #d6dde6;
   --color-text-muted: #8e99aa;
+  --color-text-disabled: #525c6e;
   --color-text-on-accent: #10151f;
   --color-text-on-danger: #ffffff;
   --color-border-subtle: #293140;
   --color-border-strong: #6d788a;
+  --color-border-focus: #52d1c5;
   --color-interactive-default: #52d1c5;
   --color-interactive-hover: #78dfd5;
   --color-interactive-active: #a2ebe2;
+  --color-interactive-disabled: #293140;
   --color-interactive-focus-ring: #52d1c5;
   --color-feedback-success: #38a169;
   --color-feedback-warning: #b48218;
   --color-feedback-danger: #cd4045;
+  --color-feedback-info: #398ad0;
   --color-tree-row: #1e2532;
   --color-tree-row-hover: #8e99aa;
   --color-tree-row-selected: #52d1c5;
@@ -133,23 +162,28 @@
 
 [data-theme="high-contrast"] {
   --color-surface-app: #000000;
+  --color-surface-base: #000000;
   --color-surface-raised: #0a0a0a;
   --color-surface-sunken: #000000;
   --color-surface-overlay: #000000;
   --color-text-primary: #ffffff;
   --color-text-secondary: #ffffff;
   --color-text-muted: #dcdcdc;
+  --color-text-disabled: #808080;
   --color-text-on-accent: #000000;
   --color-text-on-danger: #000000;
   --color-border-subtle: #ffffff;
   --color-border-strong: #ffffff;
+  --color-border-focus: #ffff00;
   --color-interactive-default: #ffff00;
   --color-interactive-hover: #ffff00;
   --color-interactive-active: #ffeb3c;
+  --color-interactive-disabled: #505050;
   --color-interactive-focus-ring: #ffff00;
   --color-feedback-success: #00ff00;
   --color-feedback-warning: #ffc800;
   --color-feedback-danger: #ff5050;
+  --color-feedback-info: #64b4ff;
   --color-tree-row: #0a0a0a;
   --color-tree-row-hover: #646464;
   --color-tree-row-selected: #ffff00;
@@ -160,58 +194,68 @@
 /* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --color-surface-app: #10151f;
-    --color-surface-raised: #1e2532;
-    --color-surface-sunken: #0b1018;
-    --color-surface-overlay: #05080e;
-    --color-text-primary: #f5f7fa;
-    --color-text-secondary: #d6dde6;
-    --color-text-muted: #8e99aa;
-    --color-text-on-accent: #10151f;
-    --color-text-on-danger: #ffffff;
-    --color-border-subtle: #293140;
-    --color-border-strong: #6d788a;
-    --color-interactive-default: #52d1c5;
-    --color-interactive-hover: #78dfd5;
-    --color-interactive-active: #a2ebe2;
-    --color-interactive-focus-ring: #52d1c5;
-    --color-feedback-success: #38a169;
-    --color-feedback-warning: #b48218;
-    --color-feedback-danger: #cd4045;
-    --color-tree-row: #1e2532;
-    --color-tree-row-hover: #8e99aa;
-    --color-tree-row-selected: #52d1c5;
-    --color-tree-row-focus: #52d1c5;
-    --color-tree-indent-guide: #6d788a;
+  --color-surface-app: #10151f;
+  --color-surface-base: #10151f;
+  --color-surface-raised: #1e2532;
+  --color-surface-sunken: #0b1018;
+  --color-surface-overlay: #05080e;
+  --color-text-primary: #f5f7fa;
+  --color-text-secondary: #d6dde6;
+  --color-text-muted: #8e99aa;
+  --color-text-disabled: #525c6e;
+  --color-text-on-accent: #10151f;
+  --color-text-on-danger: #ffffff;
+  --color-border-subtle: #293140;
+  --color-border-strong: #6d788a;
+  --color-border-focus: #52d1c5;
+  --color-interactive-default: #52d1c5;
+  --color-interactive-hover: #78dfd5;
+  --color-interactive-active: #a2ebe2;
+  --color-interactive-disabled: #293140;
+  --color-interactive-focus-ring: #52d1c5;
+  --color-feedback-success: #38a169;
+  --color-feedback-warning: #b48218;
+  --color-feedback-danger: #cd4045;
+  --color-feedback-info: #398ad0;
+  --color-tree-row: #1e2532;
+  --color-tree-row-hover: #8e99aa;
+  --color-tree-row-selected: #52d1c5;
+  --color-tree-row-focus: #52d1c5;
+  --color-tree-indent-guide: #6d788a;
   }
 }
 
-/* High-contrast honors the OS forced-colors mode. */
+/* High-contrast honors the OS forced-colors mode using system color keywords. */
 @media (forced-colors: active) {
   :root:not([data-theme="high-contrast"]) {
-    --color-surface-app: #000000;
-    --color-surface-raised: #0a0a0a;
-    --color-surface-sunken: #000000;
-    --color-surface-overlay: #000000;
-    --color-text-primary: #ffffff;
-    --color-text-secondary: #ffffff;
-    --color-text-muted: #dcdcdc;
-    --color-text-on-accent: #000000;
-    --color-text-on-danger: #000000;
-    --color-border-subtle: #ffffff;
-    --color-border-strong: #ffffff;
-    --color-interactive-default: #ffff00;
-    --color-interactive-hover: #ffff00;
-    --color-interactive-active: #ffeb3c;
-    --color-interactive-focus-ring: #ffff00;
-    --color-feedback-success: #00ff00;
-    --color-feedback-warning: #ffc800;
-    --color-feedback-danger: #ff5050;
-    --color-tree-row: #0a0a0a;
-    --color-tree-row-hover: #646464;
-    --color-tree-row-selected: #ffff00;
-    --color-tree-row-focus: #ffff00;
-    --color-tree-indent-guide: #ffffff;
+    --color-surface-app: Canvas;
+    --color-surface-base: Canvas;
+    --color-surface-raised: Canvas;
+    --color-surface-sunken: Canvas;
+    --color-surface-overlay: Canvas;
+    --color-text-primary: CanvasText;
+    --color-text-secondary: CanvasText;
+    --color-text-muted: GrayText;
+    --color-text-disabled: GrayText;
+    --color-text-on-accent: ButtonText;
+    --color-text-on-danger: ButtonText;
+    --color-border-subtle: ButtonBorder;
+    --color-border-strong: ButtonBorder;
+    --color-border-focus: Highlight;
+    --color-interactive-default: ButtonFace;
+    --color-interactive-hover: ButtonFace;
+    --color-interactive-active: ButtonFace;
+    --color-interactive-disabled: ButtonFace;
+    --color-interactive-focus-ring: Highlight;
+    --color-feedback-success: CanvasText;
+    --color-feedback-warning: CanvasText;
+    --color-feedback-danger: CanvasText;
+    --color-feedback-info: CanvasText;
+    --color-tree-row: Canvas;
+    --color-tree-row-hover: Canvas;
+    --color-tree-row-selected: Highlight;
+    --color-tree-row-focus: Highlight;
+    --color-tree-indent-guide: CanvasText;
   }
 }
 
@@ -219,8 +263,9 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-instant: 0ms;
-    --duration-quick: 0ms;
+    --duration-fast: 0ms;
     --duration-base: 0ms;
     --duration-slow: 0ms;
+    --duration-slower: 0ms;
   }
 }

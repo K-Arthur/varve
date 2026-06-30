@@ -99,7 +99,9 @@ export function FileList({
       }
       if (e.key === 'Enter') {
         e.preventDefault();
-        onOpen(files[focusIdx]!);
+        const file = files[focusIdx];
+        if (!file) return;
+        onOpen(file);
       }
       if (isCtrl && e.key === 'a') {
         e.preventDefault();
@@ -311,7 +313,7 @@ export function FileList({
                 >
                   <div className="file-row__thumb">
                     {thumbnails.get(entry.id) ? (
-                      <img src={thumbnails.get(entry.id)!} alt="" className="file-row__thumb-img" />
+                      <img src={thumbnails.get(entry.id) ?? ''} alt="" className="file-row__thumb-img" />
                     ) : (
                       <div className="file-card__skeleton" />
                     )}

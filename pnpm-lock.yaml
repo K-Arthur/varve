@@ -163,7 +163,11 @@ importers:
         specifier: ^1.26.6
         version: 1.26.6
 
-  packages/engine: {}
+  packages/engine:
+    dependencies:
+      '@strata/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/home:
     dependencies:
@@ -233,7 +237,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/shared: {}
+  packages/shared:
+    dependencies:
+      fractional-indexing:
+        specifier: ^4.0.0
+        version: 4.0.0
 
   packages/ui:
     dependencies:
@@ -1531,6 +1539,10 @@ packages:
   form-data@4.0.6:
     resolution: {integrity: sha512-vKatAh4SlVfgbv+YtmhiRjhEMJsYpsG1Y2rMQtR+SVSbytsSD1YGzDIcrAJmdFec88u/+VoGmxnl+80gL1tRCQ==}
     engines: {node: '>= 6'}
+
+  fractional-indexing@4.0.0:
+    resolution: {integrity: sha512-Nr2P1Yyaj2sy1Qdt/wI3GcByxrUdbSKg5+cGvw8f18hT2SkQt6V72iOjBpk7IO3UkzBsdlGRs2a4z6dLrJprgw==}
+    engines: {node: ^14.13.1 || >=16.0.0}
 
   fsevents@2.3.2:
     resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
@@ -3139,6 +3151,8 @@ snapshots:
       es-set-tostringtag: 2.1.0
       hasown: 2.0.4
       mime-types: 2.1.35
+
+  fractional-indexing@4.0.0: {}
 
   fsevents@2.3.2:
     optional: true

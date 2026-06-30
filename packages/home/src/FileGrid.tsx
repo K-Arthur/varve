@@ -130,7 +130,9 @@ export function FileGrid({
       }
       if (e.key === 'Enter') {
         e.preventDefault();
-        onOpen(files[focusIdx]!);
+        const file = files[focusIdx];
+        if (!file) return;
+        onOpen(file);
       }
       if (isCtrl && e.key === 'a') {
         e.preventDefault();

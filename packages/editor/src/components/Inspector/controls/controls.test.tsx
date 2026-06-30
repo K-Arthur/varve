@@ -113,7 +113,9 @@ describe('SegmentedControl', () => {
       />,
     );
     const radios = screen.getAllByRole('radio');
-    fireEvent.keyDown(radios[0]!, { key: 'ArrowRight' });
+    const firstRadio = radios[0];
+    if (!firstRadio) throw new Error('first radio not found');
+    fireEvent.keyDown(firstRadio, { key: 'ArrowRight' });
     expect(val).toBe('column');
   });
 });
