@@ -1,5 +1,7 @@
 import { exportDocumentToSvg } from '@strata/codegen';
-import { useCallback, useRef, useState } from 'react';
+import { getTheme, setTheme } from '@strata/ui/tokens';
+import type { Theme } from '@strata/ui/tokens';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
 
@@ -8,8 +10,14 @@ type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Plugins' | 'Hel
 interface MenuItem {
   label: string;
   shortcut?: string;
-  action: string;
+  action?: string;
 }
+
+const THEMES: { id: Theme; label: string }[] = [
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'high-contrast', label: 'High Contrast' },
+];
 
 const MENUS: { id: MenuId; items: MenuItem[] }[] = [
   {
@@ -41,6 +49,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
   {
     id: 'View',
     items: [
+      ...THEMES.map((t) => ({
+        label: t.label,
+        action: `theme:${t.id}`,
+      })),
+      { label: '---' },
       {
         label: 'Zoom to 100%',
         shortcut: formatShortcut(SHORTCUT_DEFS.zoomReset.binding),
@@ -72,7 +85,16 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
   const { state, newDocument, serializeDocument, undo, redo, removeSelected, setTool, setZoom } =
     useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('strata-theme') as Theme | null;
+    if (saved && saved !== getTheme()) {
+      setTheme(saved);
+      setCurrentTheme(saved);
+    }
+  }, []);
 
   const handleAction = useCallback(
     (action: string) => {
@@ -125,20 +147,21 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
         case 'home':
           onBackToHome?.();
           break;
+        default:
+          if (action.startsWith('theme:')) {
+            const theme = action.slice(6) as Theme;
+            setTheme(theme);
+            setCurrentTheme(theme);
+            localStorage.setItem('strata-theme', theme);
+          }
+          break;
       }
     },
-    [
-      newDocument,
-      serializeDocument,
-      undo,
-      redo,
-      removeSelected,
-      setTool,
-      setZoom,
-      state,
-      onBackToHome,
-    ],
+    [newDocument, serializeDocument, undo, redo, removeSelected, setTool, setZoom, state, onBackToHome],
   );
+
+  const isActiveTheme = (item: MenuItem) =>
+    item.action?.startsWith('theme:') && currentTheme === item.action.slice(6);
 
   return (
     <div
@@ -178,46 +201,62 @@ export function Menubar({ onBackToHome }: { onBackToHome?: () => void }) {
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               }}
             >
-              {menu.items.map((item) => (
-                <button
-                  key={item.label}
-                  role="menuitem"
-                  type="button"
-                  disabled={!item.action}
-                  onClick={() => handleAction(item.action)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-3)',
-                    width: '100%',
-                    padding: 'var(--space-1) var(--space-2)',
-                    border: 'none',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'none',
-                    color: item.action ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
-                    cursor: 'default',
-                    font: 'inherit',
-                    fontSize: 'var(--font-size-sm)',
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.background =
-                      'var(--color-interactive-default)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = 'none';
-                  }}
-                >
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.shortcut && (
-                    <span
-                      style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
-                    >
-                      {item.shortcut}
-                    </span>
-                  )}
-                </button>
-              ))}
+              {menu.items.map((item) =>
+                item.label === '---' ? (
+                  <hr
+                    key="sep"
+                    role="separator"
+                    style={{
+                      margin: 'var(--space-1) 0',
+                      border: 'none',
+                      borderTop: '1px solid var(--color-border-subtle)',
+                    }}
+                  />
+                ) : (
+                  <button
+                    key={item.label}
+                    role="menuitem"
+                    type="button"
+                    disabled={!item.action}
+                    onClick={() => handleAction(item.action ?? '')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--space-3)',
+                      width: '100%',
+                      padding: 'var(--space-1) var(--space-2)',
+                      border: 'none',
+                      borderRadius: 'var(--radius-sm)',
+                      background: isActiveTheme(item)
+                        ? 'var(--color-interactive-default)'
+                        : 'none',
+                      color: item.action ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                      cursor: 'default',
+                      font: 'inherit',
+                      fontSize: 'var(--font-size-sm)',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.background =
+                        'var(--color-interactive-default)';
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = isActiveTheme(item)
+                        ? 'var(--color-interactive-default)'
+                        : 'none';
+                    }}
+                  >
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {item.shortcut && (
+                      <span
+                        style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
+                      >
+                        {item.shortcut}
+                      </span>
+                    )}
+                  </button>
+                ),
+              )}
             </div>
           )}
         </div>
