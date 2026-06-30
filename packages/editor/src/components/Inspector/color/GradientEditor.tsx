@@ -10,8 +10,8 @@
 import type { Color } from '@strata/engine';
 import type { GradientFill, GradientStop, GradientType } from '@strata/scene';
 import { Icon } from '@strata/ui';
-import { useCallback, useId, useRef, useState } from 'react';
 import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
+import { useCallback, useId, useRef, useState } from 'react';
 
 export interface GradientEditorProps {
   gradient: GradientFill;

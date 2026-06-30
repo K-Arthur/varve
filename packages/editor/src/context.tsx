@@ -64,12 +64,12 @@ import {
   useRef,
   useState,
 } from 'react';
+import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   readClipboard as readFromClipboard,
   writeClipboard as writeToClipboard,
 } from './clipboard';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
-import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -895,7 +895,11 @@ export function EditorProvider({
       removeSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
-        if (sel.length > 5 && !window.confirm(`Are you sure you want to delete ${sel.length} objects?`)) return;
+        if (
+          sel.length > 5 &&
+          !window.confirm(`Are you sure you want to delete ${sel.length} objects?`)
+        )
+          return;
         updateDoc((doc) => {
           let d = doc;
           for (const id of sel) d = removeNode(d, id);
@@ -1569,9 +1573,7 @@ export function EditorProvider({
           return d;
         });
         patch({ selection: [] });
-        announcerRef.current?.announce(
-          `Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`,
-        );
+        announcerRef.current?.announce(`Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`);
       },
 
       paste: () => {

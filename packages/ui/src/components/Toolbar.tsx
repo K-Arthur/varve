@@ -55,7 +55,13 @@ export function Toolbar({ label, children }: ToolbarProps) {
   return (
     <div role="toolbar" aria-label={label} onKeyDown={handleKey}>
       {Children.map(children, (child, idx) => {
-        if (!child || typeof child === 'string' || typeof child === 'number' || typeof child === 'boolean') return child;
+        if (
+          !child ||
+          typeof child === 'string' ||
+          typeof child === 'number' ||
+          typeof child === 'boolean'
+        )
+          return child;
         return cloneElement(child as ReactElement<ButtonHTMLAttributes<HTMLElement>>, {
           tabIndex: idx === focusIdx ? 0 : -1,
         });

@@ -11,6 +11,7 @@
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
 import type { SceneNode, VariableStore } from '@strata/scene';
+import { EmptyState } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useState } from 'react';
 import { useEditor } from '../../context';
@@ -73,7 +74,7 @@ export function PropertiesPanel() {
 
       {tab === 'properties' && (
         <div className="insp-panel">
-          {summary.kind === 'empty' && <EmptyState />}
+          {summary.kind === 'empty' && <EmptySelectionState />}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
         </div>
@@ -114,7 +115,7 @@ export function PropertiesPanel() {
   );
 }
 
-function EmptyState() {
+function EmptySelectionState() {
   const { state, setCanvasWidth, setCanvasHeight, setCanvasBackground } = useEditor();
   const doc = state.document;
   const count = Object.keys(doc.nodes).length;
@@ -122,20 +123,34 @@ function EmptyState() {
 
   return (
     <div className="insp-panel">
-      <div
-        style={{
-          padding: 'var(--space-2)',
-          fontSize: 'var(--font-size-xs)',
-          color: 'var(--color-text-muted)',
-        }}
-      >
-        <p style={{ fontWeight: 'var(--font-weight-medium)', marginBottom: 'var(--space-1)' }}>
-          {doc.name}
-        </p>
-        <p>
-          {count} {count === 1 ? 'node' : 'nodes'}
-        </p>
-      </div>
+      <EmptyState
+        illustration={
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 64 64"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden
+          >
+            <title>No selection</title>
+            <rect x="8" y="8" width="48" height="48" rx="4" strokeDasharray="4 3" opacity="0.4" />
+            <rect
+              x="16"
+              y="16"
+              width="32"
+              height="32"
+              rx="2"
+              strokeDasharray="3 2"
+              opacity="0.25"
+            />
+            <circle cx="32" cy="32" r="3" fill="currentColor" opacity="0.15" />
+          </svg>
+        }
+        headline="No selection"
+        description="Select a layer to edit its properties"
+      />
       <DisclosureSection title="Canvas" defaultExpanded={true}>
         <NumberField
           label="Width"
@@ -161,6 +176,20 @@ function EmptyState() {
           </div>
         </div>
       </DisclosureSection>
+      <div
+        style={{
+          padding: 'var(--space-2)',
+          fontSize: 'var(--font-size-xs)',
+          color: 'var(--color-text-muted)',
+        }}
+      >
+        <p style={{ fontWeight: 'var(--font-weight-medium)', marginBottom: 'var(--space-1)' }}>
+          {doc.name}
+        </p>
+        <p>
+          {count} {count === 1 ? 'node' : 'nodes'}
+        </p>
+      </div>
     </div>
   );
 }

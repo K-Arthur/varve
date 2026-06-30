@@ -3,6 +3,10 @@ import { useCallback, useRef, useState } from 'react';
 import { CanvasArea } from './CanvasArea';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
+import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
+import { TOUR_STEPS } from './components/Onboarding/tourSteps';
+import { SettingsProvider } from './components/Settings/SettingsContext';
+import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { EditorProvider, useEditor } from './context';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
@@ -18,10 +22,13 @@ export interface ShellProps {
 
 function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
   const editor = useEditor();
-  const { paletteOpen, closePalette } = useShortcuts(editor);
+  const { paletteOpen, closePalette, openPalette } = useShortcuts(editor);
   const fileRef = useRef<HTMLInputElement>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const onboarding = useOnboarding();
 
   const handlePaletteSelect = useCallback((id: string) => {
     const input = fileRef.current;
@@ -30,9 +37,16 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
     }
   }, []);
 
+  const currentStep = onboarding.stepIndex >= 0 && onboarding.active ? onboarding.stepIndex : -1;
+
   return (
     <div className="editor-shell">
-      <Menubar onBackToHome={onBackToHome} />
+      <Menubar
+        onBackToHome={onBackToHome}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onStartTour={onboarding.reopen}
+        onOpenPalette={openPalette}
+      />
       <FloatingToolbar />
       <TabStrip />
       <CanvasArea />
@@ -63,6 +77,7 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
       </button>
       {/* Backdrop for overlays */}
       {(layersVisible || inspectorVisible) && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
         <div
           style={{
             position: 'fixed',
@@ -97,6 +112,37 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
           e.target.value = '';
         }}
       />
+
+      {/* Settings dialog */}
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* Onboarding: Welcome dialog */}
+      <WelcomeDialog
+        open={onboarding.showWelcome && onboarding.active}
+        onStartTour={onboarding.startTour}
+        onStartFromScratch={() => {
+          onboarding.dismiss();
+        }}
+        onClose={onboarding.dismiss}
+      />
+
+      {/* Onboarding: Spotlight tour overlay */}
+      {currentStep >= 0 &&
+        onboarding.active &&
+        (() => {
+          const step = TOUR_STEPS[currentStep];
+          if (!step) return null;
+          return (
+            <SpotlightOverlay
+              stepIndex={currentStep}
+              totalSteps={TOUR_STEPS.length}
+              step={step}
+              onNext={onboarding.nextStep}
+              onPrev={onboarding.prevStep}
+              onDismiss={onboarding.dismiss}
+            />
+          );
+        })()}
     </div>
   );
 }
@@ -108,7 +154,9 @@ export function Shell({ onBackToHome, documentJson, documentName }: ShellProps) 
       initialDocumentJson={documentJson}
       initialDocumentName={documentName}
     >
-      <ShellInner onBackToHome={onBackToHome} />
+      <SettingsProvider>
+        <ShellInner onBackToHome={onBackToHome} />
+      </SettingsProvider>
     </EditorProvider>
   );
 }

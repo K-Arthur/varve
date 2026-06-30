@@ -35,6 +35,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import type { ContainerNode, NodeId } from '@strata/scene';
 import { isContainer } from '@strata/scene';
+import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -594,7 +595,26 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
   if (entries.length === 0 && !filter) {
     return (
       <div className="layers-panel__empty" role="tree" aria-label="Layers">
-        No layers
+        <EmptyState
+          illustration={
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden
+            >
+              <title>No layers</title>
+              <rect x="8" y="6" width="32" height="10" rx="2" opacity="0.6" />
+              <rect x="8" y="20" width="32" height="10" rx="2" opacity="0.4" />
+              <rect x="8" y="34" width="32" height="10" rx="2" opacity="0.2" />
+            </svg>
+          }
+          headline="No layers yet"
+          description="Add a shape to get started"
+        />
       </div>
     );
   }
@@ -602,7 +622,25 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
   if (entries.length === 0 && filter) {
     return (
       <div className="layers-panel__empty" role="tree" aria-label="Layers">
-        No layers match &quot;{filter}&quot;
+        <EmptyState
+          illustration={
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden
+            >
+              <title>No results</title>
+              <circle cx="20" cy="20" r="10" opacity="0.4" />
+              <line x1="27" y1="27" x2="36" y2="36" opacity="0.4" />
+            </svg>
+          }
+          headline="No results found"
+          description={`No layers match "${filter}"`}
+        />
       </div>
     );
   }
