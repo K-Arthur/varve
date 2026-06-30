@@ -8,8 +8,13 @@
  * Research basis: MDN Pointer Events, MDN Canvas DPR scaling,
  *                 ToolManager pattern from Figma/Penpot architecture.
  */
-import type { Engine, SceneNode as EngineNode } from '@strata/engine';
-import { createEngine, type ReplayTarget, replayIr } from '@strata/engine';
+import {
+  createEngine,
+  type Engine,
+  type SceneNode as EngineNode,
+  type ReplayTarget,
+  replayIr,
+} from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
 import { fitBoundsCamera } from '@strata/shared';
@@ -20,14 +25,20 @@ import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type ToolContext, ToolManager } from './tools';
+import { ArrowTool } from './tools/ArrowTool';
 import { EllipseTool } from './tools/EllipseTool';
+import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
 import { HandTool } from './tools/HandTool';
 import { LineTool } from './tools/LineTool';
+import { PencilTool } from './tools/PencilTool';
 import { PenTool } from './tools/PenTool';
+import { PolygonTool } from './tools/PolygonTool';
 import { RectangleTool } from './tools/RectangleTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
+import { SliceTool } from './tools/SliceTool';
+import { StarTool } from './tools/StarTool';
 import { type SnapGuide, snapPosition } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
@@ -70,8 +81,14 @@ function getToolManager(): ToolManager {
     toolManager.register('rect', () => new RectangleTool());
     toolManager.register('ellipse', () => new EllipseTool());
     toolManager.register('line', () => new LineTool());
+    toolManager.register('arrow', () => new ArrowTool());
+    toolManager.register('polygon', () => new PolygonTool());
+    toolManager.register('star', () => new StarTool());
     toolManager.register('pen', () => new PenTool());
+    toolManager.register('pencil', () => new PencilTool());
     toolManager.register('text', () => new TextTool());
+    toolManager.register('slice', () => new SliceTool());
+    toolManager.register('eyedropper', () => new EyedropperTool());
   }
   toolManager.setTool('select');
   return toolManager;
@@ -99,6 +116,7 @@ export function CanvasArea() {
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
+  const lastCursorUpdate = useRef(0);
 
   useEffect(() => {
     createEngine('auto').then((eng) => {
@@ -159,6 +177,8 @@ export function CanvasArea() {
       setPan: (p) => e.setPan(p),
       setZoom: (z) => e.setZoom(z),
       announce: (msg) => e.announce(msg),
+      announceSelection: (selected) => e.announceSelection(selected),
+      announceOperation: (op, result) => e.announceOperation(op, result),
       setDraft,
       rootNodes: () => rootNodes(),
       getNode: (id) => s.document.nodes[id],
@@ -319,6 +339,14 @@ export function CanvasArea() {
       return;
     }
 
+    // Track cursor position (throttled to ~30fps)
+    const now = performance.now();
+    if (now - lastCursorUpdate.current > 32) {
+      lastCursorUpdate.current = now;
+      const world = editor.canvasToWorld(e.clientX, e.clientY);
+      editor.setCursorPos(world);
+    }
+
     const ne = e.nativeEvent as PointerEvent;
     const tmInst = tm.current;
     if (!tmInst) return;
@@ -409,13 +437,13 @@ export function CanvasArea() {
           const prev = nodes[(idx <= 0 ? nodes.length : idx) - 1];
           if (prev) {
             eRef.setSelection(prev.id);
-            eRef.announce(`Selected ${prev.name}`);
+            eRef.announceSelection([prev]);
           }
         } else {
           const next = nodes[(idx + 1) % nodes.length];
           if (next) {
             eRef.setSelection(next.id);
-            eRef.announce(`Selected ${next.name}`);
+            eRef.announceSelection([next]);
           }
         }
         return;
@@ -423,13 +451,30 @@ export function CanvasArea() {
 
       if (e.key === 'Escape') {
         eRef.setSelection(null);
-        eRef.announce('Selection cleared');
+        eRef.announceSelection([]);
         return;
       }
 
       if ((e.key === 'Enter' || e.key === 'F2') && firstSel) {
         const name = prompt('Rename layer', nodes[idx]?.name ?? '');
         if (name) eRef.renameSelected(name);
+      }
+
+      // ── Zoom presets (unmodified 1-6) ────────────────────────────────
+      const ZOOM_PRESETS: Record<string, number> = {
+        '1': 0.5,
+        '2': 0.75,
+        '3': 1,
+        '4': 1.5,
+        '5': 2,
+        '6': 4,
+      };
+      const zoomLevel = ZOOM_PRESETS[e.key];
+      if (zoomLevel !== undefined && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        eRef.setZoom(zoomLevel);
+        eRef.announceOperation('Zoom', `${Math.round(zoomLevel * 100)}%`);
+        return;
       }
 
       // ── Reveal shortcuts ──────────────────────────────────────────────
@@ -454,14 +499,14 @@ export function CanvasArea() {
           const cam = fitBoundsCamera(allBounds, viewportEst, 40);
           eRef.setZoom(cam.zoom);
           eRef.setPan({ x: cam.pan[0], y: cam.pan[1] });
-          eRef.announce('Zoom to fit all');
+          eRef.announceOperation('Zoom', 'fit all');
         }
       }
       if (e.key === '2' && e.shiftKey) {
         e.preventDefault();
         if (selArr.length > 0) {
           eRef.revealSelection({ fit: true });
-          eRef.announce('Zoom to selection');
+          eRef.announceOperation('Zoom', 'to selection');
         }
       }
     },
@@ -493,6 +538,7 @@ export function CanvasArea() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
+        onPointerLeave={() => editor.setCursorPos(null)}
         onWheel={handleWheel}
       />
       <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />

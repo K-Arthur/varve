@@ -9,13 +9,14 @@ import {
   cloneElement,
   type KeyboardEvent,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useState,
 } from 'react';
 
 export interface ToolbarProps {
   label: string;
-  children: ReactElement[];
+  children: ReactNode;
 }
 
 export function Toolbar({ label, children }: ToolbarProps) {
@@ -53,11 +54,12 @@ export function Toolbar({ label, children }: ToolbarProps) {
 
   return (
     <div role="toolbar" aria-label={label} onKeyDown={handleKey}>
-      {Children.map(children, (child, idx) =>
-        cloneElement(child as ReactElement<ButtonHTMLAttributes<HTMLElement>>, {
+      {Children.map(children, (child, idx) => {
+        if (!child || typeof child === 'string' || typeof child === 'number' || typeof child === 'boolean') return child;
+        return cloneElement(child as ReactElement<ButtonHTMLAttributes<HTMLElement>>, {
           tabIndex: idx === focusIdx ? 0 : -1,
-        }),
-      )}
+        });
+      })}
     </div>
   );
 }

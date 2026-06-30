@@ -87,4 +87,6 @@ export const CHROME_ICONS = {
   maximize: 'Maximize',
   crosshair: 'Crosshair',
   gripVertical: 'GripVertical',
+  undo: 'Undo2',
+  redo: 'Redo2',
 } as const satisfies Record<string, IconName>;

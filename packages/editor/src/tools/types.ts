@@ -110,6 +110,8 @@ export interface ToolContext {
   setPan: (p: { x: number; y: number }) => void;
   setZoom: (z: number) => void;
   announce: (msg: string) => void;
+  announceSelection: (selected: SceneNode[]) => void;
+  announceOperation: (op: string, result: string) => void;
   setDraft: (draft: { x: number; y: number; w: number; h: number; label?: string } | null) => void;
   rootNodes: () => SceneNode[];
   getNode: (id: NodeId) => SceneNode | undefined;

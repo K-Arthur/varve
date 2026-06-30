@@ -18,6 +18,12 @@ export const SHORTCUT_DEFS = {
     category: 'File',
   },
   zoomReset: { binding: { key: '0', ctrl: true }, label: 'Zoom to 100%', category: 'View' },
+  zoom50: { binding: { key: '1' }, label: 'Zoom to 50%', category: 'View' },
+  zoom75: { binding: { key: '2' }, label: 'Zoom to 75%', category: 'View' },
+  zoom100: { binding: { key: '3' }, label: 'Zoom to 100%', category: 'View' },
+  zoom150: { binding: { key: '4' }, label: 'Zoom to 150%', category: 'View' },
+  zoom200: { binding: { key: '5' }, label: 'Zoom to 200%', category: 'View' },
+  zoom400: { binding: { key: '6' }, label: 'Zoom to 400%', category: 'View' },
   selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
   group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
   alignLeft: {

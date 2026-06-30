@@ -1,5 +1,10 @@
+import {
+  contrastRatio,
+  formatContrast,
+  relativeLuminance,
+  wcagLevel,
+} from '@strata/ui/components/ColorPicker';
 import { describe, expect, it } from 'vitest';
-import { contrastRatio, formatContrast, relativeLuminance, wcagLevel } from '@strata/ui/components/ColorPicker';
 
 describe('relativeLuminance', () => {
   it('returns 0 for black', () => {

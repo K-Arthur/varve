@@ -1,4 +1,13 @@
 /* Editor shell layout — CSS Grid. All spacing tokens from @strata/ui/tokens. */
+:root {
+  --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
+  --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+  --z-overlay: 100;
+  --z-raised: 50;
+  --duration-base: 0.2s;
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .editor-shell {
   display: grid;
   grid-template-areas:
@@ -6,6 +15,7 @@
     "tabs     tabs      tabs"
     "layers   canvas    inspector"
     "status   status    status";
+  grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width);
   grid-template-rows: var(--topbar-height) 32px 1fr var(--statusbar-height);
   flex: 1;
   min-height: 0;
@@ -201,4 +211,151 @@
   border-top: 1px solid var(--color-border-subtle);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+}
+
+/* ── Docs name in menubar ── */
+.editor-menubar__doc-name {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  min-width: 0;
+  cursor: default;
+}
+
+.editor-menubar__doc-name-input {
+  background: none;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: center;
+  min-width: 60px;
+  max-width: 200px;
+  padding: 0 var(--space-1);
+  outline: none;
+  cursor: text;
+}
+.editor-menubar__doc-name-input:hover {
+  border-bottom-color: var(--color-border-subtle);
+}
+.editor-menubar__doc-name-input:focus {
+  border-bottom-color: var(--color-interactive-default);
+}
+
+/* ── Right-side controls in menubar ── */
+.editor-menubar__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.editor-menubar__zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.editor-menubar__zoom-input {
+  width: 40px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  text-align: right;
+  cursor: text;
+  padding: 0;
+  outline: none;
+}
+.editor-menubar__zoom-input:hover {
+  border-bottom-color: var(--color-border-subtle);
+}
+.editor-menubar__zoom-input:focus {
+  border-bottom-color: var(--color-interactive-default);
+}
+
+/* ── Panel overlays (responsive) ── */
+@media (max-width: 899px) {
+  .editor-shell {
+    grid-template-columns: 0 1fr 0;
+  }
+
+  .editor__layers-panel,
+  .editor__inspector-panel {
+    position: fixed;
+    top: 0;
+    z-index: var(--z-overlay);
+    height: 100dvh;
+    width: var(--sidebar-width);
+    background: var(--color-surface-raised);
+    transform: translateX(-100%);
+    transition: transform var(--duration-base) var(--ease-out);
+    overflow-y: auto;
+  }
+  .editor__inspector-panel {
+    width: var(--inspector-width);
+    right: 0;
+    transform: translateX(100%);
+  }
+  .editor__layers-panel[data-visible],
+  .editor__inspector-panel[data-visible] {
+    transform: translateX(0);
+  }
+
+  .editor-status {
+    font-size: var(--font-size-2xs);
+    gap: var(--space-2);
+  }
+}
+
+/* ── Floating action buttons ── */
+.editor__fab {
+  position: fixed;
+  bottom: var(--space-6);
+  z-index: var(--z-raised);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.editor__fab:hover {
+  filter: brightness(1.15);
+}
+@media (max-width: 899px) {
+  .editor__fab { display: flex; }
+}
+.editor__fab--layers { left: var(--space-3); }
+.editor__fab--inspector { right: var(--space-3); }
+
+/* ── Container queries for panels ── */
+.editor__layers-panel {
+  container-type: inline-size;
+  container-name: layers;
+}
+.editor__inspector-panel {
+  container-type: inline-size;
+  container-name: inspector;
+}
+@container layers (max-width: 280px) {
+  .editor-layers {
+    padding: var(--space-1);
+  }
+}
+@container inspector (max-width: 280px) {
+  .editor-inspector {
+    padding: var(--space-1);
+  }
 }

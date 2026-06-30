@@ -1,13 +1,17 @@
-/**
- * Status bar — tool, zoom, selection count.
- * F1: uses selectedNodes() which works for nested nodes (doc.nodes lookup).
- * A12: zoom is editable; Fit button zoom-to-fit-all (Shift+1).
- * P3: Fit now actually fits (pan+zoom) instead of just resetting zoom to 1.
- */
+import { Icon } from '@strata/ui';
 import { useEditor } from './context';
 
 export function StatusBar() {
-  const { state, setZoom, revealSelection, selectedNodes, rootNodes } = useEditor();
+  const {
+    state,
+    setZoom,
+    setUnitType,
+    setPixelGridEnabled,
+    setSnapEnabled,
+    revealSelection,
+    selectedNodes,
+    rootNodes,
+  } = useEditor();
   const sel = selectedNodes();
 
   function handleZoomInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -30,6 +34,76 @@ export function StatusBar() {
   return (
     <div className="editor-status">
       <span>{state.tool}</span>
+      {state.cursorPos && (
+        <span>
+          X: {state.cursorPos.x} Y: {state.cursorPos.y}
+        </span>
+      )}
+      <span aria-hidden>—</span>
+      <select
+        value={state.unitType}
+        onChange={(e) => setUnitType(e.target.value as typeof state.unitType)}
+        aria-label="Units"
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'inherit',
+          font: 'inherit',
+          fontSize: 'var(--font-size-xs)',
+          cursor: 'pointer',
+          padding: 0,
+          outline: 'none',
+        }}
+      >
+        <option value="px">px</option>
+        <option value="pt">pt</option>
+        <option value="cm">cm</option>
+        <option value="mm">mm</option>
+        <option value="in">in</option>
+        <option value="%">%</option>
+      </select>
+      <button
+        type="button"
+        aria-pressed={state.pixelGridEnabled}
+        onClick={() => setPixelGridEnabled(!state.pixelGridEnabled)}
+        aria-label="Toggle pixel grid"
+        style={{
+          background: state.pixelGridEnabled ? 'var(--color-interactive-default)' : 'none',
+          border: 'none',
+          color: state.pixelGridEnabled ? 'var(--color-text-on-accent)' : 'var(--color-text-muted)',
+          cursor: 'pointer',
+          borderRadius: 'var(--radius-sm)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 20,
+          height: 20,
+          padding: 0,
+        }}
+      >
+        <Icon name="Grid3x3" size={12} />
+      </button>
+      <button
+        type="button"
+        aria-pressed={state.snapEnabled}
+        onClick={() => setSnapEnabled(!state.snapEnabled)}
+        aria-label="Toggle snapping"
+        style={{
+          background: state.snapEnabled ? 'var(--color-interactive-default)' : 'none',
+          border: 'none',
+          color: state.snapEnabled ? 'var(--color-text-on-accent)' : 'var(--color-text-muted)',
+          cursor: 'pointer',
+          borderRadius: 'var(--radius-sm)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 20,
+          height: 20,
+          padding: 0,
+        }}
+      >
+        <Icon name="Magnet" size={12} />
+      </button>
       <span aria-hidden>—</span>
       <label htmlFor="status-zoom" className="visually-hidden">
         Zoom
@@ -45,7 +119,7 @@ export function StatusBar() {
         onKeyDown={handleZoomKey}
         aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
         style={{
-          width: 52,
+          width: 44,
           background: 'none',
           border: 'none',
           color: 'inherit',
