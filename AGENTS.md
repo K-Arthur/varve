@@ -42,29 +42,24 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 396+ tests across 58+ files: codegen 8, editor 130+, scene 70, engine 21, shared 24, ui 20, platform 41, home 13, E2E 21
+- **JS:** 614 tests across 66 files: codegen 8, editor 130+, scene 70+, engine 24, platform 41, home 13, print 4, ui 22, shared 24, E2E 21
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
-- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 51/51 WCAG-AA across 3 themes
+- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 72/72 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
 
-The working tree does NOT persist between agent sessions. If the session is
-interrupted or the tree is recycled, recover with:
+All feature branches have been merged into `master`. Recover with:
 
 ```bash
-# The branch has the complete implementation
-git checkout feat/home-start-page
-# Or if the worktree was deleted:
-git worktree add .worktrees/home-start-page feat/home-start-page
-# Then resume work there
+git checkout master
+git log --oneline -3
 ```
 
 | Artifact | Location |
-|---|---|---|
-| Last commit | `0f33c15` — "Phase 4: polish — cursor-anchored zoom, marquee canvas rect" |
-| Branch | `feat/home-start-page` |
-| Deferred plan | `docs/plans/layers-panel-deferred.md` (updated Session 11) |
-| Tools plan | `docs/plans/tools-deferred.md` (updated Session 10) |
+|---|---|
+| Working branch | `master` |
+| Deferred plan | `docs/plans/layers-panel-deferred.md` |
+| Export deferred | `docs/plans/export-system-deferred.md` |
 
 Always verify the commit exists before claiming work persisted:
 ```bash
@@ -90,26 +85,6 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 | **Same package, different files** | Safe in parallel if files are independent (no cross-imports). File is the unit of conflict. |
 | **Same file** | **Must be sequential.** One agent finishes (commits), then the next rebases/merges. Use `git worktree add` for filesystem isolation — each agent/session gets its own worktree on its own branch. |
 
-## Ephemeral tree recovery
-
-If the working tree is recycled, recover with:
-
-```bash
-# The branch has the complete export system implementation
-git checkout feat/export-system
-# Or if the worktree was deleted:
-git worktree add .worktrees/export-system feat/export-system
-# Then resume work there
-```
-
-| Artifact | Location |
-|---|---|
-| Last commit | `c60d256` — "docs: deferred export system items implementation plan" |
-| Branch | `feat/export-system` |
-| Deferred plan | `docs/plans/export-system-deferred.md` |
-| Working tree | `.worktrees/export-system/` |
-| Test counts | 206 JS, 80 Rust (72 workspace + 8 Tauri) |
-| Uncommitted | 0 — working tree clean |
 | **Hub files intersect** | Files like `CanvasArea.tsx` (imports from engine, scene, editor context) or `Shell.tsx` are integration hubs. Changes to dependencies may require hub updates. After parallel agents finish, the coordinating session runs `just gate` to catch integration breakage. |
 
 **Worktree protocol** (via `using-git-worktrees` skill):
@@ -155,7 +130,7 @@ git worktree add .worktrees/export-system feat/export-system
 | `@strata/scene` | **Built** | Immutable `Document` with add/insert/remove/move/rename/reparent ops, `ShapeNode`/`TextNode`/`FrameNode`/`GroupNode` types, `groupNodes`/`ungroupNode`/`detachInstance` ops, `isContainer`/`getChildren` helpers, `ComponentDefinition` with typed `Slot[]`, `VariableStore` with modes+resolve, `slotsSatisfied()` guard. 70 tests. |
 | `@strata/ui` | **Built** | Tokens: color ramps, 3 themes, WCAG-AA audit, `tokens.css` generated from TS. Icons: typed Lucide `<Icon name label>` with a11y contract, `TOOL_ICONS` + `CHROME_ICONS` maps. Components: APG `Button` (5 variants), `IconButton`, `Toolbar` (roving tabindex), `NumberInput` (drag-to-scrub, arrow inc/dec), `components.css` (token-styled). 20 tests. |
 | `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props, shared `aria-live` announcer, `reparentNode`/`groupSelected`/`ungroupSelected`/`detachSelected` actions), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (virtualized APG Tree View — `role="tree"`, roving tabindex, full keyboard map ↑↓→←Home/End/Enter/F2, type-ahead, multi-select Shift/Ctrl/Ctrl+A, expand/collapse, inline rename, search/filter, visibility/lock toggles, context menu, per-type auto-naming, `@tanstack/react-virtual`), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing, layout/export/spec tabs), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel` with Select/Frame/Rect/Ellipse/Line/Pen/Text/Hand/Zoom tools, `TabStrip`, `VariablePanel`, `StatusBar`. 46 tests. |
-| `@strata/codegen` | **Built** | `exportDocumentToSvg(doc)` — standalone SVG from Document. `exportDocumentToReact(doc)` — React/Tailwind JSX. Sub-path export. |
+| `@strata/codegen` | **Built** | `exportDocumentToSvg(doc)` — standalone SVG from Document. `exportDocumentToSvgAdvanced(doc, opts, boundsOverride?)` — SVG with full options. `exportDocumentToReact(doc)` — React/Tailwind JSX. Sub-path export. `buildSpec`/`specToMarkdown`. |
 | `@strata/shared` | **Built** | `ordering` facade — real base-62 fractional-indexing via `fractional-indexing` package (CRDT-safe). `debounce`/`throttle`, `units` conversion. `PACKAGE` marker. |
 
 ### apps/
@@ -373,7 +348,7 @@ render, layer-click not revealing. 4 phases committed onto `feat/home-start-page
 | `packages/editor/src/components/SpecPanel/syntax.ts` | PrismJS syntax highlighting wrapper (6 languages) |
 | `packages/codegen/src/flutter.ts` | Flutter emitter (Row/Column/Stack auto-layout) |
 | `packages/codegen/src/swiftui.ts` | SwiftUI emitter (HStack/VStack/ZStack auto-layout) |
-| `packages/platform/src/platform.ts` | Platform interface with saveBlob, searchFiles, reorderFile, listenForChanges |
+| `packages/platform/src/platform.ts` | Platform interface with saveBinaryFile, searchFiles, reorderFile, listenForChanges |
 | `pnpm-workspace.yaml` | Workspace config + allowBuilds |
 
 ## Session 14 — Frame dimensions, clipping, and Rust IR completeness (2026-06-30)
@@ -428,3 +403,20 @@ Closed the remaining gaps in scene→IR→paint coverage so every primitive kind
 **Scope notes:** `replaySubtree()`'s frame-clipping and DFS paint-order logic (added in Session 14) were verified correct by re-reading `CanvasArea.tsx` and were not modified — only given regression-test coverage, since that logic lives inside a React component and isn't directly unit-testable. `ImageNode` and Rust-side `text`/`image` `Primitive` parity were confirmed out of scope: no `ImageNode` kind exists in `packages/scene/src/types.ts` (images are a `Fill` type, not a node kind), and `crates/strata-engine/src/lib.rs`'s `Primitive` enum has no scene-level text/image source to map from yet.
 
 **Verification:** 570/570 JS tests (was 552), 13/13 packages typecheck clean, Biome format + lint clean on all changed files, `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` clean, `pnpm audit:tokens` (72/72 WCAG-AA), `pnpm audit:emoji` clean.
+
+## Branch consolidation — merge feat/export-system + feat/home-start-page into master (2026-06-30)
+
+Both long-lived feature branches merged into `master`. All work is now on a single branch.
+
+| Merge | What changed |
+|---|---|
+| `feat/home-start-page` → master | Home shell, start page, design token refresh, brand assets, onboarding tour (already merged in prior session). |
+| `feat/export-system` → master | Per-node export presets (PNG/SVG/PDF/WebP/AVIF/React/Flutter/SwiftUI), `ExportPresetPanel`, inspector tab strip (Properties/Export/Spec), `Platform.saveBinaryFile` replaces `saveBlob`, Tauri 2 `write_binary_file` command, `exportDocumentToSvgAdvanced` with `boundsOverride`, `Slider` UI component, `@strata/print` TS facade, `TextNode.textAlign` + `Primitive` text union in TS and Rust. |
+
+**Key conflict resolutions:**
+- `TextNode`/`Primitive`: kept `x, y, w, h` from master AND added `textAlign: 'left' | 'center' | 'right'` from export-system. `makeTextNode` defaults: `Inter/400/normal/1.2lh/0ls/left`.
+- `InspectorPanel.tsx` (delete/modify conflict): rewrote to use master's `PropertiesPanel` for properties tab, kept export-system's `ExportTab`/`SpecTab`.
+- `context.tsx`: kept master's full `EditorProvider` signature (lazy init, `initialDocumentJson`) and added export-system's `showExportDialog` state + preset ops.
+- `exportDocumentToSvg` (legacy): added `boundsOverride` param to `exportDocumentToSvgAdvanced`; legacy wrapper passes canvas dimensions explicitly.
+
+**Verification:** 614/614 JS tests (66 files), typecheck clean (13 packages), Biome 0 errors (6 pre-existing warnings), `cargo test --workspace` clean, `cargo clippy --workspace --all-targets -- -D warnings` clean, `pnpm audit:tokens` (72/72 WCAG-AA), `pnpm audit:emoji` clean.
