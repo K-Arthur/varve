@@ -130,12 +130,12 @@ export class SelectTool extends BaseTool {
           const centerY = node.transform[5];
           const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
           if (frameId) {
-            const currentParent = getParent(ctx.document as any, sel[0]!);
+            const currentParent = getParent(ctx.document, sel[0]!);
             if (currentParent !== frameId) {
-              ctx.reparentNode(sel[0]!, frameId, childrenCount(ctx.document as any, frameId));
+              ctx.reparentNode(sel[0]!, frameId, childrenCount(ctx.document, frameId));
             }
           } else {
-            const currentParent = getParent(ctx.document as any, sel[0]!);
+            const currentParent = getParent(ctx.document, sel[0]!);
             if (currentParent !== null) {
               ctx.reparentNode(sel[0]!, null, ctx.rootNodes().length);
             }
@@ -198,7 +198,7 @@ function rectsIntersect(
 }
 
 function childrenCount(
-  doc: { nodes: Record<string, { children?: string[] }> },
+  doc: { nodes: Record<string, { id: string; children?: string[] }> },
   id: string,
 ): number {
   const node = doc.nodes[id];

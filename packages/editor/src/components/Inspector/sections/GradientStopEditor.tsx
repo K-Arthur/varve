@@ -83,7 +83,7 @@ export function GradientStopEditor({ stops, rotation, onChange }: GradientStopEd
       // Sort by position but keep track of which is the dragged one
       const draggedStop = newStops[dragIndex];
       const sorted = [...newStops].sort((a, b) => a.position - b.position);
-      const newDragIndex = sorted.indexOf(draggedStop);
+      const newDragIndex = draggedStop ? sorted.indexOf(draggedStop) : dragIndex;
       onChange(sorted, rotation);
       setDragIndex(newDragIndex);
     },

@@ -151,7 +151,9 @@ export function FileGrid({
         typeAheadBufferRef.current += char;
 
         // Find first matching file
-        const matchIdx = files.findIndex((f) => f.name.toLowerCase().startsWith(typeAheadBufferRef.current));
+        const matchIdx = files.findIndex((f) =>
+          f.name.toLowerCase().startsWith(typeAheadBufferRef.current),
+        );
 
         if (matchIdx >= 0) {
           setFocusIdx(matchIdx);
@@ -209,77 +211,84 @@ export function FileGrid({
   const sortableIds = files.filter((f) => !f.trashedAt).map((f) => f.id);
 
   return (
-    <div
-      ref={containerRef}
-      role="grid"
-      aria-label="File grid"
-      aria-rowcount={rowCount}
-      aria-colcount={columns}
-      tabIndex={0}
-      onKeyDown={handleKey}
-      className="home-grid"
-      style={{
-        height: virtualizer.getTotalSize(),
-        position: 'relative',
-      }}
-    >
-      <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const rowIdx = virtualRow.index;
-          const startIdx = rowIdx * columns;
-          return (
-            <div
-              key={rowIdx}
-              role="row"
-              aria-rowindex={rowIdx + 1}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: virtualRow.size,
-                transform: `translateY(${virtualRow.start}px)`,
-                display: 'flex',
-                gap: `${GAP}px`,
-              }}
-            >
-              {Array.from({ length: columns }, (_, colIdx) => {
-                const fileIdx = startIdx + colIdx;
-                const entry = files[fileIdx];
-                if (!entry) return <div key={colIdx} style={{ flex: 1 }} />;
-                const isSelected = selectedIds.includes(entry.id);
-                const thumb = thumbnails.get(entry.id);
-                const loading = thumb === undefined;
-                return (
-                  <FileCard
-                    key={entry.id}
-                    entry={entry}
-                    thumbnail={thumb ?? null}
-                    thumbnailLoading={loading}
-                    selected={isSelected}
-                    onOpen={onOpen}
-                    onContext={onContext}
-                    onFileDragStart={onFileDragStart}
-                    onClick={(e) => handleCardClick(e, fileIdx)}
-                    onRename={onRename}
-                    isRenaming={renamingId === entry.id}
-                    onStartRename={() => onStartRename?.(entry.id)}
-                    isMissing={missingFiles.has(entry.id)}
-                    tabIndex={fileIdx === focusIdx ? 0 : -1}
-                    style={{
-                      flex: `0 0 ${COL_WIDTH}px`,
-                    }}
-                    onFocus={() => setFocusIdx(fileIdx)}
-                    ref={(el) => {
-                      if (fileIdx === focusIdx) el?.focus();
-                    }}
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
-      </SortableContext>
-    </div>
+    <>
+      {/* biome-ignore lint/a11y/useSemanticElements: ARIA grid role required for virtualized grid */}
+      <div
+        ref={containerRef}
+        role="grid"
+        aria-label="File grid"
+        aria-rowcount={rowCount}
+        aria-colcount={columns}
+        tabIndex={0}
+        onKeyDown={handleKey}
+        className="home-grid"
+        style={{
+          height: virtualizer.getTotalSize(),
+          position: 'relative',
+        }}
+      >
+        <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const rowIdx = virtualRow.index;
+            const startIdx = rowIdx * columns;
+            return (
+              <>
+                {/* biome-ignore lint/a11y/useSemanticElements: ARIA row role required for virtualized grid */}
+                <div
+                  key={rowIdx}
+                  role="row"
+                  aria-rowindex={rowIdx + 1}
+                  tabIndex={-1}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: virtualRow.size,
+                    transform: `translateY(${virtualRow.start}px)`,
+                    display: 'flex',
+                    gap: `${GAP}px`,
+                  }}
+                >
+                  {Array.from({ length: columns }, (_, colIdx) => {
+                    const fileIdx = startIdx + colIdx;
+                    const entry = files[fileIdx];
+                    if (!entry) return <div key={`empty-${fileIdx}`} style={{ flex: 1 }} />;
+                    const isSelected = selectedIds.includes(entry.id);
+                    const thumb = thumbnails.get(entry.id);
+                    const loading = thumb === undefined;
+                    return (
+                      <FileCard
+                        key={entry.id}
+                        entry={entry}
+                        thumbnail={thumb ?? null}
+                        thumbnailLoading={loading}
+                        selected={isSelected}
+                        onOpen={onOpen}
+                        onContext={onContext}
+                        onFileDragStart={onFileDragStart}
+                        onClick={(e) => handleCardClick(e, fileIdx)}
+                        onRename={onRename}
+                        isRenaming={renamingId === entry.id}
+                        onStartRename={() => onStartRename?.(entry.id)}
+                        isMissing={missingFiles.has(entry.id)}
+                        tabIndex={fileIdx === focusIdx ? 0 : -1}
+                        style={{
+                          flex: `0 0 ${COL_WIDTH}px`,
+                        }}
+                        onFocus={() => setFocusIdx(fileIdx)}
+                        ref={(el) => {
+                          if (fileIdx === focusIdx) el?.focus();
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })}
+        </SortableContext>
+      </div>
+    </>
   );
 }

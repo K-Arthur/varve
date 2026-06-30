@@ -56,12 +56,20 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     [dismissible, onClose],
   );
 
+  const handleBackdropKey = useCallback(
+    (e: React.KeyboardEvent<HTMLDialogElement>) => {
+      if (dismissible && (e.key === 'Enter' || e.key === 'Escape')) onClose();
+    },
+    [dismissible, onClose],
+  );
+
   return (
     <dialog
       ref={handleRef}
       aria-labelledby="dialog-title"
       onCancel={handleCancel}
       onClick={handleBackdrop}
+      onKeyDown={handleBackdropKey}
       className={`strata-dialog ${className}`.trim()}
       {...rest}
     >

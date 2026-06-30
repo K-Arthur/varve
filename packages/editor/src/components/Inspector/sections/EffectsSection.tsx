@@ -193,6 +193,20 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
     [batchUpdate, announce],
   );
 
+  const reorderEffect = useCallback(
+    (from: number, to: number) => {
+      if (from === to) return;
+      batchUpdate((effects) => {
+        if (from < 0 || from >= effects.length || to < 0 || to >= effects.length) return effects;
+        const next = [...effects];
+        const [item] = next.splice(from, 1);
+        if (item) next.splice(to, 0, item);
+        return next;
+      });
+    },
+    [batchUpdate],
+  );
+
   if (effectNodes.length === 0) return null;
 
   const minEffects = Math.min(...effectNodes.map((n) => n.effects.length));
@@ -218,6 +232,9 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
             nodes={effectNodes}
             onChange={(updater) => updateEffect(i, updater)}
             onRemove={() => removeEffect(i)}
+            onReorder={(dir: number) => reorderEffect(i, i + dir)}
+            canMoveUp={i > 0}
+            canMoveDown={i < minEffects - 1}
           />
         ))
       )}
@@ -259,9 +276,20 @@ interface EffectRowProps {
   nodes: EffectNode[];
   onChange: (updater: (e: Effect) => Effect) => void;
   onRemove: () => void;
+  onReorder: (dir: number) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }
 
-function EffectRow({ index, nodes, onChange, onRemove }: EffectRowProps) {
+function EffectRow({
+  index,
+  nodes,
+  onChange,
+  onRemove,
+  onReorder,
+  canMoveUp,
+  canMoveDown,
+}: EffectRowProps) {
   const typeRaw = commonValue(nodes, (n) => getEffect(n, index)?.type ?? 'dropShadow');
   const visibleRaw = commonValue(nodes, (n) => getEffect(n, index)?.visible ?? true);
 
@@ -297,6 +325,32 @@ function EffectRow({ index, nodes, onChange, onRemove }: EffectRowProps) {
         >
           {typeLabel}
         </span>
+        <button
+          type="button"
+          aria-label="Move effect up"
+          disabled={!canMoveUp}
+          onClick={() => onReorder(-1)}
+          style={{
+            ...INLINE_BTN,
+            opacity: canMoveUp ? 1 : 0.3,
+            cursor: canMoveUp ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Icon name="ChevronUp" label={undefined} size="0.85em" />
+        </button>
+        <button
+          type="button"
+          aria-label="Move effect down"
+          disabled={!canMoveDown}
+          onClick={() => onReorder(1)}
+          style={{
+            ...INLINE_BTN,
+            opacity: canMoveDown ? 1 : 0.3,
+            cursor: canMoveDown ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Icon name="ChevronDown" label={undefined} size="0.85em" />
+        </button>
         <button type="button" style={INLINE_BTN} aria-label="Remove effect" onClick={onRemove}>
           <Icon name="X" label={undefined} size="0.85em" />
         </button>

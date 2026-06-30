@@ -262,7 +262,8 @@ export function propagateMaster(
     const slotDef = componentDef.slots.find((s) => s.defaultContentId === childId);
     if (slotDef && frame.slots && Object.hasOwn(frame.slots, slotDef.id)) {
       // Preserve the slot fill — reference existing node
-      newChildren.push(frame.slots[slotDef.id]!);
+      const slotFill = frame.slots[slotDef.id];
+      if (slotFill) newChildren.push(slotFill);
     } else {
       // Deep clone the non-slot child
       const result = cloneSubtree(doc, childId, idGen);

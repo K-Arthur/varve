@@ -26,7 +26,7 @@ const FILES = Array.from({ length: 20 }, (_, i) => {
       id,
       name: `Design ${i + 1}`,
       kind: i % 5 === 0 ? 'image' : i % 5 === 1 ? 'figma' : 'strata',
-      projectId: i < 8 ? PROJECTS[0]!.id : i < 14 ? PROJECTS[1]!.id : null,
+      projectId: i < 8 ? PROJECTS[0]?.id : i < 14 ? PROJECTS[1]?.id : null,
       createdAt: now,
       updatedAt: now + 3_600_000,
       openedAt: i < 5 ? now + 1_800_000 : 0,

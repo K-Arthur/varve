@@ -114,8 +114,9 @@ export function MeasureOverlay({
         pointerEvents: 'none',
         overflow: 'visible',
       }}
-      aria-hidden
+      aria-hidden="true"
     >
+      <title>Measurement overlay</title>
       {/* Selected node AABB outline */}
       <rect
         x={sx}

@@ -73,6 +73,7 @@ export function EmptyStates({ section, query, onAction }: EmptyStatesProps) {
   const copy: CopyEntry = (EMPTY_COPY[section] ?? EMPTY_COPY.default)!;
 
   const illustration = (
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: static safe SVG content from constant lookup table
     <div dangerouslySetInnerHTML={{ __html: svgHtml }} style={{ width: '8rem', height: '8rem' }} />
   );
 

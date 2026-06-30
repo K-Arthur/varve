@@ -21,7 +21,7 @@ export type OrderKey = string;
 export function generateKeyBetween(a: OrderKey | null, b: OrderKey | null): OrderKey {
   if (a === null && b === null) return '0000';
   if (a === null) {
-    const bi = toNumber(b!);
+    const bi = toNumber(b ?? '0000');
     if (bi <= 0) return '0000';
     return pad(Math.floor(bi / 2));
   }
@@ -46,7 +46,9 @@ export function generateNKeysBetween(
   const first = generateKeyBetween(a, b);
   const keys: OrderKey[] = [first];
   for (let i = 1; i < n; i++) {
-    keys.push(generateKeyBetween(keys[i - 1]!, b));
+    const prev = keys[i - 1];
+    if (!prev) break;
+    keys.push(generateKeyBetween(prev, b));
   }
   return keys;
 }

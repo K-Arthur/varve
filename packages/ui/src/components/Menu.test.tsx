@@ -14,7 +14,9 @@ function TestMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   ];
   return (
     <>
-      <button ref={ref}>trigger</button>
+      <button type="button" ref={ref}>
+        trigger
+      </button>
       <Menu items={items} triggerRef={ref} open={open} onClose={onClose} label="test" />
     </>
   );

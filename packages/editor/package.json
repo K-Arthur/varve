@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@strata/codegen": "workspace:*",
+    "@strata/collab": "workspace:*",
     "@strata/engine": "workspace:*",
     "@strata/platform": "workspace:*",
     "@strata/scene": "workspace:*",

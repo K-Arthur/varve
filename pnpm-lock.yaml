@@ -113,6 +113,9 @@ importers:
       '@strata/codegen':
         specifier: workspace:*
         version: link:../codegen
+      '@strata/collab':
+        specifier: workspace:*
+        version: link:../collab
       '@strata/engine':
         specifier: workspace:*
         version: link:../engine

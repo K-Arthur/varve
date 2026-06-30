@@ -9,7 +9,9 @@
  */
 import type { Color } from '@strata/engine';
 import type {
+  ArrowheadStyle,
   FrameNode,
+  GradientFill,
   SceneNode,
   ShapeNode,
   Stroke,
@@ -22,6 +24,7 @@ import { defaultStroke } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
+import { GradientEditor } from '../color/GradientEditor';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
@@ -53,8 +56,41 @@ const JOIN_OPTIONS: readonly SegmentedOption<StrokeJoin>[] = [
   { value: 'bevel', label: 'Bevel' },
 ] as const;
 
+const ARROW_OPTIONS: { value: ArrowheadStyle; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'arrow', label: 'Arrow' },
+  { value: 'circle', label: 'Circle' },
+  { value: 'square', label: 'Square' },
+  { value: 'diamond', label: 'Diamond' },
+];
+
+const SELECT_STYLE: React.CSSProperties = {
+  flex: 1,
+  height: 'var(--space-5)',
+  fontSize: 'var(--font-size-xs)',
+  background: 'var(--color-surface-sunken)',
+  color: 'var(--color-text-primary)',
+  border: '1px solid var(--color-border-subtle)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '0 var(--space-2)',
+};
+
 function hasStrokes(n: SceneNode): n is StrokeNode {
   return n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame';
+}
+
+/** True if any selected node is a line or open path (supports arrowheads). */
+function isLineOrPath(n: SceneNode): boolean {
+  if (n.kind !== 'shape') return false;
+  const s = n.shape;
+  return s.kind === 'line' || s.kind === 'path';
+}
+
+/** True if any selected node is a rect or frame (supports per-side weights). */
+function isRectLike(n: SceneNode): boolean {
+  if (n.kind === 'frame') return true;
+  if (n.kind === 'shape') return n.shape.kind === 'rect';
+  return false;
 }
 
 function getStroke(n: SceneNode, i: number): Stroke | undefined {
@@ -176,6 +212,20 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
     [batchUpdate, announce],
   );
 
+  const reorderStroke = useCallback(
+    (from: number, to: number) => {
+      if (from === to) return;
+      batchUpdate((strokes) => {
+        if (from < 0 || from >= strokes.length || to < 0 || to >= strokes.length) return strokes;
+        const next = [...strokes];
+        const [item] = next.splice(from, 1);
+        if (item) next.splice(to, 0, item);
+        return next;
+      });
+    },
+    [batchUpdate],
+  );
+
   if (strokeNodes.length === 0) return null;
 
   const minStrokes = Math.min(...strokeNodes.map((n) => n.strokes.length));
@@ -204,6 +254,9 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
             onToggle={() => toggleRow(i)}
             onChange={(updater) => updateStroke(i, updater)}
             onRemove={() => removeStroke(i)}
+            onReorder={(dir) => reorderStroke(i, i + dir)}
+            canMoveUp={i > 0}
+            canMoveDown={i < minStrokes - 1}
           />
         ))
       )}
@@ -233,10 +286,25 @@ interface StrokeRowProps {
   onToggle: () => void;
   onChange: (updater: (s: Stroke) => Stroke) => void;
   onRemove: () => void;
+  onReorder: (dir: number) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }
 
-function StrokeRow({ index, nodes, expanded, onToggle, onChange, onRemove }: StrokeRowProps) {
+function StrokeRow({
+  index,
+  nodes,
+  expanded,
+  onToggle,
+  onChange,
+  onRemove,
+  onReorder,
+  canMoveUp,
+  canMoveDown,
+}: StrokeRowProps) {
   const label = index === 0 ? 'Stroke' : `Stroke ${index + 1}`;
+  const editor = useEditor();
+  const [showGradient, setShowGradient] = useState(false);
 
   const visibleRaw = commonValue(nodes, (n) => getStroke(n, index)?.visible ?? true);
   const colorRaw = commonValue(
@@ -250,6 +318,13 @@ function StrokeRow({ index, nodes, expanded, onToggle, onChange, onRemove }: Str
   const miterLimitRaw = commonValue(nodes, (n) => getStroke(n, index)?.miterLimit ?? 4);
   const dashPatternRaw = commonValue(nodes, (n) => getStroke(n, index)?.dashPattern ?? []);
   const dashOffsetRaw = commonValue(nodes, (n) => getStroke(n, index)?.dashOffset ?? 0);
+  const gradientRaw = commonValue(nodes, (n) => getStroke(n, index)?.gradient);
+  const perSideRaw = commonValue(nodes, (n) => getStroke(n, index)?.perSideWeights);
+  const arrowStartRaw = commonValue(nodes, (n) => getStroke(n, index)?.arrowStart ?? 'none');
+  const arrowEndRaw = commonValue(nodes, (n) => getStroke(n, index)?.arrowEnd ?? 'none');
+
+  const hasLineOrPath = nodes.some(isLineOrPath);
+  const hasRectLike = nodes.some(isRectLike);
 
   const color = isMixed(colorRaw) ? null : colorRaw;
   const swatchBg = color ? toSwatchBg(color) : 'transparent';
@@ -290,6 +365,8 @@ function StrokeRow({ index, nodes, expanded, onToggle, onChange, onRemove }: Str
           mixed={isMixed(weightRaw)}
           step={1}
           min={0}
+          fieldName={`strokeWeight${index}`}
+          onShiftClick={() => editor.setBindingField(`strokeWeight${index}`)}
           onChange={(v) => onChange((s) => ({ ...s, weight: v }))}
         />
         <SegmentedControl
@@ -298,6 +375,32 @@ function StrokeRow({ index, nodes, expanded, onToggle, onChange, onRemove }: Str
           options={ALIGN_OPTIONS}
           onChange={(v) => onChange((s) => ({ ...s, align: v }))}
         />
+        <button
+          type="button"
+          aria-label={`Move ${label} up`}
+          disabled={!canMoveUp}
+          onClick={() => onReorder(-1)}
+          style={{
+            ...INLINE_BTN,
+            opacity: canMoveUp ? 1 : 0.3,
+            cursor: canMoveUp ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Icon name="ChevronUp" label={undefined} size="0.85em" />
+        </button>
+        <button
+          type="button"
+          aria-label={`Move ${label} down`}
+          disabled={!canMoveDown}
+          onClick={() => onReorder(1)}
+          style={{
+            ...INLINE_BTN,
+            opacity: canMoveDown ? 1 : 0.3,
+            cursor: canMoveDown ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Icon name="ChevronDown" label={undefined} size="0.85em" />
+        </button>
         <button type="button" style={INLINE_BTN} aria-label={`Remove ${label}`} onClick={onRemove}>
           <Icon name="X" label={undefined} size="0.85em" />
         </button>
@@ -323,6 +426,129 @@ function StrokeRow({ index, nodes, expanded, onToggle, onChange, onRemove }: Str
             paddingLeft: 'var(--space-4)',
           }}
         >
+          {/* Stroke type: solid vs gradient */}
+          <FieldRow label="Type">
+            <select
+              aria-label={`${label} paint type`}
+              value={!isMixed(gradientRaw) && gradientRaw ? 'gradient' : 'solid'}
+              style={SELECT_STYLE}
+              onChange={(e) => {
+                if (e.target.value === 'gradient') {
+                  setShowGradient(true);
+                  onChange((s) => ({
+                    ...s,
+                    gradient: s.gradient ?? {
+                      type: 'linear',
+                      stops: [
+                        { position: 0, color: [57, 208, 198, 255] as Color },
+                        { position: 1, color: [37, 99, 235, 255] as Color },
+                      ],
+                    },
+                  }));
+                } else {
+                  setShowGradient(false);
+                  onChange((s) => {
+                    const { gradient: _g, ...rest } = s;
+                    return rest as Stroke;
+                  });
+                }
+              }}
+            >
+              <option value="solid">Solid</option>
+              <option value="gradient">Gradient</option>
+            </select>
+          </FieldRow>
+          {showGradient && !isMixed(gradientRaw) && gradientRaw && (
+            <GradientEditor
+              gradient={gradientRaw as GradientFill}
+              onChange={(g) => onChange((s) => ({ ...s, gradient: g }))}
+            />
+          )}
+          {/* Per-side weights for rects/frames */}
+          {hasRectLike && (
+            <FieldRow label="Per-side">
+              <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+                {(['T', 'R', 'B', 'L'] as const).map((side, i) => (
+                  <input
+                    key={side}
+                    type="number"
+                    aria-label={`${label} ${side} weight`}
+                    value={
+                      !isMixed(perSideRaw) && perSideRaw
+                        ? (perSideRaw as [number, number, number, number])[i]
+                        : isMixed(weightRaw)
+                          ? 0
+                          : weightRaw
+                    }
+                    step={0.5}
+                    min={0}
+                    onChange={(e) => {
+                      const base =
+                        !isMixed(perSideRaw) && perSideRaw
+                          ? [...(perSideRaw as [number, number, number, number])]
+                          : [
+                              isMixed(weightRaw) ? 0 : weightRaw,
+                              isMixed(weightRaw) ? 0 : weightRaw,
+                              isMixed(weightRaw) ? 0 : weightRaw,
+                              isMixed(weightRaw) ? 0 : weightRaw,
+                            ];
+                      base[i] = Number(e.target.value) || 0;
+                      onChange((s) => ({
+                        ...s,
+                        perSideWeights: base as [number, number, number, number],
+                      }));
+                    }}
+                    style={{
+                      width: 36,
+                      fontSize: 'var(--font-size-xs)',
+                      background: 'var(--color-surface-sunken)',
+                      color: 'var(--color-text-primary)',
+                      border: '1px solid var(--color-border-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '0 var(--space-1)',
+                    }}
+                  />
+                ))}
+              </div>
+            </FieldRow>
+          )}
+          {/* Arrowheads for lines/paths */}
+          {hasLineOrPath && (
+            <>
+              <FieldRow label="Start">
+                <select
+                  aria-label={`${label} arrowhead start`}
+                  value={isMixed(arrowStartRaw) ? 'none' : arrowStartRaw}
+                  style={SELECT_STYLE}
+                  onChange={(e) =>
+                    onChange((s) => ({ ...s, arrowStart: e.target.value as ArrowheadStyle }))
+                  }
+                >
+                  {ARROW_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </FieldRow>
+              <FieldRow label="End">
+                <select
+                  aria-label={`${label} arrowhead end`}
+                  value={isMixed(arrowEndRaw) ? 'none' : arrowEndRaw}
+                  style={SELECT_STYLE}
+                  onChange={(e) =>
+                    onChange((s) => ({ ...s, arrowEnd: e.target.value as ArrowheadStyle }))
+                  }
+                >
+                  {ARROW_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </FieldRow>
+            </>
+          )}
           <FieldRow label="Cap">
             <SegmentedControl
               label={`${label} cap`}

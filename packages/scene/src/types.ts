@@ -40,6 +40,7 @@ export type BlendMode =
 export type StrokeAlign = 'inside' | 'center' | 'outside';
 export type StrokeCap = 'butt' | 'round' | 'square';
 export type StrokeJoin = 'miter' | 'round' | 'bevel';
+export type ArrowheadStyle = 'none' | 'arrow' | 'circle' | 'square' | 'diamond';
 
 export interface Stroke {
   color: Color;
@@ -51,6 +52,14 @@ export interface Stroke {
   join: StrokeJoin;
   miterLimit: number;
   visible: boolean;
+  /** Optional gradient for the stroke (takes precedence over `color` when set). */
+  gradient?: GradientFill;
+  /** Per-side weights for rects/frames: [top, right, bottom, left]. When set, overrides `weight`. */
+  perSideWeights?: [number, number, number, number];
+  /** Arrowhead at the start of a line/path. */
+  arrowStart?: ArrowheadStyle;
+  /** Arrowhead at the end of a line/path. */
+  arrowEnd?: ArrowheadStyle;
 }
 
 export function defaultStroke(): Stroke {
@@ -106,12 +115,38 @@ export interface GradientFill {
   rotation?: number;
 }
 
+/** How an image fill is sized relative to the node bounds. */
+export type ImageFit = 'fill' | 'fit' | 'stretch' | 'tile';
+
+export interface ImageFillData {
+  /** Image source: data URL, file path, or asset id. Stub until asset system lands. */
+  src: string;
+  fit: ImageFit;
+  /** Position offset in px (relative to node top-left) when fit !== 'fill'/'stretch'. */
+  x: number;
+  y: number;
+  /** Scale multiplier (1 = natural). Used for 'tile' and 'fit'. */
+  scale: number;
+  /** Opacity multiplier specific to the image (combined with Fill.opacity). */
+}
+
+export interface PatternFillData {
+  /** Reference to a tile node id or a data URL of the tile pattern. */
+  tileSrc: string;
+  /** Tile spacing in px between repetitions. */
+  spacing: number;
+  /** Rotation of the pattern in degrees. */
+  rotation: number;
+}
+
 export type FillType = 'solid' | 'gradient' | 'image' | 'pattern';
 
 export interface Fill {
   type: FillType;
   color?: Color;
   gradient?: GradientFill;
+  image?: ImageFillData;
+  pattern?: PatternFillData;
   opacity: number;
   blendMode: BlendMode;
   visible: boolean;
@@ -158,6 +193,10 @@ export interface NodeBase {
   minHeight?: number;
   preferredHeight?: number;
   maxHeight?: number;
+  /** P3: how this node is sized within its parent's auto-layout. */
+  layoutSizing?: LayoutSizing;
+  /** P3: grid item placement within a grid parent. */
+  gridPlacement?: GridItemPlacement;
 }
 
 export interface ShapeNode extends NodeBase {
@@ -184,16 +223,30 @@ export interface TextNode extends NodeBase {
   fontFamily?: string;
   /** F6: font weight as CSS numeric or keyword. */
   fontWeight?: number;
+  /** F6: font style (normal/italic). */
+  fontStyle?: 'normal' | 'italic';
   /** F6: line-height multiplier. */
   lineHeight?: number;
   /** F6: letter-spacing in px. */
   letterSpacing?: number;
+  /** F6: paragraph spacing in px. */
+  paragraphSpacing?: number;
   /** F6: text alignment. */
   textAlign?: 'left' | 'center' | 'right' | 'justify';
+  /** F6: vertical text alignment. */
+  textAlignVertical?: 'top' | 'middle' | 'bottom';
   /** F6: text transform. */
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   /** F6: text decoration. */
   textDecoration?: 'none' | 'underline' | 'line-through';
+  /** F6: list style for multi-line text. */
+  listStyle?: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
+  /** F6: text truncation/overflow behaviour. */
+  textOverflow?: 'clip' | 'ellipsis' | 'visible';
+  /** F6: resizing mode — auto-width/auto-height/fixed. */
+  textResizing?: 'autoWidth' | 'autoHeight' | 'fixed';
+  /** F6: OpenType feature flags (stub — e.g. { liga: true, kern: true }). */
+  openTypeFeatures?: Record<string, boolean>;
   /** F6: stacked strokes on text. */
   strokes: Stroke[];
   /** F6: stacked effects on text. */
@@ -227,6 +280,23 @@ export interface LayoutStyle {
   gridTemplateColumns?: string;
   /** P3: Grid template rows (e.g., "auto 1fr auto"). */
   gridTemplateRows?: string;
+  /** P3: Grid auto-flow: "row" | "column" | "row-dense" | "column-dense". */
+  gridAutoFlow?: 'row' | 'column' | 'rowDense' | 'columnDense';
+  /** P3: Row gap (separate from `gap` for grid). */
+  rowGap?: number;
+  /** P3: Column gap (separate from `gap` for grid). */
+  columnGap?: number;
+}
+
+/** How a child is sized within its parent's auto-layout. */
+export type LayoutSizing = 'fixed' | 'hug' | 'fill';
+
+/** Grid item placement (column/row start/end or span). */
+export interface GridItemPlacement {
+  gridColumnStart?: number;
+  gridColumnEnd?: number;
+  gridRowStart?: number;
+  gridRowEnd?: number;
 }
 
 export interface FrameNode extends NodeBase {
