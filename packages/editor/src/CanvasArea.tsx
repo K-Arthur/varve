@@ -59,11 +59,16 @@ function toEngineNode(n: DocNode): EngineNode {
     strokes: 'strokes' in n ? (n.strokes ?? []) : [],
     effects: 'effects' in n ? (n.effects ?? []) : [],
   };
-  if (n.kind === 'shape') return { ...base, shape: n.shape };
+  if (n.kind === 'shape') return { ...base, shape: n.shape, cornerRadius: n.cornerRadius };
   if (n.kind === 'text')
     return {
       ...base,
-      shape: { kind: 'rect', x: 0, y: 0, w: n.fontSize * 3, h: n.fontSize * 1.4 } as const,
+      kind: 'text',
+      text: n.text,
+      fontSize: n.fontSize,
+      fontFamily: n.fontFamily,
+      fontWeight: n.fontWeight,
+      fontStyle: n.fontStyle,
     };
   if (n.kind === 'frame')
     return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };

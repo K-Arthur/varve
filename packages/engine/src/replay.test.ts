@@ -32,6 +32,8 @@ function recorder(): Recorder {
     stroke: mk('stroke'),
     closePath: mk('closePath'),
     setLineDash: mk('setLineDash'),
+    roundRect: mk('roundRect'),
+    fillText: mk('fillText'),
 
     get fillStyle() {
       return (props.fillStyle as string) ?? '';
@@ -123,6 +125,20 @@ function recorder(): Recorder {
     set shadowOffsetY(v) {
       props.shadowOffsetY = v;
       calls.push('set shadowOffsetY');
+    },
+    get font() {
+      return (props.font as string) ?? '10px sans-serif';
+    },
+    set font(v) {
+      props.font = v;
+      calls.push('set font');
+    },
+    get textBaseline() {
+      return (props.textBaseline as string) ?? 'alphabetic';
+    },
+    set textBaseline(v) {
+      props.textBaseline = v;
+      calls.push('set textBaseline');
     },
   };
   return { target: target as unknown as ReplayTarget, calls, props };
@@ -246,5 +262,160 @@ describe('replayIr', () => {
     const rec = recorder();
     replayIr(rec.target, []);
     expect(rec.calls).toEqual([]);
+  });
+
+  it('renders polygon via beginPath + polygon path + closePath + fill', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 128, 0, 255],
+      primitive: { kind: 'polygon', cx: 50, cy: 50, radius: 40, sides: 6, rotation: 0 },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [item]);
+    expect(rec.calls).toContain('beginPath(0)');
+    expect(rec.calls).toContain('closePath(0)');
+    expect(rec.calls).toContain('fill(0)');
+    // moveTo for first vertex, lineTo for remaining sides
+    expect(rec.calls).toContain('moveTo(2)');
+    expect(rec.calls).toContain('lineTo(2)');
+  });
+
+  it('renders star via beginPath + star path + closePath + fill', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 200, 0, 255],
+      primitive: {
+        kind: 'star',
+        cx: 50,
+        cy: 50,
+        innerRadius: 20,
+        outerRadius: 40,
+        points: 5,
+        rotation: 0,
+      },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [item]);
+    expect(rec.calls).toContain('beginPath(0)');
+    expect(rec.calls).toContain('closePath(0)');
+    expect(rec.calls).toContain('fill(0)');
+    expect(rec.calls).toContain('moveTo(2)');
+  });
+
+  it('renders arrow as a stroked line with arrowhead', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      primitive: { kind: 'arrow', from: [0, 0], to: [100, 0], tolerance: 1, arrowheadSize: 10 },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [item]);
+    expect(rec.calls).toContain('beginPath(0)');
+    expect(rec.calls).toContain('moveTo(2)');
+    expect(rec.calls).toContain('lineTo(2)');
+    expect(rec.calls).toContain('stroke(0)');
+  });
+
+  it('renders a path primitive via bezierCurveTo + fill', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 0, 255, 255],
+      primitive: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: [10, 0] },
+          { x: 50, y: 50, handleIn: [-10, 0], handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [item]);
+    expect(rec.calls).toContain('beginPath(0)');
+    expect(rec.calls).toContain('bezierCurveTo(6)');
+    expect(rec.calls).toContain('fill(0)');
+  });
+
+  it('renders a text primitive via fillText', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      primitive: {
+        kind: 'text',
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 20,
+        text: 'Hello',
+        fontSize: 14,
+        fontFamily: 'sans-serif',
+        fontWeight: 400,
+        fontStyle: 'normal',
+      },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [item]);
+    expect(rec.calls).toContain('fillText(3)');
+    expect(String(rec.props.font ?? '')).toContain('14px');
+  });
+
+  it('renders an image primitive as a placeholder fillRect', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [200, 200, 200, 255],
+      primitive: { kind: 'image', w: 100, h: 80, src: 'data:image/png;base64,abc' },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [item]);
+    expect(rec.calls).toContain('fillRect(4)');
+  });
+
+  it('renders a rounded rect via roundRect + fill when cornerRadius is set', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 255, 255],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 50, cornerRadius: 8 },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [item]);
+    // With cornerRadius, must use roundRect path + fill rather than fillRect
+    expect(rec.calls).toContain('roundRect(5)');
+    expect(rec.calls).toContain('fill(0)');
+    expect(rec.calls).not.toContain('fillRect(4)');
+  });
+
+  it('renders a rect without cornerRadius via fillRect', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 0, 0, 255],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 30 },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [item]);
+    expect(rec.calls).toContain('fillRect(4)');
+  });
+
+  it('frame does not occlude sibling: replay of two independent items preserves both fills', () => {
+    // Simulates [frame-background, sibling-shape] IR order
+    const frameItem: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [240, 240, 240, 255],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 400, h: 300 },
+    };
+    const siblingItem: RenderItem = {
+      transform: [1, 0, 0, 1, 50, 50],
+      fill: [255, 0, 0, 255],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    const rec = recorder();
+    replayIr(rec.target, [frameItem, siblingItem]);
+    // Both items must produce a fillRect call each
+    const fillRects = rec.calls.filter((c) => c === 'fillRect(4)');
+    expect(fillRects.length).toBe(2);
+    // Save/restore must be balanced
+    const saves = rec.calls.filter((c) => c === 'save(0)');
+    const restores = rec.calls.filter((c) => c === 'restore(0)');
+    expect(saves.length).toBe(restores.length);
   });
 });

@@ -26,11 +26,33 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
   if (node.kind === 'image') {
     return { kind: 'image', w: node.w ?? 100, h: node.h ?? 100, src: node.src ?? '' };
   }
+  if (node.kind === 'text') {
+    const fontSize = node.fontSize ?? 14;
+    return {
+      kind: 'text',
+      x: 0,
+      y: 0,
+      w: fontSize * 6,
+      h: fontSize * 1.4,
+      text: node.text ?? '',
+      fontSize,
+      fontFamily: node.fontFamily ?? 'sans-serif',
+      fontWeight: node.fontWeight ?? 400,
+      fontStyle: node.fontStyle ?? 'normal',
+    };
+  }
   const s = node.shape;
   if (!s) return { kind: 'rect', x: 0, y: 0, w: 100, h: 100 };
   switch (s.kind) {
     case 'rect':
-      return { kind: 'rect', x: s.x, y: s.y, w: s.w, h: s.h };
+      return {
+        kind: 'rect',
+        x: s.x,
+        y: s.y,
+        w: s.w,
+        h: s.h,
+        ...(node.cornerRadius ? { cornerRadius: node.cornerRadius } : {}),
+      };
     case 'ellipse':
       return { kind: 'ellipse', cx: s.cx, cy: s.cy, rx: s.rx, ry: s.ry };
     case 'circle':
