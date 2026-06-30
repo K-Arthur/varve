@@ -63,6 +63,16 @@
   font-size: var(--font-size-xs);
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  animation: strata-tooltip-fade-in var(--duration-fast) ease;
+}
+
+@keyframes strata-tooltip-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .strata-dialog {

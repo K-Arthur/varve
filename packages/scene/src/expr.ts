@@ -43,7 +43,8 @@ export function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   while (i < input.length) {
-    const ch = input[i]!;
+    const ch = input[i];
+    if (!ch) break;
     if (ch === ' ' || ch === '\t' || ch === '\n') {
       i++;
       continue;

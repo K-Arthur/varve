@@ -29,20 +29,7 @@ export function ToolPanel() {
         {TOOLS.map((t) => (
           <Tooltip
             key={t.id}
-            content={
-              <span>
-                {t.label}
-                <span
-                  style={{
-                    marginLeft: 6,
-                    opacity: 0.65,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {t.shortcut}
-                </span>
-              </span>
-            }
+            label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}
           >
             <IconButton
               icon={TOOL_ICONS[t.id]}

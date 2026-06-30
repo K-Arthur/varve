@@ -15,15 +15,16 @@ import {
   zoomAboutPoint,
   MAX_ZOOM,
   MIN_ZOOM,
+  type Camera,
+  type Viewport,
 } from './viewport';
-import type { Camera, Viewport } from './viewport';
-import { transform, translate } from './affine';
+import { translate } from './affine';
 
 const EPS = 1e-9;
 const vp: Viewport = { width: 1920, height: 1080 };
 
 function cam(panX = 0, panY = 0, zoom = 1): Camera {
-  return { pan: [panX, panY], zoom };
+  return { pan: [panX, panY] as [number, number], zoom };
 }
 
 describe('clampZoom', () => {
@@ -74,7 +75,7 @@ describe('worldToScreenAffine', () => {
     ];
     for (const [wx, wy] of pts) {
       const viaFn = worldToScreen(c, wx, wy);
-      const viaM = [m[0] * wx + m[2] * wy + m[4], m[1] * wx + m[3] * wy + m[5]];
+      const viaM: [number, number] = [m[0] * wx + m[2] * wy + m[4], m[1] * wx + m[3] * wy + m[5]];
       expect(Math.abs(viaFn[0] - viaM[0])).toBeLessThan(EPS);
       expect(Math.abs(viaFn[1] - viaM[1])).toBeLessThan(EPS);
     }
@@ -141,8 +142,8 @@ describe('fitBoundsCamera', () => {
     const c = fitBoundsCamera({ x: 0, y: 0, w: 400, h: 300 }, vp, 40);
     const expectedZoom = Math.min((1920 - 80) / 400, (1080 - 80) / 300);
     expect(c.zoom).toBeCloseTo(expectedZoom, 4);
-    const worldCentre = [200, 150];
-    const screenCentre = [960, 540];
+    const worldCentre: [number, number] = [200, 150];
+    const screenCentre: [number, number] = [960, 540];
     expect(c.pan[0]).toBeCloseTo(screenCentre[0] - worldCentre[0] * expectedZoom, 2);
     expect(c.pan[1]).toBeCloseTo(screenCentre[1] - worldCentre[1] * expectedZoom, 2);
   });

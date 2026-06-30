@@ -4,6 +4,7 @@
 import { createComponent } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import {
+  type Document,
   createDocument,
   detachInstance,
   instanceOverrides,
@@ -16,7 +17,6 @@ import {
 describe('component instance operations', () => {
   function setupComponent() {
     let doc = createDocument('Test');
-    // Master frame
     const masterResult = nextNodeId(doc);
     doc = masterResult.doc;
     const masterId = masterResult.id;
@@ -26,11 +26,9 @@ describe('component instance operations', () => {
       nodes: { ...doc.nodes, [masterId]: master },
       rootChildren: [masterId],
     };
-    // Register component
     const result = createComponent(doc, 'Button', masterId, []);
     doc = result.doc;
     const componentId = result.component.id;
-    // Create instance
     const instanceResult = nextNodeId(doc);
     doc = instanceResult.doc;
     const instanceId = instanceResult.id;
@@ -41,6 +39,22 @@ describe('component instance operations', () => {
       rootChildren: [...doc.rootChildren, instanceId],
     };
     return { doc, masterId, instanceId, componentId };
+  }
+
+  function withModifiedInstance(
+    doc: Document,
+    instanceId: string,
+    patch: Record<string, unknown>,
+  ): Document {
+    const node = doc.nodes[instanceId];
+    if (!node) return doc;
+    return {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [instanceId]: { ...node, ...patch } as typeof node,
+      },
+    };
   }
 
   describe('detachInstance', () => {
@@ -66,26 +80,14 @@ describe('component instance operations', () => {
 
     it('detects opacity override', () => {
       const { doc, instanceId } = setupComponent();
-      const modified = {
-        ...doc,
-        nodes: {
-          ...doc.nodes,
-          [instanceId]: { ...doc.nodes[instanceId]!, opacity: 0.5 },
-        },
-      };
+      const modified = withModifiedInstance(doc, instanceId, { opacity: 0.5 });
       const overrides = instanceOverrides(modified, instanceId);
       expect(overrides).toContain('opacity');
     });
 
     it('detects blendMode override', () => {
       const { doc, instanceId } = setupComponent();
-      const modified = {
-        ...doc,
-        nodes: {
-          ...doc.nodes,
-          [instanceId]: { ...doc.nodes[instanceId]!, blendMode: 'multiply' as const },
-        },
-      };
+      const modified = withModifiedInstance(doc, instanceId, { blendMode: 'multiply' });
       const overrides = instanceOverrides(modified, instanceId);
       expect(overrides).toContain('blendMode');
     });
@@ -95,13 +97,7 @@ describe('component instance operations', () => {
     it('restores opacity from master', () => {
       const { doc, instanceId } = setupComponent();
       const masterOpacity = doc.nodes[instanceId]?.opacity;
-      const modified = {
-        ...doc,
-        nodes: {
-          ...doc.nodes,
-          [instanceId]: { ...doc.nodes[instanceId]!, opacity: 0.3 },
-        },
-      };
+      const modified = withModifiedInstance(doc, instanceId, { opacity: 0.3 });
       const reset = resetInstanceOverrides(modified, instanceId);
       expect(reset.nodes[instanceId]?.opacity).toBe(masterOpacity);
     });
