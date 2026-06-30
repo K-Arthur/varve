@@ -18,7 +18,7 @@ export interface ProjectsViewProps {
   onSelectAll: () => void;
   onFileRename?: (id: string, newName: string) => void;
   renamingId?: string | null;
-  onStartRename?: (id: string) => void;
+  onStartRename?: (id: string | null) => void;
   missingFiles?: Set<string>;
 }
 
