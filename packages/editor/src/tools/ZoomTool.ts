@@ -51,8 +51,9 @@ export class ZoomTool extends BaseTool {
       const rect = this.computeDragRect(ctx);
       const cx = rect.x + rect.w / 2;
       const cy = rect.y + rect.h / 2;
-      const canvasW = window.innerWidth;
-      const canvasH = window.innerHeight;
+      const canvasRect = ctx.canvasElement?.getBoundingClientRect();
+      const canvasW = canvasRect?.width ?? window.innerWidth;
+      const canvasH = canvasRect?.height ?? window.innerHeight;
       if (rect.w > 0 && rect.h > 0 && canvasW > 0 && canvasH > 0) {
         const zoomX = canvasW / rect.w;
         const zoomY = canvasH / rect.h;
