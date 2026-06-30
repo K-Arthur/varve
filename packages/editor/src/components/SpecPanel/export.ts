@@ -23,9 +23,9 @@ function toEngineNode(n: SceneNode) {
     name: n.name,
     fill: n.fill,
     transform: n.transform,
-    opacity: (n as any).opacity ?? 1,
-    blendMode: (n as any).blendMode ?? ('normal' as const),
-    rotation: (n as any).rotation ?? 0,
+    opacity: n.opacity ?? 1,
+    blendMode: n.blendMode ?? ('normal' as const),
+    rotation: n.rotation ?? 0,
     strokes: 'strokes' in n ? (n.strokes ?? []) : [],
     effects: 'effects' in n ? (n.effects ?? []) : [],
   };

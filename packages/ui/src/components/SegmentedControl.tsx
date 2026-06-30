@@ -72,21 +72,20 @@ export function SegmentedControl<T extends string>({
       {options.map((opt, i) => {
         const checked = opt.value === value;
         return (
-          <button
-            key={opt.value}
-            id={`${groupId}-${i}`}
-            type="button"
-            role="radio"
-            aria-checked={checked}
-            tabIndex={i === focusIndex ? 0 : -1}
-            disabled={disabled}
-            className="strata-segmented__btn"
-            onClick={() => onChange(opt.value)}
-            onKeyDown={(e) => onKeyDown(e, i)}
-          >
+          <label key={opt.value} className="strata-segmented__btn">
+            <input
+              id={`${groupId}-${i}`}
+              type="radio"
+              checked={checked}
+              tabIndex={i === focusIndex ? 0 : -1}
+              disabled={disabled}
+              onChange={() => onChange(opt.value)}
+              onKeyDown={(e) => onKeyDown(e, i)}
+              className="strata-visually-hidden"
+            />
             {opt.icon && <Icon name={opt.icon} label={undefined} size="0.95em" />}
             <span>{opt.label}</span>
-          </button>
+          </label>
         );
       })}
     </div>

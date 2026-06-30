@@ -246,11 +246,11 @@ All deferred phases D1-D8 of the Spec Panel implemented (except D5 token-aware c
 
 | Phase | What was done |
 |---|---|
-| **D1** E2E + axe-core | Fixed `inspect` tool registration in `CanvasArea` so the Spec Panel appears; switched E2E to toolbar button activation; granted clipboard permissions; fixed swatch `role="img"` and code-block dark-background contrast so axe-core scans pass. 6/6 E2E tests pass. |
+| **D1** E2E + axe-core | Fixed `inspect` tool registration in `CanvasArea` so the Spec Panel appears; switched E2E to toolbar button activation; granted clipboard permissions; fixed swatch `role="img"` and code-block dark-background contrast so axe-core scans pass. Wired `MeasureOverlay` into `CanvasArea`. 6/6 E2E tests pass. |
 | **D5** Token-aware codegen | Verified token binding already wired for CSS, Tailwind, Flutter, SwiftUI; added explicit tests for CSS Modules, Flutter, SwiftUI token paths. |
 | **D8** Flutter/SwiftUI auto-layout | Verified existing Row/Column/HStack/VStack/Stack/ZStack recursion; wired `MeasureOverlay` into `CanvasArea` for inspect-mode dimension overlays. |
 | **D6** Cross-platform verification | Verified on Linux/Wayland: Chromium E2E passes, Rust workspace + src-tauri tests pass, token/emoji audits pass. macOS Safari + Firefox cannot be tested in this environment; documented. |
-| **Fixes** | Removed duplicate `ToolId` type alias in `context.tsx`; fixed `packages/scene/src/fills.ts` type narrowing; `playwright.config.ts` now grants `clipboard-read`/`clipboard-write`. |
+| **Fixes** | Removed duplicate `ToolId` type alias in `context.tsx`; fixed `packages/scene/src/fills.ts` type narrowing; `playwright.config.ts` now grants `clipboard-read`/`clipboard-write`; fixed `HomeShell` temporal-dead-zone crash and type issues; added `test-results/`/`playwright-report/` to `.gitignore`. |
 
 **Verification:**
 - JS tests: 346 tests pass (packages/* Vitest)
@@ -258,8 +258,9 @@ All deferred phases D1-D8 of the Spec Panel implemented (except D5 token-aware c
 - Spec E2E: 6/6 pass (`tests/e2e/spec`)
 - `pnpm audit:tokens`: 51/51 pass
 - `pnpm audit:emoji`: clean
-- `pnpm lint`: 0 errors on new/modified Spec Panel / codegen files
-- `pnpm typecheck`: clean for `editor`, `codegen`, `scene`; pre-existing errors remain in `packages/home` (unrelated to this session)
+- `pnpm format` + format-check: clean
+- `pnpm typecheck`: clean across all packages
+- `pnpm lint`: 0 errors on all files touched in this session; 66 pre-existing errors remain in other files (e.g., `SnapGuidesOverlay`, gradient editor) that were not part of the Spec Panel deferred work
 
 ## Key files to read before starting
 

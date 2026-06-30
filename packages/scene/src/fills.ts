@@ -9,7 +9,16 @@
  * Research basis: Figma/Sketch fill stacks (paint order bottom→top).
  */
 import type { Color } from '@strata/engine';
-import type { BlendMode, Fill, GradientFill, GradientStop, GradientType } from './types';
+import type {
+  BlendMode,
+  Fill,
+  GradientFill,
+  GradientStop,
+  GradientType,
+  ImageFillData,
+  ImageFit,
+  PatternFillData,
+} from './types';
 
 /** Create a solid fill from a Color. */
 export function solidFill(
@@ -39,6 +48,60 @@ export function gradientFill(
   return {
     type: 'gradient',
     gradient,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    visible: opts.visible ?? true,
+  };
+}
+
+/** Create an image fill. */
+export function imageFill(
+  src: string,
+  opts: {
+    fit?: ImageFit;
+    x?: number;
+    y?: number;
+    scale?: number;
+    opacity?: number;
+    blendMode?: BlendMode;
+    visible?: boolean;
+  } = {},
+): Fill {
+  const image: ImageFillData = {
+    src,
+    fit: opts.fit ?? 'fill',
+    x: opts.x ?? 0,
+    y: opts.y ?? 0,
+    scale: opts.scale ?? 1,
+  };
+  return {
+    type: 'image',
+    image,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    visible: opts.visible ?? true,
+  };
+}
+
+/** Create a pattern (tiled) fill. */
+export function patternFill(
+  tileSrc: string,
+  opts: {
+    spacing?: number;
+    rotation?: number;
+    opacity?: number;
+    blendMode?: BlendMode;
+    visible?: boolean;
+  } = {},
+): Fill {
+  const pattern: PatternFillData = {
+    tileSrc,
+    spacing: opts.spacing ?? 0,
+    rotation: opts.rotation ?? 0,
+  };
+  return {
+    type: 'pattern',
+    pattern,
     opacity: opts.opacity ?? 1,
     blendMode: opts.blendMode ?? 'normal',
     visible: opts.visible ?? true,

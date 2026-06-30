@@ -12,6 +12,8 @@
  * F4: Auto-naming is type-aware: "Rectangle 1", "Ellipse 2", "Frame 1", etc.
  *     Frame tool now correctly creates a FrameNode (container), not a ShapeNode.
  */
+
+import { getTransactionHooks } from '@strata/collab';
 import type { Affine, Color, Shape } from '@strata/engine';
 import { applyAffine, invertAffine, rectContains, shapeContains } from '@strata/engine';
 import type { NodeId, Slot } from '@strata/scene';
@@ -35,9 +37,11 @@ import {
   removeNode,
   renameNode,
   reparentNode as reparentNodeDoc,
+  resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
   resolveNodeFills,
   type SceneNode,
+  swapInstance as swapInstanceDoc,
   ungroupNode as ungroupNodeDoc,
   type Variable,
   type VariableStore,
@@ -212,6 +216,16 @@ export interface EditorContextValue {
   setSelectedMinHeight: (value: number) => void;
   /** P3: batch-set max height on all selected nodes. */
   setSelectedMaxHeight: (value: number) => void;
+  /** P3: batch-set layout sizing mode on all selected nodes. */
+  setSelectedLayoutSizing: (value: import('@strata/scene').LayoutSizing) => void;
+  /** P3: batch-set grid item placement on all selected nodes. */
+  setSelectedGridPlacement: (value: import('@strata/scene').GridItemPlacement) => void;
+  /** P3: set the document canvas width. */
+  setCanvasWidth: (value: number) => void;
+  /** P3: set the document canvas height. */
+  setCanvasHeight: (value: number) => void;
+  /** P3: set the document canvas background color. */
+  setCanvasBackground: (value: import('@strata/engine').Color) => void;
   /** F6: batch-set a variable binding on all selected nodes. */
   setSelectedBinding: (
     target: string,
@@ -239,6 +253,10 @@ export interface EditorContextValue {
   createComponentInstance: (componentId: NodeId) => void;
   /** Fill a slot on a component instance. */
   fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
+  /** Swap a component instance to a different component definition. */
+  swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
+  /** Reset overrides on a component instance to master defaults. */
+  resetInstanceOverrides: (instanceId: NodeId) => void;
   /** Toggle the locked state of a node. */
   setNodeLocked: (id: NodeId, locked: boolean) => void;
   /** Toggle the visible state of a node. */
@@ -571,10 +589,12 @@ export function EditorProvider({
   );
 
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
+  // P5: Wired to @strata/collab transaction hooks for Yjs integration
   const beginTransaction = useCallback(() => {
     inTransactionRef.current = true;
     txSnapshotRef.current = state.document;
     txSelRef.current = state.selection;
+    getTransactionHooks().onBeginTransaction();
   }, [state.document, state.selection]);
 
   const commitTransaction = useCallback(() => {
@@ -589,6 +609,7 @@ export function EditorProvider({
       }
       txSnapshotRef.current = null;
       txSelRef.current = null;
+      getTransactionHooks().onCommitTransaction();
     }
   }, []);
 
@@ -600,6 +621,7 @@ export function EditorProvider({
       }
       txSnapshotRef.current = null;
       txSelRef.current = null;
+      getTransactionHooks().onAbortTransaction();
     }
   }, [patch]);
 
@@ -767,7 +789,7 @@ export function EditorProvider({
         for (const [key, val] of map) {
           result.set(key, val);
         }
-        return result as any;
+        return result;
       },
 
       setDraft: (_draft) => {
@@ -1215,8 +1237,9 @@ export function EditorProvider({
           );
         });
 
-        const first = sorted[0]!;
-        const last = sorted[sorted.length - 1]!;
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        if (!first || !last) return;
         const start = axis === 'horizontal' ? first.bounds.x : first.bounds.y;
         const end =
           axis === 'horizontal' ? last.bounds.x + last.bounds.w : last.bounds.y + last.bounds.h;
@@ -1356,6 +1379,14 @@ export function EditorProvider({
         updateDoc((doc) => fillSlotDoc(doc, instanceId, slotId, fillNodeId));
       },
 
+      swapComponentInstance: (instanceId, newComponentId) => {
+        updateDoc((doc) => swapInstanceDoc(doc, instanceId, newComponentId));
+      },
+
+      resetInstanceOverrides: (instanceId) => {
+        updateDoc((doc) => resetInstanceOverridesDoc(doc, instanceId));
+      },
+
       setNodeLocked: (id, locked) => {
         updateNodeProp(id, (n) => ({ ...n, locked }));
       },
@@ -1384,15 +1415,15 @@ export function EditorProvider({
 
       ungroupSelected: () => {
         const sel = state.selection;
-        if (sel.length === 0) return;
-        const id = sel[0]!;
+        const id = sel[0];
+        if (!id) return;
         updateDoc((doc) => ungroupNodeDoc(doc, id));
       },
 
       detachSelected: () => {
         const sel = state.selection;
-        if (sel.length === 0) return;
-        const id = sel[0]!;
+        const id = sel[0];
+        if (!id) return;
         updateDoc((doc) => detachInstanceDoc(doc, id));
       },
 
@@ -1528,6 +1559,46 @@ export function EditorProvider({
           }
           return { ...doc, nodes };
         });
+      },
+
+      setSelectedLayoutSizing: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, layoutSizing: value } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setSelectedGridPlacement: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, gridPlacement: value } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setCanvasWidth: (value) => {
+        updateDoc((doc) => ({ ...doc, canvasWidth: value }));
+      },
+
+      setCanvasHeight: (value) => {
+        updateDoc((doc) => ({ ...doc, canvasHeight: value }));
+      },
+
+      setCanvasBackground: (value) => {
+        updateDoc((doc) => ({ ...doc, canvasBackground: value }));
       },
 
       // F2/A8 — session (tab) management -----------------------------------

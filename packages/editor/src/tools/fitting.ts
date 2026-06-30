@@ -38,7 +38,11 @@ export function simplifyPoints(points: Point2D[], epsilon: number): Point2D[] {
   let idx = 0;
 
   for (let i = 1; i < points.length - 1; i++) {
-    const d = perpendicularDist(points[i]!, points[0]!, points[points.length - 1]!);
+    const pi = points[i];
+    const p0 = points[0];
+    const pN = points[points.length - 1];
+    if (!pi || !p0 || !pN) continue;
+    const d = perpendicularDist(pi, p0, pN);
     if (d > dmax) {
       idx = i;
       dmax = d;
@@ -51,7 +55,10 @@ export function simplifyPoints(points: Point2D[], epsilon: number): Point2D[] {
     return [...left.slice(0, -1), ...right];
   }
 
-  return [points[0]!, points[points.length - 1]!];
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (!first || !last) return [...points];
+  return [first, last];
 }
 
 function perpendicularDist(pt: Point2D, a: Point2D, b: Point2D): number {

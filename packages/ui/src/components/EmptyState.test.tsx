@@ -16,7 +16,13 @@ describe('EmptyState', () => {
   });
 
   it('renders actions slot', () => {
-    render(<EmptyState illustration={<svg />} headline="Empty" actions={<button>CTA</button>} />);
+    render(
+      <EmptyState
+        illustration={<svg />}
+        headline="Empty"
+        actions={<button type="button">CTA</button>}
+      />,
+    );
     expect(screen.getByText('CTA')).toBeDefined();
   });
 });

@@ -1,14 +1,51 @@
 /**
- * Component section — component instance controls for a FrameNode.
+ * ComponentSection — component instance controls for a FrameNode.
  *
  * Shows when a FrameNode is a component instance (has componentId).
- * Displays component name, swap/detach/override controls, and slot fills.
+ * Displays component name, swap/reset/detach controls, slot fills (with
+ * fill-from-existing-node), and an override indicator listing properties that
+ * differ from the master.
  *
- * Research basis: Figma component instance panel with slot fills.
+ * Research basis: Figma component instance panel with slot fills and overrides.
  */
-import type { FrameNode } from '@strata/scene';
+import type { ComponentDefinition, Document, FrameNode, SceneNode } from '@strata/scene';
+import { instanceOverrides } from '@strata/scene';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
+
+const SELECT_STYLE: React.CSSProperties = {
+  flex: 1,
+  height: 'var(--space-5)',
+  fontSize: 'var(--font-size-xs)',
+  background: 'var(--color-surface-sunken)',
+  color: 'var(--color-text-primary)',
+  border: '1px solid var(--color-border-subtle)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '0 var(--space-2)',
+};
+
+const BTN_STYLE: React.CSSProperties = {
+  flex: 1,
+  padding: 'var(--space-1) var(--space-2)',
+  fontSize: 'var(--font-size-xs)',
+  background: 'var(--color-surface-sunken)',
+  border: '1px solid var(--color-border-subtle)',
+  borderRadius: 'var(--radius-sm)',
+  cursor: 'pointer',
+  color: 'var(--color-text-primary)',
+};
+
+const SLOT_ROW: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 'var(--space-1)',
+  padding: 'var(--space-1)',
+  background: 'var(--color-surface-sunken)',
+  border: '1px solid var(--color-border-subtle)',
+  borderRadius: 'var(--radius-sm)',
+  marginBottom: 'var(--space-1)',
+};
 
 export function ComponentSection({ node }: { node: FrameNode }) {
   const editor = useEditor();
@@ -20,6 +57,17 @@ export function ComponentSection({ node }: { node: FrameNode }) {
 
   const component = editor.state.document.components[componentId];
   const componentName = component?.name ?? 'Unknown Component';
+  const doc = editor.state.document as Document;
+
+  // All available components for swap
+  const allComponents = Object.values(doc.components) as ComponentDefinition[];
+  // All root-level nodes available as slot fill candidates
+  const fillCandidates = (Object.values(doc.nodes) as SceneNode[]).filter(
+    (n) => n.id !== node.id && n.kind !== 'frame',
+  );
+
+  // Detect overridden properties
+  const overrides = instanceOverrides(doc, node.id);
 
   return (
     <DisclosureSection title="Component">
@@ -27,7 +75,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
         <span
           style={{
             fontSize: 'var(--font-size-xs)',
-            fontWeight: 500,
+            fontWeight: 'var(--font-weight-medium)',
             color: 'var(--color-text-primary)',
           }}
         >
@@ -35,65 +83,82 @@ export function ComponentSection({ node }: { node: FrameNode }) {
         </span>
       </div>
 
+      {/* Swap control */}
+      <div className="insp-field" style={{ marginBottom: 'var(--space-2)' }}>
+        <span className="insp-field__label">Swap</span>
+        <div className="insp-field__control">
+          <select
+            aria-label="Swap component instance"
+            value={componentId}
+            style={SELECT_STYLE}
+            onChange={(e) => editor.swapComponentInstance(node.id, e.target.value)}
+          >
+            {allComponents.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
         <button
           type="button"
-          onClick={() => {
-            // TODO: Implement component swap
-            console.log('Swap component');
-          }}
+          onClick={() => editor.resetInstanceOverrides(node.id)}
+          disabled={overrides.length === 0}
           style={{
-            flex: 1,
-            padding: 'var(--space-1) var(--space-2)',
-            fontSize: 'var(--font-size-xs)',
-            background: 'var(--color-surface-sunken)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            color: 'var(--color-text-primary)',
+            ...BTN_STYLE,
+            opacity: overrides.length === 0 ? 0.5 : 1,
+            cursor: overrides.length === 0 ? 'not-allowed' : 'pointer',
           }}
-        >
-          Swap
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            // TODO: Implement reset overrides
-            console.log('Reset overrides');
-          }}
-          style={{
-            flex: 1,
-            padding: 'var(--space-1) var(--space-2)',
-            fontSize: 'var(--font-size-xs)',
-            background: 'var(--color-surface-sunken)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            color: 'var(--color-text-primary)',
-          }}
+          aria-label="Reset overrides to master defaults"
         >
           Reset
         </button>
         <button
           type="button"
-          onClick={() => {
-            editor.detachSelected();
-          }}
-          style={{
-            flex: 1,
-            padding: 'var(--space-1) var(--space-2)',
-            fontSize: 'var(--font-size-xs)',
-            background: 'var(--color-surface-sunken)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            color: 'var(--color-text-primary)',
-          }}
+          onClick={() => editor.detachSelected()}
+          style={BTN_STYLE}
+          aria-label="Detach instance to plain frame"
         >
           Detach
         </button>
       </div>
 
+      {/* Override indicators */}
+      {overrides.length > 0 && (
+        <div style={{ marginBottom: 'var(--space-2)' }}>
+          <div
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              color: 'var(--color-text-muted)',
+              marginBottom: 'var(--space-1)',
+            }}
+          >
+            Overridden properties
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {overrides.map((prop) => (
+              <span
+                key={prop}
+                style={{
+                  fontSize: 'var(--font-size-xs)',
+                  padding: '2px 6px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-accent-subtle, rgba(57, 208, 198, 0.15))',
+                  color: 'var(--color-accent-default, #39d0c6)',
+                  border: '1px solid var(--color-accent-subtle, rgba(57, 208, 198, 0.3))',
+                }}
+              >
+                {prop}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Slot fills */}
       {component?.slots && component.slots.length > 0 && (
         <div style={{ marginTop: 'var(--space-2)' }}>
           <div
@@ -107,31 +172,31 @@ export function ComponentSection({ node }: { node: FrameNode }) {
           </div>
           {component.slots.map((slot) => {
             const fillNodeId = node.slots?.[slot.id];
-            const fillNode = fillNodeId ? editor.state.document.nodes[fillNodeId] : null;
-            const fillName = fillNode?.name ?? 'Empty';
 
             return (
-              <div
-                key={slot.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 'var(--space-1)',
-                  background: 'var(--color-surface-sunken)',
-                  border: '1px solid var(--color-border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  marginBottom: 'var(--space-1)',
-                }}
-              >
+              <div key={slot.id} style={SLOT_ROW}>
                 <span
                   style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}
                 >
                   {slot.name}
                 </span>
-                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                  {fillName}
-                </span>
+                <select
+                  aria-label={`Fill slot ${slot.name}`}
+                  value={fillNodeId ?? ''}
+                  style={SELECT_STYLE}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      editor.fillSlot(node.id, slot.id, e.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Empty</option>
+                  {fillCandidates.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             );
           })}

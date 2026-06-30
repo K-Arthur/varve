@@ -13,6 +13,8 @@
 import type { SceneNode, VariableStore } from '@strata/scene';
 import { useState } from 'react';
 import { useEditor } from '../../context';
+import { AssetExportControls } from '../SpecPanel/AssetExportControls';
+import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { NumberField } from './controls/NumberField';
@@ -77,35 +79,48 @@ export function PropertiesPanel() {
       )}
 
       {tab === 'export' && (
-        <p
-          style={{
-            padding: 'var(--space-2)',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          Export options arriving in a future update.
-        </p>
+        <div className="insp-panel">
+          {selNodes.length > 0 ? (
+            <>
+              <AssetExportControls
+                node={selNodes[0] as SceneNode}
+                doc={state.document}
+              />
+              <CodeGenView
+                node={selNodes[0] as SceneNode}
+                doc={state.document}
+                variableStore={state.variableStore as VariableStore}
+              />
+            </>
+          ) : (
+            <p
+              style={{
+                padding: 'var(--space-2)',
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              Select a node to export it as SVG, PNG, PDF, or generate code.
+            </p>
+          )}
+        </div>
       )}
       {tab === 'spec' && (
-        <p
-          style={{
-            padding: 'var(--space-2)',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          Spec inspector arriving in a future update.
-        </p>
+        <SpecPanel
+          nodes={selNodes}
+          doc={state.document}
+          variableStore={state.variableStore as VariableStore}
+        />
       )}
     </section>
   );
 }
 
 function EmptyState() {
-  const { state } = useEditor();
+  const { state, setCanvasWidth, setCanvasHeight, setCanvasBackground } = useEditor();
   const doc = state.document;
   const count = Object.keys(doc.nodes).length;
+  const canvasBg = doc.canvasBackground ?? ([255, 255, 255, 255] as unknown);
 
   return (
     <div className="insp-panel">
@@ -123,9 +138,30 @@ function EmptyState() {
           {count} {count === 1 ? 'node' : 'nodes'}
         </p>
       </div>
-      <DisclosureSection title="Canvas" defaultExpanded={false}>
-        <NumberField label="Width" value={800} min={1} onChange={() => {}} />
-        <NumberField label="Height" value={600} min={1} onChange={() => {}} />
+      <DisclosureSection title="Canvas" defaultExpanded={true}>
+        <NumberField
+          label="Width"
+          unit="px"
+          value={doc.canvasWidth ?? 800}
+          min={1}
+          onChange={setCanvasWidth}
+        />
+        <NumberField
+          label="Height"
+          unit="px"
+          value={doc.canvasHeight ?? 600}
+          min={1}
+          onChange={setCanvasHeight}
+        />
+        <div className="insp-field">
+          <span className="insp-field__label">Background</span>
+          <div className="insp-field__control">
+            <ColorPicker
+              value={canvasBg as import('@strata/engine').Color}
+              onChange={setCanvasBackground}
+            />
+          </div>
+        </div>
       </DisclosureSection>
     </div>
   );

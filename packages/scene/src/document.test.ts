@@ -116,7 +116,8 @@ describe('Document (nested child ops)', () => {
     doc = addNode(doc, a.node);
     const entries = walkNodes(doc);
     expect(entries.size).toBe(1);
-    const entry = entries.get(a.id)!;
+    const entry = entries.get(a.id);
+    if (!entry) throw new Error('entry not found');
     expect(entry.parentId).toBeNull();
     expect(entry.depth).toBe(0);
   });
@@ -132,7 +133,8 @@ describe('Document (nested child ops)', () => {
     doc = addChild(doc, frameId, childNode);
     const entries = walkNodes(doc);
     expect(entries.size).toBe(2);
-    const childEntry = entries.get(childId)!;
+    const childEntry = entries.get(childId);
+    if (!childEntry) throw new Error('childEntry not found');
     expect(childEntry.parentId).toBe(frameId);
     expect(childEntry.depth).toBe(1);
   });

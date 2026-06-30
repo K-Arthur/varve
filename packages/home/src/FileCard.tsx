@@ -125,7 +125,7 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
   const handleKey = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      onClick?.(e as any);
+      onClick?.(e as unknown as React.MouseEvent);
     }
     if (e.key === 'F2') {
       e.preventDefault();
@@ -134,59 +134,62 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
   };
 
   return (
-    <button
-      ref={mergedRef}
-      type="button"
-      aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
-      aria-selected={selected}
-      draggable
-      className={`file-card ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
-      style={mergedStyle}
-      onClick={onClick}
-      onContextMenu={(e) => onContext(e, entry)}
-      onKeyDown={handleKey}
-      onDragStart={(e) => onFileDragStart?.(e, entry)}
-      {...attributes}
-      role="gridcell"
-      {...listeners}
-      {...rest}
-    >
-      <div className="file-card__thumb" ref={thumbRef}>
-        {thumbnailLoading && !thumbnail && <div className="file-card__skeleton" />}
-      </div>
-      <div className="file-card__body">
-        {isRenaming ? (
-          <input
-            ref={renameInputRef}
-            type="text"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={handleRenameKeyDown}
-            onBlur={handleRenameBlur}
-            className="file-card__rename-input"
-            style={{
-              width: '100%',
-              background: 'var(--color-surface-raised)',
-              border: '1px solid var(--color-interactive-default)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '2px 4px',
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 'var(--font-weight-medium)',
-              color: 'var(--color-text-primary)',
-              outline: 'none',
-            }}
-          />
-        ) : (
-          <span className="file-card__name" title={entry.name}>
-            {entry.name}
-          </span>
-        )}
-        <div className="file-card__meta">
-          <span className="file-card__badge">{entry.kind}</span>
-          <span>{formatRelativeTime(entry.updatedAt)}</span>
-          {entry.size > 0 && <span>{formatBytes(entry.size)}</span>}
+    <>
+      {/* biome-ignore lint/a11y/useSemanticElements: ARIA gridcell role required for virtualized grid */}
+      <button
+        ref={mergedRef}
+        type="button"
+        aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
+        aria-selected={selected}
+        draggable
+        className={`file-card ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
+        style={mergedStyle}
+        onClick={onClick}
+        onContextMenu={(e) => onContext(e, entry)}
+        onKeyDown={handleKey}
+        onDragStart={(e) => onFileDragStart?.(e, entry)}
+        {...attributes}
+        role="gridcell"
+        {...listeners}
+        {...rest}
+      >
+        <div className="file-card__thumb" ref={thumbRef}>
+          {thumbnailLoading && !thumbnail && <div className="file-card__skeleton" />}
         </div>
-      </div>
-    </button>
+        <div className="file-card__body">
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={handleRenameKeyDown}
+              onBlur={handleRenameBlur}
+              className="file-card__rename-input"
+              style={{
+                width: '100%',
+                background: 'var(--color-surface-raised)',
+                border: '1px solid var(--color-interactive-default)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '2px 4px',
+                fontSize: 'var(--font-size-sm)',
+                fontWeight: 'var(--font-weight-medium)',
+                color: 'var(--color-text-primary)',
+                outline: 'none',
+              }}
+            />
+          ) : (
+            <span className="file-card__name" title={entry.name}>
+              {entry.name}
+            </span>
+          )}
+          <div className="file-card__meta">
+            <span className="file-card__badge">{entry.kind}</span>
+            <span>{formatRelativeTime(entry.updatedAt)}</span>
+            {entry.size > 0 && <span>{formatBytes(entry.size)}</span>}
+          </div>
+        </div>
+      </button>
+    </>
   );
 });

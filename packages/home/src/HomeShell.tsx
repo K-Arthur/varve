@@ -462,8 +462,9 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
 
   return (
     <DndContext sensors={sensors} collisionDetection={undefined} onDragEnd={handleDragEnd}>
-      <div
+      <section
         className={`strata-home ${view.state.sidebarCollapsed ? 'strata-home--collapsed' : ''} ${isDragOver ? 'strata-home--drag-over' : ''}`}
+        aria-label="File drop zone"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -571,7 +572,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             isMissing={missingFiles.has(contextFile.id)}
           />
         )}
-      </div>
+      </section>
     </DndContext>
   );
 }

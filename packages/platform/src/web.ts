@@ -87,7 +87,7 @@ const STRATA_ACCEPT = [
   { description: 'Strata document', accept: { 'application/json': ['.strata'] } },
 ];
 
-export type WebPlatformOptions = {};
+export type WebPlatformOptions = Record<string, never>;
 
 export async function createWebPlatform(_options: WebPlatformOptions = {}): Promise<Platform> {
   const db = await openHomeDb();

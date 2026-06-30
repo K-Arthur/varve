@@ -271,21 +271,33 @@ export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-              <label style={{ width: '4rem', fontSize: 'var(--font-size-sm)' }}>Width</label>
+              <label
+                htmlFor="custom-width"
+                style={{ width: '4rem', fontSize: 'var(--font-size-sm)' }}
+              >
+                Width
+              </label>
               <NumberInput
                 value={customW}
                 onChange={setCustomW}
                 min={1}
                 max={10000}
                 label="Width"
+                id="custom-width"
               />
-              <label style={{ width: '4rem', fontSize: 'var(--font-size-sm)' }}>Height</label>
+              <label
+                htmlFor="custom-height"
+                style={{ width: '4rem', fontSize: 'var(--font-size-sm)' }}
+              >
+                Height
+              </label>
               <NumberInput
                 value={customH}
                 onChange={setCustomH}
                 min={1}
                 max={10000}
                 label="Height"
+                id="custom-height"
               />
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>

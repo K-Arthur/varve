@@ -76,7 +76,7 @@ export function AssetExportControls({
           return;
         }
         const { bytes, filename } = await exportNodeAsPdf(node, doc, effectiveScale);
-        const saved = await platform!.saveBlob(filename, bytes, 'application/pdf');
+        const saved = await platform?.saveBlob(filename, bytes, 'application/pdf');
         setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
       } else if (format === 'svg') {
         const blob = await exportNodeAsRaster(node, doc, eng, {

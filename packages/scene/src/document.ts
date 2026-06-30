@@ -34,6 +34,12 @@ export interface Document {
   components: Record<NodeId, ComponentDefinition>;
   /** Monotonic counter for id generation. */
   nextId: number;
+  /** Canvas width in px (artboard/frame size). */
+  canvasWidth?: number;
+  /** Canvas height in px (artboard/frame size). */
+  canvasHeight?: number;
+  /** Canvas background color (RGBA). */
+  canvasBackground?: Color;
 }
 
 export interface NodeEntry {
@@ -495,15 +501,18 @@ function isAncestor(doc: Document, parent: NodeId, child: NodeId): boolean {
 export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): Document {
   if (ids.length < 2) return doc;
 
-  const firstId = ids[0]!;
+  const firstId = ids[0];
+  if (!firstId) return doc;
   const first = doc.nodes[firstId];
   if (!first) return doc;
   const parentId: NodeId | null = getParent(doc, firstId);
 
   for (let i = 1; i < ids.length; i++) {
-    const n = doc.nodes[ids[i]!];
+    const nid = ids[i];
+    if (!nid) return doc;
+    const n = doc.nodes[nid];
     if (!n) return doc;
-    if (getParent(doc, ids[i]!) !== parentId) return doc;
+    if (getParent(doc, nid) !== parentId) return doc;
   }
 
   const children = [...groupNode.children];
@@ -530,15 +539,19 @@ export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): 
   }
 
   if (parentId === null) {
-    const firstIdxInRoot = d.rootChildren.indexOf(sorted[0]!);
+    const firstSorted = sorted[0];
+    if (!firstSorted) return d;
+    const firstIdxInRoot = d.rootChildren.indexOf(firstSorted);
     if (firstIdxInRoot >= 0) {
       d = moveNode(d, groupNode.id, Math.min(firstIdxInRoot, d.rootChildren.length - 1));
     }
   }
 
+  const groupInDoc = d.nodes[groupNode.id];
+  if (!groupInDoc) return d;
   d = {
     ...d,
-    nodes: { ...d.nodes, [groupNode.id]: { ...d.nodes[groupNode.id]!, children } as GroupNode },
+    nodes: { ...d.nodes, [groupNode.id]: { ...groupInDoc, children } as GroupNode },
   };
 
   return d;
@@ -556,12 +569,14 @@ export function ungroupNode(doc: Document, id: NodeId): Document {
 
   let d = doc;
   for (let i = 0; i < children.length; i++) {
+    const childId = children[i];
+    if (!childId) continue;
     const toIndex = parentId
       ? (d.nodes[parentId] && isContainer(d.nodes[parentId])
           ? (d.nodes[parentId] as ContainerNode).children.indexOf(id)
           : -1) + i
       : d.rootChildren.indexOf(id) + i;
-    d = reparentNode(d, children[i]!, parentId, toIndex);
+    d = reparentNode(d, childId, parentId, toIndex);
   }
 
   d = removeNode(d, id);
@@ -583,4 +598,101 @@ export function detachInstance(doc: Document, id: NodeId): Document {
       [id]: { ...frame, componentId: undefined } as FrameNode,
     },
   };
+}
+
+/**
+ * Swap a component instance to a different component definition.
+ * Preserves the instance's transform/position but resets slot fills and
+ * inherited properties to the new master's defaults.
+ */
+export function swapInstance(doc: Document, id: NodeId, newComponentId: NodeId): Document {
+  const node = doc.nodes[id];
+  if (node?.kind !== 'frame') return doc;
+  const frame = node as FrameNode;
+  const newComponent = doc.components[newComponentId];
+  if (!newComponent) return doc;
+  const master = doc.nodes[newComponent.masterRootId];
+  if (master?.kind !== 'frame') return doc;
+  const masterFrame = master as FrameNode;
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [id]: {
+        ...frame,
+        componentId: newComponentId,
+        // Inherit appearance/layout from the new master, keep transform/position
+        fill: masterFrame.fill,
+        fills: masterFrame.fills,
+        strokes: masterFrame.strokes,
+        effects: masterFrame.effects,
+        opacity: masterFrame.opacity,
+        blendMode: masterFrame.blendMode,
+        rotation: masterFrame.rotation,
+        layoutStyle: masterFrame.layoutStyle,
+        // Reset slots — caller re-fills via fillSlot
+        slots: {},
+      } as FrameNode,
+    },
+  };
+}
+
+/**
+ * Reset overrides on a component instance: restore inherited properties from
+ * the master definition. Preserves the instance's transform, name, and slot
+ * fills (those are intentional local content, not overrides).
+ */
+export function resetInstanceOverrides(doc: Document, id: NodeId): Document {
+  const node = doc.nodes[id];
+  if (node?.kind !== 'frame') return doc;
+  const frame = node as FrameNode;
+  if (!frame.componentId) return doc;
+  const component = doc.components[frame.componentId];
+  if (!component) return doc;
+  const master = doc.nodes[component.masterRootId];
+  if (master?.kind !== 'frame') return doc;
+  const masterFrame = master as FrameNode;
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [id]: {
+        ...frame,
+        fill: masterFrame.fill,
+        fills: masterFrame.fills,
+        strokes: masterFrame.strokes,
+        effects: masterFrame.effects,
+        opacity: masterFrame.opacity,
+        blendMode: masterFrame.blendMode,
+        layoutStyle: masterFrame.layoutStyle,
+      } as FrameNode,
+    },
+  };
+}
+
+/**
+ * Detect which properties of an instance differ from its master (overrides).
+ * Returns a list of property names that have been locally overridden.
+ */
+export function instanceOverrides(doc: Document, id: NodeId): string[] {
+  const node = doc.nodes[id];
+  if (node?.kind !== 'frame') return [];
+  const frame = node as FrameNode;
+  if (!frame.componentId) return [];
+  const component = doc.components[frame.componentId];
+  if (!component) return [];
+  const master = doc.nodes[component.masterRootId];
+  if (master?.kind !== 'frame') return [];
+  const masterFrame = master as FrameNode;
+  const overrides: string[] = [];
+  if (frame.fill !== masterFrame.fill) overrides.push('fill');
+  if (frame.opacity !== masterFrame.opacity) overrides.push('opacity');
+  if (frame.blendMode !== masterFrame.blendMode) overrides.push('blendMode');
+  if (frame.rotation !== masterFrame.rotation) overrides.push('rotation');
+  if (frame.layoutStyle !== masterFrame.layoutStyle) overrides.push('layout');
+  if (JSON.stringify(frame.strokes) !== JSON.stringify(masterFrame.strokes))
+    overrides.push('strokes');
+  if (JSON.stringify(frame.effects) !== JSON.stringify(masterFrame.effects))
+    overrides.push('effects');
+  return overrides;
 }

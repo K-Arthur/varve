@@ -81,17 +81,20 @@ export function HighlightMatch({ text, query }: { text: string; query: string })
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
 
+  let offset = 0;
   return (
     <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={i} className="strata-search__match">
+      {parts.map((part) => {
+        const key = `${offset}:${part}`;
+        offset += part.length;
+        return part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={key} className="strata-search__match">
             {part}
           </mark>
         ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
+          <span key={key}>{part}</span>
+        );
+      })}
     </>
   );
 }

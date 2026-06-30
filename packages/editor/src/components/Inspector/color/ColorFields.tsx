@@ -1,5 +1,5 @@
 import type { Color } from '@strata/engine';
-import { useCallback, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import { hexToRgb, hslToRgb, rgbToHex, rgbToHsl } from './color-utils';
 
 export interface ColorFieldsProps {
@@ -18,6 +18,7 @@ const MODES: { key: ColorMode; label: string }[] = [
 export function ColorFields({ color, onChange }: ColorFieldsProps) {
   const [mode, setMode] = useState<ColorMode>('hex');
   const [hexDraft, setHexDraft] = useState('');
+  const hexId = useId();
 
   const alphaPct = Math.round((color[3] / 255) * 100);
 
@@ -114,8 +115,7 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
           <button
             type="button"
             key={m.key}
-            role="radio"
-            aria-checked={mode === m.key}
+            aria-pressed={mode === m.key}
             onClick={() => setMode(m.key)}
             style={{
               padding: '0 var(--space-2)',
@@ -136,9 +136,10 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
 
       {mode === 'hex' && (
         <div className="insp-field">
-          <label className="insp-field__label">HEX</label>
+          <label className="insp-field__label" htmlFor={hexId}>HEX</label>
           <div className="insp-field__control">
             <input
+              id={hexId}
               type="text"
               className="insp-num__input"
               value={hexDraft || currentHex}
@@ -197,6 +198,7 @@ interface SpinbuttonRowProps {
 }
 
 function SpinbuttonRow({ label, value, min, max, onChange, unit }: SpinbuttonRowProps) {
+  const inputId = useId();
   const clamp = (v: number) => Math.max(min, Math.min(max, v));
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

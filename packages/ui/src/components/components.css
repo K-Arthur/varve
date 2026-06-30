@@ -296,14 +296,14 @@
   outline-offset: -2px;
   transition: background var(--duration-quick) var(--ease-standard);
 }
-.strata-segmented__btn[aria-checked="true"] {
+.strata-segmented__btn:has(input:checked) {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
-.strata-segmented__btn:hover:not([aria-checked="true"]) {
+.strata-segmented__btn:hover:not(:has(input:checked)) {
   background: var(--color-surface-sunken);
 }
-.strata-segmented__btn:focus-visible {
+.strata-segmented__btn:has(input:focus-visible) {
   outline: 2px solid var(--color-interactive-focus-ring);
 }
 

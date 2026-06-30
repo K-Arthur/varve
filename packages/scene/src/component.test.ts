@@ -104,7 +104,9 @@ describe('Component functions (Task 1.1)', () => {
     expect(node.name).toBe('Button Instance');
     expect(node.children.length).toBeGreaterThan(0);
     // The instance child should be a clone of the master's bg
-    const instanceChild = getById(doc, node.children[0]!);
+    const firstChild = node.children[0];
+    if (!firstChild) throw new Error('no child');
+    const instanceChild = getById(doc, firstChild);
     expect(instanceChild).toBeDefined();
     expect(instanceChild?.id).not.toBe(bgId); // Cloned, different id
   });

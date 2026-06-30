@@ -3,7 +3,6 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use rusqlite::params;
 use rusqlite::Connection;
 
 /// Persistent storage for Strata documents.
@@ -168,7 +167,7 @@ impl DocumentStore {
             "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash
              FROM files WHERE trashed_at IS NULL ORDER BY ordering ASC, updated_at DESC",
         )?;
-        let rows = stmt.query_map([], |r| Self::row_to_file(r))?;
+        let rows = stmt.query_map([], Self::row_to_file)?;
         rows.collect()
     }
 
@@ -178,7 +177,7 @@ impl DocumentStore {
             "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash
              FROM files WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC",
         )?;
-        let rows = stmt.query_map([], |r| Self::row_to_file(r))?;
+        let rows = stmt.query_map([], Self::row_to_file)?;
         rows.collect()
     }
 
@@ -195,6 +194,7 @@ impl DocumentStore {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn upsert_file(
         &self,
         id: &str,
@@ -313,7 +313,7 @@ impl DocumentStore {
              ORDER BY rank
              LIMIT 100",
         )?;
-        let rows = stmt.query_map(rusqlite::params![query], |r| Self::row_to_file(r))?;
+        let rows = stmt.query_map(rusqlite::params![query], Self::row_to_file)?;
         rows.collect()
     }
 
@@ -346,7 +346,7 @@ impl DocumentStore {
             "SELECT id, name, color, created_at, updated_at, pinned, trashed_at
              FROM projects WHERE trashed_at IS NULL ORDER BY pinned DESC, name ASC",
         )?;
-        let rows = stmt.query_map([], |r| Self::row_to_project(r))?;
+        let rows = stmt.query_map([], Self::row_to_project)?;
         rows.collect()
     }
 

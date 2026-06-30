@@ -111,7 +111,7 @@ export function Menu({ items, triggerRef, open, onClose, label }: MenuProps) {
     >
       {items.map((entry, i) => {
         if ('separator' in entry && entry.separator) {
-          return <div key={entry.id} role="separator" className="strata-menu__sep" />;
+          return <hr key={entry.id} className="strata-menu__sep" />;
         }
         const item = entry as MenuItem;
         return (
@@ -235,7 +235,7 @@ export function ContextMenu({
     >
       {items.map((entry, i) => {
         if ('separator' in entry && entry.separator) {
-          return <div key={entry.id} role="separator" className="strata-menu__sep" />;
+          return <hr key={entry.id} className="strata-menu__sep" />;
         }
         const item = entry as MenuItem;
         return (

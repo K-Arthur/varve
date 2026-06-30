@@ -28,7 +28,7 @@ describe('Frame parenting tests', () => {
     expect(ctx).toBeDefined();
 
     // Create a frame at position (100, 100) with size (200, 200)
-    ctx!.setTool('frame' as any);
+    ctx!.setTool('frame');
     ctx!.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
 
     await waitFor(() => {
@@ -39,7 +39,7 @@ describe('Frame parenting tests', () => {
     });
 
     // Now create a rectangle inside the frame at (150, 150)
-    ctx!.setTool('rect' as any);
+    ctx!.setTool('rect');
     const initialNodes = Object.keys(ctx!.state.document.nodes).length;
     ctx!.createShapeAt({ x: 150, y: 150 }, { w: 50, h: 30 });
 
@@ -51,7 +51,7 @@ describe('Frame parenting tests', () => {
     // Verify the rectangle is a child of the frame
     const nodes = Object.values(ctx!.state.document.nodes);
     const frame = nodes.find((n) => n.kind === 'frame');
-    const rect = nodes.find((n) => n.kind === 'shape' && (n as any).shape.kind === 'rect');
+    const rect = nodes.find((n) => n.kind === 'shape' && n.shape.kind === 'rect');
 
     expect(frame).toBeDefined();
     expect(rect).toBeDefined();
@@ -78,7 +78,7 @@ describe('Frame parenting tests', () => {
     expect(ctx).toBeDefined();
 
     // Create a frame at position (100, 100) with size (200, 200)
-    ctx!.setTool('frame' as any);
+    ctx!.setTool('frame');
     ctx!.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
 
     await waitFor(() => {
@@ -88,7 +88,7 @@ describe('Frame parenting tests', () => {
     });
 
     // Create a rectangle outside the frame at (400, 400)
-    ctx!.setTool('rect' as any);
+    ctx!.setTool('rect');
     const initialNodes = Object.keys(ctx!.state.document.nodes).length;
     ctx!.createShapeAt({ x: 400, y: 400 }, { w: 50, h: 30 });
 
@@ -100,7 +100,7 @@ describe('Frame parenting tests', () => {
     // Verify the rectangle is NOT a child of the frame
     const nodes = Object.values(ctx!.state.document.nodes);
     const frame = nodes.find((n) => n.kind === 'frame');
-    const rect = nodes.find((n) => n.kind === 'shape' && (n as any).shape.kind === 'rect');
+    const rect = nodes.find((n) => n.kind === 'shape' && n.shape.kind === 'rect');
 
     expect(frame).toBeDefined();
     expect(rect).toBeDefined();
@@ -127,7 +127,7 @@ describe('Frame parenting tests', () => {
     expect(ctx).toBeDefined();
 
     // Create outer frame at (100, 100) with size (400, 400)
-    ctx!.setTool('frame' as any);
+    ctx!.setTool('frame');
     ctx!.createShapeAt({ x: 100, y: 100 }, { w: 400, h: 400 });
 
     await waitFor(() => {
@@ -137,7 +137,7 @@ describe('Frame parenting tests', () => {
     });
 
     // Create inner frame at (200, 200) with size (200, 200)
-    ctx!.setTool('frame' as any);
+    ctx!.setTool('frame');
     ctx!.createShapeAt({ x: 200, y: 200 }, { w: 200, h: 200 });
 
     await waitFor(() => {
@@ -147,7 +147,7 @@ describe('Frame parenting tests', () => {
     });
 
     // Create a rectangle inside the inner frame at (250, 250)
-    ctx!.setTool('rect' as any);
+    ctx!.setTool('rect');
     const initialNodes = Object.keys(ctx!.state.document.nodes).length;
     ctx!.createShapeAt({ x: 250, y: 250 }, { w: 50, h: 30 });
 
@@ -159,7 +159,7 @@ describe('Frame parenting tests', () => {
     // Verify the rectangle is a child of the inner frame, not the outer
     const nodes = Object.values(ctx!.state.document.nodes);
     const frames = nodes.filter((n) => n.kind === 'frame');
-    const rect = nodes.find((n) => n.kind === 'shape' && (n as any).shape.kind === 'rect');
+    const rect = nodes.find((n) => n.kind === 'shape' && n.shape.kind === 'rect');
 
     expect(frames.length).toBe(2);
     expect(rect).toBeDefined();
@@ -167,7 +167,7 @@ describe('Frame parenting tests', () => {
     // The inner frame should be the one containing the rectangle
     const innerFrame = frames.find((f) => {
       if (f.kind !== 'frame') return false;
-      return (f as any).children?.includes(rect!.id);
+      return f.children.includes(rect!.id);
     });
 
     expect(innerFrame).toBeDefined();
@@ -191,7 +191,7 @@ describe('Frame parenting tests', () => {
     expect(ctx).toBeDefined();
 
     // Create a frame at (100, 100) with size (200, 200)
-    ctx!.setTool('frame' as any);
+    ctx!.setTool('frame');
     ctx!.createShapeAt({ x: 100, y: 100 }, { w: 200, h: 200 });
 
     await waitFor(() => {
