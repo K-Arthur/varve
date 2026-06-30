@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!--
+    Strata app icon — dark background variant (1024×1024 master).
+    Background: near-black #0D0F14 (slightly warmer than pure #000000, avoids
+    harsh crushing on OLED; matches the app dark surface).
+    Gradient mark: all three brand colours vivid against the dark ground.
+    Same safe-zone geometry as light app icon.
+  -->
+  <defs>
+    <linearGradient id="sg" gradientUnits="userSpaceOnUse"
+                    x1="160" y1="208" x2="864" y2="816">
+      <stop offset="0%"   stop-color="#39D0C6"/>
+      <stop offset="50%"  stop-color="#E28C3C"/>
+      <stop offset="100%" stop-color="#C54B3A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="180" fill="#0D0F14"/>
+  <path d="M160,208 H672 L736,368 H224 Z" fill="url(#sg)"/>
+  <path d="M224,432 H736 L800,592 H288 Z" fill="url(#sg)"/>
+  <path d="M288,656 H800 L864,816 H352 Z" fill="url(#sg)"/>
+</svg>
