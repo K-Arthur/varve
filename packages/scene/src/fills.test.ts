@@ -45,12 +45,12 @@ describe('fill constructors', () => {
       expect(fill.gradient?.rotation).toBe(45);
     });
 
-    it('defaults to 90 degree rotation for linear', () => {
+    it('does not set rotation by default (undefined)', () => {
       const fill = gradientFill('linear', [
         { position: 0, color: [0, 0, 0, 255] },
         { position: 1, color: [255, 255, 255, 255] },
       ]);
-      expect(fill.gradient?.rotation).toBe(90);
+      expect(fill.gradient?.rotation).toBeUndefined();
     });
   });
 
