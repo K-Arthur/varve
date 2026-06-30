@@ -356,12 +356,26 @@ export function CanvasArea() {
     setSnapGuides([]);
   }
 
-  // ─── Wheel (zoom) ─────────────────────────────────────────────────────────
+  // ─── Wheel (zoom) — anchored at cursor ─────────────────────────────────
 
   function handleWheel(e: React.WheelEvent<HTMLCanvasElement>) {
     e.preventDefault();
+    // Compute world point under cursor before zoom.
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const s = stateRef.current;
+    const worldX = (cx - s.pan.x) / s.zoom;
+    const worldY = (cy - s.pan.y) / s.zoom;
+
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    editor.setZoom(Math.max(0.1, Math.min(10, state.zoom * factor)));
+    const newZoom = Math.max(0.1, Math.min(10, s.zoom * factor));
+
+    // Compute new pan so the world point stays under the cursor.
+    const newPanX = cx - worldX * newZoom;
+    const newPanY = cy - worldY * newZoom;
+    editor.setZoom(newZoom);
+    editor.setPan({ x: newPanX, y: newPanY });
   }
 
   // ─── Keyboard ─────────────────────────────────────────────────────────────
