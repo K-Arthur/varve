@@ -22,6 +22,8 @@ export type { SearchFieldProps } from './SearchField';
 export { HighlightMatch, SearchField } from './SearchField';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
 export { SegmentedControl } from './SegmentedControl';
+export type { SelectOption, SelectProps } from './Select';
+export { Select } from './Select';
 export type { Tab, TabsProps } from './Tabs';
 export { Tabs } from './Tabs';
 export type { ToolbarProps } from './Toolbar';
