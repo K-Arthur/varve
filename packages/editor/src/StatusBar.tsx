@@ -1,12 +1,13 @@
 /**
  * Status bar — tool, zoom, selection count.
  * F1: uses selectedNodes() which works for nested nodes (doc.nodes lookup).
- * A12: zoom is editable; Fit button resets to 1.
+ * A12: zoom is editable; Fit button zoom-to-fit-all (Shift+1).
+ * P3: Fit now actually fits (pan+zoom) instead of just resetting zoom to 1.
  */
 import { useEditor } from './context';
 
 export function StatusBar() {
-  const { state, setZoom, selectedNodes, rootNodes } = useEditor();
+  const { state, setZoom, revealSelection, selectedNodes, rootNodes } = useEditor();
   const sel = selectedNodes();
 
   function handleZoomInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -58,8 +59,8 @@ export function StatusBar() {
       <span style={{ color: 'var(--color-text-muted)' }}>%</span>
       <button
         type="button"
-        onClick={() => setZoom(1)}
-        aria-label="Reset zoom to 100%"
+        onClick={() => revealSelection({ fit: true })}
+        aria-label="Fit selection to viewport"
         style={{
           background: 'none',
           border: 'none',
