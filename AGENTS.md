@@ -354,3 +354,18 @@ render, layer-click not revealing. 4 phases committed onto `feat/home-start-page
 | `packages/codegen/src/swiftui.ts` | SwiftUI emitter (HStack/VStack/ZStack auto-layout) |
 | `packages/platform/src/platform.ts` | Platform interface with saveBlob, searchFiles, reorderFile, listenForChanges |
 | `pnpm-workspace.yaml` | Workspace config + allowBuilds |
+
+## Stabilization pass (latest)
+
+Fixed pre-existing failures and resolved all JS/TS quality gates:
+
+| Area | Update |
+|---|---|
+| `packages/editor/src/context.tsx` | Added `toolRef` mirror of `state.tool`; `setTool` updates it synchronously so `createShapeAt` reads the current tool despite React 18 automatic batching. Fixed `tools.test.tsx` (4 tests) and `frame-parenting.test.tsx` (4 tests). |
+| `packages/ui/src/components/Tooltip.tsx` | Added `onKeyDown` Escape handler so tooltips dismiss per APG pattern. |
+| `packages/editor/src/shortcuts/ShortcutPalette.test.tsx` | Replaced native `dialog.dispatchEvent(new KeyboardEvent(...))` with `fireEvent.keyDown(dialog, { key: 'Escape' })` to work with React 19 synthetic events. |
+| `packages/editor/src/tools/frame-parenting.test.tsx` | Uses `const getCtx = () => ctx as NonNullable<typeof ctx>` helper to access the narrowed editor context inside `waitFor` closures; this avoids stale closure issues with `const` capture while keeping TypeScript/IDE null-checking happy. |
+| `apps/desktop/package.json` | Added `@fontsource-variable/geist` and `@fontsource-variable/ibm-plex-sans` as direct dependencies because `src/main.tsx` imports them directly; fixes Vite import resolution in `tauri:dev` / production build. |
+| `vitest.setup.ts` | Added `sessionStorage` mock alongside the existing `localStorage` mock for jsdom tests. |
+| Lint cleanup | Fixed 36 pre-existing Biome errors across 20+ files (import ordering, formatting, non-null assertions, a11y roles/labels on intentional `div`/`span`/`svg` elements). |
+| Verification | `pnpm typecheck` (13 packages), `pnpm lint`, `pnpm audit:emoji`, `pnpm audit:tokens` (57/57 WCAG-AA), and `pnpm test` (552/552 JS tests across 61 files) all pass. `apps/desktop` production build also passes. |

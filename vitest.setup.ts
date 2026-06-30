@@ -92,6 +92,29 @@ Object.defineProperty(globalThis, 'localStorage', {
   value: localStorageMock,
 });
 
+// jsdom does not implement sessionStorage
+const sessionStore = new Map<string, string>();
+const sessionStorageMock: Storage = {
+  getItem: (key: string) => sessionStore.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    sessionStore.set(key, value);
+  },
+  removeItem: (key: string) => {
+    sessionStore.delete(key);
+  },
+  clear: () => {
+    sessionStore.clear();
+  },
+  get length() {
+    return sessionStore.size;
+  },
+  key: (index: number) => [...sessionStore.keys()][index] ?? null,
+};
+Object.defineProperty(globalThis, 'sessionStorage', {
+  configurable: true,
+  value: sessionStorageMock,
+});
+
 // jsdom does not implement matchMedia
 Object.defineProperty(globalThis, 'matchMedia', {
   configurable: true,

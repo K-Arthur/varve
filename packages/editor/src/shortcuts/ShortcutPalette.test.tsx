@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getOverrides, setOverride, SHORTCUT_DEFS } from './ShortcutManager';
+import { getOverrides, setOverride } from './ShortcutManager';
 import { ShortcutPalette } from './ShortcutPalette';
 
 beforeEach(() => {
@@ -49,7 +49,9 @@ describe('ShortcutPalette', () => {
   it('filters shortcuts by label', async () => {
     renderPalette();
     const inputs = screen.getAllByRole('textbox', { name: /search/i });
-    await userEvent.type(inputs[0]!, 'undo');
+    const input = inputs[0];
+    if (!input) throw new Error('search input not found');
+    await userEvent.type(input, 'undo');
     expect(screen.getByText('Undo')).toBeTruthy();
     expect(screen.queryByText('Redo')).toBeFalsy();
   });
@@ -57,7 +59,9 @@ describe('ShortcutPalette', () => {
   it('calls onSelect and onClose on row click', async () => {
     const { onClose, onSelect } = renderPalette();
     const undoRows = screen.getAllByText('Undo');
-    await userEvent.click(undoRows[0]!);
+    const undoRow = undoRows[0];
+    if (!undoRow) throw new Error('Undo row not found');
+    await userEvent.click(undoRow);
     expect(onSelect).toHaveBeenCalledWith('undo');
     expect(onClose).toHaveBeenCalled();
   });
@@ -65,7 +69,9 @@ describe('ShortcutPalette', () => {
   it('calls onClose on Escape', async () => {
     const { onClose } = renderPalette();
     const inputs = screen.getAllByRole('textbox', { name: /search/i });
-    await userEvent.type(inputs[0]!, '{Escape}');
+    const input = inputs[0];
+    if (!input) throw new Error('search input not found');
+    await userEvent.type(input, '{Escape}');
     expect(onClose).toHaveBeenCalled();
   });
 });
@@ -75,7 +81,9 @@ describe('remap flow', () => {
     renderPalette();
     const remapButtons = screen.getAllByTitle('Remap shortcut');
     expect(remapButtons.length).toBeGreaterThan(0);
-    await userEvent.click(remapButtons[0]!);
+    const remapBtn = remapButtons[0];
+    if (!remapBtn) throw new Error('remap button not found');
+    await userEvent.click(remapBtn);
 
     await waitFor(() => {
       expect(screen.getByText(/Press new shortcut for/i)).toBeTruthy();
@@ -84,7 +92,9 @@ describe('remap flow', () => {
 
   it('cancels capture mode on Escape', async () => {
     renderPalette();
-    const remapButton = screen.getAllByTitle('Remap shortcut')[0]!;
+    const remapButtons = screen.getAllByTitle('Remap shortcut');
+    const remapButton = remapButtons[0];
+    if (!remapButton) throw new Error('remap button not found');
     await userEvent.click(remapButton);
 
     await waitFor(() => {
@@ -92,16 +102,16 @@ describe('remap flow', () => {
     });
 
     const dialog = screen.getByRole('dialog', { name: /command palette/i });
-    dialog.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
-    );
+    fireEvent.keyDown(dialog, { key: 'Escape' });
 
     expect(screen.queryByText(/Press new shortcut for/i)).toBeFalsy();
   });
 
   it('captures key combo and stores override', async () => {
     renderPalette();
-    const remapButton = screen.getAllByTitle('Remap shortcut')[0]!;
+    const remapButtons = screen.getAllByTitle('Remap shortcut');
+    const remapButton = remapButtons[0];
+    if (!remapButton) throw new Error('remap button not found');
     await userEvent.click(remapButton);
 
     await waitFor(() => {
@@ -135,7 +145,9 @@ describe('reset flow', () => {
     renderPalette();
 
     const allResetButtons = screen.getAllByTitle('Reset to default');
-    await userEvent.click(allResetButtons[0]!);
+    const resetBtn = allResetButtons[0];
+    if (!resetBtn) throw new Error('reset button not found');
+    await userEvent.click(resetBtn);
 
     await waitFor(() => {
       const overrides = getOverrides();

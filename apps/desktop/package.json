@@ -21,6 +21,8 @@
     "vite": "^6"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.2.0",
+    "@fontsource-variable/ibm-plex-sans": "^5.2.0",
     "@strata/editor": "workspace:*",
     "@strata/home": "workspace:*",
     "@strata/platform": "workspace:*",

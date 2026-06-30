@@ -36,7 +36,8 @@ const STUB_INSTALLED: StrataPlugin[] = [
   {
     id: 'plugin-color-blindness',
     name: 'Color Blindness Simulator',
-    description: 'Simulates how your design appears to users with common color vision deficiencies.',
+    description:
+      'Simulates how your design appears to users with common color vision deficiencies.',
     version: '0.4.1',
     icon: 'Eye',
     permissions: ['document:read'],

@@ -22,6 +22,7 @@ export function LiveCursors() {
 
   return (
     <svg className="live-cursors" aria-hidden>
+      <title>Live cursors</title>
       {active.map((c) => {
         const age = now - c.timestamp;
         let opacity = 1;

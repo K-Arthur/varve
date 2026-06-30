@@ -77,17 +77,12 @@ const STUB_COLLAB_USERS: CollabUser[] = [
 ];
 
 /** Stub: return hardcoded collab users. Will be replaced with Tauri IPC. */
-export async function getCollabUsers(
-  _documentId: string,
-): Promise<CollabUser[]> {
+export async function getCollabUsers(_documentId: string): Promise<CollabUser[]> {
   await new Promise((r) => setTimeout(r, 100));
   return STUB_COLLAB_USERS;
 }
 
 /** Stub: no-op cursor update. Will be replaced with Tauri IPC. */
-export async function updateCursor(
-  _documentId: string,
-  _cursor: LiveCursor,
-): Promise<void> {
+export async function updateCursor(_documentId: string, _cursor: LiveCursor): Promise<void> {
   await Promise.resolve();
 }
