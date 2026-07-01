@@ -618,3 +618,45 @@ Root-cause analysis and fix of three structural issues in the scene-graph → la
 | **P2: Tests** | Added 3 new tests: flattened collapsed-container (nested hidden, root shown), flattened expanded-container (parent before child), clone-and-add preserves all original nodes. Fixed pre-existing `ScaleTool` test missing `setDraft` mock. | `useFlatTree.test.ts`, `document.test.ts`, `ScaleTool.test.ts` |
 
 **Verification:** 694/694 JS tests (+3 from baseline: +1 flattenTree collapsed +1 all-root-level +1 clone-preserves, -0 +2 ScaleTool fix). Typecheck clean (13 packages). Lint 0 errors on new/modified files. Token audit 90/90. Emoji audit clean. |
+
+## Session 22 — Layer System Architecture Review & Improvement (2026-07-01)
+
+Full architecture diagnosis and improvement across all layer system gaps. 5 phases implemented TDD-first with 724 tests passing final gate.
+
+### Phase 0 — Critical Bug Fixes
+| Commit | Fix |
+|--------|-----|
+| `83c3954` | ScaleTool preserves full affine (multiplyAffine) — fixes rotation destruction + centroid single-node scale bug |
+| `330ea47` | NodeEditTool anchor hit-test uses full inverse world transform |
+| `78f84ba` | SelectTool reparent uses world-space center; marquee uses DFS paint order |
+| `6c0f547` | findContainingFrameInDoc computes group bounds from children world-space union |
+| `1b44f97` | Multi-select move excludes co-selected nodes from snap targets |
+
+### Phase 1 — Render Pipeline Fixes
+| Commit | Fix |
+|--------|-----|
+| `e204d05` | toEngineNode skips groups; clipContent property on FrameNode; replaySubtree respects flag |
+
+### Phase 2 — Masking + Constraints
+| Commit | New Modules |
+|--------|-------------|
+| `a85c812` | masks.ts (clip/alpha mask, resolveMask/isMasked) + constraints.ts (min/max/center/stretch/scale) + 15 tests |
+| `12a4905` | setNodeClipContent context method wired |
+
+### Phase 3 — Flex Layout Completion
+| Commit | Features |
+|--------|----------|
+| `53e6ba9` | wrap, alignItems, justifyContent, grow/shrink, text-sizing, layoutSizing fill. 10 tests. |
+
+### Phase 4 — Tests + Refactoring
+| Commit | Changes |
+|--------|---------|
+| `c3ca358` | 10 SelectTool tests; order field wired into moveNode/moveChild/reparentNode via fractional-indexing |
+
+### Verification
+- JS tests: 724/724 across 79 files
+- Typecheck: clean across 13 packages
+- Token audit: 90/90 WCAG-AA pairs, 3 themes
+- Emoji audit: clean (357 files)
+- Rust workspace tests: clean
+- `just gate`: green |

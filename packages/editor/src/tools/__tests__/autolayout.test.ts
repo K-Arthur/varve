@@ -171,8 +171,8 @@ describe('computeFlexLayout', () => {
     });
     const results = computeFlexLayout(frame, [textNode]);
     // fontSize 24 * text length 11 * 0.6 ≈ 158
-    expect(results[0].w).toBeGreaterThan(100);
-    expect(results[0].h).toBeCloseTo(24 * 1.4, 0);
+    expect(results[0]!.w).toBeGreaterThan(100);
+    expect(results[0]!.h).toBeCloseTo(24 * 1.4, 0);
   });
 
   it('layoutSizing fill distributes remaining space proportionally', () => {
@@ -186,8 +186,8 @@ describe('computeFlexLayout', () => {
     child2.layoutSizing = 'fill';
     const results = computeFlexLayout(frame, [child1, child2]);
     // Two fill children in 400px → each gets 200px
-    expect(results[0].w).toBe(200);
-    expect(results[1].w).toBe(200);
+    expect(results[0]!.w).toBe(200);
+    expect(results[1]!.w).toBe(200);
   });
 
   it('returns empty array for empty children list', () => {
