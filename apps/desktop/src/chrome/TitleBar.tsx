@@ -55,8 +55,21 @@ export function TitleBar({ title = 'Strata' }: { title?: string }) {
       {/* Drag region fills available space */}
       <div
         data-tauri-drag-region
-        style={{ flex: 1, display: 'flex', alignItems: 'center', paddingLeft: 12, height: '100%' }}
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: 12,
+          height: '100%',
+          gap: 6,
+        }}
       >
+        <img
+          src="/icons/strata-icon.svg"
+          alt=""
+          aria-hidden
+          style={{ width: 18, height: 18, flexShrink: 0, pointerEvents: 'none' }}
+        />
         <span
           style={{
             fontSize: 'var(--font-size-sm)',

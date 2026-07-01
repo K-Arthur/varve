@@ -412,19 +412,12 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
         ) : (
           <EmptyStates section="project" onAction={() => view.setSection('recent')} />
         );
-      default:
-        if (visibleFiles.length === 0 && !state.filter.query) {
-          return <EmptyStates section={state.section} onAction={() => setNewFileOpen(true)} />;
-        }
-        if (visibleFiles.length === 0 && state.filter.query) {
-          return (
-            <EmptyStates
-              section="search"
-              query={state.filter.query}
-              onAction={() => view.setFilter({ query: '' })}
-            />
-          );
-        }
+      default: {
+        const heroSubtitle = state.filter.query
+          ? `${visibleFiles.length} result${visibleFiles.length !== 1 ? 's' : ''} for "${state.filter.query}"`
+          : state.section === 'recent'
+            ? 'Recent designs'
+            : 'All designs';
         return (
           <>
             <header className="strata-home__hero">
@@ -432,11 +425,17 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
                 {greeting()}
                 {state.section === 'all' ? '' : ', welcome back'}
               </p>
-              <p className="strata-home__hero-subtitle">
-                {state.section === 'recent' ? 'Recent files' : 'All files'}
-              </p>
+              <p className="strata-home__hero-subtitle">{heroSubtitle}</p>
             </header>
-            {state.view === 'grid' ? (
+            {visibleFiles.length === 0 && !state.filter.query ? (
+              <EmptyStates section={state.section} onAction={() => setNewFileOpen(true)} />
+            ) : visibleFiles.length === 0 ? (
+              <EmptyStates
+                section="search"
+                query={state.filter.query}
+                onAction={() => view.setFilter({ query: '' })}
+              />
+            ) : state.view === 'grid' ? (
               <FileGrid
                 files={visibleFiles}
                 thumbnails={thumbnails.thumbnails}
@@ -477,6 +476,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
             )}
           </>
         );
+      }
     }
   };
 
@@ -498,6 +498,9 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
           />
         )}
         <div className={`strata-home__sidebar ${sidebarOpen ? 'strata-home__sidebar--open' : ''}`}>
+          <div className="sidebar-brand">
+            <img src="/icons/strata-wordmark.svg" alt="Strata" className="sidebar-brand__logo" />
+          </div>
           <SidebarNav
             entries={sidebarEntries}
             activeId={
