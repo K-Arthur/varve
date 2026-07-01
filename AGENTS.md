@@ -438,3 +438,38 @@ Root-cause repair of zoom/pan not working, plus pinch/scroll, keyboard shortcuts
 | `crates/strata-engine/src/lib.rs`, `crates/strata-print/src/lib.rs` | `cargo fmt` formatting-only fix (pre-existing line-too-long violations that blocked `just gate`). |
 
 **Verification:** 620/620 JS tests (67 files), typecheck clean (13 packages), `just gate` green (format-check + lint + test + token/emoji audits), `pnpm audit:tokens` (72/72 WCAG-AA), `pnpm audit:emoji` clean.
+
+## Session 17 — Frames, Layering, Grouping & Arrangement (2026-07-01)
+
+Verified each claimed capability against live code; built the missing arrange operations end-to-end; fixed group/ungroup selection sync.
+
+### Verification pass (claims vs. reality)
+
+| Claim in AGENTS.md | Verified |
+|---|---|
+| `GroupNode`, `reparentNode`, `groupNodes`, `ungroupNode` in scene | Confirmed present |
+| `groupSelected`, `ungroupSelected` in context | Confirmed present |
+| `alignSelected`, `distributeSelected` in context | Confirmed present |
+| DnD reorder in LayersPanel via `@dnd-kit` | Confirmed wired — `handleDragEnd` calls `reparentNode` |
+| `moveNode` / `moveChild` for reorder | Confirmed present |
+| Frame clipping via `replaySubtree()` in CanvasArea | Confirmed correct — save/clip/recurse/restore |
+| `findContainingFrameInDoc` for spatial containment | Confirmed present, skips locked/hidden |
+| Ancestor guard in `reparentNode` | Confirmed — `isAncestor` check present |
+| Real fractional-indexing ordering | Confirmed — wraps `fractional-indexing` npm package |
+| Arrange ops (bringToFront/sendToBack/forward/backward) | **Missing — built in this session** |
+| Group shortcut `Ctrl+G` wired | **Was returning null — fixed in this session** |
+| Ungroup shortcut | **Missing — added in this session** |
+| Auto-layout reflow on insert/remove | Not wired in TS editor — `layoutStyle` is stored, `compute_layout` (Rust) not called on tree edits. Scoped as deferred (Phase 2 sync). |
+
+### What was built
+
+| Area | Update |
+|---|---|
+| `packages/scene/src/document.ts` | Added `ArrangeOp` type and `arrangeNode(doc, id, op)` — works at root level and inside any container; boundary no-ops; 10 new tests in TDD fashion. |
+| `packages/scene/src/document.test.ts` | 10 arrange-op tests: bringToFront/sendToBack/bringForward/sendBackward at root, no-ops at boundaries, works inside frame. `arrangeNode` added to test imports. |
+| `packages/editor/src/context.tsx` | Added `type ArrangeOp` import + `arrangeNode as arrangeNodeDoc` import. Added `arrangeSelected(op)` to `EditorContextValue` interface and provider implementation (applies op to every selected node, announces result). Fixed `groupSelected` to atomically update selection to the new group node (was leaving selection on old children). Fixed `ungroupSelected` to atomically update selection to the ungrouped children. Both now use `setState` directly so doc + selection change in one undo-able step. |
+| `packages/editor/src/shortcuts/ShortcutManager.ts` | Added 5 shortcut defs: `ungroup` (Ctrl+Shift+G), `bringFront` (Ctrl+Shift+]), `sendBack` (Ctrl+Shift+[), `bringForward` (Ctrl+]), `sendBackward` (Ctrl+[). |
+| `packages/editor/src/shortcuts/useShortcuts.ts` | Fixed `group` case (was `return null`) to call `groupSelected()`. Added cases for all 5 new shortcuts. |
+| `packages/editor/src/Menubar.tsx` | Added `ungroupSelected` / `arrangeSelected` to destructured context. Added `ungroup` to Object menu. Expanded Arrange menu from 1 stub item to 4 fully wired items (bringFront / bringForward / sendBackward / sendBack) with correct shortcut labels. Added action handlers for all 6 new actions. |
+
+**Verification:** 630/630 JS tests (67 files, +10 arrange-op tests), typecheck clean (13 packages), `just gate` green, `pnpm audit:tokens` (72/72 WCAG-AA), `pnpm audit:emoji` clean.

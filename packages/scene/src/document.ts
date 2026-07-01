@@ -398,6 +398,63 @@ export function moveNode(doc: Document, id: NodeId, toIndex: number): Document {
   return { ...doc, rootChildren: next };
 }
 
+export type ArrangeOp = 'front' | 'back' | 'forward' | 'backward';
+
+/**
+ * Arrange a node within its current parent's sibling list.
+ * 'front'/'back' move to the end/start (highest/lowest paint order).
+ * 'forward'/'backward' step one position toward the end/start.
+ * No-op when the node is already at the boundary or not found.
+ */
+export function arrangeNode(doc: Document, id: NodeId, op: ArrangeOp): Document {
+  const parentId = getParent(doc, id);
+  if (parentId) {
+    const parent = doc.nodes[parentId];
+    if (!parent || !isContainer(parent)) return doc;
+    const siblings = parent.children;
+    const from = siblings.indexOf(id);
+    if (from < 0) return doc;
+    let to: number;
+    switch (op) {
+      case 'front':
+        to = siblings.length - 1;
+        break;
+      case 'back':
+        to = 0;
+        break;
+      case 'forward':
+        to = from + 1;
+        break;
+      case 'backward':
+        to = from - 1;
+        break;
+    }
+    if (to === from || to < 0 || to >= siblings.length) return doc;
+    return moveChild(doc, parentId, id, to);
+  } else {
+    const siblings = doc.rootChildren;
+    const from = siblings.indexOf(id);
+    if (from < 0) return doc;
+    let to: number;
+    switch (op) {
+      case 'front':
+        to = siblings.length - 1;
+        break;
+      case 'back':
+        to = 0;
+        break;
+      case 'forward':
+        to = from + 1;
+        break;
+      case 'backward':
+        to = from - 1;
+        break;
+    }
+    if (to === from || to < 0 || to >= siblings.length) return doc;
+    return moveNode(doc, id, to);
+  }
+}
+
 /** Move a nested child within its parent's children array. */
 export function moveChild(doc: Document, parentId: NodeId, id: NodeId, toIndex: number): Document {
   const parent = doc.nodes[parentId];

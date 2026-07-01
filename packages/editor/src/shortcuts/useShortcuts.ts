@@ -93,7 +93,17 @@ export function useShortcuts(editor: EditorContextValue): {
         };
       }
       case 'group':
-        return null;
+        return () => e.groupSelected();
+      case 'ungroup':
+        return () => e.ungroupSelected();
+      case 'bringFront':
+        return () => e.arrangeSelected('front');
+      case 'sendBack':
+        return () => e.arrangeSelected('back');
+      case 'bringForward':
+        return () => e.arrangeSelected('forward');
+      case 'sendBackward':
+        return () => e.arrangeSelected('backward');
       case 'alignLeft':
         return () => e.alignSelected('left');
       case 'alignCenterH':

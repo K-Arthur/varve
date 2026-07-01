@@ -33,6 +33,19 @@ export const SHORTCUT_DEFS = {
   zoom400: { binding: { key: '6' }, label: 'Zoom to 400%', category: 'View' },
   selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
   group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
+  ungroup: { binding: { key: 'g', ctrl: true, shift: true }, label: 'Ungroup', category: 'Object' },
+  bringFront: {
+    binding: { key: ']', ctrl: true, shift: true },
+    label: 'Bring to Front',
+    category: 'Arrange',
+  },
+  sendBack: {
+    binding: { key: '[', ctrl: true, shift: true },
+    label: 'Send to Back',
+    category: 'Arrange',
+  },
+  bringForward: { binding: { key: ']', ctrl: true }, label: 'Bring Forward', category: 'Arrange' },
+  sendBackward: { binding: { key: '[', ctrl: true }, label: 'Send Backward', category: 'Arrange' },
   alignLeft: {
     binding: { key: 'ArrowLeft', ctrl: true, shift: true },
     label: 'Align left',
