@@ -284,6 +284,9 @@ export function CanvasArea() {
       for (const [id] of entries) {
         const n = doc.nodes[id];
         if (!n) continue;
+        // Skip groups — they are transparent pass-through containers, not drawables.
+        // replaySubtree handles groups separately (line 343-350).
+        if (n.kind === 'group') continue;
         const world = nodeWorldTransform(doc, id);
         nodeIds.push(id);
         flatNodes.push({ ...toEngineNode(n), transform: world });
@@ -316,24 +319,31 @@ export function CanvasArea() {
           // Paint frame background before establishing child clip.
           if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);
           if (n.children.length > 0) {
-            // Compute frame rect corners in world space from the item's world transform.
-            // Affine [a,b,c,d,e,f]: point (x,y) → (a·x + c·y + e, b·x + d·y + f).
-            const t = item?.transform ?? ([1, 0, 0, 1, 0, 0] as const);
-            const [a, b, c, d, e, f] = t;
-            const fw = n.w;
-            const fh = n.h;
-            ctxNN.save();
-            ctxNN.beginPath();
-            ctxNN.moveTo(e, f);
-            ctxNN.lineTo(a * fw + e, b * fw + f);
-            ctxNN.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
-            ctxNN.lineTo(c * fh + e, d * fh + f);
-            ctxNN.closePath();
-            ctxNN.clip();
-            for (const childId of n.children) {
-              replaySubtree(childId);
+            const shouldClip = n.clipContent !== false;
+            if (shouldClip) {
+              // Compute frame rect corners in world space from the item's world transform.
+              // Affine [a,b,c,d,e,f]: point (x,y) → (a·x + c·y + e, b·x + d·y + f).
+              const t = item?.transform ?? ([1, 0, 0, 1, 0, 0] as const);
+              const [a, b, c, d, e, f] = t;
+              const fw = n.w;
+              const fh = n.h;
+              ctxNN.save();
+              ctxNN.beginPath();
+              ctxNN.moveTo(e, f);
+              ctxNN.lineTo(a * fw + e, b * fw + f);
+              ctxNN.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
+              ctxNN.lineTo(c * fh + e, d * fh + f);
+              ctxNN.closePath();
+              ctxNN.clip();
+              for (const childId of n.children) {
+                replaySubtree(childId);
+              }
+              ctxNN.restore();
+            } else {
+              for (const childId of n.children) {
+                replaySubtree(childId);
+              }
             }
-            ctxNN.restore();
           }
         } else if (n.kind === 'group') {
           // Groups are transparent pass-through containers; no background painted.

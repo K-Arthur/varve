@@ -226,6 +226,7 @@ export function makeFrameNode(
       | 'order'
       | 'w'
       | 'h'
+      | 'clipContent'
     >
   > & {
     index?: number;
@@ -249,6 +250,7 @@ export function makeFrameNode(
     children: opts.children ?? [],
     componentId: opts.componentId,
     slots: opts.slots,
+    clipContent: opts.clipContent,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
   };
