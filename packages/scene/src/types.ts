@@ -18,6 +18,26 @@ import type { ExportPreset } from './export-types';
 
 export type NodeId = string;
 
+// ── Constraints types (Figma-style responsive positioning) ─────────────────
+
+export type ConstraintAxis = 'min' | 'max' | 'center' | 'stretch' | 'scale';
+
+export interface Constraints {
+  horizontal: ConstraintAxis;
+  vertical: ConstraintAxis;
+}
+
+// ── Mask types ──────────────────────────────────────────────────────────────
+
+export type MaskType = 'clip' | 'alpha';
+
+export interface Mask {
+  type: MaskType;
+  /** Id of the child node used as the mask source. Must be a child of the container. */
+  sourceNodeId: NodeId;
+  visible: boolean;
+}
+
 // ── Appearance types (Inspector F6) ─────────────────────────────────────────
 
 export type BlendMode =
@@ -198,6 +218,8 @@ export interface NodeBase {
   layoutSizing?: LayoutSizing;
   /** P3: grid item placement within a grid parent. */
   gridPlacement?: GridItemPlacement;
+  /** Figma-style constraints for responsive child positioning within frames. */
+  constraints?: Constraints;
   /** Export presets for this node. */
   presets?: ExportPreset[];
 }
@@ -261,6 +283,8 @@ export interface GroupNode extends NodeBase {
   transform: Affine;
   /** Child node ids in paint order. */
   children: NodeId[];
+  /** Optional mask applied to children (clip or alpha). */
+  mask?: Mask;
 }
 
 /** B2: TypeScript mirror of strata-layout LayoutStyle (Rust). */
@@ -319,6 +343,8 @@ export interface FrameNode extends NodeBase {
   layoutStyle?: LayoutStyle;
   /** Toggle clipping of children outside the frame bounds. Default true. */
   clipContent?: boolean;
+  /** Optional mask applied to children (clip or alpha). */
+  mask?: Mask;
   /** F6: strokes on frame. */
   strokes: Stroke[];
   /** F6: effects on frame. */

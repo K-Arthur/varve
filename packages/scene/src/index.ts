@@ -8,9 +8,11 @@
 
 export * from './boolean';
 export * from './component';
+export * from './constraints';
 export * from './document';
 export * from './export-types';
 export * from './expr';
 export * from './fills';
+export * from './masks';
 export * from './types';
 export * from './variables';
