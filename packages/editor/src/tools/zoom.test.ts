@@ -66,6 +66,11 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
     abortTransaction: vi.fn(),
+    setTool: vi.fn(),
+    nodeEditTargetId: null,
+    setNodeEditTargetId: vi.fn(),
+    setNodeEditSelectedAnchors: vi.fn(),
+    duplicateSelected: vi.fn(),
     snapPosition: vi.fn((b: { x: number; y: number; w: number; h: number }) => ({
       x: b.x,
       y: b.y,

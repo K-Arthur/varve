@@ -8,11 +8,19 @@ function makePathNode(points: PathPoint[]) {
     id: 'n1',
     kind: 'shape' as const,
     name: 'Path',
+    index: 0,
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    rotation: 0,
+    fill: [0, 0, 0, 255] as const,
     transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
     shape: { kind: 'path' as const, points, closed: false, tolerance: 3 },
-    fills: [],
-    strokes: [],
-    effects: [],
+    fills: [] as [],
+    strokes: [] as [],
+    effects: [] as [],
   };
 }
 
@@ -49,6 +57,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     setNodeSize: vi.fn(),
     updateNode: vi.fn(),
     removeSelected: vi.fn(),
+    duplicateSelected: vi.fn(),
     reparentNode: vi.fn(),
     setPan: vi.fn(),
     setZoom: vi.fn(),
@@ -169,8 +178,8 @@ describe('NodeEditTool — anchor deletion', () => {
     tool.onKeyDown!(makeKeyEvent('Backspace'), ctx);
     expect(ctx.updateNode).toHaveBeenCalledWith('n1', expect.any(Function));
     // Verify the updater removes point 0
-    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0][1];
-    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1');
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
     const updated = updater(original);
     expect(updated.shape.points).toHaveLength(2);
   });
@@ -211,8 +220,8 @@ describe('NodeEditTool — anchor move', () => {
     const up = makePointerEvent(30, 20);
     tool.onPointerUp!(up, ctx);
     expect(ctx.updateNode).toHaveBeenCalled();
-    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0][1];
-    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1');
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
     const updated = updater(original);
     // Anchor 0 should have moved from (10,10) to (30,20)
     expect(updated.shape.points[0].x).toBeCloseTo(30);
