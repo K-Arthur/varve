@@ -1,6 +1,7 @@
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { contentHash, detectFileKind, type FileEntry, type Platform } from '@strata/platform';
 import { generateKeyBetween } from '@strata/shared';
+import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
@@ -339,6 +340,47 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
     [actions],
   );
 
+  // Create a document from a preset (blank or print) and open it. Shared by the
+  // New File dialog and the home quick-start row.
+  const createFromPreset = useCallback(
+    (name: string) => {
+      const id = crypto.randomUUID();
+      const now = Date.now();
+      const doc = {
+        id,
+        name,
+        rootChildren: [] as string[],
+        nodes: {},
+        components: {},
+        nextId: 1,
+      };
+      const docJson = JSON.stringify(doc);
+      const entry: FileEntry = {
+        id,
+        name,
+        kind: 'strata',
+        projectId: null,
+        createdAt: now,
+        updatedAt: now,
+        openedAt: now,
+        size: docJson.length,
+        pinned: false,
+        trashedAt: null,
+        ordering: '',
+        contentHash: '',
+      };
+      platform.upsertFile(entry, docJson);
+      generateThumbnail(platform, entry, docJson);
+      onOpenFile(entry);
+    },
+    [platform, onOpenFile],
+  );
+
+  const handleImport = useCallback(async () => {
+    const result = await platform.openDocumentFromDisk();
+    if (result) onOpenFile(result.entry);
+  }, [platform, onOpenFile]);
+
   const renderContent = () => {
     if (view.loading) {
       return (
@@ -427,6 +469,45 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
               </p>
               <p className="strata-home__hero-subtitle">{heroSubtitle}</p>
             </header>
+            {!state.filter.query && (
+              <div className="quick-start">
+                <button
+                  type="button"
+                  className="quick-start__card quick-start__card--primary"
+                  onClick={() => createFromPreset('Untitled')}
+                >
+                  <span className="quick-start__icon" aria-hidden>
+                    <Icon name="Plus" label={undefined} size="1.4rem" />
+                  </span>
+                  <span className="quick-start__text">
+                    <span className="quick-start__title">Blank canvas</span>
+                    <span className="quick-start__sub">Start designing right away</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="quick-start__card"
+                  onClick={() => view.setSection('templates')}
+                >
+                  <span className="quick-start__icon" aria-hidden>
+                    <Icon name="LayoutGrid" label={undefined} size="1.4rem" />
+                  </span>
+                  <span className="quick-start__text">
+                    <span className="quick-start__title">Templates</span>
+                    <span className="quick-start__sub">Start from a preset</span>
+                  </span>
+                </button>
+                <button type="button" className="quick-start__card" onClick={handleImport}>
+                  <span className="quick-start__icon" aria-hidden>
+                    <Icon name="Upload" label={undefined} size="1.4rem" />
+                  </span>
+                  <span className="quick-start__text">
+                    <span className="quick-start__title">Import</span>
+                    <span className="quick-start__sub">Open a file from disk</span>
+                  </span>
+                </button>
+              </div>
+            )}
             {visibleFiles.length === 0 && !state.filter.query ? (
               <EmptyStates section={state.section} onAction={() => setNewFileOpen(true)} />
             ) : visibleFiles.length === 0 ? (
@@ -549,34 +630,7 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
           open={newFileOpen}
           onClose={() => setNewFileOpen(false)}
           onCreate={(preset) => {
-            const id = crypto.randomUUID();
-            const now = Date.now();
-            const doc = {
-              id,
-              name: preset.name,
-              rootChildren: [] as string[],
-              nodes: {},
-              components: {},
-              nextId: 1,
-            };
-            const docJson = JSON.stringify(doc);
-            const entry: FileEntry = {
-              id,
-              name: preset.name,
-              kind: 'strata',
-              projectId: null,
-              createdAt: now,
-              updatedAt: now,
-              openedAt: now,
-              size: docJson.length,
-              pinned: false,
-              trashedAt: null,
-              ordering: '',
-              contentHash: '',
-            };
-            platform.upsertFile(entry, docJson);
-            generateThumbnail(platform, entry, docJson);
-            onOpenFile(entry);
+            createFromPreset(preset.name);
             setNewFileOpen(false);
           }}
         />

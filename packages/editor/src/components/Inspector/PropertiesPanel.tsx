@@ -27,6 +27,7 @@ import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
 import { FillStackSection } from './sections/FillStackSection';
+import { FramePresetsSection } from './sections/FramePresetsSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
@@ -74,6 +75,9 @@ export function PropertiesPanel() {
 
       {tab === 'properties' && (
         <div className="insp-panel">
+          {state.tool === 'frame' && summary.kind !== 'single' && (
+            <FramePresetsSection mode="create" />
+          )}
           {summary.kind === 'empty' && <EmptySelectionState />}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
@@ -196,6 +200,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
         </p>
       </header>
       {isComponentInstance && <ComponentSection node={node as import('@strata/scene').FrameNode} />}
+      {isFrame && !isComponentInstance && <FramePresetsSection mode="resize" />}
       <PositionSizeSection nodes={nodes} />
       {isRect && <CornerRadiusSection nodes={nodes} />}
       <AppearanceSection nodes={nodes} />

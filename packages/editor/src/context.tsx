@@ -58,7 +58,13 @@ import {
   type VariableValue,
   walkNodes,
 } from '@strata/scene';
-import { clampZoom, fitBoundsCamera, revealBoundsCamera, type Viewport } from '@strata/shared';
+import {
+  clampZoom,
+  fitBoundsCamera,
+  revealBoundsCamera,
+  screenToWorld,
+  type Viewport,
+} from '@strata/shared';
 import {
   createContext,
   type ReactNode,
@@ -161,6 +167,12 @@ export interface EditorContextValue {
     parentId?: NodeId | null,
     text?: string,
   ) => void;
+  /**
+   * Apply a frame size preset. If a single frame is selected, resizes it.
+   * Otherwise creates a new frame of the given size centered in the viewport
+   * and selects it. Used by the inspector's frame-preset panel (Figma model).
+   */
+  applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
   /** Find the deepest frame/group containing a world point (spatial containment). */
   findContainingFrame: (world: { x: number; y: number }) => NodeId | null;
   /** Compute world-space bounding box for a node. */
@@ -874,6 +886,55 @@ export function EditorProvider({
           }
 
           return { ...s, document: newDoc, selection: [id] };
+        });
+      },
+
+      applyFramePreset: (preset) => {
+        // Resize path: a single selected frame is resized in place.
+        const sel = state.selection;
+        if (sel.length === 1) {
+          const only = state.document.nodes[sel[0] as NodeId];
+          if (only && only.kind === 'frame') {
+            updateNodeProp(sel[0] as NodeId, (n) =>
+              n.kind === 'frame' ? { ...n, w: preset.w, h: preset.h } : n,
+            );
+            return;
+          }
+        }
+
+        // Create path: place a new frame centered in the current viewport.
+        setState((s) => {
+          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          redoStackRef.current = [];
+
+          const { id, doc: d2 } = nextNodeId(s.document);
+          const autoName = nextAutoName(d2, preset.name);
+
+          // World-space center of the visible canvas (window estimate; the
+          // fit-reveal below corrects the framing precisely afterward).
+          const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+          const vpH = typeof window !== 'undefined' ? window.innerHeight : 800;
+          const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
+          const center = screenToWorld(cam, vpW / 2, vpH / 2);
+          const transform: Affine = [
+            1,
+            0,
+            0,
+            1,
+            center[0] - preset.w / 2,
+            center[1] - preset.h / 2,
+          ];
+
+          const node = makeFrameNode(id, {
+            name: autoName,
+            transform,
+            fill: [255, 255, 255, 255] as Color,
+            children: [],
+            w: preset.w,
+            h: preset.h,
+          });
+
+          return { ...s, document: addNode(d2, node), selection: [id] };
         });
       },
 

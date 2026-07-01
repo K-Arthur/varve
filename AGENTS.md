@@ -538,3 +538,35 @@ Audited all modified surfaces against live code; eliminated duplicate UI and har
 | `packages/editor/src/editor.css` | Canvas dot grid; stronger panel shadows; stronger menubar shadow. |
 
 **Verification:** 664 JS tests (72 files) — all green. Typecheck clean (13 packages). `just gate` green. `pnpm audit:tokens` 72/72 WCAG-AA. `pnpm audit:emoji` clean.
+
+## Session 16 — Figma preset model, New File redesign, templates fix (2026-07-01)
+
+Adopted the **Full Figma preset model**: New File is blank-canvas-first; device/social/web/presentation sizes are now **frame presets** applied inside the editor, not document presets chosen up front. Print (A4/A3/Letter, CMYK+bleed) stays document-level because colour mode + bleed are document properties.
+
+### Blocker fixed
+- `apps/desktop/src-tauri/Cargo.lock` had unresolved `<<<<<<< HEAD` conflict markers (from the `feat/export-system` merge) breaking `tauri dev`. Resolved keeping both real deps — `notify` (file watching) and `tauri-plugin-fs`. Validated with `cargo metadata --locked`.
+
+### Features / fixes
+| Area | Change |
+|------|--------|
+| **Frame presets (new)** | `packages/editor/src/framePresets.ts` — grouped presets (Phone/Tablet/Desktop/Social/Presentation/Paper). New `FramePresetsSection` inspector panel shows when the Frame tool is active (create mode: new frame centered in viewport) or a single frame is selected (resize mode: resize in place). New context method `applyFramePreset({name,w,h})`. |
+| **New File dialog** | Rewrote to blank-first: a prominent "Blank canvas" card + Print document cards (A4/A3/Letter) + custom W/H/unit/color/bleed. Removed device/social/web/presentation presets (they are frame presets now). All inline styles → `new-file__*` CSS classes. Tabs: **Blank** / **Templates**. |
+| **Templates gallery bug** | The CSS grid was applied to category *wrapper* divs, so cards stacked vertically inside each category column. Fixed: each category is now a `<section>` with an `<h3>` header + its own `.templates-gallery__grid`. Redesigned cards (bordered, proportional preview proxy sized by `PREVIEW_ASPECT`, category accent + icon, name + description, lift-on-hover). |
+| **Home quick-start** | New `.quick-start` action row under the hero (Blank canvas / Templates / Import), shown when no search query. Extracted `createFromPreset` + `handleImport` handlers; the New File dialog reuses `createFromPreset`. |
+
+### Files changed
+| File | Change |
+|------|--------|
+| `apps/desktop/src-tauri/Cargo.lock` | Resolved merge-conflict markers. |
+| `packages/editor/src/framePresets.ts` (new) | Frame preset data. |
+| `packages/editor/src/framePresets.test.tsx` (new) | 3 tests: preset integrity, create, resize. |
+| `packages/editor/src/context.tsx` | Added `applyFramePreset` (create-centered / resize-selected); imported `screenToWorld`. |
+| `packages/editor/src/components/Inspector/sections/FramePresetsSection.tsx` (new) | Preset panel UI. |
+| `packages/editor/src/components/Inspector/PropertiesPanel.tsx` | Renders FramePresetsSection (create when Frame tool active + not single-select; resize when a frame is selected). |
+| `packages/editor/src/components/Inspector/inspector.css` | `.frame-presets*` styles. |
+| `packages/home/src/NewFileDialog.tsx` + `.test.tsx` | Blank-first redesign; test asserts "Blank canvas". |
+| `packages/home/src/TemplatesGallery.tsx` | Layout fix + card redesign. |
+| `packages/home/src/HomeShell.tsx` | Quick-start row; shared create/import handlers. |
+| `packages/home/src/home.css` | `.new-file__*`, `.quick-start__*`, `.templates-gallery__*`, `.template-card*` styles. |
+
+**Verification:** 667 JS tests (73 files, +3 frame-preset) — all green. Typecheck clean (13 packages). `just gate` green. `pnpm audit:tokens` 72/72 WCAG-AA. `pnpm audit:emoji` clean.

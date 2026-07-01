@@ -1,5 +1,5 @@
 import type { TemplateDef } from '@strata/platform';
-import { Icon } from '@strata/ui';
+import { Icon, type IconName } from '@strata/ui';
 import { EmptyStates } from './EmptyStates';
 
 export interface TemplatesGalleryProps {
@@ -100,13 +100,28 @@ const BUILTIN_TEMPLATES: TemplateDef[] = [
   },
 ];
 
-const PREVIEW_COLORS: Record<string, string> = {
-  General: 'var(--color-interactive-default)',
-  Social: 'var(--color-feedback-warning)',
-  Presentation: 'var(--color-feedback-success)',
-  Print: 'var(--color-feedback-danger)',
-  Device: 'var(--color-interactive-hover)',
-  Web: 'var(--color-feedback-warning)',
+/** Per-category accent + icon so cards read at a glance without thumbnails. */
+const CATEGORY_META: Record<string, { color: string; icon: IconName }> = {
+  General: { color: 'var(--color-interactive-default)', icon: 'Frame' },
+  Social: { color: 'var(--color-feedback-warning)', icon: 'Image' },
+  Presentation: { color: 'var(--color-feedback-success)', icon: 'Maximize' },
+  Print: { color: 'var(--color-feedback-danger)', icon: 'FileText' },
+  Device: { color: 'var(--color-feedback-info)', icon: 'Square' },
+  Web: { color: 'var(--color-interactive-hover)', icon: 'LayoutGrid' },
+};
+
+/** Preview aspect (width:height) per template so tiles hint at proportion. */
+const PREVIEW_ASPECT: Record<string, string> = {
+  'instagram-post': '1 / 1',
+  'instagram-story': '9 / 16',
+  'facebook-cover': '16 / 6',
+  'presentation-16-9': '16 / 9',
+  a4: '210 / 297',
+  'us-letter': '17 / 22',
+  'iphone-frame': '9 / 19',
+  'ipad-frame': '3 / 4',
+  'web-1440': '16 / 10',
+  blank: '4 / 3',
 };
 
 export function TemplatesGallery({ onSelect, templates }: TemplatesGalleryProps) {
@@ -124,34 +139,39 @@ export function TemplatesGallery({ onSelect, templates }: TemplatesGalleryProps)
 
   return (
     <div className="templates-gallery">
-      {Object.entries(grouped).map(([category, cats]) => (
-        <div key={category}>
-          <h3 className="templates-gallery__cat">{category}</h3>
-          {cats.map((template) => (
-            <button
-              key={template.id}
-              type="button"
-              className="template-card"
-              onClick={() => onSelect(template)}
-            >
-              <div
-                className="template-card__preview"
-                style={{
-                  background: `linear-gradient(135deg, ${PREVIEW_COLORS[category] ?? 'var(--color-border-subtle)'}, transparent)`,
-                }}
-              >
-                <Icon
-                  name="FileText"
-                  label={undefined}
-                  size="2rem"
-                  style={{ opacity: 0.6, color: 'white' }}
-                />
-              </div>
-              <span className="template-card__name">{template.name}</span>
-            </button>
-          ))}
-        </div>
-      ))}
+      {Object.entries(grouped).map(([category, cats]) => {
+        const meta = CATEGORY_META[category] ?? CATEGORY_META.General;
+        return (
+          <section key={category} className="templates-gallery__section">
+            <h3 className="templates-gallery__cat">{category}</h3>
+            <div className="templates-gallery__grid">
+              {cats.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  className="template-card"
+                  onClick={() => onSelect(template)}
+                  title={template.description}
+                >
+                  <div
+                    className="template-card__preview"
+                    style={{ ['--tpl-accent' as string]: meta?.color }}
+                  >
+                    <span
+                      className="template-card__proxy"
+                      style={{ aspectRatio: PREVIEW_ASPECT[template.id] ?? '4 / 3' }}
+                    >
+                      <Icon name={meta?.icon ?? 'FileText'} label={undefined} size="1.25rem" />
+                    </span>
+                  </div>
+                  <span className="template-card__name">{template.name}</span>
+                  <span className="template-card__desc">{template.description}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
