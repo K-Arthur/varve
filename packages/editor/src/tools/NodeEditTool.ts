@@ -5,7 +5,9 @@
  * Manages per-anchor selection, drag-move, delete, and corner/smooth toggle.
  * Exits back to 'select' on Escape or V.
  */
-import type { PathPoint } from '@strata/engine';
+import type { Affine, PathPoint } from '@strata/engine';
+import { applyAffine, invertAffine } from '@strata/engine';
+import { nodeWorldTransform } from '../scene/world';
 import type { ShapeNode } from '@strata/scene';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -42,9 +44,12 @@ export class NodeEditTool extends BaseTool {
       return { consumed: false };
     }
 
-    const tx = node.transform[4];
-    const ty = node.transform[5];
-    const hit = findNearestAnchor(node.shape.points, world, tx, ty, ANCHOR_HIT_RADIUS);
+    // Convert world pointer to node's local space using full inverse world transform.
+    // This correctly handles rotated/scaled nodes and nodes inside frames.
+    const worldMat = nodeWorldTransform(ctx.document, targetId);
+    const invWorld = invertAffine(worldMat);
+    const local = applyAffine(invWorld, [world.x, world.y]);
+    const hit = findNearestAnchorLocal(node.shape.points, local, ANCHOR_HIT_RADIUS);
 
     if (hit !== null) {
       if (!e.shiftKey) this.selectedAnchors.clear();
@@ -77,17 +82,25 @@ export class NodeEditTool extends BaseTool {
     if (this.draggingAnchorIdx === null || !this.dragStartAnchorPos || !this.dragStartWorld) return;
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
 
-    const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
-    this.drag.currentWorld = world;
+    const targetId = ctx.nodeEditTargetId;
+    if (!targetId) return;
 
-    const dx = world.x - this.dragStartWorld.x;
-    const dy = world.y - this.dragStartWorld.y;
+    // Convert both start and current world positions to node-local space.
+    // The delta in local space is the correct anchor displacement regardless
+    // of the node's rotation, scale, or parent transforms.
+    const worldMat = nodeWorldTransform(ctx.document, targetId);
+    const invWorld = invertAffine(worldMat);
+    const current = ctx.canvasToWorld(e.clientX, e.clientY);
+    this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
+    this.drag.currentWorld = current;
+
+    const localStart = applyAffine(invWorld, [this.dragStartWorld.x, this.dragStartWorld.y]);
+    const localCurrent = applyAffine(invWorld, [current.x, current.y]);
+    const dx = localCurrent[0] - localStart[0];
+    const dy = localCurrent[1] - localStart[1];
     const newX = this.dragStartAnchorPos.x + dx;
     const newY = this.dragStartAnchorPos.y + dy;
 
-    const targetId = ctx.nodeEditTargetId;
-    if (!targetId) return;
     const anchorIdx = this.draggingAnchorIdx;
 
     ctx.updateNode(targetId, (n) => {
@@ -180,19 +193,17 @@ export class NodeEditTool extends BaseTool {
   }
 }
 
-function findNearestAnchor(
+function findNearestAnchorLocal(
   points: PathPoint[],
-  world: { x: number; y: number },
-  tx: number,
-  ty: number,
+  local: readonly [number, number],
   radius: number,
 ): number | null {
   let best: number | null = null;
   let bestDist = radius * radius;
   for (let i = 0; i < points.length; i++) {
     const p = points[i]!;
-    const dx = world.x - (tx + p.x);
-    const dy = world.y - (ty + p.y);
+    const dx = local[0] - p.x;
+    const dy = local[1] - p.y;
     const dist2 = dx * dx + dy * dy;
     if (dist2 < bestDist) {
       bestDist = dist2;
