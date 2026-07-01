@@ -3,7 +3,7 @@
  * and Fill type operations.
  */
 
-import { gradientFill, imageFill, patternFill, solidFill } from '@strata/scene';
+import { fillToColor, gradientFill, imageFill, patternFill, primaryColor, resolveNodeFills, solidFill } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 
 describe('fill constructors', () => {
@@ -92,6 +92,125 @@ describe('fill constructors', () => {
       const fill = patternFill('tile:xyz', { spacing: 8, rotation: 90 });
       expect(fill.pattern?.spacing).toBe(8);
       expect(fill.pattern?.rotation).toBe(90);
+    });
+  });
+
+  describe('fillToColor', () => {
+    it('extracts color from solid fill', () => {
+      const fill = solidFill([255, 0, 0, 255]);
+      const c = fillToColor(fill);
+      expect(c).toEqual([255, 0, 0, 255]);
+    });
+
+    it('multiplies opacity into alpha for solids', () => {
+      const fill = solidFill([255, 0, 0, 255], { opacity: 0.5 });
+      const c = fillToColor(fill);
+      expect(c[3]).toBe(128);
+    });
+
+    it('returns first stop color for gradient fill', () => {
+      const fill = gradientFill('linear', [
+        { position: 0, color: [100, 200, 50, 255] },
+        { position: 1, color: [0, 0, 255, 255] },
+      ]);
+      const c = fillToColor(fill);
+      expect(c).toEqual([100, 200, 50, 255]);
+    });
+
+    it('returns transparent for image fill', () => {
+      const fill = imageFill('data:image/png;base64,abc');
+      const c = fillToColor(fill);
+      expect(c).toEqual([0, 0, 0, 0]);
+    });
+  });
+
+  describe('primaryColor', () => {
+    it('returns topmost visible solid fill color', () => {
+      const fills = [
+        solidFill([255, 0, 0, 255]),
+        solidFill([0, 255, 0, 255]),
+      ];
+      const c = primaryColor(fills);
+      expect(c).toEqual([0, 255, 0, 255]);
+    });
+
+    it('skips invisible fills', () => {
+      const fills = [
+        solidFill([255, 0, 0, 255]),
+        solidFill([0, 255, 0, 255], { visible: false }),
+        solidFill([0, 0, 255, 255]),
+      ];
+      const c = primaryColor(fills);
+      expect(c).toEqual([0, 0, 255, 255]);
+    });
+
+    it('returns null for empty array', () => {
+      expect(primaryColor([])).toBeNull();
+    });
+
+    it('returns first stop color for gradient as topmost', () => {
+      const fills = [
+        gradientFill('linear', [
+          { position: 0, color: [100, 50, 200, 255] },
+          { position: 1, color: [0, 0, 0, 255] },
+        ]),
+      ];
+      const c = primaryColor(fills);
+      expect(c).toEqual([100, 50, 200, 255]);
+    });
+  });
+
+  describe('resolveNodeFills', () => {
+    it('returns fills array when present', () => {
+      const node = {
+        fill: [0, 0, 0, 255] as [number, number, number, number],
+        fills: [solidFill([255, 0, 0, 255])],
+      };
+      const result = resolveNodeFills(node);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.color).toEqual([255, 0, 0, 255]);
+    });
+
+    it('wraps legacy fill when fills is absent', () => {
+      const node = {
+        fill: [57, 208, 198, 255] as [number, number, number, number],
+      };
+      const result = resolveNodeFills(node);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.type).toBe('solid');
+      if (result[0]?.type === 'solid') {
+        expect(result[0]?.color).toEqual([57, 208, 198, 255]);
+      }
+    });
+
+    it('wraps legacy fill when fills is empty array', () => {
+      const node = {
+        fill: [255, 0, 0, 255] as [number, number, number, number],
+        fills: [],
+      };
+      const result = resolveNodeFills(node);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.color).toEqual([255, 0, 0, 255]);
+    });
+  });
+
+  describe('angular/diamond gradient constructors', () => {
+    it('creates angular gradient fill', () => {
+      const fill = gradientFill('angular', [
+        { position: 0, color: [255, 0, 0, 255] },
+        { position: 0.5, color: [0, 255, 0, 255] },
+        { position: 1, color: [0, 0, 255, 255] },
+      ]);
+      expect(fill.gradient?.type).toBe('angular');
+      expect(fill.gradient?.stops).toHaveLength(3);
+    });
+
+    it('creates diamond gradient fill', () => {
+      const fill = gradientFill('diamond', [
+        { position: 0, color: [255, 255, 0, 255] },
+        { position: 1, color: [0, 0, 0, 255] },
+      ]);
+      expect(fill.gradient?.type).toBe('diamond');
     });
   });
 });

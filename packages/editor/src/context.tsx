@@ -901,7 +901,7 @@ export function EditorProvider({
         });
       },
 
-      createTextNodeAt: (world, _size, parentId, text = '') => {
+      createTextNodeAt: (world, size, parentId, text = '') => {
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];

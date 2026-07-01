@@ -33,13 +33,20 @@ function toEngineNode(n: SceneNode) {
   if (n.kind === 'text')
     return {
       ...base,
-      shape: {
-        kind: 'rect' as const,
-        x: 0,
-        y: 0,
-        w: (n.fontSize ?? 16) * 3,
-        h: (n.fontSize ?? 16) * 1.4,
-      },
+      kind: 'text',
+      text: n.text,
+      fontSize: n.fontSize,
+      fontFamily: n.fontFamily,
+      fontWeight: n.fontWeight,
+      fontStyle: n.fontStyle,
+      textAlign: n.textAlign,
+      letterSpacing: n.letterSpacing,
+      lineHeight: n.lineHeight,
+      paragraphSpacing: n.paragraphSpacing,
+      textCase: n.textCase,
+      textDecoration: n.textDecoration,
+      textOverflow: n.textOverflow,
+      listStyle: n.listStyle,
     };
   return { ...base, shape: { kind: 'rect' as const, x: 0, y: 0, w: 200, h: 160 } };
 }

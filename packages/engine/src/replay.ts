@@ -72,6 +72,8 @@ export interface ReplayTarget {
     y1: number,
     r1: number,
   ): ReplayGradient;
+  /** P2: create a conic gradient for angular gradient fills. */
+  createConicGradient?(angle: number, cx: number, cy: number): ReplayGradient;
   /** P2: for shadow effects (replay clips shadow pass). */
   shadowColor?: string;
   shadowBlur?: number;
@@ -84,7 +86,7 @@ export interface ReplayGradient {
 }
 
 function rgba(c: Color): string {
-  return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(c[3] / 255).toFixed(3)})`;
+  return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] / 255})`;
 }
 
 const TAU = Math.PI * 2;
@@ -113,7 +115,14 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           target.shadowBlur = effect.blur;
           target.shadowOffsetX = effect.x;
           target.shadowOffsetY = effect.y;
+        } else if (effect.type === 'innerShadow') {
+          target.shadowColor = rgba(effect.color);
+          target.shadowBlur = effect.blur;
+          target.shadowOffsetX = effect.x;
+          target.shadowOffsetY = effect.y;
         } else if (effect.type === 'layerBlur') {
+          target.filter = `blur(${effect.radius}px)`;
+        } else if (effect.type === 'backgroundBlur') {
           target.filter = `blur(${effect.radius}px)`;
         }
       }
@@ -131,12 +140,17 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
     // ── Fills pass ────────────────────────────────────────────────
     const fills = item.fills;
     if (fills && fills.length > 0) {
+      const restoreBlend = target.globalCompositeOperation;
       for (const fill of fills) {
         if (!fill.visible) continue;
         // Per-fill opacity multiplies with item alpha. Always set (resets between fills).
         target.globalAlpha = itemAlpha * (fill.opacity ?? 1);
         if (fill.blendMode && fill.blendMode !== 'normal') {
           target.globalCompositeOperation = mapBlendMode(fill.blendMode);
+        } else if (item.blendMode && item.blendMode !== 'normal') {
+          target.globalCompositeOperation = mapBlendMode(item.blendMode);
+        } else {
+          target.globalCompositeOperation = restoreBlend;
         }
         paintFill(target, fill, item);
       }
@@ -233,6 +247,22 @@ function createGradientStyle(
   const dy = Math.sin(rot) * halfDiag;
 
   if (fill.gradientType === 'radial' && target.createRadialGradient) {
+    const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
+    for (const s of stops) {
+      grad.addColorStop(s.position, rgba(s.color));
+    }
+    return grad as unknown as string;
+  }
+
+  if (fill.gradientType === 'angular' && target.createConicGradient) {
+    const grad = target.createConicGradient(rot, cx, cy);
+    for (const s of stops) {
+      grad.addColorStop(s.position, rgba(s.color));
+    }
+    return grad as unknown as string;
+  }
+
+  if (fill.gradientType === 'diamond' && target.createRadialGradient) {
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
     for (const s of stops) {
       grad.addColorStop(s.position, rgba(s.color));
@@ -337,7 +367,17 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
   }
 }
 
-/** Paint a text primitive via Canvas2D `fillText`. */
+/** Apply text case transform to a string. */
+function applyTextCase(text: string, textCase: string): string {
+  switch (textCase) {
+    case 'uppercase': return text.toUpperCase();
+    case 'lowercase': return text.toLowerCase();
+    case 'capitalize': return text.replace(/\b\w/g, (c) => c.toUpperCase());
+    default: return text;
+  }
+}
+
+/** Paint a text primitive via Canvas2D `fillText` with full typography support. */
 function paintText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
@@ -345,11 +385,100 @@ function paintText(
   const style = p.fontStyle === 'italic' ? 'italic ' : '';
   const fw = Math.max(1, Math.min(1000, p.fontWeight));
   target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
-  target.textBaseline = 'top';
+
+  // Text baseline from vertical alignment
+  const baselineMap: Record<string, CanvasTextBaseline> = {
+    top: 'top',
+    middle: 'middle',
+    bottom: 'alphabetic',
+  };
+  target.textBaseline = baselineMap[p.textAlignVertical] ?? 'top';
   target.textAlign = p.textAlign as CanvasTextAlign;
-  const xOrigin =
-    p.textAlign === 'center' ? p.x + p.w / 2 : p.textAlign === 'right' ? p.x + p.w : p.x;
-  target.fillText(p.text, xOrigin, p.y);
+
+  // Apply text case transform
+  const displayText = applyTextCase(p.text, p.textCase);
+
+  // Split into lines
+  const rawLines = displayText.split('\n');
+
+  // Build list prefix for each line
+  const lines: string[] = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    let line = rawLines[i] ?? '';
+    if (p.listStyle === 'disc') line = `• ${line}`;
+    else if (p.listStyle === 'circle') line = `○ ${line}`;
+    else if (p.listStyle === 'square') line = `▪ ${line}`;
+    else if (p.listStyle === 'decimal') line = `${i + 1}. ${line}`;
+    lines.push(line);
+  }
+
+  // Compute line metrics
+  const lh = p.fontSize * p.lineHeight;
+  const ps = p.paragraphSpacing;
+  const ls = p.letterSpacing;
+
+  // Compute text overflow: visible text
+  const visibleLines: Array<{ text: string; y: number }> = [];
+  let currentY = p.y;
+  for (let i = 0; i < lines.length; i++) {
+    const yPos = currentY + i * lh + (i > 0 ? ps : 0);
+    if (p.textOverflow === 'clip' && yPos + lh > p.y + p.h) break;
+    visibleLines.push({ text: lines[i] ?? '', y: yPos });
+  }
+
+  // Adjust Y for vertical alignment
+  const totalHeight = visibleLines.length * lh + Math.max(0, visibleLines.length - 1) * ps;
+  let yOffset = 0;
+  if (p.textAlignVertical === 'middle') {
+    yOffset = (p.h - totalHeight) / 2;
+  } else if (p.textAlignVertical === 'bottom') {
+    yOffset = p.h - totalHeight;
+  }
+
+  // Draw each line
+  for (const vl of visibleLines) {
+    const y = vl.y + yOffset;
+    const text = vl.text;
+
+    // Handle overflow ellipsis
+    let displayLine = text;
+    if (p.textOverflow === 'ellipsis') {
+      target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+      displayLine = text + (text.length > 0 && y + lh > p.y + p.h ? '…' : '');
+    }
+
+    // Calculate x origin based on text alignment within the box
+    const xOrigin =
+      p.textAlign === 'center' ? p.x + p.w / 2
+        : p.textAlign === 'right' ? p.x + p.w
+          : p.x;
+
+    // Draw text with letter spacing if needed
+    if (ls !== 0 && displayLine.length > 1) {
+      // Letter spacing: draw each character individually
+      let cursorX = xOrigin;
+      for (let ci = 0; ci < displayLine.length; ci++) {
+        const char = displayLine[ci] ?? '';
+        target.fillText(char, cursorX, y);
+        cursorX += p.fontSize * 0.6 + ls;
+      }
+    } else {
+      target.fillText(displayLine, xOrigin, y);
+    }
+
+    // Text decoration: underline
+    if (p.textDecoration === 'underline' || p.textDecoration === 'line-through') {
+      const decoY = p.textDecoration === 'underline' ? y + p.fontSize * 1.1 : y + p.fontSize * 0.5;
+      const decoX1 = p.textAlign === 'center' ? p.x : p.x;
+      const decoX2 = p.textAlign === 'center' ? p.x + p.w : p.x + p.w;
+      target.beginPath();
+      target.moveTo(decoX1, decoY);
+      target.lineTo(decoX2, decoY);
+      target.strokeStyle = target.fillStyle;
+      target.lineWidth = 1;
+      target.stroke();
+    }
+  }
 }
 
 /** Paint a closed/open path fill. */
@@ -410,7 +539,13 @@ function paintStroke(
   const p = item.primitive;
   switch (p.kind) {
     case 'rect':
-      target.strokeRect(p.x, p.y, p.w, p.h);
+      if (p.cornerRadius && target.roundRect) {
+        target.beginPath();
+        target.roundRect(p.x, p.y, p.w, p.h, p.cornerRadius);
+        target.stroke();
+      } else {
+        target.strokeRect(p.x, p.y, p.w, p.h);
+      }
       break;
     case 'ellipse':
     case 'circle':
@@ -432,8 +567,7 @@ function paintStroke(
       target.moveTo(p.from[0], p.from[1]);
       target.lineTo(p.to[0], p.to[1]);
       target.stroke();
-      target.fillStyle = rgba(stroke.color);
-      drawArrowhead(target, p.from, p.to, p.arrowheadSize);
+      // Arrowhead is drawn in the fill pass only to avoid double-draw.
       break;
     case 'path':
       target.beginPath();

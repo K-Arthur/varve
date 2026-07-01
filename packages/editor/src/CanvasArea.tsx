@@ -22,6 +22,7 @@ import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
+import { TextEditOverlay } from './components/TextEditOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
@@ -71,6 +72,15 @@ function toEngineNode(n: DocNode): EngineNode {
       fontFamily: n.fontFamily,
       fontWeight: n.fontWeight,
       fontStyle: n.fontStyle,
+      textAlign: n.textAlign,
+      textAlignVertical: n.textAlignVertical,
+      letterSpacing: n.letterSpacing,
+      lineHeight: n.lineHeight,
+      paragraphSpacing: n.paragraphSpacing,
+      textCase: n.textCase,
+      textDecoration: n.textDecoration,
+      textOverflow: n.textOverflow,
+      listStyle: n.listStyle,
     };
   if (n.kind === 'frame')
     return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
@@ -125,6 +135,7 @@ export function CanvasArea() {
   const [nodeEditSelectedAnchors, setNodeEditSelectedAnchors] = useState<ReadonlySet<number>>(
     new Set(),
   );
+  const [textEditTargetId, setTextEditTargetId] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const lastCursorUpdate = useRef(0);
 
@@ -237,6 +248,7 @@ export function CanvasArea() {
       nodeEditTargetId,
       setNodeEditTargetId,
       setNodeEditSelectedAnchors,
+      setTextEditTargetId,
 
       snapPosition: (bounds, targets) => {
         if (!s.snapEnabled) return { x: bounds.x, y: bounds.y, guides: [] };
@@ -804,6 +816,25 @@ export function CanvasArea() {
           );
         })()}
       <SelectionOverlay canvasRef={canvasRef} />
+      {textEditTargetId &&
+        (() => {
+          const n = state.document.nodes[textEditTargetId];
+          if (!n || n.kind !== 'text') return null;
+          return (
+            <TextEditOverlay
+              node={n}
+              zoom={state.zoom}
+              pan={state.pan}
+              canvasElement={canvasRef.current}
+              onCommit={() => setTextEditTargetId(null)}
+              onUpdateText={(text) => {
+                editor.updateNode(textEditTargetId, (node) =>
+                  node.kind === 'text' ? { ...node, text } : node,
+                );
+              }}
+            />
+          );
+        })()}
       {state.tool !== 'inspect' && Object.keys(state.document.nodes).length === 0 && (
         <div className="editor-canvas__empty">
           <EmptyState

@@ -235,7 +235,7 @@ describe('replayIr', () => {
     const idxRestore = rec.calls.indexOf('restore(0)');
     expect(idxFillRect).toBeGreaterThan(0);
     expect(idxRestore).toBeGreaterThan(idxFillRect);
-    expect(rec.props.fillStyle).toBe('rgba(57, 208, 198, 1.000)');
+    expect(rec.props.fillStyle).toBe('rgba(57, 208, 198, 1)');
   });
 
   it('replays an ellipse via beginPath + ellipse + fill', () => {
@@ -264,6 +264,14 @@ describe('replayIr', () => {
           fontWeight: 400,
           fontStyle: 'normal' as const,
           textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
           x: 0,
           y: 0,
           w: 100,
@@ -296,6 +304,14 @@ describe('replayIr', () => {
           fontWeight: 700,
           fontStyle: 'italic' as const,
           textAlign: 'center' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
           x: 0,
           y: 0,
           w: 100,
@@ -321,6 +337,14 @@ describe('replayIr', () => {
           fontWeight: 400,
           fontStyle: 'normal' as const,
           textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
           x: 0,
           y: 0,
           w: 100,
@@ -423,6 +447,14 @@ describe('replayIr', () => {
           fontWeight: 9999,
           fontStyle: 'normal' as const,
           textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
           x: 0,
           y: 0,
           w: 100,
@@ -525,6 +557,14 @@ describe('replayIr', () => {
         fontWeight: 400,
         fontStyle: 'normal',
         textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.4,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
       },
     };
     const rec = recorder();
@@ -590,5 +630,89 @@ describe('replayIr', () => {
     const saves = rec.calls.filter((c) => c === 'save(0)');
     const restores = rec.calls.filter((c) => c === 'restore(0)');
     expect(saves.length).toBe(restores.length);
+  });
+
+  // ── Phase C: Renderer Completion Tests ─────────────────────────────────
+
+  it('renders uppercase textCase via transformed text', () => {
+    const items: RenderItem[] = [{
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: [0, 0, 0, 255] as const,
+      primitive: {
+        kind: 'text', text: 'hello', fontSize: 16,
+        fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal' as const,
+        textAlign: 'left' as const, textAlignVertical: 'top' as const,
+        letterSpacing: 0, lineHeight: 1.4, paragraphSpacing: 0,
+        textCase: 'uppercase' as const, textDecoration: 'none' as const,
+        textOverflow: 'visible' as const, listStyle: 'none' as const,
+        x: 0, y: 0, w: 100, h: 20,
+      },
+    }];
+    const rec = new Recorder();
+    replayIr(rec, items);
+    expect(rec.calls).toContain('fillText("HELLO",0,0)');
+  });
+
+  it('sets textBaseline from textAlignVertical', () => {
+    const items: RenderItem[] = [{
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: [0, 0, 0, 255] as const,
+      primitive: {
+        kind: 'text', text: 'Test', fontSize: 16,
+        fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal' as const,
+        textAlign: 'center' as const, textAlignVertical: 'middle' as const,
+        letterSpacing: 0, lineHeight: 1.4, paragraphSpacing: 0,
+        textCase: 'none' as const, textDecoration: 'none' as const,
+        textOverflow: 'visible' as const, listStyle: 'none' as const,
+        x: 0, y: 0, w: 100, h: 40,
+      },
+    }];
+    const rec = new Recorder();
+    replayIr(rec, items);
+    expect(rec.textBaseline).toBe('middle');
+  });
+
+  it('renders underline decoration', () => {
+    const items: RenderItem[] = [{
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: [0, 0, 0, 255] as const,
+      primitive: {
+        kind: 'text', text: 'Underlined', fontSize: 16,
+        fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal' as const,
+        textAlign: 'left' as const, textAlignVertical: 'top' as const,
+        letterSpacing: 0, lineHeight: 1.4, paragraphSpacing: 0,
+        textCase: 'none' as const, textDecoration: 'underline' as const,
+        textOverflow: 'visible' as const, listStyle: 'none' as const,
+        x: 0, y: 0, w: 100, h: 20,
+      },
+    }];
+    const rec = new Recorder();
+    replayIr(rec, items);
+    // Underline draws a line: moveTo + lineTo + stroke
+    expect(rec.calls.some((c) => c.startsWith('moveTo'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('lineTo'))).toBe(true);
+    expect(rec.calls.some((c) => c === 'stroke')).toBe(true);
+  });
+
+  it('renders bulleted list with disc prefix', () => {
+    const items: RenderItem[] = [{
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: [0, 0, 0, 255] as const,
+      primitive: {
+        kind: 'text', text: 'Item 1\nItem 2', fontSize: 16,
+        fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal' as const,
+        textAlign: 'left' as const, textAlignVertical: 'top' as const,
+        letterSpacing: 0, lineHeight: 1.4, paragraphSpacing: 0,
+        textCase: 'none' as const, textDecoration: 'none' as const,
+        textOverflow: 'visible' as const, listStyle: 'disc' as const,
+        x: 0, y: 0, w: 200, h: 60,
+      },
+    }];
+    const rec = new Recorder();
+    replayIr(rec, items);
+    // Bullet list renders each line prefixed with •
+    const fillCalls = rec.calls.filter((c) => c.startsWith('fillText'));
+    expect(fillCalls.length).toBe(2);
+    expect(rec.calls.some((c) => c.includes('•'))).toBe(true);
   });
 });

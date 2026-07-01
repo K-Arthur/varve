@@ -281,7 +281,11 @@ export class SelectTool extends BaseTool {
     const hit = ctx.hitTest(world);
     if (hit) {
       const node = ctx.getNode(hit.nodeId);
-      if (node && (node.kind === 'frame' || node.kind === 'group')) {
+      if (node && node.kind === 'text') {
+        ctx.announceOperation('Edit Text', node.name);
+        ctx.setTextEditTargetId(hit.nodeId);
+        ctx.setSelection(hit.nodeId);
+      } else if (node && (node.kind === 'frame' || node.kind === 'group')) {
         ctx.announceOperation('Enter', node.name);
       } else if (node && node.kind === 'shape' && node.shape.kind === 'path') {
         ctx.setNodeEditTargetId(hit.nodeId);

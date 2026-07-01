@@ -39,7 +39,15 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
       fontFamily: node.fontFamily ?? 'sans-serif',
       fontWeight: node.fontWeight ?? 400,
       fontStyle: (node.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
-      textAlign: 'left' as const,
+      textAlign: (node.textAlign as 'left' | 'center' | 'right' | 'justify' | undefined) ?? 'left',
+      textAlignVertical: (node.textAlignVertical as 'top' | 'middle' | 'bottom' | undefined) ?? 'top',
+      letterSpacing: node.letterSpacing ?? 0,
+      lineHeight: node.lineHeight ?? 1.4,
+      paragraphSpacing: node.paragraphSpacing ?? 0,
+      textCase: (node.textCase as 'none' | 'uppercase' | 'lowercase' | 'capitalize' | undefined) ?? 'none',
+      textDecoration: (node.textDecoration as 'none' | 'underline' | 'line-through' | undefined) ?? 'none',
+      textOverflow: (node.textOverflow as 'clip' | 'ellipsis' | 'visible' | undefined) ?? 'visible',
+      listStyle: (node.listStyle as 'none' | 'disc' | 'decimal' | 'circle' | 'square' | undefined) ?? 'none',
     };
   }
   const s = node.shape;

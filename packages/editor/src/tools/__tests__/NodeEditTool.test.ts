@@ -64,6 +64,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     setTool: vi.fn(),
     setNodeEditTargetId: vi.fn(),
     setNodeEditSelectedAnchors: vi.fn(),
+    setTextEditTargetId: vi.fn(),
     announce: vi.fn(),
     announceSelection: vi.fn(),
     announceOperation: vi.fn(),

@@ -35,3 +35,5 @@ export type {
   StrokeCap,
   StrokeJoin,
 } from './types';
+export type { FontEntry, FontLoadState } from './fontRegistry';
+export { FontRegistry, getFontRegistry } from './fontRegistry';

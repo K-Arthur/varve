@@ -225,6 +225,199 @@ describe('createEngine (stub)', () => {
     }
   });
 
+  it('passes textAlign from scene node to IR primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 't2',
+          name: 'text',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: [0, 0, 0, 255],
+          text: 'Centered',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+          textAlign: 'center',
+        },
+      ],
+    });
+    const p = ir[0]?.primitive;
+    if (p?.kind === 'text') {
+      expect(p.textAlign).toBe('center');
+    }
+  });
+
+  it('propagates letterSpacing and lineHeight to text primitive', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 't3',
+          name: 'text',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: [0, 0, 0, 255],
+          text: 'Styled',
+          fontSize: 24,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+          letterSpacing: 2,
+          lineHeight: 1.5,
+        },
+      ],
+    });
+    const p = ir[0]?.primitive;
+    if (p?.kind === 'text') {
+      expect(p.letterSpacing).toBe(2);
+      expect(p.lineHeight).toBe(1.5);
+    }
+  });
+
+  // ── Fill stack tests ───────────────────────────────────────────────────
+
+  it('buildIr maps fills[] to FillIR items', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'f1',
+          name: 'multi-fill',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+          fill: [0, 0, 0, 255],
+          fills: [
+            { type: 'solid', color: [255, 0, 0, 255], opacity: 1, blendMode: 'normal', visible: true },
+            {
+              type: 'gradient',
+              gradient: {
+                type: 'linear',
+                stops: [
+                  { position: 0, color: [255, 0, 0, 255] },
+                  { position: 1, color: [0, 0, 255, 255] },
+                ],
+              },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(ir[0]?.fills).toBeDefined();
+    expect(ir[0]?.fills).toHaveLength(2);
+    expect(ir[0]?.fills?.[0]?.type).toBe('solid');
+    expect(ir[0]?.fills?.[1]?.type).toBe('gradient');
+    if (ir[0]?.fills?.[1]?.type === 'gradient') {
+      expect(ir[0]?.fills?.[1]?.gradientType).toBe('linear');
+    }
+  });
+
+  it('buildIr filters invisible fills from stack', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'inv',
+          name: 'invisible',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+          fill: [0, 0, 0, 255],
+          fills: [
+            { type: 'solid', color: [255, 0, 0, 255], opacity: 1, blendMode: 'normal', visible: false },
+            { type: 'solid', color: [0, 255, 0, 255], opacity: 1, blendMode: 'normal', visible: true },
+          ],
+        },
+      ],
+    });
+    expect(ir[0]?.fills).toHaveLength(1);
+    expect(ir[0]?.fills?.[0]?.type).toBe('solid');
+    if (ir[0]?.fills?.[0]?.type === 'solid') {
+      expect(ir[0]?.fills?.[0]?.color).toEqual([0, 255, 0, 255]);
+    }
+  });
+
+  it('buildIr falls back to legacy fill when fills[] is empty', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'legacy',
+          name: 'legacy',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+          fill: [57, 208, 198, 255],
+          fills: [],
+        },
+      ],
+    });
+    expect(ir[0]?.fill).toEqual([57, 208, 198, 255]);
+    expect(ir[0]?.fills).toBeUndefined();
+  });
+
+  it('buildIr skips fills[] when not present (legacy path)', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'nofills',
+          name: 'no-fills',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+          fill: [0, 0, 0, 255],
+        },
+      ],
+    });
+    expect(ir[0]?.fills).toBeUndefined();
+    expect(ir[0]?.fill).toEqual([0, 0, 0, 255]);
+  });
+
+  it('buildIr maps gradient fill to FillIR with stops and rotation', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'grad',
+          name: 'gradient',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fill: [0, 0, 0, 255],
+          fills: [
+            {
+              type: 'gradient',
+              gradient: {
+                type: 'radial',
+                stops: [
+                  { position: 0, color: [255, 255, 255, 255] },
+                  { position: 0.5, color: [128, 128, 128, 255] },
+                  { position: 1, color: [0, 0, 0, 255] },
+                ],
+                rotation: 45,
+              },
+              opacity: 0.8,
+              blendMode: 'screen',
+              visible: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(ir[0]?.fills).toHaveLength(1);
+    const f = ir[0]?.fills?.[0];
+    expect(f?.type).toBe('gradient');
+    if (f?.type === 'gradient') {
+      expect(f.gradientType).toBe('radial');
+      expect(f.stops).toHaveLength(3);
+      expect(f.rotation).toBe(45);
+      expect(f.opacity).toBe(0.8);
+      expect(f.blendMode).toBe('screen');
+    }
+  });
+
   it('buildIr preserves opacity and blendMode on IR items', async () => {
     const eng = await createEngine();
     const ir = await eng.buildIr({

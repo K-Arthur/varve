@@ -70,6 +70,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     nodeEditTargetId: null,
     setNodeEditTargetId: vi.fn(),
     setNodeEditSelectedAnchors: vi.fn(),
+    setTextEditTargetId: vi.fn(),
     duplicateSelected: vi.fn(),
     snapPosition: vi.fn((b: { x: number; y: number; w: number; h: number }) => ({
       x: b.x,
