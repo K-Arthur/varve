@@ -33,9 +33,9 @@ export function rgbToOklch([r, g, b]: Rgb): Oklch {
   const bLin = srgbToLinear(b / 255);
 
   // Linear sRGB → LMS cone response
-  let l = 0.4122214708 * rLin + 0.5363325363 * gLin + 0.0514459929 * bLin;
-  let m = 0.2119034982 * rLin + 0.6806995451 * gLin + 0.1073969566 * bLin;
-  let s = 0.0883024619 * rLin + 0.2817188376 * gLin + 0.6299787005 * bLin;
+  const l = 0.4122214708 * rLin + 0.5363325363 * gLin + 0.0514459929 * bLin;
+  const m = 0.2119034982 * rLin + 0.6806995451 * gLin + 0.1073969566 * bLin;
+  const s = 0.0883024619 * rLin + 0.2817188376 * gLin + 0.6299787005 * bLin;
 
   // Non-linear compression (cube root)
   const lC = Math.cbrt(l);

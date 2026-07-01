@@ -276,19 +276,22 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       // Handle rotation gesture
       if (g.isRotation) {
+        const cx = g.centerX;
+        const cy = g.centerY;
+        if (cx === undefined || cy === undefined) return;
         const offsetX = g.canvasOffsetX ?? 0;
         const offsetY = g.canvasOffsetY ?? 0;
         const canvas = { x: e.clientX - offsetX, y: e.clientY - offsetY };
         const world = state.pan
           ? { x: (canvas.x - state.pan.x) / state.zoom, y: (canvas.y - state.pan.y) / state.zoom }
           : canvas;
-        const dx = world.x - g.centerX!;
-        const dy = world.y - g.centerY!;
+        const dx = world.x - cx;
+        const dy = world.y - cy;
         const angle = Math.atan2(dy, dx) * (180 / Math.PI);
         const initialScreenX = g.pointerX - offsetX;
         const initialScreenY = g.pointerY - offsetY;
-        const screenCenterX = g.centerX! * state.zoom + state.pan.x;
-        const screenCenterY = g.centerY! * state.zoom + state.pan.y;
+        const screenCenterX = cx * state.zoom + state.pan.x;
+        const screenCenterY = cy * state.zoom + state.pan.y;
         const initialAngle =
           Math.atan2(initialScreenY - screenCenterY, initialScreenX - screenCenterX) *
           (180 / Math.PI);
@@ -361,7 +364,15 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         setNodePosition(g.nodeId, x, y);
       }
     },
-    [state.zoom, state.pan, state.document, setNodePosition, setNodeSize, updateNode, setSelectedRotation],
+    [
+      state.zoom,
+      state.pan,
+      state.document,
+      setNodePosition,
+      setNodeSize,
+      updateNode,
+      setSelectedRotation,
+    ],
   );
 
   const handlePointerUp = useCallback(() => {

@@ -27,34 +27,30 @@ export interface FlatEntry {
  * @returns Flat array of entries, each with node, depth, parentId
  */
 export function flattenTree(doc: Document, expanded: Set<NodeId>, filter = ''): FlatEntry[] {
-  const result: FlatEntry[] = [];
   const lowerFilter = filter.toLowerCase();
 
-  function walk(parentId: NodeId | null, ids: NodeId[], depth: number): boolean[] {
-    const anyMatch: boolean[] = [];
+  function walk(parentId: NodeId | null, ids: NodeId[], depth: number): FlatEntry[] {
+    const entries: FlatEntry[] = [];
     for (const nid of ids) {
       const node = doc.nodes[nid];
       if (!node) continue;
       if (parentId && !expanded.has(parentId)) continue;
 
       const nameMatch = !lowerFilter || node.name.toLowerCase().includes(lowerFilter);
-      let childMatch = false;
-      if (isContainer(node) && node.children.length > 0 && expanded.has(nid)) {
-        childMatch = walk(nid, node.children, depth + 1).some(Boolean);
-      }
+      const hasChildren = isContainer(node) && node.children.length > 0 && expanded.has(nid);
+      const childEntries = hasChildren ? walk(nid, node.children, depth + 1) : [];
 
-      if (nameMatch || childMatch) {
-        result.push({ node, depth, parentId });
-        anyMatch.push(true);
-      } else {
-        anyMatch.push(false);
+      // Push parent first (paint-order), then children — matches APG tree semantics
+      // where each parent precedes its subtree in the flat tab sequence.
+      if (nameMatch || childEntries.length > 0) {
+        entries.push({ node, depth, parentId });
+        entries.push(...childEntries);
       }
     }
-    return anyMatch;
+    return entries;
   }
 
-  walk(null, doc.rootChildren, 0);
-  return result;
+  return walk(null, doc.rootChildren, 0);
 }
 
 /**

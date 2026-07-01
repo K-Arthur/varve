@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import type { Oklch } from './contrast';
 import {
   contrastRatio,
-  passes,
-  relativeLuminance,
-  toHex,
-  rgbToOklch,
-  oklchToRgb,
-  oklchToCss,
   oklchContrastRatio,
   oklchPasses,
+  oklchToCss,
+  oklchToRgb,
+  passes,
+  relativeLuminance,
+  rgbToOklch,
   roundOklch,
+  toHex,
 } from './contrast';
-import type { Oklch } from './contrast';
 
 describe('contrast utilities', () => {
   it('black/white is 21:1', () => {

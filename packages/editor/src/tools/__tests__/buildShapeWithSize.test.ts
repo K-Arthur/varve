@@ -1,16 +1,39 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 type ToolId =
-  | 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'arrow'
-  | 'pen' | 'pencil' | 'text' | 'frame' | 'slice';
+  | 'rect'
+  | 'ellipse'
+  | 'polygon'
+  | 'star'
+  | 'line'
+  | 'arrow'
+  | 'pen'
+  | 'pencil'
+  | 'text'
+  | 'frame'
+  | 'slice';
 
 type Shape =
   | { kind: 'rect'; x: number; y: number; w: number; h: number }
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
   | { kind: 'polygon'; cx: number; cy: number; radius: number; sides: number; rotation: number }
-  | { kind: 'star'; cx: number; cy: number; innerRadius: number; outerRadius: number; points: number; rotation: number }
+  | {
+      kind: 'star';
+      cx: number;
+      cy: number;
+      innerRadius: number;
+      outerRadius: number;
+      points: number;
+      rotation: number;
+    }
   | { kind: 'line'; from: [number, number]; to: [number, number]; tolerance: number }
-  | { kind: 'arrow'; from: [number, number]; to: [number, number]; tolerance: number; arrowheadSize: number }
+  | {
+      kind: 'arrow';
+      from: [number, number];
+      to: [number, number];
+      tolerance: number;
+      arrowheadSize: number;
+    }
   | { kind: 'path'; points: unknown[]; closed: boolean; tolerance: number };
 
 function buildShapeWithSize(tool: ToolId, size: { w: number; h: number }): Shape {

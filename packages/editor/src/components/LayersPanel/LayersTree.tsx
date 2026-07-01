@@ -63,7 +63,18 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
     revealSelection,
   } = useEditor();
 
-  const [expanded, setExpanded] = useState<Set<NodeId>>(new Set());
+  // Pre-expand all containers with children on init so every layer is visible
+  // on first paint — no useEffect flicker or collapsed-subtree blindness.
+  const [expanded, setExpanded] = useState<Set<NodeId>>(() => {
+    const init = new Set<NodeId>();
+    for (const [id, node] of Object.entries(state.document.nodes)) {
+      const n = node as { kind: string; children?: string[] };
+      if ((n.kind === 'frame' || n.kind === 'group') && n.children && n.children.length > 0) {
+        init.add(id);
+      }
+    }
+    return init;
+  });
   const [renamingId, setRenamingId] = useState<NodeId | null>(null);
   const [activeId, setActiveId] = useState<NodeId | null>(null);
   const [dropIndicator, setDropIndicator] = useState<{
@@ -105,7 +116,7 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
     }
   }, [state.selection, entries, setFocusIdx, virtualizer]);
 
-  // Auto-expand containers that have children so all layers are visible by default
+  // Keep containers auto-expanded when new nodes are added (e.g. after import or paste).
   useEffect(() => {
     setExpanded((prev) => {
       const next = new Set(prev);
