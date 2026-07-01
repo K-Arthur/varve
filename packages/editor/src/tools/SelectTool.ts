@@ -124,6 +124,7 @@ export class SelectTool extends BaseTool {
         const b = ctx.nodeWorldBounds(n);
         if (b) allBounds.push({ id: n.id, b });
       }
+      const selectedIds = new Set(sel);
       for (const id of sel) {
         const node = ctx.getNode(id);
         if (!node) continue;
@@ -131,7 +132,8 @@ export class SelectTool extends BaseTool {
         const newY = node.transform[5] + delta.dy;
         const thisBounds = ctx.nodeWorldBounds(node);
         if (thisBounds) {
-          const otherBounds = allBounds.filter((entry) => entry.id !== id).map((entry) => entry.b);
+          // Exclude all selected nodes from snap targets (prevents nodes snapping to each other).
+          const otherBounds = allBounds.filter((entry) => !selectedIds.has(entry.id)).map((entry) => entry.b);
           if (otherBounds.length > 0) {
             const snapped = ctx.snapPosition(
               { x: newX, y: newY, w: thisBounds.w, h: thisBounds.h },
