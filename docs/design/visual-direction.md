@@ -96,3 +96,24 @@ Niva-specific claims were invented or implemented.
 | Home page | P2, P5, P7, P8 | Hero greeting + glow; num-display on counts; SegmentedControl preserved |
 | Export panel | P2, P4, P5 | SpecPanel/CopyButton patterns reused; no dedicated override needed |
 | Themes (L/D/HC) | P1–P7 | All new tokens defined across 3 themes + forced-colors fallback; 72/72 WCAG |
+
+## Session 15 — Production-grade frontend polish pass (2026-07-01)
+
+### Fixes applied
+
+| Area | Change |
+|---|---|
+| **InspectorPanel nesting** | `Shell.tsx` was rendering the old `InspectorPanel.tsx` wrapper which (a) duplicated tab strip UI on top of `PropertiesPanel`'s own tabs and (b) created a double-nested `editor-inspector` element. Fixed by rendering `PropertiesPanel` directly from Shell. `PropertiesPanel` (the complete implementation with proper CSS classes, full SpecPanel, and CodeGenView) is now the single inspector entry point. |
+| **StatusBar controls** | Replaced 5 inline `style` props with CSS classes: `editor-status__unit-select` (bare `<select>` → token-styled), `editor-status__toggle` / `--active` (pixel-grid and snap toggle buttons with hover/focus-visible/pressed states), `editor-status__fit-btn` (Fit button), `editor-status__info` (right-side count/name). |
+| **PropertiesPanel inline styles** | Three inline-style blocks moved to CSS classes: `insp-panel__node-header` / `insp-panel__node-name` / `insp-panel__node-kind` (single-node selection header), `insp-panel__canvas-info` / `insp-panel__canvas-name` / `insp-panel__canvas-count` (empty-state canvas summary), `insp-panel__empty-hint` (export tab empty state). |
+| **SnapGuidesOverlay color token** | Replaced hardcoded `stroke="#39d0c6"` with `stroke="currentColor"` + CSS class `.snap-guides-overlay` setting `color: var(--color-accent-primary)`. Snap guides now respond to theme changes. Also removed inline `style` object from the SVG element. |
+| **Shell panel backdrop** | Replaced inline `style={{ position: 'fixed', ... background: 'rgba(0,0,0,0.3)' }}` on the responsive-panel backdrop with `.editor__panel-backdrop` CSS class in `editor.css`. |
+
+### Hardcoded values eliminated
+- `#39d0c6` in SnapGuidesOverlay → `var(--color-accent-primary)` via CSS
+- 5 inline style blocks in StatusBar → CSS classes
+- 3 inline style blocks in PropertiesPanel → CSS classes
+- 1 inline style block in Shell backdrop → CSS class
+
+### No tokens added
+All changes use existing tokens; no new WCAG pairs needed.
