@@ -13,6 +13,7 @@
  * CRDT-safe fractional ordering replaces it when sync lands (Phase 2, plan §1.1).
  */
 import type { Affine, Color, Shape } from '@strata/engine';
+import { generateKeyBetween } from '@strata/shared';
 import type { ExportSettings } from './export-types';
 import type {
   ComponentDefinition,
@@ -389,7 +390,7 @@ export function removeNode(doc: Document, id: NodeId): Document {
   return { ...doc, rootChildren, nodes };
 }
 
-/** Move a root-level node to a new paint-order index. */
+/** Move a root-level node to a new paint-order index. Also updates `order` field. */
 export function moveNode(doc: Document, id: NodeId, toIndex: number): Document {
   const from = doc.rootChildren.indexOf(id);
   if (from < 0) return doc;
@@ -397,7 +398,14 @@ export function moveNode(doc: Document, id: NodeId, toIndex: number): Document {
   next.splice(from, 1);
   const clamped = Math.max(0, Math.min(toIndex, next.length));
   next.splice(clamped, 0, id);
-  return { ...doc, rootChildren: next };
+  const node = doc.nodes[id];
+  if (!node) return doc;
+  const nodes = { ...doc.nodes };
+  const prev = clamped > 0 ? doc.nodes[next[clamped - 1]!] : null;
+  const succ = clamped < next.length - 1 ? doc.nodes[next[clamped + 1]!] : null;
+  const newOrder = generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
+  nodes[id] = { ...node, order: newOrder } as SceneNode;
+  return { ...doc, rootChildren: next, nodes };
 }
 
 export type ArrangeOp = 'front' | 'back' | 'forward' | 'backward';
@@ -457,7 +465,7 @@ export function arrangeNode(doc: Document, id: NodeId, op: ArrangeOp): Document 
   }
 }
 
-/** Move a nested child within its parent's children array. */
+/** Move a nested child within its parent's children array. Also updates `order` field. */
 export function moveChild(doc: Document, parentId: NodeId, id: NodeId, toIndex: number): Document {
   const parent = doc.nodes[parentId];
   if (!parent || !isContainer(parent)) return doc;
@@ -467,10 +475,15 @@ export function moveChild(doc: Document, parentId: NodeId, id: NodeId, toIndex: 
   newChildren.splice(from, 1);
   const clamped = Math.max(0, Math.min(toIndex, newChildren.length));
   newChildren.splice(clamped, 0, id);
-  return {
-    ...doc,
-    nodes: { ...doc.nodes, [parentId]: { ...parent, children: newChildren } as SceneNode },
-  };
+  const node = doc.nodes[id];
+  if (!node) return doc;
+  const nodes = { ...doc.nodes };
+  const prev = clamped > 0 ? doc.nodes[newChildren[clamped - 1]!] : null;
+  const succ = clamped < newChildren.length - 1 ? doc.nodes[newChildren[clamped + 1]!] : null;
+  const newOrder = generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
+  nodes[id] = { ...node, order: newOrder } as SceneNode;
+  nodes[parentId] = { ...parent, children: newChildren } as SceneNode;
+  return { ...doc, nodes };
 }
 
 export function renameNode(doc: Document, id: NodeId, name: string): Document {
@@ -541,25 +554,35 @@ export function reparentNode(
     rootChildren = rootChildren.filter((x) => x !== id);
   }
 
-  // Insert into new parent (or root)
+  // Generate order key at the insertion position.
+  const generateOrder = (siblings: NodeId[], pos: number): string => {
+    const prev = pos > 0 ? doc.nodes[siblings[pos - 1]!] : null;
+    const succ = pos < siblings.length - 1 ? doc.nodes[siblings[pos + 1]!] : null;
+    return generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
+  };
+
   if (newParentId) {
     const newParent = nodes[newParentId];
     if (!newParent || !isContainer(newParent)) return { ...doc, rootChildren, nodes };
     const children = [...newParent.children];
     const clamped = Math.max(0, Math.min(toIndex, children.length));
     children.splice(clamped, 0, id);
+    const newOrder = generateOrder(children, clamped);
     nodes[newParentId] = { ...newParent, children } as SceneNode;
     nodes[id] = {
       ...node,
       index: clamped,
+      order: newOrder,
       transform: (localTransform ?? node.transform) as Affine,
     } as SceneNode;
   } else {
     const clamped = Math.max(0, Math.min(toIndex, rootChildren.length));
     rootChildren.splice(clamped, 0, id);
+    const newOrder = generateOrder(rootChildren, clamped);
     nodes[id] = {
       ...node,
       index: clamped,
+      order: newOrder,
       transform: (localTransform ?? node.transform) as Affine,
     } as SceneNode;
   }
