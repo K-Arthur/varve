@@ -5,11 +5,13 @@
  * EVERY theme (light, dark, high-contrast). Exits non-zero on any failure,
  * printing the offending pair + measured ratio.
  *
+ * OKLCH tokens are converted to sRGB for WCAG relative-luminance computation.
+ *
  * Research basis: WCAG 2.2 success criterion 1.4.3 (text) and 1.4.11 (UI).
  * Run: `pnpm audit:tokens` (wired into the Cascade Review `gates` recipe).
  */
 import { CONTRAST_PAIRS, SEMANTIC, THEMES } from '../src/tokens/color';
-import { contrastRatio, minimumRatio, toHex } from '../src/tokens/contrast';
+import { contrastRatio, minimumRatio, oklchToRgb, toHex } from '../src/tokens/contrast';
 
 let failures = 0;
 const rows: string[] = [];
@@ -17,8 +19,8 @@ const rows: string[] = [];
 for (const theme of THEMES) {
   const palette = SEMANTIC[theme];
   for (const pair of CONTRAST_PAIRS) {
-    const fg = palette[pair.fg];
-    const bg = palette[pair.bg];
+    const fg = oklchToRgb(palette[pair.fg]);
+    const bg = oklchToRgb(palette[pair.bg]);
     const ratio = contrastRatio(fg, bg);
     const required = minimumRatio(pair.grade);
     const ok = ratio >= required;

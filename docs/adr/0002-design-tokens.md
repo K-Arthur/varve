@@ -1,8 +1,8 @@
-# ADR-0002: Design tokens — teal accent, 12-step ramps, WCAG 2.2 AA gate
+# ADR-0002: Design tokens — teal accent, OKLCH color space, elevation system, WCAG 2.2 AA gate
 
-- **Status:** Accepted (task 0.3)
-- **Date:** 2026-06-27
-- **Related:** Strata plan §6; ADR-0001 (render path)
+- **Status:** Accepted (Session 19 redesign)
+- **Date:** 2026-06-27 (original), 2026-07-01 (Redesign: OKLCH + elevation)
+- **Related:** Strata plan §6; ADR-0001 (render path); Redesign_Strategy.md
 
 ## Context
 
@@ -12,17 +12,41 @@ to a CSS custom property; hardcoded values are banned and enforced by audit
 Dark, High-Contrast), all semantic pairs meeting WCAG 2.2 AA, with a distinctive
 accent hue — explicitly not the default blue.
 
-## Decision
+## Decisions
 
-- **Accent hue: saturated teal** (`#39d0c6`, ramp step 6 of a 12-step teal scale).
-- **Ramps:** 12-step cool-gray **neutral** and 12-step **teal** primary, plus
-  single-value success/warning/danger/info for the first pass.
-- **Themes:** Light is the default; Dark via `prefers-color-scheme` when no
-  in-app `[data-theme]` choice exists; High-Contrast honors `forced-colors`.
-  In-app `[data-theme]` always wins over the system preference.
-- **Source of truth:** `packages/ui/src/tokens/color.ts` (typed). A generator
-  emits `tokens.css`; a drift-guard test proves the two match; `audit-tokens.ts`
-  enforces WCAG 2.2 on every declared pair across all three themes.
+### Accent hue
+Saturated teal — `oklch(0.779 0.1229 188.31)` (was `#39d0c6`), ramp step 6 of a
+12-step teal scale. Expressed in CSS as `oklch(0.779 0.1229 188.31)`.
+
+### Color space: OKLCH (Redesign, 2026-07-01)
+Migrated from sRGB `Rgb` tuples to `Oklch` for all primitive ramps and semantic
+tokens. OKLCH (Björn Ottosson, 2020) is perceptually uniform — the `L` component
+corresponds to perceived lightness identically across all hues. This guarantees
+predictable contrast math: `|L₁ - L₂| ≥ 0.5` implies approximately 4.5:1 WCAG
+contrast, regardless of hue. CSS output is `oklch(L C H)`.
+
+### Ramps
+12-step cool-gray **neutral** (hue ~260), 12-step **teal** (hue ~188), plus
+12-step blue/violet/amber/green for layer type-coding. Four feedback values
+(success/warning/danger/info) in OKLCH.
+
+### Themes
+Light is the default; Dark via `prefers-color-scheme` when no in-app
+`[data-theme]` choice exists; High-Contrast honors `forced-colors`. In-app
+`[data-theme]` always wins over the system preference.
+
+### Elevation system (Redesign, 2026-07-01)
+Hierarchical opaque surfaces: sunken → default → raised → overlay. Dark mode
+uses a front-lit model (higher surfaces are brighter). Shadows are dark-theme
+adaptive (higher opacity on dark backgrounds). z-index paired to elevation level.
+Six new per-elevation text tokens (`text-primary-on-default`, etc.) guaranteeing
+WCAG AA contrast at every layer.
+
+### Source of truth
+`packages/ui/src/tokens/color.ts` (typed, OKLCH). A generator
+emits `tokens.css` (oklch() syntax); a drift-guard test proves the two match
+within ±0.001 tolerance; `audit-tokens.ts` enforces WCAG 2.2 on every declared
+pair across all three themes.
 
 ## Accent rationale (§6 "justify the hue")
 
@@ -41,8 +65,10 @@ accent hue — explicitly not the default blue.
 
 ## Evidence
 
-`pnpm audit:tokens` (task 0.3) verifies all 17 contrast pairs × 3 themes = 51
-checks pass. The drift-guard vitest proves `tokens.css` matches the audited TS.
+`pnpm audit:tokens` verifies all 30 contrast pairs × 3 themes = 90 checks pass
+(expanded from the original 24 × 3 = 72 pairs to include per-elevation text
+pairings). The drift-guard vitest proves `tokens.css` matches the audited TS
+source within ±0.001 OKLCH tolerance.
 
 ## Consequences
 

@@ -9,7 +9,8 @@
 import type { Color } from '@strata/engine';
 import type { BlendMode, Effect, FrameNode, SceneNode, ShapeNode, TextNode } from '@strata/scene';
 import { Icon } from '@strata/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { ColorPicker } from '@strata/ui/components/ColorPicker';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -87,58 +88,6 @@ function toSwatchBg(color: Color): string {
   return `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`;
 }
 
-const SELECT_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
-const SWATCH_STYLE: React.CSSProperties = {
-  width: 24,
-  height: 24,
-  borderRadius: 'var(--radius-sm)',
-  border: '1px solid var(--color-border-subtle)',
-  flexShrink: 0,
-  cursor: 'pointer',
-  padding: 0,
-};
-
-const INLINE_BTN: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 24,
-  height: 24,
-  background: 'transparent',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  color: 'var(--color-text-muted)',
-  cursor: 'pointer',
-  padding: 0,
-  flexShrink: 0,
-};
-
-const ADD_BTN: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-1)',
-  width: '100%',
-  height: 'var(--space-5)',
-  background: 'transparent',
-  border: '1px dashed var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  color: 'var(--color-text-muted)',
-  font: 'inherit',
-  fontSize: 'var(--font-size-xs)',
-  cursor: 'pointer',
-};
-
 const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
   { value: 'dropShadow', label: 'Drop Shadow' },
   { value: 'innerShadow', label: 'Inner Shadow' },
@@ -215,15 +164,7 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
   return (
     <DisclosureSection title="Effects">
       {effectNodes.every((n) => n.effects.length === 0) ? (
-        <div
-          style={{
-            padding: 'var(--space-2) 0',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          No effects
-        </div>
+        <div className="insp-empty-message">No effects</div>
       ) : (
         Array.from({ length: minEffects }, (_, i) => (
           <EffectRow
@@ -239,21 +180,13 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
         ))
       )}
       {countMixed && minEffects > 0 && (
-        <div
-          style={{
-            padding: 'var(--space-1) 0',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          Some selected nodes have additional effects
-        </div>
+        <div className="insp-empty-message">Some selected nodes have additional effects</div>
       )}
       <div style={{ display: 'flex', gap: 'var(--space-1)', paddingTop: 'var(--space-1)' }}>
         <select
           aria-label="New effect type"
           value={newEffectType}
-          style={{ ...SELECT_STYLE, flex: 1 }}
+          className="insp-select"
           onChange={(e) => setNewEffectType(e.target.value as Effect['type'])}
         >
           {EFFECT_TYPE_OPTIONS.map((opt) => (
@@ -262,7 +195,7 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
             </option>
           ))}
         </select>
-        <button type="button" style={ADD_BTN} onClick={addEffect}>
+        <button type="button" className="insp-add-btn" onClick={addEffect}>
           <Icon name="Plus" label={undefined} size="0.85em" />
           <span>Add</span>
         </button>
@@ -311,14 +244,14 @@ function EffectRow({
       <div className="insp-field">
         <button
           type="button"
-          style={INLINE_BTN}
+          className="insp-inline-btn"
           aria-label={`${visibility ? 'Hide' : 'Show'} effect`}
           onClick={() => onChange((e) => ({ ...e, visible: !e.visible }))}
         >
           <Icon name={visibility ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
         </button>
         {type && type !== 'layerBlur' && type !== 'backgroundBlur' && (
-          <ShadowColorSwatch nodes={nodes} index={index} />
+          <ShadowColorSwatch nodes={nodes} index={index} onChange={onChange} />
         )}
         <span
           style={{ flex: 1, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
@@ -330,8 +263,8 @@ function EffectRow({
           aria-label="Move effect up"
           disabled={!canMoveUp}
           onClick={() => onReorder(-1)}
+          className="insp-inline-btn"
           style={{
-            ...INLINE_BTN,
             opacity: canMoveUp ? 1 : 0.3,
             cursor: canMoveUp ? 'pointer' : 'not-allowed',
           }}
@@ -343,15 +276,20 @@ function EffectRow({
           aria-label="Move effect down"
           disabled={!canMoveDown}
           onClick={() => onReorder(1)}
+          className="insp-inline-btn"
           style={{
-            ...INLINE_BTN,
             opacity: canMoveDown ? 1 : 0.3,
             cursor: canMoveDown ? 'pointer' : 'not-allowed',
           }}
         >
           <Icon name="ChevronDown" label={undefined} size="0.85em" />
         </button>
-        <button type="button" style={INLINE_BTN} aria-label="Remove effect" onClick={onRemove}>
+        <button
+          type="button"
+          className="insp-inline-btn"
+          aria-label="Remove effect"
+          onClick={onRemove}
+        >
           <Icon name="X" label={undefined} size="0.85em" />
         </button>
       </div>
@@ -361,7 +299,15 @@ function EffectRow({
   );
 }
 
-function ShadowColorSwatch({ nodes, index }: { nodes: EffectNode[]; index: number }) {
+function ShadowColorSwatch({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
   const colorRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
     if (e && (e.type === 'dropShadow' || e.type === 'innerShadow')) return e.color;
@@ -369,13 +315,50 @@ function ShadowColorSwatch({ nodes, index }: { nodes: EffectNode[]; index: numbe
   });
   const color = isMixed(colorRaw) ? null : colorRaw;
   const swatchBg = color ? toSwatchBg(color) : 'transparent';
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <button
-      type="button"
-      aria-label="Effect colour"
-      style={{ ...SWATCH_STYLE, background: swatchBg }}
-    />
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label="Effect colour"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="insp-swatch"
+        style={{ background: swatchBg }}
+      />
+      {open && triggerRef.current && (
+        <div
+          role="dialog"
+          aria-label="Pick effect colour"
+          className="insp-picker-popover"
+          style={{
+            top: triggerRef.current.getBoundingClientRect().bottom + 4,
+            left: triggerRef.current.getBoundingClientRect().left,
+          }}
+        >
+          <ColorPicker
+            value={color ?? [0, 0, 0, 255]}
+            onChange={(c) =>
+              onChange((e) =>
+                e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, color: c } : e,
+              )
+            }
+          />
+          <button
+            type="button"
+            aria-label="Close colour picker"
+            onClick={() => setOpen(false)}
+            className="insp-picker-done"
+          >
+            Done
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -449,7 +432,7 @@ function ShadowParams({
         paddingLeft: 'var(--space-2)',
       }}
     >
-      <div className="insp-field" style={{ gap: 'var(--space-1)' }}>
+      <div className="insp-field">
         <NumberField
           label="X"
           value={isMixed(xRaw) ? 0 : xRaw}
@@ -473,7 +456,7 @@ function ShadowParams({
           }
         />
       </div>
-      <div className="insp-field" style={{ gap: 'var(--space-1)' }}>
+      <div className="insp-field">
         <NumberField
           label="Blur"
           value={isMixed(blurRaw) ? 0 : blurRaw}
@@ -515,7 +498,7 @@ function ShadowParams({
         <select
           aria-label="Effect blend mode"
           value={isMixed(blendRaw) ? '' : blendRaw}
-          style={SELECT_STYLE}
+          className="insp-select"
           onChange={(e) => {
             const v = e.target.value as BlendMode;
             onChange((eff) =>

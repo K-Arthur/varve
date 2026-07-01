@@ -144,6 +144,13 @@
     box-shadow var(--duration-fast) var(--ease-out);
 }
 
+/* ── IconButton ────────────────────────────────── */
+.strata-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ── Button (base) ─────────────────────────────── */
 .strata-btn {
   display: inline-flex;
@@ -198,7 +205,8 @@
   color: var(--color-text-on-danger);
 }
 .strata-btn--danger:hover {
-  filter: brightness(1.1);
+  background: var(--color-feedback-danger);
+  filter: saturate(1.4);
 }
 .strata-btn--sm {
   height: var(--space-5);
@@ -277,7 +285,7 @@
   box-shadow: var(--shadow-lg);
 }
 .strata-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.4);
+  background: oklch(0 0 0 / 0.4);
 }
 .strata-dialog__header {
   display: flex;
@@ -998,6 +1006,7 @@
   height: 4px;
   background: var(--color-surface-sunken);
   border-radius: var(--radius-pill);
+  overflow: hidden;
 }
 .insp-slider__fill {
   position: absolute;
@@ -1019,6 +1028,93 @@
 .insp-slider__thumb:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
+}
+
+/* ── NumberInput (drag-to-scrub) ──────────────────── */
+.strata-number-input {
+  flex: 1;
+  height: var(--space-5);
+  padding: 0 var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: ew-resize;
+  outline: none;
+}
+.strata-number-input:focus {
+  border-color: var(--color-interactive-default);
+}
+
+/* ── Slider (APG linear slider with fieldset) ───── */
+.strata-slider {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+.strata-slider--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.strata-slider__legend {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  padding: 0;
+}
+.strata-slider__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.strata-slider__track {
+  flex: 1;
+  height: var(--space-1);
+  background: var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  position: relative;
+  cursor: pointer;
+}
+.strata-slider--disabled .strata-slider__track {
+  cursor: default;
+}
+.strata-slider__fill {
+  height: 100%;
+  background: var(--color-interactive-default);
+  border-radius: var(--radius-sm);
+}
+.strata-slider__thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: 50%;
+  background: var(--color-interactive-default);
+  border: 2px solid var(--color-surface-app);
+  box-shadow: var(--elevation-shadow-raised);
+  cursor: grab;
+  touch-action: none;
+}
+.strata-slider--disabled .strata-slider__thumb {
+  cursor: default;
+}
+.strata-slider__value {
+  min-width: var(--space-8);
+  text-align: right;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+/* ── Toolbar (APG roving tabindex) ───────────────── */
+.strata-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--elevation-surface-default);
 }
 
 @media (prefers-reduced-motion: reduce) {

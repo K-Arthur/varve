@@ -126,11 +126,20 @@ export function BindingMenu({
     [onBind, onClose, expression],
   );
 
-  const handleItemKey = useCallback(
-    (e: React.KeyboardEvent, varId: string) => {
-      if (e.key === 'Enter') handleSelect(varId);
+  const handleListKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIdx((i) => Math.min(i + 1, variables.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === 'Enter' && variables[selectedIdx]) {
+        e.preventDefault();
+        handleSelect(variables[selectedIdx]!.id);
+      }
     },
-    [handleSelect],
+    [handleSelect, variables, selectedIdx],
   );
 
   return (
@@ -138,6 +147,7 @@ export function BindingMenu({
       role="dialog"
       aria-label="Bind variable"
       style={{ ...POPOVER_STYLE, top: position.top, left: position.left }}
+      onKeyDown={handleListKey}
     >
       <input
         type="text"
@@ -162,7 +172,6 @@ export function BindingMenu({
                 background: selectedIdx === i ? 'var(--color-interactive-subtle)' : 'transparent',
               }}
               onClick={() => handleSelect(v.id)}
-              onKeyDown={(e) => handleItemKey(e, v.id)}
               onMouseEnter={() => setSelectedIdx(i)}
               tabIndex={-1}
             >

@@ -22,7 +22,8 @@ import type {
 } from '@strata/scene';
 import { defaultStroke } from '@strata/scene';
 import { Icon } from '@strata/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { ColorPicker } from '@strata/ui/components/ColorPicker';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { GradientEditor } from '../color/GradientEditor';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -64,17 +65,6 @@ const ARROW_OPTIONS: { value: ArrowheadStyle; label: string }[] = [
   { value: 'diamond', label: 'Diamond' },
 ];
 
-const SELECT_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
 function hasStrokes(n: SceneNode): n is StrokeNode {
   return n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame';
 }
@@ -101,60 +91,6 @@ function getStroke(n: SceneNode, i: number): Stroke | undefined {
 function toSwatchBg(color: Color): string {
   return `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`;
 }
-
-const SWATCH_STYLE: React.CSSProperties = {
-  width: 24,
-  height: 24,
-  borderRadius: 'var(--radius-sm)',
-  border: '1px solid var(--color-border-subtle)',
-  flexShrink: 0,
-  cursor: 'pointer',
-  padding: 0,
-};
-
-const INLINE_BTN: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 24,
-  height: 24,
-  background: 'transparent',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  color: 'var(--color-text-muted)',
-  cursor: 'pointer',
-  padding: 0,
-  flexShrink: 0,
-};
-
-const ADVANCED_BTN: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 'var(--space-1)',
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--color-text-muted)',
-  font: 'inherit',
-  fontSize: 'var(--font-size-xs)',
-  cursor: 'pointer',
-  padding: 'var(--space-1) 0',
-};
-
-const ADD_BTN: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-1)',
-  width: '100%',
-  height: 'var(--space-5)',
-  background: 'transparent',
-  border: '1px dashed var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  color: 'var(--color-text-muted)',
-  font: 'inherit',
-  fontSize: 'var(--font-size-xs)',
-  cursor: 'pointer',
-};
 
 export function StrokeSection({ nodes }: StrokeSectionProps) {
   const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
@@ -235,15 +171,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
   return (
     <DisclosureSection title="Stroke">
       {strokeNodes.every((n) => n.strokes.length === 0) ? (
-        <div
-          style={{
-            padding: 'var(--space-2) 0',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          No stroke
-        </div>
+        <div className="insp-empty-message">No stroke</div>
       ) : (
         Array.from({ length: minStrokes }, (_, i) => (
           <StrokeRow
@@ -261,17 +189,9 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
         ))
       )}
       {countMixed && minStrokes > 0 && (
-        <div
-          style={{
-            padding: 'var(--space-1) 0',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          Some selected nodes have additional strokes
-        </div>
+        <div className="insp-empty-message">Some selected nodes have additional strokes</div>
       )}
-      <button type="button" style={ADD_BTN} onClick={addStroke}>
+      <button type="button" className="insp-add-btn" onClick={addStroke}>
         <Icon name="Plus" label={undefined} size="0.85em" />
         <span>Add Stroke</span>
       </button>
@@ -305,6 +225,8 @@ function StrokeRow({
   const label = index === 0 ? 'Stroke' : `Stroke ${index + 1}`;
   const editor = useEditor();
   const [showGradient, setShowGradient] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const visibleRaw = commonValue(nodes, (n) => getStroke(n, index)?.visible ?? true);
   const colorRaw = commonValue(
@@ -344,21 +266,49 @@ function StrokeRow({
       <div className="insp-field">
         <button
           type="button"
-          style={INLINE_BTN}
+          className="insp-inline-btn"
           aria-label={`${visibility ? 'Hide' : 'Show'} ${label}`}
           onClick={() => onChange((s) => ({ ...s, visible: !s.visible }))}
         >
           <Icon name={visibility ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
         </button>
         <button
+          ref={triggerRef}
           type="button"
           aria-label={`${label} colour`}
+          aria-haspopup="dialog"
+          aria-expanded={pickerOpen}
+          onClick={() => setPickerOpen((o) => !o)}
+          className="insp-swatch"
           style={{
-            ...SWATCH_STYLE,
             background: swatchBg,
             borderColor: isMixed(colorRaw) ? 'var(--color-border-strong)' : undefined,
           }}
         />
+        {pickerOpen && triggerRef.current && (
+          <div
+            role="dialog"
+            aria-label={`Pick ${label} colour`}
+            className="insp-picker-popover"
+            style={{
+              top: triggerRef.current.getBoundingClientRect().bottom + 4,
+              left: triggerRef.current.getBoundingClientRect().left,
+            }}
+          >
+            <ColorPicker
+              value={color ?? ([0, 0, 0, 255] as Color)}
+              onChange={(c) => onChange((s) => ({ ...s, color: c }))}
+            />
+            <button
+              type="button"
+              aria-label="Close colour picker"
+              onClick={() => setPickerOpen(false)}
+              className="insp-picker-done"
+            >
+              Done
+            </button>
+          </div>
+        )}
         <NumberField
           label={label}
           value={isMixed(weightRaw) ? 0 : weightRaw}
@@ -380,8 +330,8 @@ function StrokeRow({
           aria-label={`Move ${label} up`}
           disabled={!canMoveUp}
           onClick={() => onReorder(-1)}
+          className="insp-inline-btn"
           style={{
-            ...INLINE_BTN,
             opacity: canMoveUp ? 1 : 0.3,
             cursor: canMoveUp ? 'pointer' : 'not-allowed',
           }}
@@ -393,19 +343,24 @@ function StrokeRow({
           aria-label={`Move ${label} down`}
           disabled={!canMoveDown}
           onClick={() => onReorder(1)}
+          className="insp-inline-btn"
           style={{
-            ...INLINE_BTN,
             opacity: canMoveDown ? 1 : 0.3,
             cursor: canMoveDown ? 'pointer' : 'not-allowed',
           }}
         >
           <Icon name="ChevronDown" label={undefined} size="0.85em" />
         </button>
-        <button type="button" style={INLINE_BTN} aria-label={`Remove ${label}`} onClick={onRemove}>
+        <button
+          type="button"
+          className="insp-inline-btn"
+          aria-label={`Remove ${label}`}
+          onClick={onRemove}
+        >
           <Icon name="X" label={undefined} size="0.85em" />
         </button>
       </div>
-      <button type="button" style={ADVANCED_BTN} onClick={onToggle}>
+      <button type="button" className="insp-advanced-btn" onClick={onToggle}>
         <Icon
           name="ChevronRight"
           label={undefined}
@@ -431,7 +386,7 @@ function StrokeRow({
             <select
               aria-label={`${label} paint type`}
               value={!isMixed(gradientRaw) && gradientRaw ? 'gradient' : 'solid'}
-              style={SELECT_STYLE}
+              className="insp-select"
               onChange={(e) => {
                 if (e.target.value === 'gradient') {
                   setShowGradient(true);
@@ -498,15 +453,7 @@ function StrokeRow({
                         perSideWeights: base as [number, number, number, number],
                       }));
                     }}
-                    style={{
-                      width: 36,
-                      fontSize: 'var(--font-size-xs)',
-                      background: 'var(--color-surface-sunken)',
-                      color: 'var(--color-text-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '0 var(--space-1)',
-                    }}
+                    className="insp-per-side"
                   />
                 ))}
               </div>
@@ -519,7 +466,7 @@ function StrokeRow({
                 <select
                   aria-label={`${label} arrowhead start`}
                   value={isMixed(arrowStartRaw) ? 'none' : arrowStartRaw}
-                  style={SELECT_STYLE}
+                  className="insp-select"
                   onChange={(e) =>
                     onChange((s) => ({ ...s, arrowStart: e.target.value as ArrowheadStyle }))
                   }
@@ -535,7 +482,7 @@ function StrokeRow({
                 <select
                   aria-label={`${label} arrowhead end`}
                   value={isMixed(arrowEndRaw) ? 'none' : arrowEndRaw}
-                  style={SELECT_STYLE}
+                  className="insp-select"
                   onChange={(e) =>
                     onChange((s) => ({ ...s, arrowEnd: e.target.value as ArrowheadStyle }))
                   }

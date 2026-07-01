@@ -100,17 +100,6 @@ const RESIZING_OPTIONS: { value: TextNode['textResizing']; label: string }[] = [
   { value: 'fixed', label: 'Fixed' },
 ];
 
-const SELECT_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
 function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
   return accessor(n as TextNode);
 }
@@ -175,13 +164,13 @@ export function TypographySection({ nodes }: TypographySectionProps) {
 
   return (
     <DisclosureSection title="Typography">
-      <div ref={bindingTriggerRef} style={{ position: 'relative' }}>
+      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
         <FieldRow label="Font" htmlFor="typography-font">
           <select
             id="typography-font"
             aria-label="Font family"
             value={isMixed(familyRaw) ? '' : familyRaw}
-            style={SELECT_STYLE}
+            className="insp-select"
             onChange={(e) => {
               const v = e.target.value;
               batchUpdate((n) => ({ ...n, fontFamily: v || undefined }));
@@ -200,7 +189,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             id="typography-weight"
             aria-label="Font weight"
             value={isMixed(weightRaw) ? 400 : weightRaw}
-            style={SELECT_STYLE}
+            className="insp-select"
             onChange={(e) => batchUpdate((n) => ({ ...n, fontWeight: Number(e.target.value) }))}
           >
             {isMixed(weightRaw) && <option value={400}>Mixed</option>}
@@ -299,7 +288,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             id="typography-list"
             aria-label="List style"
             value={isMixed(listRaw) ? 'none' : listRaw}
-            style={SELECT_STYLE}
+            className="insp-select"
             onChange={(e) =>
               batchUpdate((n) => ({ ...n, listStyle: e.target.value as TextNode['listStyle'] }))
             }
@@ -316,7 +305,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             id="typography-overflow"
             aria-label="Text overflow"
             value={isMixed(overflowRaw) ? 'visible' : overflowRaw}
-            style={SELECT_STYLE}
+            className="insp-select"
             onChange={(e) =>
               batchUpdate((n) => ({
                 ...n,
@@ -336,7 +325,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             id="typography-resizing"
             aria-label="Text resizing mode"
             value={isMixed(resizingRaw) ? 'fixed' : resizingRaw}
-            style={SELECT_STYLE}
+            className="insp-select"
             onChange={(e) =>
               batchUpdate((n) => ({
                 ...n,
@@ -352,13 +341,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           </select>
         </FieldRow>
         {/* OpenType features — stub until font system exposes them */}
-        <div
-          style={{
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-            paddingTop: 'var(--space-1)',
-          }}
-        >
+        <div className="insp-empty-message" style={{ paddingTop: 'var(--space-1)' }}>
           OpenType features available once FontRegistry lands
         </div>
         {/* Binding menu for typography numeric fields */}

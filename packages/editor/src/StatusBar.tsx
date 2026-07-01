@@ -67,7 +67,7 @@ export function StatusBar() {
         <Icon name="Magnet" size={12} />
       </button>
       <span aria-hidden>—</span>
-      <label htmlFor="status-zoom" className="visually-hidden">
+      <label htmlFor="status-zoom" className="sr-only">
         Zoom
       </label>
       <input

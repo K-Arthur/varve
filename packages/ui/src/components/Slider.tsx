@@ -97,52 +97,22 @@ export function Slider({
   const valueText = formatValue ? formatValue(value) : `${value}`;
 
   return (
-    <fieldset
-      className="slider"
-      style={{
-        border: 'none',
-        padding: 0,
-        margin: 0,
-        ...(disabled ? { opacity: 0.5, pointerEvents: 'none' } : {}),
-      }}
-    >
-      <legend
-        id={`${id}-label`}
-        style={{
-          display: 'block',
-          marginBottom: 'var(--space-1)',
-          fontSize: 'var(--font-size-sm)',
-          color: 'var(--color-text-secondary)',
-          padding: 0,
-        }}
-      >
+    <fieldset className={`strata-slider${disabled ? ' strata-slider--disabled' : ''}`}>
+      <legend className="strata-slider__legend" id={`${id}-label`}>
         {label}
       </legend>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+      <div className="strata-slider__row">
         {/* biome-ignore lint/a11y/noStaticElementInteractions: presentational track; keyboard handled by slider thumb */}
         <div
           ref={trackRef}
+          className="strata-slider__track"
           role="presentation"
           onClick={handleTrackClick}
-          style={{
-            flex: 1,
-            height: 'var(--space-1)',
-            background: 'var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            position: 'relative',
-            cursor: disabled ? 'default' : 'pointer',
-          }}
         >
-          <div
-            style={{
-              width: `${fraction * 100}%`,
-              height: '100%',
-              background: 'var(--color-interactive-default)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          />
+          <div className="strata-slider__fill" style={{ width: `${fraction * 100}%` }} />
           <div
             ref={thumbRef}
+            className="strata-slider__thumb"
             role="slider"
             tabIndex={disabled ? -1 : 0}
             aria-labelledby={`${id}-label`}
@@ -153,31 +123,10 @@ export function Slider({
             aria-disabled={disabled}
             onKeyDown={handleKeyDown}
             onPointerDown={handleThumbPointerDown}
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: `${fraction * 100}%`,
-              transform: 'translate(-50%, -50%)',
-              width: 'var(--space-4)',
-              height: 'var(--space-4)',
-              borderRadius: '50%',
-              background: 'var(--color-interactive-default)',
-              border: '2px solid var(--color-surface-app)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-              cursor: disabled ? 'default' : 'grab',
-              touchAction: 'none',
-            }}
+            style={{ left: `${fraction * 100}%` }}
           />
         </div>
-        <output
-          htmlFor={`${id}-label`}
-          style={{
-            minWidth: 'var(--space-8)',
-            textAlign: 'right',
-            fontSize: 'var(--font-size-sm)',
-            color: 'var(--color-text-primary)',
-          }}
-        >
+        <output className="strata-slider__value" htmlFor={`${id}-label`}>
           {valueText}
         </output>
       </div>

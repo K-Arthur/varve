@@ -17,17 +17,6 @@ const FIT_OPTIONS: { value: ImageFit; label: string }[] = [
   { value: 'tile', label: 'Tile' },
 ];
 
-const SELECT_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
 export function ImageFillControls({
   image,
   onChange,
@@ -57,7 +46,7 @@ export function ImageFillControls({
           value={image.src}
           onChange={handleSrcChange}
           aria-label="Image source URL"
-          style={SELECT_STYLE}
+          className="insp-select"
         />
       </FieldRow>
       <FieldRow label="Fit">
@@ -65,7 +54,7 @@ export function ImageFillControls({
           value={image.fit}
           onChange={handleFitChange}
           aria-label="Image fit mode"
-          style={SELECT_STYLE}
+          className="insp-select"
         >
           {FIT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

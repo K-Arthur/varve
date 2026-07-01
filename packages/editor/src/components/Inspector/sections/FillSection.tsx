@@ -2,7 +2,7 @@
  * FillSection — stacked fill controls for the Inspector.
  *
  * Supports solid, gradient (linear/radial/angular/diamond), image, and pattern
- * fills. Fills are stacked (paint order bottom→top), reorderable via drag,
+ * fills. Fills are stacked (paint order bottom to top), reorderable via drag,
  * with per-fill opacity, blend mode, visibility toggle, and delete.
  *
  * Multi-select: matches fills by index across selected nodes, shows "Mixed" for
@@ -62,48 +62,6 @@ const FILL_TYPE_OPTIONS: { value: FillType; label: string }[] = [
   { value: 'image', label: 'Image' },
   { value: 'pattern', label: 'Pattern' },
 ];
-
-const SELECT_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
-const INLINE_BTN: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 24,
-  height: 24,
-  background: 'transparent',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  color: 'var(--color-text-muted)',
-  cursor: 'pointer',
-  padding: 0,
-  flexShrink: 0,
-};
-
-const ADD_BTN: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-1)',
-  width: '100%',
-  height: 'var(--space-5)',
-  background: 'transparent',
-  border: '1px dashed var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  color: 'var(--color-text-muted)',
-  font: 'inherit',
-  fontSize: 'var(--font-size-xs)',
-  cursor: 'pointer',
-};
 
 function fillSwatchBg(fill: Fill): string {
   if (fill.type === 'solid' && fill.color) {
@@ -209,18 +167,8 @@ export function FillSection({ nodes }: FillSectionProps) {
 
   return (
     <DisclosureSection title="Fill">
-      {fills.length === 0 && (
-        <div
-          style={{
-            padding: 'var(--space-2) 0',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          No fill
-        </div>
-      )}
-      <div ref={bindingTriggerRef} style={{ position: 'relative' }}>
+      {fills.length === 0 && <div className="insp-empty-message">No fill</div>}
+      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
         {fills.map((fill, i) => (
           <FillRow
             key={i}
@@ -240,21 +188,13 @@ export function FillSection({ nodes }: FillSectionProps) {
         ))}
       </div>
       {countMixed && fills.length > 0 && (
-        <div
-          style={{
-            padding: 'var(--space-1) 0',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          Some selected nodes have additional fills
-        </div>
+        <div className="insp-empty-message">Some selected nodes have additional fills</div>
       )}
       <div style={{ display: 'flex', gap: 'var(--space-1)', paddingTop: 'var(--space-1)' }}>
         <select
           aria-label="New fill type"
           value={newFillType}
-          style={{ ...SELECT_STYLE, flex: 1 }}
+          className="insp-select"
           onChange={(e) => setNewFillType(e.target.value as FillType)}
         >
           {FILL_TYPE_OPTIONS.map((opt) => (
@@ -263,7 +203,7 @@ export function FillSection({ nodes }: FillSectionProps) {
             </option>
           ))}
         </select>
-        <button type="button" style={ADD_BTN} onClick={addFill}>
+        <button type="button" className="insp-add-btn" onClick={addFill}>
           <Icon name="Plus" label={undefined} size="0.85em" />
           <span>Add</span>
         </button>
@@ -342,7 +282,7 @@ function FillRow({
       <div className="insp-field">
         <button
           type="button"
-          style={INLINE_BTN}
+          className="insp-inline-btn"
           aria-label={`${visible ? 'Hide' : 'Show'} ${label}`}
           onClick={() => patch({ visible: !visible })}
         >
@@ -361,21 +301,16 @@ function FillRow({
               onPickerToggle();
             }
           }}
+          className="insp-swatch"
           style={{
-            width: 24,
-            height: 24,
-            borderRadius: 'var(--radius-sm)',
             background: swatchBg,
             border: '2px solid var(--color-border-strong)',
-            cursor: 'pointer',
-            flexShrink: 0,
-            padding: 0,
           }}
         />
         <select
           aria-label={`${label} type`}
           value={isMixed(typeRaw) ? '' : typeRaw}
-          style={{ ...SELECT_STYLE, flex: 1 }}
+          className="insp-select"
           onChange={(e) => {
             const newType = e.target.value as FillType;
             if (newType === 'solid') {
@@ -416,8 +351,8 @@ function FillRow({
           aria-label={`Move ${label} up`}
           disabled={!canMoveUp}
           onClick={() => onReorder(-1)}
+          className="insp-inline-btn"
           style={{
-            ...INLINE_BTN,
             opacity: canMoveUp ? 1 : 0.3,
             cursor: canMoveUp ? 'pointer' : 'not-allowed',
           }}
@@ -429,29 +364,31 @@ function FillRow({
           aria-label={`Move ${label} down`}
           disabled={!canMoveDown}
           onClick={() => onReorder(1)}
+          className="insp-inline-btn"
           style={{
-            ...INLINE_BTN,
             opacity: canMoveDown ? 1 : 0.3,
             cursor: canMoveDown ? 'pointer' : 'not-allowed',
           }}
         >
           <Icon name="ChevronDown" label={undefined} size="0.85em" />
         </button>
-        <button type="button" style={INLINE_BTN} aria-label={`Remove ${label}`} onClick={onRemove}>
+        <button
+          type="button"
+          className="insp-inline-btn"
+          aria-label={`Remove ${label}`}
+          onClick={onRemove}
+        >
           <Icon name="X" label={undefined} size="0.85em" />
         </button>
       </div>
 
       {pickerOpen && fill.type === 'solid' && fill.color && (
         <div
+          className="insp-picker-popover"
           style={{
             position: 'relative',
-            zIndex: 'var(--z-overlay)',
-            background: 'var(--color-surface-overlay)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-lg)',
-            padding: 'var(--space-2)',
+            top: 'auto',
+            left: 'auto',
           }}
         >
           <ColorPicker value={fill.color} onChange={(c) => patch({ color: c })} />
@@ -479,22 +416,7 @@ function FillRow({
         />
       )}
 
-      <button
-        type="button"
-        onClick={onToggle}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 'var(--space-1)',
-          background: 'transparent',
-          border: 'none',
-          color: 'var(--color-text-muted)',
-          font: 'inherit',
-          fontSize: 'var(--font-size-xs)',
-          cursor: 'pointer',
-          padding: 'var(--space-1) 0',
-        }}
-      >
+      <button type="button" onClick={onToggle} className="insp-advanced-btn">
         <Icon
           name="ChevronRight"
           label={undefined}
@@ -531,7 +453,7 @@ function FillRow({
               <select
                 aria-label={`${label} blend mode`}
                 value={isMixed(blendRaw) ? '' : blendRaw}
-                style={SELECT_STYLE}
+                className="insp-select"
                 onChange={(e) => patch({ blendMode: e.target.value as BlendMode })}
               >
                 {isMixed(blendRaw) && <option value="">Mixed</option>}
@@ -568,7 +490,6 @@ function PatternFillControls({
             placeholder="Tile URL or asset id"
             onChange={(e) => onChange({ ...pattern, tileSrc: e.target.value })}
             className="insp-num__input"
-            style={{ flex: 1 }}
           />
         </div>
       </div>

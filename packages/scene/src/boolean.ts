@@ -72,7 +72,15 @@ function makeResult(points: PathPoint[], closed: boolean, first: ShapeNode, id: 
     fills: (first.fills?.length
       ? [...first.fills]
       : first.fill
-        ? [{ type: 'solid' as const, color: first.fill, opacity: 1, blendMode: 'normal', visible: true } as Fill]
+        ? [
+            {
+              type: 'solid' as const,
+              color: first.fill,
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            } as Fill,
+          ]
         : []) as Fill[],
     strokes: [...(first.strokes ?? [])],
     effects: [...(first.effects ?? [])],

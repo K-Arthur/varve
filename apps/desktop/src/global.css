@@ -31,3 +31,14 @@ body {
   height: 100dvh;
   overflow: hidden;
 }
+
+/* GPU compositing layer promotion — applied to containers that animate,
+ * scroll, or render many children (editor shell, layers tree, canvas, bento cells).
+ * Prevents layout thrashing and frame drops during transitions. */
+.gpu-layer {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  contain: layout style paint;
+}

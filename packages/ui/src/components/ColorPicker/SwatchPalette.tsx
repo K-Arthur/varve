@@ -89,22 +89,8 @@ export function SwatchPalette({
   function SwatchSection({ title, colors }: SwatchSectionProps) {
     return (
       <div>
-        <div
-          style={{
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-            marginBottom: 'var(--space-1)',
-          }}
-        >
-          {title}
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 4,
-          }}
-        >
+        <div className="swatch-palette__section-title">{title}</div>
+        <div className="swatch-palette__grid">
           {colors.map(({ name, color }) => (
             <button
               key={`${name}-${color.join(',')}`}
@@ -113,24 +99,11 @@ export function SwatchPalette({
               aria-selected={false}
               aria-label={name}
               title={name}
+              className="swatch-palette__swatch"
               onClick={() => onSelect(color)}
               style={{
-                width: SWATCH_SIZE,
-                height: SWATCH_SIZE,
-                borderRadius: 'var(--radius-sm)',
                 background: `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`,
                 border: swatchBorder(color),
-                cursor: 'pointer',
-                padding: 0,
-                outline: 'none',
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.outline = '2px solid var(--color-interactive-focus-ring)';
-                e.currentTarget.style.outlineOffset = '2px';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.outline = '';
-                e.currentTarget.style.outlineOffset = '';
               }}
             />
           ))}
@@ -154,14 +127,10 @@ export function SwatchPalette({
   return (
     <div
       ref={listRef}
+      className="swatch-palette"
       role="listbox"
       aria-label={label}
       onKeyDown={handleKeyDown}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-2)',
-      }}
     >
       {docSwatches.length > 0 && <SwatchSection title="Document Colors" colors={docSwatches} />}
       {recentSwatches.length > 0 && <SwatchSection title="Recent Colors" colors={recentSwatches} />}

@@ -76,49 +76,22 @@ export function ColorArea({ hue, saturation, value, onChange, label = 'Color' }:
   return (
     <div
       ref={areaRef}
+      className="color-area"
       role="slider"
       aria-roledescription="2D Slider"
       aria-label={label}
       aria-valuenow={Math.round((saturation + value) / 2)}
       aria-valuetext={`Saturation ${Math.round(saturation)}%, Value ${Math.round(value)}%`}
       tabIndex={0}
-      style={{
-        position: 'relative',
-        width: '100%',
-        paddingBottom: '75%',
-        background: `hsl(${hue}, 100%, 50%)`,
-        borderRadius: 'var(--radius-sm)',
-        cursor: 'crosshair',
-        overflow: 'hidden',
-      }}
+      style={{ background: `hsl(${hue}, 100%, 50%)` }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onKeyDown={handleKeyDown}
     >
+      <div className="color-area__gradient" />
       <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            'linear-gradient(to right, white, transparent), linear-gradient(to top, black, transparent)',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          left: `${saturation}%`,
-          top: `${100 - value}%`,
-          width: 16,
-          height: 16,
-          marginLeft: -8,
-          marginTop: -8,
-          borderRadius: '50%',
-          background: 'white',
-          border: '2px solid rgba(0,0,0,0.6)',
-          boxShadow: '0 0 0 1px rgba(255,255,255,0.3)',
-          pointerEvents: 'none',
-          transform: 'translateZ(0)',
-        }}
+        className="color-area__thumb"
+        style={{ left: `${saturation}%`, top: `${100 - value}%` }}
       />
       <input
         id={satId}

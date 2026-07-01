@@ -8,14 +8,6 @@
  */
 import { useEditor } from '../../../context';
 
-const TOOLBAR_STYLE: React.CSSProperties = {
-  display: 'flex',
-  gap: 'var(--space-1)',
-  padding: 'var(--space-1) var(--space-2)',
-  borderBottom: '1px solid var(--color-border-subtle)',
-  justifyContent: 'center',
-};
-
 interface AlignIconProps {
   type: 'alignLeft' | 'alignCenterH' | 'alignRight' | 'alignTop' | 'alignCenterV' | 'alignBottom';
 }
@@ -154,12 +146,7 @@ export function AlignDistributeBar() {
   const { alignSelected, distributeSelected } = useEditor();
 
   return (
-    <div
-      className="insp-align-bar"
-      role="toolbar"
-      aria-label="Align and distribute"
-      style={TOOLBAR_STYLE}
-    >
+    <div className="insp-align-bar" role="toolbar" aria-label="Align and distribute">
       <button
         type="button"
         className="pill-group__btn"
@@ -187,7 +174,7 @@ export function AlignDistributeBar() {
       >
         <AlignIcon type="alignRight" />
       </button>
-      <div style={{ width: 1, background: 'var(--color-border-subtle)', margin: '0 2px' }} />
+      <div className="insp-separator" />
       <button
         type="button"
         className="pill-group__btn"
@@ -215,7 +202,7 @@ export function AlignDistributeBar() {
       >
         <AlignIcon type="alignBottom" />
       </button>
-      <div style={{ width: 1, background: 'var(--color-border-subtle)', margin: '0 2px' }} />
+      <div className="insp-separator" />
       <button
         type="button"
         className="pill-group__btn"
