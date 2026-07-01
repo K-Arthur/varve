@@ -1050,8 +1050,14 @@ export function EditorProvider({
       duplicateSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
-        updateDoc((doc) => {
-          let d = doc;
+        setState((s) => {
+          // Push undo snapshot (same pattern as updateDoc)
+          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+          redoStackRef.current = [];
+          redoSelStackRef.current = [];
+
+          let d = s.document;
           const newIds: string[] = [];
           for (const id of sel) {
             const node = d.nodes[id];
@@ -1074,7 +1080,7 @@ export function EditorProvider({
             };
             d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
             // Add to root children if it's a root node
-            const parentId = getParent(doc, id);
+            const parentId = getParent(s.document, id);
             if (parentId === null) {
               d = { ...d, rootChildren: [...d.rootChildren, newId] };
             } else {
@@ -1092,9 +1098,15 @@ export function EditorProvider({
             }
             newIds.push(newId);
           }
-          // Update selection to the new clones
-          patch({ selection: newIds });
-          return d;
+          return {
+            ...s,
+            document: d,
+            selection: newIds,
+            dirty: true,
+            sessions: s.sessions.map((sess) =>
+              sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+            ),
+          };
         });
       },
 

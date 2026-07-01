@@ -604,3 +604,17 @@ Root-cause analysis and fix of 9 critical + 5 high-severity bugs from architectu
 | **H** Scale tool | Rewritten with centroid-based distance-ratio scaling applied to affine transform. Was using ad-hoc position+size mutation with no visual feedback. | `ScaleTool.ts` |
 
 **Verification:** 691/691 JS tests (+17 from baseline: 8 buildShapeWithSize + 7 setNodeSize + 2 ScaleTool). Typecheck clean. Token audit 90/90. Emoji audit clean. Lint 0 new errors. |
+
+## Session 21 — Scene graph integrity & layers hardening (2026-07-01)
+
+Root-cause analysis and fix of three structural issues in the scene-graph → layers → render pipeline:
+
+| Area | What was fixed | Files |
+|---|---|---|
+| **P0: Layers init** | `expanded` set now pre-computed from document on first render (lazy `useState` initializer), eliminating the `useEffect` flicker where all containers started collapsed. Children hidden on mount is no longer possible. | `LayersTree.tsx:66-78` |
+| **P0: Side-effect setState** | `duplicateSelected` no longer calls `patch({ selection })` inside `updateDoc`'s `setState` callback (a React anti-pattern that silently drops `selection` updates). Rewritten to use `setState` directly, folding selection into the returned state atomically. | `context.tsx:1050-1099` |
+| **P1: Concurrent draw guard** | `draw` scheduled via `requestAnimationFrame` with cancelable RAF ID. Prevents interleaved async IIFE execution when zoom/pan changes outpace the frame budget. Cleanup on unmount. | `CanvasArea.tsx:120, 455-469` |
+| **P1: flattenTree paint order** | `flattenTree` rewrote to push parent BEFORE children (external `result` array → local `FlatEntry[]` per recursion level). Fixes the APG tree tab-sequence where children appeared before their parent. | `useFlatTree.ts:29-58` |
+| **P2: Tests** | Added 3 new tests: flattened collapsed-container (nested hidden, root shown), flattened expanded-container (parent before child), clone-and-add preserves all original nodes. Fixed pre-existing `ScaleTool` test missing `setDraft` mock. | `useFlatTree.test.ts`, `document.test.ts`, `ScaleTool.test.ts` |
+
+**Verification:** 694/694 JS tests (+3 from baseline: +1 flattenTree collapsed +1 all-root-level +1 clone-preserves, -0 +2 ScaleTool fix). Typecheck clean (13 packages). Lint 0 errors on new/modified files. Token audit 90/90. Emoji audit clean. |

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 type SceneNode = {
   id: string;
@@ -85,7 +85,10 @@ function setNodeSize(node: SceneNode, w: number, h: number): SceneNode {
     case 'path': {
       const points = s.points;
       if (points.length === 0) return node;
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
       for (const p of points) {
         minX = Math.min(minX, p.x);
         minY = Math.min(minY, p.y);
@@ -103,8 +106,12 @@ function setNodeSize(node: SceneNode, w: number, h: number): SceneNode {
           points: points.map((p: any) => ({
             x: (p.x - minX) * sx3 + minX,
             y: (p.y - minY) * sy3 + minY,
-            handleIn: p.handleIn ? [(p.handleIn[0] - minX) * sx3 + minX, (p.handleIn[1] - minY) * sy3 + minY] : null,
-            handleOut: p.handleOut ? [(p.handleOut[0] - minX) * sx3 + minX, (p.handleOut[1] - minY) * sy3 + minY] : null,
+            handleIn: p.handleIn
+              ? [(p.handleIn[0] - minX) * sx3 + minX, (p.handleIn[1] - minY) * sy3 + minY]
+              : null,
+            handleOut: p.handleOut
+              ? [(p.handleOut[0] - minX) * sx3 + minX, (p.handleOut[1] - minY) * sy3 + minY]
+              : null,
           })),
         },
       };
@@ -117,9 +124,20 @@ function setNodeSize(node: SceneNode, w: number, h: number): SceneNode {
 describe('setNodeSize', () => {
   it('resizes rect shape', () => {
     const node: SceneNode = {
-      id: '1', kind: 'shape', name: 'Rect', index: 0, order: 'a0',
-      visible: true, locked: false, opacity: 1, blendMode: 'normal',
-      rotation: 0, transform: [1, 0, 0, 1, 0, 0], fill: [0, 0, 0, 255], strokes: [], effects: [],
+      id: '1',
+      kind: 'shape',
+      name: 'Rect',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
       shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
     };
     const result = setNodeSize(node, 200, 160);
@@ -130,9 +148,20 @@ describe('setNodeSize', () => {
 
   it('resizes ellipse shape', () => {
     const node: SceneNode = {
-      id: '1', kind: 'shape', name: 'Ellipse', index: 0, order: 'a0',
-      visible: true, locked: false, opacity: 1, blendMode: 'normal',
-      rotation: 0, transform: [1, 0, 0, 1, 0, 0], fill: [0, 0, 0, 255], strokes: [], effects: [],
+      id: '1',
+      kind: 'shape',
+      name: 'Ellipse',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
       shape: { kind: 'ellipse', cx: 50, cy: 40, rx: 50, ry: 40 },
     };
     const result = setNodeSize(node, 200, 160);
@@ -142,9 +171,20 @@ describe('setNodeSize', () => {
 
   it('resizes line shape (was silent no-op before fix)', () => {
     const node: SceneNode = {
-      id: '1', kind: 'shape', name: 'Line', index: 0, order: 'a0',
-      visible: true, locked: false, opacity: 1, blendMode: 'normal',
-      rotation: 0, transform: [1, 0, 0, 1, 0, 0], fill: [0, 0, 0, 255], strokes: [], effects: [],
+      id: '1',
+      kind: 'shape',
+      name: 'Line',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
       shape: { kind: 'line', from: [0, 0], to: [100, 80], tolerance: 3 },
     };
     const result = setNodeSize(node, 200, 160);
@@ -159,9 +199,20 @@ describe('setNodeSize', () => {
 
   it('resizes polygon shape', () => {
     const node: SceneNode = {
-      id: '1', kind: 'shape', name: 'Polygon', index: 0, order: 'a0',
-      visible: true, locked: false, opacity: 1, blendMode: 'normal',
-      rotation: 0, transform: [1, 0, 0, 1, 0, 0], fill: [0, 0, 0, 255], strokes: [], effects: [],
+      id: '1',
+      kind: 'shape',
+      name: 'Polygon',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
       shape: { kind: 'polygon', cx: 50, cy: 40, radius: 50, sides: 6, rotation: 0 },
     };
     const result = setNodeSize(node, 200, 160);
@@ -170,10 +221,29 @@ describe('setNodeSize', () => {
 
   it('resizes star shape', () => {
     const node: SceneNode = {
-      id: '1', kind: 'shape', name: 'Star', index: 0, order: 'a0',
-      visible: true, locked: false, opacity: 1, blendMode: 'normal',
-      rotation: 0, transform: [1, 0, 0, 1, 0, 0], fill: [0, 0, 0, 255], strokes: [], effects: [],
-      shape: { kind: 'star', cx: 50, cy: 40, innerRadius: 20, outerRadius: 50, points: 5, rotation: 0 },
+      id: '1',
+      kind: 'shape',
+      name: 'Star',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
+      shape: {
+        kind: 'star',
+        cx: 50,
+        cy: 40,
+        innerRadius: 20,
+        outerRadius: 50,
+        points: 5,
+        rotation: 0,
+      },
     };
     const result = setNodeSize(node, 200, 160);
     expect(result.shape?.outerRadius).toBeGreaterThan(50);
@@ -182,10 +252,29 @@ describe('setNodeSize', () => {
 
   it('resizes path shape', () => {
     const node: SceneNode = {
-      id: '1', kind: 'shape', name: 'Path', index: 0, order: 'a0',
-      visible: true, locked: false, opacity: 1, blendMode: 'normal',
-      rotation: 0, transform: [1, 0, 0, 1, 0, 0], fill: [0, 0, 0, 255], strokes: [], effects: [],
-      shape: { kind: 'path', points: [{ x: 0, y: 0, handleIn: null, handleOut: null }, { x: 100, y: 50, handleIn: null, handleOut: null }], closed: false, tolerance: 3 },
+      id: '1',
+      kind: 'shape',
+      name: 'Path',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
+      shape: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 50, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 3,
+      },
     };
     const result = setNodeSize(node, 200, 100);
     // Path points scale with their bounding box
@@ -197,10 +286,23 @@ describe('setNodeSize', () => {
 
   it('resizes frame shape', () => {
     const node: SceneNode = {
-      id: '1', kind: 'frame', name: 'Frame', index: 0, order: 'a0',
-      visible: true, locked: false, opacity: 1, blendMode: 'normal',
-      rotation: 0, transform: [1, 0, 0, 1, 0, 0], fill: [0, 0, 0, 255], strokes: [], effects: [],
-      w: 200, h: 160, children: [],
+      id: '1',
+      kind: 'frame',
+      name: 'Frame',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
+      w: 200,
+      h: 160,
+      children: [],
     };
     const result = setNodeSize(node, 300, 250);
     expect(result.w).toBe(300);

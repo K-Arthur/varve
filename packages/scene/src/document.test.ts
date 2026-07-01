@@ -108,6 +108,47 @@ describe('Document (root-level ops)', () => {
     expect(a.id).not.toBe(b.id);
     expect(doc.nextId).toBe(3);
   });
+
+  it('clone-and-add preserves all existing nodes (no accidental replacement)', () => {
+    let doc = createDocument();
+    // Add 3 nodes
+    const nodes: ReturnType<typeof shape>[] = [];
+    for (let i = 0; i < 3; i++) {
+      const s = shape(doc, `Node ${i}`);
+      doc = s.doc;
+      doc = addNode(doc, s.node);
+      nodes.push(s);
+    }
+    expect(doc.rootChildren.length).toBe(3);
+
+    // Clone the last node and add it (simulating duplicateSelected's core pattern)
+    const last = nodes[2];
+    if (!last) throw new Error('expected node');
+    const { id: newId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const cloned = {
+      ...doc.nodes[last.id],
+      id: newId,
+      name: `${last.node.name} copy`,
+    } as import('./types').SceneNode;
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, [newId]: cloned },
+      rootChildren: [...doc.rootChildren, newId],
+    };
+
+    // All 4 nodes exist
+    expect(doc.rootChildren.length).toBe(4);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual([
+      'Node 0',
+      'Node 1',
+      'Node 2',
+      'Node 2 copy',
+    ]);
+    // Original nodes unaffected
+    expect(doc.nodes[nodes[0]?.id ?? '']).toBeDefined();
+    expect(doc.nodes[nodes[1]?.id ?? '']).toBeDefined();
+  });
 });
 
 describe('Document (nested child ops)', () => {

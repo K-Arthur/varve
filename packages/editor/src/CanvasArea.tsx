@@ -118,6 +118,7 @@ export function CanvasArea() {
   editorRef.current = editor;
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
+  const drawRafRef = useRef<number | null>(null);
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
@@ -458,7 +459,22 @@ export function CanvasArea() {
   }, [rootNodes, draft, state.zoom, state.pan.x, state.pan.y]);
 
   useEffect(() => {
-    draw();
+    // Cancel any pending draw, schedule one aligned to the next vsync.
+    // Prevents concurrent async IIFE interleaving when draw dependencies
+    // change faster than the frame budget (e.g. zoom/pan scroll).
+    if (drawRafRef.current !== null) {
+      cancelAnimationFrame(drawRafRef.current);
+    }
+    drawRafRef.current = requestAnimationFrame(() => {
+      drawRafRef.current = null;
+      draw();
+    });
+    return () => {
+      if (drawRafRef.current !== null) {
+        cancelAnimationFrame(drawRafRef.current);
+        drawRafRef.current = null;
+      }
+    };
   }, [draw]);
 
   // ─── Middle-button pan (bypasses ToolManager) ──────────────────────────

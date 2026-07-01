@@ -8,13 +8,16 @@
  * Research basis: Figma Scale tool (K), Illustrator Scale tool.
  */
 
+import { multiplyAffine } from '@strata/shared';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
+import type { Affine } from '@strata/engine';
 
 interface NodeInitialState {
   id: string;
   centroidX: number;
   centroidY: number;
+  bbox: { x: number; y: number; w: number; h: number };
 }
 
 export class ScaleTool extends BaseTool {
@@ -23,6 +26,7 @@ export class ScaleTool extends BaseTool {
   private initialNodes: NodeInitialState[] = [];
   private selectionCenter = { x: 0, y: 0 };
   private initialDist = 0;
+  private initialUnionBbox: { x: number; y: number; w: number; h: number } | null = null;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'nwse-resize' };
@@ -39,6 +43,10 @@ export class ScaleTool extends BaseTool {
     let cx = 0,
       cy = 0,
       count = 0;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const id of ctx.selection) {
       const node = ctx.getNode(id);
       if (!node) continue;
@@ -46,19 +54,25 @@ export class ScaleTool extends BaseTool {
       if (!bbox) continue;
       cx += bbox.x + bbox.w / 2;
       cy += bbox.y + bbox.h / 2;
+      if (bbox.x < minX) minX = bbox.x;
+      if (bbox.y < minY) minY = bbox.y;
+      if (bbox.x + bbox.w > maxX) maxX = bbox.x + bbox.w;
+      if (bbox.y + bbox.h > maxY) maxY = bbox.y + bbox.h;
       count++;
       this.initialNodes.push({
         id,
         centroidX: bbox.x + bbox.w / 2,
         centroidY: bbox.y + bbox.h / 2,
+        bbox,
       });
     }
     if (count === 0) return result;
     this.selectionCenter = { x: cx / count, y: cy / count };
+    this.initialUnionBbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 
-    const dx = this.drag.startWorld.x - this.selectionCenter.x;
-    const dy = this.drag.startWorld.y - this.selectionCenter.y;
-    this.initialDist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const startDx = this.drag.startWorld.x - this.selectionCenter.x;
+    const startDy = this.drag.startWorld.y - this.selectionCenter.y;
+    this.initialDist = Math.sqrt(startDx * startDx + startDy * startDy) || 1;
     return result;
   }
 
@@ -75,31 +89,54 @@ export class ScaleTool extends BaseTool {
       ctx.updateNode(init.id, (node) => {
         const nodeDx = init.centroidX - this.selectionCenter.x;
         const nodeDy = init.centroidY - this.selectionCenter.y;
-        const nodeDist = Math.sqrt(nodeDx * nodeDx + nodeDy * nodeDy) || 1;
-        const s = 1 + (scale - 1) * (nodeDist / (this.initialDist || 1));
-        const clamped = Math.max(0.01, Math.min(100, s));
+        const clamped = Math.max(0.01, Math.min(100, scale));
+        const scaleAffine: Affine = [clamped, 0, 0, clamped, 0, 0];
+        const composed = multiplyAffine(scaleAffine, node.transform as Affine);
+        const adjustX = nodeDx * (clamped - 1);
+        const adjustY = nodeDy * (clamped - 1);
         return {
           ...node,
           transform: [
-            node.transform[0] * clamped,
-            node.transform[1],
-            node.transform[2],
-            node.transform[3] * clamped,
-            node.transform[4] - nodeDx * (clamped - 1),
-            node.transform[5] - nodeDy * (clamped - 1),
-          ] as [number, number, number, number, number, number],
+            composed[0],
+            composed[1],
+            composed[2],
+            composed[3],
+            composed[4] - adjustX,
+            composed[5] - adjustY,
+          ] as Affine,
         };
+      });
+    }
+
+    // Show scaled bounding box draft with percentage label
+    if (this.initialUnionBbox) {
+      const b = this.initialUnionBbox;
+      const scx = b.x + b.w / 2;
+      const scy = b.y + b.h / 2;
+      const nw = b.w * scale;
+      const nh = b.h * scale;
+      ctx.setDraft({
+        kind: 'rect',
+        x: scx - nw / 2,
+        y: scy - nh / 2,
+        w: nw,
+        h: nh,
+        label: `${Math.round(scale * 100)}%`,
       });
     }
   }
 
-  override onDragEnd(_ctx: ToolContext): void {
+  override onDragEnd(ctx: ToolContext): void {
+    ctx.setDraft(null);
     this.initialNodes = [];
     this.initialDist = 0;
+    this.initialUnionBbox = null;
   }
 
-  override onDragCancel(_ctx: ToolContext): void {
+  override onDragCancel(ctx: ToolContext): void {
+    ctx.setDraft(null);
     this.initialNodes = [];
     this.initialDist = 0;
+    this.initialUnionBbox = null;
   }
 }
