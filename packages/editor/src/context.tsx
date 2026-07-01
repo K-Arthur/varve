@@ -560,6 +560,27 @@ export function nodeWorldBoundsFn(
   return null;
 }
 
+/** Compute the world-space bounding box of a group from its children's bounds. */
+function groupWorldBounds(doc: Document, groupId: NodeId): { x: number; y: number; w: number; h: number } | null {
+  const node = doc.nodes[groupId];
+  if (!node || node.kind !== 'group') return null;
+  let union: { x: number; y: number; w: number; h: number } | null = null;
+  for (const childId of node.children) {
+    const b = nodeWorldBounds(doc, childId);
+    if (!b) continue;
+    if (!union) {
+      union = { x: b.x, y: b.y, w: b.w, h: b.h };
+    } else {
+      const minX = Math.min(union.x, b.x);
+      const minY = Math.min(union.y, b.y);
+      const maxX = Math.max(union.x + union.w, b.x + b.w);
+      const maxY = Math.max(union.y + union.h, b.y + b.h);
+      union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+  }
+  return union;
+}
+
 /** Deepest containing frame/group at the given world point. Skips locked/hidden. */
 export function findContainingFrameInDoc(
   doc: Document,
@@ -575,9 +596,15 @@ export function findContainingFrameInDoc(
     if (n.kind !== 'frame' && n.kind !== 'group') continue;
     const tx = n.transform[4] ?? 0;
     const ty = n.transform[5] ?? 0;
-    const fw = n.kind === 'frame' ? n.w : 200;
-    const fh = n.kind === 'frame' ? n.h : 160;
-    const bbox = { x: tx, y: ty, w: fw, h: fh };
+    let bbox: { x: number; y: number; w: number; h: number };
+    if (n.kind === 'frame') {
+      bbox = { x: tx, y: ty, w: n.w, h: n.h };
+    } else {
+      // Compute group bounds from children's world-space bounds.
+      const groupBounds = groupWorldBounds(doc, nid);
+      if (!groupBounds || groupBounds.w <= 0 || groupBounds.h <= 0) continue;
+      bbox = groupBounds;
+    }
     const wPt: [number, number] = [world.x, world.y];
     if (rectContains(bbox, wPt)) {
       if (entry.depth > deepestDepth) {
