@@ -54,7 +54,7 @@ import {
   type VariableValue,
   walkNodes,
 } from '@strata/scene';
-import { fitBoundsCamera, revealBoundsCamera, type Viewport } from '@strata/shared';
+import { clampZoom, fitBoundsCamera, revealBoundsCamera, type Viewport } from '@strata/shared';
 import {
   createContext,
   type ReactNode,
@@ -167,7 +167,12 @@ export interface EditorContextValue {
   /** Efficient hit-test that returns the full node info. */
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
   /** Pan (and optionally zoom) to reveal the selection or a specific node. */
-  revealSelection: (opts?: { nodeId?: NodeId; fit?: boolean; padding?: number }) => void;
+  revealSelection: (opts?: {
+    nodeId?: NodeId;
+    fit?: boolean;
+    padding?: number;
+    viewport?: Viewport;
+  }) => void;
   /** Get a node by ID from the document. */
   getNode: (id: NodeId) => SceneNode | undefined;
   /** Walk all nodes in the document, returning entries with parent/depth info. */
@@ -689,12 +694,12 @@ export function EditorProvider({
         toolRef.current = t;
         patch({ tool: t });
       },
-      setZoom: (z) => patch({ zoom: z }),
+      setZoom: (z) => patch({ zoom: clampZoom(z) }),
       setPan: (p) => patch({ pan: p }),
       revealSelection: (opts) => {
         const id = opts?.nodeId ?? state.selection[0];
         if (!id) return;
-        const viewportEst: Viewport = {
+        const viewportEst: Viewport = opts?.viewport ?? {
           width: window.innerWidth,
           height: window.innerHeight - 120,
         };

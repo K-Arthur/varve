@@ -230,7 +230,18 @@ fn primitive_of(shape: &Shape) -> Primitive {
             closed: *closed,
             tolerance: *tolerance,
         },
-        Shape::Text { text, font_size, font_family, font_weight, font_style, text_align, x, y, w, h } => Primitive::Text {
+        Shape::Text {
+            text,
+            font_size,
+            font_family,
+            font_weight,
+            font_style,
+            text_align,
+            x,
+            y,
+            w,
+            h,
+        } => Primitive::Text {
             text: text.clone(),
             font_size: *font_size,
             font_family: font_family.clone(),

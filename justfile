@@ -41,7 +41,7 @@ format:
     pnpm format
 format-check:
     cargo fmt --all -- --check
-    biome format --check .
+    pnpm exec biome ci --formatter-enabled=true --linter-enabled=false .
 
 # Token + emoji + a11y gates (Cascade Review, §7)
 gates: audit-tokens audit-emoji
