@@ -102,6 +102,94 @@ describe('computeFlexLayout', () => {
     expect(results).toHaveLength(0);
   });
 
+  it('wraps to next row when children exceed frame width', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: true,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    // Two 250-wide children don't fit in 400-wide frame → second wraps
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 250, 50), makeChild('c2', 0, 0, 250, 50)];
+    const results = computeFlexLayout(frame, children);
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({ id: 'c1', x: 0, y: 0 });
+    expect(results[1]).toMatchObject({ id: 'c2', x: 0, y: 50 });
+  });
+
+  it('alignItems center centers children on cross axis', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      alignItems: 'center',
+    });
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 100, 40)];
+    const results = computeFlexLayout(frame, children);
+    // Frame is 200h, child is 40h → center at (200-40)/2 = 80
+    expect(results[0]).toMatchObject({ id: 'c1', y: 80 });
+  });
+
+  it('justifyContent center centers children on primary axis', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      justifyContent: 'center',
+    });
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 100, 50)];
+    const results = computeFlexLayout(frame, children);
+    // Frame is 400w, child is 100w → center at (400-100)/2 = 150
+    expect(results[0]).toMatchObject({ id: 'c1', x: 150 });
+  });
+
+  it('uses font-size-based text sizing instead of hardcoded 120x32', () => {
+    const textNode: SceneNode = {
+      id: 't1', name: 'Text', kind: 'text',
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 1], index: 0, order: 'a0',
+      visible: true, locked: false, opacity: 1,
+      blendMode: 'normal', rotation: 0,
+      text: 'Hello World', fontSize: 24,
+      fontFamily: 'Inter', fontWeight: 400,
+      fontStyle: 'normal', strokes: [], effects: [],
+    };
+    const frame = makeFrame({
+      mode: 'flex', direction: 'row', gap: 0, wrap: false,
+      padding: [0, 0, 0, 0], grow: 0, shrink: 0,
+    });
+    const results = computeFlexLayout(frame, [textNode]);
+    // fontSize 24 * text length 11 * 0.6 ≈ 158
+    expect(results[0].w).toBeGreaterThan(100);
+    expect(results[0].h).toBeCloseTo(24 * 1.4, 0);
+  });
+
+  it('layoutSizing fill distributes remaining space proportionally', () => {
+    const frame = makeFrame({
+      mode: 'flex', direction: 'row', gap: 0, wrap: false,
+      padding: [0, 0, 0, 0], grow: 0, shrink: 0,
+    });
+    const child1 = makeChild('c1', 0, 0, 100, 50);
+    child1.layoutSizing = 'fill';
+    const child2 = makeChild('c2', 0, 0, 100, 50);
+    child2.layoutSizing = 'fill';
+    const results = computeFlexLayout(frame, [child1, child2]);
+    // Two fill children in 400px → each gets 200px
+    expect(results[0].w).toBe(200);
+    expect(results[1].w).toBe(200);
+  });
+
   it('returns empty array for empty children list', () => {
     const frame = makeFrame({
       mode: 'flex',
