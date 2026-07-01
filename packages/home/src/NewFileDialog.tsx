@@ -9,52 +9,24 @@ export interface NewFileDialogProps {
   onCreate: (preset: NewDocPreset) => void;
 }
 
-const PRESETS: NewDocPreset[] = [
-  {
-    id: 'blank',
-    name: 'Blank',
-    category: 'blank',
-    width: 1920,
-    height: 1080,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
-  {
-    id: 'web-1440',
-    name: 'Web (1440px)',
-    category: 'ui-kit',
-    width: 1440,
-    height: 900,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
-  {
-    id: 'web-1024',
-    name: 'Web (1024px)',
-    category: 'ui-kit',
-    width: 1024,
-    height: 768,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
-  {
-    id: 'iphone-15',
-    name: 'iPhone 15 Pro',
-    category: 'device',
-    width: 393,
-    height: 852,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
-  {
-    id: 'ipad-air',
-    name: 'iPad Air',
-    category: 'device',
-    width: 820,
-    height: 1180,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
+/**
+ * Document-level presets only. Following the Figma model, device / social /
+ * web sizes are NOT chosen up front — they are frame presets applied inside the
+ * editor. The modal offers a blank canvas (custom size) plus print documents,
+ * which are genuinely document-level because CMYK colour + bleed are document
+ * properties that do not map onto individual frames.
+ */
+const BLANK_PRESET: NewDocPreset = {
+  id: 'blank',
+  name: 'Blank',
+  category: 'blank',
+  width: 1920,
+  height: 1080,
+  unit: 'px',
+  colorMode: 'rgb',
+};
+
+const PRINT_PRESETS: NewDocPreset[] = [
   {
     id: 'a4',
     name: 'A4',
@@ -85,51 +57,6 @@ const PRESETS: NewDocPreset[] = [
     colorMode: 'cmyk',
     bleed: 3,
   },
-  {
-    id: 'instagram',
-    name: 'Instagram Post',
-    category: 'social',
-    width: 1080,
-    height: 1080,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
-  {
-    id: 'instagram-story',
-    name: 'Instagram Story',
-    category: 'social',
-    width: 1080,
-    height: 1920,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
-  {
-    id: 'facebook-cover',
-    name: 'Facebook Cover',
-    category: 'social',
-    width: 1640,
-    height: 624,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
-  {
-    id: 'presentation',
-    name: 'Presentation (16:9)',
-    category: 'blank',
-    width: 1920,
-    height: 1080,
-    unit: 'px',
-    colorMode: 'rgb',
-  },
-];
-
-const categoryOptions: SegmentedOption<string>[] = [
-  { value: 'all', label: 'All' },
-  { value: 'blank', label: 'Blank' },
-  { value: 'device', label: 'Device' },
-  { value: 'print', label: 'Print' },
-  { value: 'social', label: 'Social' },
-  { value: 'ui-kit', label: 'UI' },
 ];
 
 const unitOptions: SegmentedOption<Unit>[] = [
@@ -145,42 +72,41 @@ const colorModeOptions: SegmentedOption<ColorMode>[] = [
 ];
 
 export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
-  const [activeTab, setActiveTab] = useState<'presets' | 'template'>('presets');
-  const [category, setCategory] = useState('all');
-  const [selectedPreset, setSelectedPreset] = useState<NewDocPreset>(
-    PRESETS[0] ?? {
-      id: 'blank',
-      name: 'Blank',
-      category: 'blank',
-      width: 1920,
-      height: 1080,
-      unit: 'px',
-      colorMode: 'rgb',
-    },
-  );
+  const [activeTab, setActiveTab] = useState<'blank' | 'template'>('blank');
+  const [selectedId, setSelectedId] = useState('blank');
   const [customW, setCustomW] = useState(1920);
   const [customH, setCustomH] = useState(1080);
   const [unit, setUnit] = useState<Unit>('px');
   const [colorMode, setColorMode] = useState<ColorMode>('rgb');
   const [bleed, setBleed] = useState(0);
 
-  const filtered = category === 'all' ? PRESETS : PRESETS.filter((p) => p.category === category);
+  // Selecting a preset fills the size fields so the numeric controls always
+  // reflect what Create will produce.
+  const selectPreset = useCallback((preset: NewDocPreset) => {
+    setSelectedId(preset.id);
+    setCustomW(preset.width);
+    setCustomH(preset.height);
+    setUnit(preset.unit);
+    setColorMode(preset.colorMode);
+    setBleed(preset.bleed ?? 0);
+  }, []);
 
   const getFinalPreset = useCallback((): NewDocPreset => {
-    if (selectedPreset.id === 'blank') {
-      return {
-        id: 'custom',
-        name: 'Custom',
-        category: 'blank',
-        width: customW,
-        height: customH,
-        unit,
-        colorMode,
-        bleed: colorMode === 'cmyk' ? bleed || 3 : undefined,
-      };
-    }
-    return selectedPreset;
-  }, [selectedPreset, customW, customH, unit, colorMode, bleed]);
+    const base =
+      selectedId === 'blank'
+        ? BLANK_PRESET
+        : (PRINT_PRESETS.find((p) => p.id === selectedId) ?? BLANK_PRESET);
+    return {
+      id: selectedId === 'blank' ? 'custom' : selectedId,
+      name: base.name,
+      category: base.category,
+      width: customW,
+      height: customH,
+      unit,
+      colorMode,
+      bleed: colorMode === 'cmyk' ? bleed || 3 : undefined,
+    };
+  }, [selectedId, customW, customH, unit, colorMode, bleed]);
 
   const handleCreate = useCallback(() => {
     onCreate(getFinalPreset());
@@ -188,103 +114,77 @@ export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
 
   return (
     <Dialog open={open} onClose={onClose} title="New file">
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+      <div className="new-file__tabs" role="tablist" aria-label="New file source">
         <button
           type="button"
-          style={{
-            flex: 1,
-            padding: 'var(--space-2)',
-            background:
-              activeTab === 'presets' ? 'var(--color-interactive-default)' : 'transparent',
-            color:
-              activeTab === 'presets' ? 'var(--color-text-on-accent)' : 'var(--color-text-primary)',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            cursor: 'pointer',
-          }}
-          onClick={() => setActiveTab('presets')}
+          role="tab"
+          aria-selected={activeTab === 'blank'}
+          className={`new-file__tab${activeTab === 'blank' ? ' new-file__tab--active' : ''}`}
+          onClick={() => setActiveTab('blank')}
         >
-          Presets
+          Blank
         </button>
         <button
           type="button"
-          style={{
-            flex: 1,
-            padding: 'var(--space-2)',
-            background:
-              activeTab === 'template' ? 'var(--color-interactive-default)' : 'transparent',
-            color:
-              activeTab === 'template'
-                ? 'var(--color-text-on-accent)'
-                : 'var(--color-text-primary)',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            cursor: 'pointer',
-          }}
+          role="tab"
+          aria-selected={activeTab === 'template'}
+          className={`new-file__tab${activeTab === 'template' ? ' new-file__tab--active' : ''}`}
           onClick={() => setActiveTab('template')}
         >
           Templates
         </button>
       </div>
 
-      {activeTab === 'presets' && (
-        <div>
-          <SegmentedControl
-            label="Category"
-            value={category}
-            options={categoryOptions}
-            onChange={setCategory}
-          />
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(8rem, 1fr))',
-              gap: 'var(--space-2)',
-              margin: 'var(--space-3) 0',
-            }}
+      {activeTab === 'blank' && (
+        <div className="new-file__body">
+          <button
+            type="button"
+            className={`new-file__blank${selectedId === 'blank' ? ' new-file__blank--active' : ''}`}
+            onClick={() => selectPreset(BLANK_PRESET)}
           >
-            {filtered.map((preset) => (
+            <span className="new-file__blank-icon" aria-hidden>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <title>Blank canvas</title>
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M12 8v8M8 12h8" />
+              </svg>
+            </span>
+            <span className="new-file__blank-text">
+              <span className="new-file__blank-title">Blank canvas</span>
+              <span className="new-file__blank-sub">
+                Start empty at any size. Add device/social frames later.
+              </span>
+            </span>
+          </button>
+
+          <div className="new-file__section-label">Print document</div>
+          <div className="new-file__print-grid">
+            {PRINT_PRESETS.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
-                style={{
-                  padding: 'var(--space-2)',
-                  border: `1px solid ${selectedPreset.id === preset.id ? 'var(--color-interactive-default)' : 'var(--color-border-subtle)'}`,
-                  borderRadius: 'var(--radius-md)',
-                  background:
-                    selectedPreset.id === preset.id
-                      ? 'var(--color-interactive-default)'
-                      : 'transparent',
-                  color:
-                    selectedPreset.id === preset.id
-                      ? 'var(--color-text-on-accent)'
-                      : 'var(--color-text-primary)',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                }}
-                onClick={() => setSelectedPreset(preset)}
+                className={`new-file__print${selectedId === preset.id ? ' new-file__print--active' : ''}`}
+                onClick={() => selectPreset(preset)}
               >
-                <div
-                  style={{
-                    fontSize: 'var(--font-size-sm)',
-                    fontWeight: 'var(--font-weight-medium)',
-                  }}
-                >
-                  {preset.name}
-                </div>
-                <div style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
+                <span className="new-file__print-name">{preset.name}</span>
+                <span className="new-file__print-size">
                   {preset.width} &times; {preset.height} {preset.unit}
-                </div>
+                </span>
+                <span className="new-file__print-badge">CMYK</span>
               </button>
             ))}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-              <label
-                htmlFor="custom-width"
-                style={{ width: '4rem', fontSize: 'var(--font-size-sm)' }}
-              >
+          <div className="new-file__fields">
+            <div className="new-file__field-row">
+              <label htmlFor="custom-width" className="new-file__field-label">
                 Width
               </label>
               <NumberInput
@@ -295,10 +195,7 @@ export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
                 label="Width"
                 id="custom-width"
               />
-              <label
-                htmlFor="custom-height"
-                style={{ width: '4rem', fontSize: 'var(--font-size-sm)' }}
-              >
+              <label htmlFor="custom-height" className="new-file__field-label">
                 Height
               </label>
               <NumberInput
@@ -310,23 +207,15 @@ export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
                 id="custom-height"
               />
             </div>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-              <span style={{ width: '4rem', fontSize: 'var(--font-size-sm)' }}>Unit</span>
+            <div className="new-file__field-row">
+              <span className="new-file__field-label">Unit</span>
               <SegmentedControl
                 label="Unit"
                 value={unit}
                 options={unitOptions}
                 onChange={(u: string) => setUnit(u as Unit)}
               />
-              <span
-                style={{
-                  width: 'auto',
-                  fontSize: 'var(--font-size-sm)',
-                  marginLeft: 'var(--space-2)',
-                }}
-              >
-                Color
-              </span>
+              <span className="new-file__field-label new-file__field-label--gap">Color</span>
               <SegmentedControl
                 label="Color mode"
                 value={colorMode}
@@ -335,12 +224,10 @@ export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
               />
             </div>
             {colorMode === 'cmyk' && (
-              <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-                <span style={{ width: '4rem', fontSize: 'var(--font-size-sm)' }}>Bleed</span>
+              <div className="new-file__field-row">
+                <span className="new-file__field-label">Bleed</span>
                 <NumberInput value={bleed} onChange={setBleed} min={0} max={50} label="Bleed" />
-                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                  {unit}
-                </span>
+                <span className="new-file__field-hint">{unit}</span>
               </div>
             )}
           </div>
@@ -348,30 +235,25 @@ export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
       )}
 
       {activeTab === 'template' && (
-        <TemplatesGallery
-          onSelect={(template) => {
-            onCreate({
-              id: template.id,
-              name: template.name,
-              category: 'blank',
-              width: 1920,
-              height: 1080,
-              unit: 'px',
-              colorMode: 'rgb',
-            });
-            onClose();
-          }}
-        />
+        <div className="new-file__body">
+          <TemplatesGallery
+            onSelect={(template) => {
+              onCreate({
+                id: template.id,
+                name: template.name,
+                category: 'blank',
+                width: 1920,
+                height: 1080,
+                unit: 'px',
+                colorMode: 'rgb',
+              });
+              onClose();
+            }}
+          />
+        </div>
       )}
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 'var(--space-2)',
-          marginTop: 'var(--space-4)',
-        }}
-      >
+      <div className="new-file__footer">
         <Button variant="ghost" onClick={onClose}>
           Cancel
         </Button>

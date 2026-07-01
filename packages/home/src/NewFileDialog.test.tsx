@@ -5,9 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { NewFileDialog } from './NewFileDialog';
 
 describe('NewFileDialog', () => {
-  it('renders presets tab when open', () => {
+  it('renders blank tab with a blank canvas option when open', () => {
     const { container } = render(<NewFileDialog open onClose={vi.fn()} onCreate={vi.fn()} />);
-    expect(container.textContent).toContain('Presets');
+    expect(container.textContent).toContain('Blank canvas');
   });
 
   it('switches to templates tab', () => {
