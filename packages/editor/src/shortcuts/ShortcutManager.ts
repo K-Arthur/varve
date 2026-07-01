@@ -110,6 +110,27 @@ export const SHORTCUT_DEFS = {
   toolHand: { binding: { key: 'h' }, label: 'Hand tool', category: 'Tools' },
   toolZoom: { binding: { key: 'z' }, label: 'Zoom tool', category: 'Tools' },
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
+  toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },
+  booleanUnion: {
+    binding: { key: 'u', ctrl: true, alt: true },
+    label: 'Boolean Union',
+    category: 'Object',
+  },
+  booleanSubtract: {
+    binding: { key: 's', ctrl: true, alt: true },
+    label: 'Boolean Subtract',
+    category: 'Object',
+  },
+  booleanIntersect: {
+    binding: { key: 'i', ctrl: true, alt: true },
+    label: 'Boolean Intersect',
+    category: 'Object',
+  },
+  booleanExclude: {
+    binding: { key: 'x', ctrl: true, alt: true },
+    label: 'Boolean Exclude',
+    category: 'Object',
+  },
 } satisfies Record<string, ShortcutDef>;
 
 // ── Persistence ────────────────────────────────────────────────────────

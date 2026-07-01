@@ -6,6 +6,7 @@
  * stable shapes.
  */
 
+export * from './boolean';
 export * from './component';
 export * from './document';
 export * from './export-types';

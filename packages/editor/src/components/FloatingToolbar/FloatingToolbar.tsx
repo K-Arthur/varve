@@ -1,8 +1,16 @@
+import type { BooleanOpKind } from '@strata/scene';
 import type { MenuEntry } from '@strata/ui';
 import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import './FloatingToolbar.css';
+
+const BOOLEAN_OP_MAP: Record<string, BooleanOpKind> = {
+  booleanUnion: 'union',
+  booleanSubtract: 'subtract',
+  booleanIntersect: 'intersect',
+  booleanExclude: 'exclude',
+};
 
 const SHAPE_SUB_TOOLS: ToolId[] = ['rect', 'ellipse', 'polygon', 'star'];
 const BOOLEAN_SUB_TOOLS: ToolId[] = [
@@ -76,7 +84,7 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
 ];
 
 export function FloatingToolbar() {
-  const { state, setTool } = useEditor();
+  const { state, setTool, booleanOp } = useEditor();
   const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [booleanMenuPos, setBooleanMenuPos] = useState<{ x: number; y: number } | null>(null);
 
@@ -100,7 +108,11 @@ export function FloatingToolbar() {
     id,
     label: TOOL_LABELS[id] ?? id,
     onAction: () => {
-      setTool(id);
+      const op = BOOLEAN_OP_MAP[id];
+      if (op) {
+        booleanOp(op);
+        setTool('select');
+      }
       setBooleanMenuPos(null);
     },
   }));
@@ -143,7 +155,13 @@ export function FloatingToolbar() {
             className={`floating-toolbar__btn${state.tool === currentBoolean ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
             aria-pressed={state.tool === currentBoolean}
             aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
-            onClick={() => setTool(currentBoolean)}
+            onClick={() => {
+              const op = BOOLEAN_OP_MAP[currentBoolean];
+              if (op) {
+                booleanOp(op);
+                setTool('select');
+              }
+            }}
           >
             <Icon name={TOOL_ICONS[currentBoolean] ?? 'MousePointer2'} size={16} />
           </button>

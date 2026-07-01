@@ -33,7 +33,9 @@ import {
   createVariableStore,
   type Document,
   detachInstance as detachInstanceDoc,
+  booleanOp as doBooleanOp,
   fillSlot as fillSlotDoc,
+  getParent,
   groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
   makeFrameNode,
@@ -71,6 +73,7 @@ import {
   readClipboard as readFromClipboard,
   writeClipboard as writeToClipboard,
 } from './clipboard';
+import { computeFlexLayout } from './layout/computeFlexLayout';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 
 // Forward declaration for use in createShapeAt guard
@@ -128,6 +131,8 @@ export interface EditorState {
   pixelGridEnabled: boolean;
   /** Snap-to-grid toggle. */
   snapEnabled: boolean;
+  /** Snap grid size in pixels. */
+  snapGrid: number;
 }
 
 export interface EditorContextValue {
@@ -190,6 +195,8 @@ export interface EditorContextValue {
   renameSelected: (name: string) => void;
   /** Move a node to a new paint-order index. */
   moveNode: (id: NodeId, toIndex: number) => void;
+  /** Duplicate all selected nodes with new IDs. */
+  duplicateSelected: () => void;
   /** Update the fill of all selected nodes. */
   setSelectedFill: (color: Color) => void;
   /** P2: Set the entire fill stack on all selected nodes. */
@@ -354,6 +361,8 @@ export interface EditorContextValue {
   updatePreset: (nodeId: NodeId, preset: ExportPreset) => void;
   /** Remove an export preset from a node. */
   removePreset: (nodeId: NodeId, presetId: string) => void;
+  /** Apply a boolean operation to all selected nodes; replaces selection with result. */
+  booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -480,6 +489,24 @@ const INITIAL_SESSION_ID = 'session-0';
 
 // ─── standalone helpers ─────────────────────────────────────────────────
 
+/** Apply computeFlexLayout to a frame's children and return the updated doc. */
+function applyFrameLayout(doc: Document, parentId: string | null | undefined): Document {
+  if (!parentId) return doc;
+  const parent = doc.nodes[parentId];
+  if (!parent || parent.kind !== 'frame' || !parent.layoutStyle) return doc;
+  const childNodes = parent.children
+    .map((cid) => doc.nodes[cid])
+    .filter((n): n is SceneNode => Boolean(n));
+  const results = computeFlexLayout(parent, childNodes);
+  if (results.length === 0) return doc;
+  const nodes = { ...doc.nodes };
+  for (const r of results) {
+    const child = nodes[r.id];
+    if (child) nodes[r.id] = { ...child, transform: [1, 0, 0, 1, r.x, r.y] as Affine };
+  }
+  return { ...doc, nodes };
+}
+
 /** Compute world-space bounding box for any node type. */
 export function nodeWorldBoundsFn(
   n: SceneNode,
@@ -583,7 +610,8 @@ export function EditorProvider({
       cursorPos: null,
       unitType: 'px',
       pixelGridEnabled: false,
-      snapEnabled: false,
+      snapEnabled: true,
+      snapGrid: 8,
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -812,6 +840,7 @@ export function EditorProvider({
             const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
             node = { ...node, transform: localTransform } as SceneNode;
             newDoc = addChild(d2, effectiveParentId, node);
+            newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
             newDoc = addNode(d2, node);
           }
@@ -839,6 +868,7 @@ export function EditorProvider({
           let newDoc: Document;
           if (effectiveParentId) {
             newDoc = addChild(d2, effectiveParentId, node);
+            newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
             newDoc = addNode(d2, node);
           }
@@ -921,9 +951,13 @@ export function EditorProvider({
           !window.confirm(`Are you sure you want to delete ${sel.length} objects?`)
         )
           return;
+        const parentIds = new Set(
+          sel.map((id) => getParent(state.document, id)).filter((pid): pid is string => Boolean(pid)),
+        );
         updateDoc((doc) => {
           let d = doc;
           for (const id of sel) d = removeNode(d, id);
+          for (const pid of parentIds) d = applyFrameLayout(d, pid);
           return d;
         });
         patch({ selection: [] });
@@ -937,6 +971,57 @@ export function EditorProvider({
 
       moveNode: (id, toIndex) => {
         updateDoc((doc) => moveNode(doc, id, toIndex));
+      },
+
+      duplicateSelected: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          let d = doc;
+          const newIds: string[] = [];
+          for (const id of sel) {
+            const node = d.nodes[id];
+            if (!node) continue;
+            const { id: newId, doc: d2 } = nextNodeId(d);
+            d = d2;
+            // Clone the node with a new ID and offset position
+            const cloned = {
+              ...node,
+              id: newId,
+              name: `${node.name} copy`,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                node.transform[4] + 20,
+                node.transform[5] + 20,
+              ] as typeof node.transform,
+            };
+            d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
+            // Add to root children if it's a root node
+            const parentId = getParent(doc, id);
+            if (parentId === null) {
+              d = { ...d, rootChildren: [...d.rootChildren, newId] };
+            } else {
+              // Add to parent's children
+              const parent = d.nodes[parentId];
+              if (parent && 'children' in parent) {
+                d = {
+                  ...d,
+                  nodes: {
+                    ...d.nodes,
+                    [parentId]: { ...parent, children: [...(parent.children || []), newId] },
+                  },
+                };
+              }
+            }
+            newIds.push(newId);
+          }
+          // Update selection to the new clones
+          patch({ selection: newIds });
+          return d;
+        });
       },
 
       setSelectedFill: (color) => {
@@ -1531,16 +1616,22 @@ export function EditorProvider({
         updateDoc((doc) => {
           const node = doc.nodes[id];
           if (!node) return doc;
+          const oldParentId = getParent(doc, id);
           const oldWorld = nodeWorldTransform(doc, id);
+          let newDoc: Document;
           if (newParentId) {
             // Convert old world pos → new parent's local space.
             const pWorld = nodeWorldTransform(doc, newParentId);
             const pInv = invertAffine(pWorld);
             const newLocal = multiplyAffine(pInv, oldWorld);
-            return reparentNodeDoc(doc, id, newParentId, toIndex, newLocal);
+            newDoc = reparentNodeDoc(doc, id, newParentId, toIndex, newLocal);
+          } else {
+            // Move to root: local = world (root has identity transform).
+            newDoc = reparentNodeDoc(doc, id, null, toIndex, oldWorld);
           }
-          // Move to root: local = world (root has identity transform).
-          return reparentNodeDoc(doc, id, null, toIndex, oldWorld);
+          if (oldParentId) newDoc = applyFrameLayout(newDoc, oldParentId);
+          if (newParentId) newDoc = applyFrameLayout(newDoc, newParentId);
+          return newDoc;
         });
       },
 
@@ -1970,6 +2061,30 @@ export function EditorProvider({
               [nodeId]: { ...node, presets: (node.presets ?? []).filter((p) => p.id !== presetId) },
             },
           };
+        });
+      },
+
+      booleanOp: (op) => {
+        const sel = state.selection;
+        if (sel.length < 2) return;
+        setState((s) => {
+          const shapeNodes = sel
+            .map((id) => s.document.nodes[id])
+            .filter((n): n is import('@strata/scene').ShapeNode => n?.kind === 'shape');
+          if (shapeNodes.length < 2) return s;
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+          const result = doBooleanOp(op, shapeNodes);
+          let d = s.document;
+          for (const id of sel) d = removeNode(d, id);
+          const { id: newId, doc: d2 } = nextNodeId(d);
+          const newNode = { ...result, id: newId } as import('@strata/scene').ShapeNode;
+          d = addNode(d2, newNode);
+          return { ...s, document: d, selection: [newId], dirty: true };
         });
       },
 

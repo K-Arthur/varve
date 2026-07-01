@@ -473,3 +473,17 @@ Verified each claimed capability against live code; built the missing arrange op
 | `packages/editor/src/Menubar.tsx` | Added `ungroupSelected` / `arrangeSelected` to destructured context. Added `ungroup` to Object menu. Expanded Arrange menu from 1 stub item to 4 fully wired items (bringFront / bringForward / sendBackward / sendBack) with correct shortcut labels. Added action handlers for all 6 new actions. |
 
 **Verification:** 630/630 JS tests (67 files, +10 arrange-op tests), typecheck clean (13 packages), `just gate` green, `pnpm audit:tokens` (72/72 WCAG-AA), `pnpm audit:emoji` clean.
+
+## Session 18 — Path Editing, Boolean Ops, Live Snapping & Auto-layout Reflow (2026-07-01)
+
+Four features implemented TDD-first; all new tests written as failing assertions before implementation.
+
+| Area | Update |
+|---|---|
+| **Live snapping** | `snapEnabled` (was hardcoded `false`) now wired from `EditorState.snapEnabled` in `CanvasArea.buildToolCtx`. Early return added to `snapPosition` wrapper when disabled. `,` shortcut and View menu "Toggle Snap" entry added. 9 snapping unit tests (`edge/center-x/y/threshold/disabled/empty`). |
+| **NodeEditTool** | New `packages/editor/src/tools/NodeEditTool.ts` — `BaseTool` subclass for bezier anchor editing. Enter on double-click of a `path` ShapeNode (wired in `SelectTool.onDoubleClick`). Escape/V → select tool; Backspace → delete anchor (blocked at 2 pts); C → corner↔smooth toggle. Drag moves anchor via `updateNode`. `setNodeEditTargetId` / `setNodeEditSelectedAnchors` added to `ToolContext`. 8 TDD tests pass. |
+| **NodeEditOverlay** | New `packages/editor/src/components/NodeEditOverlay.tsx` — SVG overlay (pointer-events:none) showing square/circle handles for corner/smooth anchors and bezier control lines. Rendered by CanvasArea when `tool === 'nodeEdit'`. |
+| **Boolean ops** | New `packages/scene/src/boolean.ts` — `booleanOp(kind, nodes): ShapeNode`. Union/exclude: bounding rectangle. Intersect: Sutherland-Hodgman polygon clipping. Subtract: first shape (MVP; Weiler-Atherton deferred). `BooleanOpKind` exported from `@strata/scene`. Wired to `context.booleanOp()`, `FloatingToolbar` boolean flyout (applies op then reverts to select), `Menubar` Object menu (Ctrl+Alt+U/S/I/X), and shortcut handlers. 9 TDD tests pass. |
+| **Auto-layout reflow** | New `packages/editor/src/layout/computeFlexLayout.ts` — pure-TS flex layout engine (replaces the deferred `@strata/layout` WASM stub). Supports row/column/rowReverse/columnReverse, gap, and padding[top,right,bottom,left]. Returns `{ id, x, y, w, h }[]` for caller to apply as transforms. `applyFrameLayout(doc, parentId)` helper in `context.tsx` calls it and patches children's transforms. Wired at: `createShapeAt` (addChild path), `createTextNodeAt` (addChild path), `reparentNode` (old + new parent), `removeSelected` (all affected parents). 5 TDD tests pass. |
+
+**Verification:** 166/166 editor tests, 113/113 scene tests, 55/55 engine tests — all green. Typecheck clean.

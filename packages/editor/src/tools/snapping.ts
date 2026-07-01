@@ -1,6 +1,7 @@
 export interface SnapGuide {
   axis: 'horizontal' | 'vertical';
   position: number;
+  label?: string;
 }
 
 export interface SnapResult {
@@ -17,6 +18,7 @@ export function snapPosition(
   w: number,
   h: number,
   otherBounds: Array<{ x: number; y: number; w: number; h: number }>,
+  grid?: number,
 ): SnapResult {
   let snappedX = x;
   let snappedY = y;
@@ -26,6 +28,21 @@ export function snapPosition(
   const cy = y + h / 2;
   const edges = { left: x, right: x + w, centerX: cx, top: y, bottom: y + h, centerY: cy };
 
+  // Grid snapping
+  if (grid && grid > 0) {
+    const snappedGridX = Math.round(x / grid) * grid;
+    const snappedGridY = Math.round(y / grid) * grid;
+    if (Math.abs(snappedGridX - x) < SNAP_THRESHOLD) {
+      snappedX = snappedGridX;
+      guides.push({ axis: 'vertical', position: snappedGridX, label: `${snappedGridX}px` });
+    }
+    if (Math.abs(snappedGridY - y) < SNAP_THRESHOLD) {
+      snappedY = snappedGridY;
+      guides.push({ axis: 'horizontal', position: snappedGridY, label: `${snappedGridY}px` });
+    }
+  }
+
+  // Object snapping
   for (const b of otherBounds) {
     const bCX = b.x + b.w / 2;
     const bCY = b.y + b.h / 2;
