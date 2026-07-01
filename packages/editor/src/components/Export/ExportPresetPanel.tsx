@@ -10,6 +10,8 @@
 import type { ExportFormat, ExportPreset, SceneNode } from '@strata/scene';
 import { useState } from 'react';
 
+import './export-preset-panel.css';
+
 interface ExportPresetPanelProps {
   node: SceneNode;
   onAddPreset: (preset: ExportPreset) => void;
@@ -66,15 +68,7 @@ export function ExportPresetPanel({
     <section className="export-preset-panel" aria-label="Export presets">
       <Section title="Export">
         {presets.length === 0 && (
-          <div
-            style={{
-              fontSize: 'var(--font-size-xs)',
-              color: 'var(--color-text-muted)',
-              marginBottom: 'var(--space-2)',
-            }}
-          >
-            No export presets for this node.
-          </div>
+          <div className="export-preset-panel__empty">No export presets for this node.</div>
         )}
 
         {presets.map((preset) => (
@@ -87,27 +81,12 @@ export function ExportPresetPanel({
           />
         ))}
 
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--space-1)',
-            marginTop: 'var(--space-2)',
-          }}
-        >
+        <div className="export-preset-panel__add-row">
           <select
             value={selectedFormat}
             onChange={(e) => setSelectedFormat(e.target.value as ExportFormat)}
             aria-label="Format"
-            style={{
-              flex: 1,
-              height: 'var(--space-5)',
-              padding: '0 var(--space-2)',
-              background: 'var(--color-surface-sunken)',
-              border: '1px solid var(--color-border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--color-text-primary)',
-              fontSize: 'var(--font-size-sm)',
-            }}
+            className="export-preset-panel__select"
           >
             {(
               [
@@ -135,17 +114,7 @@ export function ExportPresetPanel({
             type="button"
             onClick={handleAdd}
             aria-label="Add preset"
-            style={{
-              height: 'var(--space-5)',
-              padding: '0 var(--space-2)',
-              background: 'var(--color-interactive-default)',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              color: '#fff',
-              fontSize: 'var(--font-size-sm)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
+            className="export-preset-panel__add-btn"
           >
             + Add
           </button>
@@ -168,19 +137,8 @@ export function PresetRow({ preset, nodeName, onUpdate, onRemove }: PresetRowPro
   const formatLabel = FORMAT_LABELS[preset.format] ?? preset.format;
 
   return (
-    <div
-      className="export-preset-row"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-1)',
-        padding: 'var(--space-1) 0',
-        borderBottom: '1px solid var(--color-border-subtle)',
-      }}
-    >
-      <label
-        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer' }}
-      >
+    <div className="export-preset-row">
+      <label className="export-preset-row__checkbox">
         <input
           type="checkbox"
           checked={preset.enabled}
@@ -188,12 +146,12 @@ export function PresetRow({ preset, nodeName, onUpdate, onRemove }: PresetRowPro
           aria-label={`Enable ${formatLabel} preset`}
         />
       </label>
-      <div style={{ flex: 1, fontSize: 'var(--font-size-sm)', lineHeight: 1.4 }}>
-        <div style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+      <div className="export-preset-row__label">
+        <div className="export-preset-row__name">
           {nodeName}
           {preset.suffix}.{preset.format}
         </div>
-        <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>
+        <div className="export-preset-row__details">
           {formatLabel}, {scaleLabel}
         </div>
       </div>
@@ -201,35 +159,13 @@ export function PresetRow({ preset, nodeName, onUpdate, onRemove }: PresetRowPro
         value={preset.suffix}
         onChange={(e) => onUpdate({ ...preset, suffix: e.target.value })}
         aria-label="Filename suffix"
-        style={{
-          width: 56,
-          height: 'var(--space-4)',
-          padding: '0 var(--space-1)',
-          background: 'var(--color-surface-sunken)',
-          border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-sm)',
-          color: 'var(--color-text-primary)',
-          fontSize: 'var(--font-size-xs)',
-          textAlign: 'center',
-        }}
+        className="export-preset-row__suffix"
       />
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${formatLabel} preset`}
-        style={{
-          width: 'var(--space-4)',
-          height: 'var(--space-4)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'none',
-          border: 'none',
-          borderRadius: 'var(--radius-sm)',
-          color: 'var(--color-text-muted)',
-          cursor: 'pointer',
-          fontSize: 'var(--font-size-sm)',
-        }}
+        className="export-preset-row__remove"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
           <path
@@ -246,22 +182,9 @@ export function PresetRow({ preset, nodeName, onUpdate, onRemove }: PresetRowPro
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="inspector-section" style={{ padding: 'var(--space-2) 0' }}>
-      <h3
-        style={{
-          fontSize: 'var(--font-size-xs)',
-          fontWeight: 600,
-          color: 'var(--color-text-muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          margin: 0,
-          marginBottom: 'var(--space-1)',
-          padding: '0 var(--space-2)',
-        }}
-      >
-        {title}
-      </h3>
-      <div style={{ padding: '0 var(--space-2)' }}>{children}</div>
+    <div className="inspector-section">
+      <h3 className="inspector-section__title">{title}</h3>
+      <div className="inspector-section__body">{children}</div>
     </div>
   );
 }

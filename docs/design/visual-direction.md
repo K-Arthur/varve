@@ -117,3 +117,38 @@ Niva-specific claims were invented or implemented.
 
 ### No tokens added
 All changes use existing tokens; no new WCAG pairs needed.
+
+## Session 19 — Hardened Master Redesign (2026-07-01)
+
+### Changes adopted
+| Pattern | Status | Implementation |
+|---------|--------|---------------|
+| **OKLCH perceptual color space** | **Adopted** | All 72 ramp values + 47 semantic tokens × 3 themes migrated from sRGB to OKLCH. Drift guard updated with ±0.001 OKLCH tolerance. |
+| **Hierarchical elevation system** | **Adopted** | Four opaque surface levels (sunken/default/raised/overlay) with front-lit dark mode. Shadows dark-adaptive. z-index paired to elevation. 6 new per-elevation text tokens. |
+| **Neo-Bento geometry** | **Adopted** | Radii updated: sm=4px, md=8px, lg=16px, xl=28px, 2xl=40px. Bento-grid CSS primitives added. |
+| **Linear-Esque micro-borders** | **Adopted** | 1px interior strokes (`--border-micro`) with accent gradient variant (`--border-micro-accent`). |
+| **100% opaque surfaces** | **Adopted** | All `rgba()`, `backdrop-filter: blur()`, and `filter: brightness()` removed from surface backgrounds. FloatingToolbar blur eliminated. |
+| **Hardware acceleration** | **Adopted** | `.gpu-layer` class with `translate3d(0,0,0)` applied to editor shell. |
+| **Duplicate elimination** | **Adopted** | `FillStackSection` and `GradientStopEditor` deleted. `FillSection` is the single fills UI. |
+
+### Functional defects closed
+| Issue | Fix |
+|-------|-----|
+| Toolbar focus management broken | Added `useEffect` calling `.focus()` on `focusIdx` change |
+| EffectsSection color swatch read-only | Wired to open ColorPicker popover with Done button |
+| StrokeSection color swatch read-only | Wired to open ColorPicker popover with Done button |
+| BindingMenu no keyboard list navigation | Added ArrowUp/ArrowDown/Enter handlers on the listbox |
+| 33 components inline-styled | All replaced with CSS classes: ColorPicker (6 files), NumberInput, Slider, Toolbar, TitleBar, ErrorBoundary, TrashSection, ExportPresetPanel, BindingMenu, TokenBindIndicator, GradientEditor, + 20 Tier 2 components |
+
+### Token expansion
+| Metric | Before | After |
+|--------|--------|-------|
+| Contrast pairs | 24 × 3 = 72 | 30 × 3 = 90 |
+| Semantic tokens | 47 | 53 (+6 per-elevation text) |
+| Radius tokens | 5 | 6 (+radius-2xl: 40px) |
+| Elevation tokens | 0 | 12 (4 surfaces, 2 shadows, 4 z-index, 2 micro-borders) |
+| CSS files | 9 | 12 (+color-picker.css, export-preset-panel.css, title-bar.css) |
+
+### WCAG audit
+- 90/90 pairs pass across 3 themes (100%)
+- Elevation pairs verified at each level for both light and dark

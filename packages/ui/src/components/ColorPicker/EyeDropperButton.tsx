@@ -59,20 +59,7 @@ export function EyeDropperButton({ onPick }: EyeDropperButtonProps) {
       title={available ? 'Pick color from screen' : 'Eyedropper unavailable (use native picker)'}
       disabled={!available}
       onClick={handleClick}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 'var(--space-5)',
-        height: 'var(--space-5)',
-        padding: 0,
-        background: 'var(--color-surface-sunken)',
-        border: '1px solid var(--color-border-subtle)',
-        borderRadius: 'var(--radius-sm)',
-        color: available ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
-        cursor: available ? 'pointer' : 'not-allowed',
-        opacity: available ? 1 : 0.5,
-      }}
+      className="eye-dropper"
     >
       <Icon name="Pipette" label={undefined} size="1em" />
     </button>

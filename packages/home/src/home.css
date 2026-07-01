@@ -166,6 +166,49 @@
   color: var(--color-interactive-default);
 }
 
+/* ─── Trash section ──────────────────────────────────── */
+.trash-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.trash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.trash-header__title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+.trash-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+.trash-item:hover {
+  background: var(--color-surface-sunken);
+}
+.trash-item__name {
+  flex: 1;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
+.trash-item__meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.trash-item__actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
 /* ─── Quick-start action row ──────────────────────────── */
 .quick-start {
   display: grid;
@@ -443,6 +486,24 @@
 }
 .file-row__pin[aria-pressed="true"] {
   color: var(--color-interactive-default);
+}
+
+/* Project rename input */
+.project-view__rename-input {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--color-interactive-default);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+/* Empty states illustration */
+.empty-states__illustration {
+  width: 8rem;
+  height: 8rem;
 }
 
 /* Rename inputs */
@@ -762,9 +823,12 @@
   right: -60px;
   width: 320px;
   height: 320px;
-  background: radial-gradient(circle, var(--color-hero-glow) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--color-hero-glow) 18%, transparent) 0%,
+    transparent 70%
+  );
   filter: blur(60px);
-  opacity: 0.18;
   pointer-events: none;
 }
 
@@ -788,7 +852,11 @@
 @media (prefers-reduced-motion: reduce) {
   .strata-home__hero::before {
     filter: none;
-    opacity: 0.08;
+    background: radial-gradient(
+      circle,
+      color-mix(in oklch, var(--color-hero-glow) 8%, transparent) 0%,
+      transparent 70%
+    );
   }
 }
 
@@ -823,7 +891,7 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: oklch(0 0 0 / 0.3);
   z-index: var(--z-overlay);
 }
 

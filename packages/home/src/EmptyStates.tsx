@@ -76,7 +76,7 @@ export function EmptyStates({ section, query, onAction }: EmptyStatesProps) {
 
   const illustration = (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: static safe SVG content from constant lookup table
-    <div dangerouslySetInnerHTML={{ __html: svgHtml }} style={{ width: '8rem', height: '8rem' }} />
+    <div className="empty-states__illustration" dangerouslySetInnerHTML={{ __html: svgHtml }} />
   );
 
   const headline: string =

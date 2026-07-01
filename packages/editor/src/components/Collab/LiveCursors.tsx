@@ -38,7 +38,7 @@ export function LiveCursors() {
               fill={c.color}
               fontSize="11"
               fontFamily="var(--font-body, sans-serif)"
-              style={{ pointerEvents: 'none', userSelect: 'none' }}
+              className="live-cursors__name"
             >
               {c.name}
             </text>

@@ -123,35 +123,15 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-      <div
-        style={{
-          display: 'inline-flex',
-          border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-sm)',
-          overflow: 'hidden',
-          alignSelf: 'flex-start',
-        }}
-        role="radiogroup"
-        aria-label="Color format"
-      >
+    <div className="color-fields">
+      <div className="color-fields__mode-group" role="radiogroup" aria-label="Color format">
         {MODES.map((m) => (
           <button
             type="button"
             key={m.key}
+            className={`color-fields__mode-btn${mode === m.key ? ' color-fields__mode-btn--active' : ''}`}
             aria-pressed={mode === m.key}
             onClick={() => setMode(m.key)}
-            style={{
-              padding: '0 var(--space-2)',
-              height: 'var(--space-5)',
-              background: mode === m.key ? 'var(--color-interactive-default)' : 'transparent',
-              color: mode === m.key ? 'var(--color-text-on-accent)' : 'var(--color-text-muted)',
-              border: 'none',
-              borderRight: '1px solid var(--color-border-subtle)',
-              font: 'inherit',
-              fontSize: 'var(--font-size-xs)',
-              cursor: 'pointer',
-            }}
           >
             {m.label}
           </button>
@@ -167,10 +147,9 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
             <input
               id={hexId}
               type="text"
-              className="insp-num__input"
+              className={`insp-num__input color-fields__input-full`}
               value={hexDraft || currentHex}
               aria-label="Hex color"
-              style={{ width: '100%' }}
               onChange={(e) => setHexDraft(e.target.value)}
               onBlur={() => commitHex(hexDraft)}
               onKeyDown={handleHexKeyDown}
@@ -284,7 +263,7 @@ function SpinbuttonRow({ label, value, min, max, onChange, unit }: SpinbuttonRow
           type="text"
           inputMode="numeric"
           role="spinbutton"
-          className="insp-num__input"
+          className="insp-num__input color-fields__input-full"
           value={value}
           aria-valuenow={value}
           aria-valuemin={min}
@@ -293,7 +272,6 @@ function SpinbuttonRow({ label, value, min, max, onChange, unit }: SpinbuttonRow
           aria-label={label}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          style={{ width: '100%' }}
         />
       </div>
     </div>

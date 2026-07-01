@@ -29,17 +29,6 @@ import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
 
-const NATIVE_SELECT: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
 const ALIGN_ITEMS_OPTIONS: readonly SegmentedOption<'start' | 'center' | 'end' | 'stretch'>[] = [
   { value: 'start', label: 'Start' },
   { value: 'center', label: 'Ctr' },
@@ -94,7 +83,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
         <select
           id={`layout-mode-${node.id}`}
           value={ls?.mode ?? 'none'}
-          style={NATIVE_SELECT}
+          className="insp-select"
           onChange={(e) => {
             if (e.target.value === 'none') setNodeLayout(node.id, undefined);
             else patch({ mode: e.target.value as LayoutMode });
@@ -111,7 +100,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
             <select
               id={`layout-dir-${node.id}`}
               value={ls.direction}
-              style={NATIVE_SELECT}
+              className="insp-select"
               onChange={(e) => patch({ direction: e.target.value as FlexDirection })}
             >
               <option value="row">Row</option>
@@ -128,7 +117,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                   type="text"
                   value={ls.gridTemplateColumns ?? ''}
                   placeholder="e.g., 1fr 1fr 1fr"
-                  style={NATIVE_SELECT}
+                  className="insp-select"
                   onChange={(e) => patch({ gridTemplateColumns: e.target.value || undefined })}
                   aria-label="Grid template columns"
                 />
@@ -139,7 +128,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                   type="text"
                   value={ls.gridTemplateRows ?? ''}
                   placeholder="e.g., auto 1fr auto"
-                  style={NATIVE_SELECT}
+                  className="insp-select"
                   onChange={(e) => patch({ gridTemplateRows: e.target.value || undefined })}
                   aria-label="Grid template rows"
                 />
@@ -148,7 +137,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                 <select
                   id={`layout-auto-flow-${node.id}`}
                   value={ls.gridAutoFlow ?? 'row'}
-                  style={NATIVE_SELECT}
+                  className="insp-select"
                   onChange={(e) =>
                     patch({
                       gridAutoFlow: e.target.value as NonNullable<LayoutStyle['gridAutoFlow']>,
@@ -227,15 +216,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                     p[i] = Number(e.target.value) || 0;
                     patch({ padding: p });
                   }}
-                  style={{
-                    width: 36,
-                    fontSize: 'var(--font-size-xs)',
-                    background: 'var(--color-surface-sunken)',
-                    color: 'var(--color-text-primary)',
-                    border: '1px solid var(--color-border-subtle)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '0 var(--space-1)',
-                  }}
+                  className="insp-per-side"
                 />
               ))}
             </div>
@@ -248,7 +229,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               step={1}
               min={0}
               onChange={(e) => patch({ grow: Number(e.target.value) || 0 })}
-              style={NATIVE_SELECT}
+              className="insp-select"
             />
           </FieldRow>
           <FieldRow label="Shrink">
@@ -259,7 +240,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               step={1}
               min={0}
               onChange={(e) => patch({ shrink: Number(e.target.value) || 0 })}
-              style={NATIVE_SELECT}
+              className="insp-select"
             />
           </FieldRow>
         </>
@@ -331,7 +312,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           id="layout-sizing-mode"
           aria-label="Layout sizing mode"
           value={isMixed(sizingRaw) ? '' : sizingRaw}
-          style={NATIVE_SELECT}
+          className="insp-select"
           onChange={(e) => setSelectedLayoutSizing(e.target.value as LayoutSizing)}
         >
           {isMixed(sizingRaw) && <option value="">Mixed</option>}

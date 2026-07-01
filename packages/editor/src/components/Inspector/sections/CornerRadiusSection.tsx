@@ -73,7 +73,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Corner Radius">
-      <div ref={bindingTriggerRef} style={{ position: 'relative' }}>
+      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
         {!perCorner && !mixed && (
           <NumberField
             label="Radius"
@@ -125,16 +125,9 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
       <button
         type="button"
         onClick={toggleMode}
+        className="insp-advanced-btn"
         style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
           color: perCorner ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
-          fontSize: 'var(--font-size-xs)',
-          padding: 0,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-1)',
         }}
         aria-label={perCorner ? 'Use uniform radius' : 'Edit individual corners'}
       >
@@ -178,12 +171,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
             aria-label="Corner smoothing"
             style={{ flex: 1 }}
           />
-          <span
-            className="insp-value"
-            style={{ fontSize: 'var(--font-size-xs)', minWidth: 32, textAlign: 'right' }}
-          >
-            {smoothing}%
-          </span>
+          <span className="insp-smoothing-value">{smoothing}%</span>
         </div>
       </div>
     </DisclosureSection>

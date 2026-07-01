@@ -106,16 +106,7 @@ export function ColorSlider({
         onPointerMove={handlePointerMove}
       >
         {channel === 'alpha' && (
-          <svg
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              borderRadius: 'inherit',
-            }}
-          >
+          <svg aria-hidden="true" className="color-slider__checkerboard">
             <defs>
               <pattern id={checkerId} width="8" height="8" patternUnits="userSpaceOnUse">
                 <rect width="4" height="4" fill="var(--color-surface-sunken)" />
@@ -128,12 +119,8 @@ export function ColorSlider({
           </svg>
         )}
         <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 'inherit',
-            background: channel === 'hue' ? HUE_GRADIENT : alphaGradient(baseColor),
-          }}
+          className="color-slider__gradient"
+          style={{ background: channel === 'hue' ? HUE_GRADIENT : alphaGradient(baseColor) }}
         />
         <div className="insp-slider__fill" style={{ width: `${pct}%` }} />
         <div

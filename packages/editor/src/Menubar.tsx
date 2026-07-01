@@ -662,7 +662,7 @@ export function Menubar({
           <span aria-hidden style={{ color: 'var(--color-text-muted)' }}>
             |
           </span>
-          <label htmlFor="menubar-zoom" className="visually-hidden">
+          <label htmlFor="menubar-zoom" className="sr-only">
             Zoom
           </label>
           <input

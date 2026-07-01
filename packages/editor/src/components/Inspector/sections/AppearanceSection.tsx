@@ -34,17 +34,6 @@ const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'luminosity', label: 'Luminosity' },
 ];
 
-const SELECT_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
 export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
   const { setSelectedOpacity, setSelectedBlendMode } = useEditor();
 
@@ -66,7 +55,7 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
         <select
           id="insp-blend"
           value={isMixed(blendRaw) ? '' : blendRaw}
-          style={SELECT_STYLE}
+          className="insp-select"
           onChange={(e) => setSelectedBlendMode(e.target.value as BlendMode)}
           aria-label="Blend mode"
         >

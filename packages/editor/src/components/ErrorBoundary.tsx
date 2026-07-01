@@ -37,22 +37,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         return this.props.fallback;
       }
       return (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-6)',
-            textAlign: 'center',
-            color: 'var(--color-text-muted)',
-            fontSize: 'var(--font-size-sm)',
-            height: '100%',
-          }}
-          role="alert"
-        >
+        <div className="error-boundary" role="alert">
           <svg
+            className="error-boundary__icon"
             width="48"
             height="48"
             viewBox="0 0 24 24"
@@ -68,33 +55,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
-          <h3
-            style={{
-              margin: 0,
-              fontSize: 'var(--font-size-md)',
-              color: 'var(--color-text-primary)',
-            }}
-          >
-            Something went wrong
-          </h3>
-          <p style={{ margin: 0, maxWidth: 320 }}>
+          <h3 className="error-boundary__title">Something went wrong</h3>
+          <p className="error-boundary__message">
             {this.state.error?.message ?? 'An unexpected error occurred'}
           </p>
-          <button
-            type="button"
-            onClick={this.handleReload}
-            style={{
-              marginTop: 'var(--space-2)',
-              padding: 'var(--space-1) var(--space-3)',
-              background: 'var(--color-interactive-default)',
-              color: 'var(--color-text-on-accent)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              cursor: 'pointer',
-              font: 'inherit',
-              fontSize: 'var(--font-size-sm)',
-            }}
-          >
+          <button type="button" onClick={this.handleReload} className="error-boundary__action">
             Reload
           </button>
         </div>

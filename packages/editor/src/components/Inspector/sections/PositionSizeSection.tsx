@@ -81,7 +81,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Position & Size">
-      <div ref={bindingTriggerRef} style={{ position: 'relative' }}>
+      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
         <NumberField
           label="X"
           unit="px"
@@ -129,16 +129,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               fieldName="width"
               onShiftClick={() => editor.setBindingField('width')}
             />
-            <label
-              aria-label="Constrain proportions"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 'var(--space-2)',
-                cursor: 'pointer',
-              }}
-            >
+            <label aria-label="Constrain proportions" className="insp-proportion-lock">
               <input
                 type="checkbox"
                 checked={locked}
@@ -162,9 +153,9 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 strokeLinejoin="round"
                 role="img"
                 aria-label="Constrain proportions"
+                className="insp-proportion-icon"
                 style={{
                   color: locked ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
-                  flexShrink: 0,
                 }}
               >
                 <title>Constrain proportions</title>
@@ -204,19 +195,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           aria-label="Flip horizontal"
           title="Flip horizontally"
           onClick={editor.setSelectedFlipH}
-          style={{
-            width: 'var(--space-4)',
-            height: 'var(--space-4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--color-text-muted)',
-            padding: 0,
-            flexShrink: 0,
-          }}
+          className="insp-flip-btn"
         >
           <svg
             width="14"
@@ -242,19 +221,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           aria-label="Flip vertical"
           title="Flip vertically"
           onClick={editor.setSelectedFlipV}
-          style={{
-            width: 'var(--space-4)',
-            height: 'var(--space-4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--color-text-muted)',
-            padding: 0,
-            flexShrink: 0,
-          }}
+          className="insp-flip-btn"
         >
           <svg
             width="14"

@@ -24,7 +24,6 @@ export function NumberInput({
   id,
 }: NumberInputProps) {
   const [dirty, setDirty] = useState<string | null>(null);
-  const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<{
     startX: number;
@@ -114,31 +113,15 @@ export function NumberInput({
       ref={inputRef}
       id={id}
       type="text"
+      className="strata-number-input"
       value={dirty ?? String(value)}
       onChange={(e) => setDirty(e.target.value)}
-      onFocus={() => setFocused(true)}
       onBlur={() => {
-        setFocused(false);
         if (dirty !== null) commitValue(dirty);
       }}
       onKeyDown={handleKeyDown}
       onMouseDown={handleMouseDown}
       aria-label={label}
-      style={{
-        flex: 1,
-        height: 'var(--space-5)',
-        padding: '0 var(--space-2)',
-        background: 'var(--color-surface-sunken)',
-        border: focused
-          ? '1px solid var(--color-interactive-default)'
-          : '1px solid var(--color-border-subtle)',
-        borderRadius: 'var(--radius-sm)',
-        color: 'var(--color-text-primary)',
-        font: 'inherit',
-        fontSize: 'var(--font-size-sm)',
-        cursor: 'ew-resize',
-        outline: 'none',
-      }}
     />
   );
 }

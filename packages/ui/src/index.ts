@@ -7,6 +7,7 @@
  */
 
 import './components/components.css';
+import './components/ColorPicker/color-picker.css';
 
 export * from './components';
 export * from './icons';

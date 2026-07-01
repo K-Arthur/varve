@@ -13,40 +13,6 @@ import { instanceOverrides } from '@strata/scene';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
-const SELECT_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
-const BTN_STYLE: React.CSSProperties = {
-  flex: 1,
-  padding: 'var(--space-1) var(--space-2)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  cursor: 'pointer',
-  color: 'var(--color-text-primary)',
-};
-
-const SLOT_ROW: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 'var(--space-1)',
-  padding: 'var(--space-1)',
-  background: 'var(--color-surface-sunken)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  marginBottom: 'var(--space-1)',
-};
-
 export function ComponentSection({ node }: { node: FrameNode }) {
   const editor = useEditor();
   const componentId = node.componentId;
@@ -71,10 +37,9 @@ export function ComponentSection({ node }: { node: FrameNode }) {
 
   return (
     <DisclosureSection title="Component">
-      <div style={{ marginBottom: 'var(--space-2)' }}>
+      <div className="insp-empty-message">
         <span
           style={{
-            fontSize: 'var(--font-size-xs)',
             fontWeight: 'var(--font-weight-medium)',
             color: 'var(--color-text-primary)',
           }}
@@ -90,7 +55,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
           <select
             aria-label="Swap component instance"
             value={componentId}
-            style={SELECT_STYLE}
+            className="insp-select"
             onChange={(e) => editor.swapComponentInstance(node.id, e.target.value)}
           >
             {allComponents.map((c) => (
@@ -108,9 +73,15 @@ export function ComponentSection({ node }: { node: FrameNode }) {
           onClick={() => editor.resetInstanceOverrides(node.id)}
           disabled={overrides.length === 0}
           style={{
-            ...BTN_STYLE,
-            opacity: overrides.length === 0 ? 0.5 : 1,
+            flex: 1,
+            padding: 'var(--space-1) var(--space-2)',
+            fontSize: 'var(--font-size-xs)',
+            background: 'var(--color-surface-sunken)',
+            border: '1px solid var(--color-border-subtle)',
+            borderRadius: 'var(--radius-sm)',
             cursor: overrides.length === 0 ? 'not-allowed' : 'pointer',
+            color: 'var(--color-text-primary)',
+            opacity: overrides.length === 0 ? 0.5 : 1,
           }}
           aria-label="Reset overrides to master defaults"
         >
@@ -119,7 +90,16 @@ export function ComponentSection({ node }: { node: FrameNode }) {
         <button
           type="button"
           onClick={() => editor.detachSelected()}
-          style={BTN_STYLE}
+          style={{
+            flex: 1,
+            padding: 'var(--space-1) var(--space-2)',
+            fontSize: 'var(--font-size-xs)',
+            background: 'var(--color-surface-sunken)',
+            border: '1px solid var(--color-border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            cursor: 'pointer',
+            color: 'var(--color-text-primary)',
+          }}
           aria-label="Detach instance to plain frame"
         >
           Detach
@@ -129,13 +109,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
       {/* Override indicators */}
       {overrides.length > 0 && (
         <div style={{ marginBottom: 'var(--space-2)' }}>
-          <div
-            style={{
-              fontSize: 'var(--font-size-xs)',
-              color: 'var(--color-text-muted)',
-              marginBottom: 'var(--space-1)',
-            }}
-          >
+          <div className="insp-empty-message" style={{ padding: '0 0 var(--space-1)' }}>
             Overridden properties
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -146,9 +120,9 @@ export function ComponentSection({ node }: { node: FrameNode }) {
                   fontSize: 'var(--font-size-xs)',
                   padding: '2px 6px',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-accent-subtle, rgba(57, 208, 198, 0.15))',
-                  color: 'var(--color-accent-default, #39d0c6)',
-                  border: '1px solid var(--color-accent-subtle, rgba(57, 208, 198, 0.3))',
+                  background: 'rgba(57, 208, 198, 0.15)',
+                  color: '#39d0c6',
+                  border: '1px solid rgba(57, 208, 198, 0.3)',
                 }}
               >
                 {prop}
@@ -161,20 +135,27 @@ export function ComponentSection({ node }: { node: FrameNode }) {
       {/* Slot fills */}
       {component?.slots && component.slots.length > 0 && (
         <div style={{ marginTop: 'var(--space-2)' }}>
-          <div
-            style={{
-              fontSize: 'var(--font-size-xs)',
-              color: 'var(--color-text-muted)',
-              marginBottom: 'var(--space-1)',
-            }}
-          >
+          <div className="insp-empty-message" style={{ padding: '0 0 var(--space-1)' }}>
             Slots
           </div>
           {component.slots.map((slot) => {
             const fillNodeId = node.slots?.[slot.id];
 
             return (
-              <div key={slot.id} style={SLOT_ROW}>
+              <div
+                key={slot.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 'var(--space-1)',
+                  padding: 'var(--space-1)',
+                  background: 'var(--color-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: 'var(--space-1)',
+                }}
+              >
                 <span
                   style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}
                 >
@@ -183,7 +164,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
                 <select
                   aria-label={`Fill slot ${slot.name}`}
                   value={fillNodeId ?? ''}
-                  style={SELECT_STYLE}
+                  className="insp-select"
                   onChange={(e) => {
                     if (e.target.value) {
                       editor.fillSlot(node.id, slot.id, e.target.value);

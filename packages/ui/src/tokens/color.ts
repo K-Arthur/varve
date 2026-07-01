@@ -1,126 +1,144 @@
 /**
  * Strata color tokens — single source of truth for color across the UI.
  *
- * Accent rationale (Strata plan §6): a saturated **teal** (#39d0c6). Incumbents
- * cluster around red/violet (Figma), violet (Linear), blue-violet (Canva). Teal
- * reads as "creative AND technical," has no major design-tool association, and
- * its high luminance pairs cleanly with cool-gray neutrals on light and dark
- * surfaces. See ADR-0002 for the full justification.
+ * Uses OKLCH color space (Björn Ottosson, 2020) for perceptually uniform
+ * color representation. All tokens are stored as Oklch objects; the CSS
+ * generator emits `oklch(L C H)` values.
+ *
+ * Accent rationale: saturated teal (#39d0c6 ≈ oklch(0.779 0.1229 188.31)).
+ * Incumbents cluster around red/violet (Figma), violet (Linear), blue-violet
+ * (Canva). Teal reads as "creative AND technical," has no major design-tool
+ * association, and its high luminance pairs cleanly with cool-gray neutrals.
+ * See ADR-0002 for the full justification.
  *
  * Scale convention (Radix-informed, 12 steps): index 1 = lightest, 12 = darkest.
  * Themes select semantic pairs from these ramps; the audit enforces WCAG 2.2 AA
  * on every fg/bg pair declared in CONTRAST_PAIRS.
- *
- * Research basis: WCAG 2.2 contrast (W3C); Radix Colors perceptual scaling
- * (WorkOS/Vercel) for ramp shape.
  */
 
-import type { Rgb } from './contrast';
+import type { Oklch } from './contrast';
 
 export type Theme = 'light' | 'dark' | 'high-contrast';
 export const THEMES: readonly Theme[] = ['light', 'dark', 'high-contrast'];
 
+/** Helper: create Oklch with normalized hue (0-360) and H=0 when C=0. */
+function ok(L: number, C: number, H: number): Oklch {
+  const hNorm = H < 0 ? H + 360 : H;
+  return { L, C, H: C < 0.0001 ? 0 : hNorm };
+}
+
 /** 12-step blue ramp (cool blue, 1 lightest → 12 darkest). */
-export const BLUE: readonly Rgb[] = [
-  [232, 243, 255], // 1
-  [209, 228, 250], // 2
-  [186, 213, 245], // 3
-  [153, 193, 237], // 4
-  [118, 170, 226], // 5
-  [75, 145, 213], // 6
-  [55, 123, 195], // 7
-  [40, 101, 175], // 8
-  [30, 82, 152], // 9
-  [23, 66, 128], // 10
-  [16, 48, 100], // 11
-  [10, 30, 70], // 12
+export const BLUE: readonly Oklch[] = [
+  ok(0.9594, 0.02, 250.38), // 1
+  ok(0.9115, 0.0364, 252.08), // 2
+  ok(0.8636, 0.0532, 252.8), // 3
+  ok(0.7977, 0.0761, 251.19), // 4
+  ok(0.7235, 0.099, 251.08), // 5
+  ok(0.6415, 0.1247, 249.76), // 6
+  ok(0.5741, 0.1309, 252.23), // 7
+  ok(0.5063, 0.1332, 255.23), // 8
+  ok(0.4436, 0.1271, 257.12), // 9
+  ok(0.3863, 0.115, 258.17), // 10
+  ok(0.3187, 0.0994, 259.79), // 11
+  ok(0.2461, 0.0796, 262.26), // 12
 ];
 
 /** 12-step violet ramp (1 lightest → 12 darkest). */
-export const VIOLET: readonly Rgb[] = [
-  [245, 240, 255], // 1
-  [235, 225, 250], // 2
-  [222, 206, 245], // 3
-  [205, 182, 237], // 4
-  [185, 155, 226], // 5
-  [160, 125, 213], // 6
-  [135, 102, 195], // 7
-  [110, 82, 175], // 8
-  [88, 64, 152], // 9
-  [70, 48, 128], // 10
-  [50, 34, 100], // 11
-  [32, 20, 70], // 12
+export const VIOLET: readonly Oklch[] = [
+  ok(0.9633, 0.0206, 301.15), // 1
+  ok(0.9251, 0.0351, 303.8), // 2
+  ok(0.8767, 0.0557, 303.89), // 3
+  ok(0.8141, 0.0799, 303.75), // 4
+  ok(0.7419, 0.105, 303.32), // 5
+  ok(0.6585, 0.1317, 301.2), // 6
+  ok(0.5843, 0.1408, 298.31), // 7
+  ok(0.5129, 0.1428, 294.74), // 8
+  ok(0.4444, 0.1381, 292.44), // 9
+  ok(0.3806, 0.1289, 291.77), // 10
+  ok(0.3125, 0.1109, 289.57), // 11
+  ok(0.241, 0.089, 288.97), // 12
 ];
 
 /** 12-step amber ramp (warm golden, 1 lightest → 12 darkest). */
-export const AMBER: readonly Rgb[] = [
-  [255, 248, 235], // 1
-  [252, 239, 210], // 2
-  [248, 228, 182], // 3
-  [240, 213, 150], // 4
-  [230, 195, 115], // 5
-  [218, 175, 80], // 6
-  [192, 152, 58], // 7
-  [168, 130, 40], // 8
-  [142, 110, 28], // 9
-  [118, 92, 20], // 10
-  [92, 72, 14], // 11
-  [64, 48, 8], // 12
+export const AMBER: readonly Oklch[] = [
+  ok(0.981, 0.0187, 83.06), // 1
+  ok(0.9549, 0.0405, 86.73), // 2
+  ok(0.9238, 0.0635, 87.27), // 3
+  ok(0.8811, 0.0858, 87.36), // 4
+  ok(0.8306, 0.1069, 86.46), // 5
+  ok(0.7748, 0.123, 84.68), // 6
+  ok(0.6997, 0.1197, 85.32), // 7
+  ok(0.6274, 0.1136, 84.68), // 8
+  ok(0.5555, 0.1032, 85.92), // 9
+  ok(0.4883, 0.0916, 87.35), // 10
+  ok(0.4118, 0.0769, 88.39), // 11
+  ok(0.3192, 0.0587, 85.66), // 12
 ];
 
 /** 12-step green ramp (fresh green, 1 lightest → 12 darkest). */
-export const GREEN: readonly Rgb[] = [
-  [237, 250, 240], // 1
-  [215, 244, 220], // 2
-  [190, 235, 198], // 3
-  [160, 223, 172], // 4
-  [128, 210, 145], // 5
-  [85, 195, 110], // 6
-  [60, 170, 86], // 7
-  [42, 145, 68], // 8
-  [30, 120, 54], // 9
-  [22, 98, 42], // 10
-  [16, 74, 32], // 11
-  [10, 50, 20], // 12
+export const GREEN: readonly Oklch[] = [
+  ok(0.9727, 0.019, 152.82), // 1
+  ok(0.9396, 0.0441, 150.35), // 2
+  ok(0.8985, 0.0685, 150.07), // 3
+  ok(0.8476, 0.0954, 149.86), // 4
+  ok(0.7943, 0.1224, 149.57), // 5
+  ok(0.7324, 0.1579, 148.62), // 6
+  ok(0.6556, 0.1571, 148.11), // 7
+  ok(0.5804, 0.147, 147.97), // 8
+  ok(0.5052, 0.1304, 148.06), // 9
+  ok(0.4373, 0.114, 147.88), // 10
+  ok(0.3614, 0.0913, 148.47), // 11
+  ok(0.2809, 0.0692, 148.17), // 12
 ];
 
 /** 12-step cool-gray neutral ramp (1 lightest → 12 darkest). */
-export const NEUTRAL: readonly Rgb[] = [
-  [255, 255, 255], // 1
-  [245, 247, 250], // 2
-  [233, 237, 243], // 3
-  [214, 221, 230], // 4
-  [183, 193, 207], // 5
-  [142, 153, 170], // 6
-  [109, 120, 138], // 7
-  [82, 92, 110], // 8
-  [55, 64, 81], // 9
-  [41, 49, 64], // 10
-  [30, 37, 50], // 11
-  [16, 21, 31], // 12
+export const NEUTRAL: readonly Oklch[] = [
+  ok(1.0, 0.0, 0), // 1 (pure white)
+  ok(0.9755, 0.0045, 258.32), // 2
+  ok(0.9448, 0.0092, 258.34), // 3
+  ok(0.8948, 0.0145, 254.61), // 4
+  ok(0.8075, 0.0226, 256.74), // 5
+  ok(0.6798, 0.0281, 259.04), // 6
+  ok(0.5699, 0.0308, 260.28), // 7
+  ok(0.473, 0.0318, 262.19), // 8
+  ok(0.3704, 0.0317, 263.02), // 9
+  ok(0.3123, 0.0293, 262.83), // 10
+  ok(0.2637, 0.0265, 262.61), // 11
+  ok(0.1956, 0.0217, 263.87), // 12
 ];
 
 /** 12-step teal primary ramp (1 lightest → 12 darkest). Accent = step 6. */
-export const TEAL: readonly Rgb[] = [
-  [224, 250, 247], // 1
-  [199, 244, 238], // 2
-  [162, 235, 226], // 3
-  [120, 223, 213], // 4
-  [82, 209, 197], // 5
-  [57, 208, 198], // 6  ← accent
-  [38, 166, 158], // 7
-  [29, 128, 123], // 8
-  [22, 96, 93], // 9
-  [18, 76, 74], // 10
-  [14, 58, 57], // 11
-  [9, 38, 38], // 12
+export const TEAL: readonly Oklch[] = [
+  ok(0.9654, 0.0274, 188.32), // 1
+  ok(0.934, 0.0469, 186.47), // 2
+  ok(0.8896, 0.0735, 186.3), // 3
+  ok(0.8387, 0.0977, 187.29), // 4
+  ok(0.7873, 0.1127, 186.47), // 5
+  ok(0.779, 0.1229, 188.31), // 6  -- accent
+  ok(0.6577, 0.1059, 188.48), // 7
+  ok(0.5449, 0.0866, 189.77), // 8
+  ok(0.4452, 0.0693, 190.9), // 9
+  ok(0.38, 0.0577, 191.62), // 10
+  ok(0.3189, 0.0468, 192.89), // 11
+  ok(0.2472, 0.0341, 195.17), // 12
 ];
 
-/** Feedback hues (single base value per hue for the first pass). */
-export const SUCCESS: Rgb = [56, 161, 105];
-export const WARNING: Rgb = [180, 130, 24];
-export const DANGER: Rgb = [205, 64, 69];
-export const INFO: Rgb = [57, 138, 208];
+/** Feedback hues (single base value per hue). */
+export const SUCCESS: Oklch = ok(0.6342, 0.1283, 156.2);
+export const WARNING: Oklch = ok(0.6399, 0.1261, 79.82);
+export const DANGER: Oklch = ok(0.5763, 0.1773, 22.78);
+export const INFO: Oklch = ok(0.6164, 0.132, 248.02);
+
+/** Brand color values (used inline in SEMANTIC). */
+const BRAND_SANDSTONE: Oklch = ok(0.7161, 0.1398, 60.04);
+const BRAND_SANDSTONE_LIGHT: Oklch = ok(0.9652, 0.0214, 76.53);
+const BRAND_TERRACOTTA: Oklch = ok(0.5745, 0.1595, 30.53);
+
+/** Layer-shape accent/wash values. */
+const LAYER_ACCENT_SHAPE_LIGHT: Oklch = ok(0.6158, 0.1298, 57.3);
+const LAYER_WASH_SHAPE_LIGHT: Oklch = ok(0.9652, 0.0214, 76.53);
+const LAYER_ACCENT_SHAPE_DARK: Oklch = ok(0.913, 0.0617, 85.44);
+const LAYER_WASH_SHAPE_DARK: Oklch = ok(0.285, 0.0229, 66.69);
 
 /** Semantic token names exposed as CSS custom properties. */
 export type SemanticToken =
@@ -171,17 +189,24 @@ export type SemanticToken =
   | 'brand-teal'
   | 'brand-sandstone'
   | 'brand-sandstone-light'
-  | 'brand-terracotta';
+  | 'brand-terracotta'
+  /* Elevation-per-elevation text tokens (added in redesign). */
+  | 'text-primary-on-default'
+  | 'text-secondary-on-default'
+  | 'text-primary-on-raised'
+  | 'text-secondary-on-raised'
+  | 'text-primary-on-overlay'
+  | 'text-secondary-on-overlay';
 
-const N = (i: number): Rgb => NEUTRAL[i - 1] as Rgb;
-const T = (i: number): Rgb => TEAL[i - 1] as Rgb;
-const B = (i: number): Rgb => BLUE[i - 1] as Rgb;
-const V = (i: number): Rgb => VIOLET[i - 1] as Rgb;
-const A = (i: number): Rgb => AMBER[i - 1] as Rgb;
-const G = (i: number): Rgb => GREEN[i - 1] as Rgb;
+const N = (i: number): Oklch => NEUTRAL[i - 1] as Oklch;
+const T = (i: number): Oklch => TEAL[i - 1] as Oklch;
+const B = (i: number): Oklch => BLUE[i - 1] as Oklch;
+const V = (i: number): Oklch => VIOLET[i - 1] as Oklch;
+const A = (i: number): Oklch => AMBER[i - 1] as Oklch;
+const G = (i: number): Oklch => GREEN[i - 1] as Oklch;
 
-/** Semantic value per theme. Each token maps to a concrete RGB. */
-export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
+/** Semantic value per theme. Each token maps to a concrete OKLCH value. */
+export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
   light: {
     'surface-app': N(2),
     'surface-base': N(2),
@@ -222,22 +247,28 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'layer-wash-group': A(1),
     'layer-accent-text': G(8),
     'layer-wash-text': G(1),
-    'layer-accent-shape': [190, 110, 40],
-    'layer-wash-shape': [252, 242, 228],
+    'layer-accent-shape': LAYER_ACCENT_SHAPE_LIGHT,
+    'layer-wash-shape': LAYER_WASH_SHAPE_LIGHT,
     'layer-accent-component': V(6),
     'layer-wash-component': V(1),
     'hero-glow': T(6),
     'brand-teal': T(6),
-    'brand-sandstone': [226, 140, 60],
-    'brand-sandstone-light': [252, 242, 228],
-    'brand-terracotta': [197, 75, 58],
+    'brand-sandstone': BRAND_SANDSTONE,
+    'brand-sandstone-light': BRAND_SANDSTONE_LIGHT,
+    'brand-terracotta': BRAND_TERRACOTTA,
+    'text-primary-on-default': N(12),
+    'text-secondary-on-default': N(10),
+    'text-primary-on-raised': N(12),
+    'text-secondary-on-raised': N(10),
+    'text-primary-on-overlay': N(12),
+    'text-secondary-on-overlay': N(10),
   },
   dark: {
     'surface-app': N(12),
     'surface-base': N(12),
     'surface-raised': N(11),
-    'surface-sunken': [11, 16, 24],
-    'surface-overlay': [5, 8, 14],
+    'surface-sunken': ok(0.1719, 0.0186, 259.66),
+    'surface-overlay': ok(0.1335, 0.0152, 259.32),
     'text-primary': N(2),
     'text-secondary': N(4),
     'text-subtle': N(6),
@@ -272,65 +303,77 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Rgb>> = {
     'layer-wash-group': A(11),
     'layer-accent-text': G(3),
     'layer-wash-text': G(11),
-    'layer-accent-shape': [245, 224, 180],
-    'layer-wash-shape': [50, 40, 30],
+    'layer-accent-shape': LAYER_ACCENT_SHAPE_DARK,
+    'layer-wash-shape': LAYER_WASH_SHAPE_DARK,
     'layer-accent-component': V(3),
     'layer-wash-component': V(11),
     'hero-glow': T(6),
     'brand-teal': T(6),
-    'brand-sandstone': [226, 140, 60],
-    'brand-sandstone-light': [245, 224, 180],
-    'brand-terracotta': [197, 75, 58],
+    'brand-sandstone': BRAND_SANDSTONE,
+    'brand-sandstone-light': BRAND_SANDSTONE_LIGHT,
+    'brand-terracotta': BRAND_TERRACOTTA,
+    'text-primary-on-default': N(2),
+    'text-secondary-on-default': N(4),
+    'text-primary-on-raised': N(2),
+    'text-secondary-on-raised': N(4),
+    'text-primary-on-overlay': N(2),
+    'text-secondary-on-overlay': N(4),
   },
   'high-contrast': {
-    'surface-app': [0, 0, 0],
-    'surface-base': [0, 0, 0],
-    'surface-raised': [10, 10, 10],
-    'surface-sunken': [0, 0, 0],
-    'surface-overlay': [0, 0, 0],
-    'text-primary': [255, 255, 255],
-    'text-secondary': [255, 255, 255],
-    'text-subtle': [220, 220, 220],
-    'text-muted': [220, 220, 220],
-    'text-disabled': [128, 128, 128],
-    'text-on-accent': [0, 0, 0],
-    'text-on-danger': [0, 0, 0],
-    'border-subtle': [255, 255, 255],
-    'border-strong': [255, 255, 255],
-    'border-focus': [255, 255, 0],
-    'interactive-default': [255, 255, 0],
-    'interactive-hover': [255, 255, 0],
-    'interactive-active': [255, 235, 60],
-    'interactive-disabled': [80, 80, 80],
-    'interactive-focus-ring': [255, 255, 0],
-    'feedback-success': [0, 255, 0],
-    'feedback-warning': [255, 200, 0],
-    'feedback-danger': [255, 80, 80],
-    'feedback-info': [100, 180, 255],
-    'accent-primary': [255, 255, 0],
-    'accent-default': [255, 255, 0],
-    'accent-teal': [255, 255, 0],
-    'accent-subtle': [80, 80, 80],
-    'tree-row': [10, 10, 10],
-    'tree-row-hover': [100, 100, 100],
-    'tree-row-selected': [255, 255, 0],
-    'tree-row-focus': [255, 255, 0],
-    'tree-indent-guide': [255, 255, 255],
-    'layer-accent-frame': [255, 255, 0],
-    'layer-wash-frame': [60, 60, 60],
-    'layer-accent-group': [255, 255, 0],
-    'layer-wash-group': [60, 60, 60],
-    'layer-accent-text': [255, 255, 0],
-    'layer-wash-text': [60, 60, 60],
-    'layer-accent-shape': [255, 255, 0],
-    'layer-wash-shape': [60, 60, 60],
-    'layer-accent-component': [255, 255, 0],
-    'layer-wash-component': [60, 60, 60],
-    'hero-glow': [0, 0, 0],
-    'brand-teal': [255, 255, 0],
-    'brand-sandstone': [255, 128, 0],
-    'brand-sandstone-light': [255, 180, 64],
-    'brand-terracotta': [255, 64, 64],
+    'surface-app': ok(0.0, 0.0, 0),
+    'surface-base': ok(0.0, 0.0, 0),
+    'surface-raised': ok(0.0971, 0.0, 0),
+    'surface-sunken': ok(0.0, 0.0, 0),
+    'surface-overlay': ok(0.0, 0.0, 0),
+    'text-primary': ok(1.0, 0.0, 0),
+    'text-secondary': ok(1.0, 0.0, 0),
+    'text-subtle': ok(0.8577, 0.0, 0),
+    'text-muted': ok(0.8577, 0.0, 0),
+    'text-disabled': ok(0.4606, 0.0, 0),
+    'text-on-accent': ok(0.0, 0.0, 0),
+    'text-on-danger': ok(0.0, 0.0, 0),
+    'border-subtle': ok(1.0, 0.0, 0),
+    'border-strong': ok(1.0, 0.0, 0),
+    'border-focus': ok(0.9519, 0.2924, 111.62),
+    'interactive-default': ok(0.9519, 0.2924, 111.62),
+    'interactive-hover': ok(0.9519, 0.2924, 111.62),
+    'interactive-active': ok(0.9043, 0.233, 108.27),
+    'interactive-disabled': ok(0.3901, 0.0, 0),
+    'interactive-focus-ring': ok(0.9519, 0.2924, 111.62),
+    'feedback-success': ok(0.8649, 0.2979, 142.49),
+    'feedback-warning': ok(0.8446, 0.1616, 82.25),
+    'feedback-danger': ok(0.6559, 0.1934, 27.47),
+    'feedback-info': ok(0.7086, 0.1456, 250.24),
+    'accent-primary': ok(0.9519, 0.2924, 111.62),
+    'accent-default': ok(0.9519, 0.2924, 111.62),
+    'accent-teal': ok(0.9519, 0.2924, 111.62),
+    'accent-subtle': ok(0.3901, 0.0, 0),
+    'tree-row': ok(0.0971, 0.0, 0),
+    'tree-row-hover': ok(0.52, 0.0, 0),
+    'tree-row-selected': ok(0.9519, 0.2924, 111.62),
+    'tree-row-focus': ok(0.9519, 0.2924, 111.62),
+    'tree-indent-guide': ok(1.0, 0.0, 0),
+    'layer-accent-frame': ok(0.9519, 0.2924, 111.62),
+    'layer-wash-frame': ok(0.3156, 0.0, 0),
+    'layer-accent-group': ok(0.9519, 0.2924, 111.62),
+    'layer-wash-group': ok(0.3156, 0.0, 0),
+    'layer-accent-text': ok(0.9519, 0.2924, 111.62),
+    'layer-wash-text': ok(0.3156, 0.0, 0),
+    'layer-accent-shape': ok(0.9519, 0.2924, 111.62),
+    'layer-wash-shape': ok(0.3156, 0.0, 0),
+    'layer-accent-component': ok(0.9519, 0.2924, 111.62),
+    'layer-wash-component': ok(0.3156, 0.0, 0),
+    'hero-glow': ok(0.0, 0.0, 0),
+    'brand-teal': ok(0.9519, 0.2924, 111.62),
+    'brand-sandstone': ok(0.7161, 0.1398, 60.04),
+    'brand-sandstone-light': ok(0.8221, 0.1524, 73.85),
+    'brand-terracotta': ok(0.6597, 0.2267, 26.03),
+    'text-primary-on-default': ok(1.0, 0.0, 0),
+    'text-secondary-on-default': ok(1.0, 0.0, 0),
+    'text-primary-on-raised': ok(1.0, 0.0, 0),
+    'text-secondary-on-raised': ok(1.0, 0.0, 0),
+    'text-primary-on-overlay': ok(1.0, 0.0, 0),
+    'text-secondary-on-overlay': ok(1.0, 0.0, 0),
   },
 };
 
@@ -398,12 +441,7 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   { name: 'feedback-info on surface-app', fg: 'feedback-info', bg: 'surface-app', grade: 'UI' },
   { name: 'tree-row-selected on tree-row', fg: 'tree-row-selected', bg: 'tree-row', grade: 'UI' },
   { name: 'tree-row-hover on tree-row', fg: 'tree-row-hover', bg: 'tree-row', grade: 'UI' },
-  {
-    name: 'tree-indent-guide on tree-row',
-    fg: 'tree-indent-guide',
-    bg: 'tree-row',
-    grade: 'UI',
-  },
+  { name: 'tree-indent-guide on tree-row', fg: 'tree-indent-guide', bg: 'tree-row', grade: 'UI' },
   { name: 'layer-accent-frame on tree-row', fg: 'layer-accent-frame', bg: 'tree-row', grade: 'UI' },
   { name: 'layer-accent-group on tree-row', fg: 'layer-accent-group', bg: 'tree-row', grade: 'UI' },
   { name: 'layer-accent-text on tree-row', fg: 'layer-accent-text', bg: 'tree-row', grade: 'UI' },
@@ -413,5 +451,42 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
     fg: 'layer-accent-component',
     bg: 'tree-row',
     grade: 'UI',
+  },
+  /* Per-elevation text pairs (new — redesign). */
+  {
+    name: 'text-primary-on-default on surface-base',
+    fg: 'text-primary-on-default',
+    bg: 'surface-base',
+    grade: 'AA',
+  },
+  {
+    name: 'text-secondary-on-default on surface-base',
+    fg: 'text-secondary-on-default',
+    bg: 'surface-base',
+    grade: 'AA',
+  },
+  {
+    name: 'text-primary-on-raised on surface-raised',
+    fg: 'text-primary-on-raised',
+    bg: 'surface-raised',
+    grade: 'AA',
+  },
+  {
+    name: 'text-secondary-on-raised on surface-raised',
+    fg: 'text-secondary-on-raised',
+    bg: 'surface-raised',
+    grade: 'AA',
+  },
+  {
+    name: 'text-primary-on-overlay on surface-overlay',
+    fg: 'text-primary-on-overlay',
+    bg: 'surface-overlay',
+    grade: 'AA',
+  },
+  {
+    name: 'text-secondary-on-overlay on surface-overlay',
+    fg: 'text-secondary-on-overlay',
+    bg: 'surface-overlay',
+    grade: 'AA',
   },
 ];

@@ -230,13 +230,7 @@ export function LayersPanel() {
           document.body,
         )}
 
-      <div
-        style={{
-          marginTop: 'var(--space-3)',
-          paddingTop: 'var(--space-2)',
-          borderTop: '1px solid var(--color-border-subtle)',
-        }}
-      >
+      <div className="layers-panel__variables">
         <VariablePanel />
       </div>
     </div>

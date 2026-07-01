@@ -11,6 +11,8 @@ import {
   type ReactElement,
   type ReactNode,
   useCallback,
+  useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -21,7 +23,16 @@ export interface ToolbarProps {
 
 export function Toolbar({ label, children }: ToolbarProps) {
   const [focusIdx, setFocusIdx] = useState(0);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const count = Children.count(children);
+
+  // Focus the child at focusIdx when focusIdx changes (roving tabindex).
+  useEffect(() => {
+    const container = toolbarRef.current;
+    if (!container) return;
+    const target = container.children[focusIdx] as HTMLElement | undefined;
+    if (target) target.focus();
+  }, [focusIdx]);
 
   const navigate = useCallback(
     (dir: number) => {
@@ -53,7 +64,13 @@ export function Toolbar({ label, children }: ToolbarProps) {
   );
 
   return (
-    <div role="toolbar" aria-label={label} onKeyDown={handleKey}>
+    <div
+      ref={toolbarRef}
+      className="strata-toolbar"
+      role="toolbar"
+      aria-label={label}
+      onKeyDown={handleKey}
+    >
       {Children.map(children, (child, idx) => {
         if (
           !child ||

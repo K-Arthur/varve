@@ -70,16 +70,7 @@ export function ProjectsView({
                 setEditing(false);
               }
             }}
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'var(--font-size-xl)',
-              fontWeight: 'var(--font-weight-semibold)',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: '2px solid var(--color-interactive-default)',
-              color: 'var(--color-text-primary)',
-              outline: 'none',
-            }}
+            className="project-view__rename-input"
           />
         ) : (
           <h2

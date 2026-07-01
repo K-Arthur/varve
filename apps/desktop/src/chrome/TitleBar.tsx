@@ -11,6 +11,8 @@
  *   (https://tauri.app/learn/window-customization/).
  */
 
+import './title-bar.css';
+
 declare global {
   interface Window {
     __TAURI__?: {
@@ -41,68 +43,22 @@ export function TitleBar({ title = 'Strata' }: { title?: string }) {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        height: 36,
-        background: 'var(--color-surface-sunken)',
-        borderBottom: '1px solid var(--color-border-subtle)',
-        userSelect: 'none',
-        flexShrink: 0,
-      }}
-    >
+    <div className="title-bar">
       {/* Drag region fills available space */}
-      <div
-        data-tauri-drag-region
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          paddingLeft: 12,
-          height: '100%',
-          gap: 6,
-        }}
-      >
-        <img
-          src="/icons/strata-icon.svg"
-          alt=""
-          aria-hidden
-          style={{ width: 18, height: 18, flexShrink: 0, pointerEvents: 'none' }}
-        />
-        <span
-          style={{
-            fontSize: 'var(--font-size-sm)',
-            fontWeight: 'var(--font-weight-semibold)',
-            color: 'var(--color-text-primary)',
-            pointerEvents: 'none',
-          }}
-        >
-          {title}
-        </span>
+      <div className="title-bar__drag-region" data-tauri-drag-region>
+        <img src="/icons/strata-icon.svg" alt="" aria-hidden className="title-bar__icon" />
+        <span className="title-bar__title">{title}</span>
       </div>
 
       {/* Window controls — width-bounded container so they can never overflow */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          flexShrink: 0,
-          width: 108 /* 3 x 36px; bounded so no overflow/clipping */,
-          justifyContent: 'flex-end',
-        }}
-      >
-        <WinButton label="Minimize" onClick={minimize} hoverColor="var(--color-surface-raised)">
+      <div className="title-bar__controls">
+        <WinButton variant="minimize" label="Minimize" onClick={minimize}>
           <MinimizeIcon />
         </WinButton>
-        <WinButton
-          label="Maximize"
-          onClick={toggleMaximize}
-          hoverColor="var(--color-surface-raised)"
-        >
+        <WinButton variant="maximize" label="Maximize" onClick={toggleMaximize}>
           <MaximizeIcon />
         </WinButton>
-        <WinButton label="Close" onClick={close} hoverColor="#c42b1c" hoverTextColor="#fff">
+        <WinButton variant="close" label="Close" onClick={close}>
           <CloseIcon />
         </WinButton>
       </div>
@@ -111,46 +67,22 @@ export function TitleBar({ title = 'Strata' }: { title?: string }) {
 }
 
 function WinButton({
+  variant,
   label,
   onClick,
   children,
-  hoverColor,
-  hoverTextColor,
 }: {
+  variant: 'minimize' | 'maximize' | 'close';
   label: string;
   onClick: () => void;
   children: React.ReactNode;
-  hoverColor?: string;
-  hoverTextColor?: string;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget;
-        if (hoverColor) el.style.background = hoverColor;
-        if (hoverTextColor) el.style.color = hoverTextColor;
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget;
-        el.style.background = '';
-        el.style.color = '';
-      }}
-      style={{
-        width: 36,
-        height: 36,
-        border: 'none',
-        background: 'transparent',
-        color: 'var(--color-text-primary)',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'background 0.1s',
-        flexShrink: 0,
-      }}
+      className={`title-bar__win-btn title-bar__win-btn--${variant}`}
     >
       {children}
     </button>

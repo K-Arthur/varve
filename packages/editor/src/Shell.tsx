@@ -40,7 +40,7 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
   const currentStep = onboarding.stepIndex >= 0 && onboarding.active ? onboarding.stepIndex : -1;
 
   return (
-    <div className="editor-shell">
+    <div className="editor-shell gpu-layer">
       <Menubar
         onBackToHome={onBackToHome}
         onOpenSettings={() => setSettingsOpen(true)}

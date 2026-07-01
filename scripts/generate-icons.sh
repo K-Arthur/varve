@@ -222,8 +222,8 @@ done
 # Maskable PWA icons: same source but we ensure it fits within the maskable safe zone.
 # The strata mark is already within the inner 80% safe zone by design.
 for size in 192 512; do
-  render_png "$APP_SVG" "$PUBLIC_ICONS/icon-maskable-${size}.png" "$size"
-  echo "  $PUBLIC_ICONS/icon-maskable-${size}.png"
+  render_png "$APP_SVG" "$PUBLIC_ICONS/icon-${size}-maskable.png" "$size"
+  echo "  $PUBLIC_ICONS/icon-${size}-maskable.png"
 done
 
 # Apple touch icon

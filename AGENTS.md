@@ -21,7 +21,7 @@ primary dev OS.
 - `just format` — `cargo fmt` + `pnpm format`
 - `just format-check` — verify formatting
 - `pnpm typecheck` — `tsc --noEmit` across packages/*
-- `pnpm audit:tokens` — WCAG 2.2 AA token gate (51 pairs across 3 themes)
+- `pnpm audit:tokens` — WCAG 2.2 AA token gate (30 pairs × 3 themes = 90 checks, OKLCH perceptually uniform space)
 - `pnpm audit:emoji` — zero-emoji gate (scales 271+ files)
 - `pnpm --filter @strata/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
 - `just gate` — full Cascade Review gate (format-check + lint + test + audits)
@@ -42,9 +42,9 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 614 tests across 66 files: codegen 8, editor 130+, scene 70+, engine 24, platform 41, home 13, print 4, ui 22, shared 24, E2E 21
+- **JS:** 674 tests across 73 files: codegen 8, editor 169, scene 86+, engine 55, platform 43, home 13, print 4, ui 147, shared 85, E2E 21
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
-- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 72/72 WCAG-AA across 3 themes
+- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 90/90 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
 
@@ -570,3 +570,20 @@ Adopted the **Full Figma preset model**: New File is blank-canvas-first; device/
 | `packages/home/src/home.css` | `.new-file__*`, `.quick-start__*`, `.templates-gallery__*`, `.template-card*` styles. |
 
 **Verification:** 667 JS tests (73 files, +3 frame-preset) — all green. Typecheck clean (13 packages). `just gate` green. `pnpm audit:tokens` 72/72 WCAG-AA. `pnpm audit:emoji` clean.
+
+## Session 19 — Hardened Master Redesign & System Overhaul (2026-07-01)
+
+Complete visual + structural redesign of the Strata design system. All 53 gaps closed.
+
+| Area | What changed |
+|---|---|
+| **OKLCH color space** | All 72 ramp values + 47 semantic tokens × 3 themes converted from sRGB to OKLCH. CSS emits `oklch(L C H)`. Drift guard updated for OKLCH tolerance. |
+| **Elevation system** | New hierarchical surfaces (sunken/default/raised/overlay) with front-lit dark mode (higher = brighter). Shadows are dark-theme adaptive. z-index paired to elevation. |
+| **Per-elevation text** | 6 new semantic tokens (`text-primary-on-default`, etc.) guaranteeing WCAG AA at every layer. Contrast pairs expanded from 24 → 30 × 3 themes = 90 checks. |
+| **Neo-Bento geometry** | Radii updated: sm=4px, md=8px, lg=16px, xl=28px, 2xl=40px. Micro-border system (`--border-micro`, `--border-micro-accent`) for Linear-style 1px edges. Bento-grid CSS primitives added. |
+| **100% opaque surfaces** | All rgba/translucency/blur removed. FloatingToolbar lost `backdrop-filter: blur(8px)`. Hero glow, modal backdrops, tooltips, toasts use solid elevation tokens. Only allowed alpha: modal scrim (`oklch(0 0 0 / 0.5)`). |
+| **Component styling** | 33 components refactored: 13 zero-CSS → full CSS classes, 20 partial-inline → complete. ColorPicker got its own CSS file. All 6 ColorPicker components now styled. |
+| **Functional repairs** | Toolbar focus management fixed (roving tabindex now calls `.focus()`). EffectsSection + StrokeSection color swatches now open ColorPicker popover. BindingMenu now has ArrowUp/Down keyboard nav. |
+| **Duplicate elimination** | `FillStackSection` and `GradientStopEditor` deleted. `FillSection` (full-featured) is the single fills UI. |
+| **Hardware acceleration** | `.gpu-layer` class added to `global.css` with `translate3d`, `backface-visibility: hidden`, `contain: layout style paint`. Applied to editor shell. |
+| **Verification** | 674/674 JS tests (73 files), 90/90 WCAG-AA token pairs, typecheck clean, `just gate` green, `pnpm audit:emoji` clean. |

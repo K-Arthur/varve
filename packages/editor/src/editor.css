@@ -1,3 +1,43 @@
+/* ── Error boundary ─────────────────────────────────── */
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  height: 100%;
+}
+.error-boundary__icon {
+  width: 48px;
+  height: 48px;
+  color: var(--color-feedback-danger);
+  margin-bottom: var(--space-2);
+}
+.error-boundary__title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+.error-boundary__message {
+  margin: 0;
+  max-width: 320px;
+}
+.error-boundary__action {
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
 /* ── Offline banner ──────────────────────────────────── */
 .editor-offline-banner {
   position: fixed;
@@ -81,7 +121,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border-bottom: 1px solid var(--color-border-subtle);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.06);
+  box-shadow: var(--elevation-shadow-raised);
 }
 .editor-menubar__item {
   padding: var(--space-1) var(--space-2);
@@ -113,7 +153,7 @@
   scrollbar-width: none;
   background: var(--color-surface-sunken);
   border-bottom: 1px solid var(--color-border-subtle);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--elevation-shadow-raised);
 }
 .editor-tabs::-webkit-scrollbar {
   display: none;
@@ -271,7 +311,7 @@
   padding: var(--space-2);
   background: var(--color-surface-raised);
   border-right: 1px solid var(--color-border-subtle);
-  box-shadow: 2px 0 8px rgb(0 0 0 / 0.07);
+  box-shadow: 2px 0 8px var(--elevation-shadow-raised);
 }
 
 .editor-inspector {
@@ -280,7 +320,7 @@
   padding: var(--space-2);
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
-  box-shadow: -2px 0 8px rgb(0 0 0 / 0.07);
+  box-shadow: -2px 0 8px var(--elevation-shadow-raised);
   content-visibility: auto;
   contain-intrinsic-size: 600px;
   contain: layout style;
@@ -306,7 +346,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border-top: 1px solid var(--color-border-subtle);
-  box-shadow: 0 -1px 3px rgb(0 0 0 / 0.05);
+  box-shadow: 0 -1px 3px var(--elevation-shadow-raised);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
@@ -503,7 +543,7 @@
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-overlay) - 1);
-  background: rgba(0, 0, 0, 0.3);
+  background: oklch(0 0 0 / 0.3);
 }
 
 /* ── Floating action buttons ── */
@@ -524,7 +564,7 @@
   box-shadow: var(--shadow-md);
 }
 .editor__fab:hover {
-  filter: brightness(1.15);
+  background: var(--color-interactive-hover);
 }
 @media (max-width: 899px) {
   .editor__fab {
@@ -796,12 +836,12 @@
 .spotlight-overlay__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: oklch(0 0 0 / 0.55);
 }
 .spotlight-overlay__highlight {
   position: absolute;
   border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 9999px oklch(0 0 0 / 0.55);
   z-index: 1;
   pointer-events: none;
 }
@@ -1043,7 +1083,7 @@
   cursor: not-allowed;
 }
 .ai-panel__send-btn:hover:not(:disabled) {
-  filter: brightness(1.15);
+  background: var(--color-interactive-hover);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1091,8 +1131,8 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   Live Cursors SVG overlay (W6)
-   ════════════════════════════════════════════════════════════ */
+    Live Cursors SVG overlay (W6)
+    ════════════════════════════════════════════════════════════ */
 .live-cursors {
   position: absolute;
   inset: 0;
@@ -1100,6 +1140,10 @@
   height: 100%;
   pointer-events: none;
   z-index: var(--z-raised);
+}
+.live-cursors__name {
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ════════════════════════════════════════════════════════════

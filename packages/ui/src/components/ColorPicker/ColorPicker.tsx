@@ -104,20 +104,10 @@ export function ColorPicker({ value, onChange, bgColor }: ColorPickerProps) {
   }, [value, bgColor]);
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-2)',
-        padding: 'var(--space-3)',
-        background: 'var(--color-surface-overlay)',
-        borderRadius: 'var(--radius-md)',
-        minWidth: 220,
-      }}
-    >
+    <div className="color-picker">
       <ColorArea hue={hue} saturation={sat} value={val} onChange={handleAreaChange} />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="color-picker__sliders">
         <ColorSlider channel="hue" value={hue} onChange={handleHueChange} />
         <ColorSlider
           channel="alpha"
@@ -127,31 +117,13 @@ export function ColorPicker({ value, onChange, bgColor }: ColorPickerProps) {
         />
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-2)',
-        }}
-      >
+      <div className="color-picker__preview-row">
         <div
-          style={{
-            width: 'var(--space-5)',
-            height: 'var(--space-5)',
-            borderRadius: 'var(--radius-sm)',
-            background: `rgba(${value[0]},${value[1]},${value[2]},${alphaVal.toFixed(2)})`,
-            border: '1px solid var(--color-border-subtle)',
-            flexShrink: 0,
-          }}
+          className="color-picker__preview"
+          style={{ background: `rgba(${value[0]},${value[1]},${value[2]},${alphaVal.toFixed(2)})` }}
         />
         <div style={{ flex: 1 }}>
-          <span
-            style={{
-              fontSize: 'var(--font-size-xs)',
-              color: 'var(--color-text-muted)',
-              fontFamily: 'monospace',
-            }}
-          >
+          <span className="color-picker__hex">
             {rgbToHex(value[0], value[1], value[2])}
             {alphaVal < 1 ? ` (${Math.round(alphaVal * 100)}%)` : ''}
           </span>
@@ -161,26 +133,12 @@ export function ColorPicker({ value, onChange, bgColor }: ColorPickerProps) {
 
       <ColorFields color={value} onChange={handleFieldsChange} />
 
-      <div
-        style={{
-          borderTop: '1px solid var(--color-border-subtle)',
-          paddingTop: 'var(--space-2)',
-        }}
-      >
+      <div className="color-picker__swatch-section">
         <SwatchPalette onSelect={handleSwatchSelect} />
       </div>
 
       {contrastInfo && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-            paddingTop: 'var(--space-1)',
-            borderTop: '1px solid var(--color-border-subtle)',
-          }}
-        >
+        <div className="color-picker__contrast" role="status" aria-live="polite">
           Contrast: {contrastInfo.text}
         </div>
       )}

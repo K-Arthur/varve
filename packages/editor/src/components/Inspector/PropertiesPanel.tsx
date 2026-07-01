@@ -26,7 +26,6 @@ import { ComponentSection } from './sections/ComponentSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
-import { FillStackSection } from './sections/FillStackSection';
 import { FramePresetsSection } from './sections/FramePresetsSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
@@ -205,7 +204,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       {isRect && <CornerRadiusSection nodes={nodes} />}
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
-      <FillStackSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />
@@ -232,7 +230,6 @@ function MultiSelectionPanel({
       <PositionSizeSection nodes={nodes} />
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
-      <FillStackSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />

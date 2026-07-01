@@ -280,6 +280,160 @@
   font-style: italic;
 }
 
+/* ---------- Shared inspector controls ---------- */
+.insp-select {
+  flex: 1;
+  height: var(--space-5);
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  font-family: inherit;
+}
+
+.insp-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.insp-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: 100%;
+  height: var(--space-5);
+  background: transparent;
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.insp-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.insp-picker-popover {
+  position: fixed;
+  z-index: 1300;
+  background: var(--elevation-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-shadow-overlay);
+  padding: var(--space-3);
+}
+
+.insp-picker-done {
+  margin-top: var(--space-2);
+  width: 100%;
+  height: var(--space-5);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+
+.insp-advanced-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: var(--space-1) 0;
+}
+
+.insp-per-side {
+  width: 36px;
+  height: var(--space-5);
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  text-align: center;
+}
+
+.insp-flip-btn {
+  width: var(--space-4);
+  height: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.insp-proportion-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--space-2);
+  cursor: pointer;
+}
+
+.insp-proportion-icon {
+  flex-shrink: 0;
+}
+
+.insp-align-bar {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  justify-content: center;
+}
+
+.insp-separator {
+  width: 1px;
+  background: var(--color-border-subtle);
+  margin: 0 2px;
+}
+
+.insp-smoothing-value {
+  font-size: var(--font-size-xs);
+  min-width: 32px;
+  text-align: right;
+}
+
+.insp-empty-message {
+  padding: var(--space-2) 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
 /* ---------- SegmentedControl (APG Radiogroup) ---------- */
 .insp-segmented {
   display: inline-flex;
