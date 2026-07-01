@@ -8,7 +8,7 @@
  *                 Marquee: rubber-band selection with Shift-additive.
  *                 Never creates shapes.
  */
-import { getParent } from '@strata/scene';
+import { getParent, walkNodes } from '@strata/scene';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -27,6 +27,30 @@ export class SelectTool extends BaseTool {
   }
 
   private marqueeActive = false;
+  private isMoveGesture = false;
+  private initialPositions = new Map<string, { x: number; y: number }>();
+  private hasDuplicated = false;
+
+  override onDeactivate(ctx: ToolContext): void {
+    // Cancel any active drag when switching tools
+    if (this.drag.kind === 'dragging') {
+      if (this.isMoveGesture) {
+        ctx.abortTransaction();
+      }
+      this.drag = {
+        kind: 'idle',
+        pointerId: -1,
+        startCanvas: { x: 0, y: 0 },
+        startWorld: { x: 0, y: 0 },
+        currentCanvas: { x: 0, y: 0 },
+        currentWorld: { x: 0, y: 0 },
+      };
+      this.marqueeActive = false;
+      this.isMoveGesture = false;
+      this.initialPositions.clear();
+      this.hasDuplicated = false;
+    }
+  }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
     ctx.setPointerCapture(e.pointerId);
@@ -53,12 +77,24 @@ export class SelectTool extends BaseTool {
       }
       ctx.announceSelection([hit.node]);
       this.marqueeActive = false;
+      this.isMoveGesture = true;
+      // Begin transaction for move gesture (undo coherence)
+      ctx.beginTransaction();
+      // Store initial positions for world→local rebasing
+      this.initialPositions.clear();
+      for (const id of ctx.selection) {
+        const node = ctx.getNode(id);
+        if (node) {
+          this.initialPositions.set(id, { x: node.transform[4], y: node.transform[5] });
+        }
+      }
     } else {
       if (!e.shiftKey) {
         ctx.setSelection(null);
         ctx.announceSelection([]);
       }
       this.marqueeActive = true;
+      this.isMoveGesture = false;
     }
 
     return { consumed: true, captured: true };
@@ -69,6 +105,12 @@ export class SelectTool extends BaseTool {
       const rect = this.computeDragRect(ctx);
       ctx.setDraft({ x: rect.x, y: rect.y, w: rect.w, h: rect.h });
     } else {
+      // Alt-duplicate: clone selected nodes once per gesture
+      if (ctx.altKey && !this.hasDuplicated) {
+        ctx.duplicateSelected();
+        this.hasDuplicated = true;
+      }
+
       const sel = ctx.selection;
       if (sel.length === 0) return;
       const delta = ctx.canvasDeltaToWorld(
@@ -107,21 +149,25 @@ export class SelectTool extends BaseTool {
     if (this.marqueeActive) {
       ctx.setDraft(null);
       const rect = this.computeDragRect(ctx);
-      const nodes = ctx.rootNodes();
+      // Iterate ALL nodes (including nested) via walkNodes
+      const entries = walkNodes(ctx.document);
+      const ordered = [...entries.values()].sort((a, b) => a.depth - b.depth);
       const selectedIds: string[] = [];
-      for (const n of nodes) {
-        const bbox = ctx.nodeWorldBounds(n);
+      for (const entry of ordered) {
+        if (!entry) continue;
+        const node = entry.node;
+        if (node.locked || !node.visible) continue;
+        const bbox = ctx.nodeWorldBounds(node);
         if (bbox && rectsIntersect(rect, bbox)) {
-          selectedIds.push(n.id);
+          selectedIds.push(entry.nodeId);
         }
       }
       if (selectedIds.length > 0) {
-        const first = selectedIds[0];
-        if (!first) return;
-        ctx.setSelection(first);
-        for (let i = 1; i < selectedIds.length; i++) {
-          const id = selectedIds[i];
-          if (!id) throw new Error('selected id not found');
+        // Shift: add to existing selection, otherwise replace
+        if (!ctx.shiftKey) {
+          ctx.setSelection(null);
+        }
+        for (const id of selectedIds) {
           ctx.toggleSelection(id, true);
         }
         const selectedNodes = selectedIds
@@ -130,6 +176,10 @@ export class SelectTool extends BaseTool {
         ctx.announceSelection(selectedNodes);
       }
     } else {
+      // Commit transaction for move gesture
+      if (this.isMoveGesture) {
+        ctx.commitTransaction();
+      }
       // After move, re-parent if inside a frame
       const sel = ctx.selection;
       if (sel.length === 1) {
@@ -155,11 +205,21 @@ export class SelectTool extends BaseTool {
       }
     }
     this.marqueeActive = false;
+    this.isMoveGesture = false;
+    this.initialPositions.clear();
+    this.hasDuplicated = false;
   }
 
   override onDragCancel(ctx: ToolContext): void {
     ctx.setDraft(null);
+    // Abort transaction to revert move
+    if (this.isMoveGesture) {
+      ctx.abortTransaction();
+    }
     this.marqueeActive = false;
+    this.isMoveGesture = false;
+    this.initialPositions.clear();
+    this.hasDuplicated = false;
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
@@ -181,6 +241,22 @@ export class SelectTool extends BaseTool {
       return true;
     }
     if (e.key === 'Escape') {
+      // If mid-drag, abort transaction to revert
+      if (this.drag.kind === 'dragging' && this.isMoveGesture) {
+        ctx.abortTransaction();
+        this.drag = {
+          kind: 'idle',
+          pointerId: -1,
+          startCanvas: { x: 0, y: 0 },
+          startWorld: { x: 0, y: 0 },
+          currentCanvas: { x: 0, y: 0 },
+          currentWorld: { x: 0, y: 0 },
+        };
+        this.marqueeActive = false;
+        this.isMoveGesture = false;
+        this.initialPositions.clear();
+        this.hasDuplicated = false;
+      }
       ctx.setSelection(null);
       ctx.announceSelection([]);
       return true;
@@ -196,6 +272,10 @@ export class SelectTool extends BaseTool {
       const node = ctx.getNode(hit.nodeId);
       if (node && (node.kind === 'frame' || node.kind === 'group')) {
         ctx.announceOperation('Enter', node.name);
+      } else if (node && node.kind === 'shape' && node.shape.kind === 'path') {
+        ctx.setNodeEditTargetId(hit.nodeId);
+        ctx.setTool('nodeEdit');
+        ctx.announceOperation('Node Edit', node.name);
       }
     }
   }

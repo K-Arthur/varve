@@ -39,6 +39,13 @@ interface DragState {
   initH: number;
   pointerX: number;
   pointerY: number;
+  nodeKind: 'shape' | 'frame' | 'text';
+  shapeKind?: 'rect' | 'ellipse' | 'circle' | 'line' | 'polygon' | 'star' | 'arrow' | 'path';
+  initialShape?: Record<string, unknown>;
+  isRotation?: boolean;
+  initialRotation?: number;
+  centerX?: number;
+  centerY?: number;
 }
 
 function worldToScreen(
@@ -100,6 +107,8 @@ function computeResize(
   initH: number,
   dx: number,
   dy: number,
+  shiftKey: boolean = false,
+  altKey: boolean = false,
 ): { x: number; y: number; w: number; h: number } {
   let x = initX,
     y = initY,
@@ -143,6 +152,24 @@ function computeResize(
       break;
   }
 
+  // Alt: resize from center
+  if (altKey) {
+    const cx = initX + initW / 2;
+    const cy = initY + initH / 2;
+    x = cx - w / 2;
+    y = cy - h / 2;
+  }
+
+  // Shift: constrain aspect ratio
+  if (shiftKey) {
+    const aspect = initW / initH;
+    if (w / h > aspect) {
+      w = h * aspect;
+    } else {
+      h = w / aspect;
+    }
+  }
+
   if (w < MIN_SIZE) w = MIN_SIZE;
   if (h < MIN_SIZE) h = MIN_SIZE;
 
@@ -150,7 +177,15 @@ function computeResize(
 }
 
 export function SelectionOverlay() {
-  const { state, selectedNodes, setNodePosition, setNodeSize } = useEditor();
+  const {
+    state,
+    selectedNodes,
+    setNodePosition,
+    setNodeSize,
+    beginTransaction,
+    commitTransaction,
+    setSelectedRotation,
+  } = useEditor();
   const sel = selectedNodes();
   const dragRef = useRef<DragState | null>(null);
 
@@ -177,23 +212,50 @@ export function SelectionOverlay() {
       const worldBounds = nodeWorldBounds(state.document, node.id);
       if (!worldBounds) return;
 
-      let initW = worldBounds.w;
-      let initH = worldBounds.h;
-      let initX = worldBounds.x;
-      let initY = worldBounds.y;
+      const initW = worldBounds.w;
+      const initH = worldBounds.h;
+      const initX = worldBounds.x;
+      const initY = worldBounds.y;
 
-      dragRef.current = {
-        handleIndex,
-        nodeId: node.id,
-        initX,
-        initY,
-        initW,
-        initH,
-        pointerX: e.clientX,
-        pointerY: e.clientY,
-      };
+      // Begin transaction for resize/rotation gesture
+      beginTransaction();
+
+      // Handle rotation (handleIndex 8)
+      if (handleIndex === 8) {
+        const centerX = worldBounds.x + worldBounds.w / 2;
+        const centerY = worldBounds.y + worldBounds.h / 2;
+        dragRef.current = {
+          handleIndex,
+          nodeId: node.id,
+          initX,
+          initY,
+          initW,
+          initH,
+          pointerX: e.clientX,
+          pointerY: e.clientY,
+          nodeKind: node.kind,
+          isRotation: true,
+          initialRotation: node.rotation ?? 0,
+          centerX,
+          centerY,
+        };
+      } else {
+        dragRef.current = {
+          handleIndex,
+          nodeId: node.id,
+          initX,
+          initY,
+          initW,
+          initH,
+          pointerX: e.clientX,
+          pointerY: e.clientY,
+          nodeKind: node.kind,
+          shapeKind: node.kind === 'shape' ? node.shape.kind : undefined,
+          initialShape: node.kind === 'shape' ? { ...node.shape } : undefined,
+        };
+      }
     },
-    [node, state.document, hasInteractiveHandles],
+    [node, state.document, hasInteractiveHandles, beginTransaction],
   );
 
   const handlePointerMove = useCallback(
@@ -201,8 +263,38 @@ export function SelectionOverlay() {
       const g = dragRef.current;
       if (!g) return;
 
+      // Handle rotation gesture
+      if (g.isRotation) {
+        const canvas = { x: e.clientX, y: e.clientY };
+        const world = state.pan
+          ? { x: (canvas.x - state.pan.x) / state.zoom, y: (canvas.y - state.pan.y) / state.zoom }
+          : canvas;
+        const dx = world.x - g.centerX!;
+        const dy = world.y - g.centerY!;
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const initialAngle =
+          Math.atan2(
+            g.pointerY - g.centerY! * state.zoom + state.pan.y,
+            g.pointerX - g.centerX! * state.zoom + state.pan.x,
+          ) *
+          (180 / Math.PI);
+        const deltaAngle = angle - initialAngle;
+        let newRotation = (g.initialRotation ?? 0) + deltaAngle;
+
+        // Shift: snap to 15-degree increments
+        if (e.shiftKey) {
+          newRotation = Math.round(newRotation / 15) * 15;
+        }
+
+        setSelectedRotation(newRotation);
+        return;
+      }
+
+      // Handle resize gesture
       const dx = (e.clientX - g.pointerX) / state.zoom;
       const dy = (e.clientY - g.pointerY) / state.zoom;
+      const shiftKey = e.shiftKey;
+      const altKey = e.altKey;
 
       const { x, y, w, h } = computeResize(
         g.handleIndex,
@@ -212,22 +304,50 @@ export function SelectionOverlay() {
         g.initH,
         dx,
         dy,
+        shiftKey,
+        altKey,
       );
 
-      // TODO: Convert world bounds back to local shape params (Phase 3)
-      // For now, just update position/size for rect shapes
       const node = state.document.nodes[g.nodeId];
-      if (node?.kind === 'shape' && node.shape.kind === 'rect') {
+      if (!node) return;
+
+      // Convert world bounds back to local shape params
+      if (node.kind === 'shape') {
+        const s = node.shape;
+        if (s.kind === 'rect') {
+          setNodePosition(g.nodeId, x, y);
+          setNodeSize(g.nodeId, w, h);
+        } else if (s.kind === 'ellipse') {
+          // Ellipse: convert bbox to cx, cy, rx, ry
+          // TODO: Implement ellipse resize (needs direct shape update)
+          // const rx = w / 2;
+          // const ry = h / 2;
+          // const cx = x + rx;
+          // const cy = y + ry;
+        } else if (s.kind === 'circle') {
+          // Circle: keep uniform radius
+          // TODO: Implement circle resize (needs direct shape update)
+          // const r = Math.max(w, h) / 2;
+          // const cx = x + r;
+          // const cy = y + r;
+        }
+      } else if (node.kind === 'frame') {
         setNodePosition(g.nodeId, x, y);
         setNodeSize(g.nodeId, w, h);
+      } else if (node.kind === 'text') {
+        // Text: adjust transform (font size stays)
+        setNodePosition(g.nodeId, x, y);
       }
     },
-    [state.zoom, state.document, setNodePosition, setNodeSize],
+    [state.zoom, state.pan, state.document, setNodePosition, setNodeSize, setSelectedRotation],
   );
 
   const handlePointerUp = useCallback(() => {
+    if (dragRef.current) {
+      commitTransaction();
+    }
     dragRef.current = null;
-  }, []);
+  }, [commitTransaction]);
 
   if (sel.length === 0 || !bbox) return null;
 
@@ -279,7 +399,14 @@ export function SelectionOverlay() {
 
       {isSingle && (
         <>
-          <line x1={rotX} y1={y} x2={rotX} y2={rotY} stroke="var(--color-interactive-default)" strokeWidth={1} />
+          <line
+            x1={rotX}
+            y1={y}
+            x2={rotX}
+            y2={rotY}
+            stroke="var(--color-interactive-default)"
+            strokeWidth={1}
+          />
           <circle
             cx={rotX}
             cy={rotY}
@@ -301,7 +428,7 @@ export function SelectionOverlay() {
           width={HANDLE_HALF * 2}
           height={HANDLE_HALF * 2}
           fill="white"
-          stroke="#3b82f6"
+          stroke="var(--color-interactive-default)"
           strokeWidth={1.5}
           rx={1}
           style={{
@@ -325,7 +452,13 @@ export function SelectionOverlay() {
       )}
 
       {isSingle && (
-        <text x={x} y={y + h + 14} fontSize={10} fill="var(--color-interactive-default)" fontFamily="system-ui, sans-serif">
+        <text
+          x={x}
+          y={y + h + 14}
+          fontSize={10}
+          fill="var(--color-interactive-default)"
+          fontFamily="system-ui, sans-serif"
+        >
           {nodeX}, {nodeY}
         </text>
       )}

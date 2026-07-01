@@ -148,6 +148,16 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => e.setTool('zoom' as ToolId);
       case 'toolInspect':
         return () => e.setTool('inspect' as ToolId);
+      case 'toggleSnap':
+        return () => e.setSnapEnabled(!e.state.snapEnabled);
+      case 'booleanUnion':
+        return () => e.booleanOp('union');
+      case 'booleanSubtract':
+        return () => e.booleanOp('subtract');
+      case 'booleanIntersect':
+        return () => e.booleanOp('intersect');
+      case 'booleanExclude':
+        return () => e.booleanOp('exclude');
       default:
         return null;
     }

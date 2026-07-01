@@ -20,6 +20,7 @@ import { walkNodes } from '@strata/scene';
 import { clampZoom, fitBoundsCamera, screenToWorld, zoomAboutPoint } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { NodeEditOverlay } from './components/NodeEditOverlay';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { nodeWorldBoundsFn, useEditor } from './context';
@@ -32,6 +33,7 @@ import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
 import { HandTool } from './tools/HandTool';
 import { LineTool } from './tools/LineTool';
+import { NodeEditTool } from './tools/NodeEditTool';
 import { PencilTool } from './tools/PencilTool';
 import { PenTool } from './tools/PenTool';
 import { PolygonTool } from './tools/PolygonTool';
@@ -97,6 +99,7 @@ function getToolManager(): ToolManager {
     toolManager.register('text', () => new TextTool());
     toolManager.register('slice', () => new SliceTool());
     toolManager.register('eyedropper', () => new EyedropperTool());
+    toolManager.register('nodeEdit', () => new NodeEditTool());
   }
   toolManager.setTool('select');
   return toolManager;
@@ -123,6 +126,10 @@ export function CanvasArea() {
   } | null>(null);
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
+  const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
+  const [nodeEditSelectedAnchors, setNodeEditSelectedAnchors] = useState<ReadonlySet<number>>(
+    new Set(),
+  );
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const lastCursorUpdate = useRef(0);
 
@@ -168,7 +175,7 @@ export function CanvasArea() {
       metaKey: ev.metaKey,
       pointerType: (ev.pointerType as 'mouse' | 'pen' | 'touch') ?? 'mouse',
       pointerPressure: ev.pressure ?? 0,
-      snapEnabled: false,
+      snapEnabled: s.snapEnabled,
       snapGrid: 8,
 
       createShapeAt: (world, size, parentId) => e.createShapeAt(world, size, parentId),
@@ -181,6 +188,7 @@ export function CanvasArea() {
       setNodeSize: (id, w, h) => e.setNodeSize(id, w, h),
       updateNode: (id, updater) => e.updateNode(id, updater),
       removeSelected: () => e.removeSelected(),
+      duplicateSelected: () => e.duplicateSelected(),
       reparentNode: (id, newParentId, toIndex) => e.reparentNode(id, newParentId, toIndex),
       setPan: (p) => e.setPan(p),
       setZoom: (z) => e.setZoom(z),
@@ -230,8 +238,14 @@ export function CanvasArea() {
       commitTransaction: () => e.commitTransaction(),
       abortTransaction: () => e.abortTransaction(),
 
+      setTool: (id) => e.setTool(id),
+      nodeEditTargetId,
+      setNodeEditTargetId,
+      setNodeEditSelectedAnchors,
+
       snapPosition: (bounds, targets) => {
-        const result = snapPosition(bounds.x, bounds.y, bounds.w, bounds.h, targets);
+        if (!s.snapEnabled) return { x: bounds.x, y: bounds.y, guides: [] };
+        const result = snapPosition(bounds.x, bounds.y, bounds.w, bounds.h, targets, s.snapGrid);
         setSnapGuides(result.guides);
         return result;
       },
@@ -658,9 +672,30 @@ export function CanvasArea() {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
         onPointerLeave={() => editor.setCursorPos(null)}
+        onBlur={() => {
+          // Cancel any active drag on window blur
+          tm.current?.activeTool.onPointerCancel?.(
+            new PointerEvent('pointercancel'),
+            buildToolCtx(new PointerEvent('pointercancel')),
+          );
+        }}
         onWheel={handleWheel}
       />
       <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />
+      {state.tool === 'nodeEdit' &&
+        nodeEditTargetId &&
+        (() => {
+          const n = state.document.nodes[nodeEditTargetId];
+          if (!n || n.kind !== 'shape' || n.shape.kind !== 'path') return null;
+          return (
+            <NodeEditOverlay
+              node={n}
+              selectedAnchors={nodeEditSelectedAnchors}
+              zoom={state.zoom}
+              pan={state.pan}
+            />
+          );
+        })()}
       <SelectionOverlay />
       {state.tool !== 'inspect' && Object.keys(state.document.nodes).length === 0 && (
         <div className="editor-canvas__empty">

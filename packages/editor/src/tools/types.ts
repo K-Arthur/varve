@@ -106,6 +106,7 @@ export interface ToolContext {
   setNodeSize: (id: NodeId, w: number, h: number) => void;
   updateNode: (id: NodeId, updater: (n: SceneNode) => SceneNode) => void;
   removeSelected: () => void;
+  duplicateSelected: () => void;
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
   setPan: (p: { x: number; y: number }) => void;
   setZoom: (z: number) => void;
@@ -134,6 +135,12 @@ export interface ToolContext {
   beginTransaction: () => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
+
+  setTool: (id: ToolId) => void;
+  /** Node id currently being edited in nodeEdit mode; null outside nodeEdit. */
+  nodeEditTargetId: string | null;
+  setNodeEditTargetId: (id: string | null) => void;
+  setNodeEditSelectedAnchors: (anchors: ReadonlySet<number>) => void;
 
   snapPosition: (
     bounds: { x: number; y: number; w: number; h: number },

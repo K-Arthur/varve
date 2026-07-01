@@ -78,6 +78,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.shortcutPalette.binding),
         action: 'shortcutPalette',
       },
+      {
+        label: 'Toggle Snap',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
+        action: 'toggleSnap',
+      },
       { label: 'Home', shortcut: '\u21E7\u2318H', action: 'home' },
     ],
   },
@@ -89,6 +94,27 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         label: 'Ungroup',
         shortcut: formatShortcut(SHORTCUT_DEFS.ungroup.binding),
         action: 'ungroup',
+      },
+      { label: '---' },
+      {
+        label: 'Union',
+        shortcut: formatShortcut(SHORTCUT_DEFS.booleanUnion.binding),
+        action: 'booleanUnion',
+      },
+      {
+        label: 'Subtract',
+        shortcut: formatShortcut(SHORTCUT_DEFS.booleanSubtract.binding),
+        action: 'booleanSubtract',
+      },
+      {
+        label: 'Intersect',
+        shortcut: formatShortcut(SHORTCUT_DEFS.booleanIntersect.binding),
+        action: 'booleanIntersect',
+      },
+      {
+        label: 'Exclude',
+        shortcut: formatShortcut(SHORTCUT_DEFS.booleanExclude.binding),
+        action: 'booleanExclude',
       },
     ],
   },
@@ -158,6 +184,8 @@ export function Menubar({
     groupSelected,
     ungroupSelected,
     arrangeSelected,
+    setSnapEnabled,
+    booleanOp,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -303,6 +331,21 @@ export function Menubar({
         case 'sendBack':
           arrangeSelected('back');
           break;
+        case 'toggleSnap':
+          setSnapEnabled(!state.snapEnabled);
+          break;
+        case 'booleanUnion':
+          booleanOp('union');
+          break;
+        case 'booleanSubtract':
+          booleanOp('subtract');
+          break;
+        case 'booleanIntersect':
+          booleanOp('intersect');
+          break;
+        case 'booleanExclude':
+          booleanOp('exclude');
+          break;
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
@@ -321,6 +364,7 @@ export function Menubar({
       removeSelected,
       setTool,
       setZoom,
+      setSnapEnabled,
       state,
       onBackToHome,
       onOpenSettings,
