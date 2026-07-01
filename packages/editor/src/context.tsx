@@ -308,6 +308,8 @@ export interface EditorContextValue {
   setNodeLocked: (id: NodeId, locked: boolean) => void;
   /** Toggle the visible state of a node. */
   setNodeVisible: (id: NodeId, visible: boolean) => void;
+  /** Toggle clipContent on a frame node. */
+  setNodeClipContent: (id: NodeId, clipContent: boolean) => void;
   /** B2: set or update the layout style on a frame node. */
   setNodeLayout: (id: NodeId, layout: import('@strata/scene').LayoutStyle | undefined) => void;
   /** B1: resolve a variable to its current value (throws on missing/cycle). */
@@ -1811,6 +1813,13 @@ export function EditorProvider({
 
       setNodeVisible: (id, visible) => {
         updateNodeProp(id, (n) => ({ ...n, visible }));
+      },
+
+      setNodeClipContent: (id, clipContent) => {
+        updateNodeProp(id, (n) => {
+          if (n.kind !== 'frame') return n;
+          return { ...n, clipContent };
+        });
       },
 
       announce: (msg) => {
