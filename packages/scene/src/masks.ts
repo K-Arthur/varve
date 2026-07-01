@@ -16,10 +16,10 @@ import type { Mask, SceneNode } from './types';
 /** Return the effective mask for a container node, or null if no mask is set. */
 export function resolveMask(node: SceneNode): Mask | null {
   if (node.kind !== 'frame' && node.kind !== 'group') return null;
-  const n = node as SceneNode & { mask?: Mask };
-  if (!n.mask) return null;
-  if (!n.children!.includes(n.mask.sourceNodeId)) return null;
-  return n.mask;
+  const container = node as SceneNode & { mask?: Mask; children: string[] };
+  if (!container.mask) return null;
+  if (!container.children.includes(container.mask.sourceNodeId)) return null;
+  return container.mask;
 }
 
 /** True if the container has an active (visible, valid) mask. */

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createDocument, addNode, makeShapeNode, makeFrameNode } from '@strata/scene';
+import { createDocument } from '@strata/scene';
 import { SelectTool } from '../SelectTool';
 
 function makeCtx(overrides?: Record<string, unknown>) {

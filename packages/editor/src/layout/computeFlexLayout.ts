@@ -62,8 +62,6 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
 
   // ── Compute intrinsic child sizes ────────────────────────────
   const sizes = children.map(childSize);
-  const maxChildW = sizes.reduce((m, s) => Math.max(m, s.w), 0);
-  const maxChildH = sizes.reduce((m, s) => Math.max(m, s.h), 0);
 
   // ── Apply grow/shrink to primary axis ────────────────────────
   const growTotal = children.reduce((s, n) => {
@@ -220,17 +218,6 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
         else if (justify === 'center' || justify === 'end') break; // applied once at line level
       }
     }
-  }
-
-  // ── Reverse back for rowReverse/columnReverse ─────────────────
-  if (rev) {
-    // Flip primary axis
-    const primaryFlip = (pos: number, size: number, _avail: number): number => {
-      // For now just reverse the order — already handled by the order array
-      return pos;
-    };
-    void primaryFlip;
-    // The order was already reversed. The positions are correct.
   }
 
   return results;

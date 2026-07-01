@@ -97,9 +97,7 @@ function resolveAxis(
       const ratioW = origSize / Math.max(1, oldSize);
       return { pos: ratioX * newSize, size: Math.max(0, ratioW * newSize) };
     }
-    default: {
-      const _exhaustiveCheck: never = mode;
+    default:
       return { pos: origPos, size: origSize };
-    }
   }
 }
