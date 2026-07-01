@@ -42,7 +42,7 @@ export class ZoomTool extends BaseTool {
     if (dx > 5 || dy > 5) {
       this.marqueeStart = this.drag.startWorld;
       const rect = this.computeDragRect(ctx);
-      ctx.setDraft({ x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+      ctx.setDraft({ kind: 'rect', x: rect.x, y: rect.y, w: rect.w, h: rect.h });
     }
   }
 

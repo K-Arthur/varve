@@ -3,7 +3,6 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { SEMANTIC } from './color';
-import { oklchToCss, oklchToRgb, toHex } from './contrast';
 
 // Drift guard: tokens.css is generated from color.ts. This test proves the
 // committed CSS matches the audited TS source so the two cannot silently drift.

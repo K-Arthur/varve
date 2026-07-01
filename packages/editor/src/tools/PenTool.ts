@@ -53,6 +53,7 @@ export class PenTool extends BaseTool {
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
+    ctx.setPointerCapture(e.pointerId);
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
 
@@ -121,7 +122,14 @@ export class PenTool extends BaseTool {
     const y = Math.min(last.y, world.y);
     const w = Math.abs(world.x - last.x) || 4;
     const h = Math.abs(world.y - last.y) || 4;
-    ctx.setDraft({ x, y, w, h, label: `to (${Math.round(world.x)}, ${Math.round(world.y)})` });
+    ctx.setDraft({
+      kind: 'rect',
+      x,
+      y,
+      w,
+      h,
+      label: `to (${Math.round(world.x)}, ${Math.round(world.y)})`,
+    });
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
@@ -161,12 +169,24 @@ export class PenTool extends BaseTool {
     } else if (this.points.length >= 2 || closed) {
       const first = this.points[0];
       if (!first) throw new Error('first point not found');
-      const last = this.points[this.points.length - 1];
-      if (!last) throw new Error('last point not found');
-      ctx.createShapeAt(
-        { x: first.x, y: first.y },
-        { w: Math.abs(last.x - first.x) || 100, h: Math.abs(last.y - first.y) || 4 },
-      );
+      // Convert PenPoint[] to PathPoint[]
+      const pathPoints = this.points.map((p) => ({
+        x: p.x,
+        y: p.y,
+        handleIn: p.handleIn ? ([p.handleIn.x, p.handleIn.y] as [number, number]) : null,
+        handleOut: p.handleOut ? ([p.handleOut.x, p.handleOut.y] as [number, number]) : null,
+      }));
+      // If closed, add copy of first point as last
+      if (closed && pathPoints.length > 0) {
+        const firstPt = pathPoints[0]!;
+        pathPoints.push({
+          x: firstPt.x,
+          y: firstPt.y,
+          handleIn: firstPt.handleIn,
+          handleOut: firstPt.handleOut,
+        });
+      }
+      ctx.createShapeAt({ x: first.x, y: first.y }, undefined, undefined, pathPoints);
     }
     this.penState = PenState.Idle;
     this.points = [];

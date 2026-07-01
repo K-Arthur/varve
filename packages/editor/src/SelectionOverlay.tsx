@@ -46,6 +46,8 @@ interface DragState {
   initialRotation?: number;
   centerX?: number;
   centerY?: number;
+  canvasOffsetX?: number;
+  canvasOffsetY?: number;
 }
 
 function worldToScreen(
@@ -176,12 +178,17 @@ function computeResize(
   return { x, y, w, h };
 }
 
-export function SelectionOverlay() {
+export interface SelectionOverlayProps {
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+}
+
+export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const {
     state,
     selectedNodes,
     setNodePosition,
     setNodeSize,
+    updateNode,
     beginTransaction,
     commitTransaction,
     setSelectedRotation,
@@ -224,6 +231,8 @@ export function SelectionOverlay() {
       if (handleIndex === 8) {
         const centerX = worldBounds.x + worldBounds.w / 2;
         const centerY = worldBounds.y + worldBounds.h / 2;
+        const canvasEl = canvasRef?.current;
+        const rect = canvasEl?.getBoundingClientRect();
         dragRef.current = {
           handleIndex,
           nodeId: node.id,
@@ -238,6 +247,8 @@ export function SelectionOverlay() {
           initialRotation: node.rotation ?? 0,
           centerX,
           centerY,
+          canvasOffsetX: rect?.left ?? 0,
+          canvasOffsetY: rect?.top ?? 0,
         };
       } else {
         dragRef.current = {
@@ -265,18 +276,21 @@ export function SelectionOverlay() {
 
       // Handle rotation gesture
       if (g.isRotation) {
-        const canvas = { x: e.clientX, y: e.clientY };
+        const offsetX = g.canvasOffsetX ?? 0;
+        const offsetY = g.canvasOffsetY ?? 0;
+        const canvas = { x: e.clientX - offsetX, y: e.clientY - offsetY };
         const world = state.pan
           ? { x: (canvas.x - state.pan.x) / state.zoom, y: (canvas.y - state.pan.y) / state.zoom }
           : canvas;
         const dx = world.x - g.centerX!;
         const dy = world.y - g.centerY!;
         const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const initialScreenX = g.pointerX - offsetX;
+        const initialScreenY = g.pointerY - offsetY;
+        const screenCenterX = g.centerX! * state.zoom + state.pan.x;
+        const screenCenterY = g.centerY! * state.zoom + state.pan.y;
         const initialAngle =
-          Math.atan2(
-            g.pointerY - g.centerY! * state.zoom + state.pan.y,
-            g.pointerX - g.centerX! * state.zoom + state.pan.x,
-          ) *
+          Math.atan2(initialScreenY - screenCenterY, initialScreenX - screenCenterX) *
           (180 / Math.PI);
         const deltaAngle = angle - initialAngle;
         let newRotation = (g.initialRotation ?? 0) + deltaAngle;
@@ -318,18 +332,26 @@ export function SelectionOverlay() {
           setNodePosition(g.nodeId, x, y);
           setNodeSize(g.nodeId, w, h);
         } else if (s.kind === 'ellipse') {
-          // Ellipse: convert bbox to cx, cy, rx, ry
-          // TODO: Implement ellipse resize (needs direct shape update)
-          // const rx = w / 2;
-          // const ry = h / 2;
-          // const cx = x + rx;
-          // const cy = y + ry;
+          setNodePosition(g.nodeId, x, y);
+          updateNode(g.nodeId, (n) => {
+            if (n.kind !== 'shape') return n;
+            const rx = w / 2;
+            const ry = h / 2;
+            return {
+              ...n,
+              shape: { ...n.shape, kind: 'ellipse', rx, ry, cx: rx, cy: ry } as typeof n.shape,
+            };
+          });
         } else if (s.kind === 'circle') {
-          // Circle: keep uniform radius
-          // TODO: Implement circle resize (needs direct shape update)
-          // const r = Math.max(w, h) / 2;
-          // const cx = x + r;
-          // const cy = y + r;
+          setNodePosition(g.nodeId, x, y);
+          updateNode(g.nodeId, (n) => {
+            if (n.kind !== 'shape') return n;
+            const r = Math.max(w, h) / 2;
+            return {
+              ...n,
+              shape: { ...n.shape, kind: 'circle', r, cx: r, cy: r } as typeof n.shape,
+            };
+          });
         }
       } else if (node.kind === 'frame') {
         setNodePosition(g.nodeId, x, y);
@@ -339,7 +361,7 @@ export function SelectionOverlay() {
         setNodePosition(g.nodeId, x, y);
       }
     },
-    [state.zoom, state.pan, state.document, setNodePosition, setNodeSize, setSelectedRotation],
+    [state.zoom, state.pan, state.document, setNodePosition, setNodeSize, updateNode, setSelectedRotation],
   );
 
   const handlePointerUp = useCallback(() => {

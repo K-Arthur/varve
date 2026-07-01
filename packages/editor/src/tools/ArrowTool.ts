@@ -16,12 +16,15 @@ export class ArrowTool extends BaseTool {
 
   override onDragMove(ctx: ToolContext): void {
     const line = this.computeDragLine(ctx);
-    const x = Math.min(line.x1, line.x2);
-    const y = Math.min(line.y1, line.y2);
-    const w = Math.abs(line.x2 - line.x1) || 4;
-    const h = Math.abs(line.y2 - line.y1) || 4;
-    const len = Math.sqrt(w * w + h * h);
-    ctx.setDraft({ x, y, w, h, label: `${Math.round(len)}px` });
+    const len = Math.sqrt((line.x2 - line.x1) ** 2 + (line.y2 - line.y1) ** 2);
+    ctx.setDraft({
+      kind: 'arrow',
+      x1: line.x1,
+      y1: line.y1,
+      x2: line.x2,
+      y2: line.y2,
+      label: `${Math.round(len)}px`,
+    });
   }
 
   override onDragEnd(ctx: ToolContext): void {

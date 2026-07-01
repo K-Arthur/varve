@@ -1,80 +1,105 @@
 /**
- * ScaleTool — drag to scale selected nodes proportionally.
+ * ScaleTool — Scale selected nodes uniformly by dragging.
  *
- * Gesture: drag away from start point to scale up, toward to scale down.
- * Shift = uniform (equal X and Y scale).
+ * Gesture: drag away from the centroid to scale up, toward to scale down.
+ * The scale factor is computed as the ratio of current distance to initial
+ * distance from the selection's centroid, applied to the affine transform.
  *
  * Research basis: Figma Scale tool (K), Illustrator Scale tool.
  */
 
 import { BaseTool } from './BaseTool';
-import type { CursorSpec, ToolContext, ToolCursorState } from './types';
+import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 interface NodeInitialState {
   id: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  centroidX: number;
+  centroidY: number;
 }
 
 export class ScaleTool extends BaseTool {
   id = 'scale' as const;
 
   private initialNodes: NodeInitialState[] = [];
-  private uniform = false;
+  private selectionCenter = { x: 0, y: 0 };
+  private initialDist = 0;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'nwse-resize' };
   }
 
-  override onDragStart(ctx: ToolContext): void {
+  override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
+    const result = super.onPointerDown(e, ctx);
+    if (!result.consumed) return result;
+
     this.initialNodes = [];
-    this.uniform = ctx.shiftKey;
+
+    if (ctx.selection.length === 0) return result;
+
+    let cx = 0,
+      cy = 0,
+      count = 0;
     for (const id of ctx.selection) {
       const node = ctx.getNode(id);
       if (!node) continue;
       const bbox = ctx.nodeWorldBounds(node);
       if (!bbox) continue;
+      cx += bbox.x + bbox.w / 2;
+      cy += bbox.y + bbox.h / 2;
+      count++;
       this.initialNodes.push({
         id,
-        x: bbox.x,
-        y: bbox.y,
-        w: bbox.w,
-        h: bbox.h,
+        centroidX: bbox.x + bbox.w / 2,
+        centroidY: bbox.y + bbox.h / 2,
       });
     }
+    if (count === 0) return result;
+    this.selectionCenter = { x: cx / count, y: cy / count };
+
+    const dx = this.drag.startWorld.x - this.selectionCenter.x;
+    const dy = this.drag.startWorld.y - this.selectionCenter.y;
+    this.initialDist = Math.sqrt(dx * dx + dy * dy) || 1;
+    return result;
   }
 
   override onDragMove(ctx: ToolContext): void {
-    if (this.initialNodes.length === 0) return;
-    const start = this.drag.startWorld;
+    if (this.initialNodes.length === 0 || this.initialDist === 0) return;
+
     const current = this.drag.currentWorld;
-    const deltaX = current.x - start.x;
-    const deltaY = current.y - start.y;
+    const dx = current.x - this.selectionCenter.x;
+    const dy = current.y - this.selectionCenter.y;
+    const currentDist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const scale = currentDist / this.initialDist;
 
     for (const init of this.initialNodes) {
-      let sx = deltaX / (init.w || 1);
-      let sy = deltaY / (init.h || 1);
-      const scale = 1 + (sx + sy) / 2;
-      if (ctx.shiftKey || this.uniform) {
-        sx = scale - 1;
-        sy = scale - 1;
-      }
-      const cx = init.x + init.w / 2;
-      const cy = init.y + init.h / 2;
-      const newW = Math.max(1, init.w * (1 + sx));
-      const newH = Math.max(1, init.h * (1 + sy));
-      ctx.setNodePosition(init.id, cx - newW / 2, cy - newH / 2);
-      ctx.setNodeSize(init.id, newW, newH);
+      ctx.updateNode(init.id, (node) => {
+        const nodeDx = init.centroidX - this.selectionCenter.x;
+        const nodeDy = init.centroidY - this.selectionCenter.y;
+        const nodeDist = Math.sqrt(nodeDx * nodeDx + nodeDy * nodeDy) || 1;
+        const s = 1 + (scale - 1) * (nodeDist / (this.initialDist || 1));
+        const clamped = Math.max(0.01, Math.min(100, s));
+        return {
+          ...node,
+          transform: [
+            node.transform[0] * clamped,
+            node.transform[1],
+            node.transform[2],
+            node.transform[3] * clamped,
+            node.transform[4] - nodeDx * (clamped - 1),
+            node.transform[5] - nodeDy * (clamped - 1),
+          ] as [number, number, number, number, number, number],
+        };
+      });
     }
   }
 
   override onDragEnd(_ctx: ToolContext): void {
     this.initialNodes = [];
+    this.initialDist = 0;
   }
 
   override onDragCancel(_ctx: ToolContext): void {
     this.initialNodes = [];
+    this.initialDist = 0;
   }
 }

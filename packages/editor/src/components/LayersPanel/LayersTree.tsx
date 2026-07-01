@@ -105,6 +105,24 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
     }
   }, [state.selection, entries, setFocusIdx, virtualizer]);
 
+  // Auto-expand containers that have children so all layers are visible by default
+  useEffect(() => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const [id, node] of Object.entries(state.document.nodes)) {
+        const n = node as { kind: string; children?: string[] };
+        if ((n.kind === 'frame' || n.kind === 'group') && n.children && n.children.length > 0) {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [state.document.nodes]);
+
   const toggleExpand = useCallback((id: NodeId) => {
     setExpanded((prev) => {
       const next = new Set(prev);

@@ -25,6 +25,7 @@ export class TextTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     const rect = this.computeDragRect(ctx);
     ctx.setDraft({
+      kind: 'rect',
       x: rect.x,
       y: rect.y,
       w: rect.w,

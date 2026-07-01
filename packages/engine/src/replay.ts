@@ -133,10 +133,8 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
     if (fills && fills.length > 0) {
       for (const fill of fills) {
         if (!fill.visible) continue;
-        // Per-fill opacity multiplies with item alpha.
-        if (fill.opacity < 1) {
-          target.globalAlpha = itemAlpha * fill.opacity;
-        }
+        // Per-fill opacity multiplies with item alpha. Always set (resets between fills).
+        target.globalAlpha = itemAlpha * (fill.opacity ?? 1);
         if (fill.blendMode && fill.blendMode !== 'normal') {
           target.globalCompositeOperation = mapBlendMode(fill.blendMode);
         }
@@ -441,8 +439,20 @@ function paintStroke(
       target.beginPath();
       target.moveTo(p.points[0]?.x ?? 0, p.points[0]?.y ?? 0);
       for (let i = 1; i < p.points.length; i++) {
-        target.lineTo(p.points[i]?.x ?? 0, p.points[i]?.y ?? 0);
+        const pt = p.points[i];
+        if (!pt) continue;
+        const prev = p.points[i - 1];
+        if (prev && prev.handleOut) {
+          const cp1x = prev.handleOut[0];
+          const cp1y = prev.handleOut[1];
+          const cp2x = pt.handleIn ? pt.handleIn[0] : pt.x;
+          const cp2y = pt.handleIn ? pt.handleIn[1] : pt.y;
+          target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
+        } else {
+          target.lineTo(pt.x, pt.y);
+        }
       }
+      if (p.closed) target.closePath();
       target.stroke();
       break;
     default:

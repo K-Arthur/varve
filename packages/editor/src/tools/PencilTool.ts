@@ -53,6 +53,14 @@ export class PencilTool extends BaseTool {
       return;
     }
 
+    // Convert captured freehand points to PathPoint[]
+    const pathPoints = this.captured.map((p) => ({
+      x: p.x,
+      y: p.y,
+      handleIn: null as [number, number] | null,
+      handleOut: null as [number, number] | null,
+    }));
+
     const parentId = this.commitToParent(
       { x: this.drag.startWorld.x, y: this.drag.startWorld.y },
       ctx,
@@ -60,11 +68,9 @@ export class PencilTool extends BaseTool {
 
     ctx.createShapeAt(
       { x: this.drag.startWorld.x, y: this.drag.startWorld.y },
-      {
-        w: Math.abs(this.drag.currentWorld.x - this.drag.startWorld.x) || 4,
-        h: Math.abs(this.drag.currentWorld.y - this.drag.startWorld.y) || 4,
-      },
+      undefined,
       parentId,
+      pathPoints,
     );
     this.reset();
   }
@@ -102,6 +108,7 @@ export class PencilTool extends BaseTool {
           const maxX = Math.max(...xs);
           const maxY = Math.max(...ys);
           ctx.setDraft({
+            kind: 'rect',
             x: minX,
             y: minY,
             w: maxX - minX || 4,

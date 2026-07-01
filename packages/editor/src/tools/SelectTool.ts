@@ -103,7 +103,7 @@ export class SelectTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     if (this.marqueeActive) {
       const rect = this.computeDragRect(ctx);
-      ctx.setDraft({ x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+      ctx.setDraft({ kind: 'rect', x: rect.x, y: rect.y, w: rect.w, h: rect.h });
     } else {
       // Alt-duplicate: clone selected nodes once per gesture
       if (ctx.altKey && !this.hasDuplicated) {

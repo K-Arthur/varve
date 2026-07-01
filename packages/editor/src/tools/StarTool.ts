@@ -17,10 +17,12 @@ export class StarTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     const rect = this.computeDragRect(ctx);
     ctx.setDraft({
+      kind: 'star',
       x: rect.x,
       y: rect.y,
       w: rect.w,
       h: rect.h,
+      points: 5,
       label: `${Math.round(rect.w)} x ${Math.round(rect.h)}`,
     });
   }

@@ -10,7 +10,7 @@
  * F3: GestureResult tells the ToolManager whether to fall through or consume.
  */
 
-import type { Engine } from '@strata/engine';
+import type { Engine, PathPoint } from '@strata/engine';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 
 export type ToolId =
@@ -74,6 +74,15 @@ export interface GestureResult {
   captured?: boolean;
 }
 
+export type DraftShape =
+  | { kind: 'rect'; x: number; y: number; w: number; h: number; label?: string }
+  | { kind: 'ellipse'; x: number; y: number; w: number; h: number; label?: string }
+  | { kind: 'polygon'; x: number; y: number; w: number; h: number; sides: number; label?: string }
+  | { kind: 'star'; x: number; y: number; w: number; h: number; points: number; label?: string }
+  | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; label?: string }
+  | { kind: 'arrow'; x1: number; y1: number; x2: number; y2: number; label?: string }
+  | { kind: 'frame'; x: number; y: number; w: number; h: number; label?: string };
+
 export interface ToolContext {
   document: Document;
   selection: NodeId[];
@@ -92,6 +101,7 @@ export interface ToolContext {
     world: { x: number; y: number },
     size?: { w: number; h: number },
     parentId?: NodeId | null,
+    pathPoints?: PathPoint[],
   ) => void;
   createTextNodeAt: (
     world: { x: number; y: number },
@@ -113,7 +123,7 @@ export interface ToolContext {
   announce: (msg: string) => void;
   announceSelection: (selected: SceneNode[]) => void;
   announceOperation: (op: string, result: string) => void;
-  setDraft: (draft: { x: number; y: number; w: number; h: number; label?: string } | null) => void;
+  setDraft: (draft: DraftShape | null) => void;
   rootNodes: () => SceneNode[];
   getNode: (id: NodeId) => SceneNode | undefined;
 

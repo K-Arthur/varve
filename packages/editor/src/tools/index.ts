@@ -3,6 +3,7 @@ export { type ToolFactory, ToolManager } from './ToolManager';
 export {
   type CursorSpec,
   DRAW_TOOL_IDS,
+  type DraftShape,
   type GestureResult,
   isDrawTool,
   isNavTool,
