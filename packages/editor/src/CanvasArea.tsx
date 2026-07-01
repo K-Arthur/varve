@@ -17,7 +17,7 @@ import {
 } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
-import { fitBoundsCamera } from '@strata/shared';
+import { clampZoom, fitBoundsCamera, screenToWorld, zoomAboutPoint } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
@@ -360,7 +360,7 @@ export function CanvasArea() {
         ctx.fillText(label, sx + sw + 4, sy + 14);
       }
     })();
-  }, [rootNodes, draft]);
+  }, [rootNodes, draft, state.zoom, state.pan.x, state.pan.y]);
 
   useEffect(() => {
     draw();
@@ -453,26 +453,34 @@ export function CanvasArea() {
     setSnapGuides([]);
   }
 
-  // ─── Wheel (zoom) — anchored at cursor ─────────────────────────────────
+  // ─── Wheel ─────────────────────────────────────────────────────────────
+  // Wheel + ctrlKey = pinch / precision-zoom (macOS/Wayland trackpad gesture).
+  // Plain wheel (no ctrlKey) = two-finger scroll → pan the camera.
+  // Both paths call e.preventDefault() to suppress page scroll.
 
   function handleWheel(e: React.WheelEvent<HTMLCanvasElement>) {
     e.preventDefault();
-    // Compute world point under cursor before zoom.
-    const rect = e.currentTarget.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
     const s = stateRef.current;
-    const worldX = (cx - s.pan.x) / s.zoom;
-    const worldY = (cy - s.pan.y) / s.zoom;
 
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(10, s.zoom * factor));
-
-    // Compute new pan so the world point stays under the cursor.
-    const newPanX = cx - worldX * newZoom;
-    const newPanY = cy - worldY * newZoom;
-    editor.setZoom(newZoom);
-    editor.setPan({ x: newPanX, y: newPanY });
+    if (e.ctrlKey) {
+      // ── Pinch / cursor-anchored zoom ────────────────────────────────
+      const rect = e.currentTarget.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
+      const worldAnchor = screenToWorld(cam, cx, cy);
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      const newZoom = clampZoom(s.zoom * factor);
+      const newCam = zoomAboutPoint(cam, worldAnchor, newZoom);
+      editor.setZoom(newCam.zoom);
+      editor.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
+    } else {
+      // ── Two-finger scroll → pan ──────────────────────────────────────
+      // deltaX/deltaY arrive in pixel units (deltaMode=DOM_DELTA_PIXEL) on
+      // Wayland trackpads. Subtract: scrolling "down" (deltaY>0) moves the
+      // world origin upward, shrinking pan.y.
+      editor.setPan({ x: s.pan.x - e.deltaX, y: s.pan.y - e.deltaY });
+    }
   }
 
   // ─── Keyboard ─────────────────────────────────────────────────────────────
@@ -529,6 +537,19 @@ export function CanvasArea() {
         if (name) eRef.renameSelected(name);
       }
 
+      // ── Helper: zoom about the canvas centre ─────────────────────────
+      function zoomAboutCanvasCentre(newZoom: number): void {
+        const s = stateRef.current;
+        const parent = canvasRef.current?.parentElement;
+        const vpW = parent?.clientWidth ?? 800;
+        const vpH = parent?.clientHeight ?? 600;
+        const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
+        const centreWorld = screenToWorld(cam, vpW / 2, vpH / 2);
+        const newCam = zoomAboutPoint(cam, centreWorld, newZoom);
+        eRef.setZoom(newCam.zoom);
+        eRef.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
+      }
+
       // ── Zoom presets (unmodified 1-6) ────────────────────────────────
       const ZOOM_PRESETS: Record<string, number> = {
         '1': 0.5,
@@ -541,15 +562,41 @@ export function CanvasArea() {
       const zoomLevel = ZOOM_PRESETS[e.key];
       if (zoomLevel !== undefined && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
-        eRef.setZoom(zoomLevel);
+        zoomAboutCanvasCentre(zoomLevel);
         eRef.announceOperation('Zoom', `${Math.round(zoomLevel * 100)}%`);
+        return;
+      }
+
+      // ── Ctrl/Cmd + 0 → 100% ───────────────────────────────────────────
+      if (e.key === '0' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        zoomAboutCanvasCentre(1);
+        eRef.announceOperation('Zoom', '100%');
+        return;
+      }
+
+      // ── + / = → zoom in (1.25×); - → zoom out (0.8×) ─────────────────
+      if ((e.key === '=' || e.key === '+') && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 1.25));
+        eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
+        return;
+      }
+      if (e.key === '-' && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 0.8));
+        eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
         return;
       }
 
       // ── Reveal shortcuts ──────────────────────────────────────────────
       if (e.key === '1' && e.shiftKey) {
         e.preventDefault();
-        // Shift+1: fit all nodes
+        // Shift+1: fit all nodes — use actual canvas element bounds
+        const parent = canvasRef.current?.parentElement;
+        const vpW = parent?.clientWidth ?? 800;
+        const vpH = parent?.clientHeight ?? 600;
+        const canvasViewport = { width: vpW, height: vpH };
         const allBounds = rootNodes().reduce<{ x: number; y: number; w: number; h: number } | null>(
           (acc, n) => {
             const b = nodeWorldBounds(state.document, n.id);
@@ -564,8 +611,7 @@ export function CanvasArea() {
           null,
         );
         if (allBounds) {
-          const viewportEst = { width: window.innerWidth, height: window.innerHeight - 120 };
-          const cam = fitBoundsCamera(allBounds, viewportEst, 40);
+          const cam = fitBoundsCamera(allBounds, canvasViewport, 40);
           eRef.setZoom(cam.zoom);
           eRef.setPan({ x: cam.pan[0], y: cam.pan[1] });
           eRef.announceOperation('Zoom', 'fit all');
@@ -574,7 +620,11 @@ export function CanvasArea() {
       if (e.key === '2' && e.shiftKey) {
         e.preventDefault();
         if (selArr.length > 0) {
-          eRef.revealSelection({ fit: true });
+          const parent = canvasRef.current?.parentElement;
+          const viewport = parent
+            ? { width: parent.clientWidth, height: parent.clientHeight }
+            : undefined;
+          eRef.revealSelection({ fit: true, viewport });
           eRef.announceOperation('Zoom', 'to selection');
         }
       }

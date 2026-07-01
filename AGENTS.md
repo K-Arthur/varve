@@ -420,3 +420,21 @@ Both long-lived feature branches merged into `master`. All work is now on a sing
 - `exportDocumentToSvg` (legacy): added `boundsOverride` param to `exportDocumentToSvgAdvanced`; legacy wrapper passes canvas dimensions explicitly.
 
 **Verification:** 614/614 JS tests (66 files), typecheck clean (13 packages), Biome 0 errors (6 pre-existing warnings), `cargo test --workspace` clean, `cargo clippy --workspace --all-targets -- -D warnings` clean, `pnpm audit:tokens` (72/72 WCAG-AA), `pnpm audit:emoji` clean.
+
+## Session 16 — Zoom, Camera & Viewport (2026-07-01)
+
+Root-cause repair of zoom/pan not working, plus pinch/scroll, keyboard shortcuts, cursor-anchored zoom, and `just gate` infrastructure fix.
+
+### Root cause
+`draw` in `CanvasArea` was a `useCallback([rootNodes, draft])`. `rootNodes` only changes when `state.document` changes, so zoom/pan state updates never triggered a canvas redraw — the canvas showed stale content until a document mutation happened. Fixed by adding `state.zoom`, `state.pan.x`, `state.pan.y` to the `useCallback` dependency array.
+
+| Area | Update |
+|---|---|
+| `packages/editor/src/CanvasArea.tsx` | **Draw redraw fix**: added `state.zoom`, `state.pan.x`, `state.pan.y` to `draw` useCallback deps. **Wheel handler**: `ctrlKey` → cursor-anchored pinch-zoom via `zoomAboutPoint`; plain wheel → two-finger scroll-to-pan (`pan.x - deltaX`, `pan.y - deltaY`). **Keyboard shortcuts**: added `Ctrl/Cmd+0` (100%), `=`/`+` (zoom in 1.25x), `-` (zoom out 0.8×) all anchored to viewport centre via `screenToWorld + zoomAboutPoint`. Numeric presets 1-6 now also zoom about the canvas centre. **Shift+1 / Shift+2 viewport**: use actual `canvasRef.current.parentElement.clientWidth/Height` instead of `window.innerWidth`. `revealSelection` now passes `viewport` from canvas element. Imported `clampZoom`, `screenToWorld`, `zoomAboutPoint` from `@strata/shared`. |
+| `packages/editor/src/context.tsx` | `setZoom` now wraps value in `clampZoom` so every caller (keyboard, StatusBar, tools) is clamped to `[MIN_ZOOM, MAX_ZOOM]`. `revealSelection` accepts `opts.viewport?: Viewport` so callers that know the canvas size can pass it; falls back to `window.innerWidth` estimate when absent. |
+| `packages/editor/src/tools/ZoomTool.ts` | Click-zoom now anchors to the cursor: computes `zoomAboutPoint(cam, startWorld, newZoom)` and calls both `setZoom` + `setPan`, keeping the world point under the click cursor fixed. Uses `clampZoom` from `@strata/shared`. |
+| `packages/editor/src/tools/zoom.test.ts` | **New file** — 6 TDD tests: cursor-anchored click zoom-in (screen position invariant), cursor-anchored alt-click zoom-out, 1.25× factor, 0.8× factor, MAX_ZOOM clamp, MIN_ZOOM clamp. Tests written as failing assertions before the fix was applied. |
+| `justfile` | Fixed `format-check` recipe: `biome format --check .` is not valid in Biome 2.x. Replaced with `pnpm exec biome ci --formatter-enabled=true --linter-enabled=false .` which is the Biome 2.5.1 equivalent. |
+| `crates/strata-engine/src/lib.rs`, `crates/strata-print/src/lib.rs` | `cargo fmt` formatting-only fix (pre-existing line-too-long violations that blocked `just gate`). |
+
+**Verification:** 620/620 JS tests (67 files), typecheck clean (13 packages), `just gate` green (format-check + lint + test + token/emoji audits), `pnpm audit:tokens` (72/72 WCAG-AA), `pnpm audit:emoji` clean.

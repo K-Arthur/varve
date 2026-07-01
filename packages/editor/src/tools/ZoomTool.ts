@@ -8,6 +8,7 @@
  * Research basis: Figma Zoom tool (Z), Illustrator zoom (Z).
  */
 
+import { clampZoom, zoomAboutPoint } from '@strata/shared';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -66,7 +67,12 @@ export class ZoomTool extends BaseTool {
       }
     } else {
       const factor = ctx.altKey ? 0.8 : 1.25;
-      ctx.setZoom(Math.max(0.1, Math.min(10, ctx.zoom * factor)));
+      const newZoom = clampZoom(ctx.zoom * factor);
+      const anchor: [number, number] = [this.drag.startWorld.x, this.drag.startWorld.y];
+      const cam = { pan: [ctx.pan.x, ctx.pan.y] as [number, number], zoom: ctx.zoom };
+      const newCam = zoomAboutPoint(cam, anchor, newZoom);
+      ctx.setZoom(newCam.zoom);
+      ctx.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
     }
     this.marqueeStart = null;
   }
