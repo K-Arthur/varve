@@ -9,16 +9,7 @@ interface SnapGuidesOverlayProps {
 export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps) {
   if (guides.length === 0) return null;
   return (
-    <svg
-      style={{
-        position: 'absolute',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
-      }}
-      aria-hidden
-    >
+    <svg className="snap-guides-overlay" aria-hidden>
       <title>Snap guides overlay</title>
       {guides.map((g, i) => {
         const pos = g.axis === 'vertical' ? g.position * zoom + pan.x : g.position * zoom + pan.y;
@@ -29,7 +20,7 @@ export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps)
             y1={g.axis === 'vertical' ? 0 : pos}
             x2={g.axis === 'vertical' ? pos : 99999}
             y2={g.axis === 'vertical' ? 99999 : pos}
-            stroke="#39d0c6"
+            stroke="currentColor"
             strokeWidth={1}
             strokeDasharray="4,2"
           />

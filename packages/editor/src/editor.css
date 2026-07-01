@@ -220,6 +220,16 @@
   color: var(--color-text-primary);
 }
 
+/* ── Snap guides overlay ────────────────────────────── */
+.snap-guides-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--color-accent-primary);
+}
+
 .editor-canvas {
   grid-area: canvas;
   position: relative;
@@ -310,6 +320,79 @@
   color: inherit;
   cursor: text;
   padding: 0;
+}
+
+.editor-status__unit-select {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+}
+.editor-status__unit-select:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+.editor-status__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.editor-status__toggle:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+.editor-status__toggle--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.editor-status__toggle:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.editor-status__fit-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.editor-status__fit-btn:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+.editor-status__fit-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.editor-status__info {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15em;
 }
 
 /* ── Docs name in menubar ── */
@@ -411,6 +494,14 @@
     font-size: var(--font-size-2xs);
     gap: var(--space-2);
   }
+}
+
+/* ── Panel overlay backdrop ── */
+.editor__panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-overlay) - 1);
+  background: rgba(0, 0, 0, 0.3);
 }
 
 /* ── Floating action buttons ── */

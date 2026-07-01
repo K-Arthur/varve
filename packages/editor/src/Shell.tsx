@@ -2,12 +2,12 @@ import { Icon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { CanvasArea } from './CanvasArea';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
+import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { EditorProvider, useEditor } from './context';
-import { InspectorPanel } from './InspectorPanel';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
@@ -54,7 +54,7 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
         <LayersPanel />
       </div>
       <div className="editor__inspector-panel" data-visible={inspectorVisible || undefined}>
-        <InspectorPanel />
+        <PropertiesPanel />
       </div>
       <StatusBar />
       {/* FAB for layers (responsive) */}
@@ -79,12 +79,7 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
       {(layersVisible || inspectorVisible) && (
         // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 'calc(var(--z-overlay) - 1)',
-            background: 'rgba(0,0,0,0.3)',
-          }}
+          className="editor__panel-backdrop"
           onClick={() => {
             setLayersVisible(false);
             setInspectorVisible(false);

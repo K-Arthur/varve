@@ -56,6 +56,45 @@
   margin-bottom: var(--space-2);
 }
 
+/* ---------- Selection header (single node) ---------- */
+.insp-panel__node-header {
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.insp-panel__node-name {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+.insp-panel__node-kind {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  margin-left: var(--space-1);
+}
+
+/* ---------- Empty selection canvas info ---------- */
+.insp-panel__canvas-info {
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.insp-panel__canvas-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-1);
+}
+.insp-panel__canvas-count {
+  margin: 0;
+}
+
+/* ---------- Export empty state ---------- */
+.insp-panel__empty-hint {
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
 /* ---------- Disclosure section (APG) ---------- */
 .insp-disclosure {
   margin-bottom: var(--space-3);

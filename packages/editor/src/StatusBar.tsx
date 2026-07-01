@@ -39,16 +39,7 @@ export function StatusBar() {
         value={state.unitType}
         onChange={(e) => setUnitType(e.target.value as typeof state.unitType)}
         aria-label="Units"
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'inherit',
-          font: 'inherit',
-          fontSize: 'var(--font-size-xs)',
-          cursor: 'pointer',
-          padding: 0,
-          outline: 'none',
-        }}
+        className="editor-status__unit-select"
       >
         <option value="px">px</option>
         <option value="pt">pt</option>
@@ -62,19 +53,7 @@ export function StatusBar() {
         aria-pressed={state.pixelGridEnabled}
         onClick={() => setPixelGridEnabled(!state.pixelGridEnabled)}
         aria-label="Toggle pixel grid"
-        style={{
-          background: state.pixelGridEnabled ? 'var(--color-interactive-default)' : 'none',
-          border: 'none',
-          color: state.pixelGridEnabled ? 'var(--color-text-on-accent)' : 'var(--color-text-muted)',
-          cursor: 'pointer',
-          borderRadius: 'var(--radius-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 20,
-          height: 20,
-          padding: 0,
-        }}
+        className={`editor-status__toggle${state.pixelGridEnabled ? ' editor-status__toggle--active' : ''}`}
       >
         <Icon name="Grid3x3" size={12} />
       </button>
@@ -83,19 +62,7 @@ export function StatusBar() {
         aria-pressed={state.snapEnabled}
         onClick={() => setSnapEnabled(!state.snapEnabled)}
         aria-label="Toggle snapping"
-        style={{
-          background: state.snapEnabled ? 'var(--color-interactive-default)' : 'none',
-          border: 'none',
-          color: state.snapEnabled ? 'var(--color-text-on-accent)' : 'var(--color-text-muted)',
-          cursor: 'pointer',
-          borderRadius: 'var(--radius-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 20,
-          height: 20,
-          padding: 0,
-        }}
+        className={`editor-status__toggle${state.snapEnabled ? ' editor-status__toggle--active' : ''}`}
       >
         <Icon name="Magnet" size={12} />
       </button>
@@ -122,21 +89,11 @@ export function StatusBar() {
         type="button"
         onClick={() => revealSelection({ fit: true })}
         aria-label="Fit selection to viewport"
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'var(--color-text-muted)',
-          cursor: 'pointer',
-          font: 'inherit',
-          fontSize: 'var(--font-size-xs)',
-          padding: '0 var(--space-1)',
-        }}
+        className="editor-status__fit-btn"
       >
         Fit
       </button>
-      <span
-        style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.15em' }}
-      >
+      <span className="editor-status__info">
         {singleSel ? (
           <span>{sel[0]?.name ?? 'unknown'}</span>
         ) : (

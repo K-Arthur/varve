@@ -92,13 +92,7 @@ export function PropertiesPanel() {
               />
             </>
           ) : (
-            <p
-              style={{
-                padding: 'var(--space-2)',
-                fontSize: 'var(--font-size-xs)',
-                color: 'var(--color-text-muted)',
-              }}
-            >
+            <p className="insp-panel__empty-hint">
               Select a node to export it as SVG, PNG, PDF, or generate code.
             </p>
           )}
@@ -176,17 +170,9 @@ function EmptySelectionState() {
           </div>
         </div>
       </DisclosureSection>
-      <div
-        style={{
-          padding: 'var(--space-2)',
-          fontSize: 'var(--font-size-xs)',
-          color: 'var(--color-text-muted)',
-        }}
-      >
-        <p style={{ fontWeight: 'var(--font-weight-medium)', marginBottom: 'var(--space-1)' }}>
-          {doc.name}
-        </p>
-        <p>
+      <div className="insp-panel__canvas-info">
+        <p className="insp-panel__canvas-name">{doc.name}</p>
+        <p className="insp-panel__canvas-count">
           {count} {count === 1 ? 'node' : 'nodes'}
         </p>
       </div>
@@ -203,18 +189,10 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <>
-      <header style={{ padding: '0 var(--space-2)', marginBottom: 'var(--space-1)' }}>
-        <p style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)' }}>
+      <header className="insp-panel__node-header">
+        <p className="insp-panel__node-name">
           {node.name}
-          <span
-            style={{
-              color: 'var(--color-text-muted)',
-              fontWeight: 'var(--font-weight-regular)',
-              marginLeft: 'var(--space-1)',
-            }}
-          >
-            {node.kind}
-          </span>
+          <span className="insp-panel__node-kind">{node.kind}</span>
         </p>
       </header>
       {isComponentInstance && <ComponentSection node={node as import('@strata/scene').FrameNode} />}
