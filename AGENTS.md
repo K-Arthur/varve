@@ -506,3 +506,35 @@ Audited all modified surfaces against live code; eliminated duplicate UI and har
 | `docs/design/visual-direction.md` | Updated with Session 15 polish pass record. |
 
 **Verification:** 664 JS tests (72 files) — all green. Typecheck clean (13 packages). `just gate` green. `pnpm audit:tokens` 72/72 WCAG-AA. `pnpm audit:emoji` clean. Lint 0 errors on all modified files.
+
+## Session 15 (continued) — Production-grade design overhaul + shape submenu fix (2026-07-01)
+
+### Bug fixed
+| Bug | Root cause | Fix |
+|-----|-----------|-----|
+| Shape/Boolean submenu not appearing | `ContextMenu` (position:fixed) was rendered inside `.floating-toolbar` which has `transform: translateX(-50%)`. CSS spec: a transformed ancestor becomes the containing block for `position:fixed` descendants, so the menu rendered in the wrong coordinate space. | Moved both `ContextMenu` elements outside the `.floating-toolbar` div using a React Fragment. Changed `y: r.bottom + 4` → `y: r.top` so viewport-clamping in `ContextMenu.useLayoutEffect` correctly opens the menu above the toolbar. |
+
+### Design improvements
+
+| Area | Change |
+|------|--------|
+| **TitleBar** | Added brand icon (`/icons/strata-icon.svg`, 18×18) before the title text. App now shows the Strata mark next to the window title. |
+| **Home sidebar** | Added `.sidebar-brand` header with the Strata wordmark SVG (`/icons/strata-wordmark.svg`) at the top of the sidebar — always visible, brand-anchored. |
+| **Home hero greeting** | Refactored `renderContent()` default case: the greeting now renders unconditionally (even with 0 files), making the home page feel alive from first launch. Subtitle adapts: shows "Recent designs"/"All designs"/"N results for X" dynamically. Greeting increased to `font-size-3xl`. Atmospheric glow enlarged (320×320, opacity 0.18). |
+| **Home content padding** | `strata-home__content`: `padding: space-4 space-5` (was `space-3`) for better visual breathing room. Toolbar also padded to `space-5` horizontally with subtle shadow. |
+| **Home card grid** | Min card width: 16rem (was 14rem). Gap: `space-4`. Grid top margin: `space-4`. |
+| **File cards** | Hover: `translateY(-1px)` lift + `shadow-md` + stronger border. Body: semibold name, muted meta. Thumbnail: gradient background placeholder + border-bottom divider. |
+| **Editor canvas** | Added subtle 24px dot grid (`radial-gradient` at `border-subtle` colour) — the standard design-tool "infinite canvas" affordance. |
+| **Editor panels** | Layer and inspector panels: shadow increased to `2px 0 8px rgb(0 0 0 / 0.07)` (was 3px at 5%). Menubar: `0 1px 4px rgb(0 0 0 / 0.06)`. |
+| **Sidebar items** | `min-height: 34px`, `padding: space-2 space-3`, active state gets `font-weight-medium`. |
+
+### Files changed
+| File | Change |
+|------|--------|
+| `packages/editor/src/components/FloatingToolbar/FloatingToolbar.tsx` | ContextMenu moved outside `.floating-toolbar` div; position changed to `y: r.top`. |
+| `apps/desktop/src/chrome/TitleBar.tsx` | Added brand icon `<img>` before title span. |
+| `packages/home/src/HomeShell.tsx` | Added `.sidebar-brand` div with wordmark in sidebar; refactored default case to always render hero greeting. |
+| `packages/home/src/home.css` | Added `.sidebar-brand/.sidebar-brand__logo`; improved sidebar items, content padding, file cards, grid, hero size, toolbar shadow. |
+| `packages/editor/src/editor.css` | Canvas dot grid; stronger panel shadows; stronger menubar shadow. |
+
+**Verification:** 664 JS tests (72 files) — all green. Typecheck clean (13 packages). `just gate` green. `pnpm audit:tokens` 72/72 WCAG-AA. `pnpm audit:emoji` clean.

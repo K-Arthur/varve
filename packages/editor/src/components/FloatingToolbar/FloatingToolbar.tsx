@@ -118,70 +118,72 @@ export function FloatingToolbar() {
   }));
 
   return (
-    <div className="floating-toolbar">
-      <Toolbar label="Drawing tools">
-        <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
+    <>
+      <div className="floating-toolbar">
+        <Toolbar label="Drawing tools">
+          <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
+            <button
+              type="button"
+              className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
+              aria-pressed={state.tool === currentShape}
+              aria-label={TOOL_LABELS[currentShape] ?? currentShape}
+              onClick={() => setTool(currentShape)}
+            >
+              <Icon name={TOOL_ICONS[currentShape] ?? 'MousePointer2'} size={16} />
+            </button>
+          </Tooltip>
           <button
             type="button"
-            className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
-            aria-pressed={state.tool === currentShape}
-            aria-label={TOOL_LABELS[currentShape] ?? currentShape}
-            onClick={() => setTool(currentShape)}
-          >
-            <Icon name={TOOL_ICONS[currentShape] ?? 'MousePointer2'} size={16} />
-          </button>
-        </Tooltip>
-        <button
-          type="button"
-          className="floating-toolbar__chevron"
-          aria-label="Shapes menu"
-          onClick={(e) => {
-            const r = e.currentTarget.getBoundingClientRect();
-            if (shapeMenuPos) {
-              setShapeMenuPos(null);
-              return;
-            }
-            setShapeMenuPos({ x: r.left, y: r.bottom + 4 });
-          }}
-        >
-          <Icon name="ChevronDown" size={12} />
-        </button>
-        {INDIVIDUAL_TOOLS.map((t) => (
-          <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
-        ))}
-        <Tooltip label={TOOL_LABELS[currentBoolean] ?? currentBoolean}>
-          <button
-            type="button"
-            className={`floating-toolbar__btn${state.tool === currentBoolean ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
-            aria-pressed={state.tool === currentBoolean}
-            aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
-            onClick={() => {
-              const op = BOOLEAN_OP_MAP[currentBoolean];
-              if (op) {
-                booleanOp(op);
-                setTool('select');
+            className="floating-toolbar__chevron"
+            aria-label="Shapes menu"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              if (shapeMenuPos) {
+                setShapeMenuPos(null);
+                return;
               }
+              setShapeMenuPos({ x: r.left, y: r.top });
             }}
           >
-            <Icon name={TOOL_ICONS[currentBoolean] ?? 'MousePointer2'} size={16} />
+            <Icon name="ChevronDown" size={12} />
           </button>
-        </Tooltip>
-        <button
-          type="button"
-          className="floating-toolbar__chevron"
-          aria-label="Boolean operations menu"
-          onClick={(e) => {
-            const r = e.currentTarget.getBoundingClientRect();
-            if (booleanMenuPos) {
-              setBooleanMenuPos(null);
-              return;
-            }
-            setBooleanMenuPos({ x: r.left, y: r.bottom + 4 });
-          }}
-        >
-          <Icon name="ChevronDown" size={12} />
-        </button>
-      </Toolbar>
+          {INDIVIDUAL_TOOLS.map((t) => (
+            <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
+          ))}
+          <Tooltip label={TOOL_LABELS[currentBoolean] ?? currentBoolean}>
+            <button
+              type="button"
+              className={`floating-toolbar__btn${state.tool === currentBoolean ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
+              aria-pressed={state.tool === currentBoolean}
+              aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
+              onClick={() => {
+                const op = BOOLEAN_OP_MAP[currentBoolean];
+                if (op) {
+                  booleanOp(op);
+                  setTool('select');
+                }
+              }}
+            >
+              <Icon name={TOOL_ICONS[currentBoolean] ?? 'MousePointer2'} size={16} />
+            </button>
+          </Tooltip>
+          <button
+            type="button"
+            className="floating-toolbar__chevron"
+            aria-label="Boolean operations menu"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              if (booleanMenuPos) {
+                setBooleanMenuPos(null);
+                return;
+              }
+              setBooleanMenuPos({ x: r.left, y: r.top });
+            }}
+          >
+            <Icon name="ChevronDown" size={12} />
+          </button>
+        </Toolbar>
+      </div>
       <ContextMenu
         items={shapeItems}
         position={shapeMenuPos}
@@ -194,6 +196,6 @@ export function FloatingToolbar() {
         onClose={() => setBooleanMenuPos(null)}
         label="Boolean operations"
       />
-    </div>
+    </>
   );
 }

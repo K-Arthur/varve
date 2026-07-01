@@ -47,10 +47,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-5);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface-app);
   min-height: var(--toolbar-height);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.04);
 }
 .strata-home__toolbar-left {
   display: flex;
@@ -74,11 +75,26 @@
   grid-row: 2;
   grid-column: 2;
   overflow-y: auto;
-  padding: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+/* Sidebar brand header */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  min-height: 56px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+.sidebar-brand__logo {
+  height: 22px;
+  width: auto;
+  max-width: 160px;
 }
 
 .sidebar-section {
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
 }
 .sidebar-heading {
   padding: var(--space-2) var(--space-3) var(--space-1);
@@ -87,13 +103,13 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 .sidebar-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   border: none;
   background: none;
@@ -104,6 +120,7 @@
   font-size: var(--font-size-sm);
   border-radius: var(--radius-sm);
   outline-offset: -2px;
+  min-height: 34px;
 }
 .sidebar-item:hover {
   background: var(--color-surface-sunken);
@@ -114,6 +131,7 @@
 .sidebar-item--active {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
+  font-weight: var(--font-weight-medium);
 }
 .sidebar-item--drop-target {
   outline: 2px dashed var(--color-accent-primary);
@@ -151,8 +169,9 @@
 /* Home card grid */
 .home-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 .home-list {
   display: flex;
@@ -169,10 +188,15 @@
   cursor: pointer;
   outline-offset: 2px;
   background: var(--color-surface-raised);
-  transition: box-shadow var(--duration-quick) var(--ease-standard);
+  transition:
+    box-shadow var(--duration-quick) var(--ease-standard),
+    transform var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
 }
 .file-card:hover {
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: var(--color-border-strong);
 }
 .file-card:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -204,12 +228,17 @@
 .file-card__thumb {
   width: 100%;
   aspect-ratio: 4 / 3;
-  background: var(--color-surface-sunken);
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-sunken) 0%,
+    var(--color-surface-app) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   position: relative;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 .file-card__thumb-img {
   width: 100%;
@@ -237,24 +266,25 @@
   }
 }
 .file-card__body {
-  padding: var(--space-2) var(--space-2) var(--space-1);
+  padding: var(--space-3) var(--space-3) var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: var(--space-0);
+  gap: var(--space-1);
 }
 .file-card__name {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--color-text-primary);
 }
 .file-card__meta {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
 }
 .file-card__badge {
   display: inline-flex;
@@ -408,7 +438,7 @@
 /* ─── Hero greeting (P7+P8 design direction) ─────────── */
 .strata-home__hero {
   position: relative;
-  padding: var(--space-4) var(--space-2) var(--space-3);
+  padding: var(--space-6) 0 var(--space-5);
   overflow: hidden;
 }
 
@@ -416,19 +446,19 @@
 .strata-home__hero::before {
   content: "";
   position: absolute;
-  top: -60px;
-  right: -40px;
-  width: 200px;
-  height: 200px;
+  top: -80px;
+  right: -60px;
+  width: 320px;
+  height: 320px;
   background: radial-gradient(circle, var(--color-hero-glow) 0%, transparent 70%);
-  filter: blur(40px);
-  opacity: 0.15;
+  filter: blur(60px);
+  opacity: 0.18;
   pointer-events: none;
 }
 
 .strata-home__hero-greeting {
   font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-tight);
   color: var(--color-text-primary);
@@ -438,9 +468,9 @@
 
 .strata-home__hero-subtitle {
   font-family: var(--font-body);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   color: var(--color-text-secondary);
-  margin: var(--space-1) 0 0;
+  margin: var(--space-2) 0 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
