@@ -24,8 +24,10 @@ import {
 } from '@strata/engine';
 import type { ExportPreset, NodeId, Slot } from '@strata/scene';
 import {
+  type ArrangeOp,
   addChild,
   addNode,
+  arrangeNode as arrangeNodeDoc,
   createComponent,
   createDocument,
   createVariableStore,
@@ -311,6 +313,8 @@ export interface EditorContextValue {
   announceOperation: (op: string, result: string) => void;
   /** Reparent a node to a new container (or root). One undo step. */
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
+  /** Arrange selected nodes within their parent (front/back/forward/backward). */
+  arrangeSelected: (op: ArrangeOp) => void;
   /** Group selected nodes into a GroupNode. */
   groupSelected: () => void;
   /** Ungroup the first selected group. */
@@ -1540,13 +1544,39 @@ export function EditorProvider({
         });
       },
 
+      arrangeSelected: (op) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          let d = doc;
+          for (const id of sel) d = arrangeNodeDoc(d, id, op);
+          return d;
+        });
+        announcerRef.current?.announce(
+          op === 'front'
+            ? 'Brought to front'
+            : op === 'back'
+              ? 'Sent to back'
+              : op === 'forward'
+                ? 'Brought forward'
+                : 'Sent backward',
+        );
+      },
+
       groupSelected: () => {
         const sel = state.selection;
         if (sel.length < 2) return;
-        updateDoc((doc) => {
-          const { id: gId, doc: d2 } = nextNodeId(doc);
+        setState((s) => {
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+          const { id: gId, doc: d2 } = nextNodeId(s.document);
           const group = makeGroupNode(gId, { name: 'Group' });
-          return groupNodesDoc(d2, sel, group);
+          const newDoc = groupNodesDoc(d2, sel, group);
+          return { ...s, document: newDoc, selection: [gId], dirty: true };
         });
       },
 
@@ -1554,7 +1584,19 @@ export function EditorProvider({
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => ungroupNodeDoc(doc, id));
+        setState((s) => {
+          const node = s.document.nodes[id];
+          if (!node || node.kind !== 'group') return s;
+          const childIds = [...node.children];
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+          const newDoc = ungroupNodeDoc(s.document, id);
+          return { ...s, document: newDoc, selection: childIds, dirty: true };
+        });
       },
 
       detachSelected: () => {

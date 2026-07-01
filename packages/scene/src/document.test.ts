@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addChild,
   addNode,
+  arrangeNode,
   createDocument,
   detachInstance,
   getById,
@@ -450,5 +451,99 @@ describe('makeTextNode', () => {
     expect(stored).toBeDefined();
     expect(stored!.kind).toBe('text');
     expect(stored!.text).toBe('Test node');
+  });
+});
+
+describe('arrangeNode', () => {
+  function threeRoots() {
+    let doc = createDocument();
+    const a = shape(doc, 'a');
+    doc = a.doc;
+    const b = shape(doc, 'b');
+    doc = b.doc;
+    const c = shape(doc, 'c');
+    doc = c.doc;
+    doc = addNode(doc, a.node);
+    doc = addNode(doc, b.node);
+    doc = addNode(doc, c.node);
+    return { doc, a: a.id, b: b.id, c: c.id };
+  }
+
+  it('bringToFront moves node to end of siblings', () => {
+    const { doc, a, b, c } = threeRoots();
+    // rootChildren = [a, b, c]; bring a to front → [b, c, a]
+    const d2 = arrangeNode(doc, a, 'front');
+    expect(d2.rootChildren).toEqual([b, c, a]);
+  });
+
+  it('sendToBack moves node to start of siblings', () => {
+    const { doc, a, b, c } = threeRoots();
+    // rootChildren = [a, b, c]; send c to back → [c, a, b]
+    const d2 = arrangeNode(doc, c, 'back');
+    expect(d2.rootChildren).toEqual([c, a, b]);
+  });
+
+  it('bringForward moves node one position toward end', () => {
+    const { doc, a, b, c } = threeRoots();
+    // rootChildren = [a, b, c]; move b forward → [a, c, b]
+    const d2 = arrangeNode(doc, b, 'forward');
+    expect(d2.rootChildren).toEqual([a, c, b]);
+  });
+
+  it('sendBackward moves node one position toward start', () => {
+    const { doc, a, b, c } = threeRoots();
+    // rootChildren = [a, b, c]; move b backward → [b, a, c]
+    const d2 = arrangeNode(doc, b, 'backward');
+    expect(d2.rootChildren).toEqual([b, a, c]);
+  });
+
+  it('bringToFront is no-op when already at front', () => {
+    const { doc, a, b, c } = threeRoots();
+    const d2 = arrangeNode(doc, c, 'front');
+    expect(d2.rootChildren).toEqual([a, b, c]);
+  });
+
+  it('sendToBack is no-op when already at back', () => {
+    const { doc, a, b, c } = threeRoots();
+    const d2 = arrangeNode(doc, a, 'back');
+    expect(d2.rootChildren).toEqual([a, b, c]);
+  });
+
+  it('bringForward is no-op when already at front', () => {
+    const { doc, a, b, c } = threeRoots();
+    const d2 = arrangeNode(doc, c, 'forward');
+    expect(d2.rootChildren).toEqual([a, b, c]);
+  });
+
+  it('sendBackward is no-op when already at back', () => {
+    const { doc, a, b, c } = threeRoots();
+    const d2 = arrangeNode(doc, a, 'backward');
+    expect(d2.rootChildren).toEqual([a, b, c]);
+  });
+
+  it('works for children inside a container', () => {
+    let doc = createDocument();
+    const { id: fId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const frame = makeFrameNode(fId, { name: 'Frame' });
+    doc = addNode(doc, frame);
+
+    const x = shape(doc, 'x');
+    doc = x.doc;
+    const y = shape(doc, 'y');
+    doc = y.doc;
+    doc = addChild(doc, fId, x.node);
+    doc = addChild(doc, fId, y.node);
+
+    // children = [x, y]; bring x forward → [y, x]
+    const d3 = arrangeNode(doc, x.id, 'forward');
+    const fr = d3.nodes[fId] as FrameNode;
+    expect(fr.children).toEqual([y.id, x.id]);
+  });
+
+  it('returns doc unchanged for unknown node id', () => {
+    const { doc } = threeRoots();
+    const d2 = arrangeNode(doc, 'nonexistent', 'front');
+    expect(d2).toBe(doc);
   });
 });

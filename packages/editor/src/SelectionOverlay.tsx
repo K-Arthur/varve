@@ -4,15 +4,15 @@
  * Lives in screen space (absolute, inset:0) so it is not affected by DPR or
  * the canvas backing-store resolution. All coordinates are in CSS logical pixels.
  *
- * A5: bounding box, 8 resize handles (corners + edge midpoints), rotation handle,
- *     and a single-node dimension/position readout.
- * A9: handles are interactive (pointer events) for rect shapes; drag to resize.
+ * Uses world transforms (nodeWorldTransform) for accurate overlay position
+ * matching render, especially for nested nodes.
  *
  * Research basis: Figma/Penpot handle layout conventions; MDN SVG coordinate system.
  */
-import type { ShapeNode } from '@strata/scene';
+import type { SceneNode } from '@strata/scene';
 import { useCallback, useRef } from 'react';
 import { useEditor } from './context';
+import { nodeWorldBounds } from './scene/world';
 
 const HANDLE_HALF = 4;
 const ROT_OFFSET = 20;
@@ -50,6 +50,15 @@ function worldToScreen(
   return [wx * zoom + pan.x, wy * zoom + pan.y];
 }
 
+function rectToScreen(
+  rect: { x: number; y: number; w: number; h: number },
+  pan: { x: number; y: number },
+  zoom: number,
+): ScreenBBox {
+  const [sx, sy] = worldToScreen(rect.x, rect.y, pan, zoom);
+  return { x: sx, y: sy, w: rect.w * zoom, h: rect.h * zoom };
+}
+
 interface ScreenBBox {
   x: number;
   y: number;
@@ -58,71 +67,14 @@ interface ScreenBBox {
 }
 
 function nodeScreenBBox(
-  node: ReturnType<ReturnType<typeof useEditor>['selectedNodes']>[0],
+  node: SceneNode,
+  doc: import('@strata/scene').Document,
   pan: { x: number; y: number },
   zoom: number,
 ): ScreenBBox | null {
-  const tx = node.transform[4] ?? 0;
-  const ty = node.transform[5] ?? 0;
-
-  let wx = 0,
-    wy = 0,
-    ww = 0,
-    wh = 0;
-
-  if (node.kind === 'shape') {
-    const s = (node as ShapeNode).shape;
-    if (s.kind === 'rect') {
-      wx = tx + s.x;
-      wy = ty + s.y;
-      ww = s.w;
-      wh = s.h;
-    } else if (s.kind === 'ellipse') {
-      wx = tx + s.cx - s.rx;
-      wy = ty + s.cy - s.ry;
-      ww = s.rx * 2;
-      wh = s.ry * 2;
-    } else if (s.kind === 'circle') {
-      wx = tx + s.cx - s.r;
-      wy = ty + s.cy - s.r;
-      ww = s.r * 2;
-      wh = s.r * 2;
-    } else if (s.kind === 'line') {
-      const minX = Math.min(s.from[0], s.to[0]);
-      const minY = Math.min(s.from[1], s.to[1]);
-      wx = tx + minX;
-      wy = ty + minY;
-      ww = Math.abs(s.to[0] - s.from[0]) || 4;
-      wh = Math.abs(s.to[1] - s.from[1]) || 4;
-    } else if (s.kind === 'polygon') {
-      wx = tx + s.cx - s.radius;
-      wy = ty + s.cy - s.radius;
-      ww = s.radius * 2;
-      wh = s.radius * 2;
-    } else if (s.kind === 'star') {
-      wx = tx + s.cx - s.outerRadius;
-      wy = ty + s.cy - s.outerRadius;
-      ww = s.outerRadius * 2;
-      wh = s.outerRadius * 2;
-    } else {
-      return null;
-    }
-  } else if (node.kind === 'text') {
-    wx = tx;
-    wy = ty;
-    ww = (node.fontSize ?? 16) * 3;
-    wh = (node.fontSize ?? 16) * 1.4;
-  } else if (node.kind === 'frame') {
-    wx = tx;
-    wy = ty;
-    ww = node.w;
-    wh = node.h;
-  } else {
-    return null;
-  }
-
-  const [sx, sy] = worldToScreen(wx, wy, pan, zoom);
-  return { x: sx, y: sy, w: ww * zoom, h: wh * zoom };
+  const worldBounds = nodeWorldBounds(doc, node.id);
+  if (!worldBounds) return null;
+  return rectToScreen(worldBounds, pan, zoom);
 }
 
 function unionBBox(boxes: ScreenBBox[]): ScreenBBox | null {
@@ -203,36 +155,45 @@ export function SelectionOverlay() {
   const dragRef = useRef<DragState | null>(null);
 
   const boxes = sel
-    .map((n) => nodeScreenBBox(n, state.pan, state.zoom))
+    .map((n) => nodeScreenBBox(n, state.document, state.pan, state.zoom))
     .filter((b): b is ScreenBBox => b !== null);
   const bbox = unionBBox(boxes);
 
   const isSingle = sel.length === 1;
   const node = sel[0];
-  const isRect = node?.kind === 'shape' && (node as ShapeNode).shape.kind === 'rect';
-  const hasInteractiveHandles = isSingle && isRect;
+  const isShape = node?.kind === 'shape';
+  const isFrame = node?.kind === 'frame';
+  const isText = node?.kind === 'text';
+  const hasInteractiveHandles = isSingle && (isShape || isFrame || isText);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, handleIndex: number) => {
-      if (node?.kind !== 'shape') return;
-      const s = (node as ShapeNode).shape;
-      if (s.kind !== 'rect') return;
+      if (!node) return;
+      if (!hasInteractiveHandles) return;
 
       e.stopPropagation();
       (e.target as Element).setPointerCapture?.(e.pointerId);
 
+      const worldBounds = nodeWorldBounds(state.document, node.id);
+      if (!worldBounds) return;
+
+      let initW = worldBounds.w;
+      let initH = worldBounds.h;
+      let initX = worldBounds.x;
+      let initY = worldBounds.y;
+
       dragRef.current = {
         handleIndex,
         nodeId: node.id,
-        initX: node.transform[4] ?? 0,
-        initY: node.transform[5] ?? 0,
-        initW: s.w,
-        initH: s.h,
+        initX,
+        initY,
+        initW,
+        initH,
         pointerX: e.clientX,
         pointerY: e.clientY,
       };
     },
-    [node],
+    [node, state.document, hasInteractiveHandles],
   );
 
   const handlePointerMove = useCallback(
@@ -253,10 +214,15 @@ export function SelectionOverlay() {
         dy,
       );
 
-      setNodePosition(g.nodeId, x, y);
-      setNodeSize(g.nodeId, w, h);
+      // TODO: Convert world bounds back to local shape params (Phase 3)
+      // For now, just update position/size for rect shapes
+      const node = state.document.nodes[g.nodeId];
+      if (node?.kind === 'shape' && node.shape.kind === 'rect') {
+        setNodePosition(g.nodeId, x, y);
+        setNodeSize(g.nodeId, w, h);
+      }
     },
-    [state.zoom, setNodePosition, setNodeSize],
+    [state.zoom, state.document, setNodePosition, setNodeSize],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -306,21 +272,23 @@ export function SelectionOverlay() {
         width={w}
         height={h}
         fill="none"
-        stroke="#3b82f6"
+        stroke="var(--color-interactive-default)"
         strokeWidth={1}
         strokeDasharray={sel.length > 1 ? '4 3' : undefined}
       />
 
       {isSingle && (
         <>
-          <line x1={rotX} y1={y} x2={rotX} y2={rotY} stroke="#3b82f6" strokeWidth={1} />
+          <line x1={rotX} y1={y} x2={rotX} y2={rotY} stroke="var(--color-interactive-default)" strokeWidth={1} />
           <circle
             cx={rotX}
             cy={rotY}
             r={HANDLE_HALF}
             fill="white"
-            stroke="#3b82f6"
+            stroke="var(--color-interactive-default)"
             strokeWidth={1.5}
+            style={{ pointerEvents: hasInteractiveHandles ? 'auto' : 'none', cursor: 'grab' }}
+            onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, 8) : undefined}
           />
         </>
       )}
@@ -349,7 +317,7 @@ export function SelectionOverlay() {
           x={x + w + 6}
           y={y + 12}
           fontSize={10}
-          fill="#3b82f6"
+          fill="var(--color-interactive-default)"
           fontFamily="system-ui, sans-serif"
         >
           {Math.round(w / state.zoom)} by {Math.round(h / state.zoom)}
@@ -357,7 +325,7 @@ export function SelectionOverlay() {
       )}
 
       {isSingle && (
-        <text x={x} y={y + h + 14} fontSize={10} fill="#3b82f6" fontFamily="system-ui, sans-serif">
+        <text x={x} y={y + h + 14} fontSize={10} fill="var(--color-interactive-default)" fontFamily="system-ui, sans-serif">
           {nodeX}, {nodeY}
         </text>
       )}

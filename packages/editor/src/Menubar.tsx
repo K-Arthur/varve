@@ -85,11 +85,37 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
     id: 'Object',
     items: [
       { label: 'Group', shortcut: formatShortcut(SHORTCUT_DEFS.group.binding), action: 'group' },
+      {
+        label: 'Ungroup',
+        shortcut: formatShortcut(SHORTCUT_DEFS.ungroup.binding),
+        action: 'ungroup',
+      },
     ],
   },
   {
     id: 'Arrange',
-    items: [{ label: 'Bring to Front', shortcut: '\u21E7\u2318]', action: 'bringFront' }],
+    items: [
+      {
+        label: 'Bring to Front',
+        shortcut: formatShortcut(SHORTCUT_DEFS.bringFront.binding),
+        action: 'bringFront',
+      },
+      {
+        label: 'Bring Forward',
+        shortcut: formatShortcut(SHORTCUT_DEFS.bringForward.binding),
+        action: 'bringForward',
+      },
+      {
+        label: 'Send Backward',
+        shortcut: formatShortcut(SHORTCUT_DEFS.sendBackward.binding),
+        action: 'sendBackward',
+      },
+      {
+        label: 'Send to Back',
+        shortcut: formatShortcut(SHORTCUT_DEFS.sendBack.binding),
+        action: 'sendBack',
+      },
+    ],
   },
   { id: 'Plugins', items: [{ label: 'No plugins loaded', action: '' }] },
   {
@@ -129,6 +155,9 @@ export function Menubar({
     setTool,
     setZoom,
     setShowExportDialog,
+    groupSelected,
+    ungroupSelected,
+    arrangeSelected,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -255,6 +284,24 @@ export function Menubar({
           break;
         case 'shortcutPalette':
           onOpenPalette?.();
+          break;
+        case 'group':
+          groupSelected();
+          break;
+        case 'ungroup':
+          ungroupSelected();
+          break;
+        case 'bringFront':
+          arrangeSelected('front');
+          break;
+        case 'bringForward':
+          arrangeSelected('forward');
+          break;
+        case 'sendBackward':
+          arrangeSelected('backward');
+          break;
+        case 'sendBack':
+          arrangeSelected('back');
           break;
         default:
           if (action.startsWith('theme:')) {
