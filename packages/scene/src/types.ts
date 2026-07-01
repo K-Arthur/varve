@@ -317,6 +317,8 @@ export interface FrameNode extends NodeBase {
   slots?: Record<string, NodeId>;
   /** B2: CSS layout properties (Taffy-backed). */
   layoutStyle?: LayoutStyle;
+  /** Toggle clipping of children outside the frame bounds. Default true. */
+  clipContent?: boolean;
   /** F6: strokes on frame. */
   strokes: Stroke[];
   /** F6: effects on frame. */
