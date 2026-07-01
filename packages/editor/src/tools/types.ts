@@ -151,6 +151,8 @@ export interface ToolContext {
   nodeEditTargetId: string | null;
   setNodeEditTargetId: (id: string | null) => void;
   setNodeEditSelectedAnchors: (anchors: ReadonlySet<number>) => void;
+  /** Set the text node to be edited inline. */
+  setTextEditTargetId: (id: string | null) => void;
 
   snapPosition: (
     bounds: { x: number; y: number; w: number; h: number },

@@ -59,5 +59,8 @@ export {
   zoomAboutPoint,
 } from './viewport';
 
+export type { TextMeasureOptions, MeasuredLine, TextMeasureResult } from './textMeasure';
+export { measureText, measureWrappedText, textWrap } from './textMeasure';
+
 /** Semantic Strata package marker. */
 export const PACKAGE = '@strata/shared' as const;

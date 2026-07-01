@@ -53,6 +53,7 @@ function makeCtx(overrides?: Record<string, unknown>) {
     nodeEditTargetId: null,
     setNodeEditTargetId: vi.fn(),
     setNodeEditSelectedAnchors: vi.fn(),
+    setTextEditTargetId: vi.fn(),
     snapPosition: vi.fn((b) => ({ x: b.x, y: b.y, guides: [] })),
     ...overrides,
   };

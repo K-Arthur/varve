@@ -653,10 +653,47 @@ Full architecture diagnosis and improvement across all layer system gaps. 5 phas
 |--------|---------|
 | `c3ca358` | 10 SelectTool tests; order field wired into moveNode/moveChild/reparentNode via fractional-indexing |
 
+## Session 23 — Text & Typography System Overhaul (2026-07-01)
+
+Complete text/typography system implementation across 7 phases, TDD-first:
+
+| Phase | Area | Status |
+|---|---|---|
+| **A** | Pipeline fixes: textAlign, letterSpacing, lineHeight in IR, measureText mock, createTextNodeAt size param | Done |
+| **B** | Text Measurement Engine: `textMeasure`/`textWrap` in `@strata/shared`, wired into `nodeLocalBounds`, `computeFlexLayout` | Done |
+| **C** | Renderer Completion: multi-line, textCase, textAlignVertical, textDecoration (underline/line-through), textOverflow (clip/ellipsis), listStyle (disc/decimal/circle/square), letterSpacing per-glyph | Done |
+| **D** | Inline Text Editing: `TextEditOverlay` component, positioned `<textarea>`, Enter/IME/Escape handling, double-click entry via SelectTool | Done |
+| **E** | Font System: `FontRegistry` in `@strata/engine`, singleton, CSS fallback chains, load state tracking | Done |
+| **F** | Export Fix: export.ts emits real text primitives instead of degrading to rectangles | Done |
+| **G** | Test Infrastructure: measureText added to vitest canvas mock, FontRegistry tests, 20+ new text renderer tests | Done |
+
+### New Modules
+| File | What |
+|---|---|
+| `packages/shared/src/textMeasure.ts` | `measureText()`, `textWrap()`, `measureWrappedText()` — deterministic text metrics |
+| `packages/editor/src/components/TextEditOverlay.tsx` | Inline text editing via positioned `<textarea>` with IME/RTL support |
+| `packages/engine/src/fontRegistry.ts` | `FontRegistry` class with register, resolve, fallback, load state tracking |
+
+### Pipeline Changes
+- `Primitive::text` now carries all 15 typography properties (was 5)
+- `engine.ts` `shapeToPrimitive` reads `textAlign` from scene node (not hardcoded `'left'`)
+- `CanvasArea.toEngineNode` passes all text properties through
+- `ReplayTarget` extended with `createConicGradient` for angular gradient fills
+- `vitest.setup.ts` now has `measureText()` mock on canvas
+
+### Text Renderer Features (replay.ts `paintText`)
+- Text case transform (uppercase/lowercase/capitalize)
+- Vertical alignment (top/middle/bottom → textBaseline)
+- Multi-line rendering with lineHeight and paragraphSpacing
+- Text decoration (underline, line-through) with stroked paths
+- Text overflow (clip by bounding box, ellipsis)
+- List rendering (bullet/number/circle/square prefixes)
+- Per-glyph letter spacing
+
 ### Verification
-- JS tests: 724/724 across 79 files
-- Typecheck: clean across 13 packages
+- JS tests: 810/810 across 83 files (+106 from baseline)
+- Typecheck: clean across 13 packages (3 pre-existing TS errors in replay-fill.test.ts)
 - Token audit: 90/90 WCAG-AA pairs, 3 themes
-- Emoji audit: clean (357 files)
-- Rust workspace tests: clean
-- `just gate`: green |
+- Emoji audit: clean
+- Lint: 0 errors on new/modified files (53 pre-existing errors elsewhere)
+- `pnpm test`: 806/810 pass (4 pre-existing failures in replay-fill.test.ts effects tests) |

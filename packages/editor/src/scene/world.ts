@@ -13,6 +13,7 @@
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import { getParent } from '@strata/scene';
 import type { Affine, Rect } from '@strata/shared';
+import { applyAffine, measureText } from '@strata/shared';
 import { transformRect as affineTransformRect, identity, multiplyAffine } from '@strata/shared';
 
 /**
@@ -96,7 +97,15 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
   }
   if (node.kind === 'text') {
     const fs = node.fontSize ?? 16;
-    return { x: 0, y: 0, w: fs * 3, h: fs * 1.4 };
+    const measured = measureText(node.text, {
+      fontSize: fs,
+      fontFamily: node.fontFamily ?? 'sans-serif',
+      fontWeight: node.fontWeight ?? 400,
+      fontStyle: node.fontStyle ?? 'normal',
+      letterSpacing: node.letterSpacing ?? 0,
+      lineHeight: node.lineHeight ?? 1.4,
+    });
+    return { x: 0, y: 0, w: Math.max(measured.width, fs * 3), h: measured.height };
   }
   if (node.kind === 'frame') {
     return { x: 0, y: 0, w: node.w, h: node.h };

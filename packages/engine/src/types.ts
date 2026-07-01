@@ -129,6 +129,24 @@ export interface SceneNode {
   fontFamily?: string;
   fontWeight?: number;
   fontStyle?: string;
+  /** Text alignment. */
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  /** Vertical text alignment. */
+  textAlignVertical?: 'top' | 'middle' | 'bottom';
+  /** Letter spacing in px. */
+  letterSpacing?: number;
+  /** Line height multiplier. */
+  lineHeight?: number;
+  /** Paragraph spacing in px. */
+  paragraphSpacing?: number;
+  /** Text case transform. */
+  textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  /** Text decoration. */
+  textDecoration?: 'none' | 'underline' | 'line-through';
+  /** Text overflow mode. */
+  textOverflow?: 'clip' | 'ellipsis' | 'visible';
+  /** List style. */
+  listStyle?: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
   /** Uniform or per-corner radius for rect-anchored shapes. */
   cornerRadius?: number | [number, number, number, number];
 }
@@ -194,7 +212,15 @@ export type Primitive =
       fontFamily: string;
       fontWeight: number;
       fontStyle: 'normal' | 'italic';
-      textAlign: 'left' | 'center' | 'right';
+      textAlign: 'left' | 'center' | 'right' | 'justify';
+      textAlignVertical: 'top' | 'middle' | 'bottom';
+      letterSpacing: number;
+      lineHeight: number;
+      paragraphSpacing: number;
+      textCase: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+      textDecoration: 'none' | 'underline' | 'line-through';
+      textOverflow: 'clip' | 'ellipsis' | 'visible';
+      listStyle: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
     };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */

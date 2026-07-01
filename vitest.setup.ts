@@ -38,6 +38,13 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         stroke: vi.fn(),
         setLineDash: vi.fn(),
         fillText: vi.fn(),
+        measureText: vi.fn().mockReturnValue({
+          width: 0,
+          actualBoundingBoxAscent: 0,
+          actualBoundingBoxDescent: 0,
+          fontBoundingBoxAscent: 0,
+          fontBoundingBoxDescent: 0,
+        }),
         translate: vi.fn(),
         scale: vi.fn(),
         clearRect: vi.fn(),
