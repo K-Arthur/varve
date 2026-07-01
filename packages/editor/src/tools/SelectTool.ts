@@ -9,6 +9,7 @@
  *                 Never creates shapes.
  */
 import { getParent, walkNodes } from '@strata/scene';
+import { nodeWorldBounds } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -151,7 +152,9 @@ export class SelectTool extends BaseTool {
       const rect = this.computeDragRect(ctx);
       // Iterate ALL nodes (including nested) via walkNodes
       const entries = walkNodes(ctx.document);
-      const ordered = [...entries.values()].sort((a, b) => a.depth - b.depth);
+      // Sort by paint order (last sibling = topmost), not by depth.
+      // walkNodes returns DFS ancestors-first; reverse so later siblings win.
+      const ordered = [...entries.values()].reverse();
       const selectedIds: string[] = [];
       for (const entry of ordered) {
         if (!entry) continue;
@@ -187,8 +190,14 @@ export class SelectTool extends BaseTool {
         if (!selId) throw new Error('selection id not found');
         const node = ctx.getNode(selId);
         if (node) {
-          const centerX = node.transform[4];
-          const centerY = node.transform[5];
+          // Use world-space center (accounts for parent transforms) for reparent.
+          const worldBounds = nodeWorldBounds(ctx.document, selId);
+          let centerX = node.transform[4];
+          let centerY = node.transform[5];
+          if (worldBounds) {
+            centerX = worldBounds.x + worldBounds.w / 2;
+            centerY = worldBounds.y + worldBounds.h / 2;
+          }
           const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
           if (frameId) {
             const currentParent = getParent(ctx.document, selId);
