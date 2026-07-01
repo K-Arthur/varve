@@ -952,7 +952,9 @@ export function EditorProvider({
         )
           return;
         const parentIds = new Set(
-          sel.map((id) => getParent(state.document, id)).filter((pid): pid is string => Boolean(pid)),
+          sel
+            .map((id) => getParent(state.document, id))
+            .filter((pid): pid is string => Boolean(pid)),
         );
         updateDoc((doc) => {
           let d = doc;
