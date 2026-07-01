@@ -133,6 +133,25 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     [textNodes, updateNode, beginTransaction, commitTransaction],
   );
 
+  const textContent = useMemo(() => {
+    const textVals = textNodes.map((n) => n.text);
+    return textVals.every((v) => v === textVals[0]) ? textVals[0] : '(Mixed)';
+  }, [textNodes]);
+
+  const handleTextChange = useCallback(
+    (text: string) => {
+      beginTransaction();
+      for (const n of textNodes) {
+        updateNode(n.id, (node) => {
+          if (node.kind !== 'text') return node;
+          return { ...node, text };
+        });
+      }
+      commitTransaction();
+    },
+    [textNodes, updateNode, beginTransaction, commitTransaction],
+  );
+
   if (textNodes.length === 0) return null;
 
   const familyRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontFamily ?? ''));
@@ -165,6 +184,17 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   return (
     <DisclosureSection title="Typography">
       <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
+        {textContent !== null && (
+          <FieldRow label="Content">
+            <textarea
+              className="typography__text-input"
+              value={textContent === '(Mixed)' ? '' : textContent}
+              onChange={(e) => handleTextChange(e.target.value)}
+              rows={3}
+              aria-label="Text content"
+            />
+          </FieldRow>
+        )}
         <FieldRow label="Font" htmlFor="typography-font">
           <select
             id="typography-font"

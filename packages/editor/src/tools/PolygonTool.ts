@@ -17,10 +17,12 @@ export class PolygonTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     const rect = this.computeDragRect(ctx);
     ctx.setDraft({
+      kind: 'polygon',
       x: rect.x,
       y: rect.y,
       w: rect.w,
       h: rect.h,
+      sides: 6,
       label: `${Math.round(rect.w)} x ${Math.round(rect.h)}`,
     });
   }

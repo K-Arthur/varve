@@ -23,6 +23,7 @@ export class FrameTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     const rect = this.computeDragRect(ctx);
     ctx.setDraft({
+      kind: 'frame',
       x: rect.x,
       y: rect.y,
       w: rect.w,

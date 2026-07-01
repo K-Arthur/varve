@@ -14,7 +14,7 @@
  */
 
 import { getTransactionHooks } from '@strata/collab';
-import type { Affine, Color, Shape } from '@strata/engine';
+import type { Affine, Color, PathPoint, Shape } from '@strata/engine';
 import {
   applyAffine,
   invertAffine,
@@ -81,6 +81,7 @@ import {
 } from './clipboard';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import type { DraftShape } from './tools/types';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -159,6 +160,7 @@ export interface EditorContextValue {
     world: { x: number; y: number },
     size?: { w: number; h: number },
     parentId?: NodeId | null,
+    pathPoints?: PathPoint[],
   ) => void;
   /** Create a text node at the given world-space point. */
   createTextNodeAt: (
@@ -200,7 +202,7 @@ export interface EditorContextValue {
     { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }
   >;
   /** Set a draft rectangle for live feedback during gestures. */
-  setDraft: (draft: { x: number; y: number; w: number; h: number; label?: string } | null) => void;
+  setDraft: (draft: DraftShape | null) => void;
   /** Remove all currently selected nodes. */
   removeSelected: () => void;
   /** Rename the first selected node. */
@@ -790,7 +792,7 @@ export function EditorProvider({
           .filter((n): n is SceneNode => Boolean(n)),
 
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
-      createShapeAt: (world, size, parentId) => {
+      createShapeAt: (world, size, parentId, pathPoints) => {
         setState((s) => {
           // Read the tool from the ref (synchronously current) instead of the
           // state closure, which may be stale due to React 18 automatic batching.
@@ -832,6 +834,15 @@ export function EditorProvider({
               w: size?.w ?? 375,
               h: size?.h ?? 812,
             });
+          } else if (pathPoints && pathPoints.length > 0) {
+            // Path tools (pen/pencil) pass point data directly
+            const shape: Shape = {
+              kind: 'path',
+              points: pathPoints,
+              closed: false,
+              tolerance: 3,
+            };
+            node = makeShapeNode(id, shape, { name: autoName, transform });
           } else {
             const shape: Shape = size
               ? buildShapeWithSize(activeTool, size)
@@ -960,7 +971,7 @@ export function EditorProvider({
         // Walk all nodes in paint order, test containment using world
         // transforms (composes ancestor chain so nested nodes hit correctly).
         const entries = walkNodes(state.document);
-        const ordered = [...entries.values()].sort((a, b) => a.depth - b.depth);
+        const ordered = [...entries.values()].sort((a, b) => b.depth - a.depth);
         for (let i = ordered.length - 1; i >= 0; i--) {
           const entry = ordered[i];
           if (!entry) continue;
@@ -1208,9 +1219,107 @@ export function EditorProvider({
             case 'rect':
               return { ...n, shape: { ...s, w, h } };
             case 'ellipse':
-              return { ...n, shape: { ...s, rx: w, ry: h } };
+              return { ...n, shape: { ...s, rx: w / 2, ry: h / 2, cx: w / 2, cy: h / 2 } };
             case 'circle':
-              return { ...n, shape: { ...s, r: w } };
+              return { ...n, shape: { ...s, r: w / 2, cx: w / 2, cy: w / 2 } };
+            case 'line': {
+              const oldW = Math.abs(s.to[0] - s.from[0]) || 1;
+              const oldH = Math.abs(s.to[1] - s.from[1]) || 1;
+              const sx = w / oldW;
+              const sy = h / oldH;
+              const cx = (s.from[0] + s.to[0]) / 2;
+              const cy = (s.from[1] + s.to[1]) / 2;
+              return {
+                ...n,
+                shape: {
+                  ...s,
+                  from: [cx + (s.from[0] - cx) * sx, cy + (s.from[1] - cy) * sy] as [
+                    number,
+                    number,
+                  ],
+                  to: [cx + (s.to[0] - cx) * sx, cy + (s.to[1] - cy) * sy] as [number, number],
+                },
+              };
+            }
+            case 'arrow': {
+              const oldW2 = Math.abs(s.to[0] - s.from[0]) || 1;
+              const oldH2 = Math.abs(s.to[1] - s.from[1]) || 1;
+              const sx2 = w / oldW2;
+              const sy2 = h / oldH2;
+              const cx2 = (s.from[0] + s.to[0]) / 2;
+              const cy2 = (s.from[1] + s.to[1]) / 2;
+              return {
+                ...n,
+                shape: {
+                  ...s,
+                  from: [cx2 + (s.from[0] - cx2) * sx2, cy2 + (s.from[1] - cy2) * sy2] as [
+                    number,
+                    number,
+                  ],
+                  to: [cx2 + (s.to[0] - cx2) * sx2, cy2 + (s.to[1] - cy2) * sy2] as [
+                    number,
+                    number,
+                  ],
+                },
+              };
+            }
+            case 'polygon': {
+              const oldR = s.radius || 1;
+              const newR = Math.max(1, oldR * (w / 100));
+              return { ...n, shape: { ...s, radius: newR } };
+            }
+            case 'star': {
+              const oldOR = s.outerRadius || 1;
+              const ratio = Math.max(0.1, w / 100);
+              return {
+                ...n,
+                shape: {
+                  ...s,
+                  outerRadius: Math.max(1, oldOR * ratio),
+                  innerRadius: Math.max(1, s.innerRadius * ratio),
+                },
+              };
+            }
+            case 'path': {
+              const points = s.points;
+              if (points.length === 0) return n;
+              let minX = Infinity,
+                minY = Infinity,
+                maxX = -Infinity,
+                maxY = -Infinity;
+              for (const p of points) {
+                minX = Math.min(minX, p.x);
+                minY = Math.min(minY, p.y);
+                maxX = Math.max(maxX, p.x);
+                maxY = Math.max(maxY, p.y);
+              }
+              const pbw = maxX - minX || 1;
+              const pbh = maxY - minY || 1;
+              const sx3 = w / pbw;
+              const sy3 = h / pbh;
+              return {
+                ...n,
+                shape: {
+                  ...s,
+                  points: points.map((p) => ({
+                    x: (p.x - minX) * sx3 + minX,
+                    y: (p.y - minY) * sy3 + minY,
+                    handleIn: p.handleIn
+                      ? ([
+                          (p.handleIn[0] - minX) * sx3 + minX,
+                          (p.handleIn[1] - minY) * sy3 + minY,
+                        ] as [number, number])
+                      : null,
+                    handleOut: p.handleOut
+                      ? ([
+                          (p.handleOut[0] - minX) * sx3 + minX,
+                          (p.handleOut[1] - minY) * sy3 + minY,
+                        ] as [number, number])
+                      : null,
+                  })),
+                },
+              };
+            }
             default:
               return n;
           }
@@ -2250,6 +2359,14 @@ function buildShapeWithSize(tool: ToolId, size: { w: number; h: number }): Shape
       return { kind: 'arrow', from: [0, 0], to: [size.w, size.h], tolerance: 3, arrowheadSize: 10 };
     case 'text':
       return { kind: 'rect', x: 0, y: 0, w: size.w, h: size.h };
+    case 'pen':
+    case 'pencil':
+      return {
+        kind: 'path',
+        points: [],
+        closed: false,
+        tolerance: 3,
+      } as Shape;
     default:
       return { kind: 'rect', x: 0, y: 0, w: size.w, h: size.h };
   }

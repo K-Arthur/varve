@@ -17,6 +17,7 @@ export class EllipseTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     const rect = this.computeDragRect(ctx);
     ctx.setDraft({
+      kind: 'ellipse',
       x: rect.x,
       y: rect.y,
       w: rect.w,

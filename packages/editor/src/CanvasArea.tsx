@@ -26,7 +26,7 @@ import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
-import { type ToolContext, ToolManager } from './tools';
+import { type DraftShape, type ToolContext, ToolManager } from './tools';
 import { ArrowTool } from './tools/ArrowTool';
 import { EllipseTool } from './tools/EllipseTool';
 import { EyedropperTool } from './tools/EyedropperTool';
@@ -117,13 +117,7 @@ export function CanvasArea() {
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
-  const [draft, setDraft] = useState<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    label?: string;
-  } | null>(null);
+  const [draft, setDraft] = useState<DraftShape | null>(null);
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
@@ -361,16 +355,103 @@ export function CanvasArea() {
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 1 / s.zoom;
         ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
-        ctx.strokeRect(draft.x, draft.y, draft.w, draft.h);
+
+        switch (draft.kind) {
+          case 'rect':
+          case 'frame':
+            ctx.strokeRect(draft.x, draft.y, draft.w, draft.h);
+            break;
+          case 'ellipse': {
+            const ecx = draft.x + draft.w / 2;
+            const ecy = draft.y + draft.h / 2;
+            ctx.beginPath();
+            ctx.ellipse(ecx, ecy, draft.w / 2, draft.h / 2, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
+          }
+          case 'polygon': {
+            const pcx = draft.x + draft.w / 2;
+            const pcy = draft.y + draft.h / 2;
+            const pr = Math.min(draft.w, draft.h) / 2;
+            ctx.beginPath();
+            for (let i = 0; i < draft.sides; i++) {
+              const a = (2 * Math.PI * i) / draft.sides - Math.PI / 2;
+              const px = pcx + pr * Math.cos(a);
+              const py = pcy + pr * Math.sin(a);
+              if (i === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            break;
+          }
+          case 'star': {
+            const scx = draft.x + draft.w / 2;
+            const scy = draft.y + draft.h / 2;
+            const outerR = Math.min(draft.w, draft.h) / 2;
+            const innerR = outerR * 0.4;
+            ctx.beginPath();
+            for (let i = 0; i < draft.points * 2; i++) {
+              const a = (Math.PI * i) / draft.points - Math.PI / 2;
+              const r = i % 2 === 0 ? outerR : innerR;
+              const px = scx + r * Math.cos(a);
+              const py = scy + r * Math.sin(a);
+              if (i === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            break;
+          }
+          case 'line':
+            ctx.beginPath();
+            ctx.moveTo(draft.x1, draft.y1);
+            ctx.lineTo(draft.x2, draft.y2);
+            ctx.stroke();
+            break;
+          case 'arrow':
+            ctx.beginPath();
+            ctx.moveTo(draft.x1, draft.y1);
+            ctx.lineTo(draft.x2, draft.y2);
+            ctx.stroke();
+            {
+              const angle = Math.atan2(draft.y2 - draft.y1, draft.x2 - draft.x1);
+              const spread = Math.PI / 7;
+              const headLen = 10 / s.zoom;
+              ctx.fillStyle = '#3b82f6';
+              ctx.beginPath();
+              ctx.moveTo(draft.x2, draft.y2);
+              ctx.lineTo(
+                draft.x2 - headLen * Math.cos(angle - spread),
+                draft.y2 - headLen * Math.sin(angle - spread),
+              );
+              ctx.lineTo(
+                draft.x2 - headLen * Math.cos(angle + spread),
+                draft.y2 - headLen * Math.sin(angle + spread),
+              );
+              ctx.closePath();
+              ctx.fill();
+            }
+            break;
+        }
+
         ctx.setLineDash([]);
 
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        const sx = draft.x * s.zoom + s.pan.x;
-        const sy = draft.y * s.zoom + s.pan.y;
-        const sw = draft.w * s.zoom;
+        const sx =
+          draft.kind === 'line' || draft.kind === 'arrow'
+            ? Math.min(draft.x1, draft.x2) * s.zoom + s.pan.x
+            : draft.x * s.zoom + s.pan.x;
+        const sy =
+          draft.kind === 'line' || draft.kind === 'arrow'
+            ? Math.min(draft.y1, draft.y2) * s.zoom + s.pan.y
+            : draft.y * s.zoom + s.pan.y;
+        const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
         ctx.font = '11px system-ui';
         ctx.fillStyle = '#3b82f6';
-        const label = draft.label ?? `${Math.round(draft.w)} x ${Math.round(draft.h)}`;
+        const label =
+          draft.label ??
+          `${Math.round(sw / s.zoom)} x ${Math.round('h' in draft ? draft.h * s.zoom : (Math.abs(draft.y2 - draft.y1) * s.zoom) / s.zoom)}`;
         ctx.fillText(label, sx + sw + 4, sy + 14);
       }
     })();
@@ -696,7 +777,7 @@ export function CanvasArea() {
             />
           );
         })()}
-      <SelectionOverlay />
+      <SelectionOverlay canvasRef={canvasRef} />
       {state.tool !== 'inspect' && Object.keys(state.document.nodes).length === 0 && (
         <div className="editor-canvas__empty">
           <EmptyState
