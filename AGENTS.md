@@ -489,3 +489,20 @@ Four features implemented TDD-first; all new tests written as failing assertions
 **Verification:** 601 JS tests across key packages (editor 166, scene 113, engine 55, shared 84, platform 43, ui 140) — all green. Typecheck clean (13 packages). `pnpm audit:tokens` 72/72. `pnpm audit:emoji` clean. Lint 0 errors on all modified files.
 
 **Typecheck fixes (same commit):** Exported `PathPoint` from `@strata/engine`; added required `NodeBase` fields to `makeResult` in boolean.ts; fixed `Fill` tuple color syntax in boolean.test.ts; added missing `ToolContext` fields to zoom.test.ts and NodeEditTool.test.ts mocks; fixed `TextNode` has no `w`/`h` in computeFlexLayout.
+
+## Session 15 — Production-grade frontend polish pass (2026-07-01)
+
+Audited all modified surfaces against live code; eliminated duplicate UI and hardcoded values.
+
+| Area | Change |
+|---|---|
+| `packages/editor/src/Shell.tsx` | Replaced `InspectorPanel` with `PropertiesPanel` directly. The old `InspectorPanel.tsx` wrapper was creating a duplicate tab strip on top of `PropertiesPanel`'s own tabs and a double-nested `editor-inspector` element. `PropertiesPanel` (complete implementation with CSS-class tabs, SpecPanel, CodeGenView) is now the single inspector entry point. |
+| `packages/editor/src/StatusBar.tsx` | Replaced 5 inline `style` props with CSS classes: `editor-status__unit-select` (bare `<select>`), `editor-status__toggle` / `--active` (pixel-grid + snap toggles with hover/focus-visible/pressed states), `editor-status__fit-btn`, `editor-status__info`. |
+| `packages/editor/src/components/Inspector/PropertiesPanel.tsx` | Moved 3 inline-style blocks to CSS classes: `insp-panel__node-header/name/kind` (single selection header), `insp-panel__canvas-info/name/count` (empty-state canvas summary), `insp-panel__empty-hint` (export tab no-selection hint). |
+| `packages/editor/src/components/SnapGuidesOverlay.tsx` | Replaced hardcoded `stroke="#39d0c6"` with `stroke="currentColor"` + `.snap-guides-overlay` CSS class setting `color: var(--color-accent-primary)`. Snap guides now honour theme changes. Removed inline `style` from SVG element. |
+| `packages/editor/src/Shell.tsx` (backdrop) | Replaced inline `style={{ position:'fixed', ..., background:'rgba(0,0,0,0.3)' }}` with `.editor__panel-backdrop` CSS class. |
+| `packages/editor/src/editor.css` | Added classes: `.snap-guides-overlay`, `.editor-status__unit-select`, `.editor-status__toggle/--active`, `.editor-status__fit-btn`, `.editor-status__info`, `.editor__panel-backdrop`. |
+| `packages/editor/src/components/Inspector/inspector.css` | Added classes: `.insp-panel__node-header/name/kind`, `.insp-panel__canvas-info/name/count`, `.insp-panel__empty-hint`. |
+| `docs/design/visual-direction.md` | Updated with Session 15 polish pass record. |
+
+**Verification:** 664 JS tests (72 files) — all green. Typecheck clean (13 packages). `just gate` green. `pnpm audit:tokens` 72/72 WCAG-AA. `pnpm audit:emoji` clean. Lint 0 errors on all modified files.
