@@ -32,7 +32,7 @@ function childSize(n: SceneNode): { w: number; h: number } {
     }
   }
   if (n.kind === 'frame') return { w: n.w, h: n.h };
-  if (n.kind === 'text') return { w: n.w ?? 120, h: n.h ?? 32 };
+  if (n.kind === 'text') return { w: 120, h: 32 };
   return { w: 0, h: 0 };
 }
 

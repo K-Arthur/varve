@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type BooleanOpKind, booleanOp } from './boolean';
+import { booleanOp } from './boolean';
 import type { ShapeNode } from './types';
 
 function makeRect(id: string, x: number, y: number, w: number, h: number): ShapeNode {
@@ -7,9 +7,17 @@ function makeRect(id: string, x: number, y: number, w: number, h: number): Shape
     id,
     name: id,
     kind: 'shape',
+    index: 0,
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal',
+    rotation: 0,
     transform: [1, 0, 0, 1, x, y],
     shape: { kind: 'rect', x: 0, y: 0, w, h },
-    fills: [{ type: 'solid', color: { r: 1, g: 0, b: 0, a: 1 } }],
+    fill: [255, 0, 0, 255] as const,
+    fills: [{ type: 'solid', color: [255, 0, 0, 255] as const, opacity: 1, blendMode: 'normal', visible: true }],
     strokes: [],
     effects: [],
   };
@@ -64,9 +72,9 @@ describe('booleanOp — union', () => {
   it('union preserves fill from first (bottom) node', () => {
     const a = makeRect('a', 0, 0, 100, 100);
     const b = makeRect('b', 50, 0, 100, 100);
-    b.fills = [{ type: 'solid', color: { r: 0, g: 0, b: 1, a: 1 } }];
+    b.fills = [{ type: 'solid', color: [0, 0, 255, 255] as const, opacity: 1, blendMode: 'normal', visible: true }];
     const result = booleanOp('union', [a, b]);
-    expect(result.fills?.[0]).toMatchObject({ type: 'solid', color: { r: 1, g: 0, b: 0, a: 1 } });
+    expect(result.fills?.[0]).toMatchObject({ type: 'solid', color: [255, 0, 0, 255] });
   });
 });
 

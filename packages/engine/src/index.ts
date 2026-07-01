@@ -23,6 +23,7 @@ export type {
   Effect,
   EngineFill,
   FillIR,
+  PathPoint,
   Point,
   Primitive,
   RenderItem,

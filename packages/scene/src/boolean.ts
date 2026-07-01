@@ -10,8 +10,7 @@
  * origin with the fill/stroke of the first (bottom) input node.
  */
 import type { PathPoint } from '@strata/engine';
-import { nextNodeId } from './document';
-import type { ShapeNode } from './types';
+import type { Fill, ShapeNode } from './types';
 
 export type BooleanOpKind = 'union' | 'subtract' | 'intersect' | 'exclude';
 
@@ -60,13 +59,21 @@ function makeResult(points: PathPoint[], closed: boolean, first: ShapeNode, id: 
     id,
     name: 'Boolean Result',
     kind: 'shape',
+    index: first.index,
+    order: first.order,
+    visible: true,
+    locked: false,
+    opacity: first.opacity,
+    blendMode: first.blendMode,
+    rotation: 0,
     transform: [1, 0, 0, 1, 0, 0],
     shape: { kind: 'path', points, closed, tolerance: 3 },
-    fills: first.fills
+    fill: first.fill,
+    fills: (first.fills?.length
       ? [...first.fills]
       : first.fill
-        ? [{ type: 'solid' as const, color: first.fill }]
-        : [],
+        ? [{ type: 'solid' as const, color: first.fill, opacity: 1, blendMode: 'normal', visible: true } as Fill]
+        : []) as Fill[],
     strokes: [...(first.strokes ?? [])],
     effects: [...(first.effects ?? [])],
   };
