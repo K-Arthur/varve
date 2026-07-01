@@ -587,3 +587,20 @@ Complete visual + structural redesign of the Strata design system. All 53 gaps c
 | **Duplicate elimination** | `FillStackSection` and `GradientStopEditor` deleted. `FillSection` (full-featured) is the single fills UI. |
 | **Hardware acceleration** | `.gpu-layer` class added to `global.css` with `translate3d`, `backface-visibility: hidden`, `contain: layout style paint`. Applied to editor shell. |
 | **Verification** | 674/674 JS tests (73 files), 90/90 WCAG-AA token pairs, typecheck clean, `just gate` green, `pnpm audit:emoji` clean. |
+
+## Session 20 — Core vector editing repair (2026-07-01)
+
+Root-cause analysis and fix of 9 critical + 5 high-severity bugs from architectural audit. All 8 phases implemented, tested, and committed:
+
+| Phase | What was fixed | Files |
+|---|---|---|
+| **A** Path creation | `buildShapeWithSize` missing `pen`/`pencil` → rect fallback. Added dispatch to `{ kind: 'path' }`. `createShapeAt` extended with `pathPoints` parameter. PenTool passes `PathPoint[]` and captures pointer. PencilTool passes captured freehand points. | `context.tsx`, `PenTool.ts`, `PencilTool.ts`, `types.ts` |
+| **B** Draft preview | `setDraft` changed from opaque `{x,y,w,h}` to `DraftShape` discriminated union (7 kinds). All tools pass `kind`. `CanvasArea.draw()` dispatches on kind — ellipses, polygons, stars, lines, arrows all render correct preview shapes. | `types.ts`, `CanvasArea.tsx`, 7 tool files |
+| **C** Text editing | `TypographySection` gains text content `<textarea>` for editing `TextNode.text` — previously no input mechanism existed, text nodes were invisible (empty string). | `TypographySection.tsx`, `inspector.css` |
+| **D** setNodeSize | All 9 shape kinds now resize (was silent no-op for `line`/`arrow`/`polygon`/`star`/`path`). Scale relative to center for lines; radius ratio for polygons/stars; control-point scaling for paths. | `context.tsx` |
+| **E** Replay bugs | Path stroke uses `bezierCurveTo` when handle data present (was `lineTo` only). Per-fill `globalAlpha` always set on each fill (was gated on `<1`, causing opacity bleed). | `replay.ts` |
+| **F** Rotation | `SelectionOverlay` rotation handler now subtracts `getBoundingClientRect()` offset before world coordinate conversion (was using raw clientX/Y). | `SelectionOverlay.tsx` |
+| **G** Layers panel | Containers with children auto-expand in layers tree (was collapsed by default, hiding all nested shapes from view). | `LayersTree.tsx` |
+| **H** Scale tool | Rewritten with centroid-based distance-ratio scaling applied to affine transform. Was using ad-hoc position+size mutation with no visual feedback. | `ScaleTool.ts` |
+
+**Verification:** 691/691 JS tests (+17 from baseline: 8 buildShapeWithSize + 7 setNodeSize + 2 ScaleTool). Typecheck clean. Token audit 90/90. Emoji audit clean. Lint 0 new errors. |
