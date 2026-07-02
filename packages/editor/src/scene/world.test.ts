@@ -6,7 +6,7 @@ import {
   makeGroupNode,
   makeShapeNode,
 } from '@strata/scene';
-import type { Affine } from '@strata/shared';
+import type { Affine } from '@strata/engine';
 import { describe, expect, it } from 'vitest';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
 
@@ -92,14 +92,115 @@ describe('nodeLocalBounds', () => {
     expect(b).toEqual({ x: 0, y: 0, w: 40, h: 30 });
   });
 
-  it('returns null for groups and arrow/path shapes', () => {
+  it('returns null for groups', () => {
     const doc = createDocument();
-    // Group node has no shape → kind === 'group' falls to null.
     const g = makeGroupNode('g1', { name: 'Group' });
     const d = addNode(doc, g);
     const node = d.nodes.g1;
     if (!node) throw new Error('g1 not found');
     const b = nodeLocalBounds(node);
+    expect(b).toBeNull();
+  });
+
+  it('path shape localBounds returns bounds from points', () => {
+    const doc = createDocument();
+    const pathNode = makeShapeNode(
+      'p1',
+      {
+        kind: 'path',
+        points: [
+          { x: 10, y: 20, handleIn: null, handleOut: null },
+          { x: 50, y: 80, handleIn: null, handleOut: null },
+          { x: 100, y: 30, handleIn: null, handleOut: null },
+        ],
+        closed: true,
+        tolerance: 2,
+      },
+      { name: 'Path' },
+    );
+    const d = addNode(doc, pathNode);
+    const n1 = d.nodes.p1;
+    if (!n1) throw new Error('node not found');
+    const b = nodeLocalBounds(n1);
+    expect(b).not.toBeNull();
+    if (!b) return;
+    expect(b.x).toBeCloseTo(10, 4);
+    expect(b.y).toBeCloseTo(20, 4);
+    expect(b.w).toBeCloseTo(90, 4);
+    expect(b.h).toBeCloseTo(60, 4);
+  });
+
+  it('arrow shape localBounds returns bounds from from/to', () => {
+    const doc = createDocument();
+    const arrNode = makeShapeNode(
+      'a1',
+      {
+        kind: 'arrow',
+        from: [15, 25],
+        to: [80, 120],
+        tolerance: 2,
+        arrowheadSize: 10,
+      },
+      { name: 'Arrow' },
+    );
+    const d = addNode(doc, arrNode);
+    const a1 = d.nodes.a1;
+    if (!a1) throw new Error('node not found');
+    const b = nodeLocalBounds(a1);
+    expect(b).not.toBeNull();
+    if (!b) return;
+    expect(b.x).toBeCloseTo(15, 4);
+    expect(b.y).toBeCloseTo(25, 4);
+    expect(b.w).toBeCloseTo(65, 4);
+    expect(b.h).toBeCloseTo(95, 4);
+  });
+
+  it('path bounds are correct for multi-point path', () => {
+    const doc = createDocument();
+    const pathNode = makeShapeNode(
+      'p2',
+      {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: [10, -20] },
+          { x: 100, y: 100, handleIn: [-10, 10], handleOut: null },
+          { x: 200, y: 50, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 2,
+      },
+      { name: 'Path2' },
+    );
+    const d = addNode(doc, pathNode);
+    const p2 = d.nodes.p2;
+    if (!p2) throw new Error('node not found');
+    const b = nodeLocalBounds(p2);
+    expect(b).not.toBeNull();
+    if (!b) return;
+    // Include handle control points in bounds: handleOut[1] = -20 gives y = 0 + (-20) = -20
+    expect(b.x).toBeCloseTo(0, 4);
+    expect(b.y).toBeCloseTo(-20, 4);
+    expect(b.w).toBeCloseTo(200, 4);
+    // P1 handleIn y offset (+10) gives 110, min y is -20 → h = 110 - (-20) = 130
+    expect(b.h).toBeCloseTo(130, 4);
+  });
+
+  it('null path (empty points) returns null', () => {
+    const doc = createDocument();
+    const pathNode = makeShapeNode(
+      'p3',
+      {
+        kind: 'path',
+        points: [],
+        closed: false,
+        tolerance: 2,
+      },
+      { name: 'EmptyPath' },
+    );
+    const d = addNode(doc, pathNode);
+    const p3 = d.nodes.p3;
+    if (!p3) throw new Error('node not found');
+    const b = nodeLocalBounds(p3);
     expect(b).toBeNull();
   });
 });

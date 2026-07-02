@@ -806,12 +806,14 @@ export function CanvasArea() {
         (() => {
           const n = state.document.nodes[nodeEditTargetId];
           if (!n || n.kind !== 'shape' || n.shape.kind !== 'path') return null;
+          const worldMat = nodeWorldTransform(state.document, nodeEditTargetId);
           return (
             <NodeEditOverlay
               node={n}
               selectedAnchors={nodeEditSelectedAnchors}
               zoom={state.zoom}
               pan={state.pan}
+              worldTransform={worldMat}
             />
           );
         })()}

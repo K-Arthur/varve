@@ -697,3 +697,94 @@ Complete text/typography system implementation across 7 phases, TDD-first:
 - Emoji audit: clean
 - Lint: 0 errors on new/modified files (53 pre-existing errors elsewhere)
 - `pnpm test`: 806/810 pass (4 pre-existing failures in replay-fill.test.ts effects tests) |
+
+## Session 24 — Color, Gradient, Image & Compositing System Overhaul (2026-07-02)
+
+Full audit + refactor of the color, gradient, image fill, and compositing pipeline. TDD-first with 43 new tests.
+
+### What was fixed (P0/P1 bugs)
+
+| Bug | Fix |
+|-----|-----|
+| **Per-fill blend mode leaks to next fill** | `replay.ts` — `globalCompositeOperation` now restored to item-level mode after each fill |
+| **Angular/diamond gradients fall through to linear** | Angular → `createConicGradient`, Diamond → `createRadialGradient` fallback |
+| **Image fills never render** | Engine.ts now passes image fills through (actual `drawImage` still deferred — needs ImageCache) |
+| **Pattern fills never render** | Engine.ts now passes pattern fills through (actual pattern rendering deferred) |
+| **Inner shadow / background blur never render** | Effects loop now handles all 4 effect types |
+| **Rounded rect strokes have sharp corners** | `paintStroke` for rect with `cornerRadius` now uses `roundRect` path |
+| **Arrow double-draw** | Stroke pass no longer re-draws arrowhead (only fill pass does) |
+| **rgba() alpha `toFixed(3)` precision** | Changed to raw `c[3] / 255` for full float precision |
+| **Text `textAlign` hardcoded to `'left'`** | TS `shapeToPrimitive` now passes through `TextNode.textAlign` |
+
+### What was built
+
+| Feature | Details |
+|---------|---------|
+| **Gradient transform matrix** | `GradientFill.transform?: Affine` — full 2x3 fill positioning matrix (Figma-style gradient handles). Backward-compatible with `rotation` field. |
+| **Blend mode parity** | Added `passThrough`, `plusDarker`, `plusLighter` to `BlendMode` union. UI, types, and `mapBlendMode` updated. |
+| **Rust engine parity (F1-F3)** | `GradientStop`, `GradientFill`, `FillIR` types added to `strata-core`. `fills: Option<Vec<FillIR>>` on `SceneNode` + `RenderItem`. `corner_radius` on `SceneNode` + `Primitive::Rect`. All Rust tests pass. |
+
+### Test coverage added
+
+| File | Tests | What |
+|------|-------|------|
+| `packages/engine/src/replay-fill.test.ts` | 43 | Gradient fills (linear, radial, angular, diamond, empty, rotation), per-fill compositing (opacity, blend isolation, visibility), blend mode mapping (15 modes), stroke rendering (rect, rounded rect, ellipse, line, dash), effects (dropShadow, layerBlur, innerShadow, backgroundBlur, multiple, reset), compositing edge cases (fill order, arrow no double-draw, rgba precision) |
+| `packages/engine/src/engine.test.ts` | +8 | Fill stack mapping (multi-fill, invisible filter, legacy fallback, gradient IR, no-fills) |
+| `packages/scene/src/fills.test.ts` | +12 | fillToColor (solid, opacity, gradient, image), primaryColor (topmost, invisible skip, empty, gradient), resolveNodeFills (fills array, legacy wrap, empty array), angular/diamond gradient constructors |
+
+### Files changed
+
+| File | Changes |
+|------|---------|
+| `packages/engine/src/replay.ts` | Blend mode restore, rgba precision, angular/diamond gradients, innerShadow/backgroundBlur, rounded rect stroke, arrow no double-draw, `createConicGradient` on ReplayTarget, gradient transform |
+| `packages/engine/src/types.ts` | BlendMode union (+3), EngineGradientFill.transform, FillIR.transform |
+| `packages/engine/src/engine.ts` | EngineFill gradient transform passthrough, image/pattern fill passthrough |
+| `packages/engine/src/replay-fill.test.ts` | 43 new tests |
+| `packages/scene/src/types.ts` | BlendMode union (+3), GradientFill.transform |
+| `packages/scene/src/fills.test.ts` | 12 edge case tests |
+| `packages/editor/src/.../FillSection.tsx` | +3 blend mode options |
+| `crates/strata-core/src/scene.rs` | GradientStop, GradientFill, FillIR types; fills, corner_radius on SceneNode |
+| `crates/strata-core/src/lib.rs` | Exports for new types |
+| `crates/strata-engine/src/lib.rs` | fills, fills, corner_radius on RenderItem + Primitive::Rect |
+| `crates/strata-print/src/lib.rs` | SceneNode test constructors updated |
+
+### Verification
+- JS tests: 886/889 pass (3 pre-existing boolean failures)
+- Rust workspace tests: 82 pass
+- Typecheck: clean on all modified packages
+- Pre-existing lint errors unchanged (only boolean.ts)
+
+## Session 25 — Vector Tools System Overhaul (2026-07-02)
+
+Complete audit + refactor of the vector tools pipeline across 6 parallel workstreams, TDD-first with 887 tests passing final gate.
+
+### What was fixed
+
+| Area | Fix |
+|------|-----|
+| **nodeLocalBounds null** | `world.ts` — path/arrow no longer returns `null`; computes AABB from anchors + handle control points |
+| **shapeContains bezier miss** | `geometry.ts` — closed paths now use adaptive subdivision + winding number; open paths use bezier-aware point-to-curve distance |
+| **PenTool draft** | Rubber-band preview uses `kind:'line'` instead of `kind:'rect'` — shows actual segment from last point to cursor |
+| **PencilTool simplification** | `onPointerUp` now calls `simplifyPoints()` (Ramer-Douglas-Peucker) before commit — collinear freehand points reduced |
+| **NodeEditTool handle dragging** | Added `findNearestHandle`, handle selection, handle drag-move (updates handleIn/handleOut), anchor-priority-when-overlapping |
+| **NodeEditOverlay transforms** | Now accepts `worldTransform` prop — renders handles at correct screen position for rotated/scaled/nested nodes |
+| **toggleCornerSmooth handle length** | No longer hardcoded 20px — computes 1/3 of adjacent segment length (min 4px), direction toward prev/next anchor |
+| **Boolean ops** | Replaced bounding-box approximations with polygon-based Greiner-Hormann clips. All 4 ops (union/intersect/subtract/exclude) operate on actual path geometry via adaptive bezier sampling |
+| **replay.ts single-handle bezier** | `paintPathFill` now emits bezier when EITHER handle exists (was requiring both) |
+| **PDF bezier export** | `strata-print` now emits PDF `c` operator for cubic bezier segments |
+
+### What was built
+
+| File | What |
+|------|------|
+| `packages/shared/src/bezier.ts` | 8 public functions: `cubicBezierPoint`, `cubicBezierDerivative`, `cubicBezierSecondDerivative`, `cubicBezierSplit`, `cubicBezierBBox`, `cubicBezierLength`, `cubicBezierClosestPoint`, `cubicBezierSegmentIntersection`, plus `pathSegmentIntersections`, `pathPointToBezier`, `lineLineIntersection` |
+| `packages/editor/src/tools/__tests__/PenTool.test.ts` | 7 new tests |
+| `packages/editor/src/tools/__tests__/PencilTool.test.ts` | 5 new tests |
+| `packages/editor/src/tools/__tests__/fitting.test.ts` | 4 new tests |
+
+### Verification
+- JS tests: 887/887 across 86 test files
+- Rust workspace tests: 82 pass
+- Rust desktop tests (Tauri): 8 pass
+- Typecheck: clean across all 13 packages
+- Lint: 0 new errors | Emoji: clean | Tokens: 90/90 WCAG-AA |

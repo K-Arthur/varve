@@ -118,16 +118,12 @@ export class PenTool extends BaseTool {
     if (!last) throw new Error('last point not found');
 
     // Rubber-band preview as draft line from last point to cursor
-    const x = Math.min(last.x, world.x);
-    const y = Math.min(last.y, world.y);
-    const w = Math.abs(world.x - last.x) || 4;
-    const h = Math.abs(world.y - last.y) || 4;
     ctx.setDraft({
-      kind: 'rect',
-      x,
-      y,
-      w,
-      h,
+      kind: 'line',
+      x1: last.x,
+      y1: last.y,
+      x2: world.x,
+      y2: world.y,
       label: `to (${Math.round(world.x)}, ${Math.round(world.y)})`,
     });
   }

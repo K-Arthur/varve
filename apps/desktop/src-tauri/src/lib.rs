@@ -117,6 +117,8 @@ fn convert_scene(nodes: Vec<IpcSceneNode>) -> Vec<strata_core::SceneNode> {
         rotation: n.rotation,
         strokes: n.strokes,
         effects: n.effects,
+        corner_radius: None,
+        fills: None,
     }).collect()
 }
 
@@ -707,6 +709,7 @@ mod tests {
                 y: 0.0,
                 w: 10.0,
                 h: 10.0,
+                corner_radius: None,
             }
         );
 

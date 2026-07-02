@@ -13,6 +13,7 @@ import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 const ANCHOR_HIT_RADIUS = 8;
+const HANDLE_HIT_RADIUS = 6;
 
 export class NodeEditTool extends BaseTool {
   id = 'nodeEdit' as const;
@@ -21,6 +22,8 @@ export class NodeEditTool extends BaseTool {
   private draggingAnchorIdx: number | null = null;
   private dragStartAnchorPos: { x: number; y: number } | null = null;
   private dragStartWorld: { x: number; y: number } | null = null;
+  private draggingHandle: { anchorIdx: number; which: 'in' | 'out' } | null = null;
+  private dragStartHandleValue: [number, number] | null = null;
 
   override cursor(state: ToolCursorState): CursorSpec {
     if (state === 'drag') return { css: 'move' };
@@ -31,6 +34,8 @@ export class NodeEditTool extends BaseTool {
     ctx.setNodeEditTargetId(null);
     this.selectedAnchors.clear();
     this.draggingAnchorIdx = null;
+    this.draggingHandle = null;
+    this.dragStartHandleValue = null;
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
@@ -49,14 +54,43 @@ export class NodeEditTool extends BaseTool {
     const worldMat = nodeWorldTransform(ctx.document, targetId);
     const invWorld = invertAffine(worldMat);
     const local = applyAffine(invWorld, [world.x, world.y]);
-    const hit = findNearestAnchorLocal(node.shape.points, local, ANCHOR_HIT_RADIUS);
 
-    if (hit !== null) {
+    // Check handle hit first (handles have smaller radius 6px vs anchor 8px,
+    // but we check handles first so they take priority when the user clicks
+    // near a handle control point even if it's also within anchor radius).
+    const handleHit = findNearestHandle(node.shape.points, local, HANDLE_HIT_RADIUS);
+    const anchorHit = findNearestAnchorLocal(node.shape.points, local, ANCHOR_HIT_RADIUS);
+
+    if (handleHit !== null && anchorHit !== null && anchorHit === handleHit.anchorIdx) {
+      // Both within radius of the same anchor — anchor hit takes priority.
+      // This avoids accidental handle grabs when the user intends to move the anchor.
+    } else if (handleHit !== null) {
+      // Handle hit, no competing anchor hit
       if (!e.shiftKey) this.selectedAnchors.clear();
-      this.selectedAnchors.add(hit);
       ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
-      this.draggingAnchorIdx = hit;
-      const pt = node.shape.points[hit]!;
+      const pt = node.shape.points[handleHit.anchorIdx]!;
+      this.draggingHandle = handleHit;
+      this.dragStartHandleValue = [
+        ...(handleHit.which === 'in' ? pt.handleIn! : pt.handleOut!),
+      ] as [number, number];
+      this.dragStartWorld = world;
+      this.drag = {
+        kind: 'dragging',
+        pointerId: e.pointerId,
+        startCanvas: { x: e.clientX, y: e.clientY },
+        startWorld: world,
+        currentCanvas: { x: e.clientX, y: e.clientY },
+        currentWorld: world,
+      };
+      return { consumed: true, captured: true };
+    }
+
+    if (anchorHit !== null) {
+      if (!e.shiftKey) this.selectedAnchors.clear();
+      this.selectedAnchors.add(anchorHit);
+      ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
+      this.draggingAnchorIdx = anchorHit;
+      const pt = node.shape.points[anchorHit]!;
       this.dragStartAnchorPos = { x: pt.x, y: pt.y };
       this.dragStartWorld = world;
       this.drag = {
@@ -79,14 +113,13 @@ export class NodeEditTool extends BaseTool {
   }
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
-    if (this.draggingAnchorIdx === null || !this.dragStartAnchorPos || !this.dragStartWorld) return;
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
 
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return;
 
     // Convert both start and current world positions to node-local space.
-    // The delta in local space is the correct anchor displacement regardless
+    // The delta in local space is the correct displacement regardless
     // of the node's rotation, scale, or parent transforms.
     const worldMat = nodeWorldTransform(ctx.document, targetId);
     const invWorld = invertAffine(worldMat);
@@ -94,13 +127,36 @@ export class NodeEditTool extends BaseTool {
     this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
     this.drag.currentWorld = current;
 
-    const localStart = applyAffine(invWorld, [this.dragStartWorld.x, this.dragStartWorld.y]);
+    const dw = this.dragStartWorld;
+    if (!dw) return;
+    const localStart = applyAffine(invWorld, [dw.x, dw.y]);
     const localCurrent = applyAffine(invWorld, [current.x, current.y]);
     const dx = localCurrent[0] - localStart[0];
     const dy = localCurrent[1] - localStart[1];
+
+    if (this.draggingHandle !== null && this.dragStartHandleValue) {
+      // Handle drag: update handleIn/handleOut values
+      const { anchorIdx, which } = this.draggingHandle;
+      const newHandle0 = this.dragStartHandleValue[0] + dx;
+      const newHandle1 = this.dragStartHandleValue[1] + dy;
+      ctx.updateNode(targetId, (n) => {
+        if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
+        const points: PathPoint[] = n.shape.points.map((p, i) => {
+          if (i !== anchorIdx) return p;
+          if (which === 'in') {
+            return { ...p, handleIn: [newHandle0, newHandle1] as [number, number] };
+          }
+          return { ...p, handleOut: [newHandle0, newHandle1] as [number, number] };
+        });
+      return { ...n, shape: { ...n.shape, points } } as ShapeNode;
+      });
+      return;
+    }
+
+    if (this.draggingAnchorIdx === null || !this.dragStartAnchorPos || !this.dragStartWorld) return;
+
     const newX = this.dragStartAnchorPos.x + dx;
     const newY = this.dragStartAnchorPos.y + dy;
-
     const anchorIdx = this.draggingAnchorIdx;
 
     ctx.updateNode(targetId, (n) => {
@@ -117,6 +173,8 @@ export class NodeEditTool extends BaseTool {
     this.draggingAnchorIdx = null;
     this.dragStartAnchorPos = null;
     this.dragStartWorld = null;
+    this.draggingHandle = null;
+    this.dragStartHandleValue = null;
     this.drag = {
       kind: 'idle',
       pointerId: -1,
@@ -169,15 +227,23 @@ export class NodeEditTool extends BaseTool {
     if (!targetId) return false;
 
     const toToggle = new Set(this.selectedAnchors);
+    // Read the current points before mapping so computeDefaultHandleLength
+    // can see the original array.
     ctx.updateNode(targetId, (n) => {
       if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-      const points: PathPoint[] = n.shape.points.map((p, i) => {
+      const s = n.shape;
+      const points: PathPoint[] = s.points.map((p, i) => {
         if (!toToggle.has(i)) return p;
         if (p.handleIn === null && p.handleOut === null) {
+          const len = computeDefaultHandleLength(s.points, i);
+          // handleIn points toward the previous point (negative of forward direction),
+          // handleOut points toward the next point.
+          const prevDir = computeHandleDirection(s.points, i, 'prev');
+          const nextDir = computeHandleDirection(s.points, i, 'next');
           return {
             ...p,
-            handleIn: [-20, 0] as [number, number],
-            handleOut: [20, 0] as [number, number],
+            handleIn: [prevDir[0] * len, prevDir[1] * len] as [number, number],
+            handleOut: [nextDir[0] * len, nextDir[1] * len] as [number, number],
           };
         }
         return { ...p, handleIn: null, handleOut: null };
@@ -211,4 +277,81 @@ function findNearestAnchorLocal(
     }
   }
   return best;
+}
+
+function findNearestHandle(
+  points: PathPoint[],
+  local: readonly [number, number],
+  radius: number,
+): { anchorIdx: number; which: 'in' | 'out' } | null {
+  const r2 = radius * radius;
+  let best: { anchorIdx: number; which: 'in' | 'out' } | null = null;
+  let bestDist = r2;
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]!;
+    if (p.handleIn) {
+      const hx = p.x + p.handleIn[0];
+      const hy = p.y + p.handleIn[1];
+      const dx = local[0] - hx;
+      const dy = local[1] - hy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDist) {
+        bestDist = d2;
+        best = { anchorIdx: i, which: 'in' };
+      }
+    }
+    if (p.handleOut) {
+      const hx = p.x + p.handleOut[0];
+      const hy = p.y + p.handleOut[1];
+      const dx = local[0] - hx;
+      const dy = local[1] - hy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDist) {
+        bestDist = d2;
+        best = { anchorIdx: i, which: 'out' };
+      }
+    }
+  }
+  return best;
+}
+
+function computeDefaultHandleLength(points: PathPoint[], idx: number): number {
+  const prev = idx > 0 ? points[idx - 1] : null;
+  const next = idx < points.length - 1 ? points[idx + 1] : null;
+  const p = points[idx]!;
+
+  let len = 20;
+  if (prev) {
+    len = Math.sqrt((p.x - prev.x) ** 2 + (p.y - prev.y) ** 2) / 3;
+  }
+  if (next) {
+    const nextLen = Math.sqrt((next.x - p.x) ** 2 + (next.y - p.y) ** 2) / 3;
+    len = Math.min(len, nextLen);
+  }
+  return Math.max(len, 4);
+}
+
+function computeHandleDirection(
+  points: PathPoint[],
+  idx: number,
+  dir: 'prev' | 'next',
+): [number, number] {
+  const p = points[idx]!;
+  if (dir === 'prev' && idx > 0) {
+    const prev = points[idx - 1]!;
+    const dx = prev.x - p.x;
+    const dy = prev.y - p.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return [dx / len, dy / len];
+  }
+  if (dir === 'next' && idx < points.length - 1) {
+    const next = points[idx + 1]!;
+    const dx = next.x - p.x;
+    const dy = next.y - p.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return [dx / len, dy / len];
+  }
+  // Fallback: no adjacent point — use horizontal right
+  if (dir === 'next') return [1, 0];
+  return [-1, 0];
 }
