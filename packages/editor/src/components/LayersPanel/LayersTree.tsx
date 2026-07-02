@@ -164,8 +164,8 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
       toggleSelection(id, ctrl);
       if (!ctrl) {
         setAnchorIdx(entries.findIndex((e) => e.node.id === id));
-        // Reveal the selected node (pan into view if off-screen).
-        revealSelection({ nodeId: id });
+        // Center and fit the selected node in the canvas viewport.
+        revealSelection({ nodeId: id, fit: true });
       }
     },
     [anchorIdx, entries, toggleSelection, setAnchorIdx, revealSelection],

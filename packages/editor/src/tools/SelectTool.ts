@@ -8,8 +8,9 @@
  *                 Marquee: rubber-band selection with Shift-additive.
  *                 Never creates shapes.
  */
+import { applyAffine, invertAffine } from '@strata/engine';
 import { getParent, walkNodes } from '@strata/scene';
-import { nodeWorldBounds } from '../scene/world';
+import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -81,13 +82,12 @@ export class SelectTool extends BaseTool {
       this.isMoveGesture = true;
       // Begin transaction for move gesture (undo coherence)
       ctx.beginTransaction();
-      // Store initial positions for world→local rebasing
+      // Store initial world-space origin for each selected node so onDragMove
+      // can compute newLocalPos = parentInverse * (initWorldPos + totalDelta).
       this.initialPositions.clear();
       for (const id of ctx.selection) {
-        const node = ctx.getNode(id);
-        if (node) {
-          this.initialPositions.set(id, { x: node.transform[4], y: node.transform[5] });
-        }
+        const worldMat = nodeWorldTransform(ctx.document, id);
+        this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
       }
     } else {
       if (!e.shiftKey) {
@@ -114,7 +114,8 @@ export class SelectTool extends BaseTool {
 
       const sel = ctx.selection;
       if (sel.length === 0) return;
-      const delta = ctx.canvasDeltaToWorld(
+      // Total world-space delta from drag origin.
+      const totalDelta = ctx.canvasDeltaToWorld(
         this.drag.currentCanvas.x - this.drag.startCanvas.x,
         this.drag.currentCanvas.y - this.drag.startCanvas.y,
       );
@@ -128,24 +129,39 @@ export class SelectTool extends BaseTool {
       for (const id of sel) {
         const node = ctx.getNode(id);
         if (!node) continue;
-        const newX = node.transform[4] + delta.dx;
-        const newY = node.transform[5] + delta.dy;
+        // Compute target world position from stored initial world origin + total delta.
+        const initWorld = this.initialPositions.get(id);
+        if (!initWorld) continue;
+        const newWorldX = initWorld.x + totalDelta.dx;
+        const newWorldY = initWorld.y + totalDelta.dy;
+
+        // Convert world target position to the node's parent local space.
+        const parentId = getParent(ctx.document, id);
+        const toLocal = (wx: number, wy: number): { x: number; y: number } => {
+          if (!parentId) return { x: wx, y: wy };
+          const pWorld = nodeWorldTransform(ctx.document, parentId);
+          const pInv = invertAffine(pWorld);
+          const local = applyAffine(pInv, [wx, wy]);
+          return { x: local[0], y: local[1] };
+        };
+
         const thisBounds = ctx.nodeWorldBounds(node);
         if (thisBounds) {
-          // Exclude all selected nodes from snap targets (prevents nodes snapping to each other).
           const otherBounds = allBounds
             .filter((entry) => !selectedIds.has(entry.id))
             .map((entry) => entry.b);
           if (otherBounds.length > 0) {
             const snapped = ctx.snapPosition(
-              { x: newX, y: newY, w: thisBounds.w, h: thisBounds.h },
+              { x: newWorldX, y: newWorldY, w: thisBounds.w, h: thisBounds.h },
               otherBounds,
             );
-            ctx.setNodePosition(id, snapped.x, snapped.y);
+            const local = toLocal(snapped.x, snapped.y);
+            ctx.setNodePosition(id, local.x, local.y);
             continue;
           }
         }
-        ctx.setNodePosition(id, newX, newY);
+        const local = toLocal(newWorldX, newWorldY);
+        ctx.setNodePosition(id, local.x, local.y);
       }
     }
   }

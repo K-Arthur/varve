@@ -154,14 +154,40 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
 }
 
 /**
+ * Compute the axis-aligned world-space bounding box of a group node by
+ * unioning all children's world bounds. Groups have no own geometry.
+ */
+export function groupWorldBounds(doc: Document, groupId: NodeId): Rect | null {
+  const node = doc.nodes[groupId];
+  if (!node || node.kind !== 'group') return null;
+  let union: Rect | null = null;
+  for (const childId of node.children) {
+    const b = nodeWorldBounds(doc, childId);
+    if (!b) continue;
+    if (!union) {
+      union = { x: b.x, y: b.y, w: b.w, h: b.h };
+    } else {
+      const minX = Math.min(union.x, b.x);
+      const minY = Math.min(union.y, b.y);
+      const maxX = Math.max(union.x + union.w, b.x + b.w);
+      const maxY = Math.max(union.y + union.h, b.y + b.h);
+      union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+  }
+  return union;
+}
+
+/**
  * Compute the node's geometry bounds in world space.
  *
  * This is the canonical function for selection overlay, reveal, and
  * zoom-to-fit. Returns `null` when bounds cannot be determined.
+ * Groups return the union of all their children's world bounds.
  */
 export function nodeWorldBounds(doc: Document, id: NodeId): Rect | null {
   const node = doc.nodes[id];
   if (!node) return null;
+  if (node.kind === 'group') return groupWorldBounds(doc, id);
   const local = nodeLocalBounds(node);
   if (!local) return null;
   const worldMat = nodeWorldTransform(doc, id);

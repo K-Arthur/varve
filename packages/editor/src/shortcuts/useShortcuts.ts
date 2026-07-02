@@ -54,6 +54,26 @@ export function useShortcuts(editor: EditorContextValue): {
         };
       case 'zoomReset':
         return () => e.setZoom(1);
+      case 'zoomIn':
+        return () => e.zoomIn();
+      case 'zoomOut':
+        return () => e.zoomOut();
+      case 'fitAll':
+        return () => e.fitAll();
+      case 'fitSelection':
+        return () => e.revealSelection({ fit: true });
+      case 'zoom50':
+        return () => e.setZoom(0.5);
+      case 'zoom75':
+        return () => e.setZoom(0.75);
+      case 'zoom100':
+        return () => e.setZoom(1);
+      case 'zoom150':
+        return () => e.setZoom(1.5);
+      case 'zoom200':
+        return () => e.setZoom(2);
+      case 'zoom400':
+        return () => e.setZoom(4);
       case 'selectAll':
         return () => {
           const nodes = e.rootNodes();

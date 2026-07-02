@@ -236,7 +236,7 @@ export function CanvasArea() {
       },
 
       findContainingFrame: (world) => e.findContainingFrame(world),
-      nodeWorldBounds: (n) => nodeWorldBoundsFn(n),
+      nodeWorldBounds: (n) => nodeWorldBounds(s.document, n.id) ?? nodeWorldBoundsFn(n),
 
       engine: eng,
       canvasElement: canvasRef.current,
