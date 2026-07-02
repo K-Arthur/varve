@@ -23,6 +23,51 @@ pub struct NodeId(pub u64);
 
 pub type BlendMode = String; // "normal", "multiply", "screen", etc.
 
+// ── Gradient / Fill types (mirrors @strata/engine types.ts) ──────────────────
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GradientStop {
+    pub position: f64,
+    pub color: [u8; 4],
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GradientFill {
+    #[serde(rename = "type")]
+    pub gradient_type: String, // "linear", "radial", "angular", "diamond"
+    pub stops: Vec<GradientStop>,
+    #[serde(default)]
+    pub rotation: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform: Option<[f64; 6]>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum FillIR {
+    #[serde(rename = "solid")]
+    Solid {
+        color: [u8; 4],
+        opacity: f64,
+        #[serde(rename = "blendMode")]
+        blend_mode: BlendMode,
+        visible: bool,
+    },
+    #[serde(rename = "gradient")]
+    Gradient {
+        #[serde(rename = "gradientType")]
+        gradient_type: String,
+        stops: Vec<GradientStop>,
+        rotation: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        transform: Option<[f64; 6]>,
+        opacity: f64,
+        #[serde(rename = "blendMode")]
+        blend_mode: BlendMode,
+        visible: bool,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Stroke {
@@ -114,6 +159,12 @@ pub struct SceneNode {
     pub strokes: Vec<Stroke>,
     #[serde(default)]
     pub effects: Vec<Effect>,
+    /// P2: stacked fills (solid/gradient). When present, takes precedence over `fill`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fills: Option<Vec<FillIR>>,
+    /// Corner radius for rect shapes (uniform or per-corner).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corner_radius: Option<serde_json::Value>,
 }
 
 fn default_opacity() -> f64 {
@@ -209,6 +260,8 @@ mod tests {
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
         }
     }
 
@@ -252,6 +305,8 @@ mod tests {
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
         };
         assert_eq!(hit_test(&[node], Point::new(9.0, 9.0)), Some(0));
     }

@@ -19,7 +19,10 @@ pub mod shape;
 pub use component::{slots_satisfied, ComponentDefinition, Slot, SlotKind};
 pub use expr::evaluate;
 pub use geom::{point_to_segment_dist_sq, rect_contains};
-pub use scene::{get_parent, hit_test, walk_nodes, Effect, NodeId, SceneNode, Stroke};
+pub use scene::{
+    get_parent, hit_test, walk_nodes, Effect, FillIR, GradientFill, GradientStop, NodeId,
+    SceneNode, Stroke,
+};
 pub use shape::{PathPoint, Shape};
 
 pub use kurbo::{Affine, Circle, Ellipse, Line, Point, Rect, Vec2};

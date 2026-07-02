@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReplayGradient, ReplayTarget } from './replay';
 import { replayIr } from './replay';
-import type { RenderItem, FillIR } from './types';
+import type { RenderItem } from './types';
 
 interface RecorderProxy {
   target: ReplayTarget;
@@ -260,7 +260,6 @@ describe('gradient fill rendering', () => {
   });
 
   it('gradient rotation rotates the gradient axis', () => {
-    const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
       fill: [0, 0, 0, 255],
@@ -429,7 +428,6 @@ describe('blend mode mapping', () => {
   }
 
   it('blendMode=normal uses source-over', () => {
-    const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
       fill: [255, 0, 0, 255],
@@ -624,7 +622,7 @@ describe('effects rendering', () => {
     expect(rec.calls.some((c) => c === 'set shadowOffsetY')).toBe(true);
   });
 
-  it('layerBlur sets filter', () => {
+  it('layerBlur sets CSS filter', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
@@ -639,11 +637,12 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    expect(rec.calls.some((c) => c === 'set filter')).toBe(true);
-    expect(String(rec.props.filter ?? '')).toContain('blur(4px)');
+    const filterCalls = rec.calls.filter((c) => c === 'set filter');
+    expect(filterCalls.length).toBe(2);
+    expect(rec.props.filter).toBe('none');
   });
 
-  it('innerShadow is not rendered (documented as deferred)', () => {
+  it('innerShadow sets shadow properties like dropShadow', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
@@ -651,9 +650,9 @@ describe('effects rendering', () => {
       effects: [
         {
           type: 'innerShadow',
-          x: 0,
-          y: 2,
-          blur: 4,
+          x: 2,
+          y: 4,
+          blur: 8,
           spread: 0,
           color: [0, 0, 0, 128],
           opacity: 0.5,
@@ -664,11 +663,11 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    expect(rec.calls.some((c) => c === 'set filter')).toBe(false);
-    expect(rec.calls.some((c) => c === 'set shadowColor')).toBe(false);
+    const shadowColorCalls = rec.calls.filter((c) => c === 'set shadowColor');
+    expect(shadowColorCalls.length).toBe(2);
   });
 
-  it('backgroundBlur is not rendered (documented as deferred)', () => {
+  it('backgroundBlur sets CSS filter', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
@@ -683,10 +682,11 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    expect(rec.calls.some((c) => c === 'set filter')).toBe(false);
+    const filterCalls = rec.calls.filter((c) => c === 'set filter');
+    expect(filterCalls.length).toBe(2);
   });
 
-  it('invisible effects are skipped', () => {
+  it('invisible dropShadow does not set shadowBlur (only reset does)', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
@@ -707,7 +707,33 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    expect(rec.calls.some((c) => c === 'set shadowColor')).toBe(false);
+    const shadowColorCalls = rec.calls.filter((c) => c === 'set shadowColor');
+    expect(shadowColorCalls.length).toBe(1);
+  });
+
+  it('visible dropShadow sets shadowBlur (effect + reset = 2 calls)', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      effects: [
+        {
+          type: 'dropShadow',
+          x: 2,
+          y: 4,
+          blur: 8,
+          spread: 0,
+          color: [0, 0, 0, 128],
+          opacity: 0.5,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    const shadowColorCalls = rec.calls.filter((c) => c === 'set shadowColor');
+    expect(shadowColorCalls.length).toBe(2);
   });
 
   it('multiple effects: dropShadow + layerBlur coexist', () => {

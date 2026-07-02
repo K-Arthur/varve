@@ -130,7 +130,7 @@ function stubEngine(): Engine {
                 };
               }
               if (f.type === 'gradient' && f.gradient) {
-                return {
+                const result: FillIR = {
                   type: 'gradient' as const,
                   gradientType: f.gradient.type,
                   stops: f.gradient.stops.map((s) => ({
@@ -142,6 +142,10 @@ function stubEngine(): Engine {
                   blendMode: f.blendMode,
                   visible: f.visible,
                 };
+                if (f.gradient.transform) {
+                  (result as Record<string, unknown>).transform = f.gradient.transform;
+                }
+                return result;
               }
               return null;
             })
