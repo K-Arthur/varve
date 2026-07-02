@@ -11,6 +11,7 @@ repository.workspace = true
 strata-core = { path = "../strata-core" }
 lopdf = { version = "0.31", features = [] }
 serde = { version = "1", features = ["derive"] }
+ab_glyph = "0.2"
 
 [lints]
 workspace = true

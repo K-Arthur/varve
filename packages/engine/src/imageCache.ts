@@ -1,0 +1,178 @@
+/**
+ * ImageCache — manages async loading and caching of raster images.
+ *
+ * Images are stored as HTMLImageElement for immediate canvas drawImage() usage.
+ * Supports data URLs, relative paths (resolved via base URL), and absolute URLs.
+ *
+ * Research basis: Figma image loading strategy (progressive, priority-ordered).
+ */
+
+export type ImageLoadState = 'idle' | 'loading' | 'loaded' | 'error';
+
+export interface ImageCacheEntry {
+  state: ImageLoadState;
+  image: HTMLImageElement | null;
+  error?: Error;
+}
+
+export class ImageCache {
+  private cache = new Map<string, ImageCacheEntry>();
+  private pending = new Map<string, Promise<HTMLImageElement>>();
+  private listeners = new Map<string, Set<() => void>>();
+
+  /** Total number of entries in the cache. */
+  get size(): number {
+    return this.cache.size;
+  }
+
+  /** Number of entries currently loading. */
+  get pendingCount(): number {
+    return this.pending.size;
+  }
+
+  /** Check if an image URL is cached (any state). */
+  has(url: string): boolean {
+    return this.cache.has(url);
+  }
+
+  /** Check if an image URL is fully loaded and ready. */
+  isLoaded(url: string): boolean {
+    const entry = this.cache.get(url);
+    return entry?.state === 'loaded' && entry.image !== null;
+  }
+
+  /** Get a cached image entry, or undefined if not cached. */
+  get(url: string): ImageCacheEntry | undefined {
+    return this.cache.get(url);
+  }
+
+  /** Get the loaded HTMLImageElement, or null if not yet loaded. */
+  getImage(url: string): HTMLImageElement | null {
+    const entry = this.cache.get(url);
+    return entry?.state === 'loaded' ? (entry.image ?? null) : null;
+  }
+
+  /**
+   * Load an image. Returns a promise that resolves to the loaded image element.
+   * Subsequent calls with the same URL return the same promise while loading,
+   * or resolve immediately if already cached.
+   */
+  async load(url: string): Promise<HTMLImageElement> {
+    // Already loaded
+    const existing = this.cache.get(url);
+    if (existing?.state === 'loaded' && existing.image) {
+      return existing.image;
+    }
+
+    // Already pending
+    const pending = this.pending.get(url);
+    if (pending) return pending;
+
+    // Mark as loading
+    this.cache.set(url, { state: 'loading', image: null });
+
+    const promise = new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        this.cache.set(url, { state: 'loaded', image: img });
+        this.pending.delete(url);
+        this.notifyListeners(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        const error = new Error(`Failed to load image: ${url}`);
+        this.cache.set(url, { state: 'error', image: null, error });
+        this.pending.delete(url);
+        this.notifyListeners(url);
+        reject(error);
+      };
+      img.loading = 'eager';
+      img.src = url;
+    });
+
+    this.pending.set(url, promise);
+    return promise;
+  }
+
+  /**
+   * Preload multiple images. Resolves when all are loaded (or all have failed).
+   * Useful for batch preloading before rendering.
+   */
+  async preload(urls: string[]): Promise<void> {
+    const results = await Promise.allSettled(urls.map((url) => this.load(url)));
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        // Errors are already recorded in the cache entry
+      }
+    }
+  }
+
+  /**
+   * Cancel a pending load. Marks the entry as 'idle' so it can be retried later.
+   */
+  cancel(url: string): void {
+    this.pending.delete(url);
+    const existing = this.cache.get(url);
+    if (existing?.state === 'loading') {
+      this.cache.set(url, { state: 'idle', image: null });
+    }
+  }
+
+  /** Remove an entry from the cache. */
+  evict(url: string): void {
+    this.pending.delete(url);
+    this.cache.delete(url);
+    this.listeners.delete(url);
+  }
+
+  /** Clear all cached images. */
+  clear(): void {
+    this.cache.clear();
+    this.pending.clear();
+    this.listeners.clear();
+  }
+
+  /**
+   * Subscribe to load state changes for a URL.
+   * Returns an unsubscribe function.
+   */
+  subscribe(url: string, callback: () => void): () => void {
+    if (!this.listeners.has(url)) {
+      this.listeners.set(url, new Set());
+    }
+    this.listeners.get(url)!.add(callback);
+    return () => {
+      const set = this.listeners.get(url);
+      if (set) {
+        set.delete(callback);
+        if (set.size === 0) this.listeners.delete(url);
+      }
+    };
+  }
+
+  /** Get the load state for a URL. */
+  state(url: string): ImageLoadState {
+    return this.cache.get(url)?.state ?? 'idle';
+  }
+
+  private notifyListeners(url: string): void {
+    const set = this.listeners.get(url);
+    if (set) {
+      for (const cb of set) cb();
+    }
+  }
+}
+
+/** Singleton global image cache for the application. */
+let globalCache: ImageCache | null = null;
+
+export function getImageCache(): ImageCache {
+  if (!globalCache) {
+    globalCache = new ImageCache();
+  }
+  return globalCache;
+}
+
+export function resetImageCache(): void {
+  globalCache = null;
+}

@@ -28,8 +28,8 @@ import type {
   SceneNode,
   ShapeNode,
   Style,
-  TextStyle,
   TextNode,
+  TextStyle,
 } from './types';
 
 export interface Document {

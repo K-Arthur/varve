@@ -1,0 +1,109 @@
+.batch-job-list {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.batch-job-list__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.batch-job-list__select-all {
+  width: 20px;
+  display: flex;
+  align-items: center;
+}
+.batch-job-list__col-name {
+  flex: 1;
+}
+.batch-job-list__col-format {
+  width: 72px;
+}
+.batch-job-list__col-dims {
+  width: 60px;
+}
+.batch-job-list__col-est {
+  width: 50px;
+  text-align: right;
+}
+.batch-job-list__col-status {
+  width: 24px;
+  text-align: center;
+}
+.batch-job-list__empty {
+  padding: var(--space-3);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.batch-job-list__virtual {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.batch-job-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-sm);
+}
+.batch-job-row:last-child {
+  border-bottom: none;
+}
+.batch-job-row:hover {
+  background: var(--color-surface-sunken);
+}
+.batch-job-row--selected {
+  background: var(--color-interactive-default);
+}
+.batch-job-row__checkbox {
+  width: 20px;
+  display: flex;
+  align-items: center;
+}
+.batch-job-row__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+.batch-job-row__format {
+  width: 72px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.batch-job-row__dims {
+  width: 60px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.batch-job-row__size {
+  width: 50px;
+  text-align: right;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.batch-job-row__status {
+  width: 24px;
+  text-align: center;
+}
+.batch-job-row__status--done {
+  color: var(--color-success-primary);
+}
+.batch-job-row__status--error {
+  color: var(--color-danger-primary);
+}
+.batch-job-row__status--running {
+  color: var(--color-accent-primary);
+}
+.batch-job-row__status--pending {
+  color: var(--color-text-muted);
+}

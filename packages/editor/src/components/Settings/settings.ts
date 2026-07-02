@@ -1,4 +1,11 @@
-export type SettingsSection = 'general' | 'appearance' | 'shortcuts' | 'collab' | 'ai' | 'about';
+export type SettingsSection =
+  | 'general'
+  | 'appearance'
+  | 'shortcuts'
+  | 'export'
+  | 'collab'
+  | 'ai'
+  | 'about';
 export type SettingsSectionLabel =
   | 'General'
   | 'Appearance'

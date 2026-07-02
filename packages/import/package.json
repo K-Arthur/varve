@@ -1,0 +1,22 @@
+{
+  "name": "@strata/import",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Foreign design file format importers (SVG, bitmap, and extensible format registry).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/import"
+  },
+  "dependencies": {
+    "@strata/engine": "workspace:*",
+    "@strata/scene": "workspace:*",
+    "@strata/shared": "workspace:*"
+  }
+}

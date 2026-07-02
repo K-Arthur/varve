@@ -8,7 +8,11 @@
 
 export type { Engine } from './engine';
 export { createEngine } from './engine';
+export type { FontEntry, FontLoadState } from './fontRegistry';
+export { FontRegistry, getFontRegistry } from './fontRegistry';
 export * from './geometry';
+export type { ImageCacheEntry, ImageLoadState } from './imageCache';
+export { getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type { ReplayTarget } from './replay';
@@ -35,5 +39,3 @@ export type {
   StrokeCap,
   StrokeJoin,
 } from './types';
-export type { FontEntry, FontLoadState } from './fontRegistry';
-export { FontRegistry, getFontRegistry } from './fontRegistry';

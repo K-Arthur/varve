@@ -22,6 +22,18 @@ import {
   rectContains,
   shapeContains,
 } from '@strata/engine';
+import { importFile } from '@strata/import';
+import {
+  createRuntime,
+  type Interaction,
+  type PrototypeData,
+  PrototypeDebugConsole,
+  type PrototypeRuntime,
+  applyActionResult as protoApplyActionResult,
+  getVariable as protoGetVar,
+  handleEvent as protoHandleEvent,
+  setVariable as protoSetVar,
+} from '@strata/prototype';
 import type { ExportPreset, NodeId, Slot } from '@strata/scene';
 import {
   type ArrangeOp,
@@ -58,7 +70,6 @@ import {
   type VariableValue,
   walkNodes,
 } from '@strata/scene';
-import { importFile } from '@strata/import';
 import {
   clampZoom,
   fitBoundsCamera,
@@ -77,25 +88,14 @@ import {
 } from 'react';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
-  readClipboard as readFromClipboard,
   readClipboardImages,
   readClipboardText,
+  readClipboard as readFromClipboard,
   writeClipboard as writeToClipboard,
 } from './clipboard';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import type { DraftShape } from './tools/types';
-import {
-  applyActionResult as protoApplyActionResult,
-  createRuntime,
-  getVariable as protoGetVar,
-  handleEvent as protoHandleEvent,
-  setVariable as protoSetVar,
-  type Interaction,
-  type PrototypeData,
-  type PrototypeRuntime,
-  PrototypeDebugConsole,
-} from '@strata/prototype';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -610,7 +610,10 @@ export function nodeWorldBoundsFn(
 }
 
 /** Compute the world-space bounding box of a group from its children's bounds. */
-function groupWorldBounds(doc: Document, groupId: NodeId): { x: number; y: number; w: number; h: number } | null {
+function groupWorldBounds(
+  doc: Document,
+  groupId: NodeId,
+): { x: number; y: number; w: number; h: number } | null {
   const node = doc.nodes[groupId];
   if (!node || node.kind !== 'group') return null;
   let union: { x: number; y: number; w: number; h: number } | null = null;
@@ -2033,7 +2036,10 @@ export function EditorProvider({
                     redoStackRef.current = [];
                     let doc = s.document;
                     const newIds: NodeId[] = [];
-                    const result = importFile('clipboard.svg', text, { center: true, embedImages: true });
+                    const result = importFile('clipboard.svg', text, {
+                      center: true,
+                      embedImages: true,
+                    });
                     for (const id of result.nodeIds) {
                       const node = result.document.nodes[id];
                       if (node) {
@@ -2045,7 +2051,9 @@ export function EditorProvider({
                     }
                     return { ...s, document: doc, selection: newIds };
                   });
-                } catch { /* ignore clipboard parse errors */ }
+                } catch {
+                  /* ignore clipboard parse errors */
+                }
               }
             });
           } else {
@@ -2055,7 +2063,10 @@ export function EditorProvider({
               let doc = s.document;
               const newIds: NodeId[] = [];
               for (const img of images) {
-                const result = importFile(img.name, img.dataUrl, { center: true, embedImages: true });
+                const result = importFile(img.name, img.dataUrl, {
+                  center: true,
+                  embedImages: true,
+                });
                 for (const id of result.nodeIds) {
                   const node = result.document.nodes[id];
                   if (node) {
@@ -2090,8 +2101,10 @@ export function EditorProvider({
             ...node,
             id,
             transform: [
-              node.transform[0], node.transform[1],
-              node.transform[2], node.transform[3],
+              node.transform[0],
+              node.transform[1],
+              node.transform[2],
+              node.transform[3],
               (node.transform[4] ?? 0) + offsetX,
               (node.transform[5] ?? 0) + offsetY,
             ] as Affine,
