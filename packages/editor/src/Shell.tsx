@@ -1,6 +1,7 @@
 import { Icon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { CanvasArea } from './CanvasArea';
+import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
@@ -13,6 +14,8 @@ import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
+import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
+import './components/Prototype/prototype.css';
 
 export interface ShellProps {
   onBackToHome?: () => void;
@@ -108,8 +111,49 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
         }}
       />
 
+      <input
+        id="file-import-input"
+        type="file"
+        accept=".svg,.png,.jpg,.jpeg,.webp,.gif"
+        multiple
+        style={{ display: 'none' }}
+        onChange={async (e) => {
+          const files = Array.from(e.target.files ?? []);
+          if (files.length === 0) return;
+          for (const file of files) {
+            const ext = file.name.split('.').pop()?.toLowerCase();
+            if (ext === 'svg') {
+              const text = await file.text();
+              const { importFile } = await import('@strata/import');
+              const result = importFile(file.name, text, { center: true, embedImages: true });
+              for (const id of result.nodeIds) {
+                const node = result.document.nodes[id];
+                if (node) editor.importNode(node, result.document);
+              }
+            } else if (ext && ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+              const buf = await file.arrayBuffer();
+              const { importFile } = await import('@strata/import');
+              const result = importFile(file.name, new Uint8Array(buf), { center: true, embedImages: true });
+              for (const id of result.nodeIds) {
+                const node = result.document.nodes[id];
+                if (node) editor.importNode(node, result.document);
+              }
+            }
+          }
+          e.target.value = '';
+        }}
+      />
+
       {/* Settings dialog */}
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* Export dialog */}
+      <ExportDialog
+        isOpen={editor.showExportDialog}
+        onClose={() => editor.setShowExportDialog(false)}
+        nodes={editor.rootNodes()}
+        onExport={async () => {}}
+      />
 
       {/* Onboarding: Welcome dialog */}
       <WelcomeDialog
@@ -138,6 +182,16 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
             />
           );
         })()}
+
+      {/* Prototype presenter (fullscreen preview) */}
+      <PrototypePresenter
+        isOpen={editor.state.isPresenting}
+        onClose={editor.stopPresentation}
+        screens={editor.getPrototypeScreens()}
+        currentScreenId={editor.prototypeCurrentScreen}
+        onNavigate={editor.navigatePrototypeTo}
+        onEvent={editor.handlePrototypeEvent}
+      />
     </div>
   );
 }

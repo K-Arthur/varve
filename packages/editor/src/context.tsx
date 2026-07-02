@@ -58,6 +58,7 @@ import {
   type VariableValue,
   walkNodes,
 } from '@strata/scene';
+import { importFile } from '@strata/import';
 import {
   clampZoom,
   fitBoundsCamera,
@@ -77,11 +78,24 @@ import {
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   readClipboard as readFromClipboard,
+  readClipboardImages,
+  readClipboardText,
   writeClipboard as writeToClipboard,
 } from './clipboard';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import type { DraftShape } from './tools/types';
+import {
+  applyActionResult as protoApplyActionResult,
+  createRuntime,
+  getVariable as protoGetVar,
+  handleEvent as protoHandleEvent,
+  setVariable as protoSetVar,
+  type Interaction,
+  type PrototypeData,
+  type PrototypeRuntime,
+  PrototypeDebugConsole,
+} from '@strata/prototype';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -140,6 +154,16 @@ export interface EditorState {
   snapEnabled: boolean;
   /** Snap grid size in pixels. */
   snapGrid: number;
+  /** Prototype mode active */
+  prototypeMode: boolean;
+  /** Prototype runtime instance */
+  prototypeRuntime: PrototypeRuntime | null;
+  /** Prototype debug console */
+  prototypeDebug: PrototypeDebugConsole;
+  /** Prototype data from the document */
+  prototypeData: PrototypeData;
+  /** Whether prototype is presenting */
+  isPresenting: boolean;
 }
 
 export interface EditorContextValue {
@@ -350,6 +374,8 @@ export interface EditorContextValue {
   cutSelected: () => void;
   /** Paste nodes from system clipboard. */
   paste: () => void;
+  /** Import a node from an imported document (svg/image) into the current document. */
+  importNode: (node: SceneNode, sourceDoc: import('@strata/scene').Document) => void;
   /** The field name currently targeted for variable binding, or null. */
   bindingField: string | null;
   /** Open the BindingMenu for a specific field, or close it. */
@@ -379,6 +405,27 @@ export interface EditorContextValue {
   removePreset: (nodeId: NodeId, presetId: string) => void;
   /** Apply a boolean operation to all selected nodes; replaces selection with result. */
   booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
+
+  /** Enter/exit prototype mode */
+  setPrototypeMode: (active: boolean) => void;
+  /** Set prototype data from current document */
+  updatePrototypeData: () => void;
+  /** Handle a prototype interaction event */
+  handlePrototypeEvent: (event: unknown) => void;
+  /** Get prototype variable value */
+  getPrototypeVariable: (id: string) => string | number | boolean | undefined;
+  /** Set prototype variable value */
+  setPrototypeVariable: (id: string, value: string | number | boolean) => void;
+  /** Start presentation mode (fullscreen) */
+  startPresentation: () => void;
+  /** Stop presentation mode */
+  stopPresentation: () => void;
+  /** Get all frame nodes (screens) for prototype */
+  getPrototypeScreens: () => Array<{ id: string; name: string }>;
+  /** Current screen in prototype */
+  prototypeCurrentScreen: string;
+  /** Navigate to a prototype screen */
+  navigatePrototypeTo: (screenId: string) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -655,6 +702,11 @@ export function EditorProvider({
       pixelGridEnabled: false,
       snapEnabled: true,
       snapGrid: 8,
+      prototypeMode: false,
+      prototypeRuntime: null,
+      prototypeDebug: new PrototypeDebugConsole(),
+      prototypeData: { interactions: {} },
+      isPresenting: false,
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -681,6 +733,8 @@ export function EditorProvider({
    *  reads the stale tool from the state closure and throws "non-drawing tool"
    *  for tools that were just set. */
   const toolRef = useRef<ToolId>(state.tool);
+  const prototypeRuntimeRef = useRef<PrototypeRuntime | null>(null);
+  const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -1968,6 +2022,84 @@ export function EditorProvider({
             `Pasted ${data.nodes.length} layer${data.nodes.length > 1 ? 's' : ''}`,
           );
         });
+        // Also try to paste images/SVG from clipboard
+        readClipboardImages().then((images) => {
+          if (images.length === 0) {
+            readClipboardText().then((text) => {
+              if (text && (text.trim().startsWith('<svg') || text.trim().startsWith('<?xml'))) {
+                try {
+                  setState((s) => {
+                    undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+                    redoStackRef.current = [];
+                    let doc = s.document;
+                    const newIds: NodeId[] = [];
+                    const result = importFile('clipboard.svg', text, { center: true, embedImages: true });
+                    for (const id of result.nodeIds) {
+                      const node = result.document.nodes[id];
+                      if (node) {
+                        const { id: newId, doc: d2 } = nextNodeId(doc);
+                        doc = d2;
+                        doc = addNode(doc, { ...node, id: newId } as SceneNode);
+                        newIds.push(newId);
+                      }
+                    }
+                    return { ...s, document: doc, selection: newIds };
+                  });
+                } catch { /* ignore clipboard parse errors */ }
+              }
+            });
+          } else {
+            setState((s) => {
+              undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+              redoStackRef.current = [];
+              let doc = s.document;
+              const newIds: NodeId[] = [];
+              for (const img of images) {
+                const result = importFile(img.name, img.dataUrl, { center: true, embedImages: true });
+                for (const id of result.nodeIds) {
+                  const node = result.document.nodes[id];
+                  if (node) {
+                    const { id: newId, doc: d2 } = nextNodeId(doc);
+                    doc = d2;
+                    doc = addNode(doc, { ...node, id: newId } as SceneNode);
+                    newIds.push(newId);
+                  }
+                }
+              }
+              if (newIds.length > 0) {
+                return { ...s, document: doc, selection: newIds };
+              }
+              return s;
+            });
+          }
+        });
+      },
+
+      importNode: (node, sourceDoc) => {
+        setState((s) => {
+          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          redoStackRef.current = [];
+          let doc = s.document;
+          const { id, doc: d2 } = nextNodeId(doc);
+          doc = d2;
+          const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
+          const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
+          const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
+          const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
+          const imported = {
+            ...node,
+            id,
+            transform: [
+              node.transform[0], node.transform[1],
+              node.transform[2], node.transform[3],
+              (node.transform[4] ?? 0) + offsetX,
+              (node.transform[5] ?? 0) + offsetY,
+            ] as Affine,
+          } as SceneNode;
+          doc = addNode(doc, imported);
+          return { ...s, document: doc, selection: [id] };
+        });
+        announcerRef.current?.announce('Imported layer');
       },
 
       bindingField,
@@ -2308,6 +2440,100 @@ export function EditorProvider({
         });
       },
 
+      setPrototypeMode: (active) => {
+        patch({ prototypeMode: active });
+        if (active) {
+          const screens = Object.values(state.document.nodes).filter(
+            (n): n is import('@strata/scene').FrameNode => n.kind === 'frame',
+          );
+          const firstScreen = screens[0];
+          const interactions: Interaction[] = [];
+          const runtime = createRuntime(interactions, firstScreen?.id ?? '');
+          prototypeRuntimeRef.current = runtime;
+          patch({
+            prototypeRuntime: runtime,
+            prototypeData: { interactions: {} },
+          });
+          setPrototypeCurrentScreen(firstScreen?.id ?? '');
+        } else {
+          prototypeRuntimeRef.current = null;
+          patch({ prototypeRuntime: null });
+        }
+      },
+
+      updatePrototypeData: () => {
+        const screens = Object.values(state.document.nodes).filter(
+          (n): n is import('@strata/scene').FrameNode => n.kind === 'frame',
+        );
+        const firstScreen = screens[0];
+        const interactions: Interaction[] = [];
+        const runtime = createRuntime(interactions, firstScreen?.id ?? '');
+        prototypeRuntimeRef.current = runtime;
+        patch({
+          prototypeRuntime: runtime,
+          prototypeData: { interactions: {} },
+        });
+        setPrototypeCurrentScreen(firstScreen?.id ?? '');
+      },
+
+      handlePrototypeEvent: (event) => {
+        const runtime = prototypeRuntimeRef.current;
+        if (!runtime) return;
+        const results = protoHandleEvent(runtime, event as Parameters<typeof protoHandleEvent>[1]);
+        for (const result of results) {
+          for (const actionResult of result.actionResults) {
+            protoApplyActionResult(runtime, actionResult);
+          }
+        }
+        setPrototypeCurrentScreen(runtime.state.currentScreenId);
+      },
+
+      getPrototypeVariable: (id) => {
+        const runtime = prototypeRuntimeRef.current;
+        if (!runtime) return undefined;
+        return protoGetVar(runtime, id);
+      },
+
+      setPrototypeVariable: (id, value) => {
+        const runtime = prototypeRuntimeRef.current;
+        if (!runtime) return;
+        protoSetVar(runtime, id, value);
+      },
+
+      startPresentation: () => {
+        const screens = Object.values(state.document.nodes).filter(
+          (n): n is import('@strata/scene').FrameNode => n.kind === 'frame',
+        );
+        const firstScreen = screens[0];
+        const interactions: Interaction[] = [];
+        const runtime = createRuntime(interactions, firstScreen?.id ?? '');
+        prototypeRuntimeRef.current = runtime;
+        patch({
+          isPresenting: true,
+          prototypeRuntime: runtime,
+        });
+        setPrototypeCurrentScreen(firstScreen?.id ?? '');
+      },
+
+      stopPresentation: () => {
+        patch({ isPresenting: false });
+      },
+
+      getPrototypeScreens: () => {
+        return Object.values(state.document.nodes)
+          .filter((n): n is import('@strata/scene').FrameNode => n.kind === 'frame')
+          .map((n) => ({ id: n.id, name: n.name }));
+      },
+
+      prototypeCurrentScreen,
+      navigatePrototypeTo: (screenId) => {
+        const runtime = prototypeRuntimeRef.current;
+        if (runtime) {
+          runtime.state.currentScreenId = screenId;
+        }
+        setPrototypeCurrentScreen(screenId);
+      },
+
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
@@ -2362,6 +2588,7 @@ export function EditorProvider({
       focusedField,
       setFocusedField,
       showExportDialog,
+      prototypeCurrentScreen,
     ],
   );
 

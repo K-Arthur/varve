@@ -38,12 +38,27 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         action: 'exportSvg',
       },
       {
+        label: 'Import\u2026',
+        shortcut: '\u2318I',
+        action: 'import',
+      },
+      {
         label: 'Export\u2026',
         shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
         action: 'export',
       },
       { label: '---' },
-      { label: 'Settings\u2026', action: 'settings' },
+      {
+        label: 'Present\u2026',
+        shortcut: '\u21E7\u2318P',
+        action: 'present',
+      },
+      { label: '---' },
+      {
+        label: 'Settings\u2026',
+        shortcut: formatShortcut(SHORTCUT_DEFS.settings.binding),
+        action: 'settings',
+      },
     ],
   },
   {
@@ -186,6 +201,7 @@ export function Menubar({
     arrangeSelected,
     setSnapEnabled,
     booleanOp,
+    startPresentation,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -272,6 +288,9 @@ export function Menubar({
         case 'open':
           document.querySelector<HTMLInputElement>('#file-open-input')?.click();
           break;
+        case 'import':
+          document.querySelector<HTMLInputElement>('#file-import-input')?.click();
+          break;
         case 'undo':
           undo();
           break;
@@ -345,6 +364,9 @@ export function Menubar({
           break;
         case 'booleanExclude':
           booleanOp('exclude');
+          break;
+        case 'present':
+          startPresentation();
           break;
         default:
           if (action.startsWith('theme:')) {
