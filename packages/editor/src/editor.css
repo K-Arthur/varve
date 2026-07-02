@@ -747,6 +747,13 @@
   text-decoration: underline;
 }
 
+/* ── Canvas drag-over ──────────────────────────────── */
+.editor-canvas--drag-over {
+  outline: 3px dashed var(--color-accent-primary);
+  outline-offset: -3px;
+  background-color: color-mix(in oklch, var(--color-accent-primary) 5%, transparent);
+}
+
 /* ════════════════════════════════════════════════════════════
    Onboarding — Welcome Dialog
    ════════════════════════════════════════════════════════════ */
