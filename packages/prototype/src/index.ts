@@ -52,3 +52,63 @@ export {
   setVariable,
 } from './runtime';
 export type { PrototypeRuntime } from './runtime';
+
+// Navigation / Flow
+export {
+  addConnection,
+  createFlowData,
+  findEntryPoint,
+  findOrphanNodes,
+  findPath,
+  getAllReachable,
+  getIncomingConnections,
+  getOutgoingConnections,
+  removeConnection,
+  resolveEntryPoint,
+} from './navigation';
+
+// Variables
+export {
+  createVariable,
+  evaluatePrototypeExpression,
+  getVariableValue,
+  resolvePrototypeVariable,
+  setVariableValue,
+} from './variables';
+export type { PrototypeVariableDef, PrototypeVariableStore } from './variables';
+
+// Responsive
+export {
+  createBreakpointConfig,
+  findActiveBreakpoint,
+  getDeviceForViewport,
+  sortBreakpoints,
+} from './responsive';
+
+// Scrolling
+export {
+  createScrollContainer,
+  getScrollPosition,
+  getVisibleBounds,
+  isElementVisible,
+  setScrollPosition,
+} from './scrolling';
+export type { ScrollContainer, ScrollState } from './scrolling';
+
+// Validation
+export { validatePrototype } from './validation';
+export type { ValidationIssue } from './validation';
+
+// Debug
+export { PrototypeDebugConsole } from './debug';
+export type { LogEntry, LogLevel } from './debug';
+
+// Accessibility
+export {
+  adjustTransitionForAccessibility,
+  announceToScreenReader,
+  generateAriaLabel,
+  getFocusableElements,
+  MIN_ANIMATION_DURATION,
+  prefersReducedMotion,
+} from './accessibility';
