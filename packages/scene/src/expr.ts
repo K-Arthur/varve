@@ -4,21 +4,24 @@
  * Grammar:
  *   expr     -> term (('+' | '-') term)*
  *   term     -> factor (('*' | '/') factor)*
- *   factor   -> NUMBER | ALIAS | '(' expr ')'
+ *   factor   -> NUMBER | ALIAS | FUNC '(' args ')' | '(' expr ')'
+ *   args     -> expr (',' expr)*
  *
+ * Functions: min(…), max(…), round(…), ceil(…), floor(…)
  * Aliases: `{name}` — resolved via a lookup map.
- * No `eval()`, no `Function()`, no loops, no assignment.
+ * No `eval()`, no `Function()`, no assignment.
  *
- * Research basis: Pratt parsing (Vaughan Pratt, "Top Down Operator Precedence",
- * 1973) — the standard approach for safe expression evaluation without
- * code generation.
+ * Research basis: Pratt parsing (Vaughan Pratt, 1973) — the standard approach
+ * for safe expression evaluation without code generation.
  */
 
 export type Token =
   | { kind: 'number'; value: number }
   | { kind: 'alias'; name: string }
   | { kind: 'op'; op: string }
-  | { kind: 'paren'; value: string };
+  | { kind: 'paren'; value: string }
+  | { kind: 'func'; name: string }
+  | { kind: 'comma' };
 
 type BinOp = (a: number, b: number) => number;
 
@@ -37,6 +40,14 @@ const BINARY_OPS: Record<string, BinOp> = {
     if (b === 0) throw new Error('Division by zero');
     return a / b;
   },
+};
+
+const FUNCTIONS: Record<string, (...args: number[]) => number> = {
+  min: (...args) => Math.min(...args),
+  max: (...args) => Math.max(...args),
+  round: (x) => Math.round(x),
+  ceil: (x) => Math.ceil(x),
+  floor: (x) => Math.floor(x),
 };
 
 export function tokenize(input: string): Token[] {
@@ -68,6 +79,11 @@ export function tokenize(input: string): Token[] {
       i = j;
       continue;
     }
+    if (ch === ',') {
+      tokens.push({ kind: 'comma' });
+      i++;
+      continue;
+    }
     if ('+-*/'.includes(ch)) {
       tokens.push({ kind: 'op', op: ch });
       i++;
@@ -77,6 +93,27 @@ export function tokenize(input: string): Token[] {
       tokens.push({ kind: 'paren', value: ch });
       i++;
       continue;
+    }
+    // Function names are alpha sequences followed by '('
+    if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch === '_') {
+      let j = i;
+      while (j < input.length) {
+        const cj = input[j];
+        if (cj === undefined) break;
+        if (!((cj >= 'a' && cj <= 'z') || (cj >= 'A' && cj <= 'Z') || (cj >= '0' && cj <= '9') || cj === '_')) break;
+        j++;
+      }
+      const name = input.slice(i, j);
+      // Check if followed by '(' - it's a function call
+      // Skip whitespace to check
+      let k = j;
+      while (k < input.length && (input[k] === ' ' || input[k] === '\t' || input[k] === '\n')) k++;
+      if (k < input.length && input[k] === '(') {
+        tokens.push({ kind: 'func', name });
+        i = j;
+        continue;
+      }
+      throw new Error(`Unexpected identifier: '${name}'`);
     }
     throw new Error(`Unexpected character: '${ch}'`);
   }
@@ -121,13 +158,49 @@ export function evaluate(input: string, aliases: Record<string, number>): number
     return left;
   }
 
+  function parseArgs(): number[] {
+    const args: number[] = [];
+    // Check if no args (closing paren immediately)
+    if (peek()?.kind === 'paren' && peek()?.value === ')') {
+      return args;
+    }
+    args.push(parseExpr(0));
+    while (peek()?.kind === 'comma') {
+      consume(); // eat comma
+      args.push(parseExpr(0));
+    }
+    return args;
+  }
+
   function parseFactor(): number {
+    // Unary minus
+    if (peek()?.kind === 'op' && peek()?.op === '-') {
+      consume(); // eat '-'
+      const val = parseFactor();
+      return -val;
+    }
     const t = consume();
     if (t.kind === 'number') return t.value;
     if (t.kind === 'alias') {
       const val = aliases[t.name];
       if (val === undefined) throw new Error(`Unknown alias: ${t.name}`);
       return val;
+    }
+    if (t.kind === 'func') {
+      const open = peek();
+      if (open?.kind !== 'paren' || open.value !== '(') {
+        throw new Error(`Expected '(' after function '${t.name}'`);
+      }
+      consume();
+      const args = parseArgs();
+      const close = peek();
+      if (close?.kind !== 'paren' || close.value !== ')') {
+        throw new Error('Mismatched parentheses in function call');
+      }
+      consume();
+      const fn = FUNCTIONS[t.name];
+      if (!fn) throw new Error(`Unknown function: ${t.name}`);
+      return fn(...args);
     }
     if (t.kind === 'paren' && t.value === '(') {
       const val = parseExpr(0);

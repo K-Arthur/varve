@@ -16,13 +16,19 @@ import type { Affine, Color, Shape } from '@strata/engine';
 import { generateKeyBetween } from '@strata/shared';
 import type { ExportSettings } from './export-types';
 import type {
+  ColorStyle,
   ComponentDefinition,
   ContainerNode,
+  EffectStyle,
   FrameNode,
   GroupNode,
+  ImageNode,
+  LayoutStyleDef,
   NodeId,
   SceneNode,
   ShapeNode,
+  Style,
+  TextStyle,
   TextNode,
 } from './types';
 
@@ -44,6 +50,12 @@ export interface Document {
   canvasBackground?: Color;
   /** Per-document export defaults (optional — falls back to ExportSettings globals). */
   exportDefaults?: Partial<ExportSettings>;
+  /** Reusable styles keyed by style id (color, text, effect, layout). */
+  styles?: Record<string, Style>;
+  /** Persisted variable store with collections and modes. */
+  variableStore?: import('./variables').VariableStore;
+  /** References to installed libraries. */
+  installedLibraries?: import('./library').InstalledLibraryRef[];
 }
 
 export interface NodeEntry {
@@ -252,6 +264,53 @@ export function makeFrameNode(
     componentId: opts.componentId,
     slots: opts.slots,
     clipContent: opts.clipContent,
+    strokes: opts.strokes ?? [],
+    effects: opts.effects ?? [],
+  };
+}
+
+export function makeImageNode(
+  id: NodeId,
+  opts: Partial<
+    Pick<
+      ImageNode,
+      | 'name'
+      | 'transform'
+      | 'fill'
+      | 'visible'
+      | 'locked'
+      | 'opacity'
+      | 'blendMode'
+      | 'rotation'
+      | 'strokes'
+      | 'effects'
+      | 'order'
+      | 'src'
+      | 'w'
+      | 'h'
+      | 'imageFit'
+    >
+  > & {
+    index?: number;
+  } = {},
+): ImageNode {
+  return {
+    id,
+    kind: 'image',
+    name: opts.name ?? 'Image',
+    index: opts.index ?? 0,
+    order: opts.order ?? 'a0',
+    visible: opts.visible ?? true,
+    locked: opts.locked ?? false,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    rotation: opts.rotation ?? 0,
+    transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
+    fill: opts.fill ?? ([0, 0, 0, 0] as Color),
+    src: opts.src ?? '',
+    w: opts.w ?? 100,
+    h: opts.h ?? 100,
+    imageFit: opts.imageFit ?? 'fill',
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
   };

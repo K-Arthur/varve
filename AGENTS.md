@@ -788,3 +788,67 @@ Complete audit + refactor of the vector tools pipeline across 6 parallel workstr
 - Rust desktop tests (Tauri): 8 pass
 - Typecheck: clean across all 13 packages
 - Lint: 0 new errors | Emoji: clean | Tokens: 90/90 WCAG-AA |
+
+## Session 26 — Design Systems Overhaul (2026-07-02)
+
+Full spec-first, schema-first implementation of the complete Design Systems ecosystem.
+All phases implemented TDD-first with test counts verified at every gate.
+
+### Phase 1 — Style System (Color/Text/Effect/Layout)
+
+| Area | What was built |
+|------|---------------|
+| **Style types** | `ColorStyle`, `TextStyle`, `EffectStyle`, `LayoutStyleDef` in `packages/scene/src/types.ts` |
+| **Style operations** | `createColorStyle`, `createTextStyle`, `createEffectStyle`, `createLayoutStyle`, `updateStyle`, `deleteStyle`, `applyStyleToNode`, `unlinkStyleFromNode`, `resolveStyle`, `getStylesByType`, `getUsedStyleIds`, `getNodesUsingStyle`, `resolveStyleWithOverrides`, `duplicateStyle` in `packages/scene/src/styles.ts` |
+| **Document integration** | `styles?: Record<NodeId, Style>` on Document; `styleId`, `styleOverrides` on NodeBase |
+| **Tests** | 29 tests (CRUD, apply/unlink, resolve, overrides, usage tracking, edge cases) |
+
+### Phase 2 — Variable System (Collections, Groups, Operators, Persist, DTCG)
+
+| Area | What was built |
+|------|---------------|
+| **Collection model** | `VariableCollection` with independent modes, `VariableGroup` for nested folder organization |
+| **Collection ops** | `createCollection`, `addVariableToCollection`, `setActiveCollection`, `getCollectionVariables`, `resolveVariableInCollection`, `addModeToCollection`, `setCollectionMode` |
+| **Group ops** | `createGroup` with path-based nesting (e.g., "Semantic/Text") |
+| **Expression operators** | `min()`, `max()`, `round()`, `ceil()`, `floor()` functions + unary minus in Pratt parser |
+| **Document persistence** | `variableStore?: VariableStore` added to Document interface |
+| **DTCG export** | `packages/ui/src/tokens/dtcg.ts` — W3C DTCG-compliant JSON export with CTI hierarchy, Figma Tokens Studio v2 format |
+| **Tests** | 36 expression tests + 9 collection tests + 13 DTCG tests |
+
+### Phase 3 — Component Properties & Variant System
+
+| Area | What was built |
+|------|---------------|
+| **Property types** | `ComponentProperty` (text/boolean/instanceSwap), `Variant`, `PropertySet` in `types.ts` |
+| **Component properties** | `addComponentProperty`, `getComponentProperties`, `createPropertySet` with default values |
+| **Variant operations** | `createVariant`, `getVariant`, `setVariantForInstance`, `resolveVariantProperties` (falls back to defaults) |
+| **Instance integration** | `variant`, `propertyOverrides` fields on FrameNode |
+| **Tests** | 10 tests (properties, variants, variant resolution, property sets, variant switching) |
+
+### Phase 4 — Library & Publishing System
+
+| Area | What was built |
+|------|---------------|
+| **Library model** | `Library` type with components + styles + versioning |
+| **Library ops** | `createLibrary`, `publishComponentToLibrary`, `publishStyleToLibrary`, `installLibrary`, `hasLibraryUpdates`, `listLibraryComponents`, `listLibraryStyles` |
+| **Transport format** | `LibraryPackage` with formatVersion, source provenance, serializable to JSON |
+| **Document tracking** | `installedLibraries?: InstalledLibraryRef[]` on Document |
+| **Tests** | 7 tests (create, publish, install, versioning, list) |
+
+### Phase 5 — Design Governance System
+
+| Area | What was built |
+|------|---------------|
+| **Naming validation** | `validateNamingConventions` — enforces PascalCase for components, kebab-case with semantic prefixes for styles |
+| **Orphan detection** | `findOrphanedStyles`, `findUnusedComponents` — discover unused assets |
+| **Component validation** | `validateComponentProperties` — checks variant properties exist, unique property names |
+| **Usage reporting** | `generateStyleUsageReport` — comprehensive report with breakdowns by type, adoption rate |
+| **Tests** | 11 tests (naming, orphans, components, reports) |
+
+### Verification
+- Scene tests: **217 passed** (was 199, +18 new tests across 5 modules)
+- UI tests: 160 passed (13 new DTCG export tests)
+- All packages typecheck: clean (no new errors)
+- Token audit: 90/90 WCAG-AA pairs across 3 themes
+- `pnpm test`: 1271/1273 pass (2 pre-existing prototype mode failures)
+- All systems implement TDD-first, immutable update patterns, defensive edge case handling |
