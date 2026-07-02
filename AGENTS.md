@@ -42,7 +42,7 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 674 tests across 73 files: codegen 8, editor 169, scene 86+, engine 55, platform 43, home 13, print 4, ui 147, shared 85, E2E 21
+- **JS:** 1273 tests across 120 files: codegen 8, editor 291, scene 86+, engine 55, platform 43, home 13, print 4, prototype 191, ui 147, shared 144, E2E 21
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 90/90 WCAG-AA across 3 themes
 
@@ -129,9 +129,10 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 | `@strata/engine` | **Built** | `createEngine(backend)` facade (stub/native/wasm), TypeScript IR types matching Rust, `replayIr(canvas, ir)` — the 86fps canvas2D replay, geometry helpers (affine inverse/apply, point containment, hitTest), `ReplayTarget` interface. 19 tests. |
 | `@strata/scene` | **Built** | Immutable `Document` with add/insert/remove/move/rename/reparent ops, `ShapeNode`/`TextNode`/`FrameNode`/`GroupNode` types, `groupNodes`/`ungroupNode`/`detachInstance` ops, `isContainer`/`getChildren` helpers, `ComponentDefinition` with typed `Slot[]`, `VariableStore` with modes+resolve, `slotsSatisfied()` guard. 70 tests. |
 | `@strata/ui` | **Built** | Tokens: color ramps, 3 themes, WCAG-AA audit, `tokens.css` generated from TS. Icons: typed Lucide `<Icon name label>` with a11y contract, `TOOL_ICONS` + `CHROME_ICONS` maps. Components: APG `Button` (5 variants), `IconButton`, `Toolbar` (roving tabindex), `NumberInput` (drag-to-scrub, arrow inc/dec), `components.css` (token-styled). 20 tests. |
-| `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props, shared `aria-live` announcer, `reparentNode`/`groupSelected`/`ungroupSelected`/`detachSelected` actions), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (virtualized APG Tree View — `role="tree"`, roving tabindex, full keyboard map ↑↓→←Home/End/Enter/F2, type-ahead, multi-select Shift/Ctrl/Ctrl+A, expand/collapse, inline rename, search/filter, visibility/lock toggles, context menu, per-type auto-naming, `@tanstack/react-virtual`), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing, layout/export/spec tabs), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel` with Select/Frame/Rect/Ellipse/Line/Pen/Text/Hand/Zoom tools, `TabStrip`, `VariablePanel`, `StatusBar`. 46 tests. |
+| `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props, shared `aria-live` announcer, `reparentNode`/`groupSelected`/`ungroupSelected`/`detachSelected` actions, prototype mode with `PrototypeRuntime` + presentation), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (virtualized APG Tree View), `components/Prototype/` (PrototypePresenter, PrototypePlayer, DeviceFrame), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing, layout/export/spec tabs), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel` with Select/Frame/Rect/Ellipse/Line/Pen/Text/Hand/Zoom tools, `TabStrip`, `VariablePanel`, `StatusBar`. 291 tests. |
 | `@strata/codegen` | **Built** | `exportDocumentToSvg(doc)` — standalone SVG from Document. `exportDocumentToSvgAdvanced(doc, opts, boundsOverride?)` — SVG with full options. `exportDocumentToReact(doc)` — React/Tailwind JSX. Sub-path export. `buildSpec`/`specToMarkdown`. |
-| `@strata/shared` | **Built** | `ordering` facade — real base-62 fractional-indexing via `fractional-indexing` package (CRDT-safe). `debounce`/`throttle`, `units` conversion. `PACKAGE` marker. |
+| `@strata/prototype` | **Built** | Prototype engine: interactions (14 trigger types, 13 action types), animation (keyframes, timelines, interpolation), transitions (dissolve/slide/push/moveIn/moveOut/instant), runtime (event→trigger→action→state pipeline), navigation (BFS path finding), variables (typed store with expression evaluator), responsive (breakpoints), scrolling (containers, visibility), validation (broken targets, orphans), debug console, accessibility (reduced-motion, ARIA, WCAG duration). 191 tests. |
+| `@strata/shared` | **Built** | `ordering` facade — real base-62 fractional-indexing via `fractional-indexing` package (CRDT-safe). `debounce`/`throttle`, `units` conversion. `easing` (cubic-bezier, spring physics, CSS steps). `PACKAGE` marker. |
 
 ### apps/
 | App | Status | Contents |
@@ -317,6 +318,28 @@ render, layer-click not revealing. 4 phases committed onto `feat/home-start-page
 - Lint: clean on all modified files
 - The three reported symptoms (wrong placement, wrong colours, no reveal) are addressed
 
+## Session 27 — Complete prototyping system (2026-07-02)
+
+Full prototyping ecosystem built from scratch across 12 phases, TDD-first with 1273 tests passing final gate.
+
+| Phase | What was built |
+|---|---|
+| **1 Foundation** | Prototype types, trigger system (14 kinds), action system (13 kinds), interaction model, conditional branching (comparison + logical operators). 55 TDD tests. |
+| **2 Animation** | Keyframe timelines, multi-type interpolation (numbers/arrays/objects), multi-keyframe sampling, transition engine (dissolve/slide/push/moveIn/moveOut/instant). Easing math in `@strata/shared`: linear, ease, cubic-bezier, spring physics (mass-spring-damper), CSS steps(). 27 tests. |
+| **3 Runtime** | Event→trigger→action→state pipeline with `createRuntime`/`handleEvent`/`applyActionResult`. Full state management (variables, overlays, visibility, animations). 22 tests. |
+| **4 Navigation** | Flow graph (nodes + connections), BFS shortest-path finding, orphan detection, entry point resolution with fallbacks. 38 tests. |
+| **5 Variables** | Typed variable store (string/number/boolean/color), arithmetic/string/comparison expression evaluator, prototype expression resolver. 17 tests. |
+| **6 Responsive** | Breakpoint management, device resolution by viewport, breakpoint sorting. 9 tests. |
+| **7 Scrolling** | Scroll containers, clamped position, element visibility testing, visible bounds calculation. 8 tests. |
+| **8 Validation** | Prototype integrity checks: broken targets, orphan nodes, missing home screen, disabled interactions. 6 tests. |
+| **9 Debug** | PrototypeDebugConsole: categorized log entries (trigger/action/navigation/state/validation/system), JSON export, max-entry limit. 9 tests. |
+| **10 Accessibility** | `prefersReducedMotion()`, WCAG minimum duration clamping, ARIA live region announcer, focusable element discovery, ARIA label generation. |
+| **11 Presentation UI** | `PrototypePresenter` (fullscreen with Fullscreen API, keyboard nav, device frame, empty state), `PrototypePlayer` (inline player with hints, reduced motion, device frame), `DeviceFrame` (phone/tablet/desktop/custom frames with notch/stand/home indicator). 29 React tests. |
+| **12 Editor Integration** | EditorState extended with prototype mode, 9 new context methods, Shell has PrototypePresenter in fullscreen, Menubar has Present entry, prototype.css with dark theme support. 5 integration tests. |
+| **Sub-agent work** | navigation.ts (38 tests), Prototype UI components (34 tests), editor integration (5 tests) built via subagents. |
+
+**Next:** Interaction editor UI panels (Phase 8), prototype debugging UI (Phase 9), flow view, E2E tests.
+
 ## Key files to read before starting
 
 | File | Why |
@@ -335,6 +358,18 @@ render, layer-click not revealing. 4 phases committed onto `feat/home-start-page
 | `packages/editor/src/InspectorPanel.tsx` | Editable position/size/fill |
 | `packages/editor/src/Menubar.tsx` | File/Edit/View dropdowns with Save/Load/Export |
 | `packages/editor/src/shortcuts/` | ShortcutManager, useShortcuts, ShortcutPalette |
+| `packages/prototype/src/types.ts` | Full prototype type definitions (14 triggers, 13 actions, conditions, transitions) |
+| `packages/prototype/src/runtime.ts` | Prototype runtime: event→trigger→action→state pipeline |
+| `packages/prototype/src/animation.ts` | Animation engine: keyframes, timelines, interpolation |
+| `packages/prototype/src/transitions.ts` | Screen transition animations (dissolve/slide/push/moveIn/moveOut) |
+| `packages/prototype/src/navigation.ts` | Flow graph, BFS path finding, entry point resolution |
+| `packages/prototype/src/validation.ts` | Prototype integrity validation (broken targets, orphans) |
+| `packages/prototype/src/debug.ts` | PrototypeDebugConsole with categorized logging |
+| `packages/prototype/src/accessibility.ts` | Reduced-motion, WCAG duration clamping, ARIA live regions |
+| `packages/shared/src/easing.ts` | Easing math (cubic-bezier, spring physics, CSS steps) |
+| `packages/editor/src/components/Prototype/PrototypePresenter.tsx` | Fullscreen presentation mode |
+| `packages/editor/src/components/Prototype/PrototypePlayer.tsx` | Inline prototype player |
+| `packages/editor/src/components/Prototype/DeviceFrame.tsx` | Device frame (phone/tablet/desktop/custom) |
 | `packages/editor/src/scene/world.ts` | World-space transform composition (`nodeWorldTransform`, `nodeWorldBounds`, `nodeLocalBounds`) |
 | `packages/shared/src/affine.ts` | Single source of truth for affine math (`multiplyAffine`, `invertAffine`, `transformRect`, `decomposeAffine`) |
 | `packages/shared/src/viewport.ts` | Camera math (`screenToWorld`/`worldToScreen`, `fitBoundsCamera`, `revealBoundsCamera`, `zoomAboutPoint`) |
