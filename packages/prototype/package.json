@@ -1,0 +1,23 @@
+{
+  "name": "@strata/prototype",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strata prototype engine: interactions, animations, state, presentation.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/prototype"
+  },
+  "dependencies": {
+    "@strata/engine": "workspace:*",
+    "@strata/scene": "workspace:*",
+    "@strata/shared": "workspace:*"
+  }
+}
