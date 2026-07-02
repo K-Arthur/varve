@@ -8,6 +8,7 @@
  * Research basis: MDN Pointer Events, MDN Canvas DPR scaling,
  *                 ToolManager pattern from Figma/Penpot architecture.
  */
+
 import {
   createEngine,
   type Engine,
@@ -15,6 +16,7 @@ import {
   type ReplayTarget,
   replayIr,
 } from '@strata/engine';
+import { importFile } from '@strata/import';
 import type { SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
 import { clampZoom, fitBoundsCamera, screenToWorld, zoomAboutPoint } from '@strata/shared';
@@ -22,8 +24,8 @@ import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
-import { TextEditOverlay } from './components/TextEditOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
+import { TextEditOverlay } from './components/TextEditOverlay';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
@@ -771,8 +773,63 @@ export function CanvasArea() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (
+      e.dataTransfer.types.some(
+        (t) => t === 'Files' || t.startsWith('image/') || t === 'text/svg+xml',
+      )
+    ) {
+      e.dataTransfer.dropEffect = 'copy';
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    const svgFiles = files.filter((f) => f.name.endsWith('.svg') || f.type === 'image/svg+xml');
+    const imgFiles = files.filter((f) => f.type.startsWith('image/') && f.type !== 'image/svg+xml');
+    const reader = editorRef.current;
+    for (const svg of svgFiles) {
+      const text = await svg.text();
+      const result = importFile(svg.name, text, { center: true, embedImages: true });
+      for (const id of result.nodeIds) {
+        const node = result.document.nodes[id];
+        if (node) reader.importNode(node, result.document);
+      }
+      reader.announceOperation('Import', `Imported ${svg.name}`);
+    }
+    for (const img of imgFiles) {
+      const buf = await img.arrayBuffer();
+      const result = importFile(img.name, new Uint8Array(buf), { center: true, embedImages: true });
+      for (const id of result.nodeIds) {
+        const node = result.document.nodes[id];
+        if (node) reader.importNode(node, result.document);
+      }
+      reader.announceOperation('Import', `Imported ${img.name}`);
+    }
+  }, []);
+
   return (
-    <section className="editor-canvas" aria-label="Canvas">
+    <section
+      className={`editor-canvas${isDragOver ? ' editor-canvas--drag-over' : ''}`}
+      aria-label="Canvas"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <canvas
         ref={canvasRef}
         tabIndex={0}

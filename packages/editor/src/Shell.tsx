@@ -6,6 +6,7 @@ import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
+import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { EditorProvider, useEditor } from './context';
@@ -14,7 +15,6 @@ import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
-import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import './components/Prototype/prototype.css';
 
 export interface ShellProps {
@@ -133,7 +133,10 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
             } else if (ext && ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
               const buf = await file.arrayBuffer();
               const { importFile } = await import('@strata/import');
-              const result = importFile(file.name, new Uint8Array(buf), { center: true, embedImages: true });
+              const result = importFile(file.name, new Uint8Array(buf), {
+                center: true,
+                embedImages: true,
+              });
               for (const id of result.nodeIds) {
                 const node = result.document.nodes[id];
                 if (node) editor.importNode(node, result.document);

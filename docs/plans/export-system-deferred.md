@@ -1262,3 +1262,36 @@ Workstream C ─── C1 ──→ C2 ───→ C3 ──→ C4
 2. After both: A2 + B2 in parallel, C1 starts
 3. A3 after A2; B3 after B2
 4. C2 after C1; C3 + C4 after C2
+
+---
+
+## Completion Status (Session 26 — 2026-07-02)
+
+All 3 workstreams are now **complete**:
+
+| Workstream | Status | Details |
+|---|---|---|
+| **A. Rust print engine** | ✅ Complete | A1 (font outlining via ab_glyph), A2 (ICC profiles + CMYK conversion), A3 (marks geometry + real PDF/X-1a/X-4) all implemented and tested. 53 strata-print tests pass. |
+| **B. TS codegen** | ✅ Complete | B1-B2 (multi-emitter: SVG, CSS, Tailwind, CSS-Modules, Flutter, SwiftUI) existed; B3 (diff-on-re-export with `computeDocExportHash`/`compareExportHashes`) added. 52 codegen tests pass. |
+| **C. Editor UI** | ✅ Complete | C1 (Tauri IPC commands wired in lib.rs), C2 (ExportDialog with BatchJobList, ExportProgressBar, DestinationPicker), C3 (EditorSettings store with localStorage), C4 (SettingsDialog with ExportSettingsTab). All tested and wired. |
+
+### New: Import System
+
+The biggest gap — the import system — was also addressed:
+
+| Package | What was built |
+|---|---|
+| `@strata/import` (new) | SVG parser (recursive descent, 8 primitive types + groups + text + paths + transforms), Image importer, Format registry, Bitmap dimension detection (PNG/JPEG/WebP), 20 tests |
+| `@strata/scene` | `ImageNode` type added (kind: 'image') with src/w/h/imageFit |
+| `@strata/engine` | `ImageCache` singleton for async image loading, caching, preloading |
+| `@strata/editor` | Canvas drag-drop (images/SVG), clipboard paste (images/SVG from system clipboard), Import menu item, `importNode` context action |
+
+### Gate Results
+| Metric | Result |
+|---|---|
+| JS tests | 1273 passed (120 files) |
+| Rust tests | 116 passed (82 workspace + 34 src-tauri) |
+| Typecheck | Clean on all modified packages |
+| Token audit | 90/90 WCAG-AA |
+| Emoji audit | Clean (pre-existing violations only) |
+| Import tests | 20/20 passed |

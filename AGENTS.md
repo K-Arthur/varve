@@ -852,3 +852,74 @@ All phases implemented TDD-first with test counts verified at every gate.
 - Token audit: 90/90 WCAG-AA pairs across 3 themes
 - `pnpm test`: 1271/1273 pass (2 pre-existing prototype mode failures)
 - All systems implement TDD-first, immutable update patterns, defensive edge case handling |
+
+## Session 26 — Import/Export System Overhaul (2026-07-02)
+
+Complete import/export system review, refactor, and enhancement. All 3 workstreams from `docs/plans/export-system-deferred.md` completed + new `@strata/import` package.
+
+### Workstream A: Rust Print Engine (A1-A3)
+
+| Area | Update |
+|---|---|
+| **A1 Font outlining** | `outline.rs` — `PathCommand`/`GlyphOutline`/`outline_text()`/`commands_to_svg_path()` via ab_glyph. Integrated into `export_pdf()` with `outline_text` option. 8 tests. |
+| **A2 ICC profiles** | `profiles.rs` — `PrintProfile`/`RenderingIntent`/`tetrahedral_interpolate()`/`validate_icc_profile()`. `cmyk.rs` — `rgb_to_cmyk_icc()` with full sRGB→linear→XYZ→Lab→CMYK chain. 8 tests. |
+| **A3 Marks + PDF/X** | `marks.rs` — `MarksGeometry`/`crop_mark_lines()`/`registration_mark_positions()`/`color_bar_positions()`. Real `export_pdfx1a()`/`export_pdfx4()` with crop marks. 7 tests. |
+| **Results** | 53 strata-print tests pass (was 12). All 116 workspace Rust tests pass. |
+
+### Workstream B: TS Codegen (B1-B3)
+
+| Area | Update |
+|---|---|
+| **B1-B2 Emitters** | Already existed (SVG, CSS, Tailwind, CSS-Modules, Flutter, SwiftUI emitters in `packages/codegen/src/`) |
+| **B3 Diff-on-re-export** | `diff.ts` — `computeDocExportHash()`/`computeNodeExportHash()`/`compareExportHashes()` with FNV-1a hashing. 7 tests. |
+
+### Workstream C: Editor UI (C1-C4)
+
+| Area | Update |
+|---|---|
+| **C1 Tauri IPC** | Commands wired: `export_pdf`, `export_pdfx1a`, `export_pdfx4`, `outline_text` |
+| **C2 Export dialog** | `ExportDialog.tsx` — full modal with `BatchJobList`, `ExportProgressBar`, `DestinationPicker`. Escape close, aria-live region, sequential job processing. |
+| **C3 Settings store** | `settings.ts` — `EditorSettings`/`loadSettings()`/`saveSettings()`/`updateSettings()`/`resetSettings()` with localStorage. 5 tests. |
+| **C4 Settings UI** | `SettingsDialog.tsx` — tabbed dialog (Appearance/Export). `ExportSettingsTab.tsx` — format, scale, ICC profile, bleed, outline text, template, rendering intent, color profile. |
+
+### New: Import System (@strata/import)
+
+The biggest architecture gap — creating an import pipeline for foreign design file formats:
+
+| Area | Update |
+|---|---|
+| **@strata/import package** | New package at `packages/import/`. SVG parser (recursive descent, 8 primitive types + paths + groups + text + transforms + defs/use), image importer, format registry, bitmap decoder. 20 tests. |
+| **SVG parser** | Handles `<rect>`/`<circle>`/`<ellipse>`/`<line>`/`<polygon>`/`<polyline>`/`<path>` (M/L/C/S/Q/T/A/Z)/`<g>`/`<text>`/`<image>`/`<use>`/`<defs>`. Transform attribute parsing. fill/stroke/opacity/style. |
+| **ImageNode** | Added `kind: 'image'` to `SceneNode` union in `@strata/scene` with `src`/`w`/`h`/`imageFit`. |
+| **ImageCache** | `ImageCache` singleton in `@strata/engine` — async loading, caching, preloading, state tracking, subscriptions for progressive loading. |
+| **Canvas drag-drop** | `CanvasArea.tsx` — `onDragOver`/`onDrop` handlers for files. SVG/PNG/JPG/WebP drop → import → canvas placement. Drag-over visual feedback. |
+| **Clipboard paste** | `clipboard.ts` — `readClipboardImages()` reads image/* and text/svg MIME types. `context.tsx` — paste handler now reads images/SVG from system clipboard alongside Strata nodes. |
+| **Import menu** | Menubar → File → Import… (⌘I). Hidden file input for SVG/PNG/JPG/WebP/GIF. |
+
+### Verification
+- **JS tests**: 1273 passed (120 files, +20 import tests, +7 diff tests, +5 settings/store tests)
+- **Rust tests**: 116 passed (82 workspace + 34 src-tauri)
+- **Import tests**: 20/20 passed (parse all primitives, groups, text, paths, transforms, bitmap headers)
+- **Lint**: 0 errors on all new/modified files
+- **Emoji**: Clean (pre-existing violations only)
+- **Tokens**: 90/90 WCAG-AA across 3 themes
+
+### Key files added/modified
+| File | Change |
+|---|---|
+| `packages/import/` (16 files) | NEW — full import package |
+| `packages/scene/src/types.ts` | Added `ImageNode` type |
+| `packages/scene/src/document.ts` | Added `makeImageNode()` |
+| `packages/engine/src/imageCache.ts` | NEW — `ImageCache` singleton |
+| `packages/editor/src/clipboard.ts` | Added `readClipboardImages()`, `readClipboardText()` |
+| `packages/editor/src/CanvasArea.tsx` | Drag-drop import handlers |
+| `packages/editor/src/context.tsx` | `importNode` action, clipboard image/SVG paste |
+| `packages/editor/src/Menubar.tsx` | Import menu item |
+| `packages/editor/src/Shell.tsx` | File import input |
+| `packages/editor/src/settings.ts` | NEW — EditorSettings store |
+| `packages/editor/src/components/Export/ExportDialog.tsx` | NEW — batch export dialog |
+| `packages/editor/src/components/Settings/SettingsDialog.tsx` | NEW — settings dialog |
+| `crates/strata-print/src/outline.rs` | NEW — font outlining |
+| `crates/strata-print/src/profiles.rs` | NEW — ICC profiles |
+| `crates/strata-print/src/marks.rs` | NEW — crop/registration marks |
+| `crates/strata-print/src/cmyk.rs` | Real PDF/X-1a/X-4 implementations |

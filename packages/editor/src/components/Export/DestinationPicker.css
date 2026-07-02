@@ -1,0 +1,92 @@
+.destination-picker {
+  padding: var(--space-2) 0;
+}
+.destination-picker__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.destination-picker__label {
+  width: 80px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.destination-picker__folder-btn {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-align: left;
+}
+.destination-picker__folder-btn:hover {
+  background: var(--color-surface-raised);
+}
+.destination-picker__input {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-family: monospace;
+}
+.destination-picker__hints {
+  margin: calc(-1 * var(--space-1)) 0 var(--space-2) 80px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.destination-picker__hints code {
+  background: var(--color-surface-sunken);
+  padding: 0 var(--space-1);
+  border-radius: 2px;
+  font-size: var(--font-size-xs);
+}
+.destination-picker__rules {
+  display: flex;
+  gap: var(--space-1);
+}
+.destination-picker__rule {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.destination-picker__rule--active {
+  background: var(--color-interactive-default);
+  border-color: var(--color-accent-primary);
+}
+.destination-picker__preview {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+.destination-picker__preview-label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+  display: block;
+}
+.destination-picker__preview-file {
+  font-family: monospace;
+  color: var(--color-text-primary);
+  padding: 1px 0;
+}
+.destination-picker__preview-folder {
+  color: var(--color-text-muted);
+}
+.destination-picker__more {
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}

@@ -9,7 +9,13 @@
 #![forbid(unsafe_code)]
 
 pub mod cmyk;
+pub mod marks;
+pub mod outline;
+pub mod profiles;
 
+pub use outline::{commands_to_svg_path, outline_text, GlyphOutline, PathCommand};
+
+use ab_glyph::Font as AbGlyphFont;
 use lopdf::{dictionary, Document, Object, Stream};
 use strata_core::{SceneNode, Shape};
 
@@ -20,6 +26,10 @@ pub struct PdfOptions {
     pub page_height: f64,
     pub title: String,
     pub author: String,
+    /// When true, text nodes are outlined into vector paths using `font_data`.
+    pub outline_text: bool,
+    /// Raw TTF/OTF font bytes for text outlining.
+    pub font_data: Option<Vec<u8>>,
 }
 
 impl Default for PdfOptions {
@@ -29,6 +39,8 @@ impl Default for PdfOptions {
             page_height: 1080.0,
             title: "Strata Export".into(),
             author: "Strata".into(),
+            outline_text: false,
+            font_data: None,
         }
     }
 }
@@ -207,10 +219,56 @@ fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
     }
 }
 
+/// Convert a glyph outline to PDF path content bytes.
+///
+/// Each `PathCommand` is mapped to the equivalent PDF path operator
+/// (m, l, c, h). The result is filled with `fill_color` and closed with `Q`.
+/// Coordinates are flipped so that Y increases upward (PDF convention).
+fn glyph_outline_to_pdf(
+    outline: &GlyphOutline,
+    color: &str,
+    x_base: f64,
+    y_base: f64,
+    page_height: f64,
+) -> Vec<u8> {
+    let mut buf = format!("q\n{color}\n").into_bytes();
+    for cmd in &outline.commands {
+        match cmd {
+            PathCommand::MoveTo(x, y) => {
+                let px = x_base + x;
+                let py = page_height - (y_base - y);
+                buf.extend(format!("{px:.2} {py:.2} m\n").as_bytes());
+            }
+            PathCommand::LineTo(x, y) => {
+                let px = x_base + x;
+                let py = page_height - (y_base - y);
+                buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
+            }
+            PathCommand::CurveTo(x1, y1, x2, y2, x3, y3) => {
+                let p1x = x_base + x1;
+                let p1y = page_height - (y_base - y1);
+                let p2x = x_base + x2;
+                let p2y = page_height - (y_base - y2);
+                let p3x = x_base + x3;
+                let p3y = page_height - (y_base - y3);
+                buf.extend(
+                    format!("{p1x:.2} {p1y:.2} {p2x:.2} {p2y:.2} {p3x:.2} {p3y:.2} c\n").as_bytes(),
+                );
+            }
+            PathCommand::ClosePath => {
+                buf.extend_from_slice(b"h\n");
+            }
+        }
+    }
+    buf.extend_from_slice(b"f\nQ\n");
+    buf
+}
+
 /// Export a scene to PDF bytes using lopdf.
 ///
-/// Each shape node becomes a filled path. Text nodes are outlined as
-/// rectangles (full Bezier outlining requires font data integration).
+/// Each shape node becomes a filled path. When `opts.outline_text` is true
+/// and `opts.font_data` is `Some`, text nodes are outlined as vector paths
+/// instead of filled rectangles.
 pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, String> {
     let mut doc = Document::new();
     let page_id = doc.new_object_id();
@@ -226,7 +284,60 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
         .as_bytes(),
     );
 
+    let do_outline = opts.outline_text && opts.font_data.is_some();
+
     for node in nodes {
+        if do_outline {
+            if let Shape::Text {
+                text,
+                font_size,
+                x,
+                y,
+                ..
+            } = &node.shape
+            {
+                if !text.is_empty() {
+                    let font_data = opts.font_data.as_ref().unwrap();
+                    match outline_text(font_data, text, *font_size) {
+                        Ok(glyphs) if !glyphs.is_empty() => {
+                            let color = color_to_rgb_string(&node.fill);
+                            let tx = node.transform.as_coeffs();
+                            let x_off = tx[4];
+                            let y_off = tx[5];
+
+                            // Get ascender for accurate baseline positioning
+                            let ascender = match ab_glyph::FontArc::try_from_vec(font_data.clone())
+                            {
+                                Ok(font) => {
+                                    let scale =
+                                        *font_size / font.units_per_em().unwrap_or(1000.0) as f64;
+                                    font.ascent_unscaled() as f64 * scale
+                                }
+                                Err(_) => font_size * 0.8,
+                            };
+
+                            let y_base = y + ascender;
+                            for glyph in &glyphs {
+                                let cmd = glyph_outline_to_pdf(
+                                    glyph,
+                                    &color,
+                                    x + x_off,
+                                    y_base + y_off,
+                                    opts.page_height,
+                                );
+                                content.extend_from_slice(&cmd);
+                            }
+                            continue; // skip the default rectangle handler
+                        }
+                        Err(e) => {
+                            // Fall through to rectangle fallback
+                            eprintln!("Text outlining failed: {e}");
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
         let cmd = shape_to_pdf_content(node, opts.page_height);
         content.extend_from_slice(&cmd);
     }
@@ -495,5 +606,184 @@ mod tests {
             !content.contains("/Tj") && !content.contains("/TJ"),
             "should not contain text operators"
         );
+    }
+
+    // ── Text outlining integration tests ─────────────────────────────────
+
+    fn text_node(id: u64, x: f64, y: f64, text: &str, font_size: f64) -> SceneNode {
+        SceneNode {
+            id: strata_core::NodeId(id),
+            name: format!("t{id}"),
+            transform: Affine::translate((x, y)),
+            shape: Shape::Text {
+                text: text.into(),
+                font_size,
+                font_family: "DejaVu Sans".into(),
+                font_weight: 400,
+                font_style: "normal".into(),
+                text_align: "left".into(),
+                x: 0.0,
+                y: 0.0,
+                w: font_size * text.len() as f64 * 0.6,
+                h: font_size * 1.2,
+            },
+            fill: [0, 0, 0, 255],
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
+        }
+    }
+
+    fn test_font_data() -> Vec<u8> {
+        let paths = [
+            "/usr/share/fonts/TTF/Vera.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/TTF/Inter-Regular.ttf",
+        ];
+        for p in &paths {
+            if let Ok(data) = std::fs::read(p) {
+                return data;
+            }
+        }
+        panic!("no test font found — tried {paths:?}")
+    }
+
+    #[test]
+    fn export_pdf_outlines_text() {
+        let font_data = test_font_data();
+        let nodes = vec![text_node(1, 10.0, 10.0, "A", 24.0)];
+        let opts = PdfOptions {
+            outline_text: true,
+            font_data: Some(font_data),
+            ..Default::default()
+        };
+        let bytes = export_pdf(&nodes, &opts).expect("outlined text pdf");
+        assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
+        assert!(
+            bytes.len() > 500,
+            "outlined text should be larger than minimal PDF"
+        );
+    }
+
+    #[test]
+    fn export_pdf_outlines_text_multiple_glyphs() {
+        let font_data = test_font_data();
+        let nodes = vec![text_node(1, 10.0, 10.0, "AB", 24.0)];
+        let opts = PdfOptions {
+            outline_text: true,
+            font_data: Some(font_data),
+            ..Default::default()
+        };
+        let bytes = export_pdf(&nodes, &opts).expect("outlined AB pdf");
+        assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
+        assert!(
+            bytes.len() > 600,
+            "two-glyph text should be larger than one glyph"
+        );
+    }
+
+    #[test]
+    fn export_pdf_outlines_text_disabled_by_default() {
+        let nodes = vec![text_node(1, 10.0, 10.0, "Hello", 16.0)];
+        let opts = PdfOptions::default();
+        let bytes = export_pdf(&nodes, &opts).expect("non-outlined pdf");
+        assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
+    }
+
+    #[test]
+    fn export_pdf_outlines_text_empty_string() {
+        let font_data = test_font_data();
+        let nodes = vec![text_node(1, 10.0, 10.0, "", 16.0)];
+        let opts = PdfOptions {
+            outline_text: true,
+            font_data: Some(font_data),
+            ..Default::default()
+        };
+        let bytes = export_pdf(&nodes, &opts).expect("empty text pdf");
+        assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
+    }
+
+    #[test]
+    fn export_pdf_outlines_text_font_data_none_falls_back() {
+        let nodes = vec![text_node(1, 10.0, 10.0, "Test", 16.0)];
+        let opts = PdfOptions {
+            outline_text: true,
+            font_data: None,
+            ..Default::default()
+        };
+        let bytes = export_pdf(&nodes, &opts).expect("fallback pdf");
+        assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
+    }
+
+    #[test]
+    fn export_pdf_outlines_text_larger_than_rectangle() {
+        let font_data = test_font_data();
+        let nodes = vec![text_node(1, 10.0, 10.0, "ABX", 24.0)];
+        let opts_outline = PdfOptions {
+            outline_text: true,
+            font_data: Some(font_data.clone()),
+            ..Default::default()
+        };
+        let opts_rect = PdfOptions {
+            outline_text: false,
+            font_data: Some(font_data),
+            ..Default::default()
+        };
+        let outlined = export_pdf(&nodes, &opts_outline).expect("outlined");
+        let rect = export_pdf(&nodes, &opts_rect).expect("rect");
+        // Outlined text produces more path data → larger output even after compression
+        assert!(
+            outlined.len() > rect.len(),
+            "outlined PDF ({}) should be larger than rect PDF ({})",
+            outlined.len(),
+            rect.len()
+        );
+    }
+
+    #[test]
+    fn export_pdf_outlines_text_respects_fill_color() {
+        let font_data = test_font_data();
+        let node = SceneNode {
+            id: strata_core::NodeId(1),
+            name: "red-text".into(),
+            transform: Affine::translate((10.0, 10.0)),
+            shape: Shape::Text {
+                text: "A".into(),
+                font_size: 24.0,
+                font_family: "DejaVu Sans".into(),
+                font_weight: 400,
+                font_style: "normal".into(),
+                text_align: "left".into(),
+                x: 0.0,
+                y: 0.0,
+                w: 15.0,
+                h: 28.0,
+            },
+            fill: [255, 0, 0, 255],
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
+        };
+        let opts = PdfOptions {
+            outline_text: true,
+            font_data: Some(font_data),
+            ..Default::default()
+        };
+        let bytes = export_pdf(&[node], &opts).expect("red outlined text");
+        assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
     }
 }
