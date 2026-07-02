@@ -290,7 +290,13 @@ describe('createEngine (stub)', () => {
           shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
           fill: [0, 0, 0, 255],
           fills: [
-            { type: 'solid', color: [255, 0, 0, 255], opacity: 1, blendMode: 'normal', visible: true },
+            {
+              type: 'solid',
+              color: [255, 0, 0, 255],
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
             {
               type: 'gradient',
               gradient: {
@@ -328,8 +334,20 @@ describe('createEngine (stub)', () => {
           shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
           fill: [0, 0, 0, 255],
           fills: [
-            { type: 'solid', color: [255, 0, 0, 255], opacity: 1, blendMode: 'normal', visible: false },
-            { type: 'solid', color: [0, 255, 0, 255], opacity: 1, blendMode: 'normal', visible: true },
+            {
+              type: 'solid',
+              color: [255, 0, 0, 255],
+              opacity: 1,
+              blendMode: 'normal',
+              visible: false,
+            },
+            {
+              type: 'solid',
+              color: [0, 255, 0, 255],
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
           ],
         },
       ],

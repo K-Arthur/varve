@@ -104,11 +104,11 @@ export function evaluatePrototypeExpression(
   }
 
   // Comparison operators
-  const comparisonMatch = trimmed.match(
-    /^(.+?)\s*(==|!=|>=|<=|>|<)\s*(.+)$/,
-  );
+  const comparisonMatch = trimmed.match(/^(.+?)\s*(==|!=|>=|<=|>|<)\s*(.+)$/);
   if (comparisonMatch) {
-    const [, left, op, right] = comparisonMatch;
+    const left = comparisonMatch[1] ?? '';
+    const op = comparisonMatch[2] ?? '';
+    const right = comparisonMatch[3] ?? '';
     const leftVal = evaluateAtomic(left.trim(), variables);
     const rightVal = evaluateAtomic(right.trim(), variables);
 
@@ -156,12 +156,10 @@ function evaluateArithmetic(
   });
   if (stringParts.length > 1) {
     // Check if any operand was originally a string
-    const hasStrings = stringParts.some(
-      (_, i) => {
-        const part = expr.split(/\s*\+\s*/)[i]!.trim();
-        return part.startsWith('"') || part.startsWith("'");
-      },
-    );
+    const hasStrings = stringParts.some((_, i) => {
+      const part = expr.split(/\s*\+\s*/)[i]!.trim();
+      return part.startsWith('"') || part.startsWith("'");
+    });
     if (hasStrings) {
       return stringParts.join('');
     }

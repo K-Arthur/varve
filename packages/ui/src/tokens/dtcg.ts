@@ -19,11 +19,7 @@
  *
  * The export preserves all 52 semantic tokens × 3 themes with OKLCH values.
  */
-import {
-  SEMANTIC,
-  type SemanticToken,
-  type Theme,
-} from './color';
+import { SEMANTIC, type SemanticToken, type Theme } from './color';
 import type { Oklch } from './contrast';
 
 export interface DTCGToken {

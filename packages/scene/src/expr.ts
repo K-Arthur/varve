@@ -100,7 +100,15 @@ export function tokenize(input: string): Token[] {
       while (j < input.length) {
         const cj = input[j];
         if (cj === undefined) break;
-        if (!((cj >= 'a' && cj <= 'z') || (cj >= 'A' && cj <= 'Z') || (cj >= '0' && cj <= '9') || cj === '_')) break;
+        if (
+          !(
+            (cj >= 'a' && cj <= 'z') ||
+            (cj >= 'A' && cj <= 'Z') ||
+            (cj >= '0' && cj <= '9') ||
+            cj === '_'
+          )
+        )
+          break;
         j++;
       }
       const name = input.slice(i, j);

@@ -48,11 +48,7 @@ function nextLibId(): string {
   return `lib-${++_libIdCounter}`;
 }
 
-export function createLibrary(
-  name: string,
-  description = '',
-  version = '0.1.0',
-): Library {
+export function createLibrary(name: string, description = '', version = '0.1.0'): Library {
   return {
     id: nextLibId(),
     name,
@@ -98,10 +94,7 @@ export function publishComponentToLibrary(
 /**
  * Publish a style to a library.
  */
-export function publishStyleToLibrary(
-  library: Library,
-  style: Style,
-): { library: Library } {
+export function publishStyleToLibrary(library: Library, style: Style): { library: Library } {
   const existingIndex = library.styles.findIndex((s) => s.id === style.id);
   const styles =
     existingIndex >= 0
@@ -131,14 +124,14 @@ export function installLibrary(
   const installedComponentIds: NodeId[] = [];
 
   // Merge components
-  let components = { ...doc.components };
+  const components = { ...doc.components };
   for (const component of library.components) {
     components[component.id] = component;
     installedComponentIds.push(component.id);
   }
 
   // Merge styles
-  let styles = { ...(doc.styles ?? {}) };
+  const styles = { ...(doc.styles ?? {}) };
   for (const style of library.styles) {
     styles[style.id] = style;
   }
@@ -146,7 +139,12 @@ export function installLibrary(
   // Track installed libraries
   const installedLibraries = [
     ...(doc.installedLibraries ?? []),
-    { id: library.id, name: library.name, version: library.version, installedAt: new Date().toISOString() },
+    {
+      id: library.id,
+      name: library.name,
+      version: library.version,
+      installedAt: new Date().toISOString(),
+    },
   ];
 
   return {
@@ -189,20 +187,14 @@ export function listLibraryStyles(library: Library): Style[] {
 /**
  * Check if a library has updates compared to the installed version.
  */
-export function hasLibraryUpdates(
-  library: Library,
-  installed: InstalledLibraryRef,
-): boolean {
+export function hasLibraryUpdates(library: Library, installed: InstalledLibraryRef): boolean {
   return library.version !== installed.version;
 }
 
 /**
  * Create a transportable library package for JSON serialization.
  */
-export function createLibraryPackage(
-  library: Library,
-  sourceDocId?: string,
-): LibraryPackage {
+export function createLibraryPackage(library: Library, sourceDocId?: string): LibraryPackage {
   return {
     formatVersion: '1.0',
     library,

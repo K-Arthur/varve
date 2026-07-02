@@ -108,8 +108,7 @@ function pathSegmentDistSq(points: PathPoint[], p: Point): number {
     const toPt = points[i + 1];
     if (!fromPt || !toPt) continue;
     // Check if this is a bezier segment (either point has handles)
-    const isBezier =
-      fromPt.handleOut !== null || toPt.handleIn !== null;
+    const isBezier = fromPt.handleOut !== null || toPt.handleIn !== null;
     if (isBezier) {
       const dist = pointToBezierSegmentDistSq(fromPt, toPt, p);
       if (dist < minDist) minDist = dist;
@@ -125,10 +124,14 @@ function pathSegmentDistSq(points: PathPoint[], p: Point): number {
 
 /** Evaluate a cubic bezier at parameter t [0,1]. */
 function cubicPoint(
-  x0: number, y0: number,
-  x1: number, y1: number,
-  x2: number, y2: number,
-  x3: number, y3: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
   t: number,
 ): [number, number] {
   const u = 1 - t;
@@ -179,7 +182,7 @@ function pointToBezierSegmentDistSq(p0: PathPoint, p1: PathPoint, p: Point): num
   const phi = (1 + Math.sqrt(5)) / 2;
   let a = Math.max(0, bestT - 1 / samples);
   let b = Math.min(1, bestT + 1 / series);
-  
+
   // JS golden section
   let t1 = b - (b - a) / phi;
   let t2 = a + (b - a) / phi;
@@ -208,23 +211,35 @@ function pointToBezierSegmentDistSq(p0: PathPoint, p1: PathPoint, p: Point): num
  * returning [left: [P0, C1, C2, P3], right: [P0, C1, C2, P3]].
  */
 function splitCubic(
-  x0: number, y0: number,
-  x1: number, y1: number,
-  x2: number, y2: number,
-  x3: number, y3: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
   t: number,
-): [[number, number, number, number, number, number, number, number],
-    [number, number, number, number, number, number, number, number]] {
+): [
+  [number, number, number, number, number, number, number, number],
+  [number, number, number, number, number, number, number, number],
+] {
   const u = 1 - t;
   // Level 1
-  const x01 = u * x0 + t * x1; const y01 = u * y0 + t * y1;
-  const x12 = u * x1 + t * x2; const y12 = u * y1 + t * y2;
-  const x23 = u * x2 + t * x3; const y23 = u * y2 + t * y3;
+  const x01 = u * x0 + t * x1;
+  const y01 = u * y0 + t * y1;
+  const x12 = u * x1 + t * x2;
+  const y12 = u * y1 + t * y2;
+  const x23 = u * x2 + t * x3;
+  const y23 = u * y2 + t * y3;
   // Level 2
-  const x012 = u * x01 + t * x12; const y012 = u * y01 + t * y12;
-  const x123 = u * x12 + t * x23; const y123 = u * y12 + t * y23;
+  const x012 = u * x01 + t * x12;
+  const y012 = u * y01 + t * y12;
+  const x123 = u * x12 + t * x23;
+  const y123 = u * y12 + t * y23;
   // Level 3
-  const x0123 = u * x012 + t * x123; const y0123 = u * y012 + t * y123;
+  const x0123 = u * x012 + t * x123;
+  const y0123 = u * y012 + t * y123;
   return [
     [x0, y0, x01, y01, x012, y012, x0123, y0123],
     [x0123, y0123, x123, y123, x23, y23, x3, y3],
@@ -237,10 +252,14 @@ function splitCubic(
  * chord is bounded by the furthest control point from the chord.
  */
 function isFlatEnough(
-  x0: number, y0: number,
-  x1: number, y1: number,
-  x2: number, y2: number,
-  x3: number, y3: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
   tolerance: number,
 ): boolean {
   // Vector from P0 to P3
@@ -269,10 +288,14 @@ function isFlatEnough(
  * for each flat sub-segment in order.
  */
 function flattenBezier(
-  x0: number, y0: number,
-  x1: number, y1: number,
-  x2: number, y2: number,
-  x3: number, y3: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
   tolerance: number,
   addEdge: (xi: number, yi: number, xj: number, yj: number) => void,
 ): void {
@@ -281,8 +304,30 @@ function flattenBezier(
     return;
   }
   const [left, right] = splitCubic(x0, y0, x1, y1, x2, y2, x3, y3, 0.5);
-  flattenBezier(left[0], left[1], left[2], left[3], left[4], left[5], left[6], left[7], tolerance, addEdge);
-  flattenBezier(right[0], right[1], right[2], right[3], right[4], right[5], right[6], right[7], tolerance, addEdge);
+  flattenBezier(
+    left[0],
+    left[1],
+    left[2],
+    left[3],
+    left[4],
+    left[5],
+    left[6],
+    left[7],
+    tolerance,
+    addEdge,
+  );
+  flattenBezier(
+    right[0],
+    right[1],
+    right[2],
+    right[3],
+    right[4],
+    right[5],
+    right[6],
+    right[7],
+    tolerance,
+    addEdge,
+  );
 }
 
 /**
@@ -306,10 +351,10 @@ function pointInBezierPath(points: PathPoint[], p: Point): boolean {
       // Straight segment — use standard winding test
       const yi = p0.y;
       const yj = p1.y;
-      if ((yi > p[1]) !== (yj > p[1])) {
+      if (yi > p[1] !== yj > p[1]) {
         const xi = p0.x;
         const xj = p1.x;
-        const xIntersect = xi + (p[1] - yi) * (xj - xi) / (yj - yi);
+        const xIntersect = xi + ((p[1] - yi) * (xj - xi)) / (yj - yi);
         if (xIntersect > p[0]) {
           winding += yi > p[1] ? 1 : -1;
         }
@@ -322,11 +367,18 @@ function pointInBezierPath(points: PathPoint[], p: Point): boolean {
       const cy2 = p1.handleIn ? p1.y + p1.handleIn[1] : p1.y;
 
       flattenBezier(
-        p0.x, p0.y, cx1, cy1, cx2, cy2, p1.x, p1.y,
+        p0.x,
+        p0.y,
+        cx1,
+        cy1,
+        cx2,
+        cy2,
+        p1.x,
+        p1.y,
         0.5, // flatness tolerance for subdivision
         (xi, yi, xj, yj) => {
-          if ((yi > p[1]) !== (yj > p[1])) {
-            const xIntersect = xi + (p[1] - yi) * (xj - xi) / (yj - yi);
+          if (yi > p[1] !== yj > p[1]) {
+            const xIntersect = xi + ((p[1] - yi) * (xj - xi)) / (yj - yi);
             if (xIntersect > p[0]) {
               winding += yi > p[1] ? 1 : -1;
             }

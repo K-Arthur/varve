@@ -64,10 +64,7 @@ function estimateLineHeight(fontSize: number, lineHeight?: number): number {
   return fontSize * (lineHeight ?? DEFAULT_LINE_HEIGHT);
 }
 
-export function measureText(
-  text: string,
-  options: TextMeasureOptions,
-): TextMeasureResult {
+export function measureText(text: string, options: TextMeasureOptions): TextMeasureResult {
   const fs = options.fontSize ?? DEFAULT_FONT_SIZE;
   const lh = options.lineHeight ?? DEFAULT_LINE_HEIGHT;
   const ls = options.letterSpacing ?? 0;

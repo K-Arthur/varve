@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PenTool } from '../PenTool';
 import type { ToolContext } from '../types';
 
@@ -58,13 +58,11 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
     abortTransaction: vi.fn(),
-    snapPosition: vi.fn(
-      (b: { x: number; y: number; w: number; h: number }) => ({
-        x: b.x,
-        y: b.y,
-        guides: [],
-      }),
-    ),
+    snapPosition: vi.fn((b: { x: number; y: number; w: number; h: number }) => ({
+      x: b.x,
+      y: b.y,
+      guides: [],
+    })),
     ...overrides,
   };
 }
@@ -122,9 +120,7 @@ describe('PenTool', () => {
 
     tool.onPointerMove!(makePointerEvent(200, 150), ctx);
 
-    expect(ctx.setDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'line' }),
-    );
+    expect(ctx.setDraft).toHaveBeenCalledWith(expect.objectContaining({ kind: 'line' }));
   });
 
   it('rubber-band shows line from last point to cursor', () => {
@@ -210,9 +206,6 @@ describe('PenTool', () => {
     tool.onPointerDown!(makePointerEvent(100, 100), ctx);
     tool.onKeyDown!(makeKeyEvent('Enter'), ctx);
 
-    expect(ctx.createShapeAt).toHaveBeenCalledWith(
-      { x: 100, y: 100 },
-      { w: 4, h: 4 },
-    );
+    expect(ctx.createShapeAt).toHaveBeenCalledWith({ x: 100, y: 100 }, { w: 4, h: 4 });
   });
 });

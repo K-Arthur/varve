@@ -1,7 +1,7 @@
-import { applyAffine } from '@strata/engine';
 import type { PathPoint } from '@strata/engine';
-import type { Affine } from '@strata/shared';
+import { applyAffine } from '@strata/engine';
 import type { ShapeNode } from '@strata/scene';
+import type { Affine } from '@strata/shared';
 
 interface NodeEditOverlayProps {
   node: ShapeNode;

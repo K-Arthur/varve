@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 
 interface DeviceFrameProps {
   device: {
@@ -30,7 +30,9 @@ export function DeviceFrame({ device, children, scale, frameColor }: DeviceFrame
       }}
     >
       {device.type === 'phone' && showNotch && <div className="device-frame__notch" />}
-      {device.type === 'phone' && showHomeIndicator && <div className="device-frame__home-indicator" />}
+      {device.type === 'phone' && showHomeIndicator && (
+        <div className="device-frame__home-indicator" />
+      )}
       {device.type === 'desktop' && <div className="device-frame__stand" />}
       {device.type === 'custom' && <div className="device-frame__label">{device.name}</div>}
       <div className="device-frame__content">{children}</div>

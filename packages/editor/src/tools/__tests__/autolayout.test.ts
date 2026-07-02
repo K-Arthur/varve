@@ -156,18 +156,34 @@ describe('computeFlexLayout', () => {
 
   it('uses font-size-based text sizing instead of hardcoded 120x32', () => {
     const textNode: SceneNode = {
-      id: 't1', name: 'Text', kind: 'text',
+      id: 't1',
+      name: 'Text',
+      kind: 'text',
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 1], index: 0, order: 'a0',
-      visible: true, locked: false, opacity: 1,
-      blendMode: 'normal', rotation: 0,
-      text: 'Hello World', fontSize: 24,
-      fontFamily: 'Inter', fontWeight: 400,
-      fontStyle: 'normal', strokes: [], effects: [],
+      fill: [0, 0, 0, 1],
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      text: 'Hello World',
+      fontSize: 24,
+      fontFamily: 'Inter',
+      fontWeight: 400,
+      fontStyle: 'normal',
+      strokes: [],
+      effects: [],
     };
     const frame = makeFrame({
-      mode: 'flex', direction: 'row', gap: 0, wrap: false,
-      padding: [0, 0, 0, 0], grow: 0, shrink: 0,
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
     });
     const results = computeFlexLayout(frame, [textNode]);
     // fontSize 24 * text length 11 * 0.6 ≈ 158
@@ -177,8 +193,13 @@ describe('computeFlexLayout', () => {
 
   it('layoutSizing fill distributes remaining space proportionally', () => {
     const frame = makeFrame({
-      mode: 'flex', direction: 'row', gap: 0, wrap: false,
-      padding: [0, 0, 0, 0], grow: 0, shrink: 0,
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
     });
     const child1 = makeChild('c1', 0, 0, 100, 50);
     child1.layoutSizing = 'fill';

@@ -7,7 +7,7 @@
  * patterns (back-stack history).
  */
 
-import type { NodeId, FlowConnection, FlowData } from './types';
+import type { FlowConnection, FlowData, NodeId } from './types';
 
 let _nextConnectionId = 1;
 
@@ -18,10 +18,7 @@ function generateConnectionId(): string {
 /**
  * Creates a FlowData object representing the prototype's navigation graph.
  */
-export function createFlowData(
-  nodes: NodeId[],
-  connections?: FlowConnection[],
-): FlowData {
+export function createFlowData(nodes: NodeId[], connections?: FlowConnection[]): FlowData {
   return {
     nodes: [...nodes],
     connections: connections ? [...connections] : [],
@@ -50,10 +47,7 @@ export function addConnection(
 /**
  * Removes a connection from the flow graph by its id.
  */
-export function removeConnection(
-  flow: FlowData,
-  connectionId: string,
-): void {
+export function removeConnection(flow: FlowData, connectionId: string): void {
   const index = flow.connections.findIndex((c) => c.id === connectionId);
   if (index !== -1) {
     flow.connections.splice(index, 1);
@@ -63,20 +57,14 @@ export function removeConnection(
 /**
  * Returns all connections that originate from the given node.
  */
-export function getOutgoingConnections(
-  flow: FlowData,
-  nodeId: NodeId,
-): FlowConnection[] {
+export function getOutgoingConnections(flow: FlowData, nodeId: NodeId): FlowConnection[] {
   return flow.connections.filter((c) => c.sourceNodeId === nodeId);
 }
 
 /**
  * Returns all connections that target the given node.
  */
-export function getIncomingConnections(
-  flow: FlowData,
-  nodeId: NodeId,
-): FlowConnection[] {
+export function getIncomingConnections(flow: FlowData, nodeId: NodeId): FlowConnection[] {
   return flow.connections.filter((c) => c.targetNodeId === nodeId);
 }
 
@@ -85,11 +73,7 @@ export function getIncomingConnections(
  * Returns an array of NodeIds from fromNodeId to toNodeId inclusive,
  * or an empty array if no path exists.
  */
-export function findPath(
-  flow: FlowData,
-  fromNodeId: NodeId,
-  toNodeId: NodeId,
-): NodeId[] {
+export function findPath(flow: FlowData, fromNodeId: NodeId, toNodeId: NodeId): NodeId[] {
   if (!flow.nodes.includes(fromNodeId) || !flow.nodes.includes(toNodeId)) {
     return [];
   }
@@ -110,7 +94,7 @@ export function findPath(
     const current = queue.shift()!;
 
     if (current === toNodeId) {
-      return reconstructPath(parent, fromNodeId, toNodeId);
+      return reconstructPath(parent, toNodeId);
     }
 
     const neighbors = adjacency.get(current) ?? [];
@@ -129,10 +113,7 @@ export function findPath(
 /**
  * Returns all nodes reachable from the given start node.
  */
-export function getAllReachable(
-  flow: FlowData,
-  startNodeId: NodeId,
-): Set<NodeId> {
+export function getAllReachable(flow: FlowData, startNodeId: NodeId): Set<NodeId> {
   const reachable = new Set<NodeId>();
   const adjacency = buildAdjacencyList(flow);
   const queue: NodeId[] = [startNodeId];
@@ -173,10 +154,7 @@ export function findOrphanNodes(flow: FlowData): NodeId[] {
  * Returns the preferred entry point if it exists in the flow's nodes,
  * otherwise returns the first node in the flow, or null if flow is empty.
  */
-export function findEntryPoint(
-  flow: FlowData,
-  preferredEntryPoint?: NodeId,
-): NodeId | null {
+export function findEntryPoint(flow: FlowData, preferredEntryPoint?: NodeId): NodeId | null {
   if (flow.nodes.length === 0) {
     return null;
   }
@@ -198,7 +176,11 @@ export function findEntryPoint(
  * 4. null if allNodeIds is empty
  */
 export function resolveEntryPoint(
-  prototypeData: { entryPoint?: NodeId; homeScreenId?: NodeId; interactions: Record<string, any[]> },
+  prototypeData: {
+    entryPoint?: NodeId;
+    homeScreenId?: NodeId;
+    interactions: Record<string, any[]>;
+  },
   allNodeIds: NodeId[],
 ): NodeId | null {
   if (allNodeIds.length === 0) {
@@ -224,9 +206,7 @@ export function resolveEntryPoint(
 
 // ── Internal helpers ──────────────────────────────────────────────
 
-function buildAdjacencyList(
-  flow: FlowData,
-): Map<NodeId, NodeId[]> {
+function buildAdjacencyList(flow: FlowData): Map<NodeId, NodeId[]> {
   const adjacency = new Map<NodeId, NodeId[]>();
 
   for (const node of flow.nodes) {
@@ -245,7 +225,6 @@ function buildAdjacencyList(
 
 function reconstructPath(
   parent: Map<NodeId, NodeId | null>,
-  fromNodeId: NodeId,
   toNodeId: NodeId,
 ): NodeId[] {
   const path: NodeId[] = [];

@@ -10,8 +10,9 @@
  * pattern for predictable state transitions.
  */
 
-import type { Interaction, ActionResult, PrototypeState, PrototypeVariable, NodeId } from './types';
 import { processInteractions } from './interactions';
+import type { ActionResult } from './actions';
+import type { Interaction, NodeId, PrototypeState, PrototypeVariable } from './types';
 
 /**
  * The prototype runtime instance.
@@ -74,10 +75,7 @@ export function handleEvent(
  * Apply an action result to the runtime state.
  * Mutates the runtime state directly (the runtime owns state).
  */
-export function applyActionResult(
-  runtime: PrototypeRuntime,
-  result: ActionResult,
-): void {
+export function applyActionResult(runtime: PrototypeRuntime, result: ActionResult): void {
   switch (result.kind) {
     case 'navigateTo':
       runtime.state.currentScreenId = result.targetId;
@@ -174,7 +172,8 @@ export function setVariable(
     runtime.state.variables[variableId] = {
       id: variableId,
       name: variableId,
-      type: typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : 'string',
+      type:
+        typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : 'string',
       value,
     };
   }

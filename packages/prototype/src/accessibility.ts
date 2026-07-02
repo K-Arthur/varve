@@ -55,7 +55,10 @@ export function adjustTransitionForAccessibility(
  * Used to announce navigation, overlay changes, and dynamic content changes
  * to screen reader users.
  */
-export function announceToScreenReader(message: string, priority: 'polite' | 'assertive' = 'polite'): void {
+export function announceToScreenReader(
+  message: string,
+  priority: 'polite' | 'assertive' = 'polite',
+): void {
   if (typeof document === 'undefined') return;
 
   const id = 'strata-prototype-announcer';
@@ -67,14 +70,14 @@ export function announceToScreenReader(message: string, priority: 'polite' | 'as
     announcer.setAttribute('aria-live', priority);
     announcer.setAttribute('aria-relevant', 'additions text');
     announcer.setAttribute('role', 'status');
-    announcer.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;';
+    announcer.style.cssText =
+      'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;';
     document.body.appendChild(announcer);
   } else {
     announcer.setAttribute('aria-live', priority);
   }
 
-  // Use a timeout to ensure the message is announced even if it's the same text
-  const existingText = announcer.textContent;
+  // Clear and re-set to ensure announcement fires even for identical text
   announcer.textContent = '';
   requestAnimationFrame(() => {
     announcer!.textContent = message;

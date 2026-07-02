@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  createFlowData,
   addConnection,
-  removeConnection,
-  getOutgoingConnections,
-  getIncomingConnections,
+  createFlowData,
+  findEntryPoint,
+  findOrphanNodes,
   findPath,
   getAllReachable,
-  findOrphanNodes,
-  findEntryPoint,
+  getIncomingConnections,
+  getOutgoingConnections,
+  removeConnection,
   resolveEntryPoint,
 } from './navigation';
-import type { FlowData, FlowConnection } from './types';
+import type { FlowConnection } from './types';
 
 describe('Navigation / Flow Graph', () => {
   describe('createFlowData', () => {
@@ -23,7 +23,12 @@ describe('Navigation / Flow Graph', () => {
 
     it('creates flow data with initial connections', () => {
       const connections: FlowConnection[] = [
-        { id: 'conn-1', sourceNodeId: 'screen-1', targetNodeId: 'screen-2', interactionId: 'interact-1' },
+        {
+          id: 'conn-1',
+          sourceNodeId: 'screen-1',
+          targetNodeId: 'screen-2',
+          interactionId: 'interact-1',
+        },
       ];
       const flow = createFlowData(['screen-1', 'screen-2'], connections);
       expect(flow.connections).toHaveLength(1);

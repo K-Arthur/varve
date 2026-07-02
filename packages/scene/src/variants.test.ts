@@ -4,21 +4,25 @@
  * Tests: property creation, variant creation, variant switching,
  * variant resolution, property sets, boolean/text/swap properties.
  */
-import { describe, it, expect } from 'vitest';
-import { createDocument, addNode, makeShapeNode, makeFrameNode } from './document';
+import { describe, expect, it } from 'vitest';
 import {
   addComponentProperty,
-  createVariant,
-  setVariantForInstance,
-  resolveVariantProperties,
+  type ComponentDefinition,
+  createComponent,
   createPropertySet,
+  createVariant,
   getComponentProperties,
   getVariant,
+  resolveVariantProperties,
+  setVariantForInstance,
 } from './component';
-import { createComponent, type ComponentDefinition } from './component';
+import { addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
 import type { FrameNode } from './types';
 
-function setupDocWithComponent(): { doc: ReturnType<typeof createDocument>; component: ComponentDefinition } {
+function setupDocWithComponent(): {
+  doc: ReturnType<typeof createDocument>;
+  component: ComponentDefinition;
+} {
   let doc = createDocument('test');
   const master = makeFrameNode('m1', { name: 'Button', w: 120, h: 40, children: [] });
   doc = addNode(doc, master);
@@ -64,8 +68,16 @@ describe('Component Properties', () => {
 
   it('returns properties for a component', () => {
     const { doc, component } = setupDocWithComponent();
-    const r1 = addComponentProperty(doc, component.id, { name: 'Disabled', type: 'boolean', defaultValue: false });
-    const r2 = addComponentProperty(r1.doc, component.id, { name: 'Label', type: 'text', defaultValue: 'Click' });
+    const r1 = addComponentProperty(doc, component.id, {
+      name: 'Disabled',
+      type: 'boolean',
+      defaultValue: false,
+    });
+    const r2 = addComponentProperty(r1.doc, component.id, {
+      name: 'Label',
+      type: 'text',
+      defaultValue: 'Click',
+    });
     const props = getComponentProperties(r2.doc, component.id);
     expect(props).toHaveLength(2);
     expect(props[0]?.name).toBe('Disabled');
@@ -82,7 +94,11 @@ describe('Variants', () => {
     doc = d1;
 
     // Add properties first
-    const r1 = addComponentProperty(doc, component.id, { name: 'Size', type: 'text', defaultValue: 'md' });
+    const r1 = addComponentProperty(doc, component.id, {
+      name: 'Size',
+      type: 'text',
+      defaultValue: 'md',
+    });
     doc = r1.doc;
 
     const result = createVariant(doc, component.id, 'Large', { Size: 'lg' });
@@ -98,14 +114,28 @@ describe('Variants', () => {
     const { component, doc: d1 } = createComponent(doc, 'Button', 'm1', []);
     doc = d1;
 
-    const r1 = addComponentProperty(doc, component.id, { name: 'Size', type: 'text', defaultValue: 'md' });
+    const r1 = addComponentProperty(doc, component.id, {
+      name: 'Size',
+      type: 'text',
+      defaultValue: 'md',
+    });
     doc = r1.doc;
-    const r2 = addComponentProperty(doc, component.id, { name: 'Variant', type: 'text', defaultValue: 'primary' });
+    const r2 = addComponentProperty(doc, component.id, {
+      name: 'Variant',
+      type: 'text',
+      defaultValue: 'primary',
+    });
     doc = r2.doc;
 
-    const r3 = createVariant(doc, component.id, 'Primary/Large', { Size: 'lg', Variant: 'primary' });
+    const r3 = createVariant(doc, component.id, 'Primary/Large', {
+      Size: 'lg',
+      Variant: 'primary',
+    });
     doc = r3.doc;
-    const r4 = createVariant(doc, component.id, 'Secondary/Small', { Size: 'sm', Variant: 'secondary' });
+    const r4 = createVariant(doc, component.id, 'Secondary/Small', {
+      Size: 'sm',
+      Variant: 'secondary',
+    });
 
     expect(r4.doc.components[component.id]?.variants).toHaveLength(2);
   });
@@ -117,12 +147,21 @@ describe('Variants', () => {
     const { component, doc: d1 } = createComponent(doc, 'Button', 'm1', []);
     doc = d1;
 
-    const r1 = addComponentProperty(doc, component.id, { name: 'Size', type: 'text', defaultValue: 'md' });
+    const r1 = addComponentProperty(doc, component.id, {
+      name: 'Size',
+      type: 'text',
+      defaultValue: 'md',
+    });
     doc = r1.doc;
     const { variant, doc: d2 } = createVariant(doc, component.id, 'Large', { Size: 'lg' });
     doc = d2;
 
-    const instance = makeFrameNode('inst1', { name: 'Button Instance', w: 120, h: 40, componentId: component.id });
+    const instance = makeFrameNode('inst1', {
+      name: 'Button Instance',
+      w: 120,
+      h: 40,
+      componentId: component.id,
+    });
     doc = addNode(doc, instance);
 
     doc = setVariantForInstance(doc, 'inst1', variant.id);
@@ -139,12 +178,23 @@ describe('Variant Resolution', () => {
     const { component, doc: d1 } = createComponent(doc, 'Button', 'm1', []);
     doc = d1;
 
-    const r1 = addComponentProperty(doc, component.id, { name: 'Size', type: 'text', defaultValue: 'md' });
+    const r1 = addComponentProperty(doc, component.id, {
+      name: 'Size',
+      type: 'text',
+      defaultValue: 'md',
+    });
     doc = r1.doc;
-    const r2 = addComponentProperty(doc, component.id, { name: 'Disabled', type: 'boolean', defaultValue: false });
+    const r2 = addComponentProperty(doc, component.id, {
+      name: 'Disabled',
+      type: 'boolean',
+      defaultValue: false,
+    });
     doc = r2.doc;
 
-    const { variant, doc: d2 } = createVariant(doc, component.id, 'Large', { Size: 'lg', Disabled: true });
+    const { variant, doc: d2 } = createVariant(doc, component.id, 'Large', {
+      Size: 'lg',
+      Disabled: true,
+    });
     doc = d2;
 
     const resolved = resolveVariantProperties(doc, component.id, variant.id);
@@ -158,9 +208,17 @@ describe('Variant Resolution', () => {
     const { component, doc: d1 } = createComponent(doc, 'Button', 'm1', []);
     doc = d1;
 
-    const r1 = addComponentProperty(doc, component.id, { name: 'Size', type: 'text', defaultValue: 'md' });
+    const r1 = addComponentProperty(doc, component.id, {
+      name: 'Size',
+      type: 'text',
+      defaultValue: 'md',
+    });
     doc = r1.doc;
-    const r2 = addComponentProperty(doc, component.id, { name: 'Disabled', type: 'boolean', defaultValue: false });
+    const r2 = addComponentProperty(doc, component.id, {
+      name: 'Disabled',
+      type: 'boolean',
+      defaultValue: false,
+    });
     doc = r2.doc;
 
     // Variant only overrides Size, Disabled should fallback
@@ -180,9 +238,17 @@ describe('Property Sets', () => {
     const { component, doc: d1 } = createComponent(doc, 'Button', 'm1', []);
     doc = d1;
 
-    const r1 = addComponentProperty(doc, component.id, { name: 'Size', type: 'text', defaultValue: 'md' });
+    const r1 = addComponentProperty(doc, component.id, {
+      name: 'Size',
+      type: 'text',
+      defaultValue: 'md',
+    });
     doc = r1.doc;
-    const r2 = addComponentProperty(doc, component.id, { name: 'Variant', type: 'text', defaultValue: 'primary' });
+    const r2 = addComponentProperty(doc, component.id, {
+      name: 'Variant',
+      type: 'text',
+      defaultValue: 'primary',
+    });
     doc = r2.doc;
 
     const result = createPropertySet(doc, component.id, 'Appearance', ['Size', 'Variant']);

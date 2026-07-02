@@ -75,7 +75,11 @@ export function validateNamingConventions(
     }
 
     // Check for PascalCase misused on styles
-    if (/^[A-Z]/.test(name) && name.length > 1 && name === name.charAt(0)!.toUpperCase() + name.slice(1)) {
+    if (
+      /^[A-Z]/.test(name) &&
+      name.length > 1 &&
+      name === name.charAt(0)!.toUpperCase() + name.slice(1)
+    ) {
       issues.push({
         type: 'warning',
         category: 'naming',
@@ -86,7 +90,9 @@ export function validateNamingConventions(
 
     // Check for semantic prefix convention
     const hasSemanticPrefix =
-      /^(color|text|effect|layout|space|radius|shadow|font|border|surface|interactive|feedback|accent|layer|tree|hero|brand)-/.test(name);
+      /^(color|text|effect|layout|space|radius|shadow|font|border|surface|interactive|feedback|accent|layer|tree|hero|brand)-/.test(
+        name,
+      );
     if (kind === 'style' && !hasSemanticPrefix && !name.startsWith('_')) {
       issues.push({
         type: 'info',
@@ -137,9 +143,7 @@ export function findUnusedComponents(doc: Document): ComponentDefinition[] {
 /**
  * Validate a component's properties and variants for consistency.
  */
-export function validateComponentProperties(
-  component: ComponentDefinition,
-): ValidationResult {
+export function validateComponentProperties(component: ComponentDefinition): ValidationResult {
   const issues: ValidationIssue[] = [];
   const propNames = new Set(component.properties?.map((p) => p.name) ?? []);
 

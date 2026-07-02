@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { createTransitionAnimation, type TransitionAnimation, animateScreenTransition } from './transitions';
-import type { TransitionConfig, EasingDefinition } from './types';
+import { describe, expect, it } from 'vitest';
+import { animateScreenTransition, createTransitionAnimation } from './transitions';
+import type { TransitionConfig } from './types';
 
 describe('Transitions', () => {
   describe('createTransitionAnimation', () => {

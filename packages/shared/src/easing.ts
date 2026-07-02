@@ -34,13 +34,16 @@ export interface CubicBezierEasingDef {
   y2: number;
 }
 
-export interface SpringEasingDef {
-  kind: 'spring';
+export interface SpringPhysicsParams {
   mass: number;
   stiffness: number;
   damping: number;
   velocity?: number;
 }
+
+export type SpringEasingDef = SpringPhysicsParams & {
+  kind: 'spring';
+};
 
 export interface StepsEasingDef {
   kind: 'steps';
@@ -85,7 +88,7 @@ export function easeOut(t: number): number {
  * Quadratic ease-in-out.
  */
 export function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 }
 
 /**
@@ -145,7 +148,7 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): Eas
  * Create a spring-physics easing function using mass-spring-damper model.
  * Simulates a damped harmonic oscillator over normalized time [0,1].
  */
-export function springPhysics(params: SpringEasingDef): EasingFn {
+export function springPhysics(params: SpringPhysicsParams): EasingFn {
   const { mass, stiffness, damping, velocity = 0 } = params;
 
   // Angular frequency

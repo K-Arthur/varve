@@ -25,7 +25,7 @@ import type {
   Variant,
 } from './types';
 
-export type { ComponentDefinition, ComponentProperty, Slot, SlotKind, Variant, PropertySet };
+export type { ComponentDefinition, ComponentProperty, PropertySet, Slot, SlotKind, Variant };
 
 /** Whether `frameSlots` fills every slot declared by `component`. */
 export function slotsSatisfied(
@@ -349,10 +349,7 @@ export function addComponentProperty(
 /**
  * Get all properties defined for a component.
  */
-export function getComponentProperties(
-  doc: Document,
-  componentId: NodeId,
-): ComponentProperty[] {
+export function getComponentProperties(doc: Document, componentId: NodeId): ComponentProperty[] {
   return doc.components[componentId]?.properties ?? [];
 }
 
@@ -392,7 +389,11 @@ export function createVariant(
 /**
  * Get a variant by ID from a component.
  */
-export function getVariant(doc: Document, componentId: NodeId, variantId: string): Variant | undefined {
+export function getVariant(
+  doc: Document,
+  componentId: NodeId,
+  variantId: string,
+): Variant | undefined {
   return doc.components[componentId]?.variants?.find((v) => v.id === variantId);
 }
 

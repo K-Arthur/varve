@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PencilTool } from '../PencilTool';
 import type { ToolContext } from '../types';
 
@@ -58,13 +58,11 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
     abortTransaction: vi.fn(),
-    snapPosition: vi.fn(
-      (b: { x: number; y: number; w: number; h: number }) => ({
-        x: b.x,
-        y: b.y,
-        guides: [],
-      }),
-    ),
+    snapPosition: vi.fn((b: { x: number; y: number; w: number; h: number }) => ({
+      x: b.x,
+      y: b.y,
+      guides: [],
+    })),
     ...overrides,
   };
 }
@@ -98,12 +96,10 @@ describe('PencilTool', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(
-      (cb: FrameRequestCallback) => {
-        rafCb = cb;
-        return 0;
-      },
-    );
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+      rafCb = cb;
+      return 0;
+    });
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
   });
 
@@ -130,10 +126,7 @@ describe('PencilTool', () => {
     tool.onPointerDown!(makePointerEvent(100, 100), ctx);
     tool.onPointerUp!(makePointerEvent(100, 100), ctx);
 
-    expect(ctx.createShapeAt).toHaveBeenCalledWith(
-      { x: 100, y: 100 },
-      { w: 4, h: 4 },
-    );
+    expect(ctx.createShapeAt).toHaveBeenCalledWith({ x: 100, y: 100 }, { w: 4, h: 4 });
   });
 
   it('onPointerUp with 2+ points creates a path with simplified points', () => {

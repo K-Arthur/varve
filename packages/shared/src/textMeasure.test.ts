@@ -18,13 +18,25 @@ describe('measureText', () => {
 
   it('accounts for letterSpacing in total width', () => {
     const normal = measureText('Hello', { fontSize: 16, fontFamily: 'sans-serif' });
-    const spaced = measureText('Hello', { fontSize: 16, fontFamily: 'sans-serif', letterSpacing: 2 });
+    const spaced = measureText('Hello', {
+      fontSize: 16,
+      fontFamily: 'sans-serif',
+      letterSpacing: 2,
+    });
     expect(spaced.width).toBeGreaterThan(normal.width);
   });
 
   it('accounts for lineHeight in total height', () => {
-    const tight = measureText('Hello\nWorld', { fontSize: 16, fontFamily: 'sans-serif', lineHeight: 1.2 });
-    const loose = measureText('Hello\nWorld', { fontSize: 16, fontFamily: 'sans-serif', lineHeight: 2.0 });
+    const tight = measureText('Hello\nWorld', {
+      fontSize: 16,
+      fontFamily: 'sans-serif',
+      lineHeight: 1.2,
+    });
+    const loose = measureText('Hello\nWorld', {
+      fontSize: 16,
+      fontFamily: 'sans-serif',
+      lineHeight: 2.0,
+    });
     expect(loose.height).toBeGreaterThan(tight.height);
   });
 

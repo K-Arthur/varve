@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type {
-  TriggerKind,
   ActionKind,
-  TransitionKind,
-  EasingKind,
   ComparisonOperator,
+  EasingKind,
   LogicalOperator,
+  TransitionKind,
+  TriggerKind,
 } from './types';
 
 describe('Prototype type system', () => {

@@ -635,57 +635,99 @@ describe('replayIr', () => {
   // ── Phase C: Renderer Completion Tests ─────────────────────────────────
 
   it('renders uppercase textCase via transformed text', () => {
-    const items: RenderItem[] = [{
-      transform: [1, 0, 0, 1, 0, 0] as const,
-      fill: [0, 0, 0, 255] as const,
-      primitive: {
-        kind: 'text', text: 'hello', fontSize: 16,
-        fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal' as const,
-        textAlign: 'left' as const, textAlignVertical: 'top' as const,
-        letterSpacing: 0, lineHeight: 1.4, paragraphSpacing: 0,
-        textCase: 'uppercase' as const, textDecoration: 'none' as const,
-        textOverflow: 'visible' as const, listStyle: 'none' as const,
-        x: 0, y: 0, w: 100, h: 20,
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          text: 'hello',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'uppercase' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
+          x: 0,
+          y: 0,
+          w: 100,
+          h: 20,
+        },
       },
-    }];
+    ];
     const rec = new Recorder();
     replayIr(rec, items);
     expect(rec.calls).toContain('fillText("HELLO",0,0)');
   });
 
   it('sets textBaseline from textAlignVertical', () => {
-    const items: RenderItem[] = [{
-      transform: [1, 0, 0, 1, 0, 0] as const,
-      fill: [0, 0, 0, 255] as const,
-      primitive: {
-        kind: 'text', text: 'Test', fontSize: 16,
-        fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal' as const,
-        textAlign: 'center' as const, textAlignVertical: 'middle' as const,
-        letterSpacing: 0, lineHeight: 1.4, paragraphSpacing: 0,
-        textCase: 'none' as const, textDecoration: 'none' as const,
-        textOverflow: 'visible' as const, listStyle: 'none' as const,
-        x: 0, y: 0, w: 100, h: 40,
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          text: 'Test',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal' as const,
+          textAlign: 'center' as const,
+          textAlignVertical: 'middle' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
+          x: 0,
+          y: 0,
+          w: 100,
+          h: 40,
+        },
       },
-    }];
+    ];
     const rec = new Recorder();
     replayIr(rec, items);
     expect(rec.textBaseline).toBe('middle');
   });
 
   it('renders underline decoration', () => {
-    const items: RenderItem[] = [{
-      transform: [1, 0, 0, 1, 0, 0] as const,
-      fill: [0, 0, 0, 255] as const,
-      primitive: {
-        kind: 'text', text: 'Underlined', fontSize: 16,
-        fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal' as const,
-        textAlign: 'left' as const, textAlignVertical: 'top' as const,
-        letterSpacing: 0, lineHeight: 1.4, paragraphSpacing: 0,
-        textCase: 'none' as const, textDecoration: 'underline' as const,
-        textOverflow: 'visible' as const, listStyle: 'none' as const,
-        x: 0, y: 0, w: 100, h: 20,
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          text: 'Underlined',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'underline' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
+          x: 0,
+          y: 0,
+          w: 100,
+          h: 20,
+        },
       },
-    }];
+    ];
     const rec = new Recorder();
     replayIr(rec, items);
     // Underline draws a line: moveTo + lineTo + stroke
@@ -739,136 +781,186 @@ describe('replayIr', () => {
 
   it('path fill with only handleOut on prev anchor uses bezier not line', () => {
     const m = mockTarget();
-    replayIr(m.target, [{
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
-      primitive: {
-        kind: 'path',
-        points: [
-          { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
-          { x: 100, y: 100, handleIn: null, handleOut: null },
-        ],
-        closed: false,
-        tolerance: 1,
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [255, 0, 0, 255],
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
+            { x: 100, y: 100, handleIn: null, handleOut: null },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
       },
-    }]);
+    ]);
     expect(m.bezierCurveTo).toHaveBeenCalled();
     expect(m.lineTo).not.toHaveBeenCalled();
   });
 
   it('path fill with only handleIn on current anchor uses bezier not line', () => {
     const m = mockTarget();
-    replayIr(m.target, [{
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 255, 255],
-      primitive: {
-        kind: 'path',
-        points: [
-          { x: 0, y: 0, handleIn: null, handleOut: null },
-          { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
-        ],
-        closed: false,
-        tolerance: 1,
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [0, 0, 255, 255],
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: null },
+            { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
       },
-    }]);
+    ]);
     expect(m.bezierCurveTo).toHaveBeenCalled();
     expect(m.lineTo).not.toHaveBeenCalled();
   });
 
   it('path fill with handles on both anchors uses proper bezier', () => {
     const m = mockTarget();
-    replayIr(m.target, [{
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 255, 255],
-      primitive: {
-        kind: 'path',
-        points: [
-          { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
-          { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
-        ],
-        closed: false,
-        tolerance: 1,
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [255, 0, 255, 255],
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
+            { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
       },
-    }]);
+    ]);
     expect(m.bezierCurveTo).toHaveBeenCalled();
     expect(m.lineTo).not.toHaveBeenCalled();
   });
 
   it('path fill with no handles uses straight line', () => {
     const m = mockTarget();
-    replayIr(m.target, [{
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 128, 0, 255],
-      primitive: {
-        kind: 'path',
-        points: [
-          { x: 0, y: 0, handleIn: null, handleOut: null },
-          { x: 100, y: 100, handleIn: null, handleOut: null },
-        ],
-        closed: false,
-        tolerance: 1,
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [255, 128, 0, 255],
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: null },
+            { x: 100, y: 100, handleIn: null, handleOut: null },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
       },
-    }]);
+    ]);
     expect(m.lineTo).toHaveBeenCalled();
     expect(m.bezierCurveTo).not.toHaveBeenCalled();
   });
 
   it('bezier stroke with only handleOut on prev anchor uses bezier not line', () => {
     const m = mockTarget();
-    replayIr(m.target, [{
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
-      strokes: [{ color: [0, 0, 0, 255] as const, weight: 2, align: 'center', dashPattern: [], dashOffset: 0, cap: 'round', join: 'round', miterLimit: 4, visible: true }],
-      primitive: {
-        kind: 'path',
-        points: [
-          { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
-          { x: 100, y: 100, handleIn: null, handleOut: null },
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [255, 0, 0, 255],
+        strokes: [
+          {
+            color: [0, 0, 0, 255] as const,
+            weight: 2,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round',
+            join: 'round',
+            miterLimit: 4,
+            visible: true,
+          },
         ],
-        closed: false,
-        tolerance: 1,
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
+            { x: 100, y: 100, handleIn: null, handleOut: null },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
       },
-    }]);
+    ]);
     expect(m.bezierCurveTo).toHaveBeenCalled();
     expect(m.lineTo).not.toHaveBeenCalled();
   });
 
   it('bezier stroke with only handleIn on current anchor uses bezier not line', () => {
     const m = mockTarget();
-    replayIr(m.target, [{
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
-      strokes: [{ color: [0, 0, 0, 255] as const, weight: 2, align: 'center', dashPattern: [], dashOffset: 0, cap: 'round', join: 'round', miterLimit: 4, visible: true }],
-      primitive: {
-        kind: 'path',
-        points: [
-          { x: 0, y: 0, handleIn: null, handleOut: null },
-          { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [255, 0, 0, 255],
+        strokes: [
+          {
+            color: [0, 0, 0, 255] as const,
+            weight: 2,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round',
+            join: 'round',
+            miterLimit: 4,
+            visible: true,
+          },
         ],
-        closed: false,
-        tolerance: 1,
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: null },
+            { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
       },
-    }]);
+    ]);
     expect(m.bezierCurveTo).toHaveBeenCalled();
     expect(m.lineTo).not.toHaveBeenCalled();
   });
 
   it('bezier stroke control points are absolute (anchor + handle offset), not relative', () => {
     const m = mockTarget();
-    replayIr(m.target, [{
-      transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
-      strokes: [{ color: [0, 0, 0, 255] as const, weight: 2, align: 'center', dashPattern: [], dashOffset: 0, cap: 'round', join: 'round', miterLimit: 4, visible: true }],
-      primitive: {
-        kind: 'path',
-        points: [
-          { x: 10, y: 20, handleIn: null, handleOut: [30, 40] },
-          { x: 100, y: 200, handleIn: null, handleOut: null },
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [255, 0, 0, 255],
+        strokes: [
+          {
+            color: [0, 0, 0, 255] as const,
+            weight: 2,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round',
+            join: 'round',
+            miterLimit: 4,
+            visible: true,
+          },
         ],
-        closed: false,
-        tolerance: 1,
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 10, y: 20, handleIn: null, handleOut: [30, 40] },
+            { x: 100, y: 200, handleIn: null, handleOut: null },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
       },
-    }]);
+    ]);
     // cp1 = anchor + handleOut = (10+30, 20+40) = (40, 60)
     // cp2 = degenerate: pt (100, 200)
     // end = (100, 200)
@@ -876,19 +968,33 @@ describe('replayIr', () => {
   });
 
   it('renders bulleted list with disc prefix', () => {
-    const items: RenderItem[] = [{
-      transform: [1, 0, 0, 1, 0, 0] as const,
-      fill: [0, 0, 0, 255] as const,
-      primitive: {
-        kind: 'text', text: 'Item 1\nItem 2', fontSize: 16,
-        fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal' as const,
-        textAlign: 'left' as const, textAlignVertical: 'top' as const,
-        letterSpacing: 0, lineHeight: 1.4, paragraphSpacing: 0,
-        textCase: 'none' as const, textDecoration: 'none' as const,
-        textOverflow: 'visible' as const, listStyle: 'disc' as const,
-        x: 0, y: 0, w: 200, h: 60,
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          text: 'Item 1\nItem 2',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'disc' as const,
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 60,
+        },
       },
-    }];
+    ];
     const rec = new Recorder();
     replayIr(rec, items);
     // Bullet list renders each line prefixed with •

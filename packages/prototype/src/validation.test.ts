@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { validatePrototype, type ValidationIssue } from './validation';
+import { describe, expect, it } from 'vitest';
 import type { Interaction, PrototypeData, TransitionConfig } from './types';
+import { validatePrototype } from './validation';
 
 const defaultTransition: TransitionConfig = {
-  kind: 'instant', duration: 0, easing: { kind: 'linear' },
+  kind: 'instant',
+  duration: 0,
+  easing: { kind: 'linear' },
 };
 
 function makeInteraction(
@@ -82,8 +84,12 @@ describe('validatePrototype', () => {
       interactions: {
         'btn-1': [
           {
-            id: 'i1', nodeId: 'btn-1', name: 'Disabled',
-            trigger: { kind: 'onClick' }, actions: [], enabled: false,
+            id: 'i1',
+            nodeId: 'btn-1',
+            name: 'Disabled',
+            trigger: { kind: 'onClick' },
+            actions: [],
+            enabled: false,
           },
         ],
       },

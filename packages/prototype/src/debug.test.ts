@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { PrototypeDebugConsole } from './debug';
 
 describe('PrototypeDebugConsole', () => {
@@ -13,7 +13,11 @@ describe('PrototypeDebugConsole', () => {
   it('logs navigation actions', () => {
     const console = new PrototypeDebugConsole();
     console.logAction(
-      { kind: 'navigateTo', targetId: 'screen-2', transition: { kind: 'instant', duration: 0, easing: { kind: 'linear' } } },
+      {
+        kind: 'navigateTo',
+        targetId: 'screen-2',
+        transition: { kind: 'instant', duration: 0, easing: { kind: 'linear' } },
+      },
       'i1',
     );
     expect(console.entries).toHaveLength(1);

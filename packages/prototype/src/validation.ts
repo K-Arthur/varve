@@ -6,7 +6,7 @@
  * connections), Framer prototype error reporting, W3C link validation.
  */
 
-import type { PrototypeData, NodeId, Interaction, NavigateToAction } from './types';
+import type { NodeId, PrototypeData } from './types';
 
 export interface ValidationIssue {
   code: string;
@@ -57,12 +57,17 @@ export function validatePrototype(
 
       // Check action targets
       for (const action of interaction.actions) {
-        if (action.kind === 'navigateTo' || action.kind === 'openOverlay' || action.kind === 'swapWithOverlay') {
-          const targetId = action.kind === 'navigateTo'
-            ? action.targetId
-            : action.kind === 'openOverlay'
+        if (
+          action.kind === 'navigateTo' ||
+          action.kind === 'openOverlay' ||
+          action.kind === 'swapWithOverlay'
+        ) {
+          const targetId =
+            action.kind === 'navigateTo'
               ? action.targetId
-              : action.newTargetId;
+              : action.kind === 'openOverlay'
+                ? action.targetId
+                : action.newTargetId;
 
           if (targetId && !nodeSet.has(targetId)) {
             issues.push({
@@ -76,9 +81,7 @@ export function validatePrototype(
         }
 
         if (action.kind === 'closeOverlay' || action.kind === 'swapWithOverlay') {
-          const targetId = action.kind === 'closeOverlay'
-            ? action.overlayId
-            : action.overlayId;
+          const targetId = action.kind === 'closeOverlay' ? action.overlayId : action.overlayId;
 
           if (targetId && !nodeSet.has(targetId)) {
             issues.push({

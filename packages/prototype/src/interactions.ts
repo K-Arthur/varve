@@ -6,9 +6,14 @@
  * Framer Events API (event bubbling + conditionals).
  */
 
-import type { Interaction, PrototypeState, ConditionDefinition, PrototypeVariable, ComparisonOperator } from './types';
+import { type ActionResult, executeAction } from './actions';
 import { matchTrigger, type PrototypeEvent } from './triggers';
-import { executeAction, type ActionResult } from './actions';
+import type {
+  ComparisonOperator,
+  ConditionDefinition,
+  Interaction,
+  PrototypeState,
+} from './types';
 
 /**
  * Result of processing an interaction.
@@ -23,10 +28,7 @@ export interface ProcessedInteraction {
  * Find interactions attached to a specific node.
  * Only returns enabled interactions.
  */
-export function findInteractions(
-  interactions: Interaction[],
-  nodeId: string,
-): Interaction[] {
+export function findInteractions(interactions: Interaction[], nodeId: string): Interaction[] {
   return interactions.filter((i) => i.nodeId === nodeId && i.enabled);
 }
 
@@ -43,12 +45,6 @@ export function processInteractions(
 
   for (const interaction of interactions) {
     if (!interaction.enabled) continue;
-
-    const nodeId = event.type === 'load' || event.type === 'timeout' || event.type === 'keydown'
-      ? interaction.nodeId
-      : 'nodeId' in event
-        ? event.nodeId
-        : interaction.nodeId;
 
     if (!matchTrigger(interaction.trigger, event, interaction.nodeId, state)) {
       continue;
@@ -79,10 +75,7 @@ export function processInteractions(
  * Evaluate a condition definition against the current prototype state.
  * Supports comparison operators and logical combinators (and/or/not).
  */
-export function evaluateCondition(
-  condition: ConditionDefinition,
-  state: PrototypeState,
-): boolean {
+export function evaluateCondition(condition: ConditionDefinition, state: PrototypeState): boolean {
   if ('logicalOperator' in condition) {
     switch (condition.logicalOperator) {
       case 'and':

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { DeviceFrame } from './DeviceFrame';
 
 interface PrototypePresenterProps {
@@ -44,9 +44,11 @@ export function PrototypePresenter({
       if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'ArrowRight' && currentIndex < screens.length - 1) {
-        onNavigate(screens[currentIndex + 1].id);
+        const next = screens[currentIndex + 1];
+        if (next) onNavigate(next.id);
       } else if (e.key === 'ArrowLeft' && currentIndex > 0) {
-        onNavigate(screens[currentIndex - 1].id);
+        const prev = screens[currentIndex - 1];
+        if (prev) onNavigate(prev.id);
       }
     },
     [onClose, onNavigate, currentIndex, screens],
@@ -85,10 +87,7 @@ export function PrototypePresenter({
         </div>
       ) : deviceConfig ? (
         <div className="prototype-presenter__device-frame">
-          <DeviceFrame
-            device={deviceConfig}
-            scale={1}
-          >
+          <DeviceFrame device={deviceConfig} scale={1}>
             <div className="prototype-presenter__screen">
               Screen: {currentScreen?.name ?? 'Unknown'}
             </div>
@@ -103,7 +102,12 @@ export function PrototypePresenter({
   );
 
   return (
-    <div className="prototype-presenter" role="dialog" aria-modal="true" aria-label="Prototype Preview">
+    <div
+      className="prototype-presenter"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Prototype Preview"
+    >
       <div className="prototype-presenter__toolbar">
         <span className="prototype-presenter__screen-name">
           {currentScreen?.name ?? 'No screen'}
@@ -114,7 +118,10 @@ export function PrototypePresenter({
         <button
           className="prototype-presenter__nav-btn"
           disabled={currentIndex <= 0}
-          onClick={() => currentIndex > 0 && onNavigate(screens[currentIndex - 1].id)}
+          onClick={() => {
+            const prev = screens[currentIndex - 1];
+            if (prev) onNavigate(prev.id);
+          }}
           aria-label="Previous screen"
         >
           ←
@@ -122,14 +129,19 @@ export function PrototypePresenter({
         <button
           className="prototype-presenter__nav-btn"
           disabled={currentIndex >= screens.length - 1}
-          onClick={() =>
-            currentIndex < screens.length - 1 && onNavigate(screens[currentIndex + 1].id)
-          }
+          onClick={() => {
+            const next = screens[currentIndex + 1];
+            if (next) onNavigate(next.id);
+          }}
           aria-label="Next screen"
         >
           →
         </button>
-        <button className="prototype-presenter__exit-btn" onClick={onClose} aria-label="Exit fullscreen">
+        <button
+          className="prototype-presenter__exit-btn"
+          onClick={onClose}
+          aria-label="Exit fullscreen"
+        >
           Exit
         </button>
       </div>

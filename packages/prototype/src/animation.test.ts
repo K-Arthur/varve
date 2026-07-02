@@ -1,12 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createTimeline,
   addKeyframe,
   sampleAt,
   interpolateValue,
-  type AnimationTimeline,
 } from './animation';
-import type { EasingDefinition } from './types';
 
 describe('Animation engine', () => {
   describe('createTimeline', () => {

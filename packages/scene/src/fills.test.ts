@@ -3,7 +3,15 @@
  * and Fill type operations.
  */
 
-import { fillToColor, gradientFill, imageFill, patternFill, primaryColor, resolveNodeFills, solidFill } from '@strata/scene';
+import {
+  fillToColor,
+  gradientFill,
+  imageFill,
+  patternFill,
+  primaryColor,
+  resolveNodeFills,
+  solidFill,
+} from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 
 describe('fill constructors', () => {
@@ -126,10 +134,7 @@ describe('fill constructors', () => {
 
   describe('primaryColor', () => {
     it('returns topmost visible solid fill color', () => {
-      const fills = [
-        solidFill([255, 0, 0, 255]),
-        solidFill([0, 255, 0, 255]),
-      ];
+      const fills = [solidFill([255, 0, 0, 255]), solidFill([0, 255, 0, 255])];
       const c = primaryColor(fills);
       expect(c).toEqual([0, 255, 0, 255]);
     });

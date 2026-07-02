@@ -99,8 +99,12 @@ export function isElementVisible(
   const elRight = elementX + elementWidth;
   const elBottom = elementY + elementHeight;
 
-  return !(elRight < visibleLeft || elementX > visibleRight ||
-           elBottom < visibleTop || elementY > visibleBottom);
+  return !(
+    elRight < visibleLeft ||
+    elementX > visibleRight ||
+    elBottom < visibleTop ||
+    elementY > visibleBottom
+  );
 }
 
 /**

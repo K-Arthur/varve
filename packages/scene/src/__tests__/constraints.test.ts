@@ -29,7 +29,14 @@ describe('applyConstraints', () => {
   });
 
   it('stretch: maintains margins from both edges', () => {
-    const r = applyConstraints({ horizontal: 'stretch', vertical: 'stretch' }, child, 200, 300, 400, 600);
+    const r = applyConstraints(
+      { horizontal: 'stretch', vertical: 'stretch' },
+      child,
+      200,
+      300,
+      400,
+      600,
+    );
     expect(r.x).toBe(10);
     expect(r.y).toBe(20);
     expect(r.w).toBe(280);
@@ -37,7 +44,14 @@ describe('applyConstraints', () => {
   });
 
   it('scale: scales position and size proportionally', () => {
-    const r = applyConstraints({ horizontal: 'scale', vertical: 'scale' }, child, 200, 300, 400, 600);
+    const r = applyConstraints(
+      { horizontal: 'scale', vertical: 'scale' },
+      child,
+      200,
+      300,
+      400,
+      600,
+    );
     expect(r.x).toBe(20);
     expect(r.y).toBe(40);
     expect(r.w).toBe(160);
@@ -45,7 +59,14 @@ describe('applyConstraints', () => {
   });
 
   it('center: keeps relative centered position', () => {
-    const r = applyConstraints({ horizontal: 'center', vertical: 'center' }, child, 200, 300, 400, 600);
+    const r = applyConstraints(
+      { horizontal: 'center', vertical: 'center' },
+      child,
+      200,
+      300,
+      400,
+      600,
+    );
     expect(r.x).toBeCloseTo(26.67, 1);
     expect(r.y).toBeCloseTo(45, 0);
   });

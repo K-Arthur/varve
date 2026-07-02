@@ -4,18 +4,18 @@
  * Tests: style usage validation, naming conventions,
  * orphan detection, contrast validation, component validation.
  */
-import { describe, it, expect } from 'vitest';
-import { createDocument, addNode, makeShapeNode, makeFrameNode, makeTextNode } from './document';
-import { createColorStyle, createTextStyle, applyStyleToNode } from './styles';
+import { describe, expect, it } from 'vitest';
 import { createComponent } from './component';
+import { addNode, createDocument, makeFrameNode, makeShapeNode, makeTextNode } from './document';
 import {
-  validateNamingConventions,
   findOrphanedStyles,
-  validateComponentProperties,
   generateStyleUsageReport,
-  type ValidationResult,
   type StyleUsageReport,
+  type ValidationResult,
+  validateComponentProperties,
+  validateNamingConventions,
 } from './governance';
+import { applyStyleToNode, createColorStyle, createTextStyle } from './styles';
 import type { Fill } from './types';
 
 describe('Governance — Naming Conventions', () => {
@@ -51,10 +51,22 @@ describe('Governance — Naming Conventions', () => {
 describe('Governance — Orphan Detection', () => {
   it('detects orphaned styles (not used by any node)', () => {
     let doc = createDocument('test');
-    const fill: Fill = { type: 'solid', color: [57, 208, 198, 255], opacity: 1, blendMode: 'normal', visible: true };
+    const fill: Fill = {
+      type: 'solid',
+      color: [57, 208, 198, 255],
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    };
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
-    const { style: s2, doc: d2 } = createColorStyle(doc, 'Unused', { type: 'solid', color: [255, 0, 0, 255], opacity: 1, blendMode: 'normal', visible: true });
+    const { style: s2, doc: d2 } = createColorStyle(doc, 'Unused', {
+      type: 'solid',
+      color: [255, 0, 0, 255],
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    });
     doc = d2;
 
     // Apply Teal to a node
@@ -69,7 +81,13 @@ describe('Governance — Orphan Detection', () => {
 
   it('returns empty array when all styles are used', () => {
     let doc = createDocument('test');
-    const fill: Fill = { type: 'solid', color: [57, 208, 198, 255], opacity: 1, blendMode: 'normal', visible: true };
+    const fill: Fill = {
+      type: 'solid',
+      color: [57, 208, 198, 255],
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    };
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
 
@@ -98,7 +116,11 @@ describe('Governance — Component Validation', () => {
     const master = makeFrameNode('m1', { name: 'Button', w: 120, h: 40 });
     doc = addNode(doc, master);
     const { component: c } = createComponent(doc, 'Button', 'm1', []);
-    const component = { ...c, properties: [{ id: 'p1', name: 'Size', type: 'text' as const, defaultValue: 'md' }], variants: [{ id: 'v1', name: 'Large', propertyValues: { Size: 'lg' } }] };
+    const component = {
+      ...c,
+      properties: [{ id: 'p1', name: 'Size', type: 'text' as const, defaultValue: 'md' }],
+      variants: [{ id: 'v1', name: 'Large', propertyValues: { Size: 'lg' } }],
+    };
 
     const result = validateComponentProperties(component);
     expect(result.valid).toBe(true);
@@ -108,7 +130,13 @@ describe('Governance — Component Validation', () => {
 describe('Governance — Usage Report', () => {
   it('generates a usage report for the document', () => {
     let doc = createDocument('test');
-    const fill: Fill = { type: 'solid', color: [57, 208, 198, 255], opacity: 1, blendMode: 'normal', visible: true };
+    const fill: Fill = {
+      type: 'solid',
+      color: [57, 208, 198, 255],
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    };
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
     const { style: s2, doc: d2 } = createTextStyle(doc, 'Body', { fontSize: 16 });

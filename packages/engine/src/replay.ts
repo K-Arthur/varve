@@ -255,9 +255,9 @@ function createGradientStyle(
     const t = fill.transform;
     const du = t[0] * halfDiag; // unit u-axis x
     const dv = t[1] * halfDiag; // unit u-axis y
-    cx = bounds.x + t[4];       // translate x
-    cy = bounds.y + t[5];       // translate y
-    rot = Math.atan2(dv, du);   // rotation from u-axis
+    cx = bounds.x + t[4]; // translate x
+    cy = bounds.y + t[5]; // translate y
+    rot = Math.atan2(dv, du); // rotation from u-axis
     halfDiag = Math.sqrt(du * du + dv * dv); // scale magnitude
   }
 
@@ -388,10 +388,14 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
 /** Apply text case transform to a string. */
 function applyTextCase(text: string, textCase: string): string {
   switch (textCase) {
-    case 'uppercase': return text.toUpperCase();
-    case 'lowercase': return text.toLowerCase();
-    case 'capitalize': return text.replace(/\b\w/g, (c) => c.toUpperCase());
-    default: return text;
+    case 'uppercase':
+      return text.toUpperCase();
+    case 'lowercase':
+      return text.toLowerCase();
+    case 'capitalize':
+      return text.replace(/\b\w/g, (c) => c.toUpperCase());
+    default:
+      return text;
   }
 }
 
@@ -437,7 +441,7 @@ function paintText(
 
   // Compute text overflow: visible text
   const visibleLines: Array<{ text: string; y: number }> = [];
-  let currentY = p.y;
+  const currentY = p.y;
   for (let i = 0; i < lines.length; i++) {
     const yPos = currentY + i * lh + (i > 0 ? ps : 0);
     if (p.textOverflow === 'clip' && yPos + lh > p.y + p.h) break;
@@ -467,9 +471,7 @@ function paintText(
 
     // Calculate x origin based on text alignment within the box
     const xOrigin =
-      p.textAlign === 'center' ? p.x + p.w / 2
-        : p.textAlign === 'right' ? p.x + p.w
-          : p.x;
+      p.textAlign === 'center' ? p.x + p.w / 2 : p.textAlign === 'right' ? p.x + p.w : p.x;
 
     // Draw text with letter spacing if needed
     if (ls !== 0 && displayLine.length > 1) {

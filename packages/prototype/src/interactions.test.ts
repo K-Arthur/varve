@@ -1,19 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import {
-  findInteractions,
-  processInteractions,
-  evaluateCondition,
-} from './interactions';
+import { describe, expect, it } from 'vitest';
+import { evaluateCondition, findInteractions, processInteractions } from './interactions';
+import type { PrototypeEvent } from './triggers';
 import type {
-  Interaction,
-  Trigger,
   Action,
+  ConditionDefinition,
+  Interaction,
   PrototypeState,
   TransitionConfig,
-  ConditionDefinition,
-  PrototypeVariable,
+  Trigger,
 } from './types';
-import type { PrototypeEvent } from './triggers';
 
 const defaultTransition: TransitionConfig = {
   kind: 'instant',
@@ -46,8 +41,12 @@ function makeState(overrides?: Partial<PrototypeState>): PrototypeState {
 describe('findInteractions', () => {
   it('finds interactions for a specific node', () => {
     const interactions: Interaction[] = [
-      makeInteraction('i1', 'node-1', { kind: 'onClick' }, [{ kind: 'navigateTo', targetId: 'screen-2', transition: defaultTransition }]),
-      makeInteraction('i2', 'node-2', { kind: 'onHover' }, [{ kind: 'toggleVisibility', targetId: 'tooltip', visible: true }]),
+      makeInteraction('i1', 'node-1', { kind: 'onClick' }, [
+        { kind: 'navigateTo', targetId: 'screen-2', transition: defaultTransition },
+      ]),
+      makeInteraction('i2', 'node-2', { kind: 'onHover' }, [
+        { kind: 'toggleVisibility', targetId: 'tooltip', visible: true },
+      ]),
     ];
     const found = findInteractions(interactions, 'node-1');
     expect(found).toHaveLength(1);
@@ -55,9 +54,7 @@ describe('findInteractions', () => {
   });
 
   it('returns empty array when node has no interactions', () => {
-    const interactions: Interaction[] = [
-      makeInteraction('i1', 'node-1', { kind: 'onClick' }, []),
-    ];
+    const interactions: Interaction[] = [makeInteraction('i1', 'node-1', { kind: 'onClick' }, [])];
     expect(findInteractions(interactions, 'node-99')).toEqual([]);
   });
 
