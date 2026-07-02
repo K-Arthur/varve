@@ -40,3 +40,15 @@ export {
   createTransitionAnimation,
 } from './transitions';
 export type { ScreenTransitionState, TransitionAnimation } from './transitions';
+
+// Runtime
+export {
+  applyActionResult,
+  createInitialState,
+  createRuntime,
+  getActiveOverlays,
+  getVariable,
+  handleEvent,
+  setVariable,
+} from './runtime';
+export type { PrototypeRuntime } from './runtime';
