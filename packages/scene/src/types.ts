@@ -229,6 +229,10 @@ export interface NodeBase {
   constraints?: Constraints;
   /** Export presets for this node. */
   presets?: ExportPreset[];
+  /** Reference to a reusable style definition. */
+  styleId?: NodeId;
+  /** Property overrides applied on top of the referenced style. */
+  styleOverrides?: Record<string, unknown>;
 }
 
 export interface ShapeNode extends NodeBase {
@@ -352,13 +356,34 @@ export interface FrameNode extends NodeBase {
   clipContent?: boolean;
   /** Optional mask applied to children (clip or alpha). */
   mask?: Mask;
+  /** Active variant id for this component instance. */
+  variant?: string;
+  /** Per-property overrides on top of the variant/base component. */
+  propertyOverrides?: Record<string, string | boolean | NodeId>;
   /** F6: strokes on frame. */
   strokes: Stroke[];
   /** F6: effects on frame. */
   effects: Effect[];
 }
 
-export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode;
+export interface ImageNode extends NodeBase {
+  kind: 'image';
+  transform: Affine;
+  /** Image source URL (data URL, file path, or asset id). */
+  src: string;
+  /** Width of the image node in world-space px. */
+  w: number;
+  /** Height of the image node in world-space px. */
+  h: number;
+  /** How the image fills the bounds. */
+  imageFit?: ImageFit;
+  /** F6: strokes on image. */
+  strokes: Stroke[];
+  /** F6: effects on image. */
+  effects: Effect[];
+}
+
+export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode;
 
 export type ContainerNode = GroupNode | FrameNode;
 
@@ -372,6 +397,31 @@ export interface Slot {
   defaultContentId?: NodeId;
 }
 
+// ── Component Properties & Variants (Phase 3) ──────────────────────────────
+
+export type ComponentPropertyType = 'text' | 'boolean' | 'instanceSwap' | 'variant';
+
+export interface ComponentProperty {
+  id: string;
+  name: string;
+  type: ComponentPropertyType;
+  defaultValue: string | boolean | NodeId;
+}
+
+export interface Variant {
+  id: string;
+  name: string;
+  /** Overrides for component properties. Only properties with values different
+   *  from defaults need to be specified. */
+  propertyValues: Record<string, string | boolean | NodeId>;
+}
+
+export interface PropertySet {
+  id: string;
+  name: string;
+  propertyNames: string[];
+}
+
 export interface ComponentDefinition {
   id: NodeId;
   name: string;
@@ -379,7 +429,62 @@ export interface ComponentDefinition {
   slots: Slot[];
   /** Root of the master tree (the synchronized template). */
   masterRootId: NodeId;
+  /** Component properties for this component. */
+  properties?: ComponentProperty[];
+  /** Named variants that set multiple properties at once. */
+  variants?: Variant[];
+  /** Groups of properties that define variant axes. */
+  propertySets?: PropertySet[];
 }
+
+// ── Reusable Style Types ─────────────────────────────────────────────────────
+
+export type StyleType = 'color' | 'text' | 'effect' | 'layout';
+
+export interface ColorStyle {
+  id: NodeId;
+  type: 'color';
+  name: string;
+  fill: Fill;
+  description?: string;
+}
+
+export interface TextStyle {
+  id: NodeId;
+  type: 'text';
+  name: string;
+  fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: 'normal' | 'italic';
+  fontSize: number;
+  lineHeight?: number;
+  letterSpacing?: number;
+  paragraphSpacing?: number;
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  textAlignVertical?: 'top' | 'middle' | 'bottom';
+  textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  textDecoration?: 'none' | 'underline' | 'line-through';
+  listStyle?: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
+  description?: string;
+}
+
+export interface EffectStyle {
+  id: NodeId;
+  type: 'effect';
+  name: string;
+  effects: Effect[];
+  description?: string;
+}
+
+export interface LayoutStyleDef {
+  id: NodeId;
+  type: 'layout';
+  name: string;
+  layout: LayoutStyle;
+  description?: string;
+}
+
+export type Style = ColorStyle | TextStyle | EffectStyle | LayoutStyleDef;
 
 // ── Shape geometry helpers for Inspector F6 ─────────────────────────────────
 

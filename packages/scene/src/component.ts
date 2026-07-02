@@ -12,9 +12,20 @@
  */
 
 import { addChild, type Document } from './document';
-import type { ComponentDefinition, FrameNode, NodeId, SceneNode, Slot, SlotKind } from './types';
+import type {
+  ComponentDefinition,
+  ComponentProperty,
+  ComponentPropertyType,
+  FrameNode,
+  NodeId,
+  PropertySet,
+  SceneNode,
+  Slot,
+  SlotKind,
+  Variant,
+} from './types';
 
-export type { ComponentDefinition, Slot, SlotKind };
+export type { ComponentDefinition, ComponentProperty, Slot, SlotKind, Variant, PropertySet };
 
 /** Whether `frameSlots` fills every slot declared by `component`. */
 export function slotsSatisfied(
@@ -281,6 +292,191 @@ export function propagateMaster(
       ...doc.nodes,
       ...allNewNodes,
       [instanceId]: { ...frame, children: newChildren, slots: frame.slots },
+    },
+  };
+}
+
+// ── Component Properties ────────────────────────────────────────────────────
+
+let _propIdCounter = 0;
+function nextPropId(): string {
+  return `prop-${++_propIdCounter}`;
+}
+
+let _variantIdCounter = 0;
+function nextVariantId(): string {
+  return `var-${++_variantIdCounter}`;
+}
+
+let _setIdCounter = 0;
+function nextSetId(): string {
+  return `set-${++_setIdCounter}`;
+}
+
+/**
+ * Add a component property to a component definition.
+ */
+export function addComponentProperty(
+  doc: Document,
+  componentId: NodeId,
+  prop: { name: string; type: ComponentPropertyType; defaultValue: string | boolean | NodeId },
+): { property: ComponentProperty; doc: Document } {
+  const component = doc.components[componentId];
+  if (!component) throw new Error(`Component ${componentId} not found`);
+
+  const newProp: ComponentProperty = {
+    id: nextPropId(),
+    name: prop.name,
+    type: prop.type as ComponentPropertyType,
+    defaultValue: prop.defaultValue,
+  };
+
+  return {
+    property: newProp,
+    doc: {
+      ...doc,
+      components: {
+        ...doc.components,
+        [componentId]: {
+          ...component,
+          properties: [...(component.properties ?? []), newProp],
+        },
+      },
+    },
+  };
+}
+
+/**
+ * Get all properties defined for a component.
+ */
+export function getComponentProperties(
+  doc: Document,
+  componentId: NodeId,
+): ComponentProperty[] {
+  return doc.components[componentId]?.properties ?? [];
+}
+
+/**
+ * Create a variant for a component.
+ */
+export function createVariant(
+  doc: Document,
+  componentId: NodeId,
+  name: string,
+  propertyValues: Record<string, string | boolean | NodeId>,
+): { variant: Variant; doc: Document } {
+  const component = doc.components[componentId];
+  if (!component) throw new Error(`Component ${componentId} not found`);
+
+  const variant: Variant = {
+    id: nextVariantId(),
+    name,
+    propertyValues,
+  };
+
+  return {
+    variant,
+    doc: {
+      ...doc,
+      components: {
+        ...doc.components,
+        [componentId]: {
+          ...component,
+          variants: [...(component.variants ?? []), variant],
+        },
+      },
+    },
+  };
+}
+
+/**
+ * Get a variant by ID from a component.
+ */
+export function getVariant(doc: Document, componentId: NodeId, variantId: string): Variant | undefined {
+  return doc.components[componentId]?.variants?.find((v) => v.id === variantId);
+}
+
+/**
+ * Set the active variant on a component instance frame.
+ */
+export function setVariantForInstance(
+  doc: Document,
+  instanceId: NodeId,
+  variantId: string,
+): Document {
+  const node = doc.nodes[instanceId];
+  if (!node || node.kind !== 'frame') return doc;
+  const frame = node as FrameNode;
+  if (!frame.componentId) return doc;
+
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [instanceId]: { ...frame, variant: variantId } as FrameNode,
+    },
+  };
+}
+
+/**
+ * Resolve all property values for a given variant, falling back to
+ * component property defaults for any non-overridden properties.
+ */
+export function resolveVariantProperties(
+  doc: Document,
+  componentId: NodeId,
+  variantId: string,
+): Record<string, string | boolean | NodeId> {
+  const component = doc.components[componentId];
+  if (!component) return {};
+
+  const variant = component.variants?.find((v) => v.id === variantId);
+  const result: Record<string, string | boolean | NodeId> = {};
+
+  // Start with defaults
+  for (const prop of component.properties ?? []) {
+    result[prop.name] = prop.defaultValue;
+  }
+
+  // Apply variant overrides
+  if (variant) {
+    for (const [key, value] of Object.entries(variant.propertyValues)) {
+      result[key] = value;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Create a property set (group of properties defining a variant axis).
+ */
+export function createPropertySet(
+  doc: Document,
+  componentId: NodeId,
+  name: string,
+  propertyNames: string[],
+): { set: PropertySet; doc: Document } {
+  const component = doc.components[componentId];
+  if (!component) throw new Error(`Component ${componentId} not found`);
+
+  const set: PropertySet = {
+    id: nextSetId(),
+    name,
+    propertyNames,
+  };
+
+  return {
+    set,
+    doc: {
+      ...doc,
+      components: {
+        ...doc.components,
+        [componentId]: {
+          ...component,
+          propertySets: [...(component.propertySets ?? []), set],
+        },
+      },
     },
   };
 }
