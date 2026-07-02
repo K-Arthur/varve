@@ -24,3 +24,19 @@ export type { ActionResult } from './actions';
 // Interaction system
 export { findInteractions, processInteractions, evaluateCondition } from './interactions';
 export type { ProcessedInteraction } from './interactions';
+
+// Animation system
+export {
+  addKeyframe,
+  createTimeline,
+  interpolateValue,
+  sampleAt,
+} from './animation';
+export type { AnimationTimeline, Keyframe } from './animation';
+
+// Transitions
+export {
+  animateScreenTransition,
+  createTransitionAnimation,
+} from './transitions';
+export type { ScreenTransitionState, TransitionAnimation } from './transitions';
