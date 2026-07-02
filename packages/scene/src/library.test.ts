@@ -4,20 +4,20 @@
  * Tests: library creation, component publishing, style publishing,
  * library installation, versioning, dependency tracking.
  */
-import { describe, it, expect } from 'vitest';
-import { createDocument, addNode, makeShapeNode, makeFrameNode } from './document';
+import { describe, expect, it } from 'vitest';
 import { createComponent } from './component';
-import { createColorStyle } from './styles';
+import { addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
 import {
   createLibrary,
-  publishComponentToLibrary,
-  publishStyleToLibrary,
   installLibrary,
-  listLibraryComponents,
-  listLibraryStyles,
   type Library,
   type LibraryPackage,
+  listLibraryComponents,
+  listLibraryStyles,
+  publishComponentToLibrary,
+  publishStyleToLibrary,
 } from './library';
+import { createColorStyle } from './styles';
 import type { Fill } from './types';
 
 describe('Library System', () => {
@@ -43,7 +43,13 @@ describe('Library System', () => {
 
   it('publishes a style to a library', () => {
     let doc = createDocument('test');
-    const fill: Fill = { type: 'solid', color: [57, 208, 198, 255], opacity: 1, blendMode: 'normal', visible: true };
+    const fill: Fill = {
+      type: 'solid',
+      color: [57, 208, 198, 255],
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    };
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
 
@@ -114,10 +120,22 @@ describe('Library System', () => {
 
   it('lists library styles', () => {
     let doc = createDocument('test');
-    const fill: Fill = { type: 'solid', color: [57, 208, 198, 255], opacity: 1, blendMode: 'normal', visible: true };
+    const fill: Fill = {
+      type: 'solid',
+      color: [57, 208, 198, 255],
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    };
     const { style: s1, doc: d1 } = createColorStyle(doc, 'Primary', fill);
     doc = d1;
-    const { style: s2 } = createColorStyle(doc, 'Secondary', { type: 'solid', color: [0, 0, 0, 255], opacity: 1, blendMode: 'normal', visible: true });
+    const { style: s2 } = createColorStyle(doc, 'Secondary', {
+      type: 'solid',
+      color: [0, 0, 0, 255],
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    });
 
     let lib = createLibrary('Tokens', 'Colors', '1.0.0');
     const r1 = publishStyleToLibrary(lib, s1);

@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  linear,
-  easeIn,
-  easeOut,
-  easeInOut,
   cubicBezier,
+  easeIn,
+  easeInOut,
+  easeOut,
+  linear,
+  sampleEasing,
   springPhysics,
   steps,
-  sampleEasing,
 } from './easing';
 
 describe('easing functions', () => {
@@ -117,20 +117,14 @@ describe('easing functions', () => {
     });
 
     it('samples cubic bezier easing', () => {
-      const samples = sampleEasing(
-        { kind: 'cubicBezier', x1: 0.25, y1: 0.1, x2: 0.25, y2: 1 },
-        5,
-      );
+      const samples = sampleEasing({ kind: 'cubicBezier', x1: 0.25, y1: 0.1, x2: 0.25, y2: 1 }, 5);
       expect(samples).toHaveLength(5);
       expect(samples[0]).toBeCloseTo(0, 1);
       expect(samples[4]).toBeCloseTo(1, 1);
     });
 
     it('samples spring easing', () => {
-      const samples = sampleEasing(
-        { kind: 'spring', mass: 1, stiffness: 100, damping: 10 },
-        10,
-      );
+      const samples = sampleEasing({ kind: 'spring', mass: 1, stiffness: 100, damping: 10 }, 10);
       expect(samples).toHaveLength(10);
       expect(samples[0]).toBe(0);
       expect(samples[samples.length - 1]).toBeCloseTo(1, 1);

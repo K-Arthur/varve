@@ -1,9 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { matchTrigger } from './triggers';
-import type {
-  Trigger,
-  PrototypeState,
-} from './types';
+import type { PrototypeState, Trigger } from './types';
 
 function makeState(overrides?: Partial<PrototypeState>): PrototypeState {
   return {
@@ -27,7 +24,9 @@ describe('matchTrigger', () => {
   it('does not match onClick trigger on a different node', () => {
     const trigger: Trigger = { kind: 'onClick' };
     const state = makeState();
-    expect(matchTrigger(trigger, { type: 'click', nodeId: 'other-node' }, 'node-1', state)).toBe(false);
+    expect(matchTrigger(trigger, { type: 'click', nodeId: 'other-node' }, 'node-1', state)).toBe(
+      false,
+    );
   });
 
   it('matches onTap trigger', () => {
@@ -39,19 +38,25 @@ describe('matchTrigger', () => {
   it('matches onHover trigger on mouseEnter', () => {
     const trigger: Trigger = { kind: 'onHover' };
     const state = makeState();
-    expect(matchTrigger(trigger, { type: 'mouseenter', nodeId: 'node-1' }, 'node-1', state)).toBe(true);
+    expect(matchTrigger(trigger, { type: 'mouseenter', nodeId: 'node-1' }, 'node-1', state)).toBe(
+      true,
+    );
   });
 
   it('matches onHoverEnd trigger on mouseLeave', () => {
     const trigger: Trigger = { kind: 'onHoverEnd' };
     const state = makeState();
-    expect(matchTrigger(trigger, { type: 'mouseleave', nodeId: 'node-1' }, 'node-1', state)).toBe(true);
+    expect(matchTrigger(trigger, { type: 'mouseleave', nodeId: 'node-1' }, 'node-1', state)).toBe(
+      true,
+    );
   });
 
   it('matches afterDelay trigger when timeout event fires', () => {
     const trigger: Trigger = { kind: 'afterDelay', ms: 1000 };
     const state = makeState();
-    expect(matchTrigger(trigger, { type: 'timeout', triggerKind: 'afterDelay' }, 'node-1', state)).toBe(true);
+    expect(
+      matchTrigger(trigger, { type: 'timeout', triggerKind: 'afterDelay' }, 'node-1', state),
+    ).toBe(true);
   });
 
   it('matches onKeyPress trigger when key matches', () => {
@@ -102,7 +107,12 @@ describe('matchTrigger', () => {
       },
     });
     expect(
-      matchTrigger(trigger, { type: 'variableChange', variableId: 'count', newValue: 5 }, 'node-1', state),
+      matchTrigger(
+        trigger,
+        { type: 'variableChange', variableId: 'count', newValue: 5 },
+        'node-1',
+        state,
+      ),
     ).toBe(true);
   });
 
@@ -118,7 +128,12 @@ describe('matchTrigger', () => {
       },
     });
     expect(
-      matchTrigger(trigger, { type: 'variableChange', variableId: 'count', newValue: 3 }, 'node-1', state),
+      matchTrigger(
+        trigger,
+        { type: 'variableChange', variableId: 'count', newValue: 3 },
+        'node-1',
+        state,
+      ),
     ).toBe(false);
   });
 
@@ -130,7 +145,12 @@ describe('matchTrigger', () => {
       },
     });
     expect(
-      matchTrigger(trigger, { type: 'variableChange', variableId: 'count', newValue: 5 }, 'node-1', state),
+      matchTrigger(
+        trigger,
+        { type: 'variableChange', variableId: 'count', newValue: 5 },
+        'node-1',
+        state,
+      ),
     ).toBe(true);
   });
 
@@ -138,20 +158,29 @@ describe('matchTrigger', () => {
     const trigger: Trigger = { kind: 'onScroll', direction: 'down' };
     const state = makeState();
     expect(
-      matchTrigger(trigger, { type: 'scroll', nodeId: 'container-1', scrollDelta: { x: 0, y: 100 } }, 'node-1', state),
+      matchTrigger(
+        trigger,
+        { type: 'scroll', nodeId: 'container-1', scrollDelta: { x: 0, y: 100 } },
+        'node-1',
+        state,
+      ),
     ).toBe(true);
   });
 
   it('matches onLoad on initial load', () => {
     const trigger: Trigger = { kind: 'onLoad' };
     const state = makeState();
-    expect(matchTrigger(trigger, { type: 'load', nodeId: 'screen-1' }, 'screen-1', state)).toBe(true);
+    expect(matchTrigger(trigger, { type: 'load', nodeId: 'screen-1' }, 'screen-1', state)).toBe(
+      true,
+    );
   });
 
   it('matches onFocus on focus event', () => {
     const trigger: Trigger = { kind: 'onFocus' };
     const state = makeState();
-    expect(matchTrigger(trigger, { type: 'focus', nodeId: 'input-1' }, 'input-1', state)).toBe(true);
+    expect(matchTrigger(trigger, { type: 'focus', nodeId: 'input-1' }, 'input-1', state)).toBe(
+      true,
+    );
   });
 
   it('matches onDrag when drag threshold is exceeded', () => {
@@ -184,7 +213,12 @@ describe('matchTrigger', () => {
     const trigger: Trigger = { kind: 'onMediaQuery', query: '(max-width: 768px)' };
     const state = makeState();
     expect(
-      matchTrigger(trigger, { type: 'mediaQuery', query: '(max-width: 768px)', matches: true }, 'node-1', state),
+      matchTrigger(
+        trigger,
+        { type: 'mediaQuery', query: '(max-width: 768px)', matches: true },
+        'node-1',
+        state,
+      ),
     ).toBe(true);
   });
 
@@ -192,7 +226,12 @@ describe('matchTrigger', () => {
     const trigger: Trigger = { kind: 'onMediaQuery', query: '(max-width: 768px)' };
     const state = makeState();
     expect(
-      matchTrigger(trigger, { type: 'mediaQuery', query: '(max-width: 768px)', matches: false }, 'node-1', state),
+      matchTrigger(
+        trigger,
+        { type: 'mediaQuery', query: '(max-width: 768px)', matches: false },
+        'node-1',
+        state,
+      ),
     ).toBe(false);
   });
 

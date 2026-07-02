@@ -10,7 +10,6 @@
  */
 
 import type { EasingDefinition } from './types';
-import { getEasingFn, type EasingFn } from '@strata/shared';
 
 /**
  * A keyframe defines property values at a specific point in the animation.

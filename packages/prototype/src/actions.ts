@@ -11,20 +11,6 @@
 
 import type {
   Action,
-  ActionKind,
-  NavigateToAction,
-  OpenOverlayAction,
-  CloseOverlayAction,
-  SwapOverlayAction,
-  OpenURLAction,
-  SetVariableAction,
-  ToggleVariableAction,
-  ToggleVisibilityAction,
-  ScrollToAction,
-  StartAnimationAction,
-  StopAnimationAction,
-  DismissAction,
-  GoBackAction,
   PrototypeState,
   TransitionConfig,
 } from './types';
@@ -35,14 +21,37 @@ import type {
  */
 export type ActionResult =
   | { kind: 'navigateTo'; targetId: string; transition: TransitionConfig }
-  | { kind: 'openOverlay'; targetId: string; position?: NavigateToAction['position']; closeOnBackdrop?: boolean; transition: TransitionConfig }
+  | {
+      kind: 'openOverlay';
+      targetId: string;
+      position?:
+        | 'center'
+        | 'topLeft'
+        | 'topRight'
+        | 'bottomLeft'
+        | 'bottomRight'
+        | { x: number; y: number };
+      closeOnBackdrop?: boolean;
+      transition: TransitionConfig;
+    }
   | { kind: 'closeOverlay'; overlayId: string; transition: TransitionConfig }
-  | { kind: 'swapWithOverlay'; overlayId: string; newTargetId: string; transition: TransitionConfig }
+  | {
+      kind: 'swapWithOverlay';
+      overlayId: string;
+      newTargetId: string;
+      transition: TransitionConfig;
+    }
   | { kind: 'openURL'; url: string; newTab?: boolean }
   | { kind: 'setVariable'; variableId: string; value: string | number | boolean }
   | { kind: 'toggleVariable'; variableId: string; newValue: boolean }
   | { kind: 'toggleVisibility'; targetId: string; visible: boolean }
-  | { kind: 'scrollTo'; targetId: string; containerId?: string; behavior?: 'smooth' | 'instant' | 'auto'; offset?: number }
+  | {
+      kind: 'scrollTo';
+      targetId: string;
+      containerId?: string;
+      behavior?: 'smooth' | 'instant' | 'auto';
+      offset?: number;
+    }
   | { kind: 'startAnimation'; targetId: string; animationId: string }
   | { kind: 'stopAnimation'; targetId: string; animationId: string }
   | { kind: 'dismiss' }
@@ -80,10 +89,18 @@ function evaluateExpression(expression: string, variables: Record<string, number
     const op = ops[i]!;
     const next = vals[i + 1] ?? 0;
     switch (op) {
-      case '+': result += next; break;
-      case '-': result -= next; break;
-      case '*': result *= next; break;
-      case '/': result = next !== 0 ? result / next : 0; break;
+      case '+':
+        result += next;
+        break;
+      case '-':
+        result -= next;
+        break;
+      case '*':
+        result *= next;
+        break;
+      case '/':
+        result = next !== 0 ? result / next : 0;
+        break;
     }
   }
   return result;
@@ -137,9 +154,12 @@ export function executeAction(action: Action, state: PrototypeState): ActionResu
       let value: string | number | boolean = action.value;
       if (action.expression) {
         const currentVar = state.variables[action.variableId];
-        const currentValue = currentVar && typeof currentVar.value === 'number'
-          ? currentVar.value
-          : (typeof action.value === 'number' ? action.value : 0);
+        const currentValue =
+          currentVar && typeof currentVar.value === 'number'
+            ? currentVar.value
+            : typeof action.value === 'number'
+              ? action.value
+              : 0;
         const vars: Record<string, number> = {};
         vars[action.variableId] = currentValue;
         value = evaluateExpression(action.expression, vars);

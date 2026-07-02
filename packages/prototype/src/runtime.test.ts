@@ -1,21 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  createRuntime,
-  createInitialState,
-  handleEvent,
   applyActionResult,
-  getVariable,
-  setVariable,
+  createInitialState,
+  createRuntime,
   getActiveOverlays,
-  type PrototypeRuntime,
+  getVariable,
+  handleEvent,
+  setVariable,
 } from './runtime';
 import type {
-  Interaction,
-  Trigger,
   Action,
-  TransitionConfig,
-  PrototypeState,
+  Interaction,
   PrototypeVariable,
+  TransitionConfig,
 } from './types';
 
 const defaultTransition: TransitionConfig = {
@@ -114,12 +111,8 @@ describe('Prototype Runtime', () => {
 
     it('processes multiple interactions on same event', () => {
       const interactions: Interaction[] = [
-        makeClickInteraction('i1', 'btn-1', [
-          { kind: 'setVariable', variableId: 'a', value: 1 },
-        ]),
-        makeClickInteraction('i2', 'btn-1', [
-          { kind: 'setVariable', variableId: 'b', value: 2 },
-        ]),
+        makeClickInteraction('i1', 'btn-1', [{ kind: 'setVariable', variableId: 'a', value: 1 }]),
+        makeClickInteraction('i2', 'btn-1', [{ kind: 'setVariable', variableId: 'b', value: 2 }]),
       ];
       const runtime = createRuntime(interactions, 'screen-1');
       const results = handleEvent(runtime, { type: 'click', nodeId: 'btn-1' });

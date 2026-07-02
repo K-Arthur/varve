@@ -13,8 +13,12 @@
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import { getParent } from '@strata/scene';
 import type { Affine, Rect } from '@strata/shared';
-import { measureText } from '@strata/shared';
-import { transformRect as affineTransformRect, identity, multiplyAffine } from '@strata/shared';
+import {
+  transformRect as affineTransformRect,
+  identity,
+  measureText,
+  multiplyAffine,
+} from '@strata/shared';
 
 /**
  * Walk the ancestor chain from `id` up to the root, composing local→parent
@@ -96,7 +100,8 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
         const minX = Math.min(...xs);
         const minY = Math.min(...ys);
         return {
-          x: minX, y: minY,
+          x: minX,
+          y: minY,
           w: Math.max(Math.abs(s.to[0] - s.from[0]), 4),
           h: Math.max(Math.abs(s.to[1] - s.from[1]), 4),
         };
@@ -104,13 +109,13 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
       case 'path': {
         if (s.points.length === 0) return null;
         const pts = s.points;
-        const allX = pts.flatMap(p => {
+        const allX = pts.flatMap((p) => {
           const vals = [p.x];
           if (p.handleIn) vals.push(p.x + p.handleIn[0]);
           if (p.handleOut) vals.push(p.x + p.handleOut[0]);
           return vals;
         });
-        const allY = pts.flatMap(p => {
+        const allY = pts.flatMap((p) => {
           const vals = [p.y];
           if (p.handleIn) vals.push(p.y + p.handleIn[1]);
           if (p.handleOut) vals.push(p.y + p.handleOut[1]);
@@ -119,7 +124,8 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
         const minX = Math.min(...allX);
         const minY = Math.min(...allY);
         return {
-          x: minX, y: minY,
+          x: minX,
+          y: minY,
           w: Math.max(...allX) - minX || 4,
           h: Math.max(...allY) - minY || 4,
         };

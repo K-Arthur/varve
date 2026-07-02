@@ -7,7 +7,8 @@
  * CSS Web Animations / Web Animations API (easing + keyframes).
  */
 
-import type { NodeId } from '@strata/scene';
+import type { NodeId as SceneNodeId } from '@strata/scene';
+export type NodeId = SceneNodeId;
 
 // ── Trigger Types ────────────────────────────────────────────────
 

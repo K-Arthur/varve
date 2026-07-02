@@ -1,5 +1,5 @@
-import { multiplyAffine, rotateDeg, decomposeAffine } from '@strata/shared';
 import type { Affine } from '@strata/engine';
+import { decomposeAffine, multiplyAffine, rotateDeg } from '@strata/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { ScaleTool } from '../ScaleTool';
 

@@ -1,11 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { executeAction, type ActionResult } from './actions';
-import type {
-  Action,
-  PrototypeState,
-  PrototypeVariable,
-  TransitionConfig,
-} from './types';
+import { describe, expect, it } from 'vitest';
+import { type ActionResult, executeAction } from './actions';
+import type { Action, PrototypeState, TransitionConfig } from './types';
 
 const defaultTransition: TransitionConfig = {
   kind: 'instant',
@@ -43,7 +38,12 @@ describe('executeAction', () => {
     const action: Action = {
       kind: 'openOverlay',
       targetId: 'overlay-1',
-      transition: { ...defaultTransition, kind: 'dissolve', duration: 200, easing: { kind: 'easeInOut' } },
+      transition: {
+        ...defaultTransition,
+        kind: 'dissolve',
+        duration: 200,
+        easing: { kind: 'easeInOut' },
+      },
     };
     const state = makeState();
     const result = executeAction(action, state) as ActionResult & { kind: 'openOverlay' };

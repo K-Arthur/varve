@@ -22,9 +22,46 @@ export {
   translate,
   tryInvertAffine,
 } from './affine';
+export type { CubicBezier, PathPoint, Point2D } from './bezier';
+export {
+  cubicBezierBBox,
+  cubicBezierClosestPoint,
+  cubicBezierDerivative,
+  cubicBezierLength,
+  cubicBezierPoint,
+  cubicBezierSegmentIntersection,
+  cubicBezierSplit,
+  lineLineIntersection,
+  pathPointToBezier,
+  pathSegmentIntersections,
+  pointToPointDist,
+} from './bezier';
 export { debounce, throttle } from './debounce';
+export type {
+  CubicBezierEasingDef,
+  EasingDefinition,
+  EasingFn,
+  EasingKind,
+  SpringEasingDef,
+  SpringPhysicsParams,
+  StepsEasingDef,
+} from './easing';
+export {
+  cubicBezier,
+  easeIn,
+  easeInOut,
+  easeOut,
+  getEasingFn,
+  linear,
+  sampleEasing,
+  springPhysics,
+  steps,
+} from './easing';
 export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
+
+export type { MeasuredLine, TextMeasureOptions, TextMeasureResult } from './textMeasure';
+export { measureText, measureWrappedText, textWrap } from './textMeasure';
 export type { SpecUnit } from './units';
 export {
   convertPx,
@@ -37,7 +74,6 @@ export {
   pxToRem,
   remToPx,
 } from './units';
-
 export type { Camera, Viewport } from './viewport';
 export {
   centerBoundsCamera,
@@ -58,44 +94,6 @@ export {
   worldToScreenAffine,
   zoomAboutPoint,
 } from './viewport';
-
-export type { TextMeasureOptions, MeasuredLine, TextMeasureResult } from './textMeasure';
-export { measureText, measureWrappedText, textWrap } from './textMeasure';
-
-export type {
-  CubicBezierEasingDef,
-  EasingDefinition,
-  EasingFn,
-  EasingKind,
-  SpringEasingDef,
-  StepsEasingDef,
-} from './easing';
-export {
-  cubicBezier,
-  easeIn,
-  easeInOut,
-  easeOut,
-  getEasingFn,
-  linear,
-  sampleEasing,
-  springPhysics,
-  steps,
-} from './easing';
-
-export type { Point2D, CubicBezier, PathPoint } from './bezier';
-export {
-  cubicBezierBBox,
-  cubicBezierClosestPoint,
-  cubicBezierDerivative,
-  cubicBezierLength,
-  cubicBezierPoint,
-  cubicBezierSegmentIntersection,
-  cubicBezierSplit,
-  lineLineIntersection,
-  pathPointToBezier,
-  pathSegmentIntersections,
-  pointToPointDist,
-} from './bezier';
 
 /** Semantic Strata package marker. */
 export const PACKAGE = '@strata/shared' as const;

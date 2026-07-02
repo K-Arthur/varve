@@ -13,15 +13,7 @@
  * Research basis: Figma local styles (color/text/effect), Penpot typography
  * styles, industry-standard DTCG design token patterns.
  */
-import {
-  type Document,
-  type Effect,
-  type Fill,
-  type LayoutStyle,
-  type NodeId,
-  type Style,
-  type StyleType,
-} from './types';
+import type { Document, Effect, Fill, LayoutStyle, NodeId, Style, StyleType } from './types';
 
 // ── CRUD operations ─────────────────────────────────────────────────────────
 
@@ -33,7 +25,11 @@ export function createColorStyle(
 ): { style: import('./types').ColorStyle; doc: Document } {
   const id = nextStyleId(doc);
   const style: import('./types').ColorStyle = {
-    id, type: 'color', name, fill, description,
+    id,
+    type: 'color',
+    name,
+    fill,
+    description,
   };
   return {
     style,
@@ -62,7 +58,11 @@ export function createEffectStyle(
 ): { style: import('./types').EffectStyle; doc: Document } {
   const id = nextStyleId(doc);
   const style: import('./types').EffectStyle = {
-    id, type: 'effect', name, effects, description,
+    id,
+    type: 'effect',
+    name,
+    effects,
+    description,
   };
   return {
     style,
@@ -78,7 +78,11 @@ export function createLayoutStyle(
 ): { style: import('./types').LayoutStyleDef; doc: Document } {
   const id = nextStyleId(doc);
   const style: import('./types').LayoutStyleDef = {
-    id, type: 'layout', name, layout, description,
+    id,
+    type: 'layout',
+    name,
+    layout,
+    description,
   };
   return {
     style,

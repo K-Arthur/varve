@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createBreakpointConfig,
   findActiveBreakpoint,
@@ -8,15 +8,27 @@ import {
 import type { BreakpointConfig, DeviceConfig } from './types';
 
 const phone: DeviceConfig = {
-  type: 'phone', name: 'iPhone 15', width: 393, height: 852, dpr: 3,
+  type: 'phone',
+  name: 'iPhone 15',
+  width: 393,
+  height: 852,
+  dpr: 3,
 };
 
 const tablet: DeviceConfig = {
-  type: 'tablet', name: 'iPad Air', width: 820, height: 1180, dpr: 2,
+  type: 'tablet',
+  name: 'iPad Air',
+  width: 820,
+  height: 1180,
+  dpr: 2,
 };
 
 const desktop: DeviceConfig = {
-  type: 'desktop', name: 'MacBook', width: 1440, height: 900, dpr: 2,
+  type: 'desktop',
+  name: 'MacBook',
+  width: 1440,
+  height: 900,
+  dpr: 2,
 };
 
 const breakpoints: BreakpointConfig[] = [

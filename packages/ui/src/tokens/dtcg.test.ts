@@ -1,10 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import {
-  buildDTCGExport,
-  dtcgExport,
-  dtcgFlatExport,
-  figmaTokensExport,
-} from './dtcg';
+import { describe, expect, it } from 'vitest';
+import { buildDTCGExport, dtcgExport, dtcgFlatExport, figmaTokensExport } from './dtcg';
 
 describe('DTCG Export — Structure', () => {
   it('exports all 3 themes', () => {

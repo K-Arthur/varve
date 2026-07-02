@@ -79,10 +79,12 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
   }, 0);
   let remainingPrimary: number;
   if (row) {
-    const totalContentW = sizes.reduce((s, sz) => s + sz.w, 0) + Math.max(0, children.length - 1) * gap;
+    const totalContentW =
+      sizes.reduce((s, sz) => s + sz.w, 0) + Math.max(0, children.length - 1) * gap;
     remainingPrimary = Math.max(0, availW - totalContentW);
   } else {
-    const totalContentH = sizes.reduce((s, sz) => s + sz.h, 0) + Math.max(0, children.length - 1) * gap;
+    const totalContentH =
+      sizes.reduce((s, sz) => s + sz.h, 0) + Math.max(0, children.length - 1) * gap;
     remainingPrimary = Math.max(0, availH - totalContentH);
   }
 
@@ -122,7 +124,9 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
   let lineSize = 0;
 
   // Order for reverse directions
-  const order = rev ? [...Array(children.length).keys()].reverse() : [...Array(children.length).keys()];
+  const order = rev
+    ? [...Array(children.length).keys()].reverse()
+    : [...Array(children.length).keys()];
 
   for (const i of order) {
     const sz = sizes[i]!;
@@ -163,8 +167,8 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
       let cw = sz.w;
       let ch = sz.h;
       if (child.layoutSizing === 'fill') {
-        if (row) cw = availW / (line.indices.length);
-        else ch = availH / (line.indices.length);
+        if (row) cw = availW / line.indices.length;
+        else ch = availH / line.indices.length;
       }
 
       // Cross-axis alignment uses the frame's available space (not line size).
@@ -201,12 +205,15 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
 
       const totalSize = lineResults.reduce((s, r) => s + (row ? r.w : r.h), 0);
       const gaps = (lineResults.length - 1) * gap;
-      const free = (row ? availW : availH) - totalSize - gaps | 0;
+      const free = ((row ? availW : availH) - totalSize - gaps) | 0;
 
       if (free <= 0) continue;
 
       let offset = 0;
-      const perGap = justify === 'spaceBetween' ? free / Math.max(1, lineResults.length - 1) : free / Math.max(1, lineResults.length);
+      const perGap =
+        justify === 'spaceBetween'
+          ? free / Math.max(1, lineResults.length - 1)
+          : free / Math.max(1, lineResults.length);
       const halfGap = perGap / 2;
 
       for (let j = 0; j < lineResults.length; j++) {

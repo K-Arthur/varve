@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createScrollContainer,
   getScrollPosition,
-  setScrollPosition,
-  isElementVisible,
   getVisibleBounds,
+  isElementVisible,
   type ScrollState,
+  setScrollPosition,
 } from './scrolling';
 
 describe('Scrolling system', () => {

@@ -15,7 +15,8 @@ describe('evaluate — aliases', () => {
   it('resolves {name} alias', () => expect(evaluate('{base} * 2', { base: 5 })).toBe(10));
   it('resolves multiple aliases', () => expect(evaluate('{a} + {b}', { a: 3, b: 7 })).toBe(10));
   it('throws on unknown alias', () => expect(() => evaluate('{x}', {})).toThrow('Unknown alias'));
-  it('throws on division by zero', () => expect(() => evaluate('5 / 0', {})).toThrow('Division by zero'));
+  it('throws on division by zero', () =>
+    expect(() => evaluate('5 / 0', {})).toThrow('Division by zero'));
 });
 
 describe('evaluate — functions: min, max', () => {

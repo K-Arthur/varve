@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addNode, createDocument, makeFrameNode, makeGroupNode, makeShapeNode } from '../document';
-import { resolveMask, isMasked } from '../masks';
+import { isMasked, resolveMask } from '../masks';
 
 describe('resolveMask', () => {
   it('returns null for non-container nodes', () => {

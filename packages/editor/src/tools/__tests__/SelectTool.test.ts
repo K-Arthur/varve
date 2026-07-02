@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
 import { createDocument } from '@strata/scene';
+import { describe, expect, it, vi } from 'vitest';
 import { SelectTool } from '../SelectTool';
 
 function makeCtx(overrides?: Record<string, unknown>) {
@@ -86,7 +86,10 @@ describe('SelectTool', () => {
       shiftKey: true,
       hitTest: vi.fn().mockReturnValue({ nodeId: 'n2', node: hitNode }),
     });
-    tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0, shiftKey: true } as any, ctx);
+    tool.onPointerDown(
+      { clientX: 50, clientY: 50, pointerId: 1, button: 0, shiftKey: true } as any,
+      ctx,
+    );
     expect(ctx.toggleSelection).toHaveBeenCalledWith('n2', true);
   });
 

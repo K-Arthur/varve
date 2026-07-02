@@ -110,6 +110,7 @@ export const SHORTCUT_DEFS = {
   toolHand: { binding: { key: 'h' }, label: 'Hand tool', category: 'Tools' },
   toolZoom: { binding: { key: 'z' }, label: 'Zoom tool', category: 'Tools' },
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
+  settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },
   booleanUnion: {
     binding: { key: 'u', ctrl: true, alt: true },

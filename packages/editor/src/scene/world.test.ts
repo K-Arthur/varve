@@ -1,3 +1,4 @@
+import type { Affine } from '@strata/engine';
 import {
   addChild,
   addNode,
@@ -6,7 +7,6 @@ import {
   makeGroupNode,
   makeShapeNode,
 } from '@strata/scene';
-import type { Affine } from '@strata/engine';
 import { describe, expect, it } from 'vitest';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
 

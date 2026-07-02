@@ -8,10 +8,10 @@
  * Research basis: Figma Scale tool (K), Illustrator Scale tool.
  */
 
+import type { Affine } from '@strata/engine';
 import { multiplyAffine } from '@strata/shared';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
-import type { Affine } from '@strata/engine';
 
 interface NodeInitialState {
   id: string;

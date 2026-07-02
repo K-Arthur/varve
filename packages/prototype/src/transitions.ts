@@ -7,8 +7,8 @@
  * Smart Animate layer matching is handled at the runtime level.
  */
 
-import type { TransitionConfig, NavigationDirection } from './types';
 import { getEasingFn } from '@strata/shared';
+import type { NavigationDirection, TransitionConfig } from './types';
 
 /**
  * Describes the animation curves for a screen transition.
@@ -54,9 +54,7 @@ export function createTransitionAnimation(transition: TransitionConfig): Transit
   };
 }
 
-function getOffsetFromDirection(
-  dir: NavigationDirection,
-): [number, number, number, number] {
+function getOffsetFromDirection(dir: NavigationDirection): [number, number, number, number] {
   switch (dir) {
     case 'left':
       return [1, 0, -1, 0];

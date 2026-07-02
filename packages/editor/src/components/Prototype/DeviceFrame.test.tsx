@@ -20,7 +20,9 @@ describe('DeviceFrame', () => {
 
   it('shows notch when showNotch is true', () => {
     const { container } = render(
-      <DeviceFrame device={{ type: 'phone', name: 'iPhone 15', width: 390, height: 844, showNotch: true }}>
+      <DeviceFrame
+        device={{ type: 'phone', name: 'iPhone 15', width: 390, height: 844, showNotch: true }}
+      >
         <div>Content</div>
       </DeviceFrame>,
     );
@@ -29,7 +31,9 @@ describe('DeviceFrame', () => {
 
   it('hides notch when showNotch is false', () => {
     const { container } = render(
-      <DeviceFrame device={{ type: 'phone', name: 'iPhone 15', width: 390, height: 844, showNotch: false }}>
+      <DeviceFrame
+        device={{ type: 'phone', name: 'iPhone 15', width: 390, height: 844, showNotch: false }}
+      >
         <div>Content</div>
       </DeviceFrame>,
     );
@@ -38,7 +42,15 @@ describe('DeviceFrame', () => {
 
   it('shows home indicator when showHomeIndicator is true', () => {
     const { container } = render(
-      <DeviceFrame device={{ type: 'phone', name: 'iPhone 15', width: 390, height: 844, showHomeIndicator: true }}>
+      <DeviceFrame
+        device={{
+          type: 'phone',
+          name: 'iPhone 15',
+          width: 390,
+          height: 844,
+          showHomeIndicator: true,
+        }}
+      >
         <div>Content</div>
       </DeviceFrame>,
     );
@@ -47,7 +59,15 @@ describe('DeviceFrame', () => {
 
   it('hides home indicator when showHomeIndicator is false', () => {
     const { container } = render(
-      <DeviceFrame device={{ type: 'phone', name: 'iPhone 15', width: 390, height: 844, showHomeIndicator: false }}>
+      <DeviceFrame
+        device={{
+          type: 'phone',
+          name: 'iPhone 15',
+          width: 390,
+          height: 844,
+          showHomeIndicator: false,
+        }}
+      >
         <div>Content</div>
       </DeviceFrame>,
     );
@@ -100,7 +120,10 @@ describe('DeviceFrame', () => {
 
   it('applies custom frame color', () => {
     const { container } = render(
-      <DeviceFrame device={{ type: 'phone', name: 'Pixel', width: 412, height: 915 }} frameColor="#ff0000">
+      <DeviceFrame
+        device={{ type: 'phone', name: 'Pixel', width: 412, height: 915 }}
+        frameColor="#ff0000"
+      >
         <div>Color</div>
       </DeviceFrame>,
     );

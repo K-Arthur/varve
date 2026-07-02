@@ -8,8 +8,8 @@
  */
 
 import { BaseTool } from './BaseTool';
-import { simplifyPoints } from './fitting';
 import type { Point2D } from './fitting';
+import { simplifyPoints } from './fitting';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class PencilTool extends BaseTool {

@@ -10,7 +10,8 @@
  */
 
 import type { PrototypeEvent } from './triggers';
-import type { ActionResult, PrototypeState, NodeId } from './types';
+import type { ActionResult } from './actions';
+import type { NodeId } from './types';
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
@@ -49,7 +50,7 @@ export class PrototypeDebugConsole {
    */
   logAction(action: ActionResult, interactionId: string): void {
     let message = `Action: ${action.kind}`;
-    let details: Record<string, unknown> = { interactionId };
+    const details: Record<string, unknown> = { interactionId };
 
     switch (action.kind) {
       case 'navigateTo':

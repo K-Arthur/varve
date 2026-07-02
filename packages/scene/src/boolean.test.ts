@@ -1,6 +1,6 @@
+import type { PathPoint } from '@strata/engine';
 import { describe, expect, it } from 'vitest';
 import { booleanOp } from './boolean';
-import type { PathPoint } from '@strata/engine';
 import type { ShapeNode } from './types';
 
 function makeRect(id: string, x: number, y: number, w: number, h: number): ShapeNode {

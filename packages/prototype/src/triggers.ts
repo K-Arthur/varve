@@ -6,7 +6,7 @@
  * W3C UI Events specification for pointer/keyboard/scroll event semantics.
  */
 
-import type { Trigger, PrototypeState } from './types';
+import type { PrototypeState, Trigger } from './types';
 
 /**
  * Runtime event that can trigger prototype interactions.
@@ -16,8 +16,22 @@ export type PrototypeEvent =
   | { type: 'tap'; nodeId: string }
   | { type: 'mouseenter'; nodeId: string }
   | { type: 'mouseleave'; nodeId: string }
-  | { type: 'keydown'; key: string; ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean; metaKey?: boolean }
-  | { type: 'keyup'; key: string; ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean; metaKey?: boolean }
+  | {
+      type: 'keydown';
+      key: string;
+      ctrlKey?: boolean;
+      altKey?: boolean;
+      shiftKey?: boolean;
+      metaKey?: boolean;
+    }
+  | {
+      type: 'keyup';
+      key: string;
+      ctrlKey?: boolean;
+      altKey?: boolean;
+      shiftKey?: boolean;
+      metaKey?: boolean;
+    }
   | { type: 'scroll'; nodeId: string; scrollDelta: { x: number; y: number } }
   | { type: 'drag'; nodeId: string; distance: number; direction: 'horizontal' | 'vertical' }
   | { type: 'focus'; nodeId: string }
@@ -50,7 +64,8 @@ export function matchTrigger(
     case 'onDrag':
       if (event.type !== 'drag') return false;
       if (trigger.threshold !== undefined && event.distance < trigger.threshold) return false;
-      if (trigger.direction && trigger.direction !== 'any' && event.direction !== trigger.direction) return false;
+      if (trigger.direction && trigger.direction !== 'any' && event.direction !== trigger.direction)
+        return false;
       return event.nodeId === nodeId;
     case 'onScroll':
       if (event.type !== 'scroll') return false;

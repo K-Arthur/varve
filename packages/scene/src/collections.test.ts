@@ -4,17 +4,17 @@
  * Collections group related variables (like Figma's variable collections).
  * Groups provide nested folder organization within collections.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  createVariableStore,
+  addVariableToCollection,
   createCollection,
   createGroup,
+  createVariableStore,
+  getCollectionVariables,
   resolve,
-  addVariableToCollection,
+  resolveVariableInCollection,
   setActiveCollection,
   setCollectionMode,
-  getCollectionVariables,
-  resolveVariableInCollection,
   type VariableStore,
 } from './variables';
 
@@ -63,11 +63,17 @@ describe('Collections', () => {
     const { store: s1, collection } = createCollection(store, 'Spacing');
     store = s1;
     const { store: s2 } = addVariableToCollection(store, collection.id, {
-      id: '', name: 'xs', type: 'number', valuesByMode: { default: 4 },
+      id: '',
+      name: 'xs',
+      type: 'number',
+      valuesByMode: { default: 4 },
     });
     store = s2;
     const { store: s3 } = addVariableToCollection(store, collection.id, {
-      id: '', name: 'sm', type: 'number', valuesByMode: { default: 8 },
+      id: '',
+      name: 'sm',
+      type: 'number',
+      valuesByMode: { default: 8 },
     });
     store = s3;
     const vars = getCollectionVariables(store, collection.id);
@@ -82,7 +88,9 @@ describe('Collections', () => {
     store = s1;
 
     const { store: s2, variable } = addVariableToCollection(store, collection.id, {
-      id: '', name: 'gap', type: 'number',
+      id: '',
+      name: 'gap',
+      type: 'number',
       valuesByMode: { default: 16, dense: 8 },
     });
     store = s2;
@@ -123,10 +131,17 @@ describe('Groups', () => {
     const s2 = createGroup(store, collection.id, 'Semantic');
     store = s2;
 
-    const { store: s3, variable } = addVariableToCollection(store, collection.id, {
-      id: '', name: 'primary', type: 'color',
-      valuesByMode: { default: '#39d0c6' },
-    }, 'Semantic');
+    const { store: s3, variable } = addVariableToCollection(
+      store,
+      collection.id,
+      {
+        id: '',
+        name: 'primary',
+        type: 'color',
+        valuesByMode: { default: '#39d0c6' },
+      },
+      'Semantic',
+    );
     store = s3;
 
     // Variable should be in the collection

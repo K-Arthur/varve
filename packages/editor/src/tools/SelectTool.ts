@@ -133,7 +133,9 @@ export class SelectTool extends BaseTool {
         const thisBounds = ctx.nodeWorldBounds(node);
         if (thisBounds) {
           // Exclude all selected nodes from snap targets (prevents nodes snapping to each other).
-          const otherBounds = allBounds.filter((entry) => !selectedIds.has(entry.id)).map((entry) => entry.b);
+          const otherBounds = allBounds
+            .filter((entry) => !selectedIds.has(entry.id))
+            .map((entry) => entry.b);
           if (otherBounds.length > 0) {
             const snapped = ctx.snapPosition(
               { x: newX, y: newY, w: thisBounds.w, h: thisBounds.h },

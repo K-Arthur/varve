@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { DeviceFrame } from './DeviceFrame';
 
 interface PrototypePlayerProps {
@@ -23,7 +23,6 @@ export function PrototypePlayer({
   currentScreenId,
   screens,
   onEvent,
-  onNavigate,
   deviceConfig,
   reducedMotion,
   showHints,
@@ -37,15 +36,15 @@ export function PrototypePlayer({
     [screens, currentScreenId],
   );
 
-  const rootClass = [
-    'prototype-player',
-    reducedMotion ? 'prototype-player--reduced-motion' : '',
-  ]
+  const rootClass = ['prototype-player', reducedMotion ? 'prototype-player--reduced-motion' : '']
     .filter(Boolean)
     .join(' ');
 
   const content = (
-    <div className="prototype-player__interaction-area" onClick={() => onEvent({ type: 'click', screenId: currentScreenId })}>
+    <div
+      className="prototype-player__interaction-area"
+      onClick={() => onEvent({ type: 'click', screenId: currentScreenId })}
+    >
       {screens.length === 0 ? (
         <div className="prototype-player__empty">
           <p>No screens found.</p>
@@ -69,9 +68,7 @@ export function PrototypePlayer({
         </div>
       )}
       {deviceConfig && screens.length > 0 ? (
-        <DeviceFrame device={deviceConfig}>
-          {content}
-        </DeviceFrame>
+        <DeviceFrame device={deviceConfig}>{content}</DeviceFrame>
       ) : (
         content
       )}

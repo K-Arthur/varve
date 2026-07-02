@@ -39,20 +39,8 @@ export function applyConstraints(
   newParentW: number,
   newParentH: number,
 ): ConstraintResult {
-  const h = resolveAxis(
-    constraints.horizontal,
-    childOrig.x,
-    childOrig.w,
-    oldParentW,
-    newParentW,
-  );
-  const v = resolveAxis(
-    constraints.vertical,
-    childOrig.y,
-    childOrig.h,
-    oldParentH,
-    newParentH,
-  );
+  const h = resolveAxis(constraints.horizontal, childOrig.x, childOrig.w, oldParentW, newParentW);
+  const v = resolveAxis(constraints.vertical, childOrig.y, childOrig.h, oldParentH, newParentH);
   return { x: h.pos, y: v.pos, w: h.size, h: v.size };
 }
 

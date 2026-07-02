@@ -150,15 +150,11 @@ function addToGroup(groups: VariableGroup[], path: string, variableId: string): 
   if (existing) {
     if (rest) {
       return groups.map((g) =>
-        g.id === existing.id
-          ? { ...g, groups: addToGroup(g.groups ?? [], rest, variableId) }
-          : g,
+        g.id === existing.id ? { ...g, groups: addToGroup(g.groups ?? [], rest, variableId) } : g,
       );
     }
     return groups.map((g) =>
-      g.id === existing.id
-        ? { ...g, variableIds: [...g.variableIds, variableId] }
-        : g,
+      g.id === existing.id ? { ...g, variableIds: [...g.variableIds, variableId] } : g,
     );
   }
 
@@ -178,9 +174,7 @@ export function setActiveCollection(store: VariableStore, collectionId: string):
 export function getCollectionVariables(store: VariableStore, collectionId: string): Variable[] {
   const collection = store.collections[collectionId];
   if (!collection) return [];
-  return collection.variableIds
-    .map((id) => store.variables[id])
-    .filter((v): v is Variable => !!v);
+  return collection.variableIds.map((id) => store.variables[id]).filter((v): v is Variable => !!v);
 }
 
 // ── Group operations ────────────────────────────────────────────────────────
@@ -200,14 +194,15 @@ export function createGroup(
     // Path-like name: "Semantic/Text" → ensure "Semantic" exists, then nest "Text" inside
     const rootName = parts[0]!;
     const childName = parts.slice(1).join('/');
-    let existingRoot = collection.groups?.find((g) => g.name === rootName);
+    const existingRoot = collection.groups?.find((g) => g.name === rootName);
 
     if (existingRoot) {
-      const newGroups = collection.groups?.map((g) =>
-        g.id === existingRoot!.id
-          ? { ...g, groups: [...(g.groups ?? []), { ...newGroup, name: childName }] }
-          : g,
-      ) ?? [];
+      const newGroups =
+        collection.groups?.map((g) =>
+          g.id === existingRoot!.id
+            ? { ...g, groups: [...(g.groups ?? []), { ...newGroup, name: childName }] }
+            : g,
+        ) ?? [];
       return {
         ...store,
         collections: {

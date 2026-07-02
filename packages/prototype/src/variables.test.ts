@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createVariable,
-  getVariableValue,
-  setVariableValue,
   evaluatePrototypeExpression,
-  resolvePrototypeVariable,
+  getVariableValue,
   type PrototypeVariableStore,
+  resolvePrototypeVariable,
+  setVariableValue,
 } from './variables';
 
 describe('Prototype variables', () => {

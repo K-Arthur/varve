@@ -7,8 +7,8 @@
  */
 import type { PathPoint } from '@strata/engine';
 import { applyAffine, invertAffine } from '@strata/engine';
-import { nodeWorldTransform } from '../scene/world';
 import type { ShapeNode } from '@strata/scene';
+import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -148,7 +148,7 @@ export class NodeEditTool extends BaseTool {
           }
           return { ...p, handleOut: [newHandle0, newHandle1] as [number, number] };
         });
-      return { ...n, shape: { ...n.shape, points } } as ShapeNode;
+        return { ...n, shape: { ...n.shape, points } } as ShapeNode;
       });
       return;
     }

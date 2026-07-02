@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   type CubicBezier,
+  cubicBezierBBox,
+  cubicBezierClosestPoint,
+  cubicBezierDerivative,
+  cubicBezierLength,
+  cubicBezierPoint,
+  cubicBezierSegmentIntersection,
+  cubicBezierSplit,
+  lineLineIntersection,
   type PathPoint,
   type Point2D,
-  cubicBezierPoint,
-  cubicBezierDerivative,
-  cubicBezierSplit,
-  cubicBezierBBox,
-  cubicBezierLength,
-  cubicBezierClosestPoint,
-  cubicBezierSegmentIntersection,
   pathSegmentIntersections,
   pointToPointDist,
-  lineLineIntersection,
 } from './bezier';
 
 const EPS = 1e-9;
@@ -40,8 +40,10 @@ describe('pointToPointDist', () => {
 describe('lineLineIntersection', () => {
   it('intersects two crossing lines', () => {
     const p = lineLineIntersection(
-      { x: 0, y: 0 }, { x: 10, y: 10 },
-      { x: 0, y: 10 }, { x: 10, y: 0 },
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+      { x: 10, y: 0 },
     );
     expect(p).not.toBeNull();
     if (p) approxPoint(p, { x: 5, y: 5 });
@@ -49,16 +51,20 @@ describe('lineLineIntersection', () => {
 
   it('returns null for parallel lines', () => {
     const p = lineLineIntersection(
-      { x: 0, y: 0 }, { x: 10, y: 10 },
-      { x: 0, y: 1 }, { x: 10, y: 11 },
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 1 },
+      { x: 10, y: 11 },
     );
     expect(p).toBeNull();
   });
 
   it('returns null for collinear lines', () => {
     const p = lineLineIntersection(
-      { x: 0, y: 0 }, { x: 10, y: 10 },
-      { x: 20, y: 20 }, { x: 30, y: 30 },
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      { x: 20, y: 20 },
+      { x: 30, y: 30 },
     );
     expect(p).toBeNull();
   });
@@ -67,16 +73,20 @@ describe('lineLineIntersection', () => {
 describe('cubicBezierPoint', () => {
   it('at t=0 returns p0', () => {
     const cb: CubicBezier = {
-      p0: { x: 1, y: 2 }, p1: { x: 3, y: 4 },
-      p2: { x: 5, y: 6 }, p3: { x: 7, y: 8 },
+      p0: { x: 1, y: 2 },
+      p1: { x: 3, y: 4 },
+      p2: { x: 5, y: 6 },
+      p3: { x: 7, y: 8 },
     };
     approxPoint(cubicBezierPoint(cb, 0), { x: 1, y: 2 });
   });
 
   it('at t=1 returns p3', () => {
     const cb: CubicBezier = {
-      p0: { x: 1, y: 2 }, p1: { x: 3, y: 4 },
-      p2: { x: 5, y: 6 }, p3: { x: 7, y: 8 },
+      p0: { x: 1, y: 2 },
+      p1: { x: 3, y: 4 },
+      p2: { x: 5, y: 6 },
+      p3: { x: 7, y: 8 },
     };
     approxPoint(cubicBezierPoint(cb, 1), { x: 7, y: 8 });
   });
@@ -96,16 +106,20 @@ describe('cubicBezierPoint', () => {
 
   it('degenerate (all points same) returns same point', () => {
     const cb: CubicBezier = {
-      p0: { x: 5, y: 5 }, p1: { x: 5, y: 5 },
-      p2: { x: 5, y: 5 }, p3: { x: 5, y: 5 },
+      p0: { x: 5, y: 5 },
+      p1: { x: 5, y: 5 },
+      p2: { x: 5, y: 5 },
+      p3: { x: 5, y: 5 },
     };
     approxPoint(cubicBezierPoint(cb, 0.3), { x: 5, y: 5 });
   });
 
   it('clamps t to [0, 1]', () => {
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 0, y: 10 },
-      p2: { x: 10, y: 10 }, p3: { x: 10, y: 0 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 0, y: 10 },
+      p2: { x: 10, y: 10 },
+      p3: { x: 10, y: 0 },
     };
     approxPoint(cubicBezierPoint(cb, -0.5), cubicBezierPoint(cb, 0));
     approxPoint(cubicBezierPoint(cb, 1.5), cubicBezierPoint(cb, 1));
@@ -115,8 +129,10 @@ describe('cubicBezierPoint', () => {
 describe('cubicBezierDerivative', () => {
   it('at t=0 is 3*(p1-p0)', () => {
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 3, y: 0 },
-      p2: { x: 6, y: 0 }, p3: { x: 9, y: 0 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 3, y: 0 },
+      p2: { x: 6, y: 0 },
+      p3: { x: 9, y: 0 },
     };
     const d = cubicBezierDerivative(cb, 0);
     approxPoint(d, { x: 9, y: 0 });
@@ -124,8 +140,10 @@ describe('cubicBezierDerivative', () => {
 
   it('at t=1 is 3*(p3-p2)', () => {
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 3, y: 0 },
-      p2: { x: 6, y: 0 }, p3: { x: 9, y: 0 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 3, y: 0 },
+      p2: { x: 6, y: 0 },
+      p3: { x: 9, y: 0 },
     };
     const d = cubicBezierDerivative(cb, 1);
     approxPoint(d, { x: 9, y: 0 });
@@ -133,8 +151,10 @@ describe('cubicBezierDerivative', () => {
 
   it('degenerate curve has zero derivative everywhere', () => {
     const cb: CubicBezier = {
-      p0: { x: 5, y: 5 }, p1: { x: 5, y: 5 },
-      p2: { x: 5, y: 5 }, p3: { x: 5, y: 5 },
+      p0: { x: 5, y: 5 },
+      p1: { x: 5, y: 5 },
+      p2: { x: 5, y: 5 },
+      p3: { x: 5, y: 5 },
     };
     approxPoint(cubicBezierDerivative(cb, 0), { x: 0, y: 0 });
     approxPoint(cubicBezierDerivative(cb, 0.5), { x: 0, y: 0 });
@@ -145,8 +165,10 @@ describe('cubicBezierDerivative', () => {
 describe('cubicBezierSplit', () => {
   it('split concatenation equals original at t=0.5', () => {
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 0, y: 10 },
-      p2: { x: 10, y: 10 }, p3: { x: 10, y: 0 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 0, y: 10 },
+      p2: { x: 10, y: 10 },
+      p3: { x: 10, y: 0 },
     };
     const [left, right] = cubicBezierSplit(cb, 0.5);
 
@@ -162,8 +184,10 @@ describe('cubicBezierSplit', () => {
 
   it('split at t=0 returns [degenerate, original]', () => {
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 3, y: 4 },
-      p2: { x: 6, y: 8 }, p3: { x: 10, y: 10 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 3, y: 4 },
+      p2: { x: 6, y: 8 },
+      p3: { x: 10, y: 10 },
     };
     const [left, right] = cubicBezierSplit(cb, 0);
     approxPoint(left.p0, cb.p0);
@@ -174,8 +198,10 @@ describe('cubicBezierSplit', () => {
 
   it('split at t=1 returns [original, degenerate]', () => {
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 3, y: 4 },
-      p2: { x: 6, y: 8 }, p3: { x: 10, y: 10 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 3, y: 4 },
+      p2: { x: 6, y: 8 },
+      p3: { x: 10, y: 10 },
     };
     const [left, right] = cubicBezierSplit(cb, 1);
     approxPoint(left.p0, cb.p0);
@@ -186,8 +212,10 @@ describe('cubicBezierSplit', () => {
 
   it('sub-curves, when sampled, reconstruct the original shape', () => {
     const cb: CubicBezier = {
-      p0: { x: 10, y: 20 }, p1: { x: 40, y: 80 },
-      p2: { x: 60, y: 30 }, p3: { x: 90, y: 70 },
+      p0: { x: 10, y: 20 },
+      p1: { x: 40, y: 80 },
+      p2: { x: 60, y: 30 },
+      p3: { x: 90, y: 70 },
     };
     const tSplit = 0.4;
     const [left, right] = cubicBezierSplit(cb, tSplit);
@@ -218,8 +246,10 @@ describe('cubicBezierBBox', () => {
     // Control points at y=10 pull the curve up; the y-max occurs at
     // t=0.5 with y=7.5, not at the control point y=10.
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 0, y: 10 },
-      p2: { x: 10, y: 10 }, p3: { x: 10, y: 0 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 0, y: 10 },
+      p2: { x: 10, y: 10 },
+      p3: { x: 10, y: 0 },
     };
     const bb = cubicBezierBBox(cb);
     expect(bb.x).toBeLessThanOrEqual(0);
@@ -232,8 +262,10 @@ describe('cubicBezierBBox', () => {
   it('expands beyond endpoints for an s-curve with inflection', () => {
     // An S-curve: starts at (0,0) heading right, then dips left then right.
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 10, y: 10 },
-      p2: { x: -10, y: 10 }, p3: { x: 0, y: 20 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 10, y: 10 },
+      p2: { x: -10, y: 10 },
+      p3: { x: 0, y: 20 },
     };
     const bb = cubicBezierBBox(cb);
     // The curve goes left of x=0, so bbox x should be negative
@@ -245,8 +277,10 @@ describe('cubicBezierBBox', () => {
 
   it('degenerate curve has zero-area bbox', () => {
     const cb: CubicBezier = {
-      p0: { x: 5, y: 5 }, p1: { x: 5, y: 5 },
-      p2: { x: 5, y: 5 }, p3: { x: 5, y: 5 },
+      p0: { x: 5, y: 5 },
+      p1: { x: 5, y: 5 },
+      p2: { x: 5, y: 5 },
+      p3: { x: 5, y: 5 },
     };
     const bb = cubicBezierBBox(cb);
     approxNum(bb.x, 5);
@@ -257,8 +291,10 @@ describe('cubicBezierBBox', () => {
 
   it('straight line bbox matches endpoints', () => {
     const cb: CubicBezier = {
-      p0: { x: 2, y: 3 }, p1: { x: 4, y: 5 },
-      p2: { x: 6, y: 7 }, p3: { x: 8, y: 9 },
+      p0: { x: 2, y: 3 },
+      p1: { x: 4, y: 5 },
+      p2: { x: 6, y: 7 },
+      p3: { x: 8, y: 9 },
     };
     const bb = cubicBezierBBox(cb);
     expect(bb.x).toBeLessThanOrEqual(2);
@@ -271,8 +307,10 @@ describe('cubicBezierBBox', () => {
 describe('cubicBezierLength', () => {
   it('straight line length approximately equals distance(p0,p3)', () => {
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 1, y: 1 },
-      p2: { x: 2, y: 2 }, p3: { x: 3, y: 3 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 1, y: 1 },
+      p2: { x: 2, y: 2 },
+      p3: { x: 3, y: 3 },
     };
     const expected = Math.sqrt(3 * 3 + 3 * 3); // ~4.2426
     approxNum(cubicBezierLength(cb), expected, 0.1);
@@ -281,8 +319,10 @@ describe('cubicBezierLength', () => {
   it('non-straight curve is longer than straight-line distance', () => {
     // Control points bulge out, making arc longer than chord
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 0, y: 20 },
-      p2: { x: 10, y: 20 }, p3: { x: 10, y: 0 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 0, y: 20 },
+      p2: { x: 10, y: 20 },
+      p3: { x: 10, y: 0 },
     };
     const chord = Math.sqrt(10 * 10 + 0 * 0);
     const len = cubicBezierLength(cb, 20);
@@ -291,8 +331,10 @@ describe('cubicBezierLength', () => {
 
   it('degenerate curve has zero length', () => {
     const cb: CubicBezier = {
-      p0: { x: 5, y: 5 }, p1: { x: 5, y: 5 },
-      p2: { x: 5, y: 5 }, p3: { x: 5, y: 5 },
+      p0: { x: 5, y: 5 },
+      p1: { x: 5, y: 5 },
+      p2: { x: 5, y: 5 },
+      p3: { x: 5, y: 5 },
     };
     approxNum(cubicBezierLength(cb), 0, EPS_LEN);
   });
@@ -301,8 +343,10 @@ describe('cubicBezierLength', () => {
 describe('cubicBezierClosestPoint', () => {
   it('at p=p0 returns t≈0 with dist≈0', () => {
     const cb: CubicBezier = {
-      p0: { x: 10, y: 20 }, p1: { x: 30, y: 50 },
-      p2: { x: 60, y: 50 }, p3: { x: 80, y: 20 },
+      p0: { x: 10, y: 20 },
+      p1: { x: 30, y: 50 },
+      p2: { x: 60, y: 50 },
+      p3: { x: 80, y: 20 },
     };
     const result = cubicBezierClosestPoint(cb, { x: 10, y: 20 });
     approxNum(result.t, 0, 1e-4);
@@ -311,8 +355,10 @@ describe('cubicBezierClosestPoint', () => {
 
   it('at p=p3 returns t≈1 with dist≈0', () => {
     const cb: CubicBezier = {
-      p0: { x: 10, y: 20 }, p1: { x: 30, y: 50 },
-      p2: { x: 60, y: 50 }, p3: { x: 80, y: 20 },
+      p0: { x: 10, y: 20 },
+      p1: { x: 30, y: 50 },
+      p2: { x: 60, y: 50 },
+      p3: { x: 80, y: 20 },
     };
     const result = cubicBezierClosestPoint(cb, { x: 80, y: 20 });
     approxNum(result.t, 1, 1e-4);
@@ -323,8 +369,10 @@ describe('cubicBezierClosestPoint', () => {
     // Symmetric cubic: p0=(0,0), p1=(0,10), p2=(10,10), p3=(10,0)
     // At t=0.5, point is (5, 7.5) approx. Let's check.
     const cb: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 0, y: 10 },
-      p2: { x: 10, y: 10 }, p3: { x: 10, y: 0 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 0, y: 10 },
+      p2: { x: 10, y: 10 },
+      p3: { x: 10, y: 0 },
     };
     const mid = cubicBezierPoint(cb, 0.5);
     const result = cubicBezierClosestPoint(cb, mid);
@@ -337,30 +385,36 @@ describe('cubicBezierSegmentIntersection', () => {
   it('finds the intersection of two crossing beziers', () => {
     // A horizontal-ish curve and a vertical-ish curve that cross
     const a: CubicBezier = {
-      p0: { x: 0, y: 5 }, p1: { x: 3, y: 5 },
-      p2: { x: 7, y: 5 }, p3: { x: 10, y: 5 },
+      p0: { x: 0, y: 5 },
+      p1: { x: 3, y: 5 },
+      p2: { x: 7, y: 5 },
+      p3: { x: 10, y: 5 },
     };
     const b: CubicBezier = {
-      p0: { x: 5, y: 0 }, p1: { x: 5, y: 3 },
-      p2: { x: 5, y: 7 }, p3: { x: 5, y: 10 },
+      p0: { x: 5, y: 0 },
+      p1: { x: 5, y: 3 },
+      p2: { x: 5, y: 7 },
+      p3: { x: 5, y: 10 },
     };
     const pts = cubicBezierSegmentIntersection(a, b);
     expect(pts.length).toBeGreaterThan(0);
     // Expect intersection near (5, 5)
-    const found = pts.some(
-      (p) => Math.abs(p.x - 5) < 0.5 && Math.abs(p.y - 5) < 0.5,
-    );
+    const found = pts.some((p) => Math.abs(p.x - 5) < 0.5 && Math.abs(p.y - 5) < 0.5);
     expect(found).toBe(true);
   });
 
   it('returns empty for non-overlapping beziers', () => {
     const a: CubicBezier = {
-      p0: { x: 0, y: 0 }, p1: { x: 0, y: 5 },
-      p2: { x: 0, y: 5 }, p3: { x: 0, y: 10 },
+      p0: { x: 0, y: 0 },
+      p1: { x: 0, y: 5 },
+      p2: { x: 0, y: 5 },
+      p3: { x: 0, y: 10 },
     };
     const b: CubicBezier = {
-      p0: { x: 10, y: 0 }, p1: { x: 10, y: 5 },
-      p2: { x: 10, y: 5 }, p3: { x: 10, y: 10 },
+      p0: { x: 10, y: 0 },
+      p1: { x: 10, y: 5 },
+      p2: { x: 10, y: 5 },
+      p3: { x: 10, y: 10 },
     };
     const pts = cubicBezierSegmentIntersection(a, b);
     expect(pts.length).toBe(0);
@@ -382,9 +436,7 @@ describe('pathSegmentIntersections', () => {
 
     const pts = pathSegmentIntersections(pathA, false, pathB, false);
     expect(pts.length).toBeGreaterThan(0);
-    const found = pts.some(
-      (p) => Math.abs(p.x - 5) < 1 && Math.abs(p.y - 5) < 1,
-    );
+    const found = pts.some((p) => Math.abs(p.x - 5) < 1 && Math.abs(p.y - 5) < 1);
     expect(found).toBe(true);
   });
 
