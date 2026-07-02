@@ -425,7 +425,7 @@ function paintText(
     let line = rawLines[i] ?? '';
     if (p.listStyle === 'disc') line = `• ${line}`;
     else if (p.listStyle === 'circle') line = `○ ${line}`;
-    else if (p.listStyle === 'square') line = `▪ ${line}`;
+    else if (p.listStyle === 'square') line = `[ ] ${line}`;
     else if (p.listStyle === 'decimal') line = `${i + 1}. ${line}`;
     lines.push(line);
   }

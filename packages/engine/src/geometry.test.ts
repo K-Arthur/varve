@@ -54,6 +54,79 @@ describe('containment', () => {
   });
 });
 
+describe('path containment (bezier-aware)', () => {
+  it('closed path with bezier handles contains point inside curve region', () => {
+    const path = {
+      kind: 'path' as const,
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: [20, -30] as [number, number] },
+        { x: 100, y: 0, handleIn: [80, -30] as [number, number], handleOut: null },
+        { x: 100, y: 100, handleIn: null, handleOut: null },
+        { x: 0, y: 100, handleIn: null, handleOut: null },
+      ],
+      closed: true,
+      tolerance: 2,
+    };
+    expect(shapeContains(path, [50, -10])).toBe(true);
+  });
+
+  it('closed path with bezier handles does not contain point outside curve', () => {
+    const path = {
+      kind: 'path' as const,
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: [20, -30] as [number, number] },
+        { x: 100, y: 0, handleIn: [80, -30] as [number, number], handleOut: null },
+        { x: 100, y: 100, handleIn: null, handleOut: null },
+        { x: 0, y: 100, handleIn: null, handleOut: null },
+      ],
+      closed: true,
+      tolerance: 2,
+    };
+    expect(shapeContains(path, [50, -30])).toBe(false);
+  });
+
+  it('open path tolerance hit test works on curved segment', () => {
+    const path = {
+      kind: 'path' as const,
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: [50, -20] as [number, number] },
+        { x: 100, y: 0, handleIn: [50, -20] as [number, number], handleOut: null },
+      ],
+      closed: false,
+      tolerance: 8,
+    };
+    expect(shapeContains(path, [50, -14])).toBe(true);
+  });
+
+  it('point near straight path segment is contained', () => {
+    const path = {
+      kind: 'path' as const,
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 100, y: 0, handleIn: null, handleOut: null },
+        { x: 100, y: 100, handleIn: null, handleOut: null },
+      ],
+      closed: false,
+      tolerance: 4,
+    };
+    expect(shapeContains(path, [50, -2])).toBe(true);
+    expect(shapeContains(path, [50, 0])).toBe(true);
+  });
+
+  it('point far from path is not contained', () => {
+    const path = {
+      kind: 'path' as const,
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 100, y: 0, handleIn: null, handleOut: null },
+      ],
+      closed: false,
+      tolerance: 4,
+    };
+    expect(shapeContains(path, [50, -30])).toBe(false);
+  });
+});
+
 describe('hitTest', () => {
   const rect = (id: string, x: number, y: number): SceneNode => ({
     id,

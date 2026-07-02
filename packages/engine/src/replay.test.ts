@@ -2,7 +2,7 @@
  * Tests for replayIr — particularly the text rendering case not covered by
  * the existing engine.test.ts (which tests the stub engine, not replayIr).
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ReplayTarget } from './replay';
 import { replayIr } from './replay';
 import type { RenderItem } from './types';
@@ -692,6 +692,187 @@ describe('replayIr', () => {
     expect(rec.calls.some((c) => c.startsWith('moveTo'))).toBe(true);
     expect(rec.calls.some((c) => c.startsWith('lineTo'))).toBe(true);
     expect(rec.calls.some((c) => c === 'stroke')).toBe(true);
+  });
+
+  // ── Bezier path rendering: single-handle transitions ───────────────
+
+  /** Create a minimal ReplayTarget mock with spy-able methods. */
+  function mockTarget() {
+    const bezierCurveTo = vi.fn();
+    const lineTo = vi.fn();
+    return {
+      target: {
+        save: vi.fn(),
+        restore: vi.fn(),
+        transform: vi.fn(),
+        fillRect: vi.fn(),
+        strokeRect: vi.fn(),
+        beginPath: vi.fn(),
+        ellipse: vi.fn(),
+        arc: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo,
+        bezierCurveTo,
+        roundRect: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        closePath: vi.fn(),
+        fillText: vi.fn(),
+        setLineDash: vi.fn(),
+        fillStyle: '',
+        lineWidth: 1,
+        lineCap: 'round' as CanvasLineCap,
+        lineJoin: 'miter' as CanvasLineJoin,
+        strokeStyle: '',
+        globalAlpha: 1,
+        globalCompositeOperation: 'source-over',
+        filter: 'none',
+        lineDashOffset: 0,
+        font: '',
+        textAlign: 'left' as CanvasTextAlign,
+        textBaseline: 'alphabetic' as CanvasTextBaseline,
+      },
+      bezierCurveTo,
+      lineTo,
+    };
+  }
+
+  it('path fill with only handleOut on prev anchor uses bezier not line', () => {
+    const m = mockTarget();
+    replayIr(m.target, [{
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 0, 0, 255],
+      primitive: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
+          { x: 100, y: 100, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+    }]);
+    expect(m.bezierCurveTo).toHaveBeenCalled();
+    expect(m.lineTo).not.toHaveBeenCalled();
+  });
+
+  it('path fill with only handleIn on current anchor uses bezier not line', () => {
+    const m = mockTarget();
+    replayIr(m.target, [{
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 255, 255],
+      primitive: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+    }]);
+    expect(m.bezierCurveTo).toHaveBeenCalled();
+    expect(m.lineTo).not.toHaveBeenCalled();
+  });
+
+  it('path fill with handles on both anchors uses proper bezier', () => {
+    const m = mockTarget();
+    replayIr(m.target, [{
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 0, 255, 255],
+      primitive: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
+          { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+    }]);
+    expect(m.bezierCurveTo).toHaveBeenCalled();
+    expect(m.lineTo).not.toHaveBeenCalled();
+  });
+
+  it('path fill with no handles uses straight line', () => {
+    const m = mockTarget();
+    replayIr(m.target, [{
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 128, 0, 255],
+      primitive: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 100, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+    }]);
+    expect(m.lineTo).toHaveBeenCalled();
+    expect(m.bezierCurveTo).not.toHaveBeenCalled();
+  });
+
+  it('bezier stroke with only handleOut on prev anchor uses bezier not line', () => {
+    const m = mockTarget();
+    replayIr(m.target, [{
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 0, 0, 255],
+      strokes: [{ color: [0, 0, 0, 255] as const, weight: 2, align: 'center', dashPattern: [], dashOffset: 0, cap: 'round', join: 'round', miterLimit: 4, visible: true }],
+      primitive: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: [20, 30] },
+          { x: 100, y: 100, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+    }]);
+    expect(m.bezierCurveTo).toHaveBeenCalled();
+    expect(m.lineTo).not.toHaveBeenCalled();
+  });
+
+  it('bezier stroke with only handleIn on current anchor uses bezier not line', () => {
+    const m = mockTarget();
+    replayIr(m.target, [{
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 0, 0, 255],
+      strokes: [{ color: [0, 0, 0, 255] as const, weight: 2, align: 'center', dashPattern: [], dashOffset: 0, cap: 'round', join: 'round', miterLimit: 4, visible: true }],
+      primitive: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 100, handleIn: [-20, -30], handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+    }]);
+    expect(m.bezierCurveTo).toHaveBeenCalled();
+    expect(m.lineTo).not.toHaveBeenCalled();
+  });
+
+  it('bezier stroke control points are absolute (anchor + handle offset), not relative', () => {
+    const m = mockTarget();
+    replayIr(m.target, [{
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [255, 0, 0, 255],
+      strokes: [{ color: [0, 0, 0, 255] as const, weight: 2, align: 'center', dashPattern: [], dashOffset: 0, cap: 'round', join: 'round', miterLimit: 4, visible: true }],
+      primitive: {
+        kind: 'path',
+        points: [
+          { x: 10, y: 20, handleIn: null, handleOut: [30, 40] },
+          { x: 100, y: 200, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+    }]);
+    // cp1 = anchor + handleOut = (10+30, 20+40) = (40, 60)
+    // cp2 = degenerate: pt (100, 200)
+    // end = (100, 200)
+    expect(m.bezierCurveTo).toHaveBeenCalledWith(40, 60, 100, 200, 100, 200);
   });
 
   it('renders bulleted list with disc prefix', () => {

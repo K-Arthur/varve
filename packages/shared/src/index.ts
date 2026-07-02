@@ -62,5 +62,20 @@ export {
 export type { TextMeasureOptions, MeasuredLine, TextMeasureResult } from './textMeasure';
 export { measureText, measureWrappedText, textWrap } from './textMeasure';
 
+export type { Point2D, CubicBezier, PathPoint } from './bezier';
+export {
+  cubicBezierBBox,
+  cubicBezierClosestPoint,
+  cubicBezierDerivative,
+  cubicBezierLength,
+  cubicBezierPoint,
+  cubicBezierSegmentIntersection,
+  cubicBezierSplit,
+  lineLineIntersection,
+  pathPointToBezier,
+  pathSegmentIntersections,
+  pointToPointDist,
+} from './bezier';
+
 /** Semantic Strata package marker. */
 export const PACKAGE = '@strata/shared' as const;

@@ -229,3 +229,247 @@ describe('NodeEditTool — anchor move', () => {
     expect(updated.shape.points[0].y).toBeCloseTo(20);
   });
 });
+
+describe('NodeEditTool — handle hit detection', () => {
+  it('clicking near handleOut control point selects handle out drag mode', () => {
+    const smoothPoints: PathPoint[] = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      {
+        x: 100,
+        y: 10,
+        handleIn: [0, 0] as [number, number],
+        handleOut: [30, 0] as [number, number],
+      },
+      { x: 130, y: 40, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(smoothPoints);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    // handleOut of point 1 is at local (100+30, 10+0) = (130, 10); click at (132, 10)
+    const down = makePointerEvent(132, 10);
+    const result = tool.onPointerDown!(down, ctx);
+    expect(result.consumed).toBe(true);
+    // Pointer move should now update handleOut, not anchor position
+    const move = makePointerEvent(135, 10);
+    tool.onPointerMove!(move, ctx);
+    expect(ctx.updateNode).toHaveBeenCalled();
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
+    const updated = updater(original);
+    // handleOut should have moved from [30,0] to [33,0] (delta 3 in x)
+    expect(updated.shape.points[1]!.handleOut![0]).toBeCloseTo(33);
+    expect(updated.shape.points[1]!.handleOut![1]).toBeCloseTo(0);
+  });
+
+  it('clicking near handleIn control point selects handle in drag mode', () => {
+    const smoothPoints: PathPoint[] = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      {
+        x: 100,
+        y: 10,
+        handleIn: [-30, 0] as [number, number],
+        handleOut: [30, 0] as [number, number],
+      },
+      { x: 130, y: 40, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(smoothPoints);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    // handleIn of point 1 is at local (100-30, 10+0) = (70, 10); click at (68, 10)
+    const down = makePointerEvent(68, 10);
+    tool.onPointerDown!(down, ctx);
+    const move = makePointerEvent(64, 10);
+    tool.onPointerMove!(move, ctx);
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
+    const updated = updater(original);
+    // handleIn should have moved from [-30,0] to [-34,0] (delta -4 in x)
+    expect(updated.shape.points[1]!.handleIn![0]).toBeCloseTo(-34);
+    expect(updated.shape.points[1]!.handleIn![1]).toBeCloseTo(0);
+  });
+
+  it('corner anchor with null handles: clicking adjacent to anchor does not enter handle drag', () => {
+    // Point 1 has null handles; clicking far enough from anchor (outside 8px radius)
+    // but where a handle might be — should NOT trigger handle drag (no handles exist).
+    // Click at (115, 10) — 15px from point 1 at (100,10), outside 8px anchor radius
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    const down = makePointerEvent(115, 10);
+    tool.onPointerDown!(down, ctx);
+    // No anchor or handle was hit → no drag started → moving pointer should not call updateNode
+    const move = makePointerEvent(120, 10);
+    tool.onPointerMove!(move, ctx);
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+  });
+
+  it('anchor hit takes priority over handle hit when both are within radius', () => {
+    // When a point has handles and the user clicks very near the anchor center,
+    // anchor selection should win over handle drag.
+    const smoothPoints: PathPoint[] = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      {
+        x: 100,
+        y: 10,
+        handleIn: [-8, 0] as [number, number],
+        handleOut: [8, 0] as [number, number],
+      },
+      { x: 130, y: 40, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(smoothPoints);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    // Click at anchor center (100, 10) — inside 8px anchor radius AND inside 6px handle radius
+    // Anchor has 8px radius, handles have 6px radius
+    // Anchor hit should win → draggingAnchorIdx set, not draggingHandle
+    const down = makePointerEvent(100, 10);
+    tool.onPointerDown!(down, ctx);
+    // Move pointer diagonally — anchor move should update anchor position, not handle
+    const move = makePointerEvent(105, 15);
+    tool.onPointerMove!(move, ctx);
+    expect(ctx.updateNode).toHaveBeenCalled();
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
+    const updated = updater(original);
+    // Anchor should have moved from (100,10) to (105,15) — NOT the handle
+    expect(updated.shape.points[1]!.x).toBeCloseTo(105);
+    expect(updated.shape.points[1]!.y).toBeCloseTo(15);
+  });
+});
+
+describe('NodeEditTool — handle drag movement', () => {
+  it('handle drag: releasing pointer exits drag mode', () => {
+    const smoothPoints: PathPoint[] = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      {
+        x: 100,
+        y: 10,
+        handleIn: [0, 0] as [number, number],
+        handleOut: [30, 0] as [number, number],
+      },
+      { x: 130, y: 40, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(smoothPoints);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    const down = makePointerEvent(132, 10);
+    tool.onPointerDown!(down, ctx);
+    const move = makePointerEvent(140, 10);
+    tool.onPointerMove!(move, ctx);
+    expect(ctx.updateNode).toHaveBeenCalledTimes(1);
+    // Release
+    const up = makePointerEvent(140, 10);
+    tool.onPointerUp!(up, ctx);
+    // Moving after release should not call updateNode
+    (ctx.updateNode as ReturnType<typeof vi.fn>).mockClear();
+    const move2 = makePointerEvent(150, 10);
+    tool.onPointerMove!(move2, ctx);
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+  });
+});
+
+describe('NodeEditTool — toggleCornerSmooth segment-aware', () => {
+  it('toggleCornerSmooth creates handles at ~1/3 of adjacent segment length', () => {
+    const points: PathPoint[] = [
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 0, y: 60, handleIn: null, handleOut: null },
+      { x: 60, y: 60, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(points);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    // Select point 1 (middle anchor)
+    const down = makePointerEvent(0, 60);
+    tool.onPointerDown!(down, ctx);
+    // Toggle to smooth — should compute handles based on adjacent segments
+    tool.onKeyDown!(makeKeyEvent('c'), ctx);
+    expect(ctx.updateNode).toHaveBeenCalled();
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
+    const updated = updater(original);
+    const p1 = updated.shape.points[1]!;
+    // Segment to prev (point 0→1): length 60, 1/3 = 20
+    // Segment to next (point 1→2): length 60, 1/3 = 20
+    // Min = 20
+    // handleIn should be along the prev→this vector (0,60)→(0,0) = (0, -60), so handleIn = [0, -20]
+    // handleOut should be along the this→next vector (0,60)→(60,60) = (60, 0), so handleOut = [20, 0]
+    expect(p1.handleIn).not.toBeNull();
+    expect(p1.handleOut).not.toBeNull();
+    expect(p1.handleIn![0]).toBeCloseTo(0);
+    expect(p1.handleIn![1]).toBeCloseTo(-20);
+    expect(p1.handleOut![0]).toBeCloseTo(20);
+    expect(p1.handleOut![1]).toBeCloseTo(0);
+  });
+
+  it('toggleCornerSmooth creates handles with minimum 4px length for close points', () => {
+    const points: PathPoint[] = [
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 5, y: 0, handleIn: null, handleOut: null },
+      { x: 10, y: 0, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(points);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    const down = makePointerEvent(5, 0);
+    tool.onPointerDown!(down, ctx);
+    tool.onKeyDown!(makeKeyEvent('c'), ctx);
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
+    const updated = updater(original);
+    const p1 = updated.shape.points[1]!;
+    // Segment lengths: 5px each. 1/3 = 1.67, but min is 4px.
+    expect(p1.handleIn).not.toBeNull();
+    expect(p1.handleOut).not.toBeNull();
+    const inLen = Math.sqrt(p1.handleIn![0] ** 2 + p1.handleIn![1] ** 2);
+    const outLen = Math.sqrt(p1.handleOut![0] ** 2 + p1.handleOut![1] ** 2);
+    expect(inLen).toBeGreaterThanOrEqual(4);
+    expect(outLen).toBeGreaterThanOrEqual(4);
+  });
+});

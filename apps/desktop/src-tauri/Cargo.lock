@@ -3426,6 +3426,7 @@ version = "0.0.0"
 dependencies = [
  "kurbo",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3453,6 +3454,7 @@ version = "0.0.0"
 dependencies = [
  "kurbo",
  "serde",
+ "serde_json",
  "strata-core",
 ]
 

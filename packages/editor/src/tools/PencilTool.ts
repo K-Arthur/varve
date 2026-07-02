@@ -8,6 +8,7 @@
  */
 
 import { BaseTool } from './BaseTool';
+import { simplifyPoints } from './fitting';
 import type { Point2D } from './fitting';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -53,8 +54,9 @@ export class PencilTool extends BaseTool {
       return;
     }
 
-    // Convert captured freehand points to PathPoint[]
-    const pathPoints = this.captured.map((p) => ({
+    // Simplify then convert captured freehand points to PathPoint[]
+    const simplified = simplifyPoints(this.captured, 2);
+    const pathPoints = simplified.map((p: Point2D) => ({
       x: p.x,
       y: p.y,
       handleIn: null as [number, number] | null,
