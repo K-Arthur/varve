@@ -62,6 +62,26 @@ export {
 export type { TextMeasureOptions, MeasuredLine, TextMeasureResult } from './textMeasure';
 export { measureText, measureWrappedText, textWrap } from './textMeasure';
 
+export type {
+  CubicBezierEasingDef,
+  EasingDefinition,
+  EasingFn,
+  EasingKind,
+  SpringEasingDef,
+  StepsEasingDef,
+} from './easing';
+export {
+  cubicBezier,
+  easeIn,
+  easeInOut,
+  easeOut,
+  getEasingFn,
+  linear,
+  sampleEasing,
+  springPhysics,
+  steps,
+} from './easing';
+
 export type { Point2D, CubicBezier, PathPoint } from './bezier';
 export {
   cubicBezierBBox,
