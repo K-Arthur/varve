@@ -214,6 +214,12 @@ function mapBlendMode(mode: string): string {
       return 'color';
     case 'luminosity':
       return 'luminosity';
+    case 'plusDarker':
+      return 'plus-darker';
+    case 'plusLighter':
+      return 'plus-lighter';
+    case 'passThrough':
+      return 'source-over';
     default:
       return 'source-over';
   }
@@ -239,10 +245,22 @@ function createGradientStyle(
   if (stops.length === 0) return 'rgba(0,0,0,0)';
 
   const bounds = primitiveBounds(item.primitive);
-  const rot = (fill.rotation * Math.PI) / 180;
-  const cx = (bounds.x + bounds.w) / 2;
-  const cy = (bounds.y + bounds.h) / 2;
-  const halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
+  let rot = (fill.rotation * Math.PI) / 180;
+  let cx = (bounds.x + bounds.w) / 2;
+  let cy = (bounds.y + bounds.h) / 2;
+  let halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
+
+  // When a fill transform matrix is provided, derive gradient parameters from it
+  if (fill.transform) {
+    const t = fill.transform;
+    const du = t[0] * halfDiag; // unit u-axis x
+    const dv = t[1] * halfDiag; // unit u-axis y
+    cx = bounds.x + t[4];       // translate x
+    cy = bounds.y + t[5];       // translate y
+    rot = Math.atan2(dv, du);   // rotation from u-axis
+    halfDiag = Math.sqrt(du * du + dv * dv); // scale magnitude
+  }
+
   const dx = Math.cos(rot) * halfDiag;
   const dy = Math.sin(rot) * halfDiag;
 
@@ -502,15 +520,12 @@ function paintPathFill(
     const pt = p.points[i];
     const prev = p.points[i - 1];
     if (!pt || !prev) continue;
-    if (prev.handleOut && pt.handleIn) {
-      target.bezierCurveTo(
-        prev.x + prev.handleOut[0],
-        prev.y + prev.handleOut[1],
-        pt.x + pt.handleIn[0],
-        pt.y + pt.handleIn[1],
-        pt.x,
-        pt.y,
-      );
+    if (prev.handleOut || pt.handleIn) {
+      const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
+      const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
+      const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
+      const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
+      target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
     } else {
       target.lineTo(pt.x, pt.y);
     }
@@ -576,11 +591,11 @@ function paintStroke(
         const pt = p.points[i];
         if (!pt) continue;
         const prev = p.points[i - 1];
-        if (prev && prev.handleOut) {
-          const cp1x = prev.handleOut[0];
-          const cp1y = prev.handleOut[1];
-          const cp2x = pt.handleIn ? pt.handleIn[0] : pt.x;
-          const cp2y = pt.handleIn ? pt.handleIn[1] : pt.y;
+        if (prev && (prev.handleOut || pt.handleIn)) {
+          const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
+          const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
+          const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
+          const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
           target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
         } else {
           target.lineTo(pt.x, pt.y);

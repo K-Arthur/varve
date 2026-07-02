@@ -13,7 +13,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
-use strata_core::{PathPoint, SceneNode, Shape};
+use strata_core::{FillIR, PathPoint, SceneNode, Shape};
 
 /// One drawable record in the render IR. The webview replays these in order.
 ///
@@ -35,6 +35,9 @@ pub struct RenderItem {
     pub strokes: Vec<strata_core::Stroke>,
     #[serde(default)]
     pub effects: Vec<strata_core::Effect>,
+    /// P2: stacked fills (solid/gradient). When present, paint bottom→top.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fills: Option<Vec<FillIR>>,
 }
 
 fn default_opacity() -> f64 {
@@ -58,7 +61,14 @@ fn default_blend_mode() -> String {
 #[serde(tag = "kind")]
 pub enum Primitive {
     #[serde(rename = "rect")]
-    Rect { x: f64, y: f64, w: f64, h: f64 },
+    Rect {
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        corner_radius: Option<serde_json::Value>,
+    },
     #[serde(rename = "ellipse")]
     Ellipse { cx: f64, cy: f64, rx: f64, ry: f64 },
     #[serde(rename = "circle")]
@@ -129,11 +139,12 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
         .map(|n| RenderItem {
             transform: n.transform.as_coeffs(),
             fill: n.fill,
-            primitive: primitive_of(&n.shape),
+            primitive: primitive_of(&n.shape, n.corner_radius.as_ref()),
             opacity: n.opacity,
             blend_mode: n.blend_mode.clone(),
             strokes: n.strokes.clone(),
             effects: n.effects.clone(),
+            fills: n.fills.clone(),
         })
         .collect()
 }
@@ -149,22 +160,24 @@ pub fn build_render_ir_flat(
         .map(|(_, node, _)| RenderItem {
             transform: node.transform.as_coeffs(),
             fill: node.fill,
-            primitive: primitive_of(&node.shape),
+            primitive: primitive_of(&node.shape, node.corner_radius.as_ref()),
             opacity: node.opacity,
             blend_mode: node.blend_mode.clone(),
             strokes: node.strokes.clone(),
             effects: node.effects.clone(),
+            fills: node.fills.clone(),
         })
         .collect()
 }
 
-fn primitive_of(shape: &Shape) -> Primitive {
+fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Primitive {
     match shape {
         Shape::Rect(r) => Primitive::Rect {
             x: r.min_x(),
             y: r.min_y(),
             w: r.width(),
             h: r.height(),
+            corner_radius: corner_radius.cloned(),
         },
         Shape::Ellipse { center, rx, ry } => Primitive::Ellipse {
             cx: center.x,
@@ -276,6 +289,8 @@ mod tests {
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
         }
     }
 
@@ -326,11 +341,13 @@ mod tests {
                 rotation: 0.0,
                 strokes: Vec::new(),
                 effects: Vec::new(),
+                fills: None,
+                corner_radius: None,
             },
             SceneNode {
                 id: strata_core::NodeId(2),
-                name: "child1".into(),
-                transform: Affine::translate((10.0, 10.0)),
+                name: "child-circle".into(),
+                transform: Affine::translate((5.0, 5.0)),
                 shape: Shape::Circle(Circle::new(Point::ZERO, 5.0)),
                 fill: [255, 0, 0, 255],
                 children: Vec::new(),
@@ -341,11 +358,13 @@ mod tests {
                 rotation: 0.0,
                 strokes: Vec::new(),
                 effects: Vec::new(),
+                fills: None,
+                corner_radius: None,
             },
             SceneNode {
                 id: strata_core::NodeId(3),
-                name: "child2".into(),
-                transform: Affine::translate((20.0, 20.0)),
+                name: "r3".into(),
+                transform: Affine::translate((100.0, 100.0)),
                 shape: Shape::Rect(Rect::new(0.0, 0.0, 20.0, 20.0)),
                 fill: [0, 255, 0, 255],
                 children: Vec::new(),
@@ -356,11 +375,13 @@ mod tests {
                 rotation: 0.0,
                 strokes: Vec::new(),
                 effects: Vec::new(),
+                fills: None,
+                corner_radius: None,
             },
             SceneNode {
                 id: strata_core::NodeId(4),
-                name: "root-shape".into(),
-                transform: Affine::translate((100.0, 100.0)),
+                name: "r4".into(),
+                transform: Affine::translate((50.0, 50.0)),
                 shape: Shape::Rect(Rect::new(0.0, 0.0, 50.0, 50.0)),
                 fill: [57, 208, 198, 255],
                 children: Vec::new(),
@@ -371,6 +392,8 @@ mod tests {
                 rotation: 0.0,
                 strokes: Vec::new(),
                 effects: Vec::new(),
+                fills: None,
+                corner_radius: None,
             },
         ];
 
@@ -442,6 +465,8 @@ mod tests {
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
         };
         let ir = build_render_ir(&[node]);
         assert!(matches!(ir[0].primitive, Primitive::Circle { r: 8.0, .. }));

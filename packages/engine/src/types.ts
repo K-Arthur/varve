@@ -22,6 +22,7 @@ export type Affine = readonly [number, number, number, number, number, number];
 export type Color = readonly [number, number, number, number];
 
 export type BlendMode =
+  | 'passThrough'
   | 'normal'
   | 'multiply'
   | 'screen'
@@ -37,7 +38,9 @@ export type BlendMode =
   | 'hue'
   | 'saturation'
   | 'color'
-  | 'luminosity';
+  | 'luminosity'
+  | 'plusDarker'
+  | 'plusLighter';
 
 export type StrokeAlign = 'inside' | 'center' | 'outside';
 export type StrokeCap = 'butt' | 'round' | 'square';
@@ -161,6 +164,8 @@ export interface EngineGradientFill {
   type: 'linear' | 'radial' | 'angular' | 'diamond';
   stops: EngineGradientStop[];
   rotation?: number;
+  /** Full 2x3 fill transform matrix. When set, overrides rotation. */
+  transform?: Affine;
 }
 
 export interface EngineFill {
@@ -248,6 +253,7 @@ export type FillIR =
       gradientType: 'linear' | 'radial' | 'angular' | 'diamond';
       stops: { position: number; color: Color }[];
       rotation: number;
+      transform?: Affine;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;

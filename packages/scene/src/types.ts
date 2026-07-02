@@ -41,6 +41,7 @@ export interface Mask {
 // ── Appearance types (Inspector F6) ─────────────────────────────────────────
 
 export type BlendMode =
+  | 'passThrough'
   | 'normal'
   | 'multiply'
   | 'screen'
@@ -56,7 +57,9 @@ export type BlendMode =
   | 'hue'
   | 'saturation'
   | 'color'
-  | 'luminosity';
+  | 'luminosity'
+  | 'plusDarker'
+  | 'plusLighter';
 
 export type StrokeAlign = 'inside' | 'center' | 'outside';
 export type StrokeCap = 'butt' | 'round' | 'square';
@@ -134,6 +137,10 @@ export interface GradientFill {
   type: GradientType;
   stops: GradientStop[];
   rotation?: number;
+  /** Full 2x3 fill transform matrix. When set, overrides rotation.
+   *  Maps fill-internal [0,0]×[1,1] space to the node's local space.
+   *  Backward-compat: rotation field auto-applies as rotate transform. */
+  transform?: import('@strata/engine').Affine;
 }
 
 /** How an image fill is sized relative to the node bounds. */

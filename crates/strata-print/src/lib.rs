@@ -159,7 +159,37 @@ fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
                 if i == 0 {
                     buf.extend(format!("{px:.2} {py:.2} m\n").as_bytes());
                 } else {
-                    buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
+                    let prev = &points[i - 1];
+                    let prev_px = prev.x + x_off;
+                    let prev_py = page_height - prev.y - y_off;
+                    if prev.handle_out.is_some() || pt.handle_in.is_some() {
+                        let cp1x = if let Some(ho) = prev.handle_out {
+                            prev_px + ho[0]
+                        } else {
+                            prev_px
+                        };
+                        let cp1y = if let Some(ho) = prev.handle_out {
+                            prev_py - ho[1]
+                        } else {
+                            prev_py
+                        };
+                        let cp2x = if let Some(hi) = pt.handle_in {
+                            px + hi[0]
+                        } else {
+                            px
+                        };
+                        let cp2y = if let Some(hi) = pt.handle_in {
+                            py - hi[1]
+                        } else {
+                            py
+                        };
+                        buf.extend(
+                            format!("{cp1x:.2} {cp1y:.2} {cp2x:.2} {cp2y:.2} {px:.2} {py:.2} c\n")
+                                .as_bytes(),
+                        );
+                    } else {
+                        buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
+                    }
                 }
             }
             if *closed {
@@ -279,6 +309,8 @@ mod tests {
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
         }
     }
 
@@ -324,9 +356,134 @@ mod tests {
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
         }];
         let bytes = export_pdf(&nodes, &PdfOptions::default()).expect("pdf with circle");
         assert!(bytes.starts_with(b"%PDF"));
+    }
+
+    #[test]
+    fn pdf_path_with_bezier_handles_returns_valid_pdf() {
+        let nodes = vec![SceneNode {
+            id: strata_core::NodeId(1),
+            name: "bezier".into(),
+            transform: Affine::translate((0.0, 0.0)),
+            shape: Shape::Path {
+                points: vec![
+                    strata_core::PathPoint {
+                        x: 0.0,
+                        y: 0.0,
+                        handle_in: None,
+                        handle_out: Some([30.0, 40.0]),
+                    },
+                    strata_core::PathPoint {
+                        x: 100.0,
+                        y: 200.0,
+                        handle_in: Some([-20.0, -30.0]),
+                        handle_out: None,
+                    },
+                ],
+                closed: false,
+                tolerance: 1.0,
+            },
+            fill: [255, 0, 0, 255],
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
+        }];
+        let bytes = export_pdf(&nodes, &PdfOptions::default()).expect("pdf with bezier path");
+        assert!(bytes.starts_with(b"%PDF"), "must produce valid PDF header");
+        assert!(bytes.len() > 200, "PDF should have meaningful content");
+    }
+
+    #[test]
+    fn pdf_path_without_handles_returns_valid_pdf() {
+        let nodes = vec![SceneNode {
+            id: strata_core::NodeId(2),
+            name: "linepath".into(),
+            transform: Affine::translate((0.0, 0.0)),
+            shape: Shape::Path {
+                points: vec![
+                    strata_core::PathPoint {
+                        x: 0.0,
+                        y: 0.0,
+                        handle_in: None,
+                        handle_out: None,
+                    },
+                    strata_core::PathPoint {
+                        x: 50.0,
+                        y: 50.0,
+                        handle_in: None,
+                        handle_out: None,
+                    },
+                ],
+                closed: false,
+                tolerance: 1.0,
+            },
+            fill: [0, 255, 0, 255],
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
+        }];
+        let bytes = export_pdf(&nodes, &PdfOptions::default()).expect("pdf with line path");
+        assert!(bytes.starts_with(b"%PDF"), "must produce valid PDF header");
+        assert!(bytes.len() > 200, "PDF should have meaningful content");
+    }
+
+    #[test]
+    fn pdf_path_asymmetric_single_handle_returns_valid_pdf() {
+        let nodes = vec![SceneNode {
+            id: strata_core::NodeId(3),
+            name: "asymmetric".into(),
+            transform: Affine::translate((0.0, 0.0)),
+            shape: Shape::Path {
+                points: vec![
+                    strata_core::PathPoint {
+                        x: 10.0,
+                        y: 20.0,
+                        handle_in: None,
+                        handle_out: Some([5.0, 15.0]),
+                    },
+                    strata_core::PathPoint {
+                        x: 100.0,
+                        y: 100.0,
+                        handle_in: None,
+                        handle_out: None,
+                    },
+                ],
+                closed: false,
+                tolerance: 1.0,
+            },
+            fill: [0, 0, 255, 255],
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
+            opacity: 1.0,
+            blend_mode: "normal".into(),
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
+            fills: None,
+            corner_radius: None,
+        }];
+        let bytes = export_pdf(&nodes, &PdfOptions::default()).expect("pdf with asymmetric bezier");
+        assert!(bytes.starts_with(b"%PDF"), "must produce valid PDF header");
+        assert!(bytes.len() > 200, "PDF should have meaningful content");
     }
 
     #[test]

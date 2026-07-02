@@ -54,6 +54,9 @@ const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'saturation', label: 'Saturation' },
   { value: 'color', label: 'Color' },
   { value: 'luminosity', label: 'Luminosity' },
+  { value: 'plusDarker', label: 'Plus Darker' },
+  { value: 'plusLighter', label: 'Plus Lighter' },
+  { value: 'passThrough', label: 'Pass Through' },
 ];
 
 const FILL_TYPE_OPTIONS: { value: FillType; label: string }[] = [
