@@ -31,7 +31,11 @@ export function flattenTree(doc: Document, expanded: Set<NodeId>, filter = ''): 
 
   function walk(parentId: NodeId | null, ids: NodeId[], depth: number): FlatEntry[] {
     const entries: FlatEntry[] = [];
-    for (const nid of ids) {
+    // Walk in reverse paint order so the topmost layer (highest z) appears first,
+    // matching Figma/Sketch convention where the top of the panel = front of canvas.
+    for (let i = ids.length - 1; i >= 0; i--) {
+      const nid = ids[i];
+      if (!nid) continue;
       const node = doc.nodes[nid];
       if (!node) continue;
       if (parentId && !expanded.has(parentId)) continue;
@@ -40,8 +44,7 @@ export function flattenTree(doc: Document, expanded: Set<NodeId>, filter = ''): 
       const hasChildren = isContainer(node) && node.children.length > 0 && expanded.has(nid);
       const childEntries = hasChildren ? walk(nid, node.children, depth + 1) : [];
 
-      // Push parent first (paint-order), then children — matches APG tree semantics
-      // where each parent precedes its subtree in the flat tab sequence.
+      // Push parent first, then children — parent precedes its subtree.
       if (nameMatch || childEntries.length > 0) {
         entries.push({ node, depth, parentId });
         entries.push(...childEntries);

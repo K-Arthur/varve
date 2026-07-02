@@ -34,8 +34,9 @@ describe('flattenTree (virtualization stress)', () => {
     const last = flat[flat.length - 1];
     expect(first?.depth).toBe(0);
     expect(last?.depth).toBe(0);
-    expect(first?.node.name).toBe('Node 0');
-    expect(last?.node.name).toBe('Node 4999');
+    // Reverse paint order: topmost layer (last created) appears first.
+    expect(first?.node.name).toBe('Node 4999');
+    expect(last?.node.name).toBe('Node 0');
   });
 
   it('hides nested children when expanded set is empty', () => {

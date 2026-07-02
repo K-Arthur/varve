@@ -76,6 +76,7 @@ import {
   revealBoundsCamera,
   screenToWorld,
   type Viewport,
+  zoomAboutPoint,
 } from '@strata/shared';
 import {
   createContext,
@@ -94,7 +95,7 @@ import {
   writeClipboard as writeToClipboard,
 } from './clipboard';
 import { computeFlexLayout } from './layout/computeFlexLayout';
-import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import type { DraftShape } from './tools/types';
 
 // Forward declaration for use in createShapeAt guard
@@ -171,6 +172,12 @@ export interface EditorContextValue {
   setTool: (t: ToolId) => void;
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
+  /** Zoom in 25% anchored to the viewport center. */
+  zoomIn: () => void;
+  /** Zoom out 20% anchored to the viewport center. */
+  zoomOut: () => void;
+  /** Fit all nodes in the document to the viewport. */
+  fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
   setSelection: (id: NodeId | null) => void;
   /** Toggle one node in/out of the selection; additive keeps existing selection. */
@@ -609,30 +616,6 @@ export function nodeWorldBoundsFn(
   return null;
 }
 
-/** Compute the world-space bounding box of a group from its children's bounds. */
-function groupWorldBounds(
-  doc: Document,
-  groupId: NodeId,
-): { x: number; y: number; w: number; h: number } | null {
-  const node = doc.nodes[groupId];
-  if (!node || node.kind !== 'group') return null;
-  let union: { x: number; y: number; w: number; h: number } | null = null;
-  for (const childId of node.children) {
-    const b = nodeWorldBounds(doc, childId);
-    if (!b) continue;
-    if (!union) {
-      union = { x: b.x, y: b.y, w: b.w, h: b.h };
-    } else {
-      const minX = Math.min(union.x, b.x);
-      const minY = Math.min(union.y, b.y);
-      const maxX = Math.max(union.x + union.w, b.x + b.w);
-      const maxY = Math.max(union.y + union.h, b.y + b.h);
-      union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-    }
-  }
-  return union;
-}
-
 /** Deepest containing frame/group at the given world point. Skips locked/hidden. */
 export function findContainingFrameInDoc(
   doc: Document,
@@ -828,6 +811,44 @@ export function EditorProvider({
       },
       setZoom: (z) => patch({ zoom: clampZoom(z) }),
       setPan: (p) => patch({ pan: p }),
+      zoomIn: () => {
+        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
+        const cam = { pan: [state.pan.x, state.pan.y] as [number, number], zoom: state.zoom };
+        const centre = screenToWorld(cam, vpW / 2, vpH / 2);
+        const newZoom = clampZoom(state.zoom * 1.25);
+        const newCam = zoomAboutPoint(cam, centre, newZoom);
+        patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
+      },
+      zoomOut: () => {
+        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
+        const cam = { pan: [state.pan.x, state.pan.y] as [number, number], zoom: state.zoom };
+        const centre = screenToWorld(cam, vpW / 2, vpH / 2);
+        const newZoom = clampZoom(state.zoom * 0.8);
+        const newCam = zoomAboutPoint(cam, centre, newZoom);
+        patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
+      },
+      fitAll: () => {
+        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
+        const entries = walkNodes(state.document);
+        let union: { x: number; y: number; w: number; h: number } | null = null;
+        for (const [id] of entries) {
+          const b = nodeWorldBounds(state.document, id);
+          if (!b) continue;
+          if (!union) { union = { ...b }; continue; }
+          const minX = Math.min(union.x, b.x);
+          const minY = Math.min(union.y, b.y);
+          const maxX = Math.max(union.x + union.w, b.x + b.w);
+          const maxY = Math.max(union.y + union.h, b.y + b.h);
+          union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+        }
+        if (union) {
+          const cam = fitBoundsCamera(union, { width: vpW, height: vpH }, 40);
+          patch({ zoom: cam.zoom, pan: { x: cam.pan[0], y: cam.pan[1] } });
+        }
+      },
       revealSelection: (opts) => {
         const id = opts?.nodeId ?? state.selection[0];
         if (!id) return;
@@ -1072,7 +1093,7 @@ export function EditorProvider({
               return { nodeId: entry.nodeId, node: n };
             }
           }
-          if (n.kind === 'frame' || n.kind === 'group') {
+          if (n.kind === 'text' || n.kind === 'frame' || n.kind === 'group') {
             const bbox = nodeWorldBounds(state.document, entry.nodeId);
             if (bbox && rectContains(bbox, [world.x, world.y])) {
               return { nodeId: entry.nodeId, node: n };
@@ -1361,19 +1382,17 @@ export function EditorProvider({
                 },
               };
             }
-            case 'polygon': {
-              const oldR = s.radius || 1;
-              const newR = Math.max(1, oldR * (w / 100));
-              return { ...n, shape: { ...s, radius: newR } };
-            }
+            case 'polygon':
+              return { ...n, shape: { ...s, radius: Math.max(1, w / 2) } };
             case 'star': {
               const oldOR = s.outerRadius || 1;
-              const ratio = Math.max(0.1, w / 100);
+              const newOR = Math.max(1, w / 2);
+              const ratio = newOR / oldOR;
               return {
                 ...n,
                 shape: {
                   ...s,
-                  outerRadius: Math.max(1, oldOR * ratio),
+                  outerRadius: newOR,
                   innerRadius: Math.max(1, s.innerRadius * ratio),
                 },
               };
@@ -1562,7 +1581,7 @@ export function EditorProvider({
         });
       },
 
-      // F6: batch-edit flip H
+      // F6: batch-edit flip H — negate the full X-basis vector [a, b]
       setSelectedFlipH: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -1575,7 +1594,7 @@ export function EditorProvider({
               ...node,
               transform: [
                 -node.transform[0],
-                node.transform[1],
+                -node.transform[1],
                 node.transform[2],
                 node.transform[3],
                 node.transform[4],
@@ -1587,7 +1606,7 @@ export function EditorProvider({
         });
       },
 
-      // F6: batch-edit flip V
+      // F6: batch-edit flip V — negate the full Y-basis vector [c, d]
       setSelectedFlipV: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -1601,7 +1620,7 @@ export function EditorProvider({
               transform: [
                 node.transform[0],
                 node.transform[1],
-                node.transform[2],
+                -node.transform[2],
                 -node.transform[3],
                 node.transform[4],
                 node.transform[5],
@@ -1627,26 +1646,20 @@ export function EditorProvider({
         });
       },
 
-      // F6: align selected nodes
+      // F6: align selected nodes — uses full world bounds to handle nested nodes correctly
       alignSelected: (axis) => {
         const sel = state.selection;
         if (sel.length < 2) return;
+        const doc = state.document;
         const items = sel
           .map((id) => {
-            const node = state.document.nodes[id];
+            const node = doc.nodes[id];
             if (!node) return null;
-            const bounds = nodeWorldBoundsFn(node);
+            const bounds = nodeWorldBounds(doc, id);
+            if (!bounds) return null;
             return { id, node, bounds };
           })
-          .filter(
-            (
-              x,
-            ): x is {
-              id: NodeId;
-              node: SceneNode;
-              bounds: NonNullable<ReturnType<typeof nodeWorldBoundsFn>>;
-            } => x !== null && x.bounds !== null,
-          );
+          .filter((x): x is { id: NodeId; node: SceneNode; bounds: { x: number; y: number; w: number; h: number } } => x !== null);
         if (items.length < 2) return;
 
         const minX = Math.min(...items.map((i) => i.bounds.x));
@@ -1656,55 +1669,61 @@ export function EditorProvider({
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
 
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
+        updateDoc((newDoc) => {
+          const nodes = { ...newDoc.nodes };
           for (const { id, bounds: b } of items) {
             const node = nodes[id];
             if (!node) continue;
-            let newX = node.transform[4];
-            let newY = node.transform[5];
-            if (axis === 'left') newX = minX;
-            else if (axis === 'centerH') newX = centerX - b.w / 2;
-            else if (axis === 'right') newX = maxX - b.w;
-            else if (axis === 'top') newY = minY;
-            else if (axis === 'centerV') newY = centerY - b.h / 2;
-            else if (axis === 'bottom') newY = maxY - b.h;
+            // Compute target world position for the node's bounds.
+            let targetWorldX = b.x;
+            let targetWorldY = b.y;
+            if (axis === 'left') targetWorldX = minX;
+            else if (axis === 'centerH') targetWorldX = centerX - b.w / 2;
+            else if (axis === 'right') targetWorldX = maxX - b.w;
+            else if (axis === 'top') targetWorldY = minY;
+            else if (axis === 'centerV') targetWorldY = centerY - b.h / 2;
+            else if (axis === 'bottom') targetWorldY = maxY - b.h;
+
+            // Convert bounds position back to node origin world position.
+            const wm = nodeWorldTransform(doc, id);
+            const bOffX = b.x - wm[4];
+            const bOffY = b.y - wm[5];
+            const nodeOriginWorldX = targetWorldX - bOffX;
+            const nodeOriginWorldY = targetWorldY - bOffY;
+
+            // Convert world origin to local (parent) space.
+            const parentId = getParent(doc, id);
+            let newLocalX = nodeOriginWorldX;
+            let newLocalY = nodeOriginWorldY;
+            if (parentId) {
+              const pInv = invertAffine(nodeWorldTransform(doc, parentId));
+              const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
+              newLocalX = local[0];
+              newLocalY = local[1];
+            }
             nodes[id] = {
               ...node,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                newX,
-                newY,
-              ] as Affine,
+              transform: [node.transform[0], node.transform[1], node.transform[2], node.transform[3], newLocalX, newLocalY] as Affine,
             } as SceneNode;
           }
-          return { ...doc, nodes };
+          return { ...newDoc, nodes };
         });
       },
 
-      // F6: distribute selected nodes
+      // F6: distribute selected nodes — uses full world bounds for nested node correctness
       distributeSelected: (axis) => {
         const sel = state.selection;
         if (sel.length < 3) return;
+        const doc = state.document;
         const items = sel
           .map((id) => {
-            const node = state.document.nodes[id];
+            const node = doc.nodes[id];
             if (!node) return null;
-            const bounds = nodeWorldBoundsFn(node);
+            const bounds = nodeWorldBounds(doc, id);
+            if (!bounds) return null;
             return { id, node, bounds };
           })
-          .filter(
-            (
-              x,
-            ): x is {
-              id: NodeId;
-              node: SceneNode;
-              bounds: NonNullable<ReturnType<typeof nodeWorldBoundsFn>>;
-            } => x !== null && x.bounds !== null,
-          );
+          .filter((x): x is { id: NodeId; node: SceneNode; bounds: { x: number; y: number; w: number; h: number } } => x !== null);
         if (items.length < 3) return;
 
         const sorted = [...items].sort((a, b) => {
@@ -1726,36 +1745,33 @@ export function EditorProvider({
         );
         const gap = (end - start - totalSize) / (sorted.length - 1);
 
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
+        updateDoc((newDoc) => {
+          const nodes = { ...newDoc.nodes };
           let cursor = start;
           for (const { id, bounds: b } of sorted) {
             const node = nodes[id];
             if (!node) continue;
+            const wm = nodeWorldTransform(doc, id);
+            const bOffX = b.x - wm[4];
+            const bOffY = b.y - wm[5];
+            const targetWorldX = axis === 'horizontal' ? cursor - bOffX : wm[4];
+            const targetWorldY = axis === 'vertical' ? cursor - bOffY : wm[5];
+            const parentId = getParent(doc, id);
+            let newLocalX = targetWorldX;
+            let newLocalY = targetWorldY;
+            if (parentId) {
+              const pInv = invertAffine(nodeWorldTransform(doc, parentId));
+              const local = applyAffine(pInv, [targetWorldX, targetWorldY]);
+              newLocalX = local[0];
+              newLocalY = local[1];
+            }
             nodes[id] = {
               ...node,
-              transform:
-                axis === 'horizontal'
-                  ? ([
-                      node.transform[0],
-                      node.transform[1],
-                      node.transform[2],
-                      node.transform[3],
-                      cursor,
-                      node.transform[5],
-                    ] as Affine)
-                  : ([
-                      node.transform[0],
-                      node.transform[1],
-                      node.transform[2],
-                      node.transform[3],
-                      node.transform[4],
-                      cursor,
-                    ] as Affine),
+              transform: [node.transform[0], node.transform[1], node.transform[2], node.transform[3], newLocalX, newLocalY] as Affine,
             } as SceneNode;
             cursor += (axis === 'horizontal' ? b.w : b.h) + gap;
           }
-          return { ...doc, nodes };
+          return { ...newDoc, nodes };
         });
       },
 

@@ -84,7 +84,7 @@ function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTMLCanva
     ctx.font = '10px sans-serif';
     ctx.textBaseline = 'middle';
     ctx.fillText('T', ox + area / 2 - 4, oy + area / 2);
-  } else if ('src' in node && typeof (node as Record<string, unknown>).src === 'string') {
+  } else if ('src' in node && typeof (node as unknown as Record<string, unknown>).src === 'string') {
     ctx.fillStyle = 'rgba(200,200,255,0.3)';
     ctx.fillRect(ox, oy, area, area);
   } else {

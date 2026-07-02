@@ -9,6 +9,9 @@ export function StatusBar() {
     setPixelGridEnabled,
     setSnapEnabled,
     revealSelection,
+    zoomIn,
+    zoomOut,
+    fitAll,
     selectedNodes,
     rootNodes,
   } = useEditor();
@@ -67,6 +70,15 @@ export function StatusBar() {
         <Icon name="Magnet" size={12} />
       </button>
       <span aria-hidden>—</span>
+      <button
+        type="button"
+        onClick={zoomOut}
+        aria-label="Zoom out"
+        className="editor-status__toggle"
+        title="Zoom out (−)"
+      >
+        <Icon name="Minus" size={12} />
+      </button>
       <label htmlFor="status-zoom" className="sr-only">
         Zoom
       </label>
@@ -87,11 +99,30 @@ export function StatusBar() {
       </span>
       <button
         type="button"
+        onClick={zoomIn}
+        aria-label="Zoom in"
+        className="editor-status__toggle"
+        title="Zoom in (+)"
+      >
+        <Icon name="Plus" size={12} />
+      </button>
+      <button
+        type="button"
+        onClick={fitAll}
+        aria-label="Fit all to viewport"
+        className="editor-status__fit-btn"
+        title="Fit all (Shift+1)"
+      >
+        Fit all
+      </button>
+      <button
+        type="button"
         onClick={() => revealSelection({ fit: true })}
         aria-label="Fit selection to viewport"
         className="editor-status__fit-btn"
+        title="Fit selection (Shift+2)"
       >
-        Fit
+        Fit sel
       </button>
       <span className="editor-status__info">
         {singleSel ? (
