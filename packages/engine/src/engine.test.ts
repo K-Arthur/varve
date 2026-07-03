@@ -454,4 +454,66 @@ describe('createEngine (stub)', () => {
     expect(ir[0]?.opacity).toBe(0.5);
     expect(ir[0]?.blendMode).toBe('multiply');
   });
+
+  it('buildIr emits image FillIR for image fill type', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'img1',
+          name: 'image-fill',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fill: [0, 0, 0, 255],
+          fills: [
+            {
+              type: 'image',
+              image: { src: 'data:image/png;base64,abc', fit: 'fill', x: 0, y: 0, scale: 1 },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(ir[0]?.fills).toHaveLength(1);
+    const f = ir[0]?.fills?.[0];
+    expect(f?.type).toBe('image');
+    if (f?.type === 'image') {
+      expect(f.src).toBe('data:image/png;base64,abc');
+      expect(f.fit).toBe('fill');
+    }
+  });
+
+  it('buildIr emits pattern FillIR for pattern fill type', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'pat1',
+          name: 'pattern-fill',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+          fill: [0, 0, 0, 255],
+          fills: [
+            {
+              type: 'pattern',
+              pattern: { tileSrc: 'data:image/png;base64,tile', spacing: 4, rotation: 0 },
+              opacity: 0.8,
+              blendMode: 'screen',
+              visible: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(ir[0]?.fills).toHaveLength(1);
+    const f = ir[0]?.fills?.[0];
+    expect(f?.type).toBe('pattern');
+    if (f?.type === 'pattern') {
+      expect(f.tileSrc).toBe('data:image/png;base64,tile');
+      expect(f.spacing).toBe(4);
+    }
+  });
 });

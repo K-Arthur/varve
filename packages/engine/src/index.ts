@@ -21,6 +21,12 @@ export type { ReplayTarget } from './replay';
 export { replayIr } from './replay';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
+export type { AdjustmentChannel, AdjustmentParams } from './adjustment';
+export type { CurvePoint } from './adjustment/curves';
+export type { Histogram, HistogramStats } from './adjustment/histogram';
+export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
+export type { LevelParams } from './adjustment/levels';
+export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 export type {
   Affine,
   Backend,

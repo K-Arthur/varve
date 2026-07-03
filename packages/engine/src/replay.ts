@@ -10,6 +10,7 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 import { mapBlendMode } from './compositeCanvas';
+import { getImageCache } from './imageCache';
 import type { Color, FillIR, RenderItem } from './types';
 
 export interface ReplayTarget {
@@ -211,14 +212,88 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
 
 
 
-/** Paint a single fill (solid or gradient) over the primitive shape. */
+/** Paint a single fill over the primitive shape. */
 function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
   if (fill.type === 'solid') {
     target.fillStyle = rgba(fill.color);
+    paintShapeFill(target, item);
   } else if (fill.type === 'gradient') {
     target.fillStyle = createGradientStyle(target, fill, item);
+    paintShapeFill(target, item);
+  } else if (fill.type === 'image') {
+    paintImageFill(target, fill, item);
+  } else if (fill.type === 'pattern') {
+    paintPatternFill(target, fill, item);
   }
-  paintShapeFill(target, item);
+}
+
+/** Paint an image fill over the primitive bounds. */
+function paintImageFill(
+  target: ReplayTarget,
+  fill: Extract<FillIR, { type: 'image' }>,
+  item: RenderItem,
+): void {
+  const bounds = primitiveBounds(item.primitive);
+  const bw = bounds.w || 1;
+  const bh = bounds.h || 1;
+
+  const imgEntry = getImageCache().get(fill.src);
+  if (imgEntry?.state === 'loaded' && imgEntry.image) {
+    // Draw the cached image
+    if (target.drawImage) {
+      const sx = fill.x;
+      const sy = fill.y;
+      const scale = fill.scale;
+      let dw = bw * scale;
+      let dh = bh * scale;
+
+      if (fill.fit === 'fit' && imgEntry.image) {
+        const aspect = imgEntry.image.naturalWidth / imgEntry.image.naturalHeight;
+        const boundsAspect = bw / bh;
+        if (aspect > boundsAspect) {
+          dh = bw / aspect;
+        } else {
+          dw = bh * aspect;
+        }
+      }
+
+      target.drawImage(imgEntry.image, sx, sy, dw, dh);
+    } else {
+      target.fillRect(0, 0, bw, bh);
+    }
+  } else {
+    // Placeholder: draw a gray rect
+    target.fillStyle = '#e0e0e0';
+    target.fillRect(0, 0, bw, bh);
+  }
+}
+
+/** Paint a pattern (tiled) fill over the primitive bounds. */
+function paintPatternFill(
+  target: ReplayTarget,
+  fill: Extract<FillIR, { type: 'pattern' }>,
+  item: RenderItem,
+): void {
+  const bounds = primitiveBounds(item.primitive);
+  const bw = bounds.w || 1;
+  const bh = bounds.h || 1;
+
+  const tileEntry = getImageCache().get(fill.tileSrc);
+  if (tileEntry?.state === 'loaded' && tileEntry.image && target.drawImage) {
+    // Manual tiling over the bounds
+    const spacing = fill.spacing;
+    const tw = tileEntry.image.naturalWidth + spacing;
+    const th = tileEntry.image.naturalHeight + spacing;
+    for (let ty = 0; ty < bh; ty += th) {
+      for (let tx = 0; tx < bw; tx += tw) {
+        target.drawImage(tileEntry.image, tx, ty, tileEntry.image.naturalWidth, tileEntry.image.naturalHeight);
+      }
+    }
+  } else {
+    // Placeholder: draw a tinted rect
+    target.fillStyle = 'rgba(200,200,200,0.5)';
+    target.fillRect(0, 0, bw, bh);
+  }
 }
 
 /** Create a gradient fillStyle string from a FillIR gradient. */

@@ -20,9 +20,10 @@ function recorder(): RecorderProxy {
     (k: string) =>
     (...args: unknown[]) =>
       calls.push(`${k}(${args.length})`);
-  const target: Record<string, unknown> = {
+    const target: Record<string, unknown> = {
     save: mk('save'),
     restore: mk('restore'),
+    clip: mk('clip'),
     transform: mk('transform'),
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
@@ -163,6 +164,9 @@ class Recorder implements ReplayTarget {
   }
   restore() {
     this.calls.push('restore');
+  }
+  clip() {
+    this.calls.push('clip');
   }
   transform(a: number, b: number, c: number, d: number, e: number, f: number) {
     this.calls.push(`transform(${a},${b},${c},${d},${e},${f})`);
@@ -746,6 +750,7 @@ describe('replayIr', () => {
       target: {
         save: vi.fn(),
         restore: vi.fn(),
+        clip: vi.fn(),
         transform: vi.fn(),
         fillRect: vi.fn(),
         strokeRect: vi.fn(),
@@ -1001,5 +1006,59 @@ describe('replayIr', () => {
     const fillCalls = rec.calls.filter((c) => c.startsWith('fillText'));
     expect(fillCalls.length).toBe(2);
     expect(rec.calls.some((c) => c.includes('•'))).toBe(true);
+  });
+
+  // ── Image & Pattern fill rendering ──────────────────────────────────────
+
+  it('renders image fill as placeholder fillRect when image not cached', () => {
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [0, 0, 0, 255],
+        fills: [
+          {
+            type: 'image',
+            src: 'data:image/png;base64,abc',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      },
+    ];
+    const rec = recorder();
+    replayIr(rec.target, items);
+    // Without cached image, should draw a placeholder fillRect
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+  });
+
+  it('renders pattern fill as placeholder when tile not cached', () => {
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: [0, 0, 0, 255],
+        fills: [
+          {
+            type: 'pattern',
+            tileSrc: 'data:image/png;base64,tile',
+            spacing: 4,
+            rotation: 0,
+            opacity: 0.8,
+            blendMode: 'screen',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      },
+    ];
+    const rec = recorder();
+    replayIr(rec.target, items);
+    // Without cached tile, should draw a placeholder fillRect
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
   });
 });

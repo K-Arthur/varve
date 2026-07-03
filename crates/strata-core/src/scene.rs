@@ -66,6 +66,29 @@ pub enum FillIR {
         blend_mode: BlendMode,
         visible: bool,
     },
+    #[serde(rename = "image")]
+    Image {
+        src: String,
+        fit: String,
+        x: f64,
+        y: f64,
+        scale: f64,
+        opacity: f64,
+        #[serde(rename = "blendMode")]
+        blend_mode: BlendMode,
+        visible: bool,
+    },
+    #[serde(rename = "pattern")]
+    Pattern {
+        #[serde(rename = "tileSrc")]
+        tile_src: String,
+        spacing: f64,
+        rotation: f64,
+        opacity: f64,
+        #[serde(rename = "blendMode")]
+        blend_mode: BlendMode,
+        visible: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
