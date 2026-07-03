@@ -475,6 +475,51 @@ describe('replayIr', () => {
     expect(rec3.font).toContain('1000');
   });
 
+  it('renders rich text with per-run formatting', () => {
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: [0, 0, 0, 255] as const,
+        primitive: {
+          kind: 'text',
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 100,
+          text: 'Hello World',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
+          richText: {
+            paragraphs: [
+              {
+                runs: [
+                  { text: 'Hello', format: { fontWeight: 400 } },
+                  { text: ' World', format: { fontWeight: 700, fontSize: 20 } },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    ];
+    const rec = new Recorder();
+    replayIr(rec, items);
+    const fillTextCalls = rec.calls.filter((c) => c.startsWith('fillText('));
+    expect(fillTextCalls.some((c) => c.includes('Hello'))).toBe(true);
+    expect(fillTextCalls.some((c) => c.includes('World'))).toBe(true);
+  });
+
   it('renders polygon via beginPath + polygon path + closePath + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
