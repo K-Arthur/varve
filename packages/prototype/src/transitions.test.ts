@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { animateScreenTransition, createTransitionAnimation } from './transitions';
-import type { TransitionConfig } from './types';
+import type { PrototypeState, TransitionConfig } from './types';
 
 describe('Transitions', () => {
   describe('createTransitionAnimation', () => {
@@ -143,6 +143,26 @@ describe('Transitions', () => {
       // At midpoint of slide right (t=0.5, eased ≈ 0.5): outgoing screen has moved left
       expect(result.outOffsetX).not.toBe(0);
       expect(result.outOpacity).toBeLessThan(1);
+    });
+
+    it('applies smart animate layer matching when values provided', () => {
+      const transition: TransitionConfig = {
+        kind: 'smartAnimate',
+        duration: 500,
+        easing: { kind: 'linear' },
+      };
+      const currentState = { x: 400, y: 800, opacity: 1 };
+      const result = animateScreenTransition(transition, 0.5, currentState, { n1: { x: 100 } });
+      expect(result).toBeDefined();
+      // Should NOT fall back to dissolve behavior when smart animate data exists.
+      // Smart animate with property values should produce different result from dissolve.
+      const dissolveResult = animateScreenTransition(
+        { kind: 'dissolve', duration: 500, easing: { kind: 'linear' } },
+        0.5,
+        currentState,
+      );
+      // inOffsetX should differ from dissolve (which always returns 0)
+      expect(result.inOffsetX).not.toBe(dissolveResult.inOffsetX);
     });
   });
 });
