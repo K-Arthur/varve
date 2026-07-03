@@ -87,21 +87,23 @@ describe('setNestedValue', () => {
   it('sets a nested property immutably', () => {
     const original = { shape: { w: 100, h: 200 } };
     const result = setNestedValue(original, ['shape', 'w'], 150);
-    expect(original.shape.w).toBe(100);
-    expect(result.shape.w).toBe(150);
-    expect(result.shape.h).toBe(200);
+    expect((original.shape as { w: number; h: number }).w).toBe(100);
+    expect((result as { shape: { w: number; h: number } }).shape.w).toBe(150);
+    expect((result as { shape: { w: number; h: number } }).shape.h).toBe(200);
   });
 
   it('creates intermediate objects for deep paths', () => {
-    const result = setNestedValue({}, ['a', 'b', 'c'], 42);
+    const result = setNestedValue({}, ['a', 'b', 'c'], 42) as { a: { b: { c: number } } };
     expect(result.a.b.c).toBe(42);
   });
 
   it('sets array index', () => {
     const original = { fills: [{ color: [255, 0, 0, 255] }] };
     const result = setNestedValue(original, ['fills', '0', 'color'], [0, 0, 255, 255]);
-    expect(result.fills[0].color).toEqual([0, 0, 255, 255]);
-    expect(original.fills[0].color).toEqual([255, 0, 0, 255]);
+    const resultFill = (result.fills as Array<{ color: number[] }>)[0] as { color: number[] };
+    const originalFill = (original.fills as Array<{ color: number[] }>)[0] as { color: number[] };
+    expect(resultFill.color).toEqual([0, 0, 255, 255]);
+    expect(originalFill.color).toEqual([255, 0, 0, 255]);
   });
 
   it('returns a shallow copy when path is empty', () => {

@@ -4,6 +4,8 @@
  * Handles per-run font sizing, wrapping, and overflow detection.
  */
 
+import type { OpenTypeFeatureMap, VariableFontSettings } from './types';
+
 export interface RichTextRun {
   text: string;
   format?: {
@@ -12,8 +14,8 @@ export interface RichTextRun {
     fontWeight?: number;
     fontStyle?: 'normal' | 'italic';
     textDecoration?: 'none' | 'underline' | 'line-through';
-    openTypeFeatures?: Record<string, boolean>;
-    variableFontSettings?: Record<string, number>;
+    openTypeFeatures?: OpenTypeFeatureMap;
+    variableFontSettings?: VariableFontSettings;
     maxLines?: number;
   };
 }
@@ -29,6 +31,8 @@ export interface RichTextInput {
 
 export interface LayoutLine {
   runs: LayoutRun[];
+  width: number;
+  height: number;
 }
 
 export interface LayoutRun {
@@ -69,15 +73,17 @@ function buildFontString(
   return `${style}${weight}${fontSize}px ${fontFamily}`;
 }
 
-function buildFeatureSettings(openTypeFeatures?: Record<string, boolean>): string {
+function buildFeatureSettings(openTypeFeatures?: OpenTypeFeatureMap): string {
   if (!openTypeFeatures || Object.keys(openTypeFeatures).length === 0) return '';
-  const features = Object.entries(openTypeFeatures)
-    .map(([k, v]) => `"${k}" ${v ? 1 : 0}`)
-    .join(', ');
+  const entries = Object.entries(openTypeFeatures).filter(([k]) => k !== 'custom');
+  const custom = openTypeFeatures.custom;
+  if (custom) entries.push(...Object.entries(custom));
+  if (entries.length === 0) return '';
+  const features = entries.map(([k, v]) => `"${k}" ${v ? 1 : 0}`).join(', ');
   return `font-feature-settings: ${features}`;
 }
 
-function buildVariationSettings(variableFontSettings?: Record<string, number>): string {
+function buildVariationSettings(variableFontSettings?: VariableFontSettings): string {
   if (!variableFontSettings || Object.keys(variableFontSettings).length === 0) return '';
   const axes = Object.entries(variableFontSettings)
     .map(([k, v]) => `"${k}" ${v}`)
@@ -136,6 +142,8 @@ export function layoutRichText(
               width: measureRunFallback(r.text, r.format.fontSize).width,
               height: r.format.fontSize * 1.2,
             })),
+            width: currentLineWidth,
+            height: currentLineHeight || fontSize * 1.2,
           });
           totalHeight += currentLineHeight || fontSize * 1.2;
           totalWidth = Math.max(totalWidth, currentLineWidth);
@@ -170,6 +178,8 @@ export function layoutRichText(
           width: measureRunFallback(r.text, r.format.fontSize).width,
           height: r.format.fontSize * 1.2,
         })),
+        width: currentLineWidth,
+        height: currentLineHeight || defaultFormat.fontSize * 1.2,
       });
       totalHeight += currentLineHeight;
       totalWidth = Math.max(totalWidth, currentLineWidth);

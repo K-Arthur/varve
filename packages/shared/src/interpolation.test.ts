@@ -4,8 +4,6 @@ import {
   interpolateColor,
   interpolateAffine,
   interpolatePath,
-  interpolateArray,
-  interpolateObject,
 } from './interpolation';
 import type { Affine } from './affine';
 
@@ -132,10 +130,10 @@ describe('interpolatePath', () => {
       { x: 200, y: 0, handleIn: null, handleOut: null },
     ];
     const result = interpolatePath(from, to, 0.5);
-    expect(result[0].x).toBe(25);
-    expect(result[0].y).toBe(25);
-    expect(result[1].x).toBe(150);
-    expect(result[1].y).toBe(50);
+    expect(result[0]?.x).toBe(25);
+    expect(result[0]?.y).toBe(25);
+    expect(result[1]?.x).toBe(150);
+    expect(result[1]?.y).toBe(50);
   });
 
   it('interpolates bezier handles', () => {
@@ -146,8 +144,8 @@ describe('interpolatePath', () => {
       { x: 100, y: 100, handleIn: null, handleOut: { x: 0, y: 50 } },
     ];
     const result = interpolatePath(from, to, 0.5);
-    expect(result[0].handleOut!.x).toBe(25);
-    expect(result[0].handleOut!.y).toBe(25);
+    expect(result[0]?.handleOut?.x).toBe(25);
+    expect(result[0]?.handleOut?.y).toBe(25);
   });
 
   it('throws on mismatched vertex count', () => {
@@ -163,8 +161,8 @@ describe('interpolatePath', () => {
     const from = [{ x: 0, y: 0, handleIn: null, handleOut: null }];
     const to = [{ x: 100, y: 100, handleIn: null, handleOut: null }];
     const result = interpolatePath(from, to, 0.5);
-    expect(result[0].handleIn).toBeNull();
-    expect(result[0].handleOut).toBeNull();
+    expect(result[0]?.handleIn).toBeNull();
+    expect(result[0]?.handleOut).toBeNull();
   });
 
   it('handles partial handles (from has handle, to does not)', () => {
@@ -175,8 +173,8 @@ describe('interpolatePath', () => {
       { x: 100, y: 100, handleIn: null, handleOut: null },
     ];
     const result = interpolatePath(from, to, 0.5);
-    expect(result[0].handleIn).toBeNull();
-    expect(result[0].handleOut).toBeNull();
+    expect(result[0]?.handleIn).toBeNull();
+    expect(result[0]?.handleOut).toBeNull();
   });
 });
 
@@ -189,9 +187,11 @@ describe('interpolateArray', () => {
   it('interpolates mixed-type arrays', () => {
     const from = [{ x: 0 }, { y: 10 }];
     const to = [{ x: 100 }, { y: 20 }];
-    const result = interpolateValue(from, to, 0.5) as Array<Record<string, unknown>>;
-    expect(result[0].x).toBe(50);
-    expect(result[1].y).toBe(15);
+    const r = interpolateValue(from, to, 0.5) as Array<Record<string, unknown>>;
+    const r0 = r[0] as Record<string, unknown>;
+    const r1 = r[1] as Record<string, unknown>;
+    expect(r0.x).toBe(50);
+    expect(r1.y).toBe(15);
   });
 
   it('handles arrays of different lengths', () => {

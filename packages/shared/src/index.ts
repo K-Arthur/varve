@@ -22,7 +22,7 @@ export {
   translate,
   tryInvertAffine,
 } from './affine';
-export type { CubicBezier, PathPoint, Point2D } from './bezier';
+export type { CubicBezier, PathPoint as BezierPathPoint, Point2D } from './bezier';
 export {
   cubicBezierBBox,
   cubicBezierClosestPoint,
