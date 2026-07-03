@@ -21,6 +21,7 @@ const MOCK_ZOOM = 1;
 function buildDoc(nodes: Record<string, SceneNode>): Document {
   return {
     id: 'test',
+    formatVersion: '1.0',
     name: 'Test',
     nextId: 100,
     rootChildren: Object.keys(nodes),
@@ -435,7 +436,8 @@ describe('SelectionOverlay — touch targets', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
     ]);
-    const touchTargets = container.querySelectorAll('rect[aria-hidden="true"]');
+    // Touch targets have fill="transparent" and width=16
+    const touchTargets = container.querySelectorAll('rect[fill="transparent"]');
     expect(touchTargets.length).toBeGreaterThanOrEqual(8);
     for (const t of touchTargets) {
       const w = parseFloat(t.getAttribute('width') ?? '0');
