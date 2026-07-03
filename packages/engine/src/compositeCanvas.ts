@@ -26,6 +26,15 @@ export interface CompositeCanvasOptions {
   testCanvas?: HTMLCanvasElement | OffscreenCanvas;
 }
 
+function promisifyToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('CompositeCanvas: failed to create blob'));
+    });
+  });
+}
+
 export class CompositeCanvas {
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
   readonly ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -111,7 +120,7 @@ export class CompositeCanvas {
   ): void {
     const ctx = this.ctx;
     ctx.save();
-    ctx.globalCompositeOperation = mapBlendMode(blendMode);
+    ctx.globalCompositeOperation = mapBlendMode(blendMode) as GlobalCompositeOperation;
     ctx.globalAlpha = opacity;
     ctx.drawImage(source.canvas as CanvasImageSource, dx, dy);
     ctx.restore();
@@ -124,7 +133,7 @@ export class CompositeCanvas {
   ): void {
     const ctx = this.ctx;
     ctx.save();
-    ctx.globalCompositeOperation = operator;
+    ctx.globalCompositeOperation = operator as GlobalCompositeOperation;
     ctx.drawImage(source.canvas as CanvasImageSource, dx, dy);
     ctx.restore();
   }
@@ -144,8 +153,7 @@ export class CompositeCanvas {
     if (typeof ImageBitmap !== 'undefined' && 'transferToImageBitmap' in this.canvas) {
       return (this.canvas as OffscreenCanvas).transferToImageBitmap();
     }
-    const blob = await (this.canvas as HTMLCanvasElement).toBlob();
-    if (!blob) throw new Error('CompositeCanvas: failed to create blob');
+    const blob = await promisifyToBlob(this.canvas as HTMLCanvasElement);
     return createImageBitmap(blob);
   }
 
@@ -193,47 +201,46 @@ export function blendPixels(
   const w = Math.min(backdrop.width, source.width);
   const h = Math.min(backdrop.height, source.height);
   const result = new ImageData(w, h);
-  const bd = backdrop.data;
-  const sd = source.data;
-  const rd = result.data;
+  const bd: Uint8ClampedArray = backdrop.data;
+  const sd: Uint8ClampedArray = source.data;
+  const rd: Uint8ClampedArray = result.data;
 
   for (let i = 0; i < w * h; i++) {
     const offset = i * 4;
-    const ba = bd[offset + 3] / 255;
-    const sa = sd[offset + 3] / 255 * opacity;
+    const ba = bd[offset + 3]! / 255;
+    const saRaw = sd[offset + 3]! / 255 * opacity;
+    const sa = Math.max(0, Math.min(1, saRaw));
 
     if (sa === 0) {
-      rd[offset] = bd[offset];
-      rd[offset + 1] = bd[offset + 1];
-      rd[offset + 2] = bd[offset + 2];
-      rd[offset + 3] = bd[offset + 3];
+      rd[offset] = bd[offset]!;
+      rd[offset + 1] = bd[offset + 1]!;
+      rd[offset + 2] = bd[offset + 2]!;
+      rd[offset + 3] = bd[offset + 3]!;
       continue;
     }
 
     if (ba === 0) {
-      rd[offset] = sd[offset];
-      rd[offset + 1] = sd[offset + 1];
-      rd[offset + 2] = sd[offset + 2];
-      rd[offset + 3] = Math.round(sa * 255);
+      rd[offset] = sd[offset]!;
+      rd[offset + 1] = sd[offset + 1]!;
+      rd[offset + 2] = sd[offset + 2]!;
+      rd[offset + 3] = Math.round(clamp(sa) * 255);
       continue;
     }
 
-    const br = bd[offset] / 255;
-    const bg = bd[offset + 1] / 255;
-    const bb = bd[offset + 2] / 255;
-    const sr = sd[offset] / 255;
-    const sg = sd[offset + 1] / 255;
-    const sb = sd[offset + 2] / 255;
+    const br = bd[offset]! / 255;
+    const bg = bd[offset + 1]! / 255;
+    const bb = bd[offset + 2]! / 255;
+    const sr = sd[offset]! / 255;
+    const sg = sd[offset + 1]! / 255;
+    const sb = sd[offset + 2]! / 255;
 
-    let mr: number;
-    let mg: number;
-    let mb: number;
+    let mr = sr;
+    let mg = sg;
+    let mb = sb;
 
     switch (blendMode) {
       case 'multiply':
-        mr = br * sr;
-        mg = bg * sg;
-        mb = bb * sb;
+        mr = br * sr; mg = bg * sg; mb = bb * sb;
         break;
       case 'screen':
         mr = 1 - (1 - br) * (1 - sr);
@@ -246,14 +253,10 @@ export function blendPixels(
         mb = bb < 0.5 ? 2 * bb * sb : 1 - 2 * (1 - bb) * (1 - sb);
         break;
       case 'darken':
-        mr = Math.min(br, sr);
-        mg = Math.min(bg, sg);
-        mb = Math.min(bb, sb);
+        mr = Math.min(br, sr); mg = Math.min(bg, sg); mb = Math.min(bb, sb);
         break;
       case 'lighten':
-        mr = Math.max(br, sr);
-        mg = Math.max(bg, sg);
-        mb = Math.max(bb, sb);
+        mr = Math.max(br, sr); mg = Math.max(bg, sg); mb = Math.max(bb, sb);
         break;
       case 'colorDodge':
         mr = br === 0 ? 0 : sr >= 1 ? 1 : Math.min(1, br / (1 - sr));
@@ -282,9 +285,7 @@ export function blendPixels(
         break;
       }
       case 'difference':
-        mr = Math.abs(br - sr);
-        mg = Math.abs(bg - sg);
-        mb = Math.abs(bb - sb);
+        mr = Math.abs(br - sr); mg = Math.abs(bg - sg); mb = Math.abs(bb - sb);
         break;
       case 'exclusion':
         mr = br + sr - 2 * br * sr;
@@ -305,16 +306,13 @@ export function blendPixels(
       case 'saturation':
       case 'color':
       case 'luminosity': {
-        const { r: hr, g: hg, b: hb } = blendNonSeparable(br, bg, bb, sr, sg, sb, blendMode);
-        mr = hr;
-        mg = hg;
-        mb = hb;
+        const resultColor = blendNonSeparable(br, bg, bb, sr, sg, sb, blendMode);
+        mr = resultColor.r;
+        mg = resultColor.g;
+        mb = resultColor.b;
         break;
       }
       default:
-        mr = sr;
-        mg = sg;
-        mb = sb;
         break;
     }
 
@@ -346,10 +344,13 @@ function blendNonSeparable(
     const n = Math.min(r, g, b);
     const x = Math.max(r, g, b);
     if (n < 0) {
-      const scale = l / (l - n);
-      cr = l + ((cr - l) * (l - n) !== 0 ? (cr - l) * l / (l - n) : 0);
-      cg = l + ((cg - l) * (l - n) !== 0 ? (cg - l) * l / (l - n) : 0);
-      cb = l + ((cb - l) * (l - n) !== 0 ? (cb - l) * l / (l - n) : 0);
+      const denom = l - n;
+      if (denom !== 0) {
+        const factor = l / denom;
+        cr = l + (cr - l) * factor;
+        cg = l + (cg - l) * factor;
+        cb = l + (cb - l) * factor;
+      }
     }
     if (x > 1) {
       const scale = (1 - l) / (x - l);
@@ -368,16 +369,14 @@ function blendNonSeparable(
   const sat = (r: number, g: number, b: number) => Math.max(r, g, b) - Math.min(r, g, b);
 
   const setSat = (r: number, g: number, b: number, s: number): { r: number; g: number; b: number } => {
-    const values = [r, g, b];
-    const sorted = [...values].sort((a, c) => a - c);
+    const sorted = [r, g, b].sort((a, c) => a - c);
     const min = sorted[0]!;
     const mid = sorted[1]!;
     const max = sorted[2]!;
     if (max > min) {
-      const midIdx = values.indexOf(mid);
       const mid2 = ((mid - min) * s) / (max - min);
       const max2 = s;
-      const result = values.map((v, i) => {
+      const result = [r, g, b].map((v) => {
         if (v === max) return max2;
         if (v === min) return 0;
         return mid2;
@@ -390,10 +389,18 @@ function blendNonSeparable(
   const bLum = lum(br, bg, bb);
 
   switch (mode) {
-    case 'hue':
-      return setLum(setSat(sr, sg, sb, sat(br, bg, bb)).r, setSat(sr, sg, sb, sat(br, bg, bb)).g, setSat(sr, sg, sb, sat(br, bg, bb)).b, bLum);
-    case 'saturation':
-      return setLum(setSat(br, bg, bb, sat(sr, sg, sb)).r, setSat(br, bg, bb, sat(sr, sg, sb)).g, setSat(br, bg, bb, sat(sr, sg, sb)).b, bLum);
+    case 'hue': {
+      const setR = setSat(sr, sg, sb, sat(br, bg, bb)).r;
+      const setG = setSat(sr, sg, sb, sat(br, bg, bb)).g;
+      const setB = setSat(sr, sg, sb, sat(br, bg, bb)).b;
+      return setLum(setR, setG, setB, bLum);
+    }
+    case 'saturation': {
+      const setR = setSat(br, bg, bb, sat(sr, sg, sb)).r;
+      const setG = setSat(br, bg, bb, sat(sr, sg, sb)).g;
+      const setB = setSat(br, bg, bb, sat(sr, sg, sb)).b;
+      return setLum(setR, setG, setB, bLum);
+    }
     case 'color':
       return setLum(sr, sg, sb, bLum);
     case 'luminosity':
