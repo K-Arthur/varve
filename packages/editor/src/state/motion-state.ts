@@ -4,7 +4,7 @@
  */
 import type { Timeline } from '@strata/scene';
 import { TimelineEngine } from '../timeline/TimelineEngine';
-import { sampleTimeline, type SampleResult } from '../timeline/TimelineSampler';
+import { type SampleResult, sampleTimeline } from '../timeline/TimelineSampler';
 
 export interface MotionState {
   /** Current playhead position in milliseconds. */

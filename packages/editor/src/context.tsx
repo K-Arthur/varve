@@ -45,7 +45,6 @@ import {
   addNode,
   addTrack,
   arrangeNode as arrangeNodeDoc,
-  getNestedValue,
   clearGuides,
   createComponent,
   createDocument,
@@ -56,6 +55,7 @@ import {
   booleanOp as doBooleanOp,
   fillSlot as fillSlotDoc,
   type Guide,
+  getNestedValue,
   getParent,
   groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
@@ -105,6 +105,7 @@ import {
   useState,
 } from 'react';
 import { AutoSaveService } from './autoSaveService';
+import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   readClipboardImages,
   readClipboardText,
@@ -117,9 +118,12 @@ import { computeFlexLayout } from './layout/computeFlexLayout';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
+import {
+  createInitialMotionState,
+  type MotionState,
+  type MotionTimelineEngine,
+} from './state/motion-state';
 import type { DraftShape } from './tools/types';
-import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
-import { createInitialMotionState, type MotionState, type MotionTimelineEngine } from './state/motion-state';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -3059,7 +3063,17 @@ export function EditorProvider({
         if (!timeline) return;
         let eng = motionEngRef.current;
         if (!eng) {
-          eng = { engine: null, startPlayback() {}, pausePlayback() {}, stopPlayback() {}, seekPlayback() {}, setPlaybackSpeed() {}, getCurrentSample() { return { overrides: new Map() }; } };
+          eng = {
+            engine: null,
+            startPlayback() {},
+            pausePlayback() {},
+            stopPlayback() {},
+            seekPlayback() {},
+            setPlaybackSpeed() {},
+            getCurrentSample() {
+              return { overrides: new Map() };
+            },
+          };
           motionEngRef.current = eng;
         }
         eng.startPlayback(timeline);
@@ -3085,7 +3099,9 @@ export function EditorProvider({
       },
 
       setActiveTimeline: (id) => {
-        patch({ motion: { ...state.motion, activeTimelineId: id, currentTime: 0, isPlaying: false } });
+        patch({
+          motion: { ...state.motion, activeTimelineId: id, currentTime: 0, isPlaying: false },
+        });
       },
 
       setPlaybackSpeed: (speed) => {
@@ -3105,9 +3121,7 @@ export function EditorProvider({
           let d = doc;
           const timeline = d.timelines?.[tlId];
           if (!timeline) return d;
-          const progress = timeline.duration > 0
-            ? state.motion.currentTime / timeline.duration
-            : 0;
+          const progress = timeline.duration > 0 ? state.motion.currentTime / timeline.duration : 0;
           for (const nodeId of state.selection) {
             const node = d.nodes[nodeId];
             if (!node) continue;
@@ -3115,10 +3129,16 @@ export function EditorProvider({
               (t) => t.nodeId === nodeId && t.property === property,
             );
             if (existingTrack) {
-              d = addKeyframe(d, tlId, existingTrack.id, { progress, value: getPropertyValueAt(node, property) });
+              d = addKeyframe(d, tlId, existingTrack.id, {
+                progress,
+                value: getPropertyValueAt(node, property),
+              });
             } else {
               const { doc: d2, trackId } = addTrack(d, tlId, nodeId, property);
-              d = addKeyframe(d2, tlId, trackId, { progress, value: getPropertyValueAt(node, property) });
+              d = addKeyframe(d2, tlId, trackId, {
+                progress,
+                value: getPropertyValueAt(node, property),
+              });
             }
           }
           return d;
@@ -3281,6 +3301,7 @@ function getPropertyValueAt(node: import('@strata/scene').SceneNode, property: s
   }
   if ('w' in node && property === 'w') return (node as import('@strata/scene').FrameNode).w;
   if ('h' in node && property === 'h') return (node as import('@strata/scene').FrameNode).h;
-  if (property === 'fontSize' && 'fontSize' in node) return (node as import('@strata/scene').TextNode).fontSize;
+  if (property === 'fontSize' && 'fontSize' in node)
+    return (node as import('@strata/scene').TextNode).fontSize;
   return getNestedValue(node as unknown as Record<string, unknown>, property.split('.')) ?? 0;
 }

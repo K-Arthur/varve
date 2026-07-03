@@ -8,7 +8,7 @@
  *
  * Research basis: Figma/Sketch fill stacks (paint order bottom→top).
  */
-import type { Color } from '@strata/engine';
+import type { ManagedColor } from './colorManagement';
 import type {
   BlendMode,
   Fill,
@@ -20,9 +20,9 @@ import type {
   PatternFillData,
 } from './types';
 
-/** Create a solid fill from a Color. */
+/** Create a solid fill from a ManagedColor. */
 export function solidFill(
-  color: Color,
+  color: ManagedColor,
   opts: { opacity?: number; blendMode?: BlendMode; visible?: boolean } = {},
 ): Fill {
   return {
@@ -110,49 +110,53 @@ export function patternFill(
 
 /** Default fill stack for a shape node (single solid teal). */
 export function defaultShapeFills(): Fill[] {
-  return [solidFill([57, 208, 198, 255] as Color)];
+  return [solidFill({ space: 'rgb', r: 57, g: 208, b: 198, a: 255 })];
 }
 
 /** Default fill stack for a text node (single solid dark). */
 export function defaultTextFills(): Fill[] {
-  return [solidFill([16, 21, 31, 255] as Color)];
+  return [solidFill({ space: 'rgb', r: 16, g: 21, b: 31, a: 255 })];
 }
 
 /** Default fill stack for a frame node (single solid light gray). */
 export function defaultFrameFills(): Fill[] {
-  return [solidFill([200, 200, 200, 255] as Color)];
+  return [solidFill({ space: 'rgb', r: 200, g: 200, b: 200, a: 255 })];
 }
 
 /** Default fill stack for a group node (transparent). */
 export function defaultGroupFills(): Fill[] {
-  return [solidFill([0, 0, 0, 0] as Color)];
+  return [solidFill({ space: 'rgb', r: 0, g: 0, b: 0, a: 0 })];
 }
 
 /**
  * Resolve a node's effective fill stack.
  * Falls back to a single solid fill from the legacy `fill` field.
  */
-export function resolveNodeFills(node: { fill: Color; fills?: Fill[] }): Fill[] {
+export function resolveNodeFills(node: { fill: ManagedColor; fills?: Fill[] }): Fill[] {
   if (node.fills && node.fills.length > 0) return node.fills;
   return [solidFill(node.fill)];
 }
 
-/** Convert a Fill to a flat Color (for legacy code that expects a single Color). */
-export function fillToColor(fill: Fill): Color {
+/**
+ * Convert a Fill to a flat ManagedColor.
+ * For gradient fills, returns the first stop color.
+ * For image/pattern fills, returns transparent black.
+ */
+export function fillToColor(fill: Fill): ManagedColor {
   if (fill.type === 'solid' && fill.color) {
-    const [r, g, b, a] = fill.color;
-    return [r, g, b, Math.round(a * fill.opacity)] as Color;
+    const c = fill.color;
+    return { ...c, a: Math.round(c.a * fill.opacity) } as ManagedColor;
   }
-  // For gradients/images, return the first stop color or a fallback
+  // For gradients, return the first stop color
   if (fill.type === 'gradient' && fill.gradient && fill.gradient.stops.length > 0) {
     const first = fill.gradient.stops[0];
     if (first) return first.color;
   }
-  return [0, 0, 0, 0] as Color;
+  return { space: 'rgb', r: 0, g: 0, b: 0, a: 0 } as ManagedColor;
 }
 
 /** Get the "primary" color of a fill stack (topmost visible solid fill). */
-export function primaryColor(fills: Fill[]): Color | null {
+export function primaryColor(fills: Fill[]): ManagedColor | null {
   for (let i = fills.length - 1; i >= 0; i--) {
     const f = fills[i];
     if (!f) continue;

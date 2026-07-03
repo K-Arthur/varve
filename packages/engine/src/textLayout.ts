@@ -155,7 +155,13 @@ export function layoutRichText(
 
         currentLine.push({
           text: word,
-          format: { fontSize, fontFamily, fontWeight, fontStyle: fontStyle ?? 'normal', textDecoration },
+          format: {
+            fontSize,
+            fontFamily,
+            fontWeight,
+            fontStyle: fontStyle ?? 'normal',
+            textDecoration,
+          },
           font,
           featureSettings,
           variationSettings,

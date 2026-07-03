@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { createTimeline, addTrack, addKeyframe, createDocument } from '@strata/scene';
 import type { Timeline } from '@strata/scene';
+import { addKeyframe, addTrack, createDocument, createTimeline } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
 import { sampleTimeline, sampleTimelineAt } from './TimelineSampler';
 
 function makeTimeline(overrides?: Partial<Timeline>): Timeline {
@@ -22,17 +22,23 @@ describe('sampleTimeline', () => {
   });
 
   it('returns empty overrides for timeline with empty tracks', () => {
-    const tl = makeTimeline({ tracks: [{ id: 'tr-1', nodeId: 'n1', property: 'opacity', keyframes: [] }] });
+    const tl = makeTimeline({
+      tracks: [{ id: 'tr-1', nodeId: 'n1', property: 'opacity', keyframes: [] }],
+    });
     const result = sampleTimeline(tl, 0);
     expect(result.overrides.size).toBe(0);
   });
 
   it('samples a single keyframe (constant value)', () => {
     const tl = makeTimeline({
-      tracks: [{
-        id: 'tr-1', nodeId: 'n1', property: 'opacity',
-        keyframes: [{ progress: 0, value: 0.5 }],
-      }],
+      tracks: [
+        {
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [{ progress: 0, value: 0.5 }],
+        },
+      ],
     });
     const result = sampleTimeline(tl, 2500);
     expect(result.overrides.get('n1')!.get('opacity')).toBe(0.5);
@@ -40,13 +46,17 @@ describe('sampleTimeline', () => {
 
   it('interpolates between two keyframes', () => {
     const tl = makeTimeline({
-      tracks: [{
-        id: 'tr-1', nodeId: 'n1', property: 'opacity',
-        keyframes: [
-          { progress: 0, value: 0 },
-          { progress: 1, value: 1 },
-        ],
-      }],
+      tracks: [
+        {
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [
+            { progress: 0, value: 0 },
+            { progress: 1, value: 1 },
+          ],
+        },
+      ],
     });
     const result = sampleTimeline(tl, 2500); // halfway
     expect(result.overrides.get('n1')!.get('opacity')).toBe(0.5);
@@ -55,13 +65,17 @@ describe('sampleTimeline', () => {
   it('interpolates at a specific offset', () => {
     const tl = makeTimeline({
       duration: 1000,
-      tracks: [{
-        id: 'tr-1', nodeId: 'n1', property: 'rotation',
-        keyframes: [
-          { progress: 0, value: 0 },
-          { progress: 1, value: 360 },
-        ],
-      }],
+      tracks: [
+        {
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'rotation',
+          keyframes: [
+            { progress: 0, value: 0 },
+            { progress: 1, value: 360 },
+          ],
+        },
+      ],
     });
     expect(sampleTimeline(tl, 250).overrides.get('n1')!.get('rotation')).toBe(90);
     expect(sampleTimeline(tl, 500).overrides.get('n1')!.get('rotation')).toBe(180);
@@ -71,14 +85,18 @@ describe('sampleTimeline', () => {
   it('handles three keyframes', () => {
     const tl = makeTimeline({
       duration: 1000,
-      tracks: [{
-        id: 'tr-1', nodeId: 'n1', property: 'x',
-        keyframes: [
-          { progress: 0, value: 0 },
-          { progress: 0.5, value: 100 },
-          { progress: 1, value: 0 },
-        ],
-      }],
+      tracks: [
+        {
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'x',
+          keyframes: [
+            { progress: 0, value: 0 },
+            { progress: 0.5, value: 100 },
+            { progress: 1, value: 0 },
+          ],
+        },
+      ],
     });
     expect(sampleTimeline(tl, 0).overrides.get('n1')!.get('x')).toBe(0);
     expect(sampleTimeline(tl, 250).overrides.get('n1')!.get('x')).toBe(50);
@@ -90,13 +108,20 @@ describe('sampleTimeline', () => {
     const tl = makeTimeline({
       tracks: [
         {
-          id: 'tr-1', nodeId: 'n1', property: 'opacity',
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'opacity',
           keyframes: [{ progress: 0, value: 1 }],
           enabled: false,
         },
         {
-          id: 'tr-2', nodeId: 'n1', property: 'rotation',
-          keyframes: [{ progress: 0, value: 0 }, { progress: 1, value: 360 }],
+          id: 'tr-2',
+          nodeId: 'n1',
+          property: 'rotation',
+          keyframes: [
+            { progress: 0, value: 0 },
+            { progress: 1, value: 360 },
+          ],
           enabled: true,
         },
       ],
@@ -111,12 +136,22 @@ describe('sampleTimeline', () => {
       duration: 1000,
       tracks: [
         {
-          id: 'tr-1', nodeId: 'n1', property: 'opacity',
-          keyframes: [{ progress: 0, value: 1 }, { progress: 1, value: 0 }],
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [
+            { progress: 0, value: 1 },
+            { progress: 1, value: 0 },
+          ],
         },
         {
-          id: 'tr-2', nodeId: 'n2', property: 'x',
-          keyframes: [{ progress: 0, value: 0 }, { progress: 1, value: 200 }],
+          id: 'tr-2',
+          nodeId: 'n2',
+          property: 'x',
+          keyframes: [
+            { progress: 0, value: 0 },
+            { progress: 1, value: 200 },
+          ],
         },
       ],
     });
@@ -129,10 +164,14 @@ describe('sampleTimeline', () => {
   it('handles 0-duration timeline (no crash)', () => {
     const tl = makeTimeline({
       duration: 0,
-      tracks: [{
-        id: 'tr-1', nodeId: 'n1', property: 'opacity',
-        keyframes: [{ progress: 0, value: 1 }],
-      }],
+      tracks: [
+        {
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [{ progress: 0, value: 1 }],
+        },
+      ],
     });
     const result = sampleTimeline(tl, 0);
     expect(result.overrides.get('n1')!.get('opacity')).toBe(1);
@@ -142,13 +181,17 @@ describe('sampleTimeline', () => {
     const tl = makeTimeline({
       duration: 1000,
       defaultEasing: { kind: 'linear' },
-      tracks: [{
-        id: 'tr-1', nodeId: 'n1', property: 'opacity',
-        keyframes: [
-          { progress: 0, value: 0 },
-          { progress: 1, value: 1, easing: { kind: 'easeOut' } },
-        ],
-      }],
+      tracks: [
+        {
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [
+            { progress: 0, value: 0 },
+            { progress: 1, value: 1, easing: { kind: 'easeOut' } },
+          ],
+        },
+      ],
     });
     const linear = sampleTimeline(tl, 500).overrides.get('n1')!.get('opacity') as number;
     // With easeOut, value at t=0.5 should be > 0.5 (starts fast, ends slow)
@@ -170,7 +213,7 @@ describe('sampleTimelineAt (document integration)', () => {
   });
 
   it('samples from document timeline', () => {
-    let doc = createDocument('test');
+    const doc = createDocument('test');
     const { doc: d1, id: tlId } = createTimeline(doc, 'test', 1000);
     const { doc: d2, trackId } = addTrack(d1, tlId, 'n1', 'opacity');
     const d3 = addKeyframe(d2, tlId, trackId, { progress: 0, value: 1 });

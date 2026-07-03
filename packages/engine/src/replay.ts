@@ -626,7 +626,11 @@ function paintRichText(
     textCase: p.textCase,
     textDecoration: p.textDecoration,
   };
-  const positioned = layoutRichText(p.richText! as import('./textLayout').RichTextInput, p.w, defaultFormat);
+  const positioned = layoutRichText(
+    p.richText! as import('./textLayout').RichTextInput,
+    p.w,
+    defaultFormat,
+  );
 
   let yOffset = 0;
   if (p.textAlignVertical === 'middle') yOffset = (p.h - positioned.height) / 2;

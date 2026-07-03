@@ -9,10 +9,9 @@
  * Research basis: Web Animations API §5 Animation model (keyframe effect
  * value computation), GSAP TweenLite.render(), Lottie interpolators.
  */
-import type { Document, Timeline, AnimationKeyframe } from '@strata/scene';
-import { interpolateValue } from '@strata/shared';
-import { getEasingFn } from '@strata/shared';
+import type { AnimationKeyframe, Document, Timeline } from '@strata/scene';
 import type { EasingDefinition } from '@strata/shared';
+import { getEasingFn, interpolateValue } from '@strata/shared';
 
 export interface SampleResult {
   overrides: Map<string, Map<string, unknown>>;

@@ -78,6 +78,45 @@ export type Affine = readonly [number, number, number, number, number, number];
 /** RGBA fill, 0-255 per channel. */
 export type Color = readonly [number, number, number, number];
 
+// ── Engine Color type (mirrors @strata/scene ManagedColor) ──────────────────
+
+/** Engine color that mirrors ManagedColor but is self-contained. */
+export interface EngineRgbColor {
+  space: 'rgb';
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+  profile?: string;
+}
+
+export interface EngineCmykColor {
+  space: 'cmyk';
+  c: number;
+  m: number;
+  y: number;
+  k: number;
+  a: number;
+  profile?: string;
+}
+
+export interface EngineGrayColor {
+  space: 'gray';
+  v: number;
+  a: number;
+  profile?: string;
+}
+
+export interface EngineSpotColor {
+  space: 'spot';
+  name: string;
+  tint: number;
+  a: number;
+  processFallback?: { c: number; m: number; y: number; k: number };
+}
+
+export type EngineColor = EngineRgbColor | EngineCmykColor | EngineGrayColor | EngineSpotColor;
+
 export type BlendMode =
   | 'passThrough'
   | 'normal'
@@ -104,7 +143,7 @@ export type StrokeCap = 'butt' | 'round' | 'square';
 export type StrokeJoin = 'miter' | 'round' | 'bevel';
 
 export interface Stroke {
-  color: Color;
+  color: EngineColor;
   weight: number;
   align: StrokeAlign;
   dashPattern: number[];

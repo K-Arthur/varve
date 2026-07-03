@@ -40,12 +40,24 @@ export class TimelineEngine {
     this._config = { iterations: 1, ...config };
   }
 
-  get state(): EngineState { return this._state; }
-  get currentTime(): number { return this._currentTime; }
-  get currentIteration(): number { return this._currentIteration; }
-  get speed(): number { return this._speed; }
-  get duration(): number { return this._config.duration; }
-  get iterations(): number { return this._config.iterations ?? 1; }
+  get state(): EngineState {
+    return this._state;
+  }
+  get currentTime(): number {
+    return this._currentTime;
+  }
+  get currentIteration(): number {
+    return this._currentIteration;
+  }
+  get speed(): number {
+    return this._speed;
+  }
+  get duration(): number {
+    return this._config.duration;
+  }
+  get iterations(): number {
+    return this._config.iterations ?? 1;
+  }
 
   play(opts: PlaybackOptions): void {
     this._onFrame = opts.onFrame;
