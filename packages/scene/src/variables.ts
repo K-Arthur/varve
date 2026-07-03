@@ -241,7 +241,6 @@ export function createGroup(
   };
 }
 
-
 // ── Mode operations ─────────────────────────────────────────────────────────
 
 export function addModeToCollection(

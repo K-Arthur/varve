@@ -74,7 +74,7 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
   // ── Apply grow/shrink to primary axis ────────────────────────
   const growTotal = children.reduce((s, n) => {
     const fillGrow = n.layoutSizing === 'fill' ? 1 : 0;
-    const styleGrow = (n as any).layoutStyle?.grow ?? 0;
+    const styleGrow = (n as { layoutStyle?: { grow?: number } }).layoutStyle?.grow ?? 0;
     return s + (fillGrow || styleGrow);
   }, 0);
   let remainingPrimary: number;
@@ -92,7 +92,7 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
     const perUnit = remainingPrimary / growTotal;
     for (let i = 0; i < sizes.length; i++) {
       const fillGrow = children[i]?.layoutSizing === 'fill' ? 1 : 0;
-      const styleGrow = (children[i] as any).layoutStyle?.grow ?? 0;
+      const styleGrow = (children[i] as { layoutStyle?: { grow?: number } }).layoutStyle?.grow ?? 0;
       const grow = fillGrow || styleGrow;
       if (grow > 0) {
         if (row) sizes[i] = { ...sizes[i]!, w: sizes[i]!.w + perUnit * grow };
@@ -103,12 +103,15 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
 
   // ── Apply shrink when content overflows ──────────────────────
   if (remainingPrimary < 0) {
-    const shrinkTotal = children.reduce((s, n) => s + ((n as any).layoutStyle?.shrink ?? 0), 0);
+    const shrinkTotal = children.reduce(
+      (s, n) => s + ((n as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0),
+      0,
+    );
     if (shrinkTotal > 0) {
       const overflow = -remainingPrimary;
       const perUnit = overflow / shrinkTotal;
       for (let i = 0; i < sizes.length; i++) {
-        const sh = (children[i] as any).layoutStyle?.shrink ?? 0;
+        const sh = (children[i] as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0;
         if (sh > 0) {
           if (row) sizes[i] = { ...sizes[i]!, w: Math.max(0, sizes[i]!.w - perUnit * sh) };
           else sizes[i] = { ...sizes[i]!, h: Math.max(0, sizes[i]!.h - perUnit * sh) };

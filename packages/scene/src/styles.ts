@@ -13,8 +13,9 @@
  * Research basis: Figma local styles (color/text/effect), Penpot typography
  * styles, industry-standard DTCG design token patterns.
  */
-import type { Effect, Fill, LayoutStyle, NodeId, SceneNode, Style, StyleType } from './types';
+
 import type { Document } from './document';
+import type { Effect, Fill, LayoutStyle, NodeId, SceneNode, Style, StyleType } from './types';
 
 // ── CRUD operations ─────────────────────────────────────────────────────────
 

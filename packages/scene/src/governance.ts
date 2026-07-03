@@ -9,8 +9,9 @@
  * industry naming conventions (CTI), WCAG contrast governance,
  * enterprise design system governance patterns.
  */
-import type { ComponentDefinition, NodeId, Style, StyleType } from './types';
+
 import type { Document } from './document';
+import type { ComponentDefinition, NodeId, Style, StyleType } from './types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 

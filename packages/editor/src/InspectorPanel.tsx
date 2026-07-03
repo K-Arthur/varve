@@ -128,7 +128,6 @@ function SpecTab({ doc }: { doc: import('@strata/scene').Document }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
             {spec.palette.map((c, i) => (
               <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: palette order is stable
                 key={i}
                 title={`rgba(${c[0]},${c[1]},${c[2]},${c[3]})`}
                 style={{

@@ -45,12 +45,7 @@ export interface QuickActionsBarProps {
   position?: { x: number; y: number };
 }
 
-export function QuickActionsBar({
-  open,
-  onClose,
-  onExecute,
-  position,
-}: QuickActionsBarProps) {
+export function QuickActionsBar({ open, onClose, onExecute, position }: QuickActionsBarProps) {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);

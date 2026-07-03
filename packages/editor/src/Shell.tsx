@@ -1,23 +1,23 @@
 import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
+import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
+import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
-import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
-import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { EditorProvider, useEditor } from './context';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
-import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import './components/Prototype/prototype.css';
 
 /** A request to open a file into a tab; bump `seq` for each dispatch. */

@@ -100,8 +100,8 @@ pub fn tetrahedral_interpolate(input: [f32; 3], grid_size: usize, table: &[f32])
         let w1 = rf - gf;
         let w2 = gf - bf;
         let w3 = bf;
-        for c in 0..4 {
-            result[c] = w0 * v(r0, g0, b0, c)
+        for (c, result_item) in result.iter_mut().enumerate() {
+            *result_item = w0 * v(r0, g0, b0, c)
                 + w1 * v(r0 + 1, g0, b0, c)
                 + w2 * v(r0 + 1, g0 + 1, b0, c)
                 + w3 * v(r0 + 1, g0 + 1, b0 + 1, c);
@@ -112,8 +112,8 @@ pub fn tetrahedral_interpolate(input: [f32; 3], grid_size: usize, table: &[f32])
         let w1 = rf - bf;
         let w2 = bf - gf;
         let w3 = gf;
-        for c in 0..4 {
-            result[c] = w0 * v(r0, g0, b0, c)
+        for (c, result_item) in result.iter_mut().enumerate() {
+            *result_item = w0 * v(r0, g0, b0, c)
                 + w1 * v(r0 + 1, g0, b0, c)
                 + w2 * v(r0 + 1, g0, b0 + 1, c)
                 + w3 * v(r0 + 1, g0 + 1, b0 + 1, c);
@@ -124,8 +124,8 @@ pub fn tetrahedral_interpolate(input: [f32; 3], grid_size: usize, table: &[f32])
         let w1 = gf - rf;
         let w2 = rf - bf;
         let w3 = bf;
-        for c in 0..4 {
-            result[c] = w0 * v(r0, g0, b0, c)
+        for (c, result_item) in result.iter_mut().enumerate() {
+            *result_item = w0 * v(r0, g0, b0, c)
                 + w1 * v(r0, g0 + 1, b0, c)
                 + w2 * v(r0 + 1, g0 + 1, b0, c)
                 + w3 * v(r0 + 1, g0 + 1, b0 + 1, c);
@@ -136,8 +136,8 @@ pub fn tetrahedral_interpolate(input: [f32; 3], grid_size: usize, table: &[f32])
         let w1 = gf - bf;
         let w2 = bf - rf;
         let w3 = rf;
-        for c in 0..4 {
-            result[c] = w0 * v(r0, g0, b0, c)
+        for (c, result_item) in result.iter_mut().enumerate() {
+            *result_item = w0 * v(r0, g0, b0, c)
                 + w1 * v(r0, g0 + 1, b0, c)
                 + w2 * v(r0, g0 + 1, b0 + 1, c)
                 + w3 * v(r0 + 1, g0 + 1, b0 + 1, c);
@@ -148,8 +148,8 @@ pub fn tetrahedral_interpolate(input: [f32; 3], grid_size: usize, table: &[f32])
         let w1 = bf - rf;
         let w2 = rf - gf;
         let w3 = gf;
-        for c in 0..4 {
-            result[c] = w0 * v(r0, g0, b0, c)
+        for (c, result_item) in result.iter_mut().enumerate() {
+            *result_item = w0 * v(r0, g0, b0, c)
                 + w1 * v(r0, g0, b0 + 1, c)
                 + w2 * v(r0 + 1, g0, b0 + 1, c)
                 + w3 * v(r0 + 1, g0 + 1, b0 + 1, c);
@@ -161,8 +161,8 @@ pub fn tetrahedral_interpolate(input: [f32; 3], grid_size: usize, table: &[f32])
         let w1 = bf - gf;
         let w2 = gf - rf;
         let w3 = rf;
-        for c in 0..4 {
-            result[c] = w0 * v(r0, g0, b0, c)
+        for (c, result_item) in result.iter_mut().enumerate() {
+            *result_item = w0 * v(r0, g0, b0, c)
                 + w1 * v(r0, g0, b0 + 1, c)
                 + w2 * v(r0, g0 + 1, b0 + 1, c)
                 + w3 * v(r0 + 1, g0 + 1, b0 + 1, c);
@@ -246,7 +246,7 @@ mod tests {
     fn tetrahedral_interpolate_black() {
         let mut table = vec![0.0f32; 2 * 2 * 2 * 4];
         let idx = |r: usize, g: usize, b: usize| (r * 4 + g * 2 + b) * 4;
-        table[idx(0, 0, 0) + 0] = 0.0;
+        table[idx(0, 0, 0)] = 0.0;
         table[idx(0, 0, 0) + 1] = 0.0;
         table[idx(0, 0, 0) + 2] = 0.0;
         table[idx(0, 0, 0) + 3] = 255.0;

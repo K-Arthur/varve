@@ -433,8 +433,10 @@ export function CanvasArea() {
       ctx.setLineDash([0]);
       for (const [nid] of entries) {
         const n = doc.nodes[nid];
-        if (!n || n.kind !== 'frame' || !n.layoutStyle) continue;
-        const frame = n as import('@strata/scene').FrameNode & { layoutStyle: NonNullable<import('@strata/scene').FrameNode['layoutStyle']> };
+        if (n?.kind !== 'frame' || !n.layoutStyle) continue;
+        const frame = n as import('@strata/scene').FrameNode & {
+          layoutStyle: NonNullable<import('@strata/scene').FrameNode['layoutStyle']>;
+        };
         const ls = frame.layoutStyle;
         if (!ls.gridTemplateColumns && !ls.gridTemplateRows) continue;
         const world = nodeWorldTransform(doc, nid);
@@ -1125,7 +1127,7 @@ export function CanvasArea() {
         nodeEditTargetId &&
         (() => {
           const n = state.document.nodes[nodeEditTargetId];
-          if (!n || n.kind !== 'shape' || n.shape.kind !== 'path') return null;
+          if (n?.kind !== 'shape' || n.shape.kind !== 'path') return null;
           const worldMat = nodeWorldTransform(state.document, nodeEditTargetId);
           return (
             <NodeEditOverlay
@@ -1143,7 +1145,7 @@ export function CanvasArea() {
         if (sel.length !== 1) return null;
         const singleId = sel[0] as NodeId;
         const singleNode = state.document.nodes[singleId];
-        if (!singleNode || singleNode.kind !== 'frame') return null;
+        if (singleNode?.kind !== 'frame') return null;
         const frame = singleNode;
         if (!frame.componentId) return null;
         const component = state.document.components[frame.componentId];
@@ -1170,7 +1172,7 @@ export function CanvasArea() {
       {textEditTargetId &&
         (() => {
           const n = state.document.nodes[textEditTargetId];
-          if (!n || n.kind !== 'text') return null;
+          if (n?.kind !== 'text') return null;
           const canvasRect = canvasRef.current?.getBoundingClientRect();
           const canvasLeft = canvasRect?.left ?? 0;
           const canvasTop = canvasRect?.top ?? 0;

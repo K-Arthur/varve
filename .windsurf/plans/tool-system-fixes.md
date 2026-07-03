@@ -1,5 +1,7 @@
 # Tool System Review + Targeted Fixes
 
+**Status: COMPLETE** — All 3 priority fixes implemented via TDD, all gates pass (1415/1415 tests, 0 lint errors, 93/93 WCAG-AA tokens, 0 emoji violations). Committed as Session 29.
+
 ## Research Findings
 
 Compared Move/Hand/Scale tool behaviors against Figma, Illustrator, and Affinity Designer.

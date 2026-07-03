@@ -179,7 +179,7 @@ export function resolveEntryPoint(
   prototypeData: {
     entryPoint?: NodeId;
     homeScreenId?: NodeId;
-    interactions: Record<string, any[]>;
+    interactions: Record<string, unknown[]>;
   },
   allNodeIds: NodeId[],
 ): NodeId | null {

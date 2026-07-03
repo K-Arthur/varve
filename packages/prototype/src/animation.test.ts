@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTimeline, addKeyframe, sampleAt, interpolateValue } from './animation';
+import { addKeyframe, createTimeline, interpolateValue, sampleAt } from './animation';
 
 describe('Animation engine', () => {
   describe('createTimeline', () => {
