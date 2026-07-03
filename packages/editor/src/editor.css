@@ -111,6 +111,12 @@
   color: var(--color-text-primary);
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
+  transition: grid-template-columns var(--duration-base) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-shell {
+    transition: none;
+  }
 }
 
 .editor-menubar {
@@ -588,10 +594,68 @@
 .editor__layers-panel {
   container-type: inline-size;
   container-name: layers;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
 }
 .editor__inspector-panel {
   container-type: inline-size;
   container-name: inspector;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── Panel resize handles (APG window splitter) ── */
+.panel-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: var(--z-raised);
+  background: transparent;
+  touch-action: none;
+}
+.panel-resize--right {
+  right: -4px;
+}
+.panel-resize--left {
+  left: -4px;
+}
+/* Visible affordance: a 2px accent line on hover / drag / focus. */
+.panel-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+.panel-resize:hover::after,
+.panel-resize--active::after,
+.panel-resize:focus-visible::after {
+  background: var(--color-interactive-default);
+}
+.panel-resize:focus-visible {
+  outline: none;
+}
+/* Overlay mode (small screens): panels are fixed drawers — no resizing. */
+@media (max-width: 899px) {
+  .panel-resize {
+    display: none;
+  }
+}
+
+/* Desktop panel collapse (Ctrl+B / Ctrl+Shift+B): the shell zeroes the grid
+ * column; hide the panel so its content doesn't paint into the seam. */
+@media (min-width: 900px) {
+  .editor__layers-panel[data-collapsed],
+  .editor__inspector-panel[data-collapsed] {
+    display: none;
+  }
 }
 @container layers (max-width: 280px) {
   .editor-layers {
@@ -602,6 +666,93 @@
   .editor-inspector {
     padding: var(--space-1);
   }
+}
+
+/* ── Panel headers & collapse buttons ── */
+.editor__panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  min-height: 28px;
+  flex-shrink: 0;
+}
+.editor__panel-header--right {
+  flex-direction: row-reverse;
+}
+.editor__panel-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.editor__collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+.editor__collapse-btn:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+.editor__collapse-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+/* ── Resize handle ── */
+.panel-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  z-index: var(--z-raised);
+  cursor: col-resize;
+  background: transparent;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+.panel-resize:hover,
+.panel-resize--active {
+  background: var(--color-interactive-default);
+  opacity: 0.5;
+}
+.panel-resize:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+.panel-resize--right {
+  right: -3px;
+}
+.panel-resize--left {
+  left: -3px;
+}
+
+/* ── Collapsed panel state ── */
+.editor__layers-panel[data-collapsed],
+.editor__inspector-panel[data-collapsed] {
+  overflow: hidden;
+}
+.editor__layers-panel[data-collapsed] .editor__panel-header,
+.editor__inspector-panel[data-collapsed] .editor__panel-header {
+  display: none;
 }
 
 /* ════════════════════════════════════════════════════════════

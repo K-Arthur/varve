@@ -14,8 +14,9 @@
  *
  * Research basis: Figma / Sketch typography panel, APG Disclosure, Radiogroup.
  */
+import { getFontRegistry } from '@strata/engine';
 import type { SceneNode, TextNode } from '@strata/scene';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -29,8 +30,6 @@ export interface TypographySectionProps {
   nodes: SceneNode[];
 }
 
-// TODO: Replace with FontRegistry once the local-first font system lands
-// (Strata plan Phase 2 — Assets). Kept as a static list for offline use.
 const SYSTEM_FONTS = [
   'Inter',
   'Arial',
@@ -106,6 +105,14 @@ function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
 
 export function TypographySection({ nodes }: TypographySectionProps) {
   const editor = useEditor();
+  const [registryFonts, setRegistryFonts] = useState<string[]>([]);
+
+  useEffect(() => {
+    const registry = getFontRegistry();
+    setRegistryFonts(registry.families());
+  }, []);
+
+  const fonts = registryFonts.length > 0 ? registryFonts : SYSTEM_FONTS;
   const {
     updateNode,
     beginTransaction,
@@ -207,7 +214,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             }}
           >
             {isMixed(familyRaw) && <option value="">Mixed</option>}
-            {SYSTEM_FONTS.map((f) => (
+            {fonts.map((f) => (
               <option key={f} value={f}>
                 {f}
               </option>

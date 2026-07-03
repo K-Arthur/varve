@@ -8,12 +8,7 @@ import {
   handleEvent,
   setVariable,
 } from './runtime';
-import type {
-  Action,
-  Interaction,
-  PrototypeVariable,
-  TransitionConfig,
-} from './types';
+import type { Action, Interaction, PrototypeVariable, TransitionConfig } from './types';
 
 const defaultTransition: TransitionConfig = {
   kind: 'instant',

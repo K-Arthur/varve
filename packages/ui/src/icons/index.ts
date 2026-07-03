@@ -89,4 +89,5 @@ export const CHROME_ICONS = {
   gripVertical: 'GripVertical',
   undo: 'Undo2',
   redo: 'Redo2',
+  home: 'House',
 } as const satisfies Record<string, IconName>;

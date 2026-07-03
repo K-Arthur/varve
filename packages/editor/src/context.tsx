@@ -96,6 +96,7 @@ import {
 } from './clipboard';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import { loadSettings, updateSettings } from './settings';
 import type { DraftShape } from './tools/types';
 
 // Forward declaration for use in createShapeAt guard
@@ -165,6 +166,10 @@ export interface EditorState {
   prototypeData: PrototypeData;
   /** Whether prototype is presenting */
   isPresenting: boolean;
+  /** Layers (left) panel visibility — persisted in editor settings. */
+  leftPanelVisible: boolean;
+  /** Inspector (right) panel visibility — persisted in editor settings. */
+  rightPanelVisible: boolean;
 }
 
 export interface EditorContextValue {
@@ -178,6 +183,10 @@ export interface EditorContextValue {
   zoomOut: () => void;
   /** Zoom to an absolute level anchored to the viewport center. */
   zoomTo: (level: number) => void;
+  /** Toggle layers (left) panel visibility; persists to editor settings. */
+  toggleLeftPanel: () => void;
+  /** Toggle inspector (right) panel visibility; persists to editor settings. */
+  toggleRightPanel: () => void;
   /** Fit all nodes in the document to the viewport. */
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
@@ -695,6 +704,8 @@ export function EditorProvider({
       prototypeDebug: new PrototypeDebugConsole(),
       prototypeData: { interactions: {} },
       isPresenting: false,
+      leftPanelVisible: loadSettings().panel.leftPanelVisible,
+      rightPanelVisible: loadSettings().panel.rightPanelVisible,
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -839,6 +850,16 @@ export function EditorProvider({
         const newCam = zoomAboutPoint(cam, centre, clampZoom(level));
         patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
       },
+      toggleLeftPanel: () => {
+        const next = !state.leftPanelVisible;
+        patch({ leftPanelVisible: next });
+        updateSettings({ panel: { leftPanelVisible: next } });
+      },
+      toggleRightPanel: () => {
+        const next = !state.rightPanelVisible;
+        patch({ rightPanelVisible: next });
+        updateSettings({ panel: { rightPanelVisible: next } });
+      },
       fitAll: () => {
         const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
         const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
@@ -847,7 +868,10 @@ export function EditorProvider({
         for (const [id] of entries) {
           const b = nodeWorldBounds(state.document, id);
           if (!b) continue;
-          if (!union) { union = { ...b }; continue; }
+          if (!union) {
+            union = { ...b };
+            continue;
+          }
           const minX = Math.min(union.x, b.x);
           const minY = Math.min(union.y, b.y);
           const maxX = Math.max(union.x + union.w, b.x + b.w);
@@ -1669,7 +1693,15 @@ export function EditorProvider({
             if (!bounds) return null;
             return { id, node, bounds };
           })
-          .filter((x): x is { id: NodeId; node: SceneNode; bounds: { x: number; y: number; w: number; h: number } } => x !== null);
+          .filter(
+            (
+              x,
+            ): x is {
+              id: NodeId;
+              node: SceneNode;
+              bounds: { x: number; y: number; w: number; h: number };
+            } => x !== null,
+          );
         if (items.length < 2) return;
 
         const minX = Math.min(...items.map((i) => i.bounds.x));
@@ -1713,7 +1745,14 @@ export function EditorProvider({
             }
             nodes[id] = {
               ...node,
-              transform: [node.transform[0], node.transform[1], node.transform[2], node.transform[3], newLocalX, newLocalY] as Affine,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                newLocalX,
+                newLocalY,
+              ] as Affine,
             } as SceneNode;
           }
           return { ...newDoc, nodes };
@@ -1733,7 +1772,15 @@ export function EditorProvider({
             if (!bounds) return null;
             return { id, node, bounds };
           })
-          .filter((x): x is { id: NodeId; node: SceneNode; bounds: { x: number; y: number; w: number; h: number } } => x !== null);
+          .filter(
+            (
+              x,
+            ): x is {
+              id: NodeId;
+              node: SceneNode;
+              bounds: { x: number; y: number; w: number; h: number };
+            } => x !== null,
+          );
         if (items.length < 3) return;
 
         const sorted = [...items].sort((a, b) => {
@@ -1777,7 +1824,14 @@ export function EditorProvider({
             }
             nodes[id] = {
               ...node,
-              transform: [node.transform[0], node.transform[1], node.transform[2], node.transform[3], newLocalX, newLocalY] as Affine,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                newLocalX,
+                newLocalY,
+              ] as Affine,
             } as SceneNode;
             cursor += (axis === 'horizontal' ? b.w : b.h) + gap;
           }

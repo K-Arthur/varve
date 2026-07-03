@@ -98,7 +98,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
         action: 'toggleSnap',
       },
-      { label: 'Home', shortcut: '\u21E7\u2318H', action: 'home' },
+      {
+        label: 'Home',
+        shortcut: formatShortcut(SHORTCUT_DEFS.home.binding),
+        action: 'home',
+      },
     ],
   },
   {
@@ -528,8 +532,14 @@ export function Menubar({
       onMouseLeave={() => setOpenMenu(null)}
       onKeyDown={handleMenuKeyDown}
     >
-      {/* ── Left: Menu buttons ── */}
+      {/* ── Left: Home button + Menu buttons ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+        <IconButton
+          icon={CHROME_ICONS.home}
+          label="Home (Ctrl+Shift+H)"
+          size="sm"
+          onClick={() => onBackToHome?.()}
+        />
         {MENUS.map((menu, i) => (
           <div key={menu.id} style={{ position: 'relative' }}>
             <button

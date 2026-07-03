@@ -10,6 +10,7 @@
  * Research basis: ARIA Authoring Practices Guide — Tabs pattern
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
+import { Icon } from '@strata/ui';
 import { useRef } from 'react';
 import { useEditor } from './context';
 
@@ -31,10 +32,16 @@ function PlusIcon() {
   );
 }
 
-export function TabStrip() {
+const HOME_ID = '__home__';
+
+export function TabStrip({ onBackToHome }: { onBackToHome?: () => void }) {
   const { state, switchTab, closeTab, newTab } = useEditor();
   const { sessions, activeId } = state;
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  function getTabIds(): string[] {
+    return [HOME_ID, ...sessions.map((s) => s.id)];
+  }
 
   function focusById(id: string) {
     tabRefs.current.get(id)?.focus();
@@ -50,19 +57,26 @@ export function TabStrip() {
   }
 
   function handleTabKeyDown(e: React.KeyboardEvent, id: string) {
-    const idx = sessions.findIndex((s) => s.id === id);
+    const tabIds = getTabIds();
+    const idx = tabIds.indexOf(id);
+    if (idx < 0) return;
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-      const next = sessions[(idx + 1) % sessions.length];
-      if (next) focusById(next.id);
+      const next = tabIds[(idx + 1) % tabIds.length];
+      if (next) focusById(next);
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      const prev = sessions[(idx - 1 + sessions.length) % sessions.length];
-      if (prev) focusById(prev.id);
+      const prev = tabIds[(idx - 1 + tabIds.length) % tabIds.length];
+      if (prev) focusById(prev);
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      switchTab(id);
+      if (id === HOME_ID) {
+        onBackToHome?.();
+      } else {
+        switchTab(id);
+      }
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (id === HOME_ID) return;
       e.preventDefault();
       requestClose(id);
     }
@@ -71,12 +85,31 @@ export function TabStrip() {
   function handleAuxClick(e: React.MouseEvent, id: string) {
     if (e.button === 1) {
       e.preventDefault();
-      requestClose(id);
+      if (id !== HOME_ID) requestClose(id);
     }
   }
 
   return (
     <div className="editor-tabs" role="tablist" aria-label="Open documents">
+      {/* Home tab */}
+      <div
+        key={HOME_ID}
+        ref={(el) => {
+          if (el) tabRefs.current.set(HOME_ID, el);
+          else tabRefs.current.delete(HOME_ID);
+        }}
+        role="tab"
+        aria-selected={false}
+        tabIndex={0}
+        className="editor-tabs__tab editor-tabs__tab--home"
+        onClick={() => onBackToHome?.()}
+        onKeyDown={(e) => handleTabKeyDown(e, HOME_ID)}
+        onAuxClick={(e) => handleAuxClick(e, HOME_ID)}
+        title="Home (Ctrl+Shift+H)"
+      >
+        <Icon name="House" size="12" aria-hidden />
+        <span className="editor-tabs__name">Home</span>
+      </div>
       {sessions.map((sess) => {
         const isActive = sess.id === activeId;
         return (
