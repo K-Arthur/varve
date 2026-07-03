@@ -63,8 +63,7 @@ export function TextEditOverlay({
     lineHeight: node.lineHeight,
     textCase: node.textCase,
   });
-  const w =
-    Math.max(textSize.width, node.text.length === 0 ? (node.fontSize ?? 16) * 3 : 0) * zoom;
+  const w = Math.max(textSize.width, node.text.length === 0 ? (node.fontSize ?? 16) * 3 : 0) * zoom;
   const h = textSize.height * zoom;
 
   const handleInput = useCallback(() => {
