@@ -77,7 +77,7 @@ export function PropertiesPanel() {
           {state.tool === 'frame' && summary.kind !== 'single' && (
             <FramePresetsSection mode="create" />
           )}
-          {summary.kind === 'empty' && <EmptySelectionState />}
+          {summary.kind === 'empty' && state.tool !== 'frame' && <EmptySelectionState />}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
         </div>

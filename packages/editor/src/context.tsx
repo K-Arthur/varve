@@ -1238,7 +1238,7 @@ export function EditorProvider({
             newDoc = addNode(d2, node);
           }
 
-          return { ...s, document: newDoc, selection: [id] };
+          return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
         });
       },
 
@@ -1266,7 +1266,7 @@ export function EditorProvider({
             newDoc = addNode(d2, node);
           }
 
-          return { ...s, document: newDoc, selection: [id] };
+          return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
         });
       },
 
@@ -1338,17 +1338,15 @@ export function EditorProvider({
       },
 
       hitTestNode: (world) => {
-        // Walk all nodes in paint order, test containment using world
-        // transforms (composes ancestor chain so nested nodes hit correctly).
+        // Walk all nodes in paint order (DFS) and reverse so that
+        // children are tested before parents and later siblings before
+        // earlier ones — the correct topmost-first hit order.
         const entries = walkNodes(state.document);
-        const ordered = [...entries.values()].sort((a, b) => b.depth - a.depth);
-        for (let i = ordered.length - 1; i >= 0; i--) {
-          const entry = ordered[i];
-          if (!entry) continue;
+        const ordered = [...entries.values()].reverse();
+        for (const entry of ordered) {
           const n = entry.node;
           if (n.locked || !n.visible) continue;
           if (n.kind === 'shape') {
-            // Compose world→local: invert the full ancestor chain.
             const worldMat = nodeWorldTransform(state.document, entry.nodeId);
             const wInv = invertAffine(worldMat);
             const local = applyAffine(wInv, [world.x, world.y]);
