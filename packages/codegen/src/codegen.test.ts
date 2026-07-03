@@ -30,7 +30,11 @@ describe('exportNodeToSvg', () => {
 
   it('emits multi-line text as tspan elements', () => {
     const doc = createDocument('Test');
-    const node = makeTextNode('t1', 'Line 1\nLine 2', { fontSize: 16, fontFamily: 'Inter', lineHeight: 1.4 });
+    const node = makeTextNode('t1', 'Line 1\nLine 2', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+      lineHeight: 1.4,
+    });
     const out = exportNodeToSvg(node, doc);
     expect(out).toContain('<tspan');
     expect(out).toContain('Line 1');

@@ -9,9 +9,9 @@
  */
 import type { EasingDefinition } from '@strata/shared';
 import type { Document } from './document';
-import type { NodeId } from './types';
 import type { AnimationKeyframe, AnimationTrack, Timeline } from './motion-types';
 import { makeTimelineObject } from './motion-types';
+import type { NodeId } from './types';
 
 function timelineId(): string {
   return `tl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -70,7 +70,18 @@ export function renameTimeline(doc: Document, timelineId: string, name: string):
 export function updateTimeline(
   doc: Document,
   timelineId: string,
-  updates: Partial<Pick<Timeline, 'duration' | 'defaultEasing' | 'defaultFillMode' | 'defaultPlaybackDirection' | 'defaultIterations' | 'autoReverse' | 'name'>>,
+  updates: Partial<
+    Pick<
+      Timeline,
+      | 'duration'
+      | 'defaultEasing'
+      | 'defaultFillMode'
+      | 'defaultPlaybackDirection'
+      | 'defaultIterations'
+      | 'autoReverse'
+      | 'name'
+    >
+  >,
 ): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
@@ -148,7 +159,9 @@ export function updateTrack(
   doc: Document,
   timelineId: string,
   trackId: string,
-  updates: Partial<Pick<AnimationTrack, 'property' | 'interpolation' | 'composite' | 'enabled' | 'nodeId'>>,
+  updates: Partial<
+    Pick<AnimationTrack, 'property' | 'interpolation' | 'composite' | 'enabled' | 'nodeId'>
+  >,
 ): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;

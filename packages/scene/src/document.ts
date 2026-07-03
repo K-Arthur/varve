@@ -12,9 +12,10 @@
  * Ordering is array-index for the local-first editor (sufficient without sync).
  * CRDT-safe fractional ordering replaces it when sync lands (Phase 2, plan §1.1).
  */
-import type { Affine, Color, Shape } from '@strata/engine';
+import type { Affine, Shape } from '@strata/engine';
 import type { DocumentUnit } from '@strata/shared';
 import { generateKeyBetween } from '@strata/shared';
+import type { ManagedColor } from './colorManagement';
 import type {
   BleedConfig,
   ColorConfig,
@@ -31,6 +32,7 @@ import type {
   GroupNode,
   ImageNode,
   NodeId,
+  Page,
   SceneNode,
   ShapeNode,
   Style,
@@ -55,7 +57,7 @@ export interface Document {
   /** Canvas height in px (artboard/frame size). */
   canvasHeight?: number;
   /** Canvas background color (RGBA). */
-  canvasBackground?: Color;
+  canvasBackground?: ManagedColor;
   /** Per-document export defaults (optional — falls back to ExportSettings globals). */
   exportDefaults?: Partial<ExportSettings>;
   /** Reusable styles keyed by style id (color, text, effect, layout). */
@@ -66,6 +68,8 @@ export interface Document {
   installedLibraries?: import('./library').InstalledLibraryRef[];
   /** Layout guides for aligning nodes on the canvas. */
   guides?: import('./types').Guide[];
+  /** Pages (v1.2+). When unset, the document is in flat (pre-page) mode. */
+  pages?: Page[];
 
   // ── Print production properties (v1.1) ────────────────────────────────────
 
@@ -107,7 +111,7 @@ export interface NodeEntry {
 }
 
 export function createDocument(name = 'Untitled'): Document {
-  return {
+  const base: Document = {
     id: cryptoId(),
     formatVersion: CURRENT_DOCUMENT_VERSION,
     name,
@@ -115,6 +119,29 @@ export function createDocument(name = 'Untitled'): Document {
     nodes: {},
     components: {},
     nextId: 1,
+  };
+
+  // Create a default page with a contentRoot group
+  const { id: contentRootId, doc: d1 } = nextNodeId(base);
+  const contentRoot = makeGroupNode(contentRootId, {
+    name: 'Page 1 content',
+    children: [],
+  });
+
+  const page: Page = {
+    id: cryptoId(),
+    name: 'Page 1',
+    width: 1920,
+    height: 1080,
+    backgrounds: [],
+    contentRoot: contentRootId,
+  };
+
+  return {
+    ...d1,
+    pages: [page],
+    rootChildren: [contentRootId],
+    nodes: { ...d1.nodes, [contentRootId]: contentRoot },
   };
 }
 
@@ -165,7 +192,7 @@ export function makeShapeNode(
     rotation: opts.rotation ?? 0,
     shape,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
-    fill: opts.fill ?? ([57, 208, 198, 255] as Color),
+    fill: opts.fill ?? { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
     cornerRadius: opts.cornerRadius,
@@ -224,7 +251,7 @@ export function makeTextNode(
     rotation: opts.rotation ?? 0,
     text,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
-    fill: opts.fill ?? ([16, 21, 31, 255] as Color),
+    fill: opts.fill ?? { space: 'rgb', r: 16, g: 21, b: 31, a: 255 },
     fontSize: opts.fontSize ?? 16,
     fontFamily: opts.fontFamily ?? 'Inter',
     fontWeight: opts.fontWeight ?? 400,
@@ -281,7 +308,7 @@ export function makeGroupNode(
     blendMode: opts.blendMode ?? 'normal',
     rotation: opts.rotation ?? 0,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
-    fill: opts.fill ?? ([0, 0, 0, 0] as Color),
+    fill: opts.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
     children: opts.children ?? [],
   };
 }
@@ -327,7 +354,7 @@ export function makeFrameNode(
     blendMode: opts.blendMode ?? 'normal',
     rotation: opts.rotation ?? 0,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
-    fill: opts.fill ?? ([200, 200, 200, 255] as Color),
+    fill: opts.fill ?? { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
     w: opts.w ?? 200,
     h: opts.h ?? 160,
     children: opts.children ?? [],
@@ -378,7 +405,7 @@ export function makeImageNode(
     blendMode: opts.blendMode ?? 'normal',
     rotation: opts.rotation ?? 0,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
-    fill: opts.fill ?? ([0, 0, 0, 0] as Color),
+    fill: opts.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
     src: opts.src ?? '',
     w: opts.w ?? 100,
     h: opts.h ?? 100,
@@ -934,6 +961,228 @@ export function instanceOverrides(doc: Document, id: NodeId): string[] {
   if (JSON.stringify(frame.effects) !== JSON.stringify(masterFrame.effects))
     overrides.push('effects');
   return overrides;
+}
+
+// ── Page operations ──────────────────────────────────────────────────────────
+
+/** Count existing pages to generate the next page name. */
+function nextPageName(doc: Document): string {
+  const count = doc.pages?.length ?? 0;
+  return `Page ${count + 1}`;
+}
+
+/**
+ * Add a new page to the document.
+ * Creates a contentRoot group node for page content.
+ */
+export function addPage(
+  doc: Document,
+  opts?: { width?: number; height?: number; name?: string },
+): Document {
+  const { id: contentRootId, doc: d1 } = nextNodeId(doc);
+  const contentRoot = makeGroupNode(contentRootId, {
+    name: `${opts?.name ?? nextPageName(doc)} content`,
+    children: [],
+  });
+
+  const page: Page = {
+    id: cryptoId(),
+    name: opts?.name ?? nextPageName(doc),
+    width: opts?.width ?? 1920,
+    height: opts?.height ?? 1080,
+    backgrounds: [],
+    contentRoot: contentRootId,
+  };
+
+  // Inherit print config from document if page-level not set
+  if (doc.bleed) page.bleed = doc.bleed;
+  if (doc.safeArea) page.safeArea = doc.safeArea;
+  if (doc.slug) page.slug = doc.slug;
+
+  return {
+    ...d1,
+    pages: [...(d1.pages ?? []), page],
+    rootChildren: [...d1.rootChildren, contentRootId],
+    nodes: { ...d1.nodes, [contentRootId]: contentRoot },
+  };
+}
+
+/**
+ * Remove a page from the document.
+ * Removes the contentRoot node (and all descendants) and any background nodes.
+ * Guards against removing the last page.
+ */
+export function removePage(doc: Document, pageId: NodeId): Document {
+  if (!doc.pages || doc.pages.length <= 1) return doc;
+  const idx = doc.pages.findIndex((p) => p.id === pageId);
+  if (idx < 0) return doc;
+
+  const page = doc.pages[idx]!;
+  let d = doc;
+
+  // Remove background nodes
+  for (const bgId of page.backgrounds) {
+    d = removeNode(d, bgId);
+  }
+
+  // Remove contentRoot and all its descendants
+  d = removeNode(d, page.contentRoot);
+
+  // Remove the page entry
+  const nextPages = [...d.pages!];
+  nextPages.splice(idx, 1);
+
+  return { ...d, pages: nextPages };
+}
+
+/**
+ * Reorder pages to match the given array of page IDs.
+ * Validates that all page IDs exist and the input length matches.
+ */
+export function reorderPages(doc: Document, pageIds: NodeId[]): Document {
+  if (!doc.pages) return doc;
+  if (pageIds.length !== doc.pages.length) return doc;
+
+  // Validate all IDs exist
+  const existingIds = new Set(doc.pages.map((p) => p.id));
+  for (const pid of pageIds) {
+    if (!existingIds.has(pid)) return doc;
+  }
+
+  // Build reordered pages
+  const idToPage = new Map(doc.pages.map((p) => [p.id, p]));
+  const reordered = pageIds.map((pid) => idToPage.get(pid)!);
+
+  return { ...doc, pages: reordered };
+}
+
+/**
+ * Deep-copy a page and all its content nodes.
+ * Assigns new IDs to all duplicated nodes.
+ * Auto-names the copy ("Page X Copy").
+ */
+export function duplicatePage(doc: Document, pageId: NodeId): Document {
+  if (!doc.pages) return doc;
+  const sourcePage = doc.pages.find((p) => p.id === pageId);
+  if (!sourcePage) return doc;
+
+  // Clone the contentRoot subtree with new IDs
+  let d = doc;
+  const idMap = new Map<NodeId, NodeId>();
+
+  function cloneNode(nid: NodeId): NodeId | null {
+    const node = d.nodes[nid];
+    if (!node) return null;
+    if (idMap.has(nid)) return idMap.get(nid)!;
+
+    const { id: newId, doc: d2 } = nextNodeId(d);
+    d = d2;
+    idMap.set(nid, newId);
+
+    // Recursively clone children if this is a container
+    let cloned: SceneNode;
+    if (isContainer(node)) {
+      const clonedChildren = node.children
+        .map((c) => cloneNode(c))
+        .filter((c): c is NodeId => c !== null);
+      cloned = { ...node, id: newId, children: clonedChildren } as SceneNode;
+    } else {
+      cloned = { ...node, id: newId } as SceneNode;
+    }
+
+    d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
+    return newId;
+  }
+
+  const newContentRootId = cloneNode(sourcePage.contentRoot);
+  if (!newContentRootId) return doc;
+
+  // Clone background nodes
+  const newBackgrounds: NodeId[] = [];
+  for (const bgId of sourcePage.backgrounds) {
+    const newBgId = cloneNode(bgId);
+    if (newBgId) newBackgrounds.push(newBgId);
+  }
+
+  const copyName = `${sourcePage.name} Copy`;
+
+  const newPage: Page = {
+    id: cryptoId(),
+    name: copyName,
+    width: sourcePage.width,
+    height: sourcePage.height,
+    bleed: sourcePage.bleed,
+    safeArea: sourcePage.safeArea,
+    slug: sourcePage.slug,
+    backgrounds: newBackgrounds,
+    contentRoot: newContentRootId,
+  };
+
+  return {
+    ...d,
+    pages: [...(d.pages ?? []), newPage],
+    rootChildren: [...d.rootChildren, newContentRootId],
+  };
+}
+
+/**
+ * Update page dimensions without scaling content.
+ */
+export function setPageSize(
+  doc: Document,
+  pageId: NodeId,
+  width: number,
+  height: number,
+): Document {
+  if (!doc.pages) return doc;
+  const idx = doc.pages.findIndex((p) => p.id === pageId);
+  if (idx < 0) return doc;
+
+  const updatedPages = doc.pages.map((p, i) => (i === idx ? { ...p, width, height } : p));
+
+  return { ...doc, pages: updatedPages };
+}
+
+/**
+ * Migrate a flat (pre-page) document to the page model.
+ * Wraps existing rootChildren into a single default page's contentRoot.
+ * If the document already has pages, returns as-is.
+ * Uses A4 dimensions (210×297mm) if the document is print-oriented (dpi > 0),
+ * or 1920×1080px for screen documents.
+ */
+export function migrateToPages(doc: Document): Document {
+  if (doc.pages && doc.pages.length > 0) return doc;
+
+  const isPrint = (doc.dpi ?? 0) > 0;
+  const pageWidth = isPrint && doc.physicalWidth ? doc.physicalWidth : 1920;
+  const pageHeight = isPrint && doc.physicalHeight ? doc.physicalHeight : 1080;
+
+  const { id: contentRootId, doc: d1 } = nextNodeId(doc);
+  const contentRoot = makeGroupNode(contentRootId, {
+    name: 'Page 1 content',
+    children: [...doc.rootChildren],
+  });
+
+  const page: Page = {
+    id: cryptoId(),
+    name: 'Page 1',
+    width: pageWidth,
+    height: pageHeight,
+    backgrounds: [],
+    contentRoot: contentRootId,
+  };
+
+  // Inherit print config
+  if (d1.bleed) page.bleed = d1.bleed;
+  if (d1.safeArea) page.safeArea = d1.safeArea;
+  if (d1.slug) page.slug = d1.slug;
+
+  return {
+    ...d1,
+    pages: [page],
+    rootChildren: [contentRootId],
+    nodes: { ...d1.nodes, [contentRootId]: contentRoot },
+  };
 }
 
 // ── Guide operations ─────────────────────────────────────────────────────────

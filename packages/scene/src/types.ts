@@ -13,7 +13,8 @@
  * per-corner radius, and stacked-fill type enums. All new fields have safe
  * defaults so existing documents deserialize correctly.
  */
-import type { Affine, Color, Shape } from '@strata/engine';
+import type { Affine, Shape } from '@strata/engine';
+import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 
 export type NodeId = string;
@@ -77,7 +78,7 @@ export type StrokeJoin = 'miter' | 'round' | 'bevel';
 export type ArrowheadStyle = 'none' | 'arrow' | 'circle' | 'square' | 'diamond';
 
 export interface Stroke {
-  color: Color;
+  color: ManagedColor;
   weight: number;
   align: StrokeAlign;
   dashPattern: number[];
@@ -98,7 +99,7 @@ export interface Stroke {
 
 export function defaultStroke(): Stroke {
   return {
-    color: [0, 0, 0, 255] as Color,
+    color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as ManagedColor,
     weight: 1,
     align: 'center',
     dashPattern: [],
@@ -117,7 +118,7 @@ export type Effect =
       y: number;
       blur: number;
       spread: number;
-      color: Color;
+      color: ManagedColor;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
@@ -128,7 +129,7 @@ export type Effect =
       y: number;
       blur: number;
       spread: number;
-      color: Color;
+      color: ManagedColor;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
@@ -140,7 +141,7 @@ export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
 
 export interface GradientStop {
   position: number;
-  color: Color;
+  color: ManagedColor;
 }
 
 export interface GradientFill {
@@ -185,7 +186,7 @@ export type FillType = 'solid' | 'gradient' | 'image' | 'pattern';
 
 export interface Fill {
   type: FillType;
-  color?: Color;
+  color?: ManagedColor;
   gradient?: GradientFill;
   image?: ImageFillData;
   pattern?: PatternFillData;
@@ -206,7 +207,7 @@ export interface PropertyBinding {
 export interface NodeBase {
   id: NodeId;
   name: string;
-  fill: Color;
+  fill: ManagedColor;
   /** P2: stacked fills (solid/gradient/image). When present, takes precedence over `fill`. */
   fills?: Fill[];
   /** Paint order among siblings (0 = bottom). Reorder via Document.move. */
@@ -414,6 +415,25 @@ export interface ImageNode extends NodeBase {
 export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode;
 
 export type ContainerNode = GroupNode | FrameNode;
+
+// ── Page type ────────────────────────────────────────────────────────────────
+
+export interface Page {
+  id: NodeId;
+  name: string;
+  width: number;
+  height: number;
+  /** Per-page bleed override (inherits from Document.bleed when unset). */
+  bleed?: BleedConfig;
+  /** Per-page safe area override (inherits from Document.safeArea when unset). */
+  safeArea?: SafeAreaConfig;
+  /** Per-page slug override (inherits from Document.slug when unset). */
+  slug?: SlugConfig;
+  /** Page-level background shape layer ids (rendered behind content). */
+  backgrounds: NodeId[];
+  /** Group node id that holds all page content as children. */
+  contentRoot: NodeId;
+}
 
 export type SlotKind = 'single' | 'multiple' | 'text';
 

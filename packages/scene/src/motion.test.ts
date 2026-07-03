@@ -1,24 +1,24 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { Document } from './document';
 import { createDocument } from './document';
 import {
-  createTimeline,
-  removeTimeline,
-  renameTimeline,
-  updateTimeline,
-  setActiveTimeline,
-  addTrack,
-  removeTrack,
-  updateTrack,
   addKeyframe,
-  removeKeyframe,
-  updateKeyframe,
   addNodeToTimeline,
-  getTimelines,
+  addTrack,
+  createTimeline,
   getTimeline,
+  getTimelines,
+  removeKeyframe,
+  removeTimeline,
+  removeTrack,
+  renameTimeline,
+  setActiveTimeline,
+  updateKeyframe,
+  updateTimeline,
+  updateTrack,
 } from './motion';
-import { makeTimelineObject as makeTimeline, createKeyframe } from './motion-types';
 import type { AnimationKeyframe, AnimationTrack } from './motion-types';
-import type { Document } from './document';
+import { createKeyframe, makeTimelineObject as makeTimeline } from './motion-types';
 
 describe('motion-types', () => {
   it('creates a timeline with defaults', () => {

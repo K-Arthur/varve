@@ -42,13 +42,22 @@ const migrations: DocumentMigration[] = [
   {
     from: '1.1',
     to: '1.2',
-    migrate: (raw) => ({
-      ...raw,
-      formatVersion: '1.2',
-      // Motion/animation fields default to undefined (no timelines by default).
-      timelines: raw.timelines ?? undefined,
-      activeTimelineId: raw.activeTimelineId ?? undefined,
-    }),
+    migrate: (raw) => {
+      let result: Record<string, unknown> = {
+        ...raw,
+        formatVersion: '1.2',
+        // Motion/animation fields default to undefined (no timelines by default).
+        timelines: raw.timelines ?? undefined,
+        activeTimelineId: raw.activeTimelineId ?? undefined,
+      };
+
+      // Migrate flat rootChildren into pages if no pages exist
+      if (!result.pages) {
+        result = migrateRawToPages(result);
+      }
+
+      return result;
+    },
   },
 ];
 
@@ -147,6 +156,63 @@ export function migrateDocumentDetailed(raw: unknown): MigrationResult | null {
     toVersion: result.formatVersion as string,
     migrated,
     warnings,
+  };
+}
+
+/**
+ * Raw-record migration helper: wrap flat rootChildren into a Page.
+ * Used by the 1.1→1.2 migration step.
+ */
+function migrateRawToPages(raw: Record<string, unknown>): Record<string, unknown> {
+  const rootChildren = (raw.rootChildren as string[]) ?? [];
+  const nodes = (raw.nodes as Record<string, unknown>) ?? {};
+  const nextId = (raw.nextId as number) ?? 1;
+
+  // Determine dimensions: print-oriented if dpi > 0
+  const dpi = (raw.dpi as number) ?? 0;
+  const isPrint = dpi > 0;
+  const pageWidth = isPrint ? ((raw.physicalWidth as number) ?? 210) : 1920;
+  const pageHeight = isPrint ? ((raw.physicalHeight as number) ?? 297) : 1080;
+
+  // Create a contentRoot group node
+  const contentRootId = `n${nextId}`;
+  const contentRoot: Record<string, unknown> = {
+    id: contentRootId,
+    kind: 'group',
+    name: 'Page 1 content',
+    index: 0,
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal',
+    rotation: 0,
+    transform: [1, 0, 0, 1, 0, 0],
+    fill: [0, 0, 0, 0],
+    children: [...rootChildren],
+  };
+
+  const pageId = `p-${nextId}`;
+  const page: Record<string, unknown> = {
+    id: pageId,
+    name: 'Page 1',
+    width: pageWidth,
+    height: pageHeight,
+    backgrounds: [],
+    contentRoot: contentRootId,
+  };
+
+  // Inherit print config if present
+  if (raw.bleed) page.bleed = raw.bleed;
+  if (raw.safeArea) page.safeArea = raw.safeArea;
+  if (raw.slug) page.slug = raw.slug;
+
+  return {
+    ...raw,
+    pages: [page],
+    rootChildren: [contentRootId],
+    nodes: { ...nodes, [contentRootId]: contentRoot },
+    nextId: nextId + 1,
   };
 }
 
