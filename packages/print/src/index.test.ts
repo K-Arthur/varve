@@ -33,7 +33,7 @@ describe('createStubPrintEngine', () => {
 
   it('outlineText returns a message about native requirement', async () => {
     const engine = createStubPrintEngine();
-    const result = await engine.outlineText('Hello', 16, 'Inter');
+    const result = await engine.outlineText('Hello', 16, new Uint8Array([]));
     const parsed = JSON.parse(result);
     expect(parsed.error).toContain('native');
   });

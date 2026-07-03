@@ -20,7 +20,7 @@ export function createStubPrintEngine(): PrintEngine {
       return { name: opts.title ?? 'export', data, format: opts.format, pages: 1 };
     },
 
-    async outlineText(_text: string, _fontSize: number, _fontFamily: string): Promise<string> {
+    async outlineText(_text: string, _fontSize: number, _fontData: Uint8Array): Promise<string> {
       // Stub: return the text as-is (no actual outlining).
       // Real outlining requires the Rust engine with ab_glyph.
       return JSON.stringify({

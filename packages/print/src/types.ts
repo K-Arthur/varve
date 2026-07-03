@@ -14,6 +14,12 @@ export interface PdfExportOptions {
   includeRegistrationMarks?: boolean;
   enforceDpi?: number;
   outlineText?: boolean;
+  /** When true, converts fills to CMYK (used for PDF/X-1a). */
+  useCmyk?: boolean;
+  /** ICC print profile name (e.g. "Fogra39", "GRACoL2006", "SWOP Coated"). */
+  iccProfile?: string;
+  /** When true, includes CMYK colour bars on the output. */
+  colorBars?: boolean;
 }
 
 export interface PdfResult {
@@ -26,5 +32,5 @@ export interface PdfResult {
 export interface PrintEngine {
   readonly backend: 'native' | 'stub';
   exportPdf(docJson: string, opts: PdfExportOptions): Promise<PdfResult>;
-  outlineText(text: string, fontSize: number, fontFamily: string): Promise<string>;
+  outlineText(text: string, fontSize: number, fontData: Uint8Array): Promise<string>;
 }
