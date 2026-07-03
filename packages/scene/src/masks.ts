@@ -25,5 +25,5 @@ export function resolveMask(node: SceneNode): Mask | null {
 /** True if the container has an active (visible, valid) mask. */
 export function isMasked(node: SceneNode): boolean {
   const mask = resolveMask(node);
-  return mask !== null && mask.visible;
+  return mask ? mask.visible : false;
 }

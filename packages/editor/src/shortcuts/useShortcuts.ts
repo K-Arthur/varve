@@ -54,16 +54,12 @@ export function useShortcuts(
           input?.click();
         };
       case 'save':
+        return () => {
+          e.save();
+        };
       case 'saveAs':
         return () => {
-          const json = e.serializeDocument();
-          const blob = new Blob([json], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${e.state.document.name || 'untitled'}.strata.json`;
-          a.click();
-          URL.revokeObjectURL(url);
+          e.saveAs();
         };
       case 'exportSvg':
         return () => {

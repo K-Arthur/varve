@@ -80,7 +80,7 @@ export function validateNamingConventions(
     if (
       /^[A-Z]/.test(name) &&
       name.length > 1 &&
-      name === name.charAt(0)!.toUpperCase() + name.slice(1)
+      name === name.charAt(0)?.toUpperCase() + name.slice(1)
     ) {
       issues.push({
         type: 'warning',

@@ -131,8 +131,8 @@ export function sampleAt(timeline: AnimationTimeline, progress: number): Record<
     throw new Error(`Cannot sample empty timeline: ${timeline.id}`);
   }
 
-  if (progress <= timeline.keyframes[0]!.progress) {
-    return { ...timeline.keyframes[0]!.values };
+  if (progress <= timeline.keyframes[0]?.progress) {
+    return { ...timeline.keyframes[0]?.values };
   }
 
   const last = timeline.keyframes[timeline.keyframes.length - 1]!;

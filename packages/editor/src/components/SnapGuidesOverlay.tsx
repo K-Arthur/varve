@@ -23,10 +23,7 @@ export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps)
     <svg className="snap-guides-overlay" aria-hidden>
       <title>Snap guides overlay</title>
       {guides.map((g, i) => {
-        const pos =
-          g.axis === 'vertical'
-            ? g.position * zoom + pan.x
-            : g.position * zoom + pan.y;
+        const pos = g.axis === 'vertical' ? g.position * zoom + pan.x : g.position * zoom + pan.y;
         const color = guideColor(g.type);
         return (
           <line
@@ -45,14 +42,8 @@ export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps)
         .filter((g) => g.label)
         .map((g, i) => {
           const color = guideColor(g.type);
-          const x =
-            g.axis === 'vertical'
-              ? g.position * zoom + pan.x + 4
-              : 10;
-          const y =
-            g.axis === 'horizontal'
-              ? g.position * zoom + pan.y - 4
-              : 20;
+          const x = g.axis === 'vertical' ? g.position * zoom + pan.x + 4 : 10;
+          const y = g.axis === 'horizontal' ? g.position * zoom + pan.y - 4 : 20;
           return (
             <text key={`l${i}`} x={x} y={y} fontSize={10} fill={color}>
               {g.label}
@@ -63,14 +54,8 @@ export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps)
         .filter((g) => g.distance !== undefined)
         .map((g, i) => {
           const color = guideColor(g.type);
-          const x =
-            g.axis === 'vertical'
-              ? g.position * zoom + pan.x + 4
-              : 10;
-          const y =
-            g.axis === 'horizontal'
-              ? g.position * zoom + pan.y + 12
-              : 36;
+          const x = g.axis === 'vertical' ? g.position * zoom + pan.x + 4 : 10;
+          const y = g.axis === 'horizontal' ? g.position * zoom + pan.y + 12 : 36;
           return (
             <text key={`d${i}`} x={x} y={y} fontSize={9} fill={color}>
               {g.distance}px

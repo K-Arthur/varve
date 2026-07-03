@@ -164,7 +164,7 @@ describe('Variants', () => {
     doc = addNode(doc, instance);
 
     doc = setVariantForInstance(doc, 'inst1', variant.id);
-    const updated = doc.nodes['inst1'] as FrameNode;
+    const updated = doc.nodes.inst1 as FrameNode;
     expect(updated.variant).toBe(variant.id);
   });
 });

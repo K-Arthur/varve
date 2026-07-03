@@ -45,7 +45,7 @@ export class NodeEditTool extends BaseTool {
     if (!targetId) return { consumed: false };
 
     const node = ctx.getNode(targetId);
-    if (!node || node.kind !== 'shape' || node.shape.kind !== 'path') {
+    if (node?.kind !== 'shape' || node.shape.kind !== 'path') {
       return { consumed: false };
     }
 
@@ -207,7 +207,7 @@ export class NodeEditTool extends BaseTool {
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return false;
     const node = ctx.getNode(targetId);
-    if (!node || node.kind !== 'shape' || node.shape.kind !== 'path') return false;
+    if (node?.kind !== 'shape' || node.shape.kind !== 'path') return false;
     if (node.shape.points.length - this.selectedAnchors.size < 2) return false;
 
     const toRemove = new Set(this.selectedAnchors);

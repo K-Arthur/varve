@@ -8,14 +8,16 @@
 import type { ContainerNode, NodeId } from '@strata/scene';
 import { getParent } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
+import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../../context';
+import type { LayersDnDHandle } from './LayersTree';
 import { LayersTree } from './LayersTree';
 import './layers.css';
 import { VariablePanel } from '../../VariablePanel';
 
-export function LayersPanel() {
+export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHandle | null> }) {
   const {
     state,
     setSelection,
@@ -176,7 +178,7 @@ export function LayersPanel() {
         )}
       </div>
 
-      <LayersTree filter={filter} onContextMenu={handleContextMenu} />
+      <LayersTree ref={dndRef} filter={filter} onContextMenu={handleContextMenu} />
 
       {contextMenu &&
         createPortal(

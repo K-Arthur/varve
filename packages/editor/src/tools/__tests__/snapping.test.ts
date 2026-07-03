@@ -105,10 +105,7 @@ describe('snapPosition — mid-point snapping', () => {
     // Two targets at x=0,w=100 (center=50) and x=200,w=100 (center=250)
     // Mid-point of centers = (50+250)/2 = 150
     // Subject: x=96, w=100 => centerX=146, diff=4 < 5
-    const result = snapPosition(96, 50, 100, 100, [
-      box(0, 50, 100, 100),
-      box(200, 50, 100, 100),
-    ]);
+    const result = snapPosition(96, 50, 100, 100, [box(0, 50, 100, 100), box(200, 50, 100, 100)]);
     // Should snap so centerX = 150, meaning x = 150 - 50 = 100
     expect(result.x).toBe(100);
     expect(result.guides.some((g) => g.type === 'midpoint')).toBe(true);
@@ -118,10 +115,7 @@ describe('snapPosition — mid-point snapping', () => {
     // Objects at x=0 (center=50) and x=300 (center=350)
     // Mid-point of centers = (50+350)/2 = 200
     // Subject offset 4px: x=146, w=100 => centerX=196, diff=4 < 5
-    const result = snapPosition(146, 50, 100, 100, [
-      box(0, 50, 100, 100),
-      box(300, 50, 100, 100),
-    ]);
+    const result = snapPosition(146, 50, 100, 100, [box(0, 50, 100, 100), box(300, 50, 100, 100)]);
     // snapped to centerX=200, so x=150
     expect(result.x).toBe(150);
     const guide = result.guides.find((g) => g.type === 'midpoint');
@@ -132,10 +126,7 @@ describe('snapPosition — mid-point snapping', () => {
   it('does not mid-point snap when not near mid-point', () => {
     // centerX of subject (100+50=150) vs mid-point of centers (50+350)/2=200, diff=50 > 5
     // Y positions staggered so Y mid-point doesn't trigger either
-    const result = snapPosition(100, 200, 100, 100, [
-      box(0, 0, 100, 100),
-      box(300, 500, 100, 100),
-    ]);
+    const result = snapPosition(100, 200, 100, 100, [box(0, 0, 100, 100), box(300, 500, 100, 100)]);
     expect(result.x).toBe(100);
     expect(result.guides.filter((g) => g.type === 'midpoint')).toHaveLength(0);
   });

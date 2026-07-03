@@ -14,22 +14,19 @@
  *   F2          — rename focused node
  *   Type-ahead  — quick-jump to node by name prefix
  *
+ * DndContext is provided by the parent (Shell) for cross-panel drag support.
+ * This component manages SortableContext and exposes DnD handlers via ref.
+ *
  * Research basis: W3C APG Tree View pattern, @tanstack/react-virtual,
  * WICG virtual-scroller principles.
  */
 
 import {
-  closestCenter,
-  DndContext,
   type DragEndEvent,
   type DragMoveEvent,
   type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -38,8 +35,9 @@ import { isContainer } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import type { DragNodeData } from '../../dnd-types';
 import { LayersRow } from './LayersRow';
 import { useFlatTree } from './useFlatTree';
 import { useTreeFocus } from './useTreeFocus';
@@ -50,7 +48,20 @@ export interface LayersTreeProps {
   onContextMenu?: (e: React.MouseEvent, id: NodeId) => void;
 }
 
-export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
+/** Handlers exposed to the parent DndContext via ref. */
+export interface LayersDnDHandle {
+  handleDragStart: (event: DragStartEvent) => void;
+  handleDragMove: (event: DragMoveEvent) => void;
+  handleDragOver: (event: DragOverEvent) => void;
+  handleDragEnd: (event: DragEndEvent) => void;
+  activeId: NodeId | null;
+  dropIndicator: { nodeId: NodeId; zone: 'before' | 'after' | 'into' } | null;
+}
+
+export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
+  { filter = '', onContextMenu },
+  ref,
+) {
   const {
     state,
     isSelected,
@@ -433,11 +444,6 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
 
   // DnD ----------------------------------------------------------------
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
-  );
-
   const cancelAutoExpand = useCallback(() => {
     if (autoExpandTimerRef.current !== null) {
       clearTimeout(autoExpandTimerRef.current);
@@ -621,6 +627,20 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
     ],
   );
 
+  // Expose DnD handlers to parent DndContext via ref
+  useImperativeHandle(
+    ref,
+    () => ({
+      handleDragStart,
+      handleDragMove,
+      handleDragOver,
+      handleDragEnd,
+      activeId,
+      dropIndicator,
+    }),
+    [handleDragStart, handleDragMove, handleDragOver, handleDragEnd, activeId, dropIndicator],
+  );
+
   if (entries.length === 0 && !filter) {
     return (
       <div className="layers-panel__empty" role="tree" aria-label="Layers">
@@ -677,14 +697,7 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
   const activeEntry = activeId ? entries.find((e) => e.node.id === activeId) : null;
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
+    <>
       <div
         ref={treeRef}
         className="layers-panel__tree"
@@ -772,9 +785,9 @@ export function LayersTree({ filter = '', onContextMenu }: LayersTreeProps) {
           </div>
         )}
       </DragOverlay>
-    </DndContext>
+    </>
   );
-}
+});
 
 interface SortableVirtualRowProps {
   node: import('@strata/scene').SceneNode;
@@ -825,7 +838,14 @@ function SortableVirtualRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: node.id });
+  } = useSortable({
+    id: node.id,
+    data: {
+      type: 'layer',
+      nodeId: node.id,
+      parentId: null, // resolved at drop time
+    } satisfies DragNodeData,
+  });
 
   // Resolve variant name for component instances
   const variantName =

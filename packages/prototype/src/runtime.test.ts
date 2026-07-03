@@ -75,7 +75,7 @@ describe('Prototype Runtime', () => {
       const runtime = createRuntime(interactions, 'screen-1');
       const results = handleEvent(runtime, { type: 'click', nodeId: 'btn-1' });
       expect(results).toHaveLength(1);
-      expect(results[0]!.interactionId).toBe('i1');
+      expect(results[0]?.interactionId).toBe('i1');
     });
 
     it('does not trigger for non-matching event', () => {
@@ -100,7 +100,7 @@ describe('Prototype Runtime', () => {
       expect(results).toHaveLength(1);
 
       // Apply the navigate result
-      applyActionResult(runtime, results[0]!.actionResults[0]!);
+      applyActionResult(runtime, results[0]?.actionResults[0]!);
       expect(runtime.state.currentScreenId).toBe('screen-2');
     });
 
@@ -233,18 +233,18 @@ describe('Prototype Runtime', () => {
         targetId: 'node-1',
         animationId: 'bounce',
       });
-      expect(runtime.state.animationStates['bounce']).toBe('running');
+      expect(runtime.state.animationStates.bounce).toBe('running');
     });
 
     it('stopAnimation updates animation state', () => {
       const runtime = createRuntime([], 'screen-1');
-      runtime.state.animationStates['bounce'] = 'running';
+      runtime.state.animationStates.bounce = 'running';
       applyActionResult(runtime, {
         kind: 'stopAnimation',
         targetId: 'node-1',
         animationId: 'bounce',
       });
-      expect(runtime.state.animationStates['bounce']).toBe('stopped');
+      expect(runtime.state.animationStates.bounce).toBe('stopped');
     });
   });
 });
