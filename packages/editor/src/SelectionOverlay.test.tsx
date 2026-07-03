@@ -186,11 +186,12 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // 8 corner/edge handles + 1 rotation handle + 1 rotation line = 10 rect children
+    // 1 bbox + 8 touch targets + 8 visual handles = 17 rects
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(9);
+    expect(rects.length).toBe(17);
+    // 2 touch targets (rotation + pivot) + 2 visual (rotation + pivot) = 4 circles
     const circles = container.querySelectorAll('svg > circle');
-    expect(circles.length).toBe(2);
+    expect(circles.length).toBe(4);
     const lines = container.querySelectorAll('svg > line');
     expect(lines.length).toBe(1);
   });
@@ -209,7 +210,7 @@ describe('SelectionOverlay — shape handle types', () => {
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(9);
+    expect(rects.length).toBe(17);
     const lines = container.querySelectorAll('svg > line');
     expect(lines.length).toBe(1);
   });
@@ -228,7 +229,7 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(9);
+    expect(rects.length).toBe(17);
   });
 
   it('shows 8 resize handles + rotation handle for a line shape', () => {
@@ -242,7 +243,7 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(9);
+    expect(rects.length).toBe(17);
   });
 
   it('shows 8 resize handles + rotation handle for an arrow shape', () => {
@@ -257,7 +258,7 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(9);
+    expect(rects.length).toBe(17);
   });
 
   it('shows 8 resize handles + rotation handle for a path shape', () => {
@@ -274,7 +275,7 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(9);
+    expect(rects.length).toBe(17);
   });
 
   it('shows no interactive handles for multi-selection (dashed bbox, handles still in DOM with pointerEvents:none)', () => {
@@ -284,9 +285,9 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // 1 bbox outline + 8 handle positions (always rendered, pointer-events: none in multi)
+    // 1 bbox + 8 touch targets + 8 visual handles = 17 rects (always rendered, pointer-events: none in multi)
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(9);
+    expect(rects.length).toBe(17);
     // No rotation handle in multi-select
     expect(container.querySelectorAll('svg > circle').length).toBe(0);
     // No rotation line in multi-select
@@ -302,8 +303,9 @@ it('shows pivot point at center for single selection', () => {
     makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
   ]);
   const circles = container.querySelectorAll('svg > circle');
-  expect(circles.length).toBe(2);
-  const pivot = circles[1];
+  expect(circles.length).toBe(4);
+  const pivot = container.querySelector('circle[aria-label="Transform origin"]');
+  expect(pivot).toBeTruthy();
   expect(pivot?.getAttribute('cx')).toBe('100');
   expect(pivot?.getAttribute('cy')).toBe('50');
   expect(pivot?.getAttribute('r')).toBe('4');
@@ -389,5 +391,68 @@ describe('SelectionOverlay — resize routing conditions', () => {
       s.kind === 'line' ||
       s.kind === 'arrow';
     expect(isRoutable).toBe(true);
+  });
+});
+
+describe('SelectionOverlay — accessibility', () => {
+  it('has role="presentation" on the SVG', () => {
+    const container = renderOverlay([
+      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
+    ]);
+    const svg = container.querySelector('svg');
+    expect(svg?.getAttribute('role')).toBe('presentation');
+  });
+
+  it('handle rects have aria-label describing their position', () => {
+    const container = renderOverlay([
+      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
+    ]);
+    const handles = container.querySelectorAll('rect[aria-label]');
+    expect(handles.length).toBeGreaterThanOrEqual(8);
+    const firstHandle = handles[0];
+    expect(firstHandle?.getAttribute('aria-label')).toBeTruthy();
+  });
+
+  it('rotation handle has aria-label="Rotate"', () => {
+    const container = renderOverlay([
+      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
+    ]);
+    const rotHandle = container.querySelector('circle[aria-label="Rotate"]');
+    expect(rotHandle).toBeTruthy();
+  });
+
+  it('pivot point has aria-label="Transform origin"', () => {
+    const container = renderOverlay([
+      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
+    ]);
+    const pivot = container.querySelector('circle[aria-label="Transform origin"]');
+    expect(pivot).toBeTruthy();
+  });
+});
+
+describe('SelectionOverlay — touch targets', () => {
+  it('handle hit area is at least 16px even when visual is 8px', () => {
+    const container = renderOverlay([
+      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
+    ]);
+    const touchTargets = container.querySelectorAll('rect[aria-hidden="true"]');
+    expect(touchTargets.length).toBeGreaterThanOrEqual(8);
+    for (const t of touchTargets) {
+      const w = parseFloat(t.getAttribute('width') ?? '0');
+      const h = parseFloat(t.getAttribute('height') ?? '0');
+      expect(Math.max(w, h)).toBeGreaterThanOrEqual(16);
+    }
+  });
+
+  it('rotation handle hit area is at least 16px', () => {
+    const container = renderOverlay([
+      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
+    ]);
+    const transparentCircles = container.querySelectorAll('circle[fill="transparent"]');
+    expect(transparentCircles.length).toBeGreaterThanOrEqual(1);
+    for (const c of transparentCircles) {
+      const r = parseFloat(c.getAttribute('r') ?? '0');
+      expect(r * 2).toBeGreaterThanOrEqual(16);
+    }
   });
 });

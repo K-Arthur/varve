@@ -484,6 +484,19 @@
   gap: 0.15em;
 }
 
+/* ── High-contrast selection handles ────────────────── */
+.high-contrast-handles .selection-overlay-handle {
+  stroke-width: 2.5;
+  stroke: var(--color-on-surface);
+  fill: var(--color-surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selection-overlay-handle {
+    transition: none;
+  }
+}
+
 /* ── Docs name in menubar ── */
 .editor-menubar__doc-name {
   display: flex;
