@@ -5,8 +5,8 @@
  * guard, and lifecycle management.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Document } from '@strata/scene';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type AutoSaveConfig, AutoSaveService } from './autoSaveService';
 
 describe('AutoSaveService', () => {
@@ -207,5 +207,73 @@ describe('AutoSaveService', () => {
     const calledWith = (firstCall as [string])[0];
     const parsed = JSON.parse(calledWith);
     expect(parsed.name).toBe('My Doc');
+  });
+
+  it('calls onSaveRecovery after successful save', async () => {
+    const recoveryFn = vi.fn().mockResolvedValue(undefined);
+    const svc = createService();
+    svc.setOnSaveRecovery(recoveryFn);
+    svc.start();
+    svc.notifyEdit();
+    await svc.saveNow();
+    expect(recoveryFn).toHaveBeenCalledTimes(1);
+    const [docArg, metaArg] = recoveryFn.mock.calls[0] as [{ name: string }, { name: string }];
+    expect(docArg.name).toBe('test');
+    expect(metaArg.name).toBe('test');
+  });
+
+  it('does not call onSaveRecovery when save fails', async () => {
+    const recoveryFn = vi.fn().mockResolvedValue(undefined);
+    saveFn = vi.fn().mockResolvedValue(false);
+    const svc = createService({ maxSaveRetries: 1 });
+    svc.setOnSaveRecovery(recoveryFn);
+    svc.start();
+    svc.notifyEdit();
+    await svc.saveNow();
+    expect(recoveryFn).not.toHaveBeenCalled();
+  });
+
+  it('save succeeds even if onSaveRecovery throws', async () => {
+    const recoveryFn = vi.fn().mockRejectedValue(new Error('recovery fail'));
+    const svc = createService();
+    svc.setOnSaveRecovery(recoveryFn);
+    svc.start();
+    svc.notifyEdit();
+    const result = await svc.saveNow();
+    expect(result).toBe(true);
+  });
+
+  it('onStateChange callback receives state transitions', async () => {
+    const states: string[] = [];
+    const svc = createService();
+    svc.onStateChange((s) => states.push(s));
+    svc.start();
+    svc.notifyEdit();
+    await svc.saveNow();
+    expect(states).toContain('saving');
+    expect(states).toContain('idle');
+  });
+
+  it('onStateChange callback receives error state on failure', async () => {
+    const states: string[] = [];
+    saveFn = vi.fn().mockRejectedValue(new Error('fail'));
+    const svc = createService({ maxSaveRetries: 1 });
+    svc.onStateChange((s) => states.push(s));
+    svc.start();
+    svc.notifyEdit();
+    await svc.saveNow();
+    expect(states).toContain('saving');
+    expect(states).toContain('error');
+  });
+
+  it('onStateChange unsubscribe stops callbacks', async () => {
+    const states: string[] = [];
+    const svc = createService();
+    const unsub = svc.onStateChange((s) => states.push(s));
+    unsub();
+    svc.start();
+    svc.notifyEdit();
+    await svc.saveNow();
+    expect(states).toHaveLength(0);
   });
 });

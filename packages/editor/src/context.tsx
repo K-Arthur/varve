@@ -112,7 +112,7 @@ import {
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import { applyDropPosition } from './dropUtils';
 import { computeFlexLayout } from './layout/computeFlexLayout';
-import { MemoryRecoveryStorage, RecoveryManager } from './recovery';
+import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import type { DraftShape } from './tools/types';
@@ -865,7 +865,7 @@ export function EditorProvider({
   const recoveryRef = useRef<RecoveryManager | null>(null);
   /** Initialize auto-save and recovery once. */
   if (!recoveryRef.current) {
-    recoveryRef.current = new RecoveryManager(new MemoryRecoveryStorage());
+    recoveryRef.current = getSharedRecoveryManager();
   }
   if (!autoSaveRef.current && platform) {
     const uiSettings = loadUiSettings();
@@ -894,6 +894,9 @@ export function EditorProvider({
       },
       { intervalMs: (uiSettings.general?.autosaveInterval ?? 5) * 60 * 1000 },
     );
+    autoSaveRef.current.setOnSaveRecovery(async (doc, meta) => {
+      await recoveryRef.current?.createRecoveryPoint(doc, meta.name, meta.fileId);
+    });
     autoSaveRef.current.start();
   }
   /** Ref mirror of the active tool, updated synchronously in setTool so that

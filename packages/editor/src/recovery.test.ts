@@ -3,7 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRecoveryStorage, RecoveryManager } from './recovery';
+import { getSharedRecoveryManager, MemoryRecoveryStorage, RecoveryManager } from './recovery';
 
 describe('MemoryRecoveryStorage', () => {
   let storage: MemoryRecoveryStorage;
@@ -161,5 +161,59 @@ describe('RecoveryManager', () => {
     expect(sessions).toHaveLength(1);
     expect(sessions[0]?.fileId).toBeUndefined();
     expect(sessions[0]?.filePath).toBeUndefined();
+  });
+
+  it('enforces max sessions limit (default 20)', async () => {
+    const doc = { formatVersion: '1.0', name: 'test', nodes: {}, rootChildren: [] };
+    for (let i = 0; i < 25; i++) {
+      await manager.createRecoveryPoint(doc as never, `Tab ${i}`);
+    }
+    const sessions = await manager.listSessions();
+    expect(sessions.length).toBeLessThanOrEqual(20);
+  });
+
+  it('verifySession returns true for valid session', async () => {
+    const doc = { formatVersion: '1.0', name: 'test', nodes: { a: {} }, rootChildren: [] };
+    await manager.createRecoveryPoint(doc as never, 'Tab');
+    const sessions = await manager.listSessions();
+    const id = sessions[0]!.id;
+    expect(await manager.verifySession(id)).toBe(true);
+  });
+
+  it('verifySession returns false for missing session', async () => {
+    expect(await manager.verifySession('nonexistent')).toBe(false);
+  });
+
+  it('verifySession returns false for corrupt session', async () => {
+    await storage.save('recovery_corrupt', 'not valid json');
+    expect(await manager.verifySession('corrupt')).toBe(false);
+  });
+
+  it('listSessionsMeta includes nodeCount and sizeBytes', async () => {
+    const doc = {
+      formatVersion: '1.0',
+      name: 'test',
+      nodes: { a: {}, b: {}, c: {} },
+      rootChildren: [],
+    };
+    await manager.createRecoveryPoint(doc as never, 'Tab');
+    const metas = await manager.listSessionsMeta();
+    expect(metas).toHaveLength(1);
+    expect(metas[0]?.nodeCount).toBe(3);
+    expect(metas[0]?.sizeBytes).toBeGreaterThan(0);
+  });
+
+  it('listSessionsMeta handles corrupt entries gracefully', async () => {
+    await storage.save('recovery_corrupt', 'not json');
+    const metas = await manager.listSessionsMeta();
+    expect(metas).toHaveLength(0);
+  });
+});
+
+describe('getSharedRecoveryManager', () => {
+  it('returns the same instance on repeated calls', () => {
+    const mgr1 = getSharedRecoveryManager();
+    const mgr2 = getSharedRecoveryManager();
+    expect(mgr1).toBe(mgr2);
   });
 });

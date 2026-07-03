@@ -9,9 +9,9 @@
  * APG textbox pattern, CJK IME composition lifecycle.
  */
 
-import { measureText } from '@strata/shared';
-import type { TextNode } from '@strata/scene';
 import type { Affine } from '@strata/engine';
+import type { TextNode } from '@strata/scene';
+import { measureText } from '@strata/shared';
 import { useCallback, useEffect, useRef } from 'react';
 
 interface TextEditOverlayProps {

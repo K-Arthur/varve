@@ -2,7 +2,12 @@
  * AutoSaveService — periodic and idle-driven document auto-save.
  *
  * Monitors edit activity and triggers saves via a provided save function.
- * Supports retry, concurrency guard, and configurable intervals.
+ * Supports retry, concurrency guard, configurable intervals, save state
+ * callbacks for UI feedback, and coordinated recovery point creation.
+ *
+ * Research basis: Figma autosave architecture (delta-based saves,
+ * IndexedDB persistence, stale change detection), Trimble backup model
+ * (periodic snapshots + backup rotation).
  */
 
 import type { Document } from '@strata/scene';
@@ -14,6 +19,8 @@ export interface AutoSaveConfig {
 }
 
 export type AutoSaveState = 'idle' | 'saving' | 'error';
+
+export type AutoSaveStateCallback = (state: AutoSaveState, lastSavedAt: number | null) => void;
 
 const DEFAULTS: AutoSaveConfig = {
   intervalMs: 300000,
@@ -28,6 +35,10 @@ export class AutoSaveService {
   private _lastSavedAt: number | null = null;
   private _state: AutoSaveState = 'idle';
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private stateCallbacks: Set<AutoSaveStateCallback> = new Set();
+  private onSaveRecovery:
+    | ((doc: Document, meta: { fileId?: string; name: string }) => Promise<void>)
+    | null = null;
 
   constructor(
     private getDocument: () => { document: Document; meta: { fileId?: string; name: string } },
@@ -61,6 +72,19 @@ export class AutoSaveService {
     this.cfg = { ...this.cfg, ...cfg };
   }
 
+  onStateChange(callback: AutoSaveStateCallback): () => void {
+    this.stateCallbacks.add(callback);
+    return () => {
+      this.stateCallbacks.delete(callback);
+    };
+  }
+
+  setOnSaveRecovery(
+    fn: ((doc: Document, meta: { fileId?: string; name: string }) => Promise<void>) | null,
+  ): void {
+    this.onSaveRecovery = fn;
+  }
+
   notifyEdit(): void {
     this.dirty = true;
     this.lastEditAt = Date.now();
@@ -68,27 +92,42 @@ export class AutoSaveService {
 
   async saveNow(): Promise<boolean> {
     if (this._state === 'saving') return false;
-    this._state = 'saving';
+    this.setState('saving');
     let attempts = 0;
     const maxAttempts = Math.max(1, this.cfg.maxSaveRetries);
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        const { document } = this.getDocument();
+        const { document, meta } = this.getDocument();
         const json = JSON.stringify({ ...document, formatVersion: '1.0' });
         const ok = await this.saveFn(json);
         if (ok) {
           this._lastSavedAt = Date.now();
           this.dirty = false;
-          this._state = 'idle';
+          this.setState('idle');
+          // Create recovery point after successful save
+          if (this.onSaveRecovery) {
+            try {
+              await this.onSaveRecovery(document, meta);
+            } catch {
+              // Recovery point failure should not block the save
+            }
+          }
           return true;
         }
       } catch {
         // will retry
       }
     }
-    this._state = 'error';
+    this.setState('error');
     return false;
+  }
+
+  private setState(s: AutoSaveState): void {
+    this._state = s;
+    for (const cb of this.stateCallbacks) {
+      cb(s, this._lastSavedAt);
+    }
   }
 
   private check(): void {

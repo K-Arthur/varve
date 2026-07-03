@@ -27,6 +27,7 @@ function recorder(): RecorderProxy {
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
     beginPath: mk('beginPath'),
+    rect: mk('rect'),
     ellipse: mk('ellipse'),
     arc: mk('arc'),
     moveTo: mk('moveTo'),
@@ -172,6 +173,12 @@ class Recorder implements ReplayTarget {
   }
   beginPath() {
     this.calls.push('beginPath');
+  }
+  rect(x: number, y: number, w: number, h: number) {
+    this.calls.push(`rect(${x},${y},${w},${h})`);
+  }
+  clip() {
+    this.calls.push('clip');
   }
   ellipse(x: number, y: number, rx: number, ry: number, rot: number, start: number, end: number) {
     this.calls.push(`ellipse(${x},${y},${rx},${ry},${rot},${start},${end})`);
@@ -739,9 +746,17 @@ describe('replayIr', () => {
   // ── Bezier path rendering: single-handle transitions ───────────────
 
   /** Create a minimal ReplayTarget mock with spy-able methods. */
-  function mockTarget() {
+  function mockTarget(): {
+    target: ReplayTarget;
+    bezierCurveTo: ReturnType<typeof vi.fn>;
+    lineTo: ReturnType<typeof vi.fn>;
+    drawImage: ReturnType<typeof vi.fn>;
+    fillRect: ReturnType<typeof vi.fn>;
+  } {
     const bezierCurveTo = vi.fn();
     const lineTo = vi.fn();
+    const drawImage = vi.fn();
+    const fillRect = vi.fn();
     return {
       target: {
         save: vi.fn(),
@@ -749,6 +764,7 @@ describe('replayIr', () => {
         transform: vi.fn(),
         fillRect: vi.fn(),
         strokeRect: vi.fn(),
+        rect: vi.fn(),
         beginPath: vi.fn(),
         ellipse: vi.fn(),
         arc: vi.fn(),
@@ -761,6 +777,8 @@ describe('replayIr', () => {
         closePath: vi.fn(),
         fillText: vi.fn(),
         setLineDash: vi.fn(),
+        drawImage: vi.fn(),
+        clip: vi.fn(),
         fillStyle: '',
         lineWidth: 1,
         lineCap: 'round' as CanvasLineCap,
@@ -776,6 +794,8 @@ describe('replayIr', () => {
       },
       bezierCurveTo,
       lineTo,
+      drawImage,
+      fillRect,
     };
   }
 
@@ -1001,5 +1021,103 @@ describe('replayIr', () => {
     const fillCalls = rec.calls.filter((c) => c.startsWith('fillText'));
     expect(fillCalls.length).toBe(2);
     expect(rec.calls.some((c) => c.includes('•'))).toBe(true);
+  });
+
+  it('image primitive calls drawImage when src is set and target supports it', () => {
+    const rec = recorder();
+    // Dynamically add drawImage to the recorder target
+    const tgt = rec.target as unknown as Record<string, unknown>;
+    let drawCalled = false;
+    tgt.drawImage = (_src: unknown, _dx: unknown, _dy: unknown, _dw: unknown, _dh: unknown) => {
+      drawCalled = true;
+    };
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 10, 20] as const,
+      fill: [0, 0, 0, 255] as const,
+      primitive: { kind: 'image' as const, w: 100, h: 80, src: 'test.png' },
+    };
+    replayIr(rec.target, [item]);
+    expect(drawCalled).toBe(true);
+  });
+
+  it('image primitive falls back to fillRect when drawImage unavailable', () => {
+    const rec = new Recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 10, 20] as const,
+      fill: [0, 0, 0, 255] as const,
+      primitive: { kind: 'image' as const, w: 100, h: 80, src: 'test.png' },
+    };
+    replayIr(rec, [item]);
+    // Recorder doesn't have drawImage, so falls back to fillRect
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+  });
+
+  it('image primitive without src renders placeholder fillRect even with drawImage', () => {
+    const rec = recorder();
+    const tgt = rec.target as unknown as Record<string, unknown>;
+    let drawCalled = false;
+    tgt.drawImage = () => {
+      drawCalled = true;
+    };
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: [0, 0, 0, 255] as const,
+      primitive: { kind: 'image' as const, w: 50, h: 50, src: '' },
+    };
+    replayIr(rec.target, [item]);
+    // No src: falls back to fillRect; drawImage not called
+    expect(drawCalled).toBe(false);
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+  });
+
+  it('traceOutline handles rect primitive via rect() call', () => {
+    const rec = new Recorder();
+    const effects: RenderItem['effects'] = [
+      {
+        type: 'innerShadow',
+        x: 2,
+        y: 2,
+        blur: 4,
+        spread: 0,
+        color: [0, 0, 0, 128],
+        opacity: 0.5,
+        blendMode: 'normal' as const,
+        visible: true,
+      },
+    ];
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: [255, 255, 255, 255] as const,
+      effects,
+      primitive: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 100 },
+    };
+    replayIr(rec, [item]);
+    // traceOutline for rect calls rect() for clipping in innerShadow
+    expect(rec.calls.some((c) => c.startsWith('rect('))).toBe(true);
+  });
+
+  it('traceOutline handles ellipse primitive via ellipse() call', () => {
+    const rec = new Recorder();
+    const effects: RenderItem['effects'] = [
+      {
+        type: 'innerShadow',
+        x: 0,
+        y: 0,
+        blur: 4,
+        spread: 0,
+        color: [0, 0, 0, 128],
+        opacity: 0.5,
+        blendMode: 'normal' as const,
+        visible: true,
+      },
+    ];
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: [255, 255, 255, 255] as const,
+      effects,
+      primitive: { kind: 'ellipse' as const, cx: 50, cy: 50, rx: 40, ry: 30 },
+    };
+    replayIr(rec, [item]);
+    expect(rec.calls.some((c) => c.startsWith('ellipse('))).toBe(true);
   });
 });

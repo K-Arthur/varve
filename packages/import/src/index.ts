@@ -1,7 +1,7 @@
 export { createAiParser } from './ai';
 export type { BatchImportOptions, BatchImportResult } from './batch';
 export { batchImport } from './batch';
-export { bytesToDataUrl, dataUrlToBytes, getImageDimensions } from './bitmap';
+export { bytesToDataUrl, dataUrlToBytes, detectImageMime, getImageDimensions } from './bitmap';
 export { createEpsParser } from './eps';
 export { getBitmapInfo, importImageAsFill } from './image';
 export { importFile, importImageFile, importSvgString } from './import';

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   CURRENT_DOCUMENT_VERSION,
+  detectForwardCompatWarning,
+  isForwardCompatible,
   migrateDocument,
+  migrateDocumentDetailed,
   migrateDocumentJson,
   SUPPORTED_VERSIONS,
   stampVersion,
@@ -117,5 +120,97 @@ describe('Document Migration', () => {
   it('handles whitespace-only JSON gracefully', () => {
     const result = migrateDocumentJson('   ');
     expect(result).toBeNull();
+  });
+});
+
+describe('Forward Compatibility Detection', () => {
+  it('isForwardCompatible returns true for current version', () => {
+    expect(isForwardCompatible(CURRENT_DOCUMENT_VERSION)).toBe(true);
+  });
+
+  it('isForwardCompatible returns true for older version', () => {
+    expect(isForwardCompatible('0.9')).toBe(true);
+  });
+
+  it('isForwardCompatible returns false for newer version', () => {
+    expect(isForwardCompatible('2.0')).toBe(false);
+    expect(isForwardCompatible('1.1')).toBe(false);
+  });
+
+  it('detectForwardCompatWarning returns null for current version', () => {
+    expect(detectForwardCompatWarning(CURRENT_DOCUMENT_VERSION)).toBeNull();
+  });
+
+  it('detectForwardCompatWarning returns message for newer version', () => {
+    const warning = detectForwardCompatWarning('2.0');
+    expect(warning).not.toBeNull();
+    expect(warning).toContain('2.0');
+    expect(warning).toContain('newer');
+  });
+});
+
+describe('Detailed Migration', () => {
+  it('returns migration result with from/to versions', () => {
+    const raw = {
+      id: 'd1',
+      name: 'Old',
+      formatVersion: '0.9',
+      rootChildren: [],
+      nodes: {},
+    };
+    const result = migrateDocumentDetailed(raw);
+    expect(result).not.toBeNull();
+    expect(result!.fromVersion).toBe('0.9');
+    expect(result!.toVersion).toBe('1.0');
+    expect(result!.migrated).toBe(true);
+  });
+
+  it('returns migrated=false for current version', () => {
+    const raw = {
+      id: 'd1',
+      name: 'Current',
+      formatVersion: CURRENT_DOCUMENT_VERSION,
+      rootChildren: [],
+      nodes: {},
+    };
+    const result = migrateDocumentDetailed(raw);
+    expect(result).not.toBeNull();
+    expect(result!.migrated).toBe(false);
+    expect(result!.fromVersion).toBe(CURRENT_DOCUMENT_VERSION);
+    expect(result!.toVersion).toBe(CURRENT_DOCUMENT_VERSION);
+  });
+
+  it('includes forward compat warning for newer version', () => {
+    const raw = {
+      id: 'd1',
+      name: 'Future',
+      formatVersion: '2.0',
+      rootChildren: [],
+      nodes: {},
+    };
+    const result = migrateDocumentDetailed(raw);
+    expect(result).not.toBeNull();
+    expect(result!.warnings.length).toBeGreaterThan(0);
+    expect(result!.warnings[0]).toContain('2.0');
+  });
+
+  it('returns null for invalid input', () => {
+    expect(migrateDocumentDetailed(null)).toBeNull();
+    expect(migrateDocumentDetailed(undefined)).toBeNull();
+    expect(migrateDocumentDetailed('string')).toBeNull();
+  });
+
+  it('preserves unknown fields through migration', () => {
+    const raw = {
+      id: 'd1',
+      name: 'test',
+      formatVersion: '0.9',
+      rootChildren: [],
+      nodes: {},
+      customField: 'value',
+    };
+    const result = migrateDocumentDetailed(raw);
+    expect(result).not.toBeNull();
+    expect(result!.document.customField).toBe('value');
   });
 });

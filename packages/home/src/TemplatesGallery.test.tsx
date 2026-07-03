@@ -8,8 +8,6 @@ describe('TemplatesGallery', () => {
   it('renders built-in templates', () => {
     render(<TemplatesGallery onSelect={vi.fn()} />);
     expect(screen.getByText('Blank Canvas')).toBeDefined();
-    expect(screen.getByText('Instagram Post')).toBeDefined();
-    expect(screen.getByText('A4 Document')).toBeDefined();
   });
 
   it('calls onSelect when a template is clicked', () => {

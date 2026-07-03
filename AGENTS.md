@@ -13,6 +13,28 @@ primary dev OS.
 - WebKitGTK 2.52.4 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
 - Optional: `cmake`, `xdotool` (not needed for core build).
 
+## Regression protocol (mandatory after every architecture/system change)
+
+After ANY change that touches:
+- type definitions, interfaces, or generics
+- imports, re-exports, or module boundaries
+- function signatures or overloads
+- state shape or context values
+- test files or test infrastructure
+
+Run in order:
+```bash
+pnpm format          # or format-check
+pnpm typecheck       # 15/15 packages must pass
+pnpm lint            # 0 new errors on touched files
+pnpm test            # full test suite must pass
+pnpm audit:emoji     # zero violations
+pnpm audit:tokens    # 93/93 WCAG-AA (3 themes)
+```
+
+Failure at any step means the change introduced a regression. Fix before committing.
+Do NOT skip steps — each catches a different class of error.
+
 ## Commands (run from repo root)
 - `pnpm install` — install JS deps
 - `just check-env` — verify toolchain on PATH

@@ -464,7 +464,11 @@ function assembleContour(runs: Run[]): Point2D[] | null {
       for (let i = 0; i < runs.length; i++) {
         if (used.has(i)) continue;
         const candFirstPt = runs[i]?.verts[0]?.point;
-        if (candFirstPt && Math.abs(candFirstPt.x - lastPt.x) < 1e-8 && Math.abs(candFirstPt.y - lastPt.y) < 1e-8) {
+        if (
+          candFirstPt &&
+          Math.abs(candFirstPt.x - lastPt.x) < 1e-8 &&
+          Math.abs(candFirstPt.y - lastPt.y) < 1e-8
+        ) {
           nextIdx = i;
           break;
         }
@@ -472,7 +476,11 @@ function assembleContour(runs: Run[]): Point2D[] | null {
         const runI = runs[i];
         if (!runI) continue;
         const lastVert = runI.verts[runI.verts.length - 1];
-        if (lastVert && Math.abs(lastVert.point.x - lastPt.x) < 1e-8 && Math.abs(lastVert.point.y - lastPt.y) < 1e-8) {
+        if (
+          lastVert &&
+          Math.abs(lastVert.point.x - lastPt.x) < 1e-8 &&
+          Math.abs(lastVert.point.y - lastPt.y) < 1e-8
+        ) {
           runI.verts.reverse();
           nextIdx = i;
           break;

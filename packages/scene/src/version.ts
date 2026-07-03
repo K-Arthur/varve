@@ -21,6 +21,14 @@ const migrations: DocumentMigration[] = [
   },
 ];
 
+export interface MigrationResult {
+  document: Record<string, unknown>;
+  fromVersion: string;
+  toVersion: string;
+  migrated: boolean;
+  warnings: string[];
+}
+
 function parseVersion(v: string): number[] {
   return v.split('.').map((s) => {
     const n = parseInt(s, 10);
@@ -38,6 +46,19 @@ export function stampVersion<T extends { formatVersion?: string }>(
   doc: T,
 ): T & { formatVersion: string } {
   return { ...doc, formatVersion: CURRENT_DOCUMENT_VERSION };
+}
+
+export function isForwardCompatible(fileVersion: string): boolean {
+  const [fMajor = 0, fMinor = 0] = parseVersion(fileVersion);
+  const [cMajor = 0, cMinor = 0] = parseVersion(CURRENT_DOCUMENT_VERSION);
+  return fMajor < cMajor || (fMajor === cMajor && fMinor <= cMinor);
+}
+
+export function detectForwardCompatWarning(fileVersion: string): string | null {
+  if (!isForwardCompatible(fileVersion)) {
+    return `File version ${fileVersion} is newer than current version ${CURRENT_DOCUMENT_VERSION}. Some features may not be supported.`;
+  }
+  return null;
 }
 
 export function migrateDocument(raw: unknown): Record<string, unknown> | null {
@@ -61,6 +82,41 @@ export function migrateDocument(raw: unknown): Record<string, unknown> | null {
   }
 
   return result;
+}
+
+export function migrateDocumentDetailed(raw: unknown): MigrationResult | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const doc = raw as Record<string, unknown>;
+  const fromVersion = (doc.formatVersion as string) || '0.9';
+  const warnings: string[] = [];
+
+  const fwdWarn = detectForwardCompatWarning(fromVersion);
+  if (fwdWarn) warnings.push(fwdWarn);
+
+  let result = { ...doc };
+  let migrated = false;
+
+  for (const migration of migrations) {
+    if (
+      !isVersionLessThan(migration.to, fromVersion) &&
+      isVersionLessThan(fromVersion, migration.to)
+    ) {
+      result = migration.migrate(result);
+      migrated = true;
+    }
+  }
+
+  if (!result.formatVersion) {
+    result.formatVersion = CURRENT_DOCUMENT_VERSION;
+  }
+
+  return {
+    document: result,
+    fromVersion,
+    toVersion: result.formatVersion as string,
+    migrated,
+    warnings,
+  };
 }
 
 export function migrateDocumentJson(json: string): Record<string, unknown> | null {

@@ -101,6 +101,13 @@ export class IndexedDbRecoveryStorage implements RecoveryStorage {
   }
 }
 
+export interface RecoverySessionMeta extends RecoverySession {
+  nodeCount: number;
+  sizeBytes: number;
+}
+
+const MAX_SESSIONS_DEFAULT = 20;
+
 export class RecoveryManager {
   constructor(private storage: RecoveryStorage) {}
 
@@ -125,6 +132,18 @@ export class RecoveryManager {
     });
 
     await this.storage.save(`${KEY_PREFIX}${id}`, data);
+
+    // Enforce max sessions limit — remove oldest beyond cap
+    await this.enforceMaxSessions(MAX_SESSIONS_DEFAULT);
+  }
+
+  private async enforceMaxSessions(max: number): Promise<void> {
+    const sessions = await this.listSessions();
+    if (sessions.length <= max) return;
+    const toRemove = sessions.slice(max);
+    for (const s of toRemove) {
+      await this.deleteSession(s.id);
+    }
   }
 
   async listSessions(): Promise<RecoverySession[]> {
@@ -193,4 +212,55 @@ export class RecoveryManager {
     const sessions = await this.listSessions();
     return sessions.length > 0;
   }
+
+  async listSessionsMeta(): Promise<RecoverySessionMeta[]> {
+    const keys = await this.storage.list();
+    const metas: RecoverySessionMeta[] = [];
+
+    for (const key of keys) {
+      if (!key.startsWith(KEY_PREFIX)) continue;
+      try {
+        const raw = await this.storage.load(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.session || !parsed.document) continue;
+        const session = parsed.session as RecoverySession;
+        const nodeCount = parsed.document.nodes
+          ? Object.keys(parsed.document.nodes as Record<string, unknown>).length
+          : 0;
+        metas.push({ ...session, nodeCount, sizeBytes: raw.length });
+      } catch {
+        // skip corrupt entries
+      }
+    }
+
+    metas.sort((a, b) => b.timestamp - a.timestamp);
+    return metas;
+  }
+
+  async verifySession(id: string): Promise<boolean> {
+    const raw = await this.storage.load(`${KEY_PREFIX}${id}`);
+    if (!raw) return false;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed?.document || !parsed.session) return false;
+      const migrated = migrateDocumentJson(JSON.stringify(parsed.document));
+      return migrated !== null;
+    } catch {
+      return false;
+    }
+  }
+}
+
+let sharedRecoveryManager: RecoveryManager | null = null;
+
+export function getSharedRecoveryManager(): RecoveryManager {
+  if (!sharedRecoveryManager) {
+    const storage =
+      typeof indexedDB !== 'undefined'
+        ? new IndexedDbRecoveryStorage()
+        : new MemoryRecoveryStorage();
+    sharedRecoveryManager = new RecoveryManager(storage);
+  }
+  return sharedRecoveryManager;
 }

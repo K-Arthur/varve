@@ -156,3 +156,98 @@ export function applyDropPosition(node: SceneNode, position?: { x: number; y: nu
     ] as SceneNode['transform'],
   } as SceneNode;
 }
+
+// ── File validation ───────────────────────────────────────────────────────
+
+const SUPPORTED_IMPORT_EXTENSIONS = new Set([
+  'svg',
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'gif',
+  'bmp',
+  'tiff',
+  'tif',
+  'pdf',
+  'psd',
+  'psb',
+  'ai',
+  'eps',
+  'epsf',
+  'avif',
+]);
+
+const WARN_SIZE_BYTES = 50 * 1024 * 1024;
+const REJECT_SIZE_BYTES = 200 * 1024 * 1024;
+const WARN_FILE_COUNT = 50;
+const REJECT_FILE_COUNT = 500;
+
+export interface FileValidationResult {
+  accepted: { name: string; data: Uint8Array | string }[];
+  rejected: { name: string; reason: string }[];
+  warnings: string[];
+}
+
+export function validateFiles(
+  files: { name: string; data: Uint8Array | string }[],
+): FileValidationResult {
+  const accepted: { name: string; data: Uint8Array | string }[] = [];
+  const rejected: { name: string; reason: string }[] = [];
+  const warnings: string[] = [];
+
+  if (files.length > REJECT_FILE_COUNT) {
+    rejected.push({
+      name: `${files.length} files`,
+      reason: `Too many files (${files.length}). Maximum ${REJECT_FILE_COUNT} at a time.`,
+    });
+    return { accepted, rejected, warnings };
+  }
+
+  if (files.length > WARN_FILE_COUNT) {
+    warnings.push(`Importing ${files.length} files — this may take a moment.`);
+  }
+
+  for (const file of files) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    const sizeBytes =
+      typeof file.data === 'string' ? new TextEncoder().encode(file.data).length : file.data.length;
+
+    if (!SUPPORTED_IMPORT_EXTENSIONS.has(ext)) {
+      rejected.push({
+        name: file.name,
+        reason: `Unsupported format: .${ext}`,
+      });
+      continue;
+    }
+
+    if (sizeBytes > REJECT_SIZE_BYTES) {
+      rejected.push({
+        name: file.name,
+        reason: `File too large (${(sizeBytes / 1024 / 1024).toFixed(1)} MB). Maximum ${REJECT_SIZE_BYTES / 1024 / 1024} MB.`,
+      });
+      continue;
+    }
+
+    if (sizeBytes > WARN_SIZE_BYTES) {
+      warnings.push(`${file.name} is large (${(sizeBytes / 1024 / 1024).toFixed(1)} MB).`);
+    }
+
+    if (sizeBytes < 4) {
+      rejected.push({
+        name: file.name,
+        reason: 'File is empty or too small to contain valid content.',
+      });
+      continue;
+    }
+
+    accepted.push(file);
+  }
+
+  return { accepted, rejected, warnings };
+}
+
+export function isSupportedFile(name: string): boolean {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  return SUPPORTED_IMPORT_EXTENSIONS.has(ext);
+}

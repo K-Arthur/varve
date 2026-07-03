@@ -1,6 +1,6 @@
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { applyDropPosition } from './dropUtils';
+import { applyDropPosition, isSupportedFile, validateFiles } from './dropUtils';
 
 function makeRectNode(overrides?: Partial<ShapeNode>): SceneNode {
   return {
@@ -94,5 +94,115 @@ describe('applyDropPosition', () => {
     // offset from current center to new position
     expect(result.transform[4]).not.toBe(200);
     expect(result.transform[5]).not.toBe(200);
+  });
+});
+
+describe('isSupportedFile', () => {
+  it('returns true for supported formats', () => {
+    expect(isSupportedFile('photo.png')).toBe(true);
+    expect(isSupportedFile('drawing.svg')).toBe(true);
+    expect(isSupportedFile('doc.pdf')).toBe(true);
+    expect(isSupportedFile('design.psd')).toBe(true);
+    expect(isSupportedFile('image.jpg')).toBe(true);
+    expect(isSupportedFile('image.jpeg')).toBe(true);
+    expect(isSupportedFile('image.webp')).toBe(true);
+    expect(isSupportedFile('image.gif')).toBe(true);
+    expect(isSupportedFile('image.tif')).toBe(true);
+    expect(isSupportedFile('image.avif')).toBe(true);
+  });
+
+  it('returns false for unsupported formats', () => {
+    expect(isSupportedFile('file.txt')).toBe(false);
+    expect(isSupportedFile('file.docx')).toBe(false);
+    expect(isSupportedFile('file.xlsx')).toBe(false);
+    expect(isSupportedFile('file.mp4')).toBe(false);
+    expect(isSupportedFile('noext')).toBe(false);
+  });
+
+  it('is case-insensitive', () => {
+    expect(isSupportedFile('PHOTO.PNG')).toBe(true);
+    expect(isSupportedFile('Drawing.SVG')).toBe(true);
+  });
+});
+
+describe('validateFiles', () => {
+  it('accepts valid files', () => {
+    const files = [
+      { name: 'a.svg', data: '<svg></svg>' },
+      { name: 'b.png', data: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]) },
+    ];
+    const result = validateFiles(files);
+    expect(result.accepted).toHaveLength(2);
+    expect(result.rejected).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('rejects unsupported formats', () => {
+    const files = [
+      { name: 'a.txt', data: 'hello world' },
+      { name: 'b.docx', data: 'binary' },
+    ];
+    const result = validateFiles(files);
+    expect(result.accepted).toHaveLength(0);
+    expect(result.rejected).toHaveLength(2);
+    expect(result.rejected[0]?.reason).toContain('Unsupported');
+  });
+
+  it('rejects files that are too small', () => {
+    const files = [{ name: 'tiny.svg', data: 'ab' }];
+    const result = validateFiles(files);
+    expect(result.accepted).toHaveLength(0);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0]?.reason).toContain('empty');
+  });
+
+  it('rejects files that are too large', () => {
+    const largeData = new Uint8Array(201 * 1024 * 1024);
+    const files = [{ name: 'huge.png', data: largeData }];
+    const result = validateFiles(files);
+    expect(result.accepted).toHaveLength(0);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0]?.reason).toContain('too large');
+  });
+
+  it('warns about large files within limit', () => {
+    const data = new Uint8Array(51 * 1024 * 1024);
+    const files = [{ name: 'big.svg', data }];
+    const result = validateFiles(files);
+    expect(result.accepted).toHaveLength(1);
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings[0]).toContain('big.svg');
+  });
+
+  it('rejects too many files', () => {
+    const files = Array.from({ length: 501 }, (_, i) => ({
+      name: `f${i}.svg`,
+      data: '<svg></svg>',
+    }));
+    const result = validateFiles(files);
+    expect(result.accepted).toHaveLength(0);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0]?.reason).toContain('Too many');
+  });
+
+  it('warns about many files within limit', () => {
+    const files = Array.from({ length: 51 }, (_, i) => ({
+      name: `f${i}.svg`,
+      data: '<svg></svg>',
+    }));
+    const result = validateFiles(files);
+    expect(result.accepted).toHaveLength(51);
+    expect(result.warnings.length).toBeGreaterThan(0);
+  });
+
+  it('handles mixed valid and invalid files', () => {
+    const files = [
+      { name: 'good.svg', data: '<svg></svg>' },
+      { name: 'bad.txt', data: 'text' },
+      { name: 'good2.png', data: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]) },
+    ];
+    const result = validateFiles(files);
+    expect(result.accepted).toHaveLength(2);
+    expect(result.rejected).toHaveLength(1);
   });
 });
