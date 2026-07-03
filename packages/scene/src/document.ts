@@ -81,6 +81,38 @@ export function nextNodeId(doc: Document): { id: NodeId; doc: Document } {
   return { id, doc: { ...doc, nextId: doc.nextId + 1 } };
 }
 
+export function makeAdjustmentNode(
+  id: NodeId,
+  adjustmentType: import('./types').AdjustmentType,
+  params: import('./types').AdjustmentParams,
+  opts: Partial<
+    Pick<
+      import('./types').AdjustmentNode,
+      | 'name' | 'transform' | 'fill' | 'visible' | 'locked'
+      | 'opacity' | 'blendMode' | 'rotation' | 'clipping' | 'effects' | 'order'
+    >
+  > & { index?: number } = {},
+): import('./types').AdjustmentNode {
+  return {
+    id,
+    kind: 'adjustment',
+    name: opts.name ?? adjustmentType.charAt(0).toUpperCase() + adjustmentType.slice(1),
+    index: opts.index ?? 0,
+    order: opts.order ?? 'a0',
+    visible: opts.visible ?? true,
+    locked: opts.locked ?? false,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    rotation: opts.rotation ?? 0,
+    fill: opts.fill ?? ([0, 0, 0, 0] as Color),
+    adjustmentType,
+    params,
+    transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
+    clipping: opts.clipping ?? false,
+    effects: opts.effects ?? [],
+  };
+}
+
 export function makeShapeNode(
   id: NodeId,
   shape: Shape,
