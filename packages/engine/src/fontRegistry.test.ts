@@ -37,11 +37,15 @@ describe('FontRegistry', () => {
     expect(reg.fallbackChain('sans-serif')).toEqual([]);
   });
 
-  it('resolve builds a CSS font string with fallbacks', () => {
+  it('resolve builds a CSS font-family string with fallbacks', () => {
     const reg = new FontRegistry();
-    const result = reg.resolve('Inter', 700, 'normal');
-    expect(result).toContain('700 Inter');
-    expect(result).toContain('sans-serif');
+    const result = reg.resolve('Inter');
+    expect(result).toBe('Inter, sans-serif, serif, monospace');
+  });
+
+  it('resolve handles generic font names', () => {
+    const reg = new FontRegistry();
+    expect(reg.resolve('sans-serif')).toBe('sans-serif');
   });
 
   it('singleton getFontRegistry returns same instance', () => {

@@ -131,11 +131,13 @@ export class FontRegistry {
     return this.loadState.get(family) ?? 'unknown';
   }
 
-  /** Resolve font to a usable CSS font-family string with fallbacks. */
-  resolve(family: string, weight: number, style: string): string {
-    const italicPrefix = style === 'italic' ? 'italic ' : '';
+  /** Resolve font to a CSS font-family fallback chain string. */
+  resolve(family: string, _weight?: number, _style?: string): string {
     const fallbacks = this.fallbackChain(family).join(', ');
-    return `${italicPrefix}${weight} ${family}, ${fallbacks}`;
+    if (fallbacks) {
+      return `${family}, ${fallbacks}`;
+    }
+    return family;
   }
 }
 

@@ -10,6 +10,7 @@
  * The desktop build MUST select native (asserted) — that is the strategic wedge
  * (no WASM memory ceiling). The web build selects wasm.
  */
+import { measureText } from '@strata/shared';
 import { hitTest } from './geometry';
 import type { Backend, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
 
@@ -28,13 +29,24 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
   }
   if (node.kind === 'text') {
     const fontSize = node.fontSize ?? 14;
+    const text = node.text ?? '';
+    const fontFamily = node.fontFamily ?? 'sans-serif';
+    const { width, height } = measureText(text, {
+      fontSize,
+      fontFamily,
+      fontWeight: node.fontWeight ?? 400,
+      fontStyle: (node.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
+      letterSpacing: node.letterSpacing,
+      lineHeight: node.lineHeight,
+      textCase: (node.textCase as 'none' | 'uppercase' | 'lowercase' | 'capitalize' | undefined),
+    });
     return {
       kind: 'text',
       x: 0,
       y: 0,
-      w: fontSize * 6,
-      h: fontSize * 1.4,
-      text: node.text ?? '',
+      w: Math.max(width, fontSize),
+      h: Math.max(height, fontSize),
+      text,
       fontSize,
       fontFamily: node.fontFamily ?? 'sans-serif',
       fontWeight: node.fontWeight ?? 400,
