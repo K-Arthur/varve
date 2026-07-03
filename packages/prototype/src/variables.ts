@@ -158,7 +158,7 @@ function evaluateArithmetic(
     // Check if any operand was originally a string
     const hasStrings = stringParts.some((_, i) => {
       const part = expr.split(/\s*\+\s*/)[i]?.trim();
-      return part.startsWith('"') || part.startsWith("'");
+      return part ? part.startsWith('"') || part.startsWith("'") : false;
     });
     if (hasStrings) {
       return stringParts.join('');

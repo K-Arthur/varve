@@ -757,41 +757,53 @@ function parseTransform(transformStr: string): Affine {
 
   const matrixMatch = transformStr.match(/matrix\(([^)]+)\)/);
   if (matrixMatch) {
-    const parts = matrixMatch[1]?.split(/[\s,]+/).map(Number);
-    if (parts.length >= 6) {
-      return [parts[0]!, parts[1]!, parts[2]!, parts[3]!, parts[4]!, parts[5]!] as Affine;
+    const raw = matrixMatch[1];
+    if (raw) {
+      const parts = raw.split(/[\s,]+/).map(Number);
+      if (parts.length >= 6) {
+        return [parts[0]!, parts[1]!, parts[2]!, parts[3]!, parts[4]!, parts[5]!] as Affine;
+      }
     }
   }
 
   const translateMatch = transformStr.match(/translate\(([^)]+)\)/);
   if (translateMatch) {
-    const parts = translateMatch[1]?.split(/[\s,]+/).map(Number);
-    m4 = parts[0] ?? 0;
-    m5 = parts[1] ?? 0;
+    const raw = translateMatch[1];
+    if (raw) {
+      const parts = raw.split(/[\s,]+/).map(Number);
+      m4 = parts[0] ?? 0;
+      m5 = parts[1] ?? 0;
+    }
   }
 
   const scaleMatch = transformStr.match(/scale\(([^)]+)\)/);
   if (scaleMatch) {
-    const parts = scaleMatch[1]?.split(/[\s,]+/).map(Number);
-    m0 = parts[0] ?? 1;
-    m3 = parts[1] ?? parts[0] ?? 1;
+    const raw = scaleMatch[1];
+    if (raw) {
+      const parts = raw.split(/[\s,]+/).map(Number);
+      m0 = parts[0] ?? 1;
+      m3 = parts[1] ?? parts[0] ?? 1;
+    }
   }
 
   const rotateMatch = transformStr.match(/rotate\(([^)]+)\)/);
   if (rotateMatch) {
-    const parts = rotateMatch[1]?.split(/[\s,]+/).map(Number);
-    const angle = (parts[0] ?? 0) * (Math.PI / 180);
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const tx = parts[1] ?? 0;
-    const ty = parts[2] ?? 0;
-    const a = m0 * cos - m2 * sin;
-    const b = m1 * cos - m3 * sin;
-    const c = m0 * sin + m2 * cos;
-    const d = m1 * sin + m3 * cos;
-    const e = m4 + tx * (1 - cos) + ty * sin;
-    const f = m5 - tx * sin + ty * (1 - cos);
-    return [a, b, c, d, e, f] as Affine;
+    const raw = rotateMatch[1];
+    if (raw) {
+      const parts = raw.split(/[\s,]+/).map(Number);
+      const angle = (parts[0] ?? 0) * (Math.PI / 180);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const tx = parts[1] ?? 0;
+      const ty = parts[2] ?? 0;
+      const a = m0 * cos - m2 * sin;
+      const b = m1 * cos - m3 * sin;
+      const c = m0 * sin + m2 * cos;
+      const d = m1 * sin + m3 * cos;
+      const e = m4 + tx * (1 - cos) + ty * sin;
+      const f = m5 - tx * sin + ty * (1 - cos);
+      return [a, b, c, d, e, f] as Affine;
+    }
   }
 
   const skewXMatch = transformStr.match(/skewX\(([^)]+)\)/);

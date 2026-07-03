@@ -152,6 +152,11 @@ export const SHORTCUT_DEFS = {
     label: 'Boolean Exclude',
     category: 'Object',
   },
+  quickActions: {
+    binding: { key: ';', ctrl: true },
+    label: 'Quick Actions',
+    category: 'View',
+  },
   home: {
     binding: { key: 'h', ctrl: true, shift: true },
     label: 'Home',

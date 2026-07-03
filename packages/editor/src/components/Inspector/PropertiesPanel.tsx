@@ -19,7 +19,6 @@ import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
-import { NumberField } from './controls/NumberField';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { ComponentSection } from './sections/ComponentSection';
@@ -113,7 +112,7 @@ export function PropertiesPanel() {
 }
 
 function EmptySelectionState() {
-  const { state, setCanvasWidth, setCanvasHeight, setCanvasBackground } = useEditor();
+  const { state, setCanvasBackground } = useEditor();
   const doc = state.document;
   const count = Object.keys(doc.nodes).length;
   const canvasBg = doc.canvasBackground ?? ([255, 255, 255, 255] as unknown);
@@ -149,20 +148,6 @@ function EmptySelectionState() {
         description="Select a layer to edit its properties"
       />
       <DisclosureSection title="Canvas" defaultExpanded={true}>
-        <NumberField
-          label="Width"
-          unit="px"
-          value={doc.canvasWidth ?? 800}
-          min={1}
-          onChange={setCanvasWidth}
-        />
-        <NumberField
-          label="Height"
-          unit="px"
-          value={doc.canvasHeight ?? 600}
-          min={1}
-          onChange={setCanvasHeight}
-        />
         <div className="insp-field">
           <span className="insp-field__label">Background</span>
           <div className="insp-field__control">

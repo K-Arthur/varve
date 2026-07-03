@@ -71,7 +71,7 @@ describe('Navigation / Flow Graph', () => {
     it('removes a connection by id', () => {
       const flow = createFlowData(['screen-1', 'screen-2']);
       addConnection(flow, 'screen-1', 'screen-2', 'interact-1');
-      const connId = flow.connections[0]?.id;
+      const connId = flow.connections[0]?.id ?? '';
       removeConnection(flow, connId);
       expect(flow.connections).toHaveLength(0);
     });

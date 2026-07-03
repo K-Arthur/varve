@@ -304,6 +304,7 @@ function splitPolygons(
       while (edgePos < edges.length && edges[edgePos]?.edgeIdx === i) {
         const e = edges[edgePos]!;
         const prevPt = result[result.length - 1]?.point;
+        if (!prevPt) continue;
         if (Math.abs(e.point.x - prevPt.x) > 1e-8 || Math.abs(e.point.y - prevPt.y) > 1e-8) {
           result.push({ point: e.point, isX: true, partner: -1 });
         }
@@ -409,9 +410,13 @@ function classifyRuns(
 
       if (seg.length < 2) continue;
 
+      const p0 = seg[0]?.point;
+      const p1 = seg[1]?.point;
+      if (!p0 || !p1) continue;
+
       // Use midpoint of the first edge in the run with tiny nudge
-      const midX = (seg[0]?.point.x + seg[1]?.point.x) / 2 + 1e-5;
-      const midY = (seg[0]?.point.y + seg[1]?.point.y) / 2 + 1e-5;
+      const midX = (p0.x + p1.x) / 2 + 1e-5;
+      const midY = (p0.y + p1.y) / 2 + 1e-5;
       const inside = pointInPolygon({ x: midX, y: midY }, otherPts);
       runs.push({ verts: seg, insideOther: inside });
     }
@@ -446,24 +451,29 @@ function assembleContour(runs: Run[]): Point2D[] | null {
 
       // Add vertices (all but the last—the end-X, which connects to next run)
       for (let i = 0; i < run.verts.length - 1; i++) {
-        contour.push(run.verts[i]?.point);
+        const pt = run.verts[i]?.point;
+        if (pt) contour.push(pt);
       }
 
-      const lastPt = run.verts[run.verts.length - 1]?.point;
+      const lastEntry = run.verts[run.verts.length - 1];
+      if (!lastEntry) continue;
+      const lastPt = lastEntry.point;
 
       // Find next run starting at lastPt
       let nextIdx = -1;
       for (let i = 0; i < runs.length; i++) {
         if (used.has(i)) continue;
-        const candFirst = runs[i]?.verts[0]?.point;
-        if (Math.abs(candFirst.x - lastPt.x) < 1e-8 && Math.abs(candFirst.y - lastPt.y) < 1e-8) {
+        const candFirstPt = runs[i]?.verts[0]?.point;
+        if (candFirstPt && Math.abs(candFirstPt.x - lastPt.x) < 1e-8 && Math.abs(candFirstPt.y - lastPt.y) < 1e-8) {
           nextIdx = i;
           break;
         }
         // Try reversed
-        const candLast = runs[i]?.verts[runs[i]?.verts.length - 1]?.point;
-        if (Math.abs(candLast.x - lastPt.x) < 1e-8 && Math.abs(candLast.y - lastPt.y) < 1e-8) {
-          runs[i]?.verts.reverse();
+        const runI = runs[i];
+        if (!runI) continue;
+        const lastVert = runI.verts[runI.verts.length - 1];
+        if (lastVert && Math.abs(lastVert.point.x - lastPt.x) < 1e-8 && Math.abs(lastVert.point.y - lastPt.y) < 1e-8) {
+          runI.verts.reverse();
           nextIdx = i;
           break;
         }
@@ -502,18 +512,22 @@ function clipPolygons(
 
   if (xs.length === 0) {
     // No intersections — check containment
+    const subFirst = sub[0];
+    const subMidPt = sub[Math.floor(sub.length / 2)];
     const subMid =
-      sub.length > 2
+      sub.length > 2 && subFirst && subMidPt
         ? {
-            x: (sub[0]?.x + sub[Math.floor(sub.length / 2)]?.x) / 2,
-            y: (sub[0]?.y + sub[Math.floor(sub.length / 2)]?.y) / 2,
+            x: (subFirst.x + subMidPt.x) / 2,
+            y: (subFirst.y + subMidPt.y) / 2,
           }
         : sub[0]!;
+    const clipFirst = clp[0];
+    const clipMidPt = clp[Math.floor(clp.length / 2)];
     const clipMid =
-      clp.length > 2
+      clp.length > 2 && clipFirst && clipMidPt
         ? {
-            x: (clp[0]?.x + clp[Math.floor(clp.length / 2)]?.x) / 2,
-            y: (clp[0]?.y + clp[Math.floor(clp.length / 2)]?.y) / 2,
+            x: (clipFirst.x + clipMidPt.x) / 2,
+            y: (clipFirst.y + clipMidPt.y) / 2,
           }
         : clp[0]!;
     const subInsideClip = pointInPolygon(subMid, clp);

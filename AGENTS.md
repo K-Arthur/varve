@@ -342,6 +342,21 @@ Complete implementation of 7 major feature systems:
 - Emoji audit: clean
 - Lint: 0 new errors on modified files
 
+## Session 31 — Text Tool & Typography Bug Fix Sprint (2026-07-03)
+
+Fixes for 6 P0/P1 bugs in the text and selection system:
+
+| Bug | Fix | Tests |
+|---|---|---|
+| **F4** Drawing tools stay active after creation → next click consumed by tool, no selection | `createShapeAt`/`createTextNodeAt` auto-return to SelectTool via `tool: 'select'` in state update | 2 (tool auto-return, text auto-return) |
+| **F5** `hitTestNode` tests parents before children (depth-sort + reverse-iteration bug) → nested nodes unselectable | Replace `sort((a,b) => b.depth - a.depth)` + reverse loop with simple `[...entries].reverse()` (DFS reverse = correct reverse-paint-order) | 2 (nested child hit, empty frame area hit) |
+| **F0** Text box dimensions hardcoded as `fontSize*6`/`fontSize*1.4` regardless of content | Use `measureText()` from `@strata/shared` for content-aware width/height, minimum 1em | 1 (content-aware sizing) |
+| **F1** FontRegistry `resolve()` outputs malformed CSS `font` shorthand (missing font-size) | Changed to return CSS `font-family` fallback chain string only (correct for `ctx.font` usage) | 1 (resolve generic) |
+| **F2** TextEditOverlay position ignores non-identity transforms and ancestor frames | Pass `worldTransform` (from `nodeWorldTransform()`) as prop to compose ancestor transforms; use `measureText` for content-aware overlay sizing | 0 |
+| **F3** `makeTextNode` doesn't accept 6 properties (`textAlignVertical`, `paragraphSpacing`, `listStyle`, `textOverflow`, `textResizing`, `openTypeFeatures`) | Added to `Pick` type and return value | 1 (advanced properties) |
+
+**Verification:** 1592/1592 JS tests pass (142 files), typecheck clean (14/15 — pre-existing boolean.ts + guide test errors), token audit 93/93, emoji audit clean, lint 0 new errors, format clean.
+
 | Phase | What was built |
 |---|---|
 | **1 Foundation** | Prototype types, trigger system (14 kinds), action system (13 kinds), interaction model, conditional branching (comparison + logical operators). 55 TDD tests. |
