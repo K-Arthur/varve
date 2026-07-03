@@ -240,4 +240,13 @@ describe('matchTrigger', () => {
     const state = makeState();
     expect(matchTrigger(trigger, { type: 'click', nodeId: 'node-1' }, 'node-1', state)).toBe(false);
   });
+
+  it('respects debounce interval', () => {
+    const trigger: Trigger = { kind: 'onClick', debounce: 100 };
+    const state = makeState();
+    // First match should succeed
+    expect(matchTrigger(trigger, { type: 'click', nodeId: 'n1' }, 'n1', state)).toBe(true);
+    // Second immediate match should fail (debounce)
+    expect(matchTrigger(trigger, { type: 'click', nodeId: 'n1' }, 'n1', state)).toBe(false);
+  });
 });
