@@ -11,6 +11,8 @@ export function useShortcuts(
   paletteOpen: boolean;
   closePalette: () => void;
   openPalette: () => void;
+  quickActionsOpen: boolean;
+  setQuickActionsOpen: (open: boolean) => void;
 } {
   const ref = useRef(editor);
   ref.current = editor;
@@ -24,6 +26,7 @@ export function useShortcuts(
   enabledRef.current = enabled;
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
 
   const getHandler = useCallback((id: string): (() => void) | null => {
     const e = ref.current;
@@ -202,6 +205,8 @@ export function useShortcuts(
         return () => e.booleanOp('intersect');
       case 'booleanExclude':
         return () => e.booleanOp('exclude');
+      case 'quickActions':
+        return () => setQuickActionsOpen((p) => !p);
       case 'home':
         return () => onBackToHomeRef.current?.();
       default:
@@ -252,5 +257,7 @@ export function useShortcuts(
     paletteOpen,
     closePalette: () => setPaletteOpen(false),
     openPalette: () => setPaletteOpen(true),
+    quickActionsOpen,
+    setQuickActionsOpen,
   };
 }

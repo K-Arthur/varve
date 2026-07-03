@@ -641,7 +641,7 @@ describe('Guide operations', () => {
   it('removeGuide removes a guide by id', () => {
     let doc = createDocument('test');
     doc = addGuide(doc, 'vertical', 100);
-    const gid = doc.guides?.[0]?.id;
+    const gid = doc.guides?.[0]?.id ?? 'fallback-id';
     const d2 = removeGuide(doc, gid);
     expect(d2.guides).toBeDefined();
     expect(d2.guides?.length).toBe(0);
@@ -662,7 +662,7 @@ describe('Guide operations', () => {
   it('moveGuide repositions a guide by id', () => {
     let doc = createDocument('test');
     doc = addGuide(doc, 'vertical', 100);
-    const gid = doc.guides?.[0]?.id;
+    const gid = doc.guides?.[0]?.id ?? '';
     const d2 = moveGuide(doc, gid, 250);
     expect(d2.guides?.[0]?.position).toBe(250);
   });
@@ -682,7 +682,7 @@ describe('Guide operations', () => {
   it('toggleGuideLock toggles a guide locked state', () => {
     let doc = createDocument('test');
     doc = addGuide(doc, 'horizontal', 50);
-    const gid = doc.guides?.[0]?.id;
+    const gid = doc.guides?.[0]?.id ?? '';
     const d2 = toggleGuideLock(doc, gid);
     expect(d2.guides?.[0]?.locked).toBe(true);
     const d3 = toggleGuideLock(d2, gid);

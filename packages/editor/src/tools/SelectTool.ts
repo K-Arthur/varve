@@ -295,20 +295,22 @@ export class SelectTool extends BaseTool {
     if (e.key === 'Tab') {
       const nodes = ctx.rootNodes().filter((n) => n.visible && !n.locked);
       if (nodes.length === 0) return true;
+      const firstId = nodes[0]?.id ?? null;
       if (ctx.selection.length === 0) {
-        ctx.setSelection(nodes[0]?.id);
-        ctx.announceSelection([nodes[0]!]);
+        ctx.setSelection(firstId);
+        if (firstId) ctx.announceSelection([nodes[0]!]);
       } else {
         const currentIndex = nodes.findIndex((n) => ctx.selection.includes(n.id));
         if (currentIndex === -1) {
-          ctx.setSelection(nodes[0]?.id);
-          ctx.announceSelection([nodes[0]!]);
+          ctx.setSelection(firstId);
+          if (firstId) ctx.announceSelection([nodes[0]!]);
         } else {
           const nextIndex = e.shiftKey
             ? (currentIndex - 1 + nodes.length) % nodes.length
             : (currentIndex + 1) % nodes.length;
-          ctx.setSelection(nodes[nextIndex]?.id);
-          ctx.announceSelection([nodes[nextIndex]!]);
+          const nextId = nodes[nextIndex]?.id ?? null;
+          ctx.setSelection(nextId);
+          if (nextId) ctx.announceSelection([nodes[nextIndex]!]);
         }
       }
       return true;

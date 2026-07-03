@@ -94,9 +94,10 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
       const fillGrow = children[i]?.layoutSizing === 'fill' ? 1 : 0;
       const styleGrow = (children[i] as { layoutStyle?: { grow?: number } }).layoutStyle?.grow ?? 0;
       const grow = fillGrow || styleGrow;
-      if (grow > 0) {
-        if (row) sizes[i] = { ...sizes[i]!, w: sizes[i]?.w + perUnit * grow };
-        else sizes[i] = { ...sizes[i]!, h: sizes[i]?.h + perUnit * grow };
+      const curSize = sizes[i];
+      if (grow > 0 && curSize) {
+        if (row) sizes[i] = { w: curSize.w + perUnit * grow, h: curSize.h };
+        else sizes[i] = { w: curSize.w, h: curSize.h + perUnit * grow };
       }
     }
   }
@@ -112,9 +113,10 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
       const perUnit = overflow / shrinkTotal;
       for (let i = 0; i < sizes.length; i++) {
         const sh = (children[i] as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0;
-        if (sh > 0) {
-          if (row) sizes[i] = { ...sizes[i]!, w: Math.max(0, sizes[i]?.w - perUnit * sh) };
-          else sizes[i] = { ...sizes[i]!, h: Math.max(0, sizes[i]?.h - perUnit * sh) };
+        const shrinkSize = sizes[i];
+        if (sh > 0 && shrinkSize) {
+          if (row) sizes[i] = { w: Math.max(0, shrinkSize.w - perUnit * sh), h: shrinkSize.h };
+          else sizes[i] = { w: shrinkSize.w, h: Math.max(0, shrinkSize.h - perUnit * sh) };
         }
       }
     }

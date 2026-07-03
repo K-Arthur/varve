@@ -67,7 +67,8 @@ function ShellInner({
   active?: boolean;
 }) {
   const editor = useEditor();
-  const { paletteOpen, closePalette, openPalette } = useShortcuts(editor, onBackToHome, active);
+  const { paletteOpen, closePalette, openPalette, quickActionsOpen, setQuickActionsOpen } =
+    useShortcuts(editor, onBackToHome, active);
 
   // ── Lifecycle event handlers ─────────────────────────────────────────────
   const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
@@ -179,7 +180,6 @@ function ShellInner({
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const { shellStyle, widths, setWidth } = usePanelWidths();
 
   // Register all actions into the ActionRegistry once on mount

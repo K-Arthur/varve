@@ -38,7 +38,6 @@ export function TextEditOverlay({
   canvasElement,
   worldX,
   worldY,
-  worldTransform,
   onCommit,
   onUpdateText,
 }: TextEditOverlayProps) {
