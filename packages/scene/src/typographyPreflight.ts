@@ -41,23 +41,71 @@ export function runTypographyPreflight(
     availableFonts?: Set<string>;
     chains?: Map<string, import('./typography').TextChain>;
     oversetMap?: Map<NodeId, import('./typography').OversetInfo>;
+    supportedAxes?: Map<string, Set<string>>;
+    fontMetadata?: Map<string, { glyphCount?: number; supportedAxes?: Set<string> }>;
   } = {},
 ): PreflightResult {
   const issues: TypographyIssue[] = [];
   const availableFonts = options.availableFonts ?? new Set<string>();
   const chains = options.chains ?? new Map<string, import('./typography').TextChain>();
   const oversetMap = options.oversetMap ?? new Map<NodeId, import('./typography').OversetInfo>();
+  const supportedAxes = options.supportedAxes ?? new Map<string, Set<string>>();
+  const fontMetadata = options.fontMetadata ?? new Map<string, { glyphCount?: number; supportedAxes?: Set<string> }>();
 
   for (const node of Object.values(doc.nodes)) {
     if (node.kind !== 'text') continue;
 
-    if (!availableFonts.has(node.fontFamily ?? 'Inter')) {
+    const fontFamily = node.fontFamily ?? 'Inter';
+
+    if (!availableFonts.has(fontFamily)) {
       issues.push({
         severity: 'error',
         category: 'missing-font',
-        message: `Font "${node.fontFamily ?? 'Inter'}" is not available`,
+        message: `Font "${fontFamily}" is not available`,
         nodeId: node.id,
       });
+    }
+
+    if (node.richText) {
+      const richIssues = validateRichText(node.richText, availableFonts);
+      for (const issue of richIssues) {
+        issues.push({ ...issue, nodeId: node.id });
+      }
+    }
+
+    if (node.variableAxes && supportedAxes.size > 0) {
+      const axes = supportedAxes.get(fontFamily) ?? fontMetadata.get(fontFamily)?.supportedAxes;
+      if (axes) {
+        for (const axis of Object.keys(node.variableAxes)) {
+          if (!axes.has(axis)) {
+            issues.push({
+              severity: 'warning',
+              category: 'style-conflict',
+              message: `Variable axis "${axis}" is not supported by "${fontFamily}"`,
+              nodeId: node.id,
+            });
+          }
+        }
+      }
+    }
+
+    if (node.text && fontMetadata.size > 0) {
+      const meta = fontMetadata.get(fontFamily);
+      if (meta?.glyphCount) {
+        for (const char of node.text) {
+          const code = char.codePointAt(0) ?? 0;
+          // Private-use characters cannot be reliably covered by a fixed glyph count.
+          if (code >= 0xe000 && code <= 0xf8ff) {
+            issues.push({
+              severity: 'warning',
+              category: 'unsupported-glyph',
+              message: `Private-use character may not be supported by "${fontFamily}"`,
+              nodeId: node.id,
+            });
+            break;
+          }
+        }
+      }
     }
 
     const overset = oversetMap.get(node.id);
