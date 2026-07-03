@@ -37,6 +37,7 @@ export interface ReplayTarget {
   fill(): void;
   stroke(): void;
   closePath(): void;
+  clip(): void;
   fillText(text: string, x: number, y: number): void;
   font: string;
   textBaseline: CanvasTextBaseline;
@@ -107,28 +108,6 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
       item.transform[5],
     );
 
-    // ── Effects pass (shadows, blur) ──────────────────────────────
-    if (item.effects && item.effects.length > 0) {
-      for (const effect of item.effects) {
-        if (!effect.visible) continue;
-        if (effect.type === 'dropShadow') {
-          target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur;
-          target.shadowOffsetX = effect.x;
-          target.shadowOffsetY = effect.y;
-        } else if (effect.type === 'innerShadow') {
-          target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur;
-          target.shadowOffsetX = effect.x;
-          target.shadowOffsetY = effect.y;
-        } else if (effect.type === 'layerBlur') {
-          target.filter = `blur(${effect.radius}px)`;
-        } else if (effect.type === 'backgroundBlur') {
-          target.filter = `blur(${effect.radius}px)`;
-        }
-      }
-    }
-
     // ── Item-level opacity and blend ─────────────────────────────
     const itemAlpha = item.opacity ?? 1;
     if (itemAlpha < 1) {
@@ -166,6 +145,54 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
       for (const stroke of item.strokes) {
         if (!stroke.visible) continue;
         paintStroke(target, stroke, item);
+      }
+    }
+
+    // ── Effects pass (per-effect save/restore compositing) ────────
+    if (item.effects && item.effects.length > 0) {
+      for (const effect of item.effects) {
+        if (!effect.visible) continue;
+        if (effect.type === 'dropShadow') {
+          target.save();
+          target.shadowColor = rgba(effect.color);
+          target.shadowBlur = effect.blur;
+          target.shadowOffsetX = effect.x;
+          target.shadowOffsetY = effect.y;
+          target.globalAlpha = effect.opacity ?? 1;
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          paintShapeFill(target, item);
+          target.restore();
+        } else if (effect.type === 'innerShadow') {
+          target.save();
+          target.beginPath();
+          traceOutline(target, item.primitive);
+          target.clip();
+          target.shadowColor = rgba(effect.color);
+          target.shadowBlur = effect.blur;
+          target.shadowOffsetX = -effect.x;
+          target.shadowOffsetY = -effect.y;
+          target.globalAlpha = effect.opacity ?? 1;
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          target.fillStyle = rgba(effect.color);
+          const b = primitiveBounds(item.primitive);
+          target.fillRect(b.x - b.w * 2, b.y - b.h * 2, b.w * 5, b.h * 5);
+          target.restore();
+        } else if (effect.type === 'layerBlur') {
+          target.save();
+          target.filter = `blur(${effect.radius}px)`;
+          paintShapeFill(target, item);
+          target.restore();
+        } else if (effect.type === 'backgroundBlur') {
+          // Stub: needs backdrop capture from CanvasArea
+          target.save();
+          target.filter = `blur(${effect.radius}px)`;
+          paintShapeFill(target, item);
+          target.restore();
+        }
       }
     }
 
