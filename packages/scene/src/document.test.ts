@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addChild,
+  addGuide,
   addNode,
   arrangeNode,
   createDocument,
@@ -16,12 +17,15 @@ import {
   makeShapeNode,
   makeTextNode,
   moveChild,
+  moveGuide,
   moveNode,
   nextNodeId,
+  removeGuide,
   removeNode,
   renameNode,
   reparentNode,
   rootNodes,
+  toggleGuideLock,
   ungroupNode,
   walkNodes,
 } from './document';
@@ -585,6 +589,98 @@ describe('arrangeNode', () => {
   it('returns doc unchanged for unknown node id', () => {
     const { doc } = threeRoots();
     const d2 = arrangeNode(doc, 'nonexistent', 'front');
+    expect(d2).toBe(doc);
+  });
+});
+
+describe('Guide operations', () => {
+  it('addGuide adds a vertical guide at a position', () => {
+    const doc = createDocument('test');
+    const d2 = addGuide(doc, 'vertical', 150);
+    expect(d2.guides).toBeDefined();
+    expect(d2.guides!.length).toBe(1);
+    expect(d2.guides![0]!.axis).toBe('vertical');
+    expect(d2.guides![0]!.position).toBe(150);
+    expect(d2.guides![0]!.id).toBeDefined();
+  });
+
+  it('addGuide adds a horizontal guide at a position', () => {
+    const doc = createDocument('test');
+    const d2 = addGuide(doc, 'horizontal', 300);
+    expect(d2.guides!.length).toBe(1);
+    expect(d2.guides![0]!.axis).toBe('horizontal');
+    expect(d2.guides![0]!.position).toBe(300);
+  });
+
+  it('addGuide appends guides without removing existing ones', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'vertical', 100);
+    doc = addGuide(doc, 'horizontal', 200);
+    expect(doc.guides!.length).toBe(2);
+    expect(doc.guides![0]!.axis).toBe('vertical');
+    expect(doc.guides![1]!.axis).toBe('horizontal');
+  });
+
+  it('removeGuide removes a guide by id', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'vertical', 100);
+    const gid = doc.guides![0]!.id;
+    const d2 = removeGuide(doc, gid);
+    expect(d2.guides).toBeDefined();
+    expect(d2.guides!.length).toBe(0);
+  });
+
+  it('removeGuide is a no-op for unknown id', () => {
+    const doc = createDocument('test');
+    const d2 = removeGuide(doc, 'nonexistent');
+    expect(d2).toBe(doc);
+  });
+
+  it('removeGuide returns doc unchanged when no guides exist', () => {
+    const doc = createDocument('test');
+    const d2 = removeGuide(doc, 'any-id');
+    expect(d2).toBe(doc);
+  });
+
+  it('moveGuide repositions a guide by id', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'vertical', 100);
+    const gid = doc.guides![0]!.id;
+    const d2 = moveGuide(doc, gid, 250);
+    expect(d2.guides![0]!.position).toBe(250);
+  });
+
+  it('moveGuide is a no-op for unknown id', () => {
+    const doc = createDocument('test');
+    const d2 = moveGuide(doc, 'nonexistent', 100);
+    expect(d2).toBe(doc);
+  });
+
+  it('moveGuide returns doc unchanged when no guides exist', () => {
+    const doc = createDocument('test');
+    const d2 = moveGuide(doc, 'any-id', 100);
+    expect(d2).toBe(doc);
+  });
+
+  it('toggleGuideLock toggles a guide locked state', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'horizontal', 50);
+    const gid = doc.guides![0]!.id;
+    const d2 = toggleGuideLock(doc, gid);
+    expect(d2.guides![0]!.locked).toBe(true);
+    const d3 = toggleGuideLock(d2, gid);
+    expect(d3.guides![0]!.locked).toBe(false);
+  });
+
+  it('toggleGuideLock is a no-op for unknown id', () => {
+    const doc = createDocument('test');
+    const d2 = toggleGuideLock(doc, 'nonexistent');
+    expect(d2).toBe(doc);
+  });
+
+  it('toggleGuideLock returns doc unchanged when no guides exist', () => {
+    const doc = createDocument('test');
+    const d2 = toggleGuideLock(doc, 'any-id');
     expect(d2).toBe(doc);
   });
 });

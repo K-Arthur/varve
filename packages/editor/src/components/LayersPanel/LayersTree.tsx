@@ -817,6 +817,7 @@ function SortableVirtualRow({
   onFocus,
   idx,
 }: SortableVirtualRowProps) {
+  const { state: editorState } = useEditor();
   const {
     attributes,
     listeners,
@@ -825,6 +826,17 @@ function SortableVirtualRow({
     transition,
     isDragging,
   } = useSortable({ id: node.id });
+
+  // Resolve variant name for component instances
+  const variantName =
+    node.kind === 'frame' && node.componentId && node.variant
+      ? (() => {
+          const comp = editorState.document.components[node.componentId];
+          if (!comp?.variants) return undefined;
+          const v = comp.variants.find((v) => v.id === node.variant);
+          return v?.name;
+        })()
+      : undefined;
 
   // CSS.Transform.toString(null) returns undefined; interpolating that yields
   // "undefined translateY(…)" — an invalid transform the browser drops
@@ -870,6 +882,7 @@ function SortableVirtualRow({
         idx={idx}
         dragListeners={isDragging ? undefined : listeners}
         dragAttributes={isDragging ? undefined : attributes}
+        variantName={variantName}
       />
     </div>
   );

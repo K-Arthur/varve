@@ -6,6 +6,7 @@ import { bindingMatchesEvent, getEffectiveBinding, SHORTCUT_DEFS } from './Short
 export function useShortcuts(
   editor: EditorContextValue,
   onBackToHome?: () => void,
+  enabled = true,
 ): {
   paletteOpen: boolean;
   closePalette: () => void;
@@ -16,6 +17,11 @@ export function useShortcuts(
 
   const onBackToHomeRef = useRef(onBackToHome);
   onBackToHomeRef.current = onBackToHome;
+
+  // While the editor is hidden (home screen shown over a kept-alive shell),
+  // its global shortcuts must not fire.
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -209,6 +215,7 @@ export function useShortcuts(
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!enabledRef.current) return;
       // The canvas keydown handler (zoom presets, tool keys, Space-pan) calls
       // preventDefault on keys it consumes — don't double-handle them here.
       if (e.defaultPrevented) return;

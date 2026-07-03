@@ -111,7 +111,7 @@ export function computeResize(
   dy: number,
   shiftKey: boolean = false,
   altKey: boolean = false,
-): { x: number; y: number; w: number; h: number } {
+): { x: number; y: number; w: number; h: number; flippedX?: boolean; flippedY?: boolean } {
   let x = initX,
     y = initY,
     w = initW,
@@ -154,6 +154,20 @@ export function computeResize(
       break;
   }
 
+  let flippedX = false;
+  let flippedY = false;
+
+  if (w < 0) {
+    w = -w;
+    x = x - w;
+    flippedX = true;
+  }
+  if (h < 0) {
+    h = -h;
+    y = y - h;
+    flippedY = true;
+  }
+
   // Alt: resize from center
   if (altKey) {
     const cx = initX + initW / 2;
@@ -175,7 +189,7 @@ export function computeResize(
   if (w < MIN_SIZE) w = MIN_SIZE;
   if (h < MIN_SIZE) h = MIN_SIZE;
 
-  return { x, y, w, h };
+  return { x, y, w, h, flippedX, flippedY };
 }
 
 export interface SelectionOverlayProps {
@@ -480,6 +494,18 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       ))}
 
       {isSingle && (
+        <circle
+          cx={x + w / 2}
+          cy={y + h / 2}
+          r={4}
+          fill="white"
+          stroke="var(--color-interactive-default)"
+          strokeWidth={1.5}
+          style={{ pointerEvents: 'auto', cursor: 'move' }}
+        />
+      )}
+
+      {(isSingle || sel.length > 1) && (
         <text
           x={x + w + 6}
           y={y + 12}

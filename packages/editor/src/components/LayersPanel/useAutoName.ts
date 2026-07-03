@@ -11,6 +11,7 @@ const TYPE_LABELS: Record<string, string> = {
   ellipse: 'Ellipse',
   circle: 'Circle',
   line: 'Line',
+  arrow: 'Arrow',
   polygon: 'Polygon',
   star: 'Star',
   frame: 'Frame',

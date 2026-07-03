@@ -1,5 +1,5 @@
 import { Icon } from '@strata/ui';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CanvasArea } from './CanvasArea';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
@@ -10,28 +10,69 @@ import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
+import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { EditorProvider, useEditor } from './context';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
 import { StatusBar } from './StatusBar';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
+import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import './components/Prototype/prototype.css';
+
+/** A request to open a file into a tab; bump `seq` for each dispatch. */
+export interface OpenFileRequest {
+  id: string;
+  name: string;
+  filePath?: string;
+  /** Document JSON, or null for a fresh blank document. */
+  json: string | null;
+  seq: number;
+}
 
 export interface ShellProps {
   onBackToHome?: () => void;
   documentJson?: string;
   documentName?: string;
+  /** File-open requests from the host app (home screen). */
+  openFile?: OpenFileRequest | null;
+  /** False while the editor is hidden behind the home screen — suspends
+   *  global keyboard shortcuts so Home doesn't trigger editor actions. */
+  active?: boolean;
 }
 
-function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
+function ShellInner({
+  onBackToHome,
+  openFile,
+  active = true,
+}: {
+  onBackToHome?: () => void;
+  openFile?: OpenFileRequest | null;
+  active?: boolean;
+}) {
   const editor = useEditor();
-  const { paletteOpen, closePalette, openPalette } = useShortcuts(editor, onBackToHome);
+  const { paletteOpen, closePalette, openPalette } = useShortcuts(editor, onBackToHome, active);
+
+  // Dispatch host file-open requests into tabs (dedupe/reuse handled by
+  // editor.openFile). seq guards against re-dispatch on unrelated re-renders.
+  const lastOpenSeq = useRef(0);
+  useEffect(() => {
+    if (!openFile || openFile.seq === lastOpenSeq.current) return;
+    lastOpenSeq.current = openFile.seq;
+    editor.openFile(openFile.id, openFile.name, openFile.filePath, openFile.json);
+  }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const { shellStyle, widths, setWidth } = usePanelWidths();
+
+  // Register all actions into the ActionRegistry once on mount
+  useEffect(() => {
+    registerAllShortcuts(() => null);
+    registerEditorActions(editor);
+  }, [editor]);
 
   const onboarding = useOnboarding();
 
@@ -119,6 +160,17 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
         />
       )}
       <ShortcutPalette open={paletteOpen} onClose={closePalette} onSelect={handlePaletteSelect} />
+      <QuickActionsBar
+        open={quickActionsOpen}
+        onClose={() => setQuickActionsOpen(false)}
+        onExecute={(id) => {
+          if (id === 'open') {
+            const input = fileRef.current;
+            if (input) input.click();
+          }
+          setQuickActionsOpen(false);
+        }}
+      />
       <input
         ref={fileRef}
         id="file-open-input"
@@ -226,7 +278,7 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
   );
 }
 
-export function Shell({ onBackToHome, documentJson, documentName }: ShellProps) {
+export function Shell({ onBackToHome, documentJson, documentName, openFile, active }: ShellProps) {
   return (
     <EditorProvider
       onBackToHome={onBackToHome}
@@ -234,7 +286,7 @@ export function Shell({ onBackToHome, documentJson, documentName }: ShellProps) 
       initialDocumentName={documentName}
     >
       <SettingsProvider>
-        <ShellInner onBackToHome={onBackToHome} />
+        <ShellInner onBackToHome={onBackToHome} openFile={openFile} active={active} />
       </SettingsProvider>
     </EditorProvider>
   );

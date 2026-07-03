@@ -6,12 +6,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createComponent } from './component';
-import { addNode, createDocument, makeFrameNode, makeShapeNode, makeTextNode } from './document';
+import { addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
 import {
   findOrphanedStyles,
   generateStyleUsageReport,
-  type StyleUsageReport,
-  type ValidationResult,
   validateComponentProperties,
   validateNamingConventions,
 } from './governance';
@@ -70,7 +68,7 @@ describe('Governance — Orphan Detection', () => {
     doc = d2;
 
     // Apply Teal to a node
-    const shape = makeShapeNode('n1', { kind: 'rect', w: 100, h: 100 });
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
     doc = addNode(doc, shape);
     doc = applyStyleToNode(doc, 'n1', style.id);
 
@@ -91,7 +89,7 @@ describe('Governance — Orphan Detection', () => {
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
 
-    const shape = makeShapeNode('n1', { kind: 'rect', w: 100, h: 100 });
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
     doc = addNode(doc, shape);
     doc = applyStyleToNode(doc, 'n1', style.id);
 
@@ -139,10 +137,10 @@ describe('Governance — Usage Report', () => {
     };
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
-    const { style: s2, doc: d2 } = createTextStyle(doc, 'Body', { fontSize: 16 });
+    const { doc: d2 } = createTextStyle(doc, 'Body', { fontSize: 16 });
     doc = d2;
 
-    const shape = makeShapeNode('n1', { kind: 'rect', w: 100, h: 100 });
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
     doc = addNode(doc, shape);
     doc = applyStyleToNode(doc, 'n1', style.id);
 

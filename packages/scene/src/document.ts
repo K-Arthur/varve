@@ -16,20 +16,16 @@ import type { Affine, Color, Shape } from '@strata/engine';
 import { generateKeyBetween } from '@strata/shared';
 import type { ExportSettings } from './export-types';
 import type {
-  ColorStyle,
   ComponentDefinition,
   ContainerNode,
-  EffectStyle,
   FrameNode,
   GroupNode,
   ImageNode,
-  LayoutStyleDef,
   NodeId,
   SceneNode,
   ShapeNode,
   Style,
   TextNode,
-  TextStyle,
 } from './types';
 
 export interface Document {
@@ -56,6 +52,8 @@ export interface Document {
   variableStore?: import('./variables').VariableStore;
   /** References to installed libraries. */
   installedLibraries?: import('./library').InstalledLibraryRef[];
+  /** Layout guides for aligning nodes on the canvas. */
+  guides?: import('./types').Guide[];
 }
 
 export interface NodeEntry {
@@ -240,6 +238,8 @@ export function makeFrameNode(
       | 'w'
       | 'h'
       | 'clipContent'
+      | 'variant'
+      | 'propertyOverrides'
     >
   > & {
     index?: number;
@@ -264,6 +264,8 @@ export function makeFrameNode(
     componentId: opts.componentId,
     slots: opts.slots,
     clipContent: opts.clipContent,
+    variant: opts.variant,
+    propertyOverrides: opts.propertyOverrides,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
   };
@@ -862,4 +864,57 @@ export function instanceOverrides(doc: Document, id: NodeId): string[] {
   if (JSON.stringify(frame.effects) !== JSON.stringify(masterFrame.effects))
     overrides.push('effects');
   return overrides;
+}
+
+// ── Guide operations ─────────────────────────────────────────────────────────
+
+function guideId(): string {
+  return `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Add a guide to a document. Returns a new document with the guide appended. */
+export function addGuide(
+  doc: Document,
+  axis: 'horizontal' | 'vertical',
+  position: number,
+): Document {
+  const guide: import('./types').Guide = {
+    id: guideId(),
+    axis,
+    position,
+  };
+  return { ...doc, guides: [...(doc.guides ?? []), guide] };
+}
+
+/** Remove a guide by id. Returns the document unchanged if the id is not found. */
+export function removeGuide(doc: Document, id: string): Document {
+  if (!doc.guides || doc.guides.length === 0) return doc;
+  const idx = doc.guides.findIndex((g) => g.id === id);
+  if (idx < 0) return doc;
+  const next = [...doc.guides];
+  next.splice(idx, 1);
+  return { ...doc, guides: next };
+}
+
+/** Move a guide to a new position. Returns the document unchanged if the id is not found. */
+export function moveGuide(doc: Document, id: string, position: number): Document {
+  if (!doc.guides || doc.guides.length === 0) return doc;
+  const idx = doc.guides.findIndex((g) => g.id === id);
+  if (idx < 0) return doc;
+  const next = doc.guides.map((g) => (g.id === id ? { ...g, position } : g));
+  return { ...doc, guides: next };
+}
+
+/** Toggle the locked state of a guide. Returns the document unchanged if the id is not found. */
+export function toggleGuideLock(doc: Document, id: string): Document {
+  if (!doc.guides || doc.guides.length === 0) return doc;
+  const idx = doc.guides.findIndex((g) => g.id === id);
+  if (idx < 0) return doc;
+  const next = doc.guides.map((g) => (g.id === id ? { ...g, locked: !g.locked } : g));
+  return { ...doc, guides: next };
+}
+
+/** Clear all guides from a document. */
+export function clearGuides(doc: Document): Document {
+  return { ...doc, guides: [] };
 }

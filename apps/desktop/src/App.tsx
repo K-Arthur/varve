@@ -1,4 +1,4 @@
-import { Shell } from '@strata/editor';
+import { type OpenFileRequest, Shell } from '@strata/editor';
 import { HomeShell } from '@strata/home';
 import { detectPlatform, type FileEntry } from '@strata/platform';
 import { useCallback, useState } from 'react';
@@ -8,25 +8,44 @@ const platform = detectPlatform();
 
 export function App() {
   const [view, setView] = useState<'home' | 'editor'>('home');
-  const [pendingFile, setPendingFile] = useState<FileEntry | null>(null);
-  const [pendingJson, setPendingJson] = useState<string | null>(null);
+  // The editor stays mounted once opened so tabs/sessions survive trips to
+  // the home screen; `view` only toggles which surface is visible.
+  const [editorMounted, setEditorMounted] = useState(false);
+  const [openRequest, setOpenRequest] = useState<OpenFileRequest | null>(null);
 
   const handleOpenFile = useCallback((entry: FileEntry) => {
-    setPendingFile(entry);
-    setView('editor');
+    // Read the document BEFORE switching views. Dispatching the open first
+    // and patching JSON in later raced the editor mount: the shell came up
+    // with the previous file's content (stale frames in a "new" file).
     platform
       .readFile(entry.id)
+      .catch(() => null)
       .then((json) => {
-        setPendingJson(json ?? null);
-      })
-      .catch(() => setPendingJson(null));
+        setOpenRequest((prev) => ({
+          id: entry.id,
+          name: entry.name,
+          json: json ?? null,
+          seq: (prev?.seq ?? 0) + 1,
+        }));
+        setEditorMounted(true);
+        setView('editor');
+      });
   }, []);
 
   const handleBackToHome = useCallback(() => {
-    setPendingFile(null);
-    setPendingJson(null);
     setView('home');
   }, []);
+
+  const handleResumeEditing = useCallback(() => {
+    setView('editor');
+  }, []);
+
+  const surfaceStyle = (visible: boolean): React.CSSProperties => ({
+    display: visible ? 'flex' : 'none',
+    flexDirection: 'column',
+    flex: 1,
+    minHeight: 0,
+  });
 
   return (
     <div
@@ -39,33 +58,22 @@ export function App() {
       }}
     >
       <TitleBar />
-      {view === 'home' ? (
-        <HomeShell platform={platform} onOpenFile={handleOpenFile} />
-      ) : (
-        <ShellWithFile
-          pendingFile={pendingFile}
-          pendingJson={pendingJson}
-          onBackToHome={handleBackToHome}
+      <div style={surfaceStyle(view === 'home')}>
+        <HomeShell
+          platform={platform}
+          onOpenFile={handleOpenFile}
+          onResumeEditing={editorMounted ? handleResumeEditing : undefined}
         />
+      </div>
+      {editorMounted && (
+        <div style={surfaceStyle(view === 'editor')}>
+          <Shell
+            onBackToHome={handleBackToHome}
+            openFile={openRequest}
+            active={view === 'editor'}
+          />
+        </div>
       )}
     </div>
-  );
-}
-
-function ShellWithFile({
-  pendingFile,
-  pendingJson,
-  onBackToHome,
-}: {
-  pendingFile: FileEntry | null;
-  pendingJson: string | null;
-  onBackToHome: () => void;
-}) {
-  return (
-    <Shell
-      onBackToHome={onBackToHome}
-      documentJson={pendingJson ?? undefined}
-      documentName={pendingFile?.name}
-    />
   );
 }

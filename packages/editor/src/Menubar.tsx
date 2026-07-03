@@ -1,5 +1,5 @@
 import { exportDocumentToSvg } from '@strata/codegen';
-import { CHROME_ICONS, IconButton } from '@strata/ui';
+import { CHROME_ICONS, IconButton, StrataLogo } from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -97,6 +97,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         label: 'Toggle Snap',
         shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
         action: 'toggleSnap',
+      },
+      { label: '---' },
+      {
+        label: 'Clear All Guides',
+        action: 'clearGuides',
       },
       {
         label: 'Home',
@@ -206,6 +211,7 @@ export function Menubar({
     setSnapEnabled,
     booleanOp,
     startPresentation,
+    clearAllGuides,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -356,6 +362,9 @@ export function Menubar({
           break;
         case 'toggleSnap':
           setSnapEnabled(!state.snapEnabled);
+          break;
+        case 'clearGuides':
+          clearAllGuides();
           break;
         case 'booleanUnion':
           booleanOp('union');
@@ -534,12 +543,15 @@ export function Menubar({
     >
       {/* ── Left: Home button + Menu buttons ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-        <IconButton
-          icon={CHROME_ICONS.home}
-          label="Home (Ctrl+Shift+H)"
-          size="sm"
+        <button
+          type="button"
+          className="editor-menubar__home"
+          aria-label="Home (Ctrl+Shift+H)"
+          title="Home (Ctrl+Shift+H)"
           onClick={() => onBackToHome?.()}
-        />
+        >
+          <StrataLogo size={16} />
+        </button>
         {MENUS.map((menu, i) => (
           <div key={menu.id} style={{ position: 'relative' }}>
             <button

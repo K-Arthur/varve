@@ -6,11 +6,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createComponent } from './component';
-import { addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
+import { addNode, createDocument, makeFrameNode } from './document';
 import {
   createLibrary,
   installLibrary,
-  type Library,
   type LibraryPackage,
   listLibraryComponents,
   listLibraryStyles,
