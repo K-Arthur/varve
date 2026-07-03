@@ -144,7 +144,14 @@ export function interpolateColor(
  * Interpolate between two affine transforms element-wise.
  */
 export function interpolateAffine(from: Affine, to: Affine, t: number): Affine {
-  return from.map((v, i) => v + (to[i] - v) * t) as Affine;
+  return [
+    from[0] + (to[0] - from[0]) * t,
+    from[1] + (to[1] - from[1]) * t,
+    from[2] + (to[2] - from[2]) * t,
+    from[3] + (to[3] - from[3]) * t,
+    from[4] + (to[4] - from[4]) * t,
+    from[5] + (to[5] - from[5]) * t,
+  ];
 }
 
 /**
@@ -159,22 +166,25 @@ export function interpolatePath(from: PathPoint[], to: PathPoint[], t: number): 
         'Use ensureVertexMatch() before interpolation.',
     );
   }
-  return from.map((pt, i) => ({
-    x: pt.x + (to[i].x - pt.x) * t,
-    y: pt.y + (to[i].y - pt.y) * t,
-    handleIn:
-      pt.handleIn && to[i].handleIn
-        ? {
-            x: pt.handleIn.x + (to[i].handleIn!.x - pt.handleIn.x) * t,
-            y: pt.handleIn.y + (to[i].handleIn!.y - pt.handleIn.y) * t,
-          }
-        : null,
-    handleOut:
-      pt.handleOut && to[i].handleOut
-        ? {
-            x: pt.handleOut.x + (to[i].handleOut!.x - pt.handleOut.x) * t,
-            y: pt.handleOut.y + (to[i].handleOut!.y - pt.handleOut.y) * t,
-          }
-        : null,
-  }));
+  return from.map((pt, i) => {
+    const toPt = to[i]!;
+    return {
+      x: pt.x + (toPt.x - pt.x) * t,
+      y: pt.y + (toPt.y - pt.y) * t,
+      handleIn:
+        pt.handleIn != null && toPt.handleIn != null
+          ? {
+              x: pt.handleIn.x + (toPt.handleIn.x - pt.handleIn.x) * t,
+              y: pt.handleIn.y + (toPt.handleIn.y - pt.handleIn.y) * t,
+            }
+          : null,
+      handleOut:
+        pt.handleOut != null && toPt.handleOut != null
+          ? {
+              x: pt.handleOut.x + (toPt.handleOut.x - pt.handleOut.x) * t,
+              y: pt.handleOut.y + (toPt.handleOut.y - pt.handleOut.y) * t,
+            }
+          : null,
+    };
+  });
 }

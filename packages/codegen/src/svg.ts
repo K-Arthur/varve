@@ -5,7 +5,7 @@
  */
 
 import type { Affine } from '@strata/engine';
-import type { Document as SceneDocument, SceneNode } from '@strata/scene';
+import type { Document as SceneDocument, SceneNode, TextNode } from '@strata/scene';
 import { affineToSvg, escapeXml, getChildren, rgba, shapeVerticesToPoints } from './shared';
 
 export interface SvgExportOptions {
@@ -61,7 +61,7 @@ function fillToSvg(node: SceneNode, nodeId: string): { defs: string; fillAttr: s
   };
 }
 
-function buildTextContent(node: SceneNode, indent: string): string {
+function buildTextContent(node: TextNode, indent: string): string {
   const baseY = 0;
   const lineHeight = (node.lineHeight ?? 1.2) * (node.fontSize ?? 16);
   const childIndent = `${indent}  `;
@@ -71,11 +71,11 @@ function buildTextContent(node: SceneNode, indent: string): string {
     if (node.textCase === 'uppercase') displayText = displayText.toUpperCase();
     else if (node.textCase === 'lowercase') displayText = displayText.toLowerCase();
     else if (node.textCase === 'capitalize')
-      displayText = displayText.replace(/\b\w/g, (c) => c.toUpperCase());
+      displayText = displayText.replace(/\b\w/g, (c: string) => c.toUpperCase());
 
     const lines = displayText.split('\n');
     return lines
-      .map((line, i) => {
+      .map((line: string, i: number) => {
         const y = baseY + i * lineHeight;
         let prefixed = line;
         if (node.listStyle === 'disc') prefixed = `• ${line}`;
@@ -167,39 +167,40 @@ function nodeToSvgTag(
       break;
     }
     case 'text': {
+      const textNode = node as TextNode;
       const attrs: string[] = [
         `x="0"`,
         `y="0"`,
         `fill="${fillAttr}"`,
-        `font-size="${node.fontSize}"`,
+        `font-size="${textNode.fontSize}"`,
       ];
-      if (node.fontFamily) attrs.push(`font-family="${escapeXml(node.fontFamily)}"`);
-      if (node.fontWeight) attrs.push(`font-weight="${node.fontWeight}"`);
-      if (node.fontStyle === 'italic') attrs.push(`font-style="italic"`);
-      if (node.textAlign)
+      if (textNode.fontFamily) attrs.push(`font-family="${escapeXml(textNode.fontFamily)}"`);
+      if (textNode.fontWeight) attrs.push(`font-weight="${textNode.fontWeight}"`);
+      if (textNode.fontStyle === 'italic') attrs.push(`font-style="italic"`);
+      if (textNode.textAlign)
         attrs.push(
-          `text-anchor="${node.textAlign === 'center' ? 'middle' : node.textAlign === 'right' ? 'end' : 'start'}"`,
+          `text-anchor="${textNode.textAlign === 'center' ? 'middle' : textNode.textAlign === 'right' ? 'end' : 'start'}"`,
         );
-      if (node.letterSpacing) attrs.push(`letter-spacing="${node.letterSpacing}"`);
-      if (node.lineHeight) attrs.push(`line-height="${node.lineHeight}"`);
-      if (node.textDecoration && node.textDecoration !== 'none') {
-        attrs.push(`text-decoration="${node.textDecoration}"`);
+      if (textNode.letterSpacing) attrs.push(`letter-spacing="${textNode.letterSpacing}"`);
+      if (textNode.lineHeight) attrs.push(`line-height="${textNode.lineHeight}"`);
+      if (textNode.textDecoration && textNode.textDecoration !== 'none') {
+        attrs.push(`text-decoration="${textNode.textDecoration}"`);
       }
 
       const styleParts: string[] = [];
-      if (node.variableAxes && Object.keys(node.variableAxes).length > 0) {
-        const settings = Object.entries(node.variableAxes)
+      if (textNode.variableAxes && Object.keys(textNode.variableAxes).length > 0) {
+        const settings = Object.entries(textNode.variableAxes)
           .map(([tag, value]) => `"${tag}" ${value}`)
           .join(', ');
         styleParts.push(`font-variation-settings: ${settings};`);
       }
-      if (node.openTypeFeatures && Object.keys(node.openTypeFeatures).length > 0) {
-        const features = Object.entries(node.openTypeFeatures)
+      if (textNode.openTypeFeatures && Object.keys(textNode.openTypeFeatures).length > 0) {
+        const features = Object.entries(textNode.openTypeFeatures)
           .filter(([tag]) => tag !== 'custom')
           .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
           .join(', ');
         if (features) styleParts.push(`font-feature-settings: ${features};`);
-        const custom = node.openTypeFeatures.custom;
+        const custom = textNode.openTypeFeatures.custom;
         if (custom) {
           const customFeatures = Object.entries(custom)
             .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
@@ -211,7 +212,7 @@ function nodeToSvgTag(
 
       const t = affineToSvg(transform);
       const withTransform = ` transform="${t}"`;
-      const content = buildTextContent(node, indent);
+      const content = buildTextContent(textNode, indent);
       return `${indent}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
     }
     case 'frame':

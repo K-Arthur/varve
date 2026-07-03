@@ -66,16 +66,16 @@ export function setNestedValue(
 ): Record<string, unknown> {
   if (path.length === 0) return { ...obj };
   if (path.length === 1) {
-    return { ...obj, [path[0]]: value };
+    return { ...obj, [path[0]!]: value };
   }
 
   const [head, ...rest] = path;
-  const child = obj[head];
+  const child = obj[head!];
   const nextChild = typeof child === 'object' && child !== null
     ? setNestedValue(child as Record<string, unknown>, rest, value)
     : setNestedValue({}, rest, value);
 
-  return { ...obj, [head]: nextChild };
+  return { ...obj, [head!]: nextChild };
 }
 
 /** Registry of which properties are interpolable and their interpolation kind. */

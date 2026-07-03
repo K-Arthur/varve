@@ -626,7 +626,7 @@ function paintRichText(
     textCase: p.textCase,
     textDecoration: p.textDecoration,
   };
-  const positioned = layoutRichText(p.richText!, p.w, defaultFormat);
+  const positioned = layoutRichText(p.richText! as import('./textLayout').RichTextInput, p.w, defaultFormat);
 
   let yOffset = 0;
   if (p.textAlignVertical === 'middle') yOffset = (p.h - positioned.height) / 2;
@@ -642,8 +642,9 @@ function paintRichText(
 
     for (const run of line.runs) {
       target.font = run.font;
-      if (run.format.color && run.format.color[3] > 0) {
-        target.fillStyle = rgba(run.format.color);
+      const runFormat = run.format as { color?: readonly [number, number, number, number] };
+      if (runFormat.color && runFormat.color[3] > 0) {
+        target.fillStyle = rgba(runFormat.color);
       }
       target.fillText(run.text, p.x + run.x + xOffset, p.y + run.y + yOffset);
 
@@ -788,7 +789,7 @@ function measureTextAdvance(target: ReplayTarget, char: string): number {
 
 function parseFontSize(font: string): number {
   const match = /(\d+(?:\.\d+)?)px/.exec(font);
-  return match ? Number.parseFloat(match[1]) : 16;
+  return match && match[1] ? Number.parseFloat(match[1]) : 16;
 }
 
 /** Paint a closed/open path fill. */
