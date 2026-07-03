@@ -172,6 +172,8 @@ export interface EngineFill {
   type: 'solid' | 'gradient' | 'image' | 'pattern';
   color?: Color;
   gradient?: EngineGradientFill;
+  image?: { src: string; fit: string; x: number; y: number; scale: number };
+  pattern?: { tileSrc: string; spacing: number; rotation: number };
   opacity: number;
   blendMode: BlendMode;
   visible: boolean;
@@ -245,7 +247,7 @@ export interface RenderItem {
   effects?: Effect[];
 }
 
-/** P2: Fill IR — a single fill in the render IR (solid or gradient). */
+/** P2: Fill IR — a single fill in the render IR. */
 export type FillIR =
   | { type: 'solid'; color: Color; opacity: number; blendMode: BlendMode; visible: boolean }
   | {
@@ -254,6 +256,26 @@ export type FillIR =
       stops: { position: number; color: Color }[];
       rotation: number;
       transform?: Affine;
+      opacity: number;
+      blendMode: BlendMode;
+      visible: boolean;
+    }
+  | {
+      type: 'image';
+      src: string;
+      fit: 'fill' | 'fit' | 'stretch' | 'tile';
+      x: number;
+      y: number;
+      scale: number;
+      opacity: number;
+      blendMode: BlendMode;
+      visible: boolean;
+    }
+  | {
+      type: 'pattern';
+      tileSrc: string;
+      spacing: number;
+      rotation: number;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;

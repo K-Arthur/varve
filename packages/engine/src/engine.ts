@@ -151,6 +151,30 @@ function stubEngine(): Engine {
                 }
                 return result;
               }
+              if (f.type === 'image' && f.image) {
+                return {
+                  type: 'image' as const,
+                  src: f.image.src,
+                  fit: (f.image.fit as 'fill' | 'fit' | 'stretch' | 'tile') ?? 'fill',
+                  x: f.image.x ?? 0,
+                  y: f.image.y ?? 0,
+                  scale: f.image.scale ?? 1,
+                  opacity: f.opacity,
+                  blendMode: f.blendMode,
+                  visible: f.visible,
+                };
+              }
+              if (f.type === 'pattern' && f.pattern) {
+                return {
+                  type: 'pattern' as const,
+                  tileSrc: f.pattern.tileSrc,
+                  spacing: f.pattern.spacing ?? 0,
+                  rotation: f.pattern.rotation ?? 0,
+                  opacity: f.opacity,
+                  blendMode: f.blendMode,
+                  visible: f.visible,
+                };
+              }
               return null;
             })
             .filter((f): f is FillIR => f !== null);
