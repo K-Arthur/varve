@@ -3,12 +3,16 @@
  *
  * Gesture states: idle → (click empty → deselect) | (click node → select)
  *                 | (drag node → move) | (drag empty → marquee)
+ * Depth cycling: clicking an already-selected single node cycles to the next
+ *   overlapping node below (B1). Transparent/stroke-only shapes pass through
+ *   to the next filled node below (B2).
+ * Arrow keys nudge along local affine axes for rotated nodes (A2).
+ * Tab cycles selection through visible unlocked nodes (B4).
+ * Alt+marquee selects only fully contained nodes (A3).
  *
- * Research basis: Figma Move tool (V), Illustrator selection tool.
- *                 Marquee: rubber-band selection with Shift-additive.
- *                 Never creates shapes.
+ * Research basis: Figma Move tool (V), Illustrator selection, Affinity Designer.
  */
-import { applyAffine, invertAffine } from '@strata/engine';
+import { applyAffine, invertAffine, rectContains } from '@strata/engine';
 import { getParent, walkNodes } from '@strata/scene';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
@@ -67,11 +71,33 @@ export class SelectTool extends BaseTool {
       currentWorld: world,
     };
 
-    const hit = ctx.hitTest(world);
+    const hit = this.resolveHit(world, ctx);
 
     if (hit) {
       const docNode = ctx.document.nodes[hit.nodeId];
       if (docNode?.locked) return { consumed: true };
+
+      // B1: Depth-based cycling — if clicking an already-selected single node,
+      // cycle to the next overlapping node below
+      if (!e.shiftKey && ctx.isSelected(hit.nodeId) && ctx.selection.length === 1) {
+        const allAtPoint = this.findNodesAtPoint(world, ctx);
+        const currentIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
+        if (currentIdx >= 0 && currentIdx < allAtPoint.length - 1) {
+          const nextNode = allAtPoint[currentIdx + 1]!;
+          ctx.setSelection(nextNode.nodeId);
+          ctx.announceSelection([nextNode.node]);
+          this.marqueeActive = false;
+          this.isMoveGesture = true;
+          ctx.beginTransaction();
+          this.initialPositions.clear();
+          for (const id of ctx.selection) {
+            const worldMat = nodeWorldTransform(ctx.document, id);
+            this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
+          }
+          return { consumed: true, captured: true };
+        }
+      }
+
       if (e.shiftKey) {
         ctx.toggleSelection(hit.nodeId, true);
       } else if (!ctx.isSelected(hit.nodeId)) {
@@ -170,6 +196,8 @@ export class SelectTool extends BaseTool {
     if (this.marqueeActive) {
       ctx.setDraft(null);
       const rect = this.computeDragRect(ctx);
+      // A3: Alt key → fully-contained marquee mode
+      const useContainment = ctx.altKey;
       // Iterate ALL nodes (including nested) via walkNodes
       const entries = walkNodes(ctx.document);
       // Sort by paint order (last sibling = topmost), not by depth.
@@ -181,8 +209,19 @@ export class SelectTool extends BaseTool {
         const node = entry.node;
         if (node.locked || !node.visible) continue;
         const bbox = ctx.nodeWorldBounds(node);
-        if (bbox && rectsIntersect(rect, bbox)) {
-          selectedIds.push(entry.nodeId);
+        if (bbox) {
+          if (useContainment) {
+            // Fully contained: the node's bbox must be completely inside the
+            // marquee (rectContains takes [x, y] tuples).
+            if (
+              rectContains(rect, [bbox.x, bbox.y]) &&
+              rectContains(rect, [bbox.x + bbox.w, bbox.y + bbox.h])
+            ) {
+              selectedIds.push(entry.nodeId);
+            }
+          } else if (rectsIntersect(rect, bbox)) {
+            selectedIds.push(entry.nodeId);
+          }
         }
       }
       if (selectedIds.length > 0) {
@@ -252,6 +291,29 @@ export class SelectTool extends BaseTool {
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
+    // B4: Tab/Shift+Tab cycles through visible unlocked nodes
+    if (e.key === 'Tab') {
+      const nodes = ctx.rootNodes().filter((n) => n.visible && !n.locked);
+      if (nodes.length === 0) return true;
+      if (ctx.selection.length === 0) {
+        ctx.setSelection(nodes[0]!.id);
+        ctx.announceSelection([nodes[0]!]);
+      } else {
+        const currentIndex = nodes.findIndex((n) => ctx.selection.includes(n.id));
+        if (currentIndex === -1) {
+          ctx.setSelection(nodes[0]!.id);
+          ctx.announceSelection([nodes[0]!]);
+        } else {
+          const nextIndex = e.shiftKey
+            ? (currentIndex - 1 + nodes.length) % nodes.length
+            : (currentIndex + 1) % nodes.length;
+          ctx.setSelection(nodes[nextIndex]!.id);
+          ctx.announceSelection([nodes[nextIndex]!]);
+        }
+      }
+      return true;
+    }
+
     if (e.key.startsWith('Arrow')) {
       const sel = ctx.selection;
       if (sel.length === 0) return false;
@@ -260,10 +322,15 @@ export class SelectTool extends BaseTool {
         const node = ctx.getNode(id);
         if (!node) continue;
         const t = node.transform;
+        // A2: Nudge along local affine axes (supports rotated nodes)
+        const [a, b, c, d] = t;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        // Transform nudge vector by local axes: [a, b] for X, [c, d] for Y
         ctx.setNodePosition(
           id,
-          t[4] + (e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0),
-          t[5] + (e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0),
+          t[4] + dx * a + dy * c,
+          t[5] + dx * b + dy * d,
         );
       }
       ctx.announceOperation('Nudge', `${step}px`);
@@ -293,6 +360,54 @@ export class SelectTool extends BaseTool {
     return false;
   }
 
+  /**
+   * B2: Resolve click target, skipping transparent/stroke-only nodes that
+   * should pass through to the next opaque node below.
+   */
+  private resolveHit(
+    world: { x: number; y: number },
+    ctx: ToolContext,
+  ): { nodeId: string; node: import('@strata/scene').SceneNode } | null {
+    const hit = ctx.hitTest(world);
+    if (!hit) return null;
+    // Check if the hit node has transparent or no fill
+    const node = ctx.getNode(hit.nodeId);
+    if (node && isTransparentOrEmptyFill(node)) {
+      // Pass through: find next opaque node at this point
+    const allAtPoint = this.findNodesAtPoint(world, ctx);
+    const hitIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
+      for (let i = hitIdx + 1; i < allAtPoint.length; i++) {
+        const candidate = allAtPoint[i]!;
+        const n = ctx.getNode(candidate.nodeId);
+        if (n && !isTransparentOrEmptyFill(n)) {
+          return { nodeId: candidate.nodeId, node: candidate.node };
+        }
+      }
+      // No opaque node found beneath, return the original hit
+      return hit;
+    }
+    return hit;
+  }
+
+  /** Find all visible unlock nodes at a world point, in paint order (topmost last). */
+  private findNodesAtPoint(
+    world: { x: number; y: number },
+    ctx: ToolContext,
+  ): Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> {
+    const results: Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> = [];
+    const entries = walkNodes(ctx.document);
+    // Reverse for paint order (later siblings on top)
+    for (const entry of [...entries.values()].reverse()) {
+      if (!entry) continue;
+      if (entry.node.locked || !entry.node.visible) continue;
+      const bbox = ctx.nodeWorldBounds(entry.node);
+      if (bbox && rectContains(bbox, [world.x, world.y])) {
+        results.push({ nodeId: entry.nodeId, node: entry.node });
+      }
+    }
+    return results;
+  }
+
   override onDoubleClick(e: PointerEvent, ctx: ToolContext): void {
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
@@ -312,6 +427,27 @@ export class SelectTool extends BaseTool {
       }
     }
   }
+}
+
+/** Check if a node has transparent fill or no fills (stroke-only). */
+function isTransparentOrEmptyFill(node: import('@strata/scene').SceneNode): boolean {
+  if (node.kind !== 'shape') return false;
+  // Check fills array first, fall back to legacy `fill` field
+  if (node.fills && node.fills.length > 0) {
+    return node.fills.every((f: any) => {
+      if (f.type === 'solid' && f.color) {
+        const alpha = f.color[3] ?? 255;
+        return alpha === 0;
+      }
+      return false;
+    });
+  }
+  if (node.fill) {
+    const alpha = Array.isArray(node.fill) ? (node.fill[3] ?? 255) : 255;
+    return alpha === 0;
+  }
+  // No fills array and no fill field = stroke-only, treat as transparent
+  return true;
 }
 
 function rectsIntersect(
