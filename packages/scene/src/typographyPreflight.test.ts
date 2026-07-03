@@ -78,6 +78,55 @@ describe('runTypographyPreflight', () => {
   });
 });
 
+describe('runTypographyPreflight advanced checks', () => {
+  it('detects unsupported variable axes', () => {
+    let doc = createDocument();
+    const node = makeTextNode('t1', 'Hello', { fontFamily: 'Inter', variableAxes: { wxyz: 500 } });
+    doc = addNode(doc, node);
+    const supportedAxes = new Map<string, Set<string>>();
+    supportedAxes.set('Inter', new Set(['wght']));
+    const result = runTypographyPreflight(doc, {
+      availableFonts: new Set(['Inter']),
+      supportedAxes,
+    });
+    expect(result.warningCount).toBe(1);
+    expect(result.issues[0]?.category).toBe('style-conflict');
+  });
+
+  it('detects private-use characters as potentially unsupported glyphs', () => {
+    let doc = createDocument();
+    const node = makeTextNode('t1', '\uE000', { fontFamily: 'Inter' });
+    doc = addNode(doc, node);
+    const fontMetadata = new Map<string, { glyphCount: number }>();
+    fontMetadata.set('Inter', { glyphCount: 256 });
+    const result = runTypographyPreflight(doc, {
+      availableFonts: new Set(['Inter']),
+      fontMetadata,
+    });
+    expect(result.warningCount).toBe(1);
+    expect(result.issues[0]?.category).toBe('unsupported-glyph');
+  });
+
+  it('detects missing fonts in rich text runs during preflight', () => {
+    let doc = createDocument();
+    const node = makeTextNode('t1', 'Hello', {
+      fontFamily: 'Inter',
+      richText: {
+        paragraphs: [
+          {
+            runs: [{ text: 'Hello', format: { fontFamily: 'MissingFont' } }],
+          },
+        ],
+      },
+    });
+    doc = addNode(doc, node);
+    const result = runTypographyPreflight(doc, { availableFonts: new Set(['Inter']) });
+    expect(result.errorCount).toBe(1);
+    expect(result.issues[0]?.category).toBe('missing-font');
+    expect(result.issues[0]?.nodeId).toBe('t1');
+  });
+});
+
 describe('validateRichText', () => {
   it('returns no issues when all fonts available', () => {
     const rich = plainTextToRichText('Hello');
