@@ -472,12 +472,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             stroke="var(--color-interactive-default)"
             strokeWidth={1}
           />
+          {/* Touch target (larger hit area, handles interaction) */}
           <circle
             cx={rotX}
             cy={rotY}
             r={8}
             fill="transparent"
-            aria-hidden="true"
             style={{ pointerEvents: hasInteractiveHandles ? 'auto' : 'none', cursor: 'grab' }}
             onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, 8) : undefined}
           />
@@ -496,13 +496,13 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {handles.map(([hx, hy], i) => (
         <Fragment key={i}>
+          {/* Touch target (larger hit area, handles interaction) */}
           <rect
             x={hx - 8}
             y={hy - 8}
             width={16}
             height={16}
             fill="transparent"
-            aria-hidden="true"
             style={{
               pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
               cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
@@ -526,12 +526,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {isSingle && (
         <>
+          {/* Touch target for pivot */}
           <circle
             cx={x + w / 2}
             cy={y + h / 2}
             r={8}
             fill="transparent"
-            aria-hidden="true"
             style={{ pointerEvents: 'auto', cursor: 'move' }}
           />
           <circle
