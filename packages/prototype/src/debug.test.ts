@@ -44,8 +44,17 @@ describe('PrototypeDebugConsole', () => {
 
   it('logs validation issues', () => {
     const console = new PrototypeDebugConsole();
-    console.logValidation({ code: 'broken-target', serverity: 'error', message: 'Target missing' });
+    console.logValidation({ code: 'broken-target', severity: 'error', message: 'Target missing' });
     expect(console.entries[0]?.level).toBe('error');
+  });
+
+  it('maps severity field correctly (error → error, warn → warn)', () => {
+    const console = new PrototypeDebugConsole();
+    console.logValidation({ code: 'E1', severity: 'error', message: 'Error' });
+    expect(console.entries[0]?.level).toBe('error');
+    console.logValidation({ code: 'W1', severity: 'warn', message: 'Warn' });
+    expect(console.entries[1]?.level).toBe('warn');
+    expect(console.entries[1]?.details?.severity).toBe('warn');
   });
 
   it('clears entries', () => {
