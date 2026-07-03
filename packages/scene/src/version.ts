@@ -34,7 +34,9 @@ function isVersionLessThan(a: string, b: string): boolean {
   return aMajor < bMajor || (aMajor === bMajor && aMinor < bMinor);
 }
 
-export function stampVersion<T extends { formatVersion?: string }>(doc: T): T & { formatVersion: string } {
+export function stampVersion<T extends { formatVersion?: string }>(
+  doc: T,
+): T & { formatVersion: string } {
   return { ...doc, formatVersion: CURRENT_DOCUMENT_VERSION };
 }
 

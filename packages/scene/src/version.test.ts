@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   CURRENT_DOCUMENT_VERSION,
   migrateDocument,
-  stampVersion,
+  migrateDocumentJson,
   SUPPORTED_VERSIONS,
+  stampVersion,
 } from './version';
 
 describe('Document Versioning', () => {
@@ -37,7 +38,9 @@ describe('Document Migration', () => {
       components: {},
       nextId: 1,
     };
-    const doc = migrateDocument(raw);
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    const doc = result!;
     expect(doc.id).toBe('d1');
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
   });
@@ -51,7 +54,9 @@ describe('Document Migration', () => {
       components: {},
       nextId: 1,
     };
-    const doc = migrateDocument(raw);
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    const doc = result!;
     expect(doc.formatVersion).toBe('1.0');
     expect(doc.id).toBe('d1');
     expect(doc.name).toBe('Old Doc');
@@ -61,10 +66,12 @@ describe('Document Migration', () => {
     expect(doc.nextId).toBe(1);
   });
 
-  it('strips BOM and handles whitespace in JSON via migrateDocumentJson', async () => {
-    const { migrateDocumentJson } = await import('./version');
-    const json = '{"id":"d1","name":"test","rootChildren":[],"nodes":{},"components":{},"nextId":1}';
-    const doc = migrateDocumentJson(json);
+  it('strips BOM and handles whitespace in JSON via migrateDocumentJson', () => {
+    const json =
+      '{"id":"d1","name":"test","rootChildren":[],"nodes":{},"components":{},"nextId":1}';
+    const result = migrateDocumentJson(json);
+    expect(result).not.toBeNull();
+    const doc = result!;
     expect(doc.id).toBe('d1');
     expect(doc.formatVersion).toBe('1.0');
   });
@@ -80,13 +87,14 @@ describe('Document Migration', () => {
       someFutureField: 'hello',
       nested: { a: 1 },
     };
-    const doc = migrateDocument(raw);
-    expect((doc as any).someFutureField).toBe('hello');
-    expect((doc as any).nested).toEqual({ a: 1 });
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    const doc = result!;
+    expect(doc.someFutureField).toBe('hello');
+    expect(doc.nested).toEqual({ a: 1 });
   });
 
-  it('handles corrupt JSON gracefully', async () => {
-    const { migrateDocumentJson } = await import('./version');
+  it('handles corrupt JSON gracefully', () => {
     const result = migrateDocumentJson('not valid json{{{');
     expect(result).toBeNull();
   });
@@ -98,6 +106,16 @@ describe('Document Migration', () => {
 
   it('handles undefined input gracefully', () => {
     const result = migrateDocument(undefined);
+    expect(result).toBeNull();
+  });
+
+  it('handles empty string JSON gracefully', () => {
+    const result = migrateDocumentJson('');
+    expect(result).toBeNull();
+  });
+
+  it('handles whitespace-only JSON gracefully', () => {
+    const result = migrateDocumentJson('   ');
     expect(result).toBeNull();
   });
 });

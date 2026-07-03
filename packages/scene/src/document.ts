@@ -15,7 +15,6 @@
 import type { Affine, Color, Shape } from '@strata/engine';
 import { generateKeyBetween } from '@strata/shared';
 import type { ExportSettings } from './export-types';
-import { CURRENT_DOCUMENT_VERSION } from './version';
 import type {
   ComponentDefinition,
   ContainerNode,
@@ -28,6 +27,7 @@ import type {
   Style,
   TextNode,
 } from './types';
+import { CURRENT_DOCUMENT_VERSION } from './version';
 
 export interface Document {
   id: string;

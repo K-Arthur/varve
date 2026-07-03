@@ -23,6 +23,7 @@ import {
   shapeContains,
 } from '@strata/engine';
 import { importFile } from '@strata/import';
+import type { Platform } from '@strata/platform';
 import {
   createRuntime,
   type Interaction,
@@ -59,6 +60,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
+  migrateDocumentJson,
   moveGuide as moveGuideDoc,
   moveNode,
   nextNodeId,
@@ -98,6 +100,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   readClipboardImages,
@@ -105,7 +108,10 @@ import {
   readClipboard as readFromClipboard,
   writeClipboard as writeToClipboard,
 } from './clipboard';
+import { loadSettings as loadUiSettings } from './components/Settings/settings';
+import { applyDropPosition } from './dropUtils';
 import { computeFlexLayout } from './layout/computeFlexLayout';
+import { MemoryRecoveryStorage, RecoveryManager } from './recovery';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import type { DraftShape } from './tools/types';
@@ -169,6 +175,10 @@ export interface EditorState {
   snapEnabled: boolean;
   /** Snap grid size in pixels. */
   snapGrid: number;
+  /** Save state for the active document. */
+  saveState: 'idle' | 'saving' | 'saved' | 'error';
+  /** When the active document was last saved (epoch ms). */
+  lastSavedAt: number | null;
   /** Prototype mode active */
   prototypeMode: boolean;
   /** Prototype runtime instance */
@@ -351,6 +361,14 @@ export interface EditorContextValue {
   serializeDocument: () => string;
   /** Load a document from a JSON string. */
   loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
+  /** Save the current document via the platform. */
+  save: () => Promise<boolean>;
+  /** Save As the current document via the platform. */
+  saveAs: () => Promise<boolean>;
+  /** Save state for display in the UI. */
+  saveState: 'idle' | 'saving' | 'saved' | 'error';
+  /** When the document was last saved. */
+  lastSavedAt: number | null;
   /**
    * Open a file into a tab: switches to an existing tab for the same file,
    * reuses a pristine blank tab, or opens a new tab. `json: null` creates a
@@ -421,7 +439,11 @@ export interface EditorContextValue {
   /** Paste nodes from system clipboard. */
   paste: () => void;
   /** Import a node from an imported document (svg/image) into the current document. */
-  importNode: (node: SceneNode, sourceDoc: import('@strata/scene').Document) => void;
+  importNode: (
+    node: SceneNode,
+    sourceDoc: import('@strata/scene').Document,
+    options?: { position?: { x: number; y: number } },
+  ) => void;
   /** The field name currently targeted for variable binding, or null. */
   bindingField: string | null;
   /** Open the BindingMenu for a specific field, or close it. */
@@ -637,7 +659,7 @@ const INITIAL_SESSION_ID = 'session-0';
 function applyFrameLayout(doc: Document, parentId: string | null | undefined): Document {
   if (!parentId) return doc;
   const parent = doc.nodes[parentId];
-  if (!parent || parent.kind !== 'frame' || !parent.layoutStyle) return doc;
+  if (parent?.kind !== 'frame' || !parent.layoutStyle) return doc;
   const childNodes = parent.children
     .map((cid) => doc.nodes[cid])
     .filter((n): n is SceneNode => Boolean(n));
@@ -725,23 +747,65 @@ export function findContainingFrameInDoc(
   return deepest;
 }
 
+/** Save-As implementation shared between save() and saveAs(). */
+async function saveAsImpl(
+  platform: Platform | undefined,
+  stateRef: React.MutableRefObject<EditorState>,
+  recoveryRef: React.MutableRefObject<RecoveryManager | null>,
+  patch: (partial: Partial<EditorState>) => void,
+): Promise<boolean> {
+  if (!platform) {
+    patch({ saveState: 'error' });
+    return false;
+  }
+  patch({ saveState: 'saving' });
+  try {
+    const s = stateRef.current;
+    const meta = s.sessions.find((sess) => sess.id === s.activeId);
+    const json = JSON.stringify({ ...s.document, formatVersion: '1.0' });
+    const filePath = await platform.saveDocumentToDisk(meta?.name ?? 'Untitled', json);
+    if (filePath) {
+      await recoveryRef.current?.deleteSession(s.activeId);
+      const fileId = `file-${Date.now()}`;
+      patch({
+        dirty: false,
+        saveState: 'saved',
+        lastSavedAt: Date.now(),
+        sessions: s.sessions.map((sess) =>
+          sess.id === s.activeId ? { ...sess, dirty: false, filePath, fileId } : sess,
+        ),
+      });
+      return true;
+    }
+    patch({ saveState: 'idle' });
+    return false;
+  } catch {
+    patch({ saveState: 'error' });
+    return false;
+  }
+}
+
 export function EditorProvider({
   children,
   onBackToHome,
   initialDocumentJson,
   initialDocumentName,
+  platform,
 }: {
   children: ReactNode;
   onBackToHome?: () => void;
   initialDocumentJson?: string;
   initialDocumentName?: string;
+  platform?: Platform;
 }) {
   const [state, setState] = useState<EditorState>(() => {
     let doc = createDocument(initialDocumentName ?? 'Untitled');
     let name = initialDocumentName ?? 'Untitled';
     if (initialDocumentJson) {
       try {
-        doc = JSON.parse(initialDocumentJson) as Document;
+        const migrated = migrateDocumentJson(initialDocumentJson);
+        doc =
+          (migrated as unknown as Document) ?? createDocument(initialDocumentName ?? 'Untitled');
         name = initialDocumentName ?? doc.name ?? 'Untitled';
       } catch {
         /* invalid JSON — use blank document */
@@ -762,6 +826,8 @@ export function EditorProvider({
       pixelGridEnabled: false,
       snapEnabled: true,
       snapGrid: 8,
+      saveState: 'idle' as const,
+      lastSavedAt: null,
       prototypeMode: false,
       prototypeRuntime: null,
       prototypeDebug: new PrototypeDebugConsole(),
@@ -772,6 +838,9 @@ export function EditorProvider({
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
+  /** Ref keeping the latest state for async callbacks (auto-save, recovery). */
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const undoStackRef = useRef<Document[]>([]);
   const redoStackRef = useRef<Document[]>([]);
   const undoSelStackRef = useRef<NodeId[][]>([]);
@@ -789,6 +858,42 @@ export function EditorProvider({
   const txSelRef = useRef<NodeId[] | null>(null);
   const [bindingField, setBindingField] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  /** Auto-save service ref for lifecycle-triggered saves. */
+  const autoSaveRef = useRef<AutoSaveService | null>(null);
+  /** Recovery manager for crash-recovery sessions. */
+  const recoveryRef = useRef<RecoveryManager | null>(null);
+  /** Initialize auto-save and recovery once. */
+  if (!recoveryRef.current) {
+    recoveryRef.current = new RecoveryManager(new MemoryRecoveryStorage());
+  }
+  if (!autoSaveRef.current && platform) {
+    const uiSettings = loadUiSettings();
+    autoSaveRef.current = new AutoSaveService(
+      () => {
+        const s = stateRef.current;
+        const meta = s.sessions.find((sess) => sess.id === s.activeId);
+        return {
+          document: s.document,
+          meta: { fileId: meta?.fileId, name: meta?.name ?? 'Untitled' },
+        };
+      },
+      async (json) => {
+        if (!platform) return false;
+        const s = stateRef.current;
+        const meta = s.sessions.find((sess) => sess.id === s.activeId);
+        try {
+          if (meta?.fileId) {
+            await platform.upsertFile({ id: meta.fileId, name: meta.name }, json);
+          }
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { intervalMs: (uiSettings.general?.autosaveInterval ?? 5) * 60 * 1000 },
+    );
+    autoSaveRef.current.start();
+  }
   /** Ref mirror of the active tool, updated synchronously in setTool so that
    *  createShapeAt sees the latest tool even when React 18 automatic batching
    *  queues a setTool + createShapeAt together. Without this, createShapeAt
@@ -797,6 +902,20 @@ export function EditorProvider({
   const toolRef = useRef<ToolId>(state.tool);
   const prototypeRuntimeRef = useRef<PrototypeRuntime | null>(null);
   const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
+
+  /** Notify auto-save on every document mutation. */
+  useEffect(() => {
+    if (state.dirty && autoSaveRef.current) {
+      autoSaveRef.current.notifyEdit();
+    }
+  }, [state.document, state.dirty]);
+
+  /** Cleanup auto-save on unmount. */
+  useEffect(() => {
+    return () => {
+      autoSaveRef.current?.stop();
+    };
+  }, []);
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -1017,7 +1136,7 @@ export function EditorProvider({
         const sel = state.selection;
         if (sel.length === 0) return;
         const firstNode = state.document.nodes[sel[0]!];
-        if (!firstNode || firstNode.kind !== 'shape') return;
+        if (firstNode?.kind !== 'shape') return;
         const targetFill = firstNode.fill;
         const matchingIds: NodeId[] = [];
         for (const n of Object.values(state.document.nodes)) {
@@ -2002,11 +2121,54 @@ export function EditorProvider({
         patch({ document: createDocument('Untitled'), selection: [] });
       },
 
-      serializeDocument: () => JSON.stringify(state.document),
+      serializeDocument: () => {
+        const stamped = { ...state.document, formatVersion: '1.0' };
+        return JSON.stringify(stamped);
+      },
+
+      save: async () => {
+        if (!platform) {
+          patch({ saveState: 'error' });
+          return false;
+        }
+        patch({ saveState: 'saving' });
+        try {
+          const s = stateRef.current;
+          const meta = s.sessions.find((sess) => sess.id === s.activeId);
+          const json = JSON.stringify({ ...s.document, formatVersion: '1.0' });
+          if (meta?.fileId) {
+            await platform.upsertFile({ id: meta.fileId, name: meta.name }, json);
+          } else {
+            return await saveAsImpl(platform, stateRef, recoveryRef, patch);
+          }
+          await recoveryRef.current?.deleteSession(s.activeId);
+          patch({
+            dirty: false,
+            saveState: 'saved',
+            lastSavedAt: Date.now(),
+            sessions: s.sessions.map((sess) =>
+              sess.id === s.activeId ? { ...sess, dirty: false } : sess,
+            ),
+          });
+          return true;
+        } catch {
+          patch({ saveState: 'error' });
+          return false;
+        }
+      },
+
+      saveAs: async () => {
+        return await saveAsImpl(platform, stateRef, recoveryRef, patch);
+      },
+
+      saveState: state.saveState,
+      lastSavedAt: state.lastSavedAt,
 
       loadDocument: (json, meta) => {
         try {
-          const doc = JSON.parse(json) as Document;
+          const migrated = migrateDocumentJson(json);
+          if (!migrated) throw new Error('Migration failed');
+          const doc = migrated as unknown as Document;
           undoStackRef.current = [];
           redoStackRef.current = [];
           undoSelStackRef.current = [];
@@ -2168,7 +2330,7 @@ export function EditorProvider({
         if (!id) return;
         setState((s) => {
           const node = s.document.nodes[id];
-          if (!node || node.kind !== 'group') return s;
+          if (node?.kind !== 'group') return s;
           const childIds = [...node.children];
           if (!inTransactionRef.current) {
             undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
@@ -2300,29 +2462,37 @@ export function EditorProvider({
         });
       },
 
-      importNode: (node, sourceDoc) => {
+      importNode: (node, sourceDoc, options) => {
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
           let doc = s.document;
           const { id, doc: d2 } = nextNodeId(doc);
           doc = d2;
-          const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
-          const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
-          const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
-          const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
-          const imported = {
-            ...node,
-            id,
-            transform: [
-              node.transform[0],
-              node.transform[1],
-              node.transform[2],
-              node.transform[3],
-              (node.transform[4] ?? 0) + offsetX,
-              (node.transform[5] ?? 0) + offsetY,
-            ] as Affine,
-          } as SceneNode;
+          // Apply explicit position if provided, otherwise center in viewport
+          const imported = options?.position
+            ? ({
+                ...applyDropPosition({ ...node, id } as SceneNode, options.position),
+                id,
+              } as SceneNode)
+            : (() => {
+                const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
+                const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
+                const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
+                const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
+                return {
+                  ...node,
+                  id,
+                  transform: [
+                    node.transform[0],
+                    node.transform[1],
+                    node.transform[2],
+                    node.transform[3],
+                    (node.transform[4] ?? 0) + offsetX,
+                    (node.transform[5] ?? 0) + offsetY,
+                  ] as Affine,
+                } as SceneNode;
+              })();
           doc = addNode(doc, imported);
           return { ...s, document: doc, selection: [id] };
         });
@@ -2582,7 +2752,12 @@ export function EditorProvider({
         // Parse up front; null/invalid json = fresh blank document (new file).
         let doc: Document;
         try {
-          doc = json ? (JSON.parse(json) as Document) : createDocument(name || 'Untitled');
+          if (json) {
+            const migrated = migrateDocumentJson(json);
+            doc = (migrated as unknown as Document) ?? createDocument(name || 'Untitled');
+          } else {
+            doc = createDocument(name || 'Untitled');
+          }
         } catch {
           doc = createDocument(name || 'Untitled');
         }
@@ -2923,6 +3098,7 @@ export function EditorProvider({
       setFocusedField,
       showExportDialog,
       prototypeCurrentScreen,
+      platform,
     ],
   );
 

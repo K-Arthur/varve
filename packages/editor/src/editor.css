@@ -958,6 +958,11 @@
   outline-offset: -3px;
   background-color: color-mix(in oklch, var(--color-accent-primary) 5%, transparent);
 }
+.editor-canvas--dnd-over {
+  outline: 3px solid var(--color-accent-primary);
+  outline-offset: -3px;
+  background-color: color-mix(in oklch, var(--color-accent-primary) 8%, transparent);
+}
 
 /* ════════════════════════════════════════════════════════════
    Onboarding — Welcome Dialog

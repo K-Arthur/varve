@@ -9,6 +9,7 @@
  *                 ToolManager pattern from Figma/Penpot architecture.
  */
 
+import { useDroppable } from '@dnd-kit/core';
 import {
   createEngine,
   type Engine,
@@ -31,6 +32,7 @@ import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { TextEditOverlay } from './components/TextEditOverlay';
 import { VariantBox } from './components/VariantBox/VariantBox';
 import { nodeWorldBoundsFn, useEditor } from './context';
+import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { SelectionOverlay } from './SelectionOverlay';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
@@ -154,11 +156,19 @@ function parseGridTemplate(template: string, totalSize: number): number[] {
   return sizes.map((s) => (s === 'fr' ? frPx : s));
 }
 
-export function CanvasArea() {
+export function CanvasArea({
+  canvasContainerRef,
+}: {
+  canvasContainerRef?: React.RefObject<HTMLDivElement | null>;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const announcer = useRef<HTMLDivElement>(null);
   const editor = useEditor();
   const { state, rootNodes } = editor;
+  const { setNodeRef: setDroppableRef, isOver: isCanvasDropOver } = useDroppable({
+    id: 'canvas-drop-zone',
+    data: { accepts: ['layer', 'file', 'Files'] },
+  });
 
   const engineRef = useRef<Engine | null>(null);
   const stateRef = useRef(state);
@@ -1067,36 +1077,68 @@ export function CanvasArea() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-    const svgFiles = files.filter((f) => f.name.endsWith('.svg') || f.type === 'image/svg+xml');
-    const imgFiles = files.filter((f) => f.type.startsWith('image/') && f.type !== 'image/svg+xml');
+
+    // Get drop position in world coordinates
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cam = {
+      pan: [stateRef.current.pan.x, stateRef.current.pan.y] as [number, number],
+      zoom: stateRef.current.zoom,
+    };
+    const dropWorld = rect ? screenToWorld(cam, e.clientX - rect.left, e.clientY - rect.top) : null;
+
     const reader = editorRef.current;
-    for (const svg of svgFiles) {
-      const text = await svg.text();
-      const result = importFile(svg.name, text, { center: true, embedImages: true });
-      for (const id of result.nodeIds) {
-        const node = result.document.nodes[id];
-        if (node) reader.importNode(node, result.document);
-      }
-      reader.announceOperation('Import', `Imported ${svg.name}`);
+
+    // First check for dnd-kit native files (strata file type)
+    const strataFiles = e.dataTransfer.types?.includes('application/x-strata-file');
+    if (strataFiles) {
+      // Handled by dnd-kit's onDragEnd instead
+      return;
     }
-    for (const img of imgFiles) {
-      const buf = await img.arrayBuffer();
-      const result = importFile(img.name, new Uint8Array(buf), { center: true, embedImages: true });
+
+    // Collect all OS files (including folders via FileSystemEntry API)
+    const files = await collectFilesFromDataTransfer(e.dataTransfer);
+    if (files.length === 0) return;
+
+    for (const [i, file] of files.entries()) {
+      const result = importFile(file.name, file.data, {
+        center: !dropWorld,
+        embedImages: true,
+      });
       for (const id of result.nodeIds) {
         const node = result.document.nodes[id];
-        if (node) reader.importNode(node, result.document);
+        if (node) {
+          // Apply position if we have a drop world coordinate
+          const positionedNode = dropWorld
+            ? applyDropPosition(node, {
+                x: dropWorld[0] + i * 40,
+                y: dropWorld[1] + i * 40,
+              })
+            : node;
+          reader.importNode(positionedNode, result.document);
+        }
       }
-      reader.announceOperation('Import', `Imported ${img.name}`);
+      reader.announceOperation('Import', `Imported ${file.name}`);
     }
   }, []);
 
   const gridSize = Math.max(4, 24 * state.zoom);
 
+  const canvasDropClass = isCanvasDropOver ? ' editor-canvas--dnd-over' : '';
+
+  const setCombinedRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      setDroppableRef(el);
+      if (canvasContainerRef) {
+        (canvasContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+      }
+    },
+    [setDroppableRef, canvasContainerRef],
+  );
+
   return (
     <section
-      className={`editor-canvas${isDragOver ? ' editor-canvas--drag-over' : ''}`}
+      ref={setCombinedRef}
+      className={`editor-canvas${isDragOver ? ' editor-canvas--drag-over' : ''}${canvasDropClass}`}
       aria-label="Canvas"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
