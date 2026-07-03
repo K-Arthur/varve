@@ -10,6 +10,7 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 import { applyFilterChain } from './filters';
+import { layoutRichText } from './textLayout';
 import type { Color, FillIR, RenderItem } from './types';
 
 export interface ReplayTarget {
@@ -341,9 +342,26 @@ function paintImageFill(
     if (fit === 'stretch') {
       target.drawImage(fill.src, bounds.x, bounds.y, bounds.w, bounds.h);
     } else if (fit === 'tile') {
-      paintTiledImage(target, fill.src, bounds, imageWidth, imageHeight, fill.x ?? 0, fill.y ?? 0, fill.scale ?? 1);
+      paintTiledImage(
+        target,
+        fill.src,
+        bounds,
+        imageWidth,
+        imageHeight,
+        fill.x ?? 0,
+        fill.y ?? 0,
+        fill.scale ?? 1,
+      );
     } else {
-      const { x, y, w, h } = computeImageFillRect(fit, bounds, imageWidth, imageHeight, fill.x ?? 0, fill.y ?? 0, fill.scale ?? 1);
+      const { x, y, w, h } = computeImageFillRect(
+        fit,
+        bounds,
+        imageWidth,
+        imageHeight,
+        fill.x ?? 0,
+        fill.y ?? 0,
+        fill.scale ?? 1,
+      );
       target.drawImage(fill.src, x, y, w, h);
     }
   } else {
@@ -418,7 +436,12 @@ function computeImageFillRect(
     }
   }
 
-  return { x: bounds.x + offsetX + (bounds.w - w) / 2, y: bounds.y + offsetY + (bounds.h - h) / 2, w, h };
+  return {
+    x: bounds.x + offsetX + (bounds.w - w) / 2,
+    y: bounds.y + offsetY + (bounds.h - h) / 2,
+    w,
+    h,
+  };
 }
 
 /** Create a gradient fillStyle string from a FillIR gradient. */
@@ -588,11 +611,72 @@ function applyTextCase(text: string, textCase: string): string {
   }
 }
 
+/** Paint rich text using the typography layout engine. */
+function paintRichText(
+  target: ReplayTarget,
+  p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+): void {
+  const defaultFormat = {
+    fontSize: p.fontSize,
+    fontFamily: p.fontFamily,
+    fontWeight: p.fontWeight,
+    fontStyle: p.fontStyle,
+    letterSpacing: p.letterSpacing,
+    lineHeight: p.lineHeight,
+    textCase: p.textCase,
+    textDecoration: p.textDecoration,
+  };
+  const positioned = layoutRichText(p.richText!, p.w, defaultFormat);
+
+  let yOffset = 0;
+  if (p.textAlignVertical === 'middle') yOffset = (p.h - positioned.height) / 2;
+  else if (p.textAlignVertical === 'bottom') yOffset = p.h - positioned.height;
+
+  const originalFillStyle = target.fillStyle;
+
+  for (const line of positioned.lines) {
+    let xOffset = 0;
+    if (p.textAlign === 'center') xOffset = (p.w - line.width) / 2;
+    else if (p.textAlign === 'right') xOffset = p.w - line.width;
+
+    for (const run of line.runs) {
+      target.font = run.font;
+      if (run.format.color && run.format.color[3] > 0) {
+        target.fillStyle = rgba(run.format.color);
+      }
+      target.fillText(run.text, p.x + run.x + xOffset, p.y + run.y + yOffset);
+
+      if (
+        run.format.textDecoration === 'underline' ||
+        run.format.textDecoration === 'line-through'
+      ) {
+        const decoY =
+          run.format.textDecoration === 'underline'
+            ? p.y + run.y + yOffset + run.format.fontSize * 1.1
+            : p.y + run.y + yOffset + run.format.fontSize * 0.5;
+        target.beginPath();
+        target.moveTo(p.x + run.x + xOffset, decoY);
+        target.lineTo(p.x + run.x + xOffset + run.width, decoY);
+        target.strokeStyle = target.fillStyle;
+        target.lineWidth = 1;
+        target.stroke();
+      }
+
+      target.fillStyle = originalFillStyle;
+    }
+  }
+}
+
 /** Paint a text primitive via Canvas2D `fillText` with full typography support. */
 function paintText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
 ): void {
+  if (p.richText) {
+    paintRichText(target, p);
+    return;
+  }
+
   const style = p.fontStyle === 'italic' ? 'italic ' : '';
   const fw = Math.max(1, Math.min(1000, p.fontWeight));
   target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
@@ -664,12 +748,13 @@ function paintText(
 
     // Draw text with letter spacing if needed
     if (ls !== 0 && displayLine.length > 1) {
-      // Letter spacing: draw each character individually
+      // Letter spacing: draw each character individually, using the real glyph width when possible.
       let cursorX = xOrigin;
       for (let ci = 0; ci < displayLine.length; ci++) {
         const char = displayLine[ci] ?? '';
         target.fillText(char, cursorX, y);
-        cursorX += p.fontSize * 0.6 + ls;
+        // Measure the actual glyph advance so spacing is correct for non-monospace fonts.
+        cursorX += measureTextAdvance(target, char) + ls;
       }
     } else {
       target.fillText(displayLine, xOrigin, y);
@@ -688,6 +773,21 @@ function paintText(
       target.stroke();
     }
   }
+}
+
+/** Measure the width of a single character in the current canvas font. Falls back to an estimate. */
+function measureTextAdvance(target: ReplayTarget, char: string): number {
+  if (typeof document === 'undefined') return target.font ? parseFontSize(target.font) * 0.6 : 0;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return parseFontSize(target.font) * 0.6;
+  ctx.font = target.font;
+  return ctx.measureText(char).width;
+}
+
+function parseFontSize(font: string): number {
+  const match = /(\d+(?:\.\d+)?)px/.exec(font);
+  return match ? Number.parseFloat(match[1]) : 16;
 }
 
 /** Paint a closed/open path fill. */
