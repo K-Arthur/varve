@@ -202,12 +202,12 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       {isFrame && !isComponentInstance && <FramePresetsSection mode="resize" />}
       <PositionSizeSection nodes={nodes} />
       {isRect && <CornerRadiusSection nodes={nodes} />}
+      {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />
-      {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
     </>
   );
 }

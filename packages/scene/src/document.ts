@@ -151,6 +151,12 @@ export function makeTextNode(
       | 'textAlign'
       | 'textCase'
       | 'textDecoration'
+      | 'textAlignVertical'
+      | 'textOverflow'
+      | 'textResizing'
+      | 'listStyle'
+      | 'paragraphSpacing'
+      | 'openTypeFeatures'
       | 'opacity'
       | 'blendMode'
       | 'rotation'
@@ -185,6 +191,12 @@ export function makeTextNode(
     textAlign: opts.textAlign ?? 'left',
     textCase: opts.textCase,
     textDecoration: opts.textDecoration,
+    textAlignVertical: opts.textAlignVertical,
+    textOverflow: opts.textOverflow,
+    textResizing: opts.textResizing,
+    listStyle: opts.listStyle,
+    paragraphSpacing: opts.paragraphSpacing,
+    openTypeFeatures: opts.openTypeFeatures,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
   };

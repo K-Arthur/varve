@@ -225,6 +225,61 @@ describe('createEngine (stub)', () => {
     }
   });
 
+  it('uses content-aware text sizing instead of hardcoded w/h', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 't1',
+          name: 't1',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: [0, 0, 0, 255],
+          text: 'Hello world',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+        },
+        {
+          id: 't2',
+          name: 't2',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: [0, 0, 0, 255],
+          text: 'A',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+        },
+        {
+          id: 't3',
+          name: 't3',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: [0, 0, 0, 255],
+          text: '',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+        },
+      ],
+    });
+    const t1 = ir[0]?.primitive;
+    const t2 = ir[1]?.primitive;
+    const t3 = ir[2]?.primitive;
+    if (t1?.kind === 'text' && t2?.kind === 'text' && t3?.kind === 'text') {
+      // "Hello world" (11 chars) should be wider than "A" (1 char)
+      expect(t1.w).toBeGreaterThan(t2.w);
+      // Empty text should have at least minimum width
+      expect(t3.w).toBeGreaterThanOrEqual(16);
+      // Height should use lineHeight multiplier
+      expect(t1.h).toBeCloseTo(16 * (t1.lineHeight ?? 1.4), 0);
+    }
+  });
+
   it('passes textAlign from scene node to IR primitive', async () => {
     const eng = await createEngine();
     const ir = await eng.buildIr({

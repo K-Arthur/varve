@@ -1268,8 +1268,12 @@ export function CanvasArea({
           const canvasRect = canvasRef.current?.getBoundingClientRect();
           const canvasLeft = canvasRect?.left ?? 0;
           const canvasTop = canvasRect?.top ?? 0;
-          const textScreenX = n.transform[4] * state.zoom + state.pan.x + canvasLeft;
-          const textScreenY = n.transform[5] * state.zoom + state.pan.y + canvasTop;
+          // Compose world transform (includes ancestor frames + own rotation/scale)
+          const textWorldMat = nodeWorldTransform(state.document, textEditTargetId);
+          const worldX = textWorldMat[4];
+          const worldY = textWorldMat[5];
+          const textScreenX = worldX * state.zoom + state.pan.x + canvasLeft;
+          const textScreenY = worldY * state.zoom + state.pan.y + canvasTop;
           const textScreenW =
             (n.text.length > 0
               ? n.text.length * (n.fontSize ?? 16) * 0.6
@@ -1288,6 +1292,9 @@ export function CanvasArea({
                 zoom={state.zoom}
                 pan={state.pan}
                 canvasElement={canvasRef.current}
+                worldX={worldX}
+                worldY={worldY}
+                worldTransform={textWorldMat}
                 onCommit={() => setTextEditTargetId(null)}
                 onUpdateText={(text) => {
                   editor.updateNode(textEditTargetId, (node) =>

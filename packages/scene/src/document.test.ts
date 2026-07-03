@@ -486,6 +486,23 @@ describe('makeTextNode', () => {
     expect(node.letterSpacing).toBe(2);
   });
 
+  it('accepts advanced typography properties', () => {
+    const node = makeTextNode('t4', 'Advanced', {
+      textAlignVertical: 'middle',
+      paragraphSpacing: 12,
+      listStyle: 'disc',
+      textOverflow: 'ellipsis',
+      textResizing: 'autoHeight',
+      openTypeFeatures: { liga: true, kern: true },
+    });
+    expect(node.textAlignVertical).toBe('middle');
+    expect(node.paragraphSpacing).toBe(12);
+    expect(node.listStyle).toBe('disc');
+    expect(node.textOverflow).toBe('ellipsis');
+    expect(node.textResizing).toBe('autoHeight');
+    expect(node.openTypeFeatures).toEqual({ liga: true, kern: true });
+  });
+
   it('produces a valid TextNode that can be added to a document', () => {
     let doc = createDocument();
     const { id, doc: d2 } = nextNodeId(doc);
