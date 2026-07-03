@@ -250,7 +250,7 @@
   --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
 
   /* Micro-borders (dark mode — more visible). */
-  --border-micro: 1px solid oklch(1 1 1 / 0.08);
+  --border-micro: 1px solid oklch(1 0 0 / 0.08);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
 }
 
@@ -380,7 +380,7 @@
     --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
 
     /* Micro-borders (dark mode — more visible). */
-    --border-micro: 1px solid oklch(1 1 1 / 0.08);
+    --border-micro: 1px solid oklch(1 0 0 / 0.08);
     --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
   }
 }
