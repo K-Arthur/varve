@@ -1,12 +1,13 @@
 /**
  * Tests for scene-level adjustment layer helpers.
  */
-import { describe, expect, it } from 'vitest';
+
 import type { Adjustment } from '@strata/engine';
+import { describe, expect, it } from 'vitest';
 import {
+  type AdjustmentLayerNode,
   adjustmentEnabledCount,
   makeAdjustment,
-  type AdjustmentLayerNode,
   visibleAdjustments,
 } from './adjustments';
 

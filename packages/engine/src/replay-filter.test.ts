@@ -58,7 +58,9 @@ function rectItem(w: number, h: number): RenderItem {
   return {
     transform: [1, 0, 0, 1, 0, 0],
     fill: [0, 0, 0, 255],
-    fills: [{ type: 'solid', color: [255, 0, 0, 255], opacity: 1, blendMode: 'normal', visible: true }],
+    fills: [
+      { type: 'solid', color: [255, 0, 0, 255], opacity: 1, blendMode: 'normal', visible: true },
+    ],
     primitive: { kind: 'rect', x: 0, y: 0, w, h, cornerRadius: 2 },
     opacity: 1,
     blendMode: 'normal',
@@ -78,7 +80,9 @@ describe('replay filter chain', () => {
     const { target, calls } = makeRecorder();
     const item = {
       ...rectItem(10, 10),
-      filters: [{ kind: 'brightness' as const, value: 30, opacity: 1, blendMode: 'normal' as const }],
+      filters: [
+        { kind: 'brightness' as const, value: 30, opacity: 1, blendMode: 'normal' as const },
+      ],
     };
     replayIr(target, [item]);
     expect(calls.some((c) => c === 'fill filter=brightness(130%)')).toBe(true);
@@ -89,7 +93,16 @@ describe('replay filter chain', () => {
     replayIr(target, [
       {
         ...rectItem(10, 10),
-        filters: [{ kind: 'exposure' as const, value: 1, offset: 0, gammaCorrection: 1, opacity: 1, blendMode: 'normal' as const }],
+        filters: [
+          {
+            kind: 'exposure' as const,
+            value: 1,
+            offset: 0,
+            gammaCorrection: 1,
+            opacity: 1,
+            blendMode: 'normal' as const,
+          },
+        ],
       },
     ]);
     expect(calls.some((c) => c.startsWith('fill filter=') && c !== 'fill filter=none')).toBe(false);

@@ -23,6 +23,7 @@ export type {
   CurvesAdjustment,
   CurvesPoint,
   ExposureAdjustment,
+  FilterIR,
   GrayscaleAdjustment,
   HueRotateAdjustment,
   InvertAdjustment,
@@ -37,8 +38,6 @@ export type {
   TintAdjustment,
   VibranceAdjustment,
 } from '@strata/engine';
-
-export type { FilterIR } from '@strata/engine';
 
 import type { Adjustment, AdjustmentBlendMode } from '@strata/engine';
 

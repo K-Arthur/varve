@@ -65,14 +65,14 @@ type ColorShim = readonly [number, number, number, number];
 export function srgbToLinear(c: number): number {
   const v = c / 255;
   if (v <= 0.04045) return v / 12.92;
-  return ((v + 0.055) / 1.055) ** 2.4;
+  return Math.pow((v + 0.055) / 1.055, 2.4);
 }
 
 /**
  * sRGB gamma compression: linear (0-1) → 8-bit (0-255).
  */
 export function linearToSrgb(c: number): number {
-  const v = c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
+  const v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
   return Math.round(v * 255);
 }
 
@@ -101,33 +101,23 @@ export function linearRgbToRgb(linear: [number, number, number]): [number, numbe
  */
 
 const SRGB_TO_XYZ: readonly [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
+  number, number, number,
+  number, number, number,
+  number, number, number,
 ] = [
-  0.4124564, 0.3575761, 0.1804375, 0.2126729, 0.7151522, 0.072175, 0.0193339, 0.119192, 0.9503041,
+  0.4124564, 0.3575761, 0.1804375,
+  0.2126729, 0.7151522, 0.0721750,
+  0.0193339, 0.1191920, 0.9503041,
 ];
 
 const XYZ_TO_SRGB: readonly [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
+  number, number, number,
+  number, number, number,
+  number, number, number,
 ] = [
-  3.2409699419045226, -1.5373831775700939, -0.4986107602930034, -0.9692436362808796,
-  1.8759675015077202, 0.0415550574071756, 0.05563007969699366, -0.2039769606406722,
-  1.0569715142428786,
+  3.2409699419045226, -1.5373831775700939, -0.4986107602930034,
+  -0.9692436362808796, 1.8759675015077202, 0.0415550574071756,
+  0.05563007969699366, -0.20397696064067220, 1.0569715142428786,
 ];
 
 function mul3x3(
@@ -170,39 +160,28 @@ export function xyzD65ToLinearRgb(xyz: [number, number, number]): [number, numbe
  */
 
 const BRADFORD_D65_TO_D50: readonly [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
+  number, number, number,
+  number, number, number,
+  number, number, number,
 ] = [
-  1.0479298208405488, 0.0229467933410191, -0.0501922295431357, 0.0296278156881593,
-  0.990434484573249, -0.0170738250293851, -0.00924305815259118, 0.0150551448965779,
-  0.7518742899580008,
+  1.0479298208405488, 0.0229467933410191, -0.0501922295431357,
+  0.0296278156881593, 0.990434484573249, -0.0170738250293851,
+  -0.00924305815259118, 0.0150551448965779, 0.7518742899580008,
 ];
 
 const BRADFORD_D50_TO_D65: readonly [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
+  number, number, number,
+  number, number, number,
+  number, number, number,
 ] = [
-  0.9554734529412182, -0.0230985368742614, 0.0632593086610217, -0.0283697099638638,
-  1.0099954580106629, 0.021041398966943, 0.0123140016883199, -0.0205076964334779,
-  1.3303659366080753,
+  0.9554734529412182, -0.0230985368742614, 0.0632593086610217,
+  -0.0283697099638638, 1.0099954580106629, 0.0210413989669430,
+  0.0123140016883199, -0.0205076964334779, 1.3303659366080753,
 ];
 
 // ── D65 and D50 white points (CIE 1931 2° standard observer) ────────────────
 
+const D65_WHITE: [number, number, number] = [0.95047, 1.0, 1.08883];
 const D50_WHITE: [number, number, number] = [0.96422, 1.0, 0.82521];
 
 // ── CIE Lab ─────────────────────────────────────────────────────────────────
@@ -290,23 +269,27 @@ export function labToXyz(lab: [number, number, number]): [number, number, number
  */
 
 const M1: readonly [number, number, number, number, number, number, number, number, number] = [
-  0.4122214708, 0.5363325363, 0.0514459929, 0.2119034982, 0.6806995451, 0.1073969566, 0.0883024619,
-  0.2817188376, 0.6299787005,
+  0.4122214708, 0.5363325363, 0.0514459929,
+  0.2119034982, 0.6806995451, 0.1073969566,
+  0.0883024619, 0.2817188376, 0.6299787005,
 ];
 
 const M2: readonly [number, number, number, number, number, number, number, number, number] = [
-  0.2104542553, 0.793617785, -0.0040720468, 1.9779984951, -2.428592205, 0.4505937099, 0.0259040371,
-  0.7827717662, -0.808675766,
+  0.2104542553, 0.7936177850, -0.0040720468,
+  1.9779984951, -2.4285922050, 0.4505937099,
+  0.0259040371, 0.7827717662, -0.8086757660,
 ];
 
 const M2_INV: readonly [number, number, number, number, number, number, number, number, number] = [
-  1.0, 0.3963377774, 0.2158037573, 1.0, -0.1055613458, -0.0638541728, 1.0, -0.0894841775,
-  -1.291485548,
+  1.0, 0.3963377774, 0.2158037573,
+  1.0, -0.1055613458, -0.0638541728,
+  1.0, -0.0894841775, -1.2914855480,
 ];
 
 const M1_INV: readonly [number, number, number, number, number, number, number, number, number] = [
-  4.0767416621, -3.3077115913, 0.2309699292, -1.2684380046, 2.6097574011, -0.3413193965,
-  -0.0041960863, -0.7034186147, 1.707614701,
+  4.0767416621, -3.3077115913, 0.2309699292,
+  -1.2684380046, 2.6097574011, -0.3413193965,
+  -0.0041960863, -0.7034186147, 1.7076147010,
 ];
 
 /**
@@ -344,7 +327,11 @@ export function oklabToLinearSrgb(lab: [number, number, number]): [number, numbe
  * C' = 1 - R, M' = 1 - G, Y' = 1 - B, K = min(C', M', Y'),
  * then C = (C' - K) / (1 - K), etc.
  */
-export function rgbToCmyk(r: number, g: number, b: number): [number, number, number, number] {
+export function rgbToCmyk(
+  r: number,
+  g: number,
+  b: number,
+): [number, number, number, number] {
   const rc = 1 - r / 255;
   const gc = 1 - g / 255;
   const bc = 1 - b / 255;
@@ -362,7 +349,12 @@ export function rgbToCmyk(r: number, g: number, b: number): [number, number, num
 /**
  * CMYK (0-255 per channel) → RGB (0-255).
  */
-export function cmykToRgb(c: number, m: number, y: number, k: number): [number, number, number] {
+export function cmykToRgb(
+  c: number,
+  m: number,
+  y: number,
+  k: number,
+): [number, number, number] {
   const rc = c / 255;
   const rm = m / 255;
   const ry = y / 255;
@@ -458,14 +450,9 @@ export function managedColorToEngineColor(color: ManagedColorShim): ColorShim {
  * Check if linear sRGB [r,g,b] is in-gamut (all channels in [0,1]).
  */
 function inGamut(linear: [number, number, number]): boolean {
-  return (
-    linear[0] >= 0 &&
-    linear[0] <= 1 &&
-    linear[1] >= 0 &&
-    linear[1] <= 1 &&
-    linear[2] >= 0 &&
-    linear[2] <= 1
-  );
+  return linear[0] >= 0 && linear[0] <= 1
+    && linear[1] >= 0 && linear[1] <= 1
+    && linear[2] >= 0 && linear[2] <= 1;
 }
 
 /**

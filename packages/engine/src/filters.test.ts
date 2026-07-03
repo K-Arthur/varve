@@ -3,16 +3,16 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Adjustment } from './filters';
-import type { FilterIR } from './types';
 import {
-  adjustmentToFilter,
   adjustmentsToFilters,
+  adjustmentToFilter,
   applyFilterChain,
   filterChainToCss,
   filterKindDisplayName,
   filterToCss,
   makeAdjustment,
 } from './filters';
+import type { FilterIR } from './types';
 
 function narrow<K extends FilterIR['kind']>(
   filter: FilterIR,
