@@ -38,7 +38,7 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
       fontStyle: (node.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
       letterSpacing: node.letterSpacing,
       lineHeight: node.lineHeight,
-      textCase: (node.textCase as 'none' | 'uppercase' | 'lowercase' | 'capitalize' | undefined),
+      textCase: node.textCase as 'none' | 'uppercase' | 'lowercase' | 'capitalize' | undefined,
     });
     return {
       kind: 'text',

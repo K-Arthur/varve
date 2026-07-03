@@ -207,9 +207,18 @@ describe('EditorContext', () => {
 
     // Create a doc with: root → frame → rectChild
     let doc = createDocument('hit-test');
-    const frame = makeFrameNode('f1', { name: 'Frame', w: 200, h: 200, transform: [1, 0, 0, 1, 0, 0] });
+    const frame = makeFrameNode('f1', {
+      name: 'Frame',
+      w: 200,
+      h: 200,
+      transform: [1, 0, 0, 1, 0, 0],
+    });
     doc = addNode(doc, frame);
-    const rect = makeShapeNode('r1', { kind: 'rect', x: 50, y: 50, w: 100, h: 100 }, { name: 'Rect' });
+    const rect = makeShapeNode(
+      'r1',
+      { kind: 'rect', x: 50, y: 50, w: 100, h: 100 },
+      { name: 'Rect' },
+    );
     doc = addChild(doc, 'f1', rect);
 
     let ctx: ReturnType<typeof useEditor> | undefined;
@@ -243,7 +252,11 @@ describe('EditorContext', () => {
     let doc = createDocument('hit-test');
     const frame = makeFrameNode('f1', { name: 'Frame', w: 200, h: 200 });
     doc = addNode(doc, frame);
-    const rect = makeShapeNode('r1', { kind: 'rect', x: 150, y: 150, w: 30, h: 30 }, { name: 'Rect' });
+    const rect = makeShapeNode(
+      'r1',
+      { kind: 'rect', x: 150, y: 150, w: 30, h: 30 },
+      { name: 'Rect' },
+    );
     doc = addChild(doc, 'f1', rect);
 
     let ctx: ReturnType<typeof useEditor> | undefined;
