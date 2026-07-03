@@ -95,9 +95,9 @@ export interface Timeline {
 }
 
 /**
- * Create a new timeline with the given parameters.
+ * Create a new timeline object with the given parameters (does not add to Document).
  */
-export function createTimeline(
+export function makeTimelineObject(
   id: string,
   name: string,
   duration: number,

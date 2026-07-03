@@ -9,7 +9,7 @@
  * Research basis: Web Animations API §5 Animation model (keyframe effect
  * value computation), GSAP TweenLite.render(), Lottie interpolators.
  */
-import type { Document, Timeline, AnimationTrack, AnimationKeyframe } from '@strata/scene';
+import type { Document, Timeline, AnimationKeyframe } from '@strata/scene';
 import { interpolateValue } from '@strata/shared';
 import { getEasingFn } from '@strata/shared';
 import type { EasingDefinition } from '@strata/shared';
@@ -64,19 +64,19 @@ function interpolateTrack(
   defaultEasing: EasingDefinition,
 ): unknown {
   if (keyframes.length === 0) return undefined;
-  if (keyframes.length === 1) return keyframes[0].value;
+  if (keyframes.length === 1) return keyframes[0]!.value;
 
   // Sort by progress (defensive — should already be sorted)
   const sorted = [...keyframes].sort((a, b) => a.progress - b.progress);
 
   // Clamp at boundaries
-  if (progress <= sorted[0].progress) return sorted[0].value;
-  if (progress >= sorted[sorted.length - 1].progress) return sorted[sorted.length - 1].value;
+  if (progress <= sorted[0]!.progress) return sorted[0]!.value;
+  if (progress >= sorted[sorted.length - 1]!.progress) return sorted[sorted.length - 1]!.value;
 
   // Find surrounding keyframes
   for (let i = 0; i < sorted.length - 1; i++) {
-    const before = sorted[i];
-    const after = sorted[i + 1];
+    const before = sorted[i]!;
+    const after = sorted[i + 1]!;
 
     if (progress >= before.progress && progress <= after.progress) {
       const range = after.progress - before.progress;
@@ -90,5 +90,5 @@ function interpolateTrack(
     }
   }
 
-  return sorted[sorted.length - 1].value;
+  return sorted[sorted.length - 1]!.value;
 }

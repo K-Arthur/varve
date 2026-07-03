@@ -7,15 +7,11 @@
  *
  * Timelines are stored on Document.timelines as Record<string, Timeline>.
  */
+import type { EasingDefinition } from '@strata/shared';
 import type { Document } from './document';
 import type { NodeId } from './types';
-import type {
-  AnimationKeyframe,
-  AnimationTrack,
-  EasingDefinition,
-  Timeline,
-} from './motion-types';
-import { createTimeline as makeTimeline } from './motion-types';
+import type { AnimationKeyframe, AnimationTrack, Timeline } from './motion-types';
+import { makeTimelineObject } from './motion-types';
 
 function timelineId(): string {
   return `tl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -35,7 +31,7 @@ export function createTimeline(
   defaultEasing?: EasingDefinition,
 ): { doc: Document; id: string } {
   const id = timelineId();
-  const timeline = makeTimeline(id, name, duration, defaultEasing);
+  const timeline = makeTimelineObject(id, name, duration, defaultEasing);
   return {
     doc: {
       ...doc,
@@ -134,6 +130,7 @@ export function addTrack(
 export function removeTrack(doc: Document, timelineId: string, trackId: string): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
+  if (!timeline.tracks.some((t) => t.id === trackId)) return doc;
   return {
     ...doc,
     timelines: {
@@ -155,6 +152,7 @@ export function updateTrack(
 ): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
+  if (!timeline.tracks.some((t) => t.id === trackId)) return doc;
   return {
     ...doc,
     timelines: {
@@ -178,6 +176,7 @@ export function addKeyframe(
 ): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
+  if (!timeline.tracks.some((t) => t.id === trackId)) return doc;
 
   const tracks = timeline.tracks.map((t) => {
     if (t.id !== trackId) return t;
@@ -212,6 +211,8 @@ export function removeKeyframe(
 ): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
+  const track = timeline.tracks.find((t) => t.id === trackId);
+  if (!track || !track.keyframes.some((k) => k.progress === progress)) return doc;
   return {
     ...doc,
     timelines: {
