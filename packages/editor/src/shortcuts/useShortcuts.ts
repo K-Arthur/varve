@@ -22,6 +22,18 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => e.redo();
       case 'delete':
         return () => e.removeSelected();
+      case 'copy':
+        return () => e.copySelected();
+      case 'cut':
+        return () => e.cutSelected();
+      case 'paste':
+        return () => e.paste();
+      case 'duplicate':
+        return () => e.duplicateSelected();
+      case 'flipH':
+        return () => e.setSelectedFlipH();
+      case 'flipV':
+        return () => e.setSelectedFlipV();
       case 'newDocument':
         return () => e.newDocument();
       case 'open':
@@ -53,7 +65,7 @@ export function useShortcuts(editor: EditorContextValue): {
           URL.revokeObjectURL(url);
         };
       case 'zoomReset':
-        return () => e.setZoom(1);
+        return () => e.zoomTo(1);
       case 'zoomIn':
         return () => e.zoomIn();
       case 'zoomOut':
@@ -63,17 +75,17 @@ export function useShortcuts(editor: EditorContextValue): {
       case 'fitSelection':
         return () => e.revealSelection({ fit: true });
       case 'zoom50':
-        return () => e.setZoom(0.5);
+        return () => e.zoomTo(0.5);
       case 'zoom75':
-        return () => e.setZoom(0.75);
+        return () => e.zoomTo(0.75);
       case 'zoom100':
-        return () => e.setZoom(1);
+        return () => e.zoomTo(1);
       case 'zoom150':
-        return () => e.setZoom(1.5);
+        return () => e.zoomTo(1.5);
       case 'zoom200':
-        return () => e.setZoom(2);
+        return () => e.zoomTo(2);
       case 'zoom400':
-        return () => e.setZoom(4);
+        return () => e.zoomTo(4);
       case 'selectAll':
         return () => {
           const nodes = e.rootNodes();
@@ -185,6 +197,9 @@ export function useShortcuts(editor: EditorContextValue): {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // The canvas keydown handler (zoom presets, tool keys, Space-pan) calls
+      // preventDefault on keys it consumes — don't double-handle them here.
+      if (e.defaultPrevented) return;
       const tag = (e.target as HTMLElement).tagName?.toLowerCase();
       if (
         tag === 'input' ||
