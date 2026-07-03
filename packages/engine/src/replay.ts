@@ -9,6 +9,7 @@
  * F6 (Phase 2): opacity, blend modes, per-fill compositing, stacked strokes
  * and effects, plus arrow/path/image primitive rendering.
  */
+import { mapBlendMode } from './compositeCanvas';
 import type { Color, FillIR, RenderItem } from './types';
 
 export interface ReplayTarget {
@@ -181,49 +182,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
   }
 }
 
-/** Map Strata blend mode to CSS compositing operator. */
-function mapBlendMode(mode: string): string {
-  switch (mode) {
-    case 'multiply':
-      return 'multiply';
-    case 'screen':
-      return 'screen';
-    case 'overlay':
-      return 'overlay';
-    case 'darken':
-      return 'darken';
-    case 'lighten':
-      return 'lighten';
-    case 'colorDodge':
-      return 'color-dodge';
-    case 'colorBurn':
-      return 'color-burn';
-    case 'hardLight':
-      return 'hard-light';
-    case 'softLight':
-      return 'soft-light';
-    case 'difference':
-      return 'difference';
-    case 'exclusion':
-      return 'exclusion';
-    case 'hue':
-      return 'hue';
-    case 'saturation':
-      return 'saturation';
-    case 'color':
-      return 'color';
-    case 'luminosity':
-      return 'luminosity';
-    case 'plusDarker':
-      return 'plus-darker';
-    case 'plusLighter':
-      return 'plus-lighter';
-    case 'passThrough':
-      return 'source-over';
-    default:
-      return 'source-over';
-  }
-}
+
 
 /** Paint a single fill (solid or gradient) over the primitive shape. */
 function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
