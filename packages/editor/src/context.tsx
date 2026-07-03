@@ -38,8 +38,10 @@ import type { ExportPreset, NodeId, Slot } from '@strata/scene';
 import {
   type ArrangeOp,
   addChild,
+  addGuide as addGuideDoc,
   addNode,
   arrangeNode as arrangeNodeDoc,
+  clearGuides,
   createComponent,
   createDocument,
   createVariableStore,
@@ -49,13 +51,16 @@ import {
   fillSlot as fillSlotDoc,
   getParent,
   groupNodes as groupNodesDoc,
+  type Guide,
   instantiate as instantiateComponent,
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
+  moveGuide as moveGuideDoc,
   moveNode,
   nextNodeId,
+  removeGuide as removeGuideDoc,
   removeNode,
   renameNode,
   reparentNode as reparentNodeDoc,
@@ -63,13 +68,19 @@ import {
   resolve,
   resolveNodeFills,
   type SceneNode,
+  setVariantForInstance as setVariantForInstanceDoc,
+  addComponentProperty as addComponentPropertyDoc,
+  createVariant as createVariantDoc,
+  resolveVariantProperties,
   swapInstance as swapInstanceDoc,
+  toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
   type Variable,
   type VariableStore,
   type VariableValue,
   walkNodes,
 } from '@strata/scene';
+
 import {
   clampZoom,
   fitBoundsCamera,
@@ -131,6 +142,8 @@ export interface SessionMeta {
   name: string;
   dirty: boolean;
   filePath?: string;
+  /** Platform file-entry id this tab was opened from (for tab dedupe). */
+  fileId?: string;
 }
 
 export interface EditorState {
@@ -197,6 +210,10 @@ export interface EditorContextValue {
   isSelected: (id: NodeId) => boolean;
   /** All selected scene nodes — works for nested nodes (uses doc.nodes lookup). */
   selectedNodes: () => SceneNode[];
+  /** Select all visible unlocked nodes of the same kind as the first selected node. */
+  selectAllWithSameType: () => void;
+  /** Select all visible unlocked shape nodes matching the first selected node's fill. */
+  selectAllWithSameFill: () => void;
   /** Create a shape/frame node from the current tool at the given world-space point. */
   createShapeAt: (
     world: { x: number; y: number },
@@ -334,6 +351,12 @@ export interface EditorContextValue {
   serializeDocument: () => string;
   /** Load a document from a JSON string. */
   loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
+  /**
+   * Open a file into a tab: switches to an existing tab for the same file,
+   * reuses a pristine blank tab, or opens a new tab. `json: null` creates a
+   * fresh blank document (new-file flow).
+   */
+  openFile: (fileId: string, name: string, filePath: string | undefined, json: string | null) => void;
   /** Visible root-level nodes in paint order (layers panel, IR). */
   rootNodes: () => SceneNode[];
   /** Register a component definition from a frame. */
@@ -444,6 +467,41 @@ export interface EditorContextValue {
   prototypeCurrentScreen: string;
   /** Navigate to a prototype screen */
   navigatePrototypeTo: (screenId: string) => void;
+
+  // ── Guide management ────────────────────────────────────────────────────────
+
+  /** Add a layout guide at the given axis and world position. */
+  addGuide: (axis: 'horizontal' | 'vertical', position: number) => void;
+  /** Remove a guide by id. */
+  removeGuide: (id: string) => void;
+  /** Move a guide to a new world position. */
+  moveGuide: (id: string, position: number) => void;
+  /** Toggle a guide's locked state. */
+  toggleGuideLock: (id: string) => void;
+  /** Remove all guides from the document. */
+  clearAllGuides: () => void;
+  /** All guides in the document. */
+  guides: Guide[];
+
+  /** Set the active variant on a component instance. */
+  setVariantForInstance: (instanceId: NodeId, variantId: string) => void;
+  /** Create a new variant for a component. */
+  createVariant: (
+    componentId: NodeId,
+    name: string,
+    propertyValues: Record<string, string | boolean | NodeId>,
+  ) => void;
+  /** Add a component property to a component definition. */
+  addComponentProperty: (
+    componentId: NodeId,
+    prop: {
+      name: string;
+      type: 'text' | 'boolean' | 'instanceSwap';
+      defaultValue: string | boolean | NodeId;
+    },
+  ) => void;
+  /** Resolve properties for a node considering its active variant. */
+  resolveVariantPropertiesForNode: (nodeId: NodeId) => Record<string, string | boolean | NodeId>;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -931,6 +989,49 @@ export function EditorProvider({
         state.selection
           .map((id) => state.document.nodes[id])
           .filter((n): n is SceneNode => Boolean(n)),
+
+      // B3: Select-similar actions
+      selectAllWithSameType: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const firstNode = state.document.nodes[sel[0]!];
+        if (!firstNode) return;
+        const targetKind = firstNode.kind;
+        const matchingIds: NodeId[] = [];
+        for (const n of Object.values(state.document.nodes)) {
+          if (n && n.kind === targetKind && n.visible && !n.locked && n.id !== firstNode.id) {
+            matchingIds.push(n.id);
+          }
+        }
+        if (matchingIds.length > 0) {
+          patch({ selection: [firstNode.id, ...matchingIds] });
+          announce(`Selected ${matchingIds.length + 1} ${targetKind} nodes`);
+        }
+      },
+      selectAllWithSameFill: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const firstNode = state.document.nodes[sel[0]!];
+        if (!firstNode || firstNode.kind !== 'shape') return;
+        const targetFill = firstNode.fill;
+        const matchingIds: NodeId[] = [];
+        for (const n of Object.values(state.document.nodes)) {
+          if (
+            n &&
+            n.kind === 'shape' &&
+            n.visible &&
+            !n.locked &&
+            n.id !== firstNode.id &&
+            colorsEqual(n.fill, targetFill)
+          ) {
+            matchingIds.push(n.id);
+          }
+        }
+        if (matchingIds.length > 0) {
+          patch({ selection: [firstNode.id, ...matchingIds] });
+          announce(`Selected ${matchingIds.length + 1} nodes with matching fill`);
+        }
+      },
 
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
       createShapeAt: (world, size, parentId, pathPoints) => {
@@ -1944,6 +2045,32 @@ export function EditorProvider({
         updateDoc((doc) => resetInstanceOverridesDoc(doc, instanceId));
       },
 
+      setVariantForInstance: (instanceId, variantId) => {
+        updateDoc((doc) => setVariantForInstanceDoc(doc, instanceId, variantId));
+      },
+
+      createVariant: (componentId, name, propertyValues) => {
+        updateDoc((doc) => {
+          const { doc: newDoc } = createVariantDoc(doc, componentId, name, propertyValues);
+          return newDoc;
+        });
+      },
+
+      addComponentProperty: (componentId, prop) => {
+        updateDoc((doc) => {
+          const { doc: newDoc } = addComponentPropertyDoc(doc, componentId, prop);
+          return newDoc;
+        });
+      },
+
+      resolveVariantPropertiesForNode: (nodeId) => {
+        const node = state.document.nodes[nodeId];
+        if (node?.kind !== 'frame') return {};
+        const frame = node;
+        if (!frame.componentId || !frame.variant) return {};
+        return resolveVariantProperties(state.document, frame.componentId, frame.variant);
+      },
+
       setNodeLocked: (id, locked) => {
         updateNodeProp(id, (n) => ({ ...n, locked }));
       },
@@ -2439,24 +2566,102 @@ export function EditorProvider({
         });
       },
 
-      openFile: (_id: string, name: string, filePath: string | undefined, json: string) => {
+      openFile: (fileId: string, name: string, filePath: string | undefined, json: string | null) => {
+        // Parse up front; null/invalid json = fresh blank document (new file).
+        let doc: Document;
         try {
-          const doc = JSON.parse(json) as Document;
-          const newId = `session-${Date.now()}`;
+          doc = json ? (JSON.parse(json) as Document) : createDocument(name || 'Untitled');
+        } catch {
+          doc = createDocument(name || 'Untitled');
+        }
+        setState((s) => {
+          // Dedupe: if this file is already open in a tab, switch to it
+          // instead of opening a duplicate.
+          const existing = s.sessions.find(
+            (sess) =>
+              (fileId && sess.fileId === fileId) || (filePath && sess.filePath === filePath),
+          );
+          const snapshotCurrent = () => {
+            sessionStoreRef.current.set(s.activeId, {
+              document: s.document,
+              selection: s.selection,
+              viewport: { zoom: s.zoom, pan: s.pan },
+              undo: [...undoStackRef.current],
+              redo: [...redoStackRef.current],
+              undoSel: [...undoSelStackRef.current],
+              redoSel: [...redoSelStackRef.current],
+              variableStore: s.variableStore,
+            });
+          };
+          const syncedSessions = s.sessions.map((sess) =>
+            sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
+          );
+
+          if (existing && existing.id !== s.activeId) {
+            snapshotCurrent();
+            const saved = sessionStoreRef.current.get(existing.id);
+            undoStackRef.current = saved ? [...saved.undo] : [];
+            redoStackRef.current = saved ? [...saved.redo] : [];
+            undoSelStackRef.current = saved ? [...saved.undoSel] : [];
+            redoSelStackRef.current = saved ? [...saved.redoSel] : [];
+            return {
+              ...s,
+              document: saved?.document ?? doc,
+              selection: saved?.selection ?? [],
+              zoom: saved?.viewport.zoom ?? 1,
+              pan: saved?.viewport.pan ?? { x: 0, y: 0 },
+              dirty: existing.dirty,
+              variableStore: saved?.variableStore ?? createVariableStore(),
+              sessions: syncedSessions,
+              activeId: existing.id,
+            };
+          }
+          if (existing) return s; // already the active tab
+
           undoStackRef.current = [];
           redoStackRef.current = [];
           undoSelStackRef.current = [];
           redoSelStackRef.current = [];
-          patch({
+
+          // Reuse a pristine active tab (fresh Untitled, empty, unmodified)
+          // instead of leaving a stray blank tab behind.
+          const activeMeta = s.sessions.find((sess) => sess.id === s.activeId);
+          const pristine =
+            !s.dirty &&
+            s.document.rootChildren.length === 0 &&
+            activeMeta?.name === 'Untitled' &&
+            !activeMeta?.filePath &&
+            !activeMeta?.fileId;
+          if (pristine) {
+            return {
+              ...s,
+              document: doc,
+              selection: [],
+              zoom: 1,
+              pan: { x: 0, y: 0 },
+              dirty: false,
+              variableStore: createVariableStore(),
+              sessions: s.sessions.map((sess) =>
+                sess.id === s.activeId ? { ...sess, name, filePath, fileId } : sess,
+              ),
+              activeId: s.activeId,
+            };
+          }
+
+          snapshotCurrent();
+          const newId = `session-${Date.now()}`;
+          return {
+            ...s,
             document: doc,
             selection: [],
-            sessions: [...state.sessions, { id: newId, name, dirty: false, filePath }],
-            activeId: newId,
+            zoom: 1,
+            pan: { x: 0, y: 0 },
             dirty: false,
-          });
-        } catch {
-          // invalid JSON — ignore silently
-        }
+            variableStore: createVariableStore(),
+            sessions: [...syncedSessions, { id: newId, name, dirty: false, filePath, fileId }],
+            activeId: newId,
+          };
+        });
       },
 
       showExportDialog,
@@ -2627,6 +2832,30 @@ export function EditorProvider({
         setPrototypeCurrentScreen(screenId);
       },
 
+      // ── Guide management implementations ─────────────────────────────────
+
+      guides: state.document.guides ?? [],
+
+      addGuide: (axis, position) => {
+        updateDoc((doc) => addGuideDoc(doc, axis, position));
+      },
+
+      removeGuide: (id) => {
+        updateDoc((doc) => removeGuideDoc(doc, id));
+      },
+
+      moveGuide: (id, position) => {
+        updateDoc((doc) => moveGuideDoc(doc, id, position));
+      },
+
+      toggleGuideLock: (id) => {
+        updateDoc((doc) => toggleGuideLockDoc(doc, id));
+      },
+
+      clearAllGuides: () => {
+        updateDoc((doc) => clearGuides(doc));
+      },
+
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
@@ -2738,4 +2967,11 @@ function buildShapeWithSize(tool: ToolId, size: { w: number; h: number }): Shape
     default:
       return { kind: 'rect', x: 0, y: 0, w: size.w, h: size.h };
   }
+}
+
+/** Compare two RGBA color tuples by value. */
+function colorsEqual(a: unknown, b: unknown): boolean {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  return a.every((v, i) => v === (b as number[])[i]);
 }
