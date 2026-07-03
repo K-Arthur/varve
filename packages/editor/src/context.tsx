@@ -41,8 +41,11 @@ import {
   addChild,
   addComponentProperty as addComponentPropertyDoc,
   addGuide as addGuideDoc,
+  addKeyframe,
   addNode,
+  addTrack,
   arrangeNode as arrangeNodeDoc,
+  getNestedValue,
   clearGuides,
   createComponent,
   createDocument,
@@ -102,7 +105,6 @@ import {
   useState,
 } from 'react';
 import { AutoSaveService } from './autoSaveService';
-import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   readClipboardImages,
   readClipboardText,
@@ -116,6 +118,8 @@ import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import type { DraftShape } from './tools/types';
+import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
+import { createInitialMotionState, type MotionState, type MotionTimelineEngine } from './state/motion-state';
 
 // Forward declaration for use in createShapeAt guard
 export type ToolId =
@@ -194,6 +198,8 @@ export interface EditorState {
   leftPanelVisible: boolean;
   /** Inspector (right) panel visibility — persisted in editor settings. */
   rightPanelVisible: boolean;
+  /** Motion/animation playback state. */
+  motion: MotionState;
 }
 
 export interface EditorContextValue {
@@ -495,6 +501,25 @@ export interface EditorContextValue {
   prototypeCurrentScreen: string;
   /** Navigate to a prototype screen */
   navigatePrototypeTo: (screenId: string) => void;
+
+  // ── Motion / Animation ─────────────────────────────────────────────────────
+
+  /** Start playback of the active timeline. */
+  playTimeline: (timelineId?: string) => void;
+  /** Pause active timeline playback. */
+  pauseTimeline: () => void;
+  /** Stop active timeline playback and reset to start. */
+  stopTimeline: () => void;
+  /** Seek to a specific time in the active timeline. */
+  seekTimeline: (time: number) => void;
+  /** Set the active timeline by id (or null to deactivate). */
+  setActiveTimeline: (id: string | null) => void;
+  /** Set playback speed multiplier. */
+  setPlaybackSpeed: (speed: number) => void;
+  /** Toggle loop playback. */
+  toggleLoop: () => void;
+  /** Add a keyframe at current time for selected nodes on the given property. */
+  addKeyframeToSelected: (property: string) => void;
 
   // ── Guide management ────────────────────────────────────────────────────────
 
@@ -836,6 +861,7 @@ export function EditorProvider({
       isPresenting: false,
       leftPanelVisible: loadSettings().panel.leftPanelVisible,
       rightPanelVisible: loadSettings().panel.rightPanelVisible,
+      motion: createInitialMotionState(),
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -907,6 +933,7 @@ export function EditorProvider({
   const toolRef = useRef<ToolId>(state.tool);
   const prototypeRuntimeRef = useRef<PrototypeRuntime | null>(null);
   const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
+  const motionEngRef = useRef<MotionTimelineEngine | null>(null);
 
   /** Notify auto-save on every document mutation. */
   useEffect(() => {
@@ -3023,6 +3050,81 @@ export function EditorProvider({
         setPrototypeCurrentScreen(screenId);
       },
 
+      // ── Motion / Animation implementations ────────────────────────────────────
+
+      playTimeline: (timelineId) => {
+        const tlId = timelineId ?? state.motion.activeTimelineId;
+        if (!tlId) return;
+        const timeline = state.document.timelines?.[tlId];
+        if (!timeline) return;
+        let eng = motionEngRef.current;
+        if (!eng) {
+          eng = { engine: null, startPlayback() {}, pausePlayback() {}, stopPlayback() {}, seekPlayback() {}, setPlaybackSpeed() {}, getCurrentSample() { return { overrides: new Map() }; } };
+          motionEngRef.current = eng;
+        }
+        eng.startPlayback(timeline);
+        patch({ motion: { ...state.motion, isPlaying: true, activeTimelineId: tlId } });
+      },
+
+      pauseTimeline: () => {
+        const eng = motionEngRef.current;
+        if (eng) eng.pausePlayback();
+        patch({ motion: { ...state.motion, isPlaying: false } });
+      },
+
+      stopTimeline: () => {
+        const eng = motionEngRef.current;
+        if (eng) eng.stopPlayback();
+        patch({ motion: { ...state.motion, isPlaying: false, currentTime: 0 } });
+      },
+
+      seekTimeline: (time) => {
+        const eng = motionEngRef.current;
+        if (eng) eng.seekPlayback(time);
+        patch({ motion: { ...state.motion, currentTime: Math.max(0, time) } });
+      },
+
+      setActiveTimeline: (id) => {
+        patch({ motion: { ...state.motion, activeTimelineId: id, currentTime: 0, isPlaying: false } });
+      },
+
+      setPlaybackSpeed: (speed) => {
+        const eng = motionEngRef.current;
+        if (eng) eng.setPlaybackSpeed(speed);
+        patch({ motion: { ...state.motion, playbackSpeed: speed } });
+      },
+
+      toggleLoop: () => {
+        patch({ motion: { ...state.motion, loop: !state.motion.loop } });
+      },
+
+      addKeyframeToSelected: (property) => {
+        const tlId = state.motion.activeTimelineId;
+        if (!tlId || state.selection.length === 0) return;
+        updateDoc((doc) => {
+          let d = doc;
+          const timeline = d.timelines?.[tlId];
+          if (!timeline) return d;
+          const progress = timeline.duration > 0
+            ? state.motion.currentTime / timeline.duration
+            : 0;
+          for (const nodeId of state.selection) {
+            const node = d.nodes[nodeId];
+            if (!node) continue;
+            const existingTrack = timeline.tracks.find(
+              (t) => t.nodeId === nodeId && t.property === property,
+            );
+            if (existingTrack) {
+              d = addKeyframe(d, tlId, existingTrack.id, { progress, value: getPropertyValueAt(node, property) });
+            } else {
+              const { doc: d2, trackId } = addTrack(d, tlId, nodeId, property);
+              d = addKeyframe(d2, tlId, trackId, { progress, value: getPropertyValueAt(node, property) });
+            }
+          }
+          return d;
+        });
+      },
+
       // ── Guide management implementations ─────────────────────────────────
 
       guides: state.document.guides ?? [],
@@ -3166,4 +3268,19 @@ function colorsEqual(a: unknown, b: unknown): boolean {
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
   return a.every((v, i) => v === (b as number[])[i]);
+}
+
+/** Extract a property value from a scene node for keyframe storage. */
+function getPropertyValueAt(node: import('@strata/scene').SceneNode, property: string): unknown {
+  if (property === 'opacity') return node.opacity;
+  if (property === 'rotation') return node.rotation;
+  if (property === 'fill' || property.startsWith('fill[')) return node.fill;
+  if (property === 'transform' || property.startsWith('transform[')) {
+    const t = (node as import('@strata/scene').ShapeNode).transform;
+    return t ?? [1, 0, 0, 1, 0, 0];
+  }
+  if ('w' in node && property === 'w') return (node as import('@strata/scene').FrameNode).w;
+  if ('h' in node && property === 'h') return (node as import('@strata/scene').FrameNode).h;
+  if (property === 'fontSize' && 'fontSize' in node) return (node as import('@strata/scene').TextNode).fontSize;
+  return getNestedValue(node as unknown as Record<string, unknown>, property.split('.')) ?? 0;
 }
