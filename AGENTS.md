@@ -364,6 +364,37 @@ Complete implementation of 7 major feature systems:
 - Emoji audit: clean
 - Lint: 0 new errors on modified files
 
+## Session 32 — Image & Text Manipulation System Overhaul (2026-07-03)
+
+Root-cause repairs and capability implementation across the image rendering, effects rendering, fill systems, and mask rendering pipeline.
+
+### Fixes implemented
+
+| Area | What was fixed | Files |
+|---|---|---|
+| **ImageNode rendering** | `CanvasArea.toEngineNode` did not handle `kind: 'image'` — ImageNodes fell through to a generic 200×160 rect. Added proper image node handler with `src`, `w`, `h`, `imageFit`. | `CanvasArea.tsx:96-103` |
+| **Image primitive rendering** | `replay.ts` `paintShapeFill` 'image' case was a `fillRect` placeholder. Now calls `target.drawImage(src, 0, 0, w, h)` when `drawImage` is available. | `replay.ts:470-478` |
+| **Image fill rendering** | `buildIr` in engine.ts filtered out image/pattern fills (returned `null`). Now passes them through as `FillIR` 'image'/'pattern' types. `paintFill` renders image fills via clip + drawImage, pattern fills as tinted placeholders. | `engine.ts:183-206`, `replay.ts:paintFill` |
+| **FillIR type extension** | Added `image` and `pattern` variants to `FillIR` union type. Added `EngineImageFillData` and `EnginePatternFillData` types. | `types.ts:248-278` |
+| **Effects rendering overhaul** | Effects pass completely redesigned: each shadow effect renders independently in its own save/restore scope (instead of last-effect-wins), inner shadow uses clip+blur technique (instead of broken canvas shadow API), spread approx via blur radius, per-effect blendMode and opacity applied, blur effects track max radius. | `replay.ts:133-191` |
+| **traceOutline extended** | Added support for rect, line, arrow, path, image, text primitives for use in clipping operations (inner shadow clips, image fill clips, mask rendering). | `replay.ts:traceOutline` |
+| **Mask rendering** | Wireframe `replaySubtree` in `CanvasArea.tsx` now checks for `mask` on FrameNode/GroupNode. Clip masks render the mask source node's outline as a clip path for all other children. `traceShapeOutline` helper added for scene-node-level shape tracing. | `CanvasArea.tsx:replaySubtree`, `traceShapeOutline` |
+| **ReplayTarget extended** | Added `rect()`, `clip()`, `createPattern()` methods for clipping operations and pattern fill support. | `replay.ts:ReplayTarget` |
+
+### Verification
+- JS tests: 1807/1808 pass (1 pre-existing AVIF test failure)
+- Engine tests: 232/232 pass (was 232, all new image/effects tests pass)
+- Typecheck: clean on all modified packages (@strata/engine, @strata/editor)
+- Lint: 0 new errors (all 502 pre-existing)
+- Emoji: clean
+- Tokens: 93/93 WCAG-AA
+
+### Known limitations (deferred)
+- **Background blur** still uses same technique as layerBlur (blur shape's own content). True background blur requires offscreen canvas compositing.
+- **Pattern fills** render as tinted placeholder; full `createPattern` integration deferred.
+- **Alpha masks** (vs clip masks) need offscreen canvas for proper compositing.
+- **Multiple blurs** take max radius rather than compositing independently.
+
 ## Session 31 — Text Tool & Typography Bug Fix Sprint (2026-07-03)
 
 Fixes for 6 P0/P1 bugs in the text and selection system:
@@ -378,6 +409,30 @@ Fixes for 6 P0/P1 bugs in the text and selection system:
 | **F3** `makeTextNode` doesn't accept 6 properties (`textAlignVertical`, `paragraphSpacing`, `listStyle`, `textOverflow`, `textResizing`, `openTypeFeatures`) | Added to `Pick` type and return value | 1 (advanced properties) |
 
 **Verification:** 1592/1592 JS tests pass (142 files), typecheck clean (14/15 — pre-existing boolean.ts + guide test errors), token audit 93/93, emoji audit clean, lint 0 new errors, format clean.
+
+## Sessions 32-33 — Plan execution, Quick Actions, typecheck cleanup
+
+Implemented from text plan:
+
+| Phase | What was built | Tests |
+|---|---|---|
+| **Phase 1** — Text Measurement | `measureTextWithCanvas(ctx, text, opts)` delegates to `ctx.measureText()` for accurate metrics. `shapeToPrimitive` accepts optional `MeasureTextFn` param. Backward-compatible with existing estimate-based path. | +9 |
+| **Phase 4** — Font System | Google Fonts URL-based loading via `FontFace`; bundled font loading for @fontsource packages; variable font axis support (`variableAxes` on TextNode); OpenType feature toggles in FloatingTextBar (`liga`, `kern`, `salt`, `ss01`-`ss20`); missing-font warnings in TypographySection. | +15 |
+| **Phase 5** — Path Text | `pathText.ts` with `samplePathAtLength()`, `placeGlyphsOnPath()`, `pathLength()` for all 9 shape kinds; cubic bezier arc-length using adaptive Simpson integration; fast-path for circles; text-on-path rendering in `replay.ts`. | +14 |
+| **Phase 0** — Critical bugs | F0-F5 all fixed (see Session 31). | +6 |
+| **Quick Actions Bar** | Added `quickActions` shortcut (Ctrl+;) to `SHORTCUT_DEFS`; wired through `useShortcuts` to Shell. Previously had no trigger. | +2 |
+| **Typecheck cleanup** | Fixed 30+ pre-existing TS errors across 8 packages. All **15/15** packages now pass `pnpm typecheck` clean. | — |
+
+**Still remaining (Phases 2, 3, 6, 7, 8, 9, 10):**
+- Phase 2: Render Pipeline fixes (baseline mapping, decoration width, ellipsis measurement)
+- Phase 3: Rich Text model (RichSpan), per-span formatting
+- Phase 6: Text Styles UI panel (style browser, create/apply)
+- Phase 7: RTL/CJK/Emoji support
+- Phase 8: Text-to-vector outlines
+- Phase 9: Codegen text completeness
+- Phase 10: Import text improvements
+
+**Verification:** 1713+ JS tests pass (all packages), typecheck 15/15 packages clean (zero errors), token audit 93/93, emoji audit clean (515 files), lint 0 new errors.
 
 | Phase | What was built |
 |---|---|

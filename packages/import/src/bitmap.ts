@@ -208,9 +208,10 @@ function readTiffDimensions(data: Uint8Array): ImageDimensions {
 }
 
 function readAvifDimensions(data: Uint8Array): ImageDimensions {
-  // AVIF uses ISOBMFF boxes. Scan for 'ispe' (ImageSpatialExtents) box.
+  // AVIF uses ISOBMFF boxes. Scan top-level boxes for 'meta', then scan
+  // its children for 'ispe' (ImageSpatialExtents).
   let offset = 0;
-  while (offset + 8 < data.length) {
+  while (offset + 8 <= data.length) {
     const boxSize = readUint32BE(data, offset);
     const boxType = String.fromCharCode(
       data[offset + 4] ?? 0,
@@ -223,6 +224,29 @@ function readAvifDimensions(data: Uint8Array): ImageDimensions {
       const w = readUint32BE(data, offset + 12);
       const h = readUint32BE(data, offset + 16);
       return { w, h };
+    }
+    if (boxType === 'meta') {
+      // meta is a full box: 4 bytes version+flags after type
+      // Scan children inside meta box (offset+12 to offset+boxSize)
+      let inner = offset + 12;
+      const metaEnd = boxSize > 0 ? offset + boxSize : data.length;
+      while (inner + 8 <= metaEnd && inner + 8 <= data.length) {
+        const innerSize = readUint32BE(data, inner);
+        const innerType = String.fromCharCode(
+          data[inner + 4] ?? 0,
+          data[inner + 5] ?? 0,
+          data[inner + 6] ?? 0,
+          data[inner + 7] ?? 0,
+        );
+        if (innerType === 'ispe') {
+          if (inner + 20 > data.length) return { w: 0, h: 0 };
+          const w = readUint32BE(data, inner + 12);
+          const h = readUint32BE(data, inner + 16);
+          return { w, h };
+        }
+        if (innerSize < 8) break;
+        inner += innerSize;
+      }
     }
     if (boxSize < 8) break;
     offset += boxSize;
