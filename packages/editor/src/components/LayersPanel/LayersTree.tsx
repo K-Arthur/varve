@@ -826,6 +826,10 @@ function SortableVirtualRow({
     isDragging,
   } = useSortable({ id: node.id });
 
+  // CSS.Transform.toString(null) returns undefined; interpolating that yields
+  // "undefined translateY(…)" — an invalid transform the browser drops
+  // entirely, stacking every row at top:0. Only compose it when present.
+  const dndTransform = transform ? CSS.Transform.toString(transform) : '';
   const style = {
     position: 'absolute' as const,
     top: 0,
@@ -833,7 +837,7 @@ function SortableVirtualRow({
     width: '100%',
     transform: isDragging
       ? `translateY(${virtualItem.start}px)`
-      : `${CSS.Transform.toString(transform)} translateY(${virtualItem.start}px)`,
+      : `translateY(${virtualItem.start}px) ${dndTransform}`.trimEnd(),
     transition: `${transition || ''}`,
     opacity: isDragging ? 0.3 : undefined,
   };
