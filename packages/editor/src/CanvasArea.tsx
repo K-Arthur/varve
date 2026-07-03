@@ -10,7 +10,9 @@
  */
 
 import {
+  CompositeCanvas,
   createEngine,
+  mapBlendMode,
   type Engine,
   type SceneNode as EngineNode,
   type ReplayTarget,
@@ -321,52 +323,102 @@ export function CanvasArea() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
 
-      // Tree-aware replay: frames clip their children; groups are transparent containers.
-      // The clip polygon is computed in world space (current CTM = camera) by transforming
-      // the frame's local rect corners via its world transform.
-      function replaySubtree(nodeId: string): void {
+      // Tree-aware replay: frames clip their children; groups are transparent
+      // containers (or flattened with offscreen compositing for non-passThrough
+      // blend modes and opacity < 1). Masks clip children to a mask source path.
+      function replaySubtreeToCtx(nodeId: string, ctx: CanvasRenderingContext2D): void {
         const n = doc.nodes[nodeId];
         if (!n || n.visible === false) return;
         const item = irByNodeId.get(nodeId);
 
+        // ── Mask check (clip or alpha) ────────────────────────────────
+        const mask = 'mask' in n ? (n.mask as { type?: string; sourceNodeId?: string; visible?: boolean } | undefined) : undefined;
+        if (mask && mask.visible && mask.type === 'clip' && mask.sourceNodeId) {
+          ctx.save();
+          const maskNode = doc.nodes[mask.sourceNodeId];
+          if (maskNode) {
+            const maskBounds = nodeWorldBounds(doc, maskNode.id);
+            if (maskBounds) {
+              ctx.beginPath();
+              ctx.rect(maskBounds.x, maskBounds.y, maskBounds.w, maskBounds.h);
+              ctx.clip();
+            }
+          }
+          for (const childId of n.children) {
+            replaySubtreeToCtx(childId, ctx);
+          }
+          ctx.restore();
+          return;
+        }
+
         if (n.kind === 'frame') {
           // Paint frame background before establishing child clip.
-          if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);
+          if (item) replayIr(ctx as unknown as ReplayTarget, [item]);
           if (n.children.length > 0) {
             const shouldClip = n.clipContent !== false;
             if (shouldClip) {
-              // Compute frame rect corners in world space from the item's world transform.
-              // Affine [a,b,c,d,e,f]: point (x,y) → (a·x + c·y + e, b·x + d·y + f).
               const t = item?.transform ?? ([1, 0, 0, 1, 0, 0] as const);
               const [a, b, c, d, e, f] = t;
               const fw = n.w;
               const fh = n.h;
-              ctxNN.save();
-              ctxNN.beginPath();
-              ctxNN.moveTo(e, f);
-              ctxNN.lineTo(a * fw + e, b * fw + f);
-              ctxNN.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
-              ctxNN.lineTo(c * fh + e, d * fh + f);
-              ctxNN.closePath();
-              ctxNN.clip();
+              ctx.save();
+              ctx.beginPath();
+              ctx.moveTo(e, f);
+              ctx.lineTo(a * fw + e, b * fw + f);
+              ctx.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
+              ctx.lineTo(c * fh + e, d * fh + f);
+              ctx.closePath();
+              ctx.clip();
               for (const childId of n.children) {
-                replaySubtree(childId);
+                replaySubtreeToCtx(childId, ctx);
               }
-              ctxNN.restore();
+              ctx.restore();
             } else {
               for (const childId of n.children) {
-                replaySubtree(childId);
+                replaySubtreeToCtx(childId, ctx);
               }
             }
           }
         } else if (n.kind === 'group') {
-          // Groups are transparent pass-through containers; no background painted.
-          for (const childId of n.children) {
-            replaySubtree(childId);
+          const needsFlatten = (n.blendMode && n.blendMode !== 'normal' && n.blendMode !== 'passThrough') || (n.opacity !== undefined && n.opacity < 1);
+          if (needsFlatten && n.children.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const childId of n.children) {
+              const b = nodeWorldBounds(doc, childId);
+              if (b) { minX = Math.min(minX, b.x); minY = Math.min(minY, b.y); maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h); }
+            }
+            if (isFinite(minX)) {
+              ctx.save();
+              const gw = Math.ceil(maxX - minX) + 4;
+              const gh = Math.ceil(maxY - minY) + 4;
+              const gCanvas = new CompositeCanvas({ width: gw, height: gh, testCanvas: document.createElement('canvas') });
+              const gCtx = gCanvas.ctx;
+              gCtx.save();
+              gCtx.translate(-Math.floor(minX) + 2, -Math.floor(minY) + 2);
+              for (const childId of n.children) {
+                replaySubtreeToCtx(childId, gCtx as unknown as CanvasRenderingContext2D);
+              }
+              gCtx.restore();
+              const bm = n.blendMode ?? 'passThrough';
+              if (bm !== 'passThrough') {
+                ctx.globalCompositeOperation = mapBlendMode(bm);
+              }
+              ctx.globalAlpha = n.opacity ?? 1;
+              ctx.drawImage(gCanvas.canvas as CanvasImageSource, Math.floor(minX) - 2, Math.floor(minY) - 2);
+              ctx.restore();
+            }
+          } else {
+            for (const childId of n.children) {
+              replaySubtreeToCtx(childId, ctx);
+            }
           }
         } else {
-          if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);
+          if (item) replayIr(ctx as unknown as ReplayTarget, [item]);
         }
+      }
+
+      function replaySubtree(nodeId: string): void {
+        replaySubtreeToCtx(nodeId, ctxNN);
       }
 
       // Render root-level nodes in DFS paint order.
