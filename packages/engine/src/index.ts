@@ -15,12 +15,68 @@ export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
-export { CompositeCanvas, mapBlendMode, blendPixels } from './compositeCanvas';
+export { CompositeCanvas, mapBlendMode } from './compositeCanvas';
+export { blendPixels as canvasBlendPixels } from './compositeCanvas';
 export type { CompositeCanvasOptions } from './compositeCanvas';
+export {
+  blend,
+  blendPixels,
+  blendNormal,
+  blendMultiply,
+  blendScreen,
+  blendOverlay,
+  blendDarken,
+  blendLighten,
+  blendColorDodge,
+  blendColorBurn,
+  blendHardLight,
+  blendSoftLight,
+  blendDifference,
+  blendExclusion,
+  blendPlusDarker,
+  blendPlusLighter,
+} from './blendModes';
+export {
+  compositePixels,
+  porterDuffCompositing,
+  mapPorterDuffOp,
+} from './porterDuff';
+export type { PorterDuffOp } from './porterDuff';
+export {
+  blendHueW3C,
+  blendSaturationW3C,
+  blendColorW3C,
+  blendLuminosityW3C,
+  blendNonSeparable,
+  blendHueLch,
+  blendSaturationLch,
+  blendColorLch,
+  blendLuminosityLch,
+  lum,
+  clipColor,
+  setLum,
+  sat,
+  setSat,
+  rgbToLab,
+  labToRgb,
+  rgbToLch,
+  lchToRgb,
+} from './nonSeparable';
+export type { NonSeparableMode } from './nonSeparable';
 export type { ReplayTarget } from './replay';
 export { replayIr } from './replay';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
+export {
+  buildBrushMask,
+  clonePixels,
+  createBrushMask,
+  findBestPatch,
+  healPixels,
+  ncc,
+  patchRegion,
+  spotHeal,
+} from './retouch';
 export type { AdjustmentChannel, AdjustmentParams } from './adjustment';
 export type { CurvePoint } from './adjustment/curves';
 export type { Histogram, HistogramStats } from './adjustment/histogram';

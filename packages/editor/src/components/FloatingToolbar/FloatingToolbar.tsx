@@ -42,6 +42,10 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   booleanSubtract: 'Subtract',
   booleanIntersect: 'Intersect',
   booleanExclude: 'Exclude',
+  cloneStamp: 'Clone Stamp',
+  healBrush: 'Healing Brush',
+  spotHeal: 'Spot Heal',
+  patch: 'Patch Tool',
 };
 
 interface ToolButtonProps {
@@ -81,6 +85,10 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'eyedropper' },
   { id: 'scale' },
   { id: 'inspect' },
+  { id: 'cloneStamp', groupStart: true },
+  { id: 'healBrush' },
+  { id: 'spotHeal' },
+  { id: 'patch' },
 ];
 
 export function FloatingToolbar() {

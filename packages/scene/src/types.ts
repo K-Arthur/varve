@@ -296,6 +296,14 @@ export interface GroupNode extends NodeBase {
   children: NodeId[];
   /** Optional mask applied to children (clip or alpha). */
   mask?: Mask;
+  /**
+   * When true, the group composites as an isolated group (backdrop is
+   * transparent black). Default false (non-isolated = pass-through behavior
+   * for normal blend mode). Per W3C isolated group behavior §8.3:
+   * "An isolated group is one whose elements are composited onto a
+   * transparent black initial backdrop."
+   */
+  isolated?: boolean;
 }
 
 /** B2: TypeScript mirror of strata-layout LayoutStyle (Rust). */

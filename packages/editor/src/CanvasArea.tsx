@@ -33,12 +33,15 @@ import { SelectionOverlay } from './SelectionOverlay';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
 import { ArrowTool } from './tools/ArrowTool';
+import { CloneStampTool } from './tools/CloneStampTool';
 import { EllipseTool } from './tools/EllipseTool';
 import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
 import { HandTool } from './tools/HandTool';
+import { HealingBrushTool } from './tools/HealingBrushTool';
 import { LineTool } from './tools/LineTool';
 import { NodeEditTool } from './tools/NodeEditTool';
+import { PatchTool } from './tools/PatchTool';
 import { PencilTool } from './tools/PencilTool';
 import { PenTool } from './tools/PenTool';
 import { PolygonTool } from './tools/PolygonTool';
@@ -46,6 +49,7 @@ import { RectangleTool } from './tools/RectangleTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
 import { SliceTool } from './tools/SliceTool';
+import { SpotHealTool } from './tools/SpotHealTool';
 import { StarTool } from './tools/StarTool';
 import { type SnapGuide, snapPosition } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
@@ -114,6 +118,10 @@ function getToolManager(): ToolManager {
     toolManager.register('slice', () => new SliceTool());
     toolManager.register('eyedropper', () => new EyedropperTool());
     toolManager.register('nodeEdit', () => new NodeEditTool());
+    toolManager.register('cloneStamp', () => new CloneStampTool());
+    toolManager.register('healBrush', () => new HealingBrushTool());
+    toolManager.register('spotHeal', () => new SpotHealTool());
+    toolManager.register('patch', () => new PatchTool());
   }
   toolManager.setTool('select');
   return toolManager;
@@ -380,7 +388,10 @@ export function CanvasArea() {
             }
           }
         } else if (n.kind === 'group') {
-          const needsFlatten = (n.blendMode && n.blendMode !== 'normal' && n.blendMode !== 'passThrough') || (n.opacity !== undefined && n.opacity < 1);
+          const isIsolated = n.isolated === true;
+          const needsFlatten = (isIsolated)
+            || (n.blendMode && n.blendMode !== 'normal' && n.blendMode !== 'passThrough')
+            || (n.opacity !== undefined && n.opacity < 1);
           if (needsFlatten && n.children.length > 0) {
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             for (const childId of n.children) {
@@ -402,6 +413,8 @@ export function CanvasArea() {
               const bm = n.blendMode ?? 'passThrough';
               if (bm !== 'passThrough') {
                 ctx.globalCompositeOperation = mapBlendMode(bm);
+              } else if (isIsolated) {
+                ctx.globalCompositeOperation = 'source-over';
               }
               ctx.globalAlpha = n.opacity ?? 1;
               ctx.drawImage(gCanvas.canvas as CanvasImageSource, Math.floor(minX) - 2, Math.floor(minY) - 2);
