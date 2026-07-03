@@ -76,6 +76,11 @@ function shapeToPrimitive(node: SceneNode, measureTextFn?: MeasureTextFn): Rende
       textOverflow: (node.textOverflow as 'clip' | 'ellipsis' | 'visible' | undefined) ?? 'visible',
       listStyle:
         (node.listStyle as 'none' | 'disc' | 'decimal' | 'circle' | 'square' | undefined) ?? 'none',
+      richText: node.richText,
+      variableAxes: node.variableAxes,
+      openTypeFeatures: node.openTypeFeatures,
+      textMode: node.textMode,
+      pathTextSettings: node.pathTextSettings,
     };
   }
   const s = node.shape;
@@ -180,6 +185,11 @@ function stubEngine(): Engine {
                   type: 'image' as const,
                   src: f.image.src,
                   fit: f.image.fit,
+                  x: f.image.x,
+                  y: f.image.y,
+                  scale: f.image.scale,
+                  imageWidth: f.image.imageWidth,
+                  imageHeight: f.image.imageHeight,
                   opacity: f.opacity,
                   blendMode: f.blendMode,
                   visible: f.visible,
