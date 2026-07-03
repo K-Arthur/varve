@@ -145,17 +145,22 @@ function evaluateAtomic(
   return token;
 }
 
+/**
+ * Recursive descent parser for arithmetic expressions.
+ * Grammar: expr → term (('+' | '-') term)*
+ *          term → factor (('*' | '/') factor)*
+ *          factor → NUMBER | IDENTIFIER | '(' expr ')' | '-' factor
+ */
 function evaluateArithmetic(
   expr: string,
   variables: Record<string, VariablePrimitive>,
 ): VariablePrimitive {
-  // Handle string concatenation
+  // Handle string concatenation (simple split on + with string operands)
   const stringParts = expr.split(/\s*\+\s*/).map((s) => {
     const atomic = evaluateAtomic(s.trim(), variables);
     return String(atomic);
   });
   if (stringParts.length > 1) {
-    // Check if any operand was originally a string
     const hasStrings = stringParts.some((_, i) => {
       const part = expr.split(/\s*\+\s*/)[i]?.trim();
       return part ? part.startsWith('"') || part.startsWith("'") : false;
@@ -165,20 +170,84 @@ function evaluateArithmetic(
     }
   }
 
-  // Numeric expression evaluation
+  // Tokenize for numeric evaluation
   const tokens = expr.match(/(\d+\.?\d*|[+\-*/()]|[a-zA-Z_]\w*)/g);
   if (!tokens) return 0;
 
-  const resolvedTokens = tokens.map((t) => {
-    if (/^[a-zA-Z_]\w*$/.test(t) && t in variables) return String(variables[t]!);
+  // Resolve variable references
+  const resolved = tokens.map((t) => {
+    if (/^[a-zA-Z_]\w*$/.test(t) && t in variables) {
+      const val = variables[t]!;
+      return typeof val === 'number' ? val : 0;
+    }
     return t;
   });
 
+  // Recursive descent parser — no eval, no Function constructor
+  let pos = 0;
+  const input = resolved;
+
+  function peek(): string | undefined {
+    return input[pos];
+  }
+
+  function consume(): string {
+    return input[pos++]!;
+  }
+
+  function parseExpr(): number {
+    let left = parseTerm();
+    while (peek() === '+' || peek() === '-') {
+      const op = consume();
+      const right = parseTerm();
+      left = op === '+' ? left + right : left - right;
+    }
+    return left;
+  }
+
+  function parseTerm(): number {
+    let left = parseFactor();
+    while (peek() === '*' || peek() === '/') {
+      const op = consume();
+      const right = parseFactor();
+      left = op === '*' ? left * right : right !== 0 ? left / right : 0;
+    }
+    return left;
+  }
+
+  function parseFactor(): number {
+    const token = peek();
+    if (token === undefined) return 0;
+
+    // Unary minus
+    if (token === '-') {
+      consume();
+      return -parseFactor();
+    }
+
+    // Parenthesized expression
+    if (token === '(') {
+      consume(); // '('
+      const val = parseExpr();
+      consume(); // ')'
+      return val;
+    }
+
+    // Number literal
+    if (typeof token === 'number' || /^\d/.test(String(token))) {
+      const num = Number(consume());
+      return isNaN(num) ? 0 : num;
+    }
+
+    // Variable reference (resolved to number)
+    return Number(consume());
+  }
+
   try {
-    const result = new Function(`return ${resolvedTokens.join('')}`)();
-    return typeof result === 'number' ? result : 0;
+    const result = parseExpr();
+    return isNaN(result) ? 0 : result;
   } catch {
-    return resolvedTokens.join(' ');
+    return resolved.filter((t) => typeof t === 'string').join(' ');
   }
 }
 
