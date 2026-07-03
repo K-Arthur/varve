@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { VariableStore } from './variables';
 import {
   addVariableToCollection,
@@ -9,7 +10,6 @@ import {
   setActiveCollection,
   setCollectionMode,
 } from './variables';
-import { describe, expect, it } from 'vitest';
 
 function emptyStore(): VariableStore {
   return createVariableStore(['default']);

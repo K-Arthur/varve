@@ -103,7 +103,7 @@ export function computeDocumentBounds(doc: Document): {
 
   for (const id of doc.rootChildren) {
     const node = doc.nodes[id];
-    if (!node || !node.visible) continue;
+    if (!node?.visible) continue;
     hasNodes = true;
     const tx = node.transform[4] ?? 0;
     const ty = node.transform[5] ?? 0;

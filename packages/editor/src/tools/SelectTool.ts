@@ -318,6 +318,7 @@ export class SelectTool extends BaseTool {
       const sel = ctx.selection;
       if (sel.length === 0) return false;
       const step = e.shiftKey ? 10 : e.altKey ? 0.5 : 1;
+      ctx.beginTransaction();
       for (const id of sel) {
         const node = ctx.getNode(id);
         if (!node) continue;
@@ -327,12 +328,9 @@ export class SelectTool extends BaseTool {
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
         // Transform nudge vector by local axes: [a, b] for X, [c, d] for Y
-        ctx.setNodePosition(
-          id,
-          t[4] + dx * a + dy * c,
-          t[5] + dx * b + dy * d,
-        );
+        ctx.setNodePosition(id, t[4] + dx * a + dy * c, t[5] + dx * b + dy * d);
       }
+      ctx.commitTransaction();
       ctx.announceOperation('Nudge', `${step}px`);
       return true;
     }
@@ -374,8 +372,8 @@ export class SelectTool extends BaseTool {
     const node = ctx.getNode(hit.nodeId);
     if (node && isTransparentOrEmptyFill(node)) {
       // Pass through: find next opaque node at this point
-    const allAtPoint = this.findNodesAtPoint(world, ctx);
-    const hitIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
+      const allAtPoint = this.findNodesAtPoint(world, ctx);
+      const hitIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
       for (let i = hitIdx + 1; i < allAtPoint.length; i++) {
         const candidate = allAtPoint[i]!;
         const n = ctx.getNode(candidate.nodeId);
@@ -434,7 +432,7 @@ function isTransparentOrEmptyFill(node: import('@strata/scene').SceneNode): bool
   if (node.kind !== 'shape') return false;
   // Check fills array first, fall back to legacy `fill` field
   if (node.fills && node.fills.length > 0) {
-    return node.fills.every((f: any) => {
+    return node.fills.every((f: import('@strata/scene').Fill) => {
       if (f.type === 'solid' && f.color) {
         const alpha = f.color[3] ?? 255;
         return alpha === 0;

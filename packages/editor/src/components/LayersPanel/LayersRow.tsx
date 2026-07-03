@@ -98,7 +98,8 @@ export const LayersRow = memo(function LayersRow({
   const isContainerNode = isContainer(node);
   const typeIcon = nodeTypeIcon(node);
   const thumbnailDataUrl = useThumbnail(node);
-  const showThumbnail = (node.kind === 'frame' || node.kind === 'image') && thumbnailDataUrl != null;
+  const showThumbnail =
+    (node.kind === 'frame' || node.kind === 'image') && thumbnailDataUrl != null;
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
   const handleClick = useCallback(
@@ -215,12 +216,7 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Thumbnail preview (frames and images) */}
         {showThumbnail && (
-          <img
-            src={thumbnailDataUrl!}
-            alt=""
-            aria-hidden
-            className="layers-row__thumbnail"
-          />
+          <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
         )}
 
         {/* Type icon */}
@@ -253,9 +249,7 @@ export const LayersRow = memo(function LayersRow({
         )}
 
         {/* Instance badge */}
-        {isInstance && !editing && (
-          <span className="layers-row__instance-badge">instance</span>
-        )}
+        {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
         {/* Variant badge */}
         {isInstance && !editing && variantName && (
           <span className="layers-row__variant-badge">{variantName}</span>

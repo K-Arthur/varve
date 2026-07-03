@@ -1,5 +1,5 @@
 import { createDocument } from '@strata/scene';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HandTool } from '../HandTool';
 
 function makeCtx(overrides?: Record<string, unknown>) {
@@ -224,12 +224,15 @@ describe('HandTool — middle-click activation', () => {
     const tool = new HandTool();
     const ctx = makeCtx({ pan: { x: 0, y: 0 } });
 
-    const result = tool.onPointerDown({
-      clientX: 100,
-      clientY: 100,
-      pointerId: 1,
-      button: 1,
-    } as any, ctx);
+    const result = tool.onPointerDown(
+      {
+        clientX: 100,
+        clientY: 100,
+        pointerId: 1,
+        button: 1,
+      } as any,
+      ctx,
+    );
 
     expect(result.consumed).toBe(true);
     expect(result.captured).toBe(true);
@@ -240,12 +243,15 @@ describe('HandTool — middle-click activation', () => {
     const tool = new HandTool();
     const ctx = makeCtx({ pan: { x: 0, y: 0 } });
 
-    const result = tool.onPointerDown({
-      clientX: 100,
-      clientY: 100,
-      pointerId: 1,
-      button: 0,
-    } as any, ctx);
+    const result = tool.onPointerDown(
+      {
+        clientX: 100,
+        clientY: 100,
+        pointerId: 1,
+        button: 0,
+      } as any,
+      ctx,
+    );
 
     expect(result.consumed).toBe(true);
     expect(result.captured).toBe(true);
@@ -256,12 +262,15 @@ describe('HandTool — middle-click activation', () => {
     const tool = new HandTool();
     const ctx = makeCtx();
 
-    const result = tool.onPointerDown({
-      clientX: 100,
-      clientY: 100,
-      pointerId: 1,
-      button: 2,
-    } as any, ctx);
+    const result = tool.onPointerDown(
+      {
+        clientX: 100,
+        clientY: 100,
+        pointerId: 1,
+        button: 2,
+      } as any,
+      ctx,
+    );
 
     expect(result.consumed).toBe(false);
   });

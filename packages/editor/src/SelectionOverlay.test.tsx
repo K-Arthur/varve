@@ -26,7 +26,13 @@ function buildDoc(nodes: Record<string, SceneNode>): Document {
     rootChildren: Object.keys(nodes),
     nodes,
     components: {},
-    variableStore: { variables: {}, modes: [], activeMode: 'default', collections: {}, activeCollectionId: '' },
+    variableStore: {
+      variables: {},
+      modes: [],
+      activeMode: 'default',
+      collections: {},
+      activeCollectionId: '',
+    },
   };
 }
 
@@ -291,18 +297,18 @@ describe('SelectionOverlay — shape handle types', () => {
   });
 });
 
-  it('shows pivot point at center for single selection', () => {
-    const container = renderOverlay([
-      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
-    ]);
-    const circles = container.querySelectorAll('svg > circle');
-    expect(circles.length).toBe(2);
-    const pivot = circles[1];
-    expect(pivot?.getAttribute('cx')).toBe('100');
-    expect(pivot?.getAttribute('cy')).toBe('50');
-    expect(pivot?.getAttribute('r')).toBe('4');
-    expect(pivot?.getAttribute('fill')).toBe('white');
-  });
+it('shows pivot point at center for single selection', () => {
+  const container = renderOverlay([
+    makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
+  ]);
+  const circles = container.querySelectorAll('svg > circle');
+  expect(circles.length).toBe(2);
+  const pivot = circles[1];
+  expect(pivot?.getAttribute('cx')).toBe('100');
+  expect(pivot?.getAttribute('cy')).toBe('50');
+  expect(pivot?.getAttribute('r')).toBe('4');
+  expect(pivot?.getAttribute('fill')).toBe('white');
+});
 
 describe('SelectionOverlay — multi-selection', () => {
   it('shows dimension label for multi-selection', () => {

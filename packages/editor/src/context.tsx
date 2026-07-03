@@ -38,6 +38,7 @@ import type { ExportPreset, NodeId, Slot } from '@strata/scene';
 import {
   type ArrangeOp,
   addChild,
+  addComponentProperty as addComponentPropertyDoc,
   addGuide as addGuideDoc,
   addNode,
   arrangeNode as arrangeNodeDoc,
@@ -45,13 +46,14 @@ import {
   createComponent,
   createDocument,
   createVariableStore,
+  createVariant as createVariantDoc,
   type Document,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
   fillSlot as fillSlotDoc,
+  type Guide,
   getParent,
   groupNodes as groupNodesDoc,
-  type Guide,
   instantiate as instantiateComponent,
   makeFrameNode,
   makeGroupNode,
@@ -67,11 +69,9 @@ import {
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
   resolveNodeFills,
+  resolveVariantProperties,
   type SceneNode,
   setVariantForInstance as setVariantForInstanceDoc,
-  addComponentProperty as addComponentPropertyDoc,
-  createVariant as createVariantDoc,
-  resolveVariantProperties,
   swapInstance as swapInstanceDoc,
   toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
@@ -356,7 +356,12 @@ export interface EditorContextValue {
    * reuses a pristine blank tab, or opens a new tab. `json: null` creates a
    * fresh blank document (new-file flow).
    */
-  openFile: (fileId: string, name: string, filePath: string | undefined, json: string | null) => void;
+  openFile: (
+    fileId: string,
+    name: string,
+    filePath: string | undefined,
+    json: string | null,
+  ) => void;
   /** Visible root-level nodes in paint order (layers panel, IR). */
   rootNodes: () => SceneNode[];
   /** Register a component definition from a frame. */
@@ -1029,7 +1034,9 @@ export function EditorProvider({
         }
         if (matchingIds.length > 0) {
           patch({ selection: [firstNode.id, ...matchingIds] });
-          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} nodes with matching fill`);
+          announcerRef.current?.announce(
+            `Selected ${matchingIds.length + 1} nodes with matching fill`,
+          );
         }
       },
 
@@ -2566,7 +2573,12 @@ export function EditorProvider({
         });
       },
 
-      openFile: (fileId: string, name: string, filePath: string | undefined, json: string | null) => {
+      openFile: (
+        fileId: string,
+        name: string,
+        filePath: string | undefined,
+        json: string | null,
+      ) => {
         // Parse up front; null/invalid json = fresh blank document (new file).
         let doc: Document;
         try {

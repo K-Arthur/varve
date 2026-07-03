@@ -263,7 +263,11 @@ function VariantPropControl({ prop, value, onChange }: VariantPropControlProps) 
 
   if (prop.type === 'instanceSwap') {
     return (
-      <span className="variant-box__swap-label" role="img" aria-label={`${prop.name}: swap instance`}>
+      <span
+        className="variant-box__swap-label"
+        role="img"
+        aria-label={`${prop.name}: swap instance`}
+      >
         <Icon name={CHROME_ICONS.maximize} size="0.75em" />
       </span>
     );

@@ -86,6 +86,7 @@ export class ScaleTool extends BaseTool {
     this.initialDy = this.drag.startWorld.y - origin.y;
     this.initialDist =
       Math.sqrt(this.initialDx * this.initialDx + this.initialDy * this.initialDy) || 1;
+    ctx.beginTransaction();
     return result;
   }
 
@@ -174,6 +175,7 @@ export class ScaleTool extends BaseTool {
 
   override onDragEnd(ctx: ToolContext): void {
     ctx.setDraft(null);
+    ctx.commitTransaction();
     this.initialNodes = [];
     this.initialDist = 0;
     this.initialUnionBbox = null;
@@ -181,8 +183,27 @@ export class ScaleTool extends BaseTool {
 
   override onDragCancel(ctx: ToolContext): void {
     ctx.setDraft(null);
+    ctx.abortTransaction();
     this.initialNodes = [];
     this.initialDist = 0;
     this.initialUnionBbox = null;
+  }
+
+  override onDeactivate(ctx: ToolContext): void {
+    if (this.drag.kind === 'dragging') {
+      ctx.abortTransaction();
+      ctx.setDraft(null);
+      this.initialNodes = [];
+      this.initialDist = 0;
+      this.initialUnionBbox = null;
+      this.drag = {
+        kind: 'idle',
+        pointerId: -1,
+        startCanvas: { x: 0, y: 0 },
+        startWorld: { x: 0, y: 0 },
+        currentCanvas: { x: 0, y: 0 },
+        currentWorld: { x: 0, y: 0 },
+      };
+    }
   }
 }

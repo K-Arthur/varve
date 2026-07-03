@@ -78,6 +78,7 @@ fn lab_f(t: f32) -> f32 {
 /// - Relative: clipped gamut
 /// - Absolute: no white point adaptation
 /// - Saturation: minimal GCR, boosted chroma
+///
 /// Black point compensation dark-desaturates near-black inputs.
 pub fn rgb_to_cmyk_icc(
     _profile: PrintProfile,

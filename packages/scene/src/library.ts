@@ -8,8 +8,9 @@
  * Research basis: Figma Team Libraries, Penpot shared libraries,
  * Storybook publish workflow, npm package distribution model.
  */
-import type { ComponentDefinition, NodeId, Style } from './types';
+
 import type { Document } from './document';
+import type { ComponentDefinition, NodeId, Style } from './types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 

@@ -67,7 +67,11 @@ function makeDocWithNodes(count: number) {
     const id = `n${i}`;
     nodes[id] = makeShapeNode(id, { kind: 'rect', x: i * 50, y: 0, w: 40, h: 40 });
   }
-  return { ...doc, nodes: { ...doc.nodes, ...nodes }, rootChildren: [...doc.rootChildren, ...Object.keys(nodes)] };
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, ...nodes },
+    rootChildren: [...doc.rootChildren, ...Object.keys(nodes)],
+  };
 }
 
 describe('SelectTool', () => {
@@ -161,7 +165,7 @@ describe('SelectTool', () => {
     });
     // Up arrow: move backward along local Y axis (-c, -d) = (s, -c)
     tool.onKeyDown({ key: 'ArrowUp' } as any, ctx);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 100 - (-s), 100 - c);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 100 - -s, 100 - c);
   });
 
   it('marquee with alt key selects only nodes fully contained within rect', () => {
@@ -177,11 +181,7 @@ describe('SelectTool', () => {
         if (n.id === 'n2') return { x: 100, y: 0, w: 40, h: 40 };
         return { x: 0, y: 0, w: 100, h: 100 };
       }),
-      rootNodes: vi.fn().mockReturnValue([
-        { id: 'n0' },
-        { id: 'n1' },
-        { id: 'n2' },
-      ]),
+      rootNodes: vi.fn().mockReturnValue([{ id: 'n0' }, { id: 'n1' }, { id: 'n2' }]),
       getNode: vi.fn((id: string) => {
         return doc.nodes[id];
       }),
@@ -216,7 +216,10 @@ describe('SelectTool', () => {
       getNode: vi.fn((id: string) => doc.nodes[id]),
     });
 
-    tool.onPointerDown({ clientX: 0, clientY: 0, pointerId: 1, button: 0, shiftKey: true } as any, ctx);
+    tool.onPointerDown(
+      { clientX: 0, clientY: 0, pointerId: 1, button: 0, shiftKey: true } as any,
+      ctx,
+    );
 
     (tool as any).drag.currentCanvas = { x: 200, y: 50 };
     (tool as any).drag.currentWorld = { x: 200, y: 50 };
@@ -270,20 +273,30 @@ describe('SelectTool — depth-based click cycling', () => {
   it('clicking same node twice cycles to next node below', () => {
     const tool = new SelectTool();
     const baseNode = (id: string, name: string, fill: [number, number, number, number]) => ({
-      id, name, kind: 'shape' as const, fill,
-      index: 0, order: 'a0', visible: true, locked: false,
-      opacity: 1, blendMode: 'normal' as const, rotation: 0,
+      id,
+      name,
+      kind: 'shape' as const,
+      fill,
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
       transform: [1, 0, 0, 1, 0, 0] as const,
-      strokes: [], effects: [], bindings: undefined as any,
+      strokes: [],
+      effects: [],
+      bindings: undefined as any,
     });
     // n2 topmost, n0 middle (selected), n1 bottom
     const n0 = baseNode('n0', 'Middle', [255, 0, 0, 255]);
     const n1 = baseNode('n1', 'Bottom', [0, 255, 0, 255]);
     const n2 = baseNode('n2', 'Top', [0, 0, 255, 255]);
     const doc = makeDocWithNodes(0);
-    doc.nodes['n0'] = n0 as any;
-    doc.nodes['n1'] = n1 as any;
-    doc.nodes['n2'] = n2 as any;
+    doc.nodes.n0 = n0 as any;
+    doc.nodes.n1 = n1 as any;
+    doc.nodes.n2 = n2 as any;
     // Paint order (last = topmost): n1 (bottom), n0 (middle), n2 (top)
     doc.rootChildren = ['n1', 'n0', 'n2'];
 
@@ -311,12 +324,27 @@ describe('SelectTool — depth-based click cycling', () => {
 describe('SelectTool — transparent fill click-through', () => {
   it('transparent fill node passes through to next opaque node at point', () => {
     const tool = new SelectTool();
-    const baseNode = (id: string, name: string, fill: [number, number, number, number], extra = {}) => ({
-      id, name, kind: 'shape' as const, fill,
-      index: 0, order: 'a0', visible: true, locked: false,
-      opacity: 1, blendMode: 'normal' as const, rotation: 0,
+    const baseNode = (
+      id: string,
+      name: string,
+      fill: [number, number, number, number],
+      extra = {},
+    ) => ({
+      id,
+      name,
+      kind: 'shape' as const,
+      fill,
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
       transform: [1, 0, 0, 1, 0, 0] as const,
-      strokes: [], effects: [], bindings: undefined as any,
+      strokes: [],
+      effects: [],
+      bindings: undefined as any,
       ...extra,
     });
     const n0 = baseNode('n0', 'StrokeOnly', [0, 0, 0, 0]);
@@ -420,5 +448,39 @@ describe('SelectTool — keyboard selection cycle (Tab)', () => {
 
     tool.onKeyDown({ key: 'Tab' } as any, ctx);
     expect(ctx.setSelection).toHaveBeenCalledWith('n2');
+  });
+});
+
+describe('SelectTool — keyboard nudge undo transaction', () => {
+  it('wraps arrow key nudge in beginTransaction/commitTransaction', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
+    });
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+  });
+
+  it('wraps shift+arrow nudge in beginTransaction/commitTransaction', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
+    });
+    tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 90, 100);
+  });
+
+  it('does not call beginTransaction when no selection', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({ selection: [] });
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
   });
 });

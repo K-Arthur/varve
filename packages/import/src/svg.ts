@@ -716,7 +716,8 @@ function tokenizePath(d: string): PathCommand[] {
   const commands: PathCommand[] = [];
   const re = /([MLHVCSQTAZmlhvcsqtaz])([^MLHVCSQTAZmlhvcsqtaz]*)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(d)) !== null) {
+  m = re.exec(d);
+  while (m !== null) {
     const cmd = m[1]!;
     const params = (m[2] ?? '')
       .trim()
@@ -724,6 +725,7 @@ function tokenizePath(d: string): PathCommand[] {
       .filter((s) => s.length > 0)
       .map(Number);
     commands.push({ command: cmd, params });
+    m = re.exec(d);
   }
   return commands;
 }
@@ -1156,8 +1158,10 @@ function parseAttrs(attrStr: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   const re = /(\w[\w:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(attrStr)) !== null) {
+  m = re.exec(attrStr);
+  while (m !== null) {
     attrs[m[1]!] = m[2] ?? m[3] ?? '';
+    m = re.exec(attrStr);
   }
   return attrs;
 }

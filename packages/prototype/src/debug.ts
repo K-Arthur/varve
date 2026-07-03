@@ -9,8 +9,8 @@
  * Framer state viewer, browser DevTools Console.
  */
 
-import type { PrototypeEvent } from './triggers';
 import type { ActionResult } from './actions';
+import type { PrototypeEvent } from './triggers';
 import type { NodeId } from './types';
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';

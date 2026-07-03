@@ -10,8 +10,8 @@
  * pattern for predictable state transitions.
  */
 
-import { processInteractions } from './interactions';
 import type { ActionResult } from './actions';
+import { processInteractions } from './interactions';
 import type { Interaction, NodeId, PrototypeState, PrototypeVariable } from './types';
 
 /**
