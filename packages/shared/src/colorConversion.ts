@@ -1,0 +1,522 @@
+/**
+ * Analytical (non-ICC) color conversion functions.
+ *
+ * ICC profile-based conversions live in the Rust strata-print crate. This
+ * module provides the TypeScript-side fallback for standard color space
+ * conversions that don't require external profile data.
+ *
+ * Research basis: sRGB IEC 61966-2-1, CIE 15:2018 (Colorimetry),
+ * Björn Ottosson "A perceptually uniform color space for image processing"
+ * (2020), ISO 12647 (print), Bruce Lindbloom matrices.
+ */
+
+// ── Type shims for ManagedColor helpers ─────────────────────────────────────
+// These mirror @strata/scene types to avoid circular deps. The actual type
+// definitions are in packages/scene/src/colorManagement.ts.
+
+/** RGB color value (0-255 per channel). */
+interface RgbColorShim {
+  space: 'rgb';
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+  profile?: string;
+}
+
+/** CMYK color value (0-255 per channel). */
+interface CmykColorShim {
+  space: 'cmyk';
+  c: number;
+  m: number;
+  y: number;
+  k: number;
+  a: number;
+  profile?: string;
+}
+
+/** Grayscale color value (0-255, 0 = black, 255 = white). */
+interface GrayColorShim {
+  space: 'gray';
+  v: number;
+  a: number;
+  profile?: string;
+}
+
+/** Spot color reference. */
+interface SpotColorRefShim {
+  space: 'spot';
+  name: string;
+  tint: number;
+  a: number;
+  processFallback?: { c: number; m: number; y: number; k: number };
+}
+
+type ManagedColorShim = RgbColorShim | CmykColorShim | GrayColorShim | SpotColorRefShim;
+
+/** Engine RGBA tuple (0-255 per channel). */
+type ColorShim = readonly [number, number, number, number];
+
+// ── sRGB gamma ──────────────────────────────────────────────────────────────
+
+/**
+ * sRGB gamma expansion: 8-bit value (0-255) → linear (0-1).
+ */
+export function srgbToLinear(c: number): number {
+  const v = c / 255;
+  if (v <= 0.04045) return v / 12.92;
+  return ((v + 0.055) / 1.055) ** 2.4;
+}
+
+/**
+ * sRGB gamma compression: linear (0-1) → 8-bit (0-255).
+ */
+export function linearToSrgb(c: number): number {
+  const v = c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
+  return Math.round(v * 255);
+}
+
+/** Convert [r,g,b] in 0-255 sRGB to 0-1 linear sRGB. */
+export function rgbToLinearRgb(rgb: [number, number, number]): [number, number, number] {
+  return [srgbToLinear(rgb[0]), srgbToLinear(rgb[1]), srgbToLinear(rgb[2])];
+}
+
+/** Convert [r,g,b] in 0-1 linear sRGB to 0-255 sRGB. */
+export function linearRgbToRgb(linear: [number, number, number]): [number, number, number] {
+  return [linearToSrgb(linear[0]), linearToSrgb(linear[1]), linearToSrgb(linear[2])];
+}
+
+// ── Linear sRGB <-> CIE XYZ (D65) ────────────────────────────────────────────
+
+/*
+ * sRGB linear → XYZ D65 transform matrix (from IEC 61966-2-1).
+ *  0.4124564  0.3575761  0.1804375
+ *  0.2126729  0.7151522  0.0721750
+ *  0.0193339  0.1191920  0.9503041
+ *
+ * Inverse matrix (XYZ D65 → linear sRGB):
+ *  3.2409699419045226  -1.5373831775700939  -0.4986107602930034
+ * -0.9692436362808796   1.8759675015077202   0.0415550574071756
+ *  0.05563007969699366 -0.20397696064067220  1.0569715142428786
+ */
+
+const SRGB_TO_XYZ: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [
+  0.4124564, 0.3575761, 0.1804375, 0.2126729, 0.7151522, 0.072175, 0.0193339, 0.119192, 0.9503041,
+];
+
+const XYZ_TO_SRGB: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [
+  3.2409699419045226, -1.5373831775700939, -0.4986107602930034, -0.9692436362808796,
+  1.8759675015077202, 0.0415550574071756, 0.05563007969699366, -0.2039769606406722,
+  1.0569715142428786,
+];
+
+function mul3x3(
+  m: readonly [number, number, number, number, number, number, number, number, number],
+  v: readonly [number, number, number],
+): [number, number, number] {
+  return [
+    m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
+    m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
+    m[6] * v[0] + m[7] * v[1] + m[8] * v[2],
+  ];
+}
+
+/**
+ * Linear sRGB [r,g,b] (0-1) → CIE XYZ (D65).
+ */
+export function linearRgbToXyzD65(rgb: [number, number, number]): [number, number, number] {
+  return mul3x3(SRGB_TO_XYZ, rgb);
+}
+
+/**
+ * CIE XYZ (D65) → linear sRGB [r,g,b] (0-1).
+ */
+export function xyzD65ToLinearRgb(xyz: [number, number, number]): [number, number, number] {
+  return mul3x3(XYZ_TO_SRGB, xyz);
+}
+
+// ── Bradford chromatic adaptation (D65 <-> D50) ───────────────────────────────
+
+/*
+ * D65 → D50 Bradford adaptation matrix.
+ *  1.0479298208405488   0.0229467933410191  -0.0501922295431357
+ *  0.0296278156881593   0.990434484573249   -0.0170738250293851
+ * -0.00924305815259118  0.0150551448965779   0.7518742899580008
+ *
+ * D50 → D65 Bradford adaptation matrix (inverse).
+ *  0.9554734529412182  -0.0230985368742614   0.0632593086610217
+ * -0.0283697099638638   1.0099954580106629   0.0210413989669430
+ *  0.0123140016883199  -0.0205076964334779   1.3303659366080753
+ */
+
+const BRADFORD_D65_TO_D50: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [
+  1.0479298208405488, 0.0229467933410191, -0.0501922295431357, 0.0296278156881593,
+  0.990434484573249, -0.0170738250293851, -0.00924305815259118, 0.0150551448965779,
+  0.7518742899580008,
+];
+
+const BRADFORD_D50_TO_D65: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [
+  0.9554734529412182, -0.0230985368742614, 0.0632593086610217, -0.0283697099638638,
+  1.0099954580106629, 0.021041398966943, 0.0123140016883199, -0.0205076964334779,
+  1.3303659366080753,
+];
+
+// ── D65 and D50 white points (CIE 1931 2° standard observer) ────────────────
+
+const D50_WHITE: [number, number, number] = [0.96422, 1.0, 0.82521];
+
+// ── CIE Lab ─────────────────────────────────────────────────────────────────
+
+function labF(t: number): number {
+  const δ = 6 / 29;
+  if (t > δ * δ * δ) return Math.cbrt(t);
+  return t / (3 * δ * δ) + 4 / 29;
+}
+
+function labFInv(t: number): number {
+  const δ = 6 / 29;
+  if (t > δ) return t * t * t;
+  return 3 * δ * δ * (t - 4 / 29);
+}
+
+/**
+ * CIE XYZ (D65) → CIELAB (D50 adapted via Bradford).
+ *
+ * Converts from XYZ D65 to D50 using Bradford adaptation, then applies
+ * the standard CIE Lab formula with the D50 white point.
+ */
+export function xyzToLab(xyz: [number, number, number]): [number, number, number] {
+  // Adapt D65 → D50
+  const d50 = mul3x3(BRADFORD_D65_TO_D50, xyz);
+  const [xn, yn, zn] = D50_WHITE;
+
+  const fx = labF(d50[0] / xn);
+  const fy = labF(d50[1] / yn);
+  const fz = labF(d50[2] / zn);
+
+  const l = 116 * fy - 16;
+  const a = 500 * (fx - fy);
+  const b = 200 * (fy - fz);
+
+  return [l, a, b];
+}
+
+/**
+ * CIELAB → CIE XYZ (D65) via D50 Bradford adaptation.
+ *
+ * Applies the inverse Lab formula with D50 white point, then adapts
+ * D50 → D65 via Bradford.
+ */
+export function labToXyz(lab: [number, number, number]): [number, number, number] {
+  const [l, a, b] = lab;
+  const [xn, yn, zn] = D50_WHITE;
+
+  const fy = (l + 16) / 116;
+  const fx = a / 500 + fy;
+  const fz = fy - b / 200;
+
+  const x = xn * labFInv(fx);
+  const y = yn * labFInv(fy);
+  const z = zn * labFInv(fz);
+
+  // Adapt D50 → D65
+  return mul3x3(BRADFORD_D50_TO_D65, [x, y, z]);
+}
+
+// ── Oklab (Ottosson 2020) ───────────────────────────────────────────────────
+
+/*
+ * Björn Ottosson's Oklab — a perceptually uniform color space.
+ *
+ * Linear sRGB → LMS (M1):
+ *  0.4122214708  0.5363325363  0.0514459929
+ *  0.2119034982  0.6806995451  0.1073969566
+ *  0.0883024619  0.2817188376  0.6299787005
+ *
+ * LMS (cube root) → Oklab (M2):
+ *  0.2104542553   0.7936177850  -0.0040720468
+ *  1.9779984951  -2.4285922050   0.4505937099
+ *  0.0259040371   0.7827717662  -0.8086757660
+ *
+ * Oklab → LMS (cube root) (M2⁻¹):
+ *  1.0000000000   0.3963377774   0.2158037573
+ *  1.0000000000  -0.1055613458  -0.0638541728
+ *  1.0000000000  -0.0894841775  -1.2914855480
+ *
+ * LMS → linear sRGB (M1⁻¹):
+ *  4.0767416621  -3.3077115913   0.2309699292
+ * -1.2684380046   2.6097574011  -0.3413193965
+ * -0.0041960863  -0.7034186147   1.7076147010
+ */
+
+const M1: readonly [number, number, number, number, number, number, number, number, number] = [
+  0.4122214708, 0.5363325363, 0.0514459929, 0.2119034982, 0.6806995451, 0.1073969566, 0.0883024619,
+  0.2817188376, 0.6299787005,
+];
+
+const M2: readonly [number, number, number, number, number, number, number, number, number] = [
+  0.2104542553, 0.793617785, -0.0040720468, 1.9779984951, -2.428592205, 0.4505937099, 0.0259040371,
+  0.7827717662, -0.808675766,
+];
+
+const M2_INV: readonly [number, number, number, number, number, number, number, number, number] = [
+  1.0, 0.3963377774, 0.2158037573, 1.0, -0.1055613458, -0.0638541728, 1.0, -0.0894841775,
+  -1.291485548,
+];
+
+const M1_INV: readonly [number, number, number, number, number, number, number, number, number] = [
+  4.0767416621, -3.3077115913, 0.2309699292, -1.2684380046, 2.6097574011, -0.3413193965,
+  -0.0041960863, -0.7034186147, 1.707614701,
+];
+
+/**
+ * Linear sRGB [r,g,b] (0-1) → Oklab [L, a, b].
+ */
+export function linearSrgbToOklab(rgb: [number, number, number]): [number, number, number] {
+  const lms = mul3x3(M1, rgb);
+  const lmsCubeRoot: [number, number, number] = [
+    Math.cbrt(lms[0]),
+    Math.cbrt(lms[1]),
+    Math.cbrt(lms[2]),
+  ];
+  return mul3x3(M2, lmsCubeRoot);
+}
+
+/**
+ * Oklab [L, a, b] → linear sRGB [r,g,b] (0-1).
+ */
+export function oklabToLinearSrgb(lab: [number, number, number]): [number, number, number] {
+  const lmsCubeRoot = mul3x3(M2_INV, lab);
+  const lms: [number, number, number] = [
+    lmsCubeRoot[0] * lmsCubeRoot[0] * lmsCubeRoot[0],
+    lmsCubeRoot[1] * lmsCubeRoot[1] * lmsCubeRoot[1],
+    lmsCubeRoot[2] * lmsCubeRoot[2] * lmsCubeRoot[2],
+  ];
+  return mul3x3(M1_INV, lms);
+}
+
+// ── RGB <-> CMYK (analytical, no ICC) ────────────────────────────────────────
+
+/**
+ * RGB (0-255) → CMYK (0-255 per channel).
+ *
+ * Standard inverse-complement analytical conversion:
+ * C' = 1 - R, M' = 1 - G, Y' = 1 - B, K = min(C', M', Y'),
+ * then C = (C' - K) / (1 - K), etc.
+ */
+export function rgbToCmyk(r: number, g: number, b: number): [number, number, number, number] {
+  const rc = 1 - r / 255;
+  const gc = 1 - g / 255;
+  const bc = 1 - b / 255;
+  const k = Math.min(rc, gc, bc);
+  if (Math.abs(k - 1) < 1e-10) return [0, 0, 0, 255];
+  const denom = 1 - k;
+  return [
+    Math.round(255 * ((rc - k) / denom)),
+    Math.round(255 * ((gc - k) / denom)),
+    Math.round(255 * ((bc - k) / denom)),
+    Math.round(255 * k),
+  ];
+}
+
+/**
+ * CMYK (0-255 per channel) → RGB (0-255).
+ */
+export function cmykToRgb(c: number, m: number, y: number, k: number): [number, number, number] {
+  const rc = c / 255;
+  const rm = m / 255;
+  const ry = y / 255;
+  const rk = k / 255;
+  return [
+    Math.round(255 * (1 - rc) * (1 - rk)),
+    Math.round(255 * (1 - rm) * (1 - rk)),
+    Math.round(255 * (1 - ry) * (1 - rk)),
+  ];
+}
+
+// ── ΔEOK (Oklab color difference) ───────────────────────────────────────────
+
+/**
+ * Compute the Oklab color difference (ΔEOK) between two RGBA colors.
+ *
+ * Both inputs are [r, g, b, a] in 0-255 sRGB. The alpha channel is
+ * currently ignored for the ΔE calculation (perceptual difference
+ * assumes full opacity).
+ */
+export function deltaEOk(
+  c1: [number, number, number, number],
+  c2: [number, number, number, number],
+): number {
+  const rgb1: [number, number, number] = [c1[0], c1[1], c1[2]];
+  const rgb2: [number, number, number] = [c2[0], c2[1], c2[2]];
+
+  const lab1 = linearSrgbToOklab(rgbToLinearRgb(rgb1));
+  const lab2 = linearSrgbToOklab(rgbToLinearRgb(rgb2));
+
+  const dL = lab1[0] - lab2[0];
+  const da = lab1[1] - lab2[1];
+  const db = lab1[2] - lab2[2];
+
+  return Math.sqrt(dL * dL + da * da + db * db);
+}
+
+// ── ManagedColor helpers ────────────────────────────────────────────────────
+
+/**
+ * Convert any ManagedColor to an RGBA tuple [r, g, b, a] (0-255).
+ *
+ * - RgbColor: pass-through
+ * - CmykColor: analytical CMYK→RGB conversion
+ * - GrayColor: R=G=B=v
+ * - SpotColorRef: uses processFallback if available; applies tint as opacity;
+ *   falls back to black if no fallback
+ */
+export function managedColorToRgba(color: ManagedColorShim): [number, number, number, number] {
+  switch (color.space) {
+    case 'rgb':
+      return [color.r, color.g, color.b, color.a];
+    case 'cmyk': {
+      const [r, g, b] = cmykToRgb(color.c, color.m, color.y, color.k);
+      return [r, g, b, color.a];
+    }
+    case 'gray':
+      return [color.v, color.v, color.v, color.a];
+    case 'spot': {
+      const a = Math.round(color.a * (color.tint / 100));
+      if (color.processFallback) {
+        const [r, g, b] = cmykToRgb(
+          color.processFallback.c,
+          color.processFallback.m,
+          color.processFallback.y,
+          color.processFallback.k,
+        );
+        return [r, g, b, a];
+      }
+      return [0, 0, 0, a];
+    }
+  }
+}
+
+/**
+ * Convert any ManagedColor to a CSS rgba() string.
+ */
+export function managedColorToCss(color: ManagedColorShim): string {
+  const [r, g, b, a] = managedColorToRgba(color);
+  return `rgba(${r},${g},${b},${a / 255})`;
+}
+
+/**
+ * Convert any ManagedColor to an engine Color tuple [r, g, b, a] (0-255).
+ */
+export function managedColorToEngineColor(color: ManagedColorShim): ColorShim {
+  return managedColorToRgba(color);
+}
+
+// ── Gamut mapping ───────────────────────────────────────────────────────────
+
+/**
+ * Check if linear sRGB [r,g,b] is in-gamut (all channels in [0,1]).
+ */
+function inGamut(linear: [number, number, number]): boolean {
+  return (
+    linear[0] >= 0 &&
+    linear[0] <= 1 &&
+    linear[1] >= 0 &&
+    linear[1] <= 1 &&
+    linear[2] >= 0 &&
+    linear[2] <= 1
+  );
+}
+
+/**
+ * Map an Oklch [L, Chroma, Hue] color to sRGB via chroma reduction.
+ *
+ * Uses binary search on chroma to find the closest in-gamut color
+ * while preserving lightness and hue.
+ *
+ * Returns [r, g, b] in 0-255 sRGB.
+ */
+export function gamutMapToSrgb(oklch: [number, number, number]): [number, number, number] {
+  const [L, C, H] = oklch;
+
+  // Oklch → Oklab
+  const a = C * Math.cos(H);
+  const b = C * Math.sin(H);
+  const oklab: [number, number, number] = [L, a, b];
+
+  // Try full chroma first
+  const linear = oklabToLinearSrgb(oklab);
+  if (inGamut(linear)) {
+    // Fully in gamut — clamp and return
+    return linearRgbToRgb([
+      Math.max(0, Math.min(1, linear[0])),
+      Math.max(0, Math.min(1, linear[1])),
+      Math.max(0, Math.min(1, linear[2])),
+    ]);
+  }
+
+  // Binary search on chroma
+  let lo = 0;
+  let hi = C;
+
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    const ma = mid * Math.cos(H);
+    const mb = mid * Math.sin(H);
+    const mLinear = oklabToLinearSrgb([L, ma, mb]);
+    if (inGamut(mLinear)) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+
+  const fa = lo * Math.cos(H);
+  const fb = lo * Math.sin(H);
+  const finalLinear = oklabToLinearSrgb([L, fa, fb]);
+  return linearRgbToRgb([
+    Math.max(0, Math.min(1, finalLinear[0])),
+    Math.max(0, Math.min(1, finalLinear[1])),
+    Math.max(0, Math.min(1, finalLinear[2])),
+  ]);
+}
