@@ -18,6 +18,7 @@ const SPRING_LOAD_DELAY_MS = 150;
 interface SpringLoadState {
   previousId: ToolId;
   previousTool: Tool;
+  targetId: ToolId;
   timer: ReturnType<typeof setTimeout> | null;
   key: string;
 }
@@ -71,7 +72,10 @@ export class ToolManager {
   }
 
   springLoadTool(id: ToolId, e: KeyboardEvent, ctx: ToolContext): void {
+    // Ignore key-repeat re-arms while the same spring is held.
+    if (this.spring?.key === e.key) return;
     if (this.spring) this.releaseSpring(ctx);
+    if (this.activeId === id) return;
     const prevId = this.activeId;
     const prevTool = this.activeTool;
     const timer = setTimeout(() => {
@@ -79,18 +83,32 @@ export class ToolManager {
       this.activeId = id;
       const next = this.getOrCreate(id);
       next.onActivate?.(ctx);
-      this.spring = { previousId: prevId, previousTool: prevTool, timer: null, key: e.key };
+      this.spring = {
+        previousId: prevId,
+        previousTool: prevTool,
+        targetId: id,
+        timer: null,
+        key: e.key,
+      };
       this.cursorState = 'idle';
     }, SPRING_LOAD_DELAY_MS);
-    this.spring = { previousId: prevId, previousTool: prevTool, timer, key: e.key };
+    this.spring = { previousId: prevId, previousTool: prevTool, targetId: id, timer, key: e.key };
+  }
+
+  /** True while a spring-loaded (temporary) tool is armed or active. */
+  get springActive(): boolean {
+    return this.spring !== null;
+  }
+
+  get springKey(): string | null {
+    return this.spring?.key ?? null;
   }
 
   releaseSpring(ctx: ToolContext): void {
     if (!this.spring) return;
     if (this.spring.timer !== null) clearTimeout(this.spring.timer);
-    if (this.activeId !== this.spring.key.toLowerCase()) {
-      // Spring hadn't activated yet; do nothing
-    } else {
+    if (this.activeId === this.spring.targetId) {
+      // Spring had activated — revert to the previous tool.
       const current = this.activeTool;
       current.onDeactivate?.(ctx);
       this.activeId = this.spring.previousId;

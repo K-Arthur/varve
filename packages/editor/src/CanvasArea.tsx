@@ -510,12 +510,42 @@ export function CanvasArea() {
     panY: number;
   } | null>(null);
 
+  // ─── Touch pinch (two-pointer zoom/pan, bypasses ToolManager) ───────────
+
+  const touchPointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ lastDist: number; lastCentroid: { x: number; y: number } } | null>(
+    null,
+  );
+
+  function pinchGeometry(): { dist: number; centroid: { x: number; y: number } } | null {
+    const pts = [...touchPointers.current.values()];
+    if (pts.length < 2) return null;
+    const [a, b] = pts as [{ x: number; y: number }, { x: number; y: number }];
+    return {
+      dist: Math.hypot(b.x - a.x, b.y - a.y),
+      centroid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+    };
+  }
+
   // ─── Pointer Events ──────────────────────────────────────────────────────
 
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     const ne = e.nativeEvent as PointerEvent;
     const tmInst = tm.current;
     if (!tmInst) return;
+
+    // Two-finger touch → pinch zoom/pan. Cancel any in-progress tool gesture
+    // from the first finger so it doesn't draw/move while pinching.
+    if (e.pointerType === 'touch') {
+      touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touchPointers.current.size === 2) {
+        tmInst.handlePointerCancel(ne, buildToolCtx(ne));
+        const geo = pinchGeometry();
+        if (geo) pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
+        return;
+      }
+      if (touchPointers.current.size > 2) return;
+    }
 
     // Middle-button → temporary pan (bypass ToolManager to avoid tool switch)
     if (e.button === 1) {
@@ -534,6 +564,35 @@ export function CanvasArea() {
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    // Active pinch: update this finger, re-derive distance + centroid.
+    if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
+      touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const pinch = pinchRef.current;
+      const geo = pinchGeometry();
+      if (pinch && geo) {
+        const s = stateRef.current;
+        const rect = canvasRef.current?.getBoundingClientRect();
+        // Pan by centroid movement…
+        const panned = {
+          x: s.pan.x + (geo.centroid.x - pinch.lastCentroid.x),
+          y: s.pan.y + (geo.centroid.y - pinch.lastCentroid.y),
+        };
+        // …then zoom about the current centroid by the distance ratio.
+        const cam = { pan: [panned.x, panned.y] as [number, number], zoom: s.zoom };
+        const anchor = screenToWorld(
+          cam,
+          geo.centroid.x - (rect?.left ?? 0),
+          geo.centroid.y - (rect?.top ?? 0),
+        );
+        const factor = pinch.lastDist > 0 ? geo.dist / pinch.lastDist : 1;
+        const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor));
+        editorRef.current.setZoom(newCam.zoom);
+        editorRef.current.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
+        pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
+        return;
+      }
+    }
+
     const mid = midPanRef.current;
     if (mid) {
       editor.setPan({
@@ -568,6 +627,13 @@ export function CanvasArea() {
 
   function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
     setSnapGuides([]);
+    if (e.pointerType === 'touch') {
+      const wasPinching = pinchRef.current !== null;
+      touchPointers.current.delete(e.pointerId);
+      if (touchPointers.current.size < 2) pinchRef.current = null;
+      // A finger lifted from a pinch shouldn't fire the tool's pointer-up.
+      if (wasPinching) return;
+    }
     if (midPanRef.current) {
       midPanRef.current = null;
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -583,40 +649,91 @@ export function CanvasArea() {
 
   function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
     midPanRef.current = null;
+    if (e.pointerType === 'touch') {
+      touchPointers.current.delete(e.pointerId);
+      if (touchPointers.current.size < 2) pinchRef.current = null;
+    }
     const ne = e.nativeEvent as PointerEvent;
     tm.current?.handlePointerCancel(ne, buildToolCtx(ne));
     setSnapGuides([]);
   }
 
-  // ─── Wheel ─────────────────────────────────────────────────────────────
-  // Wheel + ctrlKey = pinch / precision-zoom (macOS/Wayland trackpad gesture).
-  // Plain wheel (no ctrlKey) = two-finger scroll → pan the camera.
-  // Both paths call e.preventDefault() to suppress page scroll.
+  // ─── Wheel & pinch (native, non-passive) ─────────────────────────────────
+  // React attaches `onWheel` passively (React 17+), so preventDefault() is
+  // silently ignored there — trackpad pinch (delivered as ctrl+wheel) would
+  // trigger browser page-zoom instead of canvas zoom. Attach natively with
+  // { passive: false } instead.
+  //   wheel + ctrl/cmd → pinch / precision-zoom, anchored at cursor
+  //   wheel + shift    → horizontal pan (mouse-wheel convention)
+  //   plain wheel      → two-finger scroll pan
+  // WebKit (WKWebView / WebKitGTK — the Tauri runtimes) can deliver trackpad
+  // pinch as proprietary gesturestart/change/end events carrying a `scale`;
+  // those are handled below and no-op on engines that never fire them.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
 
-  function handleWheel(e: React.WheelEvent<HTMLCanvasElement>) {
-    e.preventDefault();
-    const s = stateRef.current;
+    // Normalize deltaMode: Firefox mouse wheels report DOM_DELTA_LINE (1).
+    const deltaScale = (e: WheelEvent): number =>
+      e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
 
-    if (e.ctrlKey) {
-      // ── Pinch / cursor-anchored zoom ────────────────────────────────
-      const rect = e.currentTarget.getBoundingClientRect();
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
+    const zoomAboutClientPoint = (clientX: number, clientY: number, newZoom: number): void => {
+      const s = stateRef.current;
+      const rect = el.getBoundingClientRect();
       const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
-      const worldAnchor = screenToWorld(cam, cx, cy);
-      const factor = e.deltaY > 0 ? 0.9 : 1.1;
-      const newZoom = clampZoom(s.zoom * factor);
-      const newCam = zoomAboutPoint(cam, worldAnchor, newZoom);
-      editor.setZoom(newCam.zoom);
-      editor.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
-    } else {
-      // ── Two-finger scroll → pan ──────────────────────────────────────
-      // deltaX/deltaY arrive in pixel units (deltaMode=DOM_DELTA_PIXEL) on
-      // Wayland trackpads. Subtract: scrolling "down" (deltaY>0) moves the
-      // world origin upward, shrinking pan.y.
-      editor.setPan({ x: s.pan.x - e.deltaX, y: s.pan.y - e.deltaY });
+      const anchor = screenToWorld(cam, clientX - rect.left, clientY - rect.top);
+      const newCam = zoomAboutPoint(cam, anchor, clampZoom(newZoom));
+      editorRef.current.setZoom(newCam.zoom);
+      editorRef.current.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
+    };
+
+    const onWheel = (e: WheelEvent): void => {
+      e.preventDefault();
+      const s = stateRef.current;
+      const k = deltaScale(e);
+      if (e.ctrlKey || e.metaKey) {
+        // Exponential in deltaY so a stream of small trackpad pinch deltas
+        // zooms smoothly; clamp per-event so a discrete mouse-wheel notch
+        // (deltaY ≈ ±120) stays a reasonable step instead of jumping 3×.
+        const d = Math.max(-24, Math.min(24, e.deltaY * k));
+        zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * Math.exp(-d * 0.01));
+      } else if (e.shiftKey && e.deltaX === 0) {
+        editorRef.current.setPan({ x: s.pan.x - e.deltaY * k, y: s.pan.y });
+      } else {
+        editorRef.current.setPan({ x: s.pan.x - e.deltaX * k, y: s.pan.y - e.deltaY * k });
+      }
+    };
+
+    // Safari-family pinch: GestureEvent is WebKit-proprietary (scale is the
+    // cumulative pinch ratio since gesturestart).
+    interface WebKitGestureEvent extends Event {
+      scale: number;
+      clientX: number;
+      clientY: number;
     }
-  }
+    let gestureBaseZoom = 1;
+    const onGestureStart = (e: Event): void => {
+      e.preventDefault();
+      gestureBaseZoom = stateRef.current.zoom;
+    };
+    const onGestureChange = (e: Event): void => {
+      e.preventDefault();
+      const ge = e as WebKitGestureEvent;
+      zoomAboutClientPoint(ge.clientX, ge.clientY, gestureBaseZoom * ge.scale);
+    };
+    const onGestureEnd = (e: Event): void => e.preventDefault();
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('gesturestart', onGestureStart);
+    el.addEventListener('gesturechange', onGestureChange);
+    el.addEventListener('gestureend', onGestureEnd);
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('gesturestart', onGestureStart);
+      el.removeEventListener('gesturechange', onGestureChange);
+      el.removeEventListener('gestureend', onGestureEnd);
+    };
+  }, []);
 
   // ─── Keyboard ─────────────────────────────────────────────────────────────
 
@@ -624,6 +741,20 @@ export function CanvasArea() {
     (e: React.KeyboardEvent) => {
       const ne = e.nativeEvent as KeyboardEvent;
       const tmInst = tm.current;
+
+      // Space (held) → spring-loaded Hand tool (Figma convention); reverts
+      // to the previous tool on keyup.
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (!e.repeat && tmInst) {
+          tmInst.springLoadTool(
+            'hand',
+            ne,
+            buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent),
+          );
+        }
+        return;
+      }
 
       // Let the active tool try to consume the key first
       if (tmInst) {
@@ -767,6 +898,30 @@ export function CanvasArea() {
     [rootNodes],
   );
 
+  const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
+    const ne = e.nativeEvent as KeyboardEvent;
+    const tmInst = tm.current;
+    if (!tmInst) return;
+    const ctx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
+    // Release spring-loaded Hand tool when Space is let go.
+    if (e.key === ' ' && tmInst.springKey === ' ') {
+      e.preventDefault();
+      tmInst.releaseSpring(ctx);
+      return;
+    }
+    tmInst.handleKeyUp(ne, ctx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleDoubleClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const tmInst = tm.current;
+    if (!tmInst) return;
+    // Tools' onDoubleClick only reads clientX/Y + modifiers, all present on
+    // MouseEvent; buildToolCtx defaults pointerType/pressure when absent.
+    const ne = e.nativeEvent as unknown as PointerEvent;
+    tmInst.handleDoubleClick(ne, buildToolCtx(ne));
+  }
+
   // ─── Cursor ───────────────────────────────────────────────────────────────
 
   const cursor = tm.current?.cursor ?? 'default';
@@ -843,19 +998,23 @@ export function CanvasArea() {
           cursor,
         }}
         onKeyDown={handleKeyDown}
+        onKeyUp={handleKeyUp}
+        onDoubleClick={handleDoubleClick}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
         onPointerLeave={() => editor.setCursorPos(null)}
         onBlur={() => {
-          // Cancel any active drag on window blur
+          // Cancel any active drag and release spring-loaded tools on blur
           tm.current?.activeTool.onPointerCancel?.(
             new PointerEvent('pointercancel'),
             buildToolCtx(new PointerEvent('pointercancel')),
           );
+          if (tm.current?.springActive) {
+            tm.current.releaseSpring(buildToolCtx(new PointerEvent('pointercancel')));
+          }
         }}
-        onWheel={handleWheel}
       />
       <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />
       {state.tool === 'nodeEdit' &&

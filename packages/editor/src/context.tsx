@@ -176,6 +176,8 @@ export interface EditorContextValue {
   zoomIn: () => void;
   /** Zoom out 20% anchored to the viewport center. */
   zoomOut: () => void;
+  /** Zoom to an absolute level anchored to the viewport center. */
+  zoomTo: (level: number) => void;
   /** Fit all nodes in the document to the viewport. */
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
@@ -827,6 +829,14 @@ export function EditorProvider({
         const centre = screenToWorld(cam, vpW / 2, vpH / 2);
         const newZoom = clampZoom(state.zoom * 0.8);
         const newCam = zoomAboutPoint(cam, centre, newZoom);
+        patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
+      },
+      zoomTo: (level) => {
+        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
+        const cam = { pan: [state.pan.x, state.pan.y] as [number, number], zoom: state.zoom };
+        const centre = screenToWorld(cam, vpW / 2, vpH / 2);
+        const newCam = zoomAboutPoint(cam, centre, clampZoom(level));
         patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
       },
       fitAll: () => {
