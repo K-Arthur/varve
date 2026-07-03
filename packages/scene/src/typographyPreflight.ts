@@ -50,8 +50,7 @@ export function runTypographyPreflight(
   const chains = options.chains ?? new Map<string, import('./typography').TextChain>();
   const oversetMap = options.oversetMap ?? new Map<NodeId, import('./typography').OversetInfo>();
   const supportedAxes = options.supportedAxes ?? new Map<string, Set<string>>();
-  const fontMetadata =
-    options.fontMetadata ?? new Map<string, { glyphCount?: number; supportedAxes?: Set<string> }>();
+  const fontMetadata = options.fontMetadata ?? new Map<string, { glyphCount?: number; supportedAxes?: Set<string> }>();
 
   for (const node of Object.values(doc.nodes)) {
     if (node.kind !== 'text') continue;

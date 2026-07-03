@@ -103,7 +103,7 @@ export function addTrack(
   opts?: { interpolation?: 'linear' | 'discrete' | 'bezier'; enabled?: boolean },
 ): { doc: Document; trackId: string } {
   const timeline = doc.timelines?.[timelineId];
-  if (!timeline) return { doc: doc, trackId: '' };
+  if (!timeline) return { doc, trackId: '' };
 
   const id = trackId();
   const track: AnimationTrack = {
@@ -134,8 +134,6 @@ export function addTrack(
 export function removeTrack(doc: Document, timelineId: string, trackId: string): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
-  const trackExists = timeline.tracks.some((t) => t.id === trackId);
-  if (!trackExists) return doc;
   return {
     ...doc,
     timelines: {
@@ -157,7 +155,6 @@ export function updateTrack(
 ): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
-  if (!timeline.tracks.some((t) => t.id === trackId)) return doc;
   return {
     ...doc,
     timelines: {
@@ -215,8 +212,6 @@ export function removeKeyframe(
 ): Document {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
-  const track = timeline.tracks.find((t) => t.id === trackId);
-  if (!track || !track.keyframes.some((k) => k.progress === progress)) return doc;
   return {
     ...doc,
     timelines: {
@@ -273,7 +268,7 @@ export function addNodeToTimeline(
   initialValue?: unknown,
 ): { doc: Document; trackId: string } {
   const { doc: d1, trackId } = addTrack(doc, timelineId, nodeId, property);
-  if (!trackId) return { doc: doc, trackId: '' };
+  if (!trackId) return { doc, trackId: '' };
 
   if (initialValue !== undefined) {
     const d2 = addKeyframe(d1, timelineId, trackId, { progress: 0, value: initialValue });

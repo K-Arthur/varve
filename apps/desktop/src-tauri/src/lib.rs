@@ -239,7 +239,7 @@ fn export_node_pdf(nodes: Vec<IpcSceneNode>, opts: Option<ExportPdfOptions>) -> 
 
 /// Options for PDF/X export, deserialized from the TS bridge's options JSON.
 #[derive(Debug, Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 struct PdfXOptions {
     page_width: f64,
     page_height: f64,
