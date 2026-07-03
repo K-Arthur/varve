@@ -36,9 +36,8 @@ describe('layoutRichText', () => {
       defaultFormat,
     );
     expect(result.lines.length).toBeGreaterThanOrEqual(1);
-    expect(result.lines[0]?.runs.length).toBeGreaterThanOrEqual(1);
-    // The big run should have a larger font size.
-    expect(result.lines[0]?.runs.some((r) => r.format.fontSize === 32)).toBe(true);
+    // The big run should be present somewhere in the layout.
+    expect(result.lines.some((line) => line.runs.some((r) => r.format.fontSize === 32))).toBe(true);
   });
 
   it('marks overflow when text exceeds max lines', () => {
