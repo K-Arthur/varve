@@ -258,31 +258,30 @@ export class FontRegistry {
     return this.loadState.get(family) ?? 'unknown';
   }
 
-  /** Check if a font family is available (loaded or system). */
+  /** Check if a font family is loaded and available for use. */
   isAvailable(family: string): boolean {
-    const state = this.loadState.get(family);
-    if (state === 'loaded') return true;
-    if (!this.entries.has(family)) return false;
-    // If we haven't tried loading yet, consider it potentially available
-    if (state === undefined || state === 'unknown' || state === 'error') return false;
-    return false;
+    return this.loadState.get(family) === 'loaded';
+  }
+
+  /** Check if a font family is registered (regardless of load state). */
+  isRegistered(family: string): boolean {
+    return this.entries.has(family);
   }
 
   /** Check if a font is missing (not registered and not a generic). */
   isMissing(family: string): boolean {
-    const generics = ['sans-serif', 'serif', 'monospace', 'system-ui', 'ui-sans-serif'];
+    const generics = ['sans-serif', 'serif', 'monospace', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', 'fantasy', 'cursive'];
     if (generics.includes(family.toLowerCase())) return false;
     return !this.entries.has(family);
   }
 
-  /** Resolve font to a CSS font-family fallback chain string. */
+  /** Resolve font to a CSS font-family fallback chain string. The family name is quoted; generic fallbacks are not. */
   resolve(family: string, _weight?: number, _style?: string): string {
-    const fallbacks = this.fallbackChain(family).join(', ');
-    const parts = [family];
-    if (fallbacks) {
-      parts.push(fallbacks);
-    }
-    return parts.join(', ');
+    const fallbacks = this.fallbackChain(family);
+    const generics = ['sans-serif', 'serif', 'monospace', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', 'fantasy', 'cursive'];
+    const isGeneric = generics.includes(family.toLowerCase());
+    const familyPart = isGeneric ? family : `"${family}"`;
+    return fallbacks.length > 0 ? `${familyPart}, ${fallbacks.join(', ')}` : familyPart;
   }
 
   /** Build a `font` CSS shorthand value from family, size, weight, style, and line-height. */
@@ -297,7 +296,7 @@ export class FontRegistry {
     const s = style ?? 'normal';
     const lh = lineHeight ?? 1.2;
     const familyStr = this.resolve(family);
-    return `${s} ${w} ${size}px/${lh} "${familyStr}"`;
+    return `${s} ${w} ${size}px/${lh} ${familyStr}`;
   }
 
   /** Build font-variation-settings CSS from variableAxes data for a family. */

@@ -50,15 +50,42 @@ describe('FontRegistry', () => {
     expect(reg.fallbackChain('sans-serif')).toEqual([]);
   });
 
-  it('resolve builds a CSS font-family string with fallbacks', () => {
-    const reg = new FontRegistry();
+  it('resolve builds a CSS font-family string with quoted family and unquoted fallbacks', () => {
+    const reg = new FontRegistry([]);
+    reg.register({ family: 'Inter', weight: 400, style: 'normal', source: 'system' });
     const result = reg.resolve('Inter');
-    expect(result).toBe('Inter, sans-serif, serif, monospace');
+    expect(result).toBe('"Inter", sans-serif, serif, monospace');
   });
 
-  it('resolve handles generic font names', () => {
+  it('resolve does not quote generic font names', () => {
     const reg = new FontRegistry();
     expect(reg.resolve('sans-serif')).toBe('sans-serif');
+    expect(reg.resolve('serif')).toBe('serif');
+    expect(reg.resolve('monospace')).toBe('monospace');
+  });
+
+  it('buildFontCSS produces a valid shorthand with quoted family and fallbacks', () => {
+    const reg = new FontRegistry([]);
+    reg.register({ family: 'Inter', weight: 400, style: 'normal', source: 'system' });
+    const css = reg.buildFontCSS('Inter', 16, 700, 'italic', 1.5);
+    expect(css).toBe('italic 700 16px/1.5 "Inter", sans-serif, serif, monospace');
+  });
+
+  it('isAvailable returns true only for loaded state', () => {
+    const reg = new FontRegistry([]);
+    reg.register({ family: 'A', weight: 400, style: 'normal', source: 'system' });
+    expect(reg.isAvailable('A')).toBe(false);
+    (reg as unknown as { loadState: Map<string, string> }).loadState.set('A', 'loaded');
+    expect(reg.isAvailable('A')).toBe(true);
+    (reg as unknown as { loadState: Map<string, string> }).loadState.set('A', 'error');
+    expect(reg.isAvailable('A')).toBe(false);
+  });
+
+  it('isRegistered returns true for registered families regardless of load state', () => {
+    const reg = new FontRegistry([]);
+    reg.register({ family: 'B', weight: 400, style: 'normal', source: 'system' });
+    expect(reg.isRegistered('B')).toBe(true);
+    expect(reg.isRegistered('Unknown')).toBe(false);
   });
 
   it('singleton getFontRegistry returns same instance', () => {
