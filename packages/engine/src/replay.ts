@@ -635,9 +635,10 @@ function paintRichText(
   const originalFillStyle = target.fillStyle;
 
   for (const line of positioned.lines) {
+    const lineWidth = line.runs.reduce((sum, r) => sum + r.width, 0);
     let xOffset = 0;
-    if (p.textAlign === 'center') xOffset = (p.w - line.width) / 2;
-    else if (p.textAlign === 'right') xOffset = p.w - line.width;
+    if (p.textAlign === 'center') xOffset = (p.w - lineWidth) / 2;
+    else if (p.textAlign === 'right') xOffset = p.w - lineWidth;
 
     for (const run of line.runs) {
       target.font = run.font;
