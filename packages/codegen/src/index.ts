@@ -8,6 +8,9 @@
 import type { Affine, Color } from '@strata/engine';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 
+export { timelineToCSSKeyframes } from './animation-css';
+export { timelineToLottieJSON } from './animation-lottie';
+export { timelineToSVGAnimations } from './animation-svg';
 export { exportNodeToCss } from './css';
 export { exportNodeToCssModules } from './css-modules';
 export { exportNodeToFlutter } from './flutter';
