@@ -11,7 +11,8 @@
  */
 import { applyFilterChain } from './filters';
 import { layoutRichText } from './textLayout';
-import type { Color, FillIR, RenderItem } from './types';
+import { managedColorToRgba } from '@strata/shared';
+import type { Color, EngineColor, FillIR, RenderItem } from './types';
 
 export interface ReplayTarget {
   save(): void;
@@ -104,9 +105,15 @@ export interface ReplayGradient {
   addColorStop(offset: number, color: string): void;
 }
 
-function rgba(c: Color, opacityOverride?: number): string {
-  const alpha = opacityOverride !== undefined ? opacityOverride : c[3] / 255;
-  return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
+function rgba(c: EngineColor | readonly [number, number, number, number], opacityOverride?: number): string {
+  if (Array.isArray(c) || 'length' in c) {
+    const arr = c as readonly [number, number, number, number];
+    const alpha = opacityOverride !== undefined ? opacityOverride : arr[3] / 255;
+    return `rgba(${arr[0]}, ${arr[1]}, ${arr[2]}, ${alpha})`;
+  }
+  const [r, g, b, a] = managedColorToRgba(c as EngineColor);
+  const alpha = opacityOverride !== undefined ? opacityOverride : a / 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 const TAU = Math.PI * 2;
@@ -505,7 +512,7 @@ function createGradientStyle(
     return grad as unknown as string;
   }
 
-  return rgba(stops[0]?.color ?? [0, 0, 0, 0]);
+  return rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
 }
 
 /** Paint the primitive shape fill (without fillStyle). */

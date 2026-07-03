@@ -161,7 +161,7 @@ export type Effect =
       y: number;
       blur: number;
       spread: number;
-      color: Color;
+      color: EngineColor;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
@@ -172,7 +172,7 @@ export type Effect =
       y: number;
       blur: number;
       spread: number;
-      color: Color;
+      color: EngineColor;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
@@ -211,7 +211,7 @@ export interface SceneNode {
   transform: Affine;
   kind?: string;
   shape?: Shape;
-  fill?: Color;
+  fill?: EngineColor;
   /** P2: stacked fills (solid/gradient). */
   fills?: EngineFill[];
   src?: string;
@@ -263,7 +263,7 @@ export interface SceneNode {
 /** P2: Fill type for the engine (mirrors @strata/scene Fill). */
 export interface EngineGradientStop {
   position: number;
-  color: Color;
+  color: EngineColor;
 }
 
 export interface EngineGradientFill {
@@ -294,7 +294,7 @@ export interface EnginePatternFillData {
 
 export interface EngineFill {
   type: 'solid' | 'gradient' | 'image' | 'pattern';
-  color?: Color;
+  color?: EngineColor;
   gradient?: EngineGradientFill;
   image?: EngineImageFillData;
   pattern?: EnginePatternFillData;
@@ -367,7 +367,7 @@ export type Primitive =
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */
 export interface RenderItem {
   transform: Affine;
-  fill: Color;
+  fill: EngineColor;
   /** P2: stacked fills (solid/gradient). When present, paint bottom→top. */
   fills?: FillIR[];
   primitive: Primitive;
@@ -474,11 +474,11 @@ export type FilterIR =
 
 /** P2: Fill IR — a single fill in the render IR (solid, gradient, image, or pattern). */
 export type FillIR =
-  | { type: 'solid'; color: Color; opacity: number; blendMode: BlendMode; visible: boolean }
+  | { type: 'solid'; color: EngineColor; opacity: number; blendMode: BlendMode; visible: boolean }
   | {
       type: 'gradient';
       gradientType: 'linear' | 'radial' | 'angular' | 'diamond';
-      stops: { position: number; color: Color }[];
+      stops: { position: number; color: EngineColor }[];
       rotation: number;
       transform?: Affine;
       opacity: number;
