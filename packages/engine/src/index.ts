@@ -15,6 +15,8 @@ export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
+export { CompositeCanvas, mapBlendMode, blendPixels } from './compositeCanvas';
+export type { CompositeCanvasOptions } from './compositeCanvas';
 export type { ReplayTarget } from './replay';
 export { replayIr } from './replay';
 export type { ThumbnailOptions } from './thumbnail';
