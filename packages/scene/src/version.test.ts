@@ -63,10 +63,12 @@ describe('Document Migration', () => {
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(doc.id).toBe('d1');
     expect(doc.name).toBe('Old Doc');
-    expect(doc.rootChildren).toEqual([]);
-    expect(doc.nodes).toEqual({});
+    // The v1.2 migration wraps rootChildren into a page with a contentRoot
+    expect(doc.rootChildren).toEqual(['n1']);
+    expect((doc.nodes as Record<string, unknown>)['n1']).toBeDefined();
     expect(doc.components).toEqual({});
-    expect(doc.nextId).toBe(1);
+    expect(doc.nextId).toBe(2);
+    expect((doc as Record<string, unknown>).pages).toBeDefined();
   });
 
   it('strips BOM and handles whitespace in JSON via migrateDocumentJson', () => {

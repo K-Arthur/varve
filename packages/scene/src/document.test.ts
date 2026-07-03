@@ -37,23 +37,30 @@ function shape(doc: ReturnType<typeof createDocument>, name: string) {
   return { id, node: makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }), doc };
 }
 
+/** Return the contentRoot node id from the default page (used to account for it in rootChildren assertions). */
+function pageContentRoot(doc: ReturnType<typeof createDocument>): string {
+  return doc.pages![0]!.contentRoot;
+}
+
 describe('Document (root-level ops)', () => {
   it('adds nodes in paint order with sequential ids', () => {
     let doc = createDocument();
+    const cr = pageContentRoot(doc);
     const a = shape(doc, 'a');
     doc = a.doc;
     const b = shape(doc, 'b');
     doc = b.doc;
     doc = addNode(doc, a.node);
     doc = addNode(doc, b.node);
-    expect(doc.rootChildren).toEqual([a.id, b.id]);
-    expect(getById(doc, a.id)?.index).toBe(0);
-    expect(getById(doc, b.id)?.index).toBe(1);
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['a', 'b']);
+    expect(doc.rootChildren).toEqual([cr, a.id, b.id]);
+    expect(getById(doc, a.id)?.index).toBe(1);
+    expect(getById(doc, b.id)?.index).toBe(2);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['Page 1 content', 'a', 'b']);
   });
 
   it('removes a node and keeps the rest', () => {
     let doc = createDocument();
+    const cr = pageContentRoot(doc);
     const a = shape(doc, 'a');
     doc = a.doc;
     const b = shape(doc, 'b');
@@ -61,12 +68,13 @@ describe('Document (root-level ops)', () => {
     doc = addNode(doc, a.node);
     doc = addNode(doc, b.node);
     doc = removeNode(doc, a.id);
-    expect(doc.rootChildren).toEqual([b.id]);
+    expect(doc.rootChildren).toEqual([cr, b.id]);
     expect(getById(doc, a.id)).toBeUndefined();
   });
 
   it('moves a node to a new paint index', () => {
     let doc = createDocument();
+    const cr = pageContentRoot(doc);
     const a = shape(doc, 'a');
     doc = a.doc;
     const b = shape(doc, 'b');
@@ -77,7 +85,7 @@ describe('Document (root-level ops)', () => {
     doc = addNode(doc, b.node);
     doc = addNode(doc, c.node);
     doc = moveNode(doc, c.id, 0);
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['c', 'a', 'b']);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['c', 'a', 'b', 'Page 1 content']);
   });
 
   it('inserts at a specific index', () => {

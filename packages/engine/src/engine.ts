@@ -141,7 +141,7 @@ function stubEngine(): Engine {
       return scene.nodes.map((n) => {
         const item: RenderItem = {
           transform: n.transform,
-          fill: n.fill ?? ([0, 0, 0, 0] as [number, number, number, number]),
+          fill: n.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
           primitive: shapeToPrimitive(n),
           opacity: n.opacity ?? 1,
           blendMode: n.blendMode ?? 'normal',
