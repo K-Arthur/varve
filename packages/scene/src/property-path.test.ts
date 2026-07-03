@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  parsePropertyPath,
   getNestedValue,
-  setNestedValue,
   INTERPOLABLE_PROPERTIES,
+  parsePropertyPath,
+  setNestedValue,
 } from './property-path';
 
 describe('parsePropertyPath', () => {

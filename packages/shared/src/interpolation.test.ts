@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import {
-  interpolateValue,
-  interpolateColor,
-  interpolateAffine,
-  interpolatePath,
-} from './interpolation';
 import type { Affine } from './affine';
+import {
+  interpolateAffine,
+  interpolateColor,
+  interpolatePath,
+  interpolateValue,
+} from './interpolation';
 
 describe('interpolateValue', () => {
   it('interpolates numbers linearly', () => {
@@ -137,12 +137,8 @@ describe('interpolatePath', () => {
   });
 
   it('interpolates bezier handles', () => {
-    const from = [
-      { x: 0, y: 0, handleIn: null, handleOut: { x: 50, y: 0 } },
-    ];
-    const to = [
-      { x: 100, y: 100, handleIn: null, handleOut: { x: 0, y: 50 } },
-    ];
+    const from = [{ x: 0, y: 0, handleIn: null, handleOut: { x: 50, y: 0 } }];
+    const to = [{ x: 100, y: 100, handleIn: null, handleOut: { x: 0, y: 50 } }];
     const result = interpolatePath(from, to, 0.5);
     expect(result[0]?.handleOut?.x).toBe(25);
     expect(result[0]?.handleOut?.y).toBe(25);
@@ -166,12 +162,8 @@ describe('interpolatePath', () => {
   });
 
   it('handles partial handles (from has handle, to does not)', () => {
-    const from = [
-      { x: 0, y: 0, handleIn: { x: -10, y: 0 }, handleOut: { x: 10, y: 0 } },
-    ];
-    const to = [
-      { x: 100, y: 100, handleIn: null, handleOut: null },
-    ];
+    const from = [{ x: 0, y: 0, handleIn: { x: -10, y: 0 }, handleOut: { x: 10, y: 0 } }];
+    const to = [{ x: 100, y: 100, handleIn: null, handleOut: null }];
     const result = interpolatePath(from, to, 0.5);
     expect(result[0]?.handleIn).toBeNull();
     expect(result[0]?.handleOut).toBeNull();
