@@ -241,21 +241,6 @@ export function createGroup(
   };
 }
 
-function addNestedGroup(
-  groups: VariableGroup[],
-  parentName: string,
-  newGroup: VariableGroup,
-): VariableGroup[] {
-  return groups.map((g) => {
-    if (g.name === parentName) {
-      return { ...g, groups: [...(g.groups ?? []), newGroup] };
-    }
-    if (g.groups) {
-      return { ...g, groups: addNestedGroup(g.groups, parentName, newGroup) };
-    }
-    return g;
-  });
-}
 
 // ── Mode operations ─────────────────────────────────────────────────────────
 

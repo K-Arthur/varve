@@ -1,3 +1,4 @@
+import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo } from 'react';
 import { DeviceFrame } from './DeviceFrame';
 
@@ -77,7 +78,8 @@ export function PrototypePresenter({
   if (!isOpen) return null;
 
   const content = (
-    <div
+    <button
+      type="button"
       className="prototype-presenter__content"
       onClick={() => onEvent({ type: 'click', screenId: currentScreenId })}
     >
@@ -98,7 +100,7 @@ export function PrototypePresenter({
           Screen: {currentScreen?.name ?? 'Unknown'}
         </div>
       )}
-    </div>
+    </button>
   );
 
   return (
@@ -116,6 +118,7 @@ export function PrototypePresenter({
           {currentIndex + 1} / {screens.length}
         </span>
         <button
+          type="button"
           className="prototype-presenter__nav-btn"
           disabled={currentIndex <= 0}
           onClick={() => {
@@ -124,9 +127,10 @@ export function PrototypePresenter({
           }}
           aria-label="Previous screen"
         >
-          ←
+          <Icon name="ChevronLeft" size={24} />
         </button>
         <button
+          type="button"
           className="prototype-presenter__nav-btn"
           disabled={currentIndex >= screens.length - 1}
           onClick={() => {
@@ -135,9 +139,10 @@ export function PrototypePresenter({
           }}
           aria-label="Next screen"
         >
-          →
+          <Icon name="ChevronRight" size={24} />
         </button>
         <button
+          type="button"
           className="prototype-presenter__exit-btn"
           onClick={onClose}
           aria-label="Exit fullscreen"

@@ -21,6 +21,9 @@ import { useThumbnailLoader } from './useThumbnailLoader';
 export interface HomeShellProps {
   platform: Platform;
   onOpenFile: (entry: FileEntry) => void;
+  /** When an editor session is alive behind the home screen, lets the user
+   *  jump back to it without reopening a file. */
+  onResumeEditing?: () => void;
 }
 
 function greeting(): string {
@@ -49,7 +52,7 @@ async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson:
   }
 }
 
-export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
+export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellProps) {
   const view = useHomeView(platform);
   const actions = useFileActions(platform, view.refresh);
   const thumbnails = useThumbnailLoader(platform);
@@ -582,6 +585,17 @@ export function HomeShell({ platform, onOpenFile }: HomeShellProps) {
           <div className="sidebar-brand">
             <img src="/icons/strata-wordmark.svg" alt="Strata" className="sidebar-brand__logo" />
           </div>
+          {onResumeEditing && (
+            <button
+              type="button"
+              className="sidebar-resume"
+              onClick={onResumeEditing}
+              title="Return to your open tabs"
+            >
+              <Icon name="ArrowLeft" label={undefined} size="1em" />
+              <span>Continue editing</span>
+            </button>
+          )}
           <SidebarNav
             entries={sidebarEntries}
             activeId={

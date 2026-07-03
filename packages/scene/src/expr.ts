@@ -169,7 +169,8 @@ export function evaluate(input: string, aliases: Record<string, number>): number
   function parseArgs(): number[] {
     const args: number[] = [];
     // Check if no args (closing paren immediately)
-    if (peek()?.kind === 'paren' && peek()?.value === ')') {
+    const tp = peek();
+    if (tp?.kind === 'paren' && tp.value === ')') {
       return args;
     }
     args.push(parseExpr(0));
@@ -182,7 +183,8 @@ export function evaluate(input: string, aliases: Record<string, number>): number
 
   function parseFactor(): number {
     // Unary minus
-    if (peek()?.kind === 'op' && peek()?.op === '-') {
+    const t0 = peek();
+    if (t0?.kind === 'op' && t0.op === '-') {
       consume(); // eat '-'
       const val = parseFactor();
       return -val;

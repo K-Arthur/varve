@@ -13,7 +13,8 @@
  * Research basis: Figma local styles (color/text/effect), Penpot typography
  * styles, industry-standard DTCG design token patterns.
  */
-import type { Document, Effect, Fill, LayoutStyle, NodeId, Style, StyleType } from './types';
+import type { Effect, Fill, LayoutStyle, NodeId, SceneNode, Style, StyleType } from './types';
+import type { Document } from './document';
 
 // ── CRUD operations ─────────────────────────────────────────────────────────
 
@@ -126,8 +127,8 @@ export function applyStyleToNode(doc: Document, nodeId: NodeId, styleId: NodeId)
 export function unlinkStyleFromNode(doc: Document, nodeId: NodeId): Document {
   const node = doc.nodes[nodeId];
   if (!node) return doc;
-  const { styleId: _removed, ...rest } = node as Record<string, unknown>;
-  return { ...doc, nodes: { ...doc.nodes, [nodeId]: rest as typeof node } };
+  const { styleId: _removed, ...rest } = node as unknown as Record<string, unknown>;
+  return { ...doc, nodes: { ...doc.nodes, [nodeId]: rest as unknown as SceneNode } };
 }
 
 /**

@@ -42,9 +42,10 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 1273 tests across 120 files: codegen 8, editor 291, scene 86+, engine 55, platform 43, home 13, print 4, prototype 191, ui 147, shared 144, E2E 21
+- **JS:** 1405 tests across 126 files: editor 402+, scene 217+, engine 55+, platform 43, home 13, print 4, prototype 191, ui 147+, shared 84+
+- **Typecheck:** 15/15 packages pass (zero errors)
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
-- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 90/90 WCAG-AA across 3 themes
+- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 93/93 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
 
@@ -318,9 +319,28 @@ render, layer-click not revealing. 4 phases committed onto `feat/home-start-page
 - Lint: clean on all modified files
 - The three reported symptoms (wrong placement, wrong colours, no reveal) are addressed
 
-## Session 27 — Complete prototyping system (2026-07-02)
+## Session 28 — UX/UI Feature Architecture Implementation (2026-07-03)
 
-Full prototyping ecosystem built from scratch across 12 phases, TDD-first with 1273 tests passing final gate.
+Complete implementation of 7 major feature systems:
+
+| Feature | What was built |
+|---|---|
+| **1. Persistent Home Access** | Home button in Menubar (already existed), `home` shortcut registration in ShortcutManager, `onBackToHome` wired through useShortcuts, TabStrip and Menubar accept `onBackToHome` prop |
+| **2. Panel Collapse/Resize** | `leftPanelVisible`/`rightPanelVisible` state in EditorContext with `toggleLeftPanel`/`toggleRightPanel` actions, keyboard shortcuts (Ctrl+B / Ctrl+Shift+B), `PanelResizeHandle` component with drag/keyboard/double-click reset, `usePanelWidths` hook with `localStorage` persistence, collapsed state CSS transitions |
+| **3. Floating Text Bar** | Full `FloatingTextBar` component with font family, weight, bold/italic toggles, font size, text align, list toggle, color picker. Smart positioning (above/below/right of text). FontRegistry integration. Rendered in CanvasArea. Tests: 20+ |
+| **4. Quick Actions Bar** | `ActionRegistry` singleton with `register/search/getByCategory/has/remove`, `registerAllShortcuts` + `registerEditorActions` for populating from SHORTCUT_DEFS + editor actions. `QuickActionsBar` component with fuzzy search, recent actions, keyboard navigation (arrows + Enter), position at cursor or bottom-center. Tests: 14 |
+| **5. Layout Guides System** | `Guide` type in scene model + `addGuide`/`removeGuide`/`moveGuide`/`toggleGuideLock`/`clearGuides` ops (12 tests). `Ruler` component with zoom-aware ticks, unit-aware labels, drag-from-ruler guide creation. `GuideOverlay` with persistent guide lines, drag repositioning, hover tooltips. Zoom-aware canvas grid (dynamic `background-size` from zoom). Wired `pixelGridEnabled` toggle to pixel grid overlay. Layout grid rendering for frames with `gridTemplateColumns`/`gridTemplateRows`. |
+| **6. Intelligent Layer Coloring** | Added `image`/`arrow`/`path` to NODE_ICONS in LayersRow. Added `image` theme tokens (`layer-accent-image`/`layer-wash-image`, magenta/purple range) across all 3 themes (93/93 WCAG-AA). Added `arrow: 'Arrow'` to auto-naming. Enabled thumbnails via `useThumbnail` in LayersRow. High-contrast mode: distinctive purple for image layers so type distinction is not lost. |
+| **7. Floating Variant Box** | `setVariantForInstance`/`createVariant`/`addComponentProperty`/`resolveVariantPropertiesForNode` wired in editor context. `VariantBox` component with variant property controls (boolean toggle, text input, instanceSwap label), create-variant inline form, appearance/disappearance logic. Variant name badge in LayersRow. Variant resolution in render pipeline. Tests: 10 |
+
+**Pre-existing fixes:** Resolved all typecheck errors in `packages/scene` (collections.test.ts, governance.ts/test.ts, styles.ts/test.ts, library.ts, variables.ts, variants.test.ts, expr.ts) — 30+ type errors fixed. Added `rotate` to canvas mock in vitest.setup.ts. Fixed emoji violations in PrototypePresenter.tsx (arrow chars → Lucide icons).
+
+**Verification:**
+- JS tests: **1405 pass** (126 files, was ~1273)
+- Typecheck: **15/15 packages pass** (zero errors)
+- Token audit: **93/93 WCAG-AA** (3 themes)
+- Emoji audit: clean
+- Lint: 0 new errors on modified files
 
 | Phase | What was built |
 |---|---|

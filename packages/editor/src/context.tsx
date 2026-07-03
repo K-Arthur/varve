@@ -1005,7 +1005,7 @@ export function EditorProvider({
         }
         if (matchingIds.length > 0) {
           patch({ selection: [firstNode.id, ...matchingIds] });
-          announce(`Selected ${matchingIds.length + 1} ${targetKind} nodes`);
+          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} ${targetKind} nodes`);
         }
       },
       selectAllWithSameFill: () => {
@@ -1029,7 +1029,7 @@ export function EditorProvider({
         }
         if (matchingIds.length > 0) {
           patch({ selection: [firstNode.id, ...matchingIds] });
-          announce(`Selected ${matchingIds.length + 1} nodes with matching fill`);
+          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} nodes with matching fill`);
         }
       },
 

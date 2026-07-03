@@ -20,17 +20,13 @@ const MOCK_ZOOM = 1;
 
 function buildDoc(nodes: Record<string, SceneNode>): Document {
   return {
+    id: 'test',
+    name: 'Test',
+    nextId: 100,
     rootChildren: Object.keys(nodes),
     nodes,
     components: {},
-    componentInstances: {},
-    componentPropertySets: [],
-    variableStore: { modes: [], activeMode: 'default', collections: {} },
-    interactions: [],
-    guides: [],
-    prototype: null,
-    styles: {},
-    installedLibraries: [],
+    variableStore: { variables: {}, modes: [], activeMode: 'default', collections: {}, activeCollectionId: '' },
   };
 }
 
@@ -149,6 +145,34 @@ describe('computeResize', () => {
   });
 });
 
+describe('computeResize — flip detection', () => {
+  it('dragging left handle past right edge flips X', () => {
+    const r = computeResize(7, 100, 100, 200, 100, 250, 0);
+    expect(r.flippedX).toBe(true);
+    expect(r.flippedY).toBe(false);
+    expect(r.x).toBe(300);
+    expect(r.w).toBe(50);
+  });
+
+  it('dragging bottom handle past top edge flips Y', () => {
+    const r = computeResize(5, 100, 100, 200, 100, 0, -150);
+    expect(r.flippedY).toBe(true);
+    expect(r.flippedX).toBe(false);
+    expect(r.y).toBe(50);
+    expect(r.h).toBe(50);
+  });
+
+  it('dragging TL handle past BR edge flips both axes', () => {
+    const r = computeResize(0, 100, 100, 200, 100, 250, 150);
+    expect(r.flippedX).toBe(true);
+    expect(r.flippedY).toBe(true);
+    expect(r.x).toBe(300);
+    expect(r.y).toBe(200);
+    expect(r.w).toBe(50);
+    expect(r.h).toBe(50);
+  });
+});
+
 describe('SelectionOverlay — shape handle types', () => {
   it('shows 8 resize handles + rotation handle for a rect shape', () => {
     const container = renderOverlay([
@@ -160,7 +184,7 @@ describe('SelectionOverlay — shape handle types', () => {
     const rects = container.querySelectorAll('svg > rect');
     expect(rects.length).toBe(9);
     const circles = container.querySelectorAll('svg > circle');
-    expect(circles.length).toBe(1);
+    expect(circles.length).toBe(2);
     const lines = container.querySelectorAll('svg > line');
     expect(lines.length).toBe(1);
   });
@@ -222,8 +246,7 @@ describe('SelectionOverlay — shape handle types', () => {
         from: [0, 0],
         to: [200, 100],
         tolerance: 3,
-        arrowheadLen: 20,
-        arrowheadAngle: 30,
+        arrowheadSize: 20,
       }),
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
@@ -265,6 +288,39 @@ describe('SelectionOverlay — shape handle types', () => {
     // Bbox has dashed stroke in multi-select
     const bboxRect = rects[0];
     expect(bboxRect?.getAttribute('stroke-dasharray')).toBe('4 3');
+  });
+});
+
+  it('shows pivot point at center for single selection', () => {
+    const container = renderOverlay([
+      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
+    ]);
+    const circles = container.querySelectorAll('svg > circle');
+    expect(circles.length).toBe(2);
+    const pivot = circles[1];
+    expect(pivot?.getAttribute('cx')).toBe('100');
+    expect(pivot?.getAttribute('cy')).toBe('50');
+    expect(pivot?.getAttribute('r')).toBe('4');
+    expect(pivot?.getAttribute('fill')).toBe('white');
+  });
+
+describe('SelectionOverlay — multi-selection', () => {
+  it('shows dimension label for multi-selection', () => {
+    const container = renderOverlay([
+      makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }),
+      makeShapeNode('b', { kind: 'rect', x: 100, y: 0, w: 50, h: 50 }),
+    ]);
+    const texts = container.querySelectorAll('svg > text');
+    expect(texts.length).toBe(1);
+    expect(texts[0]?.textContent).toContain('by');
+  });
+
+  it('does not show rotation handle for multi-selection', () => {
+    const container = renderOverlay([
+      makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }),
+      makeShapeNode('b', { kind: 'rect', x: 100, y: 0, w: 50, h: 50 }),
+    ]);
+    expect(container.querySelectorAll('svg > circle').length).toBe(0);
   });
 });
 

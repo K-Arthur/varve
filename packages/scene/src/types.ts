@@ -38,6 +38,16 @@ export interface Mask {
   visible: boolean;
 }
 
+// ── Guide interface ──────────────────────────────────────────────────────────
+
+export interface Guide {
+  id: string;
+  axis: 'horizontal' | 'vertical';
+  position: number;
+  locked?: boolean;
+  color?: string;
+}
+
 // ── Appearance types (Inspector F6) ─────────────────────────────────────────
 
 export type BlendMode =

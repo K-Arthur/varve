@@ -10,7 +10,7 @@
  * Research basis: ARIA Authoring Practices Guide — Tabs pattern
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
-import { Icon } from '@strata/ui';
+import { StrataLogo } from '@strata/ui';
 import { useRef } from 'react';
 import { useEditor } from './context';
 
@@ -107,7 +107,7 @@ export function TabStrip({ onBackToHome }: { onBackToHome?: () => void }) {
         onAuxClick={(e) => handleAuxClick(e, HOME_ID)}
         title="Home (Ctrl+Shift+H)"
       >
-        <Icon name="House" size="12" aria-hidden />
+        <StrataLogo size={14} />
         <span className="editor-tabs__name">Home</span>
       </div>
       {sessions.map((sess) => {

@@ -12,11 +12,10 @@ import {
   createPropertySet,
   createVariant,
   getComponentProperties,
-  getVariant,
   resolveVariantProperties,
   setVariantForInstance,
 } from './component';
-import { addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
+import { addNode, createDocument, makeFrameNode } from './document';
 import type { FrameNode } from './types';
 
 function setupDocWithComponent(): {
