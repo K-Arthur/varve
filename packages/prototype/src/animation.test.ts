@@ -17,8 +17,8 @@ describe('Animation engine', () => {
       addKeyframe(timeline, 0, { x: 0, y: 0 });
       addKeyframe(timeline, 1, { x: 100, y: 200 });
       expect(timeline.keyframes).toHaveLength(2);
-      expect(timeline.keyframes[0]!.progress).toBe(0);
-      expect(timeline.keyframes[1]!.progress).toBe(1);
+      expect(timeline.keyframes[0]?.progress).toBe(0);
+      expect(timeline.keyframes[1]?.progress).toBe(1);
     });
 
     it('sorts keyframes by progress', () => {
@@ -34,7 +34,7 @@ describe('Animation engine', () => {
       addKeyframe(timeline, 0, { x: 0 });
       addKeyframe(timeline, 0, { x: 10 });
       expect(timeline.keyframes).toHaveLength(1);
-      expect(timeline.keyframes[0]!.values.x).toBe(10);
+      expect(timeline.keyframes[0]?.values.x).toBe(10);
     });
   });
 

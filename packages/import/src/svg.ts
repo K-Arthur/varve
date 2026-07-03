@@ -33,7 +33,7 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
 
   const clean = svg.trim();
   const root = parseSingleElement(clean);
-  if (!root || root.tag !== 'svg') {
+  if (root?.tag !== 'svg') {
     return {
       document: createDocument('Import'),
       nodeIds: [],
@@ -156,7 +156,7 @@ function convertElement(
 
   if (el.tag === 'use') {
     const href = el.attrs.href ?? el.attrs['xlink:href'];
-    if (href && href.startsWith('#')) {
+    if (href?.startsWith('#')) {
       const refId = href.slice(1);
       const ref = defs.get(refId);
       if (ref) {
@@ -492,14 +492,14 @@ function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
 
   if (opacity) {
     const op = parseFloat(opacity);
-    if (!isNaN(op)) {
+    if (!Number.isNaN(op)) {
       result = { ...result, opacity: op };
     }
   }
 
   if (fillOpacity) {
     const fop = parseFloat(fillOpacity);
-    if (!isNaN(fop) && 'fills' in result && result.fills && result.fills.length > 0) {
+    if (!Number.isNaN(fop) && 'fills' in result && result.fills && result.fills.length > 0) {
       const fills = [...result.fills];
       fills[0] = { ...fills[0]!, opacity: fop };
       result = { ...result, fills } as SceneNode;
@@ -757,7 +757,7 @@ function parseTransform(transformStr: string): Affine {
 
   const matrixMatch = transformStr.match(/matrix\(([^)]+)\)/);
   if (matrixMatch) {
-    const parts = matrixMatch[1]!.split(/[\s,]+/).map(Number);
+    const parts = matrixMatch[1]?.split(/[\s,]+/).map(Number);
     if (parts.length >= 6) {
       return [parts[0]!, parts[1]!, parts[2]!, parts[3]!, parts[4]!, parts[5]!] as Affine;
     }
@@ -765,21 +765,21 @@ function parseTransform(transformStr: string): Affine {
 
   const translateMatch = transformStr.match(/translate\(([^)]+)\)/);
   if (translateMatch) {
-    const parts = translateMatch[1]!.split(/[\s,]+/).map(Number);
+    const parts = translateMatch[1]?.split(/[\s,]+/).map(Number);
     m4 = parts[0] ?? 0;
     m5 = parts[1] ?? 0;
   }
 
   const scaleMatch = transformStr.match(/scale\(([^)]+)\)/);
   if (scaleMatch) {
-    const parts = scaleMatch[1]!.split(/[\s,]+/).map(Number);
+    const parts = scaleMatch[1]?.split(/[\s,]+/).map(Number);
     m0 = parts[0] ?? 1;
     m3 = parts[1] ?? parts[0] ?? 1;
   }
 
   const rotateMatch = transformStr.match(/rotate\(([^)]+)\)/);
   if (rotateMatch) {
-    const parts = rotateMatch[1]!.split(/[\s,]+/).map(Number);
+    const parts = rotateMatch[1]?.split(/[\s,]+/).map(Number);
     const angle = (parts[0] ?? 0) * (Math.PI / 180);
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);

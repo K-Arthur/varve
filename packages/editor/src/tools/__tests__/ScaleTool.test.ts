@@ -113,8 +113,8 @@ describe('ScaleTool', () => {
     const updated = updateFn(node);
     const decomposed = decomposeAffine(updated.transform as Affine);
     expect(decomposed).not.toBeNull();
-    expect(decomposed!.rotation).toBeCloseTo(rotRad, 1);
-    expect(decomposed!.scale).toBeCloseTo(2, 1);
+    expect(decomposed?.rotation).toBeCloseTo(rotRad, 1);
+    expect(decomposed?.scale).toBeCloseTo(2, 1);
   });
 
   it('clamps scale to minimum 0.01', () => {
@@ -678,11 +678,11 @@ describe('ScaleTool — multi-object relative position', () => {
     expect(decA).not.toBeNull();
     expect(decB).not.toBeNull();
     // Individual rotations preserved (not reset to a common value)
-    expect(decA!.rotation).toBeCloseTo((rotDeg * Math.PI) / 180, 1);
-    expect(decB!.rotation).toBeCloseTo((45 * Math.PI) / 180, 1);
+    expect(decA?.rotation).toBeCloseTo((rotDeg * Math.PI) / 180, 1);
+    expect(decB?.rotation).toBeCloseTo((45 * Math.PI) / 180, 1);
     // Both scaled by same factor
-    expect(decA!.scale).toBeCloseTo(3, 1);
-    expect(decB!.scale).toBeCloseTo(3, 1);
+    expect(decA?.scale).toBeCloseTo(3, 1);
+    expect(decB?.scale).toBeCloseTo(3, 1);
   });
 });
 

@@ -212,6 +212,8 @@ export function Menubar({
     booleanOp,
     startPresentation,
     clearAllGuides,
+    save,
+    saveAs,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -284,17 +286,11 @@ export function Menubar({
           if (confirm('Create a new document? Unsaved changes will be lost.')) newDocument();
           break;
         case 'save':
-        case 'saveAs': {
-          const json = serializeDocument();
-          const blob = new Blob([json], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${state.document.name || 'untitled'}.strata.json`;
-          a.click();
-          URL.revokeObjectURL(url);
+          save();
           break;
-        }
+        case 'saveAs':
+          saveAs();
+          break;
         case 'open':
           document.querySelector<HTMLInputElement>('#file-open-input')?.click();
           break;
@@ -404,6 +400,8 @@ export function Menubar({
       onBackToHome,
       onOpenSettings,
       onStartTour,
+      save,
+      saveAs,
     ],
   );
 

@@ -406,7 +406,7 @@ export function setVariantForInstance(
   variantId: string,
 ): Document {
   const node = doc.nodes[instanceId];
-  if (!node || node.kind !== 'frame') return doc;
+  if (node?.kind !== 'frame') return doc;
   const frame = node as FrameNode;
   if (!frame.componentId) return doc;
 

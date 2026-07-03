@@ -36,11 +36,21 @@ export function snapPosition(
     const snappedGridY = Math.round(y / grid) * grid;
     if (Math.abs(snappedGridX - x) < SNAP_THRESHOLD) {
       snappedX = snappedGridX;
-      guides.push({ axis: 'vertical', position: snappedGridX, label: `${snappedGridX}px`, type: 'edge' });
+      guides.push({
+        axis: 'vertical',
+        position: snappedGridX,
+        label: `${snappedGridX}px`,
+        type: 'edge',
+      });
     }
     if (Math.abs(snappedGridY - y) < SNAP_THRESHOLD) {
       snappedY = snappedGridY;
-      guides.push({ axis: 'horizontal', position: snappedGridY, label: `${snappedGridY}px`, type: 'edge' });
+      guides.push({
+        axis: 'horizontal',
+        position: snappedGridY,
+        label: `${snappedGridY}px`,
+        type: 'edge',
+      });
     }
   }
 
@@ -84,7 +94,12 @@ export function snapPosition(
       if (Math.abs(diff) < SNAP_THRESHOLD) {
         snappedX = x - diff;
         const snapType = key === 'centerX' ? 'center' : 'edge';
-        guides.push({ axis: 'vertical', position: bEdges[key], distance: Math.abs(diff), type: snapType });
+        guides.push({
+          axis: 'vertical',
+          position: bEdges[key],
+          distance: Math.abs(diff),
+          type: snapType,
+        });
         break;
       }
     }
@@ -94,7 +109,12 @@ export function snapPosition(
       if (Math.abs(diff) < SNAP_THRESHOLD) {
         snappedY = y - diff;
         const snapType = key === 'centerY' ? 'center' : 'edge';
-        guides.push({ axis: 'horizontal', position: bEdges[key], distance: Math.abs(diff), type: snapType });
+        guides.push({
+          axis: 'horizontal',
+          position: bEdges[key],
+          distance: Math.abs(diff),
+          type: snapType,
+        });
         break;
       }
     }

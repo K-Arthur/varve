@@ -112,7 +112,7 @@ describe('PencilTool', () => {
     const tool = new PencilTool();
     const ctx = makeCtx();
 
-    const result = tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    const result = tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
 
     expect(result.consumed).toBe(true);
     expect(result.captured).toBe(true);
@@ -123,8 +123,8 @@ describe('PencilTool', () => {
     const tool = new PencilTool();
     const ctx = makeCtx();
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
-    tool.onPointerUp!(makePointerEvent(100, 100), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
 
     expect(ctx.createShapeAt).toHaveBeenCalledWith({ x: 100, y: 100 }, { w: 4, h: 4 });
   });
@@ -133,17 +133,17 @@ describe('PencilTool', () => {
     const tool = new PencilTool();
     const ctx = makeCtx();
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
 
-    rafCb!(0);
+    rafCb?.(0);
 
-    tool.onPointerMove!(makePointerEvent(110, 110), ctx);
-    rafCb!(0);
+    tool.onPointerMove?.(makePointerEvent(110, 110), ctx);
+    rafCb?.(0);
 
-    tool.onPointerMove!(makePointerEvent(120, 120), ctx);
-    rafCb!(0);
+    tool.onPointerMove?.(makePointerEvent(120, 120), ctx);
+    rafCb?.(0);
 
-    tool.onPointerUp!(makePointerEvent(120, 120), ctx);
+    tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
 
     expect(ctx.createShapeAt).toHaveBeenCalled();
     const { mock } = ctx.createShapeAt as ReturnType<typeof vi.fn>;
@@ -158,17 +158,17 @@ describe('PencilTool', () => {
     const tool = new PencilTool();
     const ctx = makeCtx();
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
 
-    rafCb!(0);
+    rafCb?.(0);
 
-    tool.onPointerMove!(makePointerEvent(110, 110), ctx);
-    rafCb!(0);
+    tool.onPointerMove?.(makePointerEvent(110, 110), ctx);
+    rafCb?.(0);
 
-    tool.onPointerMove!(makePointerEvent(120, 120), ctx);
-    rafCb!(0);
+    tool.onPointerMove?.(makePointerEvent(120, 120), ctx);
+    rafCb?.(0);
 
-    tool.onPointerUp!(makePointerEvent(120, 120), ctx);
+    tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
 
     const { mock } = ctx.createShapeAt as ReturnType<typeof vi.fn>;
     const callArgs = mock.calls[0];
@@ -180,8 +180,8 @@ describe('PencilTool', () => {
     const tool = new PencilTool();
     const ctx = makeCtx();
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
-    tool.onKeyDown!(makeKeyEvent('Escape'), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Escape'), ctx);
 
     expect(ctx.createShapeAt).not.toHaveBeenCalled();
     expect(ctx.setDraft).toHaveBeenCalledWith(null);

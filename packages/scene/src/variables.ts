@@ -199,7 +199,7 @@ export function createGroup(
     if (existingRoot) {
       const newGroups =
         collection.groups?.map((g) =>
-          g.id === existingRoot!.id
+          g.id === existingRoot?.id
             ? { ...g, groups: [...(g.groups ?? []), { ...newGroup, name: childName }] }
             : g,
         ) ?? [];

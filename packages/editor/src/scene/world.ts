@@ -159,7 +159,7 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
  */
 export function groupWorldBounds(doc: Document, groupId: NodeId): Rect | null {
   const node = doc.nodes[groupId];
-  if (!node || node.kind !== 'group') return null;
+  if (node?.kind !== 'group') return null;
   let union: Rect | null = null;
   for (const childId of node.children) {
     const b = nodeWorldBounds(doc, childId);

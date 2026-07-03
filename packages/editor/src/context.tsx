@@ -23,7 +23,7 @@ import {
   shapeContains,
 } from '@strata/engine';
 import { importFile } from '@strata/import';
-import type { Platform } from '@strata/platform';
+import { makeFileEntry, type Platform } from '@strata/platform';
 import {
   createRuntime,
   type Interaction,
@@ -96,11 +96,12 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import type { AutoSaveService } from './autoSaveService';
+import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   readClipboardImages,
@@ -883,7 +884,8 @@ export function EditorProvider({
         const meta = s.sessions.find((sess) => sess.id === s.activeId);
         try {
           if (meta?.fileId) {
-            await platform.upsertFile({ id: meta.fileId, name: meta.name }, json);
+            const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
+            await platform.upsertFile(fe, json);
           }
           return true;
         } catch {
@@ -2137,7 +2139,8 @@ export function EditorProvider({
           const meta = s.sessions.find((sess) => sess.id === s.activeId);
           const json = JSON.stringify({ ...s.document, formatVersion: '1.0' });
           if (meta?.fileId) {
-            await platform.upsertFile({ id: meta.fileId, name: meta.name }, json);
+            const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
+            await platform.upsertFile(fe, json);
           } else {
             return await saveAsImpl(platform, stateRef, recoveryRef, patch);
           }

@@ -95,8 +95,8 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
       const styleGrow = (children[i] as { layoutStyle?: { grow?: number } }).layoutStyle?.grow ?? 0;
       const grow = fillGrow || styleGrow;
       if (grow > 0) {
-        if (row) sizes[i] = { ...sizes[i]!, w: sizes[i]!.w + perUnit * grow };
-        else sizes[i] = { ...sizes[i]!, h: sizes[i]!.h + perUnit * grow };
+        if (row) sizes[i] = { ...sizes[i]!, w: sizes[i]?.w + perUnit * grow };
+        else sizes[i] = { ...sizes[i]!, h: sizes[i]?.h + perUnit * grow };
       }
     }
   }
@@ -113,8 +113,8 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
       for (let i = 0; i < sizes.length; i++) {
         const sh = (children[i] as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0;
         if (sh > 0) {
-          if (row) sizes[i] = { ...sizes[i]!, w: Math.max(0, sizes[i]!.w - perUnit * sh) };
-          else sizes[i] = { ...sizes[i]!, h: Math.max(0, sizes[i]!.h - perUnit * sh) };
+          if (row) sizes[i] = { ...sizes[i]!, w: Math.max(0, sizes[i]?.w - perUnit * sh) };
+          else sizes[i] = { ...sizes[i]!, h: Math.max(0, sizes[i]?.h - perUnit * sh) };
         }
       }
     }
@@ -203,7 +203,7 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
   const justify = style.justifyContent ?? 'start';
   if (justify !== 'start' && lines.length > 0) {
     for (const line of lines) {
-      const lineResults = line.indices.map((i) => results.find((r) => r.id === children[i]!.id)!);
+      const lineResults = line.indices.map((i) => results.find((r) => r.id === children[i]?.id)!);
       if (lineResults.length === 0) continue;
 
       const totalSize = lineResults.reduce((s, r) => s + (row ? r.w : r.h), 0);

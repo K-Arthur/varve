@@ -40,8 +40,8 @@ describe('Scrolling system', () => {
       };
       setScrollPosition(state, 'c1', -50, 900);
       const pos = getScrollPosition(state, 'c1');
-      expect(pos!.x).toBe(0);
-      expect(pos!.y).toBe(400); // clamped to (800-400)
+      expect(pos?.x).toBe(0);
+      expect(pos?.y).toBe(400); // clamped to (800-400)
     });
 
     it('returns null for unknown container', () => {

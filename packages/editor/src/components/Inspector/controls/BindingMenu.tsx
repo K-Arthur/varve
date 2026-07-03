@@ -136,7 +136,7 @@ export function BindingMenu({
         setSelectedIdx((i) => Math.max(i - 1, 0));
       } else if (e.key === 'Enter' && variables[selectedIdx]) {
         e.preventDefault();
-        handleSelect(variables[selectedIdx]!.id);
+        handleSelect(variables[selectedIdx]?.id);
       }
     },
     [handleSelect, variables, selectedIdx],
