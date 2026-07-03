@@ -305,38 +305,43 @@
   z-index: var(--z-raised);
 }
 
+/* Side panels are sunken "rails"; sections inside render as raised cards
+ * (see inspector.css .insp-disclosure) so they float on the rail. */
 .editor-layers {
   grid-area: layers;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-surface-raised);
+  background: var(--color-surface-base);
   border-right: 1px solid var(--color-border-subtle);
-  box-shadow: 2px 0 8px var(--elevation-shadow-raised);
 }
 
 .editor-inspector {
   grid-area: inspector;
   overflow-y: auto;
   padding: var(--space-2);
-  background: var(--color-surface-raised);
+  background: var(--color-surface-base);
   border-left: 1px solid var(--color-border-subtle);
-  box-shadow: -2px 0 8px var(--elevation-shadow-raised);
   content-visibility: auto;
   contain-intrinsic-size: 600px;
   contain: layout style;
 }
 
 .editor-inspector__group {
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
+  background: var(--color-surface-raised);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
 }
 .editor-inspector__group-title {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
+  color: var(--color-text-primary);
   margin-bottom: var(--space-2);
+}
+[data-theme="high-contrast"] .editor-inspector__group {
+  border: 1px solid var(--color-border-subtle);
 }
 
 .editor-status {
