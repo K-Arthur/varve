@@ -117,8 +117,8 @@ if (typeof OffscreenCanvas === 'undefined') {
   } as unknown as typeof OffscreenCanvas;
 }
 
-// jsdom does not implement PointerEvent
-if (typeof globalThis.PointerEvent === 'undefined') {
+// jsdom does not implement PointerEvent; node has neither PointerEvent nor MouseEvent
+if (typeof globalThis.PointerEvent === 'undefined' && typeof globalThis.MouseEvent !== 'undefined') {
   class PointerEventMock extends MouseEvent {
     readonly pointerId: number;
     readonly width: number;

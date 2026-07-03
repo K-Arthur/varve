@@ -228,6 +228,7 @@ export function makeGroupNode(
       | 'blendMode'
       | 'rotation'
       | 'order'
+      | 'isolated'
     >
   > & {
     index?: number;
@@ -247,6 +248,7 @@ export function makeGroupNode(
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? ([0, 0, 0, 0] as Color),
     children: opts.children ?? [],
+    isolated: opts.isolated,
   };
 }
 

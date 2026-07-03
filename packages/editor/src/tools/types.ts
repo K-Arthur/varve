@@ -36,7 +36,11 @@ export type ToolId =
   | 'booleanSubtract'
   | 'booleanIntersect'
   | 'booleanExclude'
-  | 'inspect';
+  | 'inspect'
+  | 'cloneStamp'
+  | 'healBrush'
+  | 'spotHeal'
+  | 'patch';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',
