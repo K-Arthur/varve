@@ -422,8 +422,8 @@ describe('TIFF dimension detection', () => {
 
 describe('AVIF dimension detection', () => {
   it('detects AVIF dimensions via ispe box', () => {
-    // Minimal AVIF structure: ftyp box + meta box with ispe
-    const data = new Uint8Array(60);
+    // Minimal AVIF structure: ftyp box + meta box (full box) with ispe inside
+    const data = new Uint8Array(64);
     // ftyp box: size=20, type='ftyp', brand='avif'
     data[0] = 0x00;
     data[1] = 0x00;
@@ -437,39 +437,44 @@ describe('AVIF dimension detection', () => {
     data[9] = 0x76;
     data[10] = 0x69;
     data[11] = 0x66; // 'avif'
-    // meta box: size=24, type='meta', then ispe box inside
+    // meta box at offset 20: size=28, type='meta'
     data[20] = 0x00;
     data[21] = 0x00;
     data[22] = 0x00;
-    data[23] = 0x18; // size=24
+    data[23] = 0x1c; // size=28
     data[24] = 0x6d;
     data[25] = 0x65;
     data[26] = 0x74;
     data[27] = 0x61; // 'meta'
-    // ispe box at offset 28: size=20, type='ispe'
+    // version+flags (4 bytes)
     data[28] = 0x00;
     data[29] = 0x00;
     data[30] = 0x00;
-    data[31] = 0x14; // size=20
-    data[32] = 0x69;
-    data[33] = 0x73;
-    data[34] = 0x70;
-    data[35] = 0x65; // 'ispe'
+    data[31] = 0x00;
+    // ispe box at offset 32: size=20, type='ispe'
+    data[32] = 0x00;
+    data[33] = 0x00;
+    data[34] = 0x00;
+    data[35] = 0x14; // size=20
+    data[36] = 0x69;
+    data[37] = 0x73;
+    data[38] = 0x70;
+    data[39] = 0x65; // 'ispe'
     // version+flags (4 bytes)
-    data[36] = 0x00;
-    data[37] = 0x00;
-    data[38] = 0x00;
-    data[39] = 0x00;
-    // width = 1920 (BE)
     data[40] = 0x00;
     data[41] = 0x00;
-    data[42] = 0x07;
-    data[43] = 0x80;
-    // height = 1080 (BE)
+    data[42] = 0x00;
+    data[43] = 0x00;
+    // width = 1920 (BE)
     data[44] = 0x00;
     data[45] = 0x00;
-    data[46] = 0x04;
-    data[47] = 0x38;
+    data[46] = 0x07;
+    data[47] = 0x80;
+    // height = 1080 (BE)
+    data[48] = 0x00;
+    data[49] = 0x00;
+    data[50] = 0x04;
+    data[51] = 0x38;
 
     const dims = getImageDimensions(data);
     expect(dims.w).toBe(1920);
