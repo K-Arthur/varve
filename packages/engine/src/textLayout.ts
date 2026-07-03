@@ -11,6 +11,7 @@ export interface RichTextRun {
     fontFamily?: string;
     fontWeight?: number;
     fontStyle?: 'normal' | 'italic';
+    textDecoration?: 'none' | 'underline' | 'line-through';
     openTypeFeatures?: Record<string, boolean>;
     variableFontSettings?: Record<string, number>;
     maxLines?: number;
@@ -32,12 +33,22 @@ export interface LayoutLine {
 
 export interface LayoutRun {
   text: string;
-  format: { fontSize: number; fontFamily?: string; fontWeight?: number; fontStyle?: string };
+  format: {
+    fontSize: number;
+    fontFamily?: string;
+    fontWeight?: number;
+    fontStyle?: string;
+    textDecoration?: 'none' | 'underline' | 'line-through';
+  };
   font: string;
   featureSettings: string;
   variationSettings: string;
   width: number;
   height: number;
+  /** X position of this run within its line. */
+  x: number;
+  /** Y position of this run's baseline within the layout. */
+  y: number;
 }
 
 export interface RichTextLayout {
@@ -104,6 +115,7 @@ export function layoutRichText(
       const fontFamily = run.format?.fontFamily ?? defaultFormat.fontFamily;
       const fontWeight = run.format?.fontWeight;
       const fontStyle = run.format?.fontStyle;
+      const textDecoration = run.format?.textDecoration;
 
       const font = buildFontString(fontSize, fontFamily, fontWeight, fontStyle);
       const featureSettings = buildFeatureSettings(run.format?.openTypeFeatures);
@@ -135,12 +147,20 @@ export function layoutRichText(
 
         currentLine.push({
           text: word,
-          format: { fontSize, fontFamily, fontWeight, fontStyle: fontStyle ?? 'normal' },
+          format: {
+            fontSize,
+            fontFamily,
+            fontWeight,
+            fontStyle: fontStyle ?? 'normal',
+            textDecoration,
+          },
           font,
           featureSettings,
           variationSettings,
           width: wordWidth,
           height: fontSize * 1.2,
+          x: currentLineWidth,
+          y: 0,
         });
         currentLineWidth += wordWidth;
         currentLineHeight = Math.max(currentLineHeight, fontSize * 1.2);
@@ -163,6 +183,16 @@ export function layoutRichText(
     }
 
     if (overset) break;
+  }
+
+  // Recalculate y per line based on accumulated line heights.
+  let y = 0;
+  for (const line of lines) {
+    const lineHeight = line.runs.reduce((max, r) => Math.max(max, r.height), 0);
+    for (const run of line.runs) {
+      run.y = y + run.height * 0.8; // approximate baseline from top of line
+    }
+    y += lineHeight;
   }
 
   return { lines, width: totalWidth, height: totalHeight, overset };
