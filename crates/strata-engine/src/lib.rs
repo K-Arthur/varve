@@ -38,6 +38,9 @@ pub struct RenderItem {
     /// P2: stacked fills (solid/gradient). When present, paint bottom→top.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fills: Option<Vec<FillIR>>,
+    /// Phase 5: nondestructive adjustment filter stack. Pass-through for the webview renderer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Vec<serde_json::Value>>,
 }
 
 fn default_opacity() -> f64 {
@@ -163,6 +166,7 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
             strokes: n.strokes.clone(),
             effects: n.effects.clone(),
             fills: n.fills.clone(),
+            filters: None,
         })
         .collect()
 }
@@ -184,6 +188,7 @@ pub fn build_render_ir_flat(
             strokes: node.strokes.clone(),
             effects: node.effects.clone(),
             fills: node.fills.clone(),
+            filters: None,
         })
         .collect()
 }

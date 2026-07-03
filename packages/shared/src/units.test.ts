@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  convertDocumentUnit,
   convertPx,
   convertToPx,
+  formatPhysical,
   formatValue,
   percentToPx,
+  physicalToPx,
   ptToPx,
   pxToPercent,
+  pxToPhysical,
   pxToPt,
   pxToRem,
   remToPx,
+  UNIT_TO_PX,
 } from './units';
 
 describe('pxToPt', () => {
@@ -110,5 +115,106 @@ describe('formatValue', () => {
 
   it('rounds to two decimals', () => {
     expect(formatValue(1.33333, 'rem')).toBe('1.33rem');
+  });
+});
+
+// ── DocumentUnit tests ─────────────────────────────────────────────────────
+
+describe('UNIT_TO_PX', () => {
+  it('has px = 1', () => {
+    expect(UNIT_TO_PX.px).toBe(1);
+  });
+
+  it('has pt = 96/72 = 1.333...', () => {
+    expect(UNIT_TO_PX.pt).toBeCloseTo(96 / 72, 6);
+  });
+
+  it('has in = 96', () => {
+    expect(UNIT_TO_PX.in).toBe(96);
+  });
+
+  it('has mm = 96/25.4', () => {
+    expect(UNIT_TO_PX.mm).toBeCloseTo(96 / 25.4, 6);
+  });
+
+  it('has cm = 96/2.54', () => {
+    expect(UNIT_TO_PX.cm).toBeCloseTo(96 / 2.54, 6);
+  });
+
+  it('has pc = 16 (12pt = 1pc, 12 * 96/72 = 16px at 96dpi)', () => {
+    expect(UNIT_TO_PX.pc).toBe(16);
+  });
+});
+
+describe('convertDocumentUnit', () => {
+  it('returns same value for same unit', () => {
+    expect(convertDocumentUnit(100, 'mm', 'mm')).toBe(100);
+  });
+
+  it('converts mm to in (25.4 mm = 1 in)', () => {
+    expect(convertDocumentUnit(25.4, 'mm', 'in')).toBeCloseTo(1, 6);
+  });
+
+  it('converts in to px (1 in = 96 px)', () => {
+    expect(convertDocumentUnit(1, 'in', 'px')).toBe(96);
+  });
+
+  it('converts pt to pc (12 pt = 1 pc)', () => {
+    expect(convertDocumentUnit(12, 'pt', 'pc')).toBeCloseTo(1, 6);
+  });
+
+  it('converts cm to mm (1 cm = 10 mm)', () => {
+    expect(convertDocumentUnit(1, 'cm', 'mm')).toBeCloseTo(10, 6);
+  });
+
+  it('round-trips mm to px and back', () => {
+    const px = convertDocumentUnit(210, 'mm', 'px');
+    const back = convertDocumentUnit(px, 'px', 'mm');
+    expect(back).toBeCloseTo(210, 4);
+  });
+
+  it('converts A4 width: 210mm to px', () => {
+    const px = convertDocumentUnit(210, 'mm', 'px');
+    expect(px).toBeCloseTo(793.7, 1);
+  });
+});
+
+describe('physicalToPx', () => {
+  it('converts mm to px', () => {
+    expect(physicalToPx(25.4, 'mm')).toBeCloseTo(96, 4);
+  });
+
+  it('converts in to px', () => {
+    expect(physicalToPx(1, 'in')).toBe(96);
+  });
+
+  it('converts pt to px', () => {
+    expect(physicalToPx(72, 'pt')).toBe(96);
+  });
+});
+
+describe('pxToPhysical', () => {
+  it('converts px to mm', () => {
+    expect(pxToPhysical(96, 'mm')).toBeCloseTo(25.4, 4);
+  });
+
+  it('converts px to in', () => {
+    expect(pxToPhysical(96, 'in')).toBe(1);
+  });
+
+  it('round-trips with physicalToPx', () => {
+    const px = physicalToPx(297, 'mm');
+    expect(pxToPhysical(px, 'mm')).toBeCloseTo(297, 4);
+  });
+});
+
+describe('formatPhysical', () => {
+  it('formats with unit suffix', () => {
+    expect(formatPhysical(210, 'mm')).toBe('210mm');
+    expect(formatPhysical(8.5, 'in')).toBe('8.5in');
+  });
+
+  it('rounds to 2 decimals', () => {
+    expect(formatPhysical(210.12345, 'mm')).toBe('210.12mm');
   });
 });

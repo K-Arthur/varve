@@ -60,7 +60,7 @@ describe('Document Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.0');
+    expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(doc.id).toBe('d1');
     expect(doc.name).toBe('Old Doc');
     expect(doc.rootChildren).toEqual([]);
@@ -76,7 +76,7 @@ describe('Document Migration', () => {
     expect(result).not.toBeNull();
     const doc = result!;
     expect(doc.id).toBe('d1');
-    expect(doc.formatVersion).toBe('1.0');
+    expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
   });
 
   it('preserves unknown additional fields during migration', () => {
@@ -134,7 +134,11 @@ describe('Forward Compatibility Detection', () => {
 
   it('isForwardCompatible returns false for newer version', () => {
     expect(isForwardCompatible('2.0')).toBe(false);
-    expect(isForwardCompatible('1.1')).toBe(false);
+    expect(isForwardCompatible('1.2')).toBe(false);
+  });
+
+  it('isForwardCompatible returns true for 1.0 (supported older)', () => {
+    expect(isForwardCompatible('1.0')).toBe(true);
   });
 
   it('detectForwardCompatWarning returns null for current version', () => {
@@ -161,7 +165,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocumentDetailed(raw);
     expect(result).not.toBeNull();
     expect(result!.fromVersion).toBe('0.9');
-    expect(result!.toVersion).toBe('1.0');
+    expect(result!.toVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(result!.migrated).toBe(true);
   });
 
@@ -212,5 +216,45 @@ describe('Detailed Migration', () => {
     const result = migrateDocumentDetailed(raw);
     expect(result).not.toBeNull();
     expect(result!.document.customField).toBe('value');
+  });
+
+  it('migrates v1.0 to v1.1 adding print production defaults', () => {
+    const raw = {
+      id: 'd1',
+      name: 'v1doc',
+      formatVersion: '1.0',
+      rootChildren: [],
+      nodes: {},
+      components: {},
+      nextId: 1,
+      canvasWidth: 1920,
+      canvasHeight: 1080,
+    };
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    const doc = result!;
+    expect(doc.formatVersion).toBe('1.1');
+    expect(doc.documentUnit).toBe('px');
+    expect(doc.dpi).toBe(0);
+  });
+
+  it('migrates v1.0 to v1.1 preserving existing colorConfig', () => {
+    const raw = {
+      id: 'd1',
+      name: 'cmyk-doc',
+      formatVersion: '1.0',
+      rootChildren: [],
+      nodes: {},
+      components: {},
+      nextId: 1,
+      colorConfig: { mode: 'cmyk' },
+      bleed: { top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' },
+    };
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    const doc = result!;
+    expect(doc.formatVersion).toBe('1.1');
+    expect(doc.colorConfig).toEqual({ mode: 'cmyk' });
+    expect(doc.bleed).toEqual({ top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' });
   });
 });

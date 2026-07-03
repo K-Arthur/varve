@@ -13,7 +13,16 @@
  * CRDT-safe fractional ordering replaces it when sync lands (Phase 2, plan §1.1).
  */
 import type { Affine, Color, Shape } from '@strata/engine';
+import type { DocumentUnit } from '@strata/shared';
 import { generateKeyBetween } from '@strata/shared';
+import type {
+  BleedConfig,
+  ColorConfig,
+  ColorSwatch,
+  SafeAreaConfig,
+  SlugConfig,
+  SpotColorDef,
+} from './colorManagement';
 import type { ExportSettings } from './export-types';
 import type {
   ComponentDefinition,
@@ -57,6 +66,29 @@ export interface Document {
   installedLibraries?: import('./library').InstalledLibraryRef[];
   /** Layout guides for aligning nodes on the canvas. */
   guides?: import('./types').Guide[];
+
+  // ── Print production properties (v1.1) ────────────────────────────────────
+
+  /** Document color management configuration. */
+  colorConfig?: ColorConfig;
+  /** Document's display unit for measurements (px, pt, mm, cm, in, pc). */
+  documentUnit?: DocumentUnit;
+  /** Physical width in document units (e.g., 210 for A4 in mm). */
+  physicalWidth?: number;
+  /** Physical height in document units (e.g., 297 for A4 in mm). */
+  physicalHeight?: number;
+  /** DPI for print resolution (0 = screen/undefined). */
+  dpi?: number;
+  /** Bleed configuration. */
+  bleed?: BleedConfig;
+  /** Safe area / margin configuration. */
+  safeArea?: SafeAreaConfig;
+  /** Slug area configuration. */
+  slug?: SlugConfig;
+  /** Global color swatches. */
+  swatches?: ColorSwatch[];
+  /** Spot color definitions. */
+  spotColors?: SpotColorDef[];
 }
 
 export interface NodeEntry {
