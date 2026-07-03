@@ -109,8 +109,8 @@ export interface HomeViewState {
 }
 
 /** Dimensions + color metadata for a new document. */
-export type Unit = 'px' | 'pt' | 'in' | 'mm';
-export type ColorMode = 'rgb' | 'cmyk';
+export type Unit = 'px' | 'pt' | 'in' | 'mm' | 'cm' | 'pc';
+export type ColorMode = 'rgb' | 'cmyk' | 'grayscale';
 
 export interface NewDocPreset {
   id: string;

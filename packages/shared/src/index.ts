@@ -81,17 +81,22 @@ export {
   measureWrappedText,
   textWrap,
 } from './textMeasure';
-export type { SpecUnit } from './units';
+export type { DocumentUnit, SpecUnit } from './units';
 export {
+  convertDocumentUnit,
   convertPx,
   convertToPx,
+  formatPhysical,
   formatValue,
   percentToPx,
+  physicalToPx,
   ptToPx,
   pxToPercent,
+  pxToPhysical,
   pxToPt,
   pxToRem,
   remToPx,
+  UNIT_TO_PX,
 } from './units';
 export type { Camera, Viewport } from './viewport';
 export {

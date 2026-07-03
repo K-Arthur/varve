@@ -22,6 +22,45 @@ export { replayIr } from './replay';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
 export type {
+  Adjustment,
+  AdjustmentBase,
+  AdjustmentBlendMode,
+  AdjustmentKind,
+  BlurAdjustment,
+  BrightnessAdjustment,
+  ChannelMixerAdjustment,
+  ColorBalanceAdjustment,
+  ColorBalanceTriplet,
+  ContrastAdjustment,
+  CurvesAdjustment,
+  CurvesPoint,
+  ExposureAdjustment,
+  GrayscaleAdjustment,
+  HueRotateAdjustment,
+  InvertAdjustment,
+  LevelsAdjustment,
+  OpacityAdjustment,
+  PhotoFilterAdjustment,
+  SaturationAdjustment,
+  SelectiveColorAdjustment,
+  SepiaAdjustment,
+  SharpenAdjustment,
+  TemperatureAdjustment,
+  TintAdjustment,
+  VibranceAdjustment,
+} from './filters';
+export type { FilterIR } from './types';
+export {
+  adjustmentDefaults,
+  adjustmentToFilter,
+  adjustmentsToFilters,
+  applyFilterChain,
+  filterChainToCss,
+  filterKindDisplayName,
+  filterToCss,
+  makeAdjustment,
+} from './filters';
+export type {
   Affine,
   Backend,
   BlendMode,

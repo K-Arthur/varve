@@ -9,6 +9,7 @@
  * F6 (Phase 2): opacity, blend modes, per-fill compositing, stacked strokes
  * and effects, plus arrow/path/image primitive rendering.
  */
+import { applyFilterChain } from './filters';
 import type { Color, FillIR, RenderItem } from './types';
 
 export interface ReplayTarget {
@@ -195,6 +196,12 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
       }
     }
 
+    // Apply nondestructive adjustment filters to the main content.
+    // Filters are applied before fills and persist through strokes.
+    if (item.filters && item.filters.length > 0) {
+      applyFilterChain(target, item.filters);
+    }
+
     // ── Fills pass ────────────────────────────────────────────────
     const fills = item.fills;
     if (fills && fills.length > 0) {
@@ -305,35 +312,113 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
     target.fillStyle = createGradientStyle(target, fill, item);
     paintShapeFill(target, item);
   } else if (fill.type === 'image') {
-    // Image fill: clip to shape outline, then draw the image inside the clip
-    target.save();
-    target.beginPath();
-    traceOutline(target, item.primitive);
-    target.closePath();
-    if (target.clip) target.clip();
-    if (target.drawImage && fill.src) {
-      const bounds = primitiveBounds(item.primitive);
-      const dx = bounds.x;
-      const dy = bounds.y;
-      const dw = bounds.w;
-      const dh = bounds.h;
-      target.drawImage(fill.src, dx, dy, dw, dh);
-    } else {
-      // Placeholder when no drawImage support or no src
-      target.fillStyle = 'rgba(180, 180, 200, 0.4)';
-      target.fillRect(
-        primitiveBounds(item.primitive).x,
-        primitiveBounds(item.primitive).y,
-        primitiveBounds(item.primitive).w,
-        primitiveBounds(item.primitive).h,
-      );
-    }
-    target.restore();
+    paintImageFill(target, fill, item);
   } else if (fill.type === 'pattern') {
     // Pattern fill: draw as tinted placeholder for now
     target.fillStyle = 'rgba(160, 160, 180, 0.3)';
     paintShapeFill(target, item);
   }
+}
+
+/** Paint an image fill clipped to the primitive shape, respecting the fit mode. */
+function paintImageFill(
+  target: ReplayTarget,
+  fill: Extract<FillIR, { type: 'image' }>,
+  item: RenderItem,
+): void {
+  target.save();
+  target.beginPath();
+  traceOutline(target, item.primitive);
+  target.closePath();
+  if (target.clip) target.clip();
+
+  if (target.drawImage && fill.src) {
+    const bounds = primitiveBounds(item.primitive);
+    const fit = fill.fit ?? 'fill';
+    const imageWidth = fill.imageWidth ?? bounds.w;
+    const imageHeight = fill.imageHeight ?? bounds.h;
+
+    if (fit === 'stretch') {
+      target.drawImage(fill.src, bounds.x, bounds.y, bounds.w, bounds.h);
+    } else if (fit === 'tile') {
+      paintTiledImage(target, fill.src, bounds, imageWidth, imageHeight, fill.x ?? 0, fill.y ?? 0, fill.scale ?? 1);
+    } else {
+      const { x, y, w, h } = computeImageFillRect(fit, bounds, imageWidth, imageHeight, fill.x ?? 0, fill.y ?? 0, fill.scale ?? 1);
+      target.drawImage(fill.src, x, y, w, h);
+    }
+  } else {
+    // Placeholder when no drawImage support or no src
+    target.fillStyle = 'rgba(180, 180, 200, 0.4)';
+    const bounds = primitiveBounds(item.primitive);
+    target.fillRect(bounds.x, bounds.y, bounds.w, bounds.h);
+  }
+  target.restore();
+}
+
+function paintTiledImage(
+  target: ReplayTarget,
+  src: string,
+  bounds: { x: number; y: number; w: number; h: number },
+  imageWidth: number,
+  imageHeight: number,
+  offsetX: number,
+  offsetY: number,
+  scale: number,
+): void {
+  if (!target.drawImage) return;
+  const tileW = imageWidth * scale;
+  const tileH = imageHeight * scale;
+  if (tileW <= 0 || tileH <= 0) return;
+  const startX = bounds.x + offsetX - Math.floor((bounds.x + offsetX) / tileW) * tileW;
+  const startY = bounds.y + offsetY - Math.floor((bounds.y + offsetY) / tileH) * tileH;
+  for (let y = startY; y < bounds.y + bounds.h; y += tileH) {
+    for (let x = startX; x < bounds.x + bounds.w; x += tileW) {
+      target.drawImage(src, x, y, tileW, tileH);
+    }
+  }
+}
+
+function computeImageFillRect(
+  fit: 'fill' | 'fit' | 'stretch' | 'tile',
+  bounds: { x: number; y: number; w: number; h: number },
+  imageWidth: number,
+  imageHeight: number,
+  offsetX: number,
+  offsetY: number,
+  scale: number,
+): { x: number; y: number; w: number; h: number } {
+  if (fit === 'stretch') {
+    return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h };
+  }
+  const scaledW = imageWidth * scale;
+  const scaledH = imageHeight * scale;
+  if (scaledW <= 0 || scaledH <= 0) return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h };
+
+  const imageAspect = scaledW / scaledH;
+  const boundsAspect = bounds.w / bounds.h;
+
+  let w: number;
+  let h: number;
+  if (fit === 'fit') {
+    if (imageAspect > boundsAspect) {
+      w = bounds.w;
+      h = w / imageAspect;
+    } else {
+      h = bounds.h;
+      w = h * imageAspect;
+    }
+  } else {
+    // fill
+    if (imageAspect > boundsAspect) {
+      h = bounds.h;
+      w = h * imageAspect;
+    } else {
+      w = bounds.w;
+      h = w / imageAspect;
+    }
+  }
+
+  return { x: bounds.x + offsetX + (bounds.w - w) / 2, y: bounds.y + offsetY + (bounds.h - h) / 2, w, h };
 }
 
 /** Create a gradient fillStyle string from a FillIR gradient. */

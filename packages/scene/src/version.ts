@@ -1,6 +1,6 @@
-export const CURRENT_DOCUMENT_VERSION = '1.0';
+export const CURRENT_DOCUMENT_VERSION = '1.1';
 
-export const SUPPORTED_VERSIONS = ['1.0'];
+export const SUPPORTED_VERSIONS = ['1.0', '1.1'];
 
 export interface DocumentMigration {
   from: string;
@@ -17,6 +17,26 @@ const migrations: DocumentMigration[] = [
       formatVersion: '1.0',
       canvasWidth: raw.canvasWidth ?? 1440,
       canvasHeight: raw.canvasHeight ?? 1024,
+    }),
+  },
+  {
+    from: '1.0',
+    to: '1.1',
+    migrate: (raw) => ({
+      ...raw,
+      formatVersion: '1.1',
+      // Print production fields default to undefined (optional).
+      // Documents created before v1.1 are treated as RGB, px-only.
+      colorConfig: raw.colorConfig ?? undefined,
+      documentUnit: raw.documentUnit ?? 'px',
+      physicalWidth: raw.physicalWidth ?? undefined,
+      physicalHeight: raw.physicalHeight ?? undefined,
+      dpi: raw.dpi ?? 0,
+      bleed: raw.bleed ?? undefined,
+      safeArea: raw.safeArea ?? undefined,
+      slug: raw.slug ?? undefined,
+      swatches: raw.swatches ?? undefined,
+      spotColors: raw.spotColors ?? undefined,
     }),
   },
 ];

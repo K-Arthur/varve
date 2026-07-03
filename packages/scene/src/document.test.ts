@@ -701,3 +701,53 @@ describe('Guide operations', () => {
     expect(d2).toBe(doc);
   });
 });
+
+describe('Document print production fields', () => {
+  it('createDocument does not set print production fields by default', () => {
+    const doc = createDocument('test');
+    expect(doc.colorConfig).toBeUndefined();
+    expect(doc.documentUnit).toBeUndefined();
+    expect(doc.physicalWidth).toBeUndefined();
+    expect(doc.physicalHeight).toBeUndefined();
+    expect(doc.dpi).toBeUndefined();
+    expect(doc.bleed).toBeUndefined();
+    expect(doc.safeArea).toBeUndefined();
+    expect(doc.swatches).toBeUndefined();
+    expect(doc.spotColors).toBeUndefined();
+  });
+
+  it('createDocument stamps v1.1 format version', () => {
+    const doc = createDocument('test');
+    expect(doc.formatVersion).toBe('1.1');
+  });
+
+  it('Document interface accepts colorConfig and bleed', () => {
+    const doc = createDocument('print-doc');
+    const withPrint = {
+      ...doc,
+      colorConfig: {
+        mode: 'cmyk' as const,
+        rgbProfile: { id: 'srgb', name: 'sRGB IEC61966-2.1' },
+        cmykProfile: { id: 'fogra39', name: 'Fogra39 (ISO Coated v2 300%)' },
+        outputIntent: {
+          profile: { id: 'fogra39', name: 'Fogra39 (ISO Coated v2 300%)' },
+          renderingIntent: 'relative' as const,
+          blackPointCompensation: true,
+        },
+        blackGeneration: { mode: 'standard' as const, overprintBlack: false },
+      },
+      documentUnit: 'mm' as const,
+      physicalWidth: 210,
+      physicalHeight: 297,
+      dpi: 300,
+      bleed: { top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' as const },
+      safeArea: { top: 5, right: 5, bottom: 5, left: 5, unit: 'mm' as const, enabled: true },
+    };
+    expect(withPrint.colorConfig?.mode).toBe('cmyk');
+    expect(withPrint.documentUnit).toBe('mm');
+    expect(withPrint.physicalWidth).toBe(210);
+    expect(withPrint.dpi).toBe(300);
+    expect(withPrint.bleed?.top).toBe(3);
+    expect(withPrint.safeArea?.enabled).toBe(true);
+  });
+});

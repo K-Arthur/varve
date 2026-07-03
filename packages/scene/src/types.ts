@@ -165,6 +165,10 @@ export interface ImageFillData {
   y: number;
   /** Scale multiplier (1 = natural). Used for 'tile' and 'fit'. */
   scale: number;
+  /** Natural image width in pixels. When omitted, the node bounds width is used. */
+  imageWidth?: number;
+  /** Natural image height in pixels. When omitted, the node bounds height is used. */
+  imageHeight?: number;
   /** Opacity multiplier specific to the image (combined with Fill.opacity). */
 }
 
