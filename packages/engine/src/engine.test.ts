@@ -332,6 +332,46 @@ describe('createEngine (stub)', () => {
     }
   });
 
+  it('preserves richText, variableAxes, and openTypeFeatures on text primitive', async () => {
+    const eng = await createEngine();
+    const richText = {
+      paragraphs: [
+        {
+          runs: [
+            { text: 'Hello ', format: { fontWeight: 400 } },
+            { text: 'World', format: { fontWeight: 700, fontSize: 20 } },
+          ],
+        },
+      ],
+    };
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 't4',
+          name: 'rich',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: [0, 0, 0, 255],
+          text: 'Hello World',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+          richText,
+          variableAxes: { wght: 500, wdth: 75 },
+          openTypeFeatures: { liga: true, kern: true },
+        },
+      ],
+    });
+    const p = ir[0]?.primitive;
+    expect(p?.kind).toBe('text');
+    if (p?.kind === 'text') {
+      expect(p.richText).toEqual(richText);
+      expect(p.variableAxes).toEqual({ wght: 500, wdth: 75 });
+      expect(p.openTypeFeatures).toEqual({ liga: true, kern: true });
+    }
+  });
+
   // ── Fill stack tests ───────────────────────────────────────────────────
 
   it('buildIr maps fills[] to FillIR items', async () => {

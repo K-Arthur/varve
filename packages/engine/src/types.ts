@@ -14,6 +14,61 @@
 
 export type Point = readonly [number, number];
 
+// ── Local typography IR types (mirrors @strata/scene without the dependency) ──
+
+export type OpenTypeFeatureMap = Partial<Record<string, boolean>> & { custom?: Record<string, boolean> };
+
+export type VariableFontSettings = Record<string, number>;
+
+export type TextMode = 'point' | 'area' | 'path' | 'auto';
+
+export interface PathTextSettings {
+  pathNodeId: string;
+  startOffset?: number;
+  endOffset?: number;
+  side?: 'top' | 'bottom';
+  flip?: boolean;
+  baselineShift?: number;
+}
+
+export interface CharacterFormat {
+  fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: 'normal' | 'italic';
+  fontSize?: number;
+  lineHeight?: number;
+  letterSpacing?: number;
+  textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  textDecoration?: 'none' | 'underline' | 'line-through';
+  color?: readonly [number, number, number, number];
+  openTypeFeatures?: OpenTypeFeatureMap;
+  variableFontSettings?: VariableFontSettings;
+  baselineShift?: number;
+}
+
+export interface ParagraphFormat {
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  lineHeight?: number;
+  paragraphSpacing?: number;
+  maxLines?: number;
+  textOverflow?: 'clip' | 'ellipsis' | 'visible';
+  listStyle?: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
+}
+
+export interface TextRun {
+  text: string;
+  format?: CharacterFormat;
+}
+
+export interface Paragraph {
+  runs: TextRun[];
+  format?: ParagraphFormat;
+}
+
+export interface RichText {
+  paragraphs: Paragraph[];
+}
+
 /** 2x3 affine as kurbo `as_coeffs()` order: [a, b, c, d, e, f] -> matrix
  * [[a, c, e], [b, d, f]]. Identical to canvas `ctx.transform(a,b,c,d,e,f)`. */
 export type Affine = readonly [number, number, number, number, number, number];
@@ -150,6 +205,16 @@ export interface SceneNode {
   textOverflow?: 'clip' | 'ellipsis' | 'visible';
   /** List style. */
   listStyle?: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
+  /** Optional rich text content. */
+  richText?: RichText;
+  /** Variable font axis values. */
+  variableAxes?: VariableFontSettings;
+  /** OpenType feature flags. */
+  openTypeFeatures?: OpenTypeFeatureMap;
+  /** Text mode. */
+  textMode?: TextMode;
+  /** Path text settings. */
+  pathTextSettings?: PathTextSettings;
   /** Uniform or per-corner radius for rect-anchored shapes. */
   cornerRadius?: number | [number, number, number, number];
 }
@@ -174,6 +239,10 @@ export interface EngineImageFillData {
   x: number;
   y: number;
   scale: number;
+  /** Natural image width in pixels. When omitted, fill bounds width is used. */
+  imageWidth?: number;
+  /** Natural image height in pixels. When omitted, fill bounds height is used. */
+  imageHeight?: number;
 }
 
 export interface EnginePatternFillData {
@@ -242,6 +311,16 @@ export type Primitive =
       textDecoration: 'none' | 'underline' | 'line-through';
       textOverflow: 'clip' | 'ellipsis' | 'visible';
       listStyle: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
+      /** Rich text content (takes precedence over `text` when rendering). */
+      richText?: RichText;
+      /** Variable font axis values. */
+      variableAxes?: VariableFontSettings;
+      /** OpenType feature flags. */
+      openTypeFeatures?: OpenTypeFeatureMap;
+      /** Text mode. */
+      textMode?: TextMode;
+      /** Path text settings. */
+      pathTextSettings?: PathTextSettings;
     };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */
@@ -259,7 +338,33 @@ export interface RenderItem {
   strokes?: Stroke[];
   /** F6: stacked effects. */
   effects?: Effect[];
+  /** Phase 5: nondestructive adjustment filter stack applied to the rendered item. */
+  filters?: FilterIR[];
 }
+
+/** Phase 5: portable filter IR for nondestructive image adjustments. */
+export type FilterIR =
+  | { kind: 'brightness'; value: number; opacity: number; blendMode: string }
+  | { kind: 'contrast'; value: number; opacity: number; blendMode: string }
+  | { kind: 'exposure'; value: number; offset: number; gammaCorrection: number; opacity: number; blendMode: string }
+  | { kind: 'saturation'; value: number; opacity: number; blendMode: string }
+  | { kind: 'hueRotate'; value: number; opacity: number; blendMode: string }
+  | { kind: 'sepia'; value: number; opacity: number; blendMode: string }
+  | { kind: 'grayscale'; value: number; opacity: number; blendMode: string }
+  | { kind: 'invert'; value: number; opacity: number; blendMode: string }
+  | { kind: 'opacity'; value: number; opacity: number; blendMode: string }
+  | { kind: 'blur'; radius: number; opacity: number; blendMode: string }
+  | { kind: 'sharpen'; amount: number; radius: number; threshold: number; opacity: number; blendMode: string }
+  | { kind: 'temperature'; value: number; opacity: number; blendMode: string }
+  | { kind: 'tint'; value: number; opacity: number; blendMode: string }
+  | { kind: 'vibrance'; value: number; opacity: number; blendMode: string }
+  | { kind: 'levels'; inputShadows: number; inputMidtones: number; inputHighlights: number; outputShadows: number; outputHighlights: number; channel: string; opacity: number; blendMode: string }
+  | { kind: 'curves'; channel: string; points: { input: number; output: number }[]; opacity: number; blendMode: string }
+  | { kind: 'selectiveColor'; colorRange: string; cyan: number; magenta: number; yellow: number; black: number; relative: boolean; opacity: number; blendMode: string }
+  | { kind: 'colorBalance'; shadows: { cyanRed: number; magentaGreen: number; yellowBlue: number }; midtones: { cyanRed: number; magentaGreen: number; yellowBlue: number }; highlights: { cyanRed: number; magentaGreen: number; yellowBlue: number }; preserveLuminosity: boolean; opacity: number; blendMode: string }
+  | { kind: 'channelMixer'; outputChannel: string; redPercent: number; greenPercent: number; bluePercent: number; constant: number; monochrome: boolean; opacity: number; blendMode: string }
+  | { kind: 'photoFilter'; color: readonly [number, number, number, number]; density: number; preserveLuminosity: boolean; opacity: number; blendMode: string }
+  | { kind: 'chain'; filters: FilterIR[] };
 
 /** P2: Fill IR — a single fill in the render IR (solid, gradient, image, or pattern). */
 export type FillIR =
@@ -278,6 +383,11 @@ export type FillIR =
       type: 'image';
       src: string;
       fit: 'fill' | 'fit' | 'stretch' | 'tile';
+      x: number;
+      y: number;
+      scale: number;
+      imageWidth?: number;
+      imageHeight?: number;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
