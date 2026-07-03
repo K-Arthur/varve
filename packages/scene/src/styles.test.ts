@@ -278,7 +278,7 @@ describe('Style System — Apply & Unlink', () => {
     expect(doc.nodes.n1?.styleId).toBe(style.id);
 
     doc = unlinkStyleFromNode(doc, 'n1');
-    expect((doc.nodes.n1 as Record<string, unknown>).styleId).toBeUndefined();
+    expect((doc.nodes.n1 as unknown as Record<string, unknown>).styleId).toBeUndefined();
   });
 });
 
