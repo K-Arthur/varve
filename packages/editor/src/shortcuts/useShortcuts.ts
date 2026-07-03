@@ -207,6 +207,14 @@ export function useShortcuts(
         return () => e.booleanOp('exclude');
       case 'quickActions':
         return () => setQuickActionsOpen((p) => !p);
+      case 'present':
+        return () => {
+          if (e.state.prototypeMode) {
+            e.stopPresentation();
+          } else {
+            e.startPresentation();
+          }
+        };
       case 'home':
         return () => onBackToHomeRef.current?.();
       default:
