@@ -23,10 +23,13 @@ import { clampZoom, fitBoundsCamera, screenToWorld, zoomAboutPoint } from '@stra
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
+import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
+import { Ruler } from './components/Ruler/Ruler';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { TextEditOverlay } from './components/TextEditOverlay';
+import { VariantBox } from './components/VariantBox/VariantBox';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { SelectionOverlay } from './SelectionOverlay';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
@@ -116,6 +119,38 @@ function getToolManager(): ToolManager {
   }
   toolManager.setTool('select');
   return toolManager;
+}
+
+/** Parse a simple grid-template string like "1fr 200px 1fr" into pixel sizes.
+ *  Only handles px and fr units. fr units divide remaining space equally. */
+function parseGridTemplate(template: string, totalSize: number): number[] {
+  const parts = template.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return [];
+  // First pass: compute total fr and used px space.
+  let frCount = 0;
+  let pxUsed = 0;
+  const sizes: (number | 'fr')[] = [];
+  for (const p of parts) {
+    if (p.endsWith('fr')) {
+      const n = Number.parseFloat(p);
+      frCount += n;
+      sizes.push('fr');
+      pxUsed += 0;
+    } else if (p.endsWith('px')) {
+      const n = Number.parseFloat(p);
+      pxUsed += n;
+      sizes.push(n);
+    } else {
+      // Treat as px
+      const n = Number.parseFloat(p);
+      if (!Number.isNaN(n)) {
+        pxUsed += n;
+        sizes.push(n);
+      }
+    }
+  }
+  const frPx = frCount > 0 ? Math.max(0, (totalSize - pxUsed) / frCount) : 0;
+  return sizes.map((s) => (s === 'fr' ? frPx : s));
 }
 
 export function CanvasArea() {
@@ -392,6 +427,54 @@ export function CanvasArea() {
         }
       }
 
+      // ── Layout grid overlay for frames with gridTemplate ────────────────
+      ctx.strokeStyle = 'rgba(57, 208, 198, 0.25)';
+      ctx.lineWidth = 1 / s.zoom;
+      ctx.setLineDash([0]);
+      for (const [nid] of entries) {
+        const n = doc.nodes[nid];
+        if (!n || n.kind !== 'frame' || !n.layoutStyle) continue;
+        const frame = n as import('@strata/scene').FrameNode & { layoutStyle: NonNullable<import('@strata/scene').FrameNode['layoutStyle']> };
+        const ls = frame.layoutStyle;
+        if (!ls.gridTemplateColumns && !ls.gridTemplateRows) continue;
+        const world = nodeWorldTransform(doc, nid);
+        const [a, b, c, d, e, f] = world;
+        const fw = frame.w;
+        const fh = frame.h;
+        // Parse simple column/row templates (e.g., "1fr 200px 1fr").
+        const colSizes = parseGridTemplate(ls.gridTemplateColumns ?? '', fw);
+        const rowSizes = parseGridTemplate(ls.gridTemplateRows ?? '', fh);
+        const gapX = ls.columnGap ?? ls.gap ?? 0;
+        const gapY = ls.rowGap ?? ls.gap ?? 0;
+        // Compute column boundary lines in local space, transform to world.
+        let xPos = 0;
+        for (const cs of colSizes) {
+          xPos += cs;
+          const wx = a * xPos + c * 0 + e;
+          const wy = b * xPos + d * 0 + f;
+          const wx2 = a * xPos + c * fh + e;
+          const wy2 = b * xPos + d * fh + f;
+          ctx.beginPath();
+          ctx.moveTo(wx, wy);
+          ctx.lineTo(wx2, wy2);
+          ctx.stroke();
+          xPos += gapX;
+        }
+        let yPos = 0;
+        for (const rs of rowSizes) {
+          yPos += rs;
+          const wx = a * 0 + c * yPos + e;
+          const wy = b * 0 + d * yPos + f;
+          const wx2 = a * fw + c * yPos + e;
+          const wy2 = b * fw + d * yPos + f;
+          ctx.beginPath();
+          ctx.moveTo(wx, wy);
+          ctx.lineTo(wx2, wy2);
+          ctx.stroke();
+          yPos += gapY;
+        }
+      }
+
       if (draft) {
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 1 / s.zoom;
@@ -517,15 +600,6 @@ export function CanvasArea() {
     };
   }, [draw]);
 
-  // ─── Middle-button pan (bypasses ToolManager) ──────────────────────────
-
-  const midPanRef = useRef<{
-    startX: number;
-    startY: number;
-    panX: number;
-    panY: number;
-  } | null>(null);
-
   // ─── Touch pinch (two-pointer zoom/pan, bypasses ToolManager) ───────────
 
   const touchPointers = useRef(new Map<number, { x: number; y: number }>());
@@ -563,16 +637,9 @@ export function CanvasArea() {
       if (touchPointers.current.size > 2) return;
     }
 
-    // Middle-button → temporary pan (bypass ToolManager to avoid tool switch)
+    // Prevent browser default middle-click auto-scroll; route to active tool
     if (e.button === 1) {
-      e.currentTarget.setPointerCapture(e.pointerId);
-      midPanRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        panX: state.pan.x,
-        panY: state.pan.y,
-      };
-      return;
+      e.preventDefault();
     }
 
     const ctx = buildToolCtx(ne);
@@ -609,15 +676,6 @@ export function CanvasArea() {
       }
     }
 
-    const mid = midPanRef.current;
-    if (mid) {
-      editor.setPan({
-        x: mid.panX + e.clientX - mid.startX,
-        y: mid.panY + e.clientY - mid.startY,
-      });
-      return;
-    }
-
     // Track cursor position (throttled to ~30fps)
     const now = performance.now();
     if (now - lastCursorUpdate.current > 32) {
@@ -650,12 +708,6 @@ export function CanvasArea() {
       // A finger lifted from a pinch shouldn't fire the tool's pointer-up.
       if (wasPinching) return;
     }
-    if (midPanRef.current) {
-      midPanRef.current = null;
-      e.currentTarget.releasePointerCapture(e.pointerId);
-      return;
-    }
-
     const ne = e.nativeEvent as PointerEvent;
     const tmInst = tm.current;
     if (!tmInst) return;
@@ -664,7 +716,6 @@ export function CanvasArea() {
   }
 
   function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
-    midPanRef.current = null;
     if (e.pointerType === 'touch') {
       touchPointers.current.delete(e.pointerId);
       if (touchPointers.current.size < 2) pinchRef.current = null;
@@ -993,6 +1044,8 @@ export function CanvasArea() {
     }
   }, []);
 
+  const gridSize = Math.max(4, 24 * state.zoom);
+
   return (
     <section
       className={`editor-canvas${isDragOver ? ' editor-canvas--drag-over' : ''}`}
@@ -1001,6 +1054,27 @@ export function CanvasArea() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Zoom-aware dot grid layer */}
+      <div
+        className="editor-canvas__grid-layer"
+        style={{
+          backgroundImage: `radial-gradient(circle, var(--color-border-subtle) ${Math.max(0.5, 1 * state.zoom)}px, transparent ${Math.max(0.5, 1 * state.zoom)}px)`,
+          backgroundSize: `${gridSize}px ${gridSize}px`,
+        }}
+      />
+      {/* Pixel grid overlay (1px lines at 1:1 zoom) */}
+      {state.pixelGridEnabled && (
+        <div
+          className="editor-canvas__pixel-grid"
+          style={{
+            backgroundImage: [
+              'linear-gradient(var(--color-border-subtle) 1px, transparent 1px)',
+              'linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px)',
+            ].join(', '),
+            backgroundSize: `${state.zoom}px ${state.zoom}px`,
+          }}
+        />
+      )}
       <canvas
         ref={canvasRef}
         tabIndex={0}
@@ -1032,6 +1106,20 @@ export function CanvasArea() {
           }
         }}
       />
+      <Ruler
+        zoom={state.zoom}
+        pan={state.pan}
+        unitType={state.unitType}
+        onAddGuide={(axis, position) => editor.addGuide(axis, position)}
+      />
+      <GuideOverlay
+        guides={editor.guides}
+        zoom={state.zoom}
+        pan={state.pan}
+        onMoveGuide={(id, position) => editor.moveGuide(id, position)}
+        onRemoveGuide={(id) => editor.removeGuide(id)}
+        onToggleLock={(id) => editor.toggleGuideLock(id)}
+      />
       <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />
       {state.tool === 'nodeEdit' &&
         nodeEditTargetId &&
@@ -1050,6 +1138,35 @@ export function CanvasArea() {
           );
         })()}
       <SelectionOverlay canvasRef={canvasRef} />
+      {(() => {
+        const sel = state.selection;
+        if (sel.length !== 1) return null;
+        const singleId = sel[0] as NodeId;
+        const singleNode = state.document.nodes[singleId];
+        if (!singleNode || singleNode.kind !== 'frame') return null;
+        const frame = singleNode;
+        if (!frame.componentId) return null;
+        const component = state.document.components[frame.componentId];
+        const hasVariants = component?.variants && component.variants.length > 0;
+        if (!hasVariants) return null;
+        const worldB = nodeWorldBounds(state.document, singleId);
+        if (!worldB) return null;
+        const screenX = worldB.x * state.zoom + state.pan.x;
+        const screenY = worldB.y * state.zoom + state.pan.y;
+        const screenW = worldB.w * state.zoom;
+        const screenH = worldB.h * state.zoom;
+        return (
+          <VariantBox
+            nodeId={singleId}
+            document={state.document}
+            onSetVariant={editor.setVariantForInstance}
+            screenBounds={{ x: screenX, y: screenY, w: screenW, h: screenH }}
+            onClose={() => {
+              editor.announce('Closed variant panel');
+            }}
+          />
+        );
+      })()}
       {textEditTargetId &&
         (() => {
           const n = state.document.nodes[textEditTargetId];

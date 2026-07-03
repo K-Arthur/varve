@@ -101,7 +101,7 @@ function unionBBox(boxes: ScreenBBox[]): ScreenBBox | null {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-function computeResize(
+export function computeResize(
   handleIndex: number,
   initX: number,
   initY: number,
@@ -331,7 +331,14 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       // Convert world bounds back to local shape params
       if (node.kind === 'shape') {
         const s = node.shape;
-        if (s.kind === 'rect') {
+        if (
+          s.kind === 'rect' ||
+          s.kind === 'polygon' ||
+          s.kind === 'star' ||
+          s.kind === 'path' ||
+          s.kind === 'line' ||
+          s.kind === 'arrow'
+        ) {
           setNodePosition(g.nodeId, x, y);
           setNodeSize(g.nodeId, w, h);
         } else if (s.kind === 'ellipse') {
