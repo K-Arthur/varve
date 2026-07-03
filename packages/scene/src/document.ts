@@ -15,6 +15,7 @@
 import type { Affine, Color, Shape } from '@strata/engine';
 import { generateKeyBetween } from '@strata/shared';
 import type { ExportSettings } from './export-types';
+import { CURRENT_DOCUMENT_VERSION } from './version';
 import type {
   ComponentDefinition,
   ContainerNode,
@@ -31,6 +32,8 @@ import type {
 export interface Document {
   id: string;
   name: string;
+  /** Schema version for migration (set by createDocument / migrateDocument). */
+  formatVersion: string;
   /** Root-level node ids in paint order. */
   rootChildren: NodeId[];
   nodes: Record<NodeId, SceneNode>;
@@ -65,7 +68,15 @@ export interface NodeEntry {
 }
 
 export function createDocument(name = 'Untitled'): Document {
-  return { id: cryptoId(), name, rootChildren: [], nodes: {}, components: {}, nextId: 1 };
+  return {
+    id: cryptoId(),
+    formatVersion: CURRENT_DOCUMENT_VERSION,
+    name,
+    rootChildren: [],
+    nodes: {},
+    components: {},
+    nextId: 1,
+  };
 }
 
 function cryptoId(): string {

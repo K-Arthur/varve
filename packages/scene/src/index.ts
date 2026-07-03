@@ -19,3 +19,4 @@ export * from './masks';
 export * from './styles';
 export * from './types';
 export * from './variables';
+export * from './version';

@@ -14,6 +14,10 @@ import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './
 export class HandTool extends BaseTool {
   id = 'hand' as const;
   private startPan: { x: number; y: number } = { x: 0, y: 0 };
+  /** Tracks current pan independently of ctx.pan, which can be a stale
+   *  closure capture (production ctx.pan is immutable — setPan replaces
+   *  the state object, it does not mutate ctx.pan in place). */
+  private currentPan: { x: number; y: number } = { x: 0, y: 0 };
   private velocity: { x: number; y: number } | null = null;
   private rafId: number | null = null;
   private positionHistory: Array<{ x: number; y: number; time: number }> = [];
@@ -36,6 +40,7 @@ export class HandTool extends BaseTool {
       currentWorld: { x: 0, y: 0 },
     };
     this.startPan = { ...ctx.pan };
+    this.currentPan = { ...ctx.pan };
     this.positionHistory = [{ x: e.clientX, y: e.clientY, time: performance.now() }];
     return { consumed: true, captured: true };
   }
@@ -43,7 +48,8 @@ export class HandTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     const dx = this.drag.currentCanvas.x - this.drag.startCanvas.x;
     const dy = this.drag.currentCanvas.y - this.drag.startCanvas.y;
-    ctx.setPan({ x: this.startPan.x + dx, y: this.startPan.y + dy });
+    this.currentPan = { x: this.startPan.x + dx, y: this.startPan.y + dy };
+    ctx.setPan(this.currentPan);
     this.positionHistory.push({
       x: this.drag.currentCanvas.x,
       y: this.drag.currentCanvas.y,
@@ -91,7 +97,8 @@ export class HandTool extends BaseTool {
         this.rafId = null;
         return;
       }
-      ctx.setPan({ x: ctx.pan.x + vx, y: ctx.pan.y + vy });
+      this.currentPan = { x: this.currentPan.x + vx, y: this.currentPan.y + vy };
+      ctx.setPan(this.currentPan);
       this.rafId = requestAnimationFrame(tick);
     };
     this.rafId = requestAnimationFrame(tick);

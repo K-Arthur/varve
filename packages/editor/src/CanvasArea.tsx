@@ -35,6 +35,7 @@ import { SelectionOverlay } from './SelectionOverlay';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
 import { ArrowTool } from './tools/ArrowTool';
+import { computeEdgeVelocity } from './tools/autoPan';
 import { EllipseTool } from './tools/EllipseTool';
 import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
@@ -167,6 +168,10 @@ export function CanvasArea() {
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
   const drawRafRef = useRef<number | null>(null);
+
+  // E1: Auto-pan when dragging near canvas edge.
+  const autoPanRaf = useRef<number | null>(null);
+  const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
@@ -619,6 +624,16 @@ export function CanvasArea() {
     };
   }
 
+  // ─── Auto-pan (edge scroll during drag) ────────────────────────────────
+
+  function stopAutoPan() {
+    if (autoPanRaf.current !== null) {
+      cancelAnimationFrame(autoPanRaf.current);
+      autoPanRaf.current = null;
+    }
+    autoPanVelocity.current = { x: 0, y: 0 };
+  }
+
   // ─── Pointer Events ──────────────────────────────────────────────────────
 
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -699,9 +714,39 @@ export function CanvasArea() {
     }
 
     tmInst.handlePointerMove(ne, buildToolCtx(ne));
+
+    // E1: Auto-pan when dragging near canvas edge.
+    if (e.buttons !== 0) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        const vx = computeEdgeVelocity(e.clientX, rect.left, rect.right);
+        const vy = computeEdgeVelocity(e.clientY, rect.top, rect.bottom);
+        autoPanVelocity.current = { x: vx, y: vy };
+        if (vx !== 0 || vy !== 0) {
+          if (autoPanRaf.current === null) {
+            const tick = () => {
+              const v = autoPanVelocity.current;
+              if (v.x === 0 && v.y === 0) {
+                stopAutoPan();
+                return;
+              }
+              const s = stateRef.current;
+              editor.setPan({ x: s.pan.x + v.x, y: s.pan.y + v.y });
+              autoPanRaf.current = requestAnimationFrame(tick);
+            };
+            autoPanRaf.current = requestAnimationFrame(tick);
+          }
+        } else {
+          stopAutoPan();
+        }
+      }
+    } else {
+      stopAutoPan();
+    }
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    stopAutoPan();
     setSnapGuides([]);
     if (e.pointerType === 'touch') {
       const wasPinching = pinchRef.current !== null;
@@ -718,6 +763,7 @@ export function CanvasArea() {
   }
 
   function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
+    stopAutoPan();
     if (e.pointerType === 'touch') {
       touchPointers.current.delete(e.pointerId);
       if (touchPointers.current.size < 2) pinchRef.current = null;
@@ -1096,8 +1142,12 @@ export function CanvasArea() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
-        onPointerLeave={() => editor.setCursorPos(null)}
+        onPointerLeave={() => {
+          editor.setCursorPos(null);
+          stopAutoPan();
+        }}
         onBlur={() => {
+          stopAutoPan();
           // Cancel any active drag and release spring-loaded tools on blur
           tm.current?.activeTool.onPointerCancel?.(
             new PointerEvent('pointercancel'),

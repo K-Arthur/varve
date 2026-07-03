@@ -10,7 +10,7 @@
  * Research basis: Figma/Penpot handle layout conventions; MDN SVG coordinate system.
  */
 import type { SceneNode } from '@strata/scene';
-import { useCallback, useRef } from 'react';
+import { Fragment, useCallback, useRef } from 'react';
 import { useEditor } from './context';
 import { nodeWorldBounds } from './scene/world';
 
@@ -28,6 +28,17 @@ const HANDLE_CURSORS = [
   'ns-resize',
   'nesw-resize',
   'ew-resize',
+];
+
+const HANDLE_LABELS = [
+  'Top-left resize handle',
+  'Top resize handle',
+  'Top-right resize handle',
+  'Right resize handle',
+  'Bottom-right resize handle',
+  'Bottom resize handle',
+  'Bottom-left resize handle',
+  'Left resize handle',
 ];
 
 interface DragState {
@@ -464,45 +475,76 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           <circle
             cx={rotX}
             cy={rotY}
+            r={8}
+            fill="transparent"
+            aria-hidden="true"
+            style={{ pointerEvents: hasInteractiveHandles ? 'auto' : 'none', cursor: 'grab' }}
+            onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, 8) : undefined}
+          />
+          <circle
+            cx={rotX}
+            cy={rotY}
             r={HANDLE_HALF}
             fill="white"
             stroke="var(--color-interactive-default)"
             strokeWidth={1.5}
-            style={{ pointerEvents: hasInteractiveHandles ? 'auto' : 'none', cursor: 'grab' }}
-            onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, 8) : undefined}
+            aria-label="Rotate"
+            pointerEvents="none"
           />
         </>
       )}
 
       {handles.map(([hx, hy], i) => (
-        <rect
-          key={i}
-          x={hx - HANDLE_HALF}
-          y={hy - HANDLE_HALF}
-          width={HANDLE_HALF * 2}
-          height={HANDLE_HALF * 2}
-          fill="white"
-          stroke="var(--color-interactive-default)"
-          strokeWidth={1.5}
-          rx={1}
-          style={{
-            pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
-            cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
-          }}
-          onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
-        />
+        <Fragment key={i}>
+          <rect
+            x={hx - 8}
+            y={hy - 8}
+            width={16}
+            height={16}
+            fill="transparent"
+            aria-hidden="true"
+            style={{
+              pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
+              cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
+            }}
+            onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
+          />
+          <rect
+            x={hx - HANDLE_HALF}
+            y={hy - HANDLE_HALF}
+            width={HANDLE_HALF * 2}
+            height={HANDLE_HALF * 2}
+            fill="white"
+            stroke="var(--color-interactive-default)"
+            strokeWidth={1.5}
+            rx={1}
+            aria-label={HANDLE_LABELS[i]}
+            pointerEvents="none"
+          />
+        </Fragment>
       ))}
 
       {isSingle && (
-        <circle
-          cx={x + w / 2}
-          cy={y + h / 2}
-          r={4}
-          fill="white"
-          stroke="var(--color-interactive-default)"
-          strokeWidth={1.5}
-          style={{ pointerEvents: 'auto', cursor: 'move' }}
-        />
+        <>
+          <circle
+            cx={x + w / 2}
+            cy={y + h / 2}
+            r={8}
+            fill="transparent"
+            aria-hidden="true"
+            style={{ pointerEvents: 'auto', cursor: 'move' }}
+          />
+          <circle
+            cx={x + w / 2}
+            cy={y + h / 2}
+            r={4}
+            fill="white"
+            stroke="var(--color-interactive-default)"
+            strokeWidth={1.5}
+            aria-label="Transform origin"
+            pointerEvents="none"
+          />
+        </>
       )}
 
       {(isSingle || sel.length > 1) && (
