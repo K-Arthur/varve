@@ -12,7 +12,7 @@ const BUILTIN_TEMPLATES: TemplateDef[] = [
     id: 'blank',
     name: 'Blank Canvas',
     category: 'General',
-    description: 'Start with an empty frame.',
+    description: 'Start with an empty canvas.',
     documentJson: '{}',
     previewHash: '',
     builtin: true,
@@ -71,33 +71,6 @@ const BUILTIN_TEMPLATES: TemplateDef[] = [
     previewHash: '',
     builtin: true,
   },
-  {
-    id: 'iphone-frame',
-    name: 'iPhone 15 Pro',
-    category: 'Device',
-    description: 'Mobile device frame for app designs.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'ipad-frame',
-    name: 'iPad Pro',
-    category: 'Device',
-    description: 'Tablet device frame for app designs.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'web-1440',
-    name: 'Web (1440px)',
-    category: 'Web',
-    description: 'Standard desktop web format.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
 ];
 
 /** Per-category accent + icon so cards read at a glance without thumbnails. */
@@ -106,8 +79,6 @@ const CATEGORY_META: Record<string, { color: string; icon: IconName }> = {
   Social: { color: 'var(--color-feedback-warning)', icon: 'Image' },
   Presentation: { color: 'var(--color-feedback-success)', icon: 'Maximize' },
   Print: { color: 'var(--color-feedback-danger)', icon: 'FileText' },
-  Device: { color: 'var(--color-feedback-info)', icon: 'Square' },
-  Web: { color: 'var(--color-interactive-hover)', icon: 'LayoutGrid' },
 };
 
 /** Preview aspect (width:height) per template so tiles hint at proportion. */
@@ -118,9 +89,6 @@ const PREVIEW_ASPECT: Record<string, string> = {
   'presentation-16-9': '16 / 9',
   a4: '210 / 297',
   'us-letter': '17 / 22',
-  'iphone-frame': '9 / 19',
-  'ipad-frame': '3 / 4',
-  'web-1440': '16 / 10',
   blank: '4 / 3',
 };
 

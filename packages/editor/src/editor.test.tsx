@@ -199,4 +199,69 @@ describe('EditorContext', () => {
     expect(node?.kind).toBe('shape');
     expect(node?.kind === 'shape' ? node.shape.kind : undefined).toBe('star');
   });
+
+  it('hitTestNode returns nested child before parent frame', async () => {
+    const { createDocument, makeFrameNode, makeShapeNode, addNode, addChild } = await import(
+      '@strata/scene'
+    );
+
+    // Create a doc with: root → frame → rectChild
+    let doc = createDocument('hit-test');
+    const frame = makeFrameNode('f1', { name: 'Frame', w: 200, h: 200, transform: [1, 0, 0, 1, 0, 0] });
+    doc = addNode(doc, frame);
+    const rect = makeShapeNode('r1', { kind: 'rect', x: 50, y: 50, w: 100, h: 100 }, { name: 'Rect' });
+    doc = addChild(doc, 'f1', rect);
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return null;
+    }
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+        <Test />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => {
+      expect(ctx).toBeDefined();
+    });
+
+    // Click at center of rect child (world-space 100,100)
+    const hit = ctx!.hitTestNode({ x: 100, y: 100 });
+    expect(hit).not.toBeNull();
+    // Should return the rect child, not the frame parent
+    expect(hit!.nodeId).toBe('r1');
+    expect(hit!.node.kind).toBe('shape');
+  });
+
+  it('hitTestNode returns parent frame when clicking frame area without children', async () => {
+    const { createDocument, makeFrameNode, makeShapeNode, addNode, addChild } = await import(
+      '@strata/scene'
+    );
+
+    let doc = createDocument('hit-test');
+    const frame = makeFrameNode('f1', { name: 'Frame', w: 200, h: 200 });
+    doc = addNode(doc, frame);
+    const rect = makeShapeNode('r1', { kind: 'rect', x: 150, y: 150, w: 30, h: 30 }, { name: 'Rect' });
+    doc = addChild(doc, 'f1', rect);
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return null;
+    }
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+        <Test />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx).toBeDefined());
+
+    // Click at a point inside the frame but outside the child rect
+    const hit = ctx!.hitTestNode({ x: 10, y: 10 });
+    expect(hit).not.toBeNull();
+    expect(hit!.nodeId).toBe('f1');
+  });
 });
