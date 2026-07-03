@@ -21,6 +21,7 @@ import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
 import { clampZoom, fitBoundsCamera, screenToWorld, zoomAboutPoint } from '@strata/shared';
+import { sampleTimelineAt } from './timeline/TimelineSampler';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
@@ -451,6 +452,37 @@ export function CanvasArea({
         const world = nodeWorldTransform(doc, id);
         nodeIds.push(id);
         flatNodes.push({ ...toEngineNode(n), transform: world });
+      }
+
+      // ── Motion / Timeline sampling ──────────────────────────────────────────
+      // Apply property overrides from the active timeline to engine nodes
+      // before building IR. These overrides are ephemeral — they only affect
+      // this frame's rendering and never mutate the document.
+      if (s.motion.activeTimelineId && s.motion.currentTime > 0) {
+        const sample = sampleTimelineAt(doc, s.motion.activeTimelineId, s.motion.currentTime);
+        if (sample.overrides.size > 0) {
+          for (let i = 0; i < flatNodes.length; i++) {
+            const nodeId = nodeIds[i];
+            if (!nodeId) continue;
+            const props = sample.overrides.get(nodeId);
+            if (!props) continue;
+            const fn = flatNodes[i];
+            if (!fn) continue;
+            for (const [prop, val] of props) {
+              const segments = prop.split('.');
+              if (segments.length === 1) {
+                (fn as unknown as Record<string, unknown>)[prop] = val;
+              } else {
+                const head = segments[0]!;
+                const tail = segments.slice(1).join('.');
+                (fn as unknown as Record<string, unknown>)[head] = {
+                  ...((fn as unknown as Record<string, unknown>)[head] as Record<string, unknown>),
+                  [tail]: val,
+                };
+              }
+            }
+          }
+        }
       }
       const ir = await eng.buildIr({ nodes: flatNodes });
 
