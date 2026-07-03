@@ -270,7 +270,17 @@ export class FontRegistry {
 
   /** Check if a font is missing (not registered and not a generic). */
   isMissing(family: string): boolean {
-    const generics = ['sans-serif', 'serif', 'monospace', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', 'fantasy', 'cursive'];
+    const generics = [
+      'sans-serif',
+      'serif',
+      'monospace',
+      'system-ui',
+      'ui-sans-serif',
+      'ui-serif',
+      'ui-monospace',
+      'fantasy',
+      'cursive',
+    ];
     if (generics.includes(family.toLowerCase())) return false;
     return !this.entries.has(family);
   }
@@ -278,7 +288,17 @@ export class FontRegistry {
   /** Resolve font to a CSS font-family fallback chain string. The family name is quoted; generic fallbacks are not. */
   resolve(family: string, _weight?: number, _style?: string): string {
     const fallbacks = this.fallbackChain(family);
-    const generics = ['sans-serif', 'serif', 'monospace', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', 'fantasy', 'cursive'];
+    const generics = [
+      'sans-serif',
+      'serif',
+      'monospace',
+      'system-ui',
+      'ui-sans-serif',
+      'ui-serif',
+      'ui-monospace',
+      'fantasy',
+      'cursive',
+    ];
     const isGeneric = generics.includes(family.toLowerCase());
     const familyPart = isGeneric ? family : `"${family}"`;
     return fallbacks.length > 0 ? `${familyPart}, ${fallbacks.join(', ')}` : familyPart;

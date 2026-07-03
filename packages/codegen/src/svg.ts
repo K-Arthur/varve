@@ -70,7 +70,8 @@ function buildTextContent(node: SceneNode, indent: string): string {
     let displayText = node.text ?? '';
     if (node.textCase === 'uppercase') displayText = displayText.toUpperCase();
     else if (node.textCase === 'lowercase') displayText = displayText.toLowerCase();
-    else if (node.textCase === 'capitalize') displayText = displayText.replace(/\b\w/g, (c) => c.toUpperCase());
+    else if (node.textCase === 'capitalize')
+      displayText = displayText.replace(/\b\w/g, (c) => c.toUpperCase());
 
     const lines = displayText.split('\n');
     return lines

@@ -16,7 +16,9 @@ export type Point = readonly [number, number];
 
 // ── Local typography IR types (mirrors @strata/scene without the dependency) ──
 
-export type OpenTypeFeatureMap = Partial<Record<string, boolean>> & { custom?: Record<string, boolean> };
+export type OpenTypeFeatureMap = Partial<Record<string, boolean>> & {
+  custom?: Record<string, boolean>;
+};
 
 export type VariableFontSettings = Record<string, number>;
 
@@ -346,7 +348,14 @@ export interface RenderItem {
 export type FilterIR =
   | { kind: 'brightness'; value: number; opacity: number; blendMode: string }
   | { kind: 'contrast'; value: number; opacity: number; blendMode: string }
-  | { kind: 'exposure'; value: number; offset: number; gammaCorrection: number; opacity: number; blendMode: string }
+  | {
+      kind: 'exposure';
+      value: number;
+      offset: number;
+      gammaCorrection: number;
+      opacity: number;
+      blendMode: string;
+    }
   | { kind: 'saturation'; value: number; opacity: number; blendMode: string }
   | { kind: 'hueRotate'; value: number; opacity: number; blendMode: string }
   | { kind: 'sepia'; value: number; opacity: number; blendMode: string }
@@ -354,16 +363,74 @@ export type FilterIR =
   | { kind: 'invert'; value: number; opacity: number; blendMode: string }
   | { kind: 'opacity'; value: number; opacity: number; blendMode: string }
   | { kind: 'blur'; radius: number; opacity: number; blendMode: string }
-  | { kind: 'sharpen'; amount: number; radius: number; threshold: number; opacity: number; blendMode: string }
+  | {
+      kind: 'sharpen';
+      amount: number;
+      radius: number;
+      threshold: number;
+      opacity: number;
+      blendMode: string;
+    }
   | { kind: 'temperature'; value: number; opacity: number; blendMode: string }
   | { kind: 'tint'; value: number; opacity: number; blendMode: string }
   | { kind: 'vibrance'; value: number; opacity: number; blendMode: string }
-  | { kind: 'levels'; inputShadows: number; inputMidtones: number; inputHighlights: number; outputShadows: number; outputHighlights: number; channel: string; opacity: number; blendMode: string }
-  | { kind: 'curves'; channel: string; points: { input: number; output: number }[]; opacity: number; blendMode: string }
-  | { kind: 'selectiveColor'; colorRange: string; cyan: number; magenta: number; yellow: number; black: number; relative: boolean; opacity: number; blendMode: string }
-  | { kind: 'colorBalance'; shadows: { cyanRed: number; magentaGreen: number; yellowBlue: number }; midtones: { cyanRed: number; magentaGreen: number; yellowBlue: number }; highlights: { cyanRed: number; magentaGreen: number; yellowBlue: number }; preserveLuminosity: boolean; opacity: number; blendMode: string }
-  | { kind: 'channelMixer'; outputChannel: string; redPercent: number; greenPercent: number; bluePercent: number; constant: number; monochrome: boolean; opacity: number; blendMode: string }
-  | { kind: 'photoFilter'; color: readonly [number, number, number, number]; density: number; preserveLuminosity: boolean; opacity: number; blendMode: string }
+  | {
+      kind: 'levels';
+      inputShadows: number;
+      inputMidtones: number;
+      inputHighlights: number;
+      outputShadows: number;
+      outputHighlights: number;
+      channel: string;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'curves';
+      channel: string;
+      points: { input: number; output: number }[];
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'selectiveColor';
+      colorRange: string;
+      cyan: number;
+      magenta: number;
+      yellow: number;
+      black: number;
+      relative: boolean;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'colorBalance';
+      shadows: { cyanRed: number; magentaGreen: number; yellowBlue: number };
+      midtones: { cyanRed: number; magentaGreen: number; yellowBlue: number };
+      highlights: { cyanRed: number; magentaGreen: number; yellowBlue: number };
+      preserveLuminosity: boolean;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'channelMixer';
+      outputChannel: string;
+      redPercent: number;
+      greenPercent: number;
+      bluePercent: number;
+      constant: number;
+      monochrome: boolean;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'photoFilter';
+      color: readonly [number, number, number, number];
+      density: number;
+      preserveLuminosity: boolean;
+      opacity: number;
+      blendMode: string;
+    }
   | { kind: 'chain'; filters: FilterIR[] };
 
 /** P2: Fill IR — a single fill in the render IR (solid, gradient, image, or pattern). */
