@@ -9,6 +9,7 @@ import { TOUR_STEPS } from './components/Onboarding/tourSteps';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
+import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
 import { EditorProvider, useEditor } from './context';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
@@ -25,11 +26,12 @@ export interface ShellProps {
 
 function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
   const editor = useEditor();
-  const { paletteOpen, closePalette, openPalette } = useShortcuts(editor);
+  const { paletteOpen, closePalette, openPalette } = useShortcuts(editor, onBackToHome);
   const fileRef = useRef<HTMLInputElement>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { shellStyle, widths, setWidth } = usePanelWidths();
 
   const onboarding = useOnboarding();
 
@@ -42,8 +44,15 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
 
   const currentStep = onboarding.stepIndex >= 0 && onboarding.active ? onboarding.stepIndex : -1;
 
+  // Desktop panel visibility (Ctrl+B / Ctrl+Shift+B): collapse the grid
+  // column so the canvas reclaims the space.
+  const { leftPanelVisible, rightPanelVisible } = editor.state;
+  const gridStyle: React.CSSProperties = { ...shellStyle };
+  if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
+  if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
+
   return (
-    <div className="editor-shell gpu-layer">
+    <div className="editor-shell gpu-layer" style={gridStyle}>
       <Menubar
         onBackToHome={onBackToHome}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -51,13 +60,31 @@ function ShellInner({ onBackToHome }: { onBackToHome?: () => void }) {
         onOpenPalette={openPalette}
       />
       <FloatingToolbar />
-      <TabStrip />
+      <TabStrip onBackToHome={onBackToHome} />
       <CanvasArea />
-      <div className="editor__layers-panel" data-visible={layersVisible || undefined}>
+      <div
+        className="editor__layers-panel"
+        data-visible={layersVisible || undefined}
+        data-collapsed={!leftPanelVisible || undefined}
+      >
         <LayersPanel />
+        <PanelResizeHandle
+          side="layers"
+          width={widths.layers}
+          onResize={(w) => setWidth('layers', w)}
+        />
       </div>
-      <div className="editor__inspector-panel" data-visible={inspectorVisible || undefined}>
+      <div
+        className="editor__inspector-panel"
+        data-visible={inspectorVisible || undefined}
+        data-collapsed={!rightPanelVisible || undefined}
+      >
         <PropertiesPanel />
+        <PanelResizeHandle
+          side="inspector"
+          width={widths.inspector}
+          onResize={(w) => setWidth('inspector', w)}
+        />
       </div>
       <StatusBar />
       {/* FAB for layers (responsive) */}

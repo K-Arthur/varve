@@ -17,11 +17,12 @@ import {
   replayIr,
 } from '@strata/engine';
 import { importFile } from '@strata/import';
-import type { SceneNode } from '@strata/scene';
+import type { NodeId, SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
 import { clampZoom, fitBoundsCamera, screenToWorld, zoomAboutPoint } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
@@ -138,6 +139,7 @@ export function CanvasArea() {
     new Set(),
   );
   const [textEditTargetId, setTextEditTargetId] = useState<string | null>(null);
+  const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const lastCursorUpdate = useRef(0);
 
@@ -160,6 +162,18 @@ export function CanvasArea() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.tool]);
+
+  // Auto-enter text edit mode after creating a text node via TextTool
+  useEffect(() => {
+    if (pendingAutoTextEditRef.current && state.selection.length === 1) {
+      pendingAutoTextEditRef.current = false;
+      const id = state.selection[0] as NodeId;
+      const node = state.document.nodes[id];
+      if (node?.kind === 'text') {
+        setTextEditTargetId(id);
+      }
+    }
+  }, [state.selection, state.document]);
 
   // ─── ToolContext builder ─────────────────────────────────────────────────
   // `canvasToWorld`/`worldToCanvas`/`canvasDeltaToWorld` are defined inside
@@ -187,8 +201,10 @@ export function CanvasArea() {
       snapGrid: 8,
 
       createShapeAt: (world, size, parentId) => e.createShapeAt(world, size, parentId),
-      createTextNodeAt: (world, size, parentId, text) =>
-        e.createTextNodeAt(world, size, parentId, text),
+      createTextNodeAt: (world, size, parentId, text) => {
+        pendingAutoTextEditRef.current = true;
+        e.createTextNodeAt(world, size, parentId, text);
+      },
       setSelection: (id) => e.setSelection(id),
       toggleSelection: (id, additive) => e.toggleSelection(id, additive),
       isSelected: (id) => e.isSelected(id),
@@ -1038,19 +1054,47 @@ export function CanvasArea() {
         (() => {
           const n = state.document.nodes[textEditTargetId];
           if (!n || n.kind !== 'text') return null;
+          const canvasRect = canvasRef.current?.getBoundingClientRect();
+          const canvasLeft = canvasRect?.left ?? 0;
+          const canvasTop = canvasRect?.top ?? 0;
+          const textScreenX = n.transform[4] * state.zoom + state.pan.x + canvasLeft;
+          const textScreenY = n.transform[5] * state.zoom + state.pan.y + canvasTop;
+          const textScreenW =
+            (n.text.length > 0
+              ? n.text.length * (n.fontSize ?? 16) * 0.6
+              : (n.fontSize ?? 16) * 3) * state.zoom;
+          const textScreenH = (n.fontSize ?? 16) * 1.4 * state.zoom;
+          const textScreenRect = {
+            x: textScreenX,
+            y: textScreenY,
+            w: Math.max(textScreenW, 20),
+            h: Math.max(textScreenH, 20),
+          };
           return (
-            <TextEditOverlay
-              node={n}
-              zoom={state.zoom}
-              pan={state.pan}
-              canvasElement={canvasRef.current}
-              onCommit={() => setTextEditTargetId(null)}
-              onUpdateText={(text) => {
-                editor.updateNode(textEditTargetId, (node) =>
-                  node.kind === 'text' ? { ...node, text } : node,
-                );
-              }}
-            />
+            <>
+              <TextEditOverlay
+                node={n}
+                zoom={state.zoom}
+                pan={state.pan}
+                canvasElement={canvasRef.current}
+                onCommit={() => setTextEditTargetId(null)}
+                onUpdateText={(text) => {
+                  editor.updateNode(textEditTargetId, (node) =>
+                    node.kind === 'text' ? { ...node, text } : node,
+                  );
+                }}
+              />
+              <FloatingTextBar
+                node={n}
+                textScreenRect={textScreenRect}
+                onUpdate={(id, changes) => {
+                  editor.updateNode(id, (node) =>
+                    node.kind === 'text' ? { ...node, ...changes } : node,
+                  );
+                }}
+                onClose={() => setTextEditTargetId(null)}
+              />
+            </>
           );
         })()}
       {state.tool !== 'inspect' && Object.keys(state.document.nodes).length === 0 && (

@@ -223,10 +223,7 @@ function buildAdjacencyList(flow: FlowData): Map<NodeId, NodeId[]> {
   return adjacency;
 }
 
-function reconstructPath(
-  parent: Map<NodeId, NodeId | null>,
-  toNodeId: NodeId,
-): NodeId[] {
+function reconstructPath(parent: Map<NodeId, NodeId | null>, toNodeId: NodeId): NodeId[] {
   const path: NodeId[] = [];
   let current: NodeId | null = toNodeId;
 

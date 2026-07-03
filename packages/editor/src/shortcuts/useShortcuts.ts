@@ -3,13 +3,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorContextValue, ToolId } from '../context';
 import { bindingMatchesEvent, getEffectiveBinding, SHORTCUT_DEFS } from './ShortcutManager';
 
-export function useShortcuts(editor: EditorContextValue): {
+export function useShortcuts(
+  editor: EditorContextValue,
+  onBackToHome?: () => void,
+): {
   paletteOpen: boolean;
   closePalette: () => void;
   openPalette: () => void;
 } {
   const ref = useRef(editor);
   ref.current = editor;
+
+  const onBackToHomeRef = useRef(onBackToHome);
+  onBackToHomeRef.current = onBackToHome;
 
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -182,6 +188,10 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => e.setTool('inspect' as ToolId);
       case 'toggleSnap':
         return () => e.setSnapEnabled(!e.state.snapEnabled);
+      case 'toggleLeftPanel':
+        return () => e.toggleLeftPanel();
+      case 'toggleRightPanel':
+        return () => e.toggleRightPanel();
       case 'booleanUnion':
         return () => e.booleanOp('union');
       case 'booleanSubtract':
@@ -190,6 +200,8 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => e.booleanOp('intersect');
       case 'booleanExclude':
         return () => e.booleanOp('exclude');
+      case 'home':
+        return () => onBackToHomeRef.current?.();
       default:
         return null;
     }

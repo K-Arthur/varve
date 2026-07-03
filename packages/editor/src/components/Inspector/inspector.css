@@ -225,6 +225,20 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Nested field pairs (X/Y, W/H sharing one row): WebKit resolves the nested
+ * flex items' automatic minimum size against the text input's intrinsic width
+ * (~176px), so a two-field row overflows the card. Force zero-basis equal
+ * split with an explicit min-width so rows can never exceed the card. */
+.insp-field .insp-field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.insp-field .insp-field .insp-field__label {
+  width: auto;
+  min-width: 0;
 }
 .insp-field__label {
   display: inline-flex;
@@ -259,6 +273,9 @@
 }
 .insp-num__input {
   flex: 1;
+  /* width:0 + flex-grow: the input's UA intrinsic width (size=20 ≈ 176px)
+   * must never contribute to row sizing, or rows overflow the card. */
+  width: 0;
   min-width: 0;
   height: var(--space-5);
   padding: 0 var(--space-2);
@@ -303,6 +320,8 @@
 /* ---------- Shared inspector controls ---------- */
 .insp-select {
   flex: 1;
+  width: 0;
+  min-width: 0;
   height: var(--space-5);
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);

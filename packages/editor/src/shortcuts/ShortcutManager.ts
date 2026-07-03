@@ -122,6 +122,16 @@ export const SHORTCUT_DEFS = {
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
   settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },
+  toggleLeftPanel: {
+    binding: { key: 'b', ctrl: true },
+    label: 'Toggle Layers Panel',
+    category: 'View',
+  },
+  toggleRightPanel: {
+    binding: { key: 'b', ctrl: true, shift: true },
+    label: 'Toggle Inspector Panel',
+    category: 'View',
+  },
   booleanUnion: {
     binding: { key: 'u', ctrl: true, alt: true },
     label: 'Boolean Union',
@@ -141,6 +151,11 @@ export const SHORTCUT_DEFS = {
     binding: { key: 'x', ctrl: true, alt: true },
     label: 'Boolean Exclude',
     category: 'Object',
+  },
+  home: {
+    binding: { key: 'h', ctrl: true, shift: true },
+    label: 'Home',
+    category: 'View',
   },
 } satisfies Record<string, ShortcutDef>;
 

@@ -9,11 +9,7 @@
  * Framer Actions API, W3C Web Animations API for scroll/animation actions.
  */
 
-import type {
-  Action,
-  PrototypeState,
-  TransitionConfig,
-} from './types';
+import type { Action, PrototypeState, TransitionConfig } from './types';
 
 /**
  * Result of executing a prototype action.
