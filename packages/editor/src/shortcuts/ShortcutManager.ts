@@ -162,6 +162,11 @@ export const SHORTCUT_DEFS = {
     label: 'Home',
     category: 'View',
   },
+  present: {
+    binding: { key: 'p', ctrl: true, shift: true },
+    label: 'Present',
+    category: 'View',
+  },
 } satisfies Record<string, ShortcutDef>;
 
 // ── Persistence ────────────────────────────────────────────────────────
