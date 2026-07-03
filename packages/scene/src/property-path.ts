@@ -71,9 +71,10 @@ export function setNestedValue(
 
   const [head, ...rest] = path;
   const child = obj[head!];
-  const nextChild = typeof child === 'object' && child !== null
-    ? setNestedValue(child as Record<string, unknown>, rest, value)
-    : setNestedValue({}, rest, value);
+  const nextChild =
+    typeof child === 'object' && child !== null
+      ? setNestedValue(child as Record<string, unknown>, rest, value)
+      : setNestedValue({}, rest, value);
 
   return { ...obj, [head!]: nextChild };
 }

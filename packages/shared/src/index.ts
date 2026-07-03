@@ -37,15 +37,6 @@ export {
   pointToPointDist,
 } from './bezier';
 export { debounce, throttle } from './debounce';
-export type { PathPoint } from './interpolation';
-export {
-  interpolateAffine,
-  interpolateArray,
-  interpolateColor,
-  interpolateObject,
-  interpolatePath,
-  interpolateValue,
-} from './interpolation';
 export type {
   CubicBezierEasingDef,
   EasingDefinition,
@@ -66,6 +57,15 @@ export {
   springPhysics,
   steps,
 } from './easing';
+export type { PathPoint } from './interpolation';
+export {
+  interpolateAffine,
+  interpolateArray,
+  interpolateColor,
+  interpolateObject,
+  interpolatePath,
+  interpolateValue,
+} from './interpolation';
 export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
 
