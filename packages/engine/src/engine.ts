@@ -10,6 +10,7 @@
  * The desktop build MUST select native (asserted) — that is the strategic wedge
  * (no WASM memory ceiling). The web build selects wasm.
  */
+import type { MeasureTextFn } from '@strata/shared';
 import { measureText } from '@strata/shared';
 import { hitTest } from './geometry';
 import type { Backend, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
@@ -23,7 +24,7 @@ export interface Engine {
   hitTest(scene: Scene, world: Point): Promise<number | null>;
 }
 
-function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
+function shapeToPrimitive(node: SceneNode, measureTextFn?: MeasureTextFn): RenderItem['primitive'] {
   if (node.kind === 'image') {
     return { kind: 'image', w: node.w ?? 100, h: node.h ?? 100, src: node.src ?? '' };
   }
@@ -31,7 +32,7 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
     const fontSize = node.fontSize ?? 14;
     const text = node.text ?? '';
     const fontFamily = node.fontFamily ?? 'sans-serif';
-    const { width, height } = measureText(text, {
+    const textOptions = {
       fontSize,
       fontFamily,
       fontWeight: node.fontWeight ?? 400,
@@ -39,7 +40,18 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
       letterSpacing: node.letterSpacing,
       lineHeight: node.lineHeight,
       textCase: node.textCase as 'none' | 'uppercase' | 'lowercase' | 'capitalize' | undefined,
-    });
+    };
+    let width: number;
+    let height: number;
+    if (measureTextFn) {
+      const r = measureTextFn(text, textOptions);
+      width = r.width;
+      height = r.height;
+    } else {
+      const r = measureText(text, textOptions);
+      width = r.width;
+      height = r.height;
+    }
     return {
       kind: 'text',
       x: 0,
@@ -162,6 +174,27 @@ function stubEngine(): Engine {
                   (result as Record<string, unknown>).transform = f.gradient.transform;
                 }
                 return result;
+              }
+              if (f.type === 'image' && f.image) {
+                return {
+                  type: 'image' as const,
+                  src: f.image.src,
+                  fit: f.image.fit,
+                  opacity: f.opacity,
+                  blendMode: f.blendMode,
+                  visible: f.visible,
+                };
+              }
+              if (f.type === 'pattern' && f.pattern) {
+                return {
+                  type: 'pattern' as const,
+                  tileSrc: f.pattern.tileSrc,
+                  spacing: f.pattern.spacing,
+                  rotation: f.pattern.rotation,
+                  opacity: f.opacity,
+                  blendMode: f.blendMode,
+                  visible: f.visible,
+                };
               }
               return null;
             })

@@ -60,8 +60,27 @@ export {
 export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
 
-export type { MeasuredLine, TextMeasureOptions, TextMeasureResult } from './textMeasure';
-export { measureText, measureWrappedText, textWrap } from './textMeasure';
+export type {
+  MeasuredLine,
+  MeasuredParagraph,
+  MeasuredRun,
+  MeasureTextFn,
+  RichTextMeasureResult,
+  RunMeasureOptions,
+  TextMeasureOptions,
+  TextMeasureResult,
+  TextMetricsResult,
+} from './textMeasure';
+export {
+  buildFeatureSettingsCSS,
+  buildVariationSettingsCSS,
+  measureRichText,
+  measureRun,
+  measureText,
+  measureTextWithCanvas,
+  measureWrappedText,
+  textWrap,
+} from './textMeasure';
 export type { SpecUnit } from './units';
 export {
   convertPx,

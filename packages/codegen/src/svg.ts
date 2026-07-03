@@ -90,8 +90,32 @@ function nodeToSvgTag(
       }
       break;
     }
-    case 'text':
-      return `${indent}<text x="0" y="0" fill="${fillAttr}" font-size="${node.fontSize}"${withTransform}>${escapeXml(node.text)}</text>`;
+    case 'text': {
+      const attrs: string[] = [
+        `x="0"`,
+        `y="0"`,
+        `fill="${fillAttr}"`,
+        `font-size="${node.fontSize}"`,
+      ];
+      if (node.fontFamily) attrs.push(`font-family="${escapeXml(node.fontFamily)}"`);
+      if (node.fontWeight) attrs.push(`font-weight="${node.fontWeight}"`);
+      if (node.fontStyle === 'italic') attrs.push(`font-style="italic"`);
+      if (node.textAlign)
+        attrs.push(
+          `text-anchor="${node.textAlign === 'center' ? 'middle' : node.textAlign === 'right' ? 'end' : 'start'}"`,
+        );
+      if (node.letterSpacing) attrs.push(`letter-spacing="${node.letterSpacing}"`);
+      if (node.lineHeight) attrs.push(`line-height="${node.lineHeight}"`);
+      if (node.textDecoration && node.textDecoration !== 'none') {
+        attrs.push(`text-decoration="${node.textDecoration}"`);
+      }
+      const t = affineToSvg(transform);
+      const withTransform = ` transform="${t}"`;
+      let content = escapeXml(node.text);
+      if (node.textCase === 'uppercase') content = content.toUpperCase();
+      else if (node.textCase === 'lowercase') content = content.toLowerCase();
+      return `${indent}<text ${attrs.join(' ')}${withTransform}>${content}</text>`;
+    }
     case 'frame':
     case 'group': {
       const children = getChildren(doc, node)

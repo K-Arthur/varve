@@ -509,4 +509,92 @@ describe('createEngine (stub)', () => {
     expect(ir[0]?.opacity).toBe(0.5);
     expect(ir[0]?.blendMode).toBe('multiply');
   });
+
+  it('buildIr maps image fill to FillIR image type', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'img1',
+          name: 'img',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fill: [0, 0, 0, 255],
+          fills: [
+            {
+              type: 'image',
+              image: { src: 'photo.png', fit: 'fill', x: 0, y: 0, scale: 1 },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(ir[0]?.fills).toHaveLength(1);
+    const f = ir[0]?.fills?.[0];
+    expect(f?.type).toBe('image');
+    if (f?.type === 'image') {
+      expect(f.src).toBe('photo.png');
+      expect(f.fit).toBe('fill');
+    }
+  });
+
+  it('buildIr maps pattern fill to FillIR pattern type', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'pat1',
+          name: 'pat',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fill: [0, 0, 0, 255],
+          fills: [
+            {
+              type: 'pattern',
+              pattern: { tileSrc: 'tile.png', spacing: 4, rotation: 0 },
+              opacity: 0.8,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(ir[0]?.fills).toHaveLength(1);
+    const f = ir[0]?.fills?.[0];
+    expect(f?.type).toBe('pattern');
+    if (f?.type === 'pattern') {
+      expect(f.tileSrc).toBe('tile.png');
+      expect(f.spacing).toBe(4);
+    }
+  });
+
+  it('buildIr filters invisible image fill', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'inv1',
+          name: 'inv',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fill: [0, 0, 0, 255],
+          fills: [
+            {
+              type: 'image',
+              image: { src: 'hidden.png', fit: 'fill', x: 0, y: 0, scale: 1 },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: false,
+            },
+          ],
+        },
+      ],
+    });
+    // Invisible fill is filtered out; fills becomes empty array
+    expect(ir[0]?.fills).toEqual([]);
+  });
 });

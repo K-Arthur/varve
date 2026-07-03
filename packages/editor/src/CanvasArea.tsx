@@ -58,6 +58,79 @@ import { ZoomTool } from './tools/ZoomTool';
 
 type DocNode = SceneNode;
 
+/** Trace the outline of a scene node's shape on a CanvasRenderingContext2D.
+ * Used for mask clipping — traces in the node's local space. The caller is
+ * responsible for applying the node's world transform before calling. */
+function traceShapeOutline(ctx: CanvasRenderingContext2D, n: SceneNode): void {
+  if (n.kind === 'shape' && n.shape) {
+    const s = n.shape;
+    switch (s.kind) {
+      case 'rect':
+        ctx.rect(s.x, s.y, s.w, s.h);
+        break;
+      case 'ellipse':
+        ctx.ellipse(s.cx, s.cy, s.rx, s.ry, 0, 0, Math.PI * 2);
+        break;
+      case 'circle':
+        ctx.arc(s.cx, s.cy, s.r, 0, Math.PI * 2);
+        break;
+      case 'line':
+        ctx.moveTo(s.from[0], s.from[1]);
+        ctx.lineTo(s.to[0], s.to[1]);
+        break;
+      case 'arrow':
+        ctx.moveTo(s.from[0], s.from[1]);
+        ctx.lineTo(s.to[0], s.to[1]);
+        break;
+      case 'polygon':
+        for (let i = 0; i < s.sides; i++) {
+          const a = (2 * Math.PI * i) / s.sides - Math.PI / 2 + s.rotation;
+          const px = s.cx + s.radius * Math.cos(a);
+          const py = s.cy + s.radius * Math.sin(a);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      case 'star':
+        for (let i = 0; i < s.points * 2; i++) {
+          const a = (Math.PI * i) / s.points - Math.PI / 2 + s.rotation;
+          const r = i % 2 === 0 ? s.outerRadius : s.innerRadius;
+          const px = s.cx + r * Math.cos(a);
+          const py = s.cy + r * Math.sin(a);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      case 'path':
+        if (s.points.length > 0) {
+          ctx.moveTo(s.points[0]?.x ?? 0, s.points[0]?.y ?? 0);
+          for (let i = 1; i < s.points.length; i++) {
+            const pt = s.points[i];
+            const prev = s.points[i - 1];
+            if (!pt || !prev) continue;
+            if (prev.handleOut || pt.handleIn) {
+              const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
+              const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
+              const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
+              const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
+              ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
+            } else {
+              ctx.lineTo(pt.x, pt.y);
+            }
+          }
+          if (s.closed) ctx.closePath();
+        }
+        break;
+    }
+  } else if (n.kind === 'frame' || n.kind === 'image') {
+    const w = 'w' in n ? (n.w ?? 100) : 100;
+    const h = 'h' in n ? (n.h ?? 100) : 100;
+    ctx.rect(0, 0, w, h);
+  }
+}
+
 function toEngineNode(n: DocNode): EngineNode {
   const base = {
     id: n.id,
@@ -93,6 +166,14 @@ function toEngineNode(n: DocNode): EngineNode {
     };
   if (n.kind === 'frame')
     return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
+  if (n.kind === 'image')
+    return {
+      ...base,
+      kind: 'image',
+      src: n.src,
+      w: n.w,
+      h: n.h,
+    };
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
 }
 
@@ -395,12 +476,39 @@ export function CanvasArea({
         if (!n || n.visible === false) return;
         const item = irByNodeId.get(nodeId);
 
+        // Check for mask on the container
+        const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
+        const maskSrcId = mask ? mask.sourceNodeId : null;
+        const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
+
         if (n.kind === 'frame') {
           // Paint frame background before establishing child clip.
           if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);
           if (n.children.length > 0) {
             const shouldClip = n.clipContent !== false;
-            if (shouldClip) {
+
+            // When a mask is present, apply it as a clip region for all children
+            // (the mask source node is used only as a clip path, not rendered)
+            if (mask && maskChild && maskSrcId) {
+              ctxNN.save();
+              // Trace the mask source node's outline in world space
+              const maskWorldTransform = nodeWorldTransform(doc, maskSrcId);
+              const [ma, mb, mc, md, me, mf] = maskWorldTransform;
+              ctxNN.transform(ma, mb, mc, md, me, mf);
+              ctxNN.beginPath();
+              traceShapeOutline(ctxNN, maskChild);
+              ctxNN.closePath();
+              ctxNN.clip();
+              // Undo the mask transform so children render at their own world positions
+              ctxNN.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+              // Render all children except the mask source itself
+              for (const childId of n.children) {
+                if (childId !== maskSrcId) {
+                  replaySubtree(childId);
+                }
+              }
+              ctxNN.restore();
+            } else if (shouldClip && !mask) {
               // Compute frame rect corners in world space from the item's world transform.
               // Affine [a,b,c,d,e,f]: point (x,y) → (a·x + c·y + e, b·x + d·y + f).
               const t = item?.transform ?? ([1, 0, 0, 1, 0, 0] as const);
@@ -427,8 +535,27 @@ export function CanvasArea({
           }
         } else if (n.kind === 'group') {
           // Groups are transparent pass-through containers; no background painted.
-          for (const childId of n.children) {
-            replaySubtree(childId);
+          // Apply mask if present
+          if (mask && maskChild && maskSrcId) {
+            ctxNN.save();
+            const maskWorldTransform = nodeWorldTransform(doc, maskSrcId);
+            const [ma, mb, mc, md, me, mf] = maskWorldTransform;
+            ctxNN.transform(ma, mb, mc, md, me, mf);
+            ctxNN.beginPath();
+            traceShapeOutline(ctxNN, maskChild);
+            ctxNN.closePath();
+            ctxNN.clip();
+            ctxNN.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+            for (const childId of n.children) {
+              if (childId !== maskSrcId) {
+                replaySubtree(childId);
+              }
+            }
+            ctxNN.restore();
+          } else {
+            for (const childId of n.children) {
+              replaySubtree(childId);
+            }
           }
         } else {
           if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);

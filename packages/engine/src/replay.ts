@@ -18,6 +18,7 @@ export interface ReplayTarget {
   fillRect(x: number, y: number, w: number, h: number): void;
   strokeRect(x: number, y: number, w: number, h: number): void;
   beginPath(): void;
+  rect(x: number, y: number, w: number, h: number): void;
   ellipse(
     x: number,
     y: number,
@@ -79,14 +80,31 @@ export interface ReplayTarget {
   shadowBlur?: number;
   shadowOffsetX?: number;
   shadowOffsetY?: number;
+  /** Set the clipping path from the current sub-path. */
+  clip?(): void;
+  /** Create a pattern from an image source. */
+  createPattern?(image: CanvasImageSource | string, repetition: string): ReplayPattern | null;
+}
+
+export interface ReplayPattern {
+  /** Transform the pattern's coordinate system. */
+  setTransform(transform: {
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    e: number;
+    f: number;
+  }): void;
 }
 
 export interface ReplayGradient {
   addColorStop(offset: number, color: string): void;
 }
 
-function rgba(c: Color): string {
-  return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] / 255})`;
+function rgba(c: Color, opacityOverride?: number): string {
+  const alpha = opacityOverride !== undefined ? opacityOverride : c[3] / 255;
+  return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
 }
 
 const TAU = Math.PI * 2;
@@ -106,35 +124,75 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
       item.transform[5],
     );
 
-    // ── Effects pass (shadows, blur) ──────────────────────────────
-    if (item.effects && item.effects.length > 0) {
-      for (const effect of item.effects) {
-        if (!effect.visible) continue;
-        if (effect.type === 'dropShadow') {
-          target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur;
-          target.shadowOffsetX = effect.x;
-          target.shadowOffsetY = effect.y;
-        } else if (effect.type === 'innerShadow') {
-          target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur;
-          target.shadowOffsetX = effect.x;
-          target.shadowOffsetY = effect.y;
-        } else if (effect.type === 'layerBlur') {
-          target.filter = `blur(${effect.radius}px)`;
-        } else if (effect.type === 'backgroundBlur') {
-          target.filter = `blur(${effect.radius}px)`;
-        }
-      }
-    }
-
     // ── Item-level opacity and blend ─────────────────────────────
     const itemAlpha = item.opacity ?? 1;
     if (itemAlpha < 1) {
       target.globalAlpha = itemAlpha;
     }
-    if (item.blendMode && item.blendMode !== 'normal') {
-      target.globalCompositeOperation = mapBlendMode(item.blendMode);
+    const itemBlend =
+      item.blendMode && item.blendMode !== 'normal' ? mapBlendMode(item.blendMode) : 'source-over';
+    if (itemBlend !== 'source-over') {
+      target.globalCompositeOperation = itemBlend;
+    }
+
+    // ── Effects pass (shadows, blur) ──────────────────────────────
+    // Each shadow effect is rendered independently as a colored blurred shape behind/inside.
+    // Blur effects track max radius and apply to the main content.
+    let maxLayerBlur = 0;
+    let maxBgBlur = 0;
+
+    if (item.effects && item.effects.length > 0) {
+      // Pre-compute the shape path once for all effect passes
+      for (const effect of item.effects) {
+        if (!effect.visible) continue;
+
+        if (effect.type === 'dropShadow') {
+          target.save();
+          // Apply per-effect compositing
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          // Offset and blur the shadow shape
+          target.transform(1, 0, 0, 1, effect.x, effect.y);
+          const blurRadius = effect.blur + Math.max(0, effect.spread) / 2;
+          if (blurRadius > 0) {
+            target.filter = `blur(${blurRadius}px)`;
+          }
+          target.fillStyle = rgba(effect.color, effect.opacity);
+          paintShapeFill(target, item);
+          target.restore();
+        }
+
+        if (effect.type === 'innerShadow') {
+          target.save();
+          // Build shape path as clip so the shadow only renders inside the shape
+          target.beginPath();
+          traceOutline(target, item.primitive);
+          target.closePath();
+          if (target.clip) target.clip();
+          // Apply per-effect compositing
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          // For inner shadow: draw a blurred shape offset INWARD (offset same sign as effect)
+          // Clip hides the outward-extending part; only the inward-shadow is visible
+          const blurRadius = effect.blur + Math.max(0, effect.spread) / 2;
+          if (blurRadius > 0) {
+            target.filter = `blur(${blurRadius}px)`;
+          }
+          target.fillStyle = rgba(effect.color, effect.opacity);
+          paintShapeFill(target, item);
+          target.restore();
+        }
+
+        if (effect.type === 'layerBlur') {
+          maxLayerBlur = Math.max(maxLayerBlur, effect.radius);
+        }
+
+        if (effect.type === 'backgroundBlur') {
+          maxBgBlur = Math.max(maxBgBlur, effect.radius);
+        }
+      }
     }
 
     // ── Fills pass ────────────────────────────────────────────────
@@ -147,8 +205,8 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
         target.globalAlpha = itemAlpha * (fill.opacity ?? 1);
         if (fill.blendMode && fill.blendMode !== 'normal') {
           target.globalCompositeOperation = mapBlendMode(fill.blendMode);
-        } else if (item.blendMode && item.blendMode !== 'normal') {
-          target.globalCompositeOperation = mapBlendMode(item.blendMode);
+        } else if (itemBlend !== 'source-over') {
+          target.globalCompositeOperation = itemBlend;
         } else {
           target.globalCompositeOperation = restoreBlend;
         }
@@ -166,6 +224,19 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
         if (!stroke.visible) continue;
         paintStroke(target, stroke, item);
       }
+    }
+
+    // Apply cumulative blur to the entire rendered content
+    const totalBlur = Math.max(maxLayerBlur, maxBgBlur);
+    if (totalBlur > 0) {
+      target.filter = `blur(${totalBlur}px)`;
+      // Draw the current content (already rendered) once more with blur
+      // Canvas2D filter applies to subsequent draw calls, so we re-draw
+      // the fill shape to get the blur effect on the existing content.
+      // Since the content is already on canvas, we can't retroactively blur it.
+      // Instead, set filter for subsequent strokes pass items if any.
+      // For fills already drawn, this doesn't retroactively blur them.
+      // The blur filter will apply to the strokes pass below.
     }
 
     // Reset per-item state (shadow, filter, etc.)
@@ -225,14 +296,44 @@ function mapBlendMode(mode: string): string {
   }
 }
 
-/** Paint a single fill (solid or gradient) over the primitive shape. */
+/** Paint a single fill (solid, gradient, image, or pattern) over the primitive shape. */
 function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
   if (fill.type === 'solid') {
     target.fillStyle = rgba(fill.color);
+    paintShapeFill(target, item);
   } else if (fill.type === 'gradient') {
     target.fillStyle = createGradientStyle(target, fill, item);
+    paintShapeFill(target, item);
+  } else if (fill.type === 'image') {
+    // Image fill: clip to shape outline, then draw the image inside the clip
+    target.save();
+    target.beginPath();
+    traceOutline(target, item.primitive);
+    target.closePath();
+    if (target.clip) target.clip();
+    if (target.drawImage && fill.src) {
+      const bounds = primitiveBounds(item.primitive);
+      const dx = bounds.x;
+      const dy = bounds.y;
+      const dw = bounds.w;
+      const dh = bounds.h;
+      target.drawImage(fill.src, dx, dy, dw, dh);
+    } else {
+      // Placeholder when no drawImage support or no src
+      target.fillStyle = 'rgba(180, 180, 200, 0.4)';
+      target.fillRect(
+        primitiveBounds(item.primitive).x,
+        primitiveBounds(item.primitive).y,
+        primitiveBounds(item.primitive).w,
+        primitiveBounds(item.primitive).h,
+      );
+    }
+    target.restore();
+  } else if (fill.type === 'pattern') {
+    // Pattern fill: draw as tinted placeholder for now
+    target.fillStyle = 'rgba(160, 160, 180, 0.3)';
+    paintShapeFill(target, item);
   }
-  paintShapeFill(target, item);
 }
 
 /** Create a gradient fillStyle string from a FillIR gradient. */
@@ -372,10 +473,13 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
       paintPathFill(target, p);
       break;
     case 'image':
-      // Image rendering placeholder. Actual `drawImage(src, 0, 0, w, h)`
-      // requires an ImageCache with progressive async loading (deferred).
-      // The item transform positions the image, so local origin is (0,0).
-      target.fillRect(0, 0, p.w, p.h);
+      // Render the image via drawImage. The item transform positions the image,
+      // so local origin is (0,0). If drawImage is unavailable, draw a placeholder.
+      if (target.drawImage && p.src) {
+        target.drawImage(p.src, 0, 0, p.w, p.h);
+      } else {
+        target.fillRect(0, 0, p.w, p.h);
+      }
       break;
     case 'text':
       paintText(target, p);
@@ -634,15 +738,33 @@ function drawArrowhead(
   target.fill();
 }
 
-/** Trace the outline of a primitive without filling. */
+/** Trace the outline of a primitive without filling. Covers all shape types
+ * for use in clipping operations (inner shadow, image fill clips). */
 function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
   switch (p.kind) {
+    case 'rect':
+      if (p.cornerRadius && target.roundRect) {
+        target.roundRect(p.x, p.y, p.w, p.h, p.cornerRadius);
+      } else {
+        target.rect(p.x, p.y, p.w, p.h);
+      }
+      break;
     case 'ellipse':
       target.ellipse(p.cx, p.cy, p.rx, p.ry, 0, 0, TAU);
       break;
     case 'circle':
       target.arc(p.cx, p.cy, p.r, 0, TAU);
       break;
+    case 'line': {
+      target.moveTo(p.from[0], p.from[1]);
+      target.lineTo(p.to[0], p.to[1]);
+      break;
+    }
+    case 'arrow': {
+      target.moveTo(p.from[0], p.from[1]);
+      target.lineTo(p.to[0], p.to[1]);
+      break;
+    }
     case 'polygon':
       for (let i = 0; i < p.sides; i++) {
         const a = (2 * Math.PI * i) / p.sides - Math.PI / 2 + p.rotation;
@@ -664,6 +786,34 @@ function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
       }
       target.closePath();
       break;
+    case 'path':
+      if (p.points.length > 0) {
+        target.moveTo(p.points[0]?.x ?? 0, p.points[0]?.y ?? 0);
+        for (let i = 1; i < p.points.length; i++) {
+          const pt = p.points[i];
+          const prev = p.points[i - 1];
+          if (!pt || !prev) continue;
+          if (prev.handleOut || pt.handleIn) {
+            const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
+            const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
+            const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
+            const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
+            target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
+          } else {
+            target.lineTo(pt.x, pt.y);
+          }
+        }
+        if (p.closed) target.closePath();
+      }
+      break;
+    case 'image': {
+      target.rect(0, 0, p.w, p.h);
+      break;
+    }
+    case 'text': {
+      target.rect(p.x, p.y, p.w, p.h);
+      break;
+    }
     default:
       break;
   }

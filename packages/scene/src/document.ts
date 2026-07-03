@@ -157,6 +157,10 @@ export function makeTextNode(
       | 'listStyle'
       | 'paragraphSpacing'
       | 'openTypeFeatures'
+      | 'variableAxes'
+      | 'richText'
+      | 'textMode'
+      | 'pathTextSettings'
       | 'opacity'
       | 'blendMode'
       | 'rotation'
@@ -197,6 +201,10 @@ export function makeTextNode(
     listStyle: opts.listStyle,
     paragraphSpacing: opts.paragraphSpacing,
     openTypeFeatures: opts.openTypeFeatures,
+    variableAxes: opts.variableAxes,
+    richText: opts.richText,
+    textMode: opts.textMode,
+    pathTextSettings: opts.pathTextSettings,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
   };

@@ -293,10 +293,24 @@ export interface TextNode extends NodeBase {
   textResizing?: 'autoWidth' | 'autoHeight' | 'fixed';
   /** F6: OpenType feature flags (stub — e.g. { liga: true, kern: true }). */
   openTypeFeatures?: Record<string, boolean>;
+  /** Variable font axis values (e.g. { wght: 500, wdth: 75 }). */
+  variableAxes?: Record<string, number>;
+  /** Rich text content (paragraphs with runs). When set, overrides `text`. */
+  richText?: import('./typography').RichText;
+  /** Text mode: point, area, path, or auto. */
+  textMode?: import('./typography').TextMode;
+  /** Path text settings (when textMode === 'path'). */
+  pathTextSettings?: import('./typography').PathTextSettings;
   /** F6: stacked strokes on text. */
   strokes: Stroke[];
   /** F6: stacked effects on text. */
   effects: Effect[];
+  /** Phase 5: Reference to a path/vector node whose shape the text follows. */
+  pathId?: NodeId;
+  /** Phase 5: 0-1 offset along the path to start text (default 0). */
+  pathOffset?: number;
+  /** Phase 5: Which side of the path text appears on. */
+  pathSide?: 'top' | 'bottom';
 }
 
 export interface GroupNode extends NodeBase {

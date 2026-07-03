@@ -17,6 +17,7 @@ import { CanvasArea } from './CanvasArea';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
+import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
@@ -27,10 +28,9 @@ import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { EditorProvider, useEditor } from './context';
 import type { DragNodeData } from './dnd-types';
-import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
-import { MemoryRecoveryStorage, RecoveryManager, type RecoverySession } from './recovery';
+import { getSharedRecoveryManager, type RecoverySession } from './recovery';
 import { StatusBar } from './StatusBar';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
@@ -76,7 +76,7 @@ function ShellInner({
 
   // Check for recovery sessions on mount
   useEffect(() => {
-    const mgr = new RecoveryManager(new MemoryRecoveryStorage());
+    const mgr = getSharedRecoveryManager();
     mgr.hasSessions().then((has) => {
       if (has) {
         mgr.listSessions().then((sessions) => {
@@ -124,7 +124,7 @@ function ShellInner({
   // ── Recovery dialog handlers ─────────────────────────────────────────────
   const handleRecoveryRestore = useCallback(
     (id: string) => {
-      const mgr = new RecoveryManager(new MemoryRecoveryStorage());
+      const mgr = getSharedRecoveryManager();
       mgr.restoreSession(id).then((data) => {
         if (data) {
           editor.loadDocument(JSON.stringify(data.document), { name: data.tabName });
@@ -136,14 +136,14 @@ function ShellInner({
   );
 
   const handleRecoveryDiscard = useCallback((id: string) => {
-    const mgr = new RecoveryManager(new MemoryRecoveryStorage());
+    const mgr = getSharedRecoveryManager();
     mgr.deleteSession(id).then(() => {
       setRecoverySessions((prev) => prev.filter((s) => s.id !== id));
     });
   }, []);
 
   const handleRecoveryRestoreAll = useCallback(() => {
-    const mgr = new RecoveryManager(new MemoryRecoveryStorage());
+    const mgr = getSharedRecoveryManager();
     mgr.listSessions().then((sessions) => {
       for (const session of sessions) {
         mgr.restoreSession(session.id).then((data) => {
@@ -158,7 +158,7 @@ function ShellInner({
   }, [editor]);
 
   const handleRecoveryDiscardAll = useCallback(() => {
-    const mgr = new RecoveryManager(new MemoryRecoveryStorage());
+    const mgr = getSharedRecoveryManager();
     mgr.listSessions().then((sessions) => {
       for (const s of sessions) {
         mgr.deleteSession(s.id);
