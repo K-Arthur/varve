@@ -16,7 +16,8 @@ import {
   getTimelines,
   getTimeline,
 } from './motion';
-import { createTimeline as makeTimeline, createKeyframe } from './motion-types';
+import { makeTimelineObject as makeTimeline, createKeyframe } from './motion-types';
+import type { AnimationKeyframe, AnimationTrack } from './motion-types';
 import type { Document } from './document';
 
 describe('motion-types', () => {
@@ -66,9 +67,9 @@ describe('motion ops (immutable)', () => {
     const { doc: d1, id } = createTimeline(doc, 'Anim 1', 3000);
     expect(d1.timelines).toBeDefined();
     expect(d1.timelines![id]).toBeDefined();
-    expect(d1.timelines![id].name).toBe('Anim 1');
-    expect(d1.timelines![id].duration).toBe(3000);
-    expect(d1.timelines![id].tracks).toEqual([]);
+    expect(d1.timelines![id]!.name).toBe('Anim 1');
+    expect(d1.timelines![id]!.duration).toBe(3000);
+    expect(d1.timelines![id]!.tracks).toEqual([]);
   });
 
   it('creates multiple timelines', () => {
@@ -76,7 +77,7 @@ describe('motion ops (immutable)', () => {
     const { doc: d2, id } = createTimeline(d1, 'B', 2000);
     const keys = Object.keys(d2.timelines!);
     expect(keys.length).toBe(2);
-    expect(d2.timelines![id].name).toBe('B');
+    expect(d2.timelines![id]!.name).toBe('B');
   });
 
   it('removes a timeline', () => {
@@ -102,7 +103,7 @@ describe('motion ops (immutable)', () => {
   it('renames a timeline', () => {
     const { doc: d1, id } = createTimeline(doc, 'Old', 1000);
     const d2 = renameTimeline(d1, id, 'New Name');
-    expect(d2.timelines![id].name).toBe('New Name');
+    expect(d2.timelines![id]!.name).toBe('New Name');
   });
 
   it('renameTimeline is no-op for missing id', () => {
@@ -117,7 +118,7 @@ describe('motion ops (immutable)', () => {
       defaultFillMode: 'forwards',
       defaultIterations: Infinity,
     });
-    const tl = d2.timelines![id];
+    const tl = d2.timelines![id]!;
     expect(tl.duration).toBe(5000);
     expect(tl.defaultFillMode).toBe('forwards');
     expect(tl.defaultIterations).toBe(Infinity);
@@ -140,7 +141,7 @@ describe('motion ops (immutable)', () => {
     const { doc: d1, id: tlId } = createTimeline(doc, 'Track Test', 1000);
     const { doc: d2, trackId } = addTrack(d1, tlId, 'n1', 'opacity');
     expect(trackId).toBeTruthy();
-    const track = d2.timelines![tlId].tracks[0];
+    const track = d2.timelines![tlId]!.tracks[0]!;
     expect(track).toBeDefined();
     expect(track.nodeId).toBe('n1');
     expect(track.property).toBe('opacity');
@@ -152,7 +153,7 @@ describe('motion ops (immutable)', () => {
     const { doc: d1, id: tlId } = createTimeline(doc, 'Multi', 1000);
     const { doc: d2 } = addTrack(d1, tlId, 'n1', 'opacity');
     const { doc: d3 } = addTrack(d2, tlId, 'n2', 'rotation');
-    expect(d3.timelines![tlId].tracks.length).toBe(2);
+    expect(d3.timelines![tlId]!.tracks.length).toBe(2);
   });
 
   it('addTrack is no-op for missing timeline', () => {
@@ -165,7 +166,7 @@ describe('motion ops (immutable)', () => {
     const { doc: d1, id: tlId } = createTimeline(doc, 'Remove Track', 1000);
     const { doc: d2, trackId } = addTrack(d1, tlId, 'n1', 'opacity');
     const d3 = removeTrack(d2, tlId, trackId);
-    expect(d3.timelines![tlId].tracks.length).toBe(0);
+    expect(d3.timelines![tlId]!.tracks.length).toBe(0);
   });
 
   it('removeTrack is no-op for missing track', () => {
@@ -178,7 +179,7 @@ describe('motion ops (immutable)', () => {
     const { doc: d1, id: tlId } = createTimeline(doc, 'Update Track', 1000);
     const { doc: d2, trackId } = addTrack(d1, tlId, 'n1', 'opacity');
     const d3 = updateTrack(d2, tlId, trackId, { property: 'rotation', enabled: false });
-    const track = d3.timelines![tlId].tracks[0];
+    const track = d3.timelines![tlId]!.tracks[0]!;
     expect(track.property).toBe('rotation');
     expect(track.enabled).toBe(false);
   });
@@ -188,10 +189,10 @@ describe('motion ops (immutable)', () => {
     const { doc: d2, trackId } = addTrack(d1, tlId, 'n1', 'opacity');
     const d3 = addKeyframe(d2, tlId, trackId, { progress: 0, value: 1 });
     const d4 = addKeyframe(d3, tlId, trackId, { progress: 1, value: 0 });
-    const kfs = d4.timelines![tlId].tracks[0].keyframes;
+    const kfs = d4.timelines![tlId]!.tracks[0]!.keyframes;
     expect(kfs.length).toBe(2);
-    expect(kfs[0].progress).toBe(0);
-    expect(kfs[1].progress).toBe(1);
+    expect(kfs[0]!.progress).toBe(0);
+    expect(kfs[1]!.progress).toBe(1);
   });
 
   it('replaces keyframe at same progress', () => {
@@ -199,8 +200,8 @@ describe('motion ops (immutable)', () => {
     const { doc: d2, trackId } = addTrack(d1, tlId, 'n1', 'opacity');
     const d3 = addKeyframe(d2, tlId, trackId, { progress: 0.5, value: 0.5 });
     const d4 = addKeyframe(d3, tlId, trackId, { progress: 0.5, value: 0.8 });
-    expect(d4.timelines![tlId].tracks[0].keyframes.length).toBe(1);
-    expect(d4.timelines![tlId].tracks[0].keyframes[0].value).toBe(0.8);
+    expect(d4.timelines![tlId]!.tracks[0]!.keyframes.length).toBe(1);
+    expect(d4.timelines![tlId]!.tracks[0]!.keyframes[0]!.value).toBe(0.8);
   });
 
   it('maintains sorted keyframe order', () => {
@@ -209,10 +210,10 @@ describe('motion ops (immutable)', () => {
     const d3 = addKeyframe(d2, tlId, trackId, { progress: 1, value: 0 });
     const d4 = addKeyframe(d3, tlId, trackId, { progress: 0, value: 1 });
     const d5 = addKeyframe(d4, tlId, trackId, { progress: 0.5, value: 0.5 });
-    const kfs = d5.timelines![tlId].tracks[0].keyframes;
-    expect(kfs[0].progress).toBe(0);
-    expect(kfs[1].progress).toBe(0.5);
-    expect(kfs[2].progress).toBe(1);
+    const kfs = d5.timelines![tlId]!.tracks[0]!.keyframes;
+    expect(kfs[0]!.progress).toBe(0);
+    expect(kfs[1]!.progress).toBe(0.5);
+    expect(kfs[2]!.progress).toBe(1);
   });
 
   it('removes a keyframe by progress', () => {
@@ -221,8 +222,8 @@ describe('motion ops (immutable)', () => {
     const d3 = addKeyframe(d2, tlId, trackId, { progress: 0, value: 1 });
     const d4 = addKeyframe(d3, tlId, trackId, { progress: 1, value: 0 });
     const d5 = removeKeyframe(d4, tlId, trackId, 0);
-    expect(d5.timelines![tlId].tracks[0].keyframes.length).toBe(1);
-    expect(d5.timelines![tlId].tracks[0].keyframes[0].progress).toBe(1);
+    expect(d5.timelines![tlId]!.tracks[0]!.keyframes.length).toBe(1);
+    expect(d5.timelines![tlId]!.tracks[0]!.keyframes[0]!.progress).toBe(1);
   });
 
   it('removeKeyframe is no-op for missing progress', () => {
@@ -240,7 +241,7 @@ describe('motion ops (immutable)', () => {
       value: 0.5,
       easing: { kind: 'easeOut' },
     });
-    const kf = d4.timelines![tlId].tracks[0].keyframes[0];
+    const kf = d4.timelines![tlId]!.tracks[0]!.keyframes[0] as AnimationKeyframe;
     expect(kf.value).toBe(0.5);
     expect(kf.easing?.kind).toBe('easeOut');
   });
@@ -249,16 +250,16 @@ describe('motion ops (immutable)', () => {
     const { doc: d1, id: tlId } = createTimeline(doc, 'Node Add', 1000);
     const { doc: d2, trackId } = addNodeToTimeline(d1, tlId, 'n1', 'opacity', 1);
     expect(trackId).toBeTruthy();
-    const track = d2.timelines![tlId].tracks[0];
+    const track = d2.timelines![tlId]!.tracks[0] as AnimationTrack;
     expect(track.nodeId).toBe('n1');
     expect(track.keyframes.length).toBe(1);
-    expect(track.keyframes[0].value).toBe(1);
+    expect((track.keyframes[0] as AnimationKeyframe).value).toBe(1);
   });
 
   it('addNodeToTimeline without initial value', () => {
     const { doc: d1, id: tlId } = createTimeline(doc, 'Node Add No Val', 1000);
     const { doc: d2 } = addNodeToTimeline(d1, tlId, 'n1', 'opacity');
-    const track = d2.timelines![tlId].tracks[0];
+    const track = d2.timelines![tlId]!.tracks[0] as AnimationTrack;
     expect(track.keyframes).toEqual([]);
   });
 
@@ -307,9 +308,9 @@ describe('motion ops (immutable)', () => {
     const { doc: d2 } = addTrack(d1, tlId, 'n1', 'opacity');
     const { doc: d3 } = addTrack(d2, tlId, 'n2', 'rotation');
     const { doc: d4 } = addTrack(d3, tlId, 'n3', 'scale');
-    const tracks = d4.timelines![tlId].tracks;
-    expect(tracks[0].property).toBe('opacity');
-    expect(tracks[1].property).toBe('rotation');
-    expect(tracks[2].property).toBe('scale');
+    const tracks = d4.timelines![tlId]!.tracks;
+    expect((tracks[0] as AnimationTrack).property).toBe('opacity');
+    expect((tracks[1] as AnimationTrack).property).toBe('rotation');
+    expect((tracks[2] as AnimationTrack).property).toBe('scale');
   });
 });

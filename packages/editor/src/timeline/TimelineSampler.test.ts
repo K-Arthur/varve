@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTimeline, addTrack, addKeyframe, createDocument } from '@strata/scene';
-import type { Timeline, AnimationKeyframe } from '@strata/scene';
+import type { Timeline } from '@strata/scene';
 import { sampleTimeline, sampleTimelineAt } from './TimelineSampler';
 
 function makeTimeline(overrides?: Partial<Timeline>): Timeline {
