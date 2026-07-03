@@ -2,7 +2,7 @@
  * Tests for text warp / envelope deformation.
  */
 import { describe, expect, it } from 'vitest';
-import { makeWarpEnvelope, warpBounds, warpGlyph, warpPoint, type WarpMesh } from './textWarp';
+import { makeWarpEnvelope, type WarpMesh, warpBounds, warpGlyph, warpPoint } from './textWarp';
 
 describe('makeWarpEnvelope', () => {
   it('clamps bend to [-1, 1]', () => {
@@ -36,11 +36,11 @@ describe('warpPoint', () => {
     expect(p[1]).toBe(25);
   });
 
-  it('arc upper bends the top edge downward', () => {
+  it('arc upper bends the top edge upward', () => {
     const env = makeWarpEnvelope('a1', 'arcUpper', 1);
     const top = warpPoint([50, 0], bounds, env);
     const bottom = warpPoint([50, 50], bounds, env);
-    expect(top[1]).toBeGreaterThan(0);
+    expect(top[1]).toBeLessThan(0);
     expect(bottom[1]).toBe(50);
   });
 

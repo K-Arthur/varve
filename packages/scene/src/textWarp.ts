@@ -113,7 +113,13 @@ export function warpPoint(
   }
 }
 
-function warpArc(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, bend: number, lower: boolean): Point {
+function warpArc(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  bend: number,
+  lower: boolean,
+): Point {
   const radius = bounds.w / 2;
   const bendPx = bend * radius * 0.5;
   const cy = bounds.y + bounds.h / 2 + bendPx;
@@ -122,38 +128,74 @@ function warpArc(point: Point, bounds: { x: number; y: number; w: number; h: num
   return [point[0], point[1] + (arcY - (bounds.y + bounds.h / 2))];
 }
 
-function warpArcUpper(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, ny: number, bend: number): Point {
+function warpArcUpper(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  ny: number,
+  bend: number,
+): Point {
   const bendPx = bend * bounds.h * 0.5;
   const yOffset = bendPx * Math.sin(nx * Math.PI) * (1 - ny);
   return [point[0], point[1] - yOffset];
 }
 
-function warpArcLower(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, ny: number, bend: number): Point {
+function warpArcLower(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  ny: number,
+  bend: number,
+): Point {
   const bendPx = bend * bounds.h * 0.5;
   const yOffset = bendPx * Math.sin(nx * Math.PI) * ny;
   return [point[0], point[1] + yOffset];
 }
 
-function warpBulge(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, ny: number, bend: number): Point {
+function warpBulge(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  ny: number,
+  bend: number,
+): Point {
   const bendPx = bend * bounds.h * 0.5;
   const centerDist = Math.sqrt((nx - 0.5) * (nx - 0.5) + (ny - 0.5) * (ny - 0.5));
   const yOffset = bendPx * (1 - centerDist * 2) * (1 - 2 * Math.abs(ny - 0.5));
   return [point[0], point[1] - yOffset];
 }
 
-function warpShellUpper(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, ny: number, bend: number): Point {
+function warpShellUpper(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  ny: number,
+  bend: number,
+): Point {
   const bendPx = bend * bounds.h * 0.5;
   const yOffset = bendPx * (1 - ny) * Math.sin(nx * Math.PI) * 0.5;
   return [point[0], point[1] - yOffset];
 }
 
-function warpShellLower(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, ny: number, bend: number): Point {
+function warpShellLower(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  ny: number,
+  bend: number,
+): Point {
   const bendPx = bend * bounds.h * 0.5;
   const yOffset = bendPx * ny * Math.sin(nx * Math.PI) * 0.5;
   return [point[0], point[1] + yOffset];
 }
 
-function warpFlag(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, ny: number, bend: number): Point {
+function warpFlag(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  ny: number,
+  bend: number,
+): Point {
   const bendPx = bend * bounds.h * 0.5;
   const yOffset = bendPx * Math.sin(nx * Math.PI * 2) * (1 - ny * 0.5);
   return [point[0], point[1] + yOffset];
@@ -173,19 +215,36 @@ function warpWave(
   return [point[0], point[1] + yOffset];
 }
 
-function warpFish(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, ny: number, bend: number): Point {
+function warpFish(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  ny: number,
+  bend: number,
+): Point {
   const bendPx = bend * bounds.h * 0.5;
   const yOffset = bendPx * Math.sin(nx * Math.PI) * (ny - 0.5) * 2;
   return [point[0], point[1] + yOffset];
 }
 
-function warpRise(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, bend: number): Point {
+function warpRise(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  bend: number,
+): Point {
   const bendPx = bend * bounds.h * 0.5;
   const yOffset = bendPx * nx * nx;
   return [point[0], point[1] - yOffset];
 }
 
-function warpMesh(point: Point, bounds: { x: number; y: number; w: number; h: number }, nx: number, ny: number, mesh: WarpMesh): Point {
+function warpMesh(
+  point: Point,
+  bounds: { x: number; y: number; w: number; h: number },
+  nx: number,
+  ny: number,
+  mesh: WarpMesh,
+): Point {
   const { rows, cols, points } = mesh;
   if (points.length !== rows * cols) return point;
 
@@ -218,7 +277,14 @@ export function warpGlyph(
 ): WarpedGlyph {
   const warped = warpPoint([glyph.x, glyph.y], bounds, envelope);
   const sampleOffset = 0.01;
-  const forward = warpPoint([glyph.x + Math.cos(glyph.angle) * sampleOffset, glyph.y + Math.sin(glyph.angle) * sampleOffset], bounds, envelope);
+  const forward = warpPoint(
+    [
+      glyph.x + Math.cos(glyph.angle) * sampleOffset,
+      glyph.y + Math.sin(glyph.angle) * sampleOffset,
+    ],
+    bounds,
+    envelope,
+  );
   const warpedAngle = Math.atan2(forward[1] - warped[1], forward[0] - warped[0]);
   const dx = forward[0] - warped[0];
   const dy = forward[1] - warped[1];

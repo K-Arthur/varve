@@ -8,19 +8,6 @@
 
 export type { Engine } from './engine';
 export { createEngine } from './engine';
-export type { FontEntry, FontLoadState, VariableAxisInfo } from './fontRegistry';
-export { FontRegistry, getFontRegistry, resetFontRegistry } from './fontRegistry';
-export * from './geometry';
-export type { ImageCacheEntry, ImageLoadState } from './imageCache';
-export { getImageCache, ImageCache, resetImageCache } from './imageCache';
-export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
-export { pathLength, placeGlyphsOnPath, samplePathAtLength } from './pathText';
-export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
-export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
-export type { ReplayTarget } from './replay';
-export { replayIr } from './replay';
-export type { ThumbnailOptions } from './thumbnail';
-export { renderThumbnail } from './thumbnail';
 export type {
   Adjustment,
   AdjustmentBase,
@@ -49,17 +36,29 @@ export type {
   TintAdjustment,
   VibranceAdjustment,
 } from './filters';
-export type { FilterIR } from './types';
 export {
   adjustmentDefaults,
-  adjustmentToFilter,
   adjustmentsToFilters,
+  adjustmentToFilter,
   applyFilterChain,
   filterChainToCss,
   filterKindDisplayName,
   filterToCss,
   makeAdjustment,
 } from './filters';
+export type { FontEntry, FontLoadState, VariableAxisInfo } from './fontRegistry';
+export { FontRegistry, getFontRegistry, resetFontRegistry } from './fontRegistry';
+export * from './geometry';
+export type { ImageCacheEntry, ImageLoadState } from './imageCache';
+export { getImageCache, ImageCache, resetImageCache } from './imageCache';
+export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
+export { pathLength, placeGlyphsOnPath, samplePathAtLength } from './pathText';
+export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
+export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
+export type { ReplayTarget } from './replay';
+export { replayIr } from './replay';
+export type { ThumbnailOptions } from './thumbnail';
+export { renderThumbnail } from './thumbnail';
 export type {
   Affine,
   Backend,
@@ -68,6 +67,7 @@ export type {
   Effect,
   EngineFill,
   FillIR,
+  FilterIR,
   PathPoint,
   Point,
   Primitive,

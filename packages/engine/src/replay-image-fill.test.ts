@@ -22,7 +22,9 @@ function makeRecorder(): {
       filter = v;
     },
     drawImage: (image: string, dx: number, dy: number, dw: number, dh: number) => {
-      calls.push(`drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`);
+      calls.push(
+        `drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`,
+      );
     },
     target: {
       save: () => calls.push('save'),
@@ -61,13 +63,17 @@ function makeRecorder(): {
       lineDashOffset: 0,
       setLineDash: () => calls.push('setLineDash'),
       drawImage: (image: string, dx: number, dy: number, dw: number, dh: number) => {
-        calls.push(`drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`);
+        calls.push(
+          `drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`,
+        );
       },
     },
   };
 }
 
-function imageFill(overrides: Omit<Extract<FillIR, { type: 'image' }>, 'opacity' | 'blendMode' | 'visible'>): FillIR {
+function imageFill(
+  overrides: Omit<Extract<FillIR, { type: 'image' }>, 'opacity' | 'blendMode' | 'visible'>,
+): FillIR {
   return { opacity: 1, blendMode: 'normal', visible: true, ...overrides } as FillIR;
 }
 
@@ -85,7 +91,13 @@ function rectItem(w: number, h: number, fill: FillIR): RenderItem {
 describe('image fill modes', () => {
   it('stretch fills the whole primitive bounds', () => {
     const { target, calls } = makeRecorder();
-    replayIr(target, [rectItem(100, 50, imageFill({ type: 'image', src: 'img1', fit: 'stretch', x: 0, y: 0, scale: 1 }))]);
+    replayIr(target, [
+      rectItem(
+        100,
+        50,
+        imageFill({ type: 'image', src: 'img1', fit: 'stretch', x: 0, y: 0, scale: 1 }),
+      ),
+    ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     expect(draw.length).toBe(1);
     expect(draw[0]).toBe('drawImage img1 0.0 0.0 100.0 50.0');
@@ -94,7 +106,20 @@ describe('image fill modes', () => {
   it('fit keeps aspect ratio inside bounds', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
-      rectItem(100, 50, imageFill({ type: 'image', src: 'img2', fit: 'fit', x: 0, y: 0, scale: 1, imageWidth: 200, imageHeight: 100 })),
+      rectItem(
+        100,
+        50,
+        imageFill({
+          type: 'image',
+          src: 'img2',
+          fit: 'fit',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 200,
+          imageHeight: 100,
+        }),
+      ),
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     expect(draw.length).toBe(1);
@@ -105,7 +130,20 @@ describe('image fill modes', () => {
   it('fit letterboxes when aspect differs', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
-      rectItem(100, 100, imageFill({ type: 'image', src: 'img3', fit: 'fit', x: 0, y: 0, scale: 1, imageWidth: 200, imageHeight: 100 })),
+      rectItem(
+        100,
+        100,
+        imageFill({
+          type: 'image',
+          src: 'img3',
+          fit: 'fit',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 200,
+          imageHeight: 100,
+        }),
+      ),
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     expect(draw[0]).toBe('drawImage img3 0.0 25.0 100.0 50.0');
@@ -114,7 +152,20 @@ describe('image fill modes', () => {
   it('fill crops to cover bounds', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
-      rectItem(100, 100, imageFill({ type: 'image', src: 'img4', fit: 'fill', x: 0, y: 0, scale: 1, imageWidth: 200, imageHeight: 100 })),
+      rectItem(
+        100,
+        100,
+        imageFill({
+          type: 'image',
+          src: 'img4',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 200,
+          imageHeight: 100,
+        }),
+      ),
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     // 200x100 image fills 100x100 -> width 100, height 50, centered vertically? No, aspect 2:1, bounds 1:1 -> height = bounds.h = 100, width = 200
@@ -124,7 +175,20 @@ describe('image fill modes', () => {
   it('tile repeats image across bounds', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
-      rectItem(100, 100, imageFill({ type: 'image', src: 'img5', fit: 'tile', x: 0, y: 0, scale: 1, imageWidth: 40, imageHeight: 40 })),
+      rectItem(
+        100,
+        100,
+        imageFill({
+          type: 'image',
+          src: 'img5',
+          fit: 'tile',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 40,
+          imageHeight: 40,
+        }),
+      ),
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     // 100x100 bounds / 40x40 tiles = 3x3 grid = 9 draws (with some overhang)
@@ -135,7 +199,20 @@ describe('image fill modes', () => {
   it('applies image scale', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
-      rectItem(100, 100, imageFill({ type: 'image', src: 'img6', fit: 'fit', x: 0, y: 0, scale: 2, imageWidth: 50, imageHeight: 50 })),
+      rectItem(
+        100,
+        100,
+        imageFill({
+          type: 'image',
+          src: 'img6',
+          fit: 'fit',
+          x: 0,
+          y: 0,
+          scale: 2,
+          imageWidth: 50,
+          imageHeight: 50,
+        }),
+      ),
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     // 50x50 * scale 2 = 100x100, fits exactly in 100x100
