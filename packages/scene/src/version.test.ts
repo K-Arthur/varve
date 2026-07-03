@@ -133,8 +133,8 @@ describe('Forward Compatibility Detection', () => {
   });
 
   it('isForwardCompatible returns false for newer version', () => {
+    expect(isForwardCompatible('1.3')).toBe(false);
     expect(isForwardCompatible('2.0')).toBe(false);
-    expect(isForwardCompatible('1.2')).toBe(false);
   });
 
   it('isForwardCompatible returns true for 1.0 (supported older)', () => {
@@ -218,7 +218,7 @@ describe('Detailed Migration', () => {
     expect(result!.document.customField).toBe('value');
   });
 
-  it('migrates v1.0 to v1.1 adding print production defaults', () => {
+  it('migrates v1.0 to v1.2 adding print production defaults', () => {
     const raw = {
       id: 'd1',
       name: 'v1doc',
@@ -233,12 +233,12 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.1');
+    expect(doc.formatVersion).toBe('1.2');
     expect(doc.documentUnit).toBe('px');
     expect(doc.dpi).toBe(0);
   });
 
-  it('migrates v1.0 to v1.1 preserving existing colorConfig', () => {
+  it('migrates v1.0 to v1.2 preserving existing colorConfig', () => {
     const raw = {
       id: 'd1',
       name: 'cmyk-doc',
@@ -253,8 +253,59 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.1');
+    expect(doc.formatVersion).toBe('1.2');
     expect(doc.colorConfig).toEqual({ mode: 'cmyk' });
     expect(doc.bleed).toEqual({ top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' });
+  });
+
+  it('migrates v1.1 to v1.2 adding motion/animation fields', () => {
+    const raw = {
+      id: 'd1',
+      name: 'pre-motion',
+      formatVersion: '1.1',
+      rootChildren: [],
+      nodes: {},
+      components: {},
+      nextId: 1,
+      canvasWidth: 1440,
+      canvasHeight: 1024,
+      documentUnit: 'px',
+      dpi: 0,
+    };
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    const doc = result!;
+    expect(doc.formatVersion).toBe('1.2');
+    expect(doc).toHaveProperty('timelines');
+    expect(doc.timelines).toBeUndefined();
+    expect(doc).toHaveProperty('activeTimelineId');
+    expect(doc.activeTimelineId).toBeUndefined();
+  });
+
+  it('preserves existing timelines during 1.1→1.2 migration', () => {
+    const raw = {
+      id: 'd1',
+      name: 'with-motion',
+      formatVersion: '1.1',
+      rootChildren: [],
+      nodes: {},
+      components: {},
+      nextId: 1,
+      timelines: {
+        'tl-1': {
+          id: 'tl-1',
+          name: 'Existing',
+          duration: 3000,
+          defaultEasing: { kind: 'easeOut' },
+          tracks: [],
+        },
+      },
+    };
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    const doc = result!;
+    expect(doc.formatVersion).toBe('1.2');
+    expect(doc.timelines).toBeDefined();
+    expect((doc.timelines as Record<string, unknown>)['tl-1']).toBeDefined();
   });
 });

@@ -89,6 +89,13 @@ export interface Document {
   swatches?: ColorSwatch[];
   /** Spot color definitions. */
   spotColors?: SpotColorDef[];
+
+  // ── Motion / Animation properties (v1.2+) ─────────────────────────────────
+
+  /** Named timelines for per-node property animation. */
+  timelines?: Record<string, import('./motion-types').Timeline>;
+  /** The currently active timeline for playback. */
+  activeTimelineId?: string;
 }
 
 export interface NodeEntry {

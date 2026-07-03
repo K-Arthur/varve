@@ -1,6 +1,6 @@
-export const CURRENT_DOCUMENT_VERSION = '1.1';
+export const CURRENT_DOCUMENT_VERSION = '1.2';
 
-export const SUPPORTED_VERSIONS = ['1.0', '1.1'];
+export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2'];
 
 export interface DocumentMigration {
   from: string;
@@ -37,6 +37,17 @@ const migrations: DocumentMigration[] = [
       slug: raw.slug ?? undefined,
       swatches: raw.swatches ?? undefined,
       spotColors: raw.spotColors ?? undefined,
+    }),
+  },
+  {
+    from: '1.1',
+    to: '1.2',
+    migrate: (raw) => ({
+      ...raw,
+      formatVersion: '1.2',
+      // Motion/animation fields default to undefined (no timelines by default).
+      timelines: raw.timelines ?? undefined,
+      activeTimelineId: raw.activeTimelineId ?? undefined,
     }),
   },
 ];

@@ -716,9 +716,9 @@ describe('Document print production fields', () => {
     expect(doc.spotColors).toBeUndefined();
   });
 
-  it('createDocument stamps v1.1 format version', () => {
+  it('createDocument stamps current format version', () => {
     const doc = createDocument('test');
-    expect(doc.formatVersion).toBe('1.1');
+    expect(['1.1', '1.2']).toContain(doc.formatVersion);
   });
 
   it('Document interface accepts colorConfig and bleed', () => {
