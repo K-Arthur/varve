@@ -4,6 +4,22 @@
   "files": {
     "includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json", "**/*.css", "**/*.mjs"]
   },
+  "overrides": [
+    {
+      "includes": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/__tests__/**",
+        "**/*.spec.ts",
+        "**/*.spec.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": { "noExplicitAny": "warn" }
+        }
+      }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -17,7 +33,13 @@
       "preset": "recommended",
       "style": { "noNonNullAssertion": "warn", "useImportType": "error" },
       "suspicious": { "noExplicitAny": "error" },
-      "correctness": { "noUnusedVariables": "warn", "noUnusedImports": "warn" }
+      "correctness": { "noUnusedVariables": "warn", "noUnusedImports": "warn" },
+      "a11y": {
+        "useAriaPropsSupportedByRole": "warn",
+        "useSemanticElements": "warn",
+        "useKeyWithClickEvents": "warn",
+        "noStaticElementInteractions": "warn"
+      }
     }
   },
   "javascript": {

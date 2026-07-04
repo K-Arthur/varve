@@ -75,7 +75,7 @@ describe('buildSpec', () => {
       makeShapeNode(
         r1.id,
         { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-        { name: 'A', fill: [255, 0, 0, 255] },
+        { name: 'A', fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
       ),
     );
     const r2 = nextNodeId(doc);
@@ -84,7 +84,7 @@ describe('buildSpec', () => {
       makeShapeNode(
         r2.id,
         { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-        { name: 'B', fill: [0, 255, 0, 255] },
+        { name: 'B', fill: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 } },
       ),
     );
 
@@ -100,7 +100,7 @@ describe('buildSpec', () => {
       makeShapeNode(
         r1.id,
         { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-        { name: 'A', fill: [57, 208, 198, 255] },
+        { name: 'A', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
       ),
     );
     const r2 = nextNodeId(doc);
@@ -109,7 +109,7 @@ describe('buildSpec', () => {
       makeShapeNode(
         r2.id,
         { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-        { name: 'B', fill: [57, 208, 198, 255] },
+        { name: 'B', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
       ),
     );
 
@@ -144,7 +144,15 @@ describe('specToMarkdown', () => {
   it('includes type styles section', () => {
     const spec: SpecSheet = {
       spacings: [],
-      typeStyles: [{ id: 't1', name: 'Body', fontSize: 16, fill: [0, 0, 0, 255], count: 3 }],
+      typeStyles: [
+        {
+          id: 't1',
+          name: 'Body',
+          fontSize: 16,
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          count: 3,
+        },
+      ],
       assets: [],
       nodes: [],
       palette: [],
@@ -173,7 +181,7 @@ describe('specToMarkdown', () => {
       typeStyles: [],
       assets: [],
       nodes: [],
-      palette: [[57, 208, 198, 255]],
+      palette: [{ space: 'rgb', r: 57, g: 208, b: 198, a: 255 }],
     };
     const md = specToMarkdown(spec);
     expect(md).toContain('## Colors');

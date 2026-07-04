@@ -7,15 +7,15 @@
  */
 
 import { resolveTokenName } from '@strata/codegen';
-import type { Document, SceneNode, VariableStore } from '@strata/scene';
-import { convertPx, formatValue, type SpecUnit } from '@strata/shared';
+import type { Document, ManagedColor, SceneNode, VariableStore } from '@strata/scene';
+import { convertPx, formatValue, managedColorToRgba, type SpecUnit } from '@strata/shared';
 import { CopyButton } from '@strata/ui';
 import { useMemo } from 'react';
 
 // ── Token reverse-lookup ───────────────────────────────────────────────────
 
 function matchTokens(
-  value: number | readonly [number, number, number, number] | string,
+  value: number | ManagedColor | string,
   store: VariableStore | undefined,
 ): string[] {
   if (!store) return [];
@@ -25,7 +25,10 @@ function matchTokens(
       ? value.toLowerCase()
       : typeof value === 'number'
         ? String(value)
-        : `rgba(${value[0]},${value[1]},${value[2]},${(value[3] / 255).toFixed(2)})`;
+        : (() => {
+            const [r, g, b, a] = managedColorToRgba(value);
+            return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
+          })();
 
   const matches: string[] = [];
   for (const v of Object.values(store.variables)) {
@@ -40,17 +43,18 @@ function matchTokens(
   return matches;
 }
 
-function colorToHex(c: readonly [number, number, number, number]): string {
-  const [r, g, b] = c;
+function colorToHex(c: ManagedColor): string {
+  const [r, g, b] = managedColorToRgba(c);
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-function colorToRgb(c: readonly [number, number, number, number]): string {
-  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+function colorToRgb(c: ManagedColor): string {
+  const [r, g, b] = managedColorToRgba(c);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
-function luminance(c: readonly [number, number, number, number]): number {
-  const [r, g, b] = c;
+function luminance(c: ManagedColor): number {
+  const [r, g, b] = managedColorToRgba(c);
   const rs = r / 255;
   const gs = g / 255;
   const bs = b / 255;
@@ -203,7 +207,7 @@ function ColorReadout({ node, variableStore }: SpecReadoutsProps) {
         <span
           className="spec-swatch"
           role="img"
-          style={{ backgroundColor: `rgba(${fill[0]},${fill[1]},${fill[2]},${fill[3] / 255})` }}
+          style={{ backgroundColor: (() => { if (typeof fill !== 'string' && 'space' in fill) { const [r,g,b,a] = managedColorToRgba(fill); return `rgba(${r},${g},${b},${a / 255})`; } return ''; })() }}
           aria-label={`Fill color: ${hex}`}
         />
         <span className="spec-row__value">{hex}</span>

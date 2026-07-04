@@ -17,6 +17,8 @@
   "dependencies": {
     "@strata/engine": "workspace:*",
     "@strata/scene": "workspace:*",
-    "@strata/shared": "workspace:*"
+    "@strata/shared": "workspace:*",
+    "@webtoon/psd": "^0.4.0",
+    "pdfjs-dist": "^6.1.200"
   }
 }

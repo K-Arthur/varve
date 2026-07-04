@@ -1,5 +1,6 @@
-import type { SortDirection, SortKey, ViewMode } from '@strata/platform';
+import type { FileKind, SortDirection, SortKey, ViewMode } from '@strata/platform';
 import { Button, Icon, SearchField, SegmentedControl, type SegmentedOption } from '@strata/ui';
+import { FilterDropdown } from './FilterDropdown';
 
 export interface HomeToolbarProps {
   sidebarCollapsed: boolean;
@@ -15,6 +16,16 @@ export interface HomeToolbarProps {
   onSortDirToggle: () => void;
   onNewFile: () => void;
   onOpenFromDisk: () => void;
+  onOpenImport?: () => void;
+  kindFilter: FileKind[];
+  pinnedOnly: boolean;
+  dateFrom: number | null;
+  dateTo: number | null;
+  onKindFilterChange: (kinds: FileKind[]) => void;
+  onPinnedOnlyChange: (pinned: boolean) => void;
+  onDateFromChange: (date: number | null) => void;
+  onDateToChange: (date: number | null) => void;
+  onClearFilters: () => void;
 }
 
 const sortOptions: SegmentedOption<SortKey>[] = [
@@ -44,6 +55,16 @@ export function HomeToolbar({
   onSortDirToggle,
   onNewFile,
   onOpenFromDisk,
+  onOpenImport,
+  kindFilter,
+  pinnedOnly,
+  dateFrom,
+  dateTo,
+  onKindFilterChange,
+  onPinnedOnlyChange,
+  onDateFromChange,
+  onDateToChange,
+  onClearFilters,
 }: HomeToolbarProps) {
   return (
     <>
@@ -62,11 +83,28 @@ export function HomeToolbar({
         <Button variant="secondary" onClick={onOpenFromDisk}>
           Open...
         </Button>
+        {onOpenImport && (
+          <Button variant="secondary" onClick={onOpenImport}>
+            <Icon name="Upload" label={undefined} />
+            Import
+          </Button>
+        )}
       </div>
       <div className="strata-home__toolbar-center">
         <SearchField value={query} onChange={onQueryChange} resultCount={resultCount} />
       </div>
       <div className="strata-home__toolbar-right">
+        <FilterDropdown
+          kinds={kindFilter}
+          pinnedOnly={pinnedOnly}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onKindsChange={onKindFilterChange}
+          onPinnedOnlyChange={onPinnedOnlyChange}
+          onDateFromChange={onDateFromChange}
+          onDateToChange={onDateToChange}
+          onClear={onClearFilters}
+        />
         <div className="search-sort-group">
           <SegmentedControl<SortKey>
             label="Sort by"

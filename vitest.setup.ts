@@ -6,7 +6,15 @@
  * target so React effects can mount without noisy environment errors.
  */
 import '@testing-library/jest-dom/vitest';
-import { vi } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import { afterEach, vi } from 'vitest';
+
+// Without `globals: true`, React Testing Library cannot self-register its
+// afterEach cleanup — renders would accumulate across tests in a file and
+// queries would match stale elements from earlier tests.
+afterEach(() => {
+  cleanup();
+});
 
 if (typeof HTMLCanvasElement !== 'undefined') {
   Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
@@ -56,6 +64,7 @@ if (typeof HTMLCanvasElement !== 'undefined') {
           fontBoundingBoxDescent: 0,
         }),
         translate: vi.fn(),
+        rotate: vi.fn(),
         scale: vi.fn(),
         clearRect: vi.fn(),
         createImageData: vi.fn((w: number, h: number) => new ImageData(w, h)),

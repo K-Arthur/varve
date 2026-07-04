@@ -2,7 +2,24 @@
 
 import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { TemplateLibrary } from '@strata/platform';
 import { NewFileDialog } from './NewFileDialog';
+
+const MOCK_TEMPLATES: TemplateLibrary[] = [
+  {
+    id: 'blank',
+    name: 'Blank Canvas',
+    category: 'General',
+    description: 'Start empty.',
+    previewHash: '',
+    source: 'builtin',
+    documentJson: '{}',
+    tags: [],
+    usageCount: 0,
+    createdAt: 0,
+    updatedAt: 0,
+  },
+];
 
 describe('NewFileDialog', () => {
   it('renders blank tab with a blank canvas option when open', () => {
@@ -11,7 +28,9 @@ describe('NewFileDialog', () => {
   });
 
   it('switches to templates tab', () => {
-    const { container } = render(<NewFileDialog open onClose={vi.fn()} onCreate={vi.fn()} />);
+    const { container } = render(
+      <NewFileDialog open onClose={vi.fn()} onCreate={vi.fn()} templates={MOCK_TEMPLATES} />,
+    );
     const tabs = container.querySelectorAll('button');
     const templateTab = Array.from(tabs).find((b) => b.textContent?.trim() === 'Templates');
     expect(templateTab).toBeDefined();

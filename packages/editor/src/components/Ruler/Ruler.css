@@ -1,0 +1,63 @@
+.ruler-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: calc(var(--z-raised, 50) - 1);
+}
+
+.ruler-corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  background: var(--color-surface-sunken, #f0f0f0);
+  border-right: 1px solid var(--color-border-subtle, #ddd);
+  border-bottom: 1px solid var(--color-border-subtle, #ddd);
+  z-index: 2;
+}
+
+.ruler-top-wrapper {
+  position: sticky;
+  top: 0;
+  left: 20px;
+  right: 0;
+  height: 20px;
+  z-index: 2;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.ruler-left-wrapper {
+  position: sticky;
+  left: 0;
+  top: 20px;
+  bottom: 0;
+  width: 20px;
+  z-index: 2;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.ruler-canvas {
+  display: block;
+  cursor: default;
+}
+
+.ruler-canvas--top {
+  width: 100%;
+  height: 20px;
+  cursor:
+    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><line x1="8" y1="0" x2="8" y2="16" stroke="black" stroke-width="2"/></svg>')
+    8 8,
+    crosshair;
+}
+
+.ruler-canvas--left {
+  width: 20px;
+  height: 100%;
+  cursor:
+    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><line x1="0" y1="8" x2="16" y2="8" stroke="black" stroke-width="2"/></svg>')
+    8 8,
+    crosshair;
+}

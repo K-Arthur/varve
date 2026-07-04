@@ -22,8 +22,8 @@ describe('resolveMask', () => {
     doc = addNode(doc, frame);
     const mask = resolveMask(frame);
     expect(mask).not.toBeNull();
-    expect(mask!.type).toBe('clip');
-    expect(mask!.sourceNodeId).toBe('n1');
+    expect(mask?.type).toBe('clip');
+    expect(mask?.sourceNodeId).toBe('n1');
   });
 
   it('returns null when mask source node is no longer a child', () => {
@@ -42,7 +42,7 @@ describe('resolveMask', () => {
     doc = addNode(doc, group);
     const mask = resolveMask(group);
     expect(mask).not.toBeNull();
-    expect(mask!.type).toBe('clip');
+    expect(mask?.type).toBe('clip');
   });
 });
 

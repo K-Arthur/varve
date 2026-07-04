@@ -6,6 +6,7 @@
  *
  * Research basis: OffscreenCanvas (WICG), idle-until-urgent pattern.
  */
+import { managedColorToRgba } from '@strata/shared';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -20,7 +21,10 @@ function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTMLCanva
   ctx.clearRect(0, 0, THUMB_W, THUMB_H);
 
   const fill = node.fill
-    ? `rgba(${node.fill[0]}, ${node.fill[1]}, ${node.fill[2]}, ${(node.fill[3] / 255).toFixed(3)})`
+    ? (() => {
+        const [r, g, b, a] = managedColorToRgba(node.fill!);
+        return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
+      })()
     : 'rgba(200,200,200,1)';
 
   const area = THUMB_W - PADDING * 2;
@@ -84,7 +88,10 @@ function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTMLCanva
     ctx.font = '10px sans-serif';
     ctx.textBaseline = 'middle';
     ctx.fillText('T', ox + area / 2 - 4, oy + area / 2);
-  } else if ('src' in node && typeof (node as unknown as Record<string, unknown>).src === 'string') {
+  } else if (
+    'src' in node &&
+    typeof (node as unknown as Record<string, unknown>).src === 'string'
+  ) {
     ctx.fillStyle = 'rgba(200,200,255,0.3)';
     ctx.fillRect(ox, oy, area, area);
   } else {

@@ -32,7 +32,7 @@ describe('Navigation / Flow Graph', () => {
       ];
       const flow = createFlowData(['screen-1', 'screen-2'], connections);
       expect(flow.connections).toHaveLength(1);
-      expect(flow.connections[0]!.sourceNodeId).toBe('screen-1');
+      expect(flow.connections[0]?.sourceNodeId).toBe('screen-1');
     });
 
     it('creates flow data with empty node list', () => {
@@ -47,16 +47,16 @@ describe('Navigation / Flow Graph', () => {
       const flow = createFlowData(['screen-1', 'screen-2']);
       addConnection(flow, 'screen-1', 'screen-2', 'interact-1');
       expect(flow.connections).toHaveLength(1);
-      expect(flow.connections[0]!.sourceNodeId).toBe('screen-1');
-      expect(flow.connections[0]!.targetNodeId).toBe('screen-2');
-      expect(flow.connections[0]!.interactionId).toBe('interact-1');
+      expect(flow.connections[0]?.sourceNodeId).toBe('screen-1');
+      expect(flow.connections[0]?.targetNodeId).toBe('screen-2');
+      expect(flow.connections[0]?.interactionId).toBe('interact-1');
     });
 
     it('assigns a unique id to each connection', () => {
       const flow = createFlowData(['screen-1', 'screen-2', 'screen-3']);
       addConnection(flow, 'screen-1', 'screen-2', 'interact-1');
       addConnection(flow, 'screen-1', 'screen-3', 'interact-2');
-      expect(flow.connections[0]!.id).not.toBe(flow.connections[1]!.id);
+      expect(flow.connections[0]?.id).not.toBe(flow.connections[1]?.id);
     });
 
     it('allows multiple connections from the same source', () => {
@@ -71,7 +71,7 @@ describe('Navigation / Flow Graph', () => {
     it('removes a connection by id', () => {
       const flow = createFlowData(['screen-1', 'screen-2']);
       addConnection(flow, 'screen-1', 'screen-2', 'interact-1');
-      const connId = flow.connections[0]!.id;
+      const connId = flow.connections[0]?.id ?? '';
       removeConnection(flow, connId);
       expect(flow.connections).toHaveLength(0);
     });

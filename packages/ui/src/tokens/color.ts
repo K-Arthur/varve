@@ -140,6 +140,12 @@ const LAYER_WASH_SHAPE_LIGHT: Oklch = ok(0.9652, 0.0214, 76.53);
 const LAYER_ACCENT_SHAPE_DARK: Oklch = ok(0.913, 0.0617, 85.44);
 const LAYER_WASH_SHAPE_DARK: Oklch = ok(0.285, 0.0229, 66.69);
 
+/** Layer-image accent/wash values (magenta/purple range). */
+const LAYER_ACCENT_IMAGE_LIGHT: Oklch = ok(0.65, 0.18, 330);
+const LAYER_WASH_IMAGE_LIGHT: Oklch = ok(0.965, 0.025, 330);
+const LAYER_ACCENT_IMAGE_DARK: Oklch = ok(0.6, 0.18, 330);
+const LAYER_WASH_IMAGE_DARK: Oklch = ok(0.2, 0.025, 330);
+
 /** Semantic token names exposed as CSS custom properties. */
 export type SemanticToken =
   | 'surface-app'
@@ -185,6 +191,8 @@ export type SemanticToken =
   | 'layer-wash-shape'
   | 'layer-accent-component'
   | 'layer-wash-component'
+  | 'layer-accent-image'
+  | 'layer-wash-image'
   | 'hero-glow'
   | 'brand-teal'
   | 'brand-sandstone'
@@ -251,6 +259,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-wash-shape': LAYER_WASH_SHAPE_LIGHT,
     'layer-accent-component': V(6),
     'layer-wash-component': V(1),
+    'layer-accent-image': LAYER_ACCENT_IMAGE_LIGHT,
+    'layer-wash-image': LAYER_WASH_IMAGE_LIGHT,
     'hero-glow': T(6),
     'brand-teal': T(6),
     'brand-sandstone': BRAND_SANDSTONE,
@@ -307,6 +317,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-wash-shape': LAYER_WASH_SHAPE_DARK,
     'layer-accent-component': V(3),
     'layer-wash-component': V(11),
+    'layer-accent-image': LAYER_ACCENT_IMAGE_DARK,
+    'layer-wash-image': LAYER_WASH_IMAGE_DARK,
     'hero-glow': T(6),
     'brand-teal': T(6),
     'brand-sandstone': BRAND_SANDSTONE,
@@ -363,6 +375,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-wash-shape': ok(0.3156, 0.0, 0),
     'layer-accent-component': ok(0.9519, 0.2924, 111.62),
     'layer-wash-component': ok(0.3156, 0.0, 0),
+    'layer-accent-image': ok(0.75, 0.28, 300),
+    'layer-wash-image': ok(0.3156, 0.0, 0),
     'hero-glow': ok(0.0, 0.0, 0),
     'brand-teal': ok(0.9519, 0.2924, 111.62),
     'brand-sandstone': ok(0.7161, 0.1398, 60.04),
@@ -449,6 +463,12 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   {
     name: 'layer-accent-component on tree-row',
     fg: 'layer-accent-component',
+    bg: 'tree-row',
+    grade: 'UI',
+  },
+  {
+    name: 'layer-accent-image on tree-row',
+    fg: 'layer-accent-image',
     bg: 'tree-row',
     grade: 'UI',
   },

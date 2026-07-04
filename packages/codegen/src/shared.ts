@@ -3,14 +3,23 @@
  * and shape vertex computations.
  */
 
-import type { Affine, Color } from '@strata/engine';
-import type { NodeId, Document as SceneDocument, SceneNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
+import type { Affine } from '@strata/engine';
+import type { NodeId, Document as SceneDocument, SceneNode, ManagedColor } from '@strata/scene';
 
-export function rgba(c: Color): string {
+export function rgba(c: ManagedColor | readonly [number, number, number, number]): string {
+  if ('space' in c) {
+    const [r, g, b, a] = managedColorToRgba(c);
+    return `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
+  }
   return `rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(3)})`;
 }
 
-export function colorToHex(c: Color): string {
+export function colorToHex(c: ManagedColor | readonly [number, number, number, number]): string {
+  if ('space' in c) {
+    const [r, g, b] = managedColorToRgba(c);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
   return `#${c[0].toString(16).padStart(2, '0')}${c[1].toString(16).padStart(2, '0')}${c[2].toString(16).padStart(2, '0')}`;
 }
 

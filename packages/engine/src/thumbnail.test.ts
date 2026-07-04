@@ -20,7 +20,7 @@ describe('renderThumbnail', () => {
           kind: 'shape' as const,
           shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
           transform: [1, 0, 0, 1, 0, 0] as const,
-          fill: [57, 208, 198, 255] as const,
+          fill: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
         },
       },
     };

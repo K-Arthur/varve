@@ -6,6 +6,9 @@ export interface HomeShortcutHandlers {
   templates: () => void;
   closeDialog: () => void;
   selectAll: () => void;
+  showHelp: () => void;
+  searchCommand: () => void;
+  importFiles: () => void;
 }
 
 export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boolean) {
@@ -43,6 +46,18 @@ export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boo
         return;
       }
 
+      if (isCtrl && e.key === 'k') {
+        handlers.searchCommand();
+        e.preventDefault();
+        return;
+      }
+
+      if (isCtrl && e.key === 'i') {
+        handlers.importFiles();
+        e.preventDefault();
+        return;
+      }
+
       if (isCtrl && e.key === 'f') {
         focusSearch();
         e.preventDefault();
@@ -76,7 +91,22 @@ export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boo
         return;
       }
 
+      if (e.key === '/' && e.shiftKey && !isCtrl) {
+        handlers.showHelp();
+        e.preventDefault();
+        return;
+      }
+
       if (isCtrl && e.key === 'a') {
+        const active = document.activeElement;
+        if (
+          active &&
+          (active.tagName === 'INPUT' ||
+            active.tagName === 'TEXTAREA' ||
+            (active as HTMLElement).isContentEditable)
+        ) {
+          return;
+        }
         handlers.selectAll();
         e.preventDefault();
         return;

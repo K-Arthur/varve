@@ -50,7 +50,7 @@ describe('findInteractions', () => {
     ];
     const found = findInteractions(interactions, 'node-1');
     expect(found).toHaveLength(1);
-    expect(found[0]!.id).toBe('i1');
+    expect(found[0]?.id).toBe('i1');
   });
 
   it('returns empty array when node has no interactions', () => {
@@ -85,8 +85,8 @@ describe('processInteractions', () => {
     const event: PrototypeEvent = { type: 'click', nodeId: 'btn-1' };
     const results = processInteractions(interactions, event, state);
     expect(results).toHaveLength(1);
-    expect(results[0]!.interactionId).toBe('i1');
-    expect(results[0]!.actionResults).toHaveLength(1);
+    expect(results[0]?.interactionId).toBe('i1');
+    expect(results[0]?.actionResults).toHaveLength(1);
   });
 
   it('processes multiple actions in sequence', () => {
@@ -100,7 +100,7 @@ describe('processInteractions', () => {
     const event: PrototypeEvent = { type: 'click', nodeId: 'btn-1' };
     const results = processInteractions(interactions, event, state);
     expect(results).toHaveLength(1);
-    expect(results[0]!.actionResults).toHaveLength(2);
+    expect(results[0]?.actionResults).toHaveLength(2);
   });
 
   it('skips interactions with non-matching triggers', () => {
@@ -124,7 +124,7 @@ describe('processInteractions', () => {
     const state = makeState();
     const event: PrototypeEvent = { type: 'click', nodeId: 'btn-1' };
     const results = processInteractions(interactions, event, state);
-    expect(results[0]!.actionResults[0]).toMatchObject({
+    expect(results[0]?.actionResults[0]).toMatchObject({
       kind: 'setVariable',
       variableId: 'x',
       value: 1,

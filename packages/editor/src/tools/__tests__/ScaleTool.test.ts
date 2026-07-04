@@ -36,6 +36,9 @@ describe('ScaleTool', () => {
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
       releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
     } as any;
 
     // Simulate drag start — onPointerDown initialises scale state
@@ -89,6 +92,9 @@ describe('ScaleTool', () => {
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
       releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
     } as any;
 
     // Simulate drag start at (160, 110) relative to canvas
@@ -107,8 +113,8 @@ describe('ScaleTool', () => {
     const updated = updateFn(node);
     const decomposed = decomposeAffine(updated.transform as Affine);
     expect(decomposed).not.toBeNull();
-    expect(decomposed!.rotation).toBeCloseTo(rotRad, 1);
-    expect(decomposed!.scale).toBeCloseTo(2, 1);
+    expect(decomposed?.rotation).toBeCloseTo(rotRad, 1);
+    expect(decomposed?.scale).toBeCloseTo(2, 1);
   });
 
   it('clamps scale to minimum 0.01', () => {
@@ -143,6 +149,9 @@ describe('ScaleTool', () => {
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
       releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
     } as any;
 
     tool.onPointerDown({ clientX: 150, clientY: 140, pointerId: 1 } as any, ctx);
@@ -155,5 +164,665 @@ describe('ScaleTool', () => {
     const updateFn = ctx.updateNode.mock.calls[0][1];
     const updated = updateFn(node);
     expect(updated.transform[0]).toBeGreaterThanOrEqual(0.01);
+  });
+});
+
+describe('ScaleTool — uniform toggle', () => {
+  it('shift key during drag snaps scale factor to nearest 0.25 increment', () => {
+    const node = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rect',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    // Without shift — natural scale = 65/50 = 1.3
+    const ctxPlain = {
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(node),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    const tool = new ScaleTool();
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctxPlain);
+    // startWorld=(200,140), centroid=(150,140) → initialDist=50
+    (tool as any).drag.currentWorld = { x: 215, y: 140 };
+    // currentDist = |215-150| = 65 → scale = 65/50 = 1.3
+    (tool as any).onDragMove?.(ctxPlain);
+
+    expect(ctxPlain.updateNode).toHaveBeenCalled();
+    const fnPlain = ctxPlain.updateNode.mock.calls[0][1];
+    const uPlain = fnPlain(node);
+    expect(uPlain.transform[0]).toBeCloseTo(1.3, 5);
+
+    // With shift — snaps to round(1.3/0.25)*0.25 = 1.25
+    const ctxShift = {
+      ...ctxPlain,
+      shiftKey: true,
+      updateNode: vi.fn(),
+    };
+    const tool2 = new ScaleTool();
+    tool2.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctxShift);
+    (tool2 as any).drag.currentWorld = { x: 215, y: 140 };
+    (tool2 as any).onDragMove?.(ctxShift);
+
+    expect(ctxShift.updateNode).toHaveBeenCalled();
+    const fnShift = ctxShift.updateNode.mock.calls[0][1];
+    const uShift = fnShift(node);
+    expect(uShift.transform[0]).toBe(1.25);
+  });
+
+  it('release shift mid-drag unconstrains (ctx.shiftKey read at call time)', () => {
+    const node = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rect',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const tool = new ScaleTool();
+    const ctx = {
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(node),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+
+    // First call with shiftKey=true — snaps
+    (tool as any).onDragMove?.({ ...ctx, shiftKey: true, updateNode: vi.fn() });
+    const snapCall = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const snapFn = snapCall?.[1];
+    if (snapFn) {
+      const s = snapFn(node);
+      expect(s.transform[0]).toBe(1.25);
+    }
+
+    // Second call with shiftKey=false — unconstrained
+    (tool as any).onDragMove?.({ ...ctx, shiftKey: false, updateNode: vi.fn() });
+    const unconstrainCall = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const unconstrainFn = unconstrainCall?.[1];
+    if (unconstrainFn) {
+      const u = unconstrainFn(node);
+      expect(u.transform[0]).toBeCloseTo(1.3, 5);
+    }
+  });
+});
+
+describe('ScaleTool — axis lock', () => {
+  it('alt+horizontal drag locks Y axis (only X scales)', () => {
+    const node = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rect',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const ctx = {
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: true,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(node),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    const tool = new ScaleTool();
+    // Start at (210, 140): initialDx=60, initialDy=0, initialDist=60
+    tool.onPointerDown({ clientX: 210, clientY: 140, pointerId: 1 } as any, ctx);
+
+    // Drag to (240, 143): absDx=90, absDy=3 → 90 > 6 → horizontal dominance
+    (tool as any).drag.currentWorld = { x: 240, y: 143 };
+    (tool as any).onDragMove?.(ctx);
+
+    expect(ctx.updateNode).toHaveBeenCalled();
+    const fn = ctx.updateNode.mock.calls[0][1];
+    const u = fn(node);
+    expect(u.transform[0]).toBeCloseTo(1.5, 5); // scaleX = 90/60
+    expect(u.transform[3]).toBe(1); // scaleY = 1 (locked)
+  });
+
+  it('alt+vertical drag locks X axis (only Y scales)', () => {
+    const node = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rect',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const ctx = {
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: true,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(node),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    const tool = new ScaleTool();
+    // Start at (150, 200): initialDx=0, initialDy=60, initialDist=60
+    tool.onPointerDown({ clientX: 150, clientY: 200, pointerId: 1 } as any, ctx);
+
+    // Drag to (153, 230): absDx=3, absDy=90 → 90 > 6 → vertical dominance
+    (tool as any).drag.currentWorld = { x: 153, y: 230 };
+    (tool as any).onDragMove?.(ctx);
+
+    expect(ctx.updateNode).toHaveBeenCalled();
+    const fn = ctx.updateNode.mock.calls[0][1];
+    const u = fn(node);
+    expect(u.transform[0]).toBe(1); // scaleX = 1 (locked)
+    expect(u.transform[3]).toBeCloseTo(1.5, 5); // scaleY = 90/60
+  });
+});
+
+describe('ScaleTool — pivot point', () => {
+  it('stored pivot point is used as scale origin instead of centroid', () => {
+    const node = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rect',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const ctx = {
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(node),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    // Without pivot — uses centroid (150,140):
+    // start at (200,140) → initialDist=50, drag to (300,140) → currentDist=150 → scale=3
+    const toolNoPivot = new ScaleTool();
+    toolNoPivot.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+    (toolNoPivot as any).drag.currentWorld = { x: 300, y: 140 };
+    (toolNoPivot as any).onDragMove?.(ctx);
+    const fnNoPivot = ctx.updateNode.mock.calls[0][1];
+    const uNoPivot = fnNoPivot(node);
+    expect(uNoPivot.transform[0]).toBeCloseTo(3, 5);
+
+    // With pivot at (200, 200):
+    // start at (200,140) → initialDist = sqrt(0²+(-60)²) = 60
+    // drag to (300,140) → currentDist = sqrt(100²+(-60)²) = sqrt(13600) ≈ 116.62
+    // scale ≈ 116.62/60 ≈ 1.944
+    const toolPivot = new ScaleTool();
+    toolPivot.setPivot(200, 200);
+    const ctxPivot = { ...ctx, updateNode: vi.fn() };
+    toolPivot.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctxPivot);
+    (toolPivot as any).drag.currentWorld = { x: 300, y: 140 };
+    (toolPivot as any).onDragMove?.(ctxPivot);
+
+    expect(ctxPivot.updateNode).toHaveBeenCalled();
+    const fnPivot = ctxPivot.updateNode.mock.calls[0][1];
+    const uPivot = fnPivot(node);
+    // With pivot, scale should differ from the centroid-based scale (not 3)
+    expect(uPivot.transform[0]).toBeGreaterThan(1);
+    expect(uPivot.transform[0]).toBeLessThan(3);
+    expect(uPivot.transform[0]).toBeCloseTo(1.944, 2);
+  });
+
+  it('default pivot is centroid when none set (backward compat)', () => {
+    const node = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rect',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const ctx = {
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(node),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    const tool = new ScaleTool();
+    // pivot defaults to null, should fall back to selection center (150,140)
+    expect((tool as any).pivot).toBeNull();
+
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+    (tool as any).drag.currentWorld = { x: 300, y: 140 };
+    (tool as any).onDragMove?.(ctx);
+
+    const fn = ctx.updateNode.mock.calls[0][1];
+    const u = fn(node);
+    // scale = 150/50 = 3 (same as existing behavior)
+    expect(u.transform[0]).toBeCloseTo(3, 5);
+  });
+});
+
+describe('ScaleTool — multi-object relative position', () => {
+  it('multi-select scale maintains relative distances between nodes', () => {
+    const nodeA = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rect A',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const nodeB = {
+      id: 'node2',
+      kind: 'shape' as const,
+      name: 'Rect B',
+      index: 0,
+      order: 'a1',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 200, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+    // Node A centroid: (150, 140), Node B centroid: (250, 140)
+    // Selection center: (200, 140)
+
+    const ctx = {
+      selection: ['node1', 'node2'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn((id: string) => (id === 'node1' ? nodeA : nodeB)),
+      nodeWorldBounds: vi.fn((n: typeof nodeA) =>
+        n.id === 'node1' ? { x: 100, y: 100, w: 100, h: 80 } : { x: 200, y: 100, w: 100, h: 80 },
+      ),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    const tool = new ScaleTool();
+    // Start at (200, 190): from centroid (200,140), initialDist = 50
+    tool.onPointerDown({ clientX: 200, clientY: 190, pointerId: 1 } as any, ctx);
+    // Drag to (200, 290): currentDist = 150 → scale = 3
+    (tool as any).drag.currentWorld = { x: 200, y: 290 };
+    (tool as any).onDragMove?.(ctx);
+
+    expect(ctx.updateNode).toHaveBeenCalledTimes(2);
+
+    // Both nodes should have the same scale factor applied
+    const fnA = ctx.updateNode.mock.calls[0][1];
+    const fnB = ctx.updateNode.mock.calls[1][1];
+    const uA = fnA(nodeA);
+    const uB = fnB(nodeB);
+    expect(uA.transform[0]).toBeCloseTo(3, 5);
+    expect(uB.transform[0]).toBeCloseTo(3, 5);
+  });
+
+  it('multi-select scale preserves individual rotations', () => {
+    const rotDeg = 30;
+    const rotationMatrix = rotateDeg(rotDeg);
+    const translateMatrix: Affine = [1, 0, 0, 1, 100, 100];
+    const composedTransform = multiplyAffine(translateMatrix, rotationMatrix);
+
+    const nodeA = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rect A',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: rotDeg,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: composedTransform,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const nodeB = {
+      id: 'node2',
+      kind: 'shape' as const,
+      name: 'Rect B',
+      index: 0,
+      order: 'a1',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 45,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: multiplyAffine([1, 0, 0, 1, 200, 100] as Affine, rotateDeg(45)),
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const ctx = {
+      selection: ['node1', 'node2'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn((id: string) => (id === 'node1' ? nodeA : nodeB)),
+      nodeWorldBounds: vi.fn((n: typeof nodeA) =>
+        n.id === 'node1' ? { x: 100, y: 100, w: 100, h: 80 } : { x: 200, y: 100, w: 100, h: 80 },
+      ),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    const tool = new ScaleTool();
+    tool.onPointerDown({ clientX: 200, clientY: 190, pointerId: 1 } as any, ctx);
+    (tool as any).drag.currentWorld = { x: 200, y: 290 };
+    (tool as any).onDragMove?.(ctx);
+
+    expect(ctx.updateNode).toHaveBeenCalledTimes(2);
+
+    const fnA = ctx.updateNode.mock.calls[0][1];
+    const fnB = ctx.updateNode.mock.calls[1][1];
+    const uA = fnA(nodeA);
+    const uB = fnB(nodeB);
+
+    const decA = decomposeAffine(uA.transform as Affine);
+    const decB = decomposeAffine(uB.transform as Affine);
+    expect(decA).not.toBeNull();
+    expect(decB).not.toBeNull();
+    // Individual rotations preserved (not reset to a common value)
+    expect(decA?.rotation).toBeCloseTo((rotDeg * Math.PI) / 180, 1);
+    expect(decB?.rotation).toBeCloseTo((45 * Math.PI) / 180, 1);
+    // Both scaled by same factor
+    expect(decA?.scale).toBeCloseTo(3, 1);
+    expect(decB?.scale).toBeCloseTo(3, 1);
+  });
+});
+
+describe('ScaleTool — undo transaction lifecycle', () => {
+  const makeNode = () => ({
+    id: 'node1',
+    kind: 'shape' as const,
+    name: 'Rect',
+    index: 0,
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    rotation: 0,
+    fill: [57, 208, 198, 255] as [number, number, number, number],
+    strokes: [] as [],
+    effects: [] as [],
+    transform: [1, 0, 0, 1, 100, 100] as Affine,
+    shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+  });
+
+  const makeCtx = (overrides: Record<string, unknown> = {}) =>
+    ({
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(makeNode()),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+      ...overrides,
+    }) as any;
+
+  it('calls beginTransaction on pointer down with valid selection', () => {
+    const tool = new ScaleTool();
+    const ctx = makeCtx();
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call beginTransaction when selection is empty', () => {
+    const tool = new ScaleTool();
+    const ctx = makeCtx({ selection: [] });
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+  });
+
+  it('calls commitTransaction on drag end', () => {
+    const tool = new ScaleTool();
+    const ctx = makeCtx();
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+    (tool as any).drag.currentWorld = { x: 300, y: 140 };
+    (tool as any).onDragMove?.(ctx);
+    tool.onPointerUp({ pointerId: 1 } as any, ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls abortTransaction on drag cancel', () => {
+    const tool = new ScaleTool();
+    const ctx = makeCtx();
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+    (tool as any).drag.currentWorld = { x: 300, y: 140 };
+    (tool as any).onDragMove?.(ctx);
+    tool.onPointerCancel({ pointerId: 1 } as any, ctx);
+    expect(ctx.abortTransaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ScaleTool — onDeactivate cleanup', () => {
+  const makeNode = () => ({
+    id: 'node1',
+    kind: 'shape' as const,
+    name: 'Rect',
+    index: 0,
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    rotation: 0,
+    fill: [57, 208, 198, 255] as [number, number, number, number],
+    strokes: [] as [],
+    effects: [] as [],
+    transform: [1, 0, 0, 1, 100, 100] as Affine,
+    shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+  });
+
+  const makeCtx = (overrides: Record<string, unknown> = {}) =>
+    ({
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(makeNode()),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+      ...overrides,
+    }) as any;
+
+  it('calls abortTransaction when deactivating mid-drag', () => {
+    const tool = new ScaleTool();
+    const ctx = makeCtx();
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+    (tool as any).drag.currentWorld = { x: 250, y: 140 };
+    (tool as any).onDragMove?.(ctx);
+    tool.onDeactivate?.(ctx);
+    expect(ctx.abortTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears draft on deactivate mid-drag', () => {
+    const tool = new ScaleTool();
+    const ctx = makeCtx();
+    tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
+    (tool as any).drag.currentWorld = { x: 250, y: 140 };
+    (tool as any).onDragMove?.(ctx);
+    tool.onDeactivate?.(ctx);
+    expect(ctx.setDraft).toHaveBeenCalledWith(null);
+  });
+
+  it('does not call abortTransaction when not dragging', () => {
+    const tool = new ScaleTool();
+    const ctx = makeCtx();
+    tool.onDeactivate?.(ctx);
+    expect(ctx.abortTransaction).not.toHaveBeenCalled();
   });
 });

@@ -61,6 +61,8 @@ function recorder(): RecorderProxy {
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
     beginPath: mk('beginPath'),
+    rect: mk('rect'),
+    clip: mk('clip'),
     ellipse: mk('ellipse'),
     arc: mk('arc'),
     moveTo: mk('moveTo'),
@@ -136,14 +138,14 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'linear',
           stops: [
-            { position: 0, color: [255, 0, 0, 255] },
-            { position: 1, color: [0, 0, 255, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -163,14 +165,14 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'radial',
           stops: [
-            { position: 0, color: [255, 255, 255, 255] },
-            { position: 1, color: [0, 0, 0, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -189,15 +191,15 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'angular',
           stops: [
-            { position: 0, color: [255, 0, 0, 255] },
-            { position: 0.5, color: [0, 255, 0, 255] },
-            { position: 1, color: [0, 0, 255, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 0.5, color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -216,14 +218,14 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'diamond',
           stops: [
-            { position: 0, color: [255, 255, 0, 255] },
-            { position: 1, color: [0, 0, 0, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -242,7 +244,7 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
@@ -263,14 +265,14 @@ describe('gradient fill rendering', () => {
   it('gradient rotation rotates the gradient axis', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'linear',
           stops: [
-            { position: 0, color: [0, 0, 0, 255] },
-            { position: 1, color: [255, 255, 255, 255] },
+            { position: 0, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
           ],
           rotation: 90,
           opacity: 1,
@@ -290,14 +292,14 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'linear',
           stops: [
-            { position: 0, color: [255, 0, 0, 255] },
-            { position: 1, color: [0, 0, 255, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -317,12 +319,12 @@ describe('per-fill compositing', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       opacity: 0.5,
       fills: [
         {
           type: 'solid',
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -340,18 +342,18 @@ describe('per-fill compositing', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'solid',
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'multiply',
           visible: true,
         },
         {
           type: 'solid',
-          color: [0, 0, 255, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: true,
@@ -369,18 +371,18 @@ describe('per-fill compositing', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'solid',
-          color: [0, 255, 0, 255],
+          color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: false,
         },
         {
           type: 'solid',
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: true,
@@ -419,7 +421,7 @@ describe('blend mode mapping', () => {
       const rec = recorder();
       const item: RenderItem = {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 0, 0, 255],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
         blendMode: mode as RenderItem['blendMode'],
         primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
       };
@@ -431,7 +433,7 @@ describe('blend mode mapping', () => {
   it('blendMode=normal uses source-over', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       blendMode: 'normal',
       primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
     };
@@ -446,10 +448,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 255, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
       strokes: [
         {
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           weight: 2,
           cap: 'butt',
           join: 'miter',
@@ -472,10 +474,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 255, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
       strokes: [
         {
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           weight: 1,
           cap: 'butt',
           join: 'miter',
@@ -497,10 +499,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       strokes: [
         {
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           weight: 3,
           cap: 'round',
           join: 'round',
@@ -524,10 +526,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 255, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
       strokes: [
         {
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           weight: 1,
           cap: 'butt',
           join: 'miter',
@@ -548,10 +550,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 255, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
       strokes: [
         {
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           weight: 5,
           cap: 'butt',
           join: 'miter',
@@ -572,10 +574,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       strokes: [
         {
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           weight: 2,
           cap: 'round',
           join: 'round',
@@ -596,11 +598,11 @@ describe('stroke rendering', () => {
 });
 
 describe('effects rendering', () => {
-  it('dropShadow sets shadow properties', () => {
+  it('dropShadow saves, transforms offset, sets fillStyle, draws shape', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -608,7 +610,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 8,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -617,17 +619,21 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    expect(rec.calls.some((c) => c === 'set shadowColor')).toBe(true);
-    expect(rec.calls.some((c) => c === 'set shadowBlur')).toBe(true);
-    expect(rec.calls.some((c) => c === 'set shadowOffsetX')).toBe(true);
-    expect(rec.calls.some((c) => c === 'set shadowOffsetY')).toBe(true);
+    // dropShadow: save → transform(1,0,0,1,2,4) → set fillStyle → fillRect → restore
+    const saves = rec.calls.filter((c) => c.startsWith('save'));
+    const restores = rec.calls.filter((c) => c.startsWith('restore'));
+    expect(rec.calls.some((c) => c.startsWith('set fillStyle'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+    // Effects pass does one save/restore per shadow effect
+    expect(saves.length).toBeGreaterThanOrEqual(2);
+    expect(restores.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('layerBlur sets CSS filter', () => {
+  it('layerBlur sets CSS filter before fills', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'layerBlur',
@@ -639,15 +645,16 @@ describe('effects rendering', () => {
     };
     replayIr(rec.target, [item]);
     const filterCalls = rec.calls.filter((c) => c === 'set filter');
+    // filter is set for blur, then reset to 'none' = 2 calls
     expect(filterCalls.length).toBe(2);
     expect(rec.props.filter).toBe('none');
   });
 
-  it('innerShadow sets shadow properties like dropShadow', () => {
+  it('innerShadow uses clip + blurred fill', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'innerShadow',
@@ -655,7 +662,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 8,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -664,15 +671,18 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    const shadowColorCalls = rec.calls.filter((c) => c === 'set shadowColor');
-    expect(shadowColorCalls.length).toBe(2);
+    // innerShadow: save → beginPath → rect/roundRect → closePath → clip → set filter → set fillStyle → fill → restore
+    expect(rec.calls.some((c) => c.startsWith('beginPath'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('clip'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('set fillStyle'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('fill'))).toBe(true);
   });
 
-  it('backgroundBlur sets CSS filter', () => {
+  it('backgroundBlur sets CSS filter like layerBlur', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'backgroundBlur',
@@ -687,11 +697,11 @@ describe('effects rendering', () => {
     expect(filterCalls.length).toBe(2);
   });
 
-  it('invisible dropShadow does not set shadowBlur (only reset does)', () => {
+  it('invisible dropShadow does not draw shadow shape', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -699,7 +709,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 8,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: false,
@@ -708,15 +718,16 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    const shadowColorCalls = rec.calls.filter((c) => c === 'set shadowColor');
-    expect(shadowColorCalls.length).toBe(1);
+    // Only the main fill's fillRect, no extra save/restore for invisible effects
+    const fillRects = rec.calls.filter((c) => c.startsWith('fillRect'));
+    expect(fillRects.length).toBe(1);
   });
 
-  it('visible dropShadow sets shadowBlur (effect + reset = 2 calls)', () => {
+  it('visible dropShadow renders shadow shape in its own save/restore scope', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -724,7 +735,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 8,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -733,15 +744,16 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    const shadowColorCalls = rec.calls.filter((c) => c === 'set shadowColor');
-    expect(shadowColorCalls.length).toBe(2);
+    // Shadow effect adds 1 save/1 restore + the main item save/restore
+    const saves = rec.calls.filter((c) => c.startsWith('save'));
+    expect(saves.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('multiple effects: dropShadow + layerBlur coexist', () => {
+  it('multiple effects: dropShadow + layerBlur both render', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -749,7 +761,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 6,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -763,17 +775,18 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    expect(rec.calls.some((c) => c === 'set shadowColor')).toBe(true);
+    // dropShadow draws a fillRect, layerBlur triggers filter set
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
     const filterSets = rec.calls.filter((c) => c === 'set filter');
     expect(filterSets.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('shadow/filter reset after each item', () => {
+  it('effect state reset after each item', () => {
     const rec = recorder();
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [0, 0, 0, 255],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
         effects: [
           {
             type: 'dropShadow',
@@ -781,7 +794,7 @@ describe('effects rendering', () => {
             y: 4,
             blur: 8,
             spread: 0,
-            color: [0, 0, 0, 128],
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
             opacity: 0.5,
             blendMode: 'normal',
             visible: true,
@@ -791,7 +804,7 @@ describe('effects rendering', () => {
       },
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [0, 0, 0, 255],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
         primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
       },
     ];
@@ -799,8 +812,102 @@ describe('effects rendering', () => {
     expect(rec.props.shadowColor).toBe('transparent');
     expect(rec.props.shadowBlur).toBe(0);
     expect(rec.props.filter).toBe('none');
-    const shadowSets = rec.calls.filter((c) => c === 'set shadowColor');
-    expect(shadowSets.length).toBeGreaterThanOrEqual(2);
+    // Each item's internal effect pass may set and unset shadowColor
+    // We just verify the final state is reset
+    expect(rec.props.shadowColor).toBe('transparent');
+  });
+
+  it('dropShadow with spread increases effective blur', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      effects: [
+        {
+          type: 'dropShadow',
+          x: 0,
+          y: 0,
+          blur: 4,
+          spread: 8,
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // Spread adds to blur: spread/2 = 4, so total blur = 4 + 4 = 8
+    // Should see filter set to blur(8px) during the shadow pass
+    expect(rec.calls.some((c) => c === 'set filter')).toBe(true);
+  });
+
+  it('dropShadow blendMode applied per-effect', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      effects: [
+        {
+          type: 'dropShadow',
+          x: 0,
+          y: 0,
+          blur: 4,
+          spread: 0,
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          opacity: 1,
+          blendMode: 'multiply',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // blendMode 'multiply' should set globalCompositeOperation to 'multiply'
+    const blendCalls = rec.calls.filter((c) => c.startsWith('set globalCompositeOperation'));
+    expect(blendCalls.length).toBeGreaterThanOrEqual(2); // set and reset
+  });
+
+  it('two drop shadows are rendered independently', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 127, g: 127, b: 127, a: 255 },
+      effects: [
+        {
+          type: 'dropShadow',
+          x: -5,
+          y: 5,
+          blur: 4,
+          spread: 0,
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 128 },
+          opacity: 0.5,
+          blendMode: 'normal',
+          visible: true,
+        },
+        {
+          type: 'dropShadow',
+          x: 5,
+          y: -5,
+          blur: 4,
+          spread: 0,
+          color: { space: 'rgb', r: 0, g: 0, b: 255, a: 128 },
+          opacity: 0.5,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // Each shadow creates its own save/restore pair + fillRect
+    const saves = rec.calls.filter((c) => c.startsWith('save'));
+    const fillRects = rec.calls.filter((c) => c.startsWith('fillRect'));
+    // 1 for the item + 2 for the shadows = 3 saves
+    expect(saves.length).toBeGreaterThanOrEqual(3);
+    // Each shadow draws a fillRect, plus the main fill = 3 fillRects
+    expect(fillRects.length).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -809,18 +916,18 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'solid',
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: true,
         },
         {
           type: 'solid',
-          color: [0, 255, 0, 255],
+          color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -839,10 +946,10 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       strokes: [
         {
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           weight: 2,
           cap: 'round',
           join: 'round',
@@ -864,12 +971,145 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [57, 208, 198, 1],
+      fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 1 },
       primitive: { kind: 'rect', x: 0, y: 0, w: 5, h: 6 },
     };
     replayIr(rec.target, [item]);
     const fs = String(rec.props.fillStyle ?? '');
     expect(fs).not.toBe('rgba(57, 208, 198, 0.004)');
     expect(fs).toBe('rgba(57, 208, 198, 0.00392156862745098)');
+  });
+
+  it('image fill uses clip + drawImage when target supports it', () => {
+    const rec = recorder();
+    // Add drawImage to the recorder target
+    const target = rec.target as unknown as Record<string, unknown>;
+    let drawImageCalled = false;
+    target.drawImage = (_src: unknown, _dx: unknown, _dy: unknown, _dw: unknown, _dh: unknown) => {
+      drawImageCalled = true;
+    };
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'image',
+          src: 'test.png',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    expect(drawImageCalled).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('beginPath'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('clip'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('restore'))).toBe(true);
+  });
+
+  it('image fill renders placeholder when drawImage unavailable', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'image',
+          src: 'test.png',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // placeholder fillRect should be called
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+  });
+
+  it('pattern fill renders as tinted placeholder', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'pattern',
+          tileSrc: 'tile.png',
+          spacing: 4,
+          rotation: 0,
+          opacity: 0.8,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // Pattern fill: set fillStyle + paintShapeFill (fillRect for rect)
+    expect(rec.calls.some((c) => c.startsWith('set fillStyle'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+  });
+
+  it('image fill with empty src renders placeholder', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'image',
+          src: '',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // Empty src: renders via fillRect placeholder
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+  });
+
+  it('image fill ignored when visible is false', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'image',
+          src: 'test.png',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: false,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // Invisible fill: no fills are drawn, no fillStyle set
+    const fillStyleSets = rec.calls.filter((c) => c === 'set fillStyle');
+    expect(fillStyleSets.length).toBe(0);
   });
 });

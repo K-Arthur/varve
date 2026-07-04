@@ -199,7 +199,7 @@ export function createGroup(
     if (existingRoot) {
       const newGroups =
         collection.groups?.map((g) =>
-          g.id === existingRoot!.id
+          g.id === existingRoot?.id
             ? { ...g, groups: [...(g.groups ?? []), { ...newGroup, name: childName }] }
             : g,
         ) ?? [];
@@ -239,22 +239,6 @@ export function createGroup(
       },
     },
   };
-}
-
-function addNestedGroup(
-  groups: VariableGroup[],
-  parentName: string,
-  newGroup: VariableGroup,
-): VariableGroup[] {
-  return groups.map((g) => {
-    if (g.name === parentName) {
-      return { ...g, groups: [...(g.groups ?? []), newGroup] };
-    }
-    if (g.groups) {
-      return { ...g, groups: addNestedGroup(g.groups, parentName, newGroup) };
-    }
-    return g;
-  });
 }
 
 // ── Mode operations ─────────────────────────────────────────────────────────

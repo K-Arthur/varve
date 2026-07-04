@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addChild,
+  addGuide,
   addNode,
   arrangeNode,
   createDocument,
@@ -16,12 +17,15 @@ import {
   makeShapeNode,
   makeTextNode,
   moveChild,
+  moveGuide,
   moveNode,
   nextNodeId,
+  removeGuide,
   removeNode,
   renameNode,
   reparentNode,
   rootNodes,
+  toggleGuideLock,
   ungroupNode,
   walkNodes,
 } from './document';
@@ -33,23 +37,30 @@ function shape(doc: ReturnType<typeof createDocument>, name: string) {
   return { id, node: makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }), doc };
 }
 
+/** Return the contentRoot node id from the default page (used to account for it in rootChildren assertions). */
+function pageContentRoot(doc: ReturnType<typeof createDocument>): string {
+  return doc.pages![0]!.contentRoot;
+}
+
 describe('Document (root-level ops)', () => {
   it('adds nodes in paint order with sequential ids', () => {
     let doc = createDocument();
+    const cr = pageContentRoot(doc);
     const a = shape(doc, 'a');
     doc = a.doc;
     const b = shape(doc, 'b');
     doc = b.doc;
     doc = addNode(doc, a.node);
     doc = addNode(doc, b.node);
-    expect(doc.rootChildren).toEqual([a.id, b.id]);
-    expect(getById(doc, a.id)?.index).toBe(0);
-    expect(getById(doc, b.id)?.index).toBe(1);
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['a', 'b']);
+    expect(doc.rootChildren).toEqual([cr, a.id, b.id]);
+    expect(getById(doc, a.id)?.index).toBe(1);
+    expect(getById(doc, b.id)?.index).toBe(2);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['Page 1 content', 'a', 'b']);
   });
 
   it('removes a node and keeps the rest', () => {
     let doc = createDocument();
+    const cr = pageContentRoot(doc);
     const a = shape(doc, 'a');
     doc = a.doc;
     const b = shape(doc, 'b');
@@ -57,7 +68,7 @@ describe('Document (root-level ops)', () => {
     doc = addNode(doc, a.node);
     doc = addNode(doc, b.node);
     doc = removeNode(doc, a.id);
-    expect(doc.rootChildren).toEqual([b.id]);
+    expect(doc.rootChildren).toEqual([cr, b.id]);
     expect(getById(doc, a.id)).toBeUndefined();
   });
 
@@ -73,7 +84,7 @@ describe('Document (root-level ops)', () => {
     doc = addNode(doc, b.node);
     doc = addNode(doc, c.node);
     doc = moveNode(doc, c.id, 0);
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['c', 'a', 'b']);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['c', 'a', 'b', 'Page 1 content']);
   });
 
   it('inserts at a specific index', () => {
@@ -482,6 +493,23 @@ describe('makeTextNode', () => {
     expect(node.letterSpacing).toBe(2);
   });
 
+  it('accepts advanced typography properties', () => {
+    const node = makeTextNode('t4', 'Advanced', {
+      textAlignVertical: 'middle',
+      paragraphSpacing: 12,
+      listStyle: 'disc',
+      textOverflow: 'ellipsis',
+      textResizing: 'autoHeight',
+      openTypeFeatures: { liga: true, kern: true },
+    });
+    expect(node.textAlignVertical).toBe('middle');
+    expect(node.paragraphSpacing).toBe(12);
+    expect(node.listStyle).toBe('disc');
+    expect(node.textOverflow).toBe('ellipsis');
+    expect(node.textResizing).toBe('autoHeight');
+    expect(node.openTypeFeatures).toEqual({ liga: true, kern: true });
+  });
+
   it('produces a valid TextNode that can be added to a document', () => {
     let doc = createDocument();
     const { id, doc: d2 } = nextNodeId(doc);
@@ -490,8 +518,8 @@ describe('makeTextNode', () => {
     doc = addNode(doc, node);
     const stored = doc.nodes[id] as TextNode | undefined;
     expect(stored).toBeDefined();
-    expect(stored!.kind).toBe('text');
-    expect(stored!.text).toBe('Test node');
+    expect(stored?.kind).toBe('text');
+    expect(stored?.text).toBe('Test node');
   });
 });
 
@@ -586,5 +614,147 @@ describe('arrangeNode', () => {
     const { doc } = threeRoots();
     const d2 = arrangeNode(doc, 'nonexistent', 'front');
     expect(d2).toBe(doc);
+  });
+});
+
+describe('Guide operations', () => {
+  it('addGuide adds a vertical guide at a position', () => {
+    const doc = createDocument('test');
+    const d2 = addGuide(doc, 'vertical', 150);
+    expect(d2.guides).toBeDefined();
+    expect(d2.guides?.length).toBe(1);
+    expect(d2.guides?.[0]?.axis).toBe('vertical');
+    expect(d2.guides?.[0]?.position).toBe(150);
+    expect(d2.guides?.[0]?.id).toBeDefined();
+  });
+
+  it('addGuide adds a horizontal guide at a position', () => {
+    const doc = createDocument('test');
+    const d2 = addGuide(doc, 'horizontal', 300);
+    expect(d2.guides?.length).toBe(1);
+    expect(d2.guides?.[0]?.axis).toBe('horizontal');
+    expect(d2.guides?.[0]?.position).toBe(300);
+  });
+
+  it('addGuide appends guides without removing existing ones', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'vertical', 100);
+    doc = addGuide(doc, 'horizontal', 200);
+    expect(doc.guides?.length).toBe(2);
+    expect(doc.guides?.[0]?.axis).toBe('vertical');
+    expect(doc.guides?.[1]?.axis).toBe('horizontal');
+  });
+
+  it('removeGuide removes a guide by id', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'vertical', 100);
+    const gid = doc.guides?.[0]?.id ?? 'fallback-id';
+    const d2 = removeGuide(doc, gid);
+    expect(d2.guides).toBeDefined();
+    expect(d2.guides?.length).toBe(0);
+  });
+
+  it('removeGuide is a no-op for unknown id', () => {
+    const doc = createDocument('test');
+    const d2 = removeGuide(doc, 'nonexistent');
+    expect(d2).toBe(doc);
+  });
+
+  it('removeGuide returns doc unchanged when no guides exist', () => {
+    const doc = createDocument('test');
+    const d2 = removeGuide(doc, 'any-id');
+    expect(d2).toBe(doc);
+  });
+
+  it('moveGuide repositions a guide by id', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'vertical', 100);
+    const gid = doc.guides?.[0]?.id ?? '';
+    const d2 = moveGuide(doc, gid, 250);
+    expect(d2.guides?.[0]?.position).toBe(250);
+  });
+
+  it('moveGuide is a no-op for unknown id', () => {
+    const doc = createDocument('test');
+    const d2 = moveGuide(doc, 'nonexistent', 100);
+    expect(d2).toBe(doc);
+  });
+
+  it('moveGuide returns doc unchanged when no guides exist', () => {
+    const doc = createDocument('test');
+    const d2 = moveGuide(doc, 'any-id', 100);
+    expect(d2).toBe(doc);
+  });
+
+  it('toggleGuideLock toggles a guide locked state', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'horizontal', 50);
+    const gid = doc.guides?.[0]?.id ?? '';
+    const d2 = toggleGuideLock(doc, gid);
+    expect(d2.guides?.[0]?.locked).toBe(true);
+    const d3 = toggleGuideLock(d2, gid);
+    expect(d3.guides?.[0]?.locked).toBe(false);
+  });
+
+  it('toggleGuideLock is a no-op for unknown id', () => {
+    const doc = createDocument('test');
+    const d2 = toggleGuideLock(doc, 'nonexistent');
+    expect(d2).toBe(doc);
+  });
+
+  it('toggleGuideLock returns doc unchanged when no guides exist', () => {
+    const doc = createDocument('test');
+    const d2 = toggleGuideLock(doc, 'any-id');
+    expect(d2).toBe(doc);
+  });
+});
+
+describe('Document print production fields', () => {
+  it('createDocument does not set print production fields by default', () => {
+    const doc = createDocument('test');
+    expect(doc.colorConfig).toBeUndefined();
+    expect(doc.documentUnit).toBeUndefined();
+    expect(doc.physicalWidth).toBeUndefined();
+    expect(doc.physicalHeight).toBeUndefined();
+    expect(doc.dpi).toBeUndefined();
+    expect(doc.bleed).toBeUndefined();
+    expect(doc.safeArea).toBeUndefined();
+    expect(doc.swatches).toBeUndefined();
+    expect(doc.spotColors).toBeUndefined();
+  });
+
+  it('createDocument stamps current format version', () => {
+    const doc = createDocument('test');
+    expect(['1.1', '1.2']).toContain(doc.formatVersion);
+  });
+
+  it('Document interface accepts colorConfig and bleed', () => {
+    const doc = createDocument('print-doc');
+    const withPrint = {
+      ...doc,
+      colorConfig: {
+        mode: 'cmyk' as const,
+        rgbProfile: { id: 'srgb', name: 'sRGB IEC61966-2.1' },
+        cmykProfile: { id: 'fogra39', name: 'Fogra39 (ISO Coated v2 300%)' },
+        outputIntent: {
+          profile: { id: 'fogra39', name: 'Fogra39 (ISO Coated v2 300%)' },
+          renderingIntent: 'relative' as const,
+          blackPointCompensation: true,
+        },
+        blackGeneration: { mode: 'standard' as const, overprintBlack: false },
+      },
+      documentUnit: 'mm' as const,
+      physicalWidth: 210,
+      physicalHeight: 297,
+      dpi: 300,
+      bleed: { top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' as const },
+      safeArea: { top: 5, right: 5, bottom: 5, left: 5, unit: 'mm' as const, enabled: true },
+    };
+    expect(withPrint.colorConfig?.mode).toBe('cmyk');
+    expect(withPrint.documentUnit).toBe('mm');
+    expect(withPrint.physicalWidth).toBe(210);
+    expect(withPrint.dpi).toBe(300);
+    expect(withPrint.bleed?.top).toBe(3);
+    expect(withPrint.safeArea?.enabled).toBe(true);
   });
 });

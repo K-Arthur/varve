@@ -6,14 +6,10 @@ import {
   getActiveOverlays,
   getVariable,
   handleEvent,
+  processDelays,
   setVariable,
 } from './runtime';
-import type {
-  Action,
-  Interaction,
-  PrototypeVariable,
-  TransitionConfig,
-} from './types';
+import type { Action, Interaction, PrototypeVariable, TransitionConfig } from './types';
 
 const defaultTransition: TransitionConfig = {
   kind: 'instant',
@@ -80,7 +76,7 @@ describe('Prototype Runtime', () => {
       const runtime = createRuntime(interactions, 'screen-1');
       const results = handleEvent(runtime, { type: 'click', nodeId: 'btn-1' });
       expect(results).toHaveLength(1);
-      expect(results[0]!.interactionId).toBe('i1');
+      expect(results[0]?.interactionId).toBe('i1');
     });
 
     it('does not trigger for non-matching event', () => {
@@ -105,7 +101,7 @@ describe('Prototype Runtime', () => {
       expect(results).toHaveLength(1);
 
       // Apply the navigate result
-      applyActionResult(runtime, results[0]!.actionResults[0]!);
+      applyActionResult(runtime, results[0]?.actionResults[0]!);
       expect(runtime.state.currentScreenId).toBe('screen-2');
     });
 
@@ -238,18 +234,55 @@ describe('Prototype Runtime', () => {
         targetId: 'node-1',
         animationId: 'bounce',
       });
-      expect(runtime.state.animationStates['bounce']).toBe('running');
+      expect(runtime.state.animationStates.bounce).toBe('running');
     });
 
     it('stopAnimation updates animation state', () => {
       const runtime = createRuntime([], 'screen-1');
-      runtime.state.animationStates['bounce'] = 'running';
+      runtime.state.animationStates.bounce = 'running';
       applyActionResult(runtime, {
         kind: 'stopAnimation',
         targetId: 'node-1',
         animationId: 'bounce',
       });
-      expect(runtime.state.animationStates['bounce']).toBe('stopped');
+      expect(runtime.state.animationStates.bounce).toBe('stopped');
+    });
+  });
+
+  describe('processDelays', () => {
+    it('processes pending delayed actions and returns completed results', () => {
+      const runtime = createRuntime([], 'screen-1');
+      runtime.pendingDelays.push({
+        interactionId: 'i1',
+        actionIndex: 0,
+        resolveAt: Date.now() - 10, // already due
+      });
+      runtime.pendingDelays.push({
+        interactionId: 'i2',
+        actionIndex: 1,
+        resolveAt: Date.now() + 10000, // still pending
+      });
+      const completed = processDelays(runtime, 50);
+      expect(completed).toHaveLength(1);
+      expect(completed[0]?.interactionId).toBe('i1');
+      expect(completed[0]?.actionIndex).toBe(0);
+      expect(runtime.pendingDelays).toHaveLength(1);
+      expect(runtime.pendingDelays[0]?.interactionId).toBe('i2');
+    });
+
+    it('adds pending delay when action has delay > 0', () => {
+      const runtime = createRuntime([], 'screen-1');
+      const result = { kind: 'setVariable' as const, variableId: 'score', value: 100 };
+      applyActionResult(runtime, result, 500);
+      expect(runtime.pendingDelays).toHaveLength(1);
+      expect(runtime.pendingDelays[0]?.actionIndex).toBe(0);
+    });
+
+    it('does not add delay when action has delay = 0', () => {
+      const runtime = createRuntime([], 'screen-1');
+      const result = { kind: 'setVariable' as const, variableId: 'score', value: 100 };
+      applyActionResult(runtime, result, 0);
+      expect(runtime.pendingDelays).toHaveLength(0);
     });
   });
 });

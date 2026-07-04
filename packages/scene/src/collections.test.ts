@@ -1,21 +1,14 @@
-/**
- * TDD tests for variable collections and groups system.
- *
- * Collections group related variables (like Figma's variable collections).
- * Groups provide nested folder organization within collections.
- */
 import { describe, expect, it } from 'vitest';
+import type { VariableStore } from './variables';
 import {
   addVariableToCollection,
   createCollection,
   createGroup,
   createVariableStore,
   getCollectionVariables,
-  resolve,
   resolveVariableInCollection,
   setActiveCollection,
   setCollectionMode,
-  type VariableStore,
 } from './variables';
 
 function emptyStore(): VariableStore {
@@ -42,13 +35,12 @@ describe('Collections', () => {
     const store = emptyStore();
     const { store: s1, collection } = createCollection(store, 'Spacing');
     const { store: s2, variable } = addVariableToCollection(s1, collection.id, {
-      id: '',
       name: 'space-xs',
-      type: 'number',
+      type: 'number' as const,
       valuesByMode: { default: 4 },
     });
     expect(s2.variables[variable.id]).toBeDefined();
-    expect(s2.collections[collection.id].variableIds).toContain(variable.id);
+    expect(s2.collections[collection.id]?.variableIds).toContain(variable.id);
   });
 
   it('sets active collection', () => {
@@ -58,28 +50,26 @@ describe('Collections', () => {
     expect(s2.activeCollectionId).toBe(collection.id);
   });
 
-  it('gets variables in a collection', () => {
+  it('lists variables in a collection', () => {
     let store = emptyStore();
     const { store: s1, collection } = createCollection(store, 'Spacing');
     store = s1;
     const { store: s2 } = addVariableToCollection(store, collection.id, {
-      id: '',
-      name: 'xs',
-      type: 'number',
+      name: 'xs' as string,
+      type: 'number' as const,
       valuesByMode: { default: 4 },
     });
     store = s2;
     const { store: s3 } = addVariableToCollection(store, collection.id, {
-      id: '',
-      name: 'sm',
-      type: 'number',
+      name: 'sm' as string,
+      type: 'number' as const,
       valuesByMode: { default: 8 },
     });
     store = s3;
     const vars = getCollectionVariables(store, collection.id);
     expect(vars).toHaveLength(2);
-    expect(vars[0].name).toBe('xs');
-    expect(vars[1].name).toBe('sm');
+    expect(vars[0]?.name).toBe('xs');
+    expect(vars[1]?.name).toBe('sm');
   });
 
   it('resolves a variable within its collection context', () => {
@@ -88,9 +78,8 @@ describe('Collections', () => {
     store = s1;
 
     const { store: s2, variable } = addVariableToCollection(store, collection.id, {
-      id: '',
       name: 'gap',
-      type: 'number',
+      type: 'number' as const,
       valuesByMode: { default: 16, dense: 8 },
     });
     store = s2;
@@ -106,22 +95,22 @@ describe('Groups', () => {
     const store = emptyStore();
     const { store: s1, collection } = createCollection(store, 'Colors');
     const s2 = createGroup(s1, collection.id, 'Neutrals');
-    const groups = s2.collections[collection.id].groups;
+    const groups = s2.collections[collection.id]?.groups;
     expect(groups).toHaveLength(1);
-    expect(groups?.[0].name).toBe('Neutrals');
+    expect(groups?.[0]?.name).toBe('Neutrals');
   });
 
   it('creates nested groups', () => {
     const store = emptyStore();
     const { store: s1, collection } = createCollection(store, 'Colors');
     const s2 = createGroup(s1, collection.id, 'Semantic');
-    const s3 = createGroup(s2, collection.id, 'Semantic/Text'); // dot-notation nesting
+    const s3 = createGroup(s2, collection.id, 'Semantic/Text');
 
-    const groups = s3.collections[collection.id].groups;
+    const groups = s3.collections[collection.id]?.groups;
     const semanticGroup = groups?.find((g) => g.name === 'Semantic');
     expect(semanticGroup).toBeDefined();
     expect(semanticGroup?.groups).toHaveLength(1);
-    expect(semanticGroup?.groups?.[0].name).toBe('Text');
+    expect(semanticGroup?.groups?.[0]?.name).toBe('Text');
   });
 
   it('adds variable to a group', () => {
@@ -135,20 +124,17 @@ describe('Groups', () => {
       store,
       collection.id,
       {
-        id: '',
         name: 'primary',
-        type: 'color',
+        type: 'color' as const,
         valuesByMode: { default: '#39d0c6' },
       },
       'Semantic',
     );
     store = s3;
 
-    // Variable should be in the collection
-    expect(store.collections[collection.id].variableIds).toContain(variable.id);
+    expect(store.collections[collection.id]?.variableIds).toContain(variable.id);
 
-    // Group should reference it too
-    const group = store.collections[collection.id].groups?.[0];
+    const group = store.collections[collection.id]?.groups?.[0];
     expect(group?.variableIds).toContain(variable.id);
   });
 });

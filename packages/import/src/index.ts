@@ -1,23 +1,37 @@
-/**
- * @strata/import — foreign design file format importers.
- *
- * Supports SVG (full recursive descent parser), bitmap images (PNG/JPEG/WebP),
- * and an extensible format registry for additional parsers.
- *
- * Research basis: SVG 1.1 (W3C), PNG/JPEG/WebP binary header specs.
- */
-
-export { bytesToDataUrl, dataUrlToBytes, getImageDimensions } from './bitmap';
+export { createAiParser } from './ai';
+export type { BatchImportOptions, BatchImportResult } from './batch';
+export { batchImport } from './batch';
+export { bytesToDataUrl, dataUrlToBytes, detectImageMime, getImageDimensions } from './bitmap';
+export { createEpsParser } from './eps';
 export { getBitmapInfo, importImageAsFill } from './image';
 export { importFile, importImageFile, importSvgString } from './import';
+export { createPdfParser } from './pdf';
+export { createPsdParser } from './psd';
 export {
   getParser,
   getParserForData,
   getParserForExtension,
   listSupportedFormats,
   registerParser,
+  resetRegistry,
 } from './registry';
 export { createSvgParser, parseSvg } from './svg';
-export type { ImportOptions, ImportParser, ImportResult } from './types';
+export type { BatchFileResult, ImportOptions, ImportParser, ImportResult } from './types';
+export type { ImportValidation } from './validation';
+export { validateImport } from './validation';
 
 export const PACKAGE = '@strata/import' as const;
+
+import { createAiParser } from './ai';
+import { createEpsParser } from './eps';
+import { createPdfParser } from './pdf';
+import { createPsdParser } from './psd';
+// Auto-register all built-in parsers
+import { registerParser } from './registry';
+import { createSvgParser } from './svg';
+
+registerParser(createSvgParser());
+registerParser(createPdfParser());
+registerParser(createPsdParser());
+registerParser(createAiParser());
+registerParser(createEpsParser());

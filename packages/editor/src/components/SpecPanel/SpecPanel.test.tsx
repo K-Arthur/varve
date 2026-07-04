@@ -14,7 +14,7 @@ describe('SpecPanel', () => {
       {
         name: 'Test Rect',
         transform: [1, 0, 0, 1, 100, 200],
-        fill: [57, 208, 198, 255],
+        fill: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
       },
     );
     const { container } = render(<SpecPanel nodes={[node]} doc={doc} />);
@@ -29,7 +29,7 @@ describe('SpecPanel', () => {
       { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
       {
         name: 'Rect',
-        fill: [0, 0, 0, 255],
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
       },
     );
     const { container } = render(<SpecPanel nodes={[node]} doc={doc} />);

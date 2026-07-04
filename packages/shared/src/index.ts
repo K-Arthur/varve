@@ -22,7 +22,7 @@ export {
   translate,
   tryInvertAffine,
 } from './affine';
-export type { CubicBezier, PathPoint, Point2D } from './bezier';
+export type { CubicBezier, PathPoint as BezierPathPoint, Point2D } from './bezier';
 export {
   cubicBezierBBox,
   cubicBezierClosestPoint,
@@ -57,22 +57,56 @@ export {
   springPhysics,
   steps,
 } from './easing';
+export type { PathPoint, SpatialTangents } from './interpolation';
+export {
+  interpolateAffine,
+  interpolateArray,
+  interpolateColor,
+  interpolateObject,
+  interpolatePath,
+  interpolateSpatialBezier,
+  interpolateValue,
+} from './interpolation';
 export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
 
-export type { MeasuredLine, TextMeasureOptions, TextMeasureResult } from './textMeasure';
-export { measureText, measureWrappedText, textWrap } from './textMeasure';
-export type { SpecUnit } from './units';
+export type {
+  MeasuredLine,
+  MeasuredParagraph,
+  MeasuredRun,
+  MeasureTextFn,
+  RichTextMeasureResult,
+  RunMeasureOptions,
+  TextMeasureOptions,
+  TextMeasureResult,
+  TextMetricsResult,
+} from './textMeasure';
 export {
+  buildFeatureSettingsCSS,
+  buildVariationSettingsCSS,
+  measureRichText,
+  measureRun,
+  measureText,
+  measureTextWithCanvas,
+  measureWrappedText,
+  textWrap,
+} from './textMeasure';
+export type { DocumentUnit, SpecUnit } from './units';
+export {
+  convertDocumentUnit,
   convertPx,
   convertToPx,
+  formatPhysical,
   formatValue,
   percentToPx,
+  physicalToPx,
   ptToPx,
   pxToPercent,
+  pxToPhysical,
   pxToPt,
   pxToRem,
   remToPx,
+  UNIT_TO_PX,
 } from './units';
 export type { Camera, Viewport } from './viewport';
 export {
@@ -94,6 +128,8 @@ export {
   worldToScreenAffine,
   zoomAboutPoint,
 } from './viewport';
+
+export { cmykToRgb, managedColorToCss, managedColorToRgba, rgbToCmyk } from './colorConversion';
 
 /** Semantic Strata package marker. */
 export const PACKAGE = '@strata/shared' as const;

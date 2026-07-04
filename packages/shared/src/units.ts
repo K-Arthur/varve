@@ -5,13 +5,57 @@
  * Pt = px × 72/96 = px × 0.75. Rem = px / base (16 default).
  * % = px / containerSize × 100.
  *
- * Research basis: CSS Values and Units Module Level 4 (W3C).
+ * DocumentUnit extends SpecUnit with physical print units: mm, cm, in, pc.
+ * These are used for document setup, bleed, physical dimensions, and print
+ * production workflows.
+ *
+ * Research basis: CSS Values and Units Module Level 4 (W3C),
+ * ISO 216 (paper sizes), PostScript point system (1pt = 1/72 inch).
  */
 
 export type SpecUnit = 'px' | 'pt' | 'rem' | '%';
 
+/** Physical + display units for document-level measurement. */
+export type DocumentUnit = 'px' | 'pt' | 'mm' | 'cm' | 'in' | 'pc';
+
 const DPI = 96;
 const PT_PER_INCH = 72;
+const MM_PER_INCH = 25.4;
+const CM_PER_INCH = 2.54;
+const PT_PER_PICA = 12;
+
+/** Conversion factor: multiply a value in this unit by this factor to get px. */
+export const UNIT_TO_PX: Record<DocumentUnit, number> = {
+  px: 1,
+  pt: DPI / PT_PER_INCH,
+  mm: DPI / MM_PER_INCH,
+  cm: DPI / CM_PER_INCH,
+  in: DPI,
+  pc: (DPI / PT_PER_INCH) * PT_PER_PICA,
+};
+
+/** Convert a value from one DocumentUnit to another. */
+export function convertDocumentUnit(value: number, from: DocumentUnit, to: DocumentUnit): number {
+  if (from === to) return value;
+  const px = value * UNIT_TO_PX[from];
+  return px / UNIT_TO_PX[to];
+}
+
+/** Convert a physical value to CSS px. */
+export function physicalToPx(value: number, unit: DocumentUnit): number {
+  return value * UNIT_TO_PX[unit];
+}
+
+/** Convert CSS px to a physical unit. */
+export function pxToPhysical(px: number, unit: DocumentUnit): number {
+  return px / UNIT_TO_PX[unit];
+}
+
+/** Format a physical value with its unit suffix, rounded to 2 decimals. */
+export function formatPhysical(value: number, unit: DocumentUnit): string {
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded}${unit}`;
+}
 
 export function pxToPt(px: number): number {
   return (px * PT_PER_INCH) / DPI;

@@ -14,7 +14,8 @@
  */
 
 import { getTransactionHooks } from '@strata/collab';
-import type { Affine, Color, PathPoint, Shape } from '@strata/engine';
+import type { Affine, PathPoint, Shape } from '@strata/engine';
+import type { ManagedColor } from '@strata/scene';
 import {
   applyAffine,
   invertAffine,
@@ -23,6 +24,7 @@ import {
   shapeContains,
 } from '@strata/engine';
 import { importFile } from '@strata/import';
+import { makeFileEntry, type Platform } from '@strata/platform';
 import {
   createRuntime,
   type Interaction,
@@ -37,16 +39,27 @@ import {
 import type { ExportPreset, NodeId, Slot } from '@strata/scene';
 import {
   type ArrangeOp,
+  type BleedConfig,
   addChild,
+  addComponentProperty as addComponentPropertyDoc,
+  type SafeAreaConfig,
+  type SlugConfig,
+  addGuide as addGuideDoc,
+  addKeyframe,
   addNode,
+  addTrack,
   arrangeNode as arrangeNodeDoc,
+  clearGuides,
   createComponent,
   createDocument,
   createVariableStore,
+  createVariant as createVariantDoc,
   type Document,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
   fillSlot as fillSlotDoc,
+  type Guide,
+  getNestedValue,
   getParent,
   groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
@@ -54,22 +67,29 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
+  migrateDocumentJson,
+  moveGuide as moveGuideDoc,
   moveNode,
   nextNodeId,
+  removeGuide as removeGuideDoc,
   removeNode,
   renameNode,
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
   resolveNodeFills,
+  resolveVariantProperties,
   type SceneNode,
+  setVariantForInstance as setVariantForInstanceDoc,
   swapInstance as swapInstanceDoc,
+  toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
   type Variable,
   type VariableStore,
   type VariableValue,
   walkNodes,
 } from '@strata/scene';
+
 import {
   clampZoom,
   fitBoundsCamera,
@@ -83,10 +103,12 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   readClipboardImages,
@@ -94,8 +116,17 @@ import {
   readClipboard as readFromClipboard,
   writeClipboard as writeToClipboard,
 } from './clipboard';
+import { loadSettings as loadUiSettings } from './components/Settings/settings';
+import { applyDropPosition } from './dropUtils';
 import { computeFlexLayout } from './layout/computeFlexLayout';
+import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import { loadSettings, updateSettings } from './settings';
+import {
+  createInitialMotionState,
+  type MotionState,
+  type MotionTimelineEngine,
+} from './state/motion-state';
 import type { DraftShape } from './tools/types';
 
 // Forward declaration for use in createShapeAt guard
@@ -134,6 +165,8 @@ export interface SessionMeta {
   name: string;
   dirty: boolean;
   filePath?: string;
+  /** Platform file-entry id this tab was opened from (for tab dedupe). */
+  fileId?: string;
 }
 
 export interface EditorState {
@@ -159,6 +192,10 @@ export interface EditorState {
   snapEnabled: boolean;
   /** Snap grid size in pixels. */
   snapGrid: number;
+  /** Save state for the active document. */
+  saveState: 'idle' | 'saving' | 'saved' | 'error';
+  /** When the active document was last saved (epoch ms). */
+  lastSavedAt: number | null;
   /** Prototype mode active */
   prototypeMode: boolean;
   /** Prototype runtime instance */
@@ -169,6 +206,14 @@ export interface EditorState {
   prototypeData: PrototypeData;
   /** Whether prototype is presenting */
   isPresenting: boolean;
+  /** Soft proofing overlay toggle. */
+  softProofEnabled: boolean;
+  /** Layers (left) panel visibility — persisted in editor settings. */
+  leftPanelVisible: boolean;
+  /** Inspector (right) panel visibility — persisted in editor settings. */
+  rightPanelVisible: boolean;
+  /** Motion/animation playback state. */
+  motion: MotionState;
 }
 
 export interface EditorContextValue {
@@ -182,6 +227,10 @@ export interface EditorContextValue {
   zoomOut: () => void;
   /** Zoom to an absolute level anchored to the viewport center. */
   zoomTo: (level: number) => void;
+  /** Toggle layers (left) panel visibility; persists to editor settings. */
+  toggleLeftPanel: () => void;
+  /** Toggle inspector (right) panel visibility; persists to editor settings. */
+  toggleRightPanel: () => void;
   /** Fit all nodes in the document to the viewport. */
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
@@ -192,6 +241,10 @@ export interface EditorContextValue {
   isSelected: (id: NodeId) => boolean;
   /** All selected scene nodes — works for nested nodes (uses doc.nodes lookup). */
   selectedNodes: () => SceneNode[];
+  /** Select all visible unlocked nodes of the same kind as the first selected node. */
+  selectAllWithSameType: () => void;
+  /** Select all visible unlocked shape nodes matching the first selected node's fill. */
+  selectAllWithSameFill: () => void;
   /** Create a shape/frame node from the current tool at the given world-space point. */
   createShapeAt: (
     world: { x: number; y: number },
@@ -249,7 +302,7 @@ export interface EditorContextValue {
   /** Duplicate all selected nodes with new IDs. */
   duplicateSelected: () => void;
   /** Update the fill of all selected nodes. */
-  setSelectedFill: (color: Color) => void;
+  setSelectedFill: (color: ManagedColor) => void;
   /** P2: Set the entire fill stack on all selected nodes. */
   setSelectedFills: (fills: import('@strata/scene').Fill[]) => void;
   /** P2: Update a single fill in the stack at a given index on all selected nodes. */
@@ -309,7 +362,7 @@ export interface EditorContextValue {
   /** P3: set the document canvas height. */
   setCanvasHeight: (value: number) => void;
   /** P3: set the document canvas background color. */
-  setCanvasBackground: (value: import('@strata/engine').Color) => void;
+  setCanvasBackground: (value: ManagedColor) => void;
   /** F6: batch-set a variable binding on all selected nodes. */
   setSelectedBinding: (
     target: string,
@@ -329,6 +382,25 @@ export interface EditorContextValue {
   serializeDocument: () => string;
   /** Load a document from a JSON string. */
   loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
+  /** Save the current document via the platform. */
+  save: () => Promise<boolean>;
+  /** Save As the current document via the platform. */
+  saveAs: () => Promise<boolean>;
+  /** Save state for display in the UI. */
+  saveState: 'idle' | 'saving' | 'saved' | 'error';
+  /** When the document was last saved. */
+  lastSavedAt: number | null;
+  /**
+   * Open a file into a tab: switches to an existing tab for the same file,
+   * reuses a pristine blank tab, or opens a new tab. `json: null` creates a
+   * fresh blank document (new-file flow).
+   */
+  openFile: (
+    fileId: string,
+    name: string,
+    filePath: string | undefined,
+    json: string | null,
+  ) => void;
   /** Visible root-level nodes in paint order (layers panel, IR). */
   rootNodes: () => SceneNode[];
   /** Register a component definition from a frame. */
@@ -388,7 +460,11 @@ export interface EditorContextValue {
   /** Paste nodes from system clipboard. */
   paste: () => void;
   /** Import a node from an imported document (svg/image) into the current document. */
-  importNode: (node: SceneNode, sourceDoc: import('@strata/scene').Document) => void;
+  importNode: (
+    node: SceneNode,
+    sourceDoc: import('@strata/scene').Document,
+    options?: { position?: { x: number; y: number } },
+  ) => void;
   /** The field name currently targeted for variable binding, or null. */
   bindingField: string | null;
   /** Open the BindingMenu for a specific field, or close it. */
@@ -403,6 +479,10 @@ export interface EditorContextValue {
   setCursorPos: (pos: { x: number; y: number } | null) => void;
   /** Set the display unit type. */
   setUnitType: (t: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%') => void;
+  /** Set the document's measurement unit (px, pt, mm, cm, in, pc). */
+  setDocumentUnit: (unit: import('@strata/shared').DocumentUnit) => void;
+  /** Toggle soft proofing overlay. */
+  setSoftProofEnabled: (v: boolean) => void;
   /** Toggle pixel grid overlay. */
   setPixelGridEnabled: (v: boolean) => void;
   /** Toggle snap-to-grid. */
@@ -439,6 +519,67 @@ export interface EditorContextValue {
   prototypeCurrentScreen: string;
   /** Navigate to a prototype screen */
   navigatePrototypeTo: (screenId: string) => void;
+
+  // ── Motion / Animation ─────────────────────────────────────────────────────
+
+  /** Start playback of the active timeline. */
+  playTimeline: (timelineId?: string) => void;
+  /** Pause active timeline playback. */
+  pauseTimeline: () => void;
+  /** Stop active timeline playback and reset to start. */
+  stopTimeline: () => void;
+  /** Seek to a specific time in the active timeline. */
+  seekTimeline: (time: number) => void;
+  /** Set the active timeline by id (or null to deactivate). */
+  setActiveTimeline: (id: string | null) => void;
+  /** Set playback speed multiplier. */
+  setPlaybackSpeed: (speed: number) => void;
+  /** Toggle loop playback. */
+  toggleLoop: () => void;
+  /** Add a keyframe at current time for selected nodes on the given property. */
+  addKeyframeToSelected: (property: string) => void;
+
+  // ── Guide management ────────────────────────────────────────────────────────
+
+  /** Add a layout guide at the given axis and world position. */
+  addGuide: (axis: 'horizontal' | 'vertical', position: number) => void;
+  /** Remove a guide by id. */
+  removeGuide: (id: string) => void;
+  /** Move a guide to a new world position. */
+  moveGuide: (id: string, position: number) => void;
+  /** Toggle a guide's locked state. */
+  toggleGuideLock: (id: string) => void;
+  /** Remove all guides from the document. */
+  clearAllGuides: () => void;
+  /** All guides in the document. */
+  guides: Guide[];
+
+  /** Set the active variant on a component instance. */
+  setVariantForInstance: (instanceId: NodeId, variantId: string) => void;
+  /** Create a new variant for a component. */
+  createVariant: (
+    componentId: NodeId,
+    name: string,
+    propertyValues: Record<string, string | boolean | NodeId>,
+  ) => void;
+  /** Add a component property to a component definition. */
+  addComponentProperty: (
+    componentId: NodeId,
+    prop: {
+      name: string;
+      type: 'text' | 'boolean' | 'instanceSwap';
+      defaultValue: string | boolean | NodeId;
+    },
+  ) => void;
+  /** Resolve properties for a node considering its active variant. */
+  resolveVariantPropertiesForNode: (nodeId: NodeId) => Record<string, string | boolean | NodeId>;
+
+  /** Set page-level bleed config for a specific page. */
+  setPageBleed: (pageId: string, bleed: BleedConfig) => void;
+  /** Set page-level safe area config for a specific page. */
+  setPageSafeArea: (pageId: string, safeArea: SafeAreaConfig) => void;
+  /** Set page-level slug config for a specific page. */
+  setPageSlug: (pageId: string, slug: SlugConfig) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -569,7 +710,7 @@ const INITIAL_SESSION_ID = 'session-0';
 function applyFrameLayout(doc: Document, parentId: string | null | undefined): Document {
   if (!parentId) return doc;
   const parent = doc.nodes[parentId];
-  if (!parent || parent.kind !== 'frame' || !parent.layoutStyle) return doc;
+  if (parent?.kind !== 'frame' || !parent.layoutStyle) return doc;
   const childNodes = parent.children
     .map((cid) => doc.nodes[cid])
     .filter((n): n is SceneNode => Boolean(n));
@@ -657,23 +798,65 @@ export function findContainingFrameInDoc(
   return deepest;
 }
 
+/** Save-As implementation shared between save() and saveAs(). */
+async function saveAsImpl(
+  platform: Platform | undefined,
+  stateRef: React.MutableRefObject<EditorState>,
+  recoveryRef: React.MutableRefObject<RecoveryManager | null>,
+  patch: (partial: Partial<EditorState>) => void,
+): Promise<boolean> {
+  if (!platform) {
+    patch({ saveState: 'error' });
+    return false;
+  }
+  patch({ saveState: 'saving' });
+  try {
+    const s = stateRef.current;
+    const meta = s.sessions.find((sess) => sess.id === s.activeId);
+    const json = JSON.stringify({ ...s.document, formatVersion: '1.0' });
+    const filePath = await platform.saveDocumentToDisk(meta?.name ?? 'Untitled', json);
+    if (filePath) {
+      await recoveryRef.current?.deleteSession(s.activeId);
+      const fileId = `file-${Date.now()}`;
+      patch({
+        dirty: false,
+        saveState: 'saved',
+        lastSavedAt: Date.now(),
+        sessions: s.sessions.map((sess) =>
+          sess.id === s.activeId ? { ...sess, dirty: false, filePath, fileId } : sess,
+        ),
+      });
+      return true;
+    }
+    patch({ saveState: 'idle' });
+    return false;
+  } catch {
+    patch({ saveState: 'error' });
+    return false;
+  }
+}
+
 export function EditorProvider({
   children,
   onBackToHome,
   initialDocumentJson,
   initialDocumentName,
+  platform,
 }: {
   children: ReactNode;
   onBackToHome?: () => void;
   initialDocumentJson?: string;
   initialDocumentName?: string;
+  platform?: Platform;
 }) {
   const [state, setState] = useState<EditorState>(() => {
     let doc = createDocument(initialDocumentName ?? 'Untitled');
     let name = initialDocumentName ?? 'Untitled';
     if (initialDocumentJson) {
       try {
-        doc = JSON.parse(initialDocumentJson) as Document;
+        const migrated = migrateDocumentJson(initialDocumentJson);
+        doc =
+          (migrated as unknown as Document) ?? createDocument(initialDocumentName ?? 'Untitled');
         name = initialDocumentName ?? doc.name ?? 'Untitled';
       } catch {
         /* invalid JSON — use blank document */
@@ -694,14 +877,23 @@ export function EditorProvider({
       pixelGridEnabled: false,
       snapEnabled: true,
       snapGrid: 8,
+      saveState: 'idle' as const,
+      lastSavedAt: null,
       prototypeMode: false,
       prototypeRuntime: null,
       prototypeDebug: new PrototypeDebugConsole(),
       prototypeData: { interactions: {} },
       isPresenting: false,
+      softProofEnabled: false,
+      leftPanelVisible: loadSettings().panel.leftPanelVisible,
+      rightPanelVisible: loadSettings().panel.rightPanelVisible,
+      motion: createInitialMotionState(),
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
+  /** Ref keeping the latest state for async callbacks (auto-save, recovery). */
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const undoStackRef = useRef<Document[]>([]);
   const redoStackRef = useRef<Document[]>([]);
   const undoSelStackRef = useRef<NodeId[][]>([]);
@@ -719,6 +911,50 @@ export function EditorProvider({
   const txSelRef = useRef<NodeId[] | null>(null);
   const [bindingField, setBindingField] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  /** Auto-save service ref for lifecycle-triggered saves. */
+  const autoSaveRef = useRef<AutoSaveService | null>(null);
+  /** Recovery manager for crash-recovery sessions. */
+  const recoveryRef = useRef<RecoveryManager | null>(null);
+  /** Initialize auto-save and recovery once. */
+  if (!recoveryRef.current) {
+    recoveryRef.current = getSharedRecoveryManager();
+  }
+  if (!autoSaveRef.current && platform) {
+    const uiSettings = loadUiSettings();
+    autoSaveRef.current = new AutoSaveService(
+      () => {
+        const s = stateRef.current;
+        const meta = s.sessions.find((sess) => sess.id === s.activeId);
+        return {
+          document: s.document,
+          meta: { fileId: meta?.fileId, name: meta?.name ?? 'Untitled' },
+        };
+      },
+      async (json) => {
+        if (!platform) return false;
+        const s = stateRef.current;
+        const meta = s.sessions.find((sess) => sess.id === s.activeId);
+        try {
+          if (meta?.fileId) {
+            const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
+            await platform.upsertFile(fe, json);
+          } else {
+            // Untitled document: persist as recovery point so work is never lost
+            const doc = JSON.parse(json) as Document;
+            await recoveryRef.current?.createRecoveryPoint(doc, meta?.name ?? 'Untitled');
+          }
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { intervalMs: (uiSettings.general?.autosaveInterval ?? 5) * 60 * 1000 },
+    );
+    autoSaveRef.current.setOnSaveRecovery(async (doc, meta) => {
+      await recoveryRef.current?.createRecoveryPoint(doc, meta.name, meta.fileId);
+    });
+    autoSaveRef.current.start();
+  }
   /** Ref mirror of the active tool, updated synchronously in setTool so that
    *  createShapeAt sees the latest tool even when React 18 automatic batching
    *  queues a setTool + createShapeAt together. Without this, createShapeAt
@@ -727,6 +963,21 @@ export function EditorProvider({
   const toolRef = useRef<ToolId>(state.tool);
   const prototypeRuntimeRef = useRef<PrototypeRuntime | null>(null);
   const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
+  const motionEngRef = useRef<MotionTimelineEngine | null>(null);
+
+  /** Notify auto-save on every document mutation. */
+  useEffect(() => {
+    if (state.dirty && autoSaveRef.current) {
+      autoSaveRef.current.notifyEdit();
+    }
+  }, [state.document, state.dirty]);
+
+  /** Cleanup auto-save on unmount. */
+  useEffect(() => {
+    return () => {
+      autoSaveRef.current?.stop();
+    };
+  }, []);
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -843,6 +1094,16 @@ export function EditorProvider({
         const newCam = zoomAboutPoint(cam, centre, clampZoom(level));
         patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
       },
+      toggleLeftPanel: () => {
+        const next = !state.leftPanelVisible;
+        patch({ leftPanelVisible: next });
+        updateSettings({ panel: { leftPanelVisible: next } });
+      },
+      toggleRightPanel: () => {
+        const next = !state.rightPanelVisible;
+        patch({ rightPanelVisible: next });
+        updateSettings({ panel: { rightPanelVisible: next } });
+      },
       fitAll: () => {
         const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
         const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
@@ -851,7 +1112,10 @@ export function EditorProvider({
         for (const [id] of entries) {
           const b = nodeWorldBounds(state.document, id);
           if (!b) continue;
-          if (!union) { union = { ...b }; continue; }
+          if (!union) {
+            union = { ...b };
+            continue;
+          }
           const minX = Math.min(union.x, b.x);
           const minY = Math.min(union.y, b.y);
           const maxX = Math.max(union.x + union.w, b.x + b.w);
@@ -912,6 +1176,51 @@ export function EditorProvider({
           .map((id) => state.document.nodes[id])
           .filter((n): n is SceneNode => Boolean(n)),
 
+      // B3: Select-similar actions
+      selectAllWithSameType: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const firstNode = state.document.nodes[sel[0]!];
+        if (!firstNode) return;
+        const targetKind = firstNode.kind;
+        const matchingIds: NodeId[] = [];
+        for (const n of Object.values(state.document.nodes)) {
+          if (n && n.kind === targetKind && n.visible && !n.locked && n.id !== firstNode.id) {
+            matchingIds.push(n.id);
+          }
+        }
+        if (matchingIds.length > 0) {
+          patch({ selection: [firstNode.id, ...matchingIds] });
+          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} ${targetKind} nodes`);
+        }
+      },
+      selectAllWithSameFill: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const firstNode = state.document.nodes[sel[0]!];
+        if (firstNode?.kind !== 'shape') return;
+        const targetFill = firstNode.fill;
+        const matchingIds: NodeId[] = [];
+        for (const n of Object.values(state.document.nodes)) {
+          if (
+            n &&
+            n.kind === 'shape' &&
+            n.visible &&
+            !n.locked &&
+            n.id !== firstNode.id &&
+            colorsEqual(n.fill, targetFill)
+          ) {
+            matchingIds.push(n.id);
+          }
+        }
+        if (matchingIds.length > 0) {
+          patch({ selection: [firstNode.id, ...matchingIds] });
+          announcerRef.current?.announce(
+            `Selected ${matchingIds.length + 1} nodes with matching fill`,
+          );
+        }
+      },
+
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
       createShapeAt: (world, size, parentId, pathPoints) => {
         setState((s) => {
@@ -954,7 +1263,7 @@ export function EditorProvider({
             node = makeFrameNode(id, {
               name: autoName,
               transform,
-              fill: [200, 200, 200, 255] as Color,
+              fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
               children: [],
               w: size?.w ?? 375,
               h: size?.h ?? 812,
@@ -993,7 +1302,7 @@ export function EditorProvider({
             newDoc = addNode(d2, node);
           }
 
-          return { ...s, document: newDoc, selection: [id] };
+          return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
         });
       },
 
@@ -1021,7 +1330,7 @@ export function EditorProvider({
             newDoc = addNode(d2, node);
           }
 
-          return { ...s, document: newDoc, selection: [id] };
+          return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
         });
       },
 
@@ -1064,7 +1373,7 @@ export function EditorProvider({
           const node = makeFrameNode(id, {
             name: autoName,
             transform,
-            fill: [255, 255, 255, 255] as Color,
+            fill: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
             children: [],
             w: preset.w,
             h: preset.h,
@@ -1093,17 +1402,15 @@ export function EditorProvider({
       },
 
       hitTestNode: (world) => {
-        // Walk all nodes in paint order, test containment using world
-        // transforms (composes ancestor chain so nested nodes hit correctly).
+        // Walk all nodes in paint order (DFS) and reverse so that
+        // children are tested before parents and later siblings before
+        // earlier ones — the correct topmost-first hit order.
         const entries = walkNodes(state.document);
-        const ordered = [...entries.values()].sort((a, b) => b.depth - a.depth);
-        for (let i = ordered.length - 1; i >= 0; i--) {
-          const entry = ordered[i];
-          if (!entry) continue;
+        const ordered = [...entries.values()].reverse();
+        for (const entry of ordered) {
           const n = entry.node;
           if (n.locked || !n.visible) continue;
           if (n.kind === 'shape') {
-            // Compose world→local: invert the full ancestor chain.
             const worldMat = nodeWorldTransform(state.document, entry.nodeId);
             const wInv = invertAffine(worldMat);
             const local = applyAffine(wInv, [world.x, world.y]);
@@ -1677,7 +1984,15 @@ export function EditorProvider({
             if (!bounds) return null;
             return { id, node, bounds };
           })
-          .filter((x): x is { id: NodeId; node: SceneNode; bounds: { x: number; y: number; w: number; h: number } } => x !== null);
+          .filter(
+            (
+              x,
+            ): x is {
+              id: NodeId;
+              node: SceneNode;
+              bounds: { x: number; y: number; w: number; h: number };
+            } => x !== null,
+          );
         if (items.length < 2) return;
 
         const minX = Math.min(...items.map((i) => i.bounds.x));
@@ -1721,7 +2036,14 @@ export function EditorProvider({
             }
             nodes[id] = {
               ...node,
-              transform: [node.transform[0], node.transform[1], node.transform[2], node.transform[3], newLocalX, newLocalY] as Affine,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                newLocalX,
+                newLocalY,
+              ] as Affine,
             } as SceneNode;
           }
           return { ...newDoc, nodes };
@@ -1741,7 +2063,15 @@ export function EditorProvider({
             if (!bounds) return null;
             return { id, node, bounds };
           })
-          .filter((x): x is { id: NodeId; node: SceneNode; bounds: { x: number; y: number; w: number; h: number } } => x !== null);
+          .filter(
+            (
+              x,
+            ): x is {
+              id: NodeId;
+              node: SceneNode;
+              bounds: { x: number; y: number; w: number; h: number };
+            } => x !== null,
+          );
         if (items.length < 3) return;
 
         const sorted = [...items].sort((a, b) => {
@@ -1785,7 +2115,14 @@ export function EditorProvider({
             }
             nodes[id] = {
               ...node,
-              transform: [node.transform[0], node.transform[1], node.transform[2], node.transform[3], newLocalX, newLocalY] as Affine,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                newLocalX,
+                newLocalY,
+              ] as Affine,
             } as SceneNode;
             cursor += (axis === 'horizontal' ? b.w : b.h) + gap;
           }
@@ -1848,11 +2185,55 @@ export function EditorProvider({
         patch({ document: createDocument('Untitled'), selection: [] });
       },
 
-      serializeDocument: () => JSON.stringify(state.document),
+      serializeDocument: () => {
+        const stamped = { ...state.document, formatVersion: '1.0' };
+        return JSON.stringify(stamped);
+      },
+
+      save: async () => {
+        if (!platform) {
+          patch({ saveState: 'error' });
+          return false;
+        }
+        patch({ saveState: 'saving' });
+        try {
+          const s = stateRef.current;
+          const meta = s.sessions.find((sess) => sess.id === s.activeId);
+          const json = JSON.stringify({ ...s.document, formatVersion: '1.0' });
+          if (meta?.fileId) {
+            const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
+            await platform.upsertFile(fe, json);
+          } else {
+            return await saveAsImpl(platform, stateRef, recoveryRef, patch);
+          }
+          await recoveryRef.current?.deleteSession(s.activeId);
+          patch({
+            dirty: false,
+            saveState: 'saved',
+            lastSavedAt: Date.now(),
+            sessions: s.sessions.map((sess) =>
+              sess.id === s.activeId ? { ...sess, dirty: false } : sess,
+            ),
+          });
+          return true;
+        } catch {
+          patch({ saveState: 'error' });
+          return false;
+        }
+      },
+
+      saveAs: async () => {
+        return await saveAsImpl(platform, stateRef, recoveryRef, patch);
+      },
+
+      saveState: state.saveState,
+      lastSavedAt: state.lastSavedAt,
 
       loadDocument: (json, meta) => {
         try {
-          const doc = JSON.parse(json) as Document;
+          const migrated = migrateDocumentJson(json);
+          if (!migrated) throw new Error('Migration failed');
+          const doc = migrated as unknown as Document;
           undoStackRef.current = [];
           redoStackRef.current = [];
           undoSelStackRef.current = [];
@@ -1896,6 +2277,62 @@ export function EditorProvider({
 
       resetInstanceOverrides: (instanceId) => {
         updateDoc((doc) => resetInstanceOverridesDoc(doc, instanceId));
+      },
+
+      setVariantForInstance: (instanceId, variantId) => {
+        updateDoc((doc) => setVariantForInstanceDoc(doc, instanceId, variantId));
+      },
+
+      createVariant: (componentId, name, propertyValues) => {
+        updateDoc((doc) => {
+          const { doc: newDoc } = createVariantDoc(doc, componentId, name, propertyValues);
+          return newDoc;
+        });
+      },
+
+      addComponentProperty: (componentId, prop) => {
+        updateDoc((doc) => {
+          const { doc: newDoc } = addComponentPropertyDoc(doc, componentId, prop);
+          return newDoc;
+        });
+      },
+
+      resolveVariantPropertiesForNode: (nodeId) => {
+        const node = state.document.nodes[nodeId];
+        if (node?.kind !== 'frame') return {};
+        const frame = node;
+        if (!frame.componentId || !frame.variant) return {};
+        return resolveVariantProperties(state.document, frame.componentId, frame.variant);
+      },
+
+      setPageBleed: (pageId, bleed) => {
+        updateDoc((doc) => {
+          if (!doc.pages) return doc;
+          return {
+            ...doc,
+            pages: doc.pages.map((p) => (p.id === pageId ? { ...p, bleed } : p)),
+          };
+        });
+      },
+
+      setPageSafeArea: (pageId, safeArea) => {
+        updateDoc((doc) => {
+          if (!doc.pages) return doc;
+          return {
+            ...doc,
+            pages: doc.pages.map((p) => (p.id === pageId ? { ...p, safeArea } : p)),
+          };
+        });
+      },
+
+      setPageSlug: (pageId, slug) => {
+        updateDoc((doc) => {
+          if (!doc.pages) return doc;
+          return {
+            ...doc,
+            pages: doc.pages.map((p) => (p.id === pageId ? { ...p, slug } : p)),
+          };
+        });
       },
 
       setNodeLocked: (id, locked) => {
@@ -1988,7 +2425,7 @@ export function EditorProvider({
         if (!id) return;
         setState((s) => {
           const node = s.document.nodes[id];
-          if (!node || node.kind !== 'group') return s;
+          if (node?.kind !== 'group') return s;
           const childIds = [...node.children];
           if (!inTransactionRef.current) {
             undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
@@ -2120,29 +2557,37 @@ export function EditorProvider({
         });
       },
 
-      importNode: (node, sourceDoc) => {
+      importNode: (node, sourceDoc, options) => {
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
           let doc = s.document;
           const { id, doc: d2 } = nextNodeId(doc);
           doc = d2;
-          const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
-          const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
-          const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
-          const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
-          const imported = {
-            ...node,
-            id,
-            transform: [
-              node.transform[0],
-              node.transform[1],
-              node.transform[2],
-              node.transform[3],
-              (node.transform[4] ?? 0) + offsetX,
-              (node.transform[5] ?? 0) + offsetY,
-            ] as Affine,
-          } as SceneNode;
+          // Apply explicit position if provided, otherwise center in viewport
+          const imported = options?.position
+            ? ({
+                ...applyDropPosition({ ...node, id } as SceneNode, options.position),
+                id,
+              } as SceneNode)
+            : (() => {
+                const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
+                const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
+                const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
+                const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
+                return {
+                  ...node,
+                  id,
+                  transform: [
+                    node.transform[0],
+                    node.transform[1],
+                    node.transform[2],
+                    node.transform[3],
+                    (node.transform[4] ?? 0) + offsetX,
+                    (node.transform[5] ?? 0) + offsetY,
+                  ] as Affine,
+                } as SceneNode;
+              })();
           doc = addNode(doc, imported);
           return { ...s, document: doc, selection: [id] };
         });
@@ -2169,8 +2614,12 @@ export function EditorProvider({
       },
       setCursorPos: (pos) => patch({ cursorPos: pos }),
       setUnitType: (t) => patch({ unitType: t }),
+      setDocumentUnit: (unit) => {
+        updateDoc((doc) => ({ ...doc, documentUnit: unit }));
+      },
       setPixelGridEnabled: (v) => patch({ pixelGridEnabled: v }),
       setSnapEnabled: (v) => patch({ snapEnabled: v }),
+      setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
 
       setNodeLayout: (id, layout) => {
         updateNodeProp(id, (n) => {
@@ -2393,24 +2842,112 @@ export function EditorProvider({
         });
       },
 
-      openFile: (_id: string, name: string, filePath: string | undefined, json: string) => {
+      openFile: (
+        fileId: string,
+        name: string,
+        filePath: string | undefined,
+        json: string | null,
+      ) => {
+        // Parse up front; null/invalid json = fresh blank document (new file).
+        let doc: Document;
         try {
-          const doc = JSON.parse(json) as Document;
-          const newId = `session-${Date.now()}`;
+          if (json) {
+            const migrated = migrateDocumentJson(json);
+            doc = (migrated as unknown as Document) ?? createDocument(name || 'Untitled');
+          } else {
+            doc = createDocument(name || 'Untitled');
+          }
+        } catch {
+          doc = createDocument(name || 'Untitled');
+        }
+        setState((s) => {
+          // Dedupe: if this file is already open in a tab, switch to it
+          // instead of opening a duplicate.
+          const existing = s.sessions.find(
+            (sess) =>
+              (fileId && sess.fileId === fileId) || (filePath && sess.filePath === filePath),
+          );
+          const snapshotCurrent = () => {
+            sessionStoreRef.current.set(s.activeId, {
+              document: s.document,
+              selection: s.selection,
+              viewport: { zoom: s.zoom, pan: s.pan },
+              undo: [...undoStackRef.current],
+              redo: [...redoStackRef.current],
+              undoSel: [...undoSelStackRef.current],
+              redoSel: [...redoSelStackRef.current],
+              variableStore: s.variableStore,
+            });
+          };
+          const syncedSessions = s.sessions.map((sess) =>
+            sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
+          );
+
+          if (existing && existing.id !== s.activeId) {
+            snapshotCurrent();
+            const saved = sessionStoreRef.current.get(existing.id);
+            undoStackRef.current = saved ? [...saved.undo] : [];
+            redoStackRef.current = saved ? [...saved.redo] : [];
+            undoSelStackRef.current = saved ? [...saved.undoSel] : [];
+            redoSelStackRef.current = saved ? [...saved.redoSel] : [];
+            return {
+              ...s,
+              document: saved?.document ?? doc,
+              selection: saved?.selection ?? [],
+              zoom: saved?.viewport.zoom ?? 1,
+              pan: saved?.viewport.pan ?? { x: 0, y: 0 },
+              dirty: existing.dirty,
+              variableStore: saved?.variableStore ?? createVariableStore(),
+              sessions: syncedSessions,
+              activeId: existing.id,
+            };
+          }
+          if (existing) return s; // already the active tab
+
           undoStackRef.current = [];
           redoStackRef.current = [];
           undoSelStackRef.current = [];
           redoSelStackRef.current = [];
-          patch({
+
+          // Reuse a pristine active tab (fresh Untitled, empty, unmodified)
+          // instead of leaving a stray blank tab behind.
+          const activeMeta = s.sessions.find((sess) => sess.id === s.activeId);
+          const pristine =
+            !s.dirty &&
+            s.document.rootChildren.length === 0 &&
+            activeMeta?.name === 'Untitled' &&
+            !activeMeta?.filePath &&
+            !activeMeta?.fileId;
+          if (pristine) {
+            return {
+              ...s,
+              document: doc,
+              selection: [],
+              zoom: 1,
+              pan: { x: 0, y: 0 },
+              dirty: false,
+              variableStore: createVariableStore(),
+              sessions: s.sessions.map((sess) =>
+                sess.id === s.activeId ? { ...sess, name, filePath, fileId } : sess,
+              ),
+              activeId: s.activeId,
+            };
+          }
+
+          snapshotCurrent();
+          const newId = `session-${Date.now()}`;
+          return {
+            ...s,
             document: doc,
             selection: [],
-            sessions: [...state.sessions, { id: newId, name, dirty: false, filePath }],
-            activeId: newId,
+            zoom: 1,
+            pan: { x: 0, y: 0 },
             dirty: false,
-          });
-        } catch {
-          // invalid JSON — ignore silently
-        }
+            variableStore: createVariableStore(),
+            sessions: [...syncedSessions, { id: newId, name, dirty: false, filePath, fileId }],
+            activeId: newId,
+          };
+        });
       },
 
       showExportDialog,
@@ -2581,6 +3118,121 @@ export function EditorProvider({
         setPrototypeCurrentScreen(screenId);
       },
 
+      // ── Motion / Animation implementations ────────────────────────────────────
+
+      playTimeline: (timelineId) => {
+        const tlId = timelineId ?? state.motion.activeTimelineId;
+        if (!tlId) return;
+        const timeline = state.document.timelines?.[tlId];
+        if (!timeline) return;
+        let eng = motionEngRef.current;
+        if (!eng) {
+          eng = {
+            engine: null,
+            startPlayback() {},
+            pausePlayback() {},
+            stopPlayback() {},
+            seekPlayback() {},
+            setPlaybackSpeed() {},
+            getCurrentSample() {
+              return { overrides: new Map() };
+            },
+          };
+          motionEngRef.current = eng;
+        }
+        eng.startPlayback(timeline);
+        patch({ motion: { ...state.motion, isPlaying: true, activeTimelineId: tlId } });
+      },
+
+      pauseTimeline: () => {
+        const eng = motionEngRef.current;
+        if (eng) eng.pausePlayback();
+        patch({ motion: { ...state.motion, isPlaying: false } });
+      },
+
+      stopTimeline: () => {
+        const eng = motionEngRef.current;
+        if (eng) eng.stopPlayback();
+        patch({ motion: { ...state.motion, isPlaying: false, currentTime: 0 } });
+      },
+
+      seekTimeline: (time) => {
+        const eng = motionEngRef.current;
+        if (eng) eng.seekPlayback(time);
+        patch({ motion: { ...state.motion, currentTime: Math.max(0, time) } });
+      },
+
+      setActiveTimeline: (id) => {
+        patch({
+          motion: { ...state.motion, activeTimelineId: id, currentTime: 0, isPlaying: false },
+        });
+      },
+
+      setPlaybackSpeed: (speed) => {
+        const eng = motionEngRef.current;
+        if (eng) eng.setPlaybackSpeed(speed);
+        patch({ motion: { ...state.motion, playbackSpeed: speed } });
+      },
+
+      toggleLoop: () => {
+        patch({ motion: { ...state.motion, loop: !state.motion.loop } });
+      },
+
+      addKeyframeToSelected: (property) => {
+        const tlId = state.motion.activeTimelineId;
+        if (!tlId || state.selection.length === 0) return;
+        updateDoc((doc) => {
+          let d = doc;
+          const timeline = d.timelines?.[tlId];
+          if (!timeline) return d;
+          const progress = timeline.duration > 0 ? state.motion.currentTime / timeline.duration : 0;
+          for (const nodeId of state.selection) {
+            const node = d.nodes[nodeId];
+            if (!node) continue;
+            const existingTrack = timeline.tracks.find(
+              (t) => t.nodeId === nodeId && t.property === property,
+            );
+            if (existingTrack) {
+              d = addKeyframe(d, tlId, existingTrack.id, {
+                progress,
+                value: getPropertyValueAt(node, property),
+              });
+            } else {
+              const { doc: d2, trackId } = addTrack(d, tlId, nodeId, property);
+              d = addKeyframe(d2, tlId, trackId, {
+                progress,
+                value: getPropertyValueAt(node, property),
+              });
+            }
+          }
+          return d;
+        });
+      },
+
+      // ── Guide management implementations ─────────────────────────────────
+
+      guides: state.document.guides ?? [],
+
+      addGuide: (axis, position) => {
+        updateDoc((doc) => addGuideDoc(doc, axis, position));
+      },
+
+      removeGuide: (id) => {
+        updateDoc((doc) => removeGuideDoc(doc, id));
+      },
+
+      moveGuide: (id, position) => {
+        updateDoc((doc) => moveGuideDoc(doc, id, position));
+      },
+
+      toggleGuideLock: (id) => {
+        updateDoc((doc) => toggleGuideLockDoc(doc, id));
+      },
+
+      clearAllGuides: () => {
+        updateDoc((doc) => clearGuides(doc));
+      },
+
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
@@ -2636,6 +3288,7 @@ export function EditorProvider({
       setFocusedField,
       showExportDialog,
       prototypeCurrentScreen,
+      platform,
     ],
   );
 
@@ -2692,4 +3345,27 @@ function buildShapeWithSize(tool: ToolId, size: { w: number; h: number }): Shape
     default:
       return { kind: 'rect', x: 0, y: 0, w: size.w, h: size.h };
   }
+}
+
+/** Compare two RGBA color tuples by value. */
+function colorsEqual(a: unknown, b: unknown): boolean {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  return a.every((v, i) => v === (b as number[])[i]);
+}
+
+/** Extract a property value from a scene node for keyframe storage. */
+function getPropertyValueAt(node: import('@strata/scene').SceneNode, property: string): unknown {
+  if (property === 'opacity') return node.opacity;
+  if (property === 'rotation') return node.rotation;
+  if (property === 'fill' || property.startsWith('fill[')) return node.fill;
+  if (property === 'transform' || property.startsWith('transform[')) {
+    const t = (node as import('@strata/scene').ShapeNode).transform;
+    return t ?? [1, 0, 0, 1, 0, 0];
+  }
+  if ('w' in node && property === 'w') return (node as import('@strata/scene').FrameNode).w;
+  if ('h' in node && property === 'h') return (node as import('@strata/scene').FrameNode).h;
+  if (property === 'fontSize' && 'fontSize' in node)
+    return (node as import('@strata/scene').TextNode).fontSize;
+  return getNestedValue(node as unknown as Record<string, unknown>, property.split('.')) ?? 0;
 }

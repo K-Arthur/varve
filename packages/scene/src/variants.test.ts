@@ -12,11 +12,10 @@ import {
   createPropertySet,
   createVariant,
   getComponentProperties,
-  getVariant,
   resolveVariantProperties,
   setVariantForInstance,
 } from './component';
-import { addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
+import { addNode, createDocument, makeFrameNode } from './document';
 import type { FrameNode } from './types';
 
 function setupDocWithComponent(): {
@@ -165,7 +164,7 @@ describe('Variants', () => {
     doc = addNode(doc, instance);
 
     doc = setVariantForInstance(doc, 'inst1', variant.id);
-    const updated = doc.nodes['inst1'] as FrameNode;
+    const updated = doc.nodes.inst1 as FrameNode;
     expect(updated.variant).toBe(variant.id);
   });
 });

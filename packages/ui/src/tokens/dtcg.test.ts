@@ -12,9 +12,9 @@ describe('DTCG Export — Structure', () => {
   it('exports tokens as color type with nested CTI path', () => {
     const result = buildDTCGExport(['light']);
     const light = result['theme-light']!;
-    const color = light['color'] as Record<string, unknown>;
-    const surface = color['surface'] as Record<string, unknown>;
-    const app = surface['app'] as Record<string, unknown>;
+    const color = light.color as Record<string, unknown>;
+    const surface = color.surface as Record<string, unknown>;
+    const app = surface.app as Record<string, unknown>;
     expect(app).toHaveProperty('$type', 'color');
     expect(app).toHaveProperty('$value');
     expect(typeof (app as { $value: string }).$value).toBe('string');
@@ -23,18 +23,18 @@ describe('DTCG Export — Structure', () => {
   it('uses OKLCH color format', () => {
     const result = buildDTCGExport(['light']);
     const light = result['theme-light']!;
-    const color = light['color'] as Record<string, unknown>;
-    const surface = color['surface'] as Record<string, unknown>;
-    const app = surface['app'] as Record<string, unknown>;
+    const color = light.color as Record<string, unknown>;
+    const surface = color.surface as Record<string, unknown>;
+    const app = surface.app as Record<string, unknown>;
     expect((app as { $value: string }).$value).toMatch(/^oklch\(/);
   });
 
   it('includes strata-token extension', () => {
     const result = buildDTCGExport(['light']);
     const light = result['theme-light']!;
-    const color = light['color'] as Record<string, unknown>;
-    const text = color['text'] as Record<string, unknown>;
-    const primary = text['primary'] as Record<string, unknown>;
+    const color = light.color as Record<string, unknown>;
+    const text = color.text as Record<string, unknown>;
+    const primary = text.primary as Record<string, unknown>;
     const extensions = (primary as Record<string, unknown>).$extensions as Record<string, unknown>;
     expect(extensions['strata-token']).toBe('text-primary');
   });
@@ -44,30 +44,30 @@ describe('DTCG Export — CTI Hierarchy', () => {
   it('maps surface tokens to color/surface/', () => {
     const result = buildDTCGExport(['light']);
     const light = result['theme-light']!;
-    const color = light['color'] as Record<string, unknown>;
-    const surface = color['surface'] as Record<string, unknown>;
-    expect(surface['app']).toBeDefined();
-    expect(surface['base']).toBeDefined();
-    expect(surface['raised']).toBeDefined();
+    const color = light.color as Record<string, unknown>;
+    const surface = color.surface as Record<string, unknown>;
+    expect(surface.app).toBeDefined();
+    expect(surface.base).toBeDefined();
+    expect(surface.raised).toBeDefined();
   });
 
   it('maps text tokens to color/text/', () => {
     const result = buildDTCGExport(['light']);
     const light = result['theme-light']!;
-    const color = light['color'] as Record<string, unknown>;
-    const text = color['text'] as Record<string, unknown>;
-    expect(text['primary']).toBeDefined();
-    expect(text['secondary']).toBeDefined();
+    const color = light.color as Record<string, unknown>;
+    const text = color.text as Record<string, unknown>;
+    expect(text.primary).toBeDefined();
+    expect(text.secondary).toBeDefined();
   });
 
   it('maps layer tokens with multi-segment paths', () => {
     const result = buildDTCGExport(['light']);
     const light = result['theme-light']!;
-    const color = light['color'] as Record<string, unknown>;
-    const layer = color['layer'] as Record<string, unknown>;
+    const color = light.color as Record<string, unknown>;
+    const layer = color.layer as Record<string, unknown>;
     expect(layer).toBeDefined();
-    const accent = layer['accent'] as Record<string, unknown>;
-    expect(accent['frame']).toBeDefined();
+    const accent = layer.accent as Record<string, unknown>;
+    expect(accent.frame).toBeDefined();
   });
 });
 
@@ -108,17 +108,17 @@ describe('DTCG Export — Flat Format', () => {
 describe('Figma Tokens Studio Export', () => {
   it('exports in Tokens Studio format', () => {
     const result = figmaTokensExport();
-    expect(result['global']).toBeDefined();
-    expect(result['dark']).toBeDefined();
+    expect(result.global).toBeDefined();
+    expect(result.dark).toBeDefined();
     expect(result['high-contrast']).toBeDefined();
   });
 
   it('uses {value, type} format with CTI nesting', () => {
     const result = figmaTokensExport();
-    const global = result['global'] as Record<string, unknown>;
-    const color = global['color'] as Record<string, unknown>;
-    const surface = color['surface'] as Record<string, unknown>;
-    const app = surface['app'] as Record<string, unknown>;
+    const global = result.global as Record<string, unknown>;
+    const color = global.color as Record<string, unknown>;
+    const surface = color.surface as Record<string, unknown>;
+    const app = surface.app as Record<string, unknown>;
     expect(app).toHaveProperty('value');
     expect(app).toHaveProperty('type', 'color');
   });

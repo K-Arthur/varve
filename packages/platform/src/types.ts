@@ -42,6 +42,8 @@ export interface FileEntry {
   contentHash: string;
   /** True if the file no longer exists on disk (desktop only). */
   isMissing?: boolean;
+  /** Epoch ms when the file was favorited/bookmarked; 0 or undefined when not favorited. */
+  favoritedAt?: number;
 }
 
 /** A user-created collection that groups files. */
@@ -50,6 +52,14 @@ export interface Project {
   name: string;
   /** Optional accent hex (resolved against tokens at render time). */
   color?: string;
+  /** Optional description shown in project header. */
+  description?: string;
+  /** Workspace this project belongs to. */
+  workspaceId?: string;
+  /** Lifecycle status for workflow tracking. */
+  status?: 'active' | 'archived' | 'draft';
+  /** User id of the project owner (future collaboration). */
+  ownerId?: string;
   createdAt: number;
   updatedAt: number;
   pinned: boolean;
@@ -77,7 +87,18 @@ export interface SortState {
 export type ViewMode = 'grid' | 'list';
 
 /** Which sidebar collection is currently shown. */
-export type SidebarSection = 'recent' | 'all' | 'project' | 'templates' | 'trash';
+export type SidebarSection =
+  | 'recent'
+  | 'all'
+  | 'drafts'
+  | 'favorites'
+  | 'project'
+  | 'collections'
+  | 'templates'
+  | 'trash'
+  | 'activity'
+  | 'assets'
+  | 'versions';
 
 export interface FilterState {
   /** Free-text query (matched against name). Empty = no query. */
@@ -95,6 +116,8 @@ export interface FilterState {
   dateFrom: number | null;
   /** Epoch ms upper bound on updatedAt, or null. */
   dateTo: number | null;
+  /** Restrict to files with any of these tag ids. Empty = no tag filter. */
+  tagIds: string[];
 }
 
 /** Persisted Home view state — restored verbatim on launch. */
@@ -102,6 +125,8 @@ export interface HomeViewState {
   section: SidebarSection;
   /** Active project when section === 'project'; null otherwise. */
   activeProjectId: string | null;
+  /** Active workspace used to scope files, projects and assets. */
+  activeWorkspaceId: string | null;
   view: ViewMode;
   sort: SortState;
   filter: FilterState;
@@ -109,8 +134,8 @@ export interface HomeViewState {
 }
 
 /** Dimensions + color metadata for a new document. */
-export type Unit = 'px' | 'pt' | 'in' | 'mm';
-export type ColorMode = 'rgb' | 'cmyk';
+export type Unit = 'px' | 'pt' | 'in' | 'mm' | 'cm' | 'pc';
+export type ColorMode = 'rgb' | 'cmyk' | 'grayscale';
 
 export interface NewDocPreset {
   id: string;
@@ -144,4 +169,205 @@ export interface TemplateDef {
 export interface OpenFileResult {
   entry: FileEntry;
   documentJson: string;
+}
+
+// ─── Phase 1: Drafts ─────────────────────────────────────────────────────────
+/** Sentinel projectId meaning "this file is a draft" (personal sandbox). */
+export const DRAFTS_ID = '__drafts__';
+
+// ─── Phase 2: Folders & Collections ──────────────────────────────────────────
+/** A folder within a project for organizing files. */
+export interface Folder {
+  id: string;
+  name: string;
+  projectId: string;
+  parentId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  ordering: string;
+}
+
+/** A cross-project collection (like a smart playlist). */
+export interface Collection {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  filter?: CollectionFilter;
+  createdAt: number;
+  updatedAt: number;
+  ordering: string;
+}
+
+export interface CollectionFilter {
+  type: 'manual' | 'smart';
+  query?: string;
+  kinds?: FileKind[];
+  projectIds?: string[];
+  dateFrom?: number;
+  dateTo?: number;
+}
+
+export interface CollectionEntry {
+  collectionId: string;
+  fileId: string;
+  addedAt: number;
+  note?: string;
+}
+
+// ─── Phase 3: Workspaces ─────────────────────────────────────────────────────
+export type WorkspaceKind = 'personal' | 'team';
+
+export interface Workspace {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  kind: WorkspaceKind;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Phase 3: Shared Libraries ───────────────────────────────────────────────
+export type LibraryKind = 'components' | 'styles' | 'assets' | 'mixed';
+
+export interface Library {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description?: string;
+  kind: LibraryKind;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Phase 5: Template Library ───────────────────────────────────────────────
+export type TemplateSource = 'builtin' | 'user' | 'workspace' | 'community';
+
+export interface TemplateLibrary {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  previewHash: string;
+  source: TemplateSource;
+  documentJson: string;
+  tags: string[];
+  usageCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  files: Array<{ name: string; documentJson: string }>;
+  folderStructure?: Array<{ name: string; children?: string[] }>;
+  previewHash: string;
+}
+
+// ─── Phase 6: Asset Management ───────────────────────────────────────────────
+export type AssetKind = 'image' | 'icon' | 'font' | 'other';
+
+export interface Asset {
+  id: string;
+  workspaceId: string;
+  name: string;
+  kind: AssetKind;
+  mimeType: string;
+  size: number;
+  width?: number;
+  height?: number;
+  thumbnailHash?: string;
+  tags: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AssetFolder {
+  id: string;
+  workspaceId: string;
+  name: string;
+  parentId: string | null;
+  createdAt: number;
+}
+
+// ─── Phase 7: Version History & Branching ────────────────────────────────────
+export type VersionKind = 'checkpoint' | 'named' | 'auto';
+
+export interface VersionEntry {
+  id: string;
+  fileId: string;
+  name?: string;
+  description?: string;
+  documentHash: string;
+  timestamp: number;
+  kind: VersionKind;
+}
+
+export interface Branch {
+  id: string;
+  name: string;
+  fileId: string;
+  baseVersionId?: string;
+  status: 'open' | 'merged' | 'closed';
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Phase 9: Tags & Metadata ─────────────────────────────────────────────────
+/** A user-defined tag for categorizing files across projects. */
+export interface Tag {
+  id: string;
+  /** Workspace this tag belongs to. */
+  workspaceId: string;
+  name: string;
+  /** Optional accent hex for visual identification. */
+  color?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Association between a file and a tag. */
+export interface FileTag {
+  fileId: string;
+  tagId: string;
+  addedAt: number;
+}
+
+/** A saved search that can be recalled from the sidebar. */
+export interface SavedSearch {
+  id: string;
+  name: string;
+  query: string;
+  kinds?: FileKind[];
+  tagIds?: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Phase 8: Collaboration Foundation ───────────────────────────────────────
+export type PermissionRole = 'owner' | 'editor' | 'viewer' | 'commenter';
+
+export interface Permission {
+  fileId?: string;
+  projectId?: string;
+  workspaceId?: string;
+  role: PermissionRole;
+  grantedAt: number;
+}
+
+export interface ActivityEvent {
+  id: string;
+  workspaceId: string;
+  fileId?: string;
+  projectId?: string;
+  type: string;
+  timestamp: number;
+  metadata?: Record<string, string>;
 }

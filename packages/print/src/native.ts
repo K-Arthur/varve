@@ -26,22 +26,40 @@ export function createNativePrintEngine(): PrintEngine {
     async exportPdf(_docJson: string, _opts: PdfExportOptions): Promise<PdfResult> {
       const core = getCore();
       const format = _opts.format;
-      const command =
-        format === 'pdf-x1a'
-          ? 'export_pdfx1a'
-          : format === 'pdf-x4'
-            ? 'export_pdfx4'
-            : 'export_pdf';
-
-      const data = await core.invoke(command, {
-        docJson: _docJson,
+      const pageHeight = _opts.pageHeight ?? 1080;
+      const optionsJson = JSON.stringify({
         pageWidth: _opts.pageWidth ?? 1920,
-        pageHeight: _opts.pageHeight ?? 1080,
+        pageHeight,
+        title: _opts.title ?? 'Strata Export',
+        author: _opts.author ?? 'Strata',
         bleedMm: _opts.bleedMm ?? 3,
         includeCropMarks: _opts.includeCropMarks ?? false,
         includeRegistrationMarks: _opts.includeRegistrationMarks ?? false,
         enforceDpi: _opts.enforceDpi ?? 300,
         outlineText: _opts.outlineText ?? false,
+        iccProfile: _opts.iccProfile ?? 'Fogra39',
+        colorBars: _opts.colorBars ?? false,
+        format,
+        useCmyk: _opts.useCmyk ?? false,
+      });
+
+      let command: string;
+      let useCmyk = _opts.useCmyk ?? false;
+
+      if (format === 'pdf-x1a') {
+        command = 'export_pdfx1a';
+        useCmyk = true;
+      } else if (format === 'pdf-x4') {
+        command = 'export_pdfx4';
+      } else {
+        command = 'export_pdf_with_options';
+      }
+
+      const data = await core.invoke(command, {
+        nodes_json: _docJson,
+        page_height: pageHeight,
+        use_cmyk: useCmyk,
+        options_json: optionsJson,
       });
 
       const numbers = Array.isArray(data) ? (data as number[]) : [];
@@ -53,9 +71,15 @@ export function createNativePrintEngine(): PrintEngine {
       };
     },
 
-    async outlineText(text: string, fontSize: number, fontFamily: string): Promise<string> {
+    async outlineText(text: string, fontSize: number, fontData: Uint8Array): Promise<string> {
       const core = getCore();
-      const result = String(await core.invoke('outline_text', { text, fontSize, fontFamily }));
+      const result = String(
+        await core.invoke('outline_text', {
+          text,
+          font_data: Array.from(fontData),
+          font_size: fontSize,
+        }),
+      );
       return result;
     },
   };

@@ -174,8 +174,62 @@ describe('Tool system regression tests', () => {
     }
   });
 
-  // Note: Error-throwing tests for non-drawing tools are skipped because
-  // React error boundaries make it difficult to test synchronous errors
-  // in setState. The guard is in place in context.tsx and will throw
-  // if createShapeAt is called with a non-drawing tool active.
+  it('drawing tool auto-returns to select after creating a shape', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+
+    function TestComponent() {
+      ctx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <TestComponent />
+      </EditorProvider>,
+    );
+
+    expect(ctx).toBeDefined();
+    if (!ctx) throw new Error('ctx not found');
+    const getCtx = (): NonNullable<typeof ctx> => ctx as NonNullable<typeof ctx>;
+
+    // Start with rect tool
+    getCtx().setTool('rect' as ToolId);
+    await waitFor(() => expect(getCtx().state.tool).toBe('rect'));
+
+    // Create a shape
+    getCtx().createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
+
+    // Tool should auto-return to select
+    await waitFor(() => {
+      expect(getCtx().state.tool).toBe('select');
+    });
+  });
+
+  it('text tool auto-returns to select after creating text', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+
+    function TestComponent() {
+      ctx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <TestComponent />
+      </EditorProvider>,
+    );
+
+    expect(ctx).toBeDefined();
+    if (!ctx) throw new Error('ctx not found');
+    const getCtx = (): NonNullable<typeof ctx> => ctx as NonNullable<typeof ctx>;
+
+    getCtx().setTool('text' as ToolId);
+    await waitFor(() => expect(getCtx().state.tool).toBe('text'));
+
+    getCtx().createTextNodeAt({ x: 100, y: 100 });
+
+    await waitFor(() => {
+      expect(getCtx().state.tool).toBe('select');
+    });
+  });
 });

@@ -96,9 +96,9 @@ describe('Responsive system', () => {
         { name: 'Tablet', minWidth: 768, maxWidth: 1023 },
       ];
       const sorted = sortBreakpoints(unsorted);
-      expect(sorted[0]!.name).toBe('Mobile');
-      expect(sorted[1]!.name).toBe('Tablet');
-      expect(sorted[2]!.name).toBe('Desktop');
+      expect(sorted[0]?.name).toBe('Mobile');
+      expect(sorted[1]?.name).toBe('Tablet');
+      expect(sorted[2]?.name).toBe('Desktop');
     });
   });
 });

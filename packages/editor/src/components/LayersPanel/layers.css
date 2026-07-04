@@ -130,6 +130,9 @@
 .layers-row[data-layer-type="component"] {
   background: var(--color-layer-wash-component);
 }
+.layers-row[data-layer-type="image"] {
+  background: var(--color-layer-wash-image);
+}
 
 /* Accent bar colors per type */
 .layers-row[data-layer-type="frame"]::before {
@@ -146,6 +149,21 @@
 }
 .layers-row[data-layer-type="component"]::before {
   background: var(--color-layer-accent-component);
+}
+.layers-row[data-layer-type="image"]::before {
+  background: var(--color-layer-accent-image);
+}
+
+/* High-contrast: add text label so image type remains distinguishable */
+[data-theme="high-contrast"] .layers-row[data-layer-type="image"]::after {
+  content: "IMG";
+  position: absolute;
+  right: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-layer-accent-image);
+  opacity: 0.8;
+  pointer-events: none;
 }
 
 .layers-row:hover {
@@ -200,6 +218,16 @@
   flex-shrink: 0;
 }
 
+/* ─── Thumbnail preview ─────────────────────────────────────── */
+.layers-row__thumbnail {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  border: var(--border-micro);
+}
+
 /* ─── Type icon ─────────────────────────────────────────────── */
 .layers-row__type-icon {
   flex-shrink: 0;
@@ -241,6 +269,20 @@
   border-radius: var(--radius-sm);
   padding: 0 var(--space-1);
   flex-shrink: 0;
+}
+
+.layers-row__variant-badge {
+  font-size: var(--font-size-2xs);
+  color: var(--color-interactive-default);
+  background: var(--color-interactive-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  flex-shrink: 0;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
 }
 
 /* ─── Toggles ───────────────────────────────────────────────── */

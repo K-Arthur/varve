@@ -46,8 +46,8 @@ describe('validatePrototype', () => {
     const allNodeIds = ['screen-1', 'btn-1'];
     const issues = validatePrototype(prototype, allNodeIds);
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0]!.severity).toBe('error');
-    expect(issues[0]!.code).toBe('broken-target');
+    expect(issues[0]?.severity).toBe('error');
+    expect(issues[0]?.code).toBe('broken-target');
   });
 
   it('detects orphan nodes with no interactions', () => {

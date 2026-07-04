@@ -24,6 +24,13 @@ export interface ExportSettingsStore {
   lastUsedPerDocument: Record<string, { destination: string; format: ExportFormat }>;
 }
 
+export interface PanelSettingsStore {
+  leftPanelVisible: boolean;
+  rightPanelVisible: boolean;
+  leftPanelWidth: number | null;
+  rightPanelWidth: number | null;
+}
+
 export interface AppearanceSettingsStore {
   theme: 'light' | 'dark' | 'high-contrast';
   reduceMotion: boolean;
@@ -32,6 +39,7 @@ export interface AppearanceSettingsStore {
 export interface EditorSettings {
   export: ExportSettingsStore;
   appearance: AppearanceSettingsStore;
+  panel: PanelSettingsStore;
 }
 
 const STORAGE_KEY = 'strata-editor-settings';
@@ -54,9 +62,17 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsStore = {
   reduceMotion: false,
 };
 
+export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
+  leftPanelVisible: true,
+  rightPanelVisible: true,
+  leftPanelWidth: null,
+  rightPanelWidth: null,
+};
+
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   export: { ...DEFAULT_EXPORT_SETTINGS },
   appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
+  panel: { ...DEFAULT_PANEL_SETTINGS },
 };
 
 function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undefined): T {
@@ -76,6 +92,7 @@ export function loadSettings(): EditorSettings {
       return {
         export: { ...DEFAULT_EXPORT_SETTINGS },
         appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
+        panel: { ...DEFAULT_PANEL_SETTINGS },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
@@ -84,11 +101,13 @@ export function loadSettings(): EditorSettings {
         DEFAULT_APPEARANCE_SETTINGS,
         parsed.appearance as Partial<AppearanceSettingsStore>,
       ),
+      panel: mergePartial(DEFAULT_PANEL_SETTINGS, parsed.panel as Partial<PanelSettingsStore>),
     };
   } catch {
     return {
       export: { ...DEFAULT_EXPORT_SETTINGS },
       appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
+      panel: { ...DEFAULT_PANEL_SETTINGS },
     };
   }
 }
@@ -97,20 +116,29 @@ export function saveSettings(settings: EditorSettings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
 
-export function updateSettings(patch: Partial<EditorSettings>): EditorSettings {
+export interface EditorSettingsPatch {
+  export?: Partial<ExportSettingsStore>;
+  appearance?: Partial<AppearanceSettingsStore>;
+  panel?: Partial<PanelSettingsStore>;
+}
+
+export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
   const current = loadSettings();
   const next: EditorSettings = {
     export: { ...current.export, ...patch.export },
     appearance: { ...current.appearance, ...patch.appearance },
+    panel: { ...current.panel, ...patch.panel },
   };
   saveSettings(next);
   return next;
 }
 
 export function resetSettings(): EditorSettings {
-  saveSettings({
+  const defaults = {
     export: { ...DEFAULT_EXPORT_SETTINGS },
     appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
-  });
-  return { export: { ...DEFAULT_EXPORT_SETTINGS }, appearance: { ...DEFAULT_APPEARANCE_SETTINGS } };
+    panel: { ...DEFAULT_PANEL_SETTINGS },
+  };
+  saveSettings(defaults);
+  return defaults;
 }

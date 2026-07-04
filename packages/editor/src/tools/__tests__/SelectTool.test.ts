@@ -1,4 +1,4 @@
-import { createDocument } from '@strata/scene';
+import { createDocument, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectTool } from '../SelectTool';
 
@@ -58,6 +58,20 @@ function makeCtx(overrides?: Record<string, unknown>) {
     ...overrides,
   };
   return ctx;
+}
+
+function makeDocWithNodes(count: number) {
+  const doc = createDocument('test');
+  const nodes: Record<string, any> = {};
+  for (let i = 0; i < count; i++) {
+    const id = `n${i}`;
+    nodes[id] = makeShapeNode(id, { kind: 'rect', x: i * 50, y: 0, w: 40, h: 40 });
+  }
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, ...nodes },
+    rootChildren: [...doc.rootChildren, ...Object.keys(nodes)],
+  };
 }
 
 describe('SelectTool', () => {
@@ -121,6 +135,103 @@ describe('SelectTool', () => {
     expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 90, 100);
   });
 
+  it('arrow key nudges rotated node along local axes', () => {
+    const tool = new SelectTool();
+    // Rotated 45deg: [cos45, sin45, -sin45, cos45, 100, 100]
+    const c = Math.cos(Math.PI / 4);
+    const s = Math.sin(Math.PI / 4);
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({
+        id: 'n1',
+        transform: [c, s, -s, c, 100, 100],
+      }),
+    });
+    // Right arrow: move along local X axis (c, s)
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 100 + c, 100 + s);
+  });
+
+  it('arrow key nudges rotated node backward along local Y on arrow up', () => {
+    const tool = new SelectTool();
+    const c = Math.cos(Math.PI / 4);
+    const s = Math.sin(Math.PI / 4);
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({
+        id: 'n1',
+        transform: [c, s, -s, c, 100, 100],
+      }),
+    });
+    // Up arrow: move backward along local Y axis (-c, -d) = (s, -c)
+    tool.onKeyDown({ key: 'ArrowUp' } as any, ctx);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 100 - -s, 100 - c);
+  });
+
+  it('marquee with alt key selects only nodes fully contained within rect', () => {
+    const tool = new SelectTool();
+    const doc = makeDocWithNodes(3);
+    // Nodes: n0 (0,0,40,40), n1 (50,0,40,40), n2 (100,0,40,40)
+    const ctx = makeCtx({
+      altKey: true,
+      document: doc,
+      nodeWorldBounds: vi.fn((n: any) => {
+        if (n.id === 'n0') return { x: 0, y: 0, w: 40, h: 40 };
+        if (n.id === 'n1') return { x: 50, y: 0, w: 40, h: 40 };
+        if (n.id === 'n2') return { x: 100, y: 0, w: 40, h: 40 };
+        return { x: 0, y: 0, w: 100, h: 100 };
+      }),
+      rootNodes: vi.fn().mockReturnValue([{ id: 'n0' }, { id: 'n1' }, { id: 'n2' }]),
+      getNode: vi.fn((id: string) => {
+        return doc.nodes[id];
+      }),
+    });
+    // Click empty space (no hit)
+    tool.onPointerDown({ clientX: 0, clientY: 0, pointerId: 1, button: 0 } as any, ctx);
+
+    // Drag marquee from (0,0) to (90, 50) — contains n0 fully, n1 partially
+    (tool as any).drag.currentCanvas = { x: 90, y: 50 };
+    (tool as any).drag.currentWorld = { x: 90, y: 50 };
+    (tool as any).onDragMove?.(ctx);
+
+    tool.onPointerUp({ pointerId: 1 } as any, ctx);
+
+    // Alt+marquee: only n0 is fully contained (n1 extends past 90)
+    expect(ctx.toggleSelection).toHaveBeenCalledWith('n0', true);
+  });
+
+  it('marquee with shift+alt adds fully contained nodes to selection', () => {
+    const tool = new SelectTool();
+    const doc = makeDocWithNodes(2);
+    const ctx = makeCtx({
+      shiftKey: true,
+      altKey: true,
+      document: doc,
+      nodeWorldBounds: vi.fn((n: any) => {
+        if (n.id === 'n0') return { x: 0, y: 0, w: 40, h: 40 };
+        if (n.id === 'n1') return { x: 100, y: 0, w: 40, h: 40 };
+        return { x: 0, y: 0, w: 100, h: 100 };
+      }),
+      rootNodes: vi.fn().mockReturnValue([{ id: 'n0' }, { id: 'n1' }]),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+    });
+
+    tool.onPointerDown(
+      { clientX: 0, clientY: 0, pointerId: 1, button: 0, shiftKey: true } as any,
+      ctx,
+    );
+
+    (tool as any).drag.currentCanvas = { x: 200, y: 50 };
+    (tool as any).drag.currentWorld = { x: 200, y: 50 };
+    (tool as any).onDragMove?.(ctx);
+
+    tool.onPointerUp({ pointerId: 1 } as any, ctx);
+
+    // shift+alt marquee: add fully contained nodes to existing selection
+    expect(ctx.setSelection).not.toHaveBeenCalled();
+    expect(ctx.toggleSelection).toHaveBeenCalledWith('n0', true);
+  });
+
   it('double-click on path enters nodeEdit mode', () => {
     const tool = new SelectTool();
     const hitNode = { id: 'p1', kind: 'shape' as const, name: 'Path', shape: { kind: 'path' } };
@@ -151,11 +262,229 @@ describe('SelectTool', () => {
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
     });
-    // Start a move gesture
     tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalled();
-    // Deactivate mid-drag
     tool.onDeactivate(ctx);
     expect(ctx.abortTransaction).toHaveBeenCalled();
+  });
+});
+
+describe('SelectTool — depth-based click cycling', () => {
+  it('clicking same node twice cycles to next node below', () => {
+    const tool = new SelectTool();
+    const baseNode = (
+      id: string,
+      name: string,
+      fill: { space: 'rgb'; r: number; g: number; b: number; a: number },
+    ) => ({
+      id,
+      name,
+      kind: 'shape' as const,
+      fill,
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      strokes: [],
+      effects: [],
+      bindings: undefined as any,
+    });
+    // n2 topmost, n0 middle (selected), n1 bottom
+    const n0 = baseNode('n0', 'Middle', { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 });
+    const n1 = baseNode('n1', 'Bottom', { space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 });
+    const n2 = baseNode('n2', 'Top', { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 });
+    const doc = makeDocWithNodes(0);
+    doc.nodes.n0 = n0 as any;
+    doc.nodes.n1 = n1 as any;
+    doc.nodes.n2 = n2 as any;
+    // Paint order (last = topmost): n1 (bottom), n0 (middle), n2 (top)
+    doc.rootChildren = ['n1', 'n0', 'n2'];
+
+    const ctx = makeCtx({
+      document: doc,
+      selection: ['n0'],
+      isSelected: vi.fn((id: string) => id === 'n0'),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      hitTest: vi.fn(() => ({ nodeId: 'n0', node: n0 })),
+      rootNodes: vi.fn(() => [
+        { id: 'n1', visible: true, locked: false },
+        { id: 'n0', visible: true, locked: false },
+        { id: 'n2', visible: true, locked: false },
+      ]),
+      nodeWorldBounds: vi.fn(() => ({ x: 0, y: 0, w: 100, h: 100 })),
+    });
+
+    tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
+
+    // n0 is middle node, n1 (bottom) is below it — should cycle to n1
+    expect(ctx.setSelection).toHaveBeenCalledWith('n1');
+  });
+});
+
+describe('SelectTool — transparent fill click-through', () => {
+  it('transparent fill node passes through to next opaque node at point', () => {
+    const tool = new SelectTool();
+    const baseNode = (
+      id: string,
+      name: string,
+      fill: { space: 'rgb'; r: number; g: number; b: number; a: number },
+      extra = {},
+    ) => ({
+      id,
+      name,
+      kind: 'shape' as const,
+      fill,
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      strokes: [],
+      effects: [],
+      bindings: undefined as any,
+      ...extra,
+    });
+    const n0 = baseNode('n0', 'StrokeOnly', { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 });
+    const n1 = baseNode('n1', 'HasFill', { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 });
+    const doc = createDocument('test');
+    doc.nodes = { ...doc.nodes, n0: n0 as any, n1: n1 as any };
+    doc.rootChildren = ['n1', 'n0'];
+
+    const setSelection = vi.fn();
+    const ctx = makeCtx({
+      document: doc,
+      selection: [],
+      setSelection,
+      hitTest: vi.fn(() => ({ nodeId: 'n0', node: n0 })),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      rootNodes: vi.fn(() => [
+        { id: 'n1', visible: true, locked: false },
+        { id: 'n0', visible: true, locked: false },
+      ]),
+      nodeWorldBounds: vi.fn(() => ({ x: 0, y: 0, w: 100, h: 100 })),
+    });
+
+    tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
+    expect(setSelection).toHaveBeenCalledWith('n1');
+  });
+});
+
+describe('SelectTool — keyboard selection cycle (Tab)', () => {
+  it('Tab cycles to next node in paint order', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n0'],
+      getNode: vi.fn((id) => {
+        if (id === 'n0') return { id: 'n0', transform: [1, 0, 0, 1, 0, 0] };
+        if (id === 'n1') return { id: 'n1', transform: [1, 0, 0, 1, 50, 0] };
+        return undefined;
+      }),
+      rootNodes: vi.fn(() => [
+        { id: 'n0', visible: true, locked: false },
+        { id: 'n1', visible: true, locked: false },
+        { id: 'n2', visible: true, locked: false },
+      ]),
+    });
+
+    const result = tool.onKeyDown({ key: 'Tab' } as any, ctx);
+    expect(result).toBe(true);
+    expect(ctx.setSelection).toHaveBeenCalledWith('n1');
+  });
+
+  it('Shift+Tab cycles to previous node in paint order', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      shiftKey: true,
+      getNode: vi.fn((id) => {
+        if (id === 'n0') return { id: 'n0', transform: [1, 0, 0, 1, 0, 0] };
+        if (id === 'n1') return { id: 'n1', transform: [1, 0, 0, 1, 50, 0] };
+        return undefined;
+      }),
+      rootNodes: vi.fn(() => [
+        { id: 'n0', visible: true, locked: false },
+        { id: 'n1', visible: true, locked: false },
+        { id: 'n2', visible: true, locked: false },
+      ]),
+    });
+
+    const result = tool.onKeyDown({ key: 'Tab', shiftKey: true } as any, ctx);
+    expect(result).toBe(true);
+    expect(ctx.setSelection).toHaveBeenCalledWith('n0');
+  });
+
+  it('Tab with nothing selected selects first visible node', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: [],
+      rootNodes: vi.fn(() => [
+        { id: 'n0', visible: true, locked: false },
+        { id: 'n1', visible: true, locked: false },
+      ]),
+    });
+
+    const result = tool.onKeyDown({ key: 'Tab' } as any, ctx);
+    expect(result).toBe(true);
+    expect(ctx.setSelection).toHaveBeenCalledWith('n0');
+  });
+
+  it('Tab skips hidden nodes', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n0'],
+      getNode: vi.fn((id) => {
+        if (id === 'n0') return { id: 'n0', transform: [1, 0, 0, 1, 0, 0] };
+        return undefined;
+      }),
+      rootNodes: vi.fn(() => [
+        { id: 'n0', visible: true, locked: false },
+        { id: 'n1', visible: false, locked: false },
+        { id: 'n2', visible: true, locked: false },
+      ]),
+    });
+
+    tool.onKeyDown({ key: 'Tab' } as any, ctx);
+    expect(ctx.setSelection).toHaveBeenCalledWith('n2');
+  });
+});
+
+describe('SelectTool — keyboard nudge undo transaction', () => {
+  it('wraps arrow key nudge in beginTransaction/commitTransaction', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
+    });
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+  });
+
+  it('wraps shift+arrow nudge in beginTransaction/commitTransaction', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
+    });
+    tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 90, 100);
+  });
+
+  it('does not call beginTransaction when no selection', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({ selection: [] });
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
   });
 });

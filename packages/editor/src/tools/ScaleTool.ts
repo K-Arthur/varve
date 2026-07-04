@@ -1,9 +1,9 @@
 /**
- * ScaleTool — Scale selected nodes uniformly by dragging.
+ * ScaleTool — Scale selected nodes by dragging.
  *
- * Gesture: drag away from the centroid to scale up, toward to scale down.
- * The scale factor is computed as the ratio of current distance to initial
- * distance from the selection's centroid, applied to the affine transform.
+ * Gesture: drag away from the pivot/centroid to scale up, toward it to scale down.
+ * Supports axis-lock (Alt), uniform-snap (Shift), configurable pivot point,
+ * and multi-object scale with relative position preservation.
  *
  * Research basis: Figma Scale tool (K), Illustrator Scale tool.
  */
@@ -26,7 +26,17 @@ export class ScaleTool extends BaseTool {
   private initialNodes: NodeInitialState[] = [];
   private selectionCenter = { x: 0, y: 0 };
   private initialDist = 0;
+  private initialDx = 0;
+  private initialDy = 0;
   private initialUnionBbox: { x: number; y: number; w: number; h: number } | null = null;
+
+  /** Optional custom pivot point. When set, scale origin uses this instead of centroid average. */
+  pivot: { x: number; y: number } | null = null;
+
+  /** Set a custom pivot point for the next scale gesture. Pass null to reset to centroid. */
+  setPivot(x: number, y: number): void {
+    this.pivot = { x, y };
+  }
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'nwse-resize' };
@@ -70,30 +80,67 @@ export class ScaleTool extends BaseTool {
     this.selectionCenter = { x: cx / count, y: cy / count };
     this.initialUnionBbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 
-    const startDx = this.drag.startWorld.x - this.selectionCenter.x;
-    const startDy = this.drag.startWorld.y - this.selectionCenter.y;
-    this.initialDist = Math.sqrt(startDx * startDx + startDy * startDy) || 1;
+    // Use pivot if set, otherwise fall back to centroid average
+    const origin = this.pivot ?? this.selectionCenter;
+    this.initialDx = this.drag.startWorld.x - origin.x;
+    this.initialDy = this.drag.startWorld.y - origin.y;
+    this.initialDist =
+      Math.sqrt(this.initialDx * this.initialDx + this.initialDy * this.initialDy) || 1;
+    ctx.beginTransaction();
     return result;
   }
 
   override onDragMove(ctx: ToolContext): void {
     if (this.initialNodes.length === 0 || this.initialDist === 0) return;
 
+    const origin = this.pivot ?? this.selectionCenter;
     const current = this.drag.currentWorld;
-    const dx = current.x - this.selectionCenter.x;
-    const dy = current.y - this.selectionCenter.y;
+    const dx = current.x - origin.x;
+    const dy = current.y - origin.y;
     const currentDist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const scale = currentDist / this.initialDist;
+
+    let scaleX: number;
+    let scaleY: number;
+
+    if (ctx.altKey) {
+      // Axis lock: determine dominant axis from drag direction
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (absDx > absDy * 2 && Math.abs(this.initialDx) > 0.001) {
+        // Horizontal dominance: scale X only
+        scaleX = absDx / Math.abs(this.initialDx);
+        scaleY = 1;
+      } else if (absDy > absDx * 2 && Math.abs(this.initialDy) > 0.001) {
+        // Vertical dominance: scale Y only
+        scaleY = absDy / Math.abs(this.initialDy);
+        scaleX = 1;
+      } else {
+        // Diagonal or ambiguous: uniform
+        scaleX = scaleY = currentDist / this.initialDist;
+      }
+    } else {
+      // Default uniform scale
+      scaleX = scaleY = currentDist / this.initialDist;
+    }
+
+    // Shift: snap to nearest 0.25 increment
+    if (ctx.shiftKey) {
+      scaleX = Math.round(scaleX / 0.25) * 0.25;
+      scaleY = Math.round(scaleY / 0.25) * 0.25;
+    }
+
+    // Clamp
+    scaleX = Math.max(0.01, Math.min(100, scaleX));
+    scaleY = Math.max(0.01, Math.min(100, scaleY));
 
     for (const init of this.initialNodes) {
       ctx.updateNode(init.id, (node) => {
-        const nodeDx = init.centroidX - this.selectionCenter.x;
-        const nodeDy = init.centroidY - this.selectionCenter.y;
-        const clamped = Math.max(0.01, Math.min(100, scale));
-        const scaleAffine: Affine = [clamped, 0, 0, clamped, 0, 0];
+        const nodeDx = init.centroidX - origin.x;
+        const nodeDy = init.centroidY - origin.y;
+        const scaleAffine: Affine = [scaleX, 0, 0, scaleY, 0, 0];
         const composed = multiplyAffine(scaleAffine, node.transform as Affine);
-        const adjustX = nodeDx * (clamped - 1);
-        const adjustY = nodeDy * (clamped - 1);
+        const adjustX = nodeDx * (scaleX - 1);
+        const adjustY = nodeDy * (scaleY - 1);
         return {
           ...node,
           transform: [
@@ -113,21 +160,22 @@ export class ScaleTool extends BaseTool {
       const b = this.initialUnionBbox;
       const scx = b.x + b.w / 2;
       const scy = b.y + b.h / 2;
-      const nw = b.w * scale;
-      const nh = b.h * scale;
+      const nw = b.w * scaleX;
+      const nh = b.h * scaleY;
       ctx.setDraft({
         kind: 'rect',
         x: scx - nw / 2,
         y: scy - nh / 2,
         w: nw,
         h: nh,
-        label: `${Math.round(scale * 100)}%`,
+        label: `${Math.round(((scaleX + scaleY) / 2) * 100)}%`,
       });
     }
   }
 
   override onDragEnd(ctx: ToolContext): void {
     ctx.setDraft(null);
+    ctx.commitTransaction();
     this.initialNodes = [];
     this.initialDist = 0;
     this.initialUnionBbox = null;
@@ -135,8 +183,27 @@ export class ScaleTool extends BaseTool {
 
   override onDragCancel(ctx: ToolContext): void {
     ctx.setDraft(null);
+    ctx.abortTransaction();
     this.initialNodes = [];
     this.initialDist = 0;
     this.initialUnionBbox = null;
+  }
+
+  override onDeactivate(ctx: ToolContext): void {
+    if (this.drag.kind === 'dragging') {
+      ctx.abortTransaction();
+      ctx.setDraft(null);
+      this.initialNodes = [];
+      this.initialDist = 0;
+      this.initialUnionBbox = null;
+      this.drag = {
+        kind: 'idle',
+        pointerId: -1,
+        startCanvas: { x: 0, y: 0 },
+        startWorld: { x: 0, y: 0 },
+        currentCanvas: { x: 0, y: 0 },
+        currentWorld: { x: 0, y: 0 },
+      };
+    }
   }
 }

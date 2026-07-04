@@ -27,6 +27,45 @@ describe('exportNodeToSvg', () => {
     expect(out).toContain('</svg>');
     expect(out).toContain('rect');
   });
+
+  it('emits multi-line text as tspan elements', () => {
+    const doc = createDocument('Test');
+    const node = makeTextNode('t1', 'Line 1\nLine 2', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+      lineHeight: 1.4,
+    });
+    const out = exportNodeToSvg(node, doc);
+    expect(out).toContain('<tspan');
+    expect(out).toContain('Line 1');
+    expect(out).toContain('Line 2');
+  });
+
+  it('emits rich text with per-run tspan elements', () => {
+    const doc = createDocument('Test');
+    const node = makeTextNode('t1', 'Hello World', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+      richText: {
+        paragraphs: [
+          {
+            runs: [
+              { text: 'Hello', format: { fontWeight: 400 } },
+              { text: 'World', format: { fontWeight: 700, fontSize: 20 } },
+            ],
+          },
+        ],
+      },
+      variableAxes: { wght: 500 },
+      openTypeFeatures: { liga: true },
+    });
+    const out = exportNodeToSvg(node, doc);
+    expect(out).toContain('<tspan');
+    expect(out).toContain('font-weight="700"');
+    expect(out).toContain('font-size="20"');
+    expect(out).toContain('font-variation-settings');
+    expect(out).toContain('font-feature-settings');
+  });
 });
 
 describe('exportNodeToCss', () => {
@@ -52,7 +91,7 @@ describe('exportNodeToTailwind', () => {
     const node = makeShapeNode(
       'n1',
       { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
-      { name: 'Rect', fill: [57, 208, 198, 255] },
+      { name: 'Rect', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
     );
     const tw = exportNodeToTailwind(node, doc);
     expect(tw).toContain('absolute');
@@ -225,7 +264,7 @@ describe('token-aware codegen', () => {
     const node = makeShapeNode(
       'n1',
       { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
-      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+      { name: 'Box', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
     );
     (node as unknown as Record<string, unknown>).bindings = { fill: { variableId: 'v1' } };
     store.variables.v1 = {
@@ -251,7 +290,7 @@ describe('token-aware codegen', () => {
     const node = makeShapeNode(
       'n1',
       { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
-      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+      { name: 'Box', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
     );
     const css = exportNodeToCss(node, doc);
     expect(css).toContain('#39d0c6');
@@ -272,7 +311,7 @@ describe('token-aware codegen', () => {
     const node = makeShapeNode(
       'n1',
       { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
-      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+      { name: 'Box', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
     );
     const tw = exportNodeToTailwind(node, doc);
     expect(tw).toContain('bg-[#39d0c6]');

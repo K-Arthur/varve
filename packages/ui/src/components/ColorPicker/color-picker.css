@@ -167,3 +167,62 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
+
+/* GamutWarning */
+.gamut-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning, #b8860b);
+}
+
+/* SpotColorBrowser */
+.spot-color-browser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.spot-color-browser__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.spot-color-browser__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  text-align: left;
+  width: 100%;
+}
+.spot-color-browser__item:hover {
+  background: var(--color-interactive-hover);
+}
+.spot-color-browser__item:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+.spot-color-browser__swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+.spot-color-browser__name {
+  flex: 1;
+}
+.spot-color-browser__empty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding: var(--space-2);
+}

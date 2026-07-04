@@ -8,7 +8,9 @@
  * Research basis: Figma Team Libraries, Penpot shared libraries,
  * Storybook publish workflow, npm package distribution model.
  */
-import type { ComponentDefinition, Document, NodeId, Style } from './types';
+
+import type { Document } from './document';
+import type { ComponentDefinition, NodeId, Style } from './types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -69,7 +71,7 @@ export function createLibrary(name: string, description = '', version = '0.1.0')
 export function publishComponentToLibrary(
   library: Library,
   component: ComponentDefinition,
-  doc: Document,
+  _doc: Document,
 ): { library: Library } {
   const existingIndex = library.components.findIndex((c) => c.id === component.id);
   const published: ComponentDefinition = {

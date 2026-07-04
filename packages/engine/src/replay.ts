@@ -11,7 +11,11 @@
  */
 import { mapBlendMode } from './compositeCanvas';
 import { getImageCache } from './imageCache';
-import type { Color, FillIR, RenderItem } from './types';
+import { applyFilterChain } from './filters';
+import { layoutRichText } from './textLayout';
+import { placeGlyphsOnPath } from './pathText';
+import { managedColorToRgba } from '@strata/shared';
+import type { EngineColor, FillIR, RenderItem } from './types';
 
 export interface ReplayTarget {
   save(): void;
@@ -20,6 +24,7 @@ export interface ReplayTarget {
   fillRect(x: number, y: number, w: number, h: number): void;
   strokeRect(x: number, y: number, w: number, h: number): void;
   beginPath(): void;
+  rect(x: number, y: number, w: number, h: number): void;
   ellipse(
     x: number,
     y: number,
@@ -82,14 +87,40 @@ export interface ReplayTarget {
   shadowBlur?: number;
   shadowOffsetX?: number;
   shadowOffsetY?: number;
+  /** Set the clipping path from the current sub-path. */
+  clip?(): void;
+  /** Create a pattern from an image source. */
+  createPattern?(image: CanvasImageSource | string, repetition: string): ReplayPattern | null;
+}
+
+export interface ReplayPattern {
+  /** Transform the pattern's coordinate system. */
+  setTransform(transform: {
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    e: number;
+    f: number;
+  }): void;
 }
 
 export interface ReplayGradient {
   addColorStop(offset: number, color: string): void;
 }
 
-function rgba(c: Color): string {
-  return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] / 255})`;
+function rgba(
+  c: EngineColor | readonly [number, number, number, number],
+  opacityOverride?: number,
+): string {
+  if (Array.isArray(c) || 'length' in c) {
+    const arr = c as readonly [number, number, number, number];
+    const alpha = opacityOverride !== undefined ? opacityOverride : arr[3] / 255;
+    return `rgba(${arr[0]}, ${arr[1]}, ${arr[2]}, ${alpha})`;
+  }
+  const [r, g, b, a] = managedColorToRgba(c as EngineColor);
+  const alpha = opacityOverride !== undefined ? opacityOverride : a / 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 const TAU = Math.PI * 2;
@@ -114,8 +145,76 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
     if (itemAlpha < 1) {
       target.globalAlpha = itemAlpha;
     }
-    if (item.blendMode && item.blendMode !== 'normal') {
-      target.globalCompositeOperation = mapBlendMode(item.blendMode);
+    const itemBlend =
+      item.blendMode && item.blendMode !== 'normal' ? mapBlendMode(item.blendMode) : 'source-over';
+    if (itemBlend !== 'source-over') {
+      target.globalCompositeOperation = itemBlend;
+    }
+
+    // ── Effects pass (shadows, blur) ──────────────────────────────
+    // Each shadow effect is rendered independently as a colored blurred shape behind/inside.
+    // Blur effects track max radius and apply to the main content.
+    let maxLayerBlur = 0;
+    let maxBgBlur = 0;
+
+    if (item.effects && item.effects.length > 0) {
+      // Pre-compute the shape path once for all effect passes
+      for (const effect of item.effects) {
+        if (!effect.visible) continue;
+
+        if (effect.type === 'dropShadow') {
+          target.save();
+          // Apply per-effect compositing
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          // Offset and blur the shadow shape
+          target.transform(1, 0, 0, 1, effect.x, effect.y);
+          const blurRadius = effect.blur + Math.max(0, effect.spread) / 2;
+          if (blurRadius > 0) {
+            target.filter = `blur(${blurRadius}px)`;
+          }
+          target.fillStyle = rgba(effect.color, effect.opacity);
+          paintShapeFill(target, item);
+          target.restore();
+        }
+
+        if (effect.type === 'innerShadow') {
+          target.save();
+          // Build shape path as clip so the shadow only renders inside the shape
+          target.beginPath();
+          traceOutline(target, item.primitive);
+          target.closePath();
+          if (target.clip) target.clip();
+          // Apply per-effect compositing
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          // For inner shadow: draw a blurred shape offset INWARD (offset same sign as effect)
+          // Clip hides the outward-extending part; only the inward-shadow is visible
+          const blurRadius = effect.blur + Math.max(0, effect.spread) / 2;
+          if (blurRadius > 0) {
+            target.filter = `blur(${blurRadius}px)`;
+          }
+          target.fillStyle = rgba(effect.color, effect.opacity);
+          paintShapeFill(target, item);
+          target.restore();
+        }
+
+        if (effect.type === 'layerBlur') {
+          maxLayerBlur = Math.max(maxLayerBlur, effect.radius);
+        }
+
+        if (effect.type === 'backgroundBlur') {
+          maxBgBlur = Math.max(maxBgBlur, effect.radius);
+        }
+      }
+    }
+
+    // Apply nondestructive adjustment filters to the main content.
+    // Filters are applied before fills and persist through strokes.
+    if (item.filters && item.filters.length > 0) {
+      applyFilterChain(target, item.filters);
     }
 
     // ── Fills pass ────────────────────────────────────────────────
@@ -128,8 +227,8 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
         target.globalAlpha = itemAlpha * (fill.opacity ?? 1);
         if (fill.blendMode && fill.blendMode !== 'normal') {
           target.globalCompositeOperation = mapBlendMode(fill.blendMode);
-        } else if (item.blendMode && item.blendMode !== 'normal') {
-          target.globalCompositeOperation = mapBlendMode(item.blendMode);
+        } else if (itemBlend !== 'source-over') {
+          target.globalCompositeOperation = itemBlend;
         } else {
           target.globalCompositeOperation = restoreBlend;
         }
@@ -196,6 +295,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
         }
       }
     }
+    }
 
     // Reset per-item state (shadow, filter, etc.)
     target.shadowColor = 'transparent';
@@ -211,8 +311,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
 }
 
 
-
-/** Paint a single fill over the primitive shape. */
+/** Paint a single fill (solid, gradient, image, or pattern) over the primitive shape. */
 function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
   if (fill.type === 'solid') {
     target.fillStyle = rgba(fill.color);
@@ -239,7 +338,6 @@ function paintImageFill(
 
   const imgEntry = getImageCache().get(fill.src);
   if (imgEntry?.state === 'loaded' && imgEntry.image) {
-    // Draw the cached image
     if (target.drawImage) {
       const sx = fill.x;
       const sy = fill.y;
@@ -262,7 +360,6 @@ function paintImageFill(
       target.fillRect(0, 0, bw, bh);
     }
   } else {
-    // Placeholder: draw a gray rect
     target.fillStyle = '#e0e0e0';
     target.fillRect(0, 0, bw, bh);
   }
@@ -280,7 +377,6 @@ function paintPatternFill(
 
   const tileEntry = getImageCache().get(fill.tileSrc);
   if (tileEntry?.state === 'loaded' && tileEntry.image && target.drawImage) {
-    // Manual tiling over the bounds
     const spacing = fill.spacing;
     const tw = tileEntry.image.naturalWidth + spacing;
     const th = tileEntry.image.naturalHeight + spacing;
@@ -290,7 +386,6 @@ function paintPatternFill(
       }
     }
   } else {
-    // Placeholder: draw a tinted rect
     target.fillStyle = 'rgba(200,200,200,0.5)';
     target.fillRect(0, 0, bw, bh);
   }
@@ -357,7 +452,7 @@ function createGradientStyle(
     return grad as unknown as string;
   }
 
-  return rgba(stops[0]?.color ?? [0, 0, 0, 0]);
+  return rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
 }
 
 /** Paint the primitive shape fill (without fillStyle). */
@@ -433,10 +528,13 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
       paintPathFill(target, p);
       break;
     case 'image':
-      // Image rendering placeholder. Actual `drawImage(src, 0, 0, w, h)`
-      // requires an ImageCache with progressive async loading (deferred).
-      // The item transform positions the image, so local origin is (0,0).
-      target.fillRect(0, 0, p.w, p.h);
+      // Render the image via drawImage. The item transform positions the image,
+      // so local origin is (0,0). If drawImage is unavailable, draw a placeholder.
+      if (target.drawImage && p.src) {
+        target.drawImage(p.src, 0, 0, p.w, p.h);
+      } else {
+        target.fillRect(0, 0, p.w, p.h);
+      }
       break;
     case 'text':
       paintText(target, p);
@@ -460,11 +558,121 @@ function applyTextCase(text: string, textCase: string): string {
   }
 }
 
+/** Paint rich text using the typography layout engine. */
+function paintRichText(
+  target: ReplayTarget,
+  p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+): void {
+  const defaultFormat = {
+    fontSize: p.fontSize,
+    fontFamily: p.fontFamily,
+    fontWeight: p.fontWeight,
+    fontStyle: p.fontStyle,
+    letterSpacing: p.letterSpacing,
+    lineHeight: p.lineHeight,
+    textCase: p.textCase,
+    textDecoration: p.textDecoration,
+  };
+  const positioned = layoutRichText(
+    p.richText! as import('./textLayout').RichTextInput,
+    p.w,
+    defaultFormat,
+  );
+
+  let yOffset = 0;
+  if (p.textAlignVertical === 'middle') yOffset = (p.h - positioned.height) / 2;
+  else if (p.textAlignVertical === 'bottom') yOffset = p.h - positioned.height;
+
+  const originalFillStyle = target.fillStyle;
+
+  for (const line of positioned.lines) {
+    const lineWidth = line.runs.reduce((sum, r) => sum + r.width, 0);
+    let xOffset = 0;
+    if (p.textAlign === 'center') xOffset = (p.w - lineWidth) / 2;
+    else if (p.textAlign === 'right') xOffset = p.w - lineWidth;
+
+    for (const run of line.runs) {
+      target.font = run.font;
+      const runFormat = run.format as { color?: readonly [number, number, number, number] };
+      if (runFormat.color && runFormat.color[3] > 0) {
+        target.fillStyle = rgba(runFormat.color);
+      }
+      target.fillText(run.text, p.x + run.x + xOffset, p.y + run.y + yOffset);
+
+      if (
+        run.format.textDecoration === 'underline' ||
+        run.format.textDecoration === 'line-through'
+      ) {
+        const decoY =
+          run.format.textDecoration === 'underline'
+            ? p.y + run.y + yOffset + run.format.fontSize * 1.1
+            : p.y + run.y + yOffset + run.format.fontSize * 0.5;
+        target.beginPath();
+        target.moveTo(p.x + run.x + xOffset, decoY);
+        target.lineTo(p.x + run.x + xOffset + run.width, decoY);
+        target.strokeStyle = target.fillStyle;
+        target.lineWidth = 1;
+        target.stroke();
+      }
+
+      target.fillStyle = originalFillStyle;
+    }
+  }
+}
+
+/** Paint text along a path (text-on-path). */
+function paintPathText(
+  target: ReplayTarget,
+  p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+): void {
+  const settings = p.pathTextSettings;
+  if (!settings) return;
+
+  const shape = p.pathShape;
+  if (!shape) return;
+
+  const displayText = applyTextCase(p.text, p.textCase);
+  const style = p.fontStyle === 'italic' ? 'italic ' : '';
+  const fw = Math.max(1, Math.min(1000, p.fontWeight));
+  target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+  target.textBaseline = 'alphabetic';
+
+  const placements = placeGlyphsOnPath(displayText, shape, {
+    offset: settings.startOffset ?? 0,
+    side: settings.side ?? 'top',
+    fontSize: p.fontSize,
+  });
+
+  const originalFillStyle = target.fillStyle;
+
+  for (const glyph of placements) {
+    target.save();
+    target.transform(1, 0, 0, 1, glyph.x, glyph.y);
+    // Apply rotation via transform: [cos, sin, -sin, cos, 0, 0]
+    const c = Math.cos(glyph.angle);
+    const s = Math.sin(glyph.angle);
+    target.transform(c, s, -s, c, 0, 0);
+    target.fillText(glyph.char, 0, 0);
+    target.restore();
+  }
+
+  target.fillStyle = originalFillStyle;
+}
+
 /** Paint a text primitive via Canvas2D `fillText` with full typography support. */
 function paintText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
 ): void {
+  if (p.textMode === 'path' && p.pathTextSettings) {
+    paintPathText(target, p);
+    return;
+  }
+  if (p.richText) {
+    paintRichText(target, p);
+    return;
+  }
+
   const style = p.fontStyle === 'italic' ? 'italic ' : '';
   const fw = Math.max(1, Math.min(1000, p.fontWeight));
   target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
@@ -536,12 +744,13 @@ function paintText(
 
     // Draw text with letter spacing if needed
     if (ls !== 0 && displayLine.length > 1) {
-      // Letter spacing: draw each character individually
+      // Letter spacing: draw each character individually, using the real glyph width when possible.
       let cursorX = xOrigin;
       for (let ci = 0; ci < displayLine.length; ci++) {
         const char = displayLine[ci] ?? '';
         target.fillText(char, cursorX, y);
-        cursorX += p.fontSize * 0.6 + ls;
+        // Measure the actual glyph advance so spacing is correct for non-monospace fonts.
+        cursorX += measureTextAdvance(target, char) + ls;
       }
     } else {
       target.fillText(displayLine, xOrigin, y);
@@ -560,6 +769,21 @@ function paintText(
       target.stroke();
     }
   }
+}
+
+/** Measure the width of a single character in the current canvas font. Falls back to an estimate. */
+function measureTextAdvance(target: ReplayTarget, char: string): number {
+  if (typeof document === 'undefined') return target.font ? parseFontSize(target.font) * 0.6 : 0;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return parseFontSize(target.font) * 0.6;
+  ctx.font = target.font;
+  return ctx.measureText(char).width;
+}
+
+function parseFontSize(font: string): number {
+  const match = /(\d+(?:\.\d+)?)px/.exec(font);
+  return match && match[1] ? Number.parseFloat(match[1]) : 16;
 }
 
 /** Paint a closed/open path fill. */
@@ -695,15 +919,33 @@ function drawArrowhead(
   target.fill();
 }
 
-/** Trace the outline of a primitive without filling. */
+/** Trace the outline of a primitive without filling. Covers all shape types
+ * for use in clipping operations (inner shadow, image fill clips). */
 function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
   switch (p.kind) {
+    case 'rect':
+      if (p.cornerRadius && target.roundRect) {
+        target.roundRect(p.x, p.y, p.w, p.h, p.cornerRadius);
+      } else {
+        target.rect(p.x, p.y, p.w, p.h);
+      }
+      break;
     case 'ellipse':
       target.ellipse(p.cx, p.cy, p.rx, p.ry, 0, 0, TAU);
       break;
     case 'circle':
       target.arc(p.cx, p.cy, p.r, 0, TAU);
       break;
+    case 'line': {
+      target.moveTo(p.from[0], p.from[1]);
+      target.lineTo(p.to[0], p.to[1]);
+      break;
+    }
+    case 'arrow': {
+      target.moveTo(p.from[0], p.from[1]);
+      target.lineTo(p.to[0], p.to[1]);
+      break;
+    }
     case 'polygon':
       for (let i = 0; i < p.sides; i++) {
         const a = (2 * Math.PI * i) / p.sides - Math.PI / 2 + p.rotation;
@@ -725,6 +967,34 @@ function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
       }
       target.closePath();
       break;
+    case 'path':
+      if (p.points.length > 0) {
+        target.moveTo(p.points[0]?.x ?? 0, p.points[0]?.y ?? 0);
+        for (let i = 1; i < p.points.length; i++) {
+          const pt = p.points[i];
+          const prev = p.points[i - 1];
+          if (!pt || !prev) continue;
+          if (prev.handleOut || pt.handleIn) {
+            const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
+            const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
+            const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
+            const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
+            target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
+          } else {
+            target.lineTo(pt.x, pt.y);
+          }
+        }
+        if (p.closed) target.closePath();
+      }
+      break;
+    case 'image': {
+      target.rect(0, 0, p.w, p.h);
+      break;
+    }
+    case 'text': {
+      target.rect(p.x, p.y, p.w, p.h);
+      break;
+    }
     default:
       break;
   }

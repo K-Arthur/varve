@@ -9,7 +9,9 @@
  * industry naming conventions (CTI), WCAG contrast governance,
  * enterprise design system governance patterns.
  */
-import type { ComponentDefinition, Document, NodeId, Style, StyleType } from './types';
+
+import type { Document } from './document';
+import type { ComponentDefinition, NodeId, Style, StyleType } from './types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +80,7 @@ export function validateNamingConventions(
     if (
       /^[A-Z]/.test(name) &&
       name.length > 1 &&
-      name === name.charAt(0)!.toUpperCase() + name.slice(1)
+      name === name.charAt(0).toUpperCase() + name.slice(1)
     ) {
       issues.push({
         type: 'warning',
@@ -116,8 +118,9 @@ export function findOrphanedStyles(doc: Document): Style[] {
 
   const usedStyleIds = new Set<NodeId>();
   for (const node of Object.values(doc.nodes)) {
-    if ('styleId' in node && node.styleId) {
-      usedStyleIds.add(node.styleId);
+    const n = node as { styleId?: NodeId };
+    if (n.styleId) {
+      usedStyleIds.add(n.styleId);
     }
   }
 
@@ -186,7 +189,6 @@ export function validateComponentProperties(component: ComponentDefinition): Val
 export function generateStyleUsageReport(doc: Document): StyleUsageReport {
   const allStyles = Object.values(doc.styles ?? {});
   const orphans = findOrphanedStyles(doc);
-  const orphanIds = new Set(orphans.map((o) => o.id));
 
   // Count nodes that use styles
   let styleUsageByNode = 0;

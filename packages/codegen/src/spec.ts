@@ -8,8 +8,8 @@
  * Research basis: Figma Dev Mode / Inspect panel — shows resolved values for
  * spacing, typography, and fills without server round-trip.
  */
-import type { Color } from '@strata/engine';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
+import type { Document, NodeId, SceneNode, ManagedColor } from '@strata/scene';
 
 /** A resolved spacing token with its value and usage count. */
 export interface SpecSpacing {
@@ -26,7 +26,7 @@ export interface SpecTypeStyle {
   fontFamily?: string;
   fontSize: number;
   fontWeight?: number;
-  fill: Color;
+  fill: ManagedColor;
   /** How many text nodes use this style. */
   count: number;
 }
@@ -54,7 +54,7 @@ export interface SpecNodeDetail {
   /** Gap between children, if applicable. */
   gap?: number;
   /** Resolved fill color. */
-  fill?: Color;
+  fill?: ManagedColor;
   /** Text content (if text node). */
   text?: string;
   fontSize?: number;
@@ -71,7 +71,7 @@ export interface SpecSheet {
   /** Detailed per-node spec. */
   nodes: SpecNodeDetail[];
   /** Aggregate color palette. */
-  palette: Color[];
+  palette: ManagedColor[];
 }
 
 function approxShapeSize(node: SceneNode): { w: number; h: number } {
@@ -107,7 +107,7 @@ export function buildSpec(doc: Document): SpecSheet {
   const typeStyles = new Map<string, SpecTypeStyle>();
   const assets: SpecAsset[] = [];
   const nodes: SpecNodeDetail[] = [];
-  const paletteMap = new Map<string, Color>();
+  const paletteMap = new Map<string, ManagedColor>();
 
   function addSpacing(name: string, value: number) {
     const key = name || `${value}`;
@@ -119,8 +119,9 @@ export function buildSpec(doc: Document): SpecSheet {
     }
   }
 
-  function addColor(color: Color) {
-    const key = `${color[0]},${color[1]},${color[2]},${color[3]}`;
+  function addColor(color: ManagedColor) {
+    const [r, g, b, a] = managedColorToRgba(color);
+    const key = `${r},${g},${b},${a}`;
     if (!paletteMap.has(key)) {
       paletteMap.set(key, color);
     }
@@ -220,7 +221,8 @@ export function specToMarkdown(spec: SpecSheet): string {
   if (spec.palette.length > 0) {
     lines.push('## Colors');
     for (const c of spec.palette) {
-      lines.push(`- rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(c[3] / 255).toFixed(2)})`);
+      const [r, g, b, a] = managedColorToRgba(c);
+      lines.push(`- rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(2)})`);
     }
     lines.push('');
   }

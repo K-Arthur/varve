@@ -3,15 +3,30 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorContextValue, ToolId } from '../context';
 import { bindingMatchesEvent, getEffectiveBinding, SHORTCUT_DEFS } from './ShortcutManager';
 
-export function useShortcuts(editor: EditorContextValue): {
+export function useShortcuts(
+  editor: EditorContextValue,
+  onBackToHome?: () => void,
+  enabled = true,
+): {
   paletteOpen: boolean;
   closePalette: () => void;
   openPalette: () => void;
+  quickActionsOpen: boolean;
+  setQuickActionsOpen: (open: boolean) => void;
 } {
   const ref = useRef(editor);
   ref.current = editor;
 
+  const onBackToHomeRef = useRef(onBackToHome);
+  onBackToHomeRef.current = onBackToHome;
+
+  // While the editor is hidden (home screen shown over a kept-alive shell),
+  // its global shortcuts must not fire.
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
 
   const getHandler = useCallback((id: string): (() => void) | null => {
     const e = ref.current;
@@ -42,16 +57,12 @@ export function useShortcuts(editor: EditorContextValue): {
           input?.click();
         };
       case 'save':
+        return () => {
+          e.save();
+        };
       case 'saveAs':
         return () => {
-          const json = e.serializeDocument();
-          const blob = new Blob([json], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${e.state.document.name || 'untitled'}.strata.json`;
-          a.click();
-          URL.revokeObjectURL(url);
+          e.saveAs();
         };
       case 'exportSvg':
         return () => {
@@ -182,6 +193,12 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => e.setTool('inspect' as ToolId);
       case 'toggleSnap':
         return () => e.setSnapEnabled(!e.state.snapEnabled);
+      case 'softProof':
+        return () => e.setSoftProofEnabled(!e.state.softProofEnabled);
+      case 'toggleLeftPanel':
+        return () => e.toggleLeftPanel();
+      case 'toggleRightPanel':
+        return () => e.toggleRightPanel();
       case 'booleanUnion':
         return () => e.booleanOp('union');
       case 'booleanSubtract':
@@ -190,6 +207,18 @@ export function useShortcuts(editor: EditorContextValue): {
         return () => e.booleanOp('intersect');
       case 'booleanExclude':
         return () => e.booleanOp('exclude');
+      case 'quickActions':
+        return () => setQuickActionsOpen((p) => !p);
+      case 'present':
+        return () => {
+          if (e.state.prototypeMode) {
+            e.stopPresentation();
+          } else {
+            e.startPresentation();
+          }
+        };
+      case 'home':
+        return () => onBackToHomeRef.current?.();
       default:
         return null;
     }
@@ -197,6 +226,7 @@ export function useShortcuts(editor: EditorContextValue): {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!enabledRef.current) return;
       // The canvas keydown handler (zoom presets, tool keys, Space-pan) calls
       // preventDefault on keys it consumes — don't double-handle them here.
       if (e.defaultPrevented) return;
@@ -237,5 +267,7 @@ export function useShortcuts(editor: EditorContextValue): {
     paletteOpen,
     closePalette: () => setPaletteOpen(false),
     openPalette: () => setPaletteOpen(true),
+    quickActionsOpen,
+    setQuickActionsOpen,
   };
 }

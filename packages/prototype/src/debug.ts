@@ -9,8 +9,8 @@
  * Framer state viewer, browser DevTools Console.
  */
 
-import type { PrototypeEvent } from './triggers';
 import type { ActionResult } from './actions';
+import type { PrototypeEvent } from './triggers';
 import type { NodeId } from './types';
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
@@ -106,9 +106,9 @@ export class PrototypeDebugConsole {
   /**
    * Log a validation issue.
    */
-  logValidation(issue: { code: string; serverity: string; message: string }): void {
+  logValidation(issue: { code: string; severity: string; message: string }): void {
     this.addEntry(
-      issue.serverity === 'error' ? 'error' : 'warn',
+      issue.severity === 'error' ? 'error' : 'warn',
       'validation',
       `[${issue.code}] ${issue.message}`,
       issue,

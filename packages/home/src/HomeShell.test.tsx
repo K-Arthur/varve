@@ -30,4 +30,17 @@ describe('HomeShell', () => {
       { timeout: 3000 },
     );
   });
+
+  it('handles web platform without crashing (cross-platform check)', async () => {
+    const platform = createMemoryPlatform();
+    // MemoryPlatform.kind is 'memory' — the stale detection skips,
+    // confirming the cross-platform effect doesn't throw.
+    const { container } = render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
+    await waitFor(
+      () => {
+        expect(container.textContent).toContain('No recent files');
+      },
+      { timeout: 3000 },
+    );
+  });
 });

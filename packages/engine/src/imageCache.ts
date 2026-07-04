@@ -140,7 +140,7 @@ export class ImageCache {
     if (!this.listeners.has(url)) {
       this.listeners.set(url, new Set());
     }
-    this.listeners.get(url)!.add(callback);
+    this.listeners.get(url)?.add(callback);
     return () => {
       const set = this.listeners.get(url);
       if (set) {
