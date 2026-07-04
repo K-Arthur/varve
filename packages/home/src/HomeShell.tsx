@@ -1,16 +1,22 @@
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { contentHash, detectFileKind, type FileEntry, type Platform } from '@strata/platform';
 import { generateKeyBetween } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import { Dialog, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityFeed } from './ActivityFeed';
+import { AssetBrowser } from './AssetBrowser';
+import { BatchActions } from './BatchActions';
+import { BulkImportDialog } from './BulkImportDialog';
 import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
 import { FileList } from './FileList';
+import { FormatMigration, type FormatMigrationResult } from './FormatMigration';
 import { HomeSearchPalette } from './HomeSearchPalette';
 import { HomeShortcutHelp } from './HomeShortcutHelp';
 import { HomeToolbar } from './HomeToolbar';
 import { NewFileDialog } from './NewFileDialog';
+import { PerfProfile } from './PerfProfile';
 import { ProjectsView } from './ProjectsView';
 import { type SidebarEntry, SidebarNav } from './SidebarNav';
 import { TemplatesGallery } from './TemplatesGallery';
@@ -19,6 +25,7 @@ import { useFileActions } from './useFileActions';
 import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
 import { useHomeView } from './useHomeView';
 import { useThumbnailLoader } from './useThumbnailLoader';
+import { VersionHistory } from './VersionHistory';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 export interface HomeShellProps {
@@ -71,6 +78,11 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [missingFiles, setMissingFiles] = useState<Set<string>>(new Set());
+  const [versionHistoryFileId, setVersionHistoryFileId] = useState<string | null>(null);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [migrationResults, setMigrationResults] = useState<FormatMigrationResult[] | null>(null);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -175,6 +187,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     }, [view.visibleFiles]),
     showHelp: useCallback(() => setShortcutHelpOpen(true), []),
     searchCommand: useCallback(() => setSearchPaletteOpen(true), []),
+    importFiles: useCallback(() => setBulkImportOpen(true), []),
   };
   useHomeShortcuts(shortcutHandlers, dialogOpen);
 
@@ -205,6 +218,8 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
       pinned: p.pinned,
     })),
     { id: 'templates', label: 'Templates', icon: 'LayoutGrid', count: 0 },
+    { id: 'assets', label: 'Assets', icon: 'Image', count: 0 },
+    { id: 'activity', label: 'Activity', icon: 'History', count: 0 },
     { id: 'trash', label: 'Trash', icon: 'Archive', count: view.trashedFiles.length },
   ];
 
@@ -302,6 +317,9 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           }
           break;
         }
+        case 'versions':
+          setVersionHistoryFileId(contextFile.id);
+          break;
         case 'pin':
           actions.togglePin(contextFile);
           break;
@@ -465,6 +483,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             project={projects.find((p) => p.id === state.activeProjectId) ?? null}
             files={visibleFiles}
             thumbnails={thumbnails.thumbnails}
+            platform={platform}
             onOpen={onOpenFile}
             onContext={handleFileContext}
             onRename={actions.renameProject}
@@ -485,7 +504,18 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
       case 'collections':
         return <EmptyStates section="collections" onAction={() => view.setSection('all')} />;
       case 'activity':
-        return <EmptyStates section="activity" onAction={() => view.setSection('all')} />;
+        return (
+          <ActivityFeed
+            platform={platform}
+            workspaceId={activeWorkspaceId}
+            onOpenFile={(fileId) => {
+              const entry = view.files.find((f) => f.id === fileId);
+              if (entry) onOpenFile(entry);
+            }}
+          />
+        );
+      case 'assets':
+        return <AssetBrowser platform={platform} workspaceId={activeWorkspaceId} />;
       default: {
         const heroSubtitle = state.filter.query
           ? `${visibleFiles.length} result${visibleFiles.length !== 1 ? 's' : ''} for "${state.filter.query}"`
@@ -650,6 +680,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                   'favorites',
                   'collections',
                   'activity',
+                  'assets',
                   'templates',
                   'trash',
                 ].includes(id)
@@ -662,6 +693,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                     | 'favorites'
                     | 'collections'
                     | 'activity'
+                    | 'assets'
                     | 'templates'
                     | 'trash',
                 );
@@ -676,10 +708,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             }}
             onDropOnProject={handleDropOnProject}
             onCreateProject={async () => {
-              const name = window.prompt('Project name:');
-              if (name?.trim()) {
-                await actions.createProject(name.trim());
-              }
+              setNewProjectOpen(true);
             }}
           />
         </div>
@@ -714,7 +743,46 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             }
           />
         </div>
-        <main className="strata-home__content">{renderContent()}</main>
+        {selectedIds.length > 0 && (
+          <div className="strata-home__batch-bar">
+            <BatchActions
+              selectedCount={selectedIds.length}
+              projects={view.projects}
+              onMoveToProject={(projectId) => {
+                for (const id of selectedIds) {
+                  actions.moveToProject(id, projectId);
+                }
+                setSelectedIds([]);
+              }}
+              onTrash={() => {
+                for (const id of selectedIds) {
+                  actions.trash(id);
+                }
+                setSelectedIds([]);
+              }}
+              onFavorite={() => {
+                for (const id of selectedIds) {
+                  const entry = view.files.find((f) => f.id === id);
+                  if (entry) actions.togglePin(entry);
+                }
+                setSelectedIds([]);
+              }}
+              onExport={() => {
+                // Export is a no-op in the home view for now
+                setSelectedIds([]);
+              }}
+              onDeselect={() => setSelectedIds([])}
+            />
+          </div>
+        )}
+        <main className="strata-home__content">
+          {renderContent()}
+          <PerfProfile
+            fileCount={view.files.length}
+            renderStartTime={Date.now()}
+            searchResultCount={view.visibleFiles.length}
+          />
+        </main>
 
         <NewFileDialog
           open={newFileOpen}
@@ -752,6 +820,76 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           templates={[]}
         />
         <HomeShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
+        {versionHistoryFileId && (
+          <VersionHistory
+            fileId={versionHistoryFileId}
+            platform={platform}
+            onRestore={(_versionId) => {
+              setVersionHistoryFileId(null);
+            }}
+            onClose={() => setVersionHistoryFileId(null)}
+          />
+        )}
+        <Dialog
+          open={newProjectOpen}
+          title="New Project"
+          onClose={() => {
+            setNewProjectOpen(false);
+            setNewProjectName('');
+          }}
+        >
+          <div className="strata-home__new-project-dialog">
+            <label htmlFor="new-project-name" className="strata-home__new-project-label">
+              Project name
+            </label>
+            <input
+              id="new-project-name"
+              type="text"
+              className="strata-home__new-project-input"
+              placeholder="e.g. Brand Redesign"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newProjectName.trim()) {
+                  actions.createProject(newProjectName.trim());
+                  setNewProjectName('');
+                  setNewProjectOpen(false);
+                }
+                if (e.key === 'Escape') {
+                  setNewProjectName('');
+                  setNewProjectOpen(false);
+                }
+              }}
+            />
+            <div className="strata-home__new-project-actions">
+              <button
+                type="button"
+                className="strata-home__new-project-cancel"
+                onClick={() => {
+                  setNewProjectName('');
+                  setNewProjectOpen(false);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="strata-home__new-project-confirm"
+                disabled={!newProjectName.trim()}
+                onClick={() => {
+                  if (newProjectName.trim()) {
+                    actions.createProject(newProjectName.trim());
+                    setNewProjectName('');
+                    setNewProjectOpen(false);
+                  }
+                }}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </Dialog>
       </section>
     </DndContext>
   );

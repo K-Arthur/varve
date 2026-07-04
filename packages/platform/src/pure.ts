@@ -69,6 +69,7 @@ export function defaultViewState(): HomeViewState {
       pinnedOnly: false,
       dateFrom: null,
       dateTo: null,
+      tagIds: [],
     },
     sidebarCollapsed: false,
   };
@@ -111,6 +112,7 @@ export function emptyFilter(): FilterState {
     pinnedOnly: false,
     dateFrom: null,
     dateTo: null,
+    tagIds: [],
   };
 }
 
@@ -214,4 +216,112 @@ export function uuid(): string {
 /** True when a file kind is one of the importable foreign formats. */
 export function isImportableKind(kind: FileKind): boolean {
   return kind === 'figma' || kind === 'illustrator' || kind === 'image';
+}
+
+// ─── Fuzzy Search ─────────────────────────────────────────────────────────────
+
+/**
+ * Trigram-based fuzzy search scoring.
+ *
+ * Research basis: trigram inverted indexes are cheap to build, compact,
+ * and excellent for fuzzy matching on short strings (file names, commands).
+ * See: "Fuzzy Search for Low-Latency Desktop Assistants" (2025) —
+ * trigram indexes hit sub-10ms candidate retrieval for 10k-100k items.
+ *
+ * This implementation extracts character trigrams from the query and
+ * candidate, then scores by the ratio of shared trigrams to query trigrams.
+ * A bonus is added for prefix matches. Typos within one edit distance are
+ * tolerated because a typo typically only affects 2-3 trigrams.
+ */
+export function extractTrigrams(s: string): string[] {
+  const trimmed = s.toLowerCase().trim();
+  if (trimmed === '') return [];
+  const padded = `  ${trimmed} `;
+  const trigrams: string[] = [];
+  for (let i = 0; i < padded.length - 2; i++) {
+    trigrams.push(padded.slice(i, i + 3));
+  }
+  return trigrams;
+}
+
+/**
+ * Score a candidate string against a query (0 = no match, 1 = perfect match).
+ * Uses trigram overlap ratio with a prefix bonus.
+ */
+export function fuzzyScore(query: string, candidate: string): number {
+  const q = query.toLowerCase().trim();
+  const c = candidate.toLowerCase().trim();
+  if (q === '' || c === '') return 0;
+  if (c.includes(q)) return 1;
+
+  const qTrigrams = new Set(extractTrigrams(q));
+  const cTrigrams = new Set(extractTrigrams(c));
+  if (qTrigrams.size === 0) return 0;
+
+  let shared = 0;
+  for (const t of qTrigrams) {
+    if (cTrigrams.has(t)) shared++;
+  }
+
+  const overlap = shared / qTrigrams.size;
+  const prefixBonus = c.startsWith(q.slice(0, Math.min(q.length, 3))) ? 0.15 : 0;
+  return Math.min(1, overlap + prefixBonus);
+}
+
+/**
+ * Fuzzy-search a list of items, returning items scored above the threshold
+ * sorted by descending score.
+ */
+export function fuzzySearch<T>(
+  query: string,
+  items: T[],
+  getText: (item: T) => string,
+  threshold = 0.3,
+): T[] {
+  if (!query.trim()) return items;
+  return items
+    .map((item) => ({ item, score: fuzzyScore(query, getText(item)) }))
+    .filter((r) => r.score >= threshold)
+    .sort((a, b) => b.score - a.score)
+    .map((r) => r.item);
+}
+
+// ─── Smart Collection Evaluation ──────────────────────────────────────────────
+
+import type { Collection, FileEntry } from './types';
+
+/**
+ * Evaluate a smart collection filter against a list of files.
+ * Returns only files that match all specified criteria.
+ */
+export function evaluateSmartCollection(collection: Collection, files: FileEntry[]): FileEntry[] {
+  const filter = collection.filter;
+  if (filter?.type !== 'smart') return [];
+
+  return files.filter((f) => {
+    if (f.trashedAt !== null) return false;
+
+    if (filter.query) {
+      const q = filter.query.toLowerCase();
+      if (!f.name.toLowerCase().includes(q)) return false;
+    }
+
+    if (filter.kinds && filter.kinds.length > 0) {
+      if (!filter.kinds.includes(f.kind)) return false;
+    }
+
+    if (filter.projectIds && filter.projectIds.length > 0) {
+      if (!filter.projectIds.includes(f.projectId ?? '')) return false;
+    }
+
+    if (filter.dateFrom !== null && filter.dateFrom !== undefined) {
+      if (f.updatedAt < filter.dateFrom) return false;
+    }
+
+    if (filter.dateTo !== null && filter.dateTo !== undefined) {
+      if (f.updatedAt > filter.dateTo) return false;
+    }
+
+    return true;
+  });
 }

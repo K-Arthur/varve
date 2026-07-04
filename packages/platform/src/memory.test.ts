@@ -197,3 +197,118 @@ describe('saveBinaryFile', () => {
     expect(svgPath).toMatch(/^memory:\/\//);
   });
 });
+
+describe('createMemoryPlatform — tags', () => {
+  it('creates and lists tags by workspace', async () => {
+    const p = createMemoryPlatform();
+    const workspaces = await p.listWorkspaces();
+    const ws = workspaces[0];
+    if (!ws) throw new Error('no workspace');
+    const tag = await p.createTag(ws.id, 'Important', '#ff0000');
+    expect(tag.name).toBe('Important');
+    expect(tag.color).toBe('#ff0000');
+
+    const tags = await p.listTags(ws.id);
+    expect(tags).toHaveLength(1);
+    expect(tags[0]?.id).toBe(tag.id);
+  });
+
+  it('renames a tag', async () => {
+    const p = createMemoryPlatform();
+    const workspaces = await p.listWorkspaces();
+    const ws = workspaces[0];
+    if (!ws) throw new Error('no workspace');
+    const tag = await p.createTag(ws.id, 'Old Name');
+    await p.renameTag(tag.id, 'New Name');
+    const tags = await p.listTags(ws.id);
+    expect(tags[0]?.name).toBe('New Name');
+  });
+
+  it('deletes a tag and removes file associations', async () => {
+    const p = createMemoryPlatform();
+    const workspaces = await p.listWorkspaces();
+    const ws = workspaces[0];
+    if (!ws) throw new Error('no workspace');
+    const tag = await p.createTag(ws.id, 'ToDelete');
+    const entry = makeFileEntry({ id: 'f1', name: 'File1' });
+    await p.upsertFile(entry, sampleJson('File1'));
+    await p.addFileTag('f1', tag.id);
+
+    await p.deleteTag(tag.id);
+    const tags = await p.listTags(ws.id);
+    expect(tags).toHaveLength(0);
+    const fileTags = await p.listFileTags('f1');
+    expect(fileTags).toHaveLength(0);
+  });
+
+  it('adds and removes file tags', async () => {
+    const p = createMemoryPlatform();
+    const workspaces = await p.listWorkspaces();
+    const ws = workspaces[0];
+    if (!ws) throw new Error('no workspace');
+    const tag1 = await p.createTag(ws.id, 'Tag1');
+    const tag2 = await p.createTag(ws.id, 'Tag2');
+    const entry = makeFileEntry({ id: 'f1', name: 'File1' });
+    await p.upsertFile(entry, sampleJson('File1'));
+
+    await p.addFileTag('f1', tag1.id);
+    await p.addFileTag('f1', tag2.id);
+    let fileTags = await p.listFileTags('f1');
+    expect(fileTags).toHaveLength(2);
+
+    await p.removeFileTag('f1', tag1.id);
+    fileTags = await p.listFileTags('f1');
+    expect(fileTags).toHaveLength(1);
+    expect(fileTags[0]?.name).toBe('Tag2');
+  });
+
+  it('does not duplicate file tags', async () => {
+    const p = createMemoryPlatform();
+    const workspaces = await p.listWorkspaces();
+    const ws = workspaces[0];
+    if (!ws) throw new Error('no workspace');
+    const tag = await p.createTag(ws.id, 'Tag');
+    const entry = makeFileEntry({ id: 'f1', name: 'File1' });
+    await p.upsertFile(entry, sampleJson('File1'));
+
+    await p.addFileTag('f1', tag.id);
+    await p.addFileTag('f1', tag.id);
+    const fileTags = await p.listFileTags('f1');
+    expect(fileTags).toHaveLength(1);
+  });
+
+  it('lists files by tag', async () => {
+    const p = createMemoryPlatform();
+    const workspaces = await p.listWorkspaces();
+    const ws = workspaces[0];
+    if (!ws) throw new Error('no workspace');
+    const tag = await p.createTag(ws.id, 'Important');
+    await p.upsertFile(makeFileEntry({ id: 'f1', name: 'File1' }), sampleJson('File1'));
+    await p.upsertFile(makeFileEntry({ id: 'f2', name: 'File2' }), sampleJson('File2'));
+    await p.addFileTag('f1', tag.id);
+
+    const taggedFiles = await p.listFilesByTag(tag.id);
+    expect(taggedFiles).toHaveLength(1);
+    expect(taggedFiles[0]?.name).toBe('File1');
+  });
+});
+
+describe('createMemoryPlatform — saved searches', () => {
+  it('creates and lists saved searches', async () => {
+    const p = createMemoryPlatform();
+    const search = await p.createSavedSearch('My Search', 'logo', ['strata']);
+    expect(search.name).toBe('My Search');
+    expect(search.query).toBe('logo');
+
+    const all = await p.listSavedSearches();
+    expect(all).toHaveLength(1);
+  });
+
+  it('deletes a saved search', async () => {
+    const p = createMemoryPlatform();
+    const search = await p.createSavedSearch('Temp', 'test');
+    await p.deleteSavedSearch(search.id);
+    const all = await p.listSavedSearches();
+    expect(all).toHaveLength(0);
+  });
+});

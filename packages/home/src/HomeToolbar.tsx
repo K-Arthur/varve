@@ -16,6 +16,7 @@ export interface HomeToolbarProps {
   onSortDirToggle: () => void;
   onNewFile: () => void;
   onOpenFromDisk: () => void;
+  onOpenImport?: () => void;
   kindFilter: FileKind[];
   pinnedOnly: boolean;
   dateFrom: number | null;
@@ -54,6 +55,7 @@ export function HomeToolbar({
   onSortDirToggle,
   onNewFile,
   onOpenFromDisk,
+  onOpenImport,
   kindFilter,
   pinnedOnly,
   dateFrom,
@@ -81,6 +83,12 @@ export function HomeToolbar({
         <Button variant="secondary" onClick={onOpenFromDisk}>
           Open...
         </Button>
+        {onOpenImport && (
+          <Button variant="secondary" onClick={onOpenImport}>
+            <Icon name="Upload" label={undefined} />
+            Import
+          </Button>
+        )}
       </div>
       <div className="strata-home__toolbar-center">
         <SearchField value={query} onChange={onQueryChange} resultCount={resultCount} />

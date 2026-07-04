@@ -24,6 +24,8 @@ import type {
   Permission,
   Project,
   ProjectTemplate,
+  SavedSearch,
+  Tag,
   TemplateLibrary,
   ThumbnailRecord,
   VersionEntry,
@@ -128,6 +130,26 @@ export interface Platform {
   setPermission(fileId: string, role: Permission['role']): Promise<void>;
   listActivity(workspaceId: string, limit?: number): Promise<ActivityEvent[]>;
   recordActivity(event: Omit<ActivityEvent, 'id' | 'timestamp'>): Promise<void>;
+
+  // ─── Phase 9: Tags & Metadata ─────────────────────────────────────────────
+  listTags(workspaceId: string): Promise<Tag[]>;
+  createTag(workspaceId: string, name: string, color?: string): Promise<Tag>;
+  renameTag(id: string, name: string): Promise<void>;
+  deleteTag(id: string): Promise<void>;
+  listFileTags(fileId: string): Promise<Tag[]>;
+  addFileTag(fileId: string, tagId: string): Promise<void>;
+  removeFileTag(fileId: string, tagId: string): Promise<void>;
+  listFilesByTag(tagId: string): Promise<FileEntry[]>;
+
+  // ─── Phase 9: Saved Searches ──────────────────────────────────────────────
+  listSavedSearches(): Promise<SavedSearch[]>;
+  createSavedSearch(
+    name: string,
+    query: string,
+    kinds?: string[],
+    tagIds?: string[],
+  ): Promise<SavedSearch>;
+  deleteSavedSearch(id: string): Promise<void>;
 
   // ─── Search ───────────────────────────────────────────────────────────────
   searchFiles(query: string): Promise<FileEntry[]>;

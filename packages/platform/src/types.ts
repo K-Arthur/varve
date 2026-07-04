@@ -52,6 +52,14 @@ export interface Project {
   name: string;
   /** Optional accent hex (resolved against tokens at render time). */
   color?: string;
+  /** Optional description shown in project header. */
+  description?: string;
+  /** Workspace this project belongs to. */
+  workspaceId?: string;
+  /** Lifecycle status for workflow tracking. */
+  status?: 'active' | 'archived' | 'draft';
+  /** User id of the project owner (future collaboration). */
+  ownerId?: string;
   createdAt: number;
   updatedAt: number;
   pinned: boolean;
@@ -88,7 +96,9 @@ export type SidebarSection =
   | 'collections'
   | 'templates'
   | 'trash'
-  | 'activity';
+  | 'activity'
+  | 'assets'
+  | 'versions';
 
 export interface FilterState {
   /** Free-text query (matched against name). Empty = no query. */
@@ -106,6 +116,8 @@ export interface FilterState {
   dateFrom: number | null;
   /** Epoch ms upper bound on updatedAt, or null. */
   dateTo: number | null;
+  /** Restrict to files with any of these tag ids. Empty = no tag filter. */
+  tagIds: string[];
 }
 
 /** Persisted Home view state — restored verbatim on launch. */
@@ -302,6 +314,37 @@ export interface Branch {
   fileId: string;
   baseVersionId?: string;
   status: 'open' | 'merged' | 'closed';
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Phase 9: Tags & Metadata ─────────────────────────────────────────────────
+/** A user-defined tag for categorizing files across projects. */
+export interface Tag {
+  id: string;
+  /** Workspace this tag belongs to. */
+  workspaceId: string;
+  name: string;
+  /** Optional accent hex for visual identification. */
+  color?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Association between a file and a tag. */
+export interface FileTag {
+  fileId: string;
+  tagId: string;
+  addedAt: number;
+}
+
+/** A saved search that can be recalled from the sidebar. */
+export interface SavedSearch {
+  id: string;
+  name: string;
+  query: string;
+  kinds?: FileKind[];
+  tagIds?: string[];
   createdAt: number;
   updatedAt: number;
 }
