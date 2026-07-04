@@ -19,6 +19,7 @@ import type {
   Collection,
   CollectionEntry,
   FileEntry,
+  FileTag,
   Folder,
   HomeViewState,
   Library,
@@ -26,6 +27,8 @@ import type {
   Permission,
   Project,
   ProjectTemplate,
+  SavedSearch,
+  Tag,
   TemplateLibrary,
   ThumbnailRecord,
   VersionEntry,
@@ -50,6 +53,9 @@ interface MemoryState {
   branches: Map<string, Branch[]>;
   permissions: Map<string, Permission[]>;
   activity: ActivityEvent[];
+  tags: Map<string, Tag>;
+  fileTags: Map<string, FileTag[]>;
+  savedSearches: Map<string, SavedSearch>;
   /** Separate maps for associations not on the entity types. */
   fileFolderIds: Map<string, string | null>;
   assetFolderIds: Map<string, string | null>;
@@ -75,6 +81,9 @@ function freshState(): MemoryState {
     branches: new Map(),
     permissions: new Map(),
     activity: [],
+    tags: new Map(),
+    fileTags: new Map(),
+    savedSearches: new Map(),
     fileFolderIds: new Map(),
     assetFolderIds: new Map(),
     projectWorkspaceIds: new Map(),
@@ -623,6 +632,89 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         timestamp: Date.now(),
       };
       state.activity.push(activityEvent);
+    },
+
+    // ─── Phase 9: Tags & Metadata ─────────────────────────────────────────
+    async listTags(workspaceId) {
+      return [...state.tags.values()].filter((t) => t.workspaceId === workspaceId);
+    },
+    async createTag(workspaceId, name, color) {
+      const now = Date.now();
+      const tag: Tag = {
+        id: uuid(),
+        workspaceId,
+        name,
+        color,
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.tags.set(tag.id, tag);
+      return tag;
+    },
+    async renameTag(id, name) {
+      const t = state.tags.get(id);
+      if (!t) return;
+      state.tags.set(id, { ...t, name, updatedAt: Date.now() });
+    },
+    async deleteTag(id) {
+      state.tags.delete(id);
+      for (const [fileId, tags] of state.fileTags) {
+        state.fileTags.set(
+          fileId,
+          tags.filter((ft) => ft.tagId !== id),
+        );
+      }
+    },
+    async listFileTags(fileId) {
+      const tags = state.fileTags.get(fileId) ?? [];
+      return tags.map((ft) => state.tags.get(ft.tagId)).filter((t): t is Tag => t !== undefined);
+    },
+    async addFileTag(fileId, tagId) {
+      const existing = state.fileTags.get(fileId) ?? [];
+      if (existing.some((ft) => ft.tagId === tagId)) return;
+      existing.push({ fileId, tagId, addedAt: Date.now() });
+      state.fileTags.set(fileId, existing);
+    },
+    async removeFileTag(fileId, tagId) {
+      const existing = state.fileTags.get(fileId);
+      if (!existing) return;
+      state.fileTags.set(
+        fileId,
+        existing.filter((ft) => ft.tagId !== tagId),
+      );
+    },
+    async listFilesByTag(tagId) {
+      const fileIds = new Set(
+        [...state.fileTags.values()]
+          .flat()
+          .filter((ft) => ft.tagId === tagId)
+          .map((ft) => ft.fileId),
+      );
+      return [...state.files.values()]
+        .map((r) => r.entry)
+        .filter((e) => fileIds.has(e.id) && e.trashedAt === null);
+    },
+
+    // ─── Phase 9: Saved Searches ──────────────────────────────────────────
+    async listSavedSearches() {
+      return [...state.savedSearches.values()];
+    },
+    async createSavedSearch(name, query, kinds, tagIds) {
+      const now = Date.now();
+      const search: SavedSearch = {
+        id: uuid(),
+        name,
+        query,
+        kinds: kinds as SavedSearch['kinds'],
+        tagIds,
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.savedSearches.set(search.id, search);
+      return search;
+    },
+    async deleteSavedSearch(id) {
+      state.savedSearches.delete(id);
     },
 
     // No native dialogs in memory mode — these intentionally return null/empty

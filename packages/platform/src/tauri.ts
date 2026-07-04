@@ -37,6 +37,8 @@ import type {
   Permission,
   Project,
   ProjectTemplate,
+  SavedSearch,
+  Tag,
   TemplateLibrary,
   ThumbnailRecord,
   VersionEntry,
@@ -348,6 +350,54 @@ export function createTauriPlatform(): Platform {
     },
     async recordActivity(event) {
       await core().invoke('home_record_activity', { event });
+    },
+
+    // ─── Phase 9: Tags & Metadata ─────────────────────────────────────────
+    async listTags(workspaceId) {
+      const c = core();
+      return (await c.invoke('home_list_tags', { workspaceId })) as Tag[];
+    },
+    async createTag(workspaceId, name, color) {
+      const c = core();
+      return (await c.invoke('home_create_tag', { workspaceId, name, color })) as Tag;
+    },
+    async renameTag(id, name) {
+      await core().invoke('home_rename_tag', { id, name });
+    },
+    async deleteTag(id) {
+      await core().invoke('home_delete_tag', { id });
+    },
+    async listFileTags(fileId) {
+      const c = core();
+      return (await c.invoke('home_list_file_tags', { fileId })) as Tag[];
+    },
+    async addFileTag(fileId, tagId) {
+      await core().invoke('home_add_file_tag', { fileId, tagId });
+    },
+    async removeFileTag(fileId, tagId) {
+      await core().invoke('home_remove_file_tag', { fileId, tagId });
+    },
+    async listFilesByTag(tagId) {
+      const c = core();
+      return (await c.invoke('home_list_files_by_tag', { tagId })) as FileEntry[];
+    },
+
+    // ─── Phase 9: Saved Searches ──────────────────────────────────────────
+    async listSavedSearches() {
+      const c = core();
+      return (await c.invoke('home_list_saved_searches')) as SavedSearch[];
+    },
+    async createSavedSearch(name, query, kinds, tagIds) {
+      const c = core();
+      return (await c.invoke('home_create_saved_search', {
+        name,
+        query,
+        kinds,
+        tagIds,
+      })) as SavedSearch;
+    },
+    async deleteSavedSearch(id) {
+      await core().invoke('home_delete_saved_search', { id });
     },
 
     async getThumbnail(hash) {

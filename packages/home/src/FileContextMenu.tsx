@@ -12,7 +12,8 @@ export type FileMenuAction =
   | 'reveal'
   | 'export'
   | 'locate'
-  | 'remove';
+  | 'remove'
+  | 'versions';
 
 export interface FileContextMenuProps {
   file: FileEntry;
@@ -81,6 +82,12 @@ export function FileContextMenu({
       onAction: () => onAction('pin'),
     });
     items.push({ id: 'sep4', separator: true });
+    items.push({
+      id: 'versions',
+      label: 'Version History...',
+      onAction: () => onAction('versions'),
+    });
+    items.push({ id: 'sep5', separator: true });
     items.push({
       id: 'trash',
       label: 'Move to Trash',

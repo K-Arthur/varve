@@ -36,6 +36,8 @@ import type {
   Permission,
   Project,
   ProjectTemplate,
+  SavedSearch,
+  Tag,
   TemplateLibrary,
   ThumbnailRecord,
   VersionEntry,
@@ -392,6 +394,50 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     async recordActivity() {
       throw new Error('activity not supported on web');
     },
+
+    // ─── Phase 9: Tags & Metadata ─────────────────────────────────────────
+    async listTags() {
+      return [] as Tag[];
+    },
+    async createTag(_workspaceId: string, name: string, _color?: string) {
+      const now = Date.now();
+      const tag: Tag = {
+        id: uuid(),
+        workspaceId: _workspaceId,
+        name,
+        color: _color,
+        createdAt: now,
+        updatedAt: now,
+      };
+      return tag;
+    },
+    async renameTag() {},
+    async deleteTag() {},
+    async listFileTags() {
+      return [] as Tag[];
+    },
+    async addFileTag() {},
+    async removeFileTag() {},
+    async listFilesByTag() {
+      return [] as FileEntry[];
+    },
+
+    // ─── Phase 9: Saved Searches ──────────────────────────────────────────
+    async listSavedSearches() {
+      return [] as SavedSearch[];
+    },
+    async createSavedSearch(name: string, query: string) {
+      const now = Date.now();
+      const search: SavedSearch = {
+        id: uuid(),
+        name,
+        query,
+        createdAt: now,
+        updatedAt: now,
+      };
+      return search;
+    },
+    async deleteSavedSearch() {},
 
     async searchFiles(query) {
       if (!query.trim()) return [];
