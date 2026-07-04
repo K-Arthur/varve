@@ -3,6 +3,8 @@ export { FolderView } from './FolderView';
 export { EmptyStates } from './EmptyStates';
 export type { FileCardProps } from './FileCard';
 export { FileCard } from './FileCard';
+export type { BulkImportDialogProps } from './BulkImportDialog';
+export { BulkImportDialog } from './BulkImportDialog';
 export type { FileMenuAction } from './FileContextMenu';
 export { FileContextMenu } from './FileContextMenu';
 export type { FileGridProps } from './FileGrid';

@@ -24,6 +24,7 @@ import { TrashSection } from './TrashSection';
 import { useFileActions } from './useFileActions';
 import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
 import { useHomeView } from './useHomeView';
+import { BulkImportDialog } from './BulkImportDialog';
 import { useThumbnailLoader } from './useThumbnailLoader';
 import { VersionHistory } from './VersionHistory';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -70,6 +71,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newFileOpen, setNewFileOpen] = useState(false);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('personal');
   const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
@@ -186,6 +188,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
       setSelectedIds(view.visibleFiles.map((f) => f.id));
     }, [view.visibleFiles]),
     showHelp: useCallback(() => setShortcutHelpOpen(true), []),
+    importFiles: useCallback(() => setImportOpen(true), []),
     searchCommand: useCallback(() => setSearchPaletteOpen(true), []),
     importFiles: useCallback(() => setBulkImportOpen(true), []),
   };
@@ -890,6 +893,12 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             </div>
           </div>
         </Dialog>
+        <BulkImportDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          platform={platform}
+          onImportComplete={() => view.refresh()}
+        />
       </section>
     </DndContext>
   );

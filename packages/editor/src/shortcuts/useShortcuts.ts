@@ -193,6 +193,8 @@ export function useShortcuts(
         return () => e.setTool('inspect' as ToolId);
       case 'toggleSnap':
         return () => e.setSnapEnabled(!e.state.snapEnabled);
+      case 'softProof':
+        return () => e.setSoftProofEnabled(!e.state.softProofEnabled);
       case 'toggleLeftPanel':
         return () => e.toggleLeftPanel();
       case 'toggleRightPanel':

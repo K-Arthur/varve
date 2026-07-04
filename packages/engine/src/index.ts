@@ -57,6 +57,8 @@ export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type { ReplayTarget } from './replay';
 export { replayIr } from './replay';
+export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './textOutlines';
+export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
 export type {

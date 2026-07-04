@@ -1,7 +1,6 @@
 import { managedColorToRgba } from '@strata/shared';
-import type { NodeId, TextNode } from '@strata/scene';
+import type { ManagedColor, NodeId, TextNode } from '@strata/scene';
 import { getFontRegistry } from '@strata/engine';
-import type { Color as RgbaColor } from '@strata/engine';
 import { ColorPicker, Icon, Popover } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import './FloatingTextBar.css';
@@ -99,10 +98,8 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   }, [node, onUpdate]);
 
   const handleColorChange = useCallback(
-    (color: RgbaColor) => {
-      onUpdate(node.id, {
-        fill: { space: 'rgb', r: color[0], g: color[1], b: color[2], a: color[3] ?? 255 },
-      });
+    (color: ManagedColor) => {
+      onUpdate(node.id, { fill: color });
     },
     [node, onUpdate],
   );
@@ -141,7 +138,8 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const fillColor: RgbaColor = node.fill ? managedColorToRgba(node.fill) : [0, 0, 0, 255];
+  const fillColor: ManagedColor = node.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 };
+  const fillColorRgba = managedColorToRgba(fillColor);
   const isBold = (node.fontWeight ?? 400) >= 600;
   const isItalic = (node.fontStyle ?? 'normal') === 'italic';
   const isList = (node.listStyle ?? 'none') !== 'none';
@@ -265,7 +263,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
           className="floating-text-bar__swatch"
           aria-label="Text color"
           style={{
-            background: `rgba(${fillColor[0]}, ${fillColor[1]}, ${fillColor[2]}, ${(fillColor[3] ?? 255) / 255})`,
+            background: `rgba(${fillColorRgba[0]}, ${fillColorRgba[1]}, ${fillColorRgba[2]}, ${fillColorRgba[3] / 255})`,
           }}
         />
       </Popover>

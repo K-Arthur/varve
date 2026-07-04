@@ -18,6 +18,7 @@ pub struct PathPoint {
 
 /// First-pass shape set. Bézier paths arrive with the lyon integration.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum Shape {
     Rect(Rect),
     /// Axis-aligned ellipse (center + semi-axes).

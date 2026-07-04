@@ -2,6 +2,14 @@
  * Rich text layout engine.
  * Lays out mixed-format rich text into measured lines for canvas rendering.
  * Handles per-run font sizing, wrapping, and overflow detection.
+ *
+ * Phase B: Replaced estimateTextWidth with real canvas measureText when
+ * available (browser/DOM). Falls back to proportional estimate in non-DOM
+ * environments (tests, SSR). Added CJK-aware line breaking via Intl.Segmenter
+ * when available, with fallback to whitespace splitting.
+ *
+ * Research basis: CanvasRenderingContext2D.measureText, Intl.Segmenter (UAX #14),
+ * Figma text layout engine, HarfBuzz line breaking.
  */
 
 import type { OpenTypeFeatureMap, VariableFontSettings } from './types';
@@ -95,8 +103,70 @@ function estimateTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.55;
 }
 
-function measureRunFallback(text: string, fontSize: number): { width: number } {
-  return { width: estimateTextWidth(text, fontSize) };
+/** Cached offscreen canvas for measureText calls (created lazily). */
+let measureCanvas: HTMLCanvasElement | null = null;
+
+function getMeasureContext(): CanvasRenderingContext2D | null {
+  if (typeof document === 'undefined') return null;
+  if (!measureCanvas) {
+    measureCanvas = document.createElement('canvas');
+  }
+  return measureCanvas.getContext('2d');
+}
+
+/** Measure text width using canvas measureText when available, else estimate. */
+function measureRunWidth(text: string, font: string, fontSize: number): number {
+  const ctx = getMeasureContext();
+  if (ctx) {
+    ctx.font = font;
+    return ctx.measureText(text).width;
+  }
+  return estimateTextWidth(text, fontSize);
+}
+
+/** CJK Unicode range detection for line breaking. */
+function isCJK(char: string): boolean {
+  const code = char.codePointAt(0) ?? 0;
+  return (
+    (code >= 0x3400 && code <= 0x4dbf) ||  // CJK Extension A
+    (code >= 0x4e00 && code <= 0x9fff) ||  // CJK Unified Ideographs
+    (code >= 0xf900 && code <= 0xfaff) ||  // CJK Compatibility Ideographs
+    (code >= 0x3040 && code <= 0x309f) ||  // Hiragana
+    (code >= 0x30a0 && code <= 0x30ff) ||  // Katakana
+    (code >= 0xac00 && code <= 0xd7af)     // Hangul Syllables
+  );
+}
+
+/** Contains CJK characters that allow breaking between any two chars. */
+function containsCJK(text: string): boolean {
+  for (const char of text) {
+    if (isCJK(char)) return true;
+  }
+  return false;
+}
+
+/** Intl.Segmenter for word-level segmentation (cached). */
+let segmenter: Intl.Segmenter | null = null;
+
+function getWordSegmenter(): Intl.Segmenter | null {
+  if (typeof Intl === 'undefined' || !Intl.Segmenter) return null;
+  if (!segmenter) {
+    segmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
+  }
+  return segmenter;
+}
+
+/** Split text into breakable units (words + spaces, or CJK chars). */
+function splitIntoBreakUnits(text: string): string[] {
+  const seg = getWordSegmenter();
+  if (seg && containsCJK(text)) {
+    const units: string[] = [];
+    for (const { segment } of seg.segment(text)) {
+      units.push(segment);
+    }
+    return units;
+  }
+  return text.split(/(\s+)/);
 }
 
 export function layoutRichText(
@@ -127,9 +197,10 @@ export function layoutRichText(
       const featureSettings = buildFeatureSettings(run.format?.openTypeFeatures);
       const variationSettings = buildVariationSettings(run.format?.variableFontSettings);
 
-      const words = run.text.split(/(\s+)/);
+      const words = splitIntoBreakUnits(run.text);
       for (const word of words) {
-        const wordWidth = measureRunFallback(word, fontSize).width;
+        if (word === '') continue;
+        const wordWidth = measureRunWidth(word, font, fontSize);
 
         if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
           if (lineCount >= maxLines - 1) {
@@ -139,7 +210,7 @@ export function layoutRichText(
           lines.push({
             runs: currentLine.map((r) => ({
               ...r,
-              width: measureRunFallback(r.text, r.format.fontSize).width,
+              width: measureRunWidth(r.text, r.font, r.format.fontSize),
               height: r.format.fontSize * 1.2,
             })),
             width: currentLineWidth,
@@ -181,7 +252,7 @@ export function layoutRichText(
       lines.push({
         runs: currentLine.map((r) => ({
           ...r,
-          width: measureRunFallback(r.text, r.format.fontSize).width,
+          width: measureRunWidth(r.text, r.font, r.format.fontSize),
           height: r.format.fontSize * 1.2,
         })),
         width: currentLineWidth,

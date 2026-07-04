@@ -10,7 +10,6 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import { managedColorToRgba } from '@strata/shared';
 import type { ManagedColor, SceneNode, VariableStore } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
@@ -153,8 +152,8 @@ function EmptySelectionState() {
           <span className="insp-field__label">Background</span>
           <div className="insp-field__control">
             <ColorPicker
-              value={canvasBg ? managedColorToRgba(canvasBg) : [0, 0, 0, 255]}
-              onChange={(c) => setCanvasBackground({ space: 'rgb' as const, r: c[0], g: c[1], b: c[2], a: c[3] ?? 255 })}
+              value={canvasBg ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
+              onChange={(c) => setCanvasBackground(c as ManagedColor)}
             />
           </div>
         </div>

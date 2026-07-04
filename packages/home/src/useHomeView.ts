@@ -9,7 +9,7 @@ import type {
   ViewMode,
   Workspace,
 } from '@strata/platform';
-import { compareBy, DRAFTS_ID, defaultViewState, mergeViewState } from '@strata/platform';
+import { compareBy, DRAFTS_ID, defaultViewState, fuzzyScore, mergeViewState } from '@strata/platform';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface HomeView {
@@ -20,6 +20,8 @@ export interface HomeView {
   workspaces: Workspace[];
   pinnedFiles: FileEntry[];
   recentFiles: FileEntry[];
+  /** The 5 most recently updated files — shown as priority "Continue working" items. */
+  continueWorkingFiles: FileEntry[];
   /** Files filtered by the current sidebar section + filters. */
   visibleFiles: FileEntry[];
   /** Files whose projectId === DRAFTS_ID. */
@@ -93,6 +95,11 @@ export function useHomeView(platform: Platform): HomeView & {
     .filter((f) => f.favoritedAt !== null && f.favoritedAt !== undefined && f.favoritedAt > 0)
     .sort((a, b) => (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0));
 
+  const continueWorkingFiles = [...files]
+    .filter((f) => !f.trashedAt)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 5);
+
   const visibleFiles = computeVisibleFiles(files, state, projects);
 
   return {
@@ -103,6 +110,7 @@ export function useHomeView(platform: Platform): HomeView & {
     workspaces,
     pinnedFiles,
     recentFiles,
+    continueWorkingFiles,
     draftFiles,
     favoriteFiles,
     visibleFiles,

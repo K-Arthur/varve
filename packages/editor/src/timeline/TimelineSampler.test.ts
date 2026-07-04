@@ -427,6 +427,117 @@ describe('sampleTimeline', () => {
       expect(result).toEqual([1, 0, 0, 1, 50, 100]);
     });
   });
+
+  describe('spatial bezier interpolation', () => {
+    it('interpolates position along a bezier curve with spatial tangents', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'position',
+            interpolation: 'bezier',
+            keyframes: [
+              {
+                progress: 0,
+                value: [0, 0],
+                spatialTangents: { ti: [0, 0], to: [50, 100] },
+              },
+              {
+                progress: 1,
+                value: [100, 0],
+                spatialTangents: { ti: [50, -100], to: [0, 0] },
+              },
+            ],
+          },
+        ],
+      });
+      const result = sampleTimeline(tl, 500).overrides.get('n1')!.get('position') as number[];
+      expect(result[0]).toBe(50);
+      expect(result[1]).toBe(75);
+    });
+
+    it('returns from value at t=0 with spatial tangents', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'position',
+            interpolation: 'bezier',
+            keyframes: [
+              {
+                progress: 0,
+                value: [10, 20],
+                spatialTangents: { ti: [0, 0], to: [30, 40] },
+              },
+              {
+                progress: 1,
+                value: [100, 200],
+                spatialTangents: { ti: [10, 10], to: [0, 0] },
+              },
+            ],
+          },
+        ],
+      });
+      const result = sampleTimeline(tl, 0).overrides.get('n1')!.get('position') as number[];
+      expect(result[0]).toBe(10);
+      expect(result[1]).toBe(20);
+    });
+
+    it('returns to value at t=1 with spatial tangents', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultFillMode: 'forwards',
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'position',
+            interpolation: 'bezier',
+            keyframes: [
+              {
+                progress: 0,
+                value: [10, 20],
+                spatialTangents: { ti: [0, 0], to: [30, 40] },
+              },
+              {
+                progress: 1,
+                value: [100, 200],
+                spatialTangents: { ti: [10, 10], to: [0, 0] },
+              },
+            ],
+          },
+        ],
+      });
+      const result = sampleTimeline(tl, 1000).overrides.get('n1')!.get('position') as number[];
+      expect(result[0]).toBe(100);
+      expect(result[1]).toBe(200);
+    });
+
+    it('falls back to linear when bezier interpolation has no spatial tangents', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'position',
+            interpolation: 'bezier',
+            keyframes: [
+              { progress: 0, value: [0, 0] },
+              { progress: 1, value: [100, 200] },
+            ],
+          },
+        ],
+      });
+      const result = sampleTimeline(tl, 500).overrides.get('n1')!.get('position') as number[];
+      expect(result[0]).toBe(50);
+      expect(result[1]).toBe(100);
+    });
+  });
 });
 
 describe('sampleTimelineAt (document integration)', () => {

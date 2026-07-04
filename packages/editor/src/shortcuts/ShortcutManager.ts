@@ -167,6 +167,11 @@ export const SHORTCUT_DEFS = {
     label: 'Present',
     category: 'View',
   },
+  softProof: {
+    binding: { key: 'y', ctrl: true, shift: true },
+    label: 'Toggle Soft Proofing',
+    category: 'View',
+  },
 } satisfies Record<string, ShortcutDef>;
 
 // ── Persistence ────────────────────────────────────────────────────────

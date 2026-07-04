@@ -24,7 +24,24 @@ export interface Engine {
   hitTest(scene: Scene, world: Point): Promise<number | null>;
 }
 
-function shapeToPrimitive(node: SceneNode, measureTextFn?: MeasureTextFn): RenderItem['primitive'] {
+/** Resolve the path shape for a text node in path text mode. */
+function resolvePathShape(
+  node: SceneNode,
+  nodeMap?: Map<string, SceneNode>,
+): import('./types').Shape | undefined {
+  if (node.kind !== 'text') return undefined;
+  const settings = node.pathTextSettings;
+  if (!settings || !nodeMap) return undefined;
+  const pathNode = nodeMap.get(settings.pathNodeId);
+  if (!pathNode) return undefined;
+  return pathNode.shape;
+}
+
+function shapeToPrimitive(
+  node: SceneNode,
+  measureTextFn?: MeasureTextFn,
+  nodeMap?: Map<string, SceneNode>,
+): RenderItem['primitive'] {
   if (node.kind === 'image') {
     return { kind: 'image', w: node.w ?? 100, h: node.h ?? 100, src: node.src ?? '' };
   }
@@ -81,6 +98,7 @@ function shapeToPrimitive(node: SceneNode, measureTextFn?: MeasureTextFn): Rende
       openTypeFeatures: node.openTypeFeatures,
       textMode: node.textMode,
       pathTextSettings: node.pathTextSettings,
+      pathShape: resolvePathShape(node, nodeMap),
     };
   }
   const s = node.shape;
@@ -138,11 +156,13 @@ function stubEngine(): Engine {
   return {
     backend: 'stub',
     async buildIr(scene) {
+      const nodeMap = new Map<string, SceneNode>();
+      for (const n of scene.nodes) nodeMap.set(n.id, n);
       return scene.nodes.map((n) => {
         const item: RenderItem = {
           transform: n.transform,
           fill: n.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
-          primitive: shapeToPrimitive(n),
+          primitive: shapeToPrimitive(n, undefined, nodeMap),
           opacity: n.opacity ?? 1,
           blendMode: n.blendMode ?? 'normal',
           strokes: n.strokes ?? [],

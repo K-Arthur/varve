@@ -138,7 +138,7 @@ describe('VersionHistory', () => {
     });
 
     const restoreButtons = screen.getAllByText('Restore');
-    fireEvent.click(restoreButtons[0]);
+    fireEvent.click(restoreButtons[0]!);
     expect(onRestore).toHaveBeenCalledWith('v1');
   });
 

@@ -8,6 +8,7 @@ export interface HomeShortcutHandlers {
   selectAll: () => void;
   showHelp: () => void;
   searchCommand: () => void;
+  importFiles: () => void;
 }
 
 export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boolean) {
@@ -47,6 +48,12 @@ export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boo
 
       if (isCtrl && e.key === 'k') {
         handlers.searchCommand();
+        e.preventDefault();
+        return;
+      }
+
+      if (isCtrl && e.key === 'i') {
+        handlers.importFiles();
         e.preventDefault();
         return;
       }
@@ -91,6 +98,15 @@ export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boo
       }
 
       if (isCtrl && e.key === 'a') {
+        const active = document.activeElement;
+        if (
+          active &&
+          (active.tagName === 'INPUT' ||
+            active.tagName === 'TEXTAREA' ||
+            (active as HTMLElement).isContentEditable)
+        ) {
+          return;
+        }
         handlers.selectAll();
         e.preventDefault();
         return;

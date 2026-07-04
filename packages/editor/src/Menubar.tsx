@@ -98,6 +98,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
         action: 'toggleSnap',
       },
+      {
+        label: 'Soft Proofing',
+        shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
+        action: 'softProof',
+      },
       { label: '---' },
       {
         label: 'Clear All Guides',
@@ -209,6 +214,7 @@ export function Menubar({
     ungroupSelected,
     arrangeSelected,
     setSnapEnabled,
+    setSoftProofEnabled,
     booleanOp,
     startPresentation,
     clearAllGuides,
@@ -358,6 +364,9 @@ export function Menubar({
           break;
         case 'toggleSnap':
           setSnapEnabled(!state.snapEnabled);
+          break;
+        case 'softProof':
+          setSoftProofEnabled(!state.softProofEnabled);
           break;
         case 'clearGuides':
           clearAllGuides();

@@ -11,6 +11,7 @@
  */
 import { applyFilterChain } from './filters';
 import { layoutRichText } from './textLayout';
+import { placeGlyphsOnPath } from './pathText';
 import { managedColorToRgba } from '@strata/shared';
 import type { EngineColor, FillIR, RenderItem } from './types';
 
@@ -683,11 +684,54 @@ function paintRichText(
   }
 }
 
+/** Paint text along a path (text-on-path). */
+function paintPathText(
+  target: ReplayTarget,
+  p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+): void {
+  const settings = p.pathTextSettings;
+  if (!settings) return;
+
+  const shape = p.pathShape;
+  if (!shape) return;
+
+  const displayText = applyTextCase(p.text, p.textCase);
+  const style = p.fontStyle === 'italic' ? 'italic ' : '';
+  const fw = Math.max(1, Math.min(1000, p.fontWeight));
+  target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+  target.textBaseline = 'alphabetic';
+
+  const placements = placeGlyphsOnPath(displayText, shape, {
+    offset: settings.startOffset ?? 0,
+    side: settings.side ?? 'top',
+    fontSize: p.fontSize,
+  });
+
+  const originalFillStyle = target.fillStyle;
+
+  for (const glyph of placements) {
+    target.save();
+    target.transform(1, 0, 0, 1, glyph.x, glyph.y);
+    // Apply rotation via transform: [cos, sin, -sin, cos, 0, 0]
+    const c = Math.cos(glyph.angle);
+    const s = Math.sin(glyph.angle);
+    target.transform(c, s, -s, c, 0, 0);
+    target.fillText(glyph.char, 0, 0);
+    target.restore();
+  }
+
+  target.fillStyle = originalFillStyle;
+}
+
 /** Paint a text primitive via Canvas2D `fillText` with full typography support. */
 function paintText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
 ): void {
+  if (p.textMode === 'path' && p.pathTextSettings) {
+    paintPathText(target, p);
+    return;
+  }
   if (p.richText) {
     paintRichText(target, p);
     return;

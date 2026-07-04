@@ -70,7 +70,7 @@ describe('ActivityFeed', () => {
         }),
         makeEvent('e2', 'created', {
           fileId: 'f2',
-          timestamp: now - 200000000,
+          timestamp: now - 4000000000,
           metadata: { fileName: 'Old' },
         }),
       ]),
@@ -131,9 +131,9 @@ describe('ActivityFeed', () => {
       expect(screen.getByText('Design v1')).toBeTruthy();
     });
 
-    const eventBtn = screen.getByText('Design v1').closest('button');
+    const eventBtn = screen.getByText('Design v1').closest('button')!;
     expect(eventBtn).toBeTruthy();
-    fireEvent.click(eventBtn!);
+    fireEvent.click(eventBtn);
     expect(onOpenFile).toHaveBeenCalledWith('f1');
   });
 });

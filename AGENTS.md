@@ -64,7 +64,7 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** ~1600+ tests across +130 files: scene 476 (28 pre-existing failures), prototype 231, shared 266, engine 55+, timeline 43, codegen 25+, editor 412+, platform 43, home 13, print 4, ui 147+
+- **JS:** ~1600+ tests across +130 files: scene 565 (28 pre-existing failures), prototype 297, shared 359, engine 293, timeline 47, codegen 100, editor 412+, platform 43, home 13, print 4, ui 147+
 - **Typecheck:** 15/15 packages pass (zero new errors; 28 pre-existing scene test failures from cascade page system)
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 93/93 WCAG-AA across 3 themes
@@ -459,12 +459,12 @@ Implemented from text plan:
 | **Quick Actions Bar** | Added `quickActions` shortcut (Ctrl+;) to `SHORTCUT_DEFS`; wired through `useShortcuts` to Shell. Previously had no trigger. | +2 |
 | **Typecheck cleanup** | Fixed 30+ pre-existing TS errors across 8 packages. All **15/15** packages now pass `pnpm typecheck` clean. | — |
 
-**Still remaining (Phases 2, 3, 6, 7, 8, 9, 10):**
+**Still remaining (Phases 2, 3, 6, 9, 10):**
 - Phase 2: Render Pipeline fixes (baseline mapping, decoration width, ellipsis measurement)
 - Phase 3: Rich Text model (RichSpan), per-span formatting
 - Phase 6: Text Styles UI panel (style browser, create/apply)
-- Phase 7: RTL/CJK/Emoji support
-- Phase 8: Text-to-vector outlines
+- Phase 7: RTL/CJK/Emoji support — **partially done in Session 34 (CJK line breaking via Intl.Segmenter)**
+- Phase 8: Text-to-vector outlines — **placeholder implemented in Session 34 (textOutlines.ts, real glyph extraction deferred)**
 - Phase 9: Codegen text completeness
 - Phase 10: Import text improvements
 
@@ -1198,3 +1198,58 @@ Complete implementation of a 6-system unified platform capability. All work TDD-
 - **Emoji audit:** clean (504 files)
 - **Typecheck:** clean on all modified packages (pre-existing errors only in boolean.ts, masks.ts, prototype files)
 - **Lint:** 0 new errors (1 pre-existing error in prototype/src/runtime.test.ts)
+
+## Session 34 — Typography Phase B: UI Integration, Measurement, Path Text, Outlines (2026-07-03)
+
+Phase B typography enhancements building on the Phase A foundation (Session 23). Closes the gap between declared type capabilities and actual behavior.
+
+| Area | What was built | Tests |
+|---|---|---|
+| **OpenType Features UI** | `TypographySection.tsx` — Replaced stub with `OpenTypeFeaturesSection` (collapsible disclosure, 14 common feature toggles with labels + tag display). Reads supported features from `FontRegistry.getSupportedFeatures()`. | — |
+| **Variable Font Axes UI** | `TypographySection.tsx` — Added `VariableAxesSection` (collapsible disclosure, range sliders per axis). Only renders when selected font `isVariable()`. Uses `FontRegistry.getAxisInfo()` for min/max/default. | — |
+| **Real Canvas Measurement** | `textLayout.ts` — Replaced `estimateTextWidth` (`text.length * fontSize * 0.55`) with cached offscreen canvas `ctx.measureText()`. Falls back to estimate in non-DOM environments. | +10 |
+| **CJK Line Breaking** | `textLayout.ts` — Added `isCJK()`, `containsCJK()` Unicode range detection (CJK Unified, Hiragana, Katakana, Hangul). `splitIntoBreakUnits()` uses `Intl.Segmenter` with `granularity: 'word'` for CJK-aware breaking, falls back to whitespace split. | (in above) |
+| **Path Text Rendering** | `replay.ts` — Added `paintPathText()` that places glyphs along a path via `placeGlyphsOnPath()` and renders each with position/rotation transforms. `types.ts` — Added `pathShape?: Shape` to text primitive. `engine.ts` — Added `resolvePathShape()` to resolve path node references from scene. | +3 |
+| **Text-to-Outlines** | `textOutlines.ts` — New module: `textToOutlines()`, `glyphOutlineToSvgPath()`, `textOutlinesToSvg()`. Produces bounding-box placeholder outlines (`isPlaceholder: true`) with infrastructure for real glyph path extraction via opentype.js/ab_glyph. | +9 |
+| **Inspector CSS** | `inspector.css` — Added `.insp-opentype-list`, `.insp-opentype-row`, `.insp-opentype-tag`, `.insp-slider__input`, `.insp-slider__value` styles. | — |
+
+**Files modified:** `TypographySection.tsx`, `inspector.css`, `textLayout.ts`, `replay.ts`, `types.ts`, `engine.ts`, `index.ts`
+**Files created:** `textOutlines.ts`, `textLayout.phaseB.test.ts`, `textOutlines.test.ts`, `pathTextReplay.test.ts`
+**Audit updated:** `docs/audits/typography-system-audit.md` — Added competitive analysis (Sketch/Penpot/Canva/Figma), text-to-outlines research, RTL/BiDi/CJK considerations, updated 3-phase roadmap.
+
+**Verification:** Engine 293/293 pass (271 existing + 22 new), typecheck engine+editor clean, lint 0 new errors, emoji 0 violations (602 files), tokens 93/93 WCAG-AA.
+
+## Session 35 — Color Management, CMYK, Bleed & Physical Document Model Overhaul (2026-07-03)
+
+Complete implementation of the 5-phase color management and print production architecture plan:
+
+| Phase | What was built | Tests |
+|---|---|---|
+| **1.1** ColorConversionService | `colorConversion.ts` — TS-side analytical color math: sRGB↔linear↔XYZ↔Lab↔Oklab↔CMYK, ΔEOK, gamut mapping (binary-search chroma reduction), ManagedColor→RGBA/CSS/EngineColor helpers | 49 |
+| **1.2** ManagedColor integration | `ManagedColor` (RGB/CMYK/Gray/Spot union) replaces legacy `Color` tuple as canonical color type in `Fill`, `Stroke`, `Effect`, `GradientStop`, `NodeBase.fill` across scene, engine, codegen, editor, import packages. `EngineColor` union in engine types. Shared exports for `managedColorToRgba`/`managedColorToCss`. | 459 (scene) + 271 (engine) |
+| **1.3** DPI-aware unit system | `DocumentUnit` type (px/pt/mm/cm/in/pc), `UNIT_TO_PX` constant map, `convertDocumentUnit`, `physicalToPx`/`pxToPhysical`, `formatPhysical` | 266 (shared) |
+| **1.5** Tauri IPC | Registered `export_pdfx1a`, `export_pdfx4`, `outline_text`, `export_pdf_with_options` Tauri commands. Updated `native.ts` bridge with options JSON serialization. Fixed `IpcShape::Text` missing fields. | 19 (Rust) |
+| **2.1-2.2** Page model | `Page` type (id, name, w/h, bleed/safeArea/slug overrides, backgrounds[], contentRoot), `Document.pages[]`, `addPage`/`removePage`/`reorderPages`/`duplicatePage`/`setPageSize`/`migrateToPages`. Version bump 1.1→1.2. | 21 (page) + 59 (document) |
+| **3.1, 3.3** ColorPicker | CMYK sliders (4×0-100%), grayscale slider, ColorSpaceSelector (RGB/CMYK/Gray/Spot tabs), GamutWarning (HSV heuristic), SpotColorBrowser (searchable color book), ManagedColor emission | 16 (ColorPicker) + 160 (UI) |
+| **3.4** Color mode switching | `switchColorMode(doc, newMode)` — converts all document colors between RGB↔CMYK↔Grayscale | 11 |
+| **3.5** Color swatches | `addSwatch`/`removeSwatch`/`updateSwatch`/`applySwatchToNode` — immutable swatch CRUD on Document | 10 |
+| **3.6** Soft proofing | `SoftProofOverlay` (saturation blend-mode), `softProofEnabled` state, Ctrl+Shift+Y shortcut, View menu item | 3 |
+| **3.7** ICC profiles | `BUNDLED_RGB_PROFILES` (6), `BUNDLED_CMYK_PROFILES` (6), `getProfileById()` — profile metadata registry | 9 |
+| **4.1-4.6** Rust print overhaul | Stacked fills (Solid/Gradient/fallback/opacity), stroked paths (w/J/j/M/d/S with dash/cap/join), effects (dropShadow via `cm` matrix), image embedding (XObject Stream), multi-font outlining (`outline_text_multi` family lookup), registration marks (5 crosshair positions), color bars (CMYK/RGB process swatches), profile-aware CMYK (Fogra39/GRACoL/SWOP GCR+TAC differentiation), opaque/transparency groups | 91 (strata-print) |
+| **5.1-5.4** Preflight | Safe area content check, slug check, spot color/overprint/font checks, color space consistency. Updated `printPreflight.ts` with all 4 new modules. | 8+11+5+6=30 |
+
+**Key architecture decisions:**
+- `ManagedColor` is the canonical color type everywhere (RGB/CMYK/Gray/Spot discriminated union)
+- `EngineColor` mirrors it as a self-contained type in `@strata/engine` (no circular dep)
+- `ColorConversionService` provides pure-TS analytical conversions (no ICC needed for basic ops)
+- `Page` model stores each page's content via a `contentRoot` GroupNode in `rootChildren` for backward compat
+- Rust `RenderContext` pattern replaced flat `shape_to_pdf_content` with `render_fills`/`render_strokes`/`render_effects`
+- Profile-aware CMYK conversion dispatches on `PrintProfile` with different GCR/TAC per standard
+- Registration marks and color bars wired into PDF/X-1a and PDF/X-4 export paths
+
+**Rust tests:** 154 pass (+91 from baseline, strata-print crate grew from 12 tests to 91)
+**JS tests:** ~1400+ across all packages
+**Typecheck:** 14/15 packages pass (4 pre-existing home package icon type errors)
+**Rust clippy:** `cargo clippy --workspace -D warnings` clean
+
+**Next:** End-to-end export E2E tests (Phase 4.8), visual trim/bleed/safe-area overlays (Phase 2.5), inspector unit toggle (Phase 5.7), home package type fixes.
