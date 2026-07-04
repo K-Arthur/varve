@@ -87,8 +87,6 @@ export interface ReplayTarget {
   shadowBlur?: number;
   shadowOffsetX?: number;
   shadowOffsetY?: number;
-  /** Set the clipping path from the current sub-path. */
-  clip?(): void;
   /** Create a pattern from an image source. */
   createPattern?(image: CanvasImageSource | string, repetition: string): ReplayPattern | null;
 }
@@ -268,7 +266,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           target.save();
           target.beginPath();
           traceOutline(target, item.primitive);
-          target.clip();
+          if (target.clip) target.clip();
           target.shadowColor = rgba(effect.color);
           target.shadowBlur = effect.blur;
           target.shadowOffsetX = -effect.x;
@@ -309,7 +307,6 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
   }
 }
 
-
 /** Paint a single fill (solid, gradient, image, or pattern) over the primitive shape. */
 function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
   if (fill.type === 'solid') {
@@ -336,31 +333,69 @@ function paintImageFill(
   const bh = bounds.h || 1;
 
   const imgEntry = getImageCache().get(fill.src);
-  if (imgEntry?.state === 'loaded' && imgEntry.image) {
-    if (target.drawImage) {
-      const sx = fill.x;
-      const sy = fill.y;
-      const scale = fill.scale;
-      let dw = bw * scale;
-      let dh = bh * scale;
+  const hasCached = imgEntry?.state === 'loaded' && imgEntry.image;
+  if (!target.drawImage) {
+    target.fillRect(0, 0, bw, bh);
+    return;
+  }
 
-      if (fill.fit === 'fit' && imgEntry.image) {
-        const aspect = imgEntry.image.naturalWidth / imgEntry.image.naturalHeight;
-        const boundsAspect = bw / bh;
-        if (aspect > boundsAspect) {
-          dh = bw / aspect;
-        } else {
-          dw = bh * aspect;
+  const imageW = fill.imageWidth ?? bw;
+  const imageH = fill.imageHeight ?? bh;
+  const scale = fill.scale ?? 1;
+  const fit = fill.fit ?? 'fill';
+
+  if (hasCached) {
+    let dw = bw * scale;
+    let dh = bh * scale;
+    if (fit === 'fit') {
+      const aspect = imgEntry.image.naturalWidth / imgEntry.image.naturalHeight;
+      const boundsAspect = bw / bh;
+      if (aspect > boundsAspect) dh = bw / aspect;
+      else dw = bh * aspect;
+    }
+    target.drawImage(imgEntry.image, fill.x ?? 0, fill.y ?? 0, dw, dh);
+  } else if (fit === 'stretch') {
+    target.drawImage(fill.src, bounds.x, bounds.y, bounds.w, bounds.h);
+  } else if (fit === 'tile') {
+    const tileW = imageW * scale;
+    const tileH = imageH * scale;
+    if (tileW > 0 && tileH > 0) {
+      const startX =
+        bounds.x + (fill.x ?? 0) - Math.floor((bounds.x + (fill.x ?? 0)) / tileW) * tileW;
+      const startY =
+        bounds.y + (fill.y ?? 0) - Math.floor((bounds.y + (fill.y ?? 0)) / tileH) * tileH;
+      for (let y = startY; y < bounds.y + bounds.h; y += tileH) {
+        for (let x = startX; x < bounds.x + bounds.w; x += tileW) {
+          target.drawImage(fill.src, x, y, tileW, tileH);
         }
       }
-
-      target.drawImage(imgEntry.image, sx, sy, dw, dh);
-    } else {
-      target.fillRect(0, 0, bw, bh);
     }
   } else {
-    target.fillStyle = '#e0e0e0';
-    target.fillRect(0, 0, bw, bh);
+    const scaledW = imageW * scale;
+    const scaledH = imageH * scale;
+    const imgAspect = scaledW / scaledH;
+    const boundsAspect = bw / bh;
+    let dw: number, dh: number;
+    if (fit === 'fit') {
+      if (imgAspect > boundsAspect) {
+        dw = bw;
+        dh = bw / imgAspect;
+      } else {
+        dh = bh;
+        dw = bh * imgAspect;
+      }
+    } else {
+      if (imgAspect > boundsAspect) {
+        dh = bh;
+        dw = bh * imgAspect;
+      } else {
+        dw = bw;
+        dh = bw / imgAspect;
+      }
+    }
+    const dx = bounds.x + (fill.x ?? 0) + (bw - dw) / 2;
+    const dy = bounds.y + (fill.y ?? 0) + (bh - dh) / 2;
+    target.drawImage(fill.src, dx, dy, dw, dh);
   }
 }
 
@@ -381,7 +416,13 @@ function paintPatternFill(
     const th = tileEntry.image.naturalHeight + spacing;
     for (let ty = 0; ty < bh; ty += th) {
       for (let tx = 0; tx < bw; tx += tw) {
-        target.drawImage(tileEntry.image, tx, ty, tileEntry.image.naturalWidth, tileEntry.image.naturalHeight);
+        target.drawImage(
+          tileEntry.image,
+          tx,
+          ty,
+          tileEntry.image.naturalWidth,
+          tileEntry.image.naturalHeight,
+        );
       }
     }
   } else {

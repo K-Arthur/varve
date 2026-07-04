@@ -10,8 +10,8 @@
  */
 
 import type { Document } from './document';
-import type { SMState, SMTransition, StateMachine } from './state-machine-types';
 import { findEntryState, findSMTransitions, getStateMachine } from './state-machine';
+import type { SMState, SMTransition, StateMachine } from './state-machine-types';
 
 export interface SMRuntime {
   doc: Document;
@@ -61,7 +61,11 @@ export function getSMInputValue(runtime: SMRuntime, inputId: string): boolean | 
   return runtime.inputs[inputId];
 }
 
-export function setSMInput(runtime: SMRuntime, inputId: string, value: boolean | number): SMRuntime {
+export function setSMInput(
+  runtime: SMRuntime,
+  inputId: string,
+  value: boolean | number,
+): SMRuntime {
   const sm = getStateMachineFromRuntime(runtime);
   if (!sm) return runtime;
   const input = sm.inputs.find((i) => i.id === inputId);

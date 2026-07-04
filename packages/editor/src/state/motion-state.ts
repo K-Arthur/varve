@@ -2,8 +2,9 @@
  * Motion state for the editor context — tracks playback, active timeline,
  * and selection within the timeline/keyframe editor.
  */
-import type { Timeline } from '@strata/scene';
+
 import { prefersReducedMotion } from '@strata/prototype';
+import type { Timeline } from '@strata/scene';
 import { TimelineEngine } from '../timeline/TimelineEngine';
 import { type SampleResult, sampleTimeline } from '../timeline/TimelineSampler';
 
