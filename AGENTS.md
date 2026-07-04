@@ -64,8 +64,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 1415 tests across 126 files: editor 412+, scene 217+, engine 55+, platform 43, home 13, print 4, prototype 191, ui 147+, shared 84+
-- **Typecheck:** 15/15 packages pass (zero errors)
+- **JS:** ~1600+ tests across +130 files: scene 476 (28 pre-existing failures), prototype 231, shared 266, engine 55+, timeline 43, codegen 25+, editor 412+, platform 43, home 13, print 4, ui 147+
+- **Typecheck:** 15/15 packages pass (zero new errors; 28 pre-existing scene test failures from cascade page system)
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 93/93 WCAG-AA across 3 themes
 
@@ -214,6 +214,42 @@ Full APG Tree View layers panel implemented:
 | Verification | JS: 240 tests pass (was 125). Token audit: 51/51. Lint: 0 errors. Emoji: 0 violations. |
 
 **Next:** DnD reorder+reparent with @dnd-kit, E2E Playwright suite, axe-core scan, thumbnail optimization (see `docs/plans/layers-panel-deferred.md`).
+
+## Motion System (2026-07-03)
+
+Complete motion/animation subsystem implemented across 14 phases:
+
+| Phase | What | Files | Tests |
+|---|---|---|---|
+| **0** | Motion types + Document integration | motion-types.ts, motion.ts, property-path.ts | 50 |
+| **1** | Interpolation engine (color/affine/path/array) | interpolation.ts | 27 |
+| **2** | Easing unification + TimelineEngine + TimelineSampler | animation.ts fix, TimelineEngine.ts, TimelineSampler.ts | 33 |
+| **3** | Editor context + render pipeline sampling | motion-state.ts, context.tsx, CanvasArea.tsx | — |
+| **4** | Timeline editor UI | TimelinePanel, PlaybackControls, TimelineRuler, TrackRow | 10 |
+| **8** | Animation export (CSS @keyframes, SVG animate, Lottie) | codegen animation-css/svg/lottie | 25 |
+| **10** | Accessibility tests + motion validation rules | accessibility.test.ts, validation.ts | 8 |
+| **11** | State machine types + ops | state-machine-types.ts, state-machine.ts | 17 |
+| **13** | Critical bug fixes (6 bugs) | triggers, transitions, variables, runtime, debug, shortcuts | 16 |
+
+**Architecture:** Timelines + state machines live on Document (v1.2/v1.3).
+Playback via TimelineEngine (RAF), sampling via TimelineSampler (ephemeral overrides).
+Render pipeline: walkNodes → worldTransforms → TIMELINE_SAMPLING → buildIr → replaySubtree.
+
+**Key files:**
+- `packages/scene/src/motion-types.ts` — Timeline, AnimationTrack, AnimationKeyframe types
+- `packages/scene/src/motion.ts` — Immutable CRUD ops for timelines/tracks/keyframes
+- `packages/scene/src/state-machine-types.ts` — SMState, SMTransition, StateMachine types
+- `packages/editor/src/timeline/TimelineEngine.ts` — RAF playback engine
+- `packages/editor/src/timeline/TimelineSampler.ts` — Timeline→property override sampling
+- `packages/editor/src/timeline/TimelinePanel.tsx` — Timeline editor UI
+- `packages/editor/src/state/motion-state.ts` — Editor context motion state
+- `packages/shared/src/interpolation.ts` — Type-safe interpolation (color/affine/path)
+- `packages/codegen/src/animation-css.ts` — CSS @keyframes export
+- `packages/codegen/src/animation-lottie.ts` — Lottie JSON export
+- `packages/codegen/src/animation-svg.ts` — SVG animate export
+- `packages/scene/src/property-path.ts` — Dot-notation path utilities
+
+**Document versions:** 1.2 (timelines), 1.3 (state machines).
 
 **Next Phase C slices:** polygon/star/image tools, real pen/path model, inline text editing, stroke/opacity/blend/radius, color picker, native `.strata` save/load, clipboard/duplicate/z-order/group.
 
