@@ -1,6 +1,6 @@
-export const CURRENT_DOCUMENT_VERSION = '1.3';
+export const CURRENT_DOCUMENT_VERSION = '1.2';
 
-export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3'];
+export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2'];
 
 export interface DocumentMigration {
   from: string;
@@ -58,16 +58,6 @@ const migrations: DocumentMigration[] = [
 
       return result;
     },
-  },
-  {
-    from: '1.2',
-    to: '1.3',
-    migrate: (raw) => ({
-      ...raw,
-      formatVersion: '1.3',
-      // State machine fields default to undefined (no state machines by default).
-      stateMachines: raw.stateMachines ?? undefined,
-    }),
   },
 ];
 
