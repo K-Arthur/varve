@@ -15,6 +15,8 @@ export interface PlaybackOptions {
   onFinish?: () => void;
   onIteration?: (iteration: number) => void;
   direction?: 'forward' | 'reverse';
+  /** When true, skip animation and jump to end state for reduced motion. */
+  reducedMotion?: boolean;
 }
 
 export interface EngineConfig {
@@ -22,6 +24,8 @@ export interface EngineConfig {
   iterations?: number;
   loop?: boolean;
   autoReverse?: boolean;
+  /** When true, skip animation and jump to end state for reduced motion. */
+  reducedMotion?: boolean;
 }
 
 export class TimelineEngine {
@@ -70,6 +74,17 @@ export class TimelineEngine {
     this._direction = opts.direction ?? 'forward';
     this._effectiveDirection = this._direction;
     this._lastTimestamp = null;
+
+    if (this._config.reducedMotion || opts.reducedMotion) {
+      this._state = 'finished';
+      this._currentTime = this._resolveEndTime();
+      this._currentIteration = Math.max(0, (this._config.iterations ?? 1) - 1);
+      this._effectiveDirection = this._resolveEffectiveDirection(this._currentIteration);
+      if (this._onFrame) this._onFrame(this._currentTime, this._currentIteration);
+      if (this._onFinish) this._onFinish();
+      return;
+    }
+
     this._state = 'playing';
     this._scheduleFrame();
   }
@@ -108,6 +123,14 @@ export class TimelineEngine {
     const baseIsForward = this._direction === 'forward';
     const even = iteration % 2 === 0;
     return baseIsForward === even ? 'forward' : 'reverse';
+  }
+
+  private _resolveEndTime(): number {
+    const maxIter = this._config.iterations ?? 1;
+    if (maxIter === Infinity) return this._config.duration;
+    const lastIteration = Math.max(0, maxIter - 1);
+    const finalDirection = this._resolveEffectiveDirection(lastIteration);
+    return finalDirection === 'forward' ? this._config.duration : 0;
   }
 
   setSpeed(speed: number): void {

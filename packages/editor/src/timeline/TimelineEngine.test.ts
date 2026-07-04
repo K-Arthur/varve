@@ -199,4 +199,21 @@ describe('TimelineEngine', () => {
     expect(engine.currentIteration).toBe(1);
     expect(engine.state).toBe('finished');
   });
+
+  it('jumps to end when reduced motion is configured', () => {
+    const onFinish = vi.fn();
+    engine = new TimelineEngine({ duration: 1000, reducedMotion: true });
+    engine.play({ onFrame, onFinish });
+    expect(engine.currentTime).toBe(1000);
+    expect(engine.state).toBe('finished');
+    expect(onFinish).toHaveBeenCalled();
+    expect(onFrame).toHaveBeenCalledWith(1000, 0);
+  });
+
+  it('jumps to start when reduced motion is configured with reverse direction', () => {
+    engine = new TimelineEngine({ duration: 1000, reducedMotion: true });
+    engine.play({ onFrame, direction: 'reverse' });
+    expect(engine.currentTime).toBe(0);
+    expect(engine.state).toBe('finished');
+  });
 });

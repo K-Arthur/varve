@@ -3,6 +3,7 @@
  * and selection within the timeline/keyframe editor.
  */
 import type { Timeline } from '@strata/scene';
+import { prefersReducedMotion } from '@strata/prototype';
 import { TimelineEngine } from '../timeline/TimelineEngine';
 import { type SampleResult, sampleTimeline } from '../timeline/TimelineSampler';
 
@@ -55,11 +56,13 @@ export function createMotionTimelineEngine(): MotionTimelineEngine {
 
     startPlayback(timeline: Timeline) {
       this.stopPlayback();
+      const reducedMotion = prefersReducedMotion();
       const eng = new TimelineEngine({
         duration: timeline.duration,
         iterations: timeline.defaultIterations ?? 1,
         loop: false,
         autoReverse: timeline.autoReverse ?? false,
+        reducedMotion,
       });
       engine = eng;
       this.engine = eng;
