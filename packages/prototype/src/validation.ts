@@ -8,12 +8,21 @@
 
 import type { NodeId, PrototypeData } from './types';
 
+/** Minimal timeline info used for prototype-level motion validation. */
+export interface TimelineValidationInfo {
+  id: string;
+  name: string;
+  duration: number;
+  tracks: { nodeId: string; property: string }[];
+}
+
 export interface ValidationIssue {
   code: string;
   severity: 'error' | 'warning' | 'info';
   message: string;
   nodeId?: NodeId;
   interactionId?: string;
+  timelineId?: string;
 }
 
 /**
@@ -23,6 +32,7 @@ export interface ValidationIssue {
 export function validatePrototype(
   prototype: PrototypeData,
   allNodeIds: NodeId[],
+  timelines?: TimelineValidationInfo[],
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const nodeSet = new Set(allNodeIds);
@@ -106,6 +116,41 @@ export function validatePrototype(
         message: `Node "${nodeId}" has no interactions attached`,
         nodeId,
       });
+    }
+  }
+
+  // Validate timelines
+  if (timelines) {
+    for (const tl of timelines) {
+      if (tl.duration <= 0) {
+        issues.push({
+          code: 'timeline-zero-duration',
+          severity: 'warning',
+          message: `Timeline "${tl.name}" has duration ${tl.duration}, which must be greater than 0`,
+          timelineId: tl.id,
+        });
+      }
+
+      if (tl.tracks.length === 0) {
+        issues.push({
+          code: 'timeline-empty',
+          severity: 'info',
+          message: `Timeline "${tl.name}" has no animation tracks`,
+          timelineId: tl.id,
+        });
+      }
+
+      for (const track of tl.tracks) {
+        if (!allNodeIds.includes(track.nodeId)) {
+          issues.push({
+            code: 'timeline-broken-target',
+            severity: 'error',
+            message: `Timeline "${tl.name}" targets node "${track.nodeId}" which does not exist`,
+            nodeId: track.nodeId,
+            timelineId: tl.id,
+          });
+        }
+      }
     }
   }
 

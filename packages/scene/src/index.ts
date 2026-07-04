@@ -23,6 +23,8 @@ export * from './motion';
 export * from './motion-types';
 export * from './printPreflight';
 export * from './property-path';
+export * from './state-machine-types';
+export * from './state-machine';
 export * from './styles';
 export * from './textFlow';
 export * from './textWarp';
