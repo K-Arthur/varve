@@ -39,8 +39,11 @@ import {
 import type { ExportPreset, NodeId, Slot } from '@strata/scene';
 import {
   type ArrangeOp,
+  type BleedConfig,
   addChild,
   addComponentProperty as addComponentPropertyDoc,
+  type SafeAreaConfig,
+  type SlugConfig,
   addGuide as addGuideDoc,
   addKeyframe,
   addNode,
@@ -472,6 +475,8 @@ export interface EditorContextValue {
   setCursorPos: (pos: { x: number; y: number } | null) => void;
   /** Set the display unit type. */
   setUnitType: (t: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%') => void;
+  /** Set the document's measurement unit (px, pt, mm, cm, in, pc). */
+  setDocumentUnit: (unit: import('@strata/shared').DocumentUnit) => void;
   /** Toggle soft proofing overlay. */
   setSoftProofEnabled: (v: boolean) => void;
   /** Toggle pixel grid overlay. */
@@ -564,6 +569,13 @@ export interface EditorContextValue {
   ) => void;
   /** Resolve properties for a node considering its active variant. */
   resolveVariantPropertiesForNode: (nodeId: NodeId) => Record<string, string | boolean | NodeId>;
+
+  /** Set page-level bleed config for a specific page. */
+  setPageBleed: (pageId: string, bleed: BleedConfig) => void;
+  /** Set page-level safe area config for a specific page. */
+  setPageSafeArea: (pageId: string, safeArea: SafeAreaConfig) => void;
+  /** Set page-level slug config for a specific page. */
+  setPageSlug: (pageId: string, slug: SlugConfig) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -2285,6 +2297,36 @@ export function EditorProvider({
         return resolveVariantProperties(state.document, frame.componentId, frame.variant);
       },
 
+      setPageBleed: (pageId, bleed) => {
+        updateDoc((doc) => {
+          if (!doc.pages) return doc;
+          return {
+            ...doc,
+            pages: doc.pages.map((p) => (p.id === pageId ? { ...p, bleed } : p)),
+          };
+        });
+      },
+
+      setPageSafeArea: (pageId, safeArea) => {
+        updateDoc((doc) => {
+          if (!doc.pages) return doc;
+          return {
+            ...doc,
+            pages: doc.pages.map((p) => (p.id === pageId ? { ...p, safeArea } : p)),
+          };
+        });
+      },
+
+      setPageSlug: (pageId, slug) => {
+        updateDoc((doc) => {
+          if (!doc.pages) return doc;
+          return {
+            ...doc,
+            pages: doc.pages.map((p) => (p.id === pageId ? { ...p, slug } : p)),
+          };
+        });
+      },
+
       setNodeLocked: (id, locked) => {
         updateNodeProp(id, (n) => ({ ...n, locked }));
       },
@@ -2564,6 +2606,9 @@ export function EditorProvider({
       },
       setCursorPos: (pos) => patch({ cursorPos: pos }),
       setUnitType: (t) => patch({ unitType: t }),
+      setDocumentUnit: (unit) => {
+        updateDoc((doc) => ({ ...doc, documentUnit: unit }));
+      },
       setPixelGridEnabled: (v) => patch({ pixelGridEnabled: v }),
       setSnapEnabled: (v) => patch({ snapEnabled: v }),
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),

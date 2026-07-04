@@ -10,7 +10,7 @@ import type {
   Workspace,
 } from '@strata/platform';
 import { compareBy, DRAFTS_ID, defaultViewState, fuzzyScore, mergeViewState } from '@strata/platform';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface HomeView {
   state: HomeViewState;
@@ -18,6 +18,8 @@ export interface HomeView {
   trashedFiles: FileEntry[];
   projects: Project[];
   workspaces: Workspace[];
+  /** Currently selected workspace id; null when no workspace exists. */
+  activeWorkspaceId: string | null;
   pinnedFiles: FileEntry[];
   recentFiles: FileEntry[];
   /** The 5 most recently updated files — shown as priority "Continue working" items. */
@@ -38,13 +40,14 @@ export function useHomeView(platform: Platform): HomeView & {
   toggleSortDir: () => void;
   setFilter: (f: Partial<FilterState>) => void;
   setActiveProject: (id: string | null) => void;
+  setWorkspace: (id: string) => void;
   toggleSidebar: () => void;
   refresh: () => Promise<void>;
 } {
   const [state, setState] = useState<HomeViewState>(defaultViewState);
-  const [files, setFiles] = useState<FileEntry[]>([]);
-  const [trashedFiles, setTrashedFiles] = useState<FileEntry[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [allFiles, setAllFiles] = useState<FileEntry[]>([]);
+  const [allTrashedFiles, setAllTrashedFiles] = useState<FileEntry[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const viewStateRef = useRef<HomeViewState>(state);
@@ -60,11 +63,19 @@ export function useHomeView(platform: Platform): HomeView & {
         platform.listWorkspaces().catch(() => [] as Workspace[]),
       ]);
       const merged = mergeViewState(vs);
-      viewStateRef.current = merged;
-      setState(merged);
-      setFiles(fileList);
-      setTrashedFiles(trashList);
-      setProjects(projList);
+      const workspaceIds = new Set(wsList.map((w) => w.id));
+      const personal = wsList.find((w) => w.kind === 'personal') ?? wsList[0] ?? null;
+      const activeWorkspaceId =
+        merged.activeWorkspaceId && workspaceIds.has(merged.activeWorkspaceId)
+          ? merged.activeWorkspaceId
+          : personal?.id ?? null;
+      const next: HomeViewState = { ...merged, activeWorkspaceId };
+      viewStateRef.current = next;
+      setState(next);
+      platform.setViewState(next);
+      setAllFiles(fileList);
+      setAllTrashedFiles(trashList);
+      setAllProjects(projList);
       setWorkspaces(wsList);
     } finally {
       setLoading(false);
@@ -84,6 +95,28 @@ export function useHomeView(platform: Platform): HomeView & {
     load();
   }, [load]);
 
+  const activeWorkspace = useMemo(
+    () => workspaces.find((w) => w.id === state.activeWorkspaceId) ?? workspaces[0] ?? null,
+    [workspaces, state.activeWorkspaceId],
+  );
+
+  const projects = useMemo(
+    () => allProjects.filter((p) => isProjectInWorkspace(p, activeWorkspace)),
+    [allProjects, activeWorkspace],
+  );
+
+  const projectIds = useMemo(() => new Set(projects.map((p) => p.id)), [projects]);
+
+  const files = useMemo(
+    () => allFiles.filter((f) => isFileInWorkspace(f, activeWorkspace, projectIds)),
+    [allFiles, activeWorkspace, projectIds],
+  );
+
+  const trashedFiles = useMemo(
+    () => allTrashedFiles.filter((f) => isFileInWorkspace(f, activeWorkspace, projectIds)),
+    [allTrashedFiles, activeWorkspace, projectIds],
+  );
+
   const pinnedFiles = files.filter((f) => f.pinned && !f.trashedAt);
   const recentFiles = [...files]
     .filter((f) => f.openedAt > 0 && !f.trashedAt)
@@ -100,7 +133,7 @@ export function useHomeView(platform: Platform): HomeView & {
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 5);
 
-  const visibleFiles = computeVisibleFiles(files, state, projects);
+  const visibleFiles = computeVisibleFiles(files, state);
 
   return {
     state,
@@ -108,6 +141,7 @@ export function useHomeView(platform: Platform): HomeView & {
     trashedFiles,
     projects,
     workspaces,
+    activeWorkspaceId: activeWorkspace?.id ?? null,
     pinnedFiles,
     recentFiles,
     continueWorkingFiles,
@@ -154,6 +188,19 @@ export function useHomeView(platform: Platform): HomeView & {
         section: 'project' as SidebarSection,
       });
     },
+    setWorkspace: (id) => {
+      const target = workspaces.find((w) => w.id === id);
+      if (!target) return;
+      const projectsInTarget = allProjects.filter((p) => isProjectInWorkspace(p, target));
+      const projectIdsInTarget = new Set(projectsInTarget.map((p) => p.id));
+      const currentProjectId = viewStateRef.current.activeProjectId;
+      const nextProjectId = currentProjectId && projectIdsInTarget.has(currentProjectId) ? currentProjectId : null;
+      persist({
+        ...viewStateRef.current,
+        activeWorkspaceId: id,
+        activeProjectId: nextProjectId,
+      });
+    },
     toggleSidebar: () => {
       persist({
         ...viewStateRef.current,
@@ -164,11 +211,24 @@ export function useHomeView(platform: Platform): HomeView & {
   };
 }
 
-function computeVisibleFiles(
-  all: FileEntry[],
-  state: HomeViewState,
-  _projects: Project[],
-): FileEntry[] {
+function isProjectInWorkspace(project: Project, workspace: Workspace | null): boolean {
+  if (!workspace) return true;
+  if (project.workspaceId === workspace.id) return true;
+  return workspace.kind === 'personal' && !project.workspaceId;
+}
+
+function isFileInWorkspace(
+  file: FileEntry,
+  workspace: Workspace | null,
+  projectIds: Set<string>,
+): boolean {
+  if (!workspace) return true;
+  if (file.projectId === DRAFTS_ID) return workspace.kind === 'personal';
+  if (file.projectId === null) return workspace.kind === 'personal';
+  return projectIds.has(file.projectId);
+}
+
+function computeVisibleFiles(all: FileEntry[], state: HomeViewState): FileEntry[] {
   let result = all.filter((f) => !f.trashedAt);
 
   switch (state.section) {
@@ -203,8 +263,7 @@ function computeVisibleFiles(
 
   const { filter } = state;
   if (filter.query) {
-    const q = filter.query.toLowerCase();
-    result = result.filter((f) => f.name.toLowerCase().includes(q));
+    result = result.filter((f) => fuzzyScore(filter.query, f.name) >= 0.3);
   }
   if (filter.kinds.length > 0) {
     result = result.filter((f) => filter.kinds.includes(f.kind));
