@@ -37,7 +37,8 @@ export function timelineToSVGAnimations(
     const dur = `${timeline.duration}ms`;
 
     if (track.interpolation === 'discrete' || kfs.length === 1) {
-      const value = String(kfs[kfs.length - 1].value);
+      const lastKf = kfs[kfs.length - 1];
+      const value = String(lastKf ? lastKf.value : '');
       elements.push(
         `  <set href="${href}" attributeName="${attributeName}" to="${value}" dur="${dur}" />`,
       );

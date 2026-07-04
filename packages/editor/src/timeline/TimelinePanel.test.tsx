@@ -15,7 +15,7 @@ function makeTimeline(
     name,
     duration,
     tracks: tracks ?? [],
-    defaultEasing: { kind: 'ease-in-out' as const },
+    defaultEasing: { kind: 'easeInOut' as const },
     defaultFillMode: 'none',
     defaultPlaybackDirection: 'normal',
     defaultIterations: 1,
@@ -82,13 +82,7 @@ describe('TimelinePanel', () => {
     const timelines: Record<string, Timeline> = {
       'tl-1': makeTimeline('tl-1', 'Empty', 5000),
     };
-    render(
-      <TimelinePanel
-        {...defaultProps}
-        timelines={timelines}
-        activeTimelineId="tl-1"
-      />,
-    );
+    render(<TimelinePanel {...defaultProps} timelines={timelines} activeTimelineId="tl-1" />);
     expect(screen.getByText('No tracks in this timeline')).toBeTruthy();
   });
 

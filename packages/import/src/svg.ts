@@ -4,8 +4,8 @@
  *
  * Research basis: SVG 1.1 (W3C Recommendation), Adobe Illustrator SVG export.
  */
-import type { Affine, Color, PathPoint, Shape } from '@strata/engine';
-import type { Document, FrameNode, SceneNode } from '@strata/scene';
+import type { Affine, PathPoint, Shape } from '@strata/engine';
+import type { Document, FrameNode, ManagedColor, SceneNode } from '@strata/scene';
 import {
   addNode,
   createDocument,
@@ -235,7 +235,7 @@ function convertRect(
   const node = makeShapeNode('', shape, {
     name: 'Rectangle',
     transform: composeWithOffset(transform, x, y),
-    fill: [0, 0, 0, 0] as Color,
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
     cornerRadius: cornerRadius
       ? [cornerRadius, cornerRadius, cornerRadius, cornerRadius]
       : undefined,
@@ -444,7 +444,7 @@ function convertImage(
       {
         name: 'Image',
         transform: composeWithOffset(transform, x, y),
-        fill: [0, 0, 0, 0] as Color,
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
       },
     ),
     fills: [
@@ -487,7 +487,7 @@ function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
       result = { ...result, fill: parsedColor };
     }
   } else if (fill === 'none') {
-    result = { ...result, fill: [0, 0, 0, 0] as Color };
+    result = { ...result, fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 } };
   }
 
   if (opacity) {
@@ -510,13 +510,14 @@ function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
     const parsedStrokeColor = parseSvgColor(stroke);
     const sw = strokeWidth ? parseFloat(strokeWidth) : 1;
     const strokeOpacityVal = strokeOpacity ? parseFloat(strokeOpacity) : 1;
-    if (parsedStrokeColor) {
-      const strokeColor: Color = [
-        parsedStrokeColor[0],
-        parsedStrokeColor[1],
-        parsedStrokeColor[2],
-        Math.round((parsedStrokeColor[3] ?? 255) * strokeOpacityVal),
-      ];
+    if (parsedStrokeColor && parsedStrokeColor.space === 'rgb') {
+      const strokeColor: ManagedColor = {
+        space: 'rgb' as const,
+        r: parsedStrokeColor.r,
+        g: parsedStrokeColor.g,
+        b: parsedStrokeColor.b,
+        a: Math.round((parsedStrokeColor.a ?? 255) * strokeOpacityVal),
+      };
       result = {
         ...result,
         strokes: [
@@ -847,7 +848,7 @@ function multiplyAffine(a: Affine, b: Affine): Affine {
 
 // ─── Color parsing ──────────────────────────────────────────────────────────
 
-function parseSvgColor(colorStr: string): Color | null {
+function parseSvgColor(colorStr: string): ManagedColor | null {
   if (!colorStr || colorStr === 'none') return null;
 
   // #rgb / #rrggbb
@@ -858,12 +859,12 @@ function parseSvgColor(colorStr: string): Color | null {
       const r = parseInt(hex[0]! + hex[0], 16);
       const g = parseInt(hex[1]! + hex[1], 16);
       const b = parseInt(hex[2]! + hex[2], 16);
-      return [r, g, b, 255] as Color;
+      return { space: 'rgb' as const, r, g, b, a: 255 };
     }
     const r = parseInt(hex.slice(0, 2), 16);
     const g = parseInt(hex.slice(2, 4), 16);
     const b = parseInt(hex.slice(4, 6), 16);
-    return [r, g, b, 255] as Color;
+    return { space: 'rgb' as const, r, g, b, a: 255 };
   }
 
   // rgb() / rgba()
@@ -875,33 +876,33 @@ function parseSvgColor(colorStr: string): Color | null {
     const g = parseInt(rgbMatch[2]!, 10);
     const b = parseInt(rgbMatch[3]!, 10);
     const a = rgbMatch[4] !== undefined ? Math.round(parseFloat(rgbMatch[4]) * 255) : 255;
-    return [r, g, b, a] as Color;
+    return { space: 'rgb' as const, r: r, g: g, b: b, a: a };
   }
 
   // Named colors (common subset)
-  const named: Record<string, Color> = {
-    black: [0, 0, 0, 255],
-    white: [255, 255, 255, 255],
-    red: [255, 0, 0, 255],
-    green: [0, 128, 0, 255],
-    blue: [0, 0, 255, 255],
-    yellow: [255, 255, 0, 255],
-    cyan: [0, 255, 255, 255],
-    magenta: [255, 0, 255, 255],
-    gray: [128, 128, 128, 255],
-    grey: [128, 128, 128, 255],
-    orange: [255, 165, 0, 255],
-    purple: [128, 0, 128, 255],
-    pink: [255, 192, 203, 255],
-    transparent: [0, 0, 0, 0],
-    silver: [192, 192, 192, 255],
-    maroon: [128, 0, 0, 255],
-    navy: [0, 0, 128, 255],
-    olive: [128, 128, 0, 255],
-    teal: [0, 128, 128, 255],
-    lime: [0, 255, 0, 255],
-    aqua: [0, 255, 255, 255],
-    fuchsia: [255, 0, 255, 255],
+  const named: Record<string, ManagedColor> = {
+    black: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+    white: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+    red: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 },
+    green: { space: 'rgb' as const, r: 0, g: 128, b: 0, a: 255 },
+    blue: { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 },
+    yellow: { space: 'rgb' as const, r: 255, g: 255, b: 0, a: 255 },
+    cyan: { space: 'rgb' as const, r: 0, g: 255, b: 255, a: 255 },
+    magenta: { space: 'rgb' as const, r: 255, g: 0, b: 255, a: 255 },
+    gray: { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 },
+    grey: { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 },
+    orange: { space: 'rgb' as const, r: 255, g: 165, b: 0, a: 255 },
+    purple: { space: 'rgb' as const, r: 128, g: 0, b: 128, a: 255 },
+    pink: { space: 'rgb' as const, r: 255, g: 192, b: 203, a: 255 },
+    transparent: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+    silver: { space: 'rgb' as const, r: 192, g: 192, b: 192, a: 255 },
+    maroon: { space: 'rgb' as const, r: 128, g: 0, b: 0, a: 255 },
+    navy: { space: 'rgb' as const, r: 0, g: 0, b: 128, a: 255 },
+    olive: { space: 'rgb' as const, r: 128, g: 128, b: 0, a: 255 },
+    teal: { space: 'rgb' as const, r: 0, g: 128, b: 128, a: 255 },
+    lime: { space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 },
+    aqua: { space: 'rgb' as const, r: 0, g: 255, b: 255, a: 255 },
+    fuchsia: { space: 'rgb' as const, r: 255, g: 0, b: 255, a: 255 },
   };
 
   const lower = colorStr.toLowerCase().trim();

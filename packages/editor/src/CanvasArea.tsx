@@ -178,6 +178,63 @@ function toEngineNode(n: DocNode): EngineNode {
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
 }
 
+/**
+ * Parse a property path into segments. Supports dot notation and bracket
+ * array indices, e.g. `opacity`, `transform[4]`, `fills[0].color`.
+ */
+function parsePropertyPath(path: string): string[] {
+  const segments: string[] = [];
+  const parts = path.split('.');
+  for (const part of parts) {
+    const match = /^([^[]+)((?:\[[^\]]+\])*)$/.exec(part);
+    if (!match) {
+      segments.push(part);
+      continue;
+    }
+    segments.push(match[1]!);
+    const bracketGroups = match[2]!.matchAll(/\[([^\]]+)\]/g);
+    for (const m of bracketGroups) {
+      segments.push(m[1]!);
+    }
+  }
+  return segments;
+}
+
+/**
+ * Set a value at a nested property path without mutating original objects.
+ * Clones arrays and records along the path.
+ */
+function setAtPath(value: unknown, segments: string[], newValue: unknown): unknown {
+  if (segments.length === 0) return newValue;
+  const [head, ...tail] = segments;
+  if (Array.isArray(value)) {
+    const idx = Number(head);
+    if (Number.isNaN(idx)) return value;
+    const next = value[idx] ?? (tail.length > 0 && /^\d+$/.test(tail[0]!) ? [] : {});
+    const copy = [...value];
+    copy[idx] = setAtPath(next, tail, newValue);
+    return copy;
+  }
+  if (typeof value === 'object' && value !== null) {
+    const record = value as Record<string, unknown>;
+    const next = record[head!] ?? (tail.length > 0 && /^\d+$/.test(tail[0]!) ? [] : {});
+    return { ...record, [head!]: setAtPath(next, tail, newValue) };
+  }
+  return value;
+}
+
+/** Apply a property override to a target object using a dot/bracket path. */
+export function applyPropertyPath(
+  target: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): void {
+  const segments = parsePropertyPath(path);
+  const head = segments[0]!;
+  const tail = segments.slice(1);
+  target[head] = setAtPath(target[head], tail, value);
+}
+
 /** Global ToolManager singleton for the editor lifetime. */
 let toolManager: ToolManager | null = null;
 function getToolManager(): ToolManager {
@@ -458,7 +515,7 @@ export function CanvasArea({
       // Apply property overrides from the active timeline to engine nodes
       // before building IR. These overrides are ephemeral — they only affect
       // this frame's rendering and never mutate the document.
-      if (s.motion.activeTimelineId && s.motion.currentTime > 0) {
+      if (s.motion.activeTimelineId) {
         const sample = sampleTimelineAt(doc, s.motion.activeTimelineId, s.motion.currentTime);
         if (sample.overrides.size > 0) {
           for (let i = 0; i < flatNodes.length; i++) {
@@ -469,17 +526,7 @@ export function CanvasArea({
             const fn = flatNodes[i];
             if (!fn) continue;
             for (const [prop, val] of props) {
-              const segments = prop.split('.');
-              if (segments.length === 1) {
-                (fn as unknown as Record<string, unknown>)[prop] = val;
-              } else {
-                const head = segments[0]!;
-                const tail = segments.slice(1).join('.');
-                (fn as unknown as Record<string, unknown>)[head] = {
-                  ...((fn as unknown as Record<string, unknown>)[head] as Record<string, unknown>),
-                  [tail]: val,
-                };
-              }
+              applyPropertyPath(fn as unknown as Record<string, unknown>, prop, val);
             }
           }
         }

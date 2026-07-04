@@ -158,4 +158,45 @@ describe('TimelineEngine', () => {
     engine.processDelta(5000);
     expect(engine.currentTime).toBe(0);
   });
+
+  it('loops playback when configured', () => {
+    engine = new TimelineEngine({ duration: 1000, loop: true });
+    engine.play({ onFrame });
+    engine.processDelta(1500);
+    expect(engine.currentTime).toBe(500);
+    expect(engine.currentIteration).toBe(1);
+    expect(engine.state).toBe('playing');
+  });
+
+  it('does not finish when looping', () => {
+    const onFinish = vi.fn();
+    engine = new TimelineEngine({ duration: 1000, loop: true });
+    engine.play({ onFrame, onFinish });
+    engine.processDelta(3000);
+    expect(engine.state).toBe('playing');
+    expect(engine.currentIteration).toBe(3);
+    expect(onFinish).not.toHaveBeenCalled();
+  });
+
+  it('supports autoReverse alternation', () => {
+    engine = new TimelineEngine({ duration: 1000, iterations: 4, autoReverse: true });
+    engine.play({ onFrame });
+    engine.processDelta(2500);
+    // 0-1000 forward, 1000-2000 reverse, 2000-2500 forward -> time 500
+    expect(engine.currentIteration).toBe(2);
+    expect(engine.currentTime).toBe(500);
+  });
+
+  it('runs exactly the configured number of iterations', () => {
+    engine = new TimelineEngine({ duration: 1000, iterations: 2 });
+    engine.play({ onFrame });
+    engine.processDelta(1500);
+    expect(engine.currentTime).toBe(500);
+    expect(engine.currentIteration).toBe(1);
+    expect(engine.state).toBe('playing');
+    engine.processDelta(500);
+    expect(engine.currentTime).toBe(1000);
+    expect(engine.currentIteration).toBe(1);
+    expect(engine.state).toBe('finished');
+  });
 });

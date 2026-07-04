@@ -1,4 +1,4 @@
-import type { Affine, Color } from '@strata/engine';
+import type { Affine } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { addNode, createDocument, nextNodeId } from '@strata/scene';
 import { getBitmapInfo, importImageAsFill } from './image';
@@ -85,7 +85,7 @@ function importImageAsFile(
     rotation: 0,
     shape: { kind: 'rect', x: 0, y: 0, w, h },
     transform: [1, 0, 0, 1, 0, 0] as Affine,
-    fill: [0, 0, 0, 0] as Color,
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
     fills: [fill],
     strokes: [],
     effects: [],

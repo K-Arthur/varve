@@ -272,7 +272,11 @@ describe('SelectTool', () => {
 describe('SelectTool — depth-based click cycling', () => {
   it('clicking same node twice cycles to next node below', () => {
     const tool = new SelectTool();
-    const baseNode = (id: string, name: string, fill: [number, number, number, number]) => ({
+    const baseNode = (
+      id: string,
+      name: string,
+      fill: { space: 'rgb'; r: number; g: number; b: number; a: number },
+    ) => ({
       id,
       name,
       kind: 'shape' as const,
@@ -290,9 +294,9 @@ describe('SelectTool — depth-based click cycling', () => {
       bindings: undefined as any,
     });
     // n2 topmost, n0 middle (selected), n1 bottom
-    const n0 = baseNode('n0', 'Middle', [255, 0, 0, 255]);
-    const n1 = baseNode('n1', 'Bottom', [0, 255, 0, 255]);
-    const n2 = baseNode('n2', 'Top', [0, 0, 255, 255]);
+    const n0 = baseNode('n0', 'Middle', { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 });
+    const n1 = baseNode('n1', 'Bottom', { space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 });
+    const n2 = baseNode('n2', 'Top', { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 });
     const doc = makeDocWithNodes(0);
     doc.nodes.n0 = n0 as any;
     doc.nodes.n1 = n1 as any;
@@ -327,7 +331,7 @@ describe('SelectTool — transparent fill click-through', () => {
     const baseNode = (
       id: string,
       name: string,
-      fill: [number, number, number, number],
+      fill: { space: 'rgb'; r: number; g: number; b: number; a: number },
       extra = {},
     ) => ({
       id,
@@ -347,8 +351,8 @@ describe('SelectTool — transparent fill click-through', () => {
       bindings: undefined as any,
       ...extra,
     });
-    const n0 = baseNode('n0', 'StrokeOnly', [0, 0, 0, 0]);
-    const n1 = baseNode('n1', 'HasFill', [255, 0, 0, 255]);
+    const n0 = baseNode('n0', 'StrokeOnly', { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 });
+    const n1 = baseNode('n1', 'HasFill', { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 });
     const doc = createDocument('test');
     doc.nodes = { ...doc.nodes, n0: n0 as any, n1: n1 as any };
     doc.rootChildren = ['n1', 'n0'];

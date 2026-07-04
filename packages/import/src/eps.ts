@@ -1,4 +1,4 @@
-import type { Affine, Color } from '@strata/engine';
+import type { Affine } from '@strata/engine';
 import { addNode, createDocument, makeShapeNode, makeTextNode, nextNodeId } from '@strata/scene';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
@@ -73,7 +73,7 @@ function parseEpsContent(epsStr: string, opts: ImportOptions, warnings: string[]
       {
         name: 'Rectangle',
         transform: [1, 0, 0, 1, x, y] as Affine,
-        fill: [0, 0, 0, 255] as Color,
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
       },
     );
     doc = addNode(doc, node);
@@ -98,7 +98,7 @@ function parseEpsContent(epsStr: string, opts: ImportOptions, warnings: string[]
       {
         name: 'Rectangle Stroke',
         transform: [1, 0, 0, 1, x, y] as Affine,
-        fill: [0, 0, 0, 0] as Color,
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
       },
     );
     doc = addNode(doc, node);

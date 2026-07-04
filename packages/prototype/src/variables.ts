@@ -187,11 +187,11 @@ function evaluateArithmetic(
   let pos = 0;
   const input = resolved;
 
-  function peek(): string | undefined {
+  function peek(): string | number | undefined {
     return input[pos];
   }
 
-  function consume(): string {
+  function consume(): string | number {
     return input[pos++]!;
   }
 

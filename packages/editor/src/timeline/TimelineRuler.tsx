@@ -15,12 +15,7 @@ function getTickInterval(zoom: number): number {
   return 1000;
 }
 
-export const TimelineRuler: FC<TimelineRulerProps> = ({
-  duration,
-  currentTime,
-  zoom,
-  onSeek,
-}) => {
+export const TimelineRuler: FC<TimelineRulerProps> = ({ duration, currentTime, zoom, onSeek }) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -95,9 +90,7 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
           style={{ left: tick.x, position: 'absolute', top: 0 }}
         >
           <div className="timeline-ruler__tick-mark" />
-          {tick.label && (
-            <span className="timeline-ruler__tick-label">{tick.label}</span>
-          )}
+          {tick.label && <span className="timeline-ruler__tick-label">{tick.label}</span>}
         </div>
       ))}
       <div

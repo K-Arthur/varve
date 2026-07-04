@@ -44,7 +44,7 @@ describe('Library System', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -121,7 +121,7 @@ describe('Library System', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -130,7 +130,7 @@ describe('Library System', () => {
     doc = d1;
     const { style: s2 } = createColorStyle(doc, 'Secondary', {
       type: 'solid',
-      color: [0, 0, 0, 255],
+      color: {"space":"rgb","r":0,"g":0,"b":0,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,

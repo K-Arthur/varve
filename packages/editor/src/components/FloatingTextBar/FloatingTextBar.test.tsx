@@ -16,7 +16,7 @@ const BASE_TEXT_NODE: TextNode = {
   fontFamily: 'Inter',
   fontWeight: 400,
   fontStyle: 'normal',
-  fill: [0, 0, 0, 255],
+  fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
   fills: [],
   strokes: [],
   effects: [],

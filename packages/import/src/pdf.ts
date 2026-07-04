@@ -1,4 +1,4 @@
-import type { Affine, Color } from '@strata/engine';
+import type { Affine } from '@strata/engine';
 import { addNode, createDocument, makeShapeNode, makeTextNode, nextNodeId } from '@strata/scene';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
@@ -90,7 +90,7 @@ function parsePdfSync(data: Uint8Array, opts: ImportOptions, warnings: string[])
       {
         name: 'Rectangle',
         transform: [1, 0, 0, 1, rect.x * opts.scale, rect.y * opts.scale] as Affine,
-        fill: [0, 0, 0, 0] as Color,
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
       },
     );
 

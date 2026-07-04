@@ -128,5 +128,7 @@ export {
   zoomAboutPoint,
 } from './viewport';
 
+export { managedColorToCss, managedColorToRgba } from './colorConversion';
+
 /** Semantic Strata package marker. */
 export const PACKAGE = '@strata/shared' as const;

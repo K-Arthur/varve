@@ -9,14 +9,14 @@ const scene: Scene = {
       name: 'r1',
       transform: [1, 0, 0, 1, 0, 0],
       shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-      fill: [57, 208, 198, 255],
+      fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
     },
     {
       id: '2',
       name: 'r2',
       transform: [1, 0, 0, 1, 5, 5],
       shape: { kind: 'rect', x: 0, y: 0, w: 3, h: 3 },
-      fill: [255, 0, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
     },
   ],
 };
@@ -31,7 +31,7 @@ describe('createEngine (stub)', () => {
     const eng = await createEngine();
     const ir = await eng.buildIr(scene);
     expect(ir).toHaveLength(2);
-    expect(ir[0]?.fill).toEqual([57, 208, 198, 255]);
+    expect(ir[0]?.fill).toEqual({ space: 'rgb', r: 57, g: 208, b: 198, a: 255 });
     expect(ir[0]?.primitive.kind).toBe('rect');
     expect(ir[1]?.transform[4]).toBe(5); // translate x preserved
   });
@@ -59,7 +59,7 @@ describe('createEngine (stub)', () => {
           name: 'ellipse',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'ellipse', cx: 50, cy: 50, rx: 40, ry: 30 },
-          fill: [255, 0, 0, 255],
+          fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
         },
       ],
     });
@@ -77,7 +77,7 @@ describe('createEngine (stub)', () => {
           name: 'circle',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'circle', cx: 25, cy: 25, r: 20 },
-          fill: [0, 255, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
         },
       ],
     });
@@ -93,7 +93,7 @@ describe('createEngine (stub)', () => {
           name: 'line',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'line', from: [0, 0], to: [100, 100], tolerance: 1 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
         },
       ],
     });
@@ -109,7 +109,7 @@ describe('createEngine (stub)', () => {
           name: 'polygon',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'polygon', cx: 50, cy: 50, radius: 40, sides: 6, rotation: 0 },
-          fill: [0, 128, 255, 255],
+          fill: { space: 'rgb', r: 0, g: 128, b: 255, a: 255 },
         },
       ],
     });
@@ -139,7 +139,7 @@ describe('createEngine (stub)', () => {
             points: 5,
             rotation: 0,
           },
-          fill: [255, 200, 0, 255],
+          fill: { space: 'rgb', r: 255, g: 200, b: 0, a: 255 },
         },
       ],
     });
@@ -162,7 +162,7 @@ describe('createEngine (stub)', () => {
           name: 'arrow',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'arrow', from: [0, 0], to: [100, 0], tolerance: 1, arrowheadSize: 10 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
         },
       ],
     });
@@ -187,7 +187,7 @@ describe('createEngine (stub)', () => {
           name: 'path',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'path', points: pts, closed: false, tolerance: 1 },
-          fill: [255, 0, 255, 255],
+          fill: { space: 'rgb', r: 255, g: 0, b: 255, a: 255 },
         },
       ],
     });
@@ -208,7 +208,7 @@ describe('createEngine (stub)', () => {
           name: 'text',
           kind: 'text',
           transform: [1, 0, 0, 1, 10, 20],
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           text: 'Hello world',
           fontSize: 16,
           fontFamily: 'Inter',
@@ -234,7 +234,7 @@ describe('createEngine (stub)', () => {
           name: 't1',
           kind: 'text',
           transform: [1, 0, 0, 1, 0, 0],
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           text: 'Hello world',
           fontSize: 16,
           fontFamily: 'Inter',
@@ -246,7 +246,7 @@ describe('createEngine (stub)', () => {
           name: 't2',
           kind: 'text',
           transform: [1, 0, 0, 1, 0, 0],
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           text: 'A',
           fontSize: 16,
           fontFamily: 'Inter',
@@ -258,7 +258,7 @@ describe('createEngine (stub)', () => {
           name: 't3',
           kind: 'text',
           transform: [1, 0, 0, 1, 0, 0],
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           text: '',
           fontSize: 16,
           fontFamily: 'Inter',
@@ -289,7 +289,7 @@ describe('createEngine (stub)', () => {
           name: 'text',
           kind: 'text',
           transform: [1, 0, 0, 1, 0, 0],
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           text: 'Centered',
           fontSize: 16,
           fontFamily: 'Inter',
@@ -314,7 +314,7 @@ describe('createEngine (stub)', () => {
           name: 'text',
           kind: 'text',
           transform: [1, 0, 0, 1, 0, 0],
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           text: 'Styled',
           fontSize: 24,
           fontFamily: 'Inter',
@@ -351,7 +351,7 @@ describe('createEngine (stub)', () => {
           name: 'rich',
           kind: 'text',
           transform: [1, 0, 0, 1, 0, 0],
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           text: 'Hello World',
           fontSize: 16,
           fontFamily: 'Inter',
@@ -383,11 +383,11 @@ describe('createEngine (stub)', () => {
           name: 'multi-fill',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           fills: [
             {
               type: 'solid',
-              color: [255, 0, 0, 255],
+              color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
               opacity: 1,
               blendMode: 'normal',
               visible: true,
@@ -397,8 +397,8 @@ describe('createEngine (stub)', () => {
               gradient: {
                 type: 'linear',
                 stops: [
-                  { position: 0, color: [255, 0, 0, 255] },
-                  { position: 1, color: [0, 0, 255, 255] },
+                  { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+                  { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
                 ],
               },
               opacity: 1,
@@ -427,18 +427,18 @@ describe('createEngine (stub)', () => {
           name: 'invisible',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           fills: [
             {
               type: 'solid',
-              color: [255, 0, 0, 255],
+              color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
               opacity: 1,
               blendMode: 'normal',
               visible: false,
             },
             {
               type: 'solid',
-              color: [0, 255, 0, 255],
+              color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
               opacity: 1,
               blendMode: 'normal',
               visible: true,
@@ -450,7 +450,7 @@ describe('createEngine (stub)', () => {
     expect(ir[0]?.fills).toHaveLength(1);
     expect(ir[0]?.fills?.[0]?.type).toBe('solid');
     if (ir[0]?.fills?.[0]?.type === 'solid') {
-      expect(ir[0]?.fills?.[0]?.color).toEqual([0, 255, 0, 255]);
+      expect(ir[0]?.fills?.[0]?.color).toEqual({ space: 'rgb', r: 0, g: 255, b: 0, a: 255 });
     }
   });
 
@@ -463,12 +463,12 @@ describe('createEngine (stub)', () => {
           name: 'legacy',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-          fill: [57, 208, 198, 255],
+          fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
           fills: [],
         },
       ],
     });
-    expect(ir[0]?.fill).toEqual([57, 208, 198, 255]);
+    expect(ir[0]?.fill).toEqual({ space: 'rgb', r: 57, g: 208, b: 198, a: 255 });
     expect(ir[0]?.fills).toBeUndefined();
   });
 
@@ -481,12 +481,12 @@ describe('createEngine (stub)', () => {
           name: 'no-fills',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
         },
       ],
     });
     expect(ir[0]?.fills).toBeUndefined();
-    expect(ir[0]?.fill).toEqual([0, 0, 0, 255]);
+    expect(ir[0]?.fill).toEqual({ space: 'rgb', r: 0, g: 0, b: 0, a: 255 });
   });
 
   it('buildIr maps gradient fill to FillIR with stops and rotation', async () => {
@@ -498,16 +498,16 @@ describe('createEngine (stub)', () => {
           name: 'gradient',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           fills: [
             {
               type: 'gradient',
               gradient: {
                 type: 'radial',
                 stops: [
-                  { position: 0, color: [255, 255, 255, 255] },
-                  { position: 0.5, color: [128, 128, 128, 255] },
-                  { position: 1, color: [0, 0, 0, 255] },
+                  { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+                  { position: 0.5, color: { space: 'rgb', r: 128, g: 128, b: 128, a: 255 } },
+                  { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
                 ],
                 rotation: 45,
               },
@@ -540,7 +540,7 @@ describe('createEngine (stub)', () => {
           name: 'fade',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
-          fill: [255, 0, 0, 255],
+          fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 0.5,
           blendMode: 'multiply',
         },
@@ -559,7 +559,7 @@ describe('createEngine (stub)', () => {
           name: 'img',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           fills: [
             {
               type: 'image',
@@ -590,7 +590,7 @@ describe('createEngine (stub)', () => {
           name: 'pat',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           fills: [
             {
               type: 'pattern',
@@ -621,7 +621,7 @@ describe('createEngine (stub)', () => {
           name: 'inv',
           transform: [1, 0, 0, 1, 0, 0],
           shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
-          fill: [0, 0, 0, 255],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           fills: [
             {
               type: 'image',

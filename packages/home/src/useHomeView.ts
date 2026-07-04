@@ -7,8 +7,9 @@ import type {
   SidebarSection,
   SortKey,
   ViewMode,
+  Workspace,
 } from '@strata/platform';
-import { compareBy, defaultViewState, mergeViewState } from '@strata/platform';
+import { compareBy, DRAFTS_ID, defaultViewState, mergeViewState } from '@strata/platform';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface HomeView {
@@ -16,10 +17,15 @@ export interface HomeView {
   files: FileEntry[];
   trashedFiles: FileEntry[];
   projects: Project[];
+  workspaces: Workspace[];
   pinnedFiles: FileEntry[];
   recentFiles: FileEntry[];
   /** Files filtered by the current sidebar section + filters. */
   visibleFiles: FileEntry[];
+  /** Files whose projectId === DRAFTS_ID. */
+  draftFiles: FileEntry[];
+  /** Files where favoritedAt > 0, sorted by favoritedAt descending. */
+  favoriteFiles: FileEntry[];
   loading: boolean;
 }
 
@@ -37,17 +43,19 @@ export function useHomeView(platform: Platform): HomeView & {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [trashedFiles, setTrashedFiles] = useState<FileEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const viewStateRef = useRef<HomeViewState>(state);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [vs, fileList, trashList, projList] = await Promise.all([
+      const [vs, fileList, trashList, projList, wsList] = await Promise.all([
         platform.getViewState().catch(() => defaultViewState()),
         platform.listFiles().catch(() => [] as FileEntry[]),
         platform.listTrashedFiles().catch(() => [] as FileEntry[]),
         platform.listProjects().catch(() => [] as Project[]),
+        platform.listWorkspaces().catch(() => [] as Workspace[]),
       ]);
       const merged = mergeViewState(vs);
       viewStateRef.current = merged;
@@ -55,6 +63,7 @@ export function useHomeView(platform: Platform): HomeView & {
       setFiles(fileList);
       setTrashedFiles(trashList);
       setProjects(projList);
+      setWorkspaces(wsList);
     } finally {
       setLoading(false);
     }
@@ -79,6 +88,11 @@ export function useHomeView(platform: Platform): HomeView & {
     .sort((a, b) => b.openedAt - a.openedAt)
     .slice(0, 30);
 
+  const draftFiles = files.filter((f) => f.projectId === DRAFTS_ID && !f.trashedAt);
+  const favoriteFiles = [...files]
+    .filter((f) => f.favoritedAt !== null && f.favoritedAt !== undefined && f.favoritedAt > 0)
+    .sort((a, b) => (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0));
+
   const visibleFiles = computeVisibleFiles(files, state, projects);
 
   return {
@@ -86,8 +100,11 @@ export function useHomeView(platform: Platform): HomeView & {
     files,
     trashedFiles,
     projects,
+    workspaces,
     pinnedFiles,
     recentFiles,
+    draftFiles,
+    favoriteFiles,
     visibleFiles,
     loading,
     setSection: (section) => {
@@ -157,6 +174,19 @@ function computeVisibleFiles(
     case 'project':
       result = result.filter((f) => f.projectId === state.activeProjectId);
       break;
+    case 'drafts':
+      result = result.filter((f) => f.projectId === DRAFTS_ID);
+      break;
+    case 'favorites':
+      result = result.filter(
+        (f) => f.favoritedAt !== null && f.favoritedAt !== undefined && f.favoritedAt > 0,
+      );
+      result.sort((a, b) => (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0));
+      break;
+    case 'collections':
+      return [];
+    case 'activity':
+      return [];
     case 'templates':
       return [];
     case 'trash':

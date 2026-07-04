@@ -91,7 +91,7 @@ describe('exportNodeToTailwind', () => {
     const node = makeShapeNode(
       'n1',
       { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
-      { name: 'Rect', fill: [57, 208, 198, 255] },
+      { name: 'Rect', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
     );
     const tw = exportNodeToTailwind(node, doc);
     expect(tw).toContain('absolute');
@@ -264,7 +264,7 @@ describe('token-aware codegen', () => {
     const node = makeShapeNode(
       'n1',
       { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
-      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+      { name: 'Box', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
     );
     (node as unknown as Record<string, unknown>).bindings = { fill: { variableId: 'v1' } };
     store.variables.v1 = {
@@ -290,7 +290,7 @@ describe('token-aware codegen', () => {
     const node = makeShapeNode(
       'n1',
       { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
-      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+      { name: 'Box', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
     );
     const css = exportNodeToCss(node, doc);
     expect(css).toContain('#39d0c6');
@@ -311,7 +311,7 @@ describe('token-aware codegen', () => {
     const node = makeShapeNode(
       'n1',
       { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
-      { name: 'Box', fill: [57, 208, 198, 255] as [number, number, number, number] },
+      { name: 'Box', fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
     );
     const tw = exportNodeToTailwind(node, doc);
     expect(tw).toContain('bg-[#39d0c6]');

@@ -197,6 +197,236 @@ describe('sampleTimeline', () => {
     // With easeOut, value at t=0.5 should be > 0.5 (starts fast, ends slow)
     expect(linear).toBeGreaterThan(0.5);
   });
+
+  it('samples at time 0', () => {
+    const tl = makeTimeline({
+      duration: 1000,
+      tracks: [
+        {
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [
+            { progress: 0, value: 0 },
+            { progress: 1, value: 1 },
+          ],
+        },
+      ],
+    });
+    const result = sampleTimeline(tl, 0);
+    expect(result.overrides.get('n1')!.get('opacity')).toBe(0);
+  });
+
+  describe('timing model', () => {
+    it('honors fill mode forwards after active interval', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultFillMode: 'forwards',
+        defaultIterations: 1,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'opacity',
+            keyframes: [
+              { progress: 0, value: 0 },
+              { progress: 1, value: 1 },
+            ],
+          },
+        ],
+      });
+      expect(sampleTimeline(tl, 1500).overrides.get('n1')!.get('opacity')).toBe(1);
+    });
+
+    it('honors fill mode backwards before active interval', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultFillMode: 'backwards',
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'opacity',
+            keyframes: [
+              { progress: 0, value: 0 },
+              { progress: 1, value: 1 },
+            ],
+          },
+        ],
+      });
+      expect(sampleTimeline(tl, -500).overrides.get('n1')!.get('opacity')).toBe(0);
+    });
+
+    it('fill mode none removes overrides outside active interval', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultFillMode: 'none',
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'opacity',
+            keyframes: [
+              { progress: 0, value: 0 },
+              { progress: 1, value: 1 },
+            ],
+          },
+        ],
+      });
+      expect(sampleTimeline(tl, -500).overrides.size).toBe(0);
+      expect(sampleTimeline(tl, 1500).overrides.size).toBe(0);
+    });
+
+    it('supports reverse playback direction', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultPlaybackDirection: 'reverse',
+        defaultFillMode: 'both',
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'opacity',
+            keyframes: [
+              { progress: 0, value: 0 },
+              { progress: 1, value: 1 },
+            ],
+          },
+        ],
+      });
+      expect(sampleTimeline(tl, 0).overrides.get('n1')!.get('opacity')).toBe(1);
+      expect(sampleTimeline(tl, 1000).overrides.get('n1')!.get('opacity')).toBe(0);
+      expect(sampleTimeline(tl, 500).overrides.get('n1')!.get('opacity')).toBe(0.5);
+    });
+
+    it('supports alternate playback direction', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultPlaybackDirection: 'alternate',
+        defaultIterations: 2,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'opacity',
+            keyframes: [
+              { progress: 0, value: 0 },
+              { progress: 1, value: 1 },
+            ],
+          },
+        ],
+      });
+      expect(sampleTimeline(tl, 250).overrides.get('n1')!.get('opacity')).toBe(0.25);
+      expect(sampleTimeline(tl, 1250).overrides.get('n1')!.get('opacity')).toBe(0.75);
+    });
+
+    it('supports multiple iterations', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultIterations: 3,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'opacity',
+            keyframes: [
+              { progress: 0, value: 0 },
+              { progress: 1, value: 1 },
+            ],
+          },
+        ],
+      });
+      expect(sampleTimeline(tl, 2500).overrides.get('n1')!.get('opacity')).toBe(0.5);
+    });
+
+    it('supports loop via Infinity iterations', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultIterations: Infinity,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'opacity',
+            keyframes: [
+              { progress: 0, value: 0 },
+              { progress: 1, value: 1 },
+            ],
+          },
+        ],
+      });
+      expect(sampleTimeline(tl, 3500).overrides.get('n1')!.get('opacity')).toBe(0.5);
+    });
+  });
+
+  describe('interpolation strategies', () => {
+    it('uses discrete interpolation when requested', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        defaultFillMode: 'forwards',
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'opacity',
+            interpolation: 'discrete',
+            keyframes: [
+              { progress: 0, value: 'a' },
+              { progress: 0.5, value: 'b' },
+              { progress: 1, value: 'c' },
+            ],
+          },
+        ],
+      });
+      expect(sampleTimeline(tl, 0).overrides.get('n1')!.get('opacity')).toBe('a');
+      expect(sampleTimeline(tl, 499).overrides.get('n1')!.get('opacity')).toBe('a');
+      expect(sampleTimeline(tl, 500).overrides.get('n1')!.get('opacity')).toBe('b');
+      expect(sampleTimeline(tl, 999).overrides.get('n1')!.get('opacity')).toBe('b');
+      expect(sampleTimeline(tl, 1000).overrides.get('n1')!.get('opacity')).toBe('c');
+    });
+  });
+
+  describe('typed interpolation', () => {
+    it('interpolates RGB color values', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'fill',
+            keyframes: [
+              { progress: 0, value: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+              { progress: 1, value: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+            ],
+          },
+        ],
+      });
+      const result = sampleTimeline(tl, 500).overrides.get('n1')!.get('fill') as number[];
+      expect(result[0]).toBe(127.5);
+      expect(result[1]).toBe(127.5);
+      expect(result[2]).toBe(127.5);
+    });
+
+    it('interpolates affine transforms', () => {
+      const tl = makeTimeline({
+        duration: 1000,
+        tracks: [
+          {
+            id: 'tr-1',
+            nodeId: 'n1',
+            property: 'transform',
+            keyframes: [
+              { progress: 0, value: [1, 0, 0, 1, 0, 0] },
+              { progress: 1, value: [1, 0, 0, 1, 100, 200] },
+            ],
+          },
+        ],
+      });
+      const result = sampleTimeline(tl, 500).overrides.get('n1')!.get('transform') as number[];
+      expect(result).toEqual([1, 0, 0, 1, 50, 100]);
+    });
+  });
 });
 
 describe('sampleTimelineAt (document integration)', () => {

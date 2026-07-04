@@ -40,4 +40,37 @@ describe('SidebarNav', () => {
     expect(active).toBeDefined();
     expect(active?.textContent).toContain('All Files');
   });
+
+  it('renders new project button when onCreateProject is provided', () => {
+    const { container } = render(
+      <SidebarNav entries={entries} activeId="all" onSelect={vi.fn()} onCreateProject={vi.fn()} />,
+    );
+    const newBtn = container.querySelector('.sidebar-item--new-project');
+    expect(newBtn).toBeTruthy();
+    expect(newBtn?.textContent).toContain('New Project');
+  });
+
+  it('does not render new project button when onCreateProject is omitted', () => {
+    const { container } = render(
+      <SidebarNav entries={entries} activeId="all" onSelect={vi.fn()} />,
+    );
+    const newBtn = container.querySelector('.sidebar-item--new-project');
+    expect(newBtn).toBeFalsy();
+  });
+
+  it('calls onCreateProject when new project button clicked', () => {
+    const onCreateProject = vi.fn();
+    const { container } = render(
+      <SidebarNav
+        entries={entries}
+        activeId="all"
+        onSelect={vi.fn()}
+        onCreateProject={onCreateProject}
+      />,
+    );
+    const newBtn = container.querySelector('.sidebar-item--new-project');
+    expect(newBtn).toBeTruthy();
+    if (newBtn) fireEvent.click(newBtn);
+    expect(onCreateProject).toHaveBeenCalledTimes(1);
+  });
 });

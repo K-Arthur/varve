@@ -61,12 +61,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
         <Icon name={isPlaying ? 'Pause' : 'Play'} size={14} />
       </button>
 
-      <button
-        type="button"
-        className="timeline-playback-btn"
-        onClick={onStop}
-        aria-label="Stop"
-      >
+      <button type="button" className="timeline-playback-btn" onClick={onStop} aria-label="Stop">
         <Icon name="Square" size={14} />
       </button>
 
@@ -122,7 +117,9 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
         {formatTime(currentTime)}
       </span>
 
-      <span className="timeline-playback-time-sep" aria-hidden>/</span>
+      <span className="timeline-playback-time-sep" aria-hidden>
+        /
+      </span>
 
       <span className="timeline-playback-time" aria-label="Duration">
         {formatTime(duration)}

@@ -12,7 +12,7 @@ function mockNode(overrides: Record<string, unknown> = {}) {
     name: 'Rectangle 1',
     kind: 'shape' as const,
     transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
-    fill: [200, 200, 200, 255] as [number, number, number, number],
+    fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
     visible: true,
     locked: false,
     opacity: 1,

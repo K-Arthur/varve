@@ -14,7 +14,8 @@
  */
 
 import { getTransactionHooks } from '@strata/collab';
-import type { Affine, Color, PathPoint, Shape } from '@strata/engine';
+import type { Affine, PathPoint, Shape } from '@strata/engine';
+import type { ManagedColor } from '@strata/scene';
 import {
   applyAffine,
   invertAffine,
@@ -292,7 +293,7 @@ export interface EditorContextValue {
   /** Duplicate all selected nodes with new IDs. */
   duplicateSelected: () => void;
   /** Update the fill of all selected nodes. */
-  setSelectedFill: (color: Color) => void;
+  setSelectedFill: (color: ManagedColor) => void;
   /** P2: Set the entire fill stack on all selected nodes. */
   setSelectedFills: (fills: import('@strata/scene').Fill[]) => void;
   /** P2: Update a single fill in the stack at a given index on all selected nodes. */
@@ -352,7 +353,7 @@ export interface EditorContextValue {
   /** P3: set the document canvas height. */
   setCanvasHeight: (value: number) => void;
   /** P3: set the document canvas background color. */
-  setCanvasBackground: (value: import('@strata/engine').Color) => void;
+  setCanvasBackground: (value: ManagedColor) => void;
   /** F6: batch-set a variable binding on all selected nodes. */
   setSelectedBinding: (
     target: string,
@@ -916,6 +917,10 @@ export function EditorProvider({
           if (meta?.fileId) {
             const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
             await platform.upsertFile(fe, json);
+          } else {
+            // Untitled document: persist as recovery point so work is never lost
+            const doc = JSON.parse(json) as Document;
+            await recoveryRef.current?.createRecoveryPoint(doc, meta?.name ?? 'Untitled');
           }
           return true;
         } catch {
@@ -1233,7 +1238,7 @@ export function EditorProvider({
             node = makeFrameNode(id, {
               name: autoName,
               transform,
-              fill: [200, 200, 200, 255] as Color,
+              fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
               children: [],
               w: size?.w ?? 375,
               h: size?.h ?? 812,
@@ -1343,7 +1348,7 @@ export function EditorProvider({
           const node = makeFrameNode(id, {
             name: autoName,
             transform,
-            fill: [255, 255, 255, 255] as Color,
+            fill: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
             children: [],
             w: preset.w,
             h: preset.h,

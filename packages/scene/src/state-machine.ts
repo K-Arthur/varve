@@ -136,7 +136,11 @@ export function findEntryState(doc: Document, smId: string): SMState | undefined
   return sm.states.find((s) => s.isEntryState) ?? sm.states[0];
 }
 
-export function findSMTransitions(doc: Document, smId: string, fromStateId: string): SMTransition[] {
+export function findSMTransitions(
+  doc: Document,
+  smId: string,
+  fromStateId: string,
+): SMTransition[] {
   const sm = doc.stateMachines?.[smId];
   if (!sm) return [];
   return sm.transitions.filter((t) => t.fromStateId === fromStateId);

@@ -1,4 +1,5 @@
 import { createDocument, createKeyframe, makeTimelineObject } from '@strata/scene';
+import type { SceneNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { timelineToLottieJSON } from './animation-lottie';
 
@@ -15,9 +16,17 @@ function docWithNodes(ids: string[]) {
           kind: 'shape' as const,
           visible: true,
           transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
-          fill: [57, 208, 198, 255] as [number, number, number, number],
+          fill: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
           shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 50 },
-        },
+          index: 0,
+          order: 'a0',
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          strokes: [],
+          effects: [],
+        } as unknown as SceneNode,
       },
     };
   }

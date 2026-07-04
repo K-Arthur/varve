@@ -20,6 +20,8 @@ export interface PlaybackOptions {
 export interface EngineConfig {
   duration: number;
   iterations?: number;
+  loop?: boolean;
+  autoReverse?: boolean;
 }
 
 export class TimelineEngine {
@@ -35,9 +37,11 @@ export class TimelineEngine {
   private _onFrame: ((time: number, iteration: number) => void) | null = null;
   private _onFinish: (() => void) | null = null;
   private _onIteration: ((iteration: number) => void) | null = null;
+  /** Current effective play direction including autoReverse alternation. */
+  private _effectiveDirection: 'forward' | 'reverse' = 'forward';
 
   constructor(config: EngineConfig) {
-    this._config = { iterations: 1, ...config };
+    this._config = { iterations: 1, loop: false, autoReverse: false, ...config };
   }
 
   get state(): EngineState {
@@ -64,6 +68,7 @@ export class TimelineEngine {
     this._onFinish = opts.onFinish ?? null;
     this._onIteration = opts.onIteration ?? null;
     this._direction = opts.direction ?? 'forward';
+    this._effectiveDirection = this._direction;
     this._lastTimestamp = null;
     this._state = 'playing';
     this._scheduleFrame();
@@ -80,6 +85,7 @@ export class TimelineEngine {
     this._currentTime = 0;
     this._currentIteration = 0;
     this._lastIteration = 0;
+    this._effectiveDirection = this._direction;
     this._state = 'idle';
     this._onFrame = null;
     this._onFinish = null;
@@ -90,9 +96,18 @@ export class TimelineEngine {
     const clamped = Math.max(0, Math.min(time, this._config.duration));
     this._currentTime = clamped;
     this._currentIteration = Math.floor(clamped / Math.max(1, this._config.duration));
+    this._lastIteration = this._currentIteration;
+    this._effectiveDirection = this._resolveEffectiveDirection(this._currentIteration);
     if (this._onFrame) {
       this._onFrame(this._currentTime, this._currentIteration);
     }
+  }
+
+  private _resolveEffectiveDirection(iteration: number): 'forward' | 'reverse' {
+    if (!this._config.autoReverse) return this._direction;
+    const baseIsForward = this._direction === 'forward';
+    const even = iteration % 2 === 0;
+    return baseIsForward === even ? 'forward' : 'reverse';
   }
 
   setSpeed(speed: number): void {
@@ -148,30 +163,71 @@ export class TimelineEngine {
 
   /** Check if the engine should transition to finished state. Returns true if finished. */
   private _checkFinish(): boolean {
-    if (this._currentTime >= this._config.duration) {
-      const maxIter = this._config.iterations ?? 1;
-      const isLastIter = this._currentIteration >= maxIter - 1;
-      if (isLastIter && maxIter !== Infinity) {
-        this._state = 'finished';
-        if (this._onFinish) this._onFinish();
-        return true;
-      }
+    const maxIter = this._config.iterations ?? 1;
+    const loop = this._config.loop ?? false;
+
+    if (maxIter === Infinity || loop) {
+      return false;
+    }
+
+    const lastIter = Math.max(0, maxIter - 1);
+    if (this._currentIteration < lastIter) return false;
+
+    const atEnd = this._currentTime >= this._config.duration;
+    const atStart = this._currentTime <= 0;
+    if (this._effectiveDirection === 'forward' ? atEnd : atStart) {
+      this._currentTime = this._effectiveDirection === 'forward' ? this._config.duration : 0;
+      this._state = 'finished';
+      if (this._onFinish) this._onFinish();
+      return true;
     }
     return false;
   }
 
-  private _advanceTime(deltaMs: number): void {
-    const dir = this._direction === 'forward' ? 1 : -1;
-    this._currentTime += deltaMs * dir;
-    this._currentTime = Math.max(0, Math.min(this._currentTime, this._config.duration));
+  private _finish(): void {
+    if (this._state === 'finished') return;
+    this._currentTime = this._effectiveDirection === 'forward' ? this._config.duration : 0;
+    this._state = 'finished';
+    if (this._onFinish) this._onFinish();
+  }
 
-    const newIter = Math.floor(this._currentTime / Math.max(1, this._config.duration));
-    if (newIter !== this._lastIteration) {
-      this._lastIteration = newIter;
-      this._currentIteration = newIter;
-      if (this._onIteration && newIter > 0) {
-        this._onIteration(newIter);
+  private _advanceTime(deltaMs: number): void {
+    const duration = this._config.duration;
+    const maxIter = this._config.iterations ?? 1;
+    const loop = this._config.loop ?? false;
+    const infinite = maxIter === Infinity || loop;
+    let remaining = deltaMs;
+
+    while (remaining > 0) {
+      const dir = this._effectiveDirection === 'forward' ? 1 : -1;
+      const nextTime = this._currentTime + remaining * dir;
+      const boundary = this._effectiveDirection === 'forward' ? duration : 0;
+      const wouldCross =
+        this._effectiveDirection === 'forward' ? nextTime >= duration : nextTime <= 0;
+
+      if (!wouldCross) {
+        this._currentTime = nextTime;
+        remaining = 0;
+        break;
       }
+
+      const used = Math.abs(this._currentTime - boundary);
+      remaining -= used;
+      this._currentTime = boundary;
+
+      if (!infinite && this._currentIteration >= Math.max(0, maxIter - 1)) {
+        this._finish();
+        return;
+      }
+
+      this._currentIteration += 1;
+      this._effectiveDirection = this._resolveEffectiveDirection(this._currentIteration);
+      this._currentTime = this._effectiveDirection === 'forward' ? 0 : duration;
+      if (this._onIteration) this._onIteration(this._currentIteration);
+    }
+
+    if (this._currentIteration !== this._lastIteration) {
+      this._lastIteration = this._currentIteration;
     }
 
     if (this._onFrame) {

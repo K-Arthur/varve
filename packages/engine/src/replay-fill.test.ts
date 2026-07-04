@@ -137,14 +137,14 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'linear',
           stops: [
-            { position: 0, color: [255, 0, 0, 255] },
-            { position: 1, color: [0, 0, 255, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -164,14 +164,14 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'radial',
           stops: [
-            { position: 0, color: [255, 255, 255, 255] },
-            { position: 1, color: [0, 0, 0, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -190,15 +190,15 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'angular',
           stops: [
-            { position: 0, color: [255, 0, 0, 255] },
-            { position: 0.5, color: [0, 255, 0, 255] },
-            { position: 1, color: [0, 0, 255, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 0.5, color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -217,14 +217,14 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'diamond',
           stops: [
-            { position: 0, color: [255, 255, 0, 255] },
-            { position: 1, color: [0, 0, 0, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -243,7 +243,7 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
@@ -264,14 +264,14 @@ describe('gradient fill rendering', () => {
   it('gradient rotation rotates the gradient axis', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'linear',
           stops: [
-            { position: 0, color: [0, 0, 0, 255] },
-            { position: 1, color: [255, 255, 255, 255] },
+            { position: 0, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
           ],
           rotation: 90,
           opacity: 1,
@@ -291,14 +291,14 @@ describe('gradient fill rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'gradient',
           gradientType: 'linear',
           stops: [
-            { position: 0, color: [255, 0, 0, 255] },
-            { position: 1, color: [0, 0, 255, 255] },
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
           ],
           rotation: 0,
           opacity: 1,
@@ -318,12 +318,12 @@ describe('per-fill compositing', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       opacity: 0.5,
       fills: [
         {
           type: 'solid',
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -341,18 +341,18 @@ describe('per-fill compositing', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'solid',
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'multiply',
           visible: true,
         },
         {
           type: 'solid',
-          color: [0, 0, 255, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: true,
@@ -370,18 +370,18 @@ describe('per-fill compositing', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'solid',
-          color: [0, 255, 0, 255],
+          color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: false,
         },
         {
           type: 'solid',
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: true,
@@ -420,7 +420,7 @@ describe('blend mode mapping', () => {
       const rec = recorder();
       const item: RenderItem = {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 0, 0, 255],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
         blendMode: mode as RenderItem['blendMode'],
         primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
       };
@@ -432,7 +432,7 @@ describe('blend mode mapping', () => {
   it('blendMode=normal uses source-over', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       blendMode: 'normal',
       primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
     };
@@ -447,10 +447,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 255, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
       strokes: [
         {
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           weight: 2,
           cap: 'butt',
           join: 'miter',
@@ -473,10 +473,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 255, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
       strokes: [
         {
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           weight: 1,
           cap: 'butt',
           join: 'miter',
@@ -498,10 +498,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       strokes: [
         {
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           weight: 3,
           cap: 'round',
           join: 'round',
@@ -525,10 +525,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 255, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
       strokes: [
         {
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           weight: 1,
           cap: 'butt',
           join: 'miter',
@@ -549,10 +549,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 255, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
       strokes: [
         {
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           weight: 5,
           cap: 'butt',
           join: 'miter',
@@ -573,10 +573,10 @@ describe('stroke rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       strokes: [
         {
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           weight: 2,
           cap: 'round',
           join: 'round',
@@ -601,7 +601,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -609,7 +609,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 8,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -632,7 +632,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'layerBlur',
@@ -653,7 +653,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'innerShadow',
@@ -661,7 +661,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 8,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -681,7 +681,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'backgroundBlur',
@@ -700,7 +700,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -708,7 +708,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 8,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: false,
@@ -726,7 +726,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -734,7 +734,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 8,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -752,7 +752,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -760,7 +760,7 @@ describe('effects rendering', () => {
           y: 4,
           blur: 6,
           spread: 0,
-          color: [0, 0, 0, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -785,7 +785,7 @@ describe('effects rendering', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [0, 0, 0, 255],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
         effects: [
           {
             type: 'dropShadow',
@@ -793,7 +793,7 @@ describe('effects rendering', () => {
             y: 4,
             blur: 8,
             spread: 0,
-            color: [0, 0, 0, 128],
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
             opacity: 0.5,
             blendMode: 'normal',
             visible: true,
@@ -803,7 +803,7 @@ describe('effects rendering', () => {
       },
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [0, 0, 0, 255],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
         primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
       },
     ];
@@ -820,7 +820,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -828,7 +828,7 @@ describe('effects rendering', () => {
           y: 0,
           blur: 4,
           spread: 8,
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: true,
@@ -846,7 +846,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -854,7 +854,7 @@ describe('effects rendering', () => {
           y: 0,
           blur: 4,
           spread: 0,
-          color: [0, 0, 0, 255],
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'multiply',
           visible: true,
@@ -872,7 +872,7 @@ describe('effects rendering', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [127, 127, 127, 255],
+      fill: { space: 'rgb', r: 127, g: 127, b: 127, a: 255 },
       effects: [
         {
           type: 'dropShadow',
@@ -880,7 +880,7 @@ describe('effects rendering', () => {
           y: 5,
           blur: 4,
           spread: 0,
-          color: [255, 0, 0, 128],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -891,7 +891,7 @@ describe('effects rendering', () => {
           y: -5,
           blur: 4,
           spread: 0,
-          color: [0, 0, 255, 128],
+          color: { space: 'rgb', r: 0, g: 0, b: 255, a: 128 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -915,18 +915,18 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'solid',
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           opacity: 1,
           blendMode: 'normal',
           visible: true,
         },
         {
           type: 'solid',
-          color: [0, 255, 0, 255],
+          color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
           opacity: 0.5,
           blendMode: 'normal',
           visible: true,
@@ -945,10 +945,10 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       strokes: [
         {
-          color: [255, 0, 0, 255],
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
           weight: 2,
           cap: 'round',
           join: 'round',
@@ -970,7 +970,7 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [57, 208, 198, 1],
+      fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 1 },
       primitive: { kind: 'rect', x: 0, y: 0, w: 5, h: 6 },
     };
     replayIr(rec.target, [item]);
@@ -989,7 +989,7 @@ describe('multi-item compositing edge cases', () => {
     };
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'image',
@@ -1016,7 +1016,7 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'image',
@@ -1041,7 +1041,7 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'pattern',
@@ -1065,7 +1065,7 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'image',
@@ -1090,7 +1090,7 @@ describe('multi-item compositing edge cases', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       fills: [
         {
           type: 'image',

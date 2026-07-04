@@ -231,7 +231,7 @@ describe('replayIr', () => {
   it('replays a rect: save, transform, fillStyle, fillRect, restore', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 10, 20],
-      fill: [57, 208, 198, 255],
+      fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       primitive: { kind: 'rect', x: 0, y: 0, w: 5, h: 6 },
     };
     const rec = recorder();
@@ -248,7 +248,7 @@ describe('replayIr', () => {
   it('replays an ellipse via beginPath + ellipse + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       primitive: { kind: 'ellipse', cx: 1, cy: 2, rx: 3, ry: 4 },
     };
     const rec = recorder();
@@ -262,7 +262,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 10, 20] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           text: 'Hello',
@@ -302,7 +302,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           text: 'Italic',
@@ -335,7 +335,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           text: '',
@@ -367,7 +367,7 @@ describe('replayIr', () => {
   it('replays a line as a stroked segment with tolerance width', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       primitive: { kind: 'line', from: [0, 0], to: [10, 0], tolerance: 2 },
     };
     const rec = recorder();
@@ -383,7 +383,7 @@ describe('replayIr', () => {
   it('applies item opacity via globalAlpha', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       opacity: 0.5,
       primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
     };
@@ -400,7 +400,7 @@ describe('replayIr', () => {
   it('applies blend mode via globalCompositeOperation', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       blendMode: 'multiply',
       primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
     };
@@ -415,14 +415,14 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 0, 0, 255],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
         opacity: 0.5,
         blendMode: 'screen',
         primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
       },
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [0, 0, 255, 255],
+        fill: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
         primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
       },
     ];
@@ -445,7 +445,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           text: 'test',
@@ -479,7 +479,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           x: 0,
@@ -523,7 +523,7 @@ describe('replayIr', () => {
   it('renders polygon via beginPath + polygon path + closePath + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 128, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 128, b: 0, a: 255 },
       primitive: { kind: 'polygon', cx: 50, cy: 50, radius: 40, sides: 6, rotation: 0 },
     };
     const rec = recorder();
@@ -539,7 +539,7 @@ describe('replayIr', () => {
   it('renders star via beginPath + star path + closePath + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 200, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 200, b: 0, a: 255 },
       primitive: {
         kind: 'star',
         cx: 50,
@@ -561,7 +561,7 @@ describe('replayIr', () => {
   it('renders arrow as a stroked line with arrowhead', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       primitive: { kind: 'arrow', from: [0, 0], to: [100, 0], tolerance: 1, arrowheadSize: 10 },
     };
     const rec = recorder();
@@ -575,7 +575,7 @@ describe('replayIr', () => {
   it('renders a path primitive via bezierCurveTo + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 255, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 255, a: 255 },
       primitive: {
         kind: 'path',
         points: [
@@ -596,7 +596,7 @@ describe('replayIr', () => {
   it('renders a text primitive via fillText', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       primitive: {
         kind: 'text',
         x: 0,
@@ -628,7 +628,7 @@ describe('replayIr', () => {
   it('renders an image primitive as a placeholder fillRect', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [200, 200, 200, 255],
+      fill: { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
       primitive: { kind: 'image', w: 100, h: 80, src: 'data:image/png;base64,abc' },
     };
     const rec = recorder();
@@ -639,7 +639,7 @@ describe('replayIr', () => {
   it('renders a rounded rect via roundRect + fill when cornerRadius is set', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 255, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
       primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 50, cornerRadius: 8 },
     };
     const rec = recorder();
@@ -653,7 +653,7 @@ describe('replayIr', () => {
   it('renders a rect without cornerRadius via fillRect', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [255, 0, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 30 },
     };
     const rec = recorder();
@@ -665,12 +665,12 @@ describe('replayIr', () => {
     // Simulates [frame-background, sibling-shape] IR order
     const frameItem: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [240, 240, 240, 255],
+      fill: { space: 'rgb', r: 240, g: 240, b: 240, a: 255 },
       primitive: { kind: 'rect', x: 0, y: 0, w: 400, h: 300 },
     };
     const siblingItem: RenderItem = {
       transform: [1, 0, 0, 1, 50, 50],
-      fill: [255, 0, 0, 255],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     const rec = recorder();
@@ -690,7 +690,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           text: 'hello',
@@ -723,7 +723,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           text: 'Test',
@@ -756,7 +756,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           text: 'Underlined',
@@ -849,7 +849,7 @@ describe('replayIr', () => {
     replayIr(m.target, [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 0, 0, 255],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
         primitive: {
           kind: 'path',
           points: [
@@ -870,7 +870,7 @@ describe('replayIr', () => {
     replayIr(m.target, [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [0, 0, 255, 255],
+        fill: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
         primitive: {
           kind: 'path',
           points: [
@@ -891,7 +891,7 @@ describe('replayIr', () => {
     replayIr(m.target, [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 0, 255, 255],
+        fill: { space: 'rgb', r: 255, g: 0, b: 255, a: 255 },
         primitive: {
           kind: 'path',
           points: [
@@ -912,7 +912,7 @@ describe('replayIr', () => {
     replayIr(m.target, [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 128, 0, 255],
+        fill: { space: 'rgb', r: 255, g: 128, b: 0, a: 255 },
         primitive: {
           kind: 'path',
           points: [
@@ -933,10 +933,10 @@ describe('replayIr', () => {
     replayIr(m.target, [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 0, 0, 255],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
         strokes: [
           {
-            color: [0, 0, 0, 255] as const,
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
             weight: 2,
             align: 'center',
             dashPattern: [],
@@ -967,10 +967,10 @@ describe('replayIr', () => {
     replayIr(m.target, [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 0, 0, 255],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
         strokes: [
           {
-            color: [0, 0, 0, 255] as const,
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
             weight: 2,
             align: 'center',
             dashPattern: [],
@@ -1001,10 +1001,10 @@ describe('replayIr', () => {
     replayIr(m.target, [
       {
         transform: [1, 0, 0, 1, 0, 0],
-        fill: [255, 0, 0, 255],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
         strokes: [
           {
-            color: [0, 0, 0, 255] as const,
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
             weight: 2,
             align: 'center',
             dashPattern: [],
@@ -1036,7 +1036,7 @@ describe('replayIr', () => {
     const items: RenderItem[] = [
       {
         transform: [1, 0, 0, 1, 0, 0] as const,
-        fill: [0, 0, 0, 255] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
         primitive: {
           kind: 'text',
           text: 'Item 1\nItem 2',
@@ -1078,7 +1078,7 @@ describe('replayIr', () => {
     };
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 10, 20] as const,
-      fill: [0, 0, 0, 255] as const,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
       primitive: { kind: 'image' as const, w: 100, h: 80, src: 'test.png' },
     };
     replayIr(rec.target, [item]);
@@ -1089,7 +1089,7 @@ describe('replayIr', () => {
     const rec = new Recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 10, 20] as const,
-      fill: [0, 0, 0, 255] as const,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
       primitive: { kind: 'image' as const, w: 100, h: 80, src: 'test.png' },
     };
     replayIr(rec, [item]);
@@ -1106,7 +1106,7 @@ describe('replayIr', () => {
     };
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0] as const,
-      fill: [0, 0, 0, 255] as const,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
       primitive: { kind: 'image' as const, w: 50, h: 50, src: '' },
     };
     replayIr(rec.target, [item]);
@@ -1124,7 +1124,7 @@ describe('replayIr', () => {
         y: 2,
         blur: 4,
         spread: 0,
-        color: [0, 0, 0, 128],
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
         opacity: 0.5,
         blendMode: 'normal' as const,
         visible: true,
@@ -1132,7 +1132,7 @@ describe('replayIr', () => {
     ];
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0] as const,
-      fill: [255, 255, 255, 255] as const,
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } as const,
       effects,
       primitive: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 100 },
     };
@@ -1150,7 +1150,7 @@ describe('replayIr', () => {
         y: 0,
         blur: 4,
         spread: 0,
-        color: [0, 0, 0, 128],
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
         opacity: 0.5,
         blendMode: 'normal' as const,
         visible: true,
@@ -1158,7 +1158,7 @@ describe('replayIr', () => {
     ];
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0] as const,
-      fill: [255, 255, 255, 255] as const,
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } as const,
       effects,
       primitive: { kind: 'ellipse' as const, cx: 50, cy: 50, rx: 40, ry: 30 },
     };

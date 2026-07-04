@@ -58,13 +58,20 @@ export function createMotionTimelineEngine(): MotionTimelineEngine {
       const eng = new TimelineEngine({
         duration: timeline.duration,
         iterations: timeline.defaultIterations ?? 1,
+        loop: false,
+        autoReverse: timeline.autoReverse ?? false,
       });
       engine = eng;
       this.engine = eng;
 
       eng.play({
         onFrame: (time) => {
-          currentSample.result = sampleTimeline(timeline, time);
+          currentSample.result = sampleTimeline(timeline, time, {
+            fillMode: timeline.defaultFillMode,
+            direction: timeline.defaultPlaybackDirection,
+            iterations: timeline.defaultIterations,
+            autoReverse: timeline.autoReverse,
+          });
         },
         onFinish: () => {
           engine = null;
@@ -91,7 +98,6 @@ export function createMotionTimelineEngine(): MotionTimelineEngine {
     seekPlayback(time: number) {
       if (engine) {
         engine.seek(time);
-        // Trigger a sample update at the seeked time
       }
     },
 

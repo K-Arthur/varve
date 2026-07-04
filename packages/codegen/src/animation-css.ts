@@ -70,6 +70,7 @@ export function timelineToCSSKeyframes(
     const parts: string[] = [`@keyframes ${name} {`];
     for (let i = 0; i < kfs.length; i++) {
       const kf = kfs[i];
+      if (!kf) continue;
       const pct = `${(kf.progress * 100).toFixed(2)}%`.replace(/\.?0+%$/, '%');
       const val = cssPropertyValue(prop, kf.value);
       const indent = '  ';

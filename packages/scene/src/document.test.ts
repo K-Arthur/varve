@@ -74,7 +74,6 @@ describe('Document (root-level ops)', () => {
 
   it('moves a node to a new paint index', () => {
     let doc = createDocument();
-    const cr = pageContentRoot(doc);
     const a = shape(doc, 'a');
     doc = a.doc;
     const b = shape(doc, 'b');
