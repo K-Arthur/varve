@@ -60,6 +60,7 @@ export function defaultViewState(): HomeViewState {
   return {
     section: 'recent',
     activeProjectId: null,
+    activeWorkspaceId: null,
     view: 'grid',
     sort: { key: 'opened', direction: 'desc' },
     filter: {
@@ -82,6 +83,7 @@ export function mergeViewState(partial: Partial<HomeViewState> | undefined): Hom
   return {
     section: partial.section ?? d.section,
     activeProjectId: partial.activeProjectId ?? d.activeProjectId,
+    activeWorkspaceId: partial.activeWorkspaceId ?? d.activeWorkspaceId,
     view: partial.view ?? d.view,
     sort: { ...d.sort, ...(partial.sort ?? {}) },
     filter: { ...d.filter, ...(partial.filter ?? {}) },

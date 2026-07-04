@@ -6,7 +6,6 @@
  *
  * Research basis: Figma / Sketch effects panel, APG Disclosure pattern.
  */
-import { managedColorToRgba } from '@strata/shared';
 import type {
   BlendMode,
   Effect,
@@ -350,20 +349,11 @@ function ShadowColorSwatch({
           }}
         >
           <ColorPicker
-            value={color ? managedColorToRgba(color) : [0, 0, 0, 255]}
+            value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
             onChange={(c) =>
               onChange((e) =>
                 e.type === 'dropShadow' || e.type === 'innerShadow'
-                  ? {
-                      ...e,
-                      color: {
-                        space: 'rgb' as const,
-                        r: c[0],
-                        g: c[1],
-                        b: c[2],
-                        a: c[3] ?? 255,
-                      } as ManagedColor,
-                    }
+                  ? { ...e, color: c as ManagedColor }
                   : e,
               )
             }

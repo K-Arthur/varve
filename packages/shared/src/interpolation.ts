@@ -155,6 +155,68 @@ export function interpolateAffine(from: Affine, to: Affine, t: number): Affine {
 }
 
 /**
+ * Spatial tangent pair for cubic bezier interpolation of 2D positions.
+ * After Effects-style: ti = tangent in, to = tangent out.
+ */
+export interface SpatialTangents {
+  ti: [number, number];
+  to: [number, number];
+}
+
+function toVec2(v: unknown): [number, number] | null {
+  if (Array.isArray(v) && v.length >= 2 && typeof v[0] === 'number' && typeof v[1] === 'number') {
+    return [v[0], v[1]];
+  }
+  if (
+    typeof v === 'object' &&
+    v !== null &&
+    !Array.isArray(v) &&
+    typeof (v as Record<string, unknown>).x === 'number' &&
+    typeof (v as Record<string, unknown>).y === 'number'
+  ) {
+    return [(v as Record<string, number>).x, (v as Record<string, number>).y];
+  }
+  return null;
+}
+
+function fromVec2(vec: [number, number], template: unknown): unknown {
+  if (Array.isArray(template)) {
+    return [vec[0], vec[1]];
+  }
+  return { x: vec[0], y: vec[1] };
+}
+
+/**
+ * Interpolate a 2D position along a cubic bezier curve defined by spatial tangents.
+ *
+ * P0 = from, P1 = from + fromTangent.to, P2 = to - toTangent.ti, P3 = to.
+ * The parameter t is the eased progress along the segment.
+ *
+ * Research basis: After Effects spatial interpolation (ti/to tangents),
+ * Lottie spatial bezier interpolation, cubic bezier curve evaluation.
+ */
+export function interpolateSpatialBezier(
+  from: unknown,
+  to: unknown,
+  t: number,
+  fromTangent: SpatialTangents,
+  toTangent: SpatialTangents,
+): unknown {
+  const p0 = toVec2(from);
+  const p3 = toVec2(to);
+  if (!p0 || !p3) return interpolateValue(from, to, t);
+
+  const p1: [number, number] = [p0[0] + fromTangent.to[0], p0[1] + fromTangent.to[1]];
+  const p2: [number, number] = [p3[0] - toTangent.ti[0], p3[1] - toTangent.ti[1]];
+
+  const u = 1 - t;
+  const x = u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0];
+  const y = u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1];
+
+  return fromVec2([x, y], from);
+}
+
+/**
  * Interpolate between two path vertex arrays.
  * Both arrays must have the same length (caller must normalize vertex count
  * before calling this function).

@@ -164,6 +164,79 @@ Strata's typography subsystem has a **strong type foundation** but a **weak exec
 - `packages/codegen` svg/spec/codegen: 45/45 pass
 - `packages/scene` pre-existing failures: `brush.test.ts` (1), `textWarp.test.ts` (1) — unrelated to typography
 
+## Additional Research Findings (2026-07-04)
+
+### Competitive Analysis: Text-on-Path
+
+- **Sketch**: Full Type on Path support with OpenType features (ligatures, stylistic sets, old-style figures). Path text respects text style, kerning, and tracking. Offers "Text on Path" as a first-class operation with side selection (top/bottom).
+- **Penpot**: Open-source, uses SVG `textPath` natively. Limited to SVG path geometry. No variable font support yet. Text shaping delegates to browser.
+- **Canva**: Simplified curved text for social media. Arc-only path text with limited controls. No OpenType feature exposure. Good UX for non-professionals.
+- **Figma**: No native text-on-path (as of 2026-Q2). Plugins fill the gap. This is a competitive opportunity for Strata.
+
+### Text-to-Outlines Best Practices
+
+- **Non-destructive workflow**: Keep original text node as a hidden source; render outlines as a separate vector group. This preserves editability (Figma, Illustrator approach).
+- **Outline accuracy**: Requires glyph path data from the font file. Canvas2D does not expose glyph paths. Options:
+  1. **opentype.js** — pure JS font parser, extracts glyph path data as SVG path commands
+  2. **HarfBuzz + FreeType** via WASM — full shaping + outline extraction
+  3. **Platform font APIs** — `FontFace` + `createImageBitmap` hack (low quality)
+  4. **Native Rust** — `rusttype` or `ab_glyph` crate (fits Strata's native engine architecture)
+- **Recommendation**: Use `ab_glyph` in the Rust engine for desktop, `opentype.js` as WASM fallback for web. The IR-replay architecture (ADR-0001) can carry glyph outline commands instead of text strings.
+
+### RTL/BiDi and CJK Considerations
+
+- **BiDi algorithm**: Unicode Bidirectional Algorithm (UAX #9) is required for mixed RTL/LTR text. The `Intl.Segmenter` API (available in modern browsers) can handle line breaking but not BiDi reordering.
+- **CJK line breaking**: CJK scripts allow line breaks between any two characters (no word boundaries). The current `split(/(\s+)/)` approach in `textLayout.ts` fails for CJK — it treats the entire text as one "word".
+- **Vertical text**: Japanese and traditional Chinese use vertical writing mode. This requires a separate layout path (top-to-bottom, right-to-left columns).
+- **Font fallback for CJK**: `FontMetadata.isCJK` flag exists but is not populated. Need to detect CJK characters and route to CJK-capable fonts in the fallback chain.
+- **Recommendation**: Use `Intl.Segmenter` with `granularity: 'word'` for line breaking. Add CJK detection via Unicode range checking. Defer BiDi to a dedicated module (potential `Intl.v8BreakIterator` or a WASM BiDi library).
+
+### Variable Font Integration Status
+
+- `FontRegistry` has `getVariableAxes()`, `getAxisInfo()`, `getAllAxes()`, `isVariable()`, `variableFamilies()` — all functional.
+- `STANDARD_AXES` defines 12 known axes (wght, wdth, slnt, opsz, ital, grad, XTRA, YOPQ, YTLC, YTUC, YTDE, YTFI).
+- `buildVariationSettings()` generates CSS `font-variation-settings` string.
+- **Gap**: The `TypographySection` UI shows a stub message instead of actual controls. The `FontRegistry` is ready; the UI is not wired.
+- **Gap**: `TextStyle` interface does not include `openTypeFeatures` or `variableFontSettings` — these are only on `RichTextRun.format` and `CharacterFormat`.
+
+### OpenType Feature Integration Status
+
+- `FontRegistry` has `getSupportedFeatures()`, `registerFeatures()`, and `buildFeatureSettings()`.
+- `FontMetadata.openTypeFeatures` stores known feature tags per family.
+- `OpenTypeFeatureMap` type supports standard features + custom tags.
+- **Gap**: No UI to toggle features. The stub message in `TypographySection` says "OpenType features available once FontRegistry lands" but FontRegistry already exists.
+- **Gap**: No feature auto-detection from font files. Features must be manually registered.
+
+## Updated Roadmap
+
+### Phase A — Foundation (completed prior session)
+- FontRegistry CSS quoting/availability fixes
+- Engine IR rich text extension
+- Typography layout engine (`textLayout.ts`)
+- Canvas2D rich text replay rendering
+- SVG multi-line/rich text export
+- Strengthened typography preflight
+
+### Phase B — UI Integration + Measurement (this session)
+- Wire OpenType features UI controls into TypographySection
+- Wire variable font axes sliders into TypographySection
+- Replace `estimateTextWidth` with real canvas `measureText` in `textLayout.ts`
+- Integrate path text rendering into canvas replay pipeline
+- Add text-to-outlines conversion utility (non-destructive)
+- Add CJK-aware line breaking via `Intl.Segmenter`
+- Tests for all new code
+
+### Phase C — Advanced Typography (future)
+- Inline text editor with caret/selection model
+- Text hit-testing (screen coordinates to text offsets)
+- Character/paragraph styles wired to Document
+- Threaded text frame rendering
+- BiDi algorithm (UAX #9) for mixed RTL/LTR
+- Vertical text mode for CJK
+- Text warp rendering integration
+- Glyph cache for performance
+- HarfBuzz/ab_glyph shaping in native engine
+
 ## Conclusion
 
-The typography subsystem is ready for a focused foundation upgrade. The type model is already professional-grade; the execution layer needs to catch up. Phase A improvements will close the gap between declared types and actual behavior, while the architecture recommendations prepare the system for the more advanced features in Phases B and C.
+The typography subsystem has a professional-grade type model with a catching-up execution layer. Phase A closed the data/render gap for rich text. Phase B wires the existing FontRegistry capabilities to the UI, replaces approximate measurement with real canvas metrics, and integrates path text rendering. The architecture is well-positioned for Phase C's advanced features (shaping, BiDi, inline editing).

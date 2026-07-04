@@ -57,13 +57,14 @@ export {
   springPhysics,
   steps,
 } from './easing';
-export type { PathPoint } from './interpolation';
+export type { PathPoint, SpatialTangents } from './interpolation';
 export {
   interpolateAffine,
   interpolateArray,
   interpolateColor,
   interpolateObject,
   interpolatePath,
+  interpolateSpatialBezier,
   interpolateValue,
 } from './interpolation';
 export type { OrderKey } from './ordering';
@@ -128,7 +129,7 @@ export {
   zoomAboutPoint,
 } from './viewport';
 
-export { managedColorToCss, managedColorToRgba } from './colorConversion';
+export { cmykToRgb, managedColorToCss, managedColorToRgba, rgbToCmyk } from './colorConversion';
 
 /** Semantic Strata package marker. */
 export const PACKAGE = '@strata/shared' as const;

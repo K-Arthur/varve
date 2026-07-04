@@ -158,7 +158,7 @@ export function VersionHistory({
   }, [fileId, platform, load]);
 
   const handleNameVersion = useCallback(
-    async (versionId: string, name: string) => {
+    async (_versionId: string, name: string) => {
       try {
         await platform.saveVersion(fileId, name, undefined);
         setNamingId(null);
@@ -171,11 +171,11 @@ export function VersionHistory({
   );
 
   const handleDuplicate = useCallback(
-    async (versionId: string) => {
+    async (vid: string) => {
       try {
-        const hash = await platform.restoreVersion(fileId, versionId);
+        const hash = await platform.restoreVersion(fileId, vid);
         if (hash) {
-          await platform.saveVersion(fileId, `Copy of version ${versionId.slice(0, 8)}`, undefined);
+          await platform.saveVersion(fileId, `Copy of version ${vid.slice(0, 8)}`, undefined);
           await load();
         }
       } catch {
@@ -210,7 +210,7 @@ export function VersionHistory({
 
       {error && (
         <div className="version-history__error" role="alert">
-          <Icon name="AlertTriangle" label={undefined} />
+          <Icon name="TriangleAlert" label={undefined} />
           <span>{error}</span>
           <Button variant="ghost" size="sm" onClick={load}>
             Retry

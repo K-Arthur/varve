@@ -298,11 +298,11 @@ function StrokeRow({
             }}
           >
             <ColorPicker
-              value={color ? managedColorToRgba(color) : [0, 0, 0, 255]}
+              value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
               onChange={(c) =>
                 onChange((s) => ({
                   ...s,
-                  color: { space: 'rgb' as const, r: c[0], g: c[1], b: c[2], a: c[3] ?? 255 },
+                  color: c as ManagedColor,
                 }))
               }
             />

@@ -11,13 +11,13 @@
  *
  * Research basis: Figma/Sketch fill panel; APG Disclosure, Listbox, Slider.
  */
-import { managedColorToRgba } from '@strata/shared';
 import type {
   BlendMode,
   Fill,
   FillType,
   GradientFill,
   ImageFillData,
+  ManagedColor,
   PatternFillData,
   SceneNode,
 } from '@strata/scene';
@@ -402,10 +402,8 @@ function FillRow({
           }}
         >
           <ColorPicker
-            value={managedColorToRgba(fill.color!)}
-            onChange={(c) =>
-              patch({ color: { space: 'rgb' as const, r: c[0], g: c[1], b: c[2], a: c[3] ?? 255 } })
-            }
+            value={fill.color!}
+            onChange={(c) => patch({ color: c })}
           />
         </div>
       )}

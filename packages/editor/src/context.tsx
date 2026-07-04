@@ -199,6 +199,8 @@ export interface EditorState {
   prototypeData: PrototypeData;
   /** Whether prototype is presenting */
   isPresenting: boolean;
+  /** Soft proofing overlay toggle. */
+  softProofEnabled: boolean;
   /** Layers (left) panel visibility — persisted in editor settings. */
   leftPanelVisible: boolean;
   /** Inspector (right) panel visibility — persisted in editor settings. */
@@ -470,6 +472,8 @@ export interface EditorContextValue {
   setCursorPos: (pos: { x: number; y: number } | null) => void;
   /** Set the display unit type. */
   setUnitType: (t: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%') => void;
+  /** Toggle soft proofing overlay. */
+  setSoftProofEnabled: (v: boolean) => void;
   /** Toggle pixel grid overlay. */
   setPixelGridEnabled: (v: boolean) => void;
   /** Toggle snap-to-grid. */
@@ -864,6 +868,7 @@ export function EditorProvider({
       prototypeDebug: new PrototypeDebugConsole(),
       prototypeData: { interactions: {} },
       isPresenting: false,
+      softProofEnabled: false,
       leftPanelVisible: loadSettings().panel.leftPanelVisible,
       rightPanelVisible: loadSettings().panel.rightPanelVisible,
       motion: createInitialMotionState(),
@@ -2561,6 +2566,7 @@ export function EditorProvider({
       setUnitType: (t) => patch({ unitType: t }),
       setPixelGridEnabled: (v) => patch({ pixelGridEnabled: v }),
       setSnapEnabled: (v) => patch({ snapEnabled: v }),
+      setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
 
       setNodeLayout: (id, layout) => {
         updateNodeProp(id, (n) => {

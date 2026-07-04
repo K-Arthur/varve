@@ -7,7 +7,6 @@
  * Research basis: Figma/Sketch gradient stop bar; APG Slider for stop
  * positioning; Pointer Events for drag (cross-platform, Linux-first).
  */
-import { managedColorToRgba } from '@strata/shared';
 import type { GradientFill, GradientStop, GradientType, ManagedColor } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
@@ -291,8 +290,8 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
             </div>
           </div>
           <ColorPicker
-            value={managedColorToRgba(currentStop.color)}
-            onChange={(c) => updateStop(selectedStop, { color: { space: 'rgb' as const, r: c[0], g: c[1], b: c[2], a: c[3] ?? 255 } })}
+            value={currentStop.color}
+            onChange={(c) => updateStop(selectedStop, { color: c as ManagedColor })}
           />
         </div>
       )}

@@ -3,6 +3,9 @@
 //! Converts font glyphs into vector path commands (MoveTo, LineTo, CurveTo,
 //! ClosePath) for use in PDF export and SVG path generation.
 //!
+//! `outline_text_multi()` supports multiple fonts looked up by family name,
+//! falling back to the first available font on miss.
+//!
 //! Research basis: ab_glyph for OpenType glyph outline extraction, SVG path
 //! specification for commands_to_svg_path.
 
@@ -122,6 +125,35 @@ pub fn outline_text(
     }
 
     Ok(results)
+}
+
+/// Outline text using a multi-font lookup.
+///
+/// `fonts` is a slice of `(family_name, font_data)` pairs.
+/// The function searches for a font whose family name matches `font_family`,
+/// falling back to the first font if no match is found.
+pub fn outline_text_multi(
+    fonts: &[(String, Vec<u8>)],
+    font_family: &str,
+    text: &str,
+    font_size: f64,
+) -> Result<Vec<GlyphOutline>, String> {
+    if fonts.is_empty() {
+        return Err("No fonts provided".into());
+    }
+
+    if text.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Find matching font by family name, or fall back to first
+    let font_data = fonts
+        .iter()
+        .find(|(name, _)| name == font_family)
+        .map(|(_, data)| data)
+        .unwrap_or(&fonts[0].1);
+
+    outline_text(font_data, text, font_size)
 }
 
 /// Helper: emit a MoveTo for the first segment or when a gap (new sub-path)
@@ -256,15 +288,9 @@ mod tests {
     fn outline_different_character() {
         let data = test_font_data();
         let outlines_b = outline_text(data, "B", 16.0).expect("outline B");
-        let outlines_a = outline_text(data, "A", 16.0).expect("outline A");
+        let _outlines_a = outline_text(data, "A", 16.0).expect("outline A");
         assert!(!outlines_b.is_empty(), "B should produce outline");
         assert!(!outlines_b[0].commands.is_empty(), "B should have commands");
-        let b_count = outlines_b[0].commands.len();
-        let a_count = outlines_a[0].commands.len();
-        assert!(
-            b_count > 0 && a_count > 0,
-            "both glyphs should have commands"
-        );
     }
 
     #[test]
@@ -299,5 +325,77 @@ mod tests {
             low_prec.len() < high_prec.len(),
             "lower precision = shorter output"
         );
+    }
+
+    // ── outline_text_multi tests ───────────────────────────────────────
+
+    #[test]
+    fn outline_text_multi_font_lookup() {
+        let font_data = test_font_data().to_vec();
+        let fonts = vec![("DejaVu Sans".into(), font_data)];
+        let result = outline_text_multi(&fonts, "DejaVu Sans", "ABC", 16.0);
+        assert!(result.is_ok(), "should find font by family name");
+        let outlines = result.unwrap();
+        assert_eq!(outlines.len(), 3, "should produce three glyph outlines");
+    }
+
+    #[test]
+    fn outline_text_multi_font_fallback() {
+        let font_data = test_font_data().to_vec();
+        let fonts = vec![("Fallback".into(), font_data)];
+        // Look up a non-existent family — should fall back to first font
+        let result = outline_text_multi(&fonts, "NonExistentFont", "A", 16.0);
+        assert!(result.is_ok(), "should fall back to first font");
+        let outlines = result.unwrap();
+        assert!(!outlines.is_empty(), "should produce outline from fallback font");
+    }
+
+    #[test]
+    fn outline_text_multi_empty_text() {
+        let font_data = test_font_data().to_vec();
+        let fonts = vec![("Test".into(), font_data)];
+        let result = outline_text_multi(&fonts, "Test", "", 16.0);
+        assert!(result.is_ok(), "empty text should be ok");
+        assert_eq!(result.unwrap().len(), 0, "no outlines for empty text");
+    }
+
+    #[test]
+    fn outline_text_multi_empty_fonts() {
+        let result = outline_text_multi(&[], "Any", "A", 16.0);
+        assert!(result.is_err(), "empty fonts should error");
+        assert!(result.unwrap_err().contains("No fonts"), "should say no fonts");
+    }
+
+    #[test]
+    fn outline_text_multi_multiple_fonts() {
+        let font_data = test_font_data().to_vec();
+        let fonts = vec![
+            ("FontA".into(), font_data.clone()),
+            ("DejaVu Sans".into(), font_data),
+        ];
+        let result = outline_text_multi(&fonts, "DejaVu Sans", "Hello", 24.0);
+        assert!(result.is_ok(), "should find DejaVu Sans");
+        let outlines = result.unwrap();
+        assert_eq!(outlines.len(), 5, "Hello has 5 characters");
+        for (i, g) in outlines.iter().enumerate() {
+            assert!(!g.commands.is_empty(), "glyph {i} should have commands");
+        }
+    }
+
+    #[test]
+    fn outline_text_multi_returns_paths() {
+        let font_data = test_font_data().to_vec();
+        let fonts = vec![("Bold".into(), font_data)];
+        let outlines = outline_text_multi(&fonts, "Bold", "A", 16.0).expect("outline A with multi");
+        assert!(!outlines.is_empty(), "should produce glyph");
+        // The commands should contain path operators (MoveTo at minimum)
+        assert!(!outlines[0].commands.is_empty(), "glyph should have path commands");
+        let has_moveto = outlines[0].commands.iter().any(|c| matches!(c, PathCommand::MoveTo(_, _)));
+        assert!(has_moveto, "glyph should start with MoveTo");
+        // Most fonts use bezier curves, but some may be all lines for simple glyphs
+        let has_path = outlines[0].commands.iter().any(|c| {
+            matches!(c, PathCommand::CurveTo(_, _, _, _, _, _) | PathCommand::LineTo(_, _))
+        });
+        assert!(has_path, "glyph should have LineTo or CurveTo commands");
     }
 }

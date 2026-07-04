@@ -125,6 +125,8 @@ export interface HomeViewState {
   section: SidebarSection;
   /** Active project when section === 'project'; null otherwise. */
   activeProjectId: string | null;
+  /** Active workspace used to scope files, projects and assets. */
+  activeWorkspaceId: string | null;
   view: ViewMode;
   sort: SortState;
   filter: FilterState;

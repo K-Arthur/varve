@@ -26,6 +26,7 @@ import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { RecoveryDialog } from './components/RecoveryDialog';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
+import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { EditorProvider, useEditor } from './context';
 import type { DragNodeData } from './dnd-types';
 import { LayersPanel } from './LayersPanel';
@@ -301,6 +302,7 @@ function ShellInner({
         <FloatingToolbar />
         <TabStrip onBackToHome={onBackToHome} />
         <CanvasArea canvasContainerRef={canvasContainerRef} />
+        <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
         <div
           className="editor__layers-panel"
           data-visible={layersVisible || undefined}

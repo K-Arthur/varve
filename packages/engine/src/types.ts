@@ -362,6 +362,8 @@ export type Primitive =
       textMode?: TextMode;
       /** Path text settings. */
       pathTextSettings?: PathTextSettings;
+      /** Resolved shape for path text (when textMode === 'path'). */
+      pathShape?: Shape;
     };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */

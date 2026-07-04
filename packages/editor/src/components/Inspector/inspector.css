@@ -632,3 +632,54 @@
   border-color: var(--color-accent-primary);
   box-shadow: 0 0 0 2px var(--color-accent-primary);
 }
+
+/* ---------- OpenType feature list ---------- */
+.insp-opentype-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+}
+
+.insp-opentype-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+}
+
+.insp-opentype-row input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-accent-primary);
+}
+
+.insp-opentype-label {
+  flex: 1;
+  color: var(--color-text-primary);
+}
+
+.insp-opentype-tag {
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding: 0 var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-xs);
+}
+
+/* ---------- Variable font axis slider ---------- */
+.insp-slider__input {
+  flex: 1;
+  accent-color: var(--color-accent-primary);
+  cursor: pointer;
+}
+
+.insp-slider__value {
+  min-width: 32px;
+  text-align: right;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}

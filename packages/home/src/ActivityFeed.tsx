@@ -46,9 +46,9 @@ function getPeriod(timestamp: number, now: number): TimePeriod {
   return 'older';
 }
 
-const EVENT_ICONS: Record<string, 'FilePlus' | 'FileEdit' | 'Share2' | 'Trash2' | 'RotateCcw'> = {
+const EVENT_ICONS: Record<string, 'FilePlus' | 'FilePenLine' | 'Share2' | 'Trash2' | 'RotateCcw'> = {
   created: 'FilePlus',
-  modified: 'FileEdit',
+  modified: 'FilePenLine',
   shared: 'Share2',
   trashed: 'Trash2',
   restored: 'RotateCcw',
@@ -69,7 +69,7 @@ interface EventDisplay {
   label: string;
   verb: string;
   fileName?: string;
-  icon: 'FilePlus' | 'FileEdit' | 'Share2' | 'Trash2' | 'RotateCcw';
+  icon: 'FilePlus' | 'FilePenLine' | 'Share2' | 'Trash2' | 'RotateCcw';
   onOpen?: () => void;
 }
 
@@ -93,7 +93,7 @@ function groupEvents(events: RawEvent[], onOpenFile?: (fileId: string) => void):
       label: EVENT_VERBS[event.type] ?? event.type,
       verb: EVENT_VERBS[event.type] ?? event.type,
       fileName: event.metadata?.fileName,
-      icon: EVENT_ICONS[event.type] ?? 'FileEdit',
+      icon: EVENT_ICONS[event.type] ?? 'FilePenLine',
       onOpen:
         event.fileId && onOpenFile
           ? () => onOpenFile(event.fileId!)
@@ -154,7 +154,7 @@ export function ActivityFeed({
     return (
       <div className="activity-feed" role="region" aria-label="Activity feed">
         <div className="activity-feed__error" role="alert">
-          <Icon name="AlertTriangle" label={undefined} />
+          <Icon name="CircleAlert" label={undefined} />
           <span>{error}</span>
         </div>
       </div>

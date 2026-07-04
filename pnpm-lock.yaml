@@ -302,6 +302,12 @@ importers:
       '@fontsource-variable/ibm-plex-sans':
         specifier: ^5.2.0
         version: 5.2.8
+      '@strata/scene':
+        specifier: workspace:*
+        version: link:../scene
+      '@strata/shared':
+        specifier: workspace:*
+        version: link:../shared
       lucide-react:
         specifier: ^0.469.0
         version: 0.469.0(react@19.2.7)

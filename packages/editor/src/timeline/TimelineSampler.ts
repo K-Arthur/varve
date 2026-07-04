@@ -13,8 +13,14 @@
  * value computation), GSAP TweenLite.render(), Lottie interpolators.
  */
 import type { AnimationKeyframe, Document, Timeline } from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
-import { getEasingFn, interpolateAffine, interpolateColor, interpolateValue } from '@strata/shared';
+import type { EasingDefinition, SpatialTangents } from '@strata/shared';
+import {
+  getEasingFn,
+  interpolateAffine,
+  interpolateColor,
+  interpolateSpatialBezier,
+  interpolateValue,
+} from '@strata/shared';
 
 export interface SampleResult {
   overrides: Map<string, Map<string, unknown>>;

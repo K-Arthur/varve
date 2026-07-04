@@ -62,6 +62,7 @@ fn default_blend_mode() -> String {
 /// `@strata/engine` `Primitive` type is the stable webview contract (ADR-0001).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
+#[allow(clippy::large_enum_variant)]
 pub enum Primitive {
     #[serde(rename = "rect")]
     Rect {

@@ -4,6 +4,7 @@ import {
   interpolateAffine,
   interpolateColor,
   interpolatePath,
+  interpolateSpatialBezier,
   interpolateValue,
 } from './interpolation';
 
@@ -222,5 +223,71 @@ describe('interpolateObject', () => {
     const result = interpolateValue(from, to, 0.5) as Record<string, unknown>;
     expect((result.position as Record<string, unknown>).x).toBe(50);
     expect((result.position as Record<string, unknown>).y).toBe(100);
+  });
+});
+
+describe('interpolateSpatialBezier', () => {
+  it('interpolates array positions along a cubic bezier curve', () => {
+    const from = [0, 0];
+    const to = [100, 0];
+    const fromTangent = { ti: [0, 0] as [number, number], to: [50, 100] as [number, number] };
+    const toTangent = { ti: [50, -100] as [number, number], to: [0, 0] as [number, number] };
+    const result = interpolateSpatialBezier(from, to, 0.5, fromTangent, toTangent) as number[];
+    expect(result[0]).toBe(50);
+    expect(result[1]).toBe(75);
+  });
+
+  it('returns from position at t=0', () => {
+    const from = [10, 20];
+    const to = [100, 200];
+    const fromT = { ti: [0, 0] as [number, number], to: [30, 40] as [number, number] };
+    const toT = { ti: [10, 10] as [number, number], to: [0, 0] as [number, number] };
+    const result = interpolateSpatialBezier(from, to, 0, fromT, toT) as number[];
+    expect(result[0]).toBe(10);
+    expect(result[1]).toBe(20);
+  });
+
+  it('returns to position at t=1', () => {
+    const from = [10, 20];
+    const to = [100, 200];
+    const fromT = { ti: [0, 0] as [number, number], to: [30, 40] as [number, number] };
+    const toT = { ti: [10, 10] as [number, number], to: [0, 0] as [number, number] };
+    const result = interpolateSpatialBezier(from, to, 1, fromT, toT) as number[];
+    expect(result[0]).toBe(100);
+    expect(result[1]).toBe(200);
+  });
+
+  it('interpolates object {x, y} positions', () => {
+    const from = { x: 0, y: 0 };
+    const to = { x: 100, y: 0 };
+    const fromT = { ti: [0, 0] as [number, number], to: [50, 100] as [number, number] };
+    const toT = { ti: [50, -100] as [number, number], to: [0, 0] as [number, number] };
+    const result = interpolateSpatialBezier(from, to, 0.5, fromT, toT) as Record<string, number>;
+    expect(result.x).toBe(50);
+    expect(result.y).toBe(75);
+  });
+
+  it('with zero tangents produces linear interpolation', () => {
+    const from = [0, 0];
+    const to = [100, 200];
+    const zeroT = { ti: [0, 0] as [number, number], to: [0, 0] as [number, number] };
+    const result = interpolateSpatialBezier(from, to, 0.5, zeroT, zeroT) as number[];
+    expect(result[0]).toBe(50);
+    expect(result[1]).toBe(100);
+  });
+
+  it('falls back to interpolateValue for non-2D values', () => {
+    const result = interpolateSpatialBezier(0, 100, 0.5, { ti: [0, 0], to: [0, 0] }, { ti: [0, 0], to: [0, 0] });
+    expect(result).toBe(50);
+  });
+
+  it('produces a curved path with non-zero tangents', () => {
+    const from = [0, 0];
+    const to = [100, 0];
+    const fromT = { ti: [0, 0] as [number, number], to: [0, 100] as [number, number] };
+    const toT = { ti: [0, -100] as [number, number], to: [0, 0] as [number, number] };
+    const mid = interpolateSpatialBezier(from, to, 0.5, fromT, toT) as number[];
+    expect(mid[1]).toBeGreaterThan(0);
+    expect(mid[0]).toBe(50);
   });
 });

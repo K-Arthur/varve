@@ -417,6 +417,10 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     },
     async moveProjectToWorkspace(projectId, workspaceId) {
       state.projectWorkspaceIds.set(projectId, workspaceId);
+      const p = state.projects.get(projectId);
+      if (p) {
+        state.projects.set(projectId, { ...p, workspaceId, updatedAt: Date.now() });
+      }
     },
 
     // ─── Phase 3: Libraries ──────────────────────────────────────────────

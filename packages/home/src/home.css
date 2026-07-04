@@ -2357,3 +2357,92 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+
+/* ─── Batch Actions Bar ─────────────────────────────── */
+.strata-home__batch-bar {
+  grid-row: 2;
+  grid-column: 2;
+  z-index: 10;
+}
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border-subtle);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.06);
+  flex-wrap: wrap;
+}
+.batch-actions__count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  margin-right: var(--space-1);
+}
+.batch-actions__group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.batch-actions__move-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.batch-actions__move-btn {
+  white-space: nowrap;
+}
+.batch-actions__project-btn {
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+}
+.batch-actions__deselect {
+  margin-left: auto;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+/* ─── Perf Profile (dev-only) ───────────────────────── */
+.perf-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-2xs);
+  font-feature-settings: "tnum";
+  color: var(--color-text-muted);
+  position: fixed;
+  bottom: var(--space-2);
+  right: var(--space-2);
+  z-index: var(--z-floating, 100);
+  opacity: 0.7;
+  transition: opacity var(--duration-quick) var(--ease-standard);
+}
+.perf-profile:hover {
+  opacity: 1;
+}
+.perf-profile__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.perf-profile__label {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.perf-profile__value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+.perf-profile__divider {
+  width: 1px;
+  height: 12px;
+  background: var(--color-border-subtle);
+}
