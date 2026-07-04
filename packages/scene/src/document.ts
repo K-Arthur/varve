@@ -100,6 +100,11 @@ export interface Document {
   timelines?: Record<string, import('./motion-types').Timeline>;
   /** The currently active timeline for playback. */
   activeTimelineId?: string;
+
+  // ── State Machine properties (v1.3+) ──────────────────────────────────────
+
+  /** Named state machines for interactive micro-animations. */
+  stateMachines?: Record<string, import('./state-machine-types').StateMachine>;
 }
 
 export interface NodeEntry {
