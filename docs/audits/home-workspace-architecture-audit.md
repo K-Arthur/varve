@@ -393,13 +393,42 @@
 
 ## 7. Verification Evidence
 
-(To be filled during implementation)
+### Implemented in this pass
+
+| Gap | Implementation | Evidence |
+|---|---|---|
+| **Workspace switcher non-functional** | `activeWorkspaceId` added to `HomeViewState`; `useHomeView` loads workspaces, defaults to the personal workspace, filters projects/files by workspace, and exposes `setWorkspace`; `HomeShell` removed local workspace state and wired the switcher. | `useHomeView.test.ts` — 5 workspace-filtering tests pass. |
+| **Fuzzy search missing** | `computeVisibleFiles` now uses `fuzzyScore` (threshold 0.3) instead of `name.toLowerCase().includes(q)`. | `useHomeView.test.ts` — typo query `brnd` matches `Brand Guidelines`. |
+| **Command palette substring search** | `HomeSearchPalette` uses `fuzzySearch` for files, projects, and templates; `HomeShell` loads templates via `platform.listTemplates()`. | `HomeSearchPalette.test.tsx` existing tests pass; templates are now supplied. |
+| **New projects not tied to workspace** | `useFileActions.createProject` accepts an optional `workspaceId` and calls `platform.moveProjectToWorkspace`; memory platform updates `project.workspaceId`. | `useHomeView.test.ts` — `createProject` associates project with workspace. |
+
+### Quality gates
+
+- **Unit tests (home):** 16 files, 96 tests, all green.
+- **Unit tests (platform):** 2 files, 68 tests, all green.
+- **Typecheck:** `@strata/platform` passes; `@strata/home` has pre-existing errors in `TemplatesGallery` unrelated to this work.
+- **Lint:** `biome check` on all touched files passes (0 errors; 5 warnings are pre-existing). New `// biome-ignore` annotation added for the intentional `useEffect` reset in `HomeSearchPalette`.
+- **Emoji audit:** clean (619 files scanned).
+- **Token audit:** 93/93 WCAG-AA pairs pass across 3 themes.
+
+### Files changed
+
+- `packages/platform/src/types.ts` — added `activeWorkspaceId` to `HomeViewState`.
+- `packages/platform/src/pure.ts` — propagated the field through `defaultViewState` and `mergeViewState`.
+- `packages/platform/src/memory.ts` — `moveProjectToWorkspace` now writes `workspaceId` onto the project.
+- `packages/home/src/useHomeView.ts` — workspace-scoped derived state, persisted workspace selection, fuzzy search.
+- `packages/home/src/HomeShell.tsx` — wired workspace switcher/activity/assets to active workspace; loaded templates for search palette.
+- `packages/home/src/HomeSearchPalette.tsx` — fuzzy search across files, projects, and templates.
+- `packages/home/src/useFileActions.ts` — workspace-aware project creation.
+- `packages/home/src/useHomeView.test.ts` — new tests for workspace filtering, fuzzy search, and project creation.
 
 ---
 
-## 8. Remaining Risks
+## 8. Remaining Risks & Next Steps
 
-- **SQLite schema migration:** Adding tag tables to Tauri platform requires migration
-- **Performance:** Fuzzy search at scale (10k+ files) needs benchmarking
-- **Backward compatibility:** New optional fields must not break existing documents
-- **Cross-platform:** Web platform (IndexedDB) needs tag storage implementation
+- **Web/Tauri backend parity:** Workspace and project/workspace associations now work in the memory reference platform. The web backend still throws for workspace operations and the Tauri/SQLite backend needs to ensure `project.workspaceId` is returned by `list_projects` before the frontend filter is fully reliable there.
+- **Tag/metadata UI:** The platform layer supports tags (`Tag`, `FileTag`, `SavedSearch`), but the home UI has no tag pills, tag filter dropdown, or saved-search sidebar entries. These are the next priority in the roadmap.
+- **Folder navigation:** `FolderView` is wired into `ProjectsView`, but files are not filtered by folder because `FileEntry` does not carry a `folderId`. A follow-up needs either a new `Platform` query (`listFilesByFolder`/`getFileFolderId`) or a schema change to add `folderId` to `FileEntry`.
+- **Collections:** Smart collection evaluation (`evaluateSmartCollection`) exists, but the sidebar has no per-collection navigation and the `collections` section still renders an empty state.
+- **Performance:** Fuzzy search at scale (10k+ files) needs benchmarking and possible incremental indexing.
+- **Version history restore:** `VersionHistory` is wired to the file context menu, but the `restoreVersion` flow needs to reload the document content in the editor.

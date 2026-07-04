@@ -93,7 +93,10 @@ export function useFileActions(platform: Platform, onRefresh: () => void): FileA
         await platform.moveProjectToWorkspace(proj.id, workspaceId);
       }
       onRefresh();
-      return proj;
+      const updated = await platform
+        .listProjects()
+        .then((list) => list.find((p) => p.id === proj.id));
+      return updated ?? proj;
     },
     [platform, onRefresh],
   );

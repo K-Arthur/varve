@@ -9,7 +9,13 @@ import type {
   ViewMode,
   Workspace,
 } from '@strata/platform';
-import { compareBy, DRAFTS_ID, defaultViewState, fuzzyScore, mergeViewState } from '@strata/platform';
+import {
+  compareBy,
+  DRAFTS_ID,
+  defaultViewState,
+  fuzzyScore,
+  mergeViewState,
+} from '@strata/platform';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface HomeView {
@@ -68,7 +74,7 @@ export function useHomeView(platform: Platform): HomeView & {
       const activeWorkspaceId =
         merged.activeWorkspaceId && workspaceIds.has(merged.activeWorkspaceId)
           ? merged.activeWorkspaceId
-          : personal?.id ?? null;
+          : (personal?.id ?? null);
       const next: HomeViewState = { ...merged, activeWorkspaceId };
       viewStateRef.current = next;
       setState(next);
@@ -194,7 +200,8 @@ export function useHomeView(platform: Platform): HomeView & {
       const projectsInTarget = allProjects.filter((p) => isProjectInWorkspace(p, target));
       const projectIdsInTarget = new Set(projectsInTarget.map((p) => p.id));
       const currentProjectId = viewStateRef.current.activeProjectId;
-      const nextProjectId = currentProjectId && projectIdsInTarget.has(currentProjectId) ? currentProjectId : null;
+      const nextProjectId =
+        currentProjectId && projectIdsInTarget.has(currentProjectId) ? currentProjectId : null;
       persist({
         ...viewStateRef.current,
         activeWorkspaceId: id,
