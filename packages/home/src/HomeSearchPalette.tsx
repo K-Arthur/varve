@@ -118,6 +118,7 @@ export function HomeSearchPalette({
     return items;
   }, [query, files, projects, templates]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset selection when query changes
   useEffect(() => {
     setActiveIdx(0);
   }, [query]);
@@ -179,12 +180,7 @@ export function HomeSearchPalette({
     >
       <div className="search-palette__container">
         <div className="search-palette__input-wrap">
-          <Icon
-            name="Search"
-            label={undefined}
-            size="1em"
-            className="search-palette__input-icon"
-          />
+          <Icon name="Search" label={undefined} size="1em" className="search-palette__input-icon" />
           <input
             ref={inputRef}
             type="text"
@@ -241,9 +237,7 @@ export function HomeSearchPalette({
                 aria-selected={isActive}
               >
                 <span className="search-palette__result-name">{item.name}</span>
-                {item.sub && (
-                  <span className="search-palette__result-sub">{item.sub}</span>
-                )}
+                {item.sub && <span className="search-palette__result-sub">{item.sub}</span>}
               </button>
             );
           })}

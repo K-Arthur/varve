@@ -1,5 +1,11 @@
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { contentHash, detectFileKind, type FileEntry, type Platform, type TemplateLibrary } from '@strata/platform';
+import {
+  contentHash,
+  detectFileKind,
+  type FileEntry,
+  type Platform,
+  type TemplateLibrary,
+} from '@strata/platform';
 import { generateKeyBetween } from '@strata/shared';
 import { Dialog, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,7 +30,6 @@ import { TrashSection } from './TrashSection';
 import { useFileActions } from './useFileActions';
 import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
 import { useHomeView } from './useHomeView';
-import { BulkImportDialog } from './BulkImportDialog';
 import { useThumbnailLoader } from './useThumbnailLoader';
 import { VersionHistory } from './VersionHistory';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -524,7 +529,9 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           />
         );
       case 'assets':
-        return <AssetBrowser platform={platform} workspaceId={view.activeWorkspaceId ?? 'personal'} />;
+        return (
+          <AssetBrowser platform={platform} workspaceId={view.activeWorkspaceId ?? 'personal'} />
+        );
       default: {
         const heroSubtitle = state.filter.query
           ? `${visibleFiles.length} result${visibleFiles.length !== 1 ? 's' : ''} for "${state.filter.query}"`
@@ -888,7 +895,10 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                 disabled={!newProjectName.trim()}
                 onClick={() => {
                   if (newProjectName.trim()) {
-                    actions.createProject(newProjectName.trim(), view.activeWorkspaceId ?? undefined);
+                    actions.createProject(
+                      newProjectName.trim(),
+                      view.activeWorkspaceId ?? undefined,
+                    );
                     setNewProjectName('');
                     setNewProjectOpen(false);
                   }
