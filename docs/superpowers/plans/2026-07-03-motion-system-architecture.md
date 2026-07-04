@@ -92,11 +92,11 @@ walkNodes → worldTransforms → TIMELINE_SAMPLING → buildIr → replaySubtre
 | `@strata/codegen` | animation-css.ts, animation-svg.ts, animation-lottie.ts, animation-css.test.ts, animation-svg.test.ts, animation-lottie.test.ts |
 
 ## Test Summary
-- **Scene tests**: 476 (28 pre-existing failures from cascade snapshot page system)
-- **Prototype tests**: 231 (all passing)
-- **Shared tests**: 266 (all passing)  
-- **Timeline tests**: 43 (all passing)
-- **Codegen tests**: ~25 (all passing)
+- **Scene tests**: 565 (28 pre-existing failures from cascade snapshot page system)
+- **Prototype tests**: 297 (all passing)
+- **Shared tests**: 359 (all passing)
+- **Timeline tests**: 47 (all passing)
+- **Codegen tests**: 100 (all passing)
 - **Editor tests**: Pre-existing failures from other subsystems
 - **Total new tests**: ~180
 

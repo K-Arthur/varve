@@ -12,7 +12,7 @@
 import { applyFilterChain } from './filters';
 import { layoutRichText } from './textLayout';
 import { managedColorToRgba } from '@strata/shared';
-import type { Color, EngineColor, FillIR, RenderItem } from './types';
+import type { EngineColor, FillIR, RenderItem } from './types';
 
 export interface ReplayTarget {
   save(): void;
@@ -105,7 +105,10 @@ export interface ReplayGradient {
   addColorStop(offset: number, color: string): void;
 }
 
-function rgba(c: EngineColor | readonly [number, number, number, number], opacityOverride?: number): string {
+function rgba(
+  c: EngineColor | readonly [number, number, number, number],
+  opacityOverride?: number,
+): string {
   if (Array.isArray(c) || 'length' in c) {
     const arr = c as readonly [number, number, number, number];
     const alpha = opacityOverride !== undefined ? opacityOverride : arr[3] / 255;

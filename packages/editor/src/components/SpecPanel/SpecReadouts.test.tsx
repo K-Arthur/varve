@@ -47,7 +47,7 @@ describe('SpecReadouts', () => {
       { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
       {
         name: 'R1',
-        fill: [57, 208, 198, 255],
+        fill: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
       },
     );
     const { container } = render(

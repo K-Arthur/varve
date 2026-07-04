@@ -14,6 +14,8 @@ const ILLUSTRATIONS: Record<string, string> = {
   trash: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 120 120"><rect x="28" y="35" width="64" height="72" rx="6" stroke="currentColor" stroke-width="2" fill="none"/><path stroke="currentColor" stroke-width="2" d="M42 20h36l6 15H36z"/><path stroke="currentColor" stroke-width="2" d="M50 55v24M70 55v24"/></svg>`,
   project: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 120 120"><rect x="15" y="25" width="90" height="75" rx="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="25" y="35" width="70" height="55" rx="4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/><circle cx="36" cy="43" r="2" fill="currentColor"/><circle cx="45" cy="43" r="2" fill="currentColor"/></svg>`,
   search: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 120 120"><circle cx="50" cy="50" r="32" stroke="currentColor" stroke-width="2" fill="none"/><path stroke="currentColor" stroke-width="3" d="M73 73l22 22" stroke-linecap="round"/><circle cx="50" cy="50" r="3" fill="currentColor"/></svg>`,
+  collections: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 120 120"><rect x="10" y="15" width="45" height="45" rx="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="65" y="15" width="45" height="45" rx="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="10" y="68" width="45" height="45" rx="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="65" y="68" width="45" height="45" rx="6" stroke="currentColor" stroke-width="2" fill="none"/><path stroke="currentColor" stroke-width="1.5" d="M32 37v10M28 42h8"/><circle cx="82" cy="37" r="2" fill="currentColor"/><circle cx="82" cy="48" r="2" fill="currentColor"/><circle cx="32" cy="90" r="2" fill="currentColor"/></svg>`,
+  activity: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 120 120"><circle cx="60" cy="40" r="20" stroke="currentColor" stroke-width="2" fill="none"/><path stroke="currentColor" stroke-width="2" d="M30 80c0-16 14-28 30-28s30 12 30 28"/><rect x="25" y="82" width="70" height="20" rx="4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
   missing: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 120 120"><path stroke="currentColor" stroke-width="2" d="M60 20v30M60 70v30M20 60h30M70 60h30"/><circle cx="60" cy="60" r="40" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="60" cy="60" r="8" fill="currentColor"/></svg>`,
 };
 
@@ -59,6 +61,16 @@ const EMPTY_COPY: Record<string, CopyEntry> = {
     headline: 'No results found',
     description: 'Try different keywords or clear your filters.',
     cta: 'Clear search',
+  },
+  collections: {
+    headline: 'No collections yet',
+    description: 'Create a collection to organize files across projects.',
+    cta: 'Browse all files',
+  },
+  activity: {
+    headline: 'No recent activity',
+    description: 'Activity from your workspace will appear here.',
+    cta: 'Browse all files',
   },
   missing: {
     headline: 'File not found',

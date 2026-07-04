@@ -12,6 +12,7 @@
  *
  * Research basis: Figma Move tool (V), Illustrator selection, Affinity Designer.
  */
+import { managedColorToRgba } from '@strata/shared';
 import { applyAffine, invertAffine, rectContains } from '@strata/engine';
 import { getParent, walkNodes } from '@strata/scene';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
@@ -436,8 +437,8 @@ function isTransparentOrEmptyFill(node: import('@strata/scene').SceneNode): bool
   if (node.fills && node.fills.length > 0) {
     return node.fills.every((f: import('@strata/scene').Fill) => {
       if (f.type === 'solid' && f.color) {
-        const alpha = f.color[3] ?? 255;
-        return alpha === 0;
+        const [, , , a] = managedColorToRgba(f.color);
+        return a === 0;
       }
       return false;
     });

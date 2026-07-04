@@ -276,4 +276,79 @@ describe('AutoSaveService', () => {
     await svc.saveNow();
     expect(states).toHaveLength(0);
   });
+
+  describe('Untitled documents (no fileId)', () => {
+    it('saves Untitled documents via recovery point', async () => {
+      let capturedJson: string | undefined;
+      getDoc = () => ({
+        document: {
+          formatVersion: '1.0',
+          id: 'doc-untitled',
+          name: 'Untitled',
+          rootChildren: [],
+          nodes: {},
+          components: {},
+          nextId: 1,
+        } as Document,
+        meta: { name: 'Untitled' },
+      });
+      saveFn = vi.fn().mockImplementation(async (json: string) => {
+        capturedJson = json;
+        return true;
+      });
+      const svc = createService();
+      svc.start();
+      svc.notifyEdit();
+      const result = await svc.saveNow();
+      expect(result).toBe(true);
+      expect(capturedJson).toBeDefined();
+      const parsed = JSON.parse(capturedJson!);
+      expect(parsed.id).toBe('doc-untitled');
+    });
+
+    it('still tracks lastSavedAt for Untitled recovery saves', async () => {
+      const svc = createService();
+      svc.start();
+      svc.notifyEdit();
+      expect(svc.lastSavedAt).toBeNull();
+      await svc.saveNow();
+      expect(svc.lastSavedAt).not.toBeNull();
+      expect(typeof svc.lastSavedAt).toBe('number');
+    });
+
+    it('resets auto-save interval after Untitled recovery save', async () => {
+      const svc = createService({ intervalMs: 5000, idleThresholdMs: 1000 });
+      svc.start();
+      svc.notifyEdit();
+      await svc.saveNow();
+      // Should not try to save again until next edit + interval
+      saveFn.mockClear();
+      vi.advanceTimersByTime(3000);
+      expect(saveFn).not.toHaveBeenCalled();
+    });
+
+    it('calls onSaveRecovery for Untitled documents', async () => {
+      const recoveryFn = vi.fn().mockResolvedValue(undefined);
+      const svc = createService();
+      svc.setOnSaveRecovery(recoveryFn);
+      svc.start();
+      svc.notifyEdit();
+      await svc.saveNow();
+      expect(recoveryFn).toHaveBeenCalledTimes(1);
+      const [, metaArg] = recoveryFn.mock.calls[0] as [unknown, { name: string }];
+      expect(metaArg.name).toBe('test');
+    });
+
+    it('triggers another save after new edit on Untitled doc', async () => {
+      const svc = createService();
+      svc.start();
+      svc.notifyEdit();
+      await svc.saveNow();
+      saveFn.mockClear();
+      // Another edit
+      svc.notifyEdit();
+      vi.advanceTimersByTime(config.intervalMs + 500);
+      expect(saveFn).toHaveBeenCalledTimes(1);
+    });
+  });
 });

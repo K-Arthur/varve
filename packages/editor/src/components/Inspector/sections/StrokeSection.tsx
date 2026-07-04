@@ -7,11 +7,12 @@
  *
  * Research basis: Figma / Sketch stroke panel, APG Disclosure pattern.
  */
-import type { Color } from '@strata/engine';
+import { managedColorToRgba } from '@strata/shared';
 import type {
   ArrowheadStyle,
   FrameNode,
   GradientFill,
+  ManagedColor,
   SceneNode,
   ShapeNode,
   Stroke,
@@ -88,8 +89,9 @@ function getStroke(n: SceneNode, i: number): Stroke | undefined {
   return sn.strokes?.[i];
 }
 
-function toSwatchBg(color: Color): string {
-  return `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`;
+function toSwatchBg(color: ManagedColor): string {
+  const [r, g, b, a] = managedColorToRgba(color);
+  return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
 }
 
 export function StrokeSection({ nodes }: StrokeSectionProps) {
@@ -231,7 +233,7 @@ function StrokeRow({
   const visibleRaw = commonValue(nodes, (n) => getStroke(n, index)?.visible ?? true);
   const colorRaw = commonValue(
     nodes,
-    (n) => getStroke(n, index)?.color ?? ([0, 0, 0, 255] as Color),
+    (n) => getStroke(n, index)?.color ?? { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
   );
   const weightRaw = commonValue(nodes, (n) => getStroke(n, index)?.weight ?? 1);
   const alignRaw = commonValue(nodes, (n) => getStroke(n, index)?.align ?? 'center');
@@ -296,8 +298,13 @@ function StrokeRow({
             }}
           >
             <ColorPicker
-              value={color ?? ([0, 0, 0, 255] as Color)}
-              onChange={(c) => onChange((s) => ({ ...s, color: c }))}
+              value={color ? managedColorToRgba(color) : [0, 0, 0, 255]}
+              onChange={(c) =>
+                onChange((s) => ({
+                  ...s,
+                  color: { space: 'rgb' as const, r: c[0], g: c[1], b: c[2], a: c[3] ?? 255 },
+                }))
+              }
             />
             <button
               type="button"
@@ -395,8 +402,14 @@ function StrokeRow({
                     gradient: s.gradient ?? {
                       type: 'linear',
                       stops: [
-                        { position: 0, color: [57, 208, 198, 255] as Color },
-                        { position: 1, color: [37, 99, 235, 255] as Color },
+                        {
+                          position: 0,
+                          color: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
+                        },
+                        {
+                          position: 1,
+                          color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 },
+                        },
                       ],
                     },
                   }));

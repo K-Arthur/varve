@@ -6,6 +6,8 @@ export interface HomeShortcutHandlers {
   templates: () => void;
   closeDialog: () => void;
   selectAll: () => void;
+  showHelp: () => void;
+  searchCommand: () => void;
 }
 
 export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boolean) {
@@ -43,6 +45,12 @@ export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boo
         return;
       }
 
+      if (isCtrl && e.key === 'k') {
+        handlers.searchCommand();
+        e.preventDefault();
+        return;
+      }
+
       if (isCtrl && e.key === 'f') {
         focusSearch();
         e.preventDefault();
@@ -72,6 +80,12 @@ export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boo
 
       if (e.key === 'Escape') {
         handlers.closeDialog();
+        e.preventDefault();
+        return;
+      }
+
+      if (e.key === '/' && e.shiftKey && !isCtrl) {
+        handlers.showHelp();
         e.preventDefault();
         return;
       }

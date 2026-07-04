@@ -7,8 +7,8 @@
  * Research basis: Figma/Sketch gradient stop bar; APG Slider for stop
  * positioning; Pointer Events for drag (cross-platform, Linux-first).
  */
-import type { Color } from '@strata/engine';
-import type { GradientFill, GradientStop, GradientType } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
+import type { GradientFill, GradientStop, GradientType, ManagedColor } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';
@@ -38,8 +38,9 @@ const SELECT_STYLE: React.CSSProperties = {
 
 const STOP_BAR_H = 24;
 
-function stopColorCss(c: Color): string {
-  return `rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(2)})`;
+function stopColorCss(c: ManagedColor): string {
+  const [r, g, b, a] = managedColorToRgba(c);
+  return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
 }
 
 function gradientCss(g: GradientFill): string {
@@ -75,19 +76,23 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
   const addStop = useCallback(
     (position: number) => {
       const sorted = [...gradient.stops].sort((a, b) => a.position - b.position);
-      let color: Color = sorted[0]?.color ?? ([57, 208, 198, 255] as Color);
+      const defaultColor: ManagedColor = { space: 'rgb', r: 57, g: 208, b: 198, a: 255 };
+      let color: ManagedColor = sorted[0]?.color ?? defaultColor;
       for (let i = 0; i < sorted.length - 1; i++) {
         const a = sorted[i] as GradientStop;
         const b = sorted[i + 1] as GradientStop;
         if (position >= a.position && position <= b.position) {
           const t =
             b.position === a.position ? 0 : (position - a.position) / (b.position - a.position);
-          color = [
-            Math.round(a.color[0] + (b.color[0] - a.color[0]) * t),
-            Math.round(a.color[1] + (b.color[1] - a.color[1]) * t),
-            Math.round(a.color[2] + (b.color[2] - a.color[2]) * t),
-            Math.round(a.color[3] + (b.color[3] - a.color[3]) * t),
-          ] as Color;
+          const [ar, ag, ab, aa] = managedColorToRgba(a.color);
+          const [br, bg, bb, ba] = managedColorToRgba(b.color);
+          color = {
+            space: 'rgb',
+            r: Math.round(ar + (br - ar) * t),
+            g: Math.round(ag + (bg - ag) * t),
+            b: Math.round(ab + (bb - ab) * t),
+            a: Math.round(aa + (ba - aa) * t),
+          };
           break;
         }
       }
@@ -194,7 +199,10 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
           <button
             key={`stop-${i}-${autoId}`}
             type="button"
-            aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%, colour ${rgbToHex(stop.color[0], stop.color[1], stop.color[2])}`}
+            aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%, colour ${(() => {
+              const [r, g, b] = managedColorToRgba(stop.color);
+              return rgbToHex(r, g, b);
+            })()}`}
             aria-pressed={selectedStop === i}
             onPointerDown={(e) => {
               e.stopPropagation();
@@ -283,8 +291,8 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
             </div>
           </div>
           <ColorPicker
-            value={currentStop.color}
-            onChange={(c) => updateStop(selectedStop, { color: c })}
+            value={managedColorToRgba(currentStop.color)}
+            onChange={(c) => updateStop(selectedStop, { color: { space: 'rgb' as const, r: c[0], g: c[1], b: c[2], a: c[3] ?? 255 } })}
           />
         </div>
       )}

@@ -159,7 +159,7 @@ export function instantiate(
     blendMode: 'normal',
     rotation: 0,
     transform: [1, 0, 0, 1, 0, 0],
-    fill: [200, 200, 200, 255],
+    fill: { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
     w: 200,
     h: 160,
     children: newChildren,

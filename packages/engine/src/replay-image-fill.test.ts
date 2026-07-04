@@ -80,7 +80,7 @@ function imageFill(
 function rectItem(w: number, h: number, fill: FillIR): RenderItem {
   return {
     transform: [1, 0, 0, 1, 0, 0],
-    fill: [0, 0, 0, 255],
+    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
     fills: [fill],
     primitive: { kind: 'rect', x: 0, y: 0, w, h },
     opacity: 1,

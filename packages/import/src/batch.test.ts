@@ -1,4 +1,4 @@
-import type { Affine, Color } from '@strata/engine';
+import type { Affine } from '@strata/engine';
 import { createDocument, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { batchImport } from './batch';
@@ -21,7 +21,7 @@ function makeTestParser(
         { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
         {
           name: `${format}-node`,
-          fill: [200, 50, 50, 255] as Color,
+          fill: { space: 'rgb' as const, r: 200, g: 50, b: 50, a: 255 },
           transform: [1, 0, 0, 1, 0, 0] as Affine,
         },
       );

@@ -1,4 +1,4 @@
-import type { ColorMode, NewDocPreset, Unit } from '@strata/platform';
+import type { ColorMode, NewDocPreset, TemplateLibrary, Unit } from '@strata/platform';
 import { Button, Dialog, NumberInput, SegmentedControl, type SegmentedOption } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { TemplatesGallery } from './TemplatesGallery';
@@ -7,6 +7,8 @@ export interface NewFileDialogProps {
   open: boolean;
   onClose: () => void;
   onCreate: (preset: NewDocPreset) => void;
+  templates?: TemplateLibrary[];
+  onSaveAsTemplate?: () => void;
 }
 
 /**
@@ -71,7 +73,7 @@ const colorModeOptions: SegmentedOption<ColorMode>[] = [
   { value: 'cmyk', label: 'CMYK' },
 ];
 
-export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
+export function NewFileDialog({ open, onClose, onCreate, templates, onSaveAsTemplate }: NewFileDialogProps) {
   const [activeTab, setActiveTab] = useState<'blank' | 'template'>('blank');
   const [selectedId, setSelectedId] = useState('blank');
   const [customW, setCustomW] = useState(1920);
@@ -237,6 +239,8 @@ export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
       {activeTab === 'template' && (
         <div className="new-file__body">
           <TemplatesGallery
+            templates={templates}
+            showSearch
             onSelect={(template) => {
               onCreate({
                 id: template.id,
@@ -254,12 +258,21 @@ export function NewFileDialog({ open, onClose, onCreate }: NewFileDialogProps) {
       )}
 
       <div className="new-file__footer">
-        <Button variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button variant="primary" onClick={handleCreate}>
-          Create
-        </Button>
+        <div className="new-file__footer-left">
+          {onSaveAsTemplate && (
+            <Button variant="ghost" onClick={onSaveAsTemplate}>
+              Save as Template
+            </Button>
+          )}
+        </div>
+        <div className="new-file__footer-right">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleCreate}>
+            Create
+          </Button>
+        </div>
       </div>
     </Dialog>
   );

@@ -11,7 +11,7 @@
  *
  * Research basis: Figma/Sketch fill panel; APG Disclosure, Listbox, Slider.
  */
-import type { Color } from '@strata/engine';
+import { managedColorToRgba } from '@strata/shared';
 import type {
   BlendMode,
   Fill,
@@ -68,14 +68,15 @@ const FILL_TYPE_OPTIONS: { value: FillType; label: string }[] = [
 
 function fillSwatchBg(fill: Fill): string {
   if (fill.type === 'solid' && fill.color) {
-    return `rgba(${fill.color[0]},${fill.color[1]},${fill.color[2]},${(fill.color[3] / 255).toFixed(2)})`;
+    const [r, g, b, a] = managedColorToRgba(fill.color);
+    return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
   }
   if (fill.type === 'gradient' && fill.gradient) {
     const stops = fill.gradient.stops
-      .map(
-        (s) =>
-          `rgba(${s.color[0]},${s.color[1]},${s.color[2]},${(s.color[3] / 255).toFixed(2)}) ${(s.position * 100).toFixed(0)}%`,
-      )
+      .map((s) => {
+        const [r, g, b, a] = managedColorToRgba(s.color);
+        return `rgba(${r},${g},${b},${(a / 255).toFixed(2)}) ${(s.position * 100).toFixed(0)}%`;
+      })
       .join(', ');
     return `linear-gradient(90deg, ${stops})`;
   }
@@ -133,8 +134,8 @@ export function FillSection({ nodes }: FillSectionProps) {
     switch (newFillType) {
       case 'gradient':
         fill = gradientFill('linear', [
-          { position: 0, color: [57, 208, 198, 255] as Color },
-          { position: 1, color: [37, 99, 235, 255] as Color },
+          { position: 0, color: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 } },
+          { position: 1, color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 } },
         ]);
         break;
       case 'image':
@@ -144,7 +145,7 @@ export function FillSection({ nodes }: FillSectionProps) {
         fill = patternFill('');
         break;
       default:
-        fill = solidFill([255, 255, 255, 255] as Color);
+        fill = solidFill({ space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 });
     }
     addSelectedFill(fill);
     announce('Fill added');
@@ -317,15 +318,21 @@ function FillRow({
           onChange={(e) => {
             const newType = e.target.value as FillType;
             if (newType === 'solid') {
-              patch({ type: 'solid', color: fill.color ?? ([255, 255, 255, 255] as Color) });
+              patch({
+                type: 'solid',
+                color: fill.color ?? { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+              });
             } else if (newType === 'gradient') {
               patch({
                 type: 'gradient',
                 gradient: fill.gradient ?? {
                   type: 'linear',
                   stops: [
-                    { position: 0, color: [57, 208, 198, 255] as Color },
-                    { position: 1, color: [37, 99, 235, 255] as Color },
+                    {
+                      position: 0,
+                      color: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
+                    },
+                    { position: 1, color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 } },
                   ],
                 },
               });
@@ -394,7 +401,12 @@ function FillRow({
             left: 'auto',
           }}
         >
-          <ColorPicker value={fill.color} onChange={(c) => patch({ color: c })} />
+          <ColorPicker
+            value={managedColorToRgba(fill.color!)}
+            onChange={(c) =>
+              patch({ color: { space: 'rgb' as const, r: c[0], g: c[1], b: c[2], a: c[3] ?? 255 } })
+            }
+          />
         </div>
       )}
 

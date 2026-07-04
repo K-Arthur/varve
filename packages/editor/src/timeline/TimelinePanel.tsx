@@ -47,7 +47,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   getNodeName,
 }) => {
   const timelineIds = useMemo(() => Object.keys(timelines), [timelines]);
-  const activeTimeline = activeTimelineId ? timelines[activeTimelineId] ?? null : null;
+  const activeTimeline = activeTimelineId ? (timelines[activeTimelineId] ?? null) : null;
   const duration = activeTimeline?.duration ?? 0;
   const tracks = activeTimeline?.tracks ?? [];
   const zoom = 1;
@@ -119,17 +119,13 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
 
           <div className="timeline-panel__tracks">
             {tracks.length === 0 ? (
-              <div className="timeline-panel__empty-tracks">
-                No tracks in this timeline
-              </div>
+              <div className="timeline-panel__empty-tracks">No tracks in this timeline</div>
             ) : (
               tracks.map((track) => (
                 <TrackRow
                   key={track.id}
                   track={track}
-                  nodeName={
-                    getNodeName?.(track.nodeId) ?? track.nodeId
-                  }
+                  nodeName={getNodeName?.(track.nodeId) ?? track.nodeId}
                   duration={duration}
                   zoom={zoom}
                   selected={selectedTrackIds.includes(track.id)}

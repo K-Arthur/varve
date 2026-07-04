@@ -15,7 +15,7 @@ function makePathNode(points: PathPoint[]) {
     opacity: 1,
     blendMode: 'normal' as const,
     rotation: 0,
-    fill: [0, 0, 0, 255] as const,
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
     transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
     shape: { kind: 'path' as const, points, closed: false, tolerance: 3 },
     fills: [] as [],

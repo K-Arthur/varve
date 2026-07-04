@@ -82,13 +82,15 @@ function buildLottieKeyframes(
 
   for (let i = 0; i < keyframes.length; i++) {
     const kf = keyframes[i];
+    if (!kf) continue;
     const frameTime = Math.round(kf.progress * totalFrames);
     const val = valueToLottie(kf.value, property);
 
     const entry: LottieKF = { t: frameTime, s: [val] };
 
     if (i < keyframes.length - 1) {
-      const easing = keyframes[i + 1].easing ?? defaultEasing;
+      const nextKf = keyframes[i + 1];
+      const easing = nextKf ? (nextKf.easing ?? defaultEasing) : defaultEasing;
       const handles = easingToLottieHandles(easing);
       entry.o = handles.o;
     } else {

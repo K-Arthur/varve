@@ -70,6 +70,8 @@ export interface Document {
   guides?: import('./types').Guide[];
   /** Pages (v1.2+). When unset, the document is in flat (pre-page) mode. */
   pages?: Page[];
+  /** State machines for prototype interactions (v1.3). */
+  stateMachines?: Record<string, import('./state-machine-types').StateMachine>;
 
   // ── Print production properties (v1.1) ────────────────────────────────────
 

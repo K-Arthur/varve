@@ -7,6 +7,8 @@ import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
 import { FileList } from './FileList';
+import { HomeSearchPalette } from './HomeSearchPalette';
+import { HomeShortcutHelp } from './HomeShortcutHelp';
 import { HomeToolbar } from './HomeToolbar';
 import { NewFileDialog } from './NewFileDialog';
 import { ProjectsView } from './ProjectsView';
@@ -17,6 +19,7 @@ import { useFileActions } from './useFileActions';
 import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
 import { useHomeView } from './useHomeView';
 import { useThumbnailLoader } from './useThumbnailLoader';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 export interface HomeShellProps {
   platform: Platform;
@@ -59,6 +62,9 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newFileOpen, setNewFileOpen] = useState(false);
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('personal');
   const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
   const [contextFile, setContextFile] = useState<FileEntry | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -76,16 +82,22 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     return () => unlisten?.();
   }, [platform, view]);
 
-  // Check for missing files on desktop
+  // Detect missing or stale files
   useEffect(() => {
-    if (platform.kind !== 'tauri') return; // Only check on desktop
-
     const checkMissingFiles = async () => {
       const missing = new Set<string>();
       for (const file of view.files) {
         if (file.filePath) {
+          // Desktop: check actual file existence on disk
           const exists = await platform.fileExists(file.filePath);
           if (!exists) {
+            missing.add(file.id);
+          }
+        } else if (platform.kind === 'web') {
+          // Web: mark files as stale if not updated in 90 days
+          const STALE_THRESHOLD_MS = 90 * 24 * 60 * 60 * 1000;
+          const age = Date.now() - file.updatedAt;
+          if (age > STALE_THRESHOLD_MS) {
             missing.add(file.id);
           }
         }
@@ -161,6 +173,8 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     selectAll: useCallback(() => {
       setSelectedIds(view.visibleFiles.map((f) => f.id));
     }, [view.visibleFiles]),
+    showHelp: useCallback(() => setShortcutHelpOpen(true), []),
+    searchCommand: useCallback(() => setSearchPaletteOpen(true), []),
   };
   useHomeShortcuts(shortcutHandlers, dialogOpen);
 
@@ -172,6 +186,17 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
       icon: 'FileText',
       count: view.files.length - view.trashedFiles.length,
     },
+    { id: 'drafts', label: 'Drafts', icon: 'Pen' as const, count: view.draftFiles.length },
+    ...(view.favoriteFiles.length > 0
+      ? [
+          {
+            id: 'favorites',
+            label: 'Favorites',
+            icon: 'Star' as const,
+            count: view.favoriteFiles.length,
+          },
+        ]
+      : []),
     ...view.projects.map((p) => ({
       id: p.id,
       label: p.name,
@@ -457,12 +482,20 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
         ) : (
           <EmptyStates section="project" onAction={() => view.setSection('recent')} />
         );
+      case 'collections':
+        return <EmptyStates section="collections" onAction={() => view.setSection('all')} />;
+      case 'activity':
+        return <EmptyStates section="activity" onAction={() => view.setSection('all')} />;
       default: {
         const heroSubtitle = state.filter.query
           ? `${visibleFiles.length} result${visibleFiles.length !== 1 ? 's' : ''} for "${state.filter.query}"`
           : state.section === 'recent'
             ? 'Recent designs'
-            : 'All designs';
+            : state.section === 'drafts'
+              ? 'Draft designs'
+              : state.section === 'favorites'
+                ? 'Favorite designs'
+                : 'All designs';
         return (
           <>
             <header className="strata-home__hero">
@@ -472,7 +505,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
               </p>
               <p className="strata-home__hero-subtitle">{heroSubtitle}</p>
             </header>
-            {!state.filter.query && (
+            {!state.filter.query && (state.section === 'all' || state.section === 'recent') && (
               <div className="quick-start">
                 <button
                   type="button"
@@ -596,6 +629,11 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
               <span>Continue editing</span>
             </button>
           )}
+          <WorkspaceSwitcher
+            workspaces={view.workspaces}
+            activeId={activeWorkspaceId}
+            onSwitch={setActiveWorkspaceId}
+          />
           <SidebarNav
             entries={sidebarEntries}
             activeId={
@@ -604,8 +642,29 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                 : view.state.section
             }
             onSelect={(id) => {
-              if (['recent', 'all', 'templates', 'trash'].includes(id)) {
-                view.setSection(id as 'recent' | 'all' | 'templates' | 'trash');
+              if (
+                [
+                  'recent',
+                  'all',
+                  'drafts',
+                  'favorites',
+                  'collections',
+                  'activity',
+                  'templates',
+                  'trash',
+                ].includes(id)
+              ) {
+                view.setSection(
+                  id as
+                    | 'recent'
+                    | 'all'
+                    | 'drafts'
+                    | 'favorites'
+                    | 'collections'
+                    | 'activity'
+                    | 'templates'
+                    | 'trash',
+                );
               } else {
                 view.setActiveProject(id);
               }
@@ -616,6 +675,12 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
               if (proj) platform.setProjectPinned(proj.id, !proj.pinned);
             }}
             onDropOnProject={handleDropOnProject}
+            onCreateProject={async () => {
+              const name = window.prompt('Project name:');
+              if (name?.trim()) {
+                await actions.createProject(name.trim());
+              }
+            }}
           />
         </div>
         <div className="strata-home__toolbar">
@@ -636,6 +701,17 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
               const result = await platform.openDocumentFromDisk();
               if (result) onOpenFile(result.entry);
             }}
+            kindFilter={view.state.filter.kinds}
+            pinnedOnly={view.state.filter.pinnedOnly}
+            dateFrom={view.state.filter.dateFrom}
+            dateTo={view.state.filter.dateTo}
+            onKindFilterChange={(kinds) => view.setFilter({ kinds })}
+            onPinnedOnlyChange={(pinnedOnly) => view.setFilter({ pinnedOnly })}
+            onDateFromChange={(dateFrom) => view.setFilter({ dateFrom })}
+            onDateToChange={(dateTo) => view.setFilter({ dateTo })}
+            onClearFilters={() =>
+              view.setFilter({ kinds: [], pinnedOnly: false, dateFrom: null, dateTo: null })
+            }
           />
         </div>
         <main className="strata-home__content">{renderContent()}</main>
@@ -663,6 +739,19 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             isMissing={missingFiles.has(contextFile.id)}
           />
         )}
+        <HomeSearchPalette
+          open={searchPaletteOpen}
+          onClose={() => setSearchPaletteOpen(false)}
+          onOpenFile={(id) => {
+            const entry = view.files.find((f) => f.id === id);
+            if (entry) onOpenFile(entry);
+            setSearchPaletteOpen(false);
+          }}
+          files={view.files.filter((f) => !f.trashedAt)}
+          projects={view.projects}
+          templates={[]}
+        />
+        <HomeShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
       </section>
     </DndContext>
   );

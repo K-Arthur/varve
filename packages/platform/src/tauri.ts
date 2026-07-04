@@ -23,7 +23,25 @@ import {
   stripExtension,
   uuid,
 } from './pure';
-import type { FileEntry, HomeViewState, OpenFileResult, Project, ThumbnailRecord } from './types';
+import type {
+  ActivityEvent,
+  Asset,
+  AssetFolder,
+  Branch,
+  Collection,
+  FileEntry,
+  Folder,
+  HomeViewState,
+  Library,
+  OpenFileResult,
+  Permission,
+  Project,
+  ProjectTemplate,
+  TemplateLibrary,
+  ThumbnailRecord,
+  VersionEntry,
+  Workspace,
+} from './types';
 
 interface TauriCore {
   invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown>;
@@ -49,8 +67,6 @@ function core(): TauriCore {
   }
   return coreObj;
 }
-
-const VIEW_STATE_KV = 'strata-home-view-state';
 
 export function createTauriPlatform(): Platform {
   const platform: Platform = {
@@ -123,6 +139,217 @@ export function createTauriPlatform(): Platform {
       await core().invoke('home_set_project_pinned', { id, pinned });
     },
 
+    // ─── Phase 1: Drafts ────────────────────────────────────────────────────
+    async listDrafts() {
+      const c = core();
+      return (await c.invoke('home_list_drafts')) as FileEntry[];
+    },
+    async moveFileToDrafts(id) {
+      await core().invoke('home_move_drafts', { id });
+    },
+    async promoteFromDrafts(id, projectId) {
+      await core().invoke('home_promote_drafts', { id, projectId });
+    },
+
+    // ─── Phase 2: Folders ───────────────────────────────────────────────────
+    async listFolders(projectId) {
+      const c = core();
+      return (await c.invoke('home_list_folders', { projectId })) as Folder[];
+    },
+    async createFolder(projectId, name, parentId) {
+      const c = core();
+      return (await c.invoke('home_create_folder', { projectId, name, parentId })) as Folder;
+    },
+    async renameFolder(id, name) {
+      await core().invoke('home_rename_folder', { id, name });
+    },
+    async deleteFolder(id) {
+      await core().invoke('home_delete_folder', { id });
+    },
+    async moveFileToFolder(fileId, folderId) {
+      await core().invoke('home_move_file_folder', { fileId, folderId });
+    },
+    async reorderFolder(id, ordering) {
+      await core().invoke('home_reorder_folder', { id, ordering });
+    },
+
+    // ─── Phase 2: Collections ───────────────────────────────────────────────
+    async listCollections() {
+      const c = core();
+      return (await c.invoke('home_list_collections')) as Collection[];
+    },
+    async createCollection(name, opts) {
+      const c = core();
+      return (await c.invoke('home_create_collection', { name, ...opts })) as Collection;
+    },
+    async updateCollection(id, patch) {
+      await core().invoke('home_update_collection', { id, patch });
+    },
+    async deleteCollection(id) {
+      await core().invoke('home_delete_collection', { id });
+    },
+    async addFileToCollection(collectionId, fileId) {
+      await core().invoke('home_add_file_collection', { collectionId, fileId });
+    },
+    async removeFileFromCollection(collectionId, fileId) {
+      await core().invoke('home_remove_file_collection', { collectionId, fileId });
+    },
+    async listCollectionFiles(collectionId) {
+      const c = core();
+      return (await c.invoke('home_list_collection_files', { collectionId })) as FileEntry[];
+    },
+    async reorderCollection(id, ordering) {
+      await core().invoke('home_reorder_collection', { id, ordering });
+    },
+
+    // ─── Phase 3: Workspaces ────────────────────────────────────────────────
+    async listWorkspaces() {
+      const c = core();
+      return (await c.invoke('home_list_workspaces')) as Workspace[];
+    },
+    async createWorkspace(name, kind) {
+      const c = core();
+      return (await c.invoke('home_create_workspace', { name, kind })) as Workspace;
+    },
+    async renameWorkspace(id, name) {
+      await core().invoke('home_rename_workspace', { id, name });
+    },
+    async deleteWorkspace(id) {
+      await core().invoke('home_delete_workspace', { id });
+    },
+    async moveProjectToWorkspace(projectId, workspaceId) {
+      await core().invoke('home_move_project_workspace', { projectId, workspaceId });
+    },
+
+    // ─── Phase 3: Shared Libraries ──────────────────────────────────────────
+    async listLibraries(workspaceId) {
+      const c = core();
+      return (await c.invoke('home_list_libraries', { workspaceId })) as Library[];
+    },
+    async createLibrary(workspaceId, name, kind) {
+      const c = core();
+      return (await c.invoke('home_create_library', { workspaceId, name, kind })) as Library;
+    },
+    async enableLibrary(id, enabled) {
+      await core().invoke('home_enable_library', { id, enabled });
+    },
+    async deleteLibrary(id) {
+      await core().invoke('home_delete_library', { id });
+    },
+
+    // ─── Phase 4: Content-Aware Search ──────────────────────────────────────
+    async searchFileContent(fileId, query) {
+      const c = core();
+      return (await c.invoke('home_search_file_content', { fileId, query })) as string[];
+    },
+
+    // ─── Phase 5: Templates ─────────────────────────────────────────────────
+    async listTemplates(source) {
+      const c = core();
+      return (await c.invoke('home_list_templates', { source })) as TemplateLibrary[];
+    },
+    async createTemplateFromFile(fileId, name, category) {
+      const c = core();
+      return (await c.invoke('home_create_template', {
+        fileId,
+        name,
+        category,
+      })) as TemplateLibrary;
+    },
+    async deleteTemplate(id) {
+      await core().invoke('home_delete_template', { id });
+    },
+    async searchTemplates(query) {
+      const c = core();
+      return (await c.invoke('home_search_templates', { query })) as TemplateLibrary[];
+    },
+    async listProjectTemplates() {
+      const c = core();
+      return (await c.invoke('home_list_project_templates')) as ProjectTemplate[];
+    },
+    async createProjectFromTemplate(templateId, name) {
+      await core().invoke('home_create_project_template', { templateId, name });
+    },
+
+    // ─── Phase 6: Assets ────────────────────────────────────────────────────
+    async listAssets(workspaceId, folderId) {
+      const c = core();
+      return (await c.invoke('home_list_assets', { workspaceId, folderId })) as Asset[];
+    },
+    async importAsset(workspaceId, name, data, mimeType) {
+      const c = core();
+      const bytes: number[] = Array.from(data);
+      return (await c.invoke('home_import_asset', {
+        workspaceId,
+        name,
+        data: bytes,
+        mimeType,
+      })) as Asset;
+    },
+    async deleteAsset(id) {
+      await core().invoke('home_delete_asset', { id });
+    },
+    async searchAssets(query) {
+      const c = core();
+      return (await c.invoke('home_search_assets', { query })) as Asset[];
+    },
+    async createAssetFolder(workspaceId, name, parentId) {
+      const c = core();
+      return (await c.invoke('home_create_asset_folder', {
+        workspaceId,
+        name,
+        parentId,
+      })) as AssetFolder;
+    },
+    async deleteAssetFolder(id) {
+      await core().invoke('home_delete_asset_folder', { id });
+    },
+
+    // ─── Phase 7: Version History ───────────────────────────────────────────
+    async listVersions(fileId) {
+      const c = core();
+      return (await c.invoke('home_list_versions', { fileId })) as VersionEntry[];
+    },
+    async saveVersion(fileId, name, description) {
+      const c = core();
+      return (await c.invoke('home_save_version', { fileId, name, description })) as VersionEntry;
+    },
+    async restoreVersion(fileId, versionId) {
+      const c = core();
+      return (await c.invoke('home_restore_version', { fileId, versionId })) as string;
+    },
+    async deleteVersionInfo(versionId) {
+      await core().invoke('home_delete_version', { versionId });
+    },
+    async listBranches(fileId) {
+      const c = core();
+      return (await c.invoke('home_list_branches', { fileId })) as Branch[];
+    },
+    async createBranch(fileId, name, baseVersionId) {
+      const c = core();
+      return (await c.invoke('home_create_branch', {
+        fileId,
+        name,
+        baseVersionId,
+      })) as Branch;
+    },
+
+    // ─── Phase 8: Collaboration Foundation ──────────────────────────────────
+    async listPermissions(fileId) {
+      const c = core();
+      return (await c.invoke('home_list_permissions', { fileId })) as Permission[];
+    },
+    async setPermission(fileId, role) {
+      await core().invoke('home_set_permission', { fileId, role });
+    },
+    async listActivity(workspaceId, limit) {
+      const c = core();
+      return (await c.invoke('home_list_activity', { workspaceId, limit })) as ActivityEvent[];
+    },
+    async recordActivity(event) {
+      await core().invoke('home_record_activity', { event });
+    },
+
     async getThumbnail(hash) {
       const c = core();
       return (await c.invoke('home_get_thumbnail', { hash })) as string | undefined;
@@ -176,7 +403,7 @@ export function createTauriPlatform(): Platform {
 
     async getViewState() {
       try {
-        const raw = localStorage.getItem(VIEW_STATE_KV);
+        const raw = (await core().invoke('home_get_view_state')) as string | null;
         return mergeViewState(raw ? (JSON.parse(raw) as Partial<HomeViewState>) : undefined);
       } catch {
         return defaultViewState();
@@ -184,9 +411,9 @@ export function createTauriPlatform(): Platform {
     },
     async setViewState(next) {
       try {
-        localStorage.setItem(VIEW_STATE_KV, JSON.stringify(next));
+        await core().invoke('home_set_view_state', { value: JSON.stringify(next) });
       } catch {
-        // Private mode / quota — non-fatal.
+        // IPC failure — non-fatal.
       }
     },
 
