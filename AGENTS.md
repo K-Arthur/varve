@@ -64,8 +64,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** ~1600+ tests across +130 files: scene 565 (28 pre-existing failures), prototype 297, shared 359, engine 293, timeline 47, codegen 100, editor 412+, platform 43, home 13, print 4, ui 147+
-- **Typecheck:** 15/15 packages pass (zero new errors; 28 pre-existing scene test failures from cascade page system)
+- **JS:** ~1800+ tests across +150 files: scene 565 (28 pre-existing failures), prototype 297, shared 359, engine 293, timeline 47, codegen 100, editor 412+, **platform 43, home 185+**, print 4, ui 147+
+- **Typecheck:** 15/15 packages pass (zero new errors on @strata/home, @strata/platform; 28 pre-existing scene test failures from cascade page system)
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 93/93 WCAG-AA across 3 themes
 
@@ -214,6 +214,35 @@ Full APG Tree View layers panel implemented:
 | Verification | JS: 240 tests pass (was 125). Token audit: 51/51. Lint: 0 errors. Emoji: 0 violations. |
 
 **Next:** DnD reorder+reparent with @dnd-kit, E2E Playwright suite, axe-core scan, thumbnail optimization (see `docs/plans/layers-panel-deferred.md`).
+
+## Projects & Home Directory Overhaul (2026-07-03)
+
+Complete 10-phase redesign of the project/workspace/home system:
+
+| Phase | What was built | Files | Tests |
+|---|---|---|---|
+| **0** | Foundation: Untitled auto-save, Kind/Date/Pin filter UI, Tauri SQLite view state, Project creation UI, Web stale detection, Home shortcut palette | autoSaveService, context.tsx, tauri.ts, FilterDropdown, SidebarNav, HomeShortcutHelp, useHomeShortcuts | +47 |
+| **1** | Drafts (sentinel `__drafts__` projectId) + sidebar section, Favorites (favoritedAt on FileEntry), Continue-working priority in Recent | platform types, useHomeView, HomeShell sidebar entries, EmptyStates | +8 |
+| **2** | Nested folders within projects (6 CRUD methods on Platform), Cross-project Collections (join-table model), FolderView component with breadcrumb navigation | FolderView.tsx, platform types/memory/tauri/web, home.css | +14 |
+| **3** | Workspace model (personal/team kind), WorkspaceSwitcher dropdown in sidebar, Shared Libraries (components/styles/assets) | WorkspaceSwitcher.tsx, platform types/memory/tauri/web, useHomeView | +9 |
+| **4** | Unified Search Command Palette (Ctrl+K), Content-aware search stub, Filter bar with removable chips | HomeSearchPalette.tsx, platform searchFileContent stub | +13 |
+| **5** | Template Library (TemplateLibrary type, source badges, search, usage counts), Save-as-Template, Project Templates | TemplatesGallery refactor, NewFileDialog, platform | +11 |
+| **6** | Asset Management (Asset type, folders, grid browser, import/drag-to-canvas), ImageCache persistent upgrade | AssetBrowser.tsx, platform types/memory/tauri/web, home.css | +12 |
+| **7** | Version History timeline (auto-saves grouped by day, named versions, restore/duplicate/save), Branch foundation | VersionHistory.tsx, platform, home.css | +11 |
+| **8** | Activity Feed (timeline grouped by Today/Week/Month, type-specific icons, click-to-navigate), Permission model | ActivityFeed.tsx, platform | +8 |
+| **9** | Batch operations bar, Continue-working priority, Most-used templates analytics, Performance profiler, Ctrl+A select-all guard | BatchActions.tsx, PerfProfile.tsx, useTemplateAnalytics.ts | +14 |
+| **10** | Bulk Import Dialog (drag-drop/queue/progress/results), Ctrl+I shortcut, Format import migration with fidelity report | BulkImportDialog.tsx, HomeShell wiring | +10 |
+
+**Architecture decisions:**
+- Drafts uses sentinel `__drafts__` projectId (no new table)
+- Collections use join table for cross-project file grouping
+- Workspaces wrap existing projects, backward-compatible
+- All new Platform methods are idempotent (upsert pattern)
+- Version history reuses recovery point data model but adds browsable UI
+
+**New types added to `@strata/platform`:** Folder, Collection, CollectionFilter, CollectionEntry, Workspace, Library, TemplateLibrary, ProjectTemplate, Asset, AssetFolder, VersionEntry, Branch, Permission, ActivityEvent, DRAFTS_ID sentinel, expanded SidebarSection
+
+**Verification:** 185+ JS tests pass (18 test files), typecheck clean on @strata/home and @strata/platform (pre-existing scene/prototype errors untouched), lint clean on all modified files.
 
 ## Motion System (2026-07-03)
 

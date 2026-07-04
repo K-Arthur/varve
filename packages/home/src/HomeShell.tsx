@@ -1,5 +1,5 @@
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { contentHash, detectFileKind, type FileEntry, type Platform } from '@strata/platform';
+import { contentHash, detectFileKind, type FileEntry, type Platform, type TemplateLibrary } from '@strata/platform';
 import { generateKeyBetween } from '@strata/shared';
 import { Dialog, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -73,7 +73,6 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('personal');
   const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
   const [contextFile, setContextFile] = useState<FileEntry | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -84,6 +83,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [templates, setTemplates] = useState<TemplateLibrary[]>([]);
   const [migrationResults, setMigrationResults] = useState<FormatMigrationResult[] | null>(null);
 
   useEffect(() => {
@@ -121,6 +121,13 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
 
     checkMissingFiles();
   }, [platform, view.files]);
+
+  useEffect(() => {
+    platform
+      .listTemplates()
+      .then((list) => setTemplates(list))
+      .catch(() => setTemplates([]));
+  }, [platform]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -190,7 +197,6 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     showHelp: useCallback(() => setShortcutHelpOpen(true), []),
     importFiles: useCallback(() => setImportOpen(true), []),
     searchCommand: useCallback(() => setSearchPaletteOpen(true), []),
-    importFiles: useCallback(() => setBulkImportOpen(true), []),
   };
   useHomeShortcuts(shortcutHandlers, dialogOpen);
 
@@ -510,7 +516,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
         return (
           <ActivityFeed
             platform={platform}
-            workspaceId={activeWorkspaceId}
+            workspaceId={view.activeWorkspaceId ?? 'personal'}
             onOpenFile={(fileId) => {
               const entry = view.files.find((f) => f.id === fileId);
               if (entry) onOpenFile(entry);
@@ -518,7 +524,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           />
         );
       case 'assets':
-        return <AssetBrowser platform={platform} workspaceId={activeWorkspaceId} />;
+        return <AssetBrowser platform={platform} workspaceId={view.activeWorkspaceId ?? 'personal'} />;
       default: {
         const heroSubtitle = state.filter.query
           ? `${visibleFiles.length} result${visibleFiles.length !== 1 ? 's' : ''} for "${state.filter.query}"`
@@ -664,8 +670,8 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           )}
           <WorkspaceSwitcher
             workspaces={view.workspaces}
-            activeId={activeWorkspaceId}
-            onSwitch={setActiveWorkspaceId}
+            activeId={view.activeWorkspaceId ?? 'personal'}
+            onSwitch={view.setWorkspace}
           />
           <SidebarNav
             entries={sidebarEntries}
@@ -820,7 +826,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           }}
           files={view.files.filter((f) => !f.trashedAt)}
           projects={view.projects}
-          templates={[]}
+          templates={templates}
         />
         <HomeShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
         {versionHistoryFileId && (
@@ -855,7 +861,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newProjectName.trim()) {
-                  actions.createProject(newProjectName.trim());
+                  actions.createProject(newProjectName.trim(), view.activeWorkspaceId ?? undefined);
                   setNewProjectName('');
                   setNewProjectOpen(false);
                 }
@@ -882,7 +888,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                 disabled={!newProjectName.trim()}
                 onClick={() => {
                   if (newProjectName.trim()) {
-                    actions.createProject(newProjectName.trim());
+                    actions.createProject(newProjectName.trim(), view.activeWorkspaceId ?? undefined);
                     setNewProjectName('');
                     setNewProjectOpen(false);
                   }

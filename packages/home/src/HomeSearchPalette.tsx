@@ -1,4 +1,5 @@
 import type { FileEntry, Project, TemplateLibrary } from '@strata/platform';
+import { fuzzySearch } from '@strata/platform';
 import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -42,12 +43,12 @@ export function HomeSearchPalette({
   }, [open]);
 
   const allItems = useMemo(() => {
-    const q = query.toLowerCase().trim();
+    const q = query.trim();
     if (!q) return [];
 
     const items: ResultItem[] = [];
 
-    const matchingFiles = files.filter((f) => f.name.toLowerCase().includes(q));
+    const matchingFiles = fuzzySearch(q, files, (f) => f.name);
     if (matchingFiles.length > 0) {
       items.push({
         id: '__header__files',
@@ -69,7 +70,7 @@ export function HomeSearchPalette({
       }
     }
 
-    const matchingProjects = projects.filter((p) => p.name.toLowerCase().includes(q));
+    const matchingProjects = fuzzySearch(q, projects, (p) => p.name);
     if (matchingProjects.length > 0) {
       items.push({
         id: '__header__projects',
@@ -91,7 +92,7 @@ export function HomeSearchPalette({
       }
     }
 
-    const matchingTemplates = templates.filter((t) => t.name.toLowerCase().includes(q));
+    const matchingTemplates = fuzzySearch(q, templates, (t) => t.name);
     if (matchingTemplates.length > 0) {
       items.push({
         id: '__header__templates',
