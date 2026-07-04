@@ -9,6 +9,8 @@
  * F6 (Phase 2): opacity, blend modes, per-fill compositing, stacked strokes
  * and effects, plus arrow/path/image primitive rendering.
  */
+import { mapBlendMode } from './compositeCanvas';
+import { getImageCache } from './imageCache';
 import { applyFilterChain } from './filters';
 import { layoutRichText } from './textLayout';
 import { placeGlyphsOnPath } from './pathText';
@@ -41,6 +43,7 @@ export interface ReplayTarget {
   fill(): void;
   stroke(): void;
   closePath(): void;
+  clip(): void;
   fillText(text: string, x: number, y: number): void;
   font: string;
   textBaseline: CanvasTextBaseline;
@@ -245,17 +248,53 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
       }
     }
 
-    // Apply cumulative blur to the entire rendered content
-    const totalBlur = Math.max(maxLayerBlur, maxBgBlur);
-    if (totalBlur > 0) {
-      target.filter = `blur(${totalBlur}px)`;
-      // Draw the current content (already rendered) once more with blur
-      // Canvas2D filter applies to subsequent draw calls, so we re-draw
-      // the fill shape to get the blur effect on the existing content.
-      // Since the content is already on canvas, we can't retroactively blur it.
-      // Instead, set filter for subsequent strokes pass items if any.
-      // For fills already drawn, this doesn't retroactively blur them.
-      // The blur filter will apply to the strokes pass below.
+    // ── Effects pass (per-effect save/restore compositing) ────────
+    if (item.effects && item.effects.length > 0) {
+      for (const effect of item.effects) {
+        if (!effect.visible) continue;
+        if (effect.type === 'dropShadow') {
+          target.save();
+          target.shadowColor = rgba(effect.color);
+          target.shadowBlur = effect.blur;
+          target.shadowOffsetX = effect.x;
+          target.shadowOffsetY = effect.y;
+          target.globalAlpha = effect.opacity ?? 1;
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          paintShapeFill(target, item);
+          target.restore();
+        } else if (effect.type === 'innerShadow') {
+          target.save();
+          target.beginPath();
+          traceOutline(target, item.primitive);
+          target.clip();
+          target.shadowColor = rgba(effect.color);
+          target.shadowBlur = effect.blur;
+          target.shadowOffsetX = -effect.x;
+          target.shadowOffsetY = -effect.y;
+          target.globalAlpha = effect.opacity ?? 1;
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          target.fillStyle = rgba(effect.color);
+          const b = primitiveBounds(item.primitive);
+          target.fillRect(b.x - b.w * 2, b.y - b.h * 2, b.w * 5, b.h * 5);
+          target.restore();
+        } else if (effect.type === 'layerBlur') {
+          target.save();
+          target.filter = `blur(${effect.radius}px)`;
+          paintShapeFill(target, item);
+          target.restore();
+        } else if (effect.type === 'backgroundBlur') {
+          // Stub: needs backdrop capture from CanvasArea
+          target.save();
+          target.filter = `blur(${effect.radius}px)`;
+          paintShapeFill(target, item);
+          target.restore();
+        }
+      }
+    }
     }
 
     // Reset per-item state (shadow, filter, etc.)
@@ -271,49 +310,6 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
   }
 }
 
-/** Map Strata blend mode to CSS compositing operator. */
-function mapBlendMode(mode: string): string {
-  switch (mode) {
-    case 'multiply':
-      return 'multiply';
-    case 'screen':
-      return 'screen';
-    case 'overlay':
-      return 'overlay';
-    case 'darken':
-      return 'darken';
-    case 'lighten':
-      return 'lighten';
-    case 'colorDodge':
-      return 'color-dodge';
-    case 'colorBurn':
-      return 'color-burn';
-    case 'hardLight':
-      return 'hard-light';
-    case 'softLight':
-      return 'soft-light';
-    case 'difference':
-      return 'difference';
-    case 'exclusion':
-      return 'exclusion';
-    case 'hue':
-      return 'hue';
-    case 'saturation':
-      return 'saturation';
-    case 'color':
-      return 'color';
-    case 'luminosity':
-      return 'luminosity';
-    case 'plusDarker':
-      return 'plus-darker';
-    case 'plusLighter':
-      return 'plus-lighter';
-    case 'passThrough':
-      return 'source-over';
-    default:
-      return 'source-over';
-  }
-}
 
 /** Paint a single fill (solid, gradient, image, or pattern) over the primitive shape. */
 function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
@@ -326,133 +322,73 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
   } else if (fill.type === 'image') {
     paintImageFill(target, fill, item);
   } else if (fill.type === 'pattern') {
-    // Pattern fill: draw as tinted placeholder for now
-    target.fillStyle = 'rgba(160, 160, 180, 0.3)';
-    paintShapeFill(target, item);
+    paintPatternFill(target, fill, item);
   }
 }
 
-/** Paint an image fill clipped to the primitive shape, respecting the fit mode. */
+/** Paint an image fill over the primitive bounds. */
 function paintImageFill(
   target: ReplayTarget,
   fill: Extract<FillIR, { type: 'image' }>,
   item: RenderItem,
 ): void {
-  target.save();
-  target.beginPath();
-  traceOutline(target, item.primitive);
-  target.closePath();
-  if (target.clip) target.clip();
+  const bounds = primitiveBounds(item.primitive);
+  const bw = bounds.w || 1;
+  const bh = bounds.h || 1;
 
-  if (target.drawImage && fill.src) {
-    const bounds = primitiveBounds(item.primitive);
-    const fit = fill.fit ?? 'fill';
-    const imageWidth = fill.imageWidth ?? bounds.w;
-    const imageHeight = fill.imageHeight ?? bounds.h;
+  const imgEntry = getImageCache().get(fill.src);
+  if (imgEntry?.state === 'loaded' && imgEntry.image) {
+    if (target.drawImage) {
+      const sx = fill.x;
+      const sy = fill.y;
+      const scale = fill.scale;
+      let dw = bw * scale;
+      let dh = bh * scale;
 
-    if (fit === 'stretch') {
-      target.drawImage(fill.src, bounds.x, bounds.y, bounds.w, bounds.h);
-    } else if (fit === 'tile') {
-      paintTiledImage(
-        target,
-        fill.src,
-        bounds,
-        imageWidth,
-        imageHeight,
-        fill.x ?? 0,
-        fill.y ?? 0,
-        fill.scale ?? 1,
-      );
+      if (fill.fit === 'fit' && imgEntry.image) {
+        const aspect = imgEntry.image.naturalWidth / imgEntry.image.naturalHeight;
+        const boundsAspect = bw / bh;
+        if (aspect > boundsAspect) {
+          dh = bw / aspect;
+        } else {
+          dw = bh * aspect;
+        }
+      }
+
+      target.drawImage(imgEntry.image, sx, sy, dw, dh);
     } else {
-      const { x, y, w, h } = computeImageFillRect(
-        fit,
-        bounds,
-        imageWidth,
-        imageHeight,
-        fill.x ?? 0,
-        fill.y ?? 0,
-        fill.scale ?? 1,
-      );
-      target.drawImage(fill.src, x, y, w, h);
+      target.fillRect(0, 0, bw, bh);
     }
   } else {
-    // Placeholder when no drawImage support or no src
-    target.fillStyle = 'rgba(180, 180, 200, 0.4)';
-    const bounds = primitiveBounds(item.primitive);
-    target.fillRect(bounds.x, bounds.y, bounds.w, bounds.h);
+    target.fillStyle = '#e0e0e0';
+    target.fillRect(0, 0, bw, bh);
   }
-  target.restore();
 }
 
-function paintTiledImage(
+/** Paint a pattern (tiled) fill over the primitive bounds. */
+function paintPatternFill(
   target: ReplayTarget,
-  src: string,
-  bounds: { x: number; y: number; w: number; h: number },
-  imageWidth: number,
-  imageHeight: number,
-  offsetX: number,
-  offsetY: number,
-  scale: number,
+  fill: Extract<FillIR, { type: 'pattern' }>,
+  item: RenderItem,
 ): void {
-  if (!target.drawImage) return;
-  const tileW = imageWidth * scale;
-  const tileH = imageHeight * scale;
-  if (tileW <= 0 || tileH <= 0) return;
-  const startX = bounds.x + offsetX - Math.floor((bounds.x + offsetX) / tileW) * tileW;
-  const startY = bounds.y + offsetY - Math.floor((bounds.y + offsetY) / tileH) * tileH;
-  for (let y = startY; y < bounds.y + bounds.h; y += tileH) {
-    for (let x = startX; x < bounds.x + bounds.w; x += tileW) {
-      target.drawImage(src, x, y, tileW, tileH);
-    }
-  }
-}
+  const bounds = primitiveBounds(item.primitive);
+  const bw = bounds.w || 1;
+  const bh = bounds.h || 1;
 
-function computeImageFillRect(
-  fit: 'fill' | 'fit' | 'stretch' | 'tile',
-  bounds: { x: number; y: number; w: number; h: number },
-  imageWidth: number,
-  imageHeight: number,
-  offsetX: number,
-  offsetY: number,
-  scale: number,
-): { x: number; y: number; w: number; h: number } {
-  if (fit === 'stretch') {
-    return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h };
-  }
-  const scaledW = imageWidth * scale;
-  const scaledH = imageHeight * scale;
-  if (scaledW <= 0 || scaledH <= 0) return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h };
-
-  const imageAspect = scaledW / scaledH;
-  const boundsAspect = bounds.w / bounds.h;
-
-  let w: number;
-  let h: number;
-  if (fit === 'fit') {
-    if (imageAspect > boundsAspect) {
-      w = bounds.w;
-      h = w / imageAspect;
-    } else {
-      h = bounds.h;
-      w = h * imageAspect;
+  const tileEntry = getImageCache().get(fill.tileSrc);
+  if (tileEntry?.state === 'loaded' && tileEntry.image && target.drawImage) {
+    const spacing = fill.spacing;
+    const tw = tileEntry.image.naturalWidth + spacing;
+    const th = tileEntry.image.naturalHeight + spacing;
+    for (let ty = 0; ty < bh; ty += th) {
+      for (let tx = 0; tx < bw; tx += tw) {
+        target.drawImage(tileEntry.image, tx, ty, tileEntry.image.naturalWidth, tileEntry.image.naturalHeight);
+      }
     }
   } else {
-    // fill
-    if (imageAspect > boundsAspect) {
-      h = bounds.h;
-      w = h * imageAspect;
-    } else {
-      w = bounds.w;
-      h = w / imageAspect;
-    }
+    target.fillStyle = 'rgba(200,200,200,0.5)';
+    target.fillRect(0, 0, bw, bh);
   }
-
-  return {
-    x: bounds.x + offsetX + (bounds.w - w) / 2,
-    y: bounds.y + offsetY + (bounds.h - h) / 2,
-    w,
-    h,
-  };
 }
 
 /** Create a gradient fillStyle string from a FillIR gradient. */

@@ -20,9 +20,10 @@ function recorder(): RecorderProxy {
     (k: string) =>
     (...args: unknown[]) =>
       calls.push(`${k}(${args.length})`);
-  const target: Record<string, unknown> = {
+    const target: Record<string, unknown> = {
     save: mk('save'),
     restore: mk('restore'),
+    clip: mk('clip'),
     transform: mk('transform'),
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
@@ -164,6 +165,9 @@ class Recorder implements ReplayTarget {
   }
   restore() {
     this.calls.push('restore');
+  }
+  clip() {
+    this.calls.push('clip');
   }
   transform(a: number, b: number, c: number, d: number, e: number, f: number) {
     this.calls.push(`transform(${a},${b},${c},${d},${e},${f})`);
@@ -806,6 +810,7 @@ describe('replayIr', () => {
       target: {
         save: vi.fn(),
         restore: vi.fn(),
+        clip: vi.fn(),
         transform: vi.fn(),
         fillRect: vi.fn(),
         strokeRect: vi.fn(),

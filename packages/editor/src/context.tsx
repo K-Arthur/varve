@@ -153,7 +153,11 @@ export type ToolId =
   | 'booleanUnion'
   | 'booleanSubtract'
   | 'booleanIntersect'
-  | 'booleanExclude';
+  | 'booleanExclude'
+  | 'cloneStamp'
+  | 'healBrush'
+  | 'spotHeal'
+  | 'patch';
 
 /** F2: metadata for each open document tab. */
 export interface SessionMeta {
@@ -1237,6 +1241,10 @@ export function EditorProvider({
             'booleanSubtract',
             'booleanIntersect',
             'booleanExclude',
+            'cloneStamp',
+            'healBrush',
+            'spotHeal',
+            'patch',
           ];
           if (nonDrawingTools.includes(activeTool)) {
             throw new Error(`createShapeAt called for non-drawing tool: ${activeTool}`);
