@@ -6,11 +6,7 @@ export interface PerfProfileProps {
   searchResultCount: number;
 }
 
-export function PerfProfile({
-  fileCount,
-  renderStartTime,
-  searchResultCount,
-}: PerfProfileProps) {
+export function PerfProfile({ fileCount, renderStartTime, searchResultCount }: PerfProfileProps) {
   const renderTime = useMemo(
     () => Math.round(performance.now() - renderStartTime),
     [renderStartTime],

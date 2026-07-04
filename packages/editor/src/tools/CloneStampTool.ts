@@ -45,7 +45,10 @@ export class CloneStampTool extends BaseTool {
     return { css: 'crosshair' };
   }
 
-  override onPointerDown(e: PointerEvent, ctx: ToolContext): { consumed: boolean; captured?: boolean } {
+  override onPointerDown(
+    e: PointerEvent,
+    ctx: ToolContext,
+  ): { consumed: boolean; captured?: boolean } {
     const canvas = ctx.canvasElement;
     if (!canvas) return { consumed: false };
 
@@ -110,7 +113,11 @@ export class CloneStampTool extends BaseTool {
     this.lastPaintedPoint = null;
   }
 
-  private paintStroke(world: { x: number; y: number }, canvas: HTMLCanvasElement, ctx: ToolContext): void {
+  private paintStroke(
+    world: { x: number; y: number },
+    canvas: HTMLCanvasElement,
+    ctx: ToolContext,
+  ): void {
     const canvasCtx = canvas.getContext('2d');
     if (!canvasCtx) return;
     if (!this.sourceBase || !this.targetBase) return;
@@ -140,8 +147,12 @@ export class CloneStampTool extends BaseTool {
     const sy = Math.round(sourceY);
 
     const result = clonePixels(
-      targetData, sourceData,
-      tx, ty, sx, sy,
+      targetData,
+      sourceData,
+      tx,
+      ty,
+      sx,
+      sy,
       this.options.brushSize,
       this.brushMask,
     );

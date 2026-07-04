@@ -23,7 +23,10 @@ describe('CloneStampTool', () => {
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
     } as any;
 
-    const result = tool.onPointerDown({ altKey: true, clientX: 30, clientY: 40, pointerId: 1 } as any, ctx);
+    const result = tool.onPointerDown(
+      { altKey: true, clientX: 30, clientY: 40, pointerId: 1 } as any,
+      ctx,
+    );
     expect(result.consumed).toBe(true);
     expect(ctx.announce).toHaveBeenCalledWith('Source point set');
   });
@@ -49,7 +52,10 @@ describe('CloneStampTool', () => {
 
     (tool as any).sourcePoint = { x: 5, y: 5 };
 
-    const result = tool.onPointerDown({ altKey: false, clientX: 55, clientY: 55, pointerId: 1 } as any, ctx);
+    const result = tool.onPointerDown(
+      { altKey: false, clientX: 55, clientY: 55, pointerId: 1 } as any,
+      ctx,
+    );
     expect(result.consumed).toBe(true);
   });
 
@@ -61,7 +67,10 @@ describe('CloneStampTool', () => {
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
     } as any;
 
-    const result = tool.onPointerDown({ altKey: false, clientX: 10, clientY: 10, pointerId: 1 } as any, ctx);
+    const result = tool.onPointerDown(
+      { altKey: false, clientX: 10, clientY: 10, pointerId: 1 } as any,
+      ctx,
+    );
     expect(result.consumed).toBe(false);
     expect(ctx.announce).toHaveBeenCalledWith('Alt+click to set source point first');
   });
@@ -85,7 +94,10 @@ describe('CloneStampTool', () => {
       setDraft: vi.fn(),
     } as any;
 
-    const result = tool.onPointerDown({ altKey: false, clientX: 60, clientY: 60, pointerId: 2 } as any, ctx);
+    const result = tool.onPointerDown(
+      { altKey: false, clientX: 60, clientY: 60, pointerId: 2 } as any,
+      ctx,
+    );
     expect(result.consumed).toBe(true);
   });
 
@@ -108,7 +120,10 @@ describe('CloneStampTool', () => {
       setDraft: vi.fn(),
     } as any;
 
-    const result = tool.onPointerDown({ altKey: false, clientX: 55, clientY: 55, pointerId: 2 } as any, ctx);
+    const result = tool.onPointerDown(
+      { altKey: false, clientX: 55, clientY: 55, pointerId: 2 } as any,
+      ctx,
+    );
     expect(result.consumed).toBe(true);
   });
 

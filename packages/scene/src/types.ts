@@ -444,9 +444,15 @@ export interface AdjustmentLevels {
 }
 
 export type SelectiveColorTarget =
-  | 'red' | 'green' | 'blue'
-  | 'cyan' | 'magenta' | 'yellow'
-  | 'white' | 'neutral' | 'black';
+  | 'red'
+  | 'green'
+  | 'blue'
+  | 'cyan'
+  | 'magenta'
+  | 'yellow'
+  | 'white'
+  | 'neutral'
+  | 'black';
 
 export interface AdjustmentSelectiveColor {
   color: SelectiveColorTarget;

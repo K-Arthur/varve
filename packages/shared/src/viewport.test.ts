@@ -8,6 +8,7 @@ import {
   fitBoundsCamera,
   fitZoom,
   isRectInView,
+  isWorldRectInViewport,
   localRectToScreen,
   MAX_ZOOM,
   MIN_ZOOM,
@@ -102,6 +103,48 @@ describe('isRectInView', () => {
     // World viewport: left = -100/0.5 = -200, right = (1920-100)/0.5 = 3640
     expect(isRectInView(c, vp, { x: 0, y: 0, w: 100, h: 100 })).toBe(true);
     expect(isRectInView(c, vp, { x: 4000, y: 0, w: 10, h: 10 })).toBe(false);
+  });
+});
+
+describe('isWorldRectInViewport', () => {
+  it('returns true for rect fully inside viewport', () => {
+    const c = cam(0, 0, 1);
+    expect(isWorldRectInViewport(c, vp, { x: 100, y: 100, w: 200, h: 200 })).toBe(true);
+  });
+
+  it('returns true for rect partially inside viewport (intersecting left edge)', () => {
+    const c = cam(0, 0, 1);
+    expect(isWorldRectInViewport(c, vp, { x: -50, y: 100, w: 200, h: 200 })).toBe(true);
+  });
+
+  it('returns false for rect completely left of viewport', () => {
+    const c = cam(0, 0, 1);
+    expect(isWorldRectInViewport(c, vp, { x: -500, y: 0, w: 100, h: 100 })).toBe(false);
+  });
+
+  it('returns false for rect completely right of viewport', () => {
+    const c = cam(0, 0, 1);
+    expect(isWorldRectInViewport(c, vp, { x: 3000, y: 0, w: 100, h: 100 })).toBe(false);
+  });
+
+  it('returns false for rect completely below viewport', () => {
+    const c = cam(0, 0, 1);
+    expect(isWorldRectInViewport(c, vp, { x: 0, y: 2000, w: 100, h: 100 })).toBe(false);
+  });
+
+  it('works at different zoom levels', () => {
+    const c = cam(200, 100, 2);
+    // Viewport world: left=-100, right=(1920-200)/2=860, top=-50, bottom=(1080-100)/2=490
+    expect(isWorldRectInViewport(c, vp, { x: 500, y: 200, w: 50, h: 50 })).toBe(true);
+    expect(isWorldRectInViewport(c, vp, { x: 1000, y: 200, w: 50, h: 50 })).toBe(false);
+    expect(isWorldRectInViewport(c, vp, { x: -200, y: 200, w: 50, h: 50 })).toBe(false);
+  });
+
+  it('handles tiny rect on viewport edge', () => {
+    const c = cam(0, 0, 1);
+    // Rect right on the viewport right edge
+    expect(isWorldRectInViewport(c, vp, { x: 1919, y: 0, w: 1, h: 1 })).toBe(true);
+    expect(isWorldRectInViewport(c, vp, { x: 1921, y: 0, w: 1, h: 1 })).toBe(false);
   });
 });
 

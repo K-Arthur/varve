@@ -32,10 +32,7 @@ export function recordTemplateUsage(templateId: string) {
   writeStore(store);
 }
 
-export function getMostUsedTemplates<T extends { id: string }>(
-  templates: T[],
-  count: number,
-): T[] {
+export function getMostUsedTemplates<T extends { id: string }>(templates: T[], count: number): T[] {
   const store = readStore();
   const scored = templates
     .filter((t) => {
@@ -50,10 +47,7 @@ export function getMostUsedTemplates<T extends { id: string }>(
   return scored.slice(0, count);
 }
 
-export function getRecentTemplates<T extends { id: string }>(
-  templates: T[],
-  count: number,
-): T[] {
+export function getRecentTemplates<T extends { id: string }>(templates: T[], count: number): T[] {
   const store = readStore();
   const scored = templates
     .filter((t) => {

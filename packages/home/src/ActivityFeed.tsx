@@ -19,13 +19,7 @@ const PERIOD_LABELS: Record<TimePeriod, string> = {
   older: 'Older',
 };
 
-const PERIOD_ORDER: TimePeriod[] = [
-  'today',
-  'yesterday',
-  'thisWeek',
-  'thisMonth',
-  'older',
-];
+const PERIOD_ORDER: TimePeriod[] = ['today', 'yesterday', 'thisWeek', 'thisMonth', 'older'];
 
 interface RawEvent {
   id: string;
@@ -46,13 +40,14 @@ function getPeriod(timestamp: number, now: number): TimePeriod {
   return 'older';
 }
 
-const EVENT_ICONS: Record<string, 'FilePlus' | 'FilePenLine' | 'Share2' | 'Trash2' | 'RotateCcw'> = {
-  created: 'FilePlus',
-  modified: 'FilePenLine',
-  shared: 'Share2',
-  trashed: 'Trash2',
-  restored: 'RotateCcw',
-};
+const EVENT_ICONS: Record<string, 'FilePlus' | 'FilePenLine' | 'Share2' | 'Trash2' | 'RotateCcw'> =
+  {
+    created: 'FilePlus',
+    modified: 'FilePenLine',
+    shared: 'Share2',
+    trashed: 'Trash2',
+    restored: 'RotateCcw',
+  };
 
 const EVENT_VERBS: Record<string, string> = {
   created: 'created',
@@ -94,10 +89,7 @@ function groupEvents(events: RawEvent[], onOpenFile?: (fileId: string) => void):
       verb: EVENT_VERBS[event.type] ?? event.type,
       fileName: event.metadata?.fileName,
       icon: EVENT_ICONS[event.type] ?? 'FilePenLine',
-      onOpen:
-        event.fileId && onOpenFile
-          ? () => onOpenFile(event.fileId!)
-          : undefined,
+      onOpen: event.fileId && onOpenFile ? () => onOpenFile(event.fileId!) : undefined,
     });
     groups.set(period, list);
   }
@@ -109,11 +101,7 @@ function groupEvents(events: RawEvent[], onOpenFile?: (fileId: string) => void):
   }));
 }
 
-export function ActivityFeed({
-  platform,
-  workspaceId,
-  onOpenFile,
-}: ActivityFeedProps) {
+export function ActivityFeed({ platform, workspaceId, onOpenFile }: ActivityFeedProps) {
   const [events, setEvents] = useState<RawEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -188,11 +176,7 @@ export function ActivityFeed({
                 className="activity-feed__event"
                 onClick={event.onOpen}
                 disabled={!event.onOpen}
-                title={
-                  event.onOpen && event.fileName
-                    ? `Open ${event.fileName}`
-                    : undefined
-                }
+                title={event.onOpen && event.fileName ? `Open ${event.fileName}` : undefined}
               >
                 <div className="activity-feed__event-icon" aria-hidden>
                   <Icon name={event.icon} label={undefined} />

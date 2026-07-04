@@ -47,6 +47,7 @@ export const TOOL_ICONS = {
   healBrush: 'Bandage',
   spotHeal: 'Wand',
   patch: 'SquareStack',
+  adjustment: 'SlidersHorizontal',
 } as const satisfies Record<string, IconName>;
 
 /** General chrome icons. */

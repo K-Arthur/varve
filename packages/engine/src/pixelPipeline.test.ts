@@ -18,10 +18,7 @@ import {
 function makePattern(): Uint8ClampedArray {
   // 4×1 pixel RGBA: red, green, blue, gray
   return new Uint8ClampedArray([
-    255, 0, 0, 255,
-    0, 255, 0, 255,
-    0, 0, 255, 255,
-    128, 128, 128, 255,
+    255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 128, 128, 128, 255,
   ]);
 }
 
@@ -151,7 +148,9 @@ describe('applyColorBalance', () => {
   it('shadows adjustment darkens shadow regions', () => {
     const data = new Uint8ClampedArray([30, 30, 30, 255, 200, 200, 200, 255]);
     applyColorBalance(
-      data, 2, 1,
+      data,
+      2,
+      1,
       { cyanRed: -30, magentaGreen: 0, yellowBlue: 0 },
       { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
       { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
@@ -166,7 +165,9 @@ describe('applyColorBalance', () => {
   it('midtones adjustment affects midtones more than extremes', () => {
     const data = new Uint8ClampedArray([30, 30, 30, 255, 128, 128, 128, 255, 220, 220, 220, 255]);
     applyColorBalance(
-      data, 3, 1,
+      data,
+      3,
+      1,
       { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
       { cyanRed: 50, magentaGreen: 0, yellowBlue: 0 },
       { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
@@ -281,10 +282,7 @@ describe('applySharpen', () => {
 
   it('positive amount sharpens edges', () => {
     // A sharp edge: adjacent pixels with large difference
-    const data = new Uint8ClampedArray([
-      100, 100, 100, 255,
-      200, 200, 200, 255,
-    ]);
+    const data = new Uint8ClampedArray([100, 100, 100, 255, 200, 200, 200, 255]);
     applySharpen(data, 2, 1, 100, 1, 0);
     // After blur: pixel 0 avg ≈ (100+200)/2 = 150, pixel 1 avg ≈ (100+200)/2 = 150
     // Pixel 0: diff = 100-150 = -50, sharpened = 100 + 1.0*(-50) = 50
@@ -295,10 +293,7 @@ describe('applySharpen', () => {
   });
 
   it('threshold prevents sharpening small differences', () => {
-    const data = new Uint8ClampedArray([
-      100, 100, 100, 255,
-      105, 105, 105, 255,
-    ]);
+    const data = new Uint8ClampedArray([100, 100, 100, 255, 105, 105, 105, 255]);
     const original = clone(data);
     applySharpen(data, 2, 1, 100, 1, 20);
     // Difference 5 < threshold 20, so no change
@@ -306,10 +301,7 @@ describe('applySharpen', () => {
   });
 
   it('preserves alpha channel', () => {
-    const data = new Uint8ClampedArray([
-      100, 100, 100, 50,
-      200, 200, 200, 150,
-    ]);
+    const data = new Uint8ClampedArray([100, 100, 100, 50, 200, 200, 200, 150]);
     applySharpen(data, 2, 1, 100, 1, 0);
     expect(data[3]).toBe(50);
     expect(data[7]).toBe(150);
@@ -397,7 +389,9 @@ describe('edge cases', () => {
     const data = makePattern();
     const original = clone(data);
     applyColorBalance(
-      data, 4, 1,
+      data,
+      4,
+      1,
       { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
       { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
       { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },

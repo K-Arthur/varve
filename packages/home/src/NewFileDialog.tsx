@@ -73,7 +73,13 @@ const colorModeOptions: SegmentedOption<ColorMode>[] = [
   { value: 'cmyk', label: 'CMYK' },
 ];
 
-export function NewFileDialog({ open, onClose, onCreate, templates, onSaveAsTemplate }: NewFileDialogProps) {
+export function NewFileDialog({
+  open,
+  onClose,
+  onCreate,
+  templates,
+  onSaveAsTemplate,
+}: NewFileDialogProps) {
   const [activeTab, setActiveTab] = useState<'blank' | 'template'>('blank');
   const [selectedId, setSelectedId] = useState('blank');
   const [customW, setCustomW] = useState(1920);

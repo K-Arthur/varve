@@ -84,7 +84,7 @@ describe('Document (root-level ops)', () => {
     doc = addNode(doc, b.node);
     doc = addNode(doc, c.node);
     doc = moveNode(doc, c.id, 0);
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['c', 'a', 'b', 'Page 1 content']);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['c', 'Page 1 content', 'a', 'b']);
   });
 
   it('inserts at a specific index', () => {
@@ -98,7 +98,7 @@ describe('Document (root-level ops)', () => {
     doc = addNode(doc, a.node);
     doc = addNode(doc, b.node);
     doc = insertNode(doc, x.node, 1);
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['a', 'x', 'b']);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['Page 1 content', 'x', 'a', 'b']);
   });
 
   it('renames a node', () => {
@@ -117,7 +117,7 @@ describe('Document (root-level ops)', () => {
     const b = shape(doc, 'b');
     doc = b.doc;
     expect(a.id).not.toBe(b.id);
-    expect(doc.nextId).toBe(3);
+    expect(doc.nextId).toBe(4);
   });
 
   it('clone-and-add preserves all existing nodes (no accidental replacement)', () => {
@@ -130,7 +130,7 @@ describe('Document (root-level ops)', () => {
       doc = addNode(doc, s.node);
       nodes.push(s);
     }
-    expect(doc.rootChildren.length).toBe(3);
+    expect(doc.rootChildren.length).toBe(4);
 
     // Clone the last node and add it (simulating duplicateSelected's core pattern)
     const last = nodes[2];
@@ -148,9 +148,10 @@ describe('Document (root-level ops)', () => {
       rootChildren: [...doc.rootChildren, newId],
     };
 
-    // All 4 nodes exist
-    expect(doc.rootChildren.length).toBe(4);
+    // All 5 nodes exist
+    expect(doc.rootChildren.length).toBe(5);
     expect(rootNodes(doc).map((n) => n.name)).toEqual([
+      'Page 1 content',
       'Node 0',
       'Node 1',
       'Node 2',
@@ -169,7 +170,7 @@ describe('Document (nested child ops)', () => {
     doc = a.doc;
     doc = addNode(doc, a.node);
     const entries = walkNodes(doc);
-    expect(entries.size).toBe(1);
+    expect(entries.size).toBe(2);
     const entry = entries.get(a.id);
     if (!entry) throw new Error('entry not found');
     expect(entry.parentId).toBeNull();
@@ -186,7 +187,7 @@ describe('Document (nested child ops)', () => {
     doc = d3;
     doc = addChild(doc, frameId, childNode);
     const entries = walkNodes(doc);
-    expect(entries.size).toBe(2);
+    expect(entries.size).toBe(3);
     const childEntry = entries.get(childId);
     if (!childEntry) throw new Error('childEntry not found');
     expect(childEntry.parentId).toBe(frameId);
@@ -223,6 +224,26 @@ describe('Document (nested child ops)', () => {
     const frame = getById(doc, frameId) as FrameNode;
     expect(frame.children).toEqual([childId]);
     expect(getById(doc, childId)?.name).toBe('child');
+  });
+
+  it('addChild sets order via generateKeyBetween', () => {
+    let doc = createDocument();
+    const { id: frameId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addNode(doc, makeFrameNode(frameId, { name: 'Frame' }));
+    const { id: firstId, doc: d3, node: first } = shape(doc, 'first');
+    doc = d3;
+    doc = addChild(doc, frameId, first);
+    const child1 = getById(doc, firstId);
+    expect(child1?.order).toBeTruthy();
+
+    const firstOrder = child1!.order;
+    const { id: secondId, doc: d4, node: second } = shape(doc, 'second');
+    doc = d4;
+    doc = addChild(doc, frameId, second);
+    const child2 = getById(doc, secondId);
+    expect(child2?.order).toBeTruthy();
+    expect(child2!.order > firstOrder).toBe(true);
   });
 
   it('addChild with slotId fills the slot', () => {
@@ -318,7 +339,7 @@ describe('GroupNode', () => {
     doc = d3;
     doc = addChild(doc, gId, child);
     const entries = walkNodes(doc);
-    expect(entries.size).toBe(2);
+    expect(entries.size).toBe(3);
     expect(entries.get(cId)?.parentId).toBe(gId);
     expect(entries.get(cId)?.depth).toBe(1);
   });
@@ -365,7 +386,7 @@ describe('reparentNode', () => {
     doc = addNode(doc, makeFrameNode(fId, { name: 'F' }));
     doc = addNode(doc, a.node);
     doc = reparentNode(doc, a.id, fId, 0);
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['F']);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['Page 1 content', 'F']);
     const frame = getById(doc, fId) as FrameNode;
     expect(frame.children).toEqual([a.id]);
   });
@@ -379,7 +400,7 @@ describe('reparentNode', () => {
     doc = addNode(doc, makeFrameNode(fId, { name: 'F' }));
     doc = addChild(doc, fId, a.node);
     doc = reparentNode(doc, a.id, null, 0);
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['a', 'F']);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['a', 'Page 1 content', 'F']);
     expect((getById(doc, fId) as FrameNode).children).toEqual([]);
   });
 
@@ -428,7 +449,7 @@ describe('groupNodes / ungroupNode', () => {
     doc = groupNodes(doc, [a.id, b.id], group);
     doc = ungroupNode(doc, gId);
     expect(getById(doc, gId)).toBeUndefined();
-    expect(rootNodes(doc).map((n) => n.name)).toEqual(['a', 'b']);
+    expect(rootNodes(doc).map((n) => n.name)).toEqual(['Page 1 content', 'a', 'b']);
   });
 
   it('ungroupNode fails for non-group nodes', () => {
@@ -540,54 +561,62 @@ describe('arrangeNode', () => {
 
   it('bringToFront moves node to end of siblings', () => {
     const { doc, a, b, c } = threeRoots();
-    // rootChildren = [a, b, c]; bring a to front → [b, c, a]
+    const cr = pageContentRoot(doc);
+    // rootChildren = [cr, a, b, c]; bring a to front → [cr, b, c, a]
     const d2 = arrangeNode(doc, a, 'front');
-    expect(d2.rootChildren).toEqual([b, c, a]);
+    expect(d2.rootChildren).toEqual([cr, b, c, a]);
   });
 
   it('sendToBack moves node to start of siblings', () => {
     const { doc, a, b, c } = threeRoots();
-    // rootChildren = [a, b, c]; send c to back → [c, a, b]
+    const cr = pageContentRoot(doc);
+    // rootChildren = [cr, a, b, c]; send c to back → [c, cr, a, b]
     const d2 = arrangeNode(doc, c, 'back');
-    expect(d2.rootChildren).toEqual([c, a, b]);
+    expect(d2.rootChildren).toEqual([c, cr, a, b]);
   });
 
   it('bringForward moves node one position toward end', () => {
     const { doc, a, b, c } = threeRoots();
-    // rootChildren = [a, b, c]; move b forward → [a, c, b]
+    const cr = pageContentRoot(doc);
+    // rootChildren = [cr, a, b, c]; move b forward → [cr, a, c, b]
     const d2 = arrangeNode(doc, b, 'forward');
-    expect(d2.rootChildren).toEqual([a, c, b]);
+    expect(d2.rootChildren).toEqual([cr, a, c, b]);
   });
 
   it('sendBackward moves node one position toward start', () => {
     const { doc, a, b, c } = threeRoots();
-    // rootChildren = [a, b, c]; move b backward → [b, a, c]
+    const cr = pageContentRoot(doc);
+    // rootChildren = [cr, a, b, c]; move b backward → [cr, b, a, c]
     const d2 = arrangeNode(doc, b, 'backward');
-    expect(d2.rootChildren).toEqual([b, a, c]);
+    expect(d2.rootChildren).toEqual([cr, b, a, c]);
   });
 
   it('bringToFront is no-op when already at front', () => {
     const { doc, a, b, c } = threeRoots();
+    const cr = pageContentRoot(doc);
     const d2 = arrangeNode(doc, c, 'front');
-    expect(d2.rootChildren).toEqual([a, b, c]);
+    expect(d2.rootChildren).toEqual([cr, a, b, c]);
   });
 
   it('sendToBack is no-op when already at back', () => {
     const { doc, a, b, c } = threeRoots();
-    const d2 = arrangeNode(doc, a, 'back');
-    expect(d2.rootChildren).toEqual([a, b, c]);
+    const cr = pageContentRoot(doc);
+    const d2 = arrangeNode(doc, cr, 'back');
+    expect(d2.rootChildren).toEqual([cr, a, b, c]);
   });
 
   it('bringForward is no-op when already at front', () => {
     const { doc, a, b, c } = threeRoots();
+    const cr = pageContentRoot(doc);
     const d2 = arrangeNode(doc, c, 'forward');
-    expect(d2.rootChildren).toEqual([a, b, c]);
+    expect(d2.rootChildren).toEqual([cr, a, b, c]);
   });
 
   it('sendBackward is no-op when already at back', () => {
     const { doc, a, b, c } = threeRoots();
-    const d2 = arrangeNode(doc, a, 'backward');
-    expect(d2.rootChildren).toEqual([a, b, c]);
+    const cr = pageContentRoot(doc);
+    const d2 = arrangeNode(doc, cr, 'backward');
+    expect(d2.rootChildren).toEqual([cr, a, b, c]);
   });
 
   it('works for children inside a container', () => {

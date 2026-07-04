@@ -54,7 +54,7 @@ export function PreflightWarnings() {
     return runPrintPreflight(state.document);
   }, [state.document]);
 
-  const hasIssues = result && (result.errorCount + result.warningCount + result.infoCount) > 0;
+  const hasIssues = result && result.errorCount + result.warningCount + result.infoCount > 0;
 
   const highestSeverity: PrintPreflightSeverity | null = useMemo(() => {
     if (!result || !hasIssues) return null;

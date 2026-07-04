@@ -108,6 +108,18 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         label: 'Clear All Guides',
         action: 'clearGuides',
       },
+      { label: '---' },
+      {
+        label: 'Outline Mode',
+        shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeOutline.binding),
+        action: 'canvasModeOutline',
+      },
+      {
+        label: 'Preview Mode',
+        shortcut: formatShortcut(SHORTCUT_DEFS.canvasModePreview.binding),
+        action: 'canvasModePreview',
+      },
+      { label: '---' },
       {
         label: 'Home',
         shortcut: formatShortcut(SHORTCUT_DEFS.home.binding),
@@ -185,6 +197,7 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
 
 function itemRole(item: MenuItem): string {
   if (item.action?.startsWith('theme:')) return 'menuitemradio';
+  if (item.action?.startsWith('canvasMode')) return 'menuitemcheckbox';
   return 'menuitem';
 }
 
@@ -215,6 +228,7 @@ export function Menubar({
     arrangeSelected,
     setSnapEnabled,
     setSoftProofEnabled,
+    setCanvasMode,
     booleanOp,
     startPresentation,
     clearAllGuides,
@@ -385,6 +399,12 @@ export function Menubar({
           break;
         case 'present':
           startPresentation();
+          break;
+        case 'canvasModeOutline':
+          setCanvasMode('outline');
+          break;
+        case 'canvasModePreview':
+          setCanvasMode('preview');
           break;
         default:
           if (action.startsWith('theme:')) {
@@ -619,7 +639,11 @@ export function Menubar({
                       aria-checked={
                         item.action?.startsWith('theme:')
                           ? currentTheme === item.action.slice(6)
-                          : undefined
+                          : item.action === 'canvasModeOutline'
+                            ? state.canvasMode === 'outline'
+                            : item.action === 'canvasModePreview'
+                              ? state.canvasMode === 'preview'
+                              : undefined
                       }
                       disabled={!item.action}
                       onClick={() => handleAction(item.action ?? '')}

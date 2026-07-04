@@ -401,10 +401,7 @@ function FillRow({
             left: 'auto',
           }}
         >
-          <ColorPicker
-            value={fill.color!}
-            onChange={(c) => patch({ color: c })}
-          />
+          <ColorPicker value={fill.color!} onChange={(c) => patch({ color: c })} />
         </div>
       )}
 

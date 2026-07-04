@@ -172,6 +172,21 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Soft Proofing',
     category: 'View',
   },
+  canvasModeOutline: {
+    binding: { key: 'o', ctrl: true, shift: true },
+    label: 'Outline Mode',
+    category: 'View',
+  },
+  canvasModePreview: {
+    binding: { key: 'r', ctrl: true, shift: true },
+    label: 'Preview Mode',
+    category: 'View',
+  },
+  canvasModeFull: {
+    binding: { key: 'Escape' },
+    label: 'Full Render Mode',
+    category: 'View',
+  },
 } satisfies Record<string, ShortcutDef>;
 
 // ── Persistence ────────────────────────────────────────────────────────

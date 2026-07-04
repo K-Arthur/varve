@@ -7,7 +7,14 @@ import { CmykColorFields } from './CmykColorFields';
 afterEach(cleanup);
 
 describe('CmykColorFields', () => {
-  const cmykColor: ManagedColor & { space: 'cmyk' } = { space: 'cmyk', c: 0, m: 128, y: 255, k: 0, a: 255 };
+  const cmykColor: ManagedColor & { space: 'cmyk' } = {
+    space: 'cmyk',
+    c: 0,
+    m: 128,
+    y: 255,
+    k: 0,
+    a: 255,
+  };
 
   it('renders C, M, Y, K, A spinbuttons', () => {
     render(<CmykColorFields value={cmykColor} onChange={() => {}} />);

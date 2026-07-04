@@ -45,11 +45,7 @@ export function clipColor(r: number, g: number, b: number): [number, number, num
     }
   }
   // Clamp floating-point rounding errors (preserves luminance at EPS scale)
-  return [
-    cr < 0 ? 0 : cr,
-    cg < 0 ? 0 : cg,
-    cb < 0 ? 0 : cb,
-  ];
+  return [cr < 0 ? 0 : cr, cg < 0 ? 0 : cg, cb < 0 ? 0 : cb];
 }
 
 /** Set luminance of a color to a target value (W3C SetLum). */
@@ -85,8 +81,12 @@ export function setSat(r: number, g: number, b: number, s: number): [number, num
 
 /** Hue blend: hue from source, luminance and saturation from backdrop. */
 export function blendHueW3C(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   const [setR, setG, setB] = setSat(sr, sg, sb, sat(br, bg, bb));
   return setLum(setR, setG, setB, lum(br, bg, bb));
@@ -94,8 +94,12 @@ export function blendHueW3C(
 
 /** Saturation blend: saturation from source, luminance and hue from backdrop. */
 export function blendSaturationW3C(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   const [setR, setG, setB] = setSat(br, bg, bb, sat(sr, sg, sb));
   return setLum(setR, setG, setB, lum(br, bg, bb));
@@ -103,16 +107,24 @@ export function blendSaturationW3C(
 
 /** Color blend: hue and saturation from source, luminance from backdrop. */
 export function blendColorW3C(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return setLum(sr, sg, sb, lum(br, bg, bb));
 }
 
 /** Luminosity blend: luminance from source, hue and saturation from backdrop. */
 export function blendLuminosityW3C(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return setLum(br, bg, bb, lum(sr, sg, sb));
 }
@@ -140,8 +152,8 @@ export function rgbToLab(r: number, g: number, b: number): [number, number, numb
 
   // Linear sRGB → CIE XYZ (D65)
   const x = 0.4124564 * lr + 0.3575761 * lg + 0.1804375 * lb;
-  const y = 0.2126729 * lr + 0.7151522 * lg + 0.0721750 * lb;
-  const z = 0.0193339 * lr + 0.1191920 * lg + 0.9503041 * lb;
+  const y = 0.2126729 * lr + 0.7151522 * lg + 0.072175 * lb;
+  const z = 0.0193339 * lr + 0.119192 * lg + 0.9503041 * lb;
 
   // XYZ → L*a*b*
   const xn = x / D65[0];
@@ -179,7 +191,7 @@ export function labToRgb(L: number, a: number, bVal: number): [number, number, n
 
   // XYZ → linear sRGB
   const lr = 3.2404542 * x - 1.5371385 * y - 0.4985314 * z;
-  const lg = -0.9692660 * x + 1.8760108 * y + 0.0415560 * z;
+  const lg = -0.969266 * x + 1.8760108 * y + 0.041556 * z;
   const lb = 0.0556434 * x - 0.2040259 * y + 1.0572252 * z;
 
   return [
@@ -232,8 +244,12 @@ export function lchToRgb(L: number, C: number, h: number): [number, number, numb
  * Hue blend using L*C*h* space: hue from source, L and C from backdrop.
  */
 export function blendHueLch(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   const [bL, bC] = rgbToLch(br, bg, bb);
   const [, , sH] = rgbToLch(sr, sg, sb);
@@ -244,8 +260,12 @@ export function blendHueLch(
  * Saturation blend using L*C*h* space: C from source, L and h from backdrop.
  */
 export function blendSaturationLch(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   const [bL, , bH] = rgbToLch(br, bg, bb);
   const [, sC] = rgbToLch(sr, sg, sb);
@@ -256,8 +276,12 @@ export function blendSaturationLch(
  * Color blend using L*C*h* space: L from backdrop, C and h from source.
  */
 export function blendColorLch(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   const [bL] = rgbToLch(br, bg, bb);
   const [, sC, sH] = rgbToLch(sr, sg, sb);
@@ -268,8 +292,12 @@ export function blendColorLch(
  * Luminosity blend using L*C*h* space: L from source, C and h from backdrop.
  */
 export function blendLuminosityLch(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   const [, bC, bH] = rgbToLch(br, bg, bb);
   const [sL] = rgbToLch(sr, sg, sb);
@@ -284,8 +312,12 @@ export type NonSeparableMode = 'hue' | 'saturation' | 'color' | 'luminosity';
  * Dispatch non-separable blend mode by name (W3C implementation).
  */
 export function blendNonSeparable(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
   mode: NonSeparableMode | string,
 ): [number, number, number] {
   switch (mode) {

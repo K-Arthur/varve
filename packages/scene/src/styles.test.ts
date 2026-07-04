@@ -29,7 +29,7 @@ describe('Style System — Color Styles', () => {
     const doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -38,7 +38,7 @@ describe('Style System — Color Styles', () => {
 
     expect(style.type).toBe('color');
     expect(style.name).toBe('Teal Primary');
-    expect(style.fill.color).toEqual({"space":"rgb","r":57,"g":208,"b":198,"a":255});
+    expect(style.fill.color).toEqual({ space: 'rgb', r: 57, g: 208, b: 198, a: 255 });
     expect(newDoc.styles?.[style.id]).toBeDefined();
   });
 
@@ -49,8 +49,8 @@ describe('Style System — Color Styles', () => {
       gradient: {
         type: 'linear',
         stops: [
-          { position: 0, color: {"space":"rgb","r":255,"g":0,"b":0,"a":255} },
-          { position: 1, color: {"space":"rgb","r":0,"g":0,"b":255,"a":255} },
+          { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+          { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
         ],
       },
       opacity: 1,
@@ -66,7 +66,7 @@ describe('Style System — Color Styles', () => {
     const doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":0,"g":0,"b":0,"a":255},
+      color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -114,7 +114,7 @@ describe('Style System — Effect Styles', () => {
         y: 4,
         blur: 8,
         spread: 0,
-        color: {"space":"rgb","r":0,"g":0,"b":0,"a":76},
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 76 },
         opacity: 0.3,
         blendMode: 'normal',
         visible: true,
@@ -135,7 +135,7 @@ describe('Style System — Effect Styles', () => {
         y: 2,
         blur: 4,
         spread: 0,
-        color: {"space":"rgb","r":0,"g":0,"b":0,"a":38},
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 38 },
         opacity: 0.15,
         blendMode: 'normal',
         visible: true,
@@ -174,7 +174,7 @@ describe('Style System — Update & Delete', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -190,7 +190,7 @@ describe('Style System — Update & Delete', () => {
     let doc = createDocument('test');
     const fill1: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -200,22 +200,26 @@ describe('Style System — Update & Delete', () => {
 
     const fill2: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":255,"g":0,"b":0,"a":255},
+      color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
     };
     doc = updateStyle(doc, style.id, { fill: fill2 } as Partial<typeof style>);
-    expect((doc.styles?.[style.id] as unknown as import('./types').ColorStyle).fill.color).toEqual([
-      255, 0, 0, 255,
-    ]);
+    expect((doc.styles?.[style.id] as unknown as import('./types').ColorStyle).fill.color).toEqual({
+      space: 'rgb',
+      r: 255,
+      g: 0,
+      b: 0,
+      a: 255,
+    });
   });
 
   it('deletes a style', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -234,7 +238,7 @@ describe('Style System — Apply & Unlink', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -265,7 +269,7 @@ describe('Style System — Apply & Unlink', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -288,7 +292,7 @@ describe('Style System — Query & Resolve', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -310,7 +314,7 @@ describe('Style System — Query & Resolve', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -319,7 +323,7 @@ describe('Style System — Query & Resolve', () => {
     doc = d1;
     const { doc: d2 } = createColorStyle(doc, 'Red', {
       type: 'solid',
-      color: {"space":"rgb","r":255,"g":0,"b":0,"a":255},
+      color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -341,7 +345,7 @@ describe('Style System — Usage Tracking', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -350,7 +354,7 @@ describe('Style System — Usage Tracking', () => {
     doc = d1;
     const { style: s2, doc: d2 } = createColorStyle(doc, 'Red', {
       type: 'solid',
-      color: {"space":"rgb","r":255,"g":0,"b":0,"a":255},
+      color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -373,7 +377,7 @@ describe('Style System — Usage Tracking', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -426,7 +430,7 @@ describe('Style System — Overrides & Duplicates', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,

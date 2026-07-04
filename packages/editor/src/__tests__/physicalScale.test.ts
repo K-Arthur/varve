@@ -7,9 +7,12 @@ import { UNIT_TO_PX } from '@strata/shared';
  * For arbitrary DPI, scale linearly: pxPerUnit = UNIT_TO_PX[unit] * dpi / 96.
  * When dpi <= 0 (screen/undefined), no physical scaling is applied.
  */
-function computePxPerUnit(documentUnit: 'px' | 'pt' | 'mm' | 'cm' | 'in' | 'pc', dpi: number): number {
+function computePxPerUnit(
+  documentUnit: 'px' | 'pt' | 'mm' | 'cm' | 'in' | 'pc',
+  dpi: number,
+): number {
   const effectiveDPI = dpi > 0 ? dpi : 96;
-  return UNIT_TO_PX[documentUnit] * effectiveDPI / 96;
+  return (UNIT_TO_PX[documentUnit] * effectiveDPI) / 96;
 }
 
 describe('pxPerUnit computation', () => {

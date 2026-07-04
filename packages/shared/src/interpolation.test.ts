@@ -277,7 +277,13 @@ describe('interpolateSpatialBezier', () => {
   });
 
   it('falls back to interpolateValue for non-2D values', () => {
-    const result = interpolateSpatialBezier(0, 100, 0.5, { ti: [0, 0], to: [0, 0] }, { ti: [0, 0], to: [0, 0] });
+    const result = interpolateSpatialBezier(
+      0,
+      100,
+      0.5,
+      { ti: [0, 0], to: [0, 0] },
+      { ti: [0, 0], to: [0, 0] },
+    );
     expect(result).toBe(50);
   });
 

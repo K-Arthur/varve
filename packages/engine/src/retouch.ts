@@ -102,18 +102,10 @@ export function clonePixels(
         rd[ti + 2] = readPixel(sd, si + 2);
         rd[ti + 3] = readPixel(sd, si + 3);
       } else {
-        rd[ti] = Math.round(
-          readPixel(td, ti) * (1 - f) + readPixel(sd, si) * f,
-        );
-        rd[ti + 1] = Math.round(
-          readPixel(td, ti + 1) * (1 - f) + readPixel(sd, si + 1) * f,
-        );
-        rd[ti + 2] = Math.round(
-          readPixel(td, ti + 2) * (1 - f) + readPixel(sd, si + 2) * f,
-        );
-        rd[ti + 3] = Math.round(
-          readPixel(td, ti + 3) * (1 - f) + readPixel(sd, si + 3) * f,
-        );
+        rd[ti] = Math.round(readPixel(td, ti) * (1 - f) + readPixel(sd, si) * f);
+        rd[ti + 1] = Math.round(readPixel(td, ti + 1) * (1 - f) + readPixel(sd, si + 1) * f);
+        rd[ti + 2] = Math.round(readPixel(td, ti + 2) * (1 - f) + readPixel(sd, si + 2) * f);
+        rd[ti + 3] = Math.round(readPixel(td, ti + 3) * (1 - f) + readPixel(sd, si + 3) * f);
       }
     }
   }
@@ -138,7 +130,11 @@ export function ncc(
   _stride: number,
   count: number,
 ): number {
-  let sumA = 0, sumB = 0, sumA2 = 0, sumB2 = 0, sumAB = 0;
+  let sumA = 0,
+    sumB = 0,
+    sumA2 = 0,
+    sumB2 = 0,
+    sumAB = 0;
   let n = 0;
   for (let i = 0; i < count; i++) {
     const idx = offset + i * 4;
@@ -256,18 +252,10 @@ export function healPixels(
         rd[ri + 2] = readPixel(spd, si + 2);
         rd[ri + 3] = readPixel(spd, si + 3);
       } else {
-        rd[ri] = Math.round(
-          readPixel(td, ri) * (1 - f) + readPixel(spd, si) * f,
-        );
-        rd[ri + 1] = Math.round(
-          readPixel(td, ri + 1) * (1 - f) + readPixel(spd, si + 1) * f,
-        );
-        rd[ri + 2] = Math.round(
-          readPixel(td, ri + 2) * (1 - f) + readPixel(spd, si + 2) * f,
-        );
-        rd[ri + 3] = Math.round(
-          readPixel(td, ri + 3) * (1 - f) + readPixel(spd, si + 3) * f,
-        );
+        rd[ri] = Math.round(readPixel(td, ri) * (1 - f) + readPixel(spd, si) * f);
+        rd[ri + 1] = Math.round(readPixel(td, ri + 1) * (1 - f) + readPixel(spd, si + 1) * f);
+        rd[ri + 2] = Math.round(readPixel(td, ri + 2) * (1 - f) + readPixel(spd, si + 2) * f);
+        rd[ri + 3] = Math.round(readPixel(td, ri + 3) * (1 - f) + readPixel(spd, si + 3) * f);
       }
     }
   }
@@ -296,12 +284,8 @@ export function spotHeal(
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > radius) continue;
 
-      const mirrorSx = centerX + Math.round(
-        dx > 0 ? -(radius + dx) : (radius - dx),
-      );
-      const mirrorSy = centerY + Math.round(
-        dy > 0 ? -(radius + dy) : (radius - dy),
-      );
+      const mirrorSx = centerX + Math.round(dx > 0 ? -(radius + dx) : radius - dx);
+      const mirrorSy = centerY + Math.round(dy > 0 ? -(radius + dy) : radius - dy);
       const sx = Math.max(0, Math.min(w - 1, mirrorSx));
       const sy = Math.max(0, Math.min(h - 1, mirrorSy));
 
@@ -317,18 +301,10 @@ export function spotHeal(
         rd[ri + 3] = readPixel(id, si + 3);
       } else {
         const f = edgeWeight;
-        rd[ri] = Math.round(
-          readPixel(id, ri) * (1 - f) + readPixel(id, si) * f,
-        );
-        rd[ri + 1] = Math.round(
-          readPixel(id, ri + 1) * (1 - f) + readPixel(id, si + 1) * f,
-        );
-        rd[ri + 2] = Math.round(
-          readPixel(id, ri + 2) * (1 - f) + readPixel(id, si + 2) * f,
-        );
-        rd[ri + 3] = Math.round(
-          readPixel(id, ri + 3) * (1 - f) + readPixel(id, si + 3) * f,
-        );
+        rd[ri] = Math.round(readPixel(id, ri) * (1 - f) + readPixel(id, si) * f);
+        rd[ri + 1] = Math.round(readPixel(id, ri + 1) * (1 - f) + readPixel(id, si + 1) * f);
+        rd[ri + 2] = Math.round(readPixel(id, ri + 2) * (1 - f) + readPixel(id, si + 2) * f);
+        rd[ri + 3] = Math.round(readPixel(id, ri + 3) * (1 - f) + readPixel(id, si + 3) * f);
       }
     }
   }
@@ -338,11 +314,7 @@ export function spotHeal(
 /**
  * Edge blend weights for a rectangular region — linear falloff along the perimeter.
  */
-function edgeBlendWeights(
-  rw: number,
-  rh: number,
-  featherRadius: number,
-): Float64Array {
+function edgeBlendWeights(rw: number, rh: number, featherRadius: number): Float64Array {
   const weights = new Float64Array(rw * rh);
   const fr = Math.max(1, featherRadius);
   for (let y = 0; y < rh; y++) {
@@ -397,27 +369,16 @@ export function patchRegion(
         rd[ti + 3] = readPixel(id, si + 3);
       } else {
         const f = weight;
-        rd[ti] = Math.round(
-          readPixel(id, ti) * (1 - f) + readPixel(id, si) * f,
-        );
-        rd[ti + 1] = Math.round(
-          readPixel(id, ti + 1) * (1 - f) + readPixel(id, si + 1) * f,
-        );
-        rd[ti + 2] = Math.round(
-          readPixel(id, ti + 2) * (1 - f) + readPixel(id, si + 2) * f,
-        );
-        rd[ti + 3] = Math.round(
-          readPixel(id, ti + 3) * (1 - f) + readPixel(id, si + 3) * f,
-        );
+        rd[ti] = Math.round(readPixel(id, ti) * (1 - f) + readPixel(id, si) * f);
+        rd[ti + 1] = Math.round(readPixel(id, ti + 1) * (1 - f) + readPixel(id, si + 1) * f);
+        rd[ti + 2] = Math.round(readPixel(id, ti + 2) * (1 - f) + readPixel(id, si + 2) * f);
+        rd[ti + 3] = Math.round(readPixel(id, ti + 3) * (1 - f) + readPixel(id, si + 3) * f);
       }
     }
   }
   return result;
 }
 
-export function buildBrushMask(
-  brushSize: number,
-  hardness: number,
-): Uint8Array {
+export function buildBrushMask(brushSize: number, hardness: number): Uint8Array {
   return createBrushMask(brushSize, hardness).mask;
 }

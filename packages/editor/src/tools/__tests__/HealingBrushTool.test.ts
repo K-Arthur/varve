@@ -28,7 +28,10 @@ describe('HealingBrushTool', () => {
 
     (tool as any).sourcePoint = { x: 5, y: 5 };
 
-    const result = tool.onPointerDown({ altKey: false, clientX: 30, clientY: 30, pointerId: 1 } as any, ctx);
+    const result = tool.onPointerDown(
+      { altKey: false, clientX: 30, clientY: 30, pointerId: 1 } as any,
+      ctx,
+    );
     expect(result.consumed).toBe(true);
     expect(ctx.beginTransaction).toHaveBeenCalled();
   });
@@ -49,7 +52,10 @@ describe('HealingBrushTool', () => {
 
     (tool as any).sourcePoint = { x: 5, y: 5 };
 
-    const result = tool.onPointerDown({ altKey: false, clientX: 45, clientY: 45, pointerId: 1 } as any, ctx);
+    const result = tool.onPointerDown(
+      { altKey: false, clientX: 45, clientY: 45, pointerId: 1 } as any,
+      ctx,
+    );
     expect(result.consumed).toBe(true);
   });
 

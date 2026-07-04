@@ -26,7 +26,10 @@ describe('fill constructors', () => {
     });
 
     it('accepts custom opacity and blend mode', () => {
-      const fill = solidFill({ space: 'rgb' as const, r: 0, g: 255, b: 0, a: 128 }, { opacity: 0.5, blendMode: 'multiply' });
+      const fill = solidFill(
+        { space: 'rgb' as const, r: 0, g: 255, b: 0, a: 128 },
+        { opacity: 0.5, blendMode: 'multiply' },
+      );
       expect(fill.opacity).toBe(0.5);
       expect(fill.blendMode).toBe('multiply');
     });
@@ -111,7 +114,10 @@ describe('fill constructors', () => {
     });
 
     it('multiplies opacity into alpha for solids', () => {
-      const fill = solidFill({ space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 }, { opacity: 0.5 });
+      const fill = solidFill(
+        { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 },
+        { opacity: 0.5 },
+      );
       const c = fillToColor(fill);
       expect('a' in c ? c.a : 0).toBe(128);
     });
@@ -134,7 +140,10 @@ describe('fill constructors', () => {
 
   describe('primaryColor', () => {
     it('returns topmost visible solid fill color', () => {
-      const fills = [solidFill({ space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 }), solidFill({ space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 })];
+      const fills = [
+        solidFill({ space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 }),
+        solidFill({ space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 }),
+      ];
       const c = primaryColor(fills);
       expect(c).toEqual({ space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 });
     });

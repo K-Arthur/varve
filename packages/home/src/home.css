@@ -1138,8 +1138,9 @@
   border-radius: var(--radius-lg);
   text-align: center;
   cursor: pointer;
-  transition: border-color var(--duration-quick) var(--ease-standard),
-              background var(--duration-quick) var(--ease-standard);
+  transition:
+    border-color var(--duration-quick) var(--ease-standard),
+    background var(--duration-quick) var(--ease-standard);
 }
 .bulk-import__dropzone--active {
   border-color: var(--color-accent-primary);
@@ -1283,7 +1284,7 @@
 }
 .bulk-import__result-item--error {
   color: var(--color-feedback-danger);
-  background: var(--color-feedback-danger-subtle, rgba(239,68,68,0.08));
+  background: var(--color-feedback-danger-subtle, rgba(239, 68, 68, 0.08));
 }
 .bulk-import__result-item--importing {
   color: var(--color-text-secondary);
@@ -1959,7 +1960,9 @@
   animation: asset-spin 0.8s linear infinite;
 }
 @keyframes asset-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .asset-browser__empty {
   display: flex;

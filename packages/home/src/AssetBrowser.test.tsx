@@ -121,9 +121,7 @@ describe('AssetBrowser', () => {
   it('calls onInsertAsset when insert button clicked', async () => {
     const platform = createMockPlatform();
     const onInsertAsset = vi.fn();
-    render(
-      <AssetBrowser platform={platform} workspaceId="ws-1" onInsertAsset={onInsertAsset} />,
-    );
+    render(<AssetBrowser platform={platform} workspaceId="ws-1" onInsertAsset={onInsertAsset} />);
     await waitFor(() => {
       const insertBtns = screen.getAllByLabelText(/Insert/);
       expect(insertBtns.length).toBeGreaterThan(0);

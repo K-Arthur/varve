@@ -63,6 +63,7 @@ import {
   getParent,
   groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
+  isContainer,
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
@@ -159,6 +160,8 @@ export type ToolId =
   | 'spotHeal'
   | 'patch';
 
+export type CanvasMode = 'full' | 'outline' | 'preview';
+
 /** F2: metadata for each open document tab. */
 export interface SessionMeta {
   id: string;
@@ -214,6 +217,8 @@ export interface EditorState {
   rightPanelVisible: boolean;
   /** Motion/animation playback state. */
   motion: MotionState;
+  /** Canvas rendering mode: full render, outline (wireframe), or preview (no overlays). */
+  canvasMode: CanvasMode;
 }
 
 export interface EditorContextValue {
@@ -487,6 +492,8 @@ export interface EditorContextValue {
   setPixelGridEnabled: (v: boolean) => void;
   /** Toggle snap-to-grid. */
   setSnapEnabled: (v: boolean) => void;
+  /** Set canvas rendering mode (full / outline / preview). */
+  setCanvasMode: (mode: CanvasMode) => void;
   /** Show the export dialog modal. */
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
@@ -888,6 +895,7 @@ export function EditorProvider({
       leftPanelVisible: loadSettings().panel.leftPanelVisible,
       rightPanelVisible: loadSettings().panel.rightPanelVisible,
       motion: createInitialMotionState(),
+      canvasMode: 'full',
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -1482,6 +1490,53 @@ export function EditorProvider({
       duplicateSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
+
+        /**
+         * Deep clone a node and all its container descendants.
+         * @returns [newId, updatedDoc, oldId -> newId map for the cloned tree]
+         */
+        function cloneNodeDeep(
+          nodeId: string,
+          doc: Document,
+        ): [string, Document, Record<string, string>] {
+          const node = doc.nodes[nodeId];
+          if (!node) return [nodeId, doc, {}];
+
+          const { id: newId, doc: d1 } = nextNodeId(doc);
+          let d = d1;
+          let idMap: Record<string, string> = { [nodeId]: newId };
+
+          // Clone the node with a new ID and offset position
+          const cloned = {
+            ...node,
+            id: newId,
+            name: `${node.name} copy`,
+            transform: [
+              node.transform[0],
+              node.transform[1],
+              node.transform[2],
+              node.transform[3],
+              node.transform[4] + 20,
+              node.transform[5] + 20,
+            ] as typeof node.transform,
+          };
+
+          // If container with children, recursively deep-clone all descendants
+          if (isContainer(node)) {
+            const newChildIds: string[] = [];
+            for (const childId of node.children) {
+              const [newChildId, d2, childMap] = cloneNodeDeep(childId, d);
+              d = d2;
+              newChildIds.push(newChildId);
+              idMap = { ...idMap, ...childMap };
+            }
+            cloned.children = newChildIds;
+          }
+
+          d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
+          return [newId, d, idMap];
+        }
+
         setState((s) => {
           // Push undo snapshot (same pattern as updateDoc)
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
@@ -1492,31 +1547,14 @@ export function EditorProvider({
           let d = s.document;
           const newIds: string[] = [];
           for (const id of sel) {
-            const node = d.nodes[id];
-            if (!node) continue;
-            const { id: newId, doc: d2 } = nextNodeId(d);
+            const [newId, d2] = cloneNodeDeep(id, d);
             d = d2;
-            // Clone the node with a new ID and offset position
-            const cloned = {
-              ...node,
-              id: newId,
-              name: `${node.name} copy`,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                node.transform[4] + 20,
-                node.transform[5] + 20,
-              ] as typeof node.transform,
-            };
-            d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
+
             // Add to root children if it's a root node
             const parentId = getParent(s.document, id);
             if (parentId === null) {
               d = { ...d, rootChildren: [...d.rootChildren, newId] };
             } else {
-              // Add to parent's children
               const parent = d.nodes[parentId];
               if (parent && 'children' in parent) {
                 d = {
@@ -2619,6 +2657,7 @@ export function EditorProvider({
       },
       setPixelGridEnabled: (v) => patch({ pixelGridEnabled: v }),
       setSnapEnabled: (v) => patch({ snapEnabled: v }),
+      setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
 
       setNodeLayout: (id, layout) => {

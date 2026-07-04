@@ -17,7 +17,10 @@ function makeRichText(text: string, fontSize = 16, fontFamily = 'Inter'): RichTe
 
 describe('layoutRichText — measurement', () => {
   it('produces non-zero width for simple text', () => {
-    const result = layoutRichText(makeRichText('Hello World'), 200, { fontSize: 16, fontFamily: 'Inter' });
+    const result = layoutRichText(makeRichText('Hello World'), 200, {
+      fontSize: 16,
+      fontFamily: 'Inter',
+    });
     expect(result.width).toBeGreaterThan(0);
     expect(result.height).toBeGreaterThan(0);
     expect(result.overset).toBe(false);
@@ -39,7 +42,10 @@ describe('layoutRichText — measurement', () => {
   });
 
   it('handles single word', () => {
-    const result = layoutRichText(makeRichText('Hello'), 200, { fontSize: 16, fontFamily: 'Inter' });
+    const result = layoutRichText(makeRichText('Hello'), 200, {
+      fontSize: 16,
+      fontFamily: 'Inter',
+    });
     expect(result.lines.length).toBe(1);
     expect(result.overset).toBe(false);
   });
@@ -60,34 +66,33 @@ describe('layoutRichText — measurement', () => {
 
 describe('layoutRichText — CJK line breaking', () => {
   it('handles CJK text without spaces', () => {
-    const cjkText = '\u4e2d\u6587\u5b57\u7b26\u6d4b\u8bd5\u8fd9\u662f\u4e00\u4e2a\u957f\u6587\u672c';
-    const result = layoutRichText(
-      makeRichText(cjkText, 16, 'Noto Sans CJK'),
-      80,
-      { fontSize: 16, fontFamily: 'Noto Sans CJK' },
-    );
+    const cjkText =
+      '\u4e2d\u6587\u5b57\u7b26\u6d4b\u8bd5\u8fd9\u662f\u4e00\u4e2a\u957f\u6587\u672c';
+    const result = layoutRichText(makeRichText(cjkText, 16, 'Noto Sans CJK'), 80, {
+      fontSize: 16,
+      fontFamily: 'Noto Sans CJK',
+    });
     expect(result.lines.length).toBeGreaterThan(0);
     expect(result.width).toBeGreaterThan(0);
   });
 
   it('handles mixed CJK and Latin text', () => {
     const mixedText = 'Hello \u4e16\u754c World \u4e16\u754c Test';
-    const result = layoutRichText(
-      makeRichText(mixedText, 16, 'Noto Sans CJK'),
-      200,
-      { fontSize: 16, fontFamily: 'Noto Sans CJK' },
-    );
+    const result = layoutRichText(makeRichText(mixedText, 16, 'Noto Sans CJK'), 200, {
+      fontSize: 16,
+      fontFamily: 'Noto Sans CJK',
+    });
     expect(result.lines.length).toBeGreaterThan(0);
     expect(result.width).toBeGreaterThan(0);
   });
 
   it('wraps CJK text at narrow widths', () => {
-    const cjkText = '\u4e2d\u6587\u5b57\u7b26\u6d4b\u8bd5\u8fd9\u662f\u4e00\u4e2a\u957f\u6587\u672c';
-    const result = layoutRichText(
-      makeRichText(cjkText, 16, 'Noto Sans CJK'),
-      32,
-      { fontSize: 16, fontFamily: 'Noto Sans CJK' },
-    );
+    const cjkText =
+      '\u4e2d\u6587\u5b57\u7b26\u6d4b\u8bd5\u8fd9\u662f\u4e00\u4e2a\u957f\u6587\u672c';
+    const result = layoutRichText(makeRichText(cjkText, 16, 'Noto Sans CJK'), 32, {
+      fontSize: 16,
+      fontFamily: 'Noto Sans CJK',
+    });
     expect(result.lines.length).toBeGreaterThan(1);
   });
 });

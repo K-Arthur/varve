@@ -30,6 +30,9 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     ungroupSelected,
     detachSelected,
     announce,
+    copySelected,
+    cutSelected,
+    paste,
   } = useEditor();
   const [filter, setFilter] = useState('');
   const [contextMenu, setContextMenu] = useState<{
@@ -140,6 +143,21 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [detachSelected, closeMenu]);
 
+  const handleCopy = useCallback(() => {
+    copySelected();
+    closeMenu();
+  }, [copySelected, closeMenu]);
+
+  const handleCut = useCallback(() => {
+    cutSelected();
+    closeMenu();
+  }, [cutSelected, closeMenu]);
+
+  const handlePaste = useCallback(() => {
+    paste();
+    closeMenu();
+  }, [paste, closeMenu]);
+
   const canGroup = state.selection.length >= 2;
   const firstSelId = state.selection[0];
   const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
@@ -193,9 +211,9 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             <ContextMenuItem label="Rename" shortcut="F2" onAction={handleRenameFromMenu} />
             <ContextMenuItem label="Delete" shortcut="Del" onAction={handleDeleteFromMenu} />
             <hr className="layers-context-menu__separator" />
-            <ContextMenuItem label="Copy" shortcut="Ctrl+C" disabled onAction={closeMenu} />
-            <ContextMenuItem label="Cut" shortcut="Ctrl+X" disabled onAction={closeMenu} />
-            <ContextMenuItem label="Paste" shortcut="Ctrl+V" disabled onAction={closeMenu} />
+            <ContextMenuItem label="Copy" shortcut="Ctrl+C" onAction={handleCopy} />
+            <ContextMenuItem label="Cut" shortcut="Ctrl+X" onAction={handleCut} />
+            <ContextMenuItem label="Paste" shortcut="Ctrl+V" onAction={handlePaste} />
             <hr className="layers-context-menu__separator" />
             <ContextMenuItem
               label="Group"

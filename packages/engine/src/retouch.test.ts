@@ -12,7 +12,11 @@ import {
   spotHeal,
 } from './retouch';
 
-function makeTestImageData(w: number, h: number, fill: (x: number, y: number) => number): ImageData {
+function makeTestImageData(
+  w: number,
+  h: number,
+  fill: (x: number, y: number) => number,
+): ImageData {
   const data = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -144,7 +148,10 @@ describe('spotHeal', () => {
     for (let y = cy - 3; y <= cy + 3; y++) {
       for (let x = cx - 3; x <= cx + 3; x++) {
         const i = (y * w + x) * 4;
-        if (result.data[i] !== before[i]) { changed = true; break; }
+        if (result.data[i] !== before[i]) {
+          changed = true;
+          break;
+        }
       }
       if (changed) break;
     }

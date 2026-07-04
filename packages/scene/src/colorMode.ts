@@ -2,7 +2,11 @@ import type { ManagedColor, ColorConfig, ColorMode } from './colorManagement';
 import type { Document } from './document';
 import type { SceneNode, Effect, Fill, GradientStop, Stroke } from './types';
 
-function rgbToCmyk(r: number, g: number, b: number): { c: number; m: number; y: number; k: number } {
+function rgbToCmyk(
+  r: number,
+  g: number,
+  b: number,
+): { c: number; m: number; y: number; k: number } {
   const rr = r / 255;
   const gg = g / 255;
   const bb = b / 255;
@@ -14,7 +18,12 @@ function rgbToCmyk(r: number, g: number, b: number): { c: number; m: number; y: 
   return { c: Math.round(c), m: Math.round(m), y: Math.round(y), k: Math.round(k * 100) };
 }
 
-function cmykToRgb(c: number, m: number, y: number, k: number): { r: number; g: number; b: number } {
+function cmykToRgb(
+  c: number,
+  m: number,
+  y: number,
+  k: number,
+): { r: number; g: number; b: number } {
   const kk = k / 100;
   const r = 255 * (1 - c / 100) * (1 - kk);
   const g = 255 * (1 - m / 100) * (1 - kk);
@@ -65,15 +74,15 @@ function convertColor(color: ManagedColor, newMode: ColorMode): ManagedColor {
   return color;
 }
 
-function updateColorConfig(config: ColorConfig | undefined, newMode: ColorMode): ColorConfig | undefined {
+function updateColorConfig(
+  config: ColorConfig | undefined,
+  newMode: ColorMode,
+): ColorConfig | undefined {
   if (!config) return config;
   return { ...config, mode: newMode };
 }
 
-function walkAndConvert(
-  node: SceneNode,
-  newMode: ColorMode,
-): SceneNode {
+function walkAndConvert(node: SceneNode, newMode: ColorMode): SceneNode {
   let updated = { ...node, fill: convertColor(node.fill, newMode) };
 
   if ('strokes' in updated && updated.strokes) {

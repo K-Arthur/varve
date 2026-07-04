@@ -6,8 +6,34 @@ import { describe, expect, it, vi } from 'vitest';
 import { HomeSearchPalette } from './HomeSearchPalette';
 
 const mockFiles = [
-  { id: 'f1', name: 'Design System', kind: 'strata' as const, projectId: null, createdAt: 0, updatedAt: 0, openedAt: 0, size: 0, pinned: false, trashedAt: null, ordering: '', contentHash: '' },
-  { id: 'f2', name: 'Landing Page', kind: 'strata' as const, projectId: null, createdAt: 0, updatedAt: 0, openedAt: 0, size: 0, pinned: false, trashedAt: null, ordering: '', contentHash: '' },
+  {
+    id: 'f1',
+    name: 'Design System',
+    kind: 'strata' as const,
+    projectId: null,
+    createdAt: 0,
+    updatedAt: 0,
+    openedAt: 0,
+    size: 0,
+    pinned: false,
+    trashedAt: null,
+    ordering: '',
+    contentHash: '',
+  },
+  {
+    id: 'f2',
+    name: 'Landing Page',
+    kind: 'strata' as const,
+    projectId: null,
+    createdAt: 0,
+    updatedAt: 0,
+    openedAt: 0,
+    size: 0,
+    pinned: false,
+    trashedAt: null,
+    ordering: '',
+    contentHash: '',
+  },
 ];
 
 const mockProjects = [
@@ -15,7 +41,19 @@ const mockProjects = [
 ];
 
 const mockTemplates = [
-  { id: 't1', name: 'Blank Canvas', category: 'General', description: '', previewHash: '', source: 'builtin' as const, documentJson: '{}', tags: [], usageCount: 0, createdAt: 0, updatedAt: 0 },
+  {
+    id: 't1',
+    name: 'Blank Canvas',
+    category: 'General',
+    description: '',
+    previewHash: '',
+    source: 'builtin' as const,
+    documentJson: '{}',
+    tags: [],
+    usageCount: 0,
+    createdAt: 0,
+    updatedAt: 0,
+  },
 ];
 
 describe('HomeSearchPalette', () => {

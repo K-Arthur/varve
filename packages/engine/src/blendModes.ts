@@ -28,36 +28,48 @@ import { blendNonSeparable, type NonSeparableMode } from './nonSeparable';
 
 /** Normal: source over backdrop (default). */
 export function blendNormal(
-  _br: number, _bg: number, _bb: number,
-  sr: number, sg: number, sb: number,
+  _br: number,
+  _bg: number,
+  _bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return [sr, sg, sb];
 }
 
 /** Multiply: Cs × Cb. */
 export function blendMultiply(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return [br * sr, bg * sg, bb * sb];
 }
 
 /** Screen: 1 - (1 - Cs) × (1 - Cb). */
 export function blendScreen(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
-  return [
-    1 - (1 - br) * (1 - sr),
-    1 - (1 - bg) * (1 - sg),
-    1 - (1 - bb) * (1 - sb),
-  ];
+  return [1 - (1 - br) * (1 - sr), 1 - (1 - bg) * (1 - sg), 1 - (1 - bb) * (1 - sb)];
 }
 
 /** Overlay: multiply or screen depending on backdrop value. */
 export function blendOverlay(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return [
     br < 0.5 ? 2 * br * sr : 1 - 2 * (1 - br) * (1 - sr),
@@ -68,24 +80,36 @@ export function blendOverlay(
 
 /** Darken: min(Cs, Cb). */
 export function blendDarken(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return [Math.min(br, sr), Math.min(bg, sg), Math.min(bb, sb)];
 }
 
 /** Lighten: max(Cs, Cb). */
 export function blendLighten(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return [Math.max(br, sr), Math.max(bg, sg), Math.max(bb, sb)];
 }
 
 /** Color-dodge: brighten backdrop to reflect source. */
 export function blendColorDodge(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return [
     br === 0 ? 0 : sr >= 1 ? 1 : Math.min(1, br / (1 - sr)),
@@ -96,8 +120,12 @@ export function blendColorDodge(
 
 /** Color-burn: darken backdrop to reflect source. */
 export function blendColorBurn(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return [
     br >= 1 ? 1 : sr <= 0 ? 0 : 1 - Math.min(1, (1 - br) / sr),
@@ -108,8 +136,12 @@ export function blendColorBurn(
 
 /** Hard-light: multiply or screen depending on source value. */
 export function blendHardLight(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   return [
     sr < 0.5 ? 2 * br * sr : 1 - 2 * (1 - br) * (1 - sr),
@@ -120,8 +152,12 @@ export function blendHardLight(
 
 /** Soft-light: subtle contrast enhancement (W3C formula). */
 export function blendSoftLight(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
   const soft = (a: number, b: number): number => {
     if (b <= 0.5) return a - (1 - 2 * b) * a * (1 - a);
@@ -133,26 +169,26 @@ export function blendSoftLight(
 
 /** Difference: |Cs - Cb|. */
 export function blendDifference(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
-  return [
-    Math.abs(br - sr),
-    Math.abs(bg - sg),
-    Math.abs(bb - sb),
-  ];
+  return [Math.abs(br - sr), Math.abs(bg - sg), Math.abs(bb - sb)];
 }
 
 /** Exclusion: Cs + Cb - 2 × Cs × Cb. */
 export function blendExclusion(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
-  return [
-    br + sr - 2 * br * sr,
-    bg + sg - 2 * bg * sg,
-    bb + sb - 2 * bb * sb,
-  ];
+  return [br + sr - 2 * br * sr, bg + sg - 2 * bg * sg, bb + sb - 2 * bb * sb];
 }
 
 // ── Non-separable dispatch ───────────────────────────────────────────────────
@@ -162,8 +198,12 @@ export function blendExclusion(
  * Delegates to nonSeparable.ts.
  */
 export function blendNonSeparableDispatch(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
   mode: NonSeparableMode | string,
 ): [number, number, number] {
   return blendNonSeparable(br, bg, bb, sr, sg, sb, mode);
@@ -173,56 +213,77 @@ export function blendNonSeparableDispatch(
 
 /** Plus-darker: max(0, Cs + Cb - 1). */
 export function blendPlusDarker(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
-  return [
-    Math.max(0, br + sr - 1),
-    Math.max(0, bg + sg - 1),
-    Math.max(0, bb + sb - 1),
-  ];
+  return [Math.max(0, br + sr - 1), Math.max(0, bg + sg - 1), Math.max(0, bb + sb - 1)];
 }
 
 /** Plus-lighter: min(1, Cs + Cb). */
 export function blendPlusLighter(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ): [number, number, number] {
-  return [
-    Math.min(1, br + sr),
-    Math.min(1, bg + sg),
-    Math.min(1, bb + sb),
-  ];
+  return [Math.min(1, br + sr), Math.min(1, bg + sg), Math.min(1, bb + sb)];
 }
 
 // ─── Unified blend with alpha compositing ────────────────────────────────────
 
 /** Map blend mode string to a (backdrop, source) → blended function. */
-function getBlendFn(mode: string): (
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+function getBlendFn(
+  mode: string,
+): (
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
 ) => [number, number, number] {
   switch (mode) {
-    case 'normal': return blendNormal;
-    case 'multiply': return blendMultiply;
-    case 'screen': return blendScreen;
-    case 'overlay': return blendOverlay;
-    case 'darken': return blendDarken;
-    case 'lighten': return blendLighten;
-    case 'colorDodge': return blendColorDodge;
-    case 'colorBurn': return blendColorBurn;
-    case 'hardLight': return blendHardLight;
-    case 'softLight': return blendSoftLight;
-    case 'difference': return blendDifference;
-    case 'exclusion': return blendExclusion;
+    case 'normal':
+      return blendNormal;
+    case 'multiply':
+      return blendMultiply;
+    case 'screen':
+      return blendScreen;
+    case 'overlay':
+      return blendOverlay;
+    case 'darken':
+      return blendDarken;
+    case 'lighten':
+      return blendLighten;
+    case 'colorDodge':
+      return blendColorDodge;
+    case 'colorBurn':
+      return blendColorBurn;
+    case 'hardLight':
+      return blendHardLight;
+    case 'softLight':
+      return blendSoftLight;
+    case 'difference':
+      return blendDifference;
+    case 'exclusion':
+      return blendExclusion;
     case 'hue':
     case 'saturation':
     case 'color':
     case 'luminosity':
       return (br, bg, bb, sr, sg, sb) => blendNonSeparableDispatch(br, bg, bb, sr, sg, sb, mode);
-    case 'plusDarker': return blendPlusDarker;
-    case 'plusLighter': return blendPlusLighter;
-    default: return blendNormal;
+    case 'plusDarker':
+      return blendPlusDarker;
+    case 'plusLighter':
+      return blendPlusLighter;
+    default:
+      return blendNormal;
   }
 }
 

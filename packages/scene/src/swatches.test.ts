@@ -73,7 +73,11 @@ describe('swatches', () => {
       const { id: nid, doc: d2 } = nextNodeId(doc);
       doc = d2;
       const shape = makeShapeNode(nid, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
-      doc = { ...doc, nodes: { ...doc.nodes, [nid]: shape }, rootChildren: [...doc.rootChildren, nid] };
+      doc = {
+        ...doc,
+        nodes: { ...doc.nodes, [nid]: shape },
+        rootChildren: [...doc.rootChildren, nid],
+      };
       doc = addSwatch(doc, 'Red', red);
       const swatchId = doc.swatches![0]!.id;
       const result = applySwatchToNode(doc, nid, swatchId);
@@ -85,7 +89,11 @@ describe('swatches', () => {
       const { id: nid, doc: d2 } = nextNodeId(doc);
       doc = d2;
       const shape = makeShapeNode(nid, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
-      doc = { ...doc, nodes: { ...doc.nodes, [nid]: shape }, rootChildren: [...doc.rootChildren, nid] };
+      doc = {
+        ...doc,
+        nodes: { ...doc.nodes, [nid]: shape },
+        rootChildren: [...doc.rootChildren, nid],
+      };
       const result = applySwatchToNode(doc, nid, 'nonexistent');
       expect(result).toBe(doc);
     });

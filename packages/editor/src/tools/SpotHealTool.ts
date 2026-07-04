@@ -28,7 +28,10 @@ export class SpotHealTool extends BaseTool {
     return { css: 'crosshair' };
   }
 
-  override onPointerDown(e: PointerEvent, ctx: ToolContext): { consumed: boolean; captured?: boolean } {
+  override onPointerDown(
+    e: PointerEvent,
+    ctx: ToolContext,
+  ): { consumed: boolean; captured?: boolean } {
     const canvas = ctx.canvasElement;
     if (!canvas) return { consumed: false };
 

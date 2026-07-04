@@ -116,12 +116,7 @@ function NamingForm({ version, onName, onCancel }: NamingFormProps) {
   );
 }
 
-export function VersionHistory({
-  fileId,
-  platform,
-  onRestore,
-  onClose,
-}: VersionHistoryProps) {
+export function VersionHistory({ fileId, platform, onRestore, onClose }: VersionHistoryProps) {
   const [versions, setVersions] = useState<VersionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -190,12 +185,7 @@ export function VersionHistory({
   return (
     <Dialog open title="Version History" onClose={onClose} className="version-history">
       <div className="version-history__header">
-        <Button
-          variant="primary"
-          size="sm"
-          loading={saving}
-          onClick={handleSaveVersion}
-        >
+        <Button variant="primary" size="sm" loading={saving} onClick={handleSaveVersion}>
           <Icon name="Save" label={undefined} />
           Save to Version History
         </Button>
@@ -223,8 +213,8 @@ export function VersionHistory({
           <Icon name="History" size={48} label={undefined} />
           <p className="version-history__empty-title">No versions yet</p>
           <p className="version-history__empty-desc">
-            Save a version to track your design history. You can name versions
-            later for easy identification.
+            Save a version to track your design history. You can name versions later for easy
+            identification.
           </p>
           <Button variant="secondary" size="sm" onClick={handleSaveVersion}>
             <Icon name="Save" label={undefined} />
@@ -253,16 +243,11 @@ export function VersionHistory({
                     <div className="version-history__version-body">
                       <div className="version-history__version-header">
                         <div className="version-history__version-icon">
-                          <Icon
-                            name={getKindIcon(version.kind)}
-                            label={undefined}
-                          />
+                          <Icon name={getKindIcon(version.kind)} label={undefined} />
                         </div>
                         <div className="version-history__version-info">
                           {version.name ? (
-                            <span className="version-history__version-name">
-                              {version.name}
-                            </span>
+                            <span className="version-history__version-name">{version.name}</span>
                           ) : (
                             <span className="version-history__version-kind">
                               {getKindLabel(version.kind)}
@@ -277,26 +262,16 @@ export function VersionHistory({
                         </div>
                       </div>
                       {version.description && (
-                        <p className="version-history__version-desc">
-                          {version.description}
-                        </p>
+                        <p className="version-history__version-desc">{version.description}</p>
                       )}
                       <div className="version-history__version-actions">
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => onRestore(version.id)}
-                        >
+                        <Button variant="primary" size="sm" onClick={() => onRestore(version.id)}>
                           Restore
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() =>
-                            setNamingId(
-                              namingId === version.id ? null : version.id,
-                            )
-                          }
+                          onClick={() => setNamingId(namingId === version.id ? null : version.id)}
                         >
                           {version.kind === 'named' ? 'Rename' : 'Name this version'}
                         </Button>

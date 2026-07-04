@@ -42,13 +42,7 @@ describe('ActivityFeed', () => {
         }),
       ]),
     };
-    render(
-      <ActivityFeed
-        platform={platform}
-        workspaceId="ws-1"
-        onOpenFile={vi.fn()}
-      />,
-    );
+    render(<ActivityFeed platform={platform} workspaceId="ws-1" onOpenFile={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByText('Design v1')).toBeTruthy();
@@ -75,13 +69,7 @@ describe('ActivityFeed', () => {
         }),
       ]),
     };
-    render(
-      <ActivityFeed
-        platform={platform}
-        workspaceId="ws-1"
-        onOpenFile={vi.fn()}
-      />,
-    );
+    render(<ActivityFeed platform={platform} workspaceId="ws-1" onOpenFile={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByText('Today')).toBeTruthy();
@@ -94,13 +82,7 @@ describe('ActivityFeed', () => {
       ...basePlatform,
       listActivity: vi.fn().mockResolvedValue([]),
     };
-    render(
-      <ActivityFeed
-        platform={platform}
-        workspaceId="ws-1"
-        onOpenFile={vi.fn()}
-      />,
-    );
+    render(<ActivityFeed platform={platform} workspaceId="ws-1" onOpenFile={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByText('No recent activity')).toBeTruthy();
@@ -119,13 +101,7 @@ describe('ActivityFeed', () => {
       ]),
     };
     const onOpenFile = vi.fn();
-    render(
-      <ActivityFeed
-        platform={platform}
-        workspaceId="ws-1"
-        onOpenFile={onOpenFile}
-      />,
-    );
+    render(<ActivityFeed platform={platform} workspaceId="ws-1" onOpenFile={onOpenFile} />);
 
     await waitFor(() => {
       expect(screen.getByText('Design v1')).toBeTruthy();

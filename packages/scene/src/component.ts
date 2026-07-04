@@ -11,7 +11,7 @@
  * propagate while slot content stays local.
  */
 
-import { addChild, type Document } from './document';
+import { addChild, isContainer, type Document } from './document';
 import type {
   ComponentDefinition,
   ComponentProperty,
@@ -93,7 +93,7 @@ function deepCloneSubtree(
   const newId = idGen.next();
   const newNodes: Record<NodeId, SceneNode> = {};
 
-  if (original.kind === 'frame' && original.children.length > 0) {
+  if (isContainer(original) && original.children.length > 0) {
     const clonedChildren: NodeId[] = [];
     for (const cId of original.children) {
       const result = deepCloneSubtree(doc, cId, idGen);
@@ -104,7 +104,7 @@ function deepCloneSubtree(
       ...original,
       id: newId,
       children: clonedChildren,
-    } as FrameNode;
+    } as SceneNode;
   } else {
     newNodes[newId] = { ...original, id: newId };
   }

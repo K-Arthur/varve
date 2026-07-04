@@ -105,11 +105,7 @@ describe('PrintOverlays', () => {
     const pxPu = 3.78;
     const bleed = { top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' as const };
     const { container } = render(
-      <PrintOverlays
-        {...defaultProps}
-        pxPerUnit={pxPu}
-        bleed={bleed}
-      />,
+      <PrintOverlays {...defaultProps} pxPerUnit={pxPu} bleed={bleed} />,
     );
     const rect = container.querySelector('.print-bleed-rect');
     const x = parseFloat(rect!.getAttribute('x')!);
