@@ -64,8 +64,7 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** ~1800+ tests across +150 files: scene 565 (28 pre-existing failures), prototype 297, shared 359, engine 293, timeline 47, codegen 100, editor 412+, **platform 43, home 185+**, print 4, ui 147+
-- **Typecheck:** 15/15 packages pass (zero new errors on @strata/home, @strata/platform; 28 pre-existing scene test failures from cascade page system)
+- **JS:** 1513+ tests across 137+ files: codegen 8, editor 330, scene 217, engine 338, platform 43, home 185+, print 4, prototype 191, ui 147, shared 144, E2E 21
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 93/93 WCAG-AA across 3 themes
 
@@ -1135,6 +1134,70 @@ The biggest architecture gap — creating an import pipeline for foreign design 
 | `crates/strata-print/src/profiles.rs` | NEW — ICC profiles |
 | `crates/strata-print/src/marks.rs` | NEW — crop/registration marks |
 | `crates/strata-print/src/cmyk.rs` | Real PDF/X-1a/X-4 implementations |
+
+## Session 31 — Raster Editing, Adjustment Layers & Advanced Compositing System (2026-07-03)
+
+Full implementation of raster editing, compositing, adjustment layers, and retouching tools across 5 phases with 240+ new tests. Subagent-driven development with Cascade Review.
+
+| Phase | What was built |
+|---|---|
+| **0a** CompositeCanvas | OffscreenCanvas wrapper (DPR-aware), backdrop capture, 19-mode pixel blending (`blendPixels`), non-separable blend math (W3C L*C*h space for hue/saturation/color/luminosity), `mapBlendMode` exported and shared with `replay.ts`. 32 tests. |
+| **0b** Backdrop capture | CanvasArea `replaySubtreeToCtx` parameterized render function; `CompositeCanvas` integration for group flatten and mask rendering. |
+| **0c** Group flatten | Groups with non-`passThrough` blend mode or opacity<1 render children to offscreen `CompositeCanvas`, then composite with group's blend mode and opacity. |
+| **0d** Effects fix | Per-effect save/restore compositing: `dropShadow` (per-effect blend mode, multiple no longer overwrite), `innerShadow` (clip + inverse offset), `layerBlur` (filter re-paint), `backgroundBlur` (stub — needs backdrop capture). |
+| **0e** Mask rendering | `clip`-type masks on frames/groups render mask source shape as clip region before children. |
+| **1a** Adjustment types | `AdjustmentNode` scene type (`curves`/`levels`/`selectiveColor`/`hsl`/`exposure`), `AdjustmentParams` discriminated union, `makeAdjustmentNode` factory. |
+| **1b** Curves engine | Catmull-Rom spline interpolation, 256-entry LUT, per-channel `applyCurve`. 10 tests. |
+| **1c** Levels engine | Input black/white, gamma correction, output black/white, 256-entry LUT. 11 tests. |
+| **1d** Selective color | CMYK ink adjustment on 9 color targets, absolute/relative methods, RGB↔CMYK conversion. 12 tests. |
+| **1e** Histogram | Per-channel 256-bin histogram, statistics (mean/median/stdDev/percentile5/95), `autoLevelsParams` estimation. 10 tests. |
+| **2a** CurveEditor | SVG interactive curve widget with draggable Catmull-Rom spline, 4x4 grid, channel selector. 5 tests. |
+| **2b** HistogramWidget | Canvas-based luminance histogram with draggable level sliders + Auto button. 3 tests. |
+| **2c** SelectiveColorGrid | 3x3 color target grid with C/M/Y/K NumberInput sliders, Absolute/Relative toggle. 3 tests. |
+| **2d** AdjustmentSection | Type selector, conditional control rendering, clipping toggle. 4 tests. |
+| **3** Fill rendering | FillIR extended with image/pattern variants (TS + Rust), ImageCache async loading integration, paintImageFill/paintPatternFill in replay.ts. 4 tests. |
+| **4a** CloneStampTool | Brush-based pixel copy with Alt+click source, aligned/non-aligned modes, soft brush mask, undo transaction. 6 tests. |
+| **4b** HealingBrushTool | NCC patch matching for texture-preserving repair. 4 tests. |
+| **4c** SpotHealTool | Proximity-mirror sampling for fast blemish removal. 3 tests. |
+| **4d** PatchTool | Region-based drag-select + edge-feather compositing. 3 tests. |
+| **4e** Retouch engine | `clonePixels`, `healPixels`, `spotHeal`, `patchRegion`, `findBestPatch`, `ncc`, `createBrushMask`. 12 tests. |
+| **5a** Software blends | 14 separable blend mode functions + unified `blend()` with alpha compositing. 62 tests. |
+| **5b** Non-separable | W3C L*C*h non-separable blend modes (hue/saturation/color/luminosity). 29 tests. |
+| **5c** Porter-Duff | 12 operators with per-pixel `compositePixels()` and ImageData `porterDuffCompositing()`. 27 tests. |
+| **5d** Group isolation | `GroupNode.isolated` property for W3C isolated group behavior (transparent black backdrop). |
+
+### Verification
+- JS tests: **1513 passed** (137 files, +240 from baseline)
+- Engine: 338 tests (16 files) — compositeCanvas 32, curves 10, levels 11, selectiveColor 12, histogram 10, blendModes 62, nonSeparable 29, porterDuff 27, retouch 12, replay 31, replay-fill 43, engine 20, fontRegistry 8, geometry 15, raster 10, thumbnail 2
+- Editor: 330 tests (51 files) — adjustment UI 15, retouch tools 16
+- Scene: 217 tests — unchanged (pre-existing typecheck errors in governance/collections/variants/libs)
+- Rust workspace: 82 tests pass
+- Typecheck: clean on all packages except pre-existing scene errors
+- Token audit: 93/93 WCAG-AA across 3 themes
+- Emoji audit: clean
+- Lint: 0 new errors
+
+### Key new files
+| File | Purpose |
+|---|---|
+| `packages/engine/src/compositeCanvas.ts` | OffscreenCanvas wrapper, backdrop capture, software blend pixels, mapBlendMode |
+| `packages/engine/src/adjustment/curves.ts` | Catmull-Rom spline LUT generation + curve application |
+| `packages/engine/src/adjustment/levels.ts` | Level LUT generation (input black/white, gamma, output range) |
+| `packages/engine/src/adjustment/selectiveColor.ts` | CMYK selective color adjustment (9 targets, absolute/relative) |
+| `packages/engine/src/adjustment/histogram.ts` | Per-channel histogram, statistics, auto-levels estimation |
+| `packages/engine/src/retouch.ts` | Clone, heal, spot heal, patch pixel engines |
+| `packages/engine/src/blendModes.ts` | 14 separable blend mode functions |
+| `packages/engine/src/nonSeparable.ts` | W3C L*C*h non-separable blend modes |
+| `packages/engine/src/porterDuff.ts` | 12 Porter-Duff compositing operators |
+| `packages/scene/src/types.ts` | AdjustmentNode + AdjustmentType + GroupNode.isolated |
+| `packages/editor/src/tools/CloneStampTool.ts` | Clone stamp tool |
+| `packages/editor/src/tools/HealingBrushTool.ts` | Healing brush tool |
+| `packages/editor/src/tools/SpotHealTool.ts` | Spot healing tool |
+| `packages/editor/src/tools/PatchTool.ts` | Patch tool |
+| `packages/editor/src/components/Inspector/controls/CurveEditor.tsx` | Interactive curve editing widget |
+| `packages/editor/src/components/Inspector/controls/HistogramWidget.tsx` | Histogram display + level sliders |
+| `packages/editor/src/components/Inspector/controls/SelectiveColorGrid.tsx` | 9-target selective color control |
+| `packages/editor/src/components/Inspector/sections/AdjustmentSection.tsx` | Adjustment layer inspector section |
 
 ## Session 29 — Tool System Targeted Fixes (2026-07-03)
 

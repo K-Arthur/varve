@@ -325,6 +325,14 @@ export interface GroupNode extends NodeBase {
   children: NodeId[];
   /** Optional mask applied to children (clip or alpha). */
   mask?: Mask;
+  /**
+   * When true, the group composites as an isolated group (backdrop is
+   * transparent black). Default false (non-isolated = pass-through behavior
+   * for normal blend mode). Per W3C isolated group behavior §8.3:
+   * "An isolated group is one whose elements are composited onto a
+   * transparent black initial backdrop."
+   */
+  isolated?: boolean;
 }
 
 /** B2: TypeScript mirror of strata-layout LayoutStyle (Rust). */
@@ -412,7 +420,58 @@ export interface ImageNode extends NodeBase {
   effects: Effect[];
 }
 
-export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode;
+// ── Adjustment Layer Types (Phase 1) ─────────────────────────────────────────
+
+export type AdjustmentType = 'curves' | 'levels' | 'selectiveColor' | 'hsl' | 'exposure';
+
+export interface AdjustmentCurvesPoint {
+  x: number;
+  y: number;
+}
+
+export interface AdjustmentCurves {
+  channel: 'rgb' | 'red' | 'green' | 'blue';
+  points: AdjustmentCurvesPoint[];
+}
+
+export interface AdjustmentLevels {
+  channel: 'rgb' | 'red' | 'green' | 'blue';
+  inputBlack: number;
+  inputWhite: number;
+  gamma: number;
+  outputBlack: number;
+  outputWhite: number;
+}
+
+export type SelectiveColorTarget =
+  | 'red' | 'green' | 'blue'
+  | 'cyan' | 'magenta' | 'yellow'
+  | 'white' | 'neutral' | 'black';
+
+export interface AdjustmentSelectiveColor {
+  color: SelectiveColorTarget;
+  cyan: number;
+  magenta: number;
+  yellow: number;
+  black: number;
+  method: 'absolute' | 'relative';
+}
+
+export type AdjustmentParams = AdjustmentCurves | AdjustmentLevels | AdjustmentSelectiveColor;
+
+export interface AdjustmentNode extends NodeBase {
+  kind: 'adjustment';
+  adjustmentType: AdjustmentType;
+  params: AdjustmentParams;
+  transform: Affine;
+  /** When true, only affects the layer directly below this adjustment. */
+  clipping: boolean;
+  /** Adjustments can optionally have their own mask. */
+  mask?: Mask;
+  effects: Effect[];
+}
+
+export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode | AdjustmentNode;
 
 export type ContainerNode = GroupNode | FrameNode;
 

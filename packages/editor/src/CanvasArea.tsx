@@ -11,7 +11,9 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import {
+  CompositeCanvas,
   createEngine,
+  mapBlendMode,
   type Engine,
   type SceneNode as EngineNode,
   type ReplayTarget,
@@ -38,13 +40,16 @@ import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
 import { ArrowTool } from './tools/ArrowTool';
+import { CloneStampTool } from './tools/CloneStampTool';
 import { computeEdgeVelocity } from './tools/autoPan';
 import { EllipseTool } from './tools/EllipseTool';
 import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
 import { HandTool } from './tools/HandTool';
+import { HealingBrushTool } from './tools/HealingBrushTool';
 import { LineTool } from './tools/LineTool';
 import { NodeEditTool } from './tools/NodeEditTool';
+import { PatchTool } from './tools/PatchTool';
 import { PencilTool } from './tools/PencilTool';
 import { PenTool } from './tools/PenTool';
 import { PolygonTool } from './tools/PolygonTool';
@@ -52,6 +57,7 @@ import { RectangleTool } from './tools/RectangleTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
 import { SliceTool } from './tools/SliceTool';
+import { SpotHealTool } from './tools/SpotHealTool';
 import { StarTool } from './tools/StarTool';
 import { type SnapGuide, snapPosition } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
@@ -258,6 +264,10 @@ function getToolManager(): ToolManager {
     toolManager.register('slice', () => new SliceTool());
     toolManager.register('eyedropper', () => new EyedropperTool());
     toolManager.register('nodeEdit', () => new NodeEditTool());
+    toolManager.register('cloneStamp', () => new CloneStampTool());
+    toolManager.register('healBrush', () => new HealingBrushTool());
+    toolManager.register('spotHeal', () => new SpotHealTool());
+    toolManager.register('patch', () => new PatchTool());
   }
   toolManager.setTool('select');
   return toolManager;
@@ -547,98 +557,108 @@ export function CanvasArea({
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
 
-      // Tree-aware replay: frames clip their children; groups are transparent containers.
-      // The clip polygon is computed in world space (current CTM = camera) by transforming
-      // the frame's local rect corners via its world transform.
-      function replaySubtree(nodeId: string): void {
+      // Tree-aware replay: frames clip their children; groups are transparent
+      // containers (or flattened with offscreen compositing for non-passThrough
+      // blend modes and opacity < 1). Masks clip children to a mask source path.
+      function replaySubtreeToCtx(nodeId: string, ctx: CanvasRenderingContext2D): void {
         const n = doc.nodes[nodeId];
         if (!n || n.visible === false) return;
         const item = irByNodeId.get(nodeId);
 
-        // Check for mask on the container
+        // Check for mask on the container — trace mask source outline as clip for all children
         const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
         const maskSrcId = mask ? mask.sourceNodeId : null;
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
+        if (mask && maskChild && maskSrcId) {
+          ctx.save();
+          const maskWorldTransform = nodeWorldTransform(doc, maskSrcId);
+          const [ma, mb, mc, md, me, mf] = maskWorldTransform;
+          ctx.transform(ma, mb, mc, md, me, mf);
+          ctx.beginPath();
+          traceShapeOutline(ctx, maskChild);
+          ctx.closePath();
+          ctx.clip();
+          ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+          for (const childId of n.children) {
+            if (childId !== maskSrcId) replaySubtreeToCtx(childId, ctx);
+          }
+          ctx.restore();
+          return;
+        }
 
         if (n.kind === 'frame') {
           // Paint frame background before establishing child clip.
-          if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);
+          if (item) replayIr(ctx as unknown as ReplayTarget, [item]);
           if (n.children.length > 0) {
             const shouldClip = n.clipContent !== false;
-
-            // When a mask is present, apply it as a clip region for all children
-            // (the mask source node is used only as a clip path, not rendered)
-            if (mask && maskChild && maskSrcId) {
-              ctxNN.save();
-              // Trace the mask source node's outline in world space
-              const maskWorldTransform = nodeWorldTransform(doc, maskSrcId);
-              const [ma, mb, mc, md, me, mf] = maskWorldTransform;
-              ctxNN.transform(ma, mb, mc, md, me, mf);
-              ctxNN.beginPath();
-              traceShapeOutline(ctxNN, maskChild);
-              ctxNN.closePath();
-              ctxNN.clip();
-              // Undo the mask transform so children render at their own world positions
-              ctxNN.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
-              // Render all children except the mask source itself
-              for (const childId of n.children) {
-                if (childId !== maskSrcId) {
-                  replaySubtree(childId);
-                }
-              }
-              ctxNN.restore();
-            } else if (shouldClip && !mask) {
-              // Compute frame rect corners in world space from the item's world transform.
-              // Affine [a,b,c,d,e,f]: point (x,y) → (a·x + c·y + e, b·x + d·y + f).
+            if (shouldClip) {
               const t = item?.transform ?? ([1, 0, 0, 1, 0, 0] as const);
               const [a, b, c, d, e, f] = t;
               const fw = n.w;
               const fh = n.h;
-              ctxNN.save();
-              ctxNN.beginPath();
-              ctxNN.moveTo(e, f);
-              ctxNN.lineTo(a * fw + e, b * fw + f);
-              ctxNN.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
-              ctxNN.lineTo(c * fh + e, d * fh + f);
-              ctxNN.closePath();
-              ctxNN.clip();
+              ctx.save();
+              ctx.beginPath();
+              ctx.moveTo(e, f);
+              ctx.lineTo(a * fw + e, b * fw + f);
+              ctx.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
+              ctx.lineTo(c * fh + e, d * fh + f);
+              ctx.closePath();
+              ctx.clip();
               for (const childId of n.children) {
-                replaySubtree(childId);
+                replaySubtreeToCtx(childId, ctx);
               }
-              ctxNN.restore();
+              ctx.restore();
             } else {
               for (const childId of n.children) {
-                replaySubtree(childId);
+                replaySubtreeToCtx(childId, ctx);
               }
             }
           }
         } else if (n.kind === 'group') {
-          // Groups are transparent pass-through containers; no background painted.
-          // Apply mask if present
-          if (mask && maskChild && maskSrcId) {
-            ctxNN.save();
-            const maskWorldTransform = nodeWorldTransform(doc, maskSrcId);
-            const [ma, mb, mc, md, me, mf] = maskWorldTransform;
-            ctxNN.transform(ma, mb, mc, md, me, mf);
-            ctxNN.beginPath();
-            traceShapeOutline(ctxNN, maskChild);
-            ctxNN.closePath();
-            ctxNN.clip();
-            ctxNN.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+          const isIsolated = n.isolated === true;
+          const needsFlatten = (isIsolated)
+            || (n.blendMode && n.blendMode !== 'normal' && n.blendMode !== 'passThrough')
+            || (n.opacity !== undefined && n.opacity < 1);
+          if (needsFlatten && n.children.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             for (const childId of n.children) {
-              if (childId !== maskSrcId) {
-                replaySubtree(childId);
-              }
+              const b = nodeWorldBounds(doc, childId);
+              if (b) { minX = Math.min(minX, b.x); minY = Math.min(minY, b.y); maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h); }
             }
-            ctxNN.restore();
+            if (isFinite(minX)) {
+              ctx.save();
+              const gw = Math.ceil(maxX - minX) + 4;
+              const gh = Math.ceil(maxY - minY) + 4;
+              const gCanvas = new CompositeCanvas({ width: gw, height: gh, testCanvas: document.createElement('canvas') });
+              const gCtx = gCanvas.ctx;
+              gCtx.save();
+              gCtx.translate(-Math.floor(minX) + 2, -Math.floor(minY) + 2);
+              for (const childId of n.children) {
+                replaySubtreeToCtx(childId, gCtx as unknown as CanvasRenderingContext2D);
+              }
+              gCtx.restore();
+              const bm = n.blendMode ?? 'passThrough';
+              if (bm !== 'passThrough') {
+                ctx.globalCompositeOperation = mapBlendMode(bm);
+              } else if (isIsolated) {
+                ctx.globalCompositeOperation = 'source-over';
+              }
+              ctx.globalAlpha = n.opacity ?? 1;
+              ctx.drawImage(gCanvas.canvas as CanvasImageSource, Math.floor(minX) - 2, Math.floor(minY) - 2);
+              ctx.restore();
+            }
           } else {
             for (const childId of n.children) {
-              replaySubtree(childId);
+              replaySubtreeToCtx(childId, ctx);
             }
           }
         } else {
-          if (item) replayIr(ctxNN as unknown as ReplayTarget, [item]);
+          if (item) replayIr(ctx as unknown as ReplayTarget, [item]);
         }
+      }
+
+      function replaySubtree(nodeId: string): void {
+        replaySubtreeToCtx(nodeId, ctxNN);
       }
 
       // Render root-level nodes in DFS paint order.

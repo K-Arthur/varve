@@ -19,6 +19,8 @@ import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
+import { NumberField } from './controls/NumberField';
+import { AdjustmentSection } from './sections/AdjustmentSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { ComponentSection } from './sections/ComponentSection';
@@ -185,6 +187,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       </header>
       {isComponentInstance && <ComponentSection node={node as import('@strata/scene').FrameNode} />}
       {isFrame && !isComponentInstance && <FramePresetsSection mode="resize" />}
+      <AdjustmentSection nodes={nodes} />
       <PositionSizeSection nodes={nodes} />
       {isRect && <CornerRadiusSection nodes={nodes} />}
       {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}

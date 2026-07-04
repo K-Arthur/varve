@@ -43,6 +43,10 @@ export const TOOL_ICONS = {
   booleanIntersect: 'Combine',
   booleanExclude: 'Diff',
   inspect: 'SearchCode',
+  cloneStamp: 'Stamp',
+  healBrush: 'Bandage',
+  spotHeal: 'Wand',
+  patch: 'SquareStack',
 } as const satisfies Record<string, IconName>;
 
 /** General chrome icons. */

@@ -24,6 +24,7 @@ if (typeof HTMLCanvasElement !== 'undefined') {
 
       (this as HTMLCanvasElement).toDataURL = vi.fn(() => 'data:image/png;base64,test');
 
+      const pixelStore = new Uint8ClampedArray(8192 * 4);
       const ctx: Partial<CanvasRenderingContext2D> = {
         canvas: this as HTMLCanvasElement,
         fillStyle: '',
@@ -31,6 +32,8 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         lineWidth: 1,
         lineCap: 'butt',
         font: '',
+        textAlign: 'start' as CanvasTextAlign,
+        textBaseline: 'alphabetic' as CanvasTextBaseline,
         save: vi.fn(),
         restore: vi.fn(),
         setTransform: vi.fn(),
@@ -40,8 +43,15 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         beginPath: vi.fn(),
         ellipse: vi.fn(),
         arc: vi.fn(),
+        closePath: vi.fn(),
         moveTo: vi.fn(),
         lineTo: vi.fn(),
+        bezierCurveTo: vi.fn(),
+        quadraticCurveTo: vi.fn(),
+        rect: vi.fn(),
+        clip: vi.fn(),
+        rotate: vi.fn(),
+        arcTo: vi.fn(),
         fill: vi.fn(),
         stroke: vi.fn(),
         setLineDash: vi.fn(),
@@ -57,13 +67,44 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         rotate: vi.fn(),
         scale: vi.fn(),
         clearRect: vi.fn(),
-        createImageData: vi.fn(),
+        createImageData: vi.fn((w: number, h: number) => new ImageData(w, h)),
         putImageData: vi.fn(),
-        getImageData: vi.fn(),
+        getImageData: vi.fn((x: number, y: number, w: number, h: number) => {
+          return new ImageData(w, h);
+        }),
+        drawImage: vi.fn(),
+        globalAlpha: 1,
+        globalCompositeOperation: 'source-over',
+        filter: 'none',
       };
 
       return ctx as CanvasRenderingContext2D;
     },
+  });
+}
+
+// jsdom does not implement ImageData
+if (typeof ImageData === 'undefined') {
+  class ImageDataMock {
+    readonly width: number;
+    readonly height: number;
+    readonly data: Uint8ClampedArray;
+    constructor(w: number, h: number, _settings?: { colorSpace?: string }) {
+      if (typeof w === 'number') {
+        this.width = w;
+        this.height = h;
+        this.data = new Uint8ClampedArray(w * h * 4);
+      } else {
+        const arr = w as unknown as Uint8ClampedArray;
+        this.data = arr;
+        this.width = h!;
+        this.height = (_settings as unknown as number) ?? 1;
+      }
+    }
+  }
+  Object.defineProperty(globalThis, 'ImageData', {
+    configurable: true,
+    value: ImageDataMock as unknown as typeof ImageData,
   });
 }
 
@@ -83,6 +124,39 @@ if (typeof OffscreenCanvas === 'undefined') {
       return Promise.resolve(new Blob());
     }
   } as unknown as typeof OffscreenCanvas;
+}
+
+// jsdom does not implement PointerEvent; node has neither PointerEvent nor MouseEvent
+if (typeof globalThis.PointerEvent === 'undefined' && typeof globalThis.MouseEvent !== 'undefined') {
+  class PointerEventMock extends MouseEvent {
+    readonly pointerId: number;
+    readonly width: number;
+    readonly height: number;
+    readonly pressure: number;
+    readonly tangentialPressure: number;
+    readonly tiltX: number;
+    readonly tiltY: number;
+    readonly twist: number;
+    readonly pointerType: string;
+    readonly isPrimary: boolean;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+      this.width = init.width ?? 1;
+      this.height = init.height ?? 1;
+      this.pressure = init.pressure ?? 0;
+      this.tangentialPressure = init.tangentialPressure ?? 0;
+      this.tiltX = init.tiltX ?? 0;
+      this.tiltY = init.tiltY ?? 0;
+      this.twist = init.twist ?? 0;
+      this.pointerType = init.pointerType ?? 'mouse';
+      this.isPrimary = init.isPrimary ?? true;
+    }
+  }
+  Object.defineProperty(globalThis, 'PointerEvent', {
+    configurable: true,
+    value: PointerEventMock as typeof PointerEvent,
+  });
 }
 
 // jsdom does not implement localStorage
