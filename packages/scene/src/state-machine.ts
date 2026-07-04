@@ -79,11 +79,16 @@ export function addSMTransition(
   fromStateId: string,
   toStateId: string,
   trigger: SMTransitionTrigger,
+  opts?: {
+    condition?: string;
+    duration?: number;
+    easing?: import('@strata/shared').EasingDefinition;
+  },
 ): { doc: Document; transitionId: string } {
   const sm = doc.stateMachines?.[smId];
   if (!sm) return { doc, transitionId: '' };
   const id = transitionId();
-  const transition: SMTransition = { id, fromStateId, toStateId, trigger };
+  const transition: SMTransition = { id, fromStateId, toStateId, trigger, ...opts };
   const updated: StateMachine = { ...sm, transitions: [...sm.transitions, transition] };
   return {
     doc: { ...doc, stateMachines: { ...doc.stateMachines, [smId]: updated } },

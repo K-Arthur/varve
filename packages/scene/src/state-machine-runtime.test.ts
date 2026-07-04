@@ -6,9 +6,9 @@ import {
   createStateMachineRuntime,
   getCurrentState,
   getCurrentStateTimelineId,
+  type SMRuntime,
   setSMInput,
   triggerSMEvent,
-  type SMRuntime,
 } from './state-machine-runtime';
 
 function makeRuntime(): { runtime: SMRuntime; smId: string; entryId: string; secondId: string } {
@@ -51,14 +51,9 @@ describe('state-machine-runtime', () => {
     let { runtime, smId, entryId, secondId } = makeRuntime();
     const { inputId, doc: d1 } = addSMInput(runtime.doc, smId, 'enabled', 'boolean');
     runtime = { ...runtime, doc: d1 };
-    const { doc: d2 } = addSMTransition(
-      runtime.doc,
-      smId,
-      entryId,
-      secondId,
-      'onVariableChange',
-      { condition: 'inputs.enabled === true' },
-    );
+    const { doc: d2 } = addSMTransition(runtime.doc, smId, entryId, secondId, 'onVariableChange', {
+      condition: 'inputs.enabled === true',
+    });
     runtime = { ...runtime, doc: d2 };
     const before = setSMInput(runtime, inputId!, true);
     expect(getCurrentState(before)?.id).toBe(secondId);
@@ -68,14 +63,9 @@ describe('state-machine-runtime', () => {
     let { runtime, smId, entryId, secondId } = makeRuntime();
     const { inputId, doc: d1 } = addSMInput(runtime.doc, smId, 'enabled', 'boolean');
     runtime = { ...runtime, doc: d1 };
-    const { doc: d2 } = addSMTransition(
-      runtime.doc,
-      smId,
-      entryId,
-      secondId,
-      'onVariableChange',
-      { condition: 'inputs.enabled === true' },
-    );
+    const { doc: d2 } = addSMTransition(runtime.doc, smId, entryId, secondId, 'onVariableChange', {
+      condition: 'inputs.enabled === true',
+    });
     runtime = { ...runtime, doc: d2 };
     const before = setSMInput(runtime, inputId!, false);
     expect(getCurrentState(before)?.id).toBe(entryId);
@@ -85,14 +75,9 @@ describe('state-machine-runtime', () => {
     let { runtime, smId, entryId, secondId } = makeRuntime();
     const { inputId, doc: d1 } = addSMInput(runtime.doc, smId, 'progress', 'number');
     runtime = { ...runtime, doc: d1 };
-    const { doc: d2 } = addSMTransition(
-      runtime.doc,
-      smId,
-      entryId,
-      secondId,
-      'onVariableChange',
-      { condition: 'inputs.progress > 0.5' },
-    );
+    const { doc: d2 } = addSMTransition(runtime.doc, smId, entryId, secondId, 'onVariableChange', {
+      condition: 'inputs.progress > 0.5',
+    });
     runtime = { ...runtime, doc: d2 };
     const before = setSMInput(runtime, inputId!, 0.2);
     expect(getCurrentState(before)?.id).toBe(entryId);
@@ -102,14 +87,9 @@ describe('state-machine-runtime', () => {
 
   it('advances transition progress over time', () => {
     let { runtime, smId, entryId, secondId } = makeRuntime();
-    const { doc: d2 } = addSMTransition(
-      runtime.doc,
-      smId,
-      entryId,
-      secondId,
-      'onKeyPress',
-      { duration: 200 },
-    );
+    const { doc: d2 } = addSMTransition(runtime.doc, smId, entryId, secondId, 'onKeyPress', {
+      duration: 200,
+    });
     runtime = { ...runtime, doc: d2 };
     const next = triggerSMEvent(runtime, 'onKeyPress');
     expect(getCurrentState(next)?.id).toBe(secondId);

@@ -174,7 +174,8 @@ function toVec2(v: unknown): [number, number] | null {
     typeof (v as Record<string, unknown>).x === 'number' &&
     typeof (v as Record<string, unknown>).y === 'number'
   ) {
-    return [(v as Record<string, number>).x, (v as Record<string, number>).y];
+    const point = v as { x: number; y: number };
+    return [point.x, point.y];
   }
   return null;
 }

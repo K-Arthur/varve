@@ -47,88 +47,35 @@ rewrites.
 
 ### 1.3 Existing Problems
 
-#### A. Timeline sampler is incomplete
+#### A. Timeline sampler is now complete for the core timing model
 
-`packages/editor/src/timeline/TimelineSampler.ts` only supports a single
-progress value [0, 1]. It ignores:
+`packages/editor/src/timeline/TimelineSampler.ts` now implements the full
+WAAPI-style timing model:
 
-- `FillMode` (`none`, `forwards`, `backwards`, `both`) declared in
-  `motion-types.ts`.
+- `FillMode` (`none`, `forwards`, `backwards`, `both`).
 - `PlaybackDirection` (`normal`, `reverse`, `alternate`, `alternate-reverse`).
 - `defaultIterations` and looping.
 - `autoReverse`.
-- Discrete interpolation (`InterpolationStrategy` includes `'discrete'` but is
-  unused).
-- Spatial bezier interpolation (`spatialTangents` exist but are unused).
-- Color interpolation.
-- Affine/transform interpolation.
+- Discrete interpolation (`'discrete'`).
+- Spatial bezier interpolation (`spatialTangents`).
+- Color interpolation (RGB arrays, hex strings, managed colors).
+- Affine/transform interpolation (6-element numeric arrays).
 
-Evidence:
+Remaining interpolation gaps: path morphing, shape vertex interpolation, and
+text per-character animation.
 
-```@/home/karthur/CodingProjects/Strata/packages/editor/src/timeline/TimelineSampler.ts:39-57
-  const duration = timeline.duration > 0 ? timeline.duration : 1;
-  const progress = Math.max(0, Math.min(currentTime / duration, 1));
+#### B. Timeline engine looping and direction is now implemented
 
-  for (const track of timeline.tracks) {
-    if (track.enabled === false || track.keyframes.length === 0) continue;
+`TimelineEngine` now honors `iterations`, `loop`, `autoReverse`, and playback
+`direction`. The `_processFrame` logic advances iterations correctly, reverses
+on alternating iterations, and clamps the final frame.
 
-    const val = interpolateTrack(track.keyframes, progress, timeline.defaultEasing);
-```
+#### C. Canvas motion integration is now robust
 
-#### B. Timeline engine does not actually loop
-
-`TimelineEngine` has an `iterations` config and a `loop` flag in the UI, but
-finishing logic clamps to the end and stops. The `loop` state is never checked
-in `_checkFinish()`.
-
-Evidence:
-
-```@/home/karthur/CodingProjects/Strata/packages/editor/src/timeline/TimelineEngine.ts:150-161
-  private _checkFinish(): boolean {
-    if (this._currentTime >= this._config.duration) {
-      const maxIter = this._config.iterations ?? 1;
-      const isLastIter = this._currentTime >= maxIter - 1;
-      if (isLastIter && maxIter !== Infinity) {
-        this._state = 'finished';
-        if (this._onFinish) this._onFinish();
-        return true;
-      }
-    }
-    return false;
-  }
-```
-
-The `isLastIter` check is also wrong: it compares `currentTime` against
-`maxIter - 1` instead of `currentIteration`.
-
-#### C. Canvas motion integration is fragile
-
-`CanvasArea.tsx` only applies timeline overrides when `currentTime > 0`, so a
-keyframe at progress 0 is invisible while the playhead is at the start. It also
-has no fill-mode handling and dot-notation path parsing is broken for array
-indices like `transform[4]`.
-
-Evidence:
-
-```@/home/karthur/CodingProjects/Strata/packages/editor/src/CanvasArea.tsx:461-482
-  if (s.motion.activeTimelineId && s.motion.currentTime > 0) {
-    const sample = sampleTimelineAt(doc, s.motion.activeTimelineId, s.motion.currentTime);
-    ...
-    for (const [prop, val] of props) {
-      const segments = prop.split('.');
-      if (segments.length === 1) {
-        (fn as unknown as Record<string, unknown>)[prop] = val;
-      } else {
-        const head = segments[0]!;
-        const tail = segments.slice(1).join('.');
-        (fn as unknown as Record<string, unknown>)[head] = {
-          ...((fn as unknown as Record<string, unknown>)[head] as Record<string, unknown>),
-          [tail]: val,
-        };
-      }
-    }
-  }
-```
+`CanvasArea.tsx` applies timeline overrides whenever `activeTimelineId` is set,
+including at time 0. Overrides are applied to the flattened engine nodes before
+the IR build, supporting nested property paths such as `transform[4]` and
+`fills[0].color`.
 
 #### D. Two disconnected animation systems
 
@@ -151,17 +98,35 @@ No per-character, per-word, or per-line animation support.
 Not expected at this stage, but the document model does not yet reserve
 extension points for bones, constraints, or meshes.
 
-#### H. No animation export
+#### H. Animation export is implemented
 
-`packages/codegen` can export static SVG/React, but it does not export
-keyframes, timelines, CSS animations, or Lottie.
+`packages/codegen` supports timeline/keyframe export to CSS `@keyframes`, SVG
+`<animate>`, and Lottie JSON. Lottie fidelity is currently limited to
+transform/opacity tracks; position, scale, and spatial bezier tangents require
+additional mapping work.
 
-#### I. Reduced-motion support is isolated
+#### I. Reduced-motion support added to timeline playback
 
-Prototype transitions have accessibility helpers (`prefersReducedMotion`), but
-timeline playback does not query or respect it.
+`TimelineEngine` now supports a `reducedMotion` flag that skips the RAF loop and
+jumps to the final resting state. `createMotionTimelineEngine` detects
+`prefers-reduced-motion` and passes it through, so the editor timeline play
+button respects the user preference while manual scrubbing remains available.
 
-#### J. Performance risks
+Remaining gap: surface the reduced-motion preference in the editor UI and apply
+it to prototype timeline actions.
+
+#### J. State machine runtime is now implemented
+
+`packages/scene/src/state-machine-runtime.ts` provides a pure, testable runtime
+for state machines: entry state selection, trigger evaluation, input-driven
+conditional transitions with a safe expression evaluator, and transition
+progress tracking. The runtime is independent of rendering and can be used by the
+editor, prototype player, and export pipeline.
+
+Remaining gap: wire the runtime into the prototype player so state changes drive
+timeline playback.
+
+#### K. Performance risks
 
 The sampler iterates every track every frame with no dirty tracking, no spatial
 index, and no early-out for unchanged tracks. This is acceptable for small
@@ -374,7 +339,7 @@ The recommended incremental path is:
 
 ## 12. Implementation Log
 
-### Phase 1 core timing model (this session)
+### Phase 1 core timing model (previous session)
 
 Implemented and tested:
 
@@ -397,16 +362,45 @@ Implemented and tested:
   - `packages/editor/src/timeline/TimelineEngine.test.ts` (+5 tests)
   - `packages/editor/src/CanvasArea.motion.test.ts` (+6 tests)
 
+### Phase 2 follow-up (current session)
+
+Implemented and tested:
+
+- `packages/editor/src/timeline/TimelineSampler.ts`
+  - Fixed spatial bezier interpolation: the `bezier` track strategy now
+    dispatches to `interpolateSpatialBezier` when keyframes have tangents.
+- `packages/editor/src/timeline/TimelineEngine.ts`
+  - Added `reducedMotion` config and playback option that jumps to the final
+    state without RAF animation.
+- `packages/editor/src/state/motion-state.ts`
+  - Detects `prefers-reduced-motion` and passes it to the engine.
+- `packages/scene/src/state-machine-runtime.ts`
+  - New pure state machine runtime: entry state, trigger evaluation,
+    input-driven conditional transitions, transition progress.
+- `packages/scene/src/state-machine.ts`
+  - Extended `addSMTransition` to accept optional `condition`, `duration`, and
+    `easing`.
+- `packages/scene/src/index.ts`
+  - Exports state machine modules.
+- `packages/shared/src/interpolation.ts`
+  - Fixed a TypeScript narrowing error in `toVec2`.
+- `packages/engine/src/replay.ts`
+  - Removed an extra closing brace and a duplicate `clip` signature that
+    blocked downstream test compilation.
+- Tests added/updated:
+  - `packages/editor/src/timeline/TimelineSampler.test.ts` (spatial bezier)
+  - `packages/editor/src/timeline/TimelineEngine.test.ts` (+2 reduced motion)
+  - `packages/scene/src/state-machine-runtime.test.ts` (8 new tests)
+
 ### Verification
 
-- Targeted motion tests: 54/54 passed.
+- Targeted motion tests: 165/165 passed.
 - `pnpm audit:emoji`: clean.
 - `pnpm audit:tokens`: 93/93 pass.
-- `pnpm --filter @strata/editor test`: 615/624 passed; 9 failures are
-  pre-existing in `colorCollections.test.ts` (unrelated to motion).
-- `pnpm typecheck`: pre-existing errors in `scene/styles.test.ts`,
-  `editor/SpecReadouts.tsx`, `editor/FillSection.tsx`, `import/svg.ts`,
-  `prototype/variables.ts` unrelated to motion.
+- `pnpm exec biome check` on all touched files: clean (0 errors).
+- `pnpm typecheck`: pre-existing errors in `packages/engine/src/replay-fill.test.ts`,
+  `packages/engine/src/replay-filter.test.ts`, and `packages/engine/src/replay.test.ts`
+  (unrelated to motion; tracked in the engine package).
 
 ## 11. Conclusion
 
