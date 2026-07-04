@@ -133,7 +133,7 @@ describe('hitTest', () => {
     name: `n${id}`,
     transform: translate(x, y),
     shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-    fill: [0, 0, 0, 255],
+    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
   });
 
   it('returns the topmost overlapping node', () => {
@@ -151,7 +151,7 @@ describe('hitTest', () => {
       name: 's',
       transform: scale(2),
       shape: { kind: 'rect', x: 0, y: 0, w: 5, h: 5 },
-      fill: [0, 0, 0, 255],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
     };
     expect(hitTest([node], [9, 9])).toBe(0); // world 9 -> local 4.5 inside 0..5
   });

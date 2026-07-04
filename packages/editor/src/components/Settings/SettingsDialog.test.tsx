@@ -25,7 +25,7 @@ describe('SettingsDialog', () => {
     const exportTab = tabs.find((t) => t.textContent === 'Export');
     expect(exportTab).toBeTruthy();
     fireEvent.click(exportTab!);
-    expect(exportTab!.getAttribute('aria-selected')).toBe('true');
+    expect(exportTab?.getAttribute('aria-selected')).toBe('true');
   });
 
   it('closes on close button', () => {

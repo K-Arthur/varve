@@ -10,6 +10,8 @@
  * The desktop build MUST select native (asserted) — that is the strategic wedge
  * (no WASM memory ceiling). The web build selects wasm.
  */
+import type { MeasureTextFn } from '@strata/shared';
+import { measureText } from '@strata/shared';
 import { hitTest } from './geometry';
 import type { Backend, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
 
@@ -22,19 +24,58 @@ export interface Engine {
   hitTest(scene: Scene, world: Point): Promise<number | null>;
 }
 
-function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
+/** Resolve the path shape for a text node in path text mode. */
+function resolvePathShape(
+  node: SceneNode,
+  nodeMap?: Map<string, SceneNode>,
+): import('./types').Shape | undefined {
+  if (node.kind !== 'text') return undefined;
+  const settings = node.pathTextSettings;
+  if (!settings || !nodeMap) return undefined;
+  const pathNode = nodeMap.get(settings.pathNodeId);
+  if (!pathNode) return undefined;
+  return pathNode.shape;
+}
+
+function shapeToPrimitive(
+  node: SceneNode,
+  measureTextFn?: MeasureTextFn,
+  nodeMap?: Map<string, SceneNode>,
+): RenderItem['primitive'] {
   if (node.kind === 'image') {
     return { kind: 'image', w: node.w ?? 100, h: node.h ?? 100, src: node.src ?? '' };
   }
   if (node.kind === 'text') {
     const fontSize = node.fontSize ?? 14;
+    const text = node.text ?? '';
+    const fontFamily = node.fontFamily ?? 'sans-serif';
+    const textOptions = {
+      fontSize,
+      fontFamily,
+      fontWeight: node.fontWeight ?? 400,
+      fontStyle: (node.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
+      letterSpacing: node.letterSpacing,
+      lineHeight: node.lineHeight,
+      textCase: node.textCase as 'none' | 'uppercase' | 'lowercase' | 'capitalize' | undefined,
+    };
+    let width: number;
+    let height: number;
+    if (measureTextFn) {
+      const r = measureTextFn(text, textOptions);
+      width = r.width;
+      height = r.height;
+    } else {
+      const r = measureText(text, textOptions);
+      width = r.width;
+      height = r.height;
+    }
     return {
       kind: 'text',
       x: 0,
       y: 0,
-      w: fontSize * 6,
-      h: fontSize * 1.4,
-      text: node.text ?? '',
+      w: Math.max(width, fontSize),
+      h: Math.max(height, fontSize),
+      text,
       fontSize,
       fontFamily: node.fontFamily ?? 'sans-serif',
       fontWeight: node.fontWeight ?? 400,
@@ -52,6 +93,12 @@ function shapeToPrimitive(node: SceneNode): RenderItem['primitive'] {
       textOverflow: (node.textOverflow as 'clip' | 'ellipsis' | 'visible' | undefined) ?? 'visible',
       listStyle:
         (node.listStyle as 'none' | 'disc' | 'decimal' | 'circle' | 'square' | undefined) ?? 'none',
+      richText: node.richText,
+      variableAxes: node.variableAxes,
+      openTypeFeatures: node.openTypeFeatures,
+      textMode: node.textMode,
+      pathTextSettings: node.pathTextSettings,
+      pathShape: resolvePathShape(node, nodeMap),
     };
   }
   const s = node.shape;
@@ -109,11 +156,13 @@ function stubEngine(): Engine {
   return {
     backend: 'stub',
     async buildIr(scene) {
+      const nodeMap = new Map<string, SceneNode>();
+      for (const n of scene.nodes) nodeMap.set(n.id, n);
       return scene.nodes.map((n) => {
         const item: RenderItem = {
           transform: n.transform,
-          fill: n.fill ?? ([0, 0, 0, 0] as [number, number, number, number]),
-          primitive: shapeToPrimitive(n),
+          fill: n.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+          primitive: shapeToPrimitive(n, undefined, nodeMap),
           opacity: n.opacity ?? 1,
           blendMode: n.blendMode ?? 'normal',
           strokes: n.strokes ?? [],
@@ -155,10 +204,12 @@ function stubEngine(): Engine {
                 return {
                   type: 'image' as const,
                   src: f.image.src,
-                  fit: (f.image.fit as 'fill' | 'fit' | 'stretch' | 'tile') ?? 'fill',
-                  x: f.image.x ?? 0,
-                  y: f.image.y ?? 0,
-                  scale: f.image.scale ?? 1,
+                  fit: f.image.fit,
+                  x: f.image.x,
+                  y: f.image.y,
+                  scale: f.image.scale,
+                  imageWidth: f.image.imageWidth,
+                  imageHeight: f.image.imageHeight,
                   opacity: f.opacity,
                   blendMode: f.blendMode,
                   visible: f.visible,
@@ -168,8 +219,8 @@ function stubEngine(): Engine {
                 return {
                   type: 'pattern' as const,
                   tileSrc: f.pattern.tileSrc,
-                  spacing: f.pattern.spacing ?? 0,
-                  rotation: f.pattern.rotation ?? 0,
+                  spacing: f.pattern.spacing,
+                  rotation: f.pattern.rotation,
                   opacity: f.opacity,
                   blendMode: f.blendMode,
                   visible: f.visible,

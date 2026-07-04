@@ -9,6 +9,7 @@
  *                 ToolManager pattern from Figma/Penpot architecture.
  */
 
+import { useDroppable } from '@dnd-kit/core';
 import {
   CompositeCanvas,
   createEngine,
@@ -19,21 +20,28 @@ import {
   replayIr,
 } from '@strata/engine';
 import { importFile } from '@strata/import';
-import type { SceneNode } from '@strata/scene';
+import type { NodeId, SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
 import { clampZoom, fitBoundsCamera, screenToWorld, zoomAboutPoint } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
+import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
+import { Ruler } from './components/Ruler/Ruler';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { TextEditOverlay } from './components/TextEditOverlay';
+import { VariantBox } from './components/VariantBox/VariantBox';
 import { nodeWorldBoundsFn, useEditor } from './context';
+import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { SelectionOverlay } from './SelectionOverlay';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import { sampleTimelineAt } from './timeline/TimelineSampler';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
 import { ArrowTool } from './tools/ArrowTool';
 import { CloneStampTool } from './tools/CloneStampTool';
+import { computeEdgeVelocity } from './tools/autoPan';
 import { EllipseTool } from './tools/EllipseTool';
 import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
@@ -56,6 +64,79 @@ import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
 
 type DocNode = SceneNode;
+
+/** Trace the outline of a scene node's shape on a CanvasRenderingContext2D.
+ * Used for mask clipping — traces in the node's local space. The caller is
+ * responsible for applying the node's world transform before calling. */
+function traceShapeOutline(ctx: CanvasRenderingContext2D, n: SceneNode): void {
+  if (n.kind === 'shape' && n.shape) {
+    const s = n.shape;
+    switch (s.kind) {
+      case 'rect':
+        ctx.rect(s.x, s.y, s.w, s.h);
+        break;
+      case 'ellipse':
+        ctx.ellipse(s.cx, s.cy, s.rx, s.ry, 0, 0, Math.PI * 2);
+        break;
+      case 'circle':
+        ctx.arc(s.cx, s.cy, s.r, 0, Math.PI * 2);
+        break;
+      case 'line':
+        ctx.moveTo(s.from[0], s.from[1]);
+        ctx.lineTo(s.to[0], s.to[1]);
+        break;
+      case 'arrow':
+        ctx.moveTo(s.from[0], s.from[1]);
+        ctx.lineTo(s.to[0], s.to[1]);
+        break;
+      case 'polygon':
+        for (let i = 0; i < s.sides; i++) {
+          const a = (2 * Math.PI * i) / s.sides - Math.PI / 2 + s.rotation;
+          const px = s.cx + s.radius * Math.cos(a);
+          const py = s.cy + s.radius * Math.sin(a);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      case 'star':
+        for (let i = 0; i < s.points * 2; i++) {
+          const a = (Math.PI * i) / s.points - Math.PI / 2 + s.rotation;
+          const r = i % 2 === 0 ? s.outerRadius : s.innerRadius;
+          const px = s.cx + r * Math.cos(a);
+          const py = s.cy + r * Math.sin(a);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      case 'path':
+        if (s.points.length > 0) {
+          ctx.moveTo(s.points[0]?.x ?? 0, s.points[0]?.y ?? 0);
+          for (let i = 1; i < s.points.length; i++) {
+            const pt = s.points[i];
+            const prev = s.points[i - 1];
+            if (!pt || !prev) continue;
+            if (prev.handleOut || pt.handleIn) {
+              const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
+              const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
+              const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
+              const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
+              ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
+            } else {
+              ctx.lineTo(pt.x, pt.y);
+            }
+          }
+          if (s.closed) ctx.closePath();
+        }
+        break;
+    }
+  } else if (n.kind === 'frame' || n.kind === 'image') {
+    const w = 'w' in n ? (n.w ?? 100) : 100;
+    const h = 'h' in n ? (n.h ?? 100) : 100;
+    ctx.rect(0, 0, w, h);
+  }
+}
 
 function toEngineNode(n: DocNode): EngineNode {
   const base = {
@@ -92,7 +173,72 @@ function toEngineNode(n: DocNode): EngineNode {
     };
   if (n.kind === 'frame')
     return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
+  if (n.kind === 'image')
+    return {
+      ...base,
+      kind: 'image',
+      src: n.src,
+      w: n.w,
+      h: n.h,
+    };
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
+}
+
+/**
+ * Parse a property path into segments. Supports dot notation and bracket
+ * array indices, e.g. `opacity`, `transform[4]`, `fills[0].color`.
+ */
+function parsePropertyPath(path: string): string[] {
+  const segments: string[] = [];
+  const parts = path.split('.');
+  for (const part of parts) {
+    const match = /^([^[]+)((?:\[[^\]]+\])*)$/.exec(part);
+    if (!match) {
+      segments.push(part);
+      continue;
+    }
+    segments.push(match[1]!);
+    const bracketGroups = match[2]!.matchAll(/\[([^\]]+)\]/g);
+    for (const m of bracketGroups) {
+      segments.push(m[1]!);
+    }
+  }
+  return segments;
+}
+
+/**
+ * Set a value at a nested property path without mutating original objects.
+ * Clones arrays and records along the path.
+ */
+function setAtPath(value: unknown, segments: string[], newValue: unknown): unknown {
+  if (segments.length === 0) return newValue;
+  const [head, ...tail] = segments;
+  if (Array.isArray(value)) {
+    const idx = Number(head);
+    if (Number.isNaN(idx)) return value;
+    const next = value[idx] ?? (tail.length > 0 && /^\d+$/.test(tail[0]!) ? [] : {});
+    const copy = [...value];
+    copy[idx] = setAtPath(next, tail, newValue);
+    return copy;
+  }
+  if (typeof value === 'object' && value !== null) {
+    const record = value as Record<string, unknown>;
+    const next = record[head!] ?? (tail.length > 0 && /^\d+$/.test(tail[0]!) ? [] : {});
+    return { ...record, [head!]: setAtPath(next, tail, newValue) };
+  }
+  return value;
+}
+
+/** Apply a property override to a target object using a dot/bracket path. */
+export function applyPropertyPath(
+  target: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): void {
+  const segments = parsePropertyPath(path);
+  const head = segments[0]!;
+  const tail = segments.slice(1);
+  target[head] = setAtPath(target[head], tail, value);
 }
 
 /** Global ToolManager singleton for the editor lifetime. */
@@ -127,11 +273,51 @@ function getToolManager(): ToolManager {
   return toolManager;
 }
 
-export function CanvasArea() {
+/** Parse a simple grid-template string like "1fr 200px 1fr" into pixel sizes.
+ *  Only handles px and fr units. fr units divide remaining space equally. */
+function parseGridTemplate(template: string, totalSize: number): number[] {
+  const parts = template.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return [];
+  // First pass: compute total fr and used px space.
+  let frCount = 0;
+  let pxUsed = 0;
+  const sizes: (number | 'fr')[] = [];
+  for (const p of parts) {
+    if (p.endsWith('fr')) {
+      const n = Number.parseFloat(p);
+      frCount += n;
+      sizes.push('fr');
+      pxUsed += 0;
+    } else if (p.endsWith('px')) {
+      const n = Number.parseFloat(p);
+      pxUsed += n;
+      sizes.push(n);
+    } else {
+      // Treat as px
+      const n = Number.parseFloat(p);
+      if (!Number.isNaN(n)) {
+        pxUsed += n;
+        sizes.push(n);
+      }
+    }
+  }
+  const frPx = frCount > 0 ? Math.max(0, (totalSize - pxUsed) / frCount) : 0;
+  return sizes.map((s) => (s === 'fr' ? frPx : s));
+}
+
+export function CanvasArea({
+  canvasContainerRef,
+}: {
+  canvasContainerRef?: React.RefObject<HTMLDivElement | null>;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const announcer = useRef<HTMLDivElement>(null);
   const editor = useEditor();
   const { state, rootNodes } = editor;
+  const { setNodeRef: setDroppableRef, isOver: isCanvasDropOver } = useDroppable({
+    id: 'canvas-drop-zone',
+    data: { accepts: ['layer', 'file', 'Files'] },
+  });
 
   const engineRef = useRef<Engine | null>(null);
   const stateRef = useRef(state);
@@ -142,12 +328,17 @@ export function CanvasArea() {
   const [draft, setDraft] = useState<DraftShape | null>(null);
   const drawRafRef = useRef<number | null>(null);
 
+  // E1: Auto-pan when dragging near canvas edge.
+  const autoPanRaf = useRef<number | null>(null);
+  const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
   const [nodeEditSelectedAnchors, setNodeEditSelectedAnchors] = useState<ReadonlySet<number>>(
     new Set(),
   );
   const [textEditTargetId, setTextEditTargetId] = useState<string | null>(null);
+  const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const lastCursorUpdate = useRef(0);
 
@@ -170,6 +361,18 @@ export function CanvasArea() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.tool]);
+
+  // Auto-enter text edit mode after creating a text node via TextTool
+  useEffect(() => {
+    if (pendingAutoTextEditRef.current && state.selection.length === 1) {
+      pendingAutoTextEditRef.current = false;
+      const id = state.selection[0] as NodeId;
+      const node = state.document.nodes[id];
+      if (node?.kind === 'text') {
+        setTextEditTargetId(id);
+      }
+    }
+  }, [state.selection, state.document]);
 
   // ─── ToolContext builder ─────────────────────────────────────────────────
   // `canvasToWorld`/`worldToCanvas`/`canvasDeltaToWorld` are defined inside
@@ -197,8 +400,10 @@ export function CanvasArea() {
       snapGrid: 8,
 
       createShapeAt: (world, size, parentId) => e.createShapeAt(world, size, parentId),
-      createTextNodeAt: (world, size, parentId, text) =>
-        e.createTextNodeAt(world, size, parentId, text),
+      createTextNodeAt: (world, size, parentId, text) => {
+        pendingAutoTextEditRef.current = true;
+        e.createTextNodeAt(world, size, parentId, text);
+      },
       setSelection: (id) => e.setSelection(id),
       toggleSelection: (id, additive) => e.toggleSelection(id, additive),
       isSelected: (id) => e.isSelected(id),
@@ -315,6 +520,27 @@ export function CanvasArea() {
         nodeIds.push(id);
         flatNodes.push({ ...toEngineNode(n), transform: world });
       }
+
+      // ── Motion / Timeline sampling ──────────────────────────────────────────
+      // Apply property overrides from the active timeline to engine nodes
+      // before building IR. These overrides are ephemeral — they only affect
+      // this frame's rendering and never mutate the document.
+      if (s.motion.activeTimelineId) {
+        const sample = sampleTimelineAt(doc, s.motion.activeTimelineId, s.motion.currentTime);
+        if (sample.overrides.size > 0) {
+          for (let i = 0; i < flatNodes.length; i++) {
+            const nodeId = nodeIds[i];
+            if (!nodeId) continue;
+            const props = sample.overrides.get(nodeId);
+            if (!props) continue;
+            const fn = flatNodes[i];
+            if (!fn) continue;
+            for (const [prop, val] of props) {
+              applyPropertyPath(fn as unknown as Record<string, unknown>, prop, val);
+            }
+          }
+        }
+      }
       const ir = await eng.buildIr({ nodes: flatNodes });
 
       // Map NodeId → RenderItem for O(1) lookup during tree-aware replay.
@@ -339,21 +565,22 @@ export function CanvasArea() {
         if (!n || n.visible === false) return;
         const item = irByNodeId.get(nodeId);
 
-        // ── Mask check (clip or alpha) ────────────────────────────────
-        const mask = 'mask' in n ? (n.mask as { type?: string; sourceNodeId?: string; visible?: boolean } | undefined) : undefined;
-        if (mask && mask.visible && mask.type === 'clip' && mask.sourceNodeId) {
+        // Check for mask on the container — trace mask source outline as clip for all children
+        const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
+        const maskSrcId = mask ? mask.sourceNodeId : null;
+        const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
+        if (mask && maskChild && maskSrcId) {
           ctx.save();
-          const maskNode = doc.nodes[mask.sourceNodeId];
-          if (maskNode) {
-            const maskBounds = nodeWorldBounds(doc, maskNode.id);
-            if (maskBounds) {
-              ctx.beginPath();
-              ctx.rect(maskBounds.x, maskBounds.y, maskBounds.w, maskBounds.h);
-              ctx.clip();
-            }
-          }
+          const maskWorldTransform = nodeWorldTransform(doc, maskSrcId);
+          const [ma, mb, mc, md, me, mf] = maskWorldTransform;
+          ctx.transform(ma, mb, mc, md, me, mf);
+          ctx.beginPath();
+          traceShapeOutline(ctx, maskChild);
+          ctx.closePath();
+          ctx.clip();
+          ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
           for (const childId of n.children) {
-            replaySubtreeToCtx(childId, ctx);
+            if (childId !== maskSrcId) replaySubtreeToCtx(childId, ctx);
           }
           ctx.restore();
           return;
@@ -438,6 +665,56 @@ export function CanvasArea() {
       for (const [id, entry] of entries) {
         if (entry.parentId === null) {
           replaySubtree(id);
+        }
+      }
+
+      // ── Layout grid overlay for frames with gridTemplate ────────────────
+      ctx.strokeStyle = 'rgba(57, 208, 198, 0.25)';
+      ctx.lineWidth = 1 / s.zoom;
+      ctx.setLineDash([0]);
+      for (const [nid] of entries) {
+        const n = doc.nodes[nid];
+        if (n?.kind !== 'frame' || !n.layoutStyle) continue;
+        const frame = n as import('@strata/scene').FrameNode & {
+          layoutStyle: NonNullable<import('@strata/scene').FrameNode['layoutStyle']>;
+        };
+        const ls = frame.layoutStyle;
+        if (!ls.gridTemplateColumns && !ls.gridTemplateRows) continue;
+        const world = nodeWorldTransform(doc, nid);
+        const [a, b, c, d, e, f] = world;
+        const fw = frame.w;
+        const fh = frame.h;
+        // Parse simple column/row templates (e.g., "1fr 200px 1fr").
+        const colSizes = parseGridTemplate(ls.gridTemplateColumns ?? '', fw);
+        const rowSizes = parseGridTemplate(ls.gridTemplateRows ?? '', fh);
+        const gapX = ls.columnGap ?? ls.gap ?? 0;
+        const gapY = ls.rowGap ?? ls.gap ?? 0;
+        // Compute column boundary lines in local space, transform to world.
+        let xPos = 0;
+        for (const cs of colSizes) {
+          xPos += cs;
+          const wx = a * xPos + c * 0 + e;
+          const wy = b * xPos + d * 0 + f;
+          const wx2 = a * xPos + c * fh + e;
+          const wy2 = b * xPos + d * fh + f;
+          ctx.beginPath();
+          ctx.moveTo(wx, wy);
+          ctx.lineTo(wx2, wy2);
+          ctx.stroke();
+          xPos += gapX;
+        }
+        let yPos = 0;
+        for (const rs of rowSizes) {
+          yPos += rs;
+          const wx = a * 0 + c * yPos + e;
+          const wy = b * 0 + d * yPos + f;
+          const wx2 = a * fw + c * yPos + e;
+          const wy2 = b * fw + d * yPos + f;
+          ctx.beginPath();
+          ctx.moveTo(wx, wy);
+          ctx.lineTo(wx2, wy2);
+          ctx.stroke();
+          yPos += gapY;
         }
       }
 
@@ -566,15 +843,6 @@ export function CanvasArea() {
     };
   }, [draw]);
 
-  // ─── Middle-button pan (bypasses ToolManager) ──────────────────────────
-
-  const midPanRef = useRef<{
-    startX: number;
-    startY: number;
-    panX: number;
-    panY: number;
-  } | null>(null);
-
   // ─── Touch pinch (two-pointer zoom/pan, bypasses ToolManager) ───────────
 
   const touchPointers = useRef(new Map<number, { x: number; y: number }>());
@@ -590,6 +858,16 @@ export function CanvasArea() {
       dist: Math.hypot(b.x - a.x, b.y - a.y),
       centroid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
     };
+  }
+
+  // ─── Auto-pan (edge scroll during drag) ────────────────────────────────
+
+  function stopAutoPan() {
+    if (autoPanRaf.current !== null) {
+      cancelAnimationFrame(autoPanRaf.current);
+      autoPanRaf.current = null;
+    }
+    autoPanVelocity.current = { x: 0, y: 0 };
   }
 
   // ─── Pointer Events ──────────────────────────────────────────────────────
@@ -612,16 +890,9 @@ export function CanvasArea() {
       if (touchPointers.current.size > 2) return;
     }
 
-    // Middle-button → temporary pan (bypass ToolManager to avoid tool switch)
+    // Prevent browser default middle-click auto-scroll; route to active tool
     if (e.button === 1) {
-      e.currentTarget.setPointerCapture(e.pointerId);
-      midPanRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        panX: state.pan.x,
-        panY: state.pan.y,
-      };
-      return;
+      e.preventDefault();
     }
 
     const ctx = buildToolCtx(ne);
@@ -658,15 +929,6 @@ export function CanvasArea() {
       }
     }
 
-    const mid = midPanRef.current;
-    if (mid) {
-      editor.setPan({
-        x: mid.panX + e.clientX - mid.startX,
-        y: mid.panY + e.clientY - mid.startY,
-      });
-      return;
-    }
-
     // Track cursor position (throttled to ~30fps)
     const now = performance.now();
     if (now - lastCursorUpdate.current > 32) {
@@ -688,9 +950,39 @@ export function CanvasArea() {
     }
 
     tmInst.handlePointerMove(ne, buildToolCtx(ne));
+
+    // E1: Auto-pan when dragging near canvas edge.
+    if (e.buttons !== 0) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        const vx = computeEdgeVelocity(e.clientX, rect.left, rect.right);
+        const vy = computeEdgeVelocity(e.clientY, rect.top, rect.bottom);
+        autoPanVelocity.current = { x: vx, y: vy };
+        if (vx !== 0 || vy !== 0) {
+          if (autoPanRaf.current === null) {
+            const tick = () => {
+              const v = autoPanVelocity.current;
+              if (v.x === 0 && v.y === 0) {
+                stopAutoPan();
+                return;
+              }
+              const s = stateRef.current;
+              editor.setPan({ x: s.pan.x + v.x, y: s.pan.y + v.y });
+              autoPanRaf.current = requestAnimationFrame(tick);
+            };
+            autoPanRaf.current = requestAnimationFrame(tick);
+          }
+        } else {
+          stopAutoPan();
+        }
+      }
+    } else {
+      stopAutoPan();
+    }
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    stopAutoPan();
     setSnapGuides([]);
     if (e.pointerType === 'touch') {
       const wasPinching = pinchRef.current !== null;
@@ -699,12 +991,6 @@ export function CanvasArea() {
       // A finger lifted from a pinch shouldn't fire the tool's pointer-up.
       if (wasPinching) return;
     }
-    if (midPanRef.current) {
-      midPanRef.current = null;
-      e.currentTarget.releasePointerCapture(e.pointerId);
-      return;
-    }
-
     const ne = e.nativeEvent as PointerEvent;
     const tmInst = tm.current;
     if (!tmInst) return;
@@ -713,7 +999,7 @@ export function CanvasArea() {
   }
 
   function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
-    midPanRef.current = null;
+    stopAutoPan();
     if (e.pointerType === 'touch') {
       touchPointers.current.delete(e.pointerId);
       if (touchPointers.current.size < 2) pinchRef.current = null;
@@ -1017,39 +1303,94 @@ export function CanvasArea() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-    const svgFiles = files.filter((f) => f.name.endsWith('.svg') || f.type === 'image/svg+xml');
-    const imgFiles = files.filter((f) => f.type.startsWith('image/') && f.type !== 'image/svg+xml');
+
+    // Get drop position in world coordinates
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cam = {
+      pan: [stateRef.current.pan.x, stateRef.current.pan.y] as [number, number],
+      zoom: stateRef.current.zoom,
+    };
+    const dropWorld = rect ? screenToWorld(cam, e.clientX - rect.left, e.clientY - rect.top) : null;
+
     const reader = editorRef.current;
-    for (const svg of svgFiles) {
-      const text = await svg.text();
-      const result = importFile(svg.name, text, { center: true, embedImages: true });
-      for (const id of result.nodeIds) {
-        const node = result.document.nodes[id];
-        if (node) reader.importNode(node, result.document);
-      }
-      reader.announceOperation('Import', `Imported ${svg.name}`);
+
+    // First check for dnd-kit native files (strata file type)
+    const strataFiles = e.dataTransfer.types?.includes('application/x-strata-file');
+    if (strataFiles) {
+      // Handled by dnd-kit's onDragEnd instead
+      return;
     }
-    for (const img of imgFiles) {
-      const buf = await img.arrayBuffer();
-      const result = importFile(img.name, new Uint8Array(buf), { center: true, embedImages: true });
+
+    // Collect all OS files (including folders via FileSystemEntry API)
+    const files = await collectFilesFromDataTransfer(e.dataTransfer);
+    if (files.length === 0) return;
+
+    for (const [i, file] of files.entries()) {
+      const result = importFile(file.name, file.data, {
+        center: !dropWorld,
+        embedImages: true,
+      });
       for (const id of result.nodeIds) {
         const node = result.document.nodes[id];
-        if (node) reader.importNode(node, result.document);
+        if (node) {
+          // Apply position if we have a drop world coordinate
+          const positionedNode = dropWorld
+            ? applyDropPosition(node, {
+                x: dropWorld[0] + i * 40,
+                y: dropWorld[1] + i * 40,
+              })
+            : node;
+          reader.importNode(positionedNode, result.document);
+        }
       }
-      reader.announceOperation('Import', `Imported ${img.name}`);
+      reader.announceOperation('Import', `Imported ${file.name}`);
     }
   }, []);
 
+  const gridSize = Math.max(4, 24 * state.zoom);
+
+  const canvasDropClass = isCanvasDropOver ? ' editor-canvas--dnd-over' : '';
+
+  const setCombinedRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      setDroppableRef(el);
+      if (canvasContainerRef) {
+        (canvasContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+      }
+    },
+    [setDroppableRef, canvasContainerRef],
+  );
+
   return (
     <section
-      className={`editor-canvas${isDragOver ? ' editor-canvas--drag-over' : ''}`}
+      ref={setCombinedRef}
+      className={`editor-canvas${isDragOver ? ' editor-canvas--drag-over' : ''}${canvasDropClass}`}
       aria-label="Canvas"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Zoom-aware dot grid layer */}
+      <div
+        className="editor-canvas__grid-layer"
+        style={{
+          backgroundImage: `radial-gradient(circle, var(--color-border-subtle) ${Math.max(0.5, 1 * state.zoom)}px, transparent ${Math.max(0.5, 1 * state.zoom)}px)`,
+          backgroundSize: `${gridSize}px ${gridSize}px`,
+        }}
+      />
+      {/* Pixel grid overlay (1px lines at 1:1 zoom) */}
+      {state.pixelGridEnabled && (
+        <div
+          className="editor-canvas__pixel-grid"
+          style={{
+            backgroundImage: [
+              'linear-gradient(var(--color-border-subtle) 1px, transparent 1px)',
+              'linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px)',
+            ].join(', '),
+            backgroundSize: `${state.zoom}px ${state.zoom}px`,
+          }}
+        />
+      )}
       <canvas
         ref={canvasRef}
         tabIndex={0}
@@ -1069,8 +1410,12 @@ export function CanvasArea() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
-        onPointerLeave={() => editor.setCursorPos(null)}
+        onPointerLeave={() => {
+          editor.setCursorPos(null);
+          stopAutoPan();
+        }}
         onBlur={() => {
+          stopAutoPan();
           // Cancel any active drag and release spring-loaded tools on blur
           tm.current?.activeTool.onPointerCancel?.(
             new PointerEvent('pointercancel'),
@@ -1081,12 +1426,26 @@ export function CanvasArea() {
           }
         }}
       />
+      <Ruler
+        zoom={state.zoom}
+        pan={state.pan}
+        unitType={state.unitType}
+        onAddGuide={(axis, position) => editor.addGuide(axis, position)}
+      />
+      <GuideOverlay
+        guides={editor.guides}
+        zoom={state.zoom}
+        pan={state.pan}
+        onMoveGuide={(id, position) => editor.moveGuide(id, position)}
+        onRemoveGuide={(id) => editor.removeGuide(id)}
+        onToggleLock={(id) => editor.toggleGuideLock(id)}
+      />
       <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />
       {state.tool === 'nodeEdit' &&
         nodeEditTargetId &&
         (() => {
           const n = state.document.nodes[nodeEditTargetId];
-          if (!n || n.kind !== 'shape' || n.shape.kind !== 'path') return null;
+          if (n?.kind !== 'shape' || n.shape.kind !== 'path') return null;
           const worldMat = nodeWorldTransform(state.document, nodeEditTargetId);
           return (
             <NodeEditOverlay
@@ -1099,23 +1458,87 @@ export function CanvasArea() {
           );
         })()}
       <SelectionOverlay canvasRef={canvasRef} />
+      {(() => {
+        const sel = state.selection;
+        if (sel.length !== 1) return null;
+        const singleId = sel[0] as NodeId;
+        const singleNode = state.document.nodes[singleId];
+        if (singleNode?.kind !== 'frame') return null;
+        const frame = singleNode;
+        if (!frame.componentId) return null;
+        const component = state.document.components[frame.componentId];
+        const hasVariants = component?.variants && component.variants.length > 0;
+        if (!hasVariants) return null;
+        const worldB = nodeWorldBounds(state.document, singleId);
+        if (!worldB) return null;
+        const screenX = worldB.x * state.zoom + state.pan.x;
+        const screenY = worldB.y * state.zoom + state.pan.y;
+        const screenW = worldB.w * state.zoom;
+        const screenH = worldB.h * state.zoom;
+        return (
+          <VariantBox
+            nodeId={singleId}
+            document={state.document}
+            onSetVariant={editor.setVariantForInstance}
+            screenBounds={{ x: screenX, y: screenY, w: screenW, h: screenH }}
+            onClose={() => {
+              editor.announce('Closed variant panel');
+            }}
+          />
+        );
+      })()}
       {textEditTargetId &&
         (() => {
           const n = state.document.nodes[textEditTargetId];
-          if (!n || n.kind !== 'text') return null;
+          if (n?.kind !== 'text') return null;
+          const canvasRect = canvasRef.current?.getBoundingClientRect();
+          const canvasLeft = canvasRect?.left ?? 0;
+          const canvasTop = canvasRect?.top ?? 0;
+          // Compose world transform (includes ancestor frames + own rotation/scale)
+          const textWorldMat = nodeWorldTransform(state.document, textEditTargetId);
+          const worldX = textWorldMat[4];
+          const worldY = textWorldMat[5];
+          const textScreenX = worldX * state.zoom + state.pan.x + canvasLeft;
+          const textScreenY = worldY * state.zoom + state.pan.y + canvasTop;
+          const textScreenW =
+            (n.text.length > 0
+              ? n.text.length * (n.fontSize ?? 16) * 0.6
+              : (n.fontSize ?? 16) * 3) * state.zoom;
+          const textScreenH = (n.fontSize ?? 16) * 1.4 * state.zoom;
+          const textScreenRect = {
+            x: textScreenX,
+            y: textScreenY,
+            w: Math.max(textScreenW, 20),
+            h: Math.max(textScreenH, 20),
+          };
           return (
-            <TextEditOverlay
-              node={n}
-              zoom={state.zoom}
-              pan={state.pan}
-              canvasElement={canvasRef.current}
-              onCommit={() => setTextEditTargetId(null)}
-              onUpdateText={(text) => {
-                editor.updateNode(textEditTargetId, (node) =>
-                  node.kind === 'text' ? { ...node, text } : node,
-                );
-              }}
-            />
+            <>
+              <TextEditOverlay
+                node={n}
+                zoom={state.zoom}
+                pan={state.pan}
+                canvasElement={canvasRef.current}
+                worldX={worldX}
+                worldY={worldY}
+                worldTransform={textWorldMat}
+                onCommit={() => setTextEditTargetId(null)}
+                onUpdateText={(text) => {
+                  editor.updateNode(textEditTargetId, (node) =>
+                    node.kind === 'text' ? { ...node, text } : node,
+                  );
+                }}
+              />
+              <FloatingTextBar
+                node={n}
+                textScreenRect={textScreenRect}
+                onUpdate={(id, changes) => {
+                  editor.updateNode(id, (node) =>
+                    node.kind === 'text' ? { ...node, ...changes } : node,
+                  );
+                }}
+                onClose={() => setTextEditTargetId(null)}
+              />
+            </>
           );
         })()}
       {state.tool !== 'inspect' && Object.keys(state.document.nodes).length === 0 && (

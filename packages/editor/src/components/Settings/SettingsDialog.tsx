@@ -1,4 +1,5 @@
-import type { Color as ColorTuple } from '@strata/engine';
+import { managedColorToRgba } from '@strata/shared';
+import type { ManagedColor } from '@strata/scene';
 import { Button, ColorPicker, Dialog, NumberInput, Select } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useState } from 'react';
@@ -45,16 +46,17 @@ const AI_MODEL_OPTIONS = [
   { value: 'claude-3.5', label: 'Claude 3.5 Sonnet' },
 ];
 
-function hexToColor(hex: string): ColorTuple {
+function hexToColor(hex: string): ManagedColor {
   const h = hex.replace('#', '');
   const r = Number.parseInt(h.substring(0, 2), 16) || 0;
   const g = Number.parseInt(h.substring(2, 4), 16) || 0;
   const b = Number.parseInt(h.substring(4, 6), 16) || 0;
-  return [r, g, b, 255];
+  return { space: 'rgb', r, g, b, a: 255 };
 }
 
-function colorToHex(c: ColorTuple): string {
-  return `#${c[0].toString(16).padStart(2, '0')}${c[1].toString(16).padStart(2, '0')}${c[2].toString(16).padStart(2, '0')}`;
+function colorToHex(c: ManagedColor): string {
+  const [r, g, b] = managedColorToRgba(c);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
 export interface SettingsDialogProps {

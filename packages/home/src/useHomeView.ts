@@ -7,19 +7,35 @@ import type {
   SidebarSection,
   SortKey,
   ViewMode,
+  Workspace,
 } from '@strata/platform';
-import { compareBy, defaultViewState, mergeViewState } from '@strata/platform';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  compareBy,
+  DRAFTS_ID,
+  defaultViewState,
+  fuzzyScore,
+  mergeViewState,
+} from '@strata/platform';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface HomeView {
   state: HomeViewState;
   files: FileEntry[];
   trashedFiles: FileEntry[];
   projects: Project[];
+  workspaces: Workspace[];
+  /** Currently selected workspace id; null when no workspace exists. */
+  activeWorkspaceId: string | null;
   pinnedFiles: FileEntry[];
   recentFiles: FileEntry[];
+  /** The 5 most recently updated files — shown as priority "Continue working" items. */
+  continueWorkingFiles: FileEntry[];
   /** Files filtered by the current sidebar section + filters. */
   visibleFiles: FileEntry[];
+  /** Files whose projectId === DRAFTS_ID. */
+  draftFiles: FileEntry[];
+  /** Files where favoritedAt > 0, sorted by favoritedAt descending. */
+  favoriteFiles: FileEntry[];
   loading: boolean;
 }
 
@@ -30,31 +46,43 @@ export function useHomeView(platform: Platform): HomeView & {
   toggleSortDir: () => void;
   setFilter: (f: Partial<FilterState>) => void;
   setActiveProject: (id: string | null) => void;
+  setWorkspace: (id: string) => void;
   toggleSidebar: () => void;
   refresh: () => Promise<void>;
 } {
   const [state, setState] = useState<HomeViewState>(defaultViewState);
-  const [files, setFiles] = useState<FileEntry[]>([]);
-  const [trashedFiles, setTrashedFiles] = useState<FileEntry[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [allFiles, setAllFiles] = useState<FileEntry[]>([]);
+  const [allTrashedFiles, setAllTrashedFiles] = useState<FileEntry[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const viewStateRef = useRef<HomeViewState>(state);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [vs, fileList, trashList, projList] = await Promise.all([
+      const [vs, fileList, trashList, projList, wsList] = await Promise.all([
         platform.getViewState().catch(() => defaultViewState()),
         platform.listFiles().catch(() => [] as FileEntry[]),
         platform.listTrashedFiles().catch(() => [] as FileEntry[]),
         platform.listProjects().catch(() => [] as Project[]),
+        platform.listWorkspaces().catch(() => [] as Workspace[]),
       ]);
       const merged = mergeViewState(vs);
-      viewStateRef.current = merged;
-      setState(merged);
-      setFiles(fileList);
-      setTrashedFiles(trashList);
-      setProjects(projList);
+      const workspaceIds = new Set(wsList.map((w) => w.id));
+      const personal = wsList.find((w) => w.kind === 'personal') ?? wsList[0] ?? null;
+      const activeWorkspaceId =
+        merged.activeWorkspaceId && workspaceIds.has(merged.activeWorkspaceId)
+          ? merged.activeWorkspaceId
+          : (personal?.id ?? null);
+      const next: HomeViewState = { ...merged, activeWorkspaceId };
+      viewStateRef.current = next;
+      setState(next);
+      platform.setViewState(next);
+      setAllFiles(fileList);
+      setAllTrashedFiles(trashList);
+      setAllProjects(projList);
+      setWorkspaces(wsList);
     } finally {
       setLoading(false);
     }
@@ -73,21 +101,58 @@ export function useHomeView(platform: Platform): HomeView & {
     load();
   }, [load]);
 
+  const activeWorkspace = useMemo(
+    () => workspaces.find((w) => w.id === state.activeWorkspaceId) ?? workspaces[0] ?? null,
+    [workspaces, state.activeWorkspaceId],
+  );
+
+  const projects = useMemo(
+    () => allProjects.filter((p) => isProjectInWorkspace(p, activeWorkspace)),
+    [allProjects, activeWorkspace],
+  );
+
+  const projectIds = useMemo(() => new Set(projects.map((p) => p.id)), [projects]);
+
+  const files = useMemo(
+    () => allFiles.filter((f) => isFileInWorkspace(f, activeWorkspace, projectIds)),
+    [allFiles, activeWorkspace, projectIds],
+  );
+
+  const trashedFiles = useMemo(
+    () => allTrashedFiles.filter((f) => isFileInWorkspace(f, activeWorkspace, projectIds)),
+    [allTrashedFiles, activeWorkspace, projectIds],
+  );
+
   const pinnedFiles = files.filter((f) => f.pinned && !f.trashedAt);
   const recentFiles = [...files]
     .filter((f) => f.openedAt > 0 && !f.trashedAt)
     .sort((a, b) => b.openedAt - a.openedAt)
     .slice(0, 30);
 
-  const visibleFiles = computeVisibleFiles(files, state, projects);
+  const draftFiles = files.filter((f) => f.projectId === DRAFTS_ID && !f.trashedAt);
+  const favoriteFiles = [...files]
+    .filter((f) => f.favoritedAt !== null && f.favoritedAt !== undefined && f.favoritedAt > 0)
+    .sort((a, b) => (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0));
+
+  const continueWorkingFiles = [...files]
+    .filter((f) => !f.trashedAt)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 5);
+
+  const visibleFiles = computeVisibleFiles(files, state);
 
   return {
     state,
     files,
     trashedFiles,
     projects,
+    workspaces,
+    activeWorkspaceId: activeWorkspace?.id ?? null,
     pinnedFiles,
     recentFiles,
+    continueWorkingFiles,
+    draftFiles,
+    favoriteFiles,
     visibleFiles,
     loading,
     setSection: (section) => {
@@ -129,6 +194,20 @@ export function useHomeView(platform: Platform): HomeView & {
         section: 'project' as SidebarSection,
       });
     },
+    setWorkspace: (id) => {
+      const target = workspaces.find((w) => w.id === id);
+      if (!target) return;
+      const projectsInTarget = allProjects.filter((p) => isProjectInWorkspace(p, target));
+      const projectIdsInTarget = new Set(projectsInTarget.map((p) => p.id));
+      const currentProjectId = viewStateRef.current.activeProjectId;
+      const nextProjectId =
+        currentProjectId && projectIdsInTarget.has(currentProjectId) ? currentProjectId : null;
+      persist({
+        ...viewStateRef.current,
+        activeWorkspaceId: id,
+        activeProjectId: nextProjectId,
+      });
+    },
     toggleSidebar: () => {
       persist({
         ...viewStateRef.current,
@@ -139,11 +218,24 @@ export function useHomeView(platform: Platform): HomeView & {
   };
 }
 
-function computeVisibleFiles(
-  all: FileEntry[],
-  state: HomeViewState,
-  _projects: Project[],
-): FileEntry[] {
+function isProjectInWorkspace(project: Project, workspace: Workspace | null): boolean {
+  if (!workspace) return true;
+  if (project.workspaceId === workspace.id) return true;
+  return workspace.kind === 'personal' && !project.workspaceId;
+}
+
+function isFileInWorkspace(
+  file: FileEntry,
+  workspace: Workspace | null,
+  projectIds: Set<string>,
+): boolean {
+  if (!workspace) return true;
+  if (file.projectId === DRAFTS_ID) return workspace.kind === 'personal';
+  if (file.projectId === null) return workspace.kind === 'personal';
+  return projectIds.has(file.projectId);
+}
+
+function computeVisibleFiles(all: FileEntry[], state: HomeViewState): FileEntry[] {
   let result = all.filter((f) => !f.trashedAt);
 
   switch (state.section) {
@@ -157,6 +249,19 @@ function computeVisibleFiles(
     case 'project':
       result = result.filter((f) => f.projectId === state.activeProjectId);
       break;
+    case 'drafts':
+      result = result.filter((f) => f.projectId === DRAFTS_ID);
+      break;
+    case 'favorites':
+      result = result.filter(
+        (f) => f.favoritedAt !== null && f.favoritedAt !== undefined && f.favoritedAt > 0,
+      );
+      result.sort((a, b) => (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0));
+      break;
+    case 'collections':
+      return [];
+    case 'activity':
+      return [];
     case 'templates':
       return [];
     case 'trash':
@@ -165,8 +270,7 @@ function computeVisibleFiles(
 
   const { filter } = state;
   if (filter.query) {
-    const q = filter.query.toLowerCase();
-    result = result.filter((f) => f.name.toLowerCase().includes(q));
+    result = result.filter((f) => fuzzyScore(filter.query, f.name) >= 0.3);
   }
   if (filter.kinds.length > 0) {
     result = result.filter((f) => filter.kinds.includes(f.kind));

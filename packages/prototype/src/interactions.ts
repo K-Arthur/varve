@@ -8,12 +8,7 @@
 
 import { type ActionResult, executeAction } from './actions';
 import { matchTrigger, type PrototypeEvent } from './triggers';
-import type {
-  ComparisonOperator,
-  ConditionDefinition,
-  Interaction,
-  PrototypeState,
-} from './types';
+import type { ComparisonOperator, ConditionDefinition, Interaction, PrototypeState } from './types';
 
 /**
  * Result of processing an interaction.

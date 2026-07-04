@@ -9,7 +9,9 @@
  * APG textbox pattern, CJK IME composition lifecycle.
  */
 
+import type { Affine } from '@strata/engine';
 import type { TextNode } from '@strata/scene';
+import { measureText } from '@strata/shared';
 import { useCallback, useEffect, useRef } from 'react';
 
 interface TextEditOverlayProps {
@@ -17,6 +19,12 @@ interface TextEditOverlayProps {
   zoom: number;
   pan: { x: number; y: number };
   canvasElement: HTMLCanvasElement | null;
+  /** Pre-composed world-space X (accounts for ancestor transforms). */
+  worldX?: number;
+  /** Pre-composed world-space Y (accounts for ancestor transforms). */
+  worldY?: number;
+  /** Pre-composed world transform matrix. */
+  worldTransform?: Affine;
   /** Called when editing completes (Escape or blur). */
   onCommit: () => void;
   /** Called when content changes. */
@@ -28,6 +36,8 @@ export function TextEditOverlay({
   zoom,
   pan,
   canvasElement,
+  worldX,
+  worldY,
   onCommit,
   onUpdateText,
 }: TextEditOverlayProps) {
@@ -35,16 +45,25 @@ export function TextEditOverlay({
   const composingRef = useRef(false);
 
   // Compute screen-space position from world-space transform
+  // Use pre-composed world coordinates when available (accounts for ancestor transforms)
   const rect = canvasElement?.getBoundingClientRect();
   const canvasLeft = rect?.left ?? 0;
   const canvasTop = rect?.top ?? 0;
-  const x = node.transform[4] * zoom + pan.x + canvasLeft;
-  const y = node.transform[5] * zoom + pan.y + canvasTop;
-  const w =
-    (node.text.length > 0
-      ? node.text.length * (node.fontSize ?? 16) * 0.6
-      : (node.fontSize ?? 16) * 3) * zoom;
-  const h = (node.fontSize ?? 16) * 1.4 * zoom;
+  const wx = worldX ?? node.transform[4];
+  const wy = worldY ?? node.transform[5];
+  const x = wx * zoom + pan.x + canvasLeft;
+  const y = wy * zoom + pan.y + canvasTop;
+  const textSize = measureText(node.text, {
+    fontSize: node.fontSize ?? 16,
+    fontFamily: node.fontFamily ?? 'Inter',
+    fontWeight: node.fontWeight,
+    fontStyle: node.fontStyle,
+    letterSpacing: node.letterSpacing,
+    lineHeight: node.lineHeight,
+    textCase: node.textCase,
+  });
+  const w = Math.max(textSize.width, node.text.length === 0 ? (node.fontSize ?? 16) * 3 : 0) * zoom;
+  const h = textSize.height * zoom;
 
   const handleInput = useCallback(() => {
     const ta = textareaRef.current;

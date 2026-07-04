@@ -6,8 +6,15 @@
  *
  * Research basis: Figma / Sketch effects panel, APG Disclosure pattern.
  */
-import type { Color } from '@strata/engine';
-import type { BlendMode, Effect, FrameNode, SceneNode, ShapeNode, TextNode } from '@strata/scene';
+import type {
+  BlendMode,
+  Effect,
+  FrameNode,
+  ManagedColor,
+  SceneNode,
+  ShapeNode,
+  TextNode,
+} from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -60,7 +67,7 @@ function defaultEffect(type: Effect['type']): Effect {
         y: 4,
         blur: 8,
         spread: 0,
-        color: [0, 0, 0, 76] as Color,
+        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 76 },
         opacity: 0.3,
         blendMode: 'normal',
         visible: true,
@@ -72,7 +79,7 @@ function defaultEffect(type: Effect['type']): Effect {
         y: 2,
         blur: 4,
         spread: 0,
-        color: [0, 0, 0, 38] as Color,
+        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 38 },
         opacity: 0.25,
         blendMode: 'normal',
         visible: true,
@@ -84,8 +91,9 @@ function defaultEffect(type: Effect['type']): Effect {
   }
 }
 
-function toSwatchBg(color: Color): string {
-  return `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`;
+function toSwatchBg(color: ManagedColor): string {
+  const [r, g, b, a] = managedColorToRgba(color);
+  return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
 }
 
 const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
@@ -311,7 +319,7 @@ function ShadowColorSwatch({
   const colorRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
     if (e && (e.type === 'dropShadow' || e.type === 'innerShadow')) return e.color;
-    return [0, 0, 0, 255] as Color;
+    return { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
   });
   const color = isMixed(colorRaw) ? null : colorRaw;
   const swatchBg = color ? toSwatchBg(color) : 'transparent';
@@ -341,10 +349,12 @@ function ShadowColorSwatch({
           }}
         >
           <ColorPicker
-            value={color ?? [0, 0, 0, 255]}
+            value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
             onChange={(c) =>
               onChange((e) =>
-                e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, color: c } : e,
+                e.type === 'dropShadow' || e.type === 'innerShadow'
+                  ? { ...e, color: c as ManagedColor }
+                  : e,
               )
             }
           />

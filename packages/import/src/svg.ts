@@ -4,8 +4,8 @@
  *
  * Research basis: SVG 1.1 (W3C Recommendation), Adobe Illustrator SVG export.
  */
-import type { Affine, Color, PathPoint, Shape } from '@strata/engine';
-import type { Document, FrameNode, SceneNode } from '@strata/scene';
+import type { Affine, PathPoint, Shape } from '@strata/engine';
+import type { Document, FrameNode, ManagedColor, SceneNode } from '@strata/scene';
 import {
   addNode,
   createDocument,
@@ -33,7 +33,7 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
 
   const clean = svg.trim();
   const root = parseSingleElement(clean);
-  if (!root || root.tag !== 'svg') {
+  if (root?.tag !== 'svg') {
     return {
       document: createDocument('Import'),
       nodeIds: [],
@@ -156,7 +156,7 @@ function convertElement(
 
   if (el.tag === 'use') {
     const href = el.attrs.href ?? el.attrs['xlink:href'];
-    if (href && href.startsWith('#')) {
+    if (href?.startsWith('#')) {
       const refId = href.slice(1);
       const ref = defs.get(refId);
       if (ref) {
@@ -235,7 +235,7 @@ function convertRect(
   const node = makeShapeNode('', shape, {
     name: 'Rectangle',
     transform: composeWithOffset(transform, x, y),
-    fill: [0, 0, 0, 0] as Color,
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
     cornerRadius: cornerRadius
       ? [cornerRadius, cornerRadius, cornerRadius, cornerRadius]
       : undefined,
@@ -444,7 +444,7 @@ function convertImage(
       {
         name: 'Image',
         transform: composeWithOffset(transform, x, y),
-        fill: [0, 0, 0, 0] as Color,
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
       },
     ),
     fills: [
@@ -487,19 +487,19 @@ function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
       result = { ...result, fill: parsedColor };
     }
   } else if (fill === 'none') {
-    result = { ...result, fill: [0, 0, 0, 0] as Color };
+    result = { ...result, fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 } };
   }
 
   if (opacity) {
     const op = parseFloat(opacity);
-    if (!isNaN(op)) {
+    if (!Number.isNaN(op)) {
       result = { ...result, opacity: op };
     }
   }
 
   if (fillOpacity) {
     const fop = parseFloat(fillOpacity);
-    if (!isNaN(fop) && 'fills' in result && result.fills && result.fills.length > 0) {
+    if (!Number.isNaN(fop) && 'fills' in result && result.fills && result.fills.length > 0) {
       const fills = [...result.fills];
       fills[0] = { ...fills[0]!, opacity: fop };
       result = { ...result, fills } as SceneNode;
@@ -510,13 +510,14 @@ function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
     const parsedStrokeColor = parseSvgColor(stroke);
     const sw = strokeWidth ? parseFloat(strokeWidth) : 1;
     const strokeOpacityVal = strokeOpacity ? parseFloat(strokeOpacity) : 1;
-    if (parsedStrokeColor) {
-      const strokeColor: Color = [
-        parsedStrokeColor[0],
-        parsedStrokeColor[1],
-        parsedStrokeColor[2],
-        Math.round((parsedStrokeColor[3] ?? 255) * strokeOpacityVal),
-      ];
+    if (parsedStrokeColor && parsedStrokeColor.space === 'rgb') {
+      const strokeColor: ManagedColor = {
+        space: 'rgb' as const,
+        r: parsedStrokeColor.r,
+        g: parsedStrokeColor.g,
+        b: parsedStrokeColor.b,
+        a: Math.round((parsedStrokeColor.a ?? 255) * strokeOpacityVal),
+      };
       result = {
         ...result,
         strokes: [
@@ -716,7 +717,8 @@ function tokenizePath(d: string): PathCommand[] {
   const commands: PathCommand[] = [];
   const re = /([MLHVCSQTAZmlhvcsqtaz])([^MLHVCSQTAZmlhvcsqtaz]*)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(d)) !== null) {
+  m = re.exec(d);
+  while (m !== null) {
     const cmd = m[1]!;
     const params = (m[2] ?? '')
       .trim()
@@ -724,6 +726,7 @@ function tokenizePath(d: string): PathCommand[] {
       .filter((s) => s.length > 0)
       .map(Number);
     commands.push({ command: cmd, params });
+    m = re.exec(d);
   }
   return commands;
 }
@@ -755,41 +758,53 @@ function parseTransform(transformStr: string): Affine {
 
   const matrixMatch = transformStr.match(/matrix\(([^)]+)\)/);
   if (matrixMatch) {
-    const parts = matrixMatch[1]!.split(/[\s,]+/).map(Number);
-    if (parts.length >= 6) {
-      return [parts[0]!, parts[1]!, parts[2]!, parts[3]!, parts[4]!, parts[5]!] as Affine;
+    const raw = matrixMatch[1];
+    if (raw) {
+      const parts = raw.split(/[\s,]+/).map(Number);
+      if (parts.length >= 6) {
+        return [parts[0]!, parts[1]!, parts[2]!, parts[3]!, parts[4]!, parts[5]!] as Affine;
+      }
     }
   }
 
   const translateMatch = transformStr.match(/translate\(([^)]+)\)/);
   if (translateMatch) {
-    const parts = translateMatch[1]!.split(/[\s,]+/).map(Number);
-    m4 = parts[0] ?? 0;
-    m5 = parts[1] ?? 0;
+    const raw = translateMatch[1];
+    if (raw) {
+      const parts = raw.split(/[\s,]+/).map(Number);
+      m4 = parts[0] ?? 0;
+      m5 = parts[1] ?? 0;
+    }
   }
 
   const scaleMatch = transformStr.match(/scale\(([^)]+)\)/);
   if (scaleMatch) {
-    const parts = scaleMatch[1]!.split(/[\s,]+/).map(Number);
-    m0 = parts[0] ?? 1;
-    m3 = parts[1] ?? parts[0] ?? 1;
+    const raw = scaleMatch[1];
+    if (raw) {
+      const parts = raw.split(/[\s,]+/).map(Number);
+      m0 = parts[0] ?? 1;
+      m3 = parts[1] ?? parts[0] ?? 1;
+    }
   }
 
   const rotateMatch = transformStr.match(/rotate\(([^)]+)\)/);
   if (rotateMatch) {
-    const parts = rotateMatch[1]!.split(/[\s,]+/).map(Number);
-    const angle = (parts[0] ?? 0) * (Math.PI / 180);
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const tx = parts[1] ?? 0;
-    const ty = parts[2] ?? 0;
-    const a = m0 * cos - m2 * sin;
-    const b = m1 * cos - m3 * sin;
-    const c = m0 * sin + m2 * cos;
-    const d = m1 * sin + m3 * cos;
-    const e = m4 + tx * (1 - cos) + ty * sin;
-    const f = m5 - tx * sin + ty * (1 - cos);
-    return [a, b, c, d, e, f] as Affine;
+    const raw = rotateMatch[1];
+    if (raw) {
+      const parts = raw.split(/[\s,]+/).map(Number);
+      const angle = (parts[0] ?? 0) * (Math.PI / 180);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const tx = parts[1] ?? 0;
+      const ty = parts[2] ?? 0;
+      const a = m0 * cos - m2 * sin;
+      const b = m1 * cos - m3 * sin;
+      const c = m0 * sin + m2 * cos;
+      const d = m1 * sin + m3 * cos;
+      const e = m4 + tx * (1 - cos) + ty * sin;
+      const f = m5 - tx * sin + ty * (1 - cos);
+      return [a, b, c, d, e, f] as Affine;
+    }
   }
 
   const skewXMatch = transformStr.match(/skewX\(([^)]+)\)/);
@@ -833,7 +848,7 @@ function multiplyAffine(a: Affine, b: Affine): Affine {
 
 // ─── Color parsing ──────────────────────────────────────────────────────────
 
-function parseSvgColor(colorStr: string): Color | null {
+function parseSvgColor(colorStr: string): ManagedColor | null {
   if (!colorStr || colorStr === 'none') return null;
 
   // #rgb / #rrggbb
@@ -844,12 +859,12 @@ function parseSvgColor(colorStr: string): Color | null {
       const r = parseInt(hex[0]! + hex[0], 16);
       const g = parseInt(hex[1]! + hex[1], 16);
       const b = parseInt(hex[2]! + hex[2], 16);
-      return [r, g, b, 255] as Color;
+      return { space: 'rgb' as const, r, g, b, a: 255 };
     }
     const r = parseInt(hex.slice(0, 2), 16);
     const g = parseInt(hex.slice(2, 4), 16);
     const b = parseInt(hex.slice(4, 6), 16);
-    return [r, g, b, 255] as Color;
+    return { space: 'rgb' as const, r, g, b, a: 255 };
   }
 
   // rgb() / rgba()
@@ -861,33 +876,33 @@ function parseSvgColor(colorStr: string): Color | null {
     const g = parseInt(rgbMatch[2]!, 10);
     const b = parseInt(rgbMatch[3]!, 10);
     const a = rgbMatch[4] !== undefined ? Math.round(parseFloat(rgbMatch[4]) * 255) : 255;
-    return [r, g, b, a] as Color;
+    return { space: 'rgb' as const, r: r, g: g, b: b, a: a };
   }
 
   // Named colors (common subset)
-  const named: Record<string, Color> = {
-    black: [0, 0, 0, 255],
-    white: [255, 255, 255, 255],
-    red: [255, 0, 0, 255],
-    green: [0, 128, 0, 255],
-    blue: [0, 0, 255, 255],
-    yellow: [255, 255, 0, 255],
-    cyan: [0, 255, 255, 255],
-    magenta: [255, 0, 255, 255],
-    gray: [128, 128, 128, 255],
-    grey: [128, 128, 128, 255],
-    orange: [255, 165, 0, 255],
-    purple: [128, 0, 128, 255],
-    pink: [255, 192, 203, 255],
-    transparent: [0, 0, 0, 0],
-    silver: [192, 192, 192, 255],
-    maroon: [128, 0, 0, 255],
-    navy: [0, 0, 128, 255],
-    olive: [128, 128, 0, 255],
-    teal: [0, 128, 128, 255],
-    lime: [0, 255, 0, 255],
-    aqua: [0, 255, 255, 255],
-    fuchsia: [255, 0, 255, 255],
+  const named: Record<string, ManagedColor> = {
+    black: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+    white: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+    red: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 },
+    green: { space: 'rgb' as const, r: 0, g: 128, b: 0, a: 255 },
+    blue: { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 },
+    yellow: { space: 'rgb' as const, r: 255, g: 255, b: 0, a: 255 },
+    cyan: { space: 'rgb' as const, r: 0, g: 255, b: 255, a: 255 },
+    magenta: { space: 'rgb' as const, r: 255, g: 0, b: 255, a: 255 },
+    gray: { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 },
+    grey: { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 },
+    orange: { space: 'rgb' as const, r: 255, g: 165, b: 0, a: 255 },
+    purple: { space: 'rgb' as const, r: 128, g: 0, b: 128, a: 255 },
+    pink: { space: 'rgb' as const, r: 255, g: 192, b: 203, a: 255 },
+    transparent: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+    silver: { space: 'rgb' as const, r: 192, g: 192, b: 192, a: 255 },
+    maroon: { space: 'rgb' as const, r: 128, g: 0, b: 0, a: 255 },
+    navy: { space: 'rgb' as const, r: 0, g: 0, b: 128, a: 255 },
+    olive: { space: 'rgb' as const, r: 128, g: 128, b: 0, a: 255 },
+    teal: { space: 'rgb' as const, r: 0, g: 128, b: 128, a: 255 },
+    lime: { space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 },
+    aqua: { space: 'rgb' as const, r: 0, g: 255, b: 255, a: 255 },
+    fuchsia: { space: 'rgb' as const, r: 255, g: 0, b: 255, a: 255 },
   };
 
   const lower = colorStr.toLowerCase().trim();
@@ -1156,8 +1171,10 @@ function parseAttrs(attrStr: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   const re = /(\w[\w:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(attrStr)) !== null) {
+  m = re.exec(attrStr);
+  while (m !== null) {
     attrs[m[1]!] = m[2] ?? m[3] ?? '';
+    m = re.exec(attrStr);
   }
   return attrs;
 }

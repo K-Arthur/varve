@@ -13,7 +13,8 @@
  * per-corner radius, and stacked-fill type enums. All new fields have safe
  * defaults so existing documents deserialize correctly.
  */
-import type { Affine, Color, Shape } from '@strata/engine';
+import type { Affine, Shape } from '@strata/engine';
+import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 
 export type NodeId = string;
@@ -36,6 +37,16 @@ export interface Mask {
   /** Id of the child node used as the mask source. Must be a child of the container. */
   sourceNodeId: NodeId;
   visible: boolean;
+}
+
+// ── Guide interface ──────────────────────────────────────────────────────────
+
+export interface Guide {
+  id: string;
+  axis: 'horizontal' | 'vertical';
+  position: number;
+  locked?: boolean;
+  color?: string;
 }
 
 // ── Appearance types (Inspector F6) ─────────────────────────────────────────
@@ -67,7 +78,7 @@ export type StrokeJoin = 'miter' | 'round' | 'bevel';
 export type ArrowheadStyle = 'none' | 'arrow' | 'circle' | 'square' | 'diamond';
 
 export interface Stroke {
-  color: Color;
+  color: ManagedColor;
   weight: number;
   align: StrokeAlign;
   dashPattern: number[];
@@ -88,7 +99,7 @@ export interface Stroke {
 
 export function defaultStroke(): Stroke {
   return {
-    color: [0, 0, 0, 255] as Color,
+    color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as ManagedColor,
     weight: 1,
     align: 'center',
     dashPattern: [],
@@ -107,7 +118,7 @@ export type Effect =
       y: number;
       blur: number;
       spread: number;
-      color: Color;
+      color: ManagedColor;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
@@ -118,7 +129,7 @@ export type Effect =
       y: number;
       blur: number;
       spread: number;
-      color: Color;
+      color: ManagedColor;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
@@ -130,7 +141,7 @@ export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
 
 export interface GradientStop {
   position: number;
-  color: Color;
+  color: ManagedColor;
 }
 
 export interface GradientFill {
@@ -155,6 +166,10 @@ export interface ImageFillData {
   y: number;
   /** Scale multiplier (1 = natural). Used for 'tile' and 'fit'. */
   scale: number;
+  /** Natural image width in pixels. When omitted, the node bounds width is used. */
+  imageWidth?: number;
+  /** Natural image height in pixels. When omitted, the node bounds height is used. */
+  imageHeight?: number;
   /** Opacity multiplier specific to the image (combined with Fill.opacity). */
 }
 
@@ -171,7 +186,7 @@ export type FillType = 'solid' | 'gradient' | 'image' | 'pattern';
 
 export interface Fill {
   type: FillType;
-  color?: Color;
+  color?: ManagedColor;
   gradient?: GradientFill;
   image?: ImageFillData;
   pattern?: PatternFillData;
@@ -192,7 +207,7 @@ export interface PropertyBinding {
 export interface NodeBase {
   id: NodeId;
   name: string;
-  fill: Color;
+  fill: ManagedColor;
   /** P2: stacked fills (solid/gradient/image). When present, takes precedence over `fill`. */
   fills?: Fill[];
   /** Paint order among siblings (0 = bottom). Reorder via Document.move. */
@@ -283,10 +298,24 @@ export interface TextNode extends NodeBase {
   textResizing?: 'autoWidth' | 'autoHeight' | 'fixed';
   /** F6: OpenType feature flags (stub — e.g. { liga: true, kern: true }). */
   openTypeFeatures?: Record<string, boolean>;
+  /** Variable font axis values (e.g. { wght: 500, wdth: 75 }). */
+  variableAxes?: Record<string, number>;
+  /** Rich text content (paragraphs with runs). When set, overrides `text`. */
+  richText?: import('./typography').RichText;
+  /** Text mode: point, area, path, or auto. */
+  textMode?: import('./typography').TextMode;
+  /** Path text settings (when textMode === 'path'). */
+  pathTextSettings?: import('./typography').PathTextSettings;
   /** F6: stacked strokes on text. */
   strokes: Stroke[];
   /** F6: stacked effects on text. */
   effects: Effect[];
+  /** Phase 5: Reference to a path/vector node whose shape the text follows. */
+  pathId?: NodeId;
+  /** Phase 5: 0-1 offset along the path to start text (default 0). */
+  pathOffset?: number;
+  /** Phase 5: Which side of the path text appears on. */
+  pathSide?: 'top' | 'bottom';
 }
 
 export interface GroupNode extends NodeBase {
@@ -445,6 +474,25 @@ export interface AdjustmentNode extends NodeBase {
 export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode | AdjustmentNode;
 
 export type ContainerNode = GroupNode | FrameNode;
+
+// ── Page type ────────────────────────────────────────────────────────────────
+
+export interface Page {
+  id: NodeId;
+  name: string;
+  width: number;
+  height: number;
+  /** Per-page bleed override (inherits from Document.bleed when unset). */
+  bleed?: BleedConfig;
+  /** Per-page safe area override (inherits from Document.safeArea when unset). */
+  safeArea?: SafeAreaConfig;
+  /** Per-page slug override (inherits from Document.slug when unset). */
+  slug?: SlugConfig;
+  /** Page-level background shape layer ids (rendered behind content). */
+  backgrounds: NodeId[];
+  /** Group node id that holds all page content as children. */
+  contentRoot: NodeId;
+}
 
 export type SlotKind = 'single' | 'multiple' | 'text';
 

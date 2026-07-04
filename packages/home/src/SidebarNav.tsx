@@ -25,6 +25,8 @@ export interface SidebarNavProps {
   onPin?: (id: string) => void;
   /** Called when a file is dropped on a project entry. */
   onDropOnProject?: (fileId: string, projectId: string) => void;
+  /** Called to create a new project. */
+  onCreateProject?: () => void;
 }
 
 function SidebarProjectRow({
@@ -117,6 +119,7 @@ export function SidebarNav({
   onSelect,
   onPin,
   onDropOnProject,
+  onCreateProject,
 }: SidebarNavProps) {
   const [focusIdx, setFocusIdx] = useState(0);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
@@ -181,6 +184,20 @@ export function SidebarNav({
       onKeyDown={handleKey}
       aria-label="File navigation"
     >
+      {onCreateProject && (
+        <button
+          type="button"
+          className="sidebar-item sidebar-item--new-project"
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateProject();
+          }}
+          aria-label="New project"
+        >
+          <Icon name="Plus" label={undefined} className="sidebar-item__icon" />
+          <span>New Project</span>
+        </button>
+      )}
       {entries.map((entry, i) => {
         const isActive = entry.id === activeId;
         const isProject = !['recent', 'all', 'templates', 'trash'].includes(entry.id);

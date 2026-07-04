@@ -3,7 +3,8 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
   overflow-y: auto;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   /* In light theme the code block is dark to ensure syntax-token contrast.
      In dark theme it follows the sunken surface. */
   --spec-code-bg: var(--color-surface-sunken);

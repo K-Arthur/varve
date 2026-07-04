@@ -159,7 +159,7 @@ export function instantiate(
     blendMode: 'normal',
     rotation: 0,
     transform: [1, 0, 0, 1, 0, 0],
-    fill: [200, 200, 200, 255],
+    fill: { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
     w: 200,
     h: 160,
     children: newChildren,
@@ -406,7 +406,7 @@ export function setVariantForInstance(
   variantId: string,
 ): Document {
   const node = doc.nodes[instanceId];
-  if (!node || node.kind !== 'frame') return doc;
+  if (node?.kind !== 'frame') return doc;
   const frame = node as FrameNode;
   if (!frame.componentId) return doc;
 

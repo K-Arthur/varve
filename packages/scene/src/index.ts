@@ -6,7 +6,11 @@
  * stable shapes.
  */
 
+export * from './adjustments';
 export * from './boolean';
+export * from './brush';
+export * from './colorManagement';
+export * from './colorMode';
 export * from './component';
 export * from './constraints';
 export * from './document';
@@ -16,6 +20,17 @@ export * from './fills';
 export * from './governance';
 export * from './library';
 export * from './masks';
+export * from './motion';
+export * from './motion-types';
+export * from './printPreflight';
+export * from './profiles';
+export * from './property-path';
 export * from './styles';
+export * from './swatches';
+export * from './textFlow';
+export * from './textWarp';
 export * from './types';
+export * from './typography';
+export * from './typographyPreflight';
 export * from './variables';
+export * from './version';

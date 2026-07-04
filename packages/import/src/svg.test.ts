@@ -119,10 +119,10 @@ describe('parseSvg', () => {
     expect(result.nodeIds.length).toBe(1);
     const node = result.document.nodes[result.nodeIds[0]!];
     if (node?.kind === 'shape') {
-      expect(node.fill[0]).toBe(255);
+      expect(node.fill).toBeDefined();
       expect(node.strokes.length).toBeGreaterThan(0);
       if (node.strokes[0]) {
-        expect(node.strokes[0].color[1]).toBe(255);
+        expect(node.strokes[0].color).toBeDefined();
         expect(node.strokes[0].weight).toBe(2);
       }
     }

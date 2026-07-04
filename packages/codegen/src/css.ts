@@ -4,7 +4,12 @@
  * Research basis: CSS Properties and Values API; custom property naming conventions.
  */
 
-import type { Document as SceneDocument, SceneNode, VariableStore } from '@strata/scene';
+import type {
+  Document as SceneDocument,
+  ManagedColor,
+  SceneNode,
+  VariableStore,
+} from '@strata/scene';
 import { colorToHex, computeNodePos, rgba } from './shared';
 import { resolveTokenName } from './tokens';
 
@@ -21,7 +26,7 @@ export interface CssExportOptions {
   variableStore?: VariableStore;
 }
 
-function formatColor(c: readonly [number, number, number, number], format: 'hex' | 'rgb'): string {
+function formatColor(c: ManagedColor, format: 'hex' | 'rgb'): string {
   return format === 'hex' ? colorToHex(c) : rgba(c);
 }
 

@@ -103,9 +103,9 @@ describe('PenTool', () => {
   it('onPointerDown starts path and creates first point', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
-    tool.onActivate!(ctx);
+    tool.onActivate?.(ctx);
 
-    const result = tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    const result = tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
 
     expect(result.consumed).toBe(true);
     expect(ctx.announce).toHaveBeenCalledWith('Path started');
@@ -114,11 +114,11 @@ describe('PenTool', () => {
   it('onPointerMove during Placing uses line draft, not rect', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
-    tool.onActivate!(ctx);
+    tool.onActivate?.(ctx);
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
 
-    tool.onPointerMove!(makePointerEvent(200, 150), ctx);
+    tool.onPointerMove?.(makePointerEvent(200, 150), ctx);
 
     expect(ctx.setDraft).toHaveBeenCalledWith(expect.objectContaining({ kind: 'line' }));
   });
@@ -126,11 +126,11 @@ describe('PenTool', () => {
   it('rubber-band shows line from last point to cursor', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
-    tool.onActivate!(ctx);
+    tool.onActivate?.(ctx);
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
 
-    tool.onPointerMove!(makePointerEvent(200, 150), ctx);
+    tool.onPointerMove?.(makePointerEvent(200, 150), ctx);
 
     expect(ctx.setDraft).toHaveBeenCalledWith({
       kind: 'line',
@@ -145,13 +145,13 @@ describe('PenTool', () => {
   it('commitPath clears draft and creates path shape', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
-    tool.onActivate!(ctx);
+    tool.onActivate?.(ctx);
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
     vi.advanceTimersByTime(500);
-    tool.onPointerDown!(makePointerEvent(200, 150), ctx);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
 
-    tool.onKeyDown!(makeKeyEvent('Enter'), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
     expect(ctx.setDraft).toHaveBeenCalledWith(null);
     expect(ctx.createShapeAt).toHaveBeenCalledWith(
@@ -168,17 +168,17 @@ describe('PenTool', () => {
   it('Escape with 0-1 points cancels without creating', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
-    tool.onActivate!(ctx);
+    tool.onActivate?.(ctx);
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
 
-    tool.onKeyDown!(makeKeyEvent('Escape'), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Escape'), ctx);
 
     expect(ctx.createShapeAt).not.toHaveBeenCalled();
     expect(ctx.announce).toHaveBeenCalledWith('Path cancelled');
 
     ctx.announce = vi.fn();
-    const result = tool.onPointerDown!(makePointerEvent(300, 300), ctx);
+    const result = tool.onPointerDown?.(makePointerEvent(300, 300), ctx);
     expect(result.consumed).toBe(true);
     expect(ctx.announce).toHaveBeenCalledWith('Path started');
   });
@@ -186,13 +186,13 @@ describe('PenTool', () => {
   it('Escape with 2+ points commits path', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
-    tool.onActivate!(ctx);
+    tool.onActivate?.(ctx);
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
     vi.advanceTimersByTime(500);
-    tool.onPointerDown!(makePointerEvent(200, 150), ctx);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
 
-    tool.onKeyDown!(makeKeyEvent('Escape'), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Escape'), ctx);
 
     expect(ctx.createShapeAt).toHaveBeenCalled();
     expect(ctx.announce).toHaveBeenCalledWith('Path cancelled');
@@ -201,10 +201,10 @@ describe('PenTool', () => {
   it('single click without commit creates a dot (placeholder)', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
-    tool.onActivate!(ctx);
+    tool.onActivate?.(ctx);
 
-    tool.onPointerDown!(makePointerEvent(100, 100), ctx);
-    tool.onKeyDown!(makeKeyEvent('Enter'), ctx);
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
     expect(ctx.createShapeAt).toHaveBeenCalledWith({ x: 100, y: 100 }, { w: 4, h: 4 });
   });

@@ -1,6 +1,6 @@
 import { createEngine } from './engine';
 import { replayIr } from './replay';
-import type { Affine, Color, RenderItem, Shape } from './types';
+import type { Affine, EngineColor, RenderItem, Shape } from './types';
 
 interface LocalNode {
   id: string;
@@ -8,7 +8,7 @@ interface LocalNode {
   kind: string;
   shape?: Shape;
   transform?: Affine;
-  fill?: Color;
+  fill?: EngineColor;
   text?: string;
   fontSize?: number;
 }
@@ -86,7 +86,7 @@ function buildScene(doc: LocalDoc): { nodes: import('./types').SceneNode[] } {
         name: node.name,
         transform: node.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
         shape: node.shape,
-        fill: node.fill ?? ([200, 200, 200, 255] as Color),
+        fill: node.fill ?? { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
       });
     }
   }

@@ -10,7 +10,7 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import type { SceneNode, VariableStore } from '@strata/scene';
+import type { ManagedColor, SceneNode, VariableStore } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useState } from 'react';
@@ -78,7 +78,7 @@ export function PropertiesPanel() {
           {state.tool === 'frame' && summary.kind !== 'single' && (
             <FramePresetsSection mode="create" />
           )}
-          {summary.kind === 'empty' && <EmptySelectionState />}
+          {summary.kind === 'empty' && state.tool !== 'frame' && <EmptySelectionState />}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
         </div>
@@ -114,10 +114,10 @@ export function PropertiesPanel() {
 }
 
 function EmptySelectionState() {
-  const { state, setCanvasWidth, setCanvasHeight, setCanvasBackground } = useEditor();
+  const { state, setCanvasBackground } = useEditor();
   const doc = state.document;
   const count = Object.keys(doc.nodes).length;
-  const canvasBg = doc.canvasBackground ?? ([255, 255, 255, 255] as unknown);
+  const canvasBg: ManagedColor | undefined = doc.canvasBackground;
 
   return (
     <div className="insp-panel">
@@ -150,26 +150,12 @@ function EmptySelectionState() {
         description="Select a layer to edit its properties"
       />
       <DisclosureSection title="Canvas" defaultExpanded={true}>
-        <NumberField
-          label="Width"
-          unit="px"
-          value={doc.canvasWidth ?? 800}
-          min={1}
-          onChange={setCanvasWidth}
-        />
-        <NumberField
-          label="Height"
-          unit="px"
-          value={doc.canvasHeight ?? 600}
-          min={1}
-          onChange={setCanvasHeight}
-        />
         <div className="insp-field">
           <span className="insp-field__label">Background</span>
           <div className="insp-field__control">
             <ColorPicker
-              value={canvasBg as import('@strata/engine').Color}
-              onChange={setCanvasBackground}
+              value={canvasBg ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
+              onChange={(c) => setCanvasBackground(c as ManagedColor)}
             />
           </div>
         </div>
@@ -204,12 +190,12 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       <AdjustmentSection nodes={nodes} />
       <PositionSizeSection nodes={nodes} />
       {isRect && <CornerRadiusSection nodes={nodes} />}
+      {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />
-      {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
     </>
   );
 }

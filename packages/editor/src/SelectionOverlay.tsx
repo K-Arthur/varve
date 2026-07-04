@@ -10,7 +10,7 @@
  * Research basis: Figma/Penpot handle layout conventions; MDN SVG coordinate system.
  */
 import type { SceneNode } from '@strata/scene';
-import { useCallback, useRef } from 'react';
+import { Fragment, useCallback, useRef } from 'react';
 import { useEditor } from './context';
 import { nodeWorldBounds } from './scene/world';
 
@@ -28,6 +28,17 @@ const HANDLE_CURSORS = [
   'ns-resize',
   'nesw-resize',
   'ew-resize',
+];
+
+const HANDLE_LABELS = [
+  'Top-left resize handle',
+  'Top resize handle',
+  'Top-right resize handle',
+  'Right resize handle',
+  'Bottom-right resize handle',
+  'Bottom resize handle',
+  'Bottom-left resize handle',
+  'Left resize handle',
 ];
 
 interface DragState {
@@ -101,7 +112,7 @@ function unionBBox(boxes: ScreenBBox[]): ScreenBBox | null {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-function computeResize(
+export function computeResize(
   handleIndex: number,
   initX: number,
   initY: number,
@@ -111,7 +122,7 @@ function computeResize(
   dy: number,
   shiftKey: boolean = false,
   altKey: boolean = false,
-): { x: number; y: number; w: number; h: number } {
+): { x: number; y: number; w: number; h: number; flippedX?: boolean; flippedY?: boolean } {
   let x = initX,
     y = initY,
     w = initW,
@@ -154,6 +165,20 @@ function computeResize(
       break;
   }
 
+  let flippedX = false;
+  let flippedY = false;
+
+  if (w < 0) {
+    w = -w;
+    x = x - w;
+    flippedX = true;
+  }
+  if (h < 0) {
+    h = -h;
+    y = y - h;
+    flippedY = true;
+  }
+
   // Alt: resize from center
   if (altKey) {
     const cx = initX + initW / 2;
@@ -175,7 +200,7 @@ function computeResize(
   if (w < MIN_SIZE) w = MIN_SIZE;
   if (h < MIN_SIZE) h = MIN_SIZE;
 
-  return { x, y, w, h };
+  return { x, y, w, h, flippedX, flippedY };
 }
 
 export interface SelectionOverlayProps {
@@ -331,7 +356,14 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       // Convert world bounds back to local shape params
       if (node.kind === 'shape') {
         const s = node.shape;
-        if (s.kind === 'rect') {
+        if (
+          s.kind === 'rect' ||
+          s.kind === 'polygon' ||
+          s.kind === 'star' ||
+          s.kind === 'path' ||
+          s.kind === 'line' ||
+          s.kind === 'arrow'
+        ) {
           setNodePosition(g.nodeId, x, y);
           setNodeSize(g.nodeId, w, h);
         } else if (s.kind === 'ellipse') {
@@ -440,6 +472,15 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             stroke="var(--color-interactive-default)"
             strokeWidth={1}
           />
+          {/* Touch target (larger hit area, handles interaction) */}
+          <circle
+            cx={rotX}
+            cy={rotY}
+            r={8}
+            fill="transparent"
+            style={{ pointerEvents: hasInteractiveHandles ? 'auto' : 'none', cursor: 'grab' }}
+            onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, 8) : undefined}
+          />
           <circle
             cx={rotX}
             cy={rotY}
@@ -447,32 +488,66 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             fill="white"
             stroke="var(--color-interactive-default)"
             strokeWidth={1.5}
-            style={{ pointerEvents: hasInteractiveHandles ? 'auto' : 'none', cursor: 'grab' }}
-            onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, 8) : undefined}
+            aria-label="Rotate"
+            pointerEvents="none"
           />
         </>
       )}
 
       {handles.map(([hx, hy], i) => (
-        <rect
-          key={i}
-          x={hx - HANDLE_HALF}
-          y={hy - HANDLE_HALF}
-          width={HANDLE_HALF * 2}
-          height={HANDLE_HALF * 2}
-          fill="white"
-          stroke="var(--color-interactive-default)"
-          strokeWidth={1.5}
-          rx={1}
-          style={{
-            pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
-            cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
-          }}
-          onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
-        />
+        <Fragment key={i}>
+          {/* Touch target (larger hit area, handles interaction) */}
+          <rect
+            x={hx - 8}
+            y={hy - 8}
+            width={16}
+            height={16}
+            fill="transparent"
+            style={{
+              pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
+              cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
+            }}
+            onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
+          />
+          <rect
+            x={hx - HANDLE_HALF}
+            y={hy - HANDLE_HALF}
+            width={HANDLE_HALF * 2}
+            height={HANDLE_HALF * 2}
+            fill="white"
+            stroke="var(--color-interactive-default)"
+            strokeWidth={1.5}
+            rx={1}
+            aria-label={HANDLE_LABELS[i]}
+            pointerEvents="none"
+          />
+        </Fragment>
       ))}
 
       {isSingle && (
+        <>
+          {/* Touch target for pivot */}
+          <circle
+            cx={x + w / 2}
+            cy={y + h / 2}
+            r={8}
+            fill="transparent"
+            style={{ pointerEvents: 'auto', cursor: 'move' }}
+          />
+          <circle
+            cx={x + w / 2}
+            cy={y + h / 2}
+            r={4}
+            fill="white"
+            stroke="var(--color-interactive-default)"
+            strokeWidth={1.5}
+            aria-label="Transform origin"
+            pointerEvents="none"
+          />
+        </>
+      )}
+
+      {(isSingle || sel.length > 1) && (
         <text
           x={x + w + 6}
           y={y + 12}

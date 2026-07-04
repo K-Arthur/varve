@@ -13,6 +13,7 @@ import { isContainer } from '@strata/scene';
 import type { IconName } from '@strata/ui';
 import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { useThumbnail } from './useThumbnail';
 
 export interface LayersRowProps {
   node: SceneNode;
@@ -33,6 +34,8 @@ export interface LayersRowProps {
   style?: React.CSSProperties;
   dragListeners?: DraggableSyntheticListeners;
   dragAttributes?: DraggableAttributes;
+  /** Optional resolved variant name for component instances. */
+  variantName?: string;
 }
 
 const NODE_ICONS: Record<string, IconName> = {
@@ -46,6 +49,9 @@ const NODE_ICONS: Record<string, IconName> = {
   polygon: TOOL_ICONS.polygon,
   star: TOOL_ICONS.star,
   component: TOOL_ICONS.component,
+  image: TOOL_ICONS.image,
+  arrow: TOOL_ICONS.line,
+  path: 'Pen',
 };
 
 function nodeTypeIcon(n: SceneNode): IconName {
@@ -83,6 +89,7 @@ export const LayersRow = memo(function LayersRow({
   style,
   dragListeners,
   dragAttributes,
+  variantName,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +97,9 @@ export const LayersRow = memo(function LayersRow({
   const isGroup = node.kind === 'group';
   const isContainerNode = isContainer(node);
   const typeIcon = nodeTypeIcon(node);
+  const thumbnailDataUrl = useThumbnail(node);
+  const showThumbnail =
+    (node.kind === 'frame' || node.kind === 'image') && thumbnailDataUrl != null;
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
   const handleClick = useCallback(
@@ -204,6 +214,11 @@ export const LayersRow = memo(function LayersRow({
           <span className="layers-row__disclosure-spacer" />
         )}
 
+        {/* Thumbnail preview (frames and images) */}
+        {showThumbnail && (
+          <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
+        )}
+
         {/* Type icon */}
         <Icon
           name={typeIcon}
@@ -235,6 +250,10 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Instance badge */}
         {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
+        {/* Variant badge */}
+        {isInstance && !editing && variantName && (
+          <span className="layers-row__variant-badge">{variantName}</span>
+        )}
 
         {/* Visibility toggle */}
         <button

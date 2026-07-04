@@ -14,8 +14,9 @@
  *
  * Research basis: Figma / Sketch typography panel, APG Disclosure, Radiogroup.
  */
+import { getFontRegistry } from '@strata/engine';
 import type { SceneNode, TextNode } from '@strata/scene';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -23,14 +24,12 @@ import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
-import { commonValue, isMixed } from '../selection/selectionState';
+import { type MaybeMixed, commonValue, isMixed } from '../selection/selectionState';
 
 export interface TypographySectionProps {
   nodes: SceneNode[];
 }
 
-// TODO: Replace with FontRegistry once the local-first font system lands
-// (Strata plan Phase 2 — Assets). Kept as a static list for offline use.
 const SYSTEM_FONTS = [
   'Inter',
   'Arial',
@@ -100,12 +99,63 @@ const RESIZING_OPTIONS: { value: TextNode['textResizing']; label: string }[] = [
   { value: 'fixed', label: 'Fixed' },
 ];
 
+const OPENTYPE_FEATURE_LABELS: Record<string, string> = {
+  liga: 'Standard Ligatures',
+  dlig: 'Discretionary Ligatures',
+  sups: 'Superscript',
+  subs: 'Subscript',
+  numr: 'Numerators',
+  dnom: 'Denominators',
+  frac: 'Fractions',
+  ordn: 'Ordinals',
+  tnum: 'Tabular Numbers',
+  pnum: 'Proportional Numbers',
+  lnum: 'Lining Figures',
+  onum: 'Old-Style Figures',
+  zero: 'Slashed Zero',
+  ss01: 'Stylistic Set 1',
+  ss02: 'Stylistic Set 2',
+  ss03: 'Stylistic Set 3',
+  ss04: 'Stylistic Set 4',
+  ss05: 'Stylistic Set 5',
+  ss06: 'Stylistic Set 6',
+  ss07: 'Stylistic Set 7',
+  ss08: 'Stylistic Set 8',
+  ss09: 'Stylistic Set 9',
+  ss10: 'Stylistic Set 10',
+  kern: 'Kerning',
+  calt: 'Contextual Alternates',
+  case: 'Case-Sensitive Forms',
+  cpsp: 'Capital Spacing',
+  aalt: 'Access All Alternates',
+  salt: 'Stylistic Alternates',
+  locl: 'Localized Forms',
+  rlig: 'Required Ligatures',
+  mark: 'Mark Positioning',
+  mkmk: 'Mark-to-Mark Positioning',
+  ccmp: 'Glyph Composition',
+  init: 'Initial Forms',
+  medi: 'Medial Forms',
+  fina: 'Final Forms',
+  isol: 'Isolated Forms',
+};
+
+const COMMON_FEATURES = ['liga', 'dlig', 'kern', 'calt', 'tnum', 'pnum', 'lnum', 'onum', 'frac', 'zero', 'case', 'ss01', 'ss02', 'ss03'];
+
 function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
   return accessor(n as TextNode);
 }
 
 export function TypographySection({ nodes }: TypographySectionProps) {
   const editor = useEditor();
+  const [registryFonts, setRegistryFonts] = useState<string[]>([]);
+
+  useEffect(() => {
+    const registry = getFontRegistry();
+    setRegistryFonts(registry.families());
+  }, []);
+
+  const fonts = registryFonts.length > 0 ? registryFonts : SYSTEM_FONTS;
   const {
     updateNode,
     beginTransaction,
@@ -207,7 +257,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             }}
           >
             {isMixed(familyRaw) && <option value="">Mixed</option>}
-            {SYSTEM_FONTS.map((f) => (
+            {fonts.map((f) => (
               <option key={f} value={f}>
                 {f}
               </option>
@@ -370,10 +420,18 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             ))}
           </select>
         </FieldRow>
-        {/* OpenType features — stub until font system exposes them */}
-        <div className="insp-empty-message" style={{ paddingTop: 'var(--space-1)' }}>
-          OpenType features available once FontRegistry lands
-        </div>
+        {/* OpenType features */}
+        <OpenTypeFeaturesSection
+          textNodes={textNodes}
+          familyRaw={familyRaw}
+          batchUpdate={batchUpdate}
+        />
+        {/* Variable font axes */}
+        <VariableAxesSection
+          textNodes={textNodes}
+          familyRaw={familyRaw}
+          batchUpdate={batchUpdate}
+        />
         {/* Binding menu for typography numeric fields */}
         {bindingField &&
           ['fontSize', 'lineHeight', 'letterSpacing', 'paragraphSpacing'].includes(
@@ -391,6 +449,132 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             />
           )}
       </div>
+    </DisclosureSection>
+  );
+}
+
+// ── OpenType Features Sub-section ─────────────────────────────────────────
+
+interface OpenTypeFeaturesSectionProps {
+  textNodes: TextNode[];
+  familyRaw: MaybeMixed<string>;
+  batchUpdate: (updater: (node: TextNode) => TextNode) => void;
+}
+
+function OpenTypeFeaturesSection({
+  textNodes,
+  familyRaw,
+  batchUpdate,
+}: OpenTypeFeaturesSectionProps) {
+  const registry = getFontRegistry();
+  const family = isMixed(familyRaw) ? '' : familyRaw;
+  const supportedFeatures = family ? registry.getSupportedFeatures(family) : [];
+  const featuresToShow = supportedFeatures.length > 0 ? supportedFeatures : COMMON_FEATURES;
+
+  const currentFeatures = commonValue(textNodes, (n) => (n as TextNode).openTypeFeatures ?? {});
+  const featuresMap = isMixed(currentFeatures) ? {} : currentFeatures;
+
+  const toggleFeature = useCallback(
+    (tag: string, enabled: boolean) => {
+      batchUpdate((n) => ({
+        ...n,
+        openTypeFeatures: { ...(n.openTypeFeatures ?? {}), [tag]: enabled },
+      }));
+    },
+    [batchUpdate],
+  );
+
+  return (
+    <DisclosureSection title="OpenType Features" defaultExpanded={false}>
+      <div className="insp-opentype-list">
+        {featuresToShow.map((tag) => (
+          <label key={tag} className="insp-opentype-row">
+            <input
+              type="checkbox"
+              checked={featuresMap[tag] === true}
+              onChange={(e) => toggleFeature(tag, e.target.checked)}
+              aria-label={OPENTYPE_FEATURE_LABELS[tag] ?? tag}
+            />
+            <span className="insp-opentype-label">
+              {OPENTYPE_FEATURE_LABELS[tag] ?? tag}
+            </span>
+            <code className="insp-opentype-tag">{tag}</code>
+          </label>
+        ))}
+      </div>
+    </DisclosureSection>
+  );
+}
+
+// ── Variable Font Axes Sub-section ────────────────────────────────────────
+
+interface VariableAxesSectionProps {
+  textNodes: TextNode[];
+  familyRaw: MaybeMixed<string>;
+  batchUpdate: (updater: (node: TextNode) => TextNode) => void;
+}
+
+function VariableAxesSection({
+  textNodes,
+  familyRaw,
+  batchUpdate,
+}: VariableAxesSectionProps) {
+  const registry = getFontRegistry();
+  const family = isMixed(familyRaw) ? '' : familyRaw;
+  const isVariable = family ? registry.isVariable(family) : false;
+  const allAxes = registry.getAllAxes();
+
+  const currentAxes = commonValue(textNodes, (n) => (n as TextNode).variableAxes ?? {});
+  const axesMap = isMixed(currentAxes) ? {} : currentAxes;
+
+  if (!isVariable) return null;
+
+  const familyAxes = registry.getVariableAxes(family);
+  const activeAxisTags = familyAxes ? Object.keys(familyAxes) : allAxes.map((a) => a.tag);
+
+  const setAxis = useCallback(
+    (tag: string, value: number) => {
+      batchUpdate((n) => ({
+        ...n,
+        variableAxes: { ...(n.variableAxes ?? {}), [tag]: value },
+      }));
+    },
+    [batchUpdate],
+  );
+
+  return (
+    <DisclosureSection title="Variable Font Axes" defaultExpanded={false}>
+      {activeAxisTags.map((tag) => {
+        const info = registry.getAxisInfo(tag);
+        if (!info) return null;
+        const value = axesMap[tag] ?? info.default;
+        return (
+          <div key={tag} className="insp-field">
+            <label className="insp-field__label" htmlFor={`vf-${tag}`}>
+              {info.name}
+            </label>
+            <div className="insp-field__control">
+              <div className="insp-slider">
+                <input
+                  type="range"
+                  id={`vf-${tag}`}
+                  className="insp-slider__input"
+                  min={info.min}
+                  max={info.max}
+                  step={(info.max - info.min) / 100}
+                  value={value}
+                  onChange={(e) => setAxis(tag, Number(e.target.value))}
+                  aria-label={info.name}
+                  aria-valuemin={info.min}
+                  aria-valuemax={info.max}
+                  aria-valuenow={value}
+                />
+                <span className="insp-slider__value">{value}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </DisclosureSection>
   );
 }

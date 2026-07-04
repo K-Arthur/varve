@@ -12,7 +12,7 @@ function makeFrame(layoutStyle: FrameNode['layoutStyle']): FrameNode {
     h: 200,
     children: ['c1', 'c2'],
     layoutStyle,
-    fill: [0, 0, 0, 1],
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 1 },
     index: 0,
     order: 'a0',
     visible: true,
@@ -32,7 +32,7 @@ function makeChild(id: string, x: number, y: number, w: number, h: number): Scen
     kind: 'shape',
     transform: [1, 0, 0, 1, x, y],
     shape: { kind: 'rect', x: 0, y: 0, w, h },
-    fill: [0, 0, 0, 1],
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 1 },
     index: 0,
     order: 'a0',
     visible: true,
@@ -160,7 +160,7 @@ describe('computeFlexLayout', () => {
       name: 'Text',
       kind: 'text',
       transform: [1, 0, 0, 1, 0, 0],
-      fill: [0, 0, 0, 1],
+      fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 1 },
       index: 0,
       order: 'a0',
       visible: true,
@@ -187,8 +187,8 @@ describe('computeFlexLayout', () => {
     });
     const results = computeFlexLayout(frame, [textNode]);
     // fontSize 24 * text length 11 * 0.6 ≈ 158
-    expect(results[0]!.w).toBeGreaterThan(100);
-    expect(results[0]!.h).toBeCloseTo(24 * 1.4, 0);
+    expect(results[0]?.w).toBeGreaterThan(100);
+    expect(results[0]?.h).toBeCloseTo(24 * 1.4, 0);
   });
 
   it('layoutSizing fill distributes remaining space proportionally', () => {
@@ -207,8 +207,8 @@ describe('computeFlexLayout', () => {
     child2.layoutSizing = 'fill';
     const results = computeFlexLayout(frame, [child1, child2]);
     // Two fill children in 400px → each gets 200px
-    expect(results[0]!.w).toBe(200);
-    expect(results[1]!.w).toBe(200);
+    expect(results[0]?.w).toBe(200);
+    expect(results[1]?.w).toBe(200);
   });
 
   it('returns empty array for empty children list', () => {

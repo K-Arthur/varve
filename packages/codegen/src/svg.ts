@@ -5,7 +5,7 @@
  */
 
 import type { Affine } from '@strata/engine';
-import type { Document as SceneDocument, SceneNode } from '@strata/scene';
+import type { Document as SceneDocument, SceneNode, TextNode } from '@strata/scene';
 import { affineToSvg, escapeXml, getChildren, rgba, shapeVerticesToPoints } from './shared';
 
 export interface SvgExportOptions {
@@ -61,6 +61,82 @@ function fillToSvg(node: SceneNode, nodeId: string): { defs: string; fillAttr: s
   };
 }
 
+function buildTextContent(node: TextNode, indent: string): string {
+  const baseY = 0;
+  const lineHeight = (node.lineHeight ?? 1.2) * (node.fontSize ?? 16);
+  const childIndent = `${indent}  `;
+
+  if (!node.richText) {
+    let displayText = node.text ?? '';
+    if (node.textCase === 'uppercase') displayText = displayText.toUpperCase();
+    else if (node.textCase === 'lowercase') displayText = displayText.toLowerCase();
+    else if (node.textCase === 'capitalize')
+      displayText = displayText.replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+    const lines = displayText.split('\n');
+    return lines
+      .map((line: string, i: number) => {
+        const y = baseY + i * lineHeight;
+        let prefixed = line;
+        if (node.listStyle === 'disc') prefixed = `• ${line}`;
+        else if (node.listStyle === 'circle') prefixed = `○ ${line}`;
+        else if (node.listStyle === 'square') prefixed = `[ ] ${line}`;
+        else if (node.listStyle === 'decimal') prefixed = `${i + 1}. ${line}`;
+        return `${childIndent}<tspan x="0" y="${y.toFixed(2)}">${escapeXml(prefixed)}</tspan>`;
+      })
+      .join('\n');
+  }
+
+  // Rich text path: emit one tspan per run, preserving per-run formatting.
+  const spans: string[] = [];
+  let y = baseY;
+  for (const paragraph of node.richText.paragraphs) {
+    let x = 0;
+    for (const run of paragraph.runs) {
+      const runAttrs: string[] = [`x="${x.toFixed(2)}"`, `y="${y.toFixed(2)}"`];
+      const format = run.format ?? {};
+      if (format.fontFamily) runAttrs.push(`font-family="${escapeXml(format.fontFamily)}"`);
+      if (format.fontSize) runAttrs.push(`font-size="${format.fontSize}"`);
+      if (format.fontWeight) runAttrs.push(`font-weight="${format.fontWeight}"`);
+      if (format.fontStyle === 'italic') runAttrs.push(`font-style="italic"`);
+      if (format.letterSpacing) runAttrs.push(`letter-spacing="${format.letterSpacing}"`);
+      if (format.textDecoration && format.textDecoration !== 'none') {
+        runAttrs.push(`text-decoration="${format.textDecoration}"`);
+      }
+      if (format.color) runAttrs.push(`fill="${rgba(format.color)}"`);
+
+      const runStyleParts: string[] = [];
+      if (format.variableFontSettings && Object.keys(format.variableFontSettings).length > 0) {
+        const settings = Object.entries(format.variableFontSettings)
+          .map(([tag, value]) => `"${tag}" ${value}`)
+          .join(', ');
+        runStyleParts.push(`font-variation-settings: ${settings};`);
+      }
+      if (format.openTypeFeatures && Object.keys(format.openTypeFeatures).length > 0) {
+        const features = Object.entries(format.openTypeFeatures)
+          .filter(([tag]) => tag !== 'custom')
+          .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
+          .join(', ');
+        if (features) runStyleParts.push(`font-feature-settings: ${features};`);
+        const custom = format.openTypeFeatures.custom;
+        if (custom) {
+          const customFeatures = Object.entries(custom)
+            .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
+            .join(', ');
+          if (customFeatures) runStyleParts.push(`font-feature-settings: ${customFeatures};`);
+        }
+      }
+      if (runStyleParts.length > 0) runAttrs.push(`style="${runStyleParts.join(' ')}"`);
+
+      spans.push(`${childIndent}<tspan ${runAttrs.join(' ')}>${escapeXml(run.text)}</tspan>`);
+      // Approximate advance for positioning; a real layout engine would provide exact metrics.
+      x += run.text.length * (format.fontSize ?? node.fontSize ?? 16) * 0.6;
+    }
+    y += lineHeight;
+  }
+  return spans.join('\n');
+}
+
 function nodeToSvgTag(
   node: SceneNode,
   doc: SceneDocument,
@@ -90,8 +166,55 @@ function nodeToSvgTag(
       }
       break;
     }
-    case 'text':
-      return `${indent}<text x="0" y="0" fill="${fillAttr}" font-size="${node.fontSize}"${withTransform}>${escapeXml(node.text)}</text>`;
+    case 'text': {
+      const textNode = node as TextNode;
+      const attrs: string[] = [
+        `x="0"`,
+        `y="0"`,
+        `fill="${fillAttr}"`,
+        `font-size="${textNode.fontSize}"`,
+      ];
+      if (textNode.fontFamily) attrs.push(`font-family="${escapeXml(textNode.fontFamily)}"`);
+      if (textNode.fontWeight) attrs.push(`font-weight="${textNode.fontWeight}"`);
+      if (textNode.fontStyle === 'italic') attrs.push(`font-style="italic"`);
+      if (textNode.textAlign)
+        attrs.push(
+          `text-anchor="${textNode.textAlign === 'center' ? 'middle' : textNode.textAlign === 'right' ? 'end' : 'start'}"`,
+        );
+      if (textNode.letterSpacing) attrs.push(`letter-spacing="${textNode.letterSpacing}"`);
+      if (textNode.lineHeight) attrs.push(`line-height="${textNode.lineHeight}"`);
+      if (textNode.textDecoration && textNode.textDecoration !== 'none') {
+        attrs.push(`text-decoration="${textNode.textDecoration}"`);
+      }
+
+      const styleParts: string[] = [];
+      if (textNode.variableAxes && Object.keys(textNode.variableAxes).length > 0) {
+        const settings = Object.entries(textNode.variableAxes)
+          .map(([tag, value]) => `"${tag}" ${value}`)
+          .join(', ');
+        styleParts.push(`font-variation-settings: ${settings};`);
+      }
+      if (textNode.openTypeFeatures && Object.keys(textNode.openTypeFeatures).length > 0) {
+        const features = Object.entries(textNode.openTypeFeatures)
+          .filter(([tag]) => tag !== 'custom')
+          .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
+          .join(', ');
+        if (features) styleParts.push(`font-feature-settings: ${features};`);
+        const custom = textNode.openTypeFeatures.custom;
+        if (custom) {
+          const customFeatures = Object.entries(custom)
+            .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
+            .join(', ');
+          if (customFeatures) styleParts.push(`font-feature-settings: ${customFeatures};`);
+        }
+      }
+      if (styleParts.length > 0) attrs.push(`style="${styleParts.join(' ')}"`);
+
+      const t = affineToSvg(transform);
+      const withTransform = ` transform="${t}"`;
+      const content = buildTextContent(textNode, indent);
+      return `${indent}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
+    }
     case 'frame':
     case 'group': {
       const children = getChildren(doc, node)

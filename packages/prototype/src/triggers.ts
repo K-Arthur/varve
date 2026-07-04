@@ -9,6 +9,11 @@
 import type { PrototypeState, Trigger } from './types';
 
 /**
+ * Tracks the last time each trigger was matched for debounce.
+ */
+const _lastTriggeredAt = new WeakMap<Trigger, number>();
+
+/**
  * Runtime event that can trigger prototype interactions.
  */
 export type PrototypeEvent =
@@ -50,59 +55,150 @@ export function matchTrigger(
   nodeId: string,
   _state: PrototypeState,
 ): boolean {
+  const now = Date.now();
+  if (trigger.debounce !== undefined && trigger.debounce > 0) {
+    const lastTime = _lastTriggeredAt.get(trigger);
+    if (lastTime !== undefined && now - lastTime < trigger.debounce) {
+      return false;
+    }
+  }
+
+  let matched = false;
+
   switch (trigger.kind) {
     case 'onClick':
-      return event.type === 'click' && event.nodeId === nodeId;
+      matched = event.type === 'click' && event.nodeId === nodeId;
+      break;
     case 'onTap':
-      return event.type === 'tap' && event.nodeId === nodeId;
+      matched = event.type === 'tap' && event.nodeId === nodeId;
+      break;
     case 'onHover':
     case 'onMouseEnter':
-      return event.type === 'mouseenter' && event.nodeId === nodeId;
+      matched = event.type === 'mouseenter' && event.nodeId === nodeId;
+      break;
     case 'onHoverEnd':
     case 'onMouseLeave':
-      return event.type === 'mouseleave' && event.nodeId === nodeId;
+      matched = event.type === 'mouseleave' && event.nodeId === nodeId;
+      break;
     case 'onDrag':
-      if (event.type !== 'drag') return false;
-      if (trigger.threshold !== undefined && event.distance < trigger.threshold) return false;
-      if (trigger.direction && trigger.direction !== 'any' && event.direction !== trigger.direction)
-        return false;
-      return event.nodeId === nodeId;
-    case 'onScroll':
-      if (event.type !== 'scroll') return false;
-      if (trigger.direction && trigger.direction !== 'any') {
-        if (trigger.direction === 'up' && event.scrollDelta.y >= 0) return false;
-        if (trigger.direction === 'down' && event.scrollDelta.y <= 0) return false;
-        if (trigger.direction === 'left' && event.scrollDelta.x >= 0) return false;
-        if (trigger.direction === 'right' && event.scrollDelta.x <= 0) return false;
+      if (event.type !== 'drag') {
+        matched = false;
+        break;
       }
-      return true;
-    case 'onKeyPress':
-      if (event.type !== 'keydown') return false;
-      if (event.key !== trigger.key) return false;
-      if (trigger.modifiers) {
-        for (const mod of trigger.modifiers) {
-          if (mod === 'ctrl' && !event.ctrlKey) return false;
-          if (mod === 'alt' && !event.altKey) return false;
-          if (mod === 'shift' && !event.shiftKey) return false;
-          if (mod === 'meta' && !event.metaKey) return false;
+      if (trigger.threshold !== undefined && event.distance < trigger.threshold) {
+        matched = false;
+        break;
+      }
+      if (
+        trigger.direction &&
+        trigger.direction !== 'any' &&
+        event.direction !== trigger.direction
+      ) {
+        matched = false;
+        break;
+      }
+      matched = event.nodeId === nodeId;
+      break;
+    case 'onScroll':
+      if (event.type !== 'scroll') {
+        matched = false;
+        break;
+      }
+      if (trigger.direction && trigger.direction !== 'any') {
+        if (trigger.direction === 'up' && event.scrollDelta.y >= 0) {
+          matched = false;
+          break;
+        }
+        if (trigger.direction === 'down' && event.scrollDelta.y <= 0) {
+          matched = false;
+          break;
+        }
+        if (trigger.direction === 'left' && event.scrollDelta.x >= 0) {
+          matched = false;
+          break;
+        }
+        if (trigger.direction === 'right' && event.scrollDelta.x <= 0) {
+          matched = false;
+          break;
         }
       }
-      return true;
+      matched = true;
+      break;
+    case 'onKeyPress':
+      if (event.type !== 'keydown') {
+        matched = false;
+        break;
+      }
+      if (event.key !== trigger.key) {
+        matched = false;
+        break;
+      }
+      if (trigger.modifiers) {
+        let modsOk = true;
+        for (const mod of trigger.modifiers) {
+          if (mod === 'ctrl' && !event.ctrlKey) {
+            modsOk = false;
+            break;
+          }
+          if (mod === 'alt' && !event.altKey) {
+            modsOk = false;
+            break;
+          }
+          if (mod === 'shift' && !event.shiftKey) {
+            modsOk = false;
+            break;
+          }
+          if (mod === 'meta' && !event.metaKey) {
+            modsOk = false;
+            break;
+          }
+        }
+        if (!modsOk) {
+          matched = false;
+          break;
+        }
+      }
+      matched = true;
+      break;
     case 'onFocus':
-      return event.type === 'focus' && event.nodeId === nodeId;
+      matched = event.type === 'focus' && event.nodeId === nodeId;
+      break;
     case 'afterDelay':
-      return event.type === 'timeout';
+      matched = event.type === 'timeout';
+      break;
     case 'onVariableChange':
-      if (event.type !== 'variableChange') return false;
-      if (trigger.variableId !== event.variableId) return false;
-      if (trigger.equals !== undefined && trigger.equals !== event.newValue) return false;
-      return true;
+      if (event.type !== 'variableChange') {
+        matched = false;
+        break;
+      }
+      if (trigger.variableId !== event.variableId) {
+        matched = false;
+        break;
+      }
+      if (trigger.equals !== undefined && trigger.equals !== event.newValue) {
+        matched = false;
+        break;
+      }
+      matched = true;
+      break;
     case 'onMediaQuery':
-      if (event.type !== 'mediaQuery') return false;
-      return event.matches && event.query === trigger.query;
+      if (event.type !== 'mediaQuery') {
+        matched = false;
+        break;
+      }
+      matched = event.matches && event.query === trigger.query;
+      break;
     case 'onLoad':
-      return event.type === 'load';
+      matched = event.type === 'load';
+      break;
     default:
-      return false;
+      matched = false;
+      break;
   }
+
+  if (matched && trigger.debounce !== undefined && trigger.debounce > 0) {
+    _lastTriggeredAt.set(trigger, now);
+  }
+
+  return matched;
 }

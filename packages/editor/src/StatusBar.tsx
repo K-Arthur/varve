@@ -14,6 +14,7 @@ export function StatusBar() {
     fitAll,
     selectedNodes,
     rootNodes,
+    clearAllGuides,
   } = useEditor();
   const sel = selectedNodes();
 
@@ -69,6 +70,17 @@ export function StatusBar() {
       >
         <Icon name="Magnet" size={12} />
       </button>
+      {state.document.guides && state.document.guides.length > 0 && (
+        <button
+          type="button"
+          onClick={() => clearAllGuides()}
+          aria-label="Clear all guides"
+          className="editor-status__toggle"
+          title="Clear all guides"
+        >
+          <Icon name="RemoveFormatting" size={12} />
+        </button>
+      )}
       <span aria-hidden>—</span>
       <button
         type="button"

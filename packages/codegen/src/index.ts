@@ -5,9 +5,13 @@
  * SVG, Flutter, and SwiftUI output. All exports are local-only:
  * zero network round-trips.
  */
-import type { Affine, Color } from '@strata/engine';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
+import type { Affine } from '@strata/engine';
+import type { Document, NodeId, SceneNode, ManagedColor } from '@strata/scene';
 
+export { timelineToCSSKeyframes } from './animation-css';
+export { timelineToLottieJSON } from './animation-lottie';
+export { timelineToSVGAnimations } from './animation-svg';
 export { exportNodeToCss } from './css';
 export { exportNodeToCssModules } from './css-modules';
 export { exportNodeToFlutter } from './flutter';
@@ -27,8 +31,9 @@ export interface SvgExportOptions {
   styleMode?: 'inline' | 'presentation';
 }
 
-function rgba(c: Color): string {
-  return `rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(3)})`;
+function rgba(c: ManagedColor): string {
+  const [r, g, b, a] = managedColorToRgba(c);
+  return `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
 }
 
 function affineToSvg(t: Affine): string {
@@ -103,7 +108,7 @@ export function computeDocumentBounds(doc: Document): {
 
   for (const id of doc.rootChildren) {
     const node = doc.nodes[id];
-    if (!node || !node.visible) continue;
+    if (!node?.visible) continue;
     hasNodes = true;
     const tx = node.transform[4] ?? 0;
     const ty = node.transform[5] ?? 0;

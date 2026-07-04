@@ -23,7 +23,26 @@ import {
   stripExtension,
   uuid,
 } from './pure';
-import type { FileEntry, HomeViewState, OpenFileResult, Project, ThumbnailRecord } from './types';
+import type {
+  ActivityEvent,
+  Asset,
+  Branch,
+  Collection,
+  FileEntry,
+  Folder,
+  HomeViewState,
+  Library,
+  OpenFileResult,
+  Permission,
+  Project,
+  ProjectTemplate,
+  SavedSearch,
+  Tag,
+  TemplateLibrary,
+  ThumbnailRecord,
+  VersionEntry,
+  Workspace,
+} from './types';
 
 const DB_NAME = 'strata-home';
 const DB_VERSION = 1;
@@ -195,6 +214,230 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       if (!p) return;
       await db.put(STORE_PROJECTS, { ...p, pinned });
     },
+
+    // ─── Phase 1: Drafts ────────────────────────────────────────────────────
+    async listDrafts() {
+      const all = await db.getAllFromIndex(STORE_FILES, 'updatedAt');
+      return all
+        .map((r) => r.entry)
+        .filter((e) => e.projectId === '__drafts__' && e.trashedAt === null);
+    },
+    async moveFileToDrafts(id) {
+      const rec = await db.get(STORE_FILES, id);
+      if (!rec) return;
+      await db.put(STORE_FILES, {
+        ...rec,
+        entry: { ...rec.entry, projectId: '__drafts__', updatedAt: Date.now() },
+      });
+    },
+    async promoteFromDrafts(id, projectId) {
+      const rec = await db.get(STORE_FILES, id);
+      if (!rec) return;
+      await db.put(STORE_FILES, {
+        ...rec,
+        entry: { ...rec.entry, projectId, updatedAt: Date.now() },
+      });
+    },
+
+    // ─── Phase 2: Folders ───────────────────────────────────────────────────
+    async listFolders() {
+      return [] as Folder[];
+    },
+    async createFolder() {
+      throw new Error('folders not supported on web');
+    },
+    async renameFolder() {
+      throw new Error('folders not supported on web');
+    },
+    async deleteFolder() {
+      throw new Error('folders not supported on web');
+    },
+    async moveFileToFolder() {
+      throw new Error('folders not supported on web');
+    },
+    async reorderFolder() {
+      throw new Error('folders not supported on web');
+    },
+
+    // ─── Phase 2: Collections ───────────────────────────────────────────────
+    async listCollections() {
+      return [] as Collection[];
+    },
+    async createCollection() {
+      throw new Error('collections not supported on web');
+    },
+    async updateCollection() {
+      throw new Error('collections not supported on web');
+    },
+    async deleteCollection() {
+      throw new Error('collections not supported on web');
+    },
+    async addFileToCollection() {
+      throw new Error('collections not supported on web');
+    },
+    async removeFileFromCollection() {
+      throw new Error('collections not supported on web');
+    },
+    async listCollectionFiles() {
+      throw new Error('collections not supported on web');
+    },
+    async reorderCollection() {
+      throw new Error('collections not supported on web');
+    },
+
+    // ─── Phase 3: Workspaces ────────────────────────────────────────────────
+    async listWorkspaces() {
+      return [] as Workspace[];
+    },
+    async createWorkspace() {
+      throw new Error('workspaces not supported on web');
+    },
+    async renameWorkspace() {
+      throw new Error('workspaces not supported on web');
+    },
+    async deleteWorkspace() {
+      throw new Error('workspaces not supported on web');
+    },
+    async moveProjectToWorkspace() {
+      throw new Error('workspaces not supported on web');
+    },
+
+    // ─── Phase 3: Shared Libraries ──────────────────────────────────────────
+    async listLibraries() {
+      return [] as Library[];
+    },
+    async createLibrary() {
+      throw new Error('libraries not supported on web');
+    },
+    async enableLibrary() {
+      throw new Error('libraries not supported on web');
+    },
+    async deleteLibrary() {
+      throw new Error('libraries not supported on web');
+    },
+
+    // ─── Phase 4: Content-Aware Search ─────────────────────────────────────
+    async searchFileContent() {
+      return [] as string[];
+    },
+
+    // ─── Phase 5: Templates ─────────────────────────────────────────────────
+    async listTemplates() {
+      return [] as TemplateLibrary[];
+    },
+    async createTemplateFromFile() {
+      throw new Error('templates not supported on web');
+    },
+    async deleteTemplate() {
+      throw new Error('templates not supported on web');
+    },
+    async searchTemplates() {
+      return [] as TemplateLibrary[];
+    },
+    async listProjectTemplates() {
+      return [] as ProjectTemplate[];
+    },
+    async createProjectFromTemplate() {
+      throw new Error('templates not supported on web');
+    },
+
+    // ─── Phase 6: Assets ────────────────────────────────────────────────────
+    async listAssets() {
+      return [] as Asset[];
+    },
+    async importAsset() {
+      throw new Error('assets not supported on web');
+    },
+    async deleteAsset() {
+      throw new Error('assets not supported on web');
+    },
+    async searchAssets() {
+      return [] as Asset[];
+    },
+    async createAssetFolder() {
+      throw new Error('assets not supported on web');
+    },
+    async deleteAssetFolder() {
+      throw new Error('assets not supported on web');
+    },
+
+    // ─── Phase 7: Version History ───────────────────────────────────────────
+    async listVersions() {
+      return [] as VersionEntry[];
+    },
+    async saveVersion() {
+      throw new Error('versions not supported on web');
+    },
+    async restoreVersion() {
+      throw new Error('versions not supported on web');
+    },
+    async deleteVersionInfo() {
+      throw new Error('versions not supported on web');
+    },
+    async listBranches() {
+      return [] as Branch[];
+    },
+    async createBranch() {
+      throw new Error('versions not supported on web');
+    },
+
+    // ─── Phase 8: Collaboration Foundation ──────────────────────────────────
+    async listPermissions() {
+      return [] as Permission[];
+    },
+    async setPermission() {
+      throw new Error('permissions not supported on web');
+    },
+    async listActivity() {
+      return [] as ActivityEvent[];
+    },
+    async recordActivity() {
+      throw new Error('activity not supported on web');
+    },
+
+    // ─── Phase 9: Tags & Metadata ─────────────────────────────────────────
+    async listTags() {
+      return [] as Tag[];
+    },
+    async createTag(_workspaceId: string, name: string, _color?: string) {
+      const now = Date.now();
+      const tag: Tag = {
+        id: uuid(),
+        workspaceId: _workspaceId,
+        name,
+        color: _color,
+        createdAt: now,
+        updatedAt: now,
+      };
+      return tag;
+    },
+    async renameTag() {},
+    async deleteTag() {},
+    async listFileTags() {
+      return [] as Tag[];
+    },
+    async addFileTag() {},
+    async removeFileTag() {},
+    async listFilesByTag() {
+      return [] as FileEntry[];
+    },
+
+    // ─── Phase 9: Saved Searches ──────────────────────────────────────────
+    async listSavedSearches() {
+      return [] as SavedSearch[];
+    },
+    async createSavedSearch(name: string, query: string) {
+      const now = Date.now();
+      const search: SavedSearch = {
+        id: uuid(),
+        name,
+        query,
+        createdAt: now,
+        updatedAt: now,
+      };
+      return search;
+    },
+    async deleteSavedSearch() {},
 
     async searchFiles(query) {
       if (!query.trim()) return [];

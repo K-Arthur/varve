@@ -1,5 +1,5 @@
 import { exportDocumentToSvg } from '@strata/codegen';
-import { CHROME_ICONS, IconButton } from '@strata/ui';
+import { CHROME_ICONS, IconButton, StrataLogo } from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -98,7 +98,21 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
         action: 'toggleSnap',
       },
-      { label: 'Home', shortcut: '\u21E7\u2318H', action: 'home' },
+      {
+        label: 'Soft Proofing',
+        shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
+        action: 'softProof',
+      },
+      { label: '---' },
+      {
+        label: 'Clear All Guides',
+        action: 'clearGuides',
+      },
+      {
+        label: 'Home',
+        shortcut: formatShortcut(SHORTCUT_DEFS.home.binding),
+        action: 'home',
+      },
     ],
   },
   {
@@ -200,8 +214,12 @@ export function Menubar({
     ungroupSelected,
     arrangeSelected,
     setSnapEnabled,
+    setSoftProofEnabled,
     booleanOp,
     startPresentation,
+    clearAllGuides,
+    save,
+    saveAs,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -274,17 +292,11 @@ export function Menubar({
           if (confirm('Create a new document? Unsaved changes will be lost.')) newDocument();
           break;
         case 'save':
-        case 'saveAs': {
-          const json = serializeDocument();
-          const blob = new Blob([json], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${state.document.name || 'untitled'}.strata.json`;
-          a.click();
-          URL.revokeObjectURL(url);
+          save();
           break;
-        }
+        case 'saveAs':
+          saveAs();
+          break;
         case 'open':
           document.querySelector<HTMLInputElement>('#file-open-input')?.click();
           break;
@@ -353,6 +365,12 @@ export function Menubar({
         case 'toggleSnap':
           setSnapEnabled(!state.snapEnabled);
           break;
+        case 'softProof':
+          setSoftProofEnabled(!state.softProofEnabled);
+          break;
+        case 'clearGuides':
+          clearAllGuides();
+          break;
         case 'booleanUnion':
           booleanOp('union');
           break;
@@ -391,6 +409,8 @@ export function Menubar({
       onBackToHome,
       onOpenSettings,
       onStartTour,
+      save,
+      saveAs,
     ],
   );
 
@@ -528,8 +548,17 @@ export function Menubar({
       onMouseLeave={() => setOpenMenu(null)}
       onKeyDown={handleMenuKeyDown}
     >
-      {/* ── Left: Menu buttons ── */}
+      {/* ── Left: Home button + Menu buttons ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+        <button
+          type="button"
+          className="editor-menubar__home"
+          aria-label="Home (Ctrl+Shift+H)"
+          title="Home (Ctrl+Shift+H)"
+          onClick={() => onBackToHome?.()}
+        >
+          <StrataLogo size={16} />
+        </button>
         {MENUS.map((menu, i) => (
           <div key={menu.id} style={{ position: 'relative' }}>
             <button

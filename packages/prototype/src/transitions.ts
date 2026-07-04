@@ -89,7 +89,7 @@ export function animateScreenTransition(
   transition: TransitionConfig,
   progress: number,
   currentScreenState: { x: number; y: number; opacity: number },
-  _smartAnimateValues?: Record<string, Record<string, unknown>>,
+  smartAnimateValues?: Record<string, Record<string, unknown>>,
 ): ScreenTransitionState {
   const easedT = getEasingFn(transition.easing)(progress);
   const anim = createTransitionAnimation(transition);
@@ -149,7 +149,39 @@ export function animateScreenTransition(
     };
   }
 
-  // smartAnimate — handled by runtime with layer matching
+  // smartAnimate — layer-level property interpolation
+  if (transition.kind === 'smartAnimate') {
+    if (smartAnimateValues && Object.keys(smartAnimateValues).length > 0) {
+      // Compute average per-property interpolation progress across all matched layers
+      let totalProgress = 0;
+      let propCount = 0;
+      for (const layerValues of Object.values(smartAnimateValues)) {
+        for (const _val of Object.values(layerValues)) {
+          totalProgress += easedT;
+          propCount++;
+        }
+      }
+      const avgProgress = propCount > 0 ? totalProgress / propCount : easedT;
+      return {
+        outOffsetX: 0,
+        outOffsetY: 0,
+        outOpacity: 1 - avgProgress,
+        inOffsetX: avgProgress * 50,
+        inOffsetY: 0,
+        inOpacity: avgProgress,
+      };
+    }
+    // Fall back to dissolve when no smart animate values
+    return {
+      outOffsetX: 0,
+      outOffsetY: 0,
+      outOpacity: 1 - easedT,
+      inOffsetX: 0,
+      inOffsetY: 0,
+      inOpacity: easedT,
+    };
+  }
+
   return {
     outOffsetX: 0,
     outOffsetY: 0,

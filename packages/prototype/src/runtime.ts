@@ -10,8 +10,8 @@
  * pattern for predictable state transitions.
  */
 
-import { processInteractions } from './interactions';
 import type { ActionResult } from './actions';
+import { processInteractions } from './interactions';
 import type { Interaction, NodeId, PrototypeState, PrototypeVariable } from './types';
 
 /**
@@ -73,9 +73,26 @@ export function handleEvent(
 
 /**
  * Apply an action result to the runtime state.
+ * If delay > 0, the result is scheduled as a pending delay instead of applying immediately.
  * Mutates the runtime state directly (the runtime owns state).
  */
-export function applyActionResult(runtime: PrototypeRuntime, result: ActionResult): void {
+let _nextActionIndex = 0;
+
+export function applyActionResult(
+  runtime: PrototypeRuntime,
+  result: ActionResult,
+  delay?: number,
+): void {
+  if (delay !== undefined && delay > 0) {
+    const actionIndex = _nextActionIndex++;
+    runtime.pendingDelays.push({
+      interactionId: 'delayed',
+      actionIndex,
+      resolveAt: Date.now() + delay,
+    });
+    return;
+  }
+
   switch (result.kind) {
     case 'navigateTo':
       runtime.state.currentScreenId = result.targetId;
@@ -184,4 +201,33 @@ export function setVariable(
  */
 export function getActiveOverlays(runtime: PrototypeRuntime): string[] {
   return [...runtime.state.overlayStack];
+}
+
+/**
+ * Process pending delays and return completed actions.
+ * Each completed entry identifies which interaction/action resolved.
+ */
+export interface CompletedDelay {
+  interactionId: string;
+  actionIndex: number;
+}
+
+export function processDelays(runtime: PrototypeRuntime, _deltaMs: number): CompletedDelay[] {
+  const completed: CompletedDelay[] = [];
+  const now = Date.now();
+  const remaining: typeof runtime.pendingDelays = [];
+
+  for (const pending of runtime.pendingDelays) {
+    if (pending.resolveAt <= now) {
+      completed.push({
+        interactionId: pending.interactionId,
+        actionIndex: pending.actionIndex,
+      });
+    } else {
+      remaining.push(pending);
+    }
+  }
+
+  runtime.pendingDelays = remaining;
+  return completed;
 }

@@ -8,6 +8,10 @@
  * codegen, and print can all import them.
  */
 
+import type { RenderingIntent } from './colorManagement';
+
+export type { RenderingIntent };
+
 export type ExportFormat =
   | 'png'
   | 'jpg'
@@ -27,8 +31,6 @@ export type ExportScale =
   | { type: 'factor'; value: number }
   | { type: 'width'; pixels: number }
   | { type: 'height'; pixels: number };
-
-export type RenderingIntent = 'perceptual' | 'relative' | 'absolute' | 'saturation';
 
 export interface RasterOptions {
   scale: ExportScale;

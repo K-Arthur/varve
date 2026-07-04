@@ -1,17 +1,23 @@
 import { describe, expect, it } from 'vitest';
+import { makeFileEntry } from './memory';
 import {
   compareBy,
   contentHash,
   defaultViewState,
   detectFileKind,
   emptyFilter,
+  evaluateSmartCollection,
+  extractTrigrams,
   formatBytes,
   formatRelativeTime,
+  fuzzyScore,
+  fuzzySearch,
   isImportableKind,
   mergeViewState,
   stripExtension,
   uuid,
 } from './pure';
+import type { Collection, FileEntry } from './types';
 
 describe('detectFileKind', () => {
   it('maps known extensions', () => {
@@ -142,5 +148,180 @@ describe('uuid', () => {
   it('produces unique-ish ids', () => {
     const set = new Set(Array.from({ length: 50 }, () => uuid()));
     expect(set.size).toBe(50);
+  });
+});
+
+describe('extractTrigrams', () => {
+  it('extracts padded trigrams from a string', () => {
+    const trigrams = extractTrigrams('cat');
+    expect(trigrams.length).toBe(4);
+    expect(trigrams).toContain('  c');
+    expect(trigrams).toContain(' ca');
+    expect(trigrams).toContain('cat');
+    expect(trigrams).toContain('at ');
+  });
+
+  it('returns empty array for empty string', () => {
+    expect(extractTrigrams('')).toEqual([]);
+  });
+});
+
+describe('fuzzyScore', () => {
+  it('returns 1 for exact substring match', () => {
+    expect(fuzzyScore('cat', 'category')).toBe(1);
+  });
+
+  it('returns 0 for empty query or candidate', () => {
+    expect(fuzzyScore('', 'hello')).toBe(0);
+    expect(fuzzyScore('hello', '')).toBe(0);
+  });
+
+  it('scores typos partially', () => {
+    const score = fuzzyScore('ctr', 'cat');
+    expect(score).toBeGreaterThan(0);
+    expect(score).toBeLessThan(1);
+  });
+
+  it('returns 0 for completely unrelated strings', () => {
+    expect(fuzzyScore('xyz', 'abc')).toBe(0);
+  });
+
+  it('gives prefix bonus', () => {
+    const prefixScore = fuzzyScore('cat', 'category');
+    const nonPrefixScore = fuzzyScore('cat', 'cart');
+    expect(prefixScore).toBeGreaterThan(nonPrefixScore);
+  });
+});
+
+describe('fuzzySearch', () => {
+  const items = ['Apple', 'Banana', 'Apricot', 'Cherry'];
+
+  it('returns all items when query is empty', () => {
+    expect(fuzzySearch('', items, (s) => s)).toEqual(items);
+  });
+
+  it('filters and sorts by relevance', () => {
+    const results = fuzzySearch('ap', items, (s) => s);
+    expect(results).toContain('Apple');
+    expect(results).toContain('Apricot');
+    expect(results[0]).toBe('Apple');
+  });
+
+  it('tolerates typos', () => {
+    const results = fuzzySearch('aple', items, (s) => s, 0.2);
+    expect(results).toContain('Apple');
+  });
+
+  it('returns empty for no matches above threshold', () => {
+    expect(fuzzySearch('zzz', items, (s) => s)).toEqual([]);
+  });
+});
+
+describe('evaluateSmartCollection', () => {
+  const files: FileEntry[] = [
+    makeFileEntry({
+      id: '1',
+      name: 'Logo Design',
+      kind: 'strata',
+      projectId: 'proj1',
+      updatedAt: 1000,
+    }),
+    makeFileEntry({
+      id: '2',
+      name: 'Hero Image',
+      kind: 'image',
+      projectId: 'proj2',
+      updatedAt: 2000,
+    }),
+    makeFileEntry({
+      id: '3',
+      name: 'Old File',
+      kind: 'strata',
+      projectId: 'proj1',
+      updatedAt: 500,
+      trashedAt: 100,
+    }),
+  ];
+
+  it('returns empty for manual collection', () => {
+    const collection: Collection = {
+      id: 'c1',
+      name: 'Manual',
+      createdAt: 0,
+      updatedAt: 0,
+      ordering: '',
+      filter: { type: 'manual' },
+    };
+    expect(evaluateSmartCollection(collection, files)).toEqual([]);
+  });
+
+  it('filters by query', () => {
+    const collection: Collection = {
+      id: 'c2',
+      name: 'Logo',
+      createdAt: 0,
+      updatedAt: 0,
+      ordering: '',
+      filter: { type: 'smart', query: 'logo' },
+    };
+    const result = evaluateSmartCollection(collection, files);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe('Logo Design');
+  });
+
+  it('filters by kind', () => {
+    const collection: Collection = {
+      id: 'c3',
+      name: 'Images',
+      createdAt: 0,
+      updatedAt: 0,
+      ordering: '',
+      filter: { type: 'smart', kinds: ['image'] },
+    };
+    const result = evaluateSmartCollection(collection, files);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe('Hero Image');
+  });
+
+  it('filters by projectId', () => {
+    const collection: Collection = {
+      id: 'c4',
+      name: 'Proj1 Files',
+      createdAt: 0,
+      updatedAt: 0,
+      ordering: '',
+      filter: { type: 'smart', projectIds: ['proj1'] },
+    };
+    const result = evaluateSmartCollection(collection, files);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe('Logo Design');
+  });
+
+  it('filters by date range', () => {
+    const collection: Collection = {
+      id: 'c5',
+      name: 'Recent',
+      createdAt: 0,
+      updatedAt: 0,
+      ordering: '',
+      filter: { type: 'smart', dateFrom: 1500 },
+    };
+    const result = evaluateSmartCollection(collection, files);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe('Hero Image');
+  });
+
+  it('excludes trashed files', () => {
+    const collection: Collection = {
+      id: 'c6',
+      name: 'All Strata',
+      createdAt: 0,
+      updatedAt: 0,
+      ordering: '',
+      filter: { type: 'smart', kinds: ['strata'] },
+    };
+    const result = evaluateSmartCollection(collection, files);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe('Logo Design');
   });
 });

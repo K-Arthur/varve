@@ -4,6 +4,7 @@
  * B4: Spec tab — spacing, type styles, palette via buildSpec/specToMarkdown.
  */
 
+import { managedColorToRgba } from '@strata/shared';
 import { buildSpec, specToMarkdown } from '@strata/codegen';
 import { useState } from 'react';
 import { ExportPresetPanel } from './components/Export/ExportPresetPanel';
@@ -126,20 +127,22 @@ function SpecTab({ doc }: { doc: import('@strata/scene').Document }) {
       {spec.palette.length > 0 && (
         <SpecSection title="Palette">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
-            {spec.palette.map((c, i) => (
-              <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: palette order is stable
-                key={i}
-                title={`rgba(${c[0]},${c[1]},${c[2]},${c[3]})`}
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 'var(--radius-sm)',
-                  background: `rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(2)})`,
-                  border: '1px solid var(--color-border-subtle)',
-                }}
-              />
-            ))}
+            {spec.palette.map((c, i) => {
+              const [r, g, b, a] = managedColorToRgba(c);
+              return (
+                <div
+                  key={i}
+                  title={`rgba(${r},${g},${b},${a})`}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 'var(--radius-sm)',
+                    background: `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`,
+                    border: '1px solid var(--color-border-subtle)',
+                  }}
+                />
+              );
+            })}
           </div>
         </SpecSection>
       )}

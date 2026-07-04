@@ -1,12 +1,14 @@
-import type { FileEntry, Project } from '@strata/platform';
+import type { FileEntry, Folder, Platform, Project } from '@strata/platform';
 import { Button, Icon } from '@strata/ui';
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileGrid } from './FileGrid';
+import { FolderView } from './FolderView';
 
 export interface ProjectsViewProps {
   project: Project | null;
   files: readonly FileEntry[];
   thumbnails: Map<string, string | null>;
+  platform: Platform;
   onOpen: (entry: FileEntry) => void;
   onContext: (e: React.MouseEvent, entry: FileEntry) => void;
   onRename: (id: string, name: string) => void;
@@ -26,6 +28,7 @@ export function ProjectsView({
   project,
   files,
   thumbnails,
+  platform,
   onOpen,
   onContext,
   onRename,
@@ -42,6 +45,25 @@ export function ProjectsView({
 }: ProjectsViewProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project?.name ?? '');
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!project) return;
+    platform
+      .listFolders(project.id)
+      .then(setFolders)
+      .catch(() => setFolders([]));
+  }, [platform, project]);
+
+  const folderFiles = useMemo(
+    () => files.filter((f) => f.projectId === project?.id),
+    [files, project],
+  );
+
+  const handleNavigate = useCallback((folderId: string | null) => {
+    setActiveFolderId(folderId);
+  }, []);
 
   if (!project) {
     return <div>Project not found</div>;
@@ -108,6 +130,18 @@ export function ProjectsView({
           </Button>
         </div>
       </div>
+      {folders.length > 0 && (
+        <FolderView
+          platform={platform}
+          projectId={project.id}
+          folderId={activeFolderId}
+          files={folderFiles}
+          folders={folders}
+          onNavigate={handleNavigate}
+          onOpenFile={onOpen}
+          onSelect={(ids) => onSelect(ids[0] ?? '')}
+        />
+      )}
       <FileGrid
         files={files}
         thumbnails={thumbnails}

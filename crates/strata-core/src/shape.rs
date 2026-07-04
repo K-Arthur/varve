@@ -18,6 +18,7 @@ pub struct PathPoint {
 
 /// First-pass shape set. Bézier paths arrive with the lyon integration.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum Shape {
     Rect(Rect),
     /// Axis-aligned ellipse (center + semi-axes).
@@ -80,6 +81,24 @@ pub enum Shape {
         y: f64,
         w: f64,
         h: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "letterSpacing")]
+        letter_spacing: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "lineHeight")]
+        line_height: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "textCase")]
+        text_case: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "textDecoration")]
+        text_decoration: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "openTypeFeatures")]
+        open_type_features: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "variableAxes")]
+        variable_axes: Option<serde_json::Value>,
     },
 }
 

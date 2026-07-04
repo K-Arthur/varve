@@ -6,7 +6,7 @@
  *
  * Research basis: MDN EyeDropper API, Figma eyedropper (I).
  */
-import type { Color } from '@strata/engine';
+import type { ManagedColor } from '@strata/scene';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -47,12 +47,13 @@ export class EyedropperTool extends BaseTool {
       const y = (e.clientY - rect.top) * scaleY;
       const pixel = canvas.getContext('2d')?.getImageData(x, y, 1, 1).data;
       if (pixel) {
-        const color: Color = [
-          pixel[0] as number,
-          pixel[1] as number,
-          pixel[2] as number,
-          pixel[3] as number,
-        ];
+        const color = {
+          space: 'rgb' as const,
+          r: pixel[0] as number,
+          g: pixel[1] as number,
+          b: pixel[2] as number,
+          a: pixel[3] as number,
+        };
         for (const id of sel) {
           ctx.updateNode(id, (n) => ({ ...n, fill: color }));
         }
@@ -70,13 +71,14 @@ export class EyedropperTool extends BaseTool {
     return false;
   }
 
-  private hexToColor(hex: string): Color {
+  private hexToColor(hex: string): ManagedColor {
     const h = hex.replace('#', '');
-    return [
-      parseInt(h.slice(0, 2), 16),
-      parseInt(h.slice(2, 4), 16),
-      parseInt(h.slice(4, 6), 16),
-      255,
-    ] as Color;
+    return {
+      space: 'rgb' as const,
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+      a: 255,
+    };
   }
 }

@@ -5,7 +5,12 @@
  * Token-aware: when a variable store is provided, emits theme tokens instead.
  */
 
-import type { Document as SceneDocument, SceneNode, VariableStore } from '@strata/scene';
+import type {
+  Document as SceneDocument,
+  ManagedColor,
+  SceneNode,
+  VariableStore,
+} from '@strata/scene';
 import { colorToHex, computeNodePos, escapeXml } from './shared';
 import { resolveTokenName } from './tokens';
 
@@ -34,11 +39,7 @@ function heightClass(px: number, av: boolean): string {
   return `h-[${px}px]`;
 }
 
-function bgClass(
-  c: readonly [number, number, number, number],
-  node: SceneNode,
-  opts?: TailwindExportOptions,
-): string {
+function bgClass(c: ManagedColor, node: SceneNode, opts?: TailwindExportOptions): string {
   const tokenName = opts?.variableStore
     ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
     : undefined;

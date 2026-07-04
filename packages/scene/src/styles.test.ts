@@ -5,7 +5,7 @@
  * style usage tracking, orphan detection, duplication.
  */
 import { describe, expect, it } from 'vitest';
-import { addNode, createDocument, makeFrameNode, makeShapeNode, makeTextNode } from './document';
+import { addNode, createDocument, makeShapeNode, makeTextNode } from './document';
 import {
   applyStyleToNode,
   createColorStyle,
@@ -29,7 +29,7 @@ describe('Style System — Color Styles', () => {
     const doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -38,7 +38,7 @@ describe('Style System — Color Styles', () => {
 
     expect(style.type).toBe('color');
     expect(style.name).toBe('Teal Primary');
-    expect(style.fill.color).toEqual([57, 208, 198, 255]);
+    expect(style.fill.color).toEqual({"space":"rgb","r":57,"g":208,"b":198,"a":255});
     expect(newDoc.styles?.[style.id]).toBeDefined();
   });
 
@@ -49,8 +49,8 @@ describe('Style System — Color Styles', () => {
       gradient: {
         type: 'linear',
         stops: [
-          { position: 0, color: [255, 0, 0, 255] },
-          { position: 1, color: [0, 0, 255, 255] },
+          { position: 0, color: {"space":"rgb","r":255,"g":0,"b":0,"a":255} },
+          { position: 1, color: {"space":"rgb","r":0,"g":0,"b":255,"a":255} },
         ],
       },
       opacity: 1,
@@ -66,7 +66,7 @@ describe('Style System — Color Styles', () => {
     const doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [0, 0, 0, 255],
+      color: {"space":"rgb","r":0,"g":0,"b":0,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -114,7 +114,7 @@ describe('Style System — Effect Styles', () => {
         y: 4,
         blur: 8,
         spread: 0,
-        color: [0, 0, 0, 76],
+        color: {"space":"rgb","r":0,"g":0,"b":0,"a":76},
         opacity: 0.3,
         blendMode: 'normal',
         visible: true,
@@ -123,7 +123,7 @@ describe('Style System — Effect Styles', () => {
     const { style } = createEffectStyle(doc, 'Card Shadow', effects);
     expect(style.type).toBe('effect');
     expect(style.effects).toHaveLength(1);
-    expect(style.effects[0].type).toBe('dropShadow');
+    expect(style.effects?.[0]?.type).toBe('dropShadow');
   });
 
   it('creates an effect style with multiple effects', () => {
@@ -135,7 +135,7 @@ describe('Style System — Effect Styles', () => {
         y: 2,
         blur: 4,
         spread: 0,
-        color: [0, 0, 0, 38],
+        color: {"space":"rgb","r":0,"g":0,"b":0,"a":38},
         opacity: 0.15,
         blendMode: 'normal',
         visible: true,
@@ -155,6 +155,7 @@ describe('Style System — Layout Styles', () => {
       direction: 'column',
       gap: 16,
       padding: [0, 0, 0, 0],
+      wrap: false,
       grow: 0,
       shrink: 0,
       alignItems: 'center',
@@ -173,7 +174,7 @@ describe('Style System — Update & Delete', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -189,7 +190,7 @@ describe('Style System — Update & Delete', () => {
     let doc = createDocument('test');
     const fill1: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -199,7 +200,7 @@ describe('Style System — Update & Delete', () => {
 
     const fill2: Fill = {
       type: 'solid',
-      color: [255, 0, 0, 255],
+      color: {"space":"rgb","r":255,"g":0,"b":0,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -214,7 +215,7 @@ describe('Style System — Update & Delete', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -233,7 +234,7 @@ describe('Style System — Apply & Unlink', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -241,7 +242,7 @@ describe('Style System — Apply & Unlink', () => {
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
 
-    const shape = makeShapeNode('n1', { kind: 'rect', w: 100, h: 100 });
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
     doc = addNode(doc, shape);
 
     doc = applyStyleToNode(doc, 'n1', style.id);
@@ -264,7 +265,7 @@ describe('Style System — Apply & Unlink', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -272,13 +273,13 @@ describe('Style System — Apply & Unlink', () => {
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
 
-    const shape = makeShapeNode('n1', { kind: 'rect', w: 100, h: 100 });
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
     doc = addNode(doc, shape);
     doc = applyStyleToNode(doc, 'n1', style.id);
     expect(doc.nodes.n1?.styleId).toBe(style.id);
 
     doc = unlinkStyleFromNode(doc, 'n1');
-    expect((doc.nodes.n1 as unknown as Record<string, unknown>).styleId).toBeUndefined();
+    expect((doc.nodes.n1 as unknown as { styleId?: string }).styleId).toBeUndefined();
   });
 });
 
@@ -287,7 +288,7 @@ describe('Style System — Query & Resolve', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -309,7 +310,7 @@ describe('Style System — Query & Resolve', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -318,7 +319,7 @@ describe('Style System — Query & Resolve', () => {
     doc = d1;
     const { doc: d2 } = createColorStyle(doc, 'Red', {
       type: 'solid',
-      color: [255, 0, 0, 255],
+      color: {"space":"rgb","r":255,"g":0,"b":0,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -340,7 +341,7 @@ describe('Style System — Usage Tracking', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -349,15 +350,15 @@ describe('Style System — Usage Tracking', () => {
     doc = d1;
     const { style: s2, doc: d2 } = createColorStyle(doc, 'Red', {
       type: 'solid',
-      color: [255, 0, 0, 255],
+      color: {"space":"rgb","r":255,"g":0,"b":0,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
     });
     doc = d2;
 
-    const shape1 = makeShapeNode('n1', { kind: 'rect', w: 100, h: 100 });
-    const shape2 = makeShapeNode('n2', { kind: 'rect', w: 50, h: 50 });
+    const shape1 = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const shape2 = makeShapeNode('n2', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
     doc = addNode(doc, shape1);
     doc = addNode(doc, shape2);
 
@@ -372,7 +373,7 @@ describe('Style System — Usage Tracking', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -380,8 +381,8 @@ describe('Style System — Usage Tracking', () => {
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
 
-    const shape1 = makeShapeNode('n1', { kind: 'rect', w: 100, h: 100 });
-    const shape2 = makeShapeNode('n2', { kind: 'rect', w: 50, h: 50 });
+    const shape1 = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const shape2 = makeShapeNode('n2', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
     doc = addNode(doc, shape1);
     doc = addNode(doc, shape2);
 
@@ -425,7 +426,7 @@ describe('Style System — Overrides & Duplicates', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: [57, 208, 198, 255],
+      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -476,7 +477,7 @@ describe('Style System — Edge Cases', () => {
 
   it('handles unlink on node without style', () => {
     let doc = createDocument('test');
-    const shape = makeShapeNode('n1', { kind: 'rect', w: 100, h: 100 });
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
     doc = addNode(doc, shape);
     doc = unlinkStyleFromNode(doc, 'n1');
     expect(doc.nodes.n1).toBeDefined();

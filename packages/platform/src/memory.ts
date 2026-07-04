@@ -11,13 +11,55 @@
  */
 import type { Platform } from './platform';
 import { contentHash, defaultViewState, uuid } from './pure';
-import type { FileEntry, HomeViewState, OpenFileResult, Project, ThumbnailRecord } from './types';
+import type {
+  ActivityEvent,
+  Asset,
+  AssetFolder,
+  Branch,
+  Collection,
+  CollectionEntry,
+  FileEntry,
+  FileTag,
+  Folder,
+  HomeViewState,
+  Library,
+  OpenFileResult,
+  Permission,
+  Project,
+  ProjectTemplate,
+  SavedSearch,
+  Tag,
+  TemplateLibrary,
+  ThumbnailRecord,
+  VersionEntry,
+  Workspace,
+} from './types';
 
 interface MemoryState {
   files: Map<string, { entry: FileEntry; json: string }>;
   projects: Map<string, Project>;
   thumbnails: Map<string, ThumbnailRecord>;
   view: HomeViewState;
+  folders: Map<string, Folder>;
+  collections: Map<string, Collection>;
+  collectionEntries: Map<string, CollectionEntry[]>;
+  workspaces: Map<string, Workspace>;
+  libraries: Map<string, Library>;
+  templates: Map<string, TemplateLibrary>;
+  projectTemplates: Map<string, ProjectTemplate>;
+  assets: Map<string, Asset>;
+  assetFolders: Map<string, AssetFolder>;
+  versions: Map<string, VersionEntry[]>;
+  branches: Map<string, Branch[]>;
+  permissions: Map<string, Permission[]>;
+  activity: ActivityEvent[];
+  tags: Map<string, Tag>;
+  fileTags: Map<string, FileTag[]>;
+  savedSearches: Map<string, SavedSearch>;
+  /** Separate maps for associations not on the entity types. */
+  fileFolderIds: Map<string, string | null>;
+  assetFolderIds: Map<string, string | null>;
+  projectWorkspaceIds: Map<string, string>;
 }
 
 function freshState(): MemoryState {
@@ -26,6 +68,25 @@ function freshState(): MemoryState {
     projects: new Map(),
     thumbnails: new Map(),
     view: defaultViewState(),
+    folders: new Map(),
+    collections: new Map(),
+    collectionEntries: new Map(),
+    workspaces: new Map(),
+    libraries: new Map(),
+    templates: new Map(),
+    projectTemplates: new Map(),
+    assets: new Map(),
+    assetFolders: new Map(),
+    versions: new Map(),
+    branches: new Map(),
+    permissions: new Map(),
+    activity: [],
+    tags: new Map(),
+    fileTags: new Map(),
+    savedSearches: new Map(),
+    fileFolderIds: new Map(),
+    assetFolderIds: new Map(),
+    projectWorkspaceIds: new Map(),
   };
 }
 
@@ -33,6 +94,14 @@ export interface MemoryPlatformOptions {
   /** Seed files/projects for demos/tests. */
   files?: Array<{ entry: FileEntry; json: string }>;
   projects?: Project[];
+  folders?: Folder[];
+  collections?: Collection[];
+  workspaces?: Workspace[];
+  libraries?: Library[];
+  templates?: TemplateLibrary[];
+  projectTemplates?: ProjectTemplate[];
+  assets?: Asset[];
+  assetFolders?: AssetFolder[];
   /** Initial view state (merged over defaults). */
   view?: Partial<HomeViewState>;
 }
@@ -41,6 +110,14 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
   const state: MemoryState = freshState();
   for (const f of options.files ?? []) state.files.set(f.entry.id, f);
   for (const p of options.projects ?? []) state.projects.set(p.id, p);
+  for (const f of options.folders ?? []) state.folders.set(f.id, f);
+  for (const c of options.collections ?? []) state.collections.set(c.id, c);
+  for (const w of options.workspaces ?? []) state.workspaces.set(w.id, w);
+  for (const l of options.libraries ?? []) state.libraries.set(l.id, l);
+  for (const t of options.templates ?? []) state.templates.set(t.id, t);
+  for (const t of options.projectTemplates ?? []) state.projectTemplates.set(t.id, t);
+  for (const a of options.assets ?? []) state.assets.set(a.id, a);
+  for (const f of options.assetFolders ?? []) state.assetFolders.set(f.id, f);
   if (options.view) {
     state.view = {
       ...state.view,
@@ -48,6 +125,19 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       sort: { ...state.view.sort, ...(options.view.sort ?? {}) },
       filter: { ...state.view.filter, ...(options.view.filter ?? {}) },
     };
+  }
+
+  // Auto-create a "Personal" workspace if none exist
+  if (state.workspaces.size === 0) {
+    const now = Date.now();
+    const personal: Workspace = {
+      id: uuid(),
+      name: 'Personal',
+      kind: 'personal',
+      createdAt: now,
+      updatedAt: now,
+    };
+    state.workspaces.set(personal.id, personal);
   }
 
   const liveFiles = (): FileEntry[] =>
@@ -193,6 +283,442 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     },
     async setViewState(next) {
       state.view = { ...next, sort: { ...next.sort }, filter: { ...next.filter } };
+    },
+
+    // ─── Phase 1: Drafts ─────────────────────────────────────────────────
+    async listDrafts() {
+      return [...state.files.values()]
+        .map((r) => r.entry)
+        .filter((e) => e.projectId === '__drafts__' && e.trashedAt === null);
+    },
+    async moveFileToDrafts(id) {
+      const rec = state.files.get(id);
+      if (!rec) return;
+      rec.entry = { ...rec.entry, projectId: '__drafts__', updatedAt: Date.now() };
+    },
+    async promoteFromDrafts(id, projectId) {
+      const rec = state.files.get(id);
+      if (!rec) return;
+      rec.entry = { ...rec.entry, projectId, updatedAt: Date.now() };
+    },
+
+    // ─── Phase 2: Folders ────────────────────────────────────────────────
+    async listFolders(projectId) {
+      return [...state.folders.values()].filter((f) => f.projectId === projectId);
+    },
+    async createFolder(projectId, name, parentId) {
+      const now = Date.now();
+      const folder: Folder = {
+        id: uuid(),
+        name,
+        projectId,
+        parentId: parentId ?? null,
+        createdAt: now,
+        updatedAt: now,
+        ordering: '',
+      };
+      state.folders.set(folder.id, folder);
+      return folder;
+    },
+    async renameFolder(id, name) {
+      const f = state.folders.get(id);
+      if (!f) return;
+      state.folders.set(id, { ...f, name, updatedAt: Date.now() });
+    },
+    async deleteFolder(id) {
+      state.folders.delete(id);
+    },
+    async moveFileToFolder(fileId, folderId) {
+      state.fileFolderIds.set(fileId, folderId);
+    },
+    async reorderFolder(id, ordering) {
+      const f = state.folders.get(id);
+      if (!f) return;
+      state.folders.set(id, { ...f, ordering, updatedAt: Date.now() });
+    },
+
+    // ─── Phase 2: Collections ────────────────────────────────────────────
+    async listCollections() {
+      return [...state.collections.values()];
+    },
+    async createCollection(name, opts) {
+      const now = Date.now();
+      const collection: Collection = {
+        id: uuid(),
+        name,
+        createdAt: now,
+        updatedAt: now,
+        ordering: '',
+        ...opts,
+      };
+      state.collections.set(collection.id, collection);
+      return collection;
+    },
+    async updateCollection(id, patch) {
+      const c = state.collections.get(id);
+      if (!c) return;
+      state.collections.set(id, { ...c, ...patch, updatedAt: Date.now() });
+    },
+    async deleteCollection(id) {
+      state.collections.delete(id);
+      state.collectionEntries.delete(id);
+    },
+    async addFileToCollection(collectionId, fileId) {
+      const existing = state.collectionEntries.get(collectionId) ?? [];
+      if (existing.some((ce) => ce.fileId === fileId)) return;
+      existing.push({ collectionId, fileId, addedAt: Date.now() });
+      state.collectionEntries.set(collectionId, existing);
+    },
+    async removeFileFromCollection(collectionId, fileId) {
+      const existing = state.collectionEntries.get(collectionId);
+      if (!existing) return;
+      state.collectionEntries.set(
+        collectionId,
+        existing.filter((ce) => ce.fileId !== fileId),
+      );
+    },
+    async listCollectionFiles(collectionId) {
+      const entries = state.collectionEntries.get(collectionId);
+      if (!entries) return [];
+      const fileIds = new Set(entries.map((ce) => ce.fileId));
+      return [...state.files.values()]
+        .map((r) => r.entry)
+        .filter((e) => fileIds.has(e.id) && e.trashedAt === null);
+    },
+    async reorderCollection(id, ordering) {
+      const c = state.collections.get(id);
+      if (!c) return;
+      state.collections.set(id, { ...c, ordering, updatedAt: Date.now() });
+    },
+
+    // ─── Phase 3: Workspaces ─────────────────────────────────────────────
+    async listWorkspaces() {
+      return [...state.workspaces.values()];
+    },
+    async createWorkspace(name, kind) {
+      const now = Date.now();
+      const workspace: Workspace = {
+        id: uuid(),
+        name,
+        kind: kind ?? 'personal',
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.workspaces.set(workspace.id, workspace);
+      return workspace;
+    },
+    async renameWorkspace(id, name) {
+      const w = state.workspaces.get(id);
+      if (!w) return;
+      state.workspaces.set(id, { ...w, name, updatedAt: Date.now() });
+    },
+    async deleteWorkspace(id) {
+      state.workspaces.delete(id);
+    },
+    async moveProjectToWorkspace(projectId, workspaceId) {
+      state.projectWorkspaceIds.set(projectId, workspaceId);
+      const p = state.projects.get(projectId);
+      if (p) {
+        state.projects.set(projectId, { ...p, workspaceId, updatedAt: Date.now() });
+      }
+    },
+
+    // ─── Phase 3: Libraries ──────────────────────────────────────────────
+    async listLibraries(workspaceId) {
+      return [...state.libraries.values()].filter((l) => l.workspaceId === workspaceId);
+    },
+    async createLibrary(workspaceId, name, kind) {
+      const now = Date.now();
+      const library: Library = {
+        id: uuid(),
+        workspaceId,
+        name,
+        kind: kind ?? 'components',
+        enabled: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.libraries.set(library.id, library);
+      return library;
+    },
+    async enableLibrary(id, enabled) {
+      const l = state.libraries.get(id);
+      if (!l) return;
+      state.libraries.set(id, { ...l, enabled, updatedAt: Date.now() });
+    },
+    async deleteLibrary(id) {
+      state.libraries.delete(id);
+    },
+
+    // ─── Phase 4: Content-Aware Search ──────────────────────────────────
+    async searchFileContent(_fileId, _query) {
+      return [];
+    },
+
+    // ─── Phase 5: Templates ──────────────────────────────────────────────
+    async listTemplates(source) {
+      const all = [...state.templates.values()];
+      if (!source || source.length === 0) return all;
+      return all.filter((t) => source.includes(t.source));
+    },
+    async createTemplateFromFile(fileId, name, category) {
+      const rec = state.files.get(fileId);
+      const now = Date.now();
+      const template: TemplateLibrary = {
+        id: uuid(),
+        name,
+        description: '',
+        category,
+        previewHash: rec?.entry.contentHash ?? '00000000',
+        source: 'user',
+        documentJson: rec?.json ?? '',
+        tags: [],
+        usageCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.templates.set(template.id, template);
+      return template;
+    },
+    async deleteTemplate(id) {
+      state.templates.delete(id);
+    },
+    async searchTemplates(query) {
+      if (!query.trim()) return [...state.templates.values()];
+      const q = query.toLowerCase();
+      return [...state.templates.values()].filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          t.category.toLowerCase().includes(q),
+      );
+    },
+    async listProjectTemplates() {
+      return [...state.projectTemplates.values()];
+    },
+    async createProjectFromTemplate(templateId, name) {
+      const template = state.projectTemplates.get(templateId);
+      if (!template) return;
+      const now = Date.now();
+      const project: Project = {
+        id: uuid(),
+        name,
+        createdAt: now,
+        updatedAt: now,
+        pinned: false,
+        trashedAt: null,
+      };
+      state.projects.set(project.id, project);
+    },
+
+    // ─── Phase 6: Assets ──────────────────────────────────────────────────
+    async listAssets(workspaceId, folderId) {
+      return [...state.assets.values()].filter((a) => {
+        if (a.workspaceId !== workspaceId) return false;
+        if (folderId !== undefined && state.assetFolderIds.get(a.id) !== folderId) return false;
+        return true;
+      });
+    },
+    async importAsset(workspaceId, name, data, mimeType) {
+      const now = Date.now();
+      const asset: Asset = {
+        id: uuid(),
+        workspaceId,
+        name,
+        kind: 'other',
+        mimeType,
+        size: data.length,
+        tags: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.assets.set(asset.id, asset);
+      return asset;
+    },
+    async deleteAsset(id) {
+      state.assets.delete(id);
+    },
+    async searchAssets(query) {
+      if (!query.trim()) return [...state.assets.values()];
+      const q = query.toLowerCase();
+      return [...state.assets.values()].filter((a) => a.name.toLowerCase().includes(q));
+    },
+    async createAssetFolder(workspaceId, name, parentId) {
+      const now = Date.now();
+      const folder: AssetFolder = {
+        id: uuid(),
+        workspaceId,
+        name,
+        parentId: parentId ?? null,
+        createdAt: now,
+      };
+      state.assetFolders.set(folder.id, folder);
+      return folder;
+    },
+    async deleteAssetFolder(id) {
+      state.assetFolders.delete(id);
+    },
+
+    // ─── Phase 7: Version History ─────────────────────────────────────────
+    async listVersions(fileId) {
+      return [...(state.versions.get(fileId) ?? [])];
+    },
+    async saveVersion(fileId, name, description) {
+      const rec = state.files.get(fileId);
+      const now = Date.now();
+      const version: VersionEntry = {
+        id: uuid(),
+        fileId,
+        name,
+        description,
+        documentHash: rec?.entry.contentHash ?? '00000000',
+        timestamp: now,
+        kind: name ? 'named' : 'checkpoint',
+      };
+      const list = state.versions.get(fileId) ?? [];
+      list.push(version);
+      state.versions.set(fileId, list);
+      return version;
+    },
+    async restoreVersion(fileId, versionId) {
+      const list = state.versions.get(fileId);
+      if (!list) return '';
+      const version = list.find((v) => v.id === versionId);
+      return version?.documentHash ?? '';
+    },
+    async deleteVersionInfo(versionId) {
+      for (const [fileId, list] of state.versions) {
+        const filtered = list.filter((v) => v.id !== versionId);
+        if (filtered.length !== list.length) {
+          state.versions.set(fileId, filtered);
+          return;
+        }
+      }
+    },
+    async listBranches(fileId) {
+      return [...(state.branches.get(fileId) ?? [])];
+    },
+    async createBranch(fileId, name, baseVersionId) {
+      const now = Date.now();
+      const branch: Branch = {
+        id: uuid(),
+        name,
+        fileId,
+        baseVersionId,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now,
+      };
+      const list = state.branches.get(fileId) ?? [];
+      list.push(branch);
+      state.branches.set(fileId, list);
+      return branch;
+    },
+
+    // ─── Phase 8: Collaboration Foundation ────────────────────────────────
+    async listPermissions(fileId) {
+      return [...(state.permissions.get(fileId) ?? [])];
+    },
+    async setPermission(fileId, role) {
+      const list = state.permissions.get(fileId) ?? [];
+      list.push({ fileId, role, grantedAt: Date.now() });
+      state.permissions.set(fileId, list);
+    },
+    async listActivity(workspaceId, limit) {
+      const filtered = state.activity.filter((e) => e.workspaceId === workspaceId);
+      const sorted = filtered.sort((a, b) => b.timestamp - a.timestamp);
+      return limit ? sorted.slice(0, limit) : sorted;
+    },
+    async recordActivity(event) {
+      const activityEvent: ActivityEvent = {
+        ...event,
+        id: uuid(),
+        timestamp: Date.now(),
+      };
+      state.activity.push(activityEvent);
+    },
+
+    // ─── Phase 9: Tags & Metadata ─────────────────────────────────────────
+    async listTags(workspaceId) {
+      return [...state.tags.values()].filter((t) => t.workspaceId === workspaceId);
+    },
+    async createTag(workspaceId, name, color) {
+      const now = Date.now();
+      const tag: Tag = {
+        id: uuid(),
+        workspaceId,
+        name,
+        color,
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.tags.set(tag.id, tag);
+      return tag;
+    },
+    async renameTag(id, name) {
+      const t = state.tags.get(id);
+      if (!t) return;
+      state.tags.set(id, { ...t, name, updatedAt: Date.now() });
+    },
+    async deleteTag(id) {
+      state.tags.delete(id);
+      for (const [fileId, tags] of state.fileTags) {
+        state.fileTags.set(
+          fileId,
+          tags.filter((ft) => ft.tagId !== id),
+        );
+      }
+    },
+    async listFileTags(fileId) {
+      const tags = state.fileTags.get(fileId) ?? [];
+      return tags.map((ft) => state.tags.get(ft.tagId)).filter((t): t is Tag => t !== undefined);
+    },
+    async addFileTag(fileId, tagId) {
+      const existing = state.fileTags.get(fileId) ?? [];
+      if (existing.some((ft) => ft.tagId === tagId)) return;
+      existing.push({ fileId, tagId, addedAt: Date.now() });
+      state.fileTags.set(fileId, existing);
+    },
+    async removeFileTag(fileId, tagId) {
+      const existing = state.fileTags.get(fileId);
+      if (!existing) return;
+      state.fileTags.set(
+        fileId,
+        existing.filter((ft) => ft.tagId !== tagId),
+      );
+    },
+    async listFilesByTag(tagId) {
+      const fileIds = new Set(
+        [...state.fileTags.values()]
+          .flat()
+          .filter((ft) => ft.tagId === tagId)
+          .map((ft) => ft.fileId),
+      );
+      return [...state.files.values()]
+        .map((r) => r.entry)
+        .filter((e) => fileIds.has(e.id) && e.trashedAt === null);
+    },
+
+    // ─── Phase 9: Saved Searches ──────────────────────────────────────────
+    async listSavedSearches() {
+      return [...state.savedSearches.values()];
+    },
+    async createSavedSearch(name, query, kinds, tagIds) {
+      const now = Date.now();
+      const search: SavedSearch = {
+        id: uuid(),
+        name,
+        query,
+        kinds: kinds as SavedSearch['kinds'],
+        tagIds,
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.savedSearches.set(search.id, search);
+      return search;
+    },
+    async deleteSavedSearch(id) {
+      state.savedSearches.delete(id);
     },
 
     // No native dialogs in memory mode — these intentionally return null/empty

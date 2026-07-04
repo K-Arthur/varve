@@ -2,6 +2,10 @@ const PNG_HEADER = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG_HEADER = [0xff, 0xd8, 0xff];
 const WEBP_HEADER = [0x52, 0x49, 0x46, 0x46];
 const WEBP_MAGIC = [0x57, 0x45, 0x42, 0x50];
+const GIF_HEADER = [0x47, 0x49, 0x46, 0x38];
+const TIFF_LE_HEADER = [0x49, 0x49, 0x2a, 0x00];
+const TIFF_BE_HEADER = [0x4d, 0x4d, 0x00, 0x2a];
+const AVIF_HEADER = [0x00, 0x00, 0x00]; // box size prefix, followed by 'ftypavif'
 
 export interface ImageDimensions {
   w: number;
@@ -23,6 +27,21 @@ export function getImageDimensions(data: Uint8Array): ImageDimensions {
     const magic = Array.from(data.slice(8, 12));
     if (arraysEqual(magic, WEBP_MAGIC)) {
       return readWebpDimensions(data);
+    }
+  }
+
+  if (startsWith(header, GIF_HEADER)) {
+    return readGifDimensions(data);
+  }
+
+  if (startsWith(header, TIFF_LE_HEADER) || startsWith(header, TIFF_BE_HEADER)) {
+    return readTiffDimensions(data);
+  }
+
+  if (data.length >= 12 && startsWith(header, AVIF_HEADER)) {
+    const ftyp = Array.from(data.slice(4, 12));
+    if (arraysEqual(ftyp, [0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66])) {
+      return readAvifDimensions(data);
     }
   }
 
@@ -147,4 +166,117 @@ function readUint24LE(data: Uint8Array, offset: number): number {
   return (
     ((data[offset] ?? 0) | ((data[offset + 1] ?? 0) << 8) | ((data[offset + 2] ?? 0) << 16)) >>> 0
   );
+}
+
+function readUint16LE(data: Uint8Array, offset: number): number {
+  if (offset + 1 >= data.length) return 0;
+  return ((data[offset] ?? 0) | ((data[offset + 1] ?? 0) << 8)) >>> 0;
+}
+
+function readGifDimensions(data: Uint8Array): ImageDimensions {
+  if (data.length < 10) return { w: 0, h: 0 };
+  const w = readUint16LE(data, 6);
+  const h = readUint16LE(data, 8);
+  return { w, h };
+}
+
+function readTiffDimensions(data: Uint8Array): ImageDimensions {
+  if (data.length < 8) return { w: 0, h: 0 };
+  const isLE = data[0] === 0x49;
+  const readU16 = (offset: number) =>
+    isLE ? readUint16LE(data, offset) : readUint16BE(data, offset);
+  const readU32 = (offset: number) =>
+    isLE ? readUint32LE(data, offset) : readUint32BE(data, offset);
+
+  const ifdOffset = readU32(4);
+  if (ifdOffset + 2 > data.length) return { w: 0, h: 0 };
+
+  const entryCount = readU16(ifdOffset);
+  let w = 0;
+  let h = 0;
+
+  for (let i = 0; i < entryCount; i++) {
+    const entryOffset = ifdOffset + 2 + i * 12;
+    if (entryOffset + 12 > data.length) break;
+    const tag = readU16(entryOffset);
+    const value = readU32(entryOffset + 8);
+    if (tag === 0x0100) w = value;
+    if (tag === 0x0101) h = value;
+  }
+
+  return { w, h };
+}
+
+function readAvifDimensions(data: Uint8Array): ImageDimensions {
+  // AVIF uses ISOBMFF boxes. Scan top-level boxes for 'meta', then scan
+  // its children for 'ispe' (ImageSpatialExtents).
+  let offset = 0;
+  while (offset + 8 <= data.length) {
+    const boxSize = readUint32BE(data, offset);
+    const boxType = String.fromCharCode(
+      data[offset + 4] ?? 0,
+      data[offset + 5] ?? 0,
+      data[offset + 6] ?? 0,
+      data[offset + 7] ?? 0,
+    );
+    if (boxType === 'ispe') {
+      if (offset + 20 > data.length) return { w: 0, h: 0 };
+      const w = readUint32BE(data, offset + 12);
+      const h = readUint32BE(data, offset + 16);
+      return { w, h };
+    }
+    if (boxType === 'meta') {
+      // meta is a full box: 4 bytes version+flags after type
+      // Scan children inside meta box (offset+12 to offset+boxSize)
+      let inner = offset + 12;
+      const metaEnd = boxSize > 0 ? offset + boxSize : data.length;
+      while (inner + 8 <= metaEnd && inner + 8 <= data.length) {
+        const innerSize = readUint32BE(data, inner);
+        const innerType = String.fromCharCode(
+          data[inner + 4] ?? 0,
+          data[inner + 5] ?? 0,
+          data[inner + 6] ?? 0,
+          data[inner + 7] ?? 0,
+        );
+        if (innerType === 'ispe') {
+          if (inner + 20 > data.length) return { w: 0, h: 0 };
+          const w = readUint32BE(data, inner + 12);
+          const h = readUint32BE(data, inner + 16);
+          return { w, h };
+        }
+        if (innerSize < 8) break;
+        inner += innerSize;
+      }
+    }
+    if (boxSize < 8) break;
+    offset += boxSize;
+  }
+  return { w: 0, h: 0 };
+}
+
+export function detectImageMime(data: Uint8Array): string | null {
+  const header = Array.from(data.slice(0, 12));
+
+  if (startsWith(header, PNG_HEADER)) return 'image/png';
+  if (startsWith(header, JPEG_HEADER)) return 'image/jpeg';
+  if (startsWith(header, GIF_HEADER)) return 'image/gif';
+  if (startsWith(header, TIFF_LE_HEADER) || startsWith(header, TIFF_BE_HEADER)) return 'image/tiff';
+
+  if (startsWith(header, WEBP_HEADER) && data.length >= 12) {
+    const magic = Array.from(data.slice(8, 12));
+    if (arraysEqual(magic, WEBP_MAGIC)) return 'image/webp';
+  }
+
+  if (data.length >= 12 && startsWith(header, AVIF_HEADER)) {
+    const ftyp = Array.from(data.slice(4, 12));
+    if (arraysEqual(ftyp, [0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66])) return 'image/avif';
+  }
+
+  if (data.length >= 2) {
+    const b0 = data[0] ?? 0;
+    const b1 = data[1] ?? 0;
+    if (b0 === 0x42 && b1 === 0x4d) return 'image/bmp';
+  }
+
+  return null;
 }

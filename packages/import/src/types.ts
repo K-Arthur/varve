@@ -19,3 +19,10 @@ export interface ImportParser {
   supportedExtensions(): string[];
   canParse(data: string | Uint8Array): boolean;
 }
+
+export interface BatchFileResult {
+  name: string;
+  success: boolean;
+  warnings: string[];
+  nodeIds: string[];
+}

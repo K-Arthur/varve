@@ -1,151 +1,113 @@
-import type { TemplateDef } from '@strata/platform';
+import type { TemplateLibrary, TemplateSource } from '@strata/platform';
 import { Icon, type IconName } from '@strata/ui';
+import { useMemo, useState } from 'react';
 import { EmptyStates } from './EmptyStates';
 
 export interface TemplatesGalleryProps {
-  onSelect: (template: TemplateDef) => void;
-  templates?: TemplateDef[];
+  onSelect: (template: TemplateLibrary) => void;
+  templates?: TemplateLibrary[];
+  onSearch?: (query: string) => void;
+  showSearch?: boolean;
+  sourceFilters?: TemplateSource[];
 }
 
-const BUILTIN_TEMPLATES: TemplateDef[] = [
-  {
-    id: 'blank',
-    name: 'Blank Canvas',
-    category: 'General',
-    description: 'Start with an empty frame.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'instagram-post',
-    name: 'Instagram Post',
-    category: 'Social',
-    description: 'Square 1:1 format for social media.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'instagram-story',
-    name: 'Instagram Story',
-    category: 'Social',
-    description: 'Vertical 9:16 format for stories.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'facebook-cover',
-    name: 'Facebook Cover',
-    category: 'Social',
-    description: 'Banner format for social profiles.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'presentation-16-9',
-    name: 'Presentation (16:9)',
-    category: 'Presentation',
-    description: 'Standard widescreen presentation format.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'a4',
-    name: 'A4 Document',
-    category: 'Print',
-    description: 'Standard A4 print format with CMYK and bleed settings.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'us-letter',
-    name: 'US Letter',
-    category: 'Print',
-    description: 'Standard US Letter print format.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'iphone-frame',
-    name: 'iPhone 15 Pro',
-    category: 'Device',
-    description: 'Mobile device frame for app designs.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'ipad-frame',
-    name: 'iPad Pro',
-    category: 'Device',
-    description: 'Tablet device frame for app designs.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-  {
-    id: 'web-1440',
-    name: 'Web (1440px)',
-    category: 'Web',
-    description: 'Standard desktop web format.',
-    documentJson: '{}',
-    previewHash: '',
-    builtin: true,
-  },
-];
-
-/** Per-category accent + icon so cards read at a glance without thumbnails. */
 const CATEGORY_META: Record<string, { color: string; icon: IconName }> = {
   General: { color: 'var(--color-interactive-default)', icon: 'Frame' },
-  Social: { color: 'var(--color-feedback-warning)', icon: 'Image' },
-  Presentation: { color: 'var(--color-feedback-success)', icon: 'Maximize' },
-  Print: { color: 'var(--color-feedback-danger)', icon: 'FileText' },
-  Device: { color: 'var(--color-feedback-info)', icon: 'Square' },
-  Web: { color: 'var(--color-interactive-hover)', icon: 'LayoutGrid' },
+  Marketing: { color: 'var(--color-accent-primary)', icon: 'Megaphone' },
+  Social: { color: 'var(--color-feedback-info)', icon: 'Share2' },
+  Presentation: { color: 'var(--color-feedback-warning)', icon: 'Presentation' },
+  Print: { color: 'var(--color-feedback-danger)', icon: 'Printer' },
+  UI: { color: 'var(--color-feedback-success)', icon: 'Layout' },
 };
 
-/** Preview aspect (width:height) per template so tiles hint at proportion. */
-const PREVIEW_ASPECT: Record<string, string> = {
-  'instagram-post': '1 / 1',
-  'instagram-story': '9 / 16',
-  'facebook-cover': '16 / 6',
-  'presentation-16-9': '16 / 9',
-  a4: '210 / 297',
-  'us-letter': '17 / 22',
-  'iphone-frame': '9 / 19',
-  'ipad-frame': '3 / 4',
-  'web-1440': '16 / 10',
-  blank: '4 / 3',
+const SOURCE_BADGE_LABELS: Record<TemplateSource, string> = {
+  builtin: 'Built-in',
+  user: 'User',
+  workspace: 'Workspace',
+  community: 'Community',
 };
 
-export function TemplatesGallery({ onSelect, templates }: TemplatesGalleryProps) {
-  const allTemplates = templates ?? BUILTIN_TEMPLATES;
+export function TemplatesGallery({
+  onSelect,
+  templates,
+  onSearch,
+  showSearch = false,
+  sourceFilters,
+}: TemplatesGalleryProps) {
+  const [searchQuery, setSearchQuery] = useState('');
 
-  if (allTemplates.length === 0) {
-    return <EmptyStates section="templates" onAction={() => {}} />;
-  }
+  const allTemplates = templates ?? [];
 
-  const grouped: Record<string, TemplateDef[]> = {};
-  for (const t of allTemplates) {
-    if (!grouped[t.category]) grouped[t.category] = [];
-    grouped[t.category]?.push(t);
+  const filtered = useMemo(() => {
+    let result = allTemplates;
+
+    if (sourceFilters && sourceFilters.length > 0) {
+      result = result.filter((t) => sourceFilters.includes(t.source));
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          t.tags.some((tag) => tag.toLowerCase().includes(q)),
+      );
+    }
+
+    return result;
+  }, [allTemplates, sourceFilters, searchQuery]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    onSearch?.(value);
+  };
+
+  const grouped = useMemo(() => {
+    const map: Record<string, TemplateLibrary[]> = {};
+    for (const t of filtered) {
+      if (!map[t.category]) map[t.category] = [];
+      map[t.category].push(t);
+    }
+    return map;
+  }, [filtered]);
+
+  if (filtered.length === 0) {
+    if (searchQuery.trim()) {
+      return (
+        <div className="templates-gallery">
+          {showSearch && (
+            <SearchBar value={searchQuery} onChange={handleSearchChange} />
+          )}
+          <EmptyStates section="search" query={searchQuery} onAction={() => handleSearchChange('')} />
+        </div>
+      );
+    }
+    return (
+      <div className="templates-gallery">
+        {showSearch && (
+          <SearchBar value={searchQuery} onChange={handleSearchChange} />
+        )}
+        <EmptyStates section="templates" onAction={() => {}} />
+      </div>
+    );
   }
 
   return (
     <div className="templates-gallery">
-      {Object.entries(grouped).map(([category, cats]) => {
+      {showSearch && (
+        <SearchBar value={searchQuery} onChange={handleSearchChange} />
+      )}
+      {Object.entries(grouped).map(([category, items]) => {
         const meta = CATEGORY_META[category] ?? CATEGORY_META.General;
         return (
           <section key={category} className="templates-gallery__section">
-            <h3 className="templates-gallery__cat">{category}</h3>
+            <h3 className="templates-gallery__cat">
+              {category}
+              <span className="templates-gallery__count">{items.length}</span>
+            </h3>
             <div className="templates-gallery__grid">
-              {cats.map((template) => (
+              {items.map((template) => (
                 <button
                   key={template.id}
                   type="button"
@@ -157,21 +119,61 @@ export function TemplatesGallery({ onSelect, templates }: TemplatesGalleryProps)
                     className="template-card__preview"
                     style={{ ['--tpl-accent' as string]: meta?.color }}
                   >
-                    <span
-                      className="template-card__proxy"
-                      style={{ aspectRatio: PREVIEW_ASPECT[template.id] ?? '4 / 3' }}
-                    >
+                    <span className="template-card__proxy">
                       <Icon name={meta?.icon ?? 'FileText'} label={undefined} size="1.25rem" />
                     </span>
                   </div>
                   <span className="template-card__name">{template.name}</span>
                   <span className="template-card__desc">{template.description}</span>
+                  <div className="template-card__footer">
+                    <span className={`template-card__source template-card__source--${template.source}`}>
+                      {SOURCE_BADGE_LABELS[template.source]}
+                    </span>
+                    {template.usageCount > 0 && (
+                      <span className="template-card__usage">
+                        <Icon name="Users" label={undefined} size="0.75rem" />
+                        {template.usageCount}
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
           </section>
         );
       })}
+    </div>
+  );
+}
+
+function SearchBar({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="templates-gallery__search">
+      <Icon name="Search" label={undefined} size="1rem" />
+      <input
+        type="text"
+        className="templates-gallery__search-input"
+        placeholder="Search templates..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label="Search templates"
+      />
+      {value && (
+        <button
+          type="button"
+          className="templates-gallery__search-clear"
+          onClick={() => onChange('')}
+          aria-label="Clear search"
+        >
+          <Icon name="X" label={undefined} size="0.875rem" />
+        </button>
+      )}
     </div>
   );
 }

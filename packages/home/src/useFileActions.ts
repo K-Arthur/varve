@@ -10,7 +10,7 @@ export interface FileActions {
   purge: (id: string) => Promise<void>;
   togglePin: (entry: FileEntry) => Promise<void>;
   moveToProject: (id: string, projectId: string | null) => Promise<void>;
-  createProject: (name: string) => Promise<Project>;
+  createProject: (name: string, workspaceId?: string) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
   renameProject: (id: string, name: string) => Promise<void>;
 }
@@ -87,10 +87,16 @@ export function useFileActions(platform: Platform, onRefresh: () => void): FileA
   );
 
   const createProject = useCallback(
-    async (name: string) => {
+    async (name: string, workspaceId?: string) => {
       const proj = await platform.createProject(name);
+      if (workspaceId) {
+        await platform.moveProjectToWorkspace(proj.id, workspaceId);
+      }
       onRefresh();
-      return proj;
+      const updated = await platform
+        .listProjects()
+        .then((list) => list.find((p) => p.id === proj.id));
+      return updated ?? proj;
     },
     [platform, onRefresh],
   );

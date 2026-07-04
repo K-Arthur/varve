@@ -41,6 +41,18 @@ enum IpcShape {
         y: f64,
         w: f64,
         h: f64,
+        #[serde(default, rename = "letterSpacing")]
+        letter_spacing: Option<f64>,
+        #[serde(default, rename = "lineHeight")]
+        line_height: Option<f64>,
+        #[serde(default, rename = "textCase")]
+        text_case: Option<String>,
+        #[serde(default, rename = "textDecoration")]
+        text_decoration: Option<String>,
+        #[serde(default, rename = "openTypeFeatures")]
+        open_type_features: Option<serde_json::Value>,
+        #[serde(default, rename = "variableAxes")]
+        variable_axes: Option<serde_json::Value>,
     },
 }
 
@@ -53,7 +65,7 @@ impl IpcShape {
             IpcShape::Line { from, to, tolerance } => Shape::Line { line: Line::new(Point::new(from[0], from[1]), Point::new(to[0], to[1])), tolerance },
             IpcShape::Polygon { cx, cy, radius, sides, rotation } => Shape::Polygon { cx, cy, radius, sides, rotation },
             IpcShape::Star { inner_radius, outer_radius, cx, cy, points, rotation } => Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation },
-            IpcShape::Text { text, font_size, font_family, font_weight, font_style, text_align, x, y, w, h } => Shape::Text {
+            IpcShape::Text { text, font_size, font_family, font_weight, font_style, text_align, x, y, w, h, letter_spacing, line_height, text_case, text_decoration, open_type_features, variable_axes } => Shape::Text {
                 text,
                 font_size,
                 font_family,
@@ -64,6 +76,12 @@ impl IpcShape {
                 y,
                 w,
                 h,
+                letter_spacing,
+                line_height,
+                text_case,
+                text_decoration,
+                open_type_features,
+                variable_axes,
             },
         }
     }
@@ -212,8 +230,140 @@ fn export_node_pdf(nodes: Vec<IpcSceneNode>, opts: Option<ExportPdfOptions>) -> 
         page_height: pdf_opts.page_height,
         title: pdf_opts.title,
         author: pdf_opts.author,
+        ..Default::default()
     };
     strata_print::export_pdf(&scene, &print_opts)
+}
+
+// ── PDF/X and text outlining commands ────────────────────
+
+/// Options for PDF/X export, deserialized from the TS bridge's options JSON.
+#[derive(Debug, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct PdfXOptions {
+    page_width: f64,
+    page_height: f64,
+    title: String,
+    author: String,
+    bleed_mm: f64,
+    include_crop_marks: bool,
+    include_registration_marks: bool,
+    enforce_dpi: f64,
+    outline_text: bool,
+    icc_profile: String,
+    color_bars: bool,
+    format: String,
+    font_data: Option<Vec<u8>>,
+}
+
+impl Default for PdfXOptions {
+    fn default() -> Self {
+        Self {
+            page_width: 1920.0,
+            page_height: 1080.0,
+            title: "Strata Export".into(),
+            author: "Strata".into(),
+            bleed_mm: 3.0,
+            include_crop_marks: false,
+            include_registration_marks: false,
+            enforce_dpi: 300.0,
+            outline_text: false,
+            icc_profile: "Fogra39".into(),
+            color_bars: false,
+            format: "screen".into(),
+            font_data: None,
+        }
+    }
+}
+
+impl PdfXOptions {
+    fn to_pdf_options(&self, page_height: f64) -> strata_print::PdfOptions {
+        strata_print::PdfOptions {
+            page_width: self.page_width,
+            page_height,
+            title: self.title.clone(),
+            author: self.author.clone(),
+            outline_text: self.outline_text,
+            font_data: self.font_data.clone(),
+        }
+    }
+}
+
+fn parse_nodes_from_json(nodes_json: &str) -> Result<Vec<strata_core::SceneNode>, String> {
+    let nodes: Vec<IpcSceneNode> =
+        serde_json::from_str(nodes_json).map_err(|e| format!("Nodes JSON parse error: {e}"))?;
+    Ok(convert_scene(nodes))
+}
+
+#[tauri::command]
+fn export_pdfx1a(
+    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    nodes_json: String,
+    page_height: f64,
+    options_json: String,
+) -> Result<Vec<u8>, String> {
+    let scene = parse_nodes_from_json(&nodes_json)?;
+    let opts: PdfXOptions =
+        serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
+    let print_opts = opts.to_pdf_options(page_height);
+    strata_print::cmyk::export_pdfx1a(&scene, &print_opts)
+}
+
+#[tauri::command]
+fn export_pdfx4(
+    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    nodes_json: String,
+    page_height: f64,
+    options_json: String,
+) -> Result<Vec<u8>, String> {
+    let scene = parse_nodes_from_json(&nodes_json)?;
+    let opts: PdfXOptions =
+        serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
+    let print_opts = opts.to_pdf_options(page_height);
+    strata_print::cmyk::export_pdfx4(&scene, &print_opts)
+}
+
+#[tauri::command]
+fn outline_text(
+    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    text: String,
+    font_data: Vec<u8>,
+    font_size: f64,
+) -> Result<String, String> {
+    let fonts = &font_data;
+    let outlines = strata_print::outline_text(fonts, &text, font_size)?;
+    let mut path = String::new();
+    for glyph in &outlines {
+        let d = strata_print::commands_to_svg_path(&glyph.commands, 2);
+        if !d.is_empty() {
+            if !path.is_empty() {
+                path.push(' ');
+            }
+            path.push_str(&d);
+        }
+    }
+    Ok(path)
+}
+
+#[tauri::command]
+fn export_pdf_with_options(
+    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    nodes_json: String,
+    page_height: f64,
+    use_cmyk: bool,
+    options_json: String,
+) -> Result<Vec<u8>, String> {
+    let scene = parse_nodes_from_json(&nodes_json)?;
+    let opts: PdfXOptions =
+        serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
+    let print_opts = opts.to_pdf_options(page_height);
+
+    match opts.format.as_str() {
+        "x1a" | "pdf-x1a" => strata_print::cmyk::export_pdfx1a(&scene, &print_opts),
+        "x4" | "pdf-x4" => strata_print::cmyk::export_pdfx4(&scene, &print_opts),
+        _ if use_cmyk => strata_print::cmyk::export_pdfx1a(&scene, &print_opts),
+        _ => strata_print::export_pdf(&scene, &print_opts),
+    }
 }
 
 // ── Home IPC Commands ────────────────────────────────────────────────────
@@ -626,6 +776,10 @@ pub fn run() {
             home_write_text_file,
             write_binary_file,
             export_node_pdf,
+            export_pdfx1a,
+            export_pdfx4,
+            outline_text,
+            export_pdf_with_options,
             // W6: backend-dependent UI stubs
             ai_chat,
             get_collab_users,
@@ -835,5 +989,191 @@ mod tests {
         let fill = first.get("fill").unwrap();
         assert!(fill.is_array(), "fill should be a JSON array");
         assert_eq!(fill.as_array().unwrap().len(), 4);
+    }
+
+    // ── New command integration tests ─────────────────────────────────────
+
+    fn test_font_data() -> Vec<u8> {
+        let paths = [
+            "/usr/share/fonts/TTF/Vera.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/TTF/Inter-Regular.ttf",
+        ];
+        for p in &paths {
+            if let Ok(data) = std::fs::read(p) {
+                return data;
+            }
+        }
+        panic!("no test font found — tried {paths:?}")
+    }
+
+    #[test]
+    fn export_pdfx1a_from_json_string() {
+        // Simulate what the TS bridge sends: nodes as JSON string + options as JSON string
+        let nodes_json = serde_json::to_string(&ts_wire_json()).expect("serialize nodes");
+        let options_json = serde_json::json!({
+            "pageWidth": 300.0,
+            "pageHeight": 200.0,
+            "title": "Test X-1a",
+            "author": "Strata",
+            "bleedMm": 3.0,
+            "includeCropMarks": false,
+        })
+        .to_string();
+
+        let nodes: Vec<IpcSceneNode> =
+            serde_json::from_str(&nodes_json).expect("deserialize from json string");
+        let scene = convert_scene(nodes);
+        let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
+        let print_opts = opts.to_pdf_options(200.0);
+        let bytes = strata_print::cmyk::export_pdfx1a(&scene, &print_opts).expect("pdfx1a");
+        assert!(bytes.starts_with(b"%PDF"), "should be a valid PDF");
+        assert!(
+            String::from_utf8_lossy(&bytes).contains("GTS_PDFX"),
+            "should contain PDF/X marker"
+        );
+    }
+
+    #[test]
+    fn export_pdfx4_from_json_string() {
+        let nodes_json = serde_json::to_string(&ts_wire_json()).expect("serialize nodes");
+        let options_json = serde_json::json!({
+            "pageWidth": 300.0,
+            "pageHeight": 200.0,
+            "title": "Test X-4",
+            "author": "Strata",
+        })
+        .to_string();
+
+        let nodes: Vec<IpcSceneNode> =
+            serde_json::from_str(&nodes_json).expect("deserialize");
+        let scene = convert_scene(nodes);
+        let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
+        let print_opts = opts.to_pdf_options(200.0);
+        let bytes = strata_print::cmyk::export_pdfx4(&scene, &print_opts).expect("pdfx4");
+        assert!(bytes.starts_with(b"%PDF-1.6"), "PDF/X-4 should use PDF 1.6");
+    }
+
+    #[test]
+    fn outline_text_command_returns_svg_path() {
+        let font_data = test_font_data();
+        let result = strata_print::outline_text(&font_data, "A", 16.0).expect("outline");
+        assert!(!result.is_empty(), "should produce glyph outlines");
+        let path = result
+            .iter()
+            .map(|g| strata_print::commands_to_svg_path(&g.commands, 2))
+            .filter(|d| !d.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(!path.is_empty(), "SVG path should not be empty");
+        assert!(path.starts_with('M'), "should start with MoveTo");
+    }
+
+    #[test]
+    fn outline_text_command_empty_string() {
+        let font_data = test_font_data();
+        let result = strata_print::outline_text(&font_data, "", 16.0).expect("outline empty");
+        assert!(result.is_empty(), "empty text should produce no outlines");
+    }
+
+    #[test]
+    fn outline_text_command_returns_path_for_multiple_glyphs() {
+        let font_data = test_font_data();
+        let result = strata_print::outline_text(&font_data, "AB", 16.0).expect("outline AB");
+        assert_eq!(result.len(), 2, "should produce two glyph outlines");
+        let path = result
+            .iter()
+            .map(|g| strata_print::commands_to_svg_path(&g.commands, 2))
+            .filter(|d| !d.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(path.contains("M"), "SVG path should contain MoveTo");
+    }
+
+    #[test]
+    fn export_pdf_with_options_dispatches_screen_by_default() {
+        let nodes_json = serde_json::to_string(&ts_wire_json()).expect("serialize");
+        let options_json = serde_json::json!({
+            "pageWidth": 192.0,
+            "pageHeight": 108.0,
+            "format": "screen",
+        })
+        .to_string();
+
+        let nodes: Vec<IpcSceneNode> =
+            serde_json::from_str(&nodes_json).expect("deserialize");
+        let scene = convert_scene(nodes);
+        let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
+        let print_opts = opts.to_pdf_options(108.0);
+        let bytes = strata_print::export_pdf(&scene, &print_opts).expect("screen pdf");
+        assert!(bytes.starts_with(b"%PDF"), "should be a valid PDF");
+        assert!(
+            !String::from_utf8_lossy(&bytes).contains("GTS_PDFX"),
+            "screen PDF should not contain PDF/X marker"
+        );
+    }
+
+    #[test]
+    fn export_pdf_with_options_dispatches_x1a_when_use_cmyk() {
+        let nodes_json = serde_json::to_string(&ts_wire_json()).expect("serialize");
+        let options_json = serde_json::json!({
+            "pageWidth": 300.0,
+            "pageHeight": 200.0,
+        })
+        .to_string();
+
+        let nodes: Vec<IpcSceneNode> =
+            serde_json::from_str(&nodes_json).expect("deserialize");
+        let scene = convert_scene(nodes);
+        let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
+        let print_opts = opts.to_pdf_options(200.0);
+        // use_cmyk = true should dispatch to export_pdfx1a
+        let bytes = strata_print::cmyk::export_pdfx1a(&scene, &print_opts).expect("pdfx1a");
+        assert!(bytes.starts_with(b"%PDF"), "should be a valid PDF");
+        assert!(
+            String::from_utf8_lossy(&bytes).contains("GTS_PDFX"),
+            "CMYK dispatch should produce PDF/X"
+        );
+    }
+
+    #[test]
+    fn export_pdf_with_options_dispatches_x4_by_format() {
+        let nodes_json = serde_json::to_string(&ts_wire_json()).expect("serialize");
+        let options_json = serde_json::json!({
+            "pageWidth": 300.0,
+            "pageHeight": 200.0,
+            "format": "x4",
+        })
+        .to_string();
+
+        let nodes: Vec<IpcSceneNode> =
+            serde_json::from_str(&nodes_json).expect("deserialize");
+        let scene = convert_scene(nodes);
+        let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
+        let print_opts = opts.to_pdf_options(200.0);
+        let bytes = strata_print::cmyk::export_pdfx4(&scene, &print_opts).expect("pdfx4");
+        assert!(bytes.starts_with(b"%PDF-1.6"), "format x4 should produce PDF/X-4");
+    }
+
+    #[test]
+    fn parse_nodes_from_json_handles_empty_array() {
+        let scene = parse_nodes_from_json("[]").expect("empty array");
+        assert!(scene.is_empty(), "empty scene should have no nodes");
+    }
+
+    #[test]
+    fn parse_nodes_from_json_errors_on_invalid_input() {
+        let err = parse_nodes_from_json("not json").unwrap_err();
+        assert!(err.contains("parse"), "should report parse error");
+    }
+
+    #[test]
+    fn pdf_xoptions_defaults_are_sane() {
+        let opts = PdfXOptions::default();
+        assert!((opts.page_width - 1920.0).abs() < 1e-6);
+        assert!((opts.page_height - 1080.0).abs() < 1e-6);
+        assert!((opts.bleed_mm - 3.0).abs() < 1e-6);
+        assert!(!opts.include_crop_marks);
+        assert!(!opts.outline_text);
     }
 }

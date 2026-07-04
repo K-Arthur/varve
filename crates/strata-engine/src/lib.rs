@@ -38,6 +38,9 @@ pub struct RenderItem {
     /// P2: stacked fills (solid/gradient). When present, paint bottom→top.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fills: Option<Vec<FillIR>>,
+    /// Phase 5: nondestructive adjustment filter stack. Pass-through for the webview renderer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Vec<serde_json::Value>>,
 }
 
 fn default_opacity() -> f64 {
@@ -59,6 +62,7 @@ fn default_blend_mode() -> String {
 /// `@strata/engine` `Primitive` type is the stable webview contract (ADR-0001).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
+#[allow(clippy::large_enum_variant)]
 pub enum Primitive {
     #[serde(rename = "rect")]
     Rect {
@@ -129,6 +133,24 @@ pub enum Primitive {
         y: f64,
         w: f64,
         h: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "letterSpacing")]
+        letter_spacing: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "lineHeight")]
+        line_height: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "textCase")]
+        text_case: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "textDecoration")]
+        text_decoration: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "openTypeFeatures")]
+        open_type_features: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "variableAxes")]
+        variable_axes: Option<serde_json::Value>,
     },
 }
 
@@ -145,6 +167,7 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
             strokes: n.strokes.clone(),
             effects: n.effects.clone(),
             fills: n.fills.clone(),
+            filters: None,
         })
         .collect()
 }
@@ -166,6 +189,7 @@ pub fn build_render_ir_flat(
             strokes: node.strokes.clone(),
             effects: node.effects.clone(),
             fills: node.fills.clone(),
+            filters: None,
         })
         .collect()
 }
@@ -254,6 +278,12 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
             y,
             w,
             h,
+            letter_spacing,
+            line_height,
+            text_case,
+            text_decoration,
+            open_type_features,
+            variable_axes,
         } => Primitive::Text {
             text: text.clone(),
             font_size: *font_size,
@@ -265,6 +295,12 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
             y: *y,
             w: *w,
             h: *h,
+            letter_spacing: *letter_spacing,
+            line_height: *line_height,
+            text_case: text_case.clone(),
+            text_decoration: text_decoration.clone(),
+            open_type_features: open_type_features.clone(),
+            variable_axes: variable_axes.clone(),
         },
     }
 }
