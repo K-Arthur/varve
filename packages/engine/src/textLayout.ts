@@ -128,12 +128,12 @@ function measureRunWidth(text: string, font: string, fontSize: number): number {
 function isCJK(char: string): boolean {
   const code = char.codePointAt(0) ?? 0;
   return (
-    (code >= 0x3400 && code <= 0x4dbf) ||  // CJK Extension A
-    (code >= 0x4e00 && code <= 0x9fff) ||  // CJK Unified Ideographs
-    (code >= 0xf900 && code <= 0xfaff) ||  // CJK Compatibility Ideographs
-    (code >= 0x3040 && code <= 0x309f) ||  // Hiragana
-    (code >= 0x30a0 && code <= 0x30ff) ||  // Katakana
-    (code >= 0xac00 && code <= 0xd7af)     // Hangul Syllables
+    (code >= 0x3400 && code <= 0x4dbf) || // CJK Extension A
+    (code >= 0x4e00 && code <= 0x9fff) || // CJK Unified Ideographs
+    (code >= 0xf900 && code <= 0xfaff) || // CJK Compatibility Ideographs
+    (code >= 0x3040 && code <= 0x309f) || // Hiragana
+    (code >= 0x30a0 && code <= 0x30ff) || // Katakana
+    (code >= 0xac00 && code <= 0xd7af) // Hangul Syllables
   );
 }
 

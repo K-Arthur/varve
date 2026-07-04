@@ -165,8 +165,17 @@ export function makeAdjustmentNode(
   opts: Partial<
     Pick<
       import('./types').AdjustmentNode,
-      | 'name' | 'transform' | 'fill' | 'visible' | 'locked'
-      | 'opacity' | 'blendMode' | 'rotation' | 'clipping' | 'effects' | 'order'
+      | 'name'
+      | 'transform'
+      | 'fill'
+      | 'visible'
+      | 'locked'
+      | 'opacity'
+      | 'blendMode'
+      | 'rotation'
+      | 'clipping'
+      | 'effects'
+      | 'order'
     >
   > & { index?: number } = {},
 ): import('./types').AdjustmentNode {
@@ -181,7 +190,7 @@ export function makeAdjustmentNode(
     opacity: opts.opacity ?? 1,
     blendMode: opts.blendMode ?? 'normal',
     rotation: opts.rotation ?? 0,
-    fill: opts.fill ?? ([0, 0, 0, 0] as Color),
+    fill: opts.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
     adjustmentType,
     params,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
@@ -477,6 +486,27 @@ export function getParent(doc: Document, id: NodeId): NodeId | null {
   return null;
 }
 
+/**
+ * Build a parent-index map for O(1) parent lookups.
+ *
+ * Single-pass O(n) over all nodes: for each container node, maps every child
+ * id to the container id. Root-level nodes (with no parent) are not included.
+ *
+ * Useful for fast ancestor-chain traversal in the render loop, where calling
+ * `getParent` (O(n) per call) for each level of a deep tree adds up.
+ */
+export function buildParentIndexMap(doc: Document): Map<NodeId, NodeId> {
+  const parents = new Map<NodeId, NodeId>();
+  for (const [nid, node] of Object.entries(doc.nodes)) {
+    if (isContainer(node as SceneNode)) {
+      for (const childId of (node as ContainerNode).children) {
+        parents.set(childId, nid as NodeId);
+      }
+    }
+  }
+  return parents;
+}
+
 /** True if the node is a container (has a children array). */
 export function isContainer(node: SceneNode): node is ContainerNode {
   return node.kind === 'frame' || node.kind === 'group';
@@ -492,7 +522,9 @@ export function getChildren(doc: Document, id: NodeId): NodeId[] | null {
 /** Append a node to the root paint order. */
 export function addNode(doc: Document, node: SceneNode): Document {
   const index = doc.rootChildren.length;
-  const indexed = { ...node, index };
+  const prev = index > 0 ? doc.nodes[doc.rootChildren[index - 1]!] : null;
+  const order = generateKeyBetween(prev?.order ?? null, null);
+  const indexed = { ...node, index, order };
   return {
     ...doc,
     rootChildren: [...doc.rootChildren, node.id],
@@ -505,7 +537,10 @@ export function insertNode(doc: Document, node: SceneNode, atIndex: number): Doc
   const next = [...doc.rootChildren];
   const clamped = Math.max(0, Math.min(atIndex, next.length));
   next.splice(clamped, 0, node.id);
-  const nodes = { ...doc.nodes, [node.id]: { ...node, index: clamped } };
+  const prev = clamped > 0 ? doc.nodes[next[clamped - 1]!] : null;
+  const succ = clamped < next.length - 1 ? doc.nodes[next[clamped + 1]!] : null;
+  const order = generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
+  const nodes = { ...doc.nodes, [node.id]: { ...node, index: clamped, order } };
   return { ...doc, rootChildren: next, nodes };
 }
 
@@ -518,9 +553,13 @@ export function addChild(
 ): Document {
   const parent = doc.nodes[parentId];
   if (!parent || !isContainer(parent)) return doc;
-  const childIndex = parent.children.length;
-  const indexed = { ...child, index: childIndex };
-  const newChildren = [...parent.children, child.id];
+  const children = parent.children;
+  const childIndex = children.length;
+  const lastChildId = children.length > 0 ? children[children.length - 1]! : null;
+  const lastChild = lastChildId ? doc.nodes[lastChildId] : null;
+  const order = generateKeyBetween(lastChild?.order ?? null, null);
+  const indexed = { ...child, index: childIndex, order };
+  const newChildren = [...children, child.id];
   const updated = { ...parent, children: newChildren } as SceneNode;
   if ('slots' in parent && slotId) {
     (updated as FrameNode).slots = { ...(parent.slots ?? {}), [slotId]: child.id };

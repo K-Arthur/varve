@@ -51,7 +51,7 @@ describe('Governance — Orphan Detection', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -60,7 +60,7 @@ describe('Governance — Orphan Detection', () => {
     doc = d1;
     const { style: s2, doc: d2 } = createColorStyle(doc, 'Unused', {
       type: 'solid',
-      color: {"space":"rgb","r":255,"g":0,"b":0,"a":255},
+      color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -81,7 +81,7 @@ describe('Governance — Orphan Detection', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -130,7 +130,7 @@ describe('Governance — Usage Report', () => {
     let doc = createDocument('test');
     const fill: Fill = {
       type: 'solid',
-      color: {"space":"rgb","r":57,"g":208,"b":198,"a":255},
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,

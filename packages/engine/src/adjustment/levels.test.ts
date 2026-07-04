@@ -2,7 +2,11 @@
 import { describe, it, expect } from 'vitest';
 import { buildLevelsLUT, applyLevels } from './levels';
 
-function makeTestImageData(pixels: [number, number, number, number][], w: number, h: number): ImageData {
+function makeTestImageData(
+  pixels: [number, number, number, number][],
+  w: number,
+  h: number,
+): ImageData {
   const data = new ImageData(w, h);
   for (let i = 0; i < pixels.length; i++) {
     const off = i * 4;
@@ -66,10 +70,14 @@ describe('buildLevelsLUT', () => {
 
 describe('applyLevels', () => {
   it('stretches contrast over full range', () => {
-    const src = makeTestImageData([
-      [50, 60, 70, 255],
-      [200, 210, 220, 255],
-    ], 2, 1);
+    const src = makeTestImageData(
+      [
+        [50, 60, 70, 255],
+        [200, 210, 220, 255],
+      ],
+      2,
+      1,
+    );
     const result = applyLevels(src, 'rgb', { inputBlack: 50, inputWhite: 200 });
     expect(result.data[0]).toBe(0);
     expect(result.data[4]).toBe(255);

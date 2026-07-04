@@ -980,9 +980,8 @@ describe('multi-item compositing edge cases', () => {
     expect(fs).toBe('rgba(57, 208, 198, 0.00392156862745098)');
   });
 
-  it('image fill uses clip + drawImage when target supports it', () => {
+  it('image fill draws via drawImage when target supports it', () => {
     const rec = recorder();
-    // Add drawImage to the recorder target
     const target = rec.target as unknown as Record<string, unknown>;
     let drawImageCalled = false;
     target.drawImage = (_src: unknown, _dx: unknown, _dy: unknown, _dw: unknown, _dh: unknown) => {
@@ -1008,8 +1007,6 @@ describe('multi-item compositing edge cases', () => {
     };
     replayIr(rec.target, [item]);
     expect(drawImageCalled).toBe(true);
-    expect(rec.calls.some((c) => c.startsWith('beginPath'))).toBe(true);
-    expect(rec.calls.some((c) => c.startsWith('clip'))).toBe(true);
     expect(rec.calls.some((c) => c.startsWith('restore'))).toBe(true);
   });
 

@@ -133,6 +133,9 @@
 .layers-row[data-layer-type="image"] {
   background: var(--color-layer-wash-image);
 }
+.layers-row[data-layer-type="adjustment"] {
+  background: var(--color-layer-wash-adjustment);
+}
 
 /* Accent bar colors per type */
 .layers-row[data-layer-type="frame"]::before {
@@ -152,6 +155,9 @@
 }
 .layers-row[data-layer-type="image"]::before {
   background: var(--color-layer-accent-image);
+}
+.layers-row[data-layer-type="adjustment"]::before {
+  background: var(--color-layer-accent-adjustment);
 }
 
 /* High-contrast: add text label so image type remains distinguishable */

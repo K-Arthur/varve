@@ -65,24 +65,16 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
       );
 
     case 'levels':
-      return (
-        <LevelsEditor adjustment={adjustment} onChange={onChange} />
-      );
+      return <LevelsEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'curves':
-      return (
-        <CurvesEditor adjustment={adjustment} onChange={onChange} />
-      );
+      return <CurvesEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'selectiveColor':
-      return (
-        <SelectiveColorEditor adjustment={adjustment} onChange={onChange} />
-      );
+      return <SelectiveColorEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'colorBalance':
-      return (
-        <ColorBalanceEditor adjustment={adjustment} onChange={onChange} />
-      );
+      return <ColorBalanceEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'exposure':
       return (
@@ -361,14 +353,10 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
       );
 
     case 'channelMixer':
-      return (
-        <ChannelMixerEditor adjustment={adjustment} onChange={onChange} />
-      );
+      return <ChannelMixerEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'photoFilter':
-      return (
-        <PhotoFilterEditor adjustment={adjustment} onChange={onChange} />
-      );
+      return <PhotoFilterEditor adjustment={adjustment} onChange={onChange} />;
 
     default:
       return (
@@ -479,9 +467,7 @@ function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const handleNumber = (key: string, idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number.parseFloat(e.target.value);
     if (Number.isNaN(v)) return;
-    const points = adj.points.map((p, i) =>
-      i === idx ? { ...p, [key]: v } : p,
-    );
+    const points = adj.points.map((p, i) => (i === idx ? { ...p, [key]: v } : p));
     onChange({ points } as unknown as Partial<Adjustment>);
   };
   const handleSelect = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -532,7 +518,9 @@ function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
               aria-label={`Point ${i + 1} input`}
               title="Input"
             />
-            <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }} aria-hidden="true">to</span>
+            <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }} aria-hidden="true">
+              to
+            </span>
             <input
               type="number"
               className="adj-editor__number"
@@ -549,7 +537,13 @@ function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
                 className="adj-editor__curve-add"
                 onClick={removePoint(i)}
                 aria-label={`Remove point ${i + 1}`}
-                style={{ border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '11px', padding: '0 4px' }}
+                style={{
+                  border: 'none',
+                  color: 'var(--color-danger)',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  padding: '0 4px',
+                }}
               >
                 X
               </button>
@@ -583,7 +577,19 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleSelect('colorRange')}
           aria-label="Color range"
         >
-          {(['reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas', 'whites', 'neutrals', 'blacks'] as const).map((r) => (
+          {(
+            [
+              'reds',
+              'yellows',
+              'greens',
+              'cyans',
+              'blues',
+              'magentas',
+              'whites',
+              'neutrals',
+              'blacks',
+            ] as const
+          ).map((r) => (
             <option key={r} value={r}>
               {r.charAt(0).toUpperCase() + r.slice(1)}
             </option>
@@ -595,7 +601,9 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <input
           type="checkbox"
           checked={adj.relative}
-          onChange={(e) => onChange({ relative: e.target.checked } as unknown as Partial<Adjustment>)}
+          onChange={(e) =>
+            onChange({ relative: e.target.checked } as unknown as Partial<Adjustment>)
+          }
           aria-label="Relative adjustment"
         />
       </div>
@@ -622,16 +630,30 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 
 function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').ColorBalanceAdjustment;
-  const handleTriplet = (range: 'shadows' | 'midtones' | 'highlights', key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number(e.target.value);
-    onChange({
-      [range]: { ...adj[range], [key]: v },
-    } as unknown as Partial<Adjustment>);
-  };
+  const handleTriplet =
+    (range: 'shadows' | 'midtones' | 'highlights', key: string) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = Number(e.target.value);
+      onChange({
+        [range]: { ...adj[range], [key]: v },
+      } as unknown as Partial<Adjustment>);
+    };
 
-  const TripletRow = ({ label, range }: { label: string; range: 'shadows' | 'midtones' | 'highlights' }) => (
+  const TripletRow = ({
+    label,
+    range,
+  }: {
+    label: string;
+    range: 'shadows' | 'midtones' | 'highlights';
+  }) => (
     <div className="adj-editor__triplet">
-      <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-secondary)' }}>
+      <span
+        style={{
+          fontSize: 'var(--font-size-xs)',
+          fontWeight: 'var(--font-weight-semibold)',
+          color: 'var(--text-secondary)',
+        }}
+      >
         {label}
       </span>
       <div className="adj-editor__triplet-row">
@@ -645,7 +667,9 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleTriplet(range, 'cyanRed')}
           aria-label={`${label} cyan/red`}
         />
-        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>{adj[range].cyanRed}</span>
+        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>
+          {adj[range].cyanRed}
+        </span>
       </div>
       <div className="adj-editor__triplet-row">
         <span className="adj-editor__triplet-label">Magenta / Green</span>
@@ -658,7 +682,9 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleTriplet(range, 'magentaGreen')}
           aria-label={`${label} magenta/green`}
         />
-        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>{adj[range].magentaGreen}</span>
+        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>
+          {adj[range].magentaGreen}
+        </span>
       </div>
       <div className="adj-editor__triplet-row">
         <span className="adj-editor__triplet-label">Yellow / Blue</span>
@@ -671,7 +697,9 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleTriplet(range, 'yellowBlue')}
           aria-label={`${label} yellow/blue`}
         />
-        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>{adj[range].yellowBlue}</span>
+        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>
+          {adj[range].yellowBlue}
+        </span>
       </div>
     </div>
   );
@@ -683,7 +711,9 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <input
           type="checkbox"
           checked={adj.preserveLuminosity}
-          onChange={(e) => onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)}
+          onChange={(e) =>
+            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
+          }
           aria-label="Preserve luminosity"
         />
       </div>
@@ -726,7 +756,9 @@ function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <input
           type="checkbox"
           checked={adj.monochrome}
-          onChange={(e) => onChange({ monochrome: e.target.checked } as unknown as Partial<Adjustment>)}
+          onChange={(e) =>
+            onChange({ monochrome: e.target.checked } as unknown as Partial<Adjustment>)
+          }
           aria-label="Monochrome"
         />
       </div>
@@ -804,7 +836,9 @@ function PhotoFilterEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <input
           type="checkbox"
           checked={adj.preserveLuminosity}
-          onChange={(e) => onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)}
+          onChange={(e) =>
+            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
+          }
           aria-label="Preserve luminosity"
         />
       </div>

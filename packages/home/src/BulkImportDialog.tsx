@@ -21,7 +21,12 @@ export interface BulkImportDialogProps {
 
 type ImportStage = 'select' | 'importing' | 'results';
 
-export function BulkImportDialog({ open, onClose, platform, onImportComplete }: BulkImportDialogProps) {
+export function BulkImportDialog({
+  open,
+  onClose,
+  platform,
+  onImportComplete,
+}: BulkImportDialogProps) {
   const [stage, setStage] = useState<ImportStage>('select');
   const [files, setFiles] = useState<QueuedFile[]>([]);
   const [progress, setProgress] = useState(0);
@@ -33,7 +38,20 @@ export function BulkImportDialog({ open, onClose, platform, onImportComplete }: 
     const newFiles: QueuedFile[] = Array.from(fileList)
       .filter((f) => {
         const ext = f.name.split('.').pop()?.toLowerCase();
-        return ['strata', 'fig', 'svg', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'pdf', 'ai', 'eps', 'psd'].includes(ext ?? '');
+        return [
+          'strata',
+          'fig',
+          'svg',
+          'png',
+          'jpg',
+          'jpeg',
+          'webp',
+          'gif',
+          'pdf',
+          'ai',
+          'eps',
+          'psd',
+        ].includes(ext ?? '');
       })
       .map((f) => ({
         id: uuid(),
@@ -82,7 +100,9 @@ export function BulkImportDialog({ open, onClose, platform, onImportComplete }: 
 
     for (let i = 0; i < files.length; i++) {
       const f = files[i]!;
-      setFiles((prev) => prev.map((pf) => (pf.id === f.id ? { ...pf, status: 'importing' as const } : pf)));
+      setFiles((prev) =>
+        prev.map((pf) => (pf.id === f.id ? { ...pf, status: 'importing' as const } : pf)),
+      );
       setProgress(i);
 
       try {
@@ -111,11 +131,15 @@ export function BulkImportDialog({ open, onClose, platform, onImportComplete }: 
           nextId: 1,
         });
         await platform.upsertFile(entry, json);
-        setFiles((prev) => prev.map((pf) => (pf.id === f.id ? { ...pf, status: 'done' as const } : pf)));
+        setFiles((prev) =>
+          prev.map((pf) => (pf.id === f.id ? { ...pf, status: 'done' as const } : pf)),
+        );
         success++;
       } catch (err) {
         setFiles((prev) =>
-          prev.map((pf) => (pf.id === f.id ? { ...pf, status: 'error' as const, error: String(err) } : pf)),
+          prev.map((pf) =>
+            pf.id === f.id ? { ...pf, status: 'error' as const, error: String(err) } : pf,
+          ),
         );
         failed++;
       }
@@ -194,7 +218,11 @@ export function BulkImportDialog({ open, onClose, platform, onImportComplete }: 
               <Button variant="ghost" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button variant="primary" disabled={!hasFiles || queuedCount === 0} onClick={handleImport}>
+              <Button
+                variant="primary"
+                disabled={!hasFiles || queuedCount === 0}
+                onClick={handleImport}
+              >
                 Import {hasFiles ? `(${files.length})` : ''}
               </Button>
             </div>
@@ -236,7 +264,13 @@ export function BulkImportDialog({ open, onClose, platform, onImportComplete }: 
                   className={`bulk-import__result-item bulk-import__result-item--${f.status}`}
                 >
                   <Icon
-                    name={f.status === 'done' ? 'CheckCircle' : f.status === 'error' ? 'AlertCircle' : 'Clock'}
+                    name={
+                      f.status === 'done'
+                        ? 'CheckCircle'
+                        : f.status === 'error'
+                          ? 'AlertCircle'
+                          : 'Clock'
+                    }
                     label={undefined}
                     size="0.85em"
                   />

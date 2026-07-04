@@ -15,12 +15,7 @@ export interface FormatMigrationProps {
   onViewReport?: (result: FormatMigrationResult) => void;
 }
 
-export function FormatMigration({
-  open,
-  onClose,
-  results,
-  onViewReport,
-}: FormatMigrationProps) {
+export function FormatMigration({ open, onClose, results, onViewReport }: FormatMigrationProps) {
   const [expanded, setExpanded] = useState(false);
 
   const successCount = results.filter((r) => r.success).length;

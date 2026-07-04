@@ -4,10 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { VersionHistory } from './VersionHistory';
 
-function makeVersion(
-  id: string,
-  overrides?: Partial<VersionEntry>,
-): VersionEntry {
+function makeVersion(id: string, overrides?: Partial<VersionEntry>): VersionEntry {
   return {
     id,
     fileId: 'file-1',
@@ -74,12 +71,7 @@ describe('VersionHistory', () => {
       ]),
     };
     render(
-      <VersionHistory
-        fileId="file-1"
-        platform={platform}
-        onRestore={vi.fn()}
-        onClose={vi.fn()}
-      />,
+      <VersionHistory fileId="file-1" platform={platform} onRestore={vi.fn()} onClose={vi.fn()} />,
     );
 
     await waitFor(() => {
@@ -99,12 +91,7 @@ describe('VersionHistory', () => {
       ]),
     };
     render(
-      <VersionHistory
-        fileId="file-1"
-        platform={platform}
-        onRestore={vi.fn()}
-        onClose={vi.fn()}
-      />,
+      <VersionHistory fileId="file-1" platform={platform} onRestore={vi.fn()} onClose={vi.fn()} />,
     );
 
     await waitFor(() => {
@@ -155,12 +142,7 @@ describe('VersionHistory', () => {
       saveVersion,
     };
     render(
-      <VersionHistory
-        fileId="file-1"
-        platform={platform}
-        onRestore={vi.fn()}
-        onClose={vi.fn()}
-      />,
+      <VersionHistory fileId="file-1" platform={platform} onRestore={vi.fn()} onClose={vi.fn()} />,
     );
 
     await waitFor(() => {
@@ -178,20 +160,13 @@ describe('VersionHistory', () => {
       listVersions: vi.fn().mockResolvedValue([]),
     };
     render(
-      <VersionHistory
-        fileId="file-1"
-        platform={platform}
-        onRestore={vi.fn()}
-        onClose={vi.fn()}
-      />,
+      <VersionHistory fileId="file-1" platform={platform} onRestore={vi.fn()} onClose={vi.fn()} />,
     );
 
     await waitFor(() => {
       expect(screen.getByText('No versions yet')).toBeTruthy();
     });
-    expect(
-      screen.getByText(/Save a version to track your design history/),
-    ).toBeTruthy();
+    expect(screen.getByText(/Save a version to track your design history/)).toBeTruthy();
   });
 
   it('loading state', () => {
@@ -200,12 +175,7 @@ describe('VersionHistory', () => {
       listVersions: vi.fn().mockReturnValue(new Promise(() => {})),
     };
     render(
-      <VersionHistory
-        fileId="file-1"
-        platform={platform}
-        onRestore={vi.fn()}
-        onClose={vi.fn()}
-      />,
+      <VersionHistory fileId="file-1" platform={platform} onRestore={vi.fn()} onClose={vi.fn()} />,
     );
 
     expect(screen.getByText('Loading version history...')).toBeTruthy();

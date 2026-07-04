@@ -108,7 +108,14 @@ describe('blendHueW3C', () => {
   it('preserves backdrop luminance', () => {
     const backdrop = [0.5, 0.5, 0.5] as const;
     const source = [0.8, 0.2, 0.2] as const;
-    const [r, g, b] = blendHueW3C(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, b] = blendHueW3C(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const l = lum(r, g, b);
     expect(l).toBeCloseTo(0.5, 1);
   });
@@ -116,7 +123,14 @@ describe('blendHueW3C', () => {
   it('applies source hue while preserving backdrop sat+lightness', () => {
     const backdrop = [0.6, 0.4, 0.5] as const;
     const source = [0.8, 0.2, 0.2] as const;
-    const [r, g, b] = blendHueW3C(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, b] = blendHueW3C(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const lBackdrop = lum(backdrop[0], backdrop[1], backdrop[2]);
     const lResult = lum(r, g, b);
     expect(lResult).toBeCloseTo(lBackdrop, 1);
@@ -129,7 +143,14 @@ describe('blendSaturationW3C', () => {
   it('transfers saturation from source to backdrop', () => {
     const backdrop = [0.6, 0.3, 0.5] as const;
     const source = [0.8, 0.2, 0.2] as const;
-    const [r, g, b] = blendSaturationW3C(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, b] = blendSaturationW3C(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     // Backdrop has original hue + lightness, source provides saturation
     // setSat(backdrop, sat(source)) should produce saturation > 0
     const s = sat(r, g, b);
@@ -143,7 +164,14 @@ describe('blendSaturationW3C', () => {
   it('desaturated source produces low saturation result', () => {
     const backdrop = [0.8, 0.2, 0.2] as const;
     const source = [0.5, 0.5, 0.5] as const;
-    const [r, g, b] = blendSaturationW3C(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, b] = blendSaturationW3C(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const s = sat(r, g, b);
     // setSat on a non-gray backdrop with sat=0 gives mid gray → 0 or nearly 0
     expect(s).toBeLessThan(0.1);
@@ -154,7 +182,14 @@ describe('blendColorW3C', () => {
   it('transfers hue and saturation from source', () => {
     const backdrop = [0.5, 0.5, 0.5] as const;
     const source = [0.8, 0.2, 0.5] as const;
-    const [r, g, b] = blendColorW3C(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, b] = blendColorW3C(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const l = lum(r, g, b);
     expect(l).toBeCloseTo(0.5, 1);
     expect(r).toBeGreaterThan(g);
@@ -165,7 +200,14 @@ describe('blendLuminosityW3C', () => {
   it('transfers luminance from source', () => {
     const backdrop = [0.2, 0.2, 0.2] as const;
     const source = [0.8, 0.8, 0.8] as const;
-    const [r, g, b] = blendLuminosityW3C(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, b] = blendLuminosityW3C(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const l = lum(r, g, b);
     expect(l).toBeGreaterThan(0.5);
   });
@@ -242,7 +284,14 @@ describe('blendHueLch', () => {
     const backdrop = [0.5, 0.5, 0.5] as const;
     const source = [0.8, 0.2, 0.2] as const;
     const [bL, bC] = rgbToLch(backdrop[0], backdrop[1], backdrop[2]);
-    const [r, g, bb] = blendHueLch(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, bb] = blendHueLch(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const [rL, rC] = rgbToLch(r, g, bb);
     expect(rL).toBeCloseTo(bL, 1);
     expect(rC).toBeCloseTo(bC, 1);
@@ -254,7 +303,14 @@ describe('blendSaturationLch', () => {
     const backdrop = [0.5, 0.2, 0.7] as const;
     const source = [0.8, 0.2, 0.2] as const;
     const [bL, , bH] = rgbToLch(backdrop[0], backdrop[1], backdrop[2]);
-    const [r, g, bb] = blendSaturationLch(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, bb] = blendSaturationLch(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const [rL, , rH] = rgbToLch(r, g, bb);
     // L*C*h conversion introduces some precision loss; use relaxed tolerance
     expect(rL).toBeCloseTo(bL, 0);
@@ -269,7 +325,14 @@ describe('blendColorLch', () => {
     const source = [0.8, 0.2, 0.2] as const;
     const [bL] = rgbToLch(backdrop[0], backdrop[1], backdrop[2]);
     const [, sC, sH] = rgbToLch(source[0], source[1], source[2]);
-    const [r, g, bb] = blendColorLch(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, bb] = blendColorLch(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const [rL, rC, rH] = rgbToLch(r, g, bb);
     expect(Math.abs(rL - bL)).toBeLessThan(5);
     expect(Math.abs(rC - sC)).toBeLessThan(5);
@@ -283,7 +346,14 @@ describe('blendLuminosityLch', () => {
     const source = [0.1, 0.1, 0.1] as const;
     const [, bC, bH] = rgbToLch(backdrop[0], backdrop[1], backdrop[2]);
     const [sL] = rgbToLch(source[0], source[1], source[2]);
-    const [r, g, bb] = blendLuminosityLch(backdrop[0], backdrop[1], backdrop[2], source[0], source[1], source[2]);
+    const [r, g, bb] = blendLuminosityLch(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      source[0],
+      source[1],
+      source[2],
+    );
     const [rL, rC, rH] = rgbToLch(r, g, bb);
     // L*C*h: result lightness should trend toward source, chroma/hue toward backdrop
     expect(rL).toBeLessThan(50); // darkened from ~64 (backdrop) toward 9 (source)

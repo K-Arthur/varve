@@ -11,7 +11,7 @@
  */
 
 import type { Document, NodeId, SceneNode } from '@strata/scene';
-import { getParent } from '@strata/scene';
+import { buildParentIndexMap, getParent } from '@strata/scene';
 import type { Affine, Rect } from '@strata/shared';
 import {
   transformRect as affineTransformRect,
@@ -24,12 +24,20 @@ import {
  * Walk the ancestor chain from `id` up to the root, composing local→parent
  * transforms into a single world→local affine.
  *
+ * When `parentIndex` is provided (from {@link buildParentIndexMap}), parent
+ * lookups are O(1) instead of O(n) — callers in hot paths (render loop) should
+ * pre-build the index once per frame.
+ *
  * Composes in scene-graph order: for parent transforms P₁, P₂, …, Pₙ where
  * P₁ is the root ancestor, the world transform is
  *   Pₙ · … · P₂ · P₁ · node.transform
  * (node's transform applied first in local space, then each parent's in order).
  */
-export function nodeWorldTransform(doc: Document, id: NodeId): Affine {
+export function nodeWorldTransform(
+  doc: Document,
+  id: NodeId,
+  parentIndex?: Map<NodeId, NodeId>,
+): Affine {
   const node = doc.nodes[id];
   if (!node) return identity;
 
@@ -38,13 +46,16 @@ export function nodeWorldTransform(doc: Document, id: NodeId): Affine {
   const nodeTransform = node.transform as Affine;
   const chain: Affine[] = [nodeTransform];
 
-  // Walk up: getParent does a linear scan — for deep chains we could cache.
-  let parentId = getParent(doc, id);
+  // Walk up: use pre-built index for O(1) lookups when available.
+  const getParentFn = parentIndex
+    ? (_d: Document, childId: NodeId) => parentIndex.get(childId) ?? null
+    : getParent;
+  let parentId = getParentFn(doc, id);
   while (parentId) {
     const parent = doc.nodes[parentId];
     if (!parent) break;
     chain.push(parent.transform as Affine);
-    parentId = getParent(doc, parentId);
+    parentId = getParentFn(doc, parentId);
   }
 
   // Compose in scene-graph order (children last → applied first, parents first → applied last).
@@ -157,12 +168,16 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
  * Compute the axis-aligned world-space bounding box of a group node by
  * unioning all children's world bounds. Groups have no own geometry.
  */
-export function groupWorldBounds(doc: Document, groupId: NodeId): Rect | null {
+export function groupWorldBounds(
+  doc: Document,
+  groupId: NodeId,
+  parentIndex?: Map<NodeId, NodeId>,
+): Rect | null {
   const node = doc.nodes[groupId];
   if (node?.kind !== 'group') return null;
   let union: Rect | null = null;
   for (const childId of node.children) {
-    const b = nodeWorldBounds(doc, childId);
+    const b = nodeWorldBounds(doc, childId, parentIndex);
     if (!b) continue;
     if (!union) {
       union = { x: b.x, y: b.y, w: b.w, h: b.h };
@@ -183,13 +198,19 @@ export function groupWorldBounds(doc: Document, groupId: NodeId): Rect | null {
  * This is the canonical function for selection overlay, reveal, and
  * zoom-to-fit. Returns `null` when bounds cannot be determined.
  * Groups return the union of all their children's world bounds.
+ *
+ * When `parentIndex` is provided, parent lookups are O(1) instead of O(n).
  */
-export function nodeWorldBounds(doc: Document, id: NodeId): Rect | null {
+export function nodeWorldBounds(
+  doc: Document,
+  id: NodeId,
+  parentIndex?: Map<NodeId, NodeId>,
+): Rect | null {
   const node = doc.nodes[id];
   if (!node) return null;
-  if (node.kind === 'group') return groupWorldBounds(doc, id);
+  if (node.kind === 'group') return groupWorldBounds(doc, id, parentIndex);
   const local = nodeLocalBounds(node);
   if (!local) return null;
-  const worldMat = nodeWorldTransform(doc, id);
+  const worldMat = nodeWorldTransform(doc, id, parentIndex);
   return affineTransformRect(worldMat, local);
 }

@@ -140,7 +140,22 @@ const OPENTYPE_FEATURE_LABELS: Record<string, string> = {
   isol: 'Isolated Forms',
 };
 
-const COMMON_FEATURES = ['liga', 'dlig', 'kern', 'calt', 'tnum', 'pnum', 'lnum', 'onum', 'frac', 'zero', 'case', 'ss01', 'ss02', 'ss03'];
+const COMMON_FEATURES = [
+  'liga',
+  'dlig',
+  'kern',
+  'calt',
+  'tnum',
+  'pnum',
+  'lnum',
+  'onum',
+  'frac',
+  'zero',
+  'case',
+  'ss01',
+  'ss02',
+  'ss03',
+];
 
 function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
   return accessor(n as TextNode);
@@ -495,9 +510,7 @@ function OpenTypeFeaturesSection({
               onChange={(e) => toggleFeature(tag, e.target.checked)}
               aria-label={OPENTYPE_FEATURE_LABELS[tag] ?? tag}
             />
-            <span className="insp-opentype-label">
-              {OPENTYPE_FEATURE_LABELS[tag] ?? tag}
-            </span>
+            <span className="insp-opentype-label">{OPENTYPE_FEATURE_LABELS[tag] ?? tag}</span>
             <code className="insp-opentype-tag">{tag}</code>
           </label>
         ))}
@@ -514,11 +527,7 @@ interface VariableAxesSectionProps {
   batchUpdate: (updater: (node: TextNode) => TextNode) => void;
 }
 
-function VariableAxesSection({
-  textNodes,
-  familyRaw,
-  batchUpdate,
-}: VariableAxesSectionProps) {
+function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxesSectionProps) {
   const registry = getFontRegistry();
   const family = isMixed(familyRaw) ? '' : familyRaw;
   const isVariable = family ? registry.isVariable(family) : false;

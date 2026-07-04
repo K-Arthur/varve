@@ -28,15 +28,14 @@ describe('flattenTree (virtualization stress)', () => {
     const flat = flattenTree(doc, expanded);
     const elapsed = performance.now() - start;
 
-    expect(flat.length).toBe(5000);
+    expect(flat.length).toBe(5001);
     expect(elapsed).toBeLessThan(200);
-    const first = flat[0];
+    // First entry (topmost, last created): Node 4999
+    expect(flat[0]?.node.name).toBe('Node 4999');
+    expect(flat[0]?.depth).toBe(0);
+    // Last entry (bottommost, first created): contentRoot from createDocument
     const last = flat[flat.length - 1];
-    expect(first?.depth).toBe(0);
     expect(last?.depth).toBe(0);
-    // Reverse paint order: topmost layer (last created) appears first.
-    expect(first?.node.name).toBe('Node 4999');
-    expect(last?.node.name).toBe('Node 0');
   });
 
   it('hides nested children when expanded set is empty', () => {
@@ -52,12 +51,12 @@ describe('flattenTree (virtualization stress)', () => {
 
     const empty = new Set<string>();
     const flatCollapsed = flattenTree(doc, empty);
-    expect(flatCollapsed.length).toBe(1);
+    expect(flatCollapsed.length).toBe(2);
     expect(flatCollapsed[0]?.node.name).toBe('Frame');
 
     const full = new Set<string>([fId]);
     const flatExpanded = flattenTree(doc, full);
-    expect(flatExpanded.length).toBe(2);
+    expect(flatExpanded.length).toBe(3);
     expect(flatExpanded[0]?.node.name).toBe('Frame');
     expect(flatExpanded[1]?.node.name).toBe('Child');
   });
@@ -75,7 +74,7 @@ describe('flattenTree (virtualization stress)', () => {
       doc = addNode(doc, node);
     }
     const flat = flattenTree(doc, new Set<string>());
-    expect(flat.length).toBe(3);
+    expect(flat.length).toBe(4);
   });
 
   it('flattens 1000 nodes with depth', () => {
@@ -92,7 +91,7 @@ describe('flattenTree (virtualization stress)', () => {
     }
     const expanded = new Set<string>();
     const flat = flattenTree(doc, expanded);
-    expect(flat.length).toBe(500);
+    expect(flat.length).toBe(501);
     expect(flat.every((e) => e.depth === 0)).toBe(true);
   });
 });

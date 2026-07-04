@@ -30,10 +30,7 @@ describe('recordTemplateUsage', () => {
     recordTemplateUsage('tpl-1');
     recordTemplateUsage('tpl-1');
 
-    const most = getMostUsedTemplates(
-      [makeTemplate('tpl-1', 'One')],
-      10,
-    );
+    const most = getMostUsedTemplates([makeTemplate('tpl-1', 'One')], 10);
     expect(most).toHaveLength(1);
     expect(most[0]?.id).toBe('tpl-1');
   });
@@ -43,10 +40,7 @@ describe('recordTemplateUsage', () => {
     recordTemplateUsage('tpl-a');
     recordTemplateUsage('tpl-b');
 
-    const templates = [
-      makeTemplate('tpl-a', 'A'),
-      makeTemplate('tpl-b', 'B'),
-    ];
+    const templates = [makeTemplate('tpl-a', 'A'), makeTemplate('tpl-b', 'B')];
 
     const most = getMostUsedTemplates(templates, 10);
     expect(most).toHaveLength(2);
@@ -86,10 +80,7 @@ describe('getMostUsedTemplates', () => {
     recordTemplateUsage('tpl-1');
     recordTemplateUsage('tpl-2');
 
-    const templates = [
-      makeTemplate('tpl-1', 'One'),
-      makeTemplate('tpl-2', 'Two'),
-    ];
+    const templates = [makeTemplate('tpl-1', 'One'), makeTemplate('tpl-2', 'Two')];
 
     expect(getMostUsedTemplates(templates, 1)).toHaveLength(1);
   });
@@ -105,10 +96,7 @@ describe('getRecentTemplates', () => {
     }
     recordTemplateUsage('tpl-2');
 
-    const templates = [
-      makeTemplate('tpl-1', 'One'),
-      makeTemplate('tpl-2', 'Two'),
-    ];
+    const templates = [makeTemplate('tpl-1', 'One'), makeTemplate('tpl-2', 'Two')];
 
     const recent = getRecentTemplates(templates, 10);
     expect(recent[0]?.id).toBe('tpl-2');

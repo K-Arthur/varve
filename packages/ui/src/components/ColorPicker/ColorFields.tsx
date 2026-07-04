@@ -209,5 +209,3 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
     </div>
   );
 }
-
-

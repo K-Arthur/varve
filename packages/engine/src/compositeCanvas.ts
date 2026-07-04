@@ -13,11 +13,25 @@
  */
 
 export type BlendMode =
-  | 'passThrough' | 'normal' | 'multiply' | 'screen' | 'overlay'
-  | 'darken' | 'lighten' | 'colorDodge' | 'colorBurn'
-  | 'hardLight' | 'softLight' | 'difference' | 'exclusion'
-  | 'hue' | 'saturation' | 'color' | 'luminosity'
-  | 'plusDarker' | 'plusLighter';
+  | 'passThrough'
+  | 'normal'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'darken'
+  | 'lighten'
+  | 'colorDodge'
+  | 'colorBurn'
+  | 'hardLight'
+  | 'softLight'
+  | 'difference'
+  | 'exclusion'
+  | 'hue'
+  | 'saturation'
+  | 'color'
+  | 'luminosity'
+  | 'plusDarker'
+  | 'plusLighter';
 
 export interface CompositeCanvasOptions {
   width: number;
@@ -100,15 +114,23 @@ export class CompositeCanvas {
 
   captureSource(
     source: HTMLCanvasElement | OffscreenCanvas,
-    sx: number, sy: number, sw: number, sh: number,
-    dx = 0, dy = 0,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    dx = 0,
+    dy = 0,
   ): void {
     this.ctx.drawImage(
       source as CanvasImageSource,
-      sx * this._dpr, sy * this._dpr,
-      sw * this._dpr, sh * this._dpr,
-      dx, dy,
-      sw, sh,
+      sx * this._dpr,
+      sy * this._dpr,
+      sw * this._dpr,
+      sh * this._dpr,
+      dx,
+      dy,
+      sw,
+      sh,
     );
   }
 
@@ -116,7 +138,8 @@ export class CompositeCanvas {
     source: CompositeCanvas,
     blendMode: string,
     opacity: number,
-    dx = 0, dy = 0,
+    dx = 0,
+    dy = 0,
   ): void {
     const ctx = this.ctx;
     ctx.save();
@@ -126,11 +149,7 @@ export class CompositeCanvas {
     ctx.restore();
   }
 
-  compositePorterDuff(
-    source: CompositeCanvas,
-    operator: string,
-    dx = 0, dy = 0,
-  ): void {
+  compositePorterDuff(source: CompositeCanvas, operator: string, dx = 0, dy = 0): void {
     const ctx = this.ctx;
     ctx.save();
     ctx.globalCompositeOperation = operator as GlobalCompositeOperation;
@@ -139,10 +158,7 @@ export class CompositeCanvas {
   }
 
   getImageData(x: number, y: number, w: number, h: number): ImageData {
-    return this.ctx.getImageData(
-      x * this._dpr, y * this._dpr,
-      w * this._dpr, h * this._dpr,
-    );
+    return this.ctx.getImageData(x * this._dpr, y * this._dpr, w * this._dpr, h * this._dpr);
   }
 
   putImageData(data: ImageData, x: number, y: number): void {
@@ -170,25 +186,44 @@ export class CompositeCanvas {
 
 export function mapBlendMode(mode: string): string {
   switch (mode) {
-    case 'multiply': return 'multiply';
-    case 'screen': return 'screen';
-    case 'overlay': return 'overlay';
-    case 'darken': return 'darken';
-    case 'lighten': return 'lighten';
-    case 'colorDodge': return 'color-dodge';
-    case 'colorBurn': return 'color-burn';
-    case 'hardLight': return 'hard-light';
-    case 'softLight': return 'soft-light';
-    case 'difference': return 'difference';
-    case 'exclusion': return 'exclusion';
-    case 'hue': return 'hue';
-    case 'saturation': return 'saturation';
-    case 'color': return 'color';
-    case 'luminosity': return 'luminosity';
-    case 'plusDarker': return 'plus-darker';
-    case 'plusLighter': return 'plus-lighter';
-    case 'passThrough': return 'source-over';
-    default: return 'source-over';
+    case 'multiply':
+      return 'multiply';
+    case 'screen':
+      return 'screen';
+    case 'overlay':
+      return 'overlay';
+    case 'darken':
+      return 'darken';
+    case 'lighten':
+      return 'lighten';
+    case 'colorDodge':
+      return 'color-dodge';
+    case 'colorBurn':
+      return 'color-burn';
+    case 'hardLight':
+      return 'hard-light';
+    case 'softLight':
+      return 'soft-light';
+    case 'difference':
+      return 'difference';
+    case 'exclusion':
+      return 'exclusion';
+    case 'hue':
+      return 'hue';
+    case 'saturation':
+      return 'saturation';
+    case 'color':
+      return 'color';
+    case 'luminosity':
+      return 'luminosity';
+    case 'plusDarker':
+      return 'plus-darker';
+    case 'plusLighter':
+      return 'plus-lighter';
+    case 'passThrough':
+      return 'source-over';
+    default:
+      return 'source-over';
   }
 }
 
@@ -208,7 +243,7 @@ export function blendPixels(
   for (let i = 0; i < w * h; i++) {
     const offset = i * 4;
     const ba = bd[offset + 3]! / 255;
-    const saRaw = sd[offset + 3]! / 255 * opacity;
+    const saRaw = (sd[offset + 3]! / 255) * opacity;
     const sa = Math.max(0, Math.min(1, saRaw));
 
     if (sa === 0) {
@@ -240,7 +275,9 @@ export function blendPixels(
 
     switch (blendMode) {
       case 'multiply':
-        mr = br * sr; mg = bg * sg; mb = bb * sb;
+        mr = br * sr;
+        mg = bg * sg;
+        mb = bb * sb;
         break;
       case 'screen':
         mr = 1 - (1 - br) * (1 - sr);
@@ -253,10 +290,14 @@ export function blendPixels(
         mb = bb < 0.5 ? 2 * bb * sb : 1 - 2 * (1 - bb) * (1 - sb);
         break;
       case 'darken':
-        mr = Math.min(br, sr); mg = Math.min(bg, sg); mb = Math.min(bb, sb);
+        mr = Math.min(br, sr);
+        mg = Math.min(bg, sg);
+        mb = Math.min(bb, sb);
         break;
       case 'lighten':
-        mr = Math.max(br, sr); mg = Math.max(bg, sg); mb = Math.max(bb, sb);
+        mr = Math.max(br, sr);
+        mg = Math.max(bg, sg);
+        mb = Math.max(bb, sb);
         break;
       case 'colorDodge':
         mr = br === 0 ? 0 : sr >= 1 ? 1 : Math.min(1, br / (1 - sr));
@@ -285,7 +326,9 @@ export function blendPixels(
         break;
       }
       case 'difference':
-        mr = Math.abs(br - sr); mg = Math.abs(bg - sg); mb = Math.abs(bb - sb);
+        mr = Math.abs(br - sr);
+        mg = Math.abs(bg - sg);
+        mb = Math.abs(bb - sb);
         break;
       case 'exclusion':
         mr = br + sr - 2 * br * sr;
@@ -322,9 +365,9 @@ export function blendPixels(
       continue;
     }
 
-    rd[offset] = Math.round(clamp(((sa * mr + ba * (1 - sa) * br) / ao)) * 255);
-    rd[offset + 1] = Math.round(clamp(((sa * mg + ba * (1 - sa) * bg) / ao)) * 255);
-    rd[offset + 2] = Math.round(clamp(((sa * mb + ba * (1 - sa) * bb) / ao)) * 255);
+    rd[offset] = Math.round(clamp((sa * mr + ba * (1 - sa) * br) / ao) * 255);
+    rd[offset + 1] = Math.round(clamp((sa * mg + ba * (1 - sa) * bg) / ao) * 255);
+    rd[offset + 2] = Math.round(clamp((sa * mb + ba * (1 - sa) * bb) / ao) * 255);
     rd[offset + 3] = Math.round(clamp(ao) * 255);
   }
 
@@ -332,15 +375,21 @@ export function blendPixels(
 }
 
 function blendNonSeparable(
-  br: number, bg: number, bb: number,
-  sr: number, sg: number, sb: number,
+  br: number,
+  bg: number,
+  bb: number,
+  sr: number,
+  sg: number,
+  sb: number,
   mode: string,
 ): { r: number; g: number; b: number } {
   const lum = (r: number, g: number, b: number) => 0.3 * r + 0.59 * g + 0.11 * b;
 
   const clipColor = (r: number, g: number, b: number): { r: number; g: number; b: number } => {
     const l = lum(r, g, b);
-    let cr = r, cg = g, cb = b;
+    let cr = r,
+      cg = g,
+      cb = b;
     const n = Math.min(r, g, b);
     const x = Math.max(r, g, b);
     if (n < 0) {
@@ -361,14 +410,24 @@ function blendNonSeparable(
     return { r: cr, g: cg, b: cb };
   };
 
-  const setLum = (r: number, g: number, b: number, l: number): { r: number; g: number; b: number } => {
+  const setLum = (
+    r: number,
+    g: number,
+    b: number,
+    l: number,
+  ): { r: number; g: number; b: number } => {
     const d = l - lum(r, g, b);
     return clipColor(r + d, g + d, b + d);
   };
 
   const sat = (r: number, g: number, b: number) => Math.max(r, g, b) - Math.min(r, g, b);
 
-  const setSat = (r: number, g: number, b: number, s: number): { r: number; g: number; b: number } => {
+  const setSat = (
+    r: number,
+    g: number,
+    b: number,
+    s: number,
+  ): { r: number; g: number; b: number } => {
     const sorted = [r, g, b].sort((a, c) => a - c);
     const min = sorted[0]!;
     const mid = sorted[1]!;

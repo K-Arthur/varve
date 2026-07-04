@@ -17,11 +17,11 @@ function makeRect(id: string, x: number, y: number, w: number, h: number): Shape
     rotation: 0,
     transform: [1, 0, 0, 1, x, y],
     shape: { kind: 'rect', x: 0, y: 0, w, h },
-    fill: {"space":"rgb","r":255,"g":0,"b":0,"a":255} as const,
+    fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } as const,
     fills: [
       {
         type: 'solid',
-        color: {"space":"rgb","r":255,"g":0,"b":0,"a":255} as const,
+        color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } as const,
         opacity: 1,
         blendMode: 'normal',
         visible: true,
@@ -51,11 +51,11 @@ function makePath(
     rotation: 0,
     transform,
     shape: { kind: 'path', points, closed, tolerance: 3 },
-    fill: {"space":"rgb","r":255,"g":0,"b":0,"a":255} as const,
+    fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } as const,
     fills: [
       {
         type: 'solid',
-        color: {"space":"rgb","r":255,"g":0,"b":0,"a":255} as const,
+        color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } as const,
         opacity: 1,
         blendMode: 'normal',
         visible: true,
@@ -124,14 +124,17 @@ describe('booleanOp — union', () => {
     b.fills = [
       {
         type: 'solid',
-        color: {"space":"rgb","r":0,"g":0,"b":255,"a":255} as const,
+        color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } as const,
         opacity: 1,
         blendMode: 'normal',
         visible: true,
       },
     ];
     const result = booleanOp('union', [a, b]);
-    expect(result.fills?.[0]).toMatchObject({ type: 'solid', color: {"space":"rgb","r":255,"g":0,"b":0,"a":255} });
+    expect(result.fills?.[0]).toMatchObject({
+      type: 'solid',
+      color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+    });
   });
 });
 

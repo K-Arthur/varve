@@ -13,10 +13,11 @@ import {
   createDocument,
   getById,
   makeFrameNode,
+  makeGroupNode,
   makeShapeNode,
   nextNodeId,
 } from './document';
-import type { FrameNode } from './types';
+import type { FrameNode, GroupNode } from './types';
 
 function shape(doc: ReturnType<typeof createDocument>, name: string) {
   const { id, doc: d2 } = nextNodeId(doc);
@@ -194,6 +195,53 @@ describe('Component functions (Task 1.1)', () => {
     const instanceBg = getById(doc, nonCustomChild);
     expect(instanceBg).toBeDefined();
     expect(instanceBg?.name).toBe('bg-v2');
+  });
+
+  it('deepCloneSubtree deep-clones groups (not just frames)', () => {
+    let doc = createDocument();
+
+    // Master frame with a group that has children
+    const { id: rootId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const masterFrame = makeFrameNode(rootId, { name: 'MasterFrame' });
+    doc = addNode(doc, masterFrame);
+
+    const { id: groupId, doc: d3 } = nextNodeId(doc);
+    doc = d3;
+    const groupNode = makeGroupNode(groupId, { name: 'InnerGroup' });
+    doc = addNode(doc, groupNode);
+    doc = addChild(doc, rootId, groupNode);
+
+    const { id: childId, doc: d4, node: shapeNode } = shape(doc, 'childShape');
+    doc = d4;
+    doc = addChild(doc, groupId, shapeNode);
+
+    const { component, doc: d5 } = createComponent(doc, 'GroupComp', rootId, []);
+    doc = d5;
+
+    const { node: instance, doc: d6 } = instantiate(doc, component);
+    doc = d6;
+
+    expect(instance.kind).toBe('frame');
+    expect(instance.children.length).toBe(1);
+
+    const instanceGroupId = instance.children[0];
+    if (!instanceGroupId) throw new Error('no group child');
+    const instanceGroup = getById(doc, instanceGroupId) as GroupNode;
+    expect(instanceGroup).toBeDefined();
+    expect(instanceGroup.kind).toBe('group');
+    expect(instanceGroup.id).not.toBe(groupId);
+
+    // The group's child should be deep-cloned (new ID)
+    expect(instanceGroup.children.length).toBe(1);
+    const instanceChildId = instanceGroup.children[0];
+    if (!instanceChildId) throw new Error('no child in group');
+    expect(instanceChildId).not.toBe(childId);
+
+    // The child node should exist in the document
+    const instanceChild = getById(doc, instanceChildId);
+    expect(instanceChild).toBeDefined();
+    expect(instanceChild?.name).toBe('childShape');
   });
 
   it('propagateMaster returns doc unchanged if instance is not found or not an instance', () => {

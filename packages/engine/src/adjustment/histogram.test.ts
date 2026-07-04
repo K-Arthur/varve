@@ -34,8 +34,12 @@ describe('computeHistogram', () => {
 
   it('computes histogram for gradient image', () => {
     const data = makeImageData(
-      [[255, 0, 0, 255], [0, 255, 0, 255]],
-      2, 1,
+      [
+        [255, 0, 0, 255],
+        [0, 255, 0, 255],
+      ],
+      2,
+      1,
     );
     const hist = computeHistogram(data);
     expect(hist.red[255]).toBe(1);
@@ -44,7 +48,14 @@ describe('computeHistogram', () => {
   });
 
   it('counts opaque vs transparent', () => {
-    const data = makeImageData([[255, 0, 0, 255], [0, 0, 0, 0]], 2, 1);
+    const data = makeImageData(
+      [
+        [255, 0, 0, 255],
+        [0, 0, 0, 0],
+      ],
+      2,
+      1,
+    );
     const hist = computeHistogram(data);
     expect(hist.opaquePixels).toBe(1);
     expect(hist.totalPixels).toBe(2);

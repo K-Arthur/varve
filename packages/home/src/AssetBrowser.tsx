@@ -83,17 +83,11 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     [platform, workspaceId, loadData],
   );
 
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchQuery(e.target.value);
-    },
-    [],
-  );
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  }, []);
 
-  const rootFolders = useMemo(
-    () => folders.filter((f) => f.parentId === null),
-    [folders],
-  );
+  const rootFolders = useMemo(() => folders.filter((f) => f.parentId === null), [folders]);
 
   const currentFolder = useMemo(
     () => folders.find((f) => f.id === selectedFolderId) ?? null,
@@ -168,9 +162,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
               depth={0}
             />
           ))}
-          {rootFolders.length === 0 && (
-            <p className="asset-browser__sidebar-empty">No folders</p>
-          )}
+          {rootFolders.length === 0 && <p className="asset-browser__sidebar-empty">No folders</p>}
         </aside>
 
         <div className="asset-browser__content">
@@ -184,9 +176,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
                 All Assets
               </button>
               <span className="asset-browser__breadcrumb-sep">/</span>
-              <span className="asset-browser__breadcrumb-current">
-                {currentFolder.name}
-              </span>
+              <span className="asset-browser__breadcrumb-current">{currentFolder.name}</span>
             </div>
           )}
 
@@ -218,9 +208,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
                         onClick={() => setSelectedFolderId(folder.id)}
                       >
                         <Icon name="Folder" label={undefined} size="1.5rem" />
-                        <span className="asset-browser__subfolder-name">
-                          {folder.name}
-                        </span>
+                        <span className="asset-browser__subfolder-name">{folder.name}</span>
                       </button>
                     ))}
                   </div>

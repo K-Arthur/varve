@@ -8,7 +8,7 @@
  * Research basis: APG Tree View pattern — type-ahead recommended for trees
  * with more than 7 root nodes.
  */
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 export interface TypeAheadState {
   handleTypeAhead: (
@@ -24,6 +24,15 @@ const RESET_MS = 500;
 export function useTypeAhead(): TypeAheadState {
   const bufRef = useRef('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleTypeAhead = useCallback(
     (

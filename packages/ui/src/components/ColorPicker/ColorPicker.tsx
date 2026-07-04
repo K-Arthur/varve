@@ -233,9 +233,7 @@ export function ColorPicker({ value, onChange, bgColor }: ColorPickerProps) {
         <EyeDropperButton onPick={handleEyeDropper} />
       </div>
 
-      {space === 'rgb' && (
-        <ColorFields color={rgbTuple} onChange={handleFieldsChange} />
-      )}
+      {space === 'rgb' && <ColorFields color={rgbTuple} onChange={handleFieldsChange} />}
 
       {space === 'cmyk' && isCmykColor(value) && (
         <CmykColorFields value={value} onChange={handleCmykChange} />
@@ -245,9 +243,7 @@ export function ColorPicker({ value, onChange, bgColor }: ColorPickerProps) {
         <GrayColorFields value={value} onChange={handleGrayChange} />
       )}
 
-      {space === 'spot' && (
-        <SpotColorBrowser onSelect={handleSpotSelect} />
-      )}
+      {space === 'spot' && <SpotColorBrowser onSelect={handleSpotSelect} />}
 
       {space !== 'spot' && (
         <div className="color-picker__swatch-section">

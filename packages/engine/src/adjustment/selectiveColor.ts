@@ -15,9 +15,15 @@
  */
 
 export type SelectiveColorTarget =
-  | 'red' | 'green' | 'blue'
-  | 'cyan' | 'magenta' | 'yellow'
-  | 'white' | 'neutral' | 'black';
+  | 'red'
+  | 'green'
+  | 'blue'
+  | 'cyan'
+  | 'magenta'
+  | 'yellow'
+  | 'white'
+  | 'neutral'
+  | 'black';
 
 export interface SelectiveColorParams {
   color: SelectiveColorTarget;
@@ -60,14 +66,22 @@ function getTargetWeight(r: number, g: number, b: number, target: SelectiveColor
   const isBlue = b >= r && b >= g;
 
   switch (target) {
-    case 'red': return isRed ? (r - Math.min(g, b)) / 255 : 0;
-    case 'green': return isGreen ? (g - Math.min(r, b)) / 255 : 0;
-    case 'blue': return isBlue ? (b - Math.min(r, g)) / 255 : 0;
-    case 'cyan': return isGreen && isBlue ? Math.min(g, b) / 255 : 0;
-    case 'magenta': return isRed && isBlue ? Math.min(r, b) / 255 : 0;
-    case 'yellow': return isRed && isGreen ? Math.min(r, g) / 255 : 0;
-    case 'white': return maxC > 204 ? (maxC - 204) / 51 : 0;
-    case 'black': return maxC < 51 ? 1 - maxC / 51 : 0;
+    case 'red':
+      return isRed ? (r - Math.min(g, b)) / 255 : 0;
+    case 'green':
+      return isGreen ? (g - Math.min(r, b)) / 255 : 0;
+    case 'blue':
+      return isBlue ? (b - Math.min(r, g)) / 255 : 0;
+    case 'cyan':
+      return isGreen && isBlue ? Math.min(g, b) / 255 : 0;
+    case 'magenta':
+      return isRed && isBlue ? Math.min(r, b) / 255 : 0;
+    case 'yellow':
+      return isRed && isGreen ? Math.min(r, g) / 255 : 0;
+    case 'white':
+      return maxC > 204 ? (maxC - 204) / 51 : 0;
+    case 'black':
+      return maxC < 51 ? 1 - maxC / 51 : 0;
     case 'neutral': {
       const lum = (r + g + b) / (3 * 255);
       return lum > 0.1 && lum < 0.9 ? 1 : 0;
@@ -98,7 +112,11 @@ export function applySelectiveColor(
 
       let [c, m, y, k] = rgbToCmyk(r, g, b);
 
-      const applyAdjust = (current: number, delta: number, method: 'absolute' | 'relative'): number => {
+      const applyAdjust = (
+        current: number,
+        delta: number,
+        method: 'absolute' | 'relative',
+      ): number => {
         const clamped = clampAdjust(delta) / 100;
         if (method === 'absolute') return Math.max(0, Math.min(1, current + clamped * weight));
         return Math.max(0, Math.min(1, current + current * clamped * weight));

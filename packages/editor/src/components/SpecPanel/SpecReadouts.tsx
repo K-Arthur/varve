@@ -207,7 +207,15 @@ function ColorReadout({ node, variableStore }: SpecReadoutsProps) {
         <span
           className="spec-swatch"
           role="img"
-          style={{ backgroundColor: (() => { if (typeof fill !== 'string' && 'space' in fill) { const [r,g,b,a] = managedColorToRgba(fill); return `rgba(${r},${g},${b},${a / 255})`; } return ''; })() }}
+          style={{
+            backgroundColor: (() => {
+              if (typeof fill !== 'string' && 'space' in fill) {
+                const [r, g, b, a] = managedColorToRgba(fill);
+                return `rgba(${r},${g},${b},${a / 255})`;
+              }
+              return '';
+            })(),
+          }}
           aria-label={`Fill color: ${hex}`}
         />
         <span className="spec-row__value">{hex}</span>

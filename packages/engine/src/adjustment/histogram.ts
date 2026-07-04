@@ -108,8 +108,14 @@ export function computeHistogramStats(histogram: Uint32Array, totalPixels: numbe
   let p95Found = false;
   for (let i = 0; i < BINS; i++) {
     cumCount += histogram[i]!;
-    if (!p5Found && cumCount >= totalPixels * 0.05) { p5 = i; p5Found = true; }
-    if (!p95Found && cumCount >= totalPixels * 0.95) { p95 = i; p95Found = true; }
+    if (!p5Found && cumCount >= totalPixels * 0.05) {
+      p5 = i;
+      p5Found = true;
+    }
+    if (!p95Found && cumCount >= totalPixels * 0.95) {
+      p95 = i;
+      p95Found = true;
+    }
   }
 
   return {
@@ -123,13 +129,16 @@ export function computeHistogramStats(histogram: Uint32Array, totalPixels: numbe
   };
 }
 
-export function autoLevelsParams(histogram: Histogram, clipPercent = 0.5): {
+export function autoLevelsParams(
+  histogram: Histogram,
+  clipPercent = 0.5,
+): {
   inputBlack: number;
   inputWhite: number;
   gamma: number;
 } {
   const total = histogram.totalPixels;
-  const clipCount = Math.round(total * clipPercent / 100);
+  const clipCount = Math.round((total * clipPercent) / 100);
 
   let inputBlack = 0;
   let running = 0;

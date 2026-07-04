@@ -52,6 +52,7 @@ const NODE_ICONS: Record<string, IconName> = {
   image: TOOL_ICONS.image,
   arrow: TOOL_ICONS.line,
   path: 'Pen',
+  adjustment: TOOL_ICONS.adjustment,
 };
 
 function nodeTypeIcon(n: SceneNode): IconName {

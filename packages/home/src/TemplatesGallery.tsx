@@ -76,18 +76,18 @@ export function TemplatesGallery({
     if (searchQuery.trim()) {
       return (
         <div className="templates-gallery">
-          {showSearch && (
-            <SearchBar value={searchQuery} onChange={handleSearchChange} />
-          )}
-          <EmptyStates section="search" query={searchQuery} onAction={() => handleSearchChange('')} />
+          {showSearch && <SearchBar value={searchQuery} onChange={handleSearchChange} />}
+          <EmptyStates
+            section="search"
+            query={searchQuery}
+            onAction={() => handleSearchChange('')}
+          />
         </div>
       );
     }
     return (
       <div className="templates-gallery">
-        {showSearch && (
-          <SearchBar value={searchQuery} onChange={handleSearchChange} />
-        )}
+        {showSearch && <SearchBar value={searchQuery} onChange={handleSearchChange} />}
         <EmptyStates section="templates" onAction={() => {}} />
       </div>
     );
@@ -95,9 +95,7 @@ export function TemplatesGallery({
 
   return (
     <div className="templates-gallery">
-      {showSearch && (
-        <SearchBar value={searchQuery} onChange={handleSearchChange} />
-      )}
+      {showSearch && <SearchBar value={searchQuery} onChange={handleSearchChange} />}
       {Object.entries(grouped).map(([category, items]) => {
         const meta = CATEGORY_META[category] ?? CATEGORY_META.General;
         return (
@@ -126,7 +124,9 @@ export function TemplatesGallery({
                   <span className="template-card__name">{template.name}</span>
                   <span className="template-card__desc">{template.description}</span>
                   <div className="template-card__footer">
-                    <span className={`template-card__source template-card__source--${template.source}`}>
+                    <span
+                      className={`template-card__source template-card__source--${template.source}`}
+                    >
                       {SOURCE_BADGE_LABELS[template.source]}
                     </span>
                     {template.usageCount > 0 && (
@@ -146,13 +146,7 @@ export function TemplatesGallery({
   );
 }
 
-function SearchBar({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
+function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="templates-gallery__search">
       <Icon name="Search" label={undefined} size="1rem" />

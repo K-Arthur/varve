@@ -36,9 +36,7 @@ describe('PatchTool', () => {
     tool.onPointerMove(ne, ctx);
 
     tool.onPointerUp({ clientX: 30, clientY: 30, pointerId: 1 } as any, ctx);
-    expect(ctx.announce).toHaveBeenCalledWith(
-      expect.stringContaining('Source region selected'),
-    );
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('Source region selected'));
   });
 
   it('moves patch to target and applies', () => {

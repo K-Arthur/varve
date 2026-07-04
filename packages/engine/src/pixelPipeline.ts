@@ -143,7 +143,13 @@ export function applyLevels(
   outputShadows: number,
   outputHighlights: number,
 ): void {
-  const lut = buildLevelsLut(inputShadows, inputMidtones, inputHighlights, outputShadows, outputHighlights);
+  const lut = buildLevelsLut(
+    inputShadows,
+    inputMidtones,
+    inputHighlights,
+    outputShadows,
+    outputHighlights,
+  );
   const len = data.length;
 
   if (channel === 'rgb') {
@@ -214,29 +220,33 @@ export function applySelectiveColor(
 
     const [ck, mk, yk, kk] = rgbToCmyk(r, g, b);
 
-    const nc = cyan !== 0
-      ? (relative
+    const nc =
+      cyan !== 0
+        ? relative
           ? clamp(ck + ck * (cyan / 100) * m, 0, 255)
-          : clamp(ck + (255 * (cyan / 100)) * m, 0, 255))
-      : ck;
+          : clamp(ck + 255 * (cyan / 100) * m, 0, 255)
+        : ck;
 
-    const nm = magenta !== 0
-      ? (relative
+    const nm =
+      magenta !== 0
+        ? relative
           ? clamp(mk + mk * (magenta / 100) * m, 0, 255)
-          : clamp(mk + (255 * (magenta / 100)) * m, 0, 255))
-      : mk;
+          : clamp(mk + 255 * (magenta / 100) * m, 0, 255)
+        : mk;
 
-    const ny = yellow !== 0
-      ? (relative
+    const ny =
+      yellow !== 0
+        ? relative
           ? clamp(yk + yk * (yellow / 100) * m, 0, 255)
-          : clamp(yk + (255 * (yellow / 100)) * m, 0, 255))
-      : yk;
+          : clamp(yk + 255 * (yellow / 100) * m, 0, 255)
+        : yk;
 
-    const nk = black !== 0
-      ? (relative
+    const nk =
+      black !== 0
+        ? relative
           ? clamp(kk + kk * (black / 100) * m, 0, 255)
-          : clamp(kk + (255 * (black / 100)) * m, 0, 255))
-      : kk;
+          : clamp(kk + 255 * (black / 100) * m, 0, 255)
+        : kk;
 
     const [nr, ng, nb] = cmykToRgb(nc, nm, ny, nk);
     data[i] = nr;
@@ -312,7 +322,8 @@ export function applyColorBalance(
     const mw = 1 - Math.abs(L - 128) / 128;
 
     const dr = sw * shadows.cyanRed + mw * midtones.cyanRed + hw * highlights.cyanRed;
-    const dg = sw * shadows.magentaGreen + mw * midtones.magentaGreen + hw * highlights.magentaGreen;
+    const dg =
+      sw * shadows.magentaGreen + mw * midtones.magentaGreen + hw * highlights.magentaGreen;
     const db = sw * shadows.yellowBlue + mw * midtones.yellowBlue + hw * highlights.yellowBlue;
 
     let nr = clamp(r + dr, 0, 255);
@@ -354,8 +365,10 @@ export function applyChannelMixer(
   if (monochrome) {
     for (let i = 0; i < len; i += 4) {
       const v = clamp(
-        (data[i]! * redPercent + data[i + 1]! * greenPercent + data[i + 2]! * bluePercent) / 100 + cAdjust,
-        0, 255,
+        (data[i]! * redPercent + data[i + 1]! * greenPercent + data[i + 2]! * bluePercent) / 100 +
+          cAdjust,
+        0,
+        255,
       );
       data[i] = v;
       data[i + 1] = v;
@@ -365,8 +378,10 @@ export function applyChannelMixer(
     const targetOffset = outputChannel === 'red' ? 0 : outputChannel === 'green' ? 1 : 2;
     for (let i = 0; i < len; i += 4) {
       const v = clamp(
-        (data[i]! * redPercent + data[i + 1]! * greenPercent + data[i + 2]! * bluePercent) / 100 + cAdjust,
-        0, 255,
+        (data[i]! * redPercent + data[i + 1]! * greenPercent + data[i + 2]! * bluePercent) / 100 +
+          cAdjust,
+        0,
+        255,
       );
       data[i + targetOffset] = v;
     }
@@ -584,7 +599,9 @@ function registerKind(kind: string, processor: PixelProcessor): void {
 
 registerKind('curves', (data, w, h, p) => {
   applyCurves(
-    data, w, h,
+    data,
+    w,
+    h,
     (p.channel as 'rgb' | 'red' | 'green' | 'blue') ?? 'rgb',
     (p.points as { input: number; output: number }[]) ?? [],
   );
@@ -592,7 +609,9 @@ registerKind('curves', (data, w, h, p) => {
 
 registerKind('levels', (data, w, h, p) => {
   applyLevels(
-    data, w, h,
+    data,
+    w,
+    h,
     (p.channel as 'rgb' | 'red' | 'green' | 'blue') ?? 'rgb',
     (p.inputShadows as number) ?? 0,
     (p.inputMidtones as number) ?? 1,
@@ -604,7 +623,9 @@ registerKind('levels', (data, w, h, p) => {
 
 registerKind('selectiveColor', (data, w, h, p) => {
   applySelectiveColor(
-    data, w, h,
+    data,
+    w,
+    h,
     (p.colorRange as string) ?? 'neutrals',
     (p.cyan as number) ?? 0,
     (p.magenta as number) ?? 0,
@@ -616,20 +637,33 @@ registerKind('selectiveColor', (data, w, h, p) => {
 
 registerKind('colorBalance', (data, w, h, p) => {
   applyColorBalance(
-    data, w, h,
-    (p.shadows as { cyanRed: number; magentaGreen: number; yellowBlue: number }) ??
-      { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
-    (p.midtones as { cyanRed: number; magentaGreen: number; yellowBlue: number }) ??
-      { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
-    (p.highlights as { cyanRed: number; magentaGreen: number; yellowBlue: number }) ??
-      { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+    data,
+    w,
+    h,
+    (p.shadows as { cyanRed: number; magentaGreen: number; yellowBlue: number }) ?? {
+      cyanRed: 0,
+      magentaGreen: 0,
+      yellowBlue: 0,
+    },
+    (p.midtones as { cyanRed: number; magentaGreen: number; yellowBlue: number }) ?? {
+      cyanRed: 0,
+      magentaGreen: 0,
+      yellowBlue: 0,
+    },
+    (p.highlights as { cyanRed: number; magentaGreen: number; yellowBlue: number }) ?? {
+      cyanRed: 0,
+      magentaGreen: 0,
+      yellowBlue: 0,
+    },
     (p.preserveLuminosity as boolean) ?? true,
   );
 });
 
 registerKind('channelMixer', (data, w, h, p) => {
   applyChannelMixer(
-    data, w, h,
+    data,
+    w,
+    h,
     (p.outputChannel as 'red' | 'green' | 'blue') ?? 'red',
     (p.redPercent as number) ?? 100,
     (p.greenPercent as number) ?? 0,
@@ -641,7 +675,9 @@ registerKind('channelMixer', (data, w, h, p) => {
 
 registerKind('exposure', (data, w, h, p) => {
   applyExposure(
-    data, w, h,
+    data,
+    w,
+    h,
     (p.value as number) ?? 0,
     (p.offset as number) ?? 0,
     (p.gammaCorrection as number) ?? 1,
@@ -654,7 +690,9 @@ registerKind('temperature', (data, w, h, p) => {
 
 registerKind('sharpen', (data, w, h, p) => {
   applySharpen(
-    data, w, h,
+    data,
+    w,
+    h,
     (p.amount as number) ?? 0,
     (p.radius as number) ?? 1,
     (p.threshold as number) ?? 0,
@@ -663,7 +701,9 @@ registerKind('sharpen', (data, w, h, p) => {
 
 registerKind('photoFilter', (data, w, h, p) => {
   applyPhotoFilter(
-    data, w, h,
+    data,
+    w,
+    h,
     (p.color as readonly [number, number, number, number]) ?? [255, 255, 255, 255],
     (p.density as number) ?? 25,
     (p.preserveLuminosity as boolean) ?? true,

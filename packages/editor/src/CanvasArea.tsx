@@ -15,14 +15,15 @@ import {
   createEngine,
   mapBlendMode,
   type Engine,
+  type EngineColor,
   type SceneNode as EngineNode,
   type ReplayTarget,
   replayIr,
 } from '@strata/engine';
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
-import { walkNodes } from '@strata/scene';
-import { clampZoom, fitBoundsCamera, screenToWorld, zoomAboutPoint } from '@strata/shared';
+import { buildParentIndexMap, walkNodes } from '@strata/scene';
+import { clampZoom, fitBoundsCamera, isWorldRectInViewport, screenToWorld, zoomAboutPoint } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
@@ -508,6 +509,11 @@ export function CanvasArea({
       // Pre-build all IR items in one call (single IPC round-trip for native engine).
       // Nodes are in DFS paint order so the indices align with the IR array.
       const entries = walkNodes(doc);
+      // Pre-build parent index for O(1) ancestor lookups in the render loop.
+      const parentIndex = buildParentIndexMap(doc);
+      const viewport = canvas.getBoundingClientRect();
+      const vp = { width: viewport.width, height: viewport.height };
+      const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
       const nodeIds: string[] = [];
       const flatNodes: EngineNode[] = [];
       for (const [id] of entries) {
@@ -516,7 +522,11 @@ export function CanvasArea({
         // Skip groups — they are transparent pass-through containers, not drawables.
         // replaySubtree handles groups separately (line 343-350).
         if (n.kind === 'group') continue;
-        const world = nodeWorldTransform(doc, id);
+        const world = nodeWorldTransform(doc, id, parentIndex);
+        // Viewport culling: skip nodes whose world bounds don't intersect the viewport.
+        // This avoids building IR and rendering for off-screen content.
+        const worldBounds = nodeWorldBounds(doc, id, parentIndex);
+        if (worldBounds && !isWorldRectInViewport(cam, vp, worldBounds)) continue;
         nodeIds.push(id);
         flatNodes.push({ ...toEngineNode(n), transform: world });
       }
@@ -542,6 +552,37 @@ export function CanvasArea({
         }
       }
       const ir = await eng.buildIr({ nodes: flatNodes });
+
+      // In outline mode, strip fills/effects from IR and apply a uniform high-contrast stroke.
+      if (s.canvasMode === 'outline') {
+        const outlineColor: EngineColor = { space: 'rgb', r: 30, g: 30, b: 36, a: 255 };
+        for (let i = 0; i < ir.length; i++) {
+          const item = ir[i];
+          if (item) {
+            ir[i] = {
+              ...item,
+              fill: outlineColor,
+              fills: [],
+              effects: [],
+              opacity: 1,
+              blendMode: 'normal' as const,
+              strokes: [
+                {
+                  color: outlineColor,
+                  weight: 1.5,
+                  align: 'center' as const,
+                  dashPattern: [],
+                  dashOffset: 0,
+                  cap: 'round' as const,
+                  join: 'round' as const,
+                  miterLimit: 4,
+                  visible: true,
+                },
+              ],
+            };
+          }
+        }
+      }
 
       // Map NodeId → RenderItem for O(1) lookup during tree-aware replay.
       type IrItem = (typeof ir)[number];
@@ -616,20 +657,33 @@ export function CanvasArea({
           }
         } else if (n.kind === 'group') {
           const isIsolated = n.isolated === true;
-          const needsFlatten = (isIsolated)
-            || (n.blendMode && n.blendMode !== 'normal' && n.blendMode !== 'passThrough')
-            || (n.opacity !== undefined && n.opacity < 1);
+          const needsFlatten =
+            isIsolated ||
+            (n.blendMode && n.blendMode !== 'normal' && n.blendMode !== 'passThrough') ||
+            (n.opacity !== undefined && n.opacity < 1);
           if (needsFlatten && n.children.length > 0) {
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            let minX = Infinity,
+              minY = Infinity,
+              maxX = -Infinity,
+              maxY = -Infinity;
             for (const childId of n.children) {
               const b = nodeWorldBounds(doc, childId);
-              if (b) { minX = Math.min(minX, b.x); minY = Math.min(minY, b.y); maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h); }
+              if (b) {
+                minX = Math.min(minX, b.x);
+                minY = Math.min(minY, b.y);
+                maxX = Math.max(maxX, b.x + b.w);
+                maxY = Math.max(maxY, b.y + b.h);
+              }
             }
             if (isFinite(minX)) {
               ctx.save();
               const gw = Math.ceil(maxX - minX) + 4;
               const gh = Math.ceil(maxY - minY) + 4;
-              const gCanvas = new CompositeCanvas({ width: gw, height: gh, testCanvas: document.createElement('canvas') });
+              const gCanvas = new CompositeCanvas({
+                width: gw,
+                height: gh,
+                testCanvas: document.createElement('canvas'),
+              });
               const gCtx = gCanvas.ctx;
               gCtx.save();
               gCtx.translate(-Math.floor(minX) + 2, -Math.floor(minY) + 2);
@@ -644,7 +698,11 @@ export function CanvasArea({
                 ctx.globalCompositeOperation = 'source-over';
               }
               ctx.globalAlpha = n.opacity ?? 1;
-              ctx.drawImage(gCanvas.canvas as CanvasImageSource, Math.floor(minX) - 2, Math.floor(minY) - 2);
+              ctx.drawImage(
+                gCanvas.canvas as CanvasImageSource,
+                Math.floor(minX) - 2,
+                Math.floor(minY) - 2,
+              );
               ctx.restore();
             }
           } else {
@@ -822,7 +880,7 @@ export function CanvasArea({
         ctx.fillText(label, sx + sw + 4, sy + 14);
       }
     })();
-  }, [rootNodes, draft, state.zoom, state.pan.x, state.pan.y]);
+  }, [rootNodes, draft, state.zoom, state.pan.x, state.pan.y, state.canvasMode]);
 
   useEffect(() => {
     // Cancel any pending draw, schedule one aligned to the next vsync.
@@ -1146,6 +1204,10 @@ export function CanvasArea({
       if (e.key === 'Escape') {
         eRef.setSelection(null);
         eRef.announceSelection([]);
+        // If in a non-full canvas mode, return to full render mode.
+        if (s.canvasMode !== 'full') {
+          eRef.setCanvasMode('full');
+        }
         return;
       }
 
@@ -1348,6 +1410,7 @@ export function CanvasArea({
   }, []);
 
   const gridSize = Math.max(4, 24 * state.zoom);
+  const showOverlays = state.canvasMode !== 'preview';
 
   const canvasDropClass = isCanvasDropOver ? ' editor-canvas--dnd-over' : '';
 
@@ -1578,7 +1641,7 @@ export function CanvasArea({
           />
         </div>
       )}
-      {state.tool === 'inspect' && (
+      {showOverlays && state.tool === 'inspect' && (
         <MeasureOverlay
           zoom={state.zoom}
           pan={state.pan}

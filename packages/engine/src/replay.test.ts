@@ -20,7 +20,7 @@ function recorder(): RecorderProxy {
     (k: string) =>
     (...args: unknown[]) =>
       calls.push(`${k}(${args.length})`);
-    const target: Record<string, unknown> = {
+  const target: Record<string, unknown> = {
     save: mk('save'),
     restore: mk('restore'),
     clip: mk('clip'),

@@ -16,7 +16,12 @@ function gray(v: number, a = 255): ManagedColor {
   return { space: 'gray' as const, v, a };
 }
 
-const defaultColorConfig: ColorConfig = { mode: 'rgb' as const, rgbProfile: { id: 'srgb', name: 'sRGB' }, cmykProfile: { id: 'fogra39', name: 'Fogra39' }, blackGeneration: { mode: 'standard' as const, overprintBlack: false } };
+const defaultColorConfig: ColorConfig = {
+  mode: 'rgb' as const,
+  rgbProfile: { id: 'srgb', name: 'sRGB' },
+  cmykProfile: { id: 'fogra39', name: 'Fogra39' },
+  blackGeneration: { mode: 'standard' as const, overprintBlack: false },
+};
 
 function makeDoc(color: ManagedColor): Document {
   return {
@@ -110,7 +115,19 @@ describe('switchColorMode', () => {
     const doc = makeDoc(rgb(255, 0, 0));
     const node = doc.nodes.n1;
     if (node && 'strokes' in node) {
-      node.strokes = [{ color: rgb(0, 255, 0), weight: 1, align: 'center', dashPattern: [], dashOffset: 0, cap: 'round', join: 'miter', miterLimit: 4, visible: true }];
+      node.strokes = [
+        {
+          color: rgb(0, 255, 0),
+          weight: 1,
+          align: 'center',
+          dashPattern: [],
+          dashOffset: 0,
+          cap: 'round',
+          join: 'miter',
+          miterLimit: 4,
+          visible: true,
+        },
+      ];
     }
     const result = switchColorMode(doc, 'cmyk');
     const n = result.nodes.n1;
@@ -124,7 +141,19 @@ describe('switchColorMode', () => {
     const doc = makeDoc(rgb(128, 128, 128));
     const node = doc.nodes.n1;
     if (node && 'effects' in node) {
-      (node as { effects: import('./types').Effect[] }).effects = [{ type: 'dropShadow' as const, x: 2, y: 2, blur: 4, spread: 0, color: rgb(0, 0, 0), opacity: 0.5, blendMode: 'normal' as const, visible: true }];
+      (node as { effects: import('./types').Effect[] }).effects = [
+        {
+          type: 'dropShadow' as const,
+          x: 2,
+          y: 2,
+          blur: 4,
+          spread: 0,
+          color: rgb(0, 0, 0),
+          opacity: 0.5,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+      ];
     }
     const result = switchColorMode(doc, 'cmyk');
     const n = result.nodes.n1;
@@ -140,19 +169,21 @@ describe('switchColorMode', () => {
     const doc = makeDoc(rgb(255, 255, 255));
     const node = doc.nodes.n1;
     if (node && 'fills' in node) {
-      node.fills = [{
-        type: 'gradient',
-        gradient: {
-          type: 'linear',
-          stops: [
-            { position: 0, color: rgb(255, 0, 0) },
-            { position: 1, color: rgb(0, 0, 255) },
-          ],
+      node.fills = [
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'linear',
+            stops: [
+              { position: 0, color: rgb(255, 0, 0) },
+              { position: 1, color: rgb(0, 0, 255) },
+            ],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
         },
-        opacity: 1,
-        blendMode: 'normal',
-        visible: true,
-      }];
+      ];
     }
     const result = switchColorMode(doc, 'cmyk');
     const n = result.nodes.n1;

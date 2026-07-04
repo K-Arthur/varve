@@ -29,7 +29,10 @@ export class PatchTool extends BaseTool {
     this.patchState = { phase: 'idle', sourceRect: null };
   }
 
-  override onPointerDown(e: PointerEvent, ctx: ToolContext): { consumed: boolean; captured?: boolean } {
+  override onPointerDown(
+    e: PointerEvent,
+    ctx: ToolContext,
+  ): { consumed: boolean; captured?: boolean } {
     const canvas = ctx.canvasElement;
     if (!canvas) return { consumed: false };
 

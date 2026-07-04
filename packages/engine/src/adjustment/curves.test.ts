@@ -2,7 +2,11 @@
 import { describe, it, expect } from 'vitest';
 import { buildCurveLUT, applyCurve } from './curves';
 
-function makeTestImageData(pixels: [number, number, number, number][], w: number, h: number): ImageData {
+function makeTestImageData(
+  pixels: [number, number, number, number][],
+  w: number,
+  h: number,
+): ImageData {
   const data = new ImageData(w, h);
   for (let i = 0; i < pixels.length; i++) {
     const off = i * 4;
@@ -24,14 +28,20 @@ describe('buildCurveLUT', () => {
   });
 
   it('returns identity for two-point identity line', () => {
-    const lut = buildCurveLUT([{ x: 0, y: 0 }, { x: 1, y: 1 }]);
+    const lut = buildCurveLUT([
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ]);
     for (let i = 0; i < 256; i++) {
       expect(lut[i]).toBe(i);
     }
   });
 
   it('inverts image with flipped endpoints', () => {
-    const lut = buildCurveLUT([{ x: 0, y: 1 }, { x: 1, y: 0 }]);
+    const lut = buildCurveLUT([
+      { x: 0, y: 1 },
+      { x: 1, y: 0 },
+    ]);
     expect(lut[0]).toBe(255);
     expect(lut[255]).toBe(0);
     expect(lut[128]).toBeCloseTo(127, -1);
@@ -49,7 +59,11 @@ describe('buildCurveLUT', () => {
   });
 
   it('clamps output to [0, 255]', () => {
-    const lut = buildCurveLUT([{ x: 0, y: 0 }, { x: 0.5, y: 0.8 }, { x: 1, y: 1 }]);
+    const lut = buildCurveLUT([
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0.8 },
+      { x: 1, y: 1 },
+    ]);
     for (const v of lut) {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThanOrEqual(255);
@@ -59,11 +73,19 @@ describe('buildCurveLUT', () => {
 
 describe('applyCurve', () => {
   it('applies RGB curve to all channels', () => {
-    const src = makeTestImageData([
-      [100, 150, 200, 255],
-      [50, 100, 150, 255],
-    ], 2, 1);
-    const lut = buildCurveLUT([{ x: 0, y: 0 }, { x: 0.5, y: 0.3 }, { x: 1, y: 1 }]);
+    const src = makeTestImageData(
+      [
+        [100, 150, 200, 255],
+        [50, 100, 150, 255],
+      ],
+      2,
+      1,
+    );
+    const lut = buildCurveLUT([
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0.3 },
+      { x: 1, y: 1 },
+    ]);
     const result = applyCurve(src, 'rgb', lut);
     expect(result.data[0]).toBeLessThan(100);
     expect(result.data[1]).toBeLessThan(150);
@@ -72,7 +94,10 @@ describe('applyCurve', () => {
 
   it('applies red channel only', () => {
     const src = makeTestImageData([[100, 150, 200, 255]], 1, 1);
-    const lut = buildCurveLUT([{ x: 0, y: 0 }, { x: 1, y: 0 }]);
+    const lut = buildCurveLUT([
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+    ]);
     const result = applyCurve(src, 'red', lut);
     expect(result.data[0]).toBe(0);
     expect(result.data[1]).toBe(150);
@@ -94,7 +119,11 @@ describe('applyCurve', () => {
   });
 
   it('clamps extrapolated values', () => {
-    const lut = buildCurveLUT([{ x: 0, y: 0 }, { x: 0.5, y: 0.5 }, { x: 1, y: 1 }]);
+    const lut = buildCurveLUT([
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0.5 },
+      { x: 1, y: 1 },
+    ]);
     expect(lut[255]).toBe(255);
     expect(lut[0]).toBe(0);
   });

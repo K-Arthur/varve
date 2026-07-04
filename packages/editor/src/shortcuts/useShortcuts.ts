@@ -219,6 +219,16 @@ export function useShortcuts(
         };
       case 'home':
         return () => onBackToHomeRef.current?.();
+      case 'canvasModeOutline':
+        return () => e.setCanvasMode('outline');
+      case 'canvasModePreview':
+        return () => e.setCanvasMode('preview');
+      case 'canvasModeFull':
+        return () => {
+          if (e.state.canvasMode !== 'full') {
+            e.setCanvasMode('full');
+          }
+        };
       default:
         return null;
     }

@@ -148,7 +148,14 @@ describe('ColorSpaceSelector', () => {
 
 describe('CmykColorFields', () => {
   it('renders C, M, Y, K, A spinbuttons', () => {
-    const color: ManagedColor & { space: 'cmyk' } = { space: 'cmyk', c: 0, m: 128, y: 255, k: 0, a: 255 };
+    const color: ManagedColor & { space: 'cmyk' } = {
+      space: 'cmyk',
+      c: 0,
+      m: 128,
+      y: 255,
+      k: 0,
+      a: 255,
+    };
     render(<CmykColorFields value={color} onChange={() => {}} />);
     expect(screen.getByRole('spinbutton', { name: 'C' })).toBeTruthy();
     expect(screen.getByRole('spinbutton', { name: 'M' })).toBeTruthy();

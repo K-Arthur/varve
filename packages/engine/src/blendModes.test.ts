@@ -258,7 +258,14 @@ describe('non-separable (W3C)', () => {
   it('blendSaturationW3C transfers saturation', () => {
     const backdrop = [0.6, 0.3, 0.5] as const;
     const red = [0.8, 0.2, 0.2] as const;
-    const [r, g, b] = blendSaturationW3C(backdrop[0], backdrop[1], backdrop[2], red[0], red[1], red[2]);
+    const [r, g, b] = blendSaturationW3C(
+      backdrop[0],
+      backdrop[1],
+      backdrop[2],
+      red[0],
+      red[1],
+      red[2],
+    );
     const s = Math.max(r, g, b) - Math.min(r, g, b);
     expect(s).toBeGreaterThan(0);
     const lResult = 0.3 * r + 0.59 * g + 0.11 * b;
@@ -278,7 +285,14 @@ describe('non-separable (W3C)', () => {
   it('blendLuminosityW3C transfers luminance', () => {
     const dark = [0.2, 0.2, 0.2] as const;
     const bright = [0.8, 0.8, 0.8] as const;
-    const [r, g, b] = blendLuminosityW3C(dark[0], dark[1], dark[2], bright[0], bright[1], bright[2]);
+    const [r, g, b] = blendLuminosityW3C(
+      dark[0],
+      dark[1],
+      dark[2],
+      bright[0],
+      bright[1],
+      bright[2],
+    );
     const lum = 0.3 * r + 0.59 * g + 0.11 * b;
     expect(lum).toBeGreaterThan(0.5);
   });
@@ -510,10 +524,25 @@ describe('blendPixels', () => {
     const b = makePixelData(100, 100, 100, 255);
     const s = makePixelData(200, 50, 50, 200);
     const modes = [
-      'normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten',
-      'colorDodge', 'colorBurn', 'hardLight', 'softLight', 'difference',
-      'exclusion', 'hue', 'saturation', 'color', 'luminosity',
-      'plusDarker', 'plusLighter', 'passThrough',
+      'normal',
+      'multiply',
+      'screen',
+      'overlay',
+      'darken',
+      'lighten',
+      'colorDodge',
+      'colorBurn',
+      'hardLight',
+      'softLight',
+      'difference',
+      'exclusion',
+      'hue',
+      'saturation',
+      'color',
+      'luminosity',
+      'plusDarker',
+      'plusLighter',
+      'passThrough',
     ];
     for (const mode of modes) {
       const result = blendPixels(b, s, mode, 1);

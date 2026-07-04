@@ -39,7 +39,10 @@ export class HealingBrushTool extends BaseTool {
     return { css: 'crosshair' };
   }
 
-  override onPointerDown(e: PointerEvent, ctx: ToolContext): { consumed: boolean; captured?: boolean } {
+  override onPointerDown(
+    e: PointerEvent,
+    ctx: ToolContext,
+  ): { consumed: boolean; captured?: boolean } {
     const canvas = ctx.canvasElement;
     if (!canvas) return { consumed: false };
 
@@ -100,7 +103,11 @@ export class HealingBrushTool extends BaseTool {
     this.lastPaintedPoint = null;
   }
 
-  private healStroke(world: { x: number; y: number }, canvas: HTMLCanvasElement, ctx: ToolContext): void {
+  private healStroke(
+    world: { x: number; y: number },
+    canvas: HTMLCanvasElement,
+    ctx: ToolContext,
+  ): void {
     const canvasCtx = canvas.getContext('2d');
     if (!canvasCtx || !this.sourcePoint) return;
 
@@ -111,9 +118,12 @@ export class HealingBrushTool extends BaseTool {
     const searchRadius = this.options.brushSize * 4;
 
     const bestPatch = findBestPatch(
-      fullData, fullData,
-      Math.round(this.sourcePoint.x), Math.round(this.sourcePoint.y),
-      r, Math.round(searchRadius),
+      fullData,
+      fullData,
+      Math.round(this.sourcePoint.x),
+      Math.round(this.sourcePoint.y),
+      r,
+      Math.round(searchRadius),
     );
 
     const pw = r * 2 + 1;

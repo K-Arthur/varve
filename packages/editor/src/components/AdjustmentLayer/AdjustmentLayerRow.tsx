@@ -121,12 +121,7 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
     >
       <span className="layers-row__disclosure-spacer" />
 
-      <Icon
-        name="SlidersHorizontal"
-        size="0.85em"
-        aria-hidden
-        className="adj-layer-row__icon"
-      />
+      <Icon name="SlidersHorizontal" size="0.85em" aria-hidden className="adj-layer-row__icon" />
 
       {editing ? (
         <input
@@ -144,12 +139,25 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
         </span>
       )}
 
-      <span className="adj-layer-row__badge" title={`${enabledCount} adjustment${enabledCount === 1 ? '' : 's'}`}>
+      <span
+        className="adj-layer-row__badge"
+        title={`${enabledCount} adjustment${enabledCount === 1 ? '' : 's'}`}
+      >
         {enabledCount}
       </span>
 
       {adjustmentNames.length > 0 && (
-        <span className="layers-row__name" style={{ fontSize: '10px', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>
+        <span
+          className="layers-row__name"
+          style={{
+            fontSize: '10px',
+            opacity: 0.6,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: 80,
+          }}
+        >
           {adjustmentNames.join(', ')}
         </span>
       )}
@@ -170,9 +178,7 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
       <button
         type="button"
         className={`layers-row__toggle ${
-          node.visible
-            ? 'layers-row__toggle--visibility-on'
-            : 'layers-row__toggle--visibility-off'
+          node.visible ? 'layers-row__toggle--visibility-on' : 'layers-row__toggle--visibility-off'
         }`}
         tabIndex={-1}
         onClick={(e) => {

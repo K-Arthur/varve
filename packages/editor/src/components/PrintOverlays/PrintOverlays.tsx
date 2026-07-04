@@ -39,8 +39,7 @@ export function PrintOverlays({
   const ph = pageHeight * pxPerUnit;
 
   const hasBleed =
-    bleed &&
-    (bleed.top > 0 || bleed.right > 0 || bleed.bottom > 0 || bleed.left > 0);
+    bleed && (bleed.top > 0 || bleed.right > 0 || bleed.bottom > 0 || bleed.left > 0);
   const hasSafeArea = safeArea?.enabled === true;
   const hasSlug = slug?.enabled === true;
 

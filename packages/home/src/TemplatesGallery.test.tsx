@@ -72,9 +72,7 @@ describe('TemplatesGallery', () => {
   });
 
   it('filters templates by search query', () => {
-    render(
-      <TemplatesGallery templates={MOCK_TEMPLATES} onSelect={vi.fn()} showSearch />,
-    );
+    render(<TemplatesGallery templates={MOCK_TEMPLATES} onSelect={vi.fn()} showSearch />);
     const input = screen.getByPlaceholderText('Search templates...');
     fireEvent.change(input, { target: { value: 'marketing' } });
     expect(screen.queryByText('Blank Canvas')).toBeNull();
@@ -83,9 +81,7 @@ describe('TemplatesGallery', () => {
   });
 
   it('filters templates by tags', () => {
-    render(
-      <TemplatesGallery templates={MOCK_TEMPLATES} onSelect={vi.fn()} showSearch />,
-    );
+    render(<TemplatesGallery templates={MOCK_TEMPLATES} onSelect={vi.fn()} showSearch />);
     const input = screen.getByPlaceholderText('Search templates...');
     fireEvent.change(input, { target: { value: 'instagram' } });
     expect(screen.queryByText('Blank Canvas')).toBeNull();
@@ -125,9 +121,7 @@ describe('TemplatesGallery', () => {
   });
 
   it('shows empty state when no results', () => {
-    render(
-      <TemplatesGallery templates={MOCK_TEMPLATES} onSelect={vi.fn()} showSearch />,
-    );
+    render(<TemplatesGallery templates={MOCK_TEMPLATES} onSelect={vi.fn()} showSearch />);
     const input = screen.getByPlaceholderText('Search templates...');
     fireEvent.change(input, { target: { value: 'zzzzznotexist' } });
     expect(screen.getByText(/No results for/)).toBeDefined();

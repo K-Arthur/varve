@@ -9,7 +9,7 @@
  * aria-activedescendant alternative not used because we need focus on each
  * treeitem for drag-and-drop interoperability.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface TreeFocusState {
   focusIdx: number;
@@ -22,9 +22,19 @@ export interface TreeFocusState {
   resetAnchor: () => void;
 }
 
-export function useTreeFocus(): TreeFocusState {
+export function useTreeFocus(entriesLength: number): TreeFocusState {
   const [focusIdx, setFocusIdx] = useState(0);
   const [anchorIdx, setAnchorIdx] = useState(0);
+
+  // Clamp focusIdx and anchorIdx when entries length changes
+  const prevLengthRef = useRef(entriesLength);
+  useEffect(() => {
+    if (entriesLength !== prevLengthRef.current) {
+      setFocusIdx((prev) => Math.max(0, Math.min(prev, entriesLength - 1)));
+      setAnchorIdx((prev) => Math.max(0, Math.min(prev, entriesLength - 1)));
+      prevLengthRef.current = entriesLength;
+    }
+  }, [entriesLength]);
 
   const clamp = useCallback((i: number, max: number) => {
     if (max <= 0) return 0;

@@ -6,7 +6,13 @@
 
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Button } from './Button';
-export type { Color, ColorPickerProps, ColorSliderProps, ColorSpace, SwatchPaletteProps } from './ColorPicker';
+export type {
+  Color,
+  ColorPickerProps,
+  ColorSliderProps,
+  ColorSpace,
+  SwatchPaletteProps,
+} from './ColorPicker';
 export {
   CmykColorFields,
   ColorArea,

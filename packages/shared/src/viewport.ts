@@ -114,6 +114,29 @@ export function isRectInView(cam: Camera, viewport: Viewport, worldRect: Rect): 
 }
 
 /**
+ * Check if `worldRect` intersects the visible viewport (partial visibility
+ * counts as intersecting). Used for viewport culling — nodes that do not
+ * intersect the viewport can be skipped during rendering.
+ *
+ * This is different from `isRectInView` which requires full containment.
+ * Here we use the Separating Axis Theorem: two rectangles don't intersect
+ * if one is completely to the left/right/above/below of the other.
+ */
+export function isWorldRectInViewport(cam: Camera, viewport: Viewport, worldRect: Rect): boolean {
+  const viewMinX = (-cam.pan[0] - 0) / cam.zoom;
+  const viewMinY = (-cam.pan[1] - 0) / cam.zoom;
+  const viewMaxX = (viewport.width - cam.pan[0]) / cam.zoom;
+  const viewMaxY = (viewport.height - cam.pan[1]) / cam.zoom;
+
+  // Test for non-intersection on each axis.
+  if (worldRect.x + worldRect.w < viewMinX) return false;
+  if (worldRect.x > viewMaxX) return false;
+  if (worldRect.y + worldRect.h < viewMinY) return false;
+  if (worldRect.y > viewMaxY) return false;
+  return true;
+}
+
+/**
  * Compute the zoom that fits `worldRect` into `viewport` with `padding` (CSS
  * px) on all sides, clamped to `[MIN_ZOOM, maxZoom]`.
  */

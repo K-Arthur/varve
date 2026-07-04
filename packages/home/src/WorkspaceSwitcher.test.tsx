@@ -21,9 +21,7 @@ describe('WorkspaceSwitcher', () => {
   });
 
   it('shows "Personal" as default when activeId not in workspaces', () => {
-    render(
-      <WorkspaceSwitcher workspaces={[]} activeId="nonexistent" onSwitch={vi.fn()} />,
-    );
+    render(<WorkspaceSwitcher workspaces={[]} activeId="nonexistent" onSwitch={vi.fn()} />);
     const labels = screen.getAllByText('Personal');
     expect(labels.length).toBeGreaterThanOrEqual(1);
   });

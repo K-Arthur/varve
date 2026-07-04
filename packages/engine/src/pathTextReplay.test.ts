@@ -18,8 +18,12 @@ function createMockTarget() {
   return {
     calls,
     state,
-    save() { calls.push({ fn: 'save', args: [] }); },
-    restore() { calls.push({ fn: 'restore', args: [] }); },
+    save() {
+      calls.push({ fn: 'save', args: [] });
+    },
+    restore() {
+      calls.push({ fn: 'restore', args: [] });
+    },
     transform(a: number, b: number, c: number, d: number, e: number, f: number) {
       calls.push({ fn: 'transform', args: [a, b, c, d, e, f] });
     },
@@ -29,10 +33,18 @@ function createMockTarget() {
     strokeRect(x: number, y: number, w: number, h: number) {
       calls.push({ fn: 'strokeRect', args: [x, y, w, h] });
     },
-    beginPath() { calls.push({ fn: 'beginPath', args: [] }); },
-    closePath() { calls.push({ fn: 'closePath', args: [] }); },
-    moveTo(x: number, y: number) { calls.push({ fn: 'moveTo', args: [x, y] }); },
-    lineTo(x: number, y: number) { calls.push({ fn: 'lineTo', args: [x, y] }); },
+    beginPath() {
+      calls.push({ fn: 'beginPath', args: [] });
+    },
+    closePath() {
+      calls.push({ fn: 'closePath', args: [] });
+    },
+    moveTo(x: number, y: number) {
+      calls.push({ fn: 'moveTo', args: [x, y] });
+    },
+    lineTo(x: number, y: number) {
+      calls.push({ fn: 'lineTo', args: [x, y] });
+    },
     bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number) {
       calls.push({ fn: 'bezierCurveTo', args: [cp1x, cp1y, cp2x, cp2y, x, y] });
     },
@@ -42,20 +54,48 @@ function createMockTarget() {
     arc(x: number, y: number, r: number, start: number, end: number) {
       calls.push({ fn: 'arc', args: [x, y, r, start, end] });
     },
-    fill() { calls.push({ fn: 'fill', args: [] }); },
-    stroke() { calls.push({ fn: 'stroke', args: [] }); },
-    set font(v: string) { state.font = v; },
-    get font() { return state.font; },
-    set fillStyle(v: string) { state.fillStyle = v; },
-    get fillStyle() { return state.fillStyle; },
-    set strokeStyle(v: string) { state.strokeStyle = v; },
-    get strokeStyle() { return state.strokeStyle; },
-    set lineWidth(v: number) { state.lineWidth = v; },
-    get lineWidth() { return state.lineWidth; },
-    set textAlign(v: CanvasTextAlign) { state.textAlign = v; },
-    get textAlign() { return state.textAlign; },
-    set textBaseline(v: CanvasTextBaseline) { state.textBaseline = v; },
-    get textBaseline() { return state.textBaseline; },
+    fill() {
+      calls.push({ fn: 'fill', args: [] });
+    },
+    stroke() {
+      calls.push({ fn: 'stroke', args: [] });
+    },
+    set font(v: string) {
+      state.font = v;
+    },
+    get font() {
+      return state.font;
+    },
+    set fillStyle(v: string) {
+      state.fillStyle = v;
+    },
+    get fillStyle() {
+      return state.fillStyle;
+    },
+    set strokeStyle(v: string) {
+      state.strokeStyle = v;
+    },
+    get strokeStyle() {
+      return state.strokeStyle;
+    },
+    set lineWidth(v: number) {
+      state.lineWidth = v;
+    },
+    get lineWidth() {
+      return state.lineWidth;
+    },
+    set textAlign(v: CanvasTextAlign) {
+      state.textAlign = v;
+    },
+    get textAlign() {
+      return state.textAlign;
+    },
+    set textBaseline(v: CanvasTextBaseline) {
+      state.textBaseline = v;
+    },
+    get textBaseline() {
+      return state.textBaseline;
+    },
     fillText(text: string, x: number, y: number) {
       calls.push({ fn: 'fillText', args: [text, x, y] });
     },
@@ -63,7 +103,11 @@ function createMockTarget() {
       calls.push({ fn: 'strokeText', args: [text, x, y] });
     },
     measureText(text: string) {
-      return { width: text.length * 10, actualBoundingBoxAscent: 12, actualBoundingBoxDescent: 4 } as TextMetrics;
+      return {
+        width: text.length * 10,
+        actualBoundingBoxAscent: 12,
+        actualBoundingBoxDescent: 4,
+      } as TextMetrics;
     },
     drawImage(src: string, x: number, y: number, w: number, h: number) {
       calls.push({ fn: 'drawImage', args: [src, x, y, w, h] });
@@ -71,16 +115,31 @@ function createMockTarget() {
     createLinearGradient(_x1: number, _y1: number, _x2: number, _y2: number) {
       return { addColorStop: () => {} } as CanvasGradient;
     },
-    createRadialGradient(_x1: number, _y1: number, _r1: number, _x2: number, _y2: number, _r2: number) {
+    createRadialGradient(
+      _x1: number,
+      _y1: number,
+      _r1: number,
+      _x2: number,
+      _y2: number,
+      _r2: number,
+    ) {
       return { addColorStop: () => {} } as CanvasGradient;
     },
     createPattern(_image: CanvasImageSource, _repetition: string | null) {
       return {} as CanvasPattern;
     },
-    clip() { calls.push({ fn: 'clip', args: [] }); },
-    scale(x: number, y: number) { calls.push({ fn: 'scale', args: [x, y] }); },
-    rotate(angle: number) { calls.push({ fn: 'rotate', args: [angle] }); },
-    translate(x: number, y: number) { calls.push({ fn: 'translate', args: [x, y] }); },
+    clip() {
+      calls.push({ fn: 'clip', args: [] });
+    },
+    scale(x: number, y: number) {
+      calls.push({ fn: 'scale', args: [x, y] });
+    },
+    rotate(angle: number) {
+      calls.push({ fn: 'rotate', args: [angle] });
+    },
+    translate(x: number, y: number) {
+      calls.push({ fn: 'translate', args: [x, y] });
+    },
   };
 }
 

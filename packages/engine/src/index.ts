@@ -131,6 +131,7 @@ export type {
   BlendMode,
   Color,
   Effect,
+  EngineColor,
   EngineFill,
   FillIR,
   FilterIR,

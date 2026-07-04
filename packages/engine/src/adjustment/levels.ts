@@ -34,7 +34,8 @@ export function buildLevelsLUT(params: Partial<LevelParams>): Uint8Array {
 
   for (let i = 0; i < 256; i++) {
     const normalized = Math.max(0, Math.min(1, (i - p.inputBlack) / inRange));
-    const gammaCorrected = p.gamma !== 1 ? Math.pow(normalized, 1 / Math.max(0.01, p.gamma)) : normalized;
+    const gammaCorrected =
+      p.gamma !== 1 ? Math.pow(normalized, 1 / Math.max(0.01, p.gamma)) : normalized;
     lut[i] = Math.round(p.outputBlack + gammaCorrected * outRange);
   }
 

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  BUNDLED_RGB_PROFILES,
-  BUNDLED_CMYK_PROFILES,
-  getProfileById,
-} from './profiles';
+import { BUNDLED_RGB_PROFILES, BUNDLED_CMYK_PROFILES, getProfileById } from './profiles';
 
 describe('BUNDLED_RGB_PROFILES', () => {
   it('includes sRGB', () => {
