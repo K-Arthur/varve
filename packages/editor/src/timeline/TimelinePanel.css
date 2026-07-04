@@ -1,0 +1,246 @@
+/* ── Timeline Panel ───────────────────────────────────────────────────────── */
+
+.timeline-panel {
+  display: flex;
+  flex-direction: column;
+  height: 200px;
+  background: var(--color-surface-default);
+  border-top: 1px solid var(--color-border-subtle);
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.timeline-panel__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.timeline-panel__selector {
+  background: var(--color-bg-canvas);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.timeline-panel__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.timeline-panel__empty-tracks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.timeline-panel__ruler-container {
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.timeline-panel__tracks {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Playback Controls ─────────────────────────────────────────────────────── */
+
+.timeline-playback-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.timeline-playback-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.timeline-playback-btn:hover {
+  background: var(--color-surface-default);
+}
+
+.timeline-playback-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.timeline-playback-btn--active {
+  color: var(--color-accent-primary);
+}
+
+.timeline-playback-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border-subtle);
+  margin: 0 var(--space-1);
+}
+
+.timeline-playback-speed {
+  background: var(--color-bg-canvas);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  height: 20px;
+}
+
+.timeline-playback-time {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.timeline-playback-time-sep {
+  margin: 0 var(--space-1);
+  color: var(--color-text-muted);
+}
+
+/* ── Timeline Ruler ──────────────────────────────────────────────────────────── */
+
+.timeline-ruler {
+  position: relative;
+  height: 28px;
+  background: var(--color-bg-canvas);
+  cursor: pointer;
+  user-select: none;
+  min-width: 100%;
+}
+
+.timeline-ruler__tick {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+}
+
+.timeline-ruler__tick-mark {
+  width: 1px;
+  height: 8px;
+  background: var(--color-border-subtle);
+}
+
+.timeline-ruler__tick-label {
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.timeline-ruler__playhead {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--color-accent-primary);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Track Row ───────────────────────────────────────────────────────────────── */
+
+.timeline-track-row {
+  display: flex;
+  height: 28px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+}
+
+.timeline-track-row:hover {
+  background: var(--color-surface-raised);
+}
+
+.timeline-track-row--selected {
+  background: var(--color-accent-primary);
+  opacity: 0.15;
+}
+
+.timeline-track-row__label {
+  width: 120px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+.timeline-track-row__node-name {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-track-row__prop-name {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-track-row__track {
+  position: relative;
+  flex: 1;
+  min-height: 100%;
+}
+
+.timeline-track-row__keyframe {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  margin-left: -4px;
+  background: var(--color-accent-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.timeline-track-row__keyframe:hover {
+  transform: scale(1.3);
+}
+
+.timeline-track-row__keyframe--selected {
+  border: 2px solid white;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
