@@ -43,4 +43,15 @@ describe('HomeShell', () => {
       { timeout: 3000 },
     );
   });
+
+  it('does not render WorkspaceSwitcher when no workspaces exist', async () => {
+    const platform = createMemoryPlatform();
+    const { queryByLabelText } = render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
+    await waitFor(
+      () => {
+        expect(queryByLabelText('Switch workspace')).toBeNull();
+      },
+      { timeout: 3000 },
+    );
+  });
 });

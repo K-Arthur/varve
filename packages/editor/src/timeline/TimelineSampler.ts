@@ -210,6 +210,17 @@ function interpolateTrack(
       const easingFn = getEasingFn(easingDef);
       const easedT = easingFn(localT);
 
+      // Spatial bezier interpolation for position/path tracks with tangents.
+      if (interpolation === 'bezier' && before.spatialTangents && after.spatialTangents) {
+        return interpolateSpatialBezier(
+          before.value,
+          after.value,
+          easedT,
+          before.spatialTangents,
+          after.spatialTangents,
+        );
+      }
+
       return interpolateTypedValue(before.value, after.value, easedT);
     }
   }

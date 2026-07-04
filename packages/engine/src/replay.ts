@@ -295,7 +295,6 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
         }
       }
     }
-    }
 
     // Reset per-item state (shadow, filter, etc.)
     target.shadowColor = 'transparent';

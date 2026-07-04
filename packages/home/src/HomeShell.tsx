@@ -675,11 +675,13 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
               <span>Continue editing</span>
             </button>
           )}
-          <WorkspaceSwitcher
-            workspaces={view.workspaces}
-            activeId={view.activeWorkspaceId ?? 'personal'}
-            onSwitch={view.setWorkspace}
-          />
+          {view.workspaces.length > 0 && (
+            <WorkspaceSwitcher
+              workspaces={view.workspaces}
+              activeId={view.activeWorkspaceId ?? 'personal'}
+              onSwitch={view.setWorkspace}
+            />
+          )}
           <SidebarNav
             entries={sidebarEntries}
             activeId={
