@@ -15,7 +15,6 @@
 
 import { getTransactionHooks } from '@strata/collab';
 import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
-import { makeAdjustment } from '@strata/engine';
 import type { ManagedColor } from '@strata/scene';
 import {
   applyAffine,
@@ -125,6 +124,13 @@ import { applyDropPosition } from './dropUtils';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import {
+  createTransformCache,
+  getWorldBounds as getCachedWorldBounds,
+  getWorldTransform as getCachedWorldTransform,
+  invalidateAll as invalidateTransformCache,
+  type TransformCache,
+} from './scene/transformCache';
 import { loadSettings, updateSettings } from './settings';
 import {
   createInitialMotionState,
@@ -279,6 +285,10 @@ export interface EditorContextValue {
   findContainingFrame: (world: { x: number; y: number }) => NodeId | null;
   /** Compute world-space bounding box for a node. */
   nodeWorldBounds: (n: SceneNode) => { x: number; y: number; w: number; h: number } | null;
+  /** Cached world transform — uses TransformCache for O(1) repeated lookups. */
+  getWorldTransform: (id: NodeId) => import('@strata/shared').Affine;
+  /** Cached world bounds — uses TransformCache for O(1) repeated lookups. */
+  getWorldBounds: (id: NodeId) => import('@strata/shared').Rect | null;
   /** Convert canvas CSS-px coordinates to world coordinates. */
   canvasToWorld: (cx: number, cy: number) => { x: number; y: number };
   /** Convert world coordinates to canvas CSS-px coordinates. */
@@ -744,6 +754,10 @@ function shapeForTool(tool: ToolId): Shape {
     case 'booleanSubtract':
     case 'booleanIntersect':
     case 'booleanExclude':
+    case 'cloneStamp':
+    case 'healBrush':
+    case 'spotHeal':
+    case 'patch':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
@@ -948,6 +962,13 @@ export function EditorProvider({
   /** Ref keeping the latest state for async callbacks (auto-save, recovery). */
   const stateRef = useRef(state);
   stateRef.current = state;
+  /** Transform cache — invalidated whenever document reference changes. */
+  const transformCacheRef = useRef<TransformCache>(createTransformCache());
+  const prevDocRef = useRef(state.document);
+  if (state.document !== prevDocRef.current) {
+    invalidateTransformCache(transformCacheRef.current);
+    prevDocRef.current = state.document;
+  }
   const undoStackRef = useRef<Document[]>([]);
   const redoStackRef = useRef<Document[]>([]);
   const undoSelStackRef = useRef<NodeId[][]>([]);
@@ -1185,10 +1206,14 @@ export function EditorProvider({
       revealSelection: (opts) => {
         const id = opts?.nodeId ?? state.selection[0];
         if (!id) return;
-        const viewportEst: Viewport = opts?.viewport ?? {
-          width: window.innerWidth,
-          height: window.innerHeight - 120,
-        };
+        // Prefer caller-supplied viewport, then the actual canvas container element
+        // (accurate when panels are open), then fall back to window minus chrome.
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const viewportEst: Viewport = opts?.viewport ?? (
+          canvasEl
+            ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+            : { width: window.innerWidth, height: window.innerHeight - 120 }
+        );
         const bounds = nodeWorldBounds(state.document, id);
         if (!bounds) return;
         const padding = opts?.padding ?? 40;
@@ -1353,6 +1378,10 @@ export function EditorProvider({
             node = { ...node, transform: localTransform } as SceneNode;
             newDoc = addChild(d2, effectiveParentId, node);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
+          } else if (d2.activePageId && d2.nodes[d2.activePageId]) {
+            // No containing frame: add to the current page's content root so
+            // the node is scoped to the active page, not global rootChildren.
+            newDoc = addChild(d2, d2.activePageId, node);
           } else {
             newDoc = addNode(d2, node);
           }
@@ -1381,6 +1410,8 @@ export function EditorProvider({
           if (effectiveParentId) {
             newDoc = addChild(d2, effectiveParentId, node);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
+          } else if (d2.activePageId && d2.nodes[d2.activePageId]) {
+            newDoc = addChild(d2, d2.activePageId, node);
           } else {
             newDoc = addNode(d2, node);
           }
@@ -1443,6 +1474,10 @@ export function EditorProvider({
       },
 
       nodeWorldBounds: (n) => nodeWorldBounds(state.document, n.id) ?? nodeWorldBoundsFn(n),
+      getWorldTransform: (id) =>
+        getCachedWorldTransform(transformCacheRef.current, state.document, id),
+      getWorldBounds: (id) =>
+        getCachedWorldBounds(transformCacheRef.current, state.document, id),
 
       canvasToWorld: (cx, cy) => {
         return { x: (cx - state.pan.x) / state.zoom, y: (cy - state.pan.y) / state.zoom };
@@ -1577,7 +1612,7 @@ export function EditorProvider({
               newChildIds.push(newChildId);
               idMap = { ...idMap, ...childMap };
             }
-            cloned.children = newChildIds;
+            (cloned as import('@strata/scene').ContainerNode).children = newChildIds;
           }
 
           d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
@@ -2634,8 +2669,8 @@ export function EditorProvider({
         const adjs = initialAdjustments ?? [];
         const node = makeAdjustmentNode(
           id,
-          'hsl',
-          { hue: 0, saturation: 0, lightness: 0 },
+          'levels',
+          { channel: 'rgb' as const, inputBlack: 0, inputWhite: 255, gamma: 1, outputBlack: 0, outputWhite: 255 },
           {
             name: `Adjustment ${id.slice(0, 4)}`,
             opacity: 1,
