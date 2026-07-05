@@ -531,6 +531,20 @@ export function CanvasArea({
       const s = stateRef.current;
       const doc = s.document;
 
+      // Board (infinite canvas background) color: use doc.canvasBackground when set,
+      // otherwise the theme-aware surface-sunken token (warm gray / dark blue-gray).
+      const boardColor = (() => {
+        const bg = doc.canvasBackground;
+        if (bg) return `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
+        return (
+          getComputedStyle(document.documentElement).getPropertyValue('--color-surface-sunken').trim() ||
+          '#f5f5f4'
+        );
+      })();
+      const accentColor =
+        getComputedStyle(document.documentElement).getPropertyValue('--color-accent-primary').trim() ||
+        '#3b82f6';
+
       // B-03: Hierarchical viewport culling — build a set of off-screen container
       // descendants to skip. If a container's world bounds don't intersect the
       // viewport, none of its children can be visible either.
@@ -712,7 +726,7 @@ export function CanvasArea({
         const dh = dirtyRect.h * dpr;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(dx - 1, dy - 1, dw + 2, dh + 2);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = boardColor;
         ctx.fillRect(dx - 1, dy - 1, dw + 2, dh + 2);
         // Clip subsequent rendering to the dirty region
         ctx.save();
@@ -722,7 +736,7 @@ export function CanvasArea({
         ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
       } else {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = boardColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
       }
@@ -975,7 +989,7 @@ export function CanvasArea({
               const angle = Math.atan2(draft.y2 - draft.y1, draft.x2 - draft.x1);
               const spread = Math.PI / 7;
               const headLen = 10 / s.zoom;
-              ctx.fillStyle = '#3b82f6';
+              ctx.fillStyle = accentColor;
               ctx.beginPath();
               ctx.moveTo(draft.x2, draft.y2);
               ctx.lineTo(
@@ -1005,7 +1019,7 @@ export function CanvasArea({
             : draft.y * s.zoom + s.pan.y;
         const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
         ctx.font = '11px system-ui';
-        ctx.fillStyle = '#3b82f6';
+        ctx.fillStyle = accentColor;
         const label =
           draft.label ??
           `${Math.round(sw / s.zoom)} x ${Math.round('h' in draft ? draft.h * s.zoom : (Math.abs(draft.y2 - draft.y1) * s.zoom) / s.zoom)}`;
