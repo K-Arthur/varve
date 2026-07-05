@@ -609,7 +609,7 @@ export function addChild(
 export function removeNode(doc: Document, id: NodeId): Document {
   if (!doc.nodes[id]) return doc;
 
-  const nodes = { ...doc.nodes };
+  let nodes = { ...doc.nodes };
 
   // Collect all descendants to remove
   const toRemove = new Set<NodeId>();

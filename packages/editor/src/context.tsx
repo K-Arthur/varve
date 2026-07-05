@@ -82,6 +82,11 @@ import {
   resolveNodeFills,
   resolveVariantProperties,
   type SceneNode,
+  addVariableToDocument,
+  updateVariableInDocument,
+  deleteVariableFromDocument as deleteVariableFromDocumentDoc,
+  setVariableModeOnDocument as setVariableModeOnDocumentDoc,
+  mergeVariableStores,
   setVariantForInstance as setVariantForInstanceDoc,
   swapInstance as swapInstanceDoc,
   toggleGuideLock as toggleGuideLockDoc,
@@ -957,7 +962,7 @@ export function EditorProvider({
       sessions: [{ id: INITIAL_SESSION_ID, name, dirty: false }],
       activeId: INITIAL_SESSION_ID,
       dirty: false,
-      variableStore: createVariableStore(),
+      variableStore: doc.variableStore ?? createVariableStore(),
       cursorPos: null,
       unitType: 'px',
       pixelGridEnabled: false,
@@ -1091,9 +1096,14 @@ export function EditorProvider({
         redoStackRef.current = [];
         redoSelStackRef.current = [];
       }
+      const newDoc = fn(s.document);
       return {
         ...s,
-        document: fn(s.document),
+        document: newDoc,
+        variableStore: mergeVariableStores(
+          s.variableStore,
+          newDoc.variableStore ?? createVariableStore(),
+        ),
         dirty: true,
         sessions: s.sessions.map((sess) =>
           sess.id === s.activeId ? { ...sess, dirty: true } : sess,
@@ -1443,12 +1453,16 @@ export function EditorProvider({
             node = { ...node, transform: localTransform } as SceneNode;
             newDoc = addChild(d2, effectiveParentId, node);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
-          } else if (d2.activePageId && d2.nodes[d2.activePageId]) {
+          } else {
             // No containing frame: add to the current page's content root so
             // the node is scoped to the active page, not global rootChildren.
-            newDoc = addChild(d2, d2.activePageId, node);
-          } else {
-            newDoc = addNode(d2, node);
+            const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
+            const contentRootId = activePage?.contentRoot;
+            if (contentRootId && d2.nodes[contentRootId]) {
+              newDoc = addChild(d2, contentRootId, node);
+            } else {
+              newDoc = addNode(d2, node);
+            }
           }
 
           return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
@@ -1475,10 +1489,16 @@ export function EditorProvider({
           if (effectiveParentId) {
             newDoc = addChild(d2, effectiveParentId, node);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
-          } else if (d2.activePageId && d2.nodes[d2.activePageId]) {
-            newDoc = addChild(d2, d2.activePageId, node);
           } else {
-            newDoc = addNode(d2, node);
+            // No containing frame: add to the current page's content root so
+            // the node is scoped to the active page, not global rootChildren.
+            const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
+            const contentRootId = activePage?.contentRoot;
+            if (contentRootId && d2.nodes[contentRootId]) {
+              newDoc = addChild(d2, contentRootId, node);
+            } else {
+              newDoc = addNode(d2, node);
+            }
           }
 
           return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
@@ -2374,7 +2394,7 @@ export function EditorProvider({
         redoStackRef.current = [];
         undoSelStackRef.current = [];
         redoSelStackRef.current = [];
-        patch({ document: createDocument('Untitled'), selection: [] });
+        patch({ document: createDocument('Untitled', true), selection: [] });
       },
 
       serializeDocument: () => {
@@ -3113,41 +3133,19 @@ export function EditorProvider({
       addVariable: (v) => {
         const id = `var-${Date.now()}`;
         const newVar: Variable = { id, ...v };
-        setState((s) => ({
-          ...s,
-          variableStore: {
-            ...s.variableStore,
-            variables: { ...s.variableStore.variables, [id]: newVar },
-          },
-        }));
+        updateDoc((doc) => addVariableToDocument(doc, newVar));
       },
 
       updateVariable: (id, patch) => {
-        setState((s) => {
-          const existing = s.variableStore.variables[id];
-          if (!existing) return s;
-          return {
-            ...s,
-            variableStore: {
-              ...s.variableStore,
-              variables: { ...s.variableStore.variables, [id]: { ...existing, ...patch } },
-            },
-          };
-        });
+        updateDoc((doc) => updateVariableInDocument(doc, id, patch));
       },
 
       deleteVariable: (id) => {
-        setState((s) => {
-          const { [id]: _, ...rest } = s.variableStore.variables;
-          return { ...s, variableStore: { ...s.variableStore, variables: rest } };
-        });
+        updateDoc((doc) => deleteVariableFromDocumentDoc(doc, id));
       },
 
       setVariableMode: (mode) => {
-        setState((s) => ({
-          ...s,
-          variableStore: { ...s.variableStore, activeMode: mode },
-        }));
+        updateDoc((doc) => setVariableModeOnDocumentDoc(doc, mode));
       },
 
       newTab: () => {
