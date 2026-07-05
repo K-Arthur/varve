@@ -166,12 +166,15 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
     });
     return { x: 0, y: 0, w: Math.max(measured.width, fs * 3), h: measured.height };
   }
-  if (node.kind === 'frame') {
-    return { x: 0, y: 0, w: node.w, h: node.h };
+  if (node.kind === 'frame' || node.kind === 'image') {
+    const w = 'w' in node ? (node.w ?? 100) : 100;
+    const h = 'h' in node ? (node.h ?? 100) : 100;
+    return { x: 0, y: 0, w, h };
   }
   if (node.kind === 'group') {
     return null;
   }
+  // Adjustment nodes have no geometry — their bounds are the parent frame's bounds.
   return null;
 }
 

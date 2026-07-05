@@ -120,6 +120,47 @@ export function snapPosition(
     }
   }
 
+  // D-01: Equal-gap distribution snapping — when the dragged object is between
+  // two other objects on the same axis, snap to maintain equal spacing.
+  const xGaps: { mid: number; gap: number }[] = [];
+  const yGaps: { mid: number; gap: number }[] = [];
+  const draggedCx = cx;
+  const draggedCy = cy;
+  for (const a of otherBounds) {
+    for (const b of otherBounds) {
+      if (a === b) continue;
+      if (!a || !b) continue;
+      const aR = a.x + a.w;
+      const bL = b.x;
+      const gapX = bL - aR;
+      if (gapX > 0 && aR < draggedCx && bL > draggedCx) {
+        xGaps.push({ mid: (aR + bL) / 2, gap: gapX });
+      }
+      const aB = a.y + a.h;
+      const bT = b.y;
+      const gapY = bT - aB;
+      if (gapY > 0 && aB < draggedCy && bT > draggedCy) {
+        yGaps.push({ mid: (aB + bT) / 2, gap: gapY });
+      }
+    }
+  }
+  if (xGaps.length > 0) {
+    const best = xGaps.reduce((a, b) => (Math.abs(a.gap - (a.mid - draggedCx)) < Math.abs(b.gap - (b.mid - draggedCx)) ? a : b));
+    const idealCx = best.mid;
+    if (Math.abs(cx - idealCx) < SNAP_THRESHOLD * 3) {
+      snappedX = x - (cx - idealCx);
+      guides.push({ axis: 'vertical', position: idealCx, type: 'spacing', label: `${Math.round(best.gap)}px` });
+    }
+  }
+  if (yGaps.length > 0) {
+    const best = yGaps.reduce((a, b) => (Math.abs(a.gap - (a.mid - draggedCy)) < Math.abs(b.gap - (b.mid - draggedCy)) ? a : b));
+    const idealCy = best.mid;
+    if (Math.abs(cy - idealCy) < SNAP_THRESHOLD * 3) {
+      snappedY = y - (cy - idealCy);
+      guides.push({ axis: 'horizontal', position: idealCy, type: 'spacing', label: `${Math.round(best.gap)}px` });
+    }
+  }
+
   return { x: snappedX, y: snappedY, guides };
 }
 
