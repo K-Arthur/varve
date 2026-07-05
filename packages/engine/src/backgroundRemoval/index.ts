@@ -35,6 +35,10 @@ export async function removeBackground(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
 ): Promise<BackgroundRemovalResult> {
+  if (imageData.width === 0 || imageData.height === 0) {
+    throw new Error('Cannot remove background from a 0-byte image (width or height is zero)');
+  }
+
   if (options.method === 'quick') {
     return removeBackgroundHeuristic(imageData, options);
   }
@@ -43,7 +47,7 @@ export async function removeBackground(
     return invokeTauriRemoveBackground(imageData, options);
   }
 
-  if (typeof Worker !== 'undefined' && options.method !== 'quick') {
+  if (typeof Worker !== 'undefined') {
     try {
       return await runWorkerInference(imageData, options);
     } catch {
@@ -161,7 +165,7 @@ async function removeBackgroundAI(
 
   const mask = new Uint8Array(maskWidth * maskHeight);
   for (let i = 0; i < outputData.length; i++) {
-    mask[i] = outputData[i] > 0.5 ? 255 : 0;
+    mask[i] = (outputData[i] ?? 0) > 0.5 ? 255 : 0;
   }
 
   const upscaledMask = resizeMask(mask, maskWidth, maskHeight, imageData.width, imageData.height);
@@ -218,7 +222,7 @@ function resizeMask(
       const sy = (dy * srcH) / dstH;
       const ix = Math.min(Math.floor(sx), srcW - 1);
       const iy = Math.min(Math.floor(sy), srcH - 1);
-      result[dy * dstW + dx] = mask[iy * srcW + ix];
+      result[dy * dstW + dx] = mask[iy * srcW + ix] ?? 0;
     }
   }
   return result;
@@ -229,9 +233,9 @@ function imageDataToTensor(imageData: ImageData): any {
   const floatData = new Float32Array(width * height * 3);
 
   for (let i = 0; i < data.length / 4; i++) {
-    floatData[i] = data[i * 4] / 255;
-    floatData[width * height + i] = data[i * 4 + 1] / 255;
-    floatData[width * height * 2 + i] = data[i * 4 + 2] / 255;
+    floatData[i] = (data[i * 4] ?? 0) / 255;
+    floatData[width * height + i] = (data[i * 4 + 1] ?? 0) / 255;
+    floatData[width * height * 2 + i] = (data[i * 4 + 2] ?? 0) / 255;
   }
 
   return new Float32Array(floatData);
@@ -244,7 +248,7 @@ function maskToDataUrl(mask: Uint8Array, width: number, height: number): string 
   const ctx = canvas.getContext('2d')!;
   const imageData = ctx.createImageData(width, height);
   for (let i = 0; i < mask.length; i++) {
-    const v = mask[i];
+    const v = mask[i] ?? 0;
     imageData.data[i * 4] = v;
     imageData.data[i * 4 + 1] = v;
     imageData.data[i * 4 + 2] = v;
@@ -266,10 +270,10 @@ async function applySimpleFeather(
   const ctx = canvas.getContext('2d')!;
   const imageData = ctx.createImageData(width, height);
   for (let i = 0; i < mask.length; i++) {
-    imageData.data[i * 4] = mask[i];
-    imageData.data[i * 4 + 1] = mask[i];
-    imageData.data[i * 4 + 2] = mask[i];
-    imageData.data[i * 4 + 3] = mask[i];
+    imageData.data[i * 4] = mask[i] ?? 0;
+    imageData.data[i * 4 + 1] = mask[i] ?? 0;
+    imageData.data[i * 4 + 2] = mask[i] ?? 0;
+    imageData.data[i * 4 + 3] = mask[i] ?? 0;
   }
   ctx.putImageData(imageData, 0, 0);
 
@@ -281,7 +285,7 @@ async function applySimpleFeather(
   const blurred = ctx.getImageData(0, 0, width, height);
   const result = new Uint8Array(width * height);
   for (let i = 0; i < result.length; i++) {
-    result[i] = blurred.data[i * 4];
+    result[i] = blurred.data[i * 4] ?? 0;
   }
   return result;
 }

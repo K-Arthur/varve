@@ -436,6 +436,16 @@ fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
                     buf.extend(format!("% backgroundBlur radius={radius:.2}\n").as_bytes());
                 }
             }
+            Effect::OuterGlow { visible, .. } => {
+                if *visible {
+                    buf.extend(b"% outerGlow (not rendered in basic PDF)\n");
+                }
+            }
+            Effect::InnerGlow { visible, .. } => {
+                if *visible {
+                    buf.extend(b"% innerGlow (not rendered in basic PDF)\n");
+                }
+            }
         }
     }
     buf

@@ -122,6 +122,25 @@
   background: var(--elevation-surface-sunken);
 }
 
+.export-dialog__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  padding: var(--space-1) 0;
+}
+.export-dialog__checkbox-label input[type="checkbox"] {
+  accent-color: var(--color-accent-primary);
+}
+.export-dialog__note {
+  margin: var(--space-1) 0 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding-left: calc(var(--space-5) + var(--space-1));
+}
+
 /* ── High-contrast overrides ──────────────────────────── */
 [data-theme="high-contrast"] .export-dialog {
   border: 1px solid var(--color-border-strong);

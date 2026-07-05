@@ -5,7 +5,7 @@
  * destination configuration, and cancellation support.
  */
 
-import type { ExportBatch, ExportJob, ExportPreset, SceneNode } from '@strata/scene';
+import type { ExportBatch, ExportJob, ExportPreset, ImageNode, SceneNode } from '@strata/scene';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
@@ -75,6 +75,7 @@ export function ExportDialog({
   const [folderRule, setFolderRule] = useState<ExportBatch['folderRule']>('flat');
   const [destinationLabel, setDestinationLabel] = useState('');
   const [announceMsg, setAnnounceMsg] = useState('');
+  const [removeBgBeforeExport, setRemoveBgBeforeExport] = useState(false);
 
   const jobs = useMemo(() => buildJobs(nodes), [nodes]);
 
@@ -104,6 +105,55 @@ export function ExportDialog({
     setRunning(true);
     setProgress({ done: 0, errors: 0 });
     const selectedJobs = jobs.filter((job) => selectedIds.has(`${job.nodeId}-${job.presetId}`));
+
+    if (removeBgBeforeExport) {
+      const imageNodes = nodes.filter((n): n is ImageNode => n.kind === 'image');
+      const pendingImages = imageNodes.filter((n) => !n.backgroundRemoval);
+      if (pendingImages.length > 0) {
+        setAnnounceMsg(`Removing background from ${pendingImages.length} image(s)...`);
+        const { removeBackground: removeBgFn } = await import('@strata/engine');
+        const { getImageCache } = await import('@strata/engine');
+        const cache = getImageCache();
+        for (const imgNode of pendingImages) {
+          try {
+            const img = await cache.load(imgNode.src);
+            if (!img) continue;
+            const c = document.createElement('canvas');
+            c.width = imgNode.w;
+            c.height = imgNode.h;
+            const ctx = c.getContext('2d');
+            if (!ctx) continue;
+            ctx.drawImage(img, 0, 0, imgNode.w, imgNode.h);
+            const imageData = ctx.getImageData(0, 0, imgNode.w, imgNode.h);
+            const result = await removeBgFn(imageData, {
+              method: 'quick',
+              feather: 0.5,
+              decontaminate: true,
+            });
+            const { setBackgroundRemoval } = await import('@strata/scene');
+            nodes.forEach((n, i) => {
+              if (n.id === imgNode.id) {
+                (nodes as unknown[])[i] = setBackgroundRemoval(
+                  { nodes: { [n.id]: n } } as never,
+                  n.id,
+                  {
+                    maskDataUrl: result.maskDataUrl,
+                    method: result.method,
+                    confidence: result.confidence,
+                    appliedAt: Date.now(),
+                    feather: 0.5,
+                    decontaminate: true,
+                  },
+                ).nodes[n.id];
+              }
+            });
+          } catch {
+            // continue with export even if bg removal fails
+          }
+        }
+      }
+    }
+
     const batch: ExportBatch = {
       jobs: selectedJobs,
       destinationFolder: destinationLabel || null,
@@ -113,7 +163,16 @@ export function ExportDialog({
     await onExport(batch);
     setRunning(false);
     setAnnounceMsg(`Export complete: ${selectedJobs.length} files exported`);
-  }, [jobs, selectedIds, onExport, destinationLabel, template, folderRule]);
+  }, [
+    jobs,
+    selectedIds,
+    onExport,
+    destinationLabel,
+    template,
+    folderRule,
+    removeBgBeforeExport,
+    nodes,
+  ]);
 
   const handleCancel = useCallback(() => {
     setRunning(false);
@@ -200,6 +259,32 @@ export function ExportDialog({
               onSelectDestination={handleSelectDestination}
               destinationLabel={destinationLabel}
             />
+          </section>
+
+          <section className="export-dialog__section" aria-label="Background">
+            <h3 className="export-dialog__section-title">Background</h3>
+            <label className="export-dialog__checkbox-label">
+              <input
+                type="checkbox"
+                checked={removeBgBeforeExport}
+                onChange={(e) => setRemoveBgBeforeExport(e.target.checked)}
+              />
+              <span>Remove background before export</span>
+            </label>
+            {removeBgBeforeExport &&
+              (() => {
+                const imageCount = nodes.filter(
+                  (n): n is ImageNode => n.kind === 'image' && !n.backgroundRemoval,
+                ).length;
+                return imageCount > 0 ? (
+                  <p className="export-dialog__note">
+                    Background removal will be applied to {imageCount} image
+                    {imageCount !== 1 ? 's' : ''}
+                  </p>
+                ) : (
+                  <p className="export-dialog__note">All images already have background removal</p>
+                );
+              })()}
           </section>
 
           {(running || progress.done > 0 || progress.errors > 0) && (

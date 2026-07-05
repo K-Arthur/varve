@@ -45,7 +45,8 @@ export type ToolId =
   | 'cloneStamp'
   | 'healBrush'
   | 'spotHeal'
-  | 'patch';
+  | 'patch'
+  | 'refineMask';
 
 export type CanvasMode = 'full' | 'outline' | 'preview';
 
@@ -85,6 +86,7 @@ export interface EditorState {
   motion: MotionState;
   canvasMode: CanvasMode;
   currentPageId: string | null;
+  showOriginalBgNodeId: NodeId | null;
 }
 
 export interface EditorContextValue {
@@ -315,9 +317,15 @@ export interface EditorContextValue {
 
   // Background removal
   removeBackground: (method: BackgroundRemovalMethod) => Promise<void>;
+  removeBackgroundWithOptions: (
+    method: BackgroundRemovalMethod,
+    feather: number,
+    decontaminate: boolean,
+  ) => Promise<void>;
   batchRemoveBackground: (
     method: BackgroundRemovalMethod,
   ) => Promise<{ total: number; succeeded: number; failed: number }>;
+  setShowOriginalBg: (nodeId: NodeId | null) => void;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;

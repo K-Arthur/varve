@@ -1,0 +1,432 @@
+/* ── Batch Background Removal Dialog ──────────────────────── */
+
+.batch-bg-remove-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay, 500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--elevation-scrim);
+}
+
+.batch-bg-remove {
+  width: min(600px, 90vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--elevation-surface-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elevation-shadow-overlay);
+  overflow: hidden;
+}
+
+.batch-bg-remove__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-micro);
+}
+
+.batch-bg-remove__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary);
+}
+
+.batch-bg-remove__close {
+  width: var(--space-6);
+  height: var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+
+.batch-bg-remove__close:hover {
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+.batch-bg-remove__close:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.batch-bg-remove__close:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.batch-bg-remove__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+}
+
+.batch-bg-remove__section {
+  margin-bottom: var(--space-3);
+}
+
+.batch-bg-remove__section-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary);
+}
+
+/* ── Method selector ─────────────────────────────────────── */
+
+.batch-bg-remove__method-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.batch-bg-remove__method-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  background: var(--elevation-surface-sunken);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+}
+
+.batch-bg-remove__method-item:hover {
+  background: var(--elevation-surface-raised);
+}
+
+.batch-bg-remove__method-item--active {
+  border-color: var(--color-accent-primary);
+  background: var(--elevation-surface-raised);
+}
+
+.batch-bg-remove__method-radio {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border-strong);
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition:
+    border-color var(--duration-quick) var(--ease-standard),
+    box-shadow var(--duration-quick) var(--ease-standard);
+}
+
+.batch-bg-remove__method-item--active .batch-bg-remove__method-radio {
+  border-color: var(--color-accent-primary);
+  box-shadow: inset 0 0 0 4px var(--color-accent-primary);
+}
+
+.batch-bg-remove__method-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-primary);
+  min-width: 7em;
+}
+
+.batch-bg-remove__method-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── File list ──────────────────────────────────────────────── */
+
+.batch-bg-remove__file-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.batch-bg-remove__file-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+
+.batch-bg-remove__file-row:hover {
+  background: var(--elevation-surface-raised);
+}
+
+.batch-bg-remove__file-row--done {
+  opacity: 0.75;
+}
+
+.batch-bg-remove__file-row--error {
+  background: var(--color-bg-danger-subtle, rgba(220, 38, 38, 0.06));
+}
+
+.batch-bg-remove__file-row--processing {
+  background: var(--elevation-surface-raised);
+}
+
+.batch-bg-remove__file-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--elevation-surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.batch-bg-remove__thumb-img {
+  display: block;
+  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.batch-bg-remove__file-name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Status badge ──────────────────────────────────────────── */
+
+.batch-bg-remove__status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium, 500);
+  white-space: nowrap;
+}
+
+.batch-bg-remove__status-badge--queued {
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.batch-bg-remove__status-badge--processing {
+  background: var(--color-accent-subtle, rgba(57, 208, 198, 0.12));
+  color: var(--color-accent-primary);
+}
+
+.batch-bg-remove__status-badge--done {
+  background: var(--color-success-subtle, rgba(34, 197, 94, 0.12));
+  color: var(--color-success-text, #16a34a);
+}
+
+.batch-bg-remove__status-badge--error {
+  background: var(--color-danger-subtle, rgba(220, 38, 38, 0.12));
+  color: var(--color-danger-text, #dc2626);
+}
+
+.batch-bg-remove__status-badge--skipped {
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+/* ── Retry button ──────────────────────────────────────────── */
+
+.batch-bg-remove__retry-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--space-5);
+  padding: 0 var(--space-2);
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-accent-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+}
+
+.batch-bg-remove__retry-btn:hover {
+  background: var(--color-accent-subtle, rgba(57, 208, 198, 0.12));
+  border-color: var(--color-accent-primary);
+}
+
+.batch-bg-remove__retry-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Progress ────────────────────────────────────────────────── */
+
+.batch-bg-remove__progress {
+  margin-bottom: var(--space-3);
+}
+
+.batch-bg-remove__progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.batch-bg-remove__progress-fill {
+  height: 100%;
+  background: var(--color-accent-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.batch-bg-remove__progress-text {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* ── Results summary ────────────────────────────────────────── */
+
+.batch-bg-remove__results-summary {
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-md);
+}
+
+.batch-bg-remove__results-count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium, 500);
+}
+
+.batch-bg-remove__results-success {
+  color: var(--color-success-text, #16a34a);
+}
+
+.batch-bg-remove__results-fail {
+  color: var(--color-danger-text, #dc2626);
+}
+
+.batch-bg-remove__results-skipped {
+  color: var(--color-text-muted);
+}
+
+.batch-bg-remove__results-sep {
+  color: var(--color-text-muted);
+}
+
+/* ── Empty state ─────────────────────────────────────────────── */
+
+.batch-bg-remove__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.batch-bg-remove__empty-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  max-width: 360px;
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+
+.batch-bg-remove__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-micro);
+}
+
+.batch-bg-remove__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--space-6);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  outline-offset: 2px;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-default);
+}
+
+.batch-bg-remove__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.batch-bg-remove__btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.batch-bg-remove__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+}
+
+.batch-bg-remove__btn--primary {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+}
+
+.batch-bg-remove__btn--primary:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+}
+
+.batch-bg-remove__btn--secondary {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-strong);
+}
+
+.batch-bg-remove__btn--secondary:hover:not(:disabled) {
+  background: var(--elevation-surface-sunken);
+}
+
+/* ── High-contrast overrides ──────────────────────────────── */
+
+[data-theme="high-contrast"] .batch-bg-remove {
+  border: 1px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .batch-bg-remove__header {
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .batch-bg-remove__footer {
+  border-top: 1px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .batch-bg-remove__file-row--error {
+  border: 1px solid var(--color-danger-text, #dc2626);
+}
