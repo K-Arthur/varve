@@ -158,98 +158,11 @@ import {
 } from './state/motion-state';
 import type { DraftShape } from './tools/types';
 
-// Forward declaration for use in createShapeAt guard
-export type ToolId =
-  | 'select'
-  | 'frame'
-  | 'rect'
-  | 'ellipse'
-  | 'polygon'
-  | 'star'
-  | 'line'
-  | 'arrow'
-  | 'pen'
-  | 'pencil'
-  | 'nodeEdit'
-  | 'text'
-  | 'hand'
-  | 'zoom'
-  | 'scale'
-  | 'image'
-  | 'slice'
-  | 'eyedropper'
-  | 'inspect'
-  | 'booleanUnion'
-  | 'booleanSubtract'
-  | 'booleanIntersect'
-  | 'booleanExclude'
-  | 'cloneStamp'
-  | 'healBrush'
-  | 'spotHeal'
-  | 'patch';
+import { ViewportProvider, SelectionProvider } from './context';
+import type { ToolId, CanvasMode, SessionMeta, EditorState } from './context/types';
 
-export type CanvasMode = 'full' | 'outline' | 'preview';
-
-/** F2: metadata for each open document tab. */
-export interface SessionMeta {
-  id: string;
-  name: string;
-  dirty: boolean;
-  filePath?: string;
-  /** Platform file-entry id this tab was opened from (for tab dedupe). */
-  fileId?: string;
-}
-
-export interface EditorState {
-  tool: ToolId;
-  zoom: number;
-  pan: { x: number; y: number };
-  /** F1: multi-select set; use isSelected/selectedNodes helpers to read. */
-  selection: NodeId[];
-  document: Document;
-  /** F2: open document sessions (tabs). */
-  sessions: SessionMeta[];
-  activeId: string;
-  dirty: boolean;
-  /** B1: per-session variable store. */
-  variableStore: VariableStore;
-  /** Cursor position on canvas (world coords), null when not over canvas. */
-  cursorPos: { x: number; y: number } | null;
-  /** Current display unit. */
-  unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
-  /** Pixel grid overlay toggle. */
-  pixelGridEnabled: boolean;
-  /** Snap-to-grid toggle. */
-  snapEnabled: boolean;
-  /** Snap grid size in pixels. */
-  snapGrid: number;
-  /** Save state for the active document. */
-  saveState: 'idle' | 'saving' | 'saved' | 'error';
-  /** When the active document was last saved (epoch ms). */
-  lastSavedAt: number | null;
-  /** Prototype mode active */
-  prototypeMode: boolean;
-  /** Prototype runtime instance */
-  prototypeRuntime: PrototypeRuntime | null;
-  /** Prototype debug console */
-  prototypeDebug: PrototypeDebugConsole;
-  /** Prototype data from the document */
-  prototypeData: PrototypeData;
-  /** Whether prototype is presenting */
-  isPresenting: boolean;
-  /** Soft proofing overlay toggle. */
-  softProofEnabled: boolean;
-  /** Layers (left) panel visibility — persisted in editor settings. */
-  leftPanelVisible: boolean;
-  /** Inspector (right) panel visibility — persisted in editor settings. */
-  rightPanelVisible: boolean;
-  /** Motion/animation playback state. */
-  motion: MotionState;
-  /** Canvas rendering mode: full render, outline (wireframe), or preview (no overlays). */
-  canvasMode: CanvasMode;
-  /** Currently selected page id, or null when no pages exist. */
-  currentPageId: string | null;
-}
+// Re-export for backward compatibility
+export type { ToolId, CanvasMode, SessionMeta, EditorState };
 
 export interface EditorContextValue {
   state: EditorState;
@@ -3752,7 +3665,15 @@ export function EditorProvider({
     ],
   );
 
-  return <EditorCtx.Provider value={value}>{children}</EditorCtx.Provider>;
+  return (
+    <EditorCtx.Provider value={value}>
+      <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
+        <SelectionProvider state={state} setState={setState}>
+          {children}
+        </SelectionProvider>
+      </ViewportProvider>
+    </EditorCtx.Provider>
+  );
 }
 
 export function useEditor(): EditorContextValue {
@@ -3760,6 +3681,8 @@ export function useEditor(): EditorContextValue {
   if (!ctx) throw new Error('useEditor must be used within EditorProvider');
   return ctx;
 }
+
+export { useViewport, useSelection } from './context';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);
