@@ -1,4 +1,5 @@
 import type { Document, NodeId } from '@strata/scene';
+import { buildParentIndexMap } from '@strata/scene';
 import { nodeWorldBounds } from './world';
 
 const CELL_SIZE = 64;
@@ -39,9 +40,10 @@ export function rectCells(rect: { x: number; y: number; w: number; h: number }):
  */
 export function buildSpatialIndex(doc: Document): SpatialIndex {
   const grid = new Map<string, Set<NodeId>>();
+  const parentIndex = buildParentIndexMap(doc);
 
-  for (const [id, node] of Object.entries(doc.nodes)) {
-    const bounds = nodeWorldBounds(doc, id as NodeId);
+  for (const id of Object.keys(doc.nodes)) {
+    const bounds = nodeWorldBounds(doc, id as NodeId, parentIndex);
     if (!bounds) continue;
     const cells = rectCells(bounds);
     for (const key of cells) {
