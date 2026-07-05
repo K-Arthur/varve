@@ -147,3 +147,11 @@ export type {
   StrokeCap,
   StrokeJoin,
 } from './types';
+export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
+export {
+  analogousHarmony,
+  complementaryHarmony,
+  extractPalette,
+  splitComplementaryHarmony,
+  triadicHarmony,
+} from './intelligence/paletteExtractor';

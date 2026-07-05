@@ -1,6 +1,6 @@
-export const CURRENT_DOCUMENT_VERSION = '1.2';
+export const CURRENT_DOCUMENT_VERSION = '1.4';
 
-export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2'];
+export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3', '1.4'];
 
 export interface DocumentMigration {
   from: string;
@@ -57,6 +57,62 @@ const migrations: DocumentMigration[] = [
       }
 
       return result;
+    },
+  },
+  {
+    from: '1.2',
+    to: '1.3',
+    migrate: (raw) => {
+      // O(n) scan to compute parentId for every node
+      const nodes = (raw.nodes as Record<string, Record<string, unknown>>) ?? {};
+      const rootChildren = (raw.rootChildren as string[]) ?? [];
+      const rootSet = new Set(rootChildren);
+
+      // Build parent map: parentId → all its children
+      const parentMap = new Map<string | null, string[]>();
+      for (const [nid, node] of Object.entries(nodes)) {
+        const children = (node.children as string[]) ?? [];
+        if (children.length > 0) {
+          for (const cid of children) {
+            const existing = parentMap.get(cid) ?? [];
+            existing.push(nid);
+            parentMap.set(cid, existing);
+          }
+        }
+      }
+
+      // Set parentId on each node
+      const updatedNodes: Record<string, Record<string, unknown>> = {};
+      for (const [nid, node] of Object.entries(nodes)) {
+        if (rootSet.has(nid)) {
+          updatedNodes[nid] = { ...node, parentId: null };
+        } else {
+          const parents = parentMap.get(nid);
+          const parentId = parents && parents.length > 0 ? parents[0] : null;
+          updatedNodes[nid] = { ...node, parentId };
+        }
+      }
+
+      return {
+        ...raw,
+        nodes: updatedNodes,
+        formatVersion: '1.3',
+      };
+    },
+  },
+  {
+    from: '1.3',
+    to: '1.4',
+    migrate: (raw) => {
+      const pages = (raw.pages as Record<string, unknown>[]) ?? [];
+      const activePageId =
+        pages.length > 0 ? ((pages[0] as Record<string, unknown> | undefined)?.contentRoot as string) : undefined;
+      return {
+        ...raw,
+        formatVersion: '1.4',
+        activePageId,
+        globalChildren: [],
+      };
     },
   },
 ];

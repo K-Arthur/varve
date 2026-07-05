@@ -181,9 +181,6 @@ class Recorder implements ReplayTarget {
   rect(x: number, y: number, w: number, h: number) {
     this.calls.push(`rect(${x},${y},${w},${h})`);
   }
-  clip() {
-    this.calls.push('clip');
-  }
   ellipse(x: number, y: number, rx: number, ry: number, rot: number, start: number, end: number) {
     this.calls.push(`ellipse(${x},${y},${rx},${ry},${rot},${start},${end})`);
   }
@@ -828,7 +825,6 @@ describe('replayIr', () => {
         fillText: vi.fn(),
         setLineDash: vi.fn(),
         drawImage: vi.fn(),
-        clip: vi.fn(),
         fillStyle: '',
         lineWidth: 1,
         lineCap: 'round' as CanvasLineCap,

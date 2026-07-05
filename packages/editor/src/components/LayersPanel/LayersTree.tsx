@@ -94,7 +94,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   } | null>(null);
   const entries = useFlatTree(state.document, expanded, filter);
   const treeRef = useRef<HTMLDivElement>(null);
-  const { focusIdx, anchorIdx, setFocusIdx, setAnchorIdx, jumpToStart, jumpToEnd } = useTreeFocus(entries.length);
+  const { focusIdx, anchorIdx, setFocusIdx, setAnchorIdx, jumpToStart, jumpToEnd } = useTreeFocus(
+    entries.length,
+  );
   const { handleTypeAhead } = useTypeAhead();
 
   const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });

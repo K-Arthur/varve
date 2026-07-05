@@ -23,7 +23,13 @@ import {
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
 import { buildParentIndexMap, walkNodes } from '@strata/scene';
-import { clampZoom, fitBoundsCamera, isWorldRectInViewport, screenToWorld, zoomAboutPoint } from '@strata/shared';
+import {
+  clampZoom,
+  fitBoundsCamera,
+  isWorldRectInViewport,
+  screenToWorld,
+  zoomAboutPoint,
+} from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';

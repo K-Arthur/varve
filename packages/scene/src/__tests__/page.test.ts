@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { Page } from '../types';
+import type { GroupNode } from '../types';
 import {
   addChild,
+  addGlobalChild,
   addPage,
+  activePageNodes,
   createDocument,
   duplicatePage,
   migrateToPages,
   nextNodeId,
+  removeGlobalChild,
   removePage,
   reorderPages,
+  setActivePage,
   setPageSize,
   makeShapeNode,
 } from '../document';
@@ -320,5 +325,76 @@ describe('Page operations', () => {
     expect(migrated.pages![0]!.height).toBe(297);
     expect(migrated.pages![0]!.bleed).toBeDefined();
     expect(migrated.pages![0]!.bleed!.top).toBe(3);
+  });
+
+  describe('Active page & global children', () => {
+    it('createDocument sets activePageId and globalChildren', () => {
+      const doc = createDocument();
+      expect(doc.activePageId).toBeDefined();
+      expect(doc.activePageId).toBe(doc.pages![0]!.contentRoot);
+      expect(doc.globalChildren).toEqual([]);
+    });
+
+    it('setActivePage updates activePageId', () => {
+      const doc = createDocument();
+      const newPageId = 'custom-page-id';
+      const updated = setActivePage(doc, newPageId);
+      expect(updated.activePageId).toBe(newPageId);
+      expect(updated).not.toBe(doc);
+    });
+
+    it('addGlobalChild adds a node ID to globalChildren', () => {
+      const doc = createDocument();
+      const nodeId = 'test-node-1';
+      const updated = addGlobalChild(doc, nodeId);
+      expect(updated.globalChildren).toEqual([nodeId]);
+    });
+
+    it('addGlobalChild does not duplicate existing node IDs', () => {
+      const doc = createDocument();
+      const nodeId = 'test-node-1';
+      const once = addGlobalChild(doc, nodeId);
+      const twice = addGlobalChild(once, nodeId);
+      expect(twice.globalChildren).toEqual([nodeId]);
+    });
+
+    it('removeGlobalChild removes a node ID from globalChildren', () => {
+      const doc = createDocument();
+      const nodeId = 'test-node-1';
+      const withChild = addGlobalChild(doc, nodeId);
+      const withoutChild = removeGlobalChild(withChild, nodeId);
+      expect(withoutChild.globalChildren).toEqual([]);
+    });
+
+    it('activePageNodes returns global children + page children when activePageId is set', () => {
+      let doc = createDocument();
+      const contentRootId = doc.pages![0]!.contentRoot;
+      const globalId = 'global-1';
+      doc = addGlobalChild(doc, globalId);
+      const pageChildId = 'page-child-1';
+      const contentRoot = doc.nodes[contentRootId] as GroupNode;
+      doc = {
+        ...doc,
+        nodes: {
+          ...doc.nodes,
+          [contentRootId]: { ...contentRoot, children: [...contentRoot.children, pageChildId] },
+        },
+      };
+      const result = activePageNodes(doc);
+      expect(result).toContain(globalId);
+      expect(result).toContain(pageChildId);
+    });
+
+    it('activePageNodes returns global children + rootChildren when no activePageId', () => {
+      let doc = createDocument();
+      const globalId = 'global-1';
+      doc = addGlobalChild(doc, globalId);
+      doc = { ...doc, activePageId: undefined };
+      const pageChildId = 'root-child-1';
+      doc = { ...doc, rootChildren: [...doc.rootChildren, pageChildId] };
+      const result = activePageNodes(doc);
+      expect(result).toContain(globalId);
+      expect(result).toContain(pageChildId);
+    });
   });
 });

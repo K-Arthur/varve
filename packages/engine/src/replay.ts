@@ -348,12 +348,13 @@ function paintImageFill(
     let dw = bw * scale;
     let dh = bh * scale;
     if (fit === 'fit') {
-      const aspect = imgEntry.image.naturalWidth / imgEntry.image.naturalHeight;
+      const img = imgEntry.image!;
+      const aspect = img.naturalWidth / img.naturalHeight;
       const boundsAspect = bw / bh;
       if (aspect > boundsAspect) dh = bw / aspect;
       else dw = bh * aspect;
     }
-    target.drawImage(imgEntry.image, fill.x ?? 0, fill.y ?? 0, dw, dh);
+    target.drawImage(imgEntry.image!, fill.x ?? 0, fill.y ?? 0, dw, dh);
   } else if (fit === 'stretch') {
     target.drawImage(fill.src, bounds.x, bounds.y, bounds.w, bounds.h);
   } else if (fit === 'tile') {

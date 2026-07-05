@@ -88,6 +88,7 @@ import {
   type Variable,
   type VariableStore,
   type VariableValue,
+  activePageNodes as getActivePageNodes,
   walkNodes,
 } from '@strata/scene';
 
@@ -587,6 +588,12 @@ export interface EditorContextValue {
   setPageSafeArea: (pageId: string, safeArea: SafeAreaConfig) => void;
   /** Set page-level slug config for a specific page. */
   setPageSlug: (pageId: string, slug: SlugConfig) => void;
+
+  /** Set the active page by page id. */
+  setActivePage: (pageId: NodeId) => void;
+
+  /** Get node IDs visible on the active page (page content + global children). */
+  activePageNodes: () => NodeId[];
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -2371,6 +2378,14 @@ export function EditorProvider({
             pages: doc.pages.map((p) => (p.id === pageId ? { ...p, slug } : p)),
           };
         });
+      },
+
+      setActivePage: (pageId) => {
+        updateDoc((doc) => ({ ...doc, activePageId: pageId }));
+      },
+
+      activePageNodes: () => {
+        return getActivePageNodes(state.document);
       },
 
       setNodeLocked: (id, locked) => {

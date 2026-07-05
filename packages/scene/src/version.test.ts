@@ -135,7 +135,7 @@ describe('Forward Compatibility Detection', () => {
   });
 
   it('isForwardCompatible returns false for newer version', () => {
-    expect(isForwardCompatible('1.3')).toBe(false);
+    expect(isForwardCompatible('99.0')).toBe(false);
     expect(isForwardCompatible('2.0')).toBe(false);
   });
 
@@ -235,9 +235,13 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.2');
+    expect(doc.formatVersion).toBe('1.4');
     expect(doc.documentUnit).toBe('px');
     expect(doc.dpi).toBe(0);
+    expect(doc.pages).toBeDefined();
+    expect((doc.pages as Record<string, unknown>[]).length).toBe(1);
+    expect(doc.activePageId).toBeDefined();
+    expect(doc.globalChildren).toEqual([]);
   });
 
   it('migrates v1.0 to v1.2 preserving existing colorConfig', () => {
@@ -255,7 +259,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.2');
+    expect(doc.formatVersion).toBe('1.4');
     expect(doc.colorConfig).toEqual({ mode: 'cmyk' });
     expect(doc.bleed).toEqual({ top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' });
   });
@@ -277,7 +281,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.2');
+    expect(doc.formatVersion).toBe('1.4');
     expect(doc).toHaveProperty('timelines');
     expect(doc.timelines).toBeUndefined();
     expect(doc).toHaveProperty('activeTimelineId');
@@ -306,7 +310,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.2');
+    expect(doc.formatVersion).toBe('1.4');
     expect(doc.timelines).toBeDefined();
     expect((doc.timelines as Record<string, unknown>)['tl-1']).toBeDefined();
   });

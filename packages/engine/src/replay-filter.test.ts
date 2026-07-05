@@ -30,6 +30,7 @@ function makeRecorder(): {
       fill: () => calls.push(`fill filter=${filter}`),
       stroke: () => calls.push('stroke'),
       closePath: () => calls.push('closePath'),
+      clip: () => calls.push('clip'),
       fillText: () => calls.push('fillText'),
       roundRect: () => calls.push('roundRect'),
       font: '10px sans-serif',

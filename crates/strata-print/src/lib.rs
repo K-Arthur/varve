@@ -449,6 +449,13 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool) -> String {
                 color_to_rgb_string(&[0, 0, 0, 255])
             }
         }
+        FillIR::Image { .. } | FillIR::Pattern { .. } => {
+            if use_cmyk {
+                color_to_cmyk_string(&[0, 0, 0, 255])
+            } else {
+                color_to_rgb_string(&[0, 0, 0, 255])
+            }
+        }
     }
 }
 
@@ -458,6 +465,8 @@ fn fill_visible(fill: &FillIR) -> bool {
     match fill {
         FillIR::Solid { visible, .. } => *visible,
         FillIR::Gradient { visible, .. } => *visible,
+        FillIR::Image { visible, .. } => *visible,
+        FillIR::Pattern { visible, .. } => *visible,
     }
 }
 
@@ -465,6 +474,8 @@ fn fill_opacity(fill: &FillIR) -> f64 {
     match fill {
         FillIR::Solid { opacity, .. } => *opacity,
         FillIR::Gradient { opacity, .. } => *opacity,
+        FillIR::Image { opacity, .. } => *opacity,
+        FillIR::Pattern { opacity, .. } => *opacity,
     }
 }
 

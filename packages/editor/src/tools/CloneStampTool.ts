@@ -116,7 +116,7 @@ export class CloneStampTool extends BaseTool {
   private paintStroke(
     world: { x: number; y: number },
     canvas: HTMLCanvasElement,
-    ctx: ToolContext,
+    _ctx: ToolContext,
   ): void {
     const canvasCtx = canvas.getContext('2d');
     if (!canvasCtx) return;

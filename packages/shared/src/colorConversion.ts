@@ -452,6 +452,24 @@ export function managedColorToEngineColor(color: ManagedColorShim): ColorShim {
   return managedColorToRgba(color);
 }
 
+// ── Oklab <-> Oklch ─────────────────────────────────────────────────────────
+
+/**
+ * Convert Oklab [L, a, b] to Oklch [L, Chroma, Hue] (hue in radians).
+ */
+export function oklabToOkLch(lab: [number, number, number]): [number, number, number] {
+  const [L, a, b] = lab;
+  return [L, Math.sqrt(a * a + b * b), Math.atan2(b, a)];
+}
+
+/**
+ * Convert Oklch [L, Chroma, Hue] (hue in radians) to Oklab [L, a, b].
+ */
+export function oklchToOkLab(lch: [number, number, number]): [number, number, number] {
+  const [L, C, H] = lch;
+  return [L, C * Math.cos(H), C * Math.sin(H)];
+}
+
 // ── Gamut mapping ───────────────────────────────────────────────────────────
 
 /**

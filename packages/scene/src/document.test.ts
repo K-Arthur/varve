@@ -754,7 +754,7 @@ describe('Document print production fields', () => {
 
   it('createDocument stamps current format version', () => {
     const doc = createDocument('test');
-    expect(['1.1', '1.2']).toContain(doc.formatVersion);
+    expect(['1.4', '1.3', '1.2', '1.1']).toContain(doc.formatVersion);
   });
 
   it('Document interface accepts colorConfig and bleed', () => {
