@@ -333,6 +333,168 @@
   opacity: 0.25;
 }
 
+/* ─── Filter bar — multi-faceted layer filter ─────── */
+.layers-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 var(--space-2) var(--space-2);
+}
+
+.layers-filter-bar__search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-quick) var(--ease-standard);
+}
+.layers-filter-bar__search-row:focus-within {
+  border-color: var(--color-border-focus);
+}
+[data-theme="high-contrast"] .layers-filter-bar__search-row {
+  border-color: var(--color-border-subtle);
+}
+
+.layers-filter-bar__input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  outline: none;
+  padding: var(--space-1) 0;
+}
+.layers-filter-bar__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.layers-filter-bar__clear-search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+.layers-filter-bar__clear-search:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+}
+
+.layers-filter-bar__toggle-advanced {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.layers-filter-bar__toggle-advanced:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.layers-filter-bar__clear-all {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.layers-filter-bar__clear-all:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
+}
+
+.layers-filter-bar__advanced {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+.layers-filter-bar__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-05);
+}
+.layers-filter-bar__section-label {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.layers-filter-bar__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-05);
+}
+
+.layers-filter-bar__chip {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-app);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-1);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+  white-space: nowrap;
+}
+.layers-filter-bar__chip:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+.layers-filter-bar__chip--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border-color: var(--color-interactive-default);
+}
+.layers-filter-bar__chip--active:hover {
+  background: var(--color-interactive-hover);
+  border-color: var(--color-interactive-hover);
+}
+.layers-filter-bar__chip--inverse {
+  border-color: var(--color-feedback-warning);
+  color: var(--color-feedback-warning);
+  background: var(--color-surface-app);
+}
+.layers-filter-bar__chip--inverse:hover {
+  background: var(--color-feedback-warning-subtle);
+}
+
+.layers-filter-bar__count {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  text-align: right;
+  padding: 0 var(--space-1);
+}
+
 /* ─── VariablePanel wrapper ───────────────────────── */
 .layers-panel__variables {
   margin-top: var(--space-3);

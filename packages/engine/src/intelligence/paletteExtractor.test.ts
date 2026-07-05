@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  linearSrgbToOklab,
-  oklabToOkLch,
-  srgbToLinear,
-} from '@strata/shared';
+import { linearSrgbToOklab, oklabToOkLch, srgbToLinear } from '@strata/shared';
 import {
   extractPalette,
   complementaryHarmony,
@@ -15,11 +11,7 @@ import {
 /**
  * Create ImageData with RGBA pixel data.
  */
-function createImageData(
-  width: number,
-  height: number,
-  pixels: Uint8ClampedArray,
-): ImageData {
+function createImageData(width: number, height: number, pixels: Uint8ClampedArray): ImageData {
   return { width, height, data: pixels, colorSpace: 'srgb' } as unknown as ImageData;
 }
 
@@ -75,8 +67,14 @@ function createManyColorImage(): ImageData {
   const h = 64;
   const data = new Uint8ClampedArray(w * h * 4);
   const colors: [number, number, number][] = [
-    [255, 0, 0], [0, 128, 0], [0, 0, 255], [255, 255, 0],
-    [0, 255, 255], [255, 0, 255], [255, 165, 0], [128, 0, 128],
+    [255, 0, 0],
+    [0, 128, 0],
+    [0, 0, 255],
+    [255, 255, 0],
+    [0, 255, 255],
+    [255, 0, 255],
+    [255, 165, 0],
+    [128, 0, 128],
   ];
   const perRow = 4;
   const sw = w / perRow;
@@ -102,11 +100,7 @@ function makeRgbColor(r: number, g: number, b: number, a: number = 255) {
  * Approximate the Oklch hue (in radians) of an sRGB color.
  */
 function approximateHue(r: number, g: number, b: number): number {
-  const linear: [number, number, number] = [
-    srgbToLinear(r),
-    srgbToLinear(g),
-    srgbToLinear(b),
-  ];
+  const linear: [number, number, number] = [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)];
   const oklab = linearSrgbToOklab(linear);
   const [, , H] = oklabToOkLch(oklab);
   return H;

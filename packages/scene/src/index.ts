@@ -18,6 +18,7 @@ export * from './export-types';
 export * from './expr';
 export * from './fills';
 export * from './governance';
+export * from './intelligence';
 export * from './library';
 export * from './masks';
 export * from './motion';

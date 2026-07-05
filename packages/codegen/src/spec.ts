@@ -127,10 +127,13 @@ export function buildSpec(doc: Document): SpecSheet {
     }
   }
 
+  const contentRoots = new Set(doc.pages?.map((p) => p.contentRoot) ?? []);
+
   function walk(ids: NodeId[], depth: number) {
     for (const nid of ids) {
       const node = doc.nodes[nid];
       if (!node) continue;
+      if (contentRoots.has(nid)) continue;
 
       addColor(node.fill);
 

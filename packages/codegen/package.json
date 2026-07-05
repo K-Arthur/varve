@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "cd ../.. && vitest run packages/codegen"
   },
   "dependencies": {
     "@strata/engine": "workspace:*",

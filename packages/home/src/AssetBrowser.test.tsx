@@ -125,7 +125,7 @@ describe('AssetBrowser', () => {
     await waitFor(() => {
       const insertBtns = screen.getAllByLabelText(/Insert/);
       expect(insertBtns.length).toBeGreaterThan(0);
-      fireEvent.click(insertBtns[0]);
+      fireEvent.click(insertBtns[0]!);
       expect(onInsertAsset).toHaveBeenCalledWith(MOCK_ASSETS[0]);
     });
   });

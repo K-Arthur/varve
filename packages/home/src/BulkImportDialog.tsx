@@ -266,9 +266,9 @@ export function BulkImportDialog({
                   <Icon
                     name={
                       f.status === 'done'
-                        ? 'CheckCircle'
+                        ? 'CircleCheck'
                         : f.status === 'error'
-                          ? 'AlertCircle'
+                          ? 'CircleAlert'
                           : 'Clock'
                     }
                     label={undefined}

@@ -5,13 +5,15 @@
  * Research basis: W3C APG Tree View, Menu pattern (for context menu).
  */
 
-import type { ContainerNode, NodeId } from '@strata/scene';
+import type { ContainerNode, NodeId, SceneNode } from '@strata/scene';
 import { getParent } from '@strata/scene';
-import { CHROME_ICONS, Icon } from '@strata/ui';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../../context';
+import type { LayerFilterSpec } from './layerFilterTypes';
+import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
+import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
 import { LayersTree } from './LayersTree';
 import './layers.css';
@@ -34,13 +36,26 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     cutSelected,
     paste,
   } = useEditor();
-  const [filter, setFilter] = useState('');
+  const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     id: NodeId;
   } | null>(null);
-  const filterRef = useRef<HTMLInputElement>(null);
+
+  // Compute match count for the filter bar
+  const totalCount = useMemo(
+    () => Object.keys(state.document.nodes).length,
+    [state.document.nodes],
+  );
+  const matchCount = useMemo(() => {
+    if (!isFiltering(filterSpec)) return totalCount;
+    let count = 0;
+    for (const node of Object.values(state.document.nodes)) {
+      if (nodeMatchesFilter(node as SceneNode, filterSpec)) count++;
+    }
+    return count;
+  }, [state.document.nodes, filterSpec, totalCount]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -66,11 +81,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     },
     [state.selection, setSelection],
   );
-
-  const clearFilter = useCallback(() => {
-    setFilter('');
-    filterRef.current?.focus();
-  }, []);
 
   const closeMenu = useCallback(() => setContextMenu(null), []);
 
@@ -173,30 +183,14 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         <span>Layers</span>
       </div>
 
-      <div className="layers-panel__filter">
-        <Icon name={CHROME_ICONS.search} size="0.85em" aria-hidden />
-        <input
-          ref={filterRef}
-          className="layers-panel__filter-input"
-          type="search"
-          placeholder="Filter layers..."
-          aria-label="Filter layers"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        {filter && (
-          <button
-            type="button"
-            className="layers-panel__filter-clear"
-            onClick={clearFilter}
-            aria-label="Clear filter"
-          >
-            <Icon name={CHROME_ICONS.close} size="0.75em" />
-          </button>
-        )}
-      </div>
+      <LayerFilterBar
+        filter={filterSpec}
+        onChange={setFilterSpec}
+        matchCount={matchCount}
+        totalCount={totalCount}
+      />
 
-      <LayersTree ref={dndRef} filter={filter} onContextMenu={handleContextMenu} />
+      <LayersTree ref={dndRef} filterSpec={filterSpec} onContextMenu={handleContextMenu} />
 
       {contextMenu &&
         createPortal(

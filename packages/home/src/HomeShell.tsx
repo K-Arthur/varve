@@ -17,7 +17,7 @@ import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
 import { FileList } from './FileList';
-import { FormatMigration, type FormatMigrationResult } from './FormatMigration';
+import type { FormatMigrationResult } from './FormatMigration';
 import { HomeSearchPalette } from './HomeSearchPalette';
 import { HomeShortcutHelp } from './HomeShortcutHelp';
 import { HomeToolbar } from './HomeToolbar';
@@ -87,9 +87,9 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
   const [versionHistoryFileId, setVersionHistoryFileId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
-  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [_bulkImportOpen] = useState(false);
   const [templates, setTemplates] = useState<TemplateLibrary[]>([]);
-  const [migrationResults, setMigrationResults] = useState<FormatMigrationResult[] | null>(null);
+  const [_migrationResults] = useState<FormatMigrationResult[] | null>(null);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;

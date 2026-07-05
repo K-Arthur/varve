@@ -444,6 +444,10 @@ function isTransparentOrEmptyFill(node: import('@strata/scene').SceneNode): bool
     });
   }
   if (node.fill) {
+    if (typeof node.fill === 'object' && !Array.isArray(node.fill)) {
+      const [, , , a] = managedColorToRgba(node.fill);
+      return a === 0;
+    }
     const alpha = Array.isArray(node.fill) ? (node.fill[3] ?? 255) : 255;
     return alpha === 0;
   }

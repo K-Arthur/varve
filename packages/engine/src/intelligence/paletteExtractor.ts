@@ -141,11 +141,7 @@ function buildHistogram(data: ImageData): {
 
     if (aVal! < 128) continue;
 
-    const linear: [number, number, number] = [
-      srgbToLinear(r!),
-      srgbToLinear(g!),
-      srgbToLinear(b!),
-    ];
+    const linear: [number, number, number] = [srgbToLinear(r!), srgbToLinear(g!), srgbToLinear(b!)];
     const oklab = linearSrgbToOklab(linear);
     const lch = oklabToOkLch(oklab);
 
@@ -182,7 +178,18 @@ function cuboidFromBins(bins: HistogramBin[]): Cuboid {
   let sumH = 0;
 
   if (bins.length === 0) {
-    return { lMin: 0, lMax: 1, cMin: 0, cMax: CHROMA_MAX, hMin: -Math.PI, hMax: Math.PI, count: 0, sumL: 0, sumC: 0, sumH: 0 };
+    return {
+      lMin: 0,
+      lMax: 1,
+      cMin: 0,
+      cMax: CHROMA_MAX,
+      hMin: -Math.PI,
+      hMax: Math.PI,
+      count: 0,
+      sumL: 0,
+      sumC: 0,
+      sumH: 0,
+    };
   }
 
   for (const bin of bins) {
@@ -222,9 +229,7 @@ function splitBinsByAxis(
   bins: HistogramBin[],
   axis: 'l' | 'c' | 'h',
 ): [Cuboid, HistogramBin[], Cuboid, HistogramBin[]] {
-  const sorted = [...bins].sort(
-    (a, b) => binAxisValue(a, axis) - binAxisValue(b, axis),
-  );
+  const sorted = [...bins].sort((a, b) => binAxisValue(a, axis) - binAxisValue(b, axis));
 
   const total = bins.reduce((s, b) => s + b.count, 0);
   const half = total / 2;
@@ -244,10 +249,7 @@ function splitBinsByAxis(
   const leftBins = sorted.slice(0, splitAt);
   const rightBins = sorted.slice(splitAt);
 
-  return [
-    cuboidFromBins(leftBins), leftBins,
-    cuboidFromBins(rightBins), rightBins,
-  ];
+  return [cuboidFromBins(leftBins), leftBins, cuboidFromBins(rightBins), rightBins];
 }
 
 /**
@@ -277,10 +279,7 @@ function oklchToManagedColor(lch: [number, number, number], alpha: number): Mana
 /**
  * Extract dominant colors from an image using median-cut quantization.
  */
-export function extractPalette(
-  imageData: ImageData,
-  colorCount: number = 6,
-): PaletteResult {
+export function extractPalette(imageData: ImageData, colorCount: number = 6): PaletteResult {
   if (imageData.width === 0 || imageData.height === 0) {
     return { colors: [], coverage: 0 };
   }
@@ -296,9 +295,7 @@ export function extractPalette(
   const initial = cuboidFromBins(allBins);
 
   // Each region: bins array + enclosing cuboid
-  const regions: { bins: HistogramBin[]; cuboid: Cuboid }[] = [
-    { bins: allBins, cuboid: initial },
-  ];
+  const regions: { bins: HistogramBin[]; cuboid: Cuboid }[] = [{ bins: allBins, cuboid: initial }];
 
   while (regions.length < colorCount && regions.length < allBins.length) {
     // Pick the region with the most pixels
@@ -316,10 +313,7 @@ export function extractPalette(
     if (region.cuboid.count <= 1) break;
 
     const axis = largestAxis(region.cuboid);
-    const [leftC, leftBins, rightC, rightBins] = splitBinsByAxis(
-      region.bins,
-      axis,
-    );
+    const [leftC, leftBins, rightC, rightBins] = splitBinsByAxis(region.bins, axis);
 
     // Replace the original region with the two new regions
     regions.splice(bestIdx, 1);
@@ -340,9 +334,7 @@ export function extractPalette(
   const coverage = total > 0 ? accounted / total : 0;
 
   return {
-    colors: topRegions.map(r =>
-      oklchToManagedColor(meanOklch(r.cuboid), 255),
-    ),
+    colors: topRegions.map((r) => oklchToManagedColor(meanOklch(r.cuboid), 255)),
     coverage,
   };
 }
@@ -351,11 +343,7 @@ export function extractPalette(
 
 function managedColorToOklch(color: ManagedColor): [number, number, number] {
   const [r, g, b] = managedColorToRgba(color);
-  const linear: [number, number, number] = [
-    srgbToLinear(r),
-    srgbToLinear(g),
-    srgbToLinear(b),
-  ];
+  const linear: [number, number, number] = [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)];
   const oklab = linearSrgbToOklab(linear);
   return oklabToOkLch(oklab);
 }
@@ -365,16 +353,12 @@ function getAlpha(color: ManagedColor): number {
   return 255;
 }
 
-function rotateHueHarmony(
-  name: string,
-  color: ManagedColor,
-  hueOffsets: number[],
-): HarmonyPalette {
+function rotateHueHarmony(name: string, color: ManagedColor, hueOffsets: number[]): HarmonyPalette {
   const lch = managedColorToOklch(color);
   const [L, C, H] = lch;
   const alpha = getAlpha(color);
 
-  const colors = hueOffsets.map(offset => {
+  const colors = hueOffsets.map((offset) => {
     let newH = H + offset;
     newH = ((newH + Math.PI) % (2 * Math.PI)) - Math.PI;
     return oklchToManagedColor([L, C, newH], alpha);
@@ -394,28 +378,19 @@ export function complementaryHarmony(color: ManagedColor): HarmonyPalette {
  * Generate a triadic (+-120 degree hue rotation) harmony palette.
  */
 export function triadicHarmony(color: ManagedColor): HarmonyPalette {
-  return rotateHueHarmony('Triadic', color, [
-    (2 * Math.PI) / 3,
-    (4 * Math.PI) / 3,
-  ]);
+  return rotateHueHarmony('Triadic', color, [(2 * Math.PI) / 3, (4 * Math.PI) / 3]);
 }
 
 /**
  * Generate an analogous (+-30 degree hue rotation) harmony palette.
  */
 export function analogousHarmony(color: ManagedColor): HarmonyPalette {
-  return rotateHueHarmony('Analogous', color, [
-    -Math.PI / 6,
-    Math.PI / 6,
-  ]);
+  return rotateHueHarmony('Analogous', color, [-Math.PI / 6, Math.PI / 6]);
 }
 
 /**
  * Generate a split-complementary (150/210 degree hue rotation) harmony palette.
  */
 export function splitComplementaryHarmony(color: ManagedColor): HarmonyPalette {
-  return rotateHueHarmony('Split Complementary', color, [
-    (5 * Math.PI) / 6,
-    (7 * Math.PI) / 6,
-  ]);
+  return rotateHueHarmony('Split Complementary', color, [(5 * Math.PI) / 6, (7 * Math.PI) / 6]);
 }

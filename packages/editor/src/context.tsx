@@ -459,6 +459,24 @@ export interface EditorContextValue {
   ungroupSelected: () => void;
   /** Detach the first selected component instance. */
   detachSelected: () => void;
+  /** Create an adjustment layer node with optional initial adjustments and select it. */
+  createAdjustmentLayer: (initialAdjustments?: import('@strata/engine').Adjustment[]) => void;
+  /** Append an adjustment to an adjustment layer node. */
+  addAdjustmentToLayer: (nodeId: NodeId, adjustment: import('@strata/engine').Adjustment) => void;
+  /** Remove an adjustment by id from an adjustment layer node. */
+  removeAdjustmentFromLayer: (nodeId: NodeId, adjustmentId: string) => void;
+  /** Patch properties on an existing adjustment by id. */
+  updateAdjustmentInLayer: (
+    nodeId: NodeId,
+    adjustmentId: string,
+    patch: Partial<import('@strata/engine').Adjustment>,
+  ) => void;
+  /** Reorder an adjustment within the layer's adjustments array. */
+  reorderAdjustmentInLayer: (nodeId: NodeId, adjustmentId: string, newIndex: number) => void;
+  /** Set opacity on an adjustment layer node. */
+  setAdjustmentLayerOpacity: (nodeId: NodeId, opacity: number) => void;
+  /** Set blend mode on an adjustment layer node. */
+  setAdjustmentLayerBlendMode: (nodeId: NodeId, blendMode: string) => void;
   /** Copy selected nodes to system clipboard. */
   copySelected: () => void;
   /** Cut selected nodes (copy + remove). */
