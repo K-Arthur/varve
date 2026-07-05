@@ -1,4 +1,5 @@
-import type { Affine, NodeId } from '@strata/scene';
+import type { Affine } from '@strata/shared';
+import type { NodeId } from '@strata/scene';
 import {
   addChild,
   addNode,

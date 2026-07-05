@@ -45,7 +45,7 @@ describe('PageStrip', () => {
   it('renders page thumbnails for each page', () => {
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')] };
     render(<PageStrip {...defaultProps} document={doc} />);
-    const items = screen.getAllByRole('button', { name: /^Page:/ });
+    const items = screen.getAllByRole('tab', { name: /^Page:/ });
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent('Page 1');
     expect(items[1]).toHaveTextContent('Page 2');
@@ -59,7 +59,7 @@ describe('PageStrip', () => {
   it('highlights active page with accent class', () => {
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')] };
     render(<PageStrip {...defaultProps} document={doc} activePageId="p1" />);
-    const buttons = screen.getAllByRole('button', { name: /^Page:/ });
+    const buttons = screen.getAllByRole('tab', { name: /^Page:/ });
     expect(buttons[0]).toHaveClass('page-strip__page--active');
     expect(buttons[1]).not.toHaveClass('page-strip__page--active');
   });
@@ -68,7 +68,7 @@ describe('PageStrip', () => {
     const onSetActivePage = vi.fn();
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')] };
     render(<PageStrip {...defaultProps} document={doc} onSetActivePage={onSetActivePage} />);
-    const buttons = screen.getAllByRole('button', { name: /^Page:/ });
+    const buttons = screen.getAllByRole('tab', { name: /^Page:/ });
     const secondBtn = buttons[1];
     if (secondBtn) fireEvent.click(secondBtn);
     expect(onSetActivePage).toHaveBeenCalledWith('p2');
@@ -87,7 +87,7 @@ describe('PageStrip', () => {
   it('opens context menu on right-click with duplicate/delete/rename', () => {
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1')] };
     render(<PageStrip {...defaultProps} document={doc} />);
-    const pageBtn = screen.getByRole('button', { name: /^Page:/ });
+    const pageBtn = screen.getByRole('tab', { name: /^Page:/ });
     fireEvent.contextMenu(pageBtn);
 
     expect(screen.getByText('Duplicate page')).toBeTruthy();
@@ -98,7 +98,7 @@ describe('PageStrip', () => {
   it('disables delete in context menu for last page', () => {
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1')] };
     render(<PageStrip {...defaultProps} document={doc} />);
-    const pageBtn = screen.getByRole('button', { name: /^Page:/ });
+    const pageBtn = screen.getByRole('tab', { name: /^Page:/ });
     fireEvent.contextMenu(pageBtn);
 
     const deleteBtn = screen.getByText('Delete page').closest('button');
@@ -109,7 +109,7 @@ describe('PageStrip', () => {
     const onDuplicatePage = vi.fn();
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')] };
     render(<PageStrip {...defaultProps} document={doc} onDuplicatePage={onDuplicatePage} />);
-    const pageBtn = screen.getByRole('button', { name: 'Page: Page 1' });
+    const pageBtn = screen.getByRole('tab', { name: 'Page: Page 1' });
     fireEvent.contextMenu(pageBtn);
 
     fireEvent.click(screen.getByText('Duplicate page'));
@@ -120,7 +120,7 @@ describe('PageStrip', () => {
     const onDeletePage = vi.fn();
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')] };
     render(<PageStrip {...defaultProps} document={doc} onDeletePage={onDeletePage} />);
-    const pageBtn = screen.getByRole('button', { name: 'Page: Page 2' });
+    const pageBtn = screen.getByRole('tab', { name: 'Page: Page 2' });
     fireEvent.contextMenu(pageBtn);
 
     fireEvent.click(screen.getByText('Delete page'));
@@ -130,7 +130,7 @@ describe('PageStrip', () => {
   it('closes context menu on Escape', () => {
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1')] };
     render(<PageStrip {...defaultProps} document={doc} />);
-    const pageBtn = screen.getByRole('button', { name: /^Page:/ });
+    const pageBtn = screen.getByRole('tab', { name: /^Page:/ });
     fireEvent.contextMenu(pageBtn);
 
     expect(screen.getByText('Duplicate page')).toBeTruthy();
@@ -142,7 +142,7 @@ describe('PageStrip', () => {
   it('renders rename prompt in context menu', () => {
     const doc = { ...emptyDoc(), pages: [makePage('p1', 'Page 1')] };
     render(<PageStrip {...defaultProps} document={doc} />);
-    const pageBtn = screen.getByRole('button', { name: /^Page:/ });
+    const pageBtn = screen.getByRole('tab', { name: /^Page:/ });
     fireEvent.contextMenu(pageBtn);
 
     const renameOption = screen.getByText('Rename page');

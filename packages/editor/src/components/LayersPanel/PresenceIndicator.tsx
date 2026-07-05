@@ -1,5 +1,3 @@
-import type { NodeId } from '@strata/scene';
-
 export interface PresenceData {
   userId: string;
   label: string;
