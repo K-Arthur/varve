@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { applySelectiveColor } from './selectiveColor';
 
 function makePixelData(r: number, g: number, b: number, a = 255): ImageData {

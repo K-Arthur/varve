@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { buildLevelsLUT, applyLevels } from './levels';
+import { describe, expect, it } from 'vitest';
+import { applyLevels, buildLevelsLUT } from './levels';
 
 function makeTestImageData(
   pixels: [number, number, number, number][],

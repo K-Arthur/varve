@@ -1,21 +1,21 @@
 // @vitest-environment jsdom
-import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest';
-import {
-  loadOnboardingState,
-  saveOnboardingState,
-  isVersionBump,
-  getCurrentVersion,
-  markOnboardingComplete,
-  listenForStorageChanges,
-  type OnboardingStore,
-} from './onboardingStore';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getHelpContent, HELP_CONTENT } from './ContextualHelp/helpContent';
 import { TIPS } from './DidYouKnow/tips';
 import {
-  FEATURE_VERSIONS,
   CURRENT_APP_VERSION,
   compareVersions,
+  FEATURE_VERSIONS,
 } from './NewFeatureBadge/featureVersions';
-import { HELP_CONTENT, getHelpContent } from './ContextualHelp/helpContent';
+import {
+  getCurrentVersion,
+  isVersionBump,
+  listenForStorageChanges,
+  loadOnboardingState,
+  markOnboardingComplete,
+  type OnboardingStore,
+  saveOnboardingState,
+} from './onboardingStore';
 
 describe('onboardingEdgeCases', () => {
   beforeEach(() => {

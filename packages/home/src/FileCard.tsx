@@ -4,8 +4,8 @@ import type { FileEntry } from '@strata/platform';
 import { formatBytes, formatRelativeTime } from '@strata/platform';
 import { Icon } from '@strata/ui';
 import {
-  type HTMLAttributes,
   forwardRef,
+  type HTMLAttributes,
   type KeyboardEvent,
   useCallback,
   useEffect,

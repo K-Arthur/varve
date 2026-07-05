@@ -1,6 +1,6 @@
-import type { ManagedColor, ColorConfig, ColorMode } from './colorManagement';
+import type { ColorConfig, ColorMode, ManagedColor } from './colorManagement';
 import type { Document } from './document';
-import type { SceneNode, Effect, Fill, GradientStop, Stroke } from './types';
+import type { Effect, Fill, GradientStop, SceneNode, Stroke } from './types';
 
 function rgbToCmyk(
   r: number,

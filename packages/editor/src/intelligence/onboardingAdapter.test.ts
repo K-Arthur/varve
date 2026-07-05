@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { classifySkill, classifyFromActionTracker, type ActionStats } from './onboardingAdapter';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type ActionStats, classifyFromActionTracker, classifySkill } from './onboardingAdapter';
 
 function makeStats(overrides: Partial<ActionStats> = {}): ActionStats {
   return {
@@ -17,7 +17,7 @@ function makeStats(overrides: Partial<ActionStats> = {}): ActionStats {
 }
 
 function makeTracker(actions: Array<{ actionId: string; timestamp: number }>) {
-  let records = [...actions];
+  const records = [...actions];
   return {
     getCount: (prefix: string, windowMs?: number) => {
       const cutoff = windowMs ? Date.now() - windowMs : 0;

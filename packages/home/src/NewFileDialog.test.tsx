@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
+import type { TemplateLibrary } from '@strata/platform';
 import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { TemplateLibrary } from '@strata/platform';
 import { NewFileDialog } from './NewFileDialog';
 
 const MOCK_TEMPLATES: TemplateLibrary[] = [

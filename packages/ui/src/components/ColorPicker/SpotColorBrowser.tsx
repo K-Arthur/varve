@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
 import type { ManagedColor } from '@strata/scene';
+import { useMemo, useState } from 'react';
 
 const SPOT_COLORS: { name: string; c: number; m: number; y: number; k: number; family: string }[] =
   [

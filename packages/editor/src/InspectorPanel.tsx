@@ -4,8 +4,8 @@
  * B4: Spec tab — spacing, type styles, palette via buildSpec/specToMarkdown.
  */
 
-import { managedColorToRgba } from '@strata/shared';
 import { buildSpec, specToMarkdown } from '@strata/codegen';
+import { managedColorToRgba } from '@strata/shared';
 import { useState } from 'react';
 import { ExportPresetPanel } from './components/Export/ExportPresetPanel';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';

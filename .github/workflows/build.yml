@@ -2,42 +2,89 @@ name: Build + Package
 
 on:
   push:
-    branches: [main, feat/*]
+    branches: [main, master, feat/*]
   pull_request:
-    branches: [main]
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    name: Build (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - uses: actions/setup-node@v4
         with:
           node-version: 26
           cache: pnpm
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
+          components: rustfmt, clippy
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
+            libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
+            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            cmake pkg-config patchelf
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Typecheck
         run: pnpm typecheck
-      - name: Lint
+
+      - name: Lint (JS)
         run: pnpm lint
+
+      - name: Lint (Rust)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
       - name: JS tests
         run: pnpm test
+
       - name: Rust tests
-        run: cargo test --workspace
+        run: cargo test --workspace --all-targets
+
       - name: Rust tests (desktop)
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+
+      - name: Token gate
+        if: runner.os == 'Linux'
+        run: pnpm audit:tokens
+
+      - name: Emoji gate
+        if: runner.os == 'Linux'
+        run: pnpm audit:emoji
+
+      - name: Build frontend
+        run: pnpm build
+        working-directory: apps/desktop
+
       - name: Tauri build
-        run: pnpm --filter @strata/desktop tauri build
+        run: pnpm tauri build --ci
+        working-directory: apps/desktop
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: strata-${{ matrix.os }}
           path: apps/desktop/src-tauri/target/release/bundle/
+          if-no-files-found: warn

@@ -93,7 +93,7 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
 
     const blackX = (levels.inputBlack / 255) * WIDTH;
     const whiteX = (levels.inputWhite / 255) * WIDTH;
-    const gammaX = Math.pow(levels.gamma, 0.5) * (whiteX - blackX) + blackX;
+    const gammaX = levels.gamma ** 0.5 * (whiteX - blackX) + blackX;
 
     drawTriangle(ctx, blackX, accentColor, 'B', mutedColor);
     drawTriangle(ctx, gammaX, interactiveColor, 'G', mutedColor);
@@ -124,7 +124,7 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
       const hitRadius = 14;
       const blackX = (levels.inputBlack / 255) * WIDTH;
       const whiteX = (levels.inputWhite / 255) * WIDTH;
-      const gammaX = Math.pow(levels.gamma, 0.5) * (whiteX - blackX) + blackX;
+      const gammaX = levels.gamma ** 0.5 * (whiteX - blackX) + blackX;
 
       const hits: [number, 'black' | 'gamma' | 'white'][] = [
         [blackX, 'black'],

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { getHelpContent, getHelpContext, searchHelpContent } from './helpContent';
 import type { HelpArticle } from './helpContent';
+import { getHelpContent, getHelpContext, searchHelpContent } from './helpContent';
 
 export interface ContextualHelpState {
   open: boolean;

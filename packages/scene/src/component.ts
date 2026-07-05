@@ -11,7 +11,7 @@
  * propagate while slot content stays local.
  */
 
-import { addChild, isContainer, type Document } from './document';
+import { addChild, type Document, isContainer } from './document';
 import type {
   ComponentDefinition,
   ComponentProperty,

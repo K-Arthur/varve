@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { HelpArticle } from './content/helpTypes';
 import { getHelpContent, HELP_CONTENT, searchHelpContent } from './content/helpContent';
+import type { HelpArticle } from './content/helpTypes';
 import './HelpBrowser.css';
 
 interface HelpBrowserProps {

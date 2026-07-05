@@ -6,26 +6,26 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  blendNormal,
-  blendMultiply,
-  blendScreen,
-  blendOverlay,
-  blendDarken,
-  blendLighten,
-  blendColorDodge,
+  blend,
   blendColorBurn,
-  blendHardLight,
-  blendSoftLight,
+  blendColorDodge,
+  blendDarken,
   blendDifference,
   blendExclusion,
+  blendHardLight,
+  blendLighten,
+  blendMultiply,
+  blendNormal,
+  blendOverlay,
+  blendPixels,
   blendPlusDarker,
   blendPlusLighter,
-  blend,
-  blendPixels,
+  blendScreen,
+  blendSoftLight,
 } from './blendModes';
-import { blendHueW3C, blendSaturationW3C, blendColorW3C, blendLuminosityW3C } from './nonSeparable';
+import { blendColorW3C, blendHueW3C, blendLuminosityW3C, blendSaturationW3C } from './nonSeparable';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

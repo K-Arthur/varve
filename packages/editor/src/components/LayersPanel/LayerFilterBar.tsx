@@ -1,6 +1,6 @@
+import type { BlendMode } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
-import type { BlendMode } from '@strata/scene';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
 

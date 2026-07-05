@@ -1,11 +1,11 @@
-export { ViewportProvider, useViewport } from './ViewportContext';
-export { SelectionProvider, useSelection } from './SelectionContext';
-export type { ViewportContextValue } from './ViewportContext';
 export type { SelectionContextValue } from './SelectionContext';
+export { SelectionProvider, useSelection } from './SelectionContext';
 export type {
+  CanvasMode,
   EditorContextValue,
   EditorState,
-  ToolId,
-  CanvasMode,
   SessionMeta,
+  ToolId,
 } from './types';
+export type { ViewportContextValue } from './ViewportContext';
+export { useViewport, ViewportProvider } from './ViewportContext';

@@ -169,7 +169,15 @@ function convertElement(
         const x = parseFloat(el.attrs.x ?? '0');
         const y = parseFloat(el.attrs.y ?? '0');
         const useTransform = `translate(${x},${y})`;
-        const r = convertElement(ref, doc, defs, [...transforms, useTransform], opts, warnings, visitedIds);
+        const r = convertElement(
+          ref,
+          doc,
+          defs,
+          [...transforms, useTransform],
+          opts,
+          warnings,
+          visitedIds,
+        );
         visitedIds.delete(refId);
         return { doc: r.doc, ids: r.ids };
       }

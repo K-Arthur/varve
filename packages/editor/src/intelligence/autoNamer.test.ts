@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest';
 import {
-  makeShapeNode,
-  makeTextNode,
+  addChild,
+  addNode,
+  createComponent,
+  createDocument,
+  instantiate,
   makeFrameNode,
   makeGroupNode,
   makeImageNode,
-  createDocument,
-  addNode,
-  addChild,
-  createComponent,
-  instantiate,
+  makeShapeNode,
+  makeTextNode,
 } from '@strata/scene';
-import { suggestName, renameSelected } from './autoNamer';
+import { describe, expect, it } from 'vitest';
+import { renameSelected, suggestName } from './autoNamer';
 
 function createTestDoc() {
   return createDocument('test');
@@ -378,7 +378,7 @@ describe('renameSelected', () => {
   });
 
   it('does not modify document when no nodes match', () => {
-    let doc = createTestDoc();
+    const doc = createTestDoc();
     const result = renameSelected(doc, ['nonexistent']);
     expect(result.nodes).toBe(doc.nodes);
   });

@@ -2,10 +2,10 @@
  * colorCollections — helpers for extracting document colors and managing
  * recent-colors session storage for the ColorPicker swatch palette.
  */
-import { managedColorToRgba } from '@strata/shared';
-import type { ManagedColor } from '@strata/scene';
-import type { Document, SceneNode } from '@strata/scene';
+
+import type { Document, ManagedColor, SceneNode } from '@strata/scene';
 import { resolveNodeFills } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 
 const MAX_DOC_COLORS = 32;
 const MAX_RECENT_COLORS = 16;

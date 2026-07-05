@@ -1,9 +1,10 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { createTutorialDocument } from '../../samples/tutorial-document';
-import { useTutorialProgress } from './useTutorialProgress';
 import { loadOnboardingState, saveOnboardingState } from '../onboardingStore';
+import { useTutorialProgress } from './useTutorialProgress';
 
 describe('useTutorialProgress', () => {
   beforeEach(() => {

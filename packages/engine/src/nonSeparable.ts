@@ -132,11 +132,11 @@ export function blendLuminosityW3C(
 // ── L*a*b* → L*C*h* color space (perceptually uniform) ─────────────────────
 
 function srgbToLinear(c: number): number {
-  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
 
 function linearToSrgb(c: number): number {
-  return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  return c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
 }
 
 const D65 = [0.95047, 1.0, 1.08883] as const;
@@ -146,9 +146,9 @@ const D65 = [0.95047, 1.0, 1.08883] as const;
  * D65 illuminant, 2-degree standard observer.
  */
 export function rgbToLab(r: number, g: number, b: number): [number, number, number] {
-  let lr = srgbToLinear(r);
-  let lg = srgbToLinear(g);
-  let lb = srgbToLinear(b);
+  const lr = srgbToLinear(r);
+  const lg = srgbToLinear(g);
+  const lb = srgbToLinear(b);
 
   // Linear sRGB → CIE XYZ (D65)
   const x = 0.4124564 * lr + 0.3575761 * lg + 0.1804375 * lb;

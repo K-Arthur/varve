@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
-import type { IconName } from '@strata/ui';
 import type { SavedSearch } from '@strata/platform';
+import type { IconName } from '@strata/ui';
 import { Icon } from '@strata/ui';
 import {
   type DragEvent,

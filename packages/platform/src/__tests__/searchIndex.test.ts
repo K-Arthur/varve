@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  indexDocumentContent,
-  searchContentIndex,
-  searchAllContent,
   type ContentSearchMatch,
+  indexDocumentContent,
+  searchAllContent,
+  searchContentIndex,
 } from '../searchIndex';
 
 const SAMPLE_DOC = JSON.stringify({

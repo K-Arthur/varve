@@ -429,6 +429,19 @@ export interface FrameNode extends NodeBase {
   effects: Effect[];
 }
 
+// ── Background Removal Types ─────────────────────────────────────────────────
+
+export type BackgroundRemovalMethod = 'quick' | 'ai-balanced' | 'ai-quality';
+
+export interface BackgroundRemovalState {
+  maskDataUrl: string;
+  method: BackgroundRemovalMethod;
+  confidence: number;
+  appliedAt: number;
+  feather?: number;
+  decontaminate?: boolean;
+}
+
 export interface ImageNode extends NodeBase {
   kind: 'image';
   transform: Affine;
@@ -444,6 +457,8 @@ export interface ImageNode extends NodeBase {
   strokes: Stroke[];
   /** F6: effects on image. */
   effects: Effect[];
+  /** Background removal mask applied to this image. */
+  backgroundRemoval?: BackgroundRemovalState;
 }
 
 // ── Adjustment Layer Types (Phase 1) ─────────────────────────────────────────

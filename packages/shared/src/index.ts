@@ -36,6 +36,19 @@ export {
   pathSegmentIntersections,
   pointToPointDist,
 } from './bezier';
+export {
+  cmykToRgb,
+  gamutMapToSrgb,
+  linearSrgbToOklab,
+  linearToSrgb,
+  managedColorToCss,
+  managedColorToRgba,
+  oklabToLinearSrgb,
+  oklabToOkLch,
+  oklchToOkLab,
+  rgbToCmyk,
+  srgbToLinear,
+} from './colorConversion';
 export { debounce, throttle } from './debounce';
 export type {
   CubicBezierEasingDef,
@@ -69,7 +82,6 @@ export {
 } from './interpolation';
 export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
-
 export type {
   MeasuredLine,
   MeasuredParagraph,
@@ -132,20 +144,6 @@ export {
   worldToScreenAffine,
   zoomAboutPoint,
 } from './viewport';
-
-export {
-  cmykToRgb,
-  gamutMapToSrgb,
-  linearSrgbToOklab,
-  linearToSrgb,
-  managedColorToCss,
-  managedColorToRgba,
-  oklabToLinearSrgb,
-  oklabToOkLch,
-  oklchToOkLab,
-  rgbToCmyk,
-  srgbToLinear,
-} from './colorConversion';
 
 /** Semantic Strata package marker. */
 export const PACKAGE = '@strata/shared' as const;

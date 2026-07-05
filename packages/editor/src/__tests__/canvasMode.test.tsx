@@ -3,7 +3,7 @@
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
-import { SHORTCUT_DEFS, bindingMatchesEvent } from '../shortcuts/ShortcutManager';
+import { bindingMatchesEvent, SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 
 afterEach(() => {
   cleanup();

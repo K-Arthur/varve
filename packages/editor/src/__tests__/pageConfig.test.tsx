@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EditorProvider, type EditorContextValue, useEditor } from '../context';
+import { type EditorContextValue, EditorProvider, useEditor } from '../context';
 
 afterEach(() => {
   vi.restoreAllMocks();

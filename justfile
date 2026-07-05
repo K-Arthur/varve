@@ -57,3 +57,48 @@ generate-icons:
 # --- Combined pre-commit gate ---
 gate: format-check lint test gates
     @echo "Cascade Review gate passed."
+
+# --- Packaging ---
+
+# Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
+package-linux:
+    cd apps/desktop && pnpm tauri build --bundles appimage,deb,rpm --ci
+    @echo "Bundles written to apps/desktop/src-tauri/target/release/bundle/"
+
+# Build deb only (faster; useful for quick install testing on Debian/Ubuntu).
+package-deb:
+    cd apps/desktop && pnpm tauri build --bundles deb --ci
+
+# Build AppImage only.
+package-appimage:
+    cd apps/desktop && pnpm tauri build --bundles appimage --ci
+
+# Build macOS dmg (run on macOS only).
+package-dmg:
+    cd apps/desktop && pnpm tauri build --bundles dmg --ci
+
+# Build Windows msi + nsis (run on Windows only).
+package-windows:
+    cd apps/desktop && pnpm tauri build --bundles msi,nsis --ci
+
+# Validate AUR PKGBUILDs using Docker (requires docker; works on any OS).
+# Standard AUR CI pattern: useradd non-root builder + makepkg --printsrcinfo.
+aur-validate:
+    docker run --rm -v "$(pwd)/dist/aur:/aur" archlinux:base-devel bash -c " \
+      useradd -m builder && \
+      chown -R builder:builder /aur && \
+      cd /aur/strata-desktop && su -c 'makepkg --printsrcinfo' builder && echo 'source PKGBUILD OK' && \
+      cd /aur/strata-desktop-bin && su -c 'makepkg --printsrcinfo' builder && echo 'bin PKGBUILD OK' \
+    "
+
+# Smoke-test AppImage on the current Linux session (Wayland or X11).
+# Exits after 5 s to prevent hanging in CI.
+appimage-smoke:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    _img=$(find apps/desktop/src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)
+    if [[ -z "${_img}" ]]; then echo "No AppImage found — run 'just package-appimage' first."; exit 1; fi
+    chmod +x "${_img}"
+    echo "Launching ${_img} for 5 s smoke test..."
+    timeout 5 "${_img}" --no-sandbox || true
+    echo "Smoke test complete."

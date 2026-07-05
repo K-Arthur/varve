@@ -1,10 +1,10 @@
-import type { HelpArticle } from './helpTypes';
-import { GETTING_STARTED } from './getting-started';
-import { TOOLS } from './tools';
-import { PANELS } from './panels';
 import { EXPORT } from './export';
-import { SHORTCUTS_REFERENCE } from './shortcuts';
 import { FAQ } from './faq';
+import { GETTING_STARTED } from './getting-started';
+import type { HelpArticle } from './helpTypes';
+import { PANELS } from './panels';
+import { SHORTCUTS_REFERENCE } from './shortcuts';
+import { TOOLS } from './tools';
 import { TROUBLESHOOTING } from './troubleshooting';
 
 export const HELP_CONTENT: Record<string, HelpArticle> = {

@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
 import type { ManagedColor } from '@strata/scene';
+import { useCallback } from 'react';
 import { SpinbuttonRow } from './SpinbuttonRow';
 
 export interface GrayColorFieldsProps {

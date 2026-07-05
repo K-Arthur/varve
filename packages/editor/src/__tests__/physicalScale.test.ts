@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { UNIT_TO_PX } from '@strata/shared';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Compute pxPerUnit — the number of CSS pixels per document unit at the given DPI.

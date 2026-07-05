@@ -1,4 +1,4 @@
-import type { ManagedColor, ColorSwatch } from './colorManagement';
+import type { ColorSwatch, ManagedColor } from './colorManagement';
 import type { Document } from './document';
 
 function swatchId(): string {

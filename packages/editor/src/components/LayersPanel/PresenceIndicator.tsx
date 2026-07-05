@@ -17,10 +17,7 @@ export function PresenceIndicator({
   const overflow = presences.length - maxAvatars;
 
   return (
-    <section
-      className="layers-row__presence"
-      aria-label={`${presences.length} collaborators`}
-    >
+    <section className="layers-row__presence" aria-label={`${presences.length} collaborators`}>
       {visible.map((p) => (
         <div
           key={p.userId}

@@ -25,12 +25,12 @@ import {
   renameNode,
   reparentNode,
   rootNodes,
+  setLayerColor,
   toggleGuideLock,
   ungroupNode,
   walkNodes,
-  setLayerColor,
 } from './document';
-import type { FrameNode, GroupNode, TextNode, LayerColor } from './types';
+import type { FrameNode, GroupNode, LayerColor, TextNode } from './types';
 
 function shape(doc: ReturnType<typeof createDocument>, name: string) {
   const { id, doc: d2 } = nextNodeId(doc);

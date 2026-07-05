@@ -75,12 +75,32 @@
   /* Hover surface: one step above sunken, used for hover states in dense UI */
   --color-surface-hover: oklch(0.955 0.009 258);
   /* Subtle interactive fill: very light tint of the interactive color */
-  --color-interactive-subtle: color-mix(in oklch, var(--color-interactive-default) 12%, var(--color-surface-raised));
+  --color-interactive-subtle: color-mix(
+    in oklch,
+    var(--color-interactive-default) 12%,
+    var(--color-surface-raised)
+  );
   /* Subtle feedback fills: low-opacity tints for badge/chip backgrounds */
-  --color-feedback-success-subtle: color-mix(in oklch, var(--color-feedback-success) 14%, var(--color-surface-raised));
-  --color-feedback-warning-subtle: color-mix(in oklch, var(--color-feedback-warning) 14%, var(--color-surface-raised));
-  --color-feedback-danger-subtle: color-mix(in oklch, var(--color-feedback-danger) 14%, var(--color-surface-raised));
-  --color-feedback-info-subtle: color-mix(in oklch, var(--color-feedback-info) 14%, var(--color-surface-raised));
+  --color-feedback-success-subtle: color-mix(
+    in oklch,
+    var(--color-feedback-success) 14%,
+    var(--color-surface-raised)
+  );
+  --color-feedback-warning-subtle: color-mix(
+    in oklch,
+    var(--color-feedback-warning) 14%,
+    var(--color-surface-raised)
+  );
+  --color-feedback-danger-subtle: color-mix(
+    in oklch,
+    var(--color-feedback-danger) 14%,
+    var(--color-surface-raised)
+  );
+  --color-feedback-info-subtle: color-mix(
+    in oklch,
+    var(--color-feedback-info) 14%,
+    var(--color-surface-raised)
+  );
   /* Overlay scrim for modal backdrops */
   --elevation-scrim: oklch(0 0 0 / 0.4);
   /* Font-size alias for prose/body text (= md) */

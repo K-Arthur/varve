@@ -5,7 +5,7 @@
  * Alpha masks use offscreen canvas compositing (destination-in) so that
  * the mask source's alpha channel determines the opacity of masked content.
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderAlphaMask } from '../replay';
 
 describe('renderAlphaMask', () => {

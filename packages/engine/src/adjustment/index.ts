@@ -1,16 +1,22 @@
-import { buildCurveLUT, applyCurve } from './curves';
-import { buildLevelsLUT, applyLevels } from './levels';
+import { applyCurve, buildCurveLUT } from './curves';
+import { autoLevelsParams, computeHistogram, computeHistogramStats } from './histogram';
+import { applyLevels, buildLevelsLUT } from './levels';
 import { applySelectiveColor } from './selectiveColor';
-import { computeHistogram, autoLevelsParams, computeHistogramStats } from './histogram';
 
-export { buildCurveLUT, applyCurve };
 export type { CurvePoint } from './curves';
-export { buildLevelsLUT, applyLevels };
-export type { LevelParams } from './levels';
-export { applySelectiveColor };
-export type { SelectiveColorParams, SelectiveColorTarget } from './selectiveColor';
-export { computeHistogram, autoLevelsParams, computeHistogramStats };
 export type { Histogram, HistogramStats } from './histogram';
+export type { LevelParams } from './levels';
+export type { SelectiveColorParams, SelectiveColorTarget } from './selectiveColor';
+export {
+  applyCurve,
+  applyLevels,
+  applySelectiveColor,
+  autoLevelsParams,
+  buildCurveLUT,
+  buildLevelsLUT,
+  computeHistogram,
+  computeHistogramStats,
+};
 
 export type AdjustmentChannel = 'rgb' | 'red' | 'green' | 'blue';
 

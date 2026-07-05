@@ -5,7 +5,9 @@
   "identifier": "dev.strata.desktop",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420"
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
   },
   "app": {
     "withGlobalTauri": true,
@@ -29,6 +31,12 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Strata Contributors",
+    "homepage": "https://github.com/strata/strata",
+    "copyright": "Copyright 2024-2026 Strata Contributors — AGPL-3.0-or-later",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Local-first cross-platform design tool",
+    "longDescription": "Strata is a local-first, cross-platform design suite for UI and print. It runs natively on Linux, macOS, and Windows via a Tauri + Rust engine with a React frontend. No cloud, no lock-in.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -37,15 +45,35 @@
       "icons/icon.ico"
     ],
     "linux": {
+      "appimage": {
+        "bundleMediaFramework": false,
+        "files": {}
+      },
       "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libglib2.0-0",
+          "libsoup-3.0-0",
+          "librsvg2-2",
+          "libssl3",
+          "libgdk-pixbuf-2.0-0",
+          "libcairo2",
+          "libpango-1.0-0",
+          "libfontconfig1"
+        ],
         "files": {}
       },
       "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3", "glib2", "librsvg2", "openssl", "fontconfig"],
+        "epoch": 0,
         "files": {}
       }
     },
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "frameworks": [],
+      "exceptionDomain": null
     },
     "windows": {
       "wix": {

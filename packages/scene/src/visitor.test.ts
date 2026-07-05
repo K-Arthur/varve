@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import type { SceneNode } from './types';
+import { describe, expect, it } from 'vitest';
 import {
+  makeAdjustmentNode,
+  makeFrameNode,
+  makeGroupNode,
+  makeImageNode,
   makeShapeNode,
   makeTextNode,
-  makeGroupNode,
-  makeFrameNode,
-  makeImageNode,
-  makeAdjustmentNode,
 } from './document';
-import { visitNode, visitNodePartial, isKind, mapNode } from './visitor';
+import type { SceneNode } from './types';
+import { isKind, mapNode, visitNode, visitNodePartial } from './visitor';
 
 describe('visitNode', () => {
   const shape = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });

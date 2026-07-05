@@ -3,8 +3,9 @@
  * Run: node review_design.mjs
  * Requires: dev server on http://localhost:1420
  */
-import { chromium } from 'playwright';
+
 import { mkdir } from 'fs/promises';
+import { chromium } from 'playwright';
 
 const OUT = '/tmp/strata-review';
 await mkdir(OUT, { recursive: true });

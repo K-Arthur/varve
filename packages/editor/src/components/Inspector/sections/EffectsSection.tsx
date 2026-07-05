@@ -7,12 +7,12 @@
  * Research basis: Figma / Sketch effects panel, APG Disclosure pattern.
  */
 import type {
+  AdjustmentNode,
   BlendMode,
   Effect,
   FrameNode,
   GroupNode,
   ImageNode,
-  AdjustmentNode,
   ManagedColor,
   SceneNode,
   ShapeNode,

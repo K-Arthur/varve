@@ -1,6 +1,6 @@
-import { managedColorToRgba } from '@strata/shared';
-import type { ManagedColor, NodeId, TextNode } from '@strata/scene';
 import { getFontRegistry } from '@strata/engine';
+import type { ManagedColor, NodeId, TextNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { ColorPicker, Icon, Popover } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import './FloatingTextBar.css';

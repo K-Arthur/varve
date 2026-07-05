@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
 import { linearSrgbToOklab, oklabToOkLch, srgbToLinear } from '@strata/shared';
+import { describe, expect, it } from 'vitest';
 import {
-  extractPalette,
-  complementaryHarmony,
-  triadicHarmony,
   analogousHarmony,
+  complementaryHarmony,
+  extractPalette,
   splitComplementaryHarmony,
+  triadicHarmony,
 } from './paletteExtractor';
 
 /**

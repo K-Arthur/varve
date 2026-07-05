@@ -48,7 +48,7 @@ function indexNode(
 
 function extractWords(name: string): string[] {
   // Split on whitespace, separators, and non-alphanumeric boundaries
-  const words = name.split(/[\s\-_./\\()\[\]{}#@!+*~'"`|:;<>]+/);
+  const words = name.split(/[\s\-_./\\()[\]{}#@!+*~'"`|:;<>]+/);
   const result = new Set<string>();
 
   for (const word of words) {

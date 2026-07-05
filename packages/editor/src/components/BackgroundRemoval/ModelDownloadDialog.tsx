@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getModelLoader, AVAILABLE_MODELS } from '@strata/engine';
 import type { ModelMetadata } from '@strata/engine';
+import { AVAILABLE_MODELS, getModelLoader } from '@strata/engine';
+import { useCallback, useEffect, useState } from 'react';
 import './ModelDownloadDialog.css';
 
 interface ModelDownloadDialogProps {

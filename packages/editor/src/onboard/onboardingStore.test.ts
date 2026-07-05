@@ -1,17 +1,17 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  loadOnboardingState,
-  saveOnboardingState,
-  resetOnboarding,
-  isVersionBump,
-  getCurrentVersion,
-  markOnboardingComplete,
-  dismissTip,
   checkChecklistItem,
+  dismissTip,
+  getCurrentVersion,
+  isVersionBump,
+  loadOnboardingState,
+  markOnboardingComplete,
   markTutorialComplete,
-  seeFeatureBadge,
   type OnboardingStore,
+  resetOnboarding,
+  saveOnboardingState,
+  seeFeatureBadge,
 } from './onboardingStore';
 
 describe('onboardingStore', () => {

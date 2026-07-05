@@ -13,7 +13,9 @@ pub mod marks;
 pub mod outline;
 pub mod profiles;
 
-pub use outline::{commands_to_svg_path, outline_text, outline_text_multi, GlyphOutline, PathCommand};
+pub use outline::{
+    commands_to_svg_path, outline_text, outline_text_multi, GlyphOutline, PathCommand,
+};
 
 use ab_glyph::Font as AbGlyphFont;
 use lopdf::{dictionary, Document, Object, Stream};
@@ -68,7 +70,13 @@ fn color_to_rgb_string(fill: &[u8; 4]) -> String {
 
 fn color_to_cmyk_string(fill: &[u8; 4]) -> String {
     let (c, m, y, k) = crate::cmyk::rgb_to_cmyk(fill[0], fill[1], fill[2]);
-    format!("{:.3} {:.3} {:.3} {:.3} k", c as f32 / 255.0, m as f32 / 255.0, y as f32 / 255.0, k as f32 / 255.0)
+    format!(
+        "{:.3} {:.3} {:.3} {:.3} k",
+        c as f32 / 255.0,
+        m as f32 / 255.0,
+        y as f32 / 255.0,
+        k as f32 / 255.0
+    )
 }
 
 fn color_to_stroke_rgb_string(fill: &[u8; 4]) -> String {
@@ -80,7 +88,13 @@ fn color_to_stroke_rgb_string(fill: &[u8; 4]) -> String {
 
 fn color_to_stroke_cmyk_string(fill: &[u8; 4]) -> String {
     let (c, m, y, k) = crate::cmyk::rgb_to_cmyk(fill[0], fill[1], fill[2]);
-    format!("{:.3} {:.3} {:.3} {:.3} K", c as f32 / 255.0, m as f32 / 255.0, y as f32 / 255.0, k as f32 / 255.0)
+    format!(
+        "{:.3} {:.3} {:.3} {:.3} K",
+        c as f32 / 255.0,
+        m as f32 / 255.0,
+        y as f32 / 255.0,
+        k as f32 / 255.0
+    )
 }
 
 /// Extract PDF path operators (m, l, c, re, h) for the given shape node,
@@ -119,13 +133,20 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
             let y2 = page_height - line.p1.y - y_off;
             format!("{x1:.2} {y1:.2} m\n{x2:.2} {y2:.2} l\n").into_bytes()
         }
-        Shape::Polygon { cx, cy, radius, sides, rotation } => {
+        Shape::Polygon {
+            cx,
+            cy,
+            radius,
+            sides,
+            rotation,
+        } => {
             let scx = cx + x_off;
             let scy = page_height - cy - y_off;
             let mut buf = Vec::new();
             for i in 0..*sides {
                 let a = 2.0 * std::f64::consts::PI * i as f64 / *sides as f64
-                    - std::f64::consts::FRAC_PI_2 + rotation;
+                    - std::f64::consts::FRAC_PI_2
+                    + rotation;
                 let px = scx + radius * a.cos();
                 let py = scy + radius * a.sin();
                 if i == 0 {
@@ -137,15 +158,27 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
             buf.extend_from_slice(b"h\n");
             buf
         }
-        Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation } => {
+        Shape::Star {
+            cx,
+            cy,
+            inner_radius,
+            outer_radius,
+            points,
+            rotation,
+        } => {
             let scx = cx + x_off;
             let scy = page_height - cy - y_off;
             let mut buf = Vec::new();
             let total = points * 2;
             for i in 0..total {
                 let a = std::f64::consts::PI * i as f64 / *points as f64
-                    - std::f64::consts::FRAC_PI_2 + rotation;
-                let r = if i % 2 == 0 { *outer_radius } else { *inner_radius };
+                    - std::f64::consts::FRAC_PI_2
+                    + rotation;
+                let r = if i % 2 == 0 {
+                    *outer_radius
+                } else {
+                    *inner_radius
+                };
                 let px = scx + r * a.cos();
                 let py = scy + r * a.sin();
                 if i == 0 {
@@ -179,11 +212,30 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
                     let prev_px = prev.x + x_off;
                     let prev_py = page_height - prev.y - y_off;
                     if prev.handle_out.is_some() || pt.handle_in.is_some() {
-                        let cp1x = if let Some(ho) = prev.handle_out { prev_px + ho[0] } else { prev_px };
-                        let cp1y = if let Some(ho) = prev.handle_out { prev_py - ho[1] } else { prev_py };
-                        let cp2x = if let Some(hi) = pt.handle_in { px + hi[0] } else { px };
-                        let cp2y = if let Some(hi) = pt.handle_in { py - hi[1] } else { py };
-                        buf.extend(format!("{cp1x:.2} {cp1y:.2} {cp2x:.2} {cp2y:.2} {px:.2} {py:.2} c\n").as_bytes());
+                        let cp1x = if let Some(ho) = prev.handle_out {
+                            prev_px + ho[0]
+                        } else {
+                            prev_px
+                        };
+                        let cp1y = if let Some(ho) = prev.handle_out {
+                            prev_py - ho[1]
+                        } else {
+                            prev_py
+                        };
+                        let cp2x = if let Some(hi) = pt.handle_in {
+                            px + hi[0]
+                        } else {
+                            px
+                        };
+                        let cp2y = if let Some(hi) = pt.handle_in {
+                            py - hi[1]
+                        } else {
+                            py
+                        };
+                        buf.extend(
+                            format!("{cp1x:.2} {cp1y:.2} {cp2x:.2} {cp2y:.2} {px:.2} {py:.2} c\n")
+                                .as_bytes(),
+                        );
                     } else {
                         buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
                     }
@@ -292,8 +344,14 @@ fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
 
         // Dash pattern
         if !stroke.dash_pattern.is_empty() {
-            let dash_str: Vec<String> = stroke.dash_pattern.iter().map(|v| format!("{v:.2}")).collect();
-            buf.extend(format!("[{}] {:.2} d\n", dash_str.join(" "), stroke.dash_offset).as_bytes());
+            let dash_str: Vec<String> = stroke
+                .dash_pattern
+                .iter()
+                .map(|v| format!("{v:.2}"))
+                .collect();
+            buf.extend(
+                format!("[{}] {:.2} d\n", dash_str.join(" "), stroke.dash_offset).as_bytes(),
+            );
         }
 
         // Color
@@ -322,7 +380,16 @@ fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
     let mut buf = Vec::new();
     for effect in &node.effects {
         match effect {
-            Effect::DropShadow { x, y, blur, spread: _, color, opacity, visible, .. } => {
+            Effect::DropShadow {
+                x,
+                y,
+                blur,
+                spread: _,
+                color,
+                opacity,
+                visible,
+                ..
+            } => {
                 if !visible || *opacity <= 0.0 {
                     continue;
                 }
@@ -545,19 +612,25 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
         content.extend_from_slice(b"1 1 1 rg\n");
     }
     content.extend_from_slice(
-        format!(
-            "0 0 {:.2} {:.2} re\nf\n",
-            opts.page_width, opts.page_height
-        ).as_bytes(),
+        format!("0 0 {:.2} {:.2} re\nf\n", opts.page_width, opts.page_height).as_bytes(),
     );
 
     let do_outline = opts.outline_text && (opts.font_data.is_some() || !opts.fonts.is_empty());
 
     for node in nodes {
         if do_outline {
-            if let Shape::Text { text, font_size, font_family, x, y, .. } = &node.shape {
+            if let Shape::Text {
+                text,
+                font_size,
+                font_family,
+                x,
+                y,
+                ..
+            } = &node.shape
+            {
                 if !text.is_empty() {
-                    let outlined = try_outline_node(node, text, *font_size, font_family, x, y, opts);
+                    let outlined =
+                        try_outline_node(node, text, *font_size, font_family, x, y, opts);
                     if let Some(mut cmd) = outlined {
                         content.append(&mut cmd);
                         continue;
@@ -579,7 +652,8 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
 
     let content_stream = Stream::new(dictionary! {}, content);
     let content_id = doc.new_object_id();
-    doc.objects.insert(content_id, Object::Stream(content_stream));
+    doc.objects
+        .insert(content_id, Object::Stream(content_stream));
 
     // Font resource (required by PDF spec even if unused)
     let font_dict = dictionary! {
@@ -663,7 +737,9 @@ fn try_outline_node(
     // Fall back to single font
     let glyphs = glyphs.or_else(|| {
         opts.font_data.as_ref().and_then(|fd| {
-            outline_text(fd, text, font_size).ok().filter(|g| !g.is_empty())
+            outline_text(fd, text, font_size)
+                .ok()
+                .filter(|g| !g.is_empty())
         })
     })?;
 
@@ -804,8 +880,14 @@ mod tests {
         FillIR::Gradient {
             gradient_type: "linear".into(),
             stops: vec![
-                GradientStop { position: 0.0, color: [255, 0, 0, 255] },
-                GradientStop { position: 1.0, color: [0, 0, 255, 255] },
+                GradientStop {
+                    position: 0.0,
+                    color: [255, 0, 0, 255],
+                },
+                GradientStop {
+                    position: 1.0,
+                    color: [0, 0, 255, 255],
+                },
             ],
             rotation: 0.0,
             transform: None,
@@ -858,8 +940,18 @@ mod tests {
             transform: Affine::translate((0.0, 0.0)),
             shape: Shape::Path {
                 points: vec![
-                    strata_core::PathPoint { x: 0.0, y: 0.0, handle_in: None, handle_out: None },
-                    strata_core::PathPoint { x: 100.0, y: 100.0, handle_in: None, handle_out: None },
+                    strata_core::PathPoint {
+                        x: 0.0,
+                        y: 0.0,
+                        handle_in: None,
+                        handle_out: None,
+                    },
+                    strata_core::PathPoint {
+                        x: 100.0,
+                        y: 100.0,
+                        handle_in: None,
+                        handle_out: None,
+                    },
                 ],
                 closed: false,
                 tolerance: 1.0,
@@ -891,7 +983,11 @@ mod tests {
             id: strata_core::NodeId(1),
             name: "e".into(),
             transform: Affine::translate((0.0, 0.0)),
-            shape: Shape::Path { points: vec![], closed: false, tolerance: 1.0 },
+            shape: Shape::Path {
+                points: vec![],
+                closed: false,
+                tolerance: 1.0,
+            },
             fill: [0, 0, 0, 255],
             children: Vec::new(),
             component_id: None,
@@ -1022,7 +1118,11 @@ mod tests {
 
     #[test]
     fn render_strokes_width() {
-        let stroke = Stroke { weight: 5.0, visible: true, ..Default::default() };
+        let stroke = Stroke {
+            weight: 5.0,
+            visible: true,
+            ..Default::default()
+        };
         let node = node_with_stroke(stroke);
         let result = render_strokes(&node, 100.0, false);
         let s = String::from_utf8_lossy(&result);
@@ -1032,7 +1132,11 @@ mod tests {
 
     #[test]
     fn render_strokes_cap() {
-        let stroke = Stroke { cap: "round".into(), visible: true, ..Default::default() };
+        let stroke = Stroke {
+            cap: "round".into(),
+            visible: true,
+            ..Default::default()
+        };
         let node = node_with_stroke(stroke);
         let result = render_strokes(&node, 100.0, false);
         let s = String::from_utf8_lossy(&result);
@@ -1041,7 +1145,11 @@ mod tests {
 
     #[test]
     fn render_strokes_join() {
-        let stroke = Stroke { join: "bevel".into(), visible: true, ..Default::default() };
+        let stroke = Stroke {
+            join: "bevel".into(),
+            visible: true,
+            ..Default::default()
+        };
         let node = node_with_stroke(stroke);
         let result = render_strokes(&node, 100.0, false);
         let s = String::from_utf8_lossy(&result);
@@ -1065,10 +1173,16 @@ mod tests {
 
     #[test]
     fn render_strokes_invisible() {
-        let stroke = Stroke { visible: false, ..Default::default() };
+        let stroke = Stroke {
+            visible: false,
+            ..Default::default()
+        };
         let node = node_with_stroke(stroke);
         let result = render_strokes(&node, 100.0, false);
-        assert!(result.is_empty(), "invisible stroke should produce no output");
+        assert!(
+            result.is_empty(),
+            "invisible stroke should produce no output"
+        );
     }
 
     #[test]
@@ -1111,9 +1225,14 @@ mod tests {
     fn render_effects_inner_shadow_commented() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.effects = vec![Effect::InnerShadow {
-            x: 2.0, y: 2.0, blur: 1.0, spread: 0.0,
-            color: [0, 0, 0, 255], opacity: 0.5,
-            blend_mode: "normal".into(), visible: true,
+            x: 2.0,
+            y: 2.0,
+            blur: 1.0,
+            spread: 0.0,
+            color: [0, 0, 0, 255],
+            opacity: 0.5,
+            blend_mode: "normal".into(),
+            visible: true,
         }];
         let result = render_effects(&node, 100.0, false);
         let s = String::from_utf8_lossy(&result);
@@ -1154,9 +1273,21 @@ mod tests {
             let stored = doc.objects.get(&id).expect("object should exist");
             match stored {
                 Object::Stream(s) => {
-                    assert_eq!(s.dict.get(b"Subtype").ok().and_then(|o| o.as_name_str().ok()), Some("Image"));
-                    assert_eq!(s.dict.get(b"Width").ok().and_then(|o| o.as_i64().ok()), Some(4));
-                    assert_eq!(s.dict.get(b"Height").ok().and_then(|o| o.as_i64().ok()), Some(4));
+                    assert_eq!(
+                        s.dict
+                            .get(b"Subtype")
+                            .ok()
+                            .and_then(|o| o.as_name_str().ok()),
+                        Some("Image")
+                    );
+                    assert_eq!(
+                        s.dict.get(b"Width").ok().and_then(|o| o.as_i64().ok()),
+                        Some(4)
+                    );
+                    assert_eq!(
+                        s.dict.get(b"Height").ok().and_then(|o| o.as_i64().ok()),
+                        Some(4)
+                    );
                 }
                 _ => panic!("should be a Stream"),
             }
@@ -1178,7 +1309,10 @@ mod tests {
         ];
         let opts = PdfOptions::default();
         let bytes = export_pdf(&nodes, &opts).expect("pdf export");
-        assert!(bytes.starts_with(b"%PDF"), "bytes should start with PDF header");
+        assert!(
+            bytes.starts_with(b"%PDF"),
+            "bytes should start with PDF header"
+        );
         assert!(bytes.len() > 200, "PDF should have meaningful content");
     }
 
@@ -1225,7 +1359,11 @@ mod tests {
 
     #[test]
     fn export_pdf_with_strokes() {
-        let stroke = Stroke { weight: 3.0, visible: true, ..Default::default() };
+        let stroke = Stroke {
+            weight: 3.0,
+            visible: true,
+            ..Default::default()
+        };
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.strokes = vec![stroke];
         let bytes = export_pdf(&[node], &PdfOptions::default()).expect("stroked pdf");
@@ -1236,9 +1374,14 @@ mod tests {
     fn export_pdf_with_effects() {
         let mut node = rect_node(1, 10.0, 10.0, 100.0, 100.0);
         node.effects = vec![Effect::DropShadow {
-            x: 5.0, y: 5.0, blur: 2.0, spread: 0.0,
-            color: [0, 0, 0, 255], opacity: 0.5,
-            blend_mode: "normal".into(), visible: true,
+            x: 5.0,
+            y: 5.0,
+            blur: 2.0,
+            spread: 0.0,
+            color: [0, 0, 0, 255],
+            opacity: 0.5,
+            blend_mode: "normal".into(),
+            visible: true,
         }];
         let bytes = export_pdf(&[node], &PdfOptions::default()).expect("effects pdf");
         assert!(bytes.starts_with(b"%PDF"));
@@ -1268,7 +1411,10 @@ mod tests {
         };
         let bytes = export_pdf(&nodes, &opts).expect("outlined text pdf");
         assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
-        assert!(bytes.len() > 500, "outlined text should be larger than minimal PDF");
+        assert!(
+            bytes.len() > 500,
+            "outlined text should be larger than minimal PDF"
+        );
     }
 
     #[test]
@@ -1282,7 +1428,10 @@ mod tests {
         };
         let bytes = export_pdf(&nodes, &opts).expect("outlined AB pdf");
         assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
-        assert!(bytes.len() > 600, "two-glyph text should be larger than one glyph");
+        assert!(
+            bytes.len() > 600,
+            "two-glyph text should be larger than one glyph"
+        );
     }
 
     #[test]

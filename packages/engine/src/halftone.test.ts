@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateAMMatrix, applyAMScreening, applyHalftone, type HalftoneParams } from './halftone';
+import { applyAMScreening, applyHalftone, generateAMMatrix, type HalftoneParams } from './halftone';
 
 describe('halftone AM matrix generation', () => {
   it('generates a 32x32 matrix for round dots', () => {

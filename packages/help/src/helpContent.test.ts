@@ -1,9 +1,9 @@
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest';
-import { CATEGORIES } from './content/helpTypes';
-import { HELP_CONTENT, getHelpContent, searchHelpContent } from './content/helpContent';
+import { getHelpContent, HELP_CONTENT, searchHelpContent } from './content/helpContent';
 import type { HelpArticle } from './content/helpTypes';
+import { CATEGORIES } from './content/helpTypes';
 
 const VALID_CATEGORIES: string[] = [...CATEGORIES];
 

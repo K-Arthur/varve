@@ -34,6 +34,13 @@ export interface ModelMetadata {
   checksum: string;
 }
 
+export interface WorkerCommand {
+  type: 'infer';
+  imageData: ImageData;
+  modelPath: string;
+  modelId: 'u2netp' | 'birefnet-general-lite';
+}
+
 export const AVAILABLE_MODELS: ModelMetadata[] = [
   {
     id: 'u2netp',

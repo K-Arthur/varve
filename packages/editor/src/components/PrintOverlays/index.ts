@@ -1,2 +1,2 @@
-export { PrintOverlays } from './PrintOverlays';
 export type { PrintOverlaysProps } from './PrintOverlays';
+export { PrintOverlays } from './PrintOverlays';

@@ -242,7 +242,8 @@ fn build_pdfx_content(
         }
         content.extend_from_slice(format!("{} w\n", geo.line_width_pt).as_bytes());
         for (x1, y1, x2, y2) in &lines {
-            content.extend_from_slice(format!("{x1:.2} {y1:.2} m\n{x2:.2} {y2:.2} l\nS\n").as_bytes());
+            content
+                .extend_from_slice(format!("{x1:.2} {y1:.2} m\n{x2:.2} {y2:.2} l\nS\n").as_bytes());
         }
 
         // Registration marks (crosshairs)
@@ -256,11 +257,31 @@ fn build_pdfx_content(
                     content.extend_from_slice(b"0 0 0 RG\n");
                 }
                 // Horizontal line
-                content.extend_from_slice(format!("{:.2} {:.2} m\n{:.2} {:.2} l\nS\n", rx - arm, *ry, rx + arm, *ry).as_bytes());
+                content.extend_from_slice(
+                    format!(
+                        "{:.2} {:.2} m\n{:.2} {:.2} l\nS\n",
+                        rx - arm,
+                        *ry,
+                        rx + arm,
+                        *ry
+                    )
+                    .as_bytes(),
+                );
                 // Vertical line
-                content.extend_from_slice(format!("{:.2} {:.2} m\n{:.2} {:.2} l\nS\n", *rx, ry - arm, *rx, ry + arm).as_bytes());
+                content.extend_from_slice(
+                    format!(
+                        "{:.2} {:.2} m\n{:.2} {:.2} l\nS\n",
+                        *rx,
+                        ry - arm,
+                        *rx,
+                        ry + arm
+                    )
+                    .as_bytes(),
+                );
                 // Small circle at center
-                content.extend_from_slice(format!("{:.2} {:.2} 0.5 0 360 arc\nS\n", rx, ry).as_bytes());
+                content.extend_from_slice(
+                    format!("{:.2} {:.2} 0.5 0 360 arc\nS\n", rx, ry).as_bytes(),
+                );
             }
         }
 
@@ -269,16 +290,18 @@ fn build_pdfx_content(
             let swatches = marks::color_bar_positions(trim_x, trim_y, trim_w, trim_h, 7);
             // 7 swatches: C, M, Y, K, R, G, B (process colour indicators)
             let cmyk_colors: [(&str, [f32; 4]); 7] = [
-                ("Cyan",    [1.0, 0.0, 0.0, 0.0]),
+                ("Cyan", [1.0, 0.0, 0.0, 0.0]),
                 ("Magenta", [0.0, 1.0, 0.0, 0.0]),
-                ("Yellow",  [0.0, 0.0, 1.0, 0.0]),
-                ("Black",   [0.0, 0.0, 0.0, 1.0]),
-                ("Red",     [0.0, 1.0, 1.0, 0.0]),
-                ("Green",   [1.0, 0.0, 1.0, 0.0]),
-                ("Blue",    [1.0, 1.0, 0.0, 0.0]),
+                ("Yellow", [0.0, 0.0, 1.0, 0.0]),
+                ("Black", [0.0, 0.0, 0.0, 1.0]),
+                ("Red", [0.0, 1.0, 1.0, 0.0]),
+                ("Green", [1.0, 0.0, 1.0, 0.0]),
+                ("Blue", [1.0, 1.0, 0.0, 0.0]),
             ];
             for (i, (name, cmyk_color)) in cmyk_colors.iter().enumerate() {
-                if i >= swatches.len() { break; }
+                if i >= swatches.len() {
+                    break;
+                }
                 let (sx, sy, sw, sh) = swatches[i];
                 let (cc, cm, cy, ck) = (cmyk_color[0], cmyk_color[1], cmyk_color[2], cmyk_color[3]);
                 if use_cmyk {
@@ -567,7 +590,10 @@ mod tests {
         let bytes = export_pdfx1a_with_marks(&nodes, &opts, &geo).expect("pdfx1a with reg marks");
         let content = String::from_utf8_lossy(&bytes);
         assert!(content.contains("GTS_PDFX"), "should contain GTS_PDFX");
-        assert!(content.contains("TrimBox"), "should contain TrimBox for mark alignment");
+        assert!(
+            content.contains("TrimBox"),
+            "should contain TrimBox for mark alignment"
+        );
         assert!(bytes.starts_with(b"%PDF"), "should start with PDF header");
     }
 
@@ -583,7 +609,10 @@ mod tests {
         let geo = MarksGeometry::default();
         let bytes = export_pdfx1a_with_marks(&nodes, &opts, &geo).expect("pdfx1a with color bar");
         assert!(bytes.starts_with(b"%PDF"), "should start with PDF header");
-        assert!(bytes.len() > 400, "should have meaningful content including color bar");
+        assert!(
+            bytes.len() > 400,
+            "should have meaningful content including color bar"
+        );
     }
 
     #[test]
@@ -642,7 +671,10 @@ mod tests {
         assert!(bytes.starts_with(b"%PDF-1.6"), "PDF/X-4 requires PDF 1.6");
         assert!(bytes.len() > 500, "marks should add content size");
         assert!(content.contains("GTS_PDFX"), "should contain GTS_PDFX");
-        assert!(content.contains("TrimBox"), "should contain TrimBox for mark alignment");
+        assert!(
+            content.contains("TrimBox"),
+            "should contain TrimBox for mark alignment"
+        );
     }
 
     // --- ICC-aware CMYK conversion tests ---
@@ -702,7 +734,10 @@ mod tests {
         for intent in &intents {
             let (c, m, y, k) = rgb_to_cmyk_icc(PrintProfile::Fogra39, 128, 64, 192, *intent, false);
             let total = c as u32 + m as u32 + y as u32 + k as u32;
-            assert!(total > 0, "all channels should not be zero for intent {intent:?}");
+            assert!(
+                total > 0,
+                "all channels should not be zero for intent {intent:?}"
+            );
         }
     }
 
@@ -736,7 +771,8 @@ mod tests {
             PrintProfile::SwopCoated,
         ];
         for profile in &profiles {
-            let (c, m, y, k) = rgb_to_cmyk_icc(*profile, 180, 100, 60, RenderingIntent::Perceptual, false);
+            let (c, m, y, k) =
+                rgb_to_cmyk_icc(*profile, 180, 100, 60, RenderingIntent::Perceptual, false);
             let total = c as u32 + m as u32 + y as u32 + k as u32;
             assert!(total > 0, "profile {profile:?} produced all-zero CMYK");
         }
@@ -765,16 +801,33 @@ mod tests {
 
     #[test]
     fn icc_cmyk_fogra39_gcr() {
-        let (c, _m, _y, k) = rgb_to_cmyk_icc(PrintProfile::Fogra39, 100, 100, 100, RenderingIntent::Perceptual, false);
+        let (c, _m, _y, k) = rgb_to_cmyk_icc(
+            PrintProfile::Fogra39,
+            100,
+            100,
+            100,
+            RenderingIntent::Perceptual,
+            false,
+        );
         // Neutral gray should have higher K under Fogra39 (GCR 0.35)
-        assert!(k > 50, "Fogra39 neutral gray K should be substantial, got {k}");
+        assert!(
+            k > 50,
+            "Fogra39 neutral gray K should be substantial, got {k}"
+        );
         // CMY should be low for neutral gray (all black component)
         assert!(c < 50, "Fogra39 C should be low for neutral gray, got {c}");
     }
 
     #[test]
     fn icc_cmyk_gracol_tac() {
-        let (c, m, y, k) = rgb_to_cmyk_icc(PrintProfile::Gracol2006, 0, 0, 255, RenderingIntent::Perceptual, false);
+        let (c, m, y, k) = rgb_to_cmyk_icc(
+            PrintProfile::Gracol2006,
+            0,
+            0,
+            255,
+            RenderingIntent::Perceptual,
+            false,
+        );
         // Blue: high C+M, should be under TAC for GRACoL (320%)
         let total = c as u32 + m as u32 + y as u32 + k as u32;
         assert!(total > 0, "should produce non-zero CMYK");
@@ -787,7 +840,14 @@ mod tests {
 
     #[test]
     fn icc_cmyk_swop_tac() {
-        let (c, _m, y, k) = rgb_to_cmyk_icc(PrintProfile::SwopCoated, 0, 100, 0, RenderingIntent::Perceptual, false);
+        let (c, _m, y, k) = rgb_to_cmyk_icc(
+            PrintProfile::SwopCoated,
+            0,
+            100,
+            0,
+            RenderingIntent::Perceptual,
+            false,
+        );
         let total = c as u32 + y as u32 + k as u32;
         assert!(total > 0, "should produce non-zero CMYK");
         // SWOP has 300% TAC

@@ -3,15 +3,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  applyCurves,
-  applyLevels,
-  applySelectiveColor,
-  applyColorBalance,
   applyChannelMixer,
+  applyColorBalance,
+  applyCurves,
   applyExposure,
-  applyTemperature,
-  applySharpen,
+  applyLevels,
   applyPhotoFilter,
+  applySelectiveColor,
+  applySharpen,
+  applyTemperature,
   hasPixelProcessor,
 } from './pixelPipeline';
 

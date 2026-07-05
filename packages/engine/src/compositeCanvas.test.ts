@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { CompositeCanvas, mapBlendMode, blendPixels } from './compositeCanvas';
+import { describe, expect, it } from 'vitest';
+import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 
 function makePixelData(r: number, g: number, b: number, a: number, w = 1, h = 1): ImageData {
   const data = new ImageData(w, h);

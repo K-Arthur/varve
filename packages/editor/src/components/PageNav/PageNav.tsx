@@ -1,5 +1,5 @@
-import { type MenuEntry, ContextMenu } from '@strata/ui';
-import { addPage as addPageFn, duplicatePage, removePage, type Page } from '@strata/scene';
+import { addPage as addPageFn, duplicatePage, type Page, removePage } from '@strata/scene';
+import { ContextMenu, type MenuEntry } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import './pagenav.css';

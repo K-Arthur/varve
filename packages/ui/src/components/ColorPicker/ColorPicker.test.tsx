@@ -1,18 +1,19 @@
 // @vitest-environment jsdom
+
+import type { ManagedColor } from '@strata/scene';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ManagedColor } from '@strata/scene';
+import { CmykColorFields } from './CmykColorFields';
 import { ColorFields } from './ColorFields';
 import { ColorPicker } from './ColorPicker';
 import { ColorSlider } from './ColorSlider';
+import { ColorSpaceSelector } from './ColorSpaceSelector';
 import type { Color } from './color-utils';
 import { EyeDropperButton } from './EyeDropperButton';
-import { SwatchPalette } from './SwatchPalette';
-import { ColorSpaceSelector } from './ColorSpaceSelector';
-import { CmykColorFields } from './CmykColorFields';
-import { GrayColorFields } from './GrayColorFields';
 import { GamutWarning } from './GamutWarning';
+import { GrayColorFields } from './GrayColorFields';
 import { SpotColorBrowser } from './SpotColorBrowser';
+import { SwatchPalette } from './SwatchPalette';
 
 afterEach(cleanup);
 

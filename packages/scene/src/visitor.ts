@@ -1,11 +1,11 @@
 import type {
+  AdjustmentNode,
+  FrameNode,
+  GroupNode,
+  ImageNode,
   SceneNode,
   ShapeNode,
   TextNode,
-  GroupNode,
-  FrameNode,
-  ImageNode,
-  AdjustmentNode,
 } from './types';
 
 /** Visitor pattern for SceneNode — ensures all node kinds are handled. */

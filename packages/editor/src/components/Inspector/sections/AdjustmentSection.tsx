@@ -11,22 +11,23 @@
  *
  * Research basis: Photoshop / Lightroom adjustment panels.
  */
-import type { AdjustmentNode } from '@strata/scene';
+
 import type { CurvePoint, LevelParams, SelectiveColorParams } from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
-import { useCallback } from 'react';
-import { useEditor } from '../../../context';
-import { DisclosureSection } from '../controls/DisclosureSection';
-import { CurveEditor } from '../controls/CurveEditor';
-import { HistogramWidget } from '../controls/HistogramWidget';
-import { SelectiveColorGrid } from '../controls/SelectiveColorGrid';
 import type {
-  AdjustmentType,
   AdjustmentCurves,
   AdjustmentLevels,
-  AdjustmentSelectiveColor,
+  AdjustmentNode,
   AdjustmentParams,
+  AdjustmentSelectiveColor,
+  AdjustmentType,
+  SceneNode,
 } from '@strata/scene';
+import { useCallback } from 'react';
+import { useEditor } from '../../../context';
+import { CurveEditor } from '../controls/CurveEditor';
+import { DisclosureSection } from '../controls/DisclosureSection';
+import { HistogramWidget } from '../controls/HistogramWidget';
+import { SelectiveColorGrid } from '../controls/SelectiveColorGrid';
 
 export interface AdjustmentSectionProps {
   nodes: SceneNode[];

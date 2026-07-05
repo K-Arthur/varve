@@ -8,8 +8,9 @@
  * Research basis: Figma Dev Mode / Inspect panel — shows resolved values for
  * spacing, typography, and fills without server round-trip.
  */
+
+import type { Document, ManagedColor, NodeId, SceneNode } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import type { Document, NodeId, SceneNode, ManagedColor } from '@strata/scene';
 
 /** A resolved spacing token with its value and usage count. */
 export interface SpecSpacing {

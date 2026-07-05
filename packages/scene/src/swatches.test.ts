@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, makeShapeNode, nextNodeId } from './document';
-import { addSwatch, removeSwatch, updateSwatch, applySwatchToNode } from './swatches';
 import type { ManagedColor } from './colorManagement';
+import { createDocument, makeShapeNode, nextNodeId } from './document';
+import { addSwatch, applySwatchToNode, removeSwatch, updateSwatch } from './swatches';
 
 const red: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
 const blue: ManagedColor = { space: 'rgb', r: 0, g: 0, b: 255, a: 255 };

@@ -1,8 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import type { Timeline } from '@strata/scene';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { formatTime } from './PlaybackControls';
 import { TimelinePanel } from './TimelinePanel';
-import type { Timeline } from '@strata/scene';
 
 function makeTimeline(
   id: string,

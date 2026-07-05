@@ -7,21 +7,22 @@
  * Run with a 60s timeout:
  *   npx vitest run packages/editor/src/components/LayersPanel/__benchmarks__/layers10k.bench.test.ts --testTimeout=60000
  */
-import { describe, expect, test } from 'vitest';
+
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import {
-  createDocument,
-  makeShapeNode,
-  makeGroupNode,
   buildParentIndexMap,
+  createDocument,
   deepCloneSubtree,
+  makeGroupNode,
+  makeShapeNode,
   resolveAllStyles,
 } from '@strata/scene';
-import { flattenTree } from '../useFlatTree';
-import { createSearchIndex, searchIndex } from '../layerSearchIndex';
-import { buildSpatialIndex, queryPoint } from '../../../scene/spatialIndex';
+import { describe, expect, test } from 'vitest';
 import { getOrCreateParentCache, getParentFast } from '../../../scene/parentIndexCache';
+import { buildSpatialIndex, queryPoint } from '../../../scene/spatialIndex';
 import { DEFAULT_FILTER, type LayerFilterSpec } from '../layerFilterTypes';
+import { createSearchIndex, searchIndex } from '../layerSearchIndex';
+import { flattenTree } from '../useFlatTree';
 
 // ── Build helpers ───────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ import { DEFAULT_FILTER, type LayerFilterSpec } from '../layerFilterTypes';
  * Total: 10,100 nodes (100 groups + 10,000 shapes).
  */
 function build10kDoc(): Document {
-  let doc = createDocument('10K Stress Test', true);
+  const doc = createDocument('10K Stress Test', true);
   const nodes: Record<NodeId, SceneNode> = {};
   const rootChildren: NodeId[] = [];
   let nextId = doc.nextId;

@@ -8,11 +8,11 @@
  * Research basis: Adobe InDesign preflight panel, Enfocus PitStop inspection.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { runPrintPreflight } from '@strata/scene';
 import type { PrintPreflightIssue, PrintPreflightSeverity } from '@strata/scene';
-import { useEditor } from '../context';
+import { runPrintPreflight } from '@strata/scene';
 import { Icon } from '@strata/ui';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useEditor } from '../context';
 
 const SEVERITY_ORDER: PrintPreflightSeverity[] = ['error', 'warning', 'info'];
 

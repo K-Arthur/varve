@@ -1,15 +1,15 @@
-import { createContext, useCallback, useContext, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import type { NodeId, SceneNode } from '@strata/scene';
 import {
   animateCamera,
   clampZoom,
   fitBoundsCamera,
   revealBoundsCamera,
   screenToWorld,
-  zoomAboutPoint,
   type Viewport,
+  zoomAboutPoint,
 } from '@strata/shared';
-import type { NodeId, SceneNode } from '@strata/scene';
+import type { ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 import type { CanvasMode, EditorState } from './types';
 
 export interface ViewportContextValue {

@@ -20,8 +20,8 @@ import { useMemo, useRef } from 'react';
 import {
   DEFAULT_FILTER,
   isFiltering,
-  nodeMatchesFilter,
   type LayerFilterSpec,
+  nodeMatchesFilter,
 } from './layerFilterTypes';
 
 export interface FlatEntry {

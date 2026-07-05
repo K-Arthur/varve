@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ManagedColor } from '../colorManagement';
 import { createComponent } from '../component';
-import { addNode, createDocument, makeFrameNode } from '../document';
 import {
   getInstanceStatus,
   hasInstanceOverrides,
@@ -10,6 +9,7 @@ import {
   syncInstance,
 } from '../component-sync';
 import type { Document } from '../document';
+import { addNode, createDocument, makeFrameNode } from '../document';
 import type { ComponentDefinition, FrameNode } from '../types';
 
 function rgb(r: number, g: number, b: number): ManagedColor {

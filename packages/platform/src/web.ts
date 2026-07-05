@@ -26,6 +26,7 @@ import {
   stripExtension,
   uuid,
 } from './pure';
+import { indexDocumentContent, searchContentIndex } from './searchIndex';
 import type {
   ActivityEvent,
   Asset,
@@ -50,7 +51,6 @@ import type {
   Workspace,
 } from './types';
 import { DRAFTS_ID } from './types';
-import { indexDocumentContent, searchContentIndex } from './searchIndex';
 
 const DB_NAME = 'strata-home';
 const DB_VERSION = 2;

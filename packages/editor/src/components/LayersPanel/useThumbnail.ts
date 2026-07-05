@@ -6,8 +6,9 @@
  *
  * Research basis: OffscreenCanvas (WICG), idle-until-urgent pattern.
  */
-import { managedColorToRgba } from '@strata/shared';
+
 import type { SceneNode, ShapeNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const THUMB_W = 28;

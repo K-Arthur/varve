@@ -26,6 +26,7 @@
     "@strata/editor": "workspace:*",
     "@strata/home": "workspace:*",
     "@strata/platform": "workspace:*",
-    "@strata/ui": "workspace:*"
+    "@strata/ui": "workspace:*",
+    "onnxruntime-web": "^1.27.0"
   }
 }

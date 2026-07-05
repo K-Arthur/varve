@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
+import { makeAdjustment } from '@strata/scene';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
-import { makeAdjustment } from '@strata/scene';
 
 afterEach(() => {
   cleanup();
