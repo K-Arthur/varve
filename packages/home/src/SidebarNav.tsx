@@ -114,26 +114,28 @@ function SidebarProjectRow({
   };
 
   return (
-    <button
+    <div
       ref={setNodeRef}
-      type="button"
-      role="option"
-      aria-selected={isActive}
-      tabIndex={idx === focusIdx ? 0 : -1}
-      className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''} ${isDropTarget ? 'sidebar-item--drop-target' : ''}`}
-      onClick={() => onSelect(entry.id)}
-      onMouseEnter={() => setFocusIdx(idx)}
+      className={`sidebar-item-row ${isDropTarget ? 'sidebar-item-row--drop-target' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <Icon name={entry.icon} label={undefined} className="sidebar-item__icon" />
-      <span>{entry.label}</span>
-      <span className="sidebar-item__count">{entry.count}</span>
+      <button
+        type="button"
+        aria-current={isActive ? 'page' : undefined}
+        tabIndex={idx === focusIdx ? 0 : -1}
+        className={`sidebar-item sidebar-item--flex ${isActive ? 'sidebar-item--active' : ''}`}
+        onClick={() => onSelect(entry.id)}
+      >
+        <Icon name={entry.icon} label={undefined} className="sidebar-item__icon" />
+        <span className="sidebar-item__label">{entry.label}</span>
+        {entry.count > 0 && <span className="sidebar-item__count">{entry.count}</span>}
+      </button>
       {onPin && entry.pinned !== undefined && (
         <button
           type="button"
-          className="sidebar-item__pin"
+          className="sidebar-item-row__action"
           aria-pressed={entry.pinned}
           aria-label={entry.pinned ? `Unpin ${entry.label}` : `Pin ${entry.label}`}
           onClick={(e) => {
@@ -144,7 +146,7 @@ function SidebarProjectRow({
           <Icon name={entry.pinned ? 'Pin' : 'PinOff'} label={undefined} size="0.85em" />
         </button>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -287,38 +289,27 @@ export function SidebarNav({
           itemRefs.current[i] = el;
         }}
         type="button"
-        role="option"
-        aria-selected={entry.id === activeId}
+        aria-current={entry.id === activeId ? 'page' : undefined}
         tabIndex={i === focusIdx ? 0 : -1}
         className={`sidebar-item ${entry.id === activeId ? 'sidebar-item--active' : ''}`}
         onClick={() => onSelect(entry.id)}
-        onMouseEnter={() => setFocusIdx(i)}
       >
         <Icon name={entry.icon} label={undefined} className="sidebar-item__icon" />
         <span>{entry.label}</span>
-        <span className="sidebar-item__count">{entry.count}</span>
+        {entry.count > 0 && <span className="sidebar-item__count">{entry.count}</span>}
       </button>
     );
-  };
-
-  // Group entries into sections for rendering
-  const sectionOrder = ['recent', 'all', 'drafts', 'favorites'];
-  const bottomSectionOrder = ['templates', 'assets', 'activity', 'trash'];
-  const sectionLabels: Record<string, string | undefined> = {
-    recent: 'Recent',
-    all: 'All Files',
-    drafts: 'Drafts',
-    favorites: 'Favorites',
-    templates: 'Templates',
-    assets: 'Assets',
-    activity: 'Activity',
-    trash: 'Trash',
   };
 
   const entryMap = new Map(entries.map((e) => [e.id, e]));
   const projectEntries = entries.filter((e) => !SECTION_LEADER_IDS.has(e.id));
 
   const getCount = (id: string) => sectionCounts?.[id] ?? entryMap.get(id)?.count ?? 0;
+
+  // Top nav items (single-target, no collapsible wrapper needed)
+  const topNavIds = ['recent', 'all', 'drafts', 'favorites'];
+  // Bottom nav items
+  const bottomNavIds = ['templates', 'assets', 'activity', 'trash'];
 
   return (
     <nav
@@ -327,128 +318,89 @@ export function SidebarNav({
       onKeyDown={handleKey}
       aria-label="File navigation"
     >
-      {onCreateProject && (
-        <button
-          type="button"
-          className="sidebar-item sidebar-item--new-project"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCreateProject();
-          }}
-          aria-label="New project"
-        >
-          <Icon name="Plus" label={undefined} className="sidebar-item__icon" />
-          <span>New Project</span>
-        </button>
-      )}
+      {/* Top nav items — direct single-click navigation, no collapsible wrapper */}
+      <div className="sidebar-group">
+        {topNavIds.map((id) => {
+          const entry = entryMap.get(id);
+          if (!entry) return null;
+          return renderEntry(entry, entries.indexOf(entry), false);
+        })}
+      </div>
 
-      {/* Top sections: Recent, All Files, Drafts, Favorites */}
-      {sectionOrder.map((sectionId) => {
-        const entry = entryMap.get(sectionId);
-        if (!entry) return null;
-        const collapsed = isCollapsed(sectionId);
-        return (
-          <div key={sectionId}>
-            <SectionHeader
-              id={sectionId}
-              label={sectionLabels[sectionId] ?? entry.label}
-              count={getCount(sectionId)}
-              collapsed={collapsed}
-              onToggle={toggleSection}
-            />
-            {!collapsed && renderEntry(entry, entries.indexOf(entry), false)}
-          </div>
-        );
-      })}
-
-      {/* Projects section */}
+      {/* Projects section — collapsible because it can contain multiple items */}
       {projectEntries.length > 0 && (
-        <div>
-          <SectionHeader
-            id="projects"
-            label="Projects"
-            count={projectEntries.length}
-            collapsed={isCollapsed('projects')}
-            onToggle={toggleSection}
-          />
-          {!isCollapsed('projects') &&
-            projectEntries.map((entry) => renderEntry(entry, entries.indexOf(entry), true))}
+        <div className="sidebar-group">
+          <div className="sidebar-group__header">
+            <button
+              type="button"
+              className="sidebar-section__header"
+              onClick={() => toggleSection('projects')}
+              aria-expanded={!isCollapsed('projects')}
+              aria-controls="sidebar-projects-list"
+            >
+              <ChevronIcon collapsed={isCollapsed('projects')} />
+              <span>Projects</span>
+              <span className="sidebar-section__count">
+                {getCount('projects') > 0 ? getCount('projects') : projectEntries.length}
+              </span>
+            </button>
+            {onCreateProject && (
+              <button
+                type="button"
+                className="sidebar-group__add"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCreateProject();
+                }}
+                aria-label="New project"
+                title="New project"
+              >
+                <Icon name="Plus" label={undefined} size="0.85em" />
+              </button>
+            )}
+          </div>
+          {!isCollapsed('projects') && (
+            <div id="sidebar-projects-list">
+              {projectEntries.map((entry) => renderEntry(entry, entries.indexOf(entry), true))}
+            </div>
+          )}
         </div>
       )}
 
-      {bottomSectionOrder.map((sectionId) => {
-        const entry = entryMap.get(sectionId);
-        if (!entry) return null;
-        const collapsed = isCollapsed(sectionId);
-        return (
-          <div key={sectionId}>
-            <SectionHeader
-              id={sectionId}
-              label={sectionLabels[sectionId] ?? entry.label}
-              count={getCount(sectionId)}
-              collapsed={collapsed}
-              onToggle={toggleSection}
-            />
-            {!collapsed && renderEntry(entry, entries.indexOf(entry), false)}
-          </div>
-        );
-      })}
+      {/* Bottom nav items */}
+      <div className="sidebar-group sidebar-group--bottom">
+        {bottomNavIds.map((id) => {
+          const entry = entryMap.get(id);
+          if (!entry) return null;
+          return renderEntry(entry, entries.indexOf(entry), false);
+        })}
+      </div>
 
       {savedSearches && savedSearches.length > 0 && (
-        <div style={{ marginTop: 'var(--space-1)' }}>
-          <div
-            style={{
-              padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--font-size-xs)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: 'var(--color-text-tertiary)',
-            }}
-          >
-            Saved Searches
-          </div>
+        <div className="sidebar-group">
+          <div className="sidebar-group__label">Saved Searches</div>
           {savedSearches.map((search) => (
-            <button
-              key={search.id}
-              type="button"
-              role="option"
-              aria-selected={activeSavedSearchId === search.id}
-              className={`sidebar-item ${activeSavedSearchId === search.id ? 'sidebar-item--active' : ''}`}
-              onClick={() => onSelect(search.id)}
-            >
-              <Icon name="Search" label={undefined} className="sidebar-item__icon" />
-              <span
-                style={{
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {search.name}
-              </span>
+            <div key={search.id} className="sidebar-item-row">
               <button
                 type="button"
-                aria-label={`Delete saved search "${search.name}"`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteSavedSearch?.(search.id);
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  color: 'var(--color-text-tertiary)',
-                  opacity: 0.6,
-                  lineHeight: 1,
-                  flexShrink: 0,
-                }}
+                aria-current={activeSavedSearchId === search.id ? 'page' : undefined}
+                className={`sidebar-item sidebar-item--flex ${activeSavedSearchId === search.id ? 'sidebar-item--active' : ''}`}
+                onClick={() => onSelect(search.id)}
               >
-                <Icon name="X" label={undefined} size="0.85em" />
+                <Icon name="Search" label={undefined} className="sidebar-item__icon" />
+                <span className="sidebar-item__label">{search.name}</span>
               </button>
-            </button>
+              {onDeleteSavedSearch && (
+                <button
+                  type="button"
+                  className="sidebar-item-row__action"
+                  aria-label={`Delete saved search "${search.name}"`}
+                  onClick={() => onDeleteSavedSearch(search.id)}
+                >
+                  <Icon name="X" label={undefined} size="0.85em" />
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}

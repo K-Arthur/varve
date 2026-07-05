@@ -23,6 +23,7 @@ export interface FileListProps {
   onStartRename?: (id: string | null) => void;
   missingFiles?: Set<string>;
   onToggleFavorite?: (entry: FileEntry) => void;
+  onPin?: (entry: FileEntry) => void;
 }
 
 const ROW_HEIGHT = 48;
@@ -46,6 +47,7 @@ export function FileList({
   onStartRename,
   missingFiles = new Set(),
   onToggleFavorite,
+  onPin,
 }: FileListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusIdx, setFocusIdx] = useState(0);
@@ -385,6 +387,7 @@ export function FileList({
                     aria-label={entry.pinned ? 'Unpin' : 'Pin'}
                     onClick={(e) => {
                       e.stopPropagation();
+                      onPin?.(entry);
                     }}
                   >
                     <Icon name={entry.pinned ? 'Pin' : 'PinOff'} label={undefined} size="0.85em" />

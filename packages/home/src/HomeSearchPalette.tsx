@@ -42,6 +42,7 @@ export function HomeSearchPalette({
   const [activeIdx, setActiveIdx] = useState(0);
   const [contentMatches, setContentMatches] = useState<ContentSearchMatch[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -51,38 +52,40 @@ export function HomeSearchPalette({
     }
   }, [open]);
 
+  // Debounced content search — 400ms after the user stops typing
   useEffect(() => {
     const q = query.trim();
     if (!q) {
       setContentMatches([]);
       return;
     }
-    const seen = new Set<string>();
-    const controller = new AbortController();
     let cancelled = false;
-    const results: ContentSearchMatch[] = [];
-    for (const f of files) {
-      if (cancelled) break;
-      platform.searchFileContent(f.id, q).then((jsonStrings) => {
-        if (cancelled) return;
-        for (const json of jsonStrings) {
-          try {
-            const match: ContentSearchMatch = JSON.parse(json);
-            const key = `${match.fileId}:${match.nodeId}:${match.matchType}`;
-            if (!seen.has(key)) {
-              seen.add(key);
-              results.push(match);
+    const timer = setTimeout(() => {
+      const seen = new Set<string>();
+      const results: ContentSearchMatch[] = [];
+      for (const f of files) {
+        if (cancelled) break;
+        platform.searchFileContent(f.id, q).then((jsonStrings) => {
+          if (cancelled) return;
+          for (const json of jsonStrings) {
+            try {
+              const match: ContentSearchMatch = JSON.parse(json);
+              const key = `${match.fileId}:${match.nodeId}:${match.matchType}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                results.push(match);
+              }
+            } catch {
+              // skip malformed entries
             }
-          } catch {
-            // skip malformed entries
           }
-        }
-        setContentMatches([...results]);
-      });
-    }
+          setContentMatches([...results]);
+        });
+      }
+    }, 400);
     return () => {
       cancelled = true;
-      controller.abort();
+      clearTimeout(timer);
     };
   }, [query, files, platform]);
 
@@ -189,6 +192,15 @@ export function HomeSearchPalette({
     setActiveIdx(0);
   }, [query]);
 
+  const selectItem = useCallback(
+    (item: ResultItem) => {
+      const resolvedId = item.groupKind === 'content' ? item.id.split('||')[0]! : item.id;
+      onOpenFile(resolvedId);
+      onClose();
+    },
+    [onOpenFile, onClose],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       switch (e.key) {
@@ -196,6 +208,23 @@ export function HomeSearchPalette({
           e.preventDefault();
           onClose();
           break;
+        case 'Tab': {
+          // Focus trap: cycle focus within the container
+          if (!containerRef.current) break;
+          const focusable = containerRef.current.querySelectorAll<HTMLElement>(
+            'input, button, [tabindex]:not([tabindex="-1"])',
+          );
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last?.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first?.focus();
+          }
+          break;
+        }
         case 'ArrowDown':
           e.preventDefault();
           setActiveIdx((i) => {
@@ -222,37 +251,47 @@ export function HomeSearchPalette({
           }
           const hit = allItems[idx];
           if (hit && hit.groupKind !== 'header') {
-            const resolvedId = hit.groupKind === 'content' ? hit.id.split('||')[0]! : hit.id;
-            onOpenFile(resolvedId);
-            onClose();
+            selectItem(hit);
           }
           break;
         }
       }
     },
-    [onClose, onOpenFile, allItems, activeIdx],
+    [onClose, allItems, activeIdx, selectItem],
   );
 
   if (!open) return null;
+
+  const activeItemId =
+    allItems.length > 0 && activeIdx >= 0 && allItems[activeIdx]?.groupKind !== 'header'
+      ? `search-result-${activeIdx}`
+      : undefined;
 
   return (
     <div
       className="search-palette"
       role="dialog"
+      aria-modal="true"
       aria-label="Search files, projects, templates, and documents"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="search-palette__container">
+      <div className="search-palette__container" ref={containerRef}>
         <div className="search-palette__input-wrap">
           <Icon name="Search" label={undefined} size="1em" className="search-palette__input-icon" />
           <input
             ref={inputRef}
             type="text"
+            role="combobox"
+            aria-expanded={allItems.length > 0}
+            aria-haspopup="listbox"
+            aria-controls="search-results"
+            aria-activedescendant={activeItemId}
+            aria-autocomplete="list"
             className="search-palette__input"
-            placeholder="Search files, projects, templates, documents\u2026"
+            placeholder="Search files, projects, templates, documents…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search"
@@ -269,9 +308,16 @@ export function HomeSearchPalette({
           )}
         </div>
 
-        <div className="search-palette__results">
+        <div
+          id="search-results"
+          role="listbox"
+          aria-label="Search results"
+          className="search-palette__results"
+        >
           {allItems.length === 0 && query && (
-            <div className="search-palette__empty">No results found</div>
+            <div className="search-palette__empty" role="status">
+              No results found
+            </div>
           )}
           {allItems.length === 0 && !query && (
             <div className="search-palette__empty">Start typing to search</div>
@@ -279,7 +325,7 @@ export function HomeSearchPalette({
           {allItems.map((item, idx) => {
             if (item.groupKind === 'header') {
               return (
-                <div key={item.id} className="search-palette__group-label">
+                <div key={item.id} className="search-palette__group-label" role="presentation">
                   <Icon
                     name={item.groupIcon as 'FileText' | 'Folder' | 'LayoutGrid' | 'Search'}
                     label={undefined}
@@ -291,23 +337,18 @@ export function HomeSearchPalette({
             }
             const isActive = idx === activeIdx;
             return (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                className={`search-palette__result ${isActive ? 'search-palette__result--active' : ''}`}
-                onClick={() => {
-                  const resolvedId =
-                    item.groupKind === 'content' ? item.id.split('||')[0]! : item.id;
-                  onOpenFile(resolvedId);
-                  onClose();
-                }}
-                onMouseEnter={() => setActiveIdx(idx)}
+                id={`search-result-${idx}`}
                 role="option"
                 aria-selected={isActive}
+                className={`search-palette__result ${isActive ? 'search-palette__result--active' : ''}`}
+                onClick={() => selectItem(item)}
+                onMouseEnter={() => setActiveIdx(idx)}
               >
                 <span className="search-palette__result-name">{item.name}</span>
                 {item.sub && <span className="search-palette__result-sub">{item.sub}</span>}
-              </button>
+              </div>
             );
           })}
         </div>
