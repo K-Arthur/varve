@@ -21,44 +21,34 @@ export function NewFeatureBadge({
 }: NewFeatureBadgeProps) {
   const [dismissed, setDismissed] = useState(false);
 
-  const featureVersion = FEATURE_VERSIONS[featureId];
-  if (!featureVersion) {
-    // Unknown feature — no badge
-    return <span className={`new-feature-badge ${className}`}>{children}</span>;
-  }
-
-  if (dismissed) {
-    return <span className={`new-feature-badge ${className}`}>{children}</span>;
-  }
-
-  // If lastSeenVersion is at or above the feature version, no badge needed
-  if (lastSeenVersion && compareVersions(lastSeenVersion, featureVersion) >= 0) {
-    return <span className={`new-feature-badge ${className}`}>{children}</span>;
-  }
-
-  // If lastSeenVersion is equal to current app version, no badge
-  if (lastSeenVersion && compareVersions(lastSeenVersion, CURRENT_APP_VERSION) >= 0) {
-    return <span className={`new-feature-badge ${className}`}>{children}</span>;
-  }
-
   const handleInteraction = useCallback(() => {
     setDismissed(true);
     onSee?.(featureId);
   }, [featureId, onSee]);
 
+  const featureVersion = FEATURE_VERSIONS[featureId];
+
+  const showBadge =
+    featureVersion !== undefined &&
+    !dismissed &&
+    (!lastSeenVersion || compareVersions(lastSeenVersion, featureVersion) < 0) &&
+    (!lastSeenVersion || compareVersions(lastSeenVersion, CURRENT_APP_VERSION) < 0);
+
   return (
     <span
       className={`new-feature-badge ${className}`}
-      onClick={handleInteraction}
-      onFocus={handleInteraction}
+      onClick={showBadge ? handleInteraction : undefined}
+      onFocus={showBadge ? handleInteraction : undefined}
       role="presentation"
     >
       {children}
-      <span
-        className="new-feature-badge__dot"
-        aria-label={`New: ${featureId}`}
-        role="status"
-      />
+      {showBadge && (
+        <span
+          className="new-feature-badge__dot"
+          aria-label={`New: ${featureId}`}
+          role="status"
+        />
+      )}
     </span>
   );
 }

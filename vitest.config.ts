@@ -6,13 +6,15 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
-      '@tauri-apps/api/core': './vitest.mocks.ts',
-      'onnxruntime-web': './vitest.mocks.ts',
+      '@tauri-apps/api/core': '/home/karthur/CodingProjects/Strata/vitest.mocks.ts',
+      'onnxruntime-web': '/home/karthur/CodingProjects/Strata/vitest.mocks.ts',
     },
   },
   test: {
-    deps: {
-      inline: ['@strata/engine'],
+    server: {
+      deps: {
+        inline: ['@strata/engine'],
+      },
     },
     setupFiles: ['./vitest.setup.ts'],
     include: [

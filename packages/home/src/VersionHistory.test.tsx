@@ -99,7 +99,7 @@ describe('VersionHistory', () => {
     });
   });
 
-  it('Restore calls onRestore', async () => {
+  it('Restore calls onRestore after confirm', async () => {
     const platform: Platform = {
       ...basePlatform,
       listVersions: vi.fn().mockResolvedValue([
@@ -124,8 +124,16 @@ describe('VersionHistory', () => {
       expect(screen.getByText('Final')).toBeTruthy();
     });
 
-    const restoreButtons = screen.getAllByText('Restore');
-    fireEvent.click(restoreButtons[0]!);
+    const restoreBtn = screen.getByRole('button', { name: 'Restore' });
+    fireEvent.click(restoreBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Restore this version?')).toBeTruthy();
+    });
+
+    const confirmBtns = screen.getAllByText('Restore');
+    const confirmBtn = confirmBtns[confirmBtns.length - 1]!;
+    fireEvent.click(confirmBtn);
     expect(onRestore).toHaveBeenCalledWith('v1');
   });
 
@@ -166,7 +174,7 @@ describe('VersionHistory', () => {
     await waitFor(() => {
       expect(screen.getByText('No versions yet')).toBeTruthy();
     });
-    expect(screen.getByText(/Save a version to track your design history/)).toBeTruthy();
+    expect(screen.getByText(/track changes, compare/)).toBeTruthy();
   });
 
   it('loading state', () => {
@@ -179,5 +187,87 @@ describe('VersionHistory', () => {
     );
 
     expect(screen.getByText('Loading version history...')).toBeTruthy();
+  });
+
+  it('compare button toggles diff placeholder', async () => {
+    const platform: Platform = {
+      ...basePlatform,
+      listVersions: vi.fn().mockResolvedValue([
+        makeVersion('v1', {
+          kind: 'named',
+          name: 'Snapshot A',
+          timestamp: Date.now(),
+        }),
+      ]),
+    };
+    render(
+      <VersionHistory fileId="file-1" platform={platform} onRestore={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Snapshot A')).toBeTruthy();
+    });
+
+    const compareBtn = screen.getByText('Compare');
+    fireEvent.click(compareBtn);
+    expect(screen.getByText(/Comparing/)).toBeTruthy();
+
+    fireEvent.click(compareBtn);
+    expect(screen.queryByText(/Comparing/)).toBeNull();
+  });
+
+  it('Restore shows revert confirm dialog', async () => {
+    const platform: Platform = {
+      ...basePlatform,
+      listVersions: vi.fn().mockResolvedValue([
+        makeVersion('v1', {
+          kind: 'named',
+          name: 'Final',
+          timestamp: Date.now(),
+        }),
+      ]),
+    };
+    const onRestore = vi.fn();
+    render(
+      <VersionHistory
+        fileId="file-1"
+        platform={platform}
+        onRestore={onRestore}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Final')).toBeTruthy();
+    });
+
+    const restoreBtn = screen.getByRole('button', { name: 'Restore' });
+    fireEvent.click(restoreBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Restore this version?')).toBeTruthy();
+    });
+
+    const confirmBtns = screen.getAllByText('Restore');
+    const confirmBtn = confirmBtns[confirmBtns.length - 1]!;
+    fireEvent.click(confirmBtn);
+    expect(onRestore).toHaveBeenCalledWith('v1');
+  });
+
+  it('better empty state', async () => {
+    const platform: Platform = {
+      ...basePlatform,
+      listVersions: vi.fn().mockResolvedValue([]),
+    };
+    render(
+      <VersionHistory fileId="file-1" platform={platform} onRestore={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('No versions yet')).toBeTruthy();
+    });
+    expect(
+      screen.getByText(/track changes, compare snapshots, and restore/),
+    ).toBeTruthy();
   });
 });

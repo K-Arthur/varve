@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Tip } from './tips';
 import './DidYouKnowTip.css';
 
@@ -8,33 +8,24 @@ interface DidYouKnowTipProps {
   onDontShowAgain: (tipId: string) => void;
 }
 
-const CATEGORY_ICONS: Record<string, string> = {
-  shortcuts: 'Keyboard',
-  editing: 'Pencil',
-  panels: 'PanelsRightBottom',
-  layers: 'Layers',
-  text: 'Type',
-  color: 'Palette',
-  export: 'Download',
-  prototype: 'Play',
-  grids: 'Grid3x3',
-};
-
 const AUTO_DISMISS_MS = 8000;
+
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
 
 export function DidYouKnowTip({ tip, onDismiss, onDontShowAgain }: DidYouKnowTipProps) {
   const [exiting, setExiting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prefersReducedMotion = useRef(false);
-
-  useEffect(() => {
-    prefersReducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }, []);
+  const [noAnimation] = useState(prefersReducedMotion);
 
   useEffect(() => {
     timerRef.current = setTimeout(() => {
       setExiting(true);
-      // Allow exit animation to complete before actually dismissing
       setTimeout(() => {
         onDismiss(tip.id);
       }, 200);
@@ -47,19 +38,27 @@ export function DidYouKnowTip({ tip, onDismiss, onDontShowAgain }: DidYouKnowTip
     };
   }, [tip.id, onDismiss]);
 
-  function handleGotIt() {
+  const handleGotIt = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     onDismiss(tip.id);
-  }
+  }, [tip.id, onDismiss]);
 
-  function handleDontShowAgain() {
+  const handleDontShowAgain = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     onDontShowAgain(tip.id);
-  }
+  }, [tip.id, onDontShowAgain]);
+
+  const className = [
+    'did-you-know-tip',
+    exiting ? 'did-you-know-tip--exiting' : '',
+    noAnimation ? 'did-you-know-tip--no-animation' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
-      className={`did-you-know-tip${exiting ? ' did-you-know-tip--exiting' : ''}${prefersReducedMotion.current ? ' did-you-know-tip--no-animation' : ''}`}
+      className={className}
       role="status"
       aria-live="polite"
       aria-label={`Tip: ${tip.title}`}

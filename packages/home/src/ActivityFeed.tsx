@@ -104,7 +104,14 @@ function groupEvents(events: RawEvent[], onOpenFile?: (fileId: string) => void):
   }));
 }
 
-export function ActivityFeed({ platform, workspaceId, onOpenFile }: ActivityFeedProps) {
+export function ActivityFeed({
+  platform,
+  workspaceId,
+  onOpenFile,
+  filterTypes,
+  viewAllLink,
+  onViewAll,
+}: ActivityFeedProps) {
   const [events, setEvents] = useState<RawEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +135,11 @@ export function ActivityFeed({ platform, workspaceId, onOpenFile }: ActivityFeed
     return () => clearInterval(interval);
   }, [load]);
 
-  const groups = groupEvents(events, onOpenFile);
+  const filteredEvents = filterTypes
+    ? events.filter((e) => filterTypes.includes(e.type))
+    : events;
+
+  const groups = groupEvents(filteredEvents, onOpenFile);
 
   if (loading) {
     return (
@@ -152,9 +163,15 @@ export function ActivityFeed({ platform, workspaceId, onOpenFile }: ActivityFeed
     );
   }
 
-  if (events.length === 0) {
-    return (
-      <div className="activity-feed activity-feed--empty" role="region" aria-label="Activity feed">
+  const isEmpty = filteredEvents.length === 0;
+
+  return (
+    <div
+      className={`activity-feed${isEmpty ? ' activity-feed--empty' : ''}`}
+      role="region"
+      aria-label="Activity feed"
+    >
+      {isEmpty ? (
         <div className="activity-feed__empty">
           <Icon name="History" size={40} label={undefined} />
           <p className="activity-feed__empty-title">No recent activity</p>
@@ -162,47 +179,54 @@ export function ActivityFeed({ platform, workspaceId, onOpenFile }: ActivityFeed
             Activity from your workspace will appear here.
           </p>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="activity-feed" role="region" aria-label="Activity feed">
-      {groups.map((group) => (
-        <div key={group.period} className="activity-feed__group">
-          <div className="activity-feed__group-label">{group.label}</div>
-          <div className="activity-feed__events">
-            {group.events.map((event) => (
-              <button
-                key={event.id}
-                type="button"
-                className="activity-feed__event"
-                onClick={event.onOpen}
-                disabled={!event.onOpen}
-                title={event.onOpen && event.fileName ? `Open ${event.fileName}` : undefined}
-              >
-                <div className="activity-feed__event-icon" aria-hidden>
-                  <Icon name={event.icon} label={undefined} />
-                </div>
-                <div className="activity-feed__event-body">
-                  <span className="activity-feed__event-text">
-                    {event.fileName ? (
-                      <>
-                        <strong>{event.fileName}</strong> {event.verb}
-                      </>
-                    ) : (
-                      <>{event.verb}</>
-                    )}
-                  </span>
-                  <span className="activity-feed__event-time">
-                    {formatRelativeTime(event.timestamp)}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
+      ) : (
+        <>
+          {groups.map((group) => (
+            <div key={group.period} className="activity-feed__group">
+              <div className="activity-feed__group-label">{group.label}</div>
+              <div className="activity-feed__events">
+                {group.events.map((event) => (
+                  <button
+                    key={event.id}
+                    type="button"
+                    className="activity-feed__event"
+                    onClick={event.onOpen}
+                    disabled={!event.onOpen}
+                    title={
+                      event.onOpen && event.fileName
+                        ? `Open ${event.fileName}`
+                        : undefined
+                    }
+                  >
+                    <div className="activity-feed__event-icon" aria-hidden>
+                      <Icon name={event.icon} label={undefined} />
+                    </div>
+                    <div className="activity-feed__event-body">
+                      <span className="activity-feed__event-text">
+                        {event.fileName ? (
+                          <>
+                            <strong>{event.fileName}</strong> {event.verb}
+                          </>
+                        ) : (
+                          <>{event.verb}</>
+                        )}
+                      </span>
+                      <span className="activity-feed__event-time">
+                        {formatRelativeTime(event.timestamp)}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+      {viewAllLink && onViewAll && (
+        <button type="button" className="activity-feed__view-all" onClick={onViewAll}>
+          View all activity
+        </button>
+      )}
     </div>
   );
 }

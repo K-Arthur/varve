@@ -5,6 +5,7 @@ export interface WelcomeDialogProps {
   onStartTour: () => void;
   onStartBlank: () => void;
   onStartTemplate: () => void;
+  onStartTutorial?: () => void;
   onClose: () => void;
 }
 
@@ -13,6 +14,7 @@ export function WelcomeDialog({
   onStartTour,
   onStartBlank,
   onStartTemplate,
+  onStartTutorial,
   onClose,
 }: WelcomeDialogProps) {
   return (
@@ -28,7 +30,11 @@ export function WelcomeDialog({
         </p>
 
         <div className="welcome-dialog__options">
-          <button type="button" className="welcome-dialog__option" onClick={onStartTour}>
+          <button
+            type="button"
+            className="welcome-dialog__option"
+            onClick={onStartTutorial ?? onStartTour}
+          >
             <Icon name="GraduationCap" size="1.5em" />
             <span className="welcome-dialog__option-label">Take the tour</span>
             <span className="welcome-dialog__option-desc">Learn the basics in 60 seconds</span>
@@ -48,7 +54,7 @@ export function WelcomeDialog({
         </div>
 
         <div className="welcome-dialog__actions">
-          <Button variant="primary" size="md" onClick={onStartTour}>
+          <Button variant="primary" size="md" onClick={onStartTutorial ?? onStartTour}>
             Get started
           </Button>
         </div>

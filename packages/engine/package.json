@@ -17,5 +17,9 @@
   },
   "dependencies": {
     "@strata/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "onnxruntime-web": "^1.27.0"
   }
 }

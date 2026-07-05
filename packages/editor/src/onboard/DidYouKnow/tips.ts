@@ -150,4 +150,11 @@ export const TIPS: Tip[] = [
     category: 'panels',
     condition: () => true,
   },
+  {
+    id: 'shortcut-align',
+    title: 'Align and distribute',
+    body: 'Select multiple objects and use the Align tools in the Inspector to arrange them evenly. Distribute makes spacing between objects equal.',
+    category: 'editing',
+    condition: (getCount) => getCount('tool:select', 600000) > 8 && getCount('menu:align', 600000) < 2,
+  },
 ];

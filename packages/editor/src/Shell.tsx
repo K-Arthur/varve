@@ -21,6 +21,17 @@ import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
+import {
+  DidYouKnowTip,
+  useDidYouKnow,
+  TutorialBanner,
+  useTutorialProgress,
+  loadOnboardingState,
+  saveOnboardingState,
+  markTutorialComplete,
+} from './onboard';
+import { createTutorialDocument } from './samples/tutorial-document';
+import { getActionTracker } from './intelligence/actionTracker';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
@@ -191,7 +202,16 @@ function ShellInner({
     registerEditorActions(editor);
   }, [editor]);
 
+  const tutorialProgress = useTutorialProgress(editor.state.document);
+
   const onboarding = useOnboarding();
+
+  // ── Did You Know? contextual tips ───────────────────────
+  const {
+    currentTip: didYouKnowTip,
+    dismiss: dismissTip,
+    dontShowAgain: dontShowAgainTip,
+  } = useDidYouKnow(getActionTracker());
 
   const handlePaletteSelect = useCallback((id: string) => {
     const input = fileRef.current;
@@ -304,6 +324,13 @@ function ShellInner({
         <FloatingToolbar />
         <TabStrip onBackToHome={onBackToHome} />
         <CanvasArea canvasContainerRef={canvasContainerRef} />
+        <TutorialBanner
+          progress={tutorialProgress}
+          onComplete={() => {
+            const state = loadOnboardingState();
+            saveOnboardingState(markTutorialComplete(state));
+          }}
+        />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
         <div className="page-nav-container">
           <PageNav />
@@ -447,7 +474,15 @@ function ShellInner({
         <WelcomeDialog
           open={onboarding.showWelcome && onboarding.active}
           onStartTour={onboarding.startTour}
-          onStartFromScratch={() => {
+          onStartTutorial={() => {
+            const tutorialDoc = createTutorialDocument();
+            editor.updateDoc(() => tutorialDoc);
+            onboarding.dismiss();
+          }}
+          onStartBlank={() => {
+            onboarding.dismiss();
+          }}
+          onStartTemplate={() => {
             onboarding.dismiss();
           }}
           onClose={onboarding.dismiss}
@@ -491,6 +526,15 @@ function ShellInner({
           onNavigate={editor.navigatePrototypeTo}
           onEvent={editor.handlePrototypeEvent}
         />
+
+        {/* Did You Know? contextual tips */}
+        {didYouKnowTip && (
+          <DidYouKnowTip
+            tip={didYouKnowTip}
+            onDismiss={dismissTip}
+            onDontShowAgain={dontShowAgainTip}
+          />
+        )}
       </div>
 
       {/* DragOverlay for cross-panel drag */}
