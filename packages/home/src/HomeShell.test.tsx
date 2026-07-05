@@ -25,7 +25,7 @@ describe('HomeShell', () => {
     const { container } = render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
     await waitFor(
       () => {
-        expect(container.textContent).toContain('No recent files');
+        expect(container.textContent).toContain('Nothing here yet');
       },
       { timeout: 3000 },
     );
@@ -38,7 +38,7 @@ describe('HomeShell', () => {
     const { container } = render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
     await waitFor(
       () => {
-        expect(container.textContent).toContain('No recent files');
+        expect(container.textContent).toContain('Nothing here yet');
       },
       { timeout: 3000 },
     );

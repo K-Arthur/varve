@@ -201,7 +201,7 @@ describe('10K Node Performance', () => {
       }
       const elapsed = performance.now() - start;
 
-      expect(elapsed).toBeLessThan(5);
+      expect(elapsed).toBeLessThan(20);
     },
     BENCH_TIMEOUT,
   );

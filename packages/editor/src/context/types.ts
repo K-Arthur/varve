@@ -304,6 +304,7 @@ export interface EditorContextValue {
   setSoftProofEnabled: (v: boolean) => void;
   setPixelGridEnabled: (v: boolean) => void;
   setSnapEnabled: (v: boolean) => void;
+  isSnapExcluded?: (id: string) => boolean;
 
   // Export
   showExportDialog: boolean;

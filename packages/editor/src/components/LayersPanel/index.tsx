@@ -189,7 +189,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const handleSyncInstance = useCallback(() => {
     if (state.selection.length === 1) {
-      syncInstance(state.selection[0]);
+      syncInstance(state.selection[0]!);
     }
     closeMenu();
   }, [state.selection, syncInstance, closeMenu]);

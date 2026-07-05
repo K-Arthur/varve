@@ -138,7 +138,6 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
     // biome-ignore lint/a11y/useSemanticElements: ARIA gridcell role required for virtualized grid; div used to allow nested interactive children (fav button, rename input)
     <div
       ref={mergedRef}
-      tabIndex={0}
       aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
       aria-selected={selected}
       draggable
@@ -149,6 +148,7 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
       onKeyDown={handleKey}
       onDragStart={(e) => onFileDragStart?.(e, entry)}
       {...attributes}
+      tabIndex={0}
       role="gridcell"
       {...listeners}
       {...rest}

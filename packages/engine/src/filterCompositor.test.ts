@@ -101,8 +101,8 @@ describe('filter compositing', () => {
       {
         kind: 'curves',
         points: [
-          { x: 0, y: 0 },
-          { x: 255, y: 255 },
+          { input: 0, output: 0 },
+          { input: 255, output: 255 },
         ],
         channel: 'rgb',
         opacity: 1,
@@ -132,11 +132,11 @@ describe('filter compositing', () => {
       { kind: 'brightness', value: 10, opacity: 1, blendMode: 'normal' },
       {
         kind: 'levels',
-        inputBlack: 0,
-        inputWhite: 255,
-        gamma: 1,
-        outputBlack: 0,
-        outputWhite: 255,
+        inputShadows: 0,
+        inputHighlights: 255,
+        inputMidtones: 1,
+        outputShadows: 0,
+        outputHighlights: 255,
         channel: 'rgb',
         opacity: 0.8,
         blendMode: 'normal',

@@ -99,7 +99,6 @@ describe('computeDocumentDiff', () => {
 
   it('detects structural change when node is added', () => {
     const doc = makeDocWithNodes(2);
-    const { id, doc: doc2 } = nextNodeId(doc);
     // Simulate adding a node by creating a new doc with an extra node
     const docWithAdded = (() => {
       let d = doc;
@@ -220,13 +219,14 @@ describe('flattenTree (incremental update)', () => {
     const renamed = renameNode(doc, c1, 'Renamed Child');
 
     // The flat tree should have same length, same depth, same parentId
+    // Note: flattenTree walks in reverse paint order, so child1 (c1) lands at index 2
     const afterRename = flattenTree(renamed, expanded);
     expect(afterRename).toHaveLength(3);
     expect(afterRename[0]!.depth).toBe(original[0]!.depth);
-    expect(afterRename[1]!.depth).toBe(original[1]!.depth);
+    expect(afterRename[2]!.depth).toBe(original[2]!.depth);
     expect(afterRename[0]!.parentId).toBe(original[0]!.parentId);
-    expect(afterRename[1]!.parentId).toBe(original[1]!.parentId);
-    expect(afterRename[1]!.node.name).toBe('Renamed Child');
+    expect(afterRename[2]!.parentId).toBe(original[2]!.parentId);
+    expect(afterRename[2]!.node.name).toBe('Renamed Child');
   });
 
   it('has same content whether using incremental or full rebuild', () => {
@@ -248,12 +248,13 @@ describe('flattenTree (incremental update)', () => {
     const after = flattenTree(renamed, expanded);
 
     // Full and incremental should produce same shape
+    // Note: flattenTree reverses paint order, so shapeIds[50] (N50) lands at index 49
     expect(after).toHaveLength(before.length);
-    expect(after[50]!.node.name).toBe('SPECIAL_RENAME');
+    expect(after[49]!.node.name).toBe('SPECIAL_RENAME');
 
     // All other nodes unchanged
     for (let i = 0; i < before.length; i++) {
-      if (i !== 50) {
+      if (i !== 49) {
         expect(after[i]!.node.name).toBe(before[i]!.node.name);
       }
     }

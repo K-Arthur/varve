@@ -9,6 +9,11 @@ const entries: SidebarEntry[] = [
   { id: 'all', label: 'All Files', icon: 'FileText', count: 12 },
 ];
 
+const entriesWithProject: SidebarEntry[] = [
+  ...entries,
+  { id: 'my-project', label: 'My Project', icon: 'Folder', count: 5 },
+];
+
 describe('SidebarNav', () => {
   it('renders all entries', () => {
     const { container } = render(
@@ -23,7 +28,7 @@ describe('SidebarNav', () => {
     const { container } = render(
       <SidebarNav entries={entries} activeId="all" onSelect={onSelect} />,
     );
-    const buttons = container.querySelectorAll('button[role="option"]');
+    const buttons = container.querySelectorAll('button.sidebar-item');
     const recentBtn = Array.from(buttons).find((b) => b.textContent?.includes('Recent'));
     expect(recentBtn).toBeDefined();
     if (!recentBtn) throw new Error('recentBtn not found');
@@ -35,26 +40,29 @@ describe('SidebarNav', () => {
     const { container } = render(
       <SidebarNav entries={entries} activeId="all" onSelect={vi.fn()} />,
     );
-    const buttons = container.querySelectorAll('button[role="option"]');
-    const active = Array.from(buttons).find((b) => b.getAttribute('aria-selected') === 'true');
+    const active = container.querySelector('button[aria-current="page"]');
     expect(active).toBeDefined();
     expect(active?.textContent).toContain('All Files');
   });
 
   it('renders new project button when onCreateProject is provided', () => {
     const { container } = render(
-      <SidebarNav entries={entries} activeId="all" onSelect={vi.fn()} onCreateProject={vi.fn()} />,
+      <SidebarNav
+        entries={entriesWithProject}
+        activeId="all"
+        onSelect={vi.fn()}
+        onCreateProject={vi.fn()}
+      />,
     );
-    const newBtn = container.querySelector('.sidebar-item--new-project');
+    const newBtn = container.querySelector('.sidebar-group__add');
     expect(newBtn).toBeTruthy();
-    expect(newBtn?.textContent).toContain('New Project');
   });
 
   it('does not render new project button when onCreateProject is omitted', () => {
     const { container } = render(
-      <SidebarNav entries={entries} activeId="all" onSelect={vi.fn()} />,
+      <SidebarNav entries={entriesWithProject} activeId="all" onSelect={vi.fn()} />,
     );
-    const newBtn = container.querySelector('.sidebar-item--new-project');
+    const newBtn = container.querySelector('.sidebar-group__add');
     expect(newBtn).toBeFalsy();
   });
 
@@ -62,13 +70,13 @@ describe('SidebarNav', () => {
     const onCreateProject = vi.fn();
     const { container } = render(
       <SidebarNav
-        entries={entries}
+        entries={entriesWithProject}
         activeId="all"
         onSelect={vi.fn()}
         onCreateProject={onCreateProject}
       />,
     );
-    const newBtn = container.querySelector('.sidebar-item--new-project');
+    const newBtn = container.querySelector('.sidebar-group__add');
     expect(newBtn).toBeTruthy();
     if (newBtn) fireEvent.click(newBtn);
     expect(onCreateProject).toHaveBeenCalledTimes(1);

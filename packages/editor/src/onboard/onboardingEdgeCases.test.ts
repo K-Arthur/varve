@@ -3,11 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getHelpContent, HELP_CONTENT } from './ContextualHelp/helpContent';
 import { TIPS } from './DidYouKnow/tips';
 import {
-  CURRENT_APP_VERSION,
-  compareVersions,
-  FEATURE_VERSIONS,
-} from './NewFeatureBadge/featureVersions';
-import {
   getCurrentVersion,
   isVersionBump,
   listenForStorageChanges,
@@ -64,17 +59,8 @@ describe('onboardingEdgeCases', () => {
       return 0;
     };
 
-    // Tips with shortcut conditions should not show for power users
-    const powerUserTips = TIPS.filter((tip) => {
-      if (!tip.condition) return false;
-      // Simulate 10 shortcuts in 30s
-      shortcutCount = 10;
-      try {
-        return tip.condition(getCount as (actionId: string, windowMs?: number) => number);
-      } catch {
-        return false;
-      }
-    });
+    // Simulate 10 shortcuts in 30s
+    shortcutCount = 10;
 
     // The shortcut tips like "shortcut-select" have condition based on low shortcut usage
     const shortcutSelect = TIPS.find((t) => t.id === 'shortcut-select');

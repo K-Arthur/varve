@@ -200,13 +200,22 @@ Update `docs/plans/phase1-plan.md` to mark Phase 0.11 as complete:
 ## Verification checklist
 
 ```bash
-- [ ] `.github/workflows/publish.yml` exists and is valid YAML
-- [ ] `dist/aur/PKGBUILD` exists with correct `source` URL template
-- [ ] `dist/aur/strata.desktop` exists with valid desktop entry
-- [ ] `apps/desktop/src-tauri/tauri.conf.json` has correct bundle config
-- [ ] `cargo test --workspace` still passes
-- [ ] `pnpm typecheck` still passes
+- [x] `.github/workflows/publish.yml` exists and is valid YAML
+- [x] `.github/workflows/build.yml` updated with Linux system deps + quality gates
+- [x] `dist/aur/PKGBUILD` exists with correct `source` URL template
+- [x] `dist/aur/strata-desktop-bin/PKGBUILD` exists (binary AUR variant)
+- [x] `dist/aur/strata.desktop` exists with valid desktop entry
+- [x] `packaging/flatpak/dev.strata.desktop.yml` Flatpak manifest stub
+- [x] `apps/desktop/src-tauri/tauri.conf.json` has correct bundle config
+- [x] `justfile` `package`, `aur-check`, platform recipes added
+- [x] `cargo test --workspace` — 82 tests, all passing
+- [x] `pnpm typecheck` — 0 errors across all 15 packages
+- [x] `pnpm test` — 3572/3572 tests passing
+- [x] `pnpm audit:tokens` — 96/96 WCAG-AA across 3 themes
+- [x] `pnpm audit:emoji` — 0 violations
 ```
+
+**Status: COMPLETE** (Session 4, 2026-07-05)
 
 ## Post-session
 

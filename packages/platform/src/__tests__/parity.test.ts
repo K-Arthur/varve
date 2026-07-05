@@ -1,8 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { createMemoryPlatform, makeFileEntry, makeProject } from '../memory';
+import { createMemoryPlatform, makeFileEntry } from '../memory';
 import type { Platform } from '../platform';
-import { DRAFTS_ID, type FileEntry, type Project } from '../types';
 import { createWebPlatform } from '../web';
 
 async function testPlatform(name: string, factory: () => Promise<Platform>) {
@@ -56,7 +55,7 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
         await p.addFileToCollection(c1.id, 'f1');
         let files = await p.listCollectionFiles(c1.id);
         expect(files.length).toBe(1);
-        expect(files[0].id).toBe('f1');
+        expect(files[0]!.id).toBe('f1');
 
         await p.removeFileFromCollection(c1.id, 'f1');
         files = await p.listCollectionFiles(c1.id);
@@ -98,7 +97,7 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
     describe('libraries', () => {
       it('creates, lists, enables, and deletes libraries', async () => {
         const p = await factory();
-        const ws = (await p.listWorkspaces())[0];
+        const ws = (await p.listWorkspaces())[0]!;
 
         const lib = await p.createLibrary(ws.id, 'Design System', 'components');
         expect(lib.name).toBe('Design System');
@@ -141,7 +140,7 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
     describe('assets', () => {
       it('imports, lists, searches, and deletes assets', async () => {
         const p = await factory();
-        const ws = (await p.listWorkspaces())[0];
+        const ws = (await p.listWorkspaces())[0]!;
 
         const asset = await p.importAsset(
           ws.id,
@@ -164,7 +163,7 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
 
       it('manages asset folders', async () => {
         const p = await factory();
-        const ws = (await p.listWorkspaces())[0];
+        const ws = (await p.listWorkspaces())[0]!;
 
         const folder = await p.createAssetFolder(ws.id, 'Icons');
         expect(folder.name).toBe('Icons');
@@ -216,14 +215,14 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
         await p.setPermission('f1', 'editor');
         const perms = await p.listPermissions('f1');
         expect(perms.length).toBe(1);
-        expect(perms[0].role).toBe('editor');
+        expect(perms[0]!.role).toBe('editor');
       });
     });
 
     describe('activity', () => {
       it('records and lists activity', async () => {
         const p = await factory();
-        const ws = (await p.listWorkspaces())[0];
+        const ws = (await p.listWorkspaces())[0]!;
 
         await p.recordActivity({
           workspaceId: ws.id,
@@ -233,14 +232,14 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
 
         const events = await p.listActivity(ws.id);
         expect(events.length).toBe(1);
-        expect(events[0].type).toBe('file_created');
+        expect(events[0]!.type).toBe('file_created');
       });
     });
 
     describe('tags', () => {
       it('creates, renames, deletes tags and manages file tags', async () => {
         const p = await factory();
-        const ws = (await p.listWorkspaces())[0];
+        const ws = (await p.listWorkspaces())[0]!;
 
         const tag = await p.createTag(ws.id, 'production', '#ff0000');
         expect(tag.name).toBe('production');

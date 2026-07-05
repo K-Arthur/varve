@@ -1,10 +1,8 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ContextualHelpPanel } from './ContextualHelpPanel';
-import type { HelpArticle } from './helpContent';
 import { HELP_CONTENT, searchHelpContent } from './helpContent';
 import type { ContextualHelpState } from './useContextualHelp';
 
@@ -57,7 +55,7 @@ describe('ContextualHelpPanel', () => {
   });
 
   it('Displays article title when opened with article ID', () => {
-    const article = HELP_CONTENT['tool:select'];
+    const article = HELP_CONTENT['tool:select']!;
     const state = createState({ open: true, article });
     renderPanel(state);
     expect(screen.getByText(article.title)).toBeTruthy();
@@ -79,7 +77,7 @@ describe('ContextualHelpPanel', () => {
   });
 
   it('Clicking search result loads that article', () => {
-    const article = HELP_CONTENT['tool:rect'];
+    const article = HELP_CONTENT['tool:rect']!;
     const state = createState({
       open: true,
       article: null,
@@ -120,9 +118,9 @@ describe('ContextualHelpPanel', () => {
     const state = createState({ open: true, article: null });
     renderPanel(state);
     // Check that tool category links are shown
-    const toolsArticle = HELP_CONTENT['tool:select'];
+    const toolsArticle = HELP_CONTENT['tool:select']!;
     expect(screen.getByText(toolsArticle.title)).toBeTruthy();
-    const panelArticle = HELP_CONTENT['panel:layers'];
+    const panelArticle = HELP_CONTENT['panel:layers']!;
     expect(screen.getByText(panelArticle.title)).toBeTruthy();
   });
 });

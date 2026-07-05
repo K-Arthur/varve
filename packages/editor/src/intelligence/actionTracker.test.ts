@@ -74,7 +74,7 @@ describe('ActionTracker', () => {
     tracker.record('tool:rect');
     const recent = tracker.getRecentActions(60_000);
     expect(recent.length).toBe(1);
-    expect(recent[0].actionId).toBe('tool:rect');
+    expect(recent[0]!.actionId).toBe('tool:rect');
   });
 
   it('clear removes all records', () => {

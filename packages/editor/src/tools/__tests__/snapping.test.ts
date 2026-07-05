@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { filterSnapTargets, snapPosition, snapSize } from '../snapping';
 
 const THRESHOLD = 5;
@@ -271,12 +271,12 @@ describe('setSnapExcluded — D-03', () => {
     const doc = createDocument('test', true);
     const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
     const d1 = { ...doc, rootChildren: ['n1'], nodes: { ...doc.nodes, n1: shape } };
-    const d2 = sceneSetSnapExcluded(d1, 'n1', true);
+    sceneSetSnapExcluded(d1, 'n1', true);
     // "undo" — revert to d1
-    expect((d1.nodes.n1 as (typeof d1.nodes)[string]).snapExcluded).toBeUndefined();
+    expect((d1.nodes.n1 as unknown as { snapExcluded?: boolean }).snapExcluded).toBeUndefined();
     // "redo" — apply d2 again
     const d3 = sceneSetSnapExcluded(d1, 'n1', true);
-    expect((d3.nodes.n1 as (typeof d3.nodes)[string]).snapExcluded).toBe(true);
+    expect((d3.nodes.n1 as unknown as { snapExcluded?: boolean }).snapExcluded).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
-import type { Affine, ManagedColor } from '@strata/engine';
-import type { Document } from '@strata/scene';
+import type { Affine } from '@strata/engine';
+import type { Document, ManagedColor } from '@strata/scene';
 import {
   addChild,
   addNode,

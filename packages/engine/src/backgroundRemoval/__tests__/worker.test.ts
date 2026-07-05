@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('background removal worker', () => {
   beforeEach(() => {
@@ -27,7 +27,9 @@ describe('background removal worker', () => {
         };
         setTimeout(() => {
           if (worker.onerror) {
-            (worker.onerror as (e: ErrorEvent) => void)({ message: 'Worker crashed' } as ErrorEvent);
+            (worker.onerror as (e: ErrorEvent) => void)({
+              message: 'Worker crashed',
+            } as ErrorEvent);
           }
         }, 10);
         return worker;

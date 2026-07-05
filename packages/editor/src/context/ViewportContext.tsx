@@ -6,7 +6,6 @@ import {
   revealBoundsCamera,
   screenToWorld,
   type Viewport,
-  zoomAboutPoint,
 } from '@strata/shared';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
@@ -78,13 +77,13 @@ export function ViewportProvider({
   );
 
   const zoomIn = useCallback(
-    () => patch((s: EditorState) => ({ zoom: clampZoom(s.zoom * 1.25) })),
-    [patch],
+    () => setState((s) => ({ ...s, zoom: clampZoom(s.zoom * 1.25) })),
+    [setState],
   );
 
   const zoomOut = useCallback(
-    () => patch((s: EditorState) => ({ zoom: clampZoom(s.zoom / 1.25) })),
-    [patch],
+    () => setState((s) => ({ ...s, zoom: clampZoom(s.zoom / 1.25) })),
+    [setState],
   );
 
   const zoomTo = useCallback((level: number) => patch({ zoom: clampZoom(level) }), [patch]);
@@ -93,16 +92,20 @@ export function ViewportProvider({
     (targetZoom: number, durationMs = 200) => {
       const s = stateRef.current;
       if (animRef.current !== null) cancelAnimationFrame(animRef.current);
-      const toZoom = clampZoom(targetZoom);
-      animateCamera(
-        { zoom: s.zoom, pan: s.pan },
-        { zoom: toZoom, pan: s.pan },
-        durationMs,
-        (camera) => patch({ zoom: camera.zoom, pan: camera.pan }),
-        (id) => {
-          animRef.current = id;
-        },
-      );
+      const startCam = { zoom: s.zoom, pan: s.pan };
+      const endCam = { zoom: clampZoom(targetZoom), pan: s.pan };
+      const startTime = performance.now();
+      const frame = () => {
+        const elapsed = performance.now() - startTime;
+        const result = animateCamera(startCam, endCam, elapsed, durationMs);
+        patch({ zoom: result.camera.zoom, pan: result.camera.pan });
+        if (!result.done) {
+          animRef.current = requestAnimationFrame(frame);
+        } else {
+          animRef.current = null;
+        }
+      };
+      animRef.current = requestAnimationFrame(frame);
     },
     [patch, stateRef, animRef],
   );
@@ -111,15 +114,20 @@ export function ViewportProvider({
     (target: { x: number; y: number }, durationMs = 200) => {
       const s = stateRef.current;
       if (animRef.current !== null) cancelAnimationFrame(animRef.current);
-      animateCamera(
-        { zoom: s.zoom, pan: s.pan },
-        { zoom: s.zoom, pan: target },
-        durationMs,
-        (camera) => patch({ zoom: camera.zoom, pan: camera.pan }),
-        (id) => {
-          animRef.current = id;
-        },
-      );
+      const startCam = { zoom: s.zoom, pan: s.pan };
+      const endCam = { zoom: s.zoom, pan: target };
+      const startTime = performance.now();
+      const frame = () => {
+        const elapsed = performance.now() - startTime;
+        const result = animateCamera(startCam, endCam, elapsed, durationMs);
+        patch({ zoom: result.camera.zoom, pan: result.camera.pan });
+        if (!result.done) {
+          animRef.current = requestAnimationFrame(frame);
+        } else {
+          animRef.current = null;
+        }
+      };
+      animRef.current = requestAnimationFrame(frame);
     },
     [patch, stateRef, animRef],
   );
@@ -141,7 +149,10 @@ export function ViewportProvider({
   const setCanvasMode = useCallback((mode: CanvasMode) => patch({ canvasMode: mode }), [patch]);
 
   const canvasToWorld = useCallback(
-    (cx: number, cy: number) => screenToWorld({ pan: state.pan, zoom: state.zoom }, cx, cy),
+    (cx: number, cy: number) => {
+      const pt = screenToWorld({ pan: state.pan, zoom: state.zoom }, cx, cy);
+      return { x: pt[0], y: pt[1] };
+    },
     [state.pan, state.zoom],
   );
 
@@ -184,9 +195,8 @@ export function ViewportProvider({
           maxY = Math.max(maxY, b.y + b.h);
         }
         const target = fitBoundsCamera(
-          s,
-          vp,
           { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+          vp,
           padding,
         );
         smoothZoomTo(target.zoom, 300);

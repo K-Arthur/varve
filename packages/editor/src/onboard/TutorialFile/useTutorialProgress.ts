@@ -17,7 +17,7 @@ export interface TutorialProgress {
 }
 
 export function useTutorialProgress(doc: Document): TutorialProgress {
-  const isTutorialDoc = (doc as Record<string, unknown>).id === TUTORIAL_DOCUMENT_ID;
+  const isTutorialDoc = (doc as unknown as Record<string, unknown>).id === TUTORIAL_DOCUMENT_ID;
 
   const frameIds = useMemo(() => {
     if (!isTutorialDoc) return [];

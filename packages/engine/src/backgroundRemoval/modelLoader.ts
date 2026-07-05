@@ -1,5 +1,5 @@
-import { deleteModelBlob, hasModelBlob, loadModelBlob, saveModelBlob } from './modelStore';
-import type { ModelMetadata, ModelState } from './types';
+import { deleteModelBlob, saveModelBlob } from './modelStore';
+import type { ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';
 
 const STATE_KEY = 'strata-bg-model-state';
@@ -107,7 +107,7 @@ class ModelLoader {
         onProgress?.(loaded, total);
       }
 
-      const blob = new Blob(chunks, { type: 'application/octet-stream' });
+      const blob = new Blob(chunks as unknown as BlobPart[], { type: 'application/octet-stream' });
 
       if (isBrowserEnv()) {
         await saveModelBlob(modelId, blob);

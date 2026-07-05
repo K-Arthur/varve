@@ -57,9 +57,8 @@ describe('PresenceIndicator component', () => {
       { userId: 'u2', label: 'Bob', color: '#00ff00' },
     ];
     const { container } = render(<PresenceIndicator presences={presences} />);
-    const group = container.querySelector('[role="group"]');
+    const group = container.querySelector('[aria-label="2 collaborators"]');
     expect(group).not.toBeNull();
-    expect(group?.getAttribute('aria-label')).toBe('2 collaborators');
   });
 });
 

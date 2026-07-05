@@ -35,7 +35,6 @@ import type {
   Collection,
   CollectionEntry,
   FileEntry,
-  FileTag,
   Folder,
   HomeViewState,
   Library,
@@ -80,6 +79,7 @@ interface FileRecord {
 }
 
 interface FileTagRecord {
+  id: string;
   fileId: string;
   tagId: string;
   addedAt: number;
@@ -669,7 +669,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       await db.put(STORE_VERSIONS, version);
       return version;
     },
-    async restoreVersion(fileId, versionId) {
+    async restoreVersion(_fileId, versionId) {
       const version = await db.get(STORE_VERSIONS, versionId);
       return version?.documentHash ?? '';
     },

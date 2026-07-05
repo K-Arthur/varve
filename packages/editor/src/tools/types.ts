@@ -40,7 +40,8 @@ export type ToolId =
   | 'cloneStamp'
   | 'healBrush'
   | 'spotHeal'
-  | 'patch';
+  | 'patch'
+  | 'refineMask';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',
@@ -166,6 +167,7 @@ export interface ToolContext {
     y: number;
     guides: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
   };
+  isSnapExcluded?: (id: string) => boolean;
 }
 
 export interface Tool {

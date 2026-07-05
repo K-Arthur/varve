@@ -316,7 +316,7 @@ describe('EditorContext', () => {
       );
       doc = addChild(doc, 'g2', r2);
 
-      const origChildIds = [...doc.nodes['f1']!['children']];
+      const origChildIds = [...(doc.nodes['f1']! as unknown as { children: string[] }).children];
 
       let ctx: ReturnType<typeof useEditor> | undefined;
       let callCount = 0;
@@ -360,7 +360,7 @@ describe('EditorContext', () => {
         expect(ctx!.state.selection[0]).not.toBe('f1');
       });
 
-      const newId = ctx!.state.selection[0];
+      const newId = ctx!.state.selection[0]!;
 
       const newFrame = ctx!.state.document.nodes[newId] as SceneNode & { children: string[] };
       expect(newFrame).toBeDefined();
@@ -428,7 +428,7 @@ describe('EditorContext', () => {
 
       const s1 = makeShapeNode(
         's1',
-        { kind: 'ellipse', x: 0, y: 0, w: 40, h: 40 },
+        { kind: 'ellipse', cx: 20, cy: 20, rx: 20, ry: 20 },
         { name: 'Ellipse', transform: [1, 0, 0, 1, 0, 0] },
       );
       doc = addChild(doc, 'g1', s1);
@@ -474,7 +474,7 @@ describe('EditorContext', () => {
         expect(ctx!.state.selection[0]).not.toBe('g1');
       });
 
-      const newId = ctx!.state.selection[0];
+      const newId = ctx!.state.selection[0]!;
       const newGroup = ctx!.state.document.nodes[newId] as SceneNode & { children: string[] };
       expect(newGroup.name).toBe('Group copy');
       expect(newGroup.children).toHaveLength(1);

@@ -13,8 +13,9 @@
  */
 
 import { applyCurve, buildCurveLUT } from './adjustment/curves';
-import { applyLevels, buildLevelsLUT } from './adjustment/levels';
+import { applyLevels } from './adjustment/levels';
 import { applySelectiveColor } from './adjustment/selectiveColor';
+import type { SelectiveColorParams } from './adjustment/selectiveColor';
 import { mapBlendMode } from './compositeCanvas';
 import { filterToCss } from './filters';
 import {
@@ -140,7 +141,7 @@ export function applyFilterWithCompositing(
     target.save();
     target.globalAlpha = f.opacity ?? 1;
     if (f.blendMode && f.blendMode !== 'normal') {
-      target.globalCompositeOperation = mapBlendMode(f.blendMode);
+      target.globalCompositeOperation = mapBlendMode(f.blendMode) as GlobalCompositeOperation;
     }
     target.drawImage(offscreen, 0, 0);
     target.restore();
@@ -171,7 +172,9 @@ function applySoftwareFilter(
           ? ((filter as { channel: string }).channel as 'rgb' | 'red' | 'green' | 'blue')
           : 'rgb';
       const points =
-        'points' in filter ? (filter as { points: Array<{ x: number; y: number }> }).points : [];
+        'points' in filter
+          ? (filter as unknown as { points: Array<{ x: number; y: number }> }).points
+          : [];
       const lut = buildCurveLUT(points);
       const result = applyCurve(imageData, channel, lut);
       ctx.putImageData(result, 0, 0);
@@ -200,20 +203,9 @@ function applySoftwareFilter(
       break;
     }
     case 'selectiveColor': {
-      const params =
+      const params: SelectiveColorParams[] =
         'params' in filter
-          ? (
-              filter as {
-                params: Array<{
-                  color: string;
-                  cyan: number;
-                  magenta: number;
-                  yellow: number;
-                  black: number;
-                  method: string;
-                }>;
-              }
-            ).params
+          ? ((filter as unknown as { params: SelectiveColorParams[] }).params)
           : [];
       const result = applySelectiveColor(imageData, params);
       ctx.putImageData(result, 0, 0);
@@ -244,7 +236,7 @@ function applySoftwareFilter(
       break;
     }
     case 'colorBalance': {
-      const cf = filter as {
+      const cf = filter as unknown as {
         shadows?: [number, number, number];
         midtones?: [number, number, number];
         highlights?: [number, number, number];
@@ -261,7 +253,7 @@ function applySoftwareFilter(
       break;
     }
     case 'channelMixer': {
-      const cmf = filter as {
+      const cmf = filter as unknown as {
         red?: [number, number, number];
         green?: [number, number, number];
         blue?: [number, number, number];
@@ -280,7 +272,7 @@ function applySoftwareFilter(
       break;
     }
     case 'photoFilter': {
-      const pf = filter as {
+      const pf = filter as unknown as {
         color: { r: number; g: number; b: number; a: number };
         density: number;
         preserveLuminosity: boolean;

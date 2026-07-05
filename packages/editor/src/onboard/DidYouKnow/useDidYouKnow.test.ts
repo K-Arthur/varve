@@ -63,7 +63,7 @@ describe('useDidYouKnow', () => {
     });
 
     expect(result.current.currentTip).not.toBeNull();
-    const tipId = result.current.currentTip!.id;
+    result.current.currentTip!.id;
 
     act(() => {
       result.current.dismiss();

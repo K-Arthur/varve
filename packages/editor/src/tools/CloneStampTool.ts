@@ -52,7 +52,7 @@ export class CloneStampTool extends BaseTool {
     const canvas = ctx.canvasElement;
     if (!canvas) return { consumed: false };
 
-    const rect = canvas.getBoundingClientRect();
+    canvas.getBoundingClientRect();
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
 
     if (e.altKey) {

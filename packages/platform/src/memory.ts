@@ -377,7 +377,7 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async addFileToCollection(collectionId, fileId) {
       const existing = state.collectionEntries.get(collectionId) ?? [];
       if (existing.some((ce) => ce.fileId === fileId)) return;
-      existing.push({ collectionId, fileId, addedAt: Date.now() });
+      existing.push({ id: uuid(), collectionId, fileId, addedAt: Date.now() });
       state.collectionEntries.set(collectionId, existing);
     },
     async removeFileFromCollection(collectionId, fileId) {

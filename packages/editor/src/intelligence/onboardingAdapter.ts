@@ -72,7 +72,7 @@ export function classifyFromActionTracker(tracker: {
   getTotalCount: () => number;
 }): ClassificationResult {
   const recentActions = tracker.getRecentActions(120_000);
-  const totalActions = tracker.getTotalCount();
+  void tracker.getTotalCount();
 
   if (recentActions.length < 2) {
     return { level: 'beginner', confidence: 0.5, reasons: ['Not enough data yet'] };
@@ -91,7 +91,7 @@ export function classifyFromActionTracker(tracker: {
 
   let totalTime = 0;
   if (recentActions.length >= 2) {
-    totalTime = recentActions[recentActions.length - 1].timestamp - recentActions[0].timestamp;
+    totalTime = recentActions[recentActions.length - 1]!.timestamp - recentActions[0]!.timestamp;
   }
   const avgActionTimeSec =
     recentActions.length > 1 ? totalTime / (recentActions.length - 1) / 1000 : 0;
