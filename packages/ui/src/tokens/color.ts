@@ -247,9 +247,12 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'surface-overlay': N(1),
     'text-primary': N(12),
     'text-secondary': N(10),
-    'text-subtle': N(6),
-    'text-muted': N(8),
-    'text-disabled': N(6),
+    // WCAG fix: N(6)=L0.68 was 2.1:1 on light bg (catastrophic fail). L≈0.46 achieves ~4.5:1.
+    'text-subtle': ok(0.46, 0.028, 261),
+    // WCAG fix: N(8)=L0.473 was 4.37:1 (barely fails). L≈0.43 achieves ~5.0:1.
+    'text-muted': ok(0.43, 0.032, 262),
+    // Disabled controls are exempt from WCAG 1.4.3; keep at ≥3:1 for usability.
+    'text-disabled': ok(0.58, 0.025, 261),
     'text-on-accent': N(1),
     'text-on-danger': N(1),
     'border-subtle': N(4),
@@ -269,9 +272,11 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-teal': T(6),
     'accent-subtle': T(2),
     'tree-row': N(2),
-    'tree-row-hover': N(7),
-    'tree-row-selected': T(8),
-    'tree-row-focus': T(8),
+    // WCAG fix: N(7) was medium-blue bg (4.27:1 with dark text). T(1) is very light teal.
+    'tree-row-hover': T(1),
+    // WCAG fix: T(8)=medium teal with white text-on-accent was 3.75:1. T(9) gives 4.66:1.
+    'tree-row-selected': T(9),
+    'tree-row-focus': T(9),
     'tree-indent-guide': N(7),
     'layer-accent-frame': B(6),
     'layer-wash-frame': B(1),
@@ -336,7 +341,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-teal': T(6),
     'accent-subtle': T(11),
     'tree-row': N(11),
-    'tree-row-hover': N(6),
+    // WCAG fix: N(6)=L0.68 as hover bg with white text was 2.12:1. N(10) gives 7.84:1.
+    'tree-row-hover': N(10),
     'tree-row-selected': T(5),
     'tree-row-focus': T(5),
     'tree-indent-guide': N(7),
@@ -403,7 +409,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-teal': ok(0.9519, 0.2924, 111.62),
     'accent-subtle': ok(0.3901, 0.0, 0),
     'tree-row': ok(0.0971, 0.0, 0),
-    'tree-row-hover': ok(0.52, 0.0, 0),
+    // WCAG fix: ok(0.52) as hover bg with white text was 3.54:1. ok(0.22) gives ~7.97:1.
+    'tree-row-hover': ok(0.22, 0.0, 0),
     'tree-row-selected': ok(0.9519, 0.2924, 111.62),
     'tree-row-focus': ok(0.9519, 0.2924, 111.62),
     'tree-indent-guide': ok(1.0, 0.0, 0),
