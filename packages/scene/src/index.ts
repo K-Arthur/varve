@@ -11,6 +11,7 @@ export * from './boolean';
 export * from './brush';
 export * from './clone';
 export * from './colorManagement';
+export * from './component-sync';
 export * from './colorMode';
 export * from './component';
 export * from './constraints';

@@ -64,7 +64,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 3042+ tests across 236 files: codegen 8, editor 330+, scene 217, engine 555+, platform 43, home 185+, print 4, prototype 191, ui 147, shared 310+, E2E 21, intelligence 48+
+- **JS:** 3042+ tests across 236 files: codegen 8, editor 330+, scene 217, **engine 620+** (+65 from baseline: +31 effects, +13 halftone, +8 filterCompositor, +13 other), platform 43, home 185+, print 4, prototype 191, ui 147, shared 310+, E2E 21, intelligence 48+
+- **Effects engine:** 52+ tests: 31 replay-fill effects, 13 halftone (AM matrix + FM stochastic + CMYK), 8 filterCompositor
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 96/96 WCAG-AA across 3 themes
 
@@ -242,6 +243,34 @@ Complete 10-phase redesign of the project/workspace/home system:
 **New types added to `@strata/platform`:** Folder, Collection, CollectionFilter, CollectionEntry, Workspace, Library, TemplateLibrary, ProjectTemplate, Asset, AssetFolder, VersionEntry, Branch, Permission, ActivityEvent, DRAFTS_ID sentinel, expanded SidebarSection
 
 **Verification:** 185+ JS tests pass (18 test files), typecheck clean on @strata/home and @strata/platform (pre-existing scene/prototype errors untouched), lint clean on all modified files.
+
+## Effects System Overhaul (2026-07-05)
+
+Complete effects system overhaul — P0 rendering bug fixes, filter compositor, halftone engine.
+
+| Phase | What | Key Files | Tests |
+|---|---|---|---|
+| **0** | Critical rendering fixes: removed Pass 1 double-render (shadows drew twice), implemented spread in Pass 2, wired `filters` through `toEngineNode`, fixed `hasEffects()` type guard (ImageNode + AdjustmentNode) | `replay.ts`, `CanvasArea.tsx`, `EffectsSection.tsx` | 569 (baseline) |
+| **1.1-1.2** | Filter compositor: offscreen canvas compositing for non-CSS filters with per-filter opacity/blend mode. 7 new software pixel engines (exposure, sharpen, temperature, tint, colorBalance, channelMixer, photoFilter, vibrance). Wired existing curves/levels/selectiveColor engines. | `filterCompositor.ts`, `replay.ts` | +8 |
+| **1.3** | Background blur: replaced stub with real backdrop capture via OffscreenCanvas. Captures content behind item, blurs, clips to shape, composites. Graceful fallback where OffscreenCanvas unavailable. | `replay.ts` | 577 |
+| **2.1-2.4** | Halftone screening engine: AM (clustered-dot threshold matrix, 5 dot shapes), FM (Floyd-Steinberg error diffusion, serpentine scan), standard CMYK angles (C:15°/M:75°/Y:0°/K:45°), per-channel and CMYK separation. | `halftone.ts`, `types.ts` (FilterIR), `filterCompositor.ts` | +13 |
+| **2.5-2.6** | Halftone UI + pipeline: FilterIR variant, AdjustmentKind, HalftoneSection UI component, filterToCss fallback, adjustmentDefaults, adjustmentToFilter mapping. | `HalftoneSection.tsx`, `filters.ts` | 590 |
+
+**Architecture decisions:**
+- Single-pass effects rendering (removed redundant Pass 1) — shadow rendering now uses Canvas2D native shadow API only, not duplicated CSS filter approach
+- Filter compositor uses offline canvas compositing for non-CSS filters, CSS filter string for simple cases
+- Halftone uses FilterIR (not Effect) so it composes in the nondestructive filter chain with other adjustments
+- Both AM and FM screening available; AM for traditional print, FM for stochastic/modern output
+- Standard CMYK angles from ISO 12647-2; users can override per channel
+
+**New modules:**
+| File | What |
+|---|---|
+| `packages/engine/src/filterCompositor.ts` | Offscreen compositing for non-CSS filters with per-filter opacity/blend |
+| `packages/engine/src/halftone.ts` | AM + FM halftone screening engine |
+| `packages/editor/src/components/Inspector/sections/HalftoneSection.tsx` | Halftone inspector UI |
+
+**Verification:** 595/597 JS tests pass (2 pre-existing alpha-mask failures), lint clean on all modified files.
 
 ## Motion System (2026-07-03)
 
