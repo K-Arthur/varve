@@ -45,11 +45,11 @@ describe('useTutorialProgress', () => {
     });
     expect(result.current.progressPercent).toBe(33);
 
-    // 2 of 3 = 66%
+    // 2 of 3 = 67% (rounded up from 66.66...)
     act(() => {
       result.current.markLessonComplete(doc.rootChildren[1]!);
     });
-    expect(result.current.progressPercent).toBe(66);
+    expect(result.current.progressPercent).toBe(67);
 
     // 3 of 3 = 100%
     act(() => {

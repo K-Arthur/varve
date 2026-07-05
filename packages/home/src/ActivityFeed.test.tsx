@@ -112,4 +112,60 @@ describe('ActivityFeed', () => {
     fireEvent.click(eventBtn);
     expect(onOpenFile).toHaveBeenCalledWith('f1');
   });
+
+  it('filters events by type', async () => {
+    const now = Date.now();
+    const platform: Platform = {
+      ...basePlatform,
+      listActivity: vi.fn().mockResolvedValue([
+        makeEvent('e1', 'created', {
+          fileId: 'f1',
+          metadata: { fileName: 'Created file' },
+          timestamp: now,
+        }),
+        makeEvent('e2', 'modified', {
+          fileId: 'f2',
+          metadata: { fileName: 'Modified file' },
+          timestamp: now,
+        }),
+      ]),
+    };
+    render(
+      <ActivityFeed
+        platform={platform}
+        workspaceId="ws-1"
+        filterTypes={['created']}
+        onOpenFile={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Created file')).toBeTruthy();
+    });
+    expect(screen.queryByText('Modified file')).toBeNull();
+  });
+
+  it('shows view all activity link', async () => {
+    const onViewAll = vi.fn();
+    const platform: Platform = {
+      ...basePlatform,
+      listActivity: vi.fn().mockResolvedValue([]),
+    };
+    render(
+      <ActivityFeed
+        platform={platform}
+        workspaceId="ws-1"
+        viewAllLink
+        onViewAll={onViewAll}
+        onOpenFile={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('View all activity')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByText('View all activity'));
+    expect(onViewAll).toHaveBeenCalled();
+  });
 });

@@ -31,7 +31,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ContainerNode, Document, NodeId } from '@strata/scene';
-import { isContainer } from '@strata/scene';
+import { getKeyframeCount, getNodesInTimeline, isContainer } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
@@ -227,6 +227,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     const ids = searchIndex(searchIdx, filterSpec.search);
     return new Set(ids);
   }, [searchIdx, filterSpec.search]);
+
+  // Pre-compute animated nodes for motion indicators
+  const animatedNodes = useMemo(() => getNodesInTimeline(state.document), [state.document]);
 
   const entries = useFlatTree(
     state.document,
@@ -967,6 +970,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   virtualItem={virtualItem}
                   virtualizer={virtualizer}
                   dropClass={dropClass}
+                  hasMotion={animatedNodes.has(node.id)}
+                  keyframeCount={getKeyframeCount(state.document, node.id)}
                   onToggleExpand={toggleExpand}
                   onExpandSubtree={handleExpandSubtree}
                   onCollapseSubtree={handleCollapseSubtree}
@@ -1031,6 +1036,8 @@ interface SortableVirtualRowProps {
   virtualItem: import('@tanstack/react-virtual').VirtualItem;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   dropClass: string;
+  hasMotion: boolean;
+  keyframeCount: number;
   onToggleExpand: (id: NodeId) => void;
   onExpandSubtree: (id: NodeId) => void;
   onCollapseSubtree: (id: NodeId) => void;
@@ -1056,6 +1063,8 @@ function SortableVirtualRow({
   virtualItem,
   virtualizer,
   dropClass,
+  hasMotion,
+  keyframeCount,
   onToggleExpand,
   onExpandSubtree,
   onCollapseSubtree,
@@ -1147,6 +1156,8 @@ function SortableVirtualRow({
         dragListeners={isDragging ? undefined : listeners}
         dragAttributes={isDragging ? undefined : attributes}
         variantName={variantName}
+        hasMotion={hasMotion}
+        keyframeCount={keyframeCount}
         onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
       />
     </div>

@@ -346,6 +346,24 @@
   opacity: 0.15;
 }
 
+.editor-canvas__content-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  touch-action: none;
+}
+.editor-canvas__overlay-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+  touch-action: none;
+}
+
 .editor-canvas__zoom-indicator {
   position: absolute;
   top: var(--space-2);

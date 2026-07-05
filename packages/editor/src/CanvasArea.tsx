@@ -197,6 +197,10 @@ function toEngineNode(n: DocNode): EngineNode {
       src: n.src,
       w: n.w,
       h: n.h,
+      alphaMask: (n as Record<string, unknown>).backgroundRemoval
+        ? (((n as Record<string, unknown>).backgroundRemoval as Record<string, unknown>)
+            .maskDataUrl as string)
+        : undefined,
     };
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
 }
@@ -586,7 +590,9 @@ export function CanvasArea({
 
   // ─── Drawing ─────────────────────────────────────────────────────────────
 
-  const draw = useCallback(() => {
+  // ── Content canvas draw: board background, IR replay, outline mode ──────
+
+  const drawContent = useCallback(() => {
     const canvas = contentCanvasRef.current;
     if (!canvas) return;
     const parent = canvas.parentElement;
@@ -595,10 +601,7 @@ export function CanvasArea({
     const dpr = window.devicePixelRatio ?? 1;
     const cssW = parent.clientWidth;
     const cssH = parent.clientHeight;
-    if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
-      canvas.width = cssW * dpr;
-      canvas.height = cssH * dpr;
-    }
+    sizeCanvas(canvas, cssW, cssH, dpr);
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -607,14 +610,10 @@ export function CanvasArea({
 
     (async () => {
       if (!ctx) return;
-      // Capture narrowed ctx into a const so TypeScript propagates the
-      // non-null type into nested function closures (replaySubtree).
       const ctxNN = ctx;
       const s = stateRef.current;
       const doc = s.document;
 
-      // Board (infinite canvas background) color: use doc.canvasBackground when set,
-      // otherwise the theme-aware surface-sunken token (warm gray / dark blue-gray).
       const boardColor = (() => {
         const bg = doc.canvasBackground;
         if (bg?.space === 'rgb') {
@@ -626,14 +625,7 @@ export function CanvasArea({
             .trim() || '#f5f5f4'
         );
       })();
-      const accentColor =
-        getComputedStyle(document.documentElement)
-          .getPropertyValue('--color-accent-primary')
-          .trim() || '#3b82f6';
 
-      // B-03: Hierarchical viewport culling — build a set of off-screen container
-      // descendants to skip. If a container's world bounds don't intersect the
-      // viewport, none of its children can be visible either.
       const entries = walkNodes(doc);
       const cache = transformCacheRef.current;
       const viewport = canvas.getBoundingClientRect();
@@ -649,7 +641,6 @@ export function CanvasArea({
         if (isContainer(n) && 'children' in n && n.children.length > 0) {
           const containerBounds = getCachedWorldBounds(cache, doc, id);
           if (containerBounds && !isWorldRectInViewport(cam, vp, containerBounds)) {
-            // Mark all direct and indirect descendants as hidden
             const queue = [...n.children];
             while (queue.length > 0) {
               const childId = queue.pop()!;
@@ -663,9 +654,6 @@ export function CanvasArea({
         }
       }
 
-      // B-04: Dirty-rect tracking — accumulate the union of old and new world
-      // bounds for nodes whose positions changed since the last draw. When only
-      // a small region is dirty, the renderer skips the full-canvas clear.
       const prevDoc = prevDrawDocRef.current;
       if (prevDoc && prevDoc !== doc) {
         const prevNodeIds = new Set(Object.keys(prevDoc.nodes));
@@ -705,20 +693,14 @@ export function CanvasArea({
         const n = doc.nodes[id];
         if (!n) continue;
         if (n.kind === 'group') continue;
-        // Skip nodes hidden by an off-screen container
         if (hiddenByContainer.has(id)) continue;
         const world = getCachedWorldTransform(cache, doc, id);
-        // Per-node viewport culling for remaining root-level nodes
         const worldBounds = getCachedWorldBounds(cache, doc, id);
         if (worldBounds && !isWorldRectInViewport(cam, vp, worldBounds)) continue;
         nodeIds.push(id);
         flatNodes.push({ ...toEngineNode(n), transform: world });
       }
 
-      // ── Style Resolution ────────────────────────────────────────────────────
-      // Resolve reusable styles (color/text/effect) for nodes that have a
-      // styleId. The resolved overrides are merged into engine nodes before IR
-      // building, making style changes immediately visible.
       const resolvedStyles = resolveAllStyles(doc);
       if (resolvedStyles.size > 0) {
         for (let i = 0; i < flatNodes.length; i++) {
@@ -732,10 +714,6 @@ export function CanvasArea({
         }
       }
 
-      // ── Motion / Timeline sampling ──────────────────────────────────────────
-      // Apply property overrides from the active timeline to engine nodes
-      // before building IR. These overrides are ephemeral — they only affect
-      // this frame's rendering and never mutate the document.
       if (s.motion.activeTimelineId) {
         const sample = sampleTimelineAt(doc, s.motion.activeTimelineId, s.motion.currentTime);
         if (sample.overrides.size > 0) {
@@ -754,7 +732,6 @@ export function CanvasArea({
       }
       const ir = await eng.buildIr({ nodes: flatNodes });
 
-      // In outline mode, strip fills/effects from IR and apply a uniform high-contrast stroke.
       if (s.canvasMode === 'outline') {
         const outlineColor: EngineColor = { space: 'rgb', r: 30, g: 30, b: 36, a: 255 };
         for (let i = 0; i < ir.length; i++) {
@@ -785,7 +762,6 @@ export function CanvasArea({
         }
       }
 
-      // Map NodeId → RenderItem for O(1) lookup during tree-aware replay.
       type IrItem = (typeof ir)[number];
       const irByNodeId = new Map<string, IrItem>();
       for (let i = 0; i < nodeIds.length; i++) {
@@ -794,9 +770,6 @@ export function CanvasArea({
         if (nid && item) irByNodeId.set(nid, item);
       }
 
-      // B-04: Dirty-rect tracking — if only a small region changed, skip the
-      // full-canvas clear and only redraw the affected screen-space rects.
-      // When dirty rects cover >60% of the viewport, fall back to full redraw.
       const dirtyRect = dirtyRectRef.current;
       const usePartialRedraw =
         dirtyRect &&
@@ -805,7 +778,6 @@ export function CanvasArea({
         dirtyRect.w * dirtyRect.h < VP_W * VP_H * 0.6;
 
       if (usePartialRedraw) {
-        // Scale dirty rect from CSS px to canvas px (DPR)
         const dx = dirtyRect.x * dpr;
         const dy = dirtyRect.y * dpr;
         const dw = dirtyRect.w * dpr;
@@ -814,7 +786,6 @@ export function CanvasArea({
         ctx.clearRect(dx - 1, dy - 1, dw + 2, dh + 2);
         ctx.fillStyle = boardColor;
         ctx.fillRect(dx - 1, dy - 1, dw + 2, dh + 2);
-        // Clip subsequent rendering to the dirty region
         ctx.save();
         ctx.beginPath();
         ctx.rect(dx, dy, dw, dh);
@@ -827,18 +798,13 @@ export function CanvasArea({
         ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
       }
 
-      // Clear dirty rect after consuming
       dirtyRectRef.current = null;
 
-      // Tree-aware replay: frames clip their children; groups are transparent
-      // containers (or flattened with offscreen compositing for non-passThrough
-      // blend modes and opacity < 1). Masks clip children to a mask source path.
       function replaySubtreeToCtx(nodeId: string, ctx: CanvasRenderingContext2D): void {
         const n = doc.nodes[nodeId];
         if (!n || n.visible === false) return;
         const item = irByNodeId.get(nodeId);
 
-        // Check for mask on the container — trace mask source outline as clip for all children
         const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
         const maskSrcId = mask ? mask.sourceNodeId : null;
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
@@ -860,7 +826,6 @@ export function CanvasArea({
         }
 
         if (n.kind === 'frame') {
-          // Paint frame background before establishing child clip.
           if (item) replayIr(ctx as unknown as ReplayTarget, [item]);
           if (n.children.length > 0) {
             const shouldClip = n.clipContent !== false;
@@ -951,187 +916,233 @@ export function CanvasArea({
         replaySubtreeToCtx(nodeId, ctxNN);
       }
 
-      // Render root-level nodes in DFS paint order.
       for (const [id, entry] of entries) {
         if (entry.parentId === null) {
           replaySubtree(id);
         }
       }
-
-      // ── Layout grid overlay for frames with gridTemplate ────────────────
-      ctx.strokeStyle = 'rgba(57, 208, 198, 0.25)';
-      ctx.lineWidth = 1 / s.zoom;
-      ctx.setLineDash([0]);
-      for (const [nid] of entries) {
-        const n = doc.nodes[nid];
-        if (n?.kind !== 'frame' || !n.layoutStyle) continue;
-        const frame = n as import('@strata/scene').FrameNode & {
-          layoutStyle: NonNullable<import('@strata/scene').FrameNode['layoutStyle']>;
-        };
-        const ls = frame.layoutStyle;
-        if (!ls.gridTemplateColumns && !ls.gridTemplateRows) continue;
-        const world = getCachedWorldTransform(cache, doc, nid);
-        const [a, b, c, d, e, f] = world;
-        const fw = frame.w;
-        const fh = frame.h;
-        // Parse simple column/row templates (e.g., "1fr 200px 1fr").
-        const colSizes = parseGridTemplate(ls.gridTemplateColumns ?? '', fw);
-        const rowSizes = parseGridTemplate(ls.gridTemplateRows ?? '', fh);
-        const gapX = ls.columnGap ?? ls.gap ?? 0;
-        const gapY = ls.rowGap ?? ls.gap ?? 0;
-        // Compute column boundary lines in local space, transform to world.
-        let xPos = 0;
-        for (const cs of colSizes) {
-          xPos += cs;
-          const wx = a * xPos + c * 0 + e;
-          const wy = b * xPos + d * 0 + f;
-          const wx2 = a * xPos + c * fh + e;
-          const wy2 = b * xPos + d * fh + f;
-          ctx.beginPath();
-          ctx.moveTo(wx, wy);
-          ctx.lineTo(wx2, wy2);
-          ctx.stroke();
-          xPos += gapX;
-        }
-        let yPos = 0;
-        for (const rs of rowSizes) {
-          yPos += rs;
-          const wx = a * 0 + c * yPos + e;
-          const wy = b * 0 + d * yPos + f;
-          const wx2 = a * fw + c * yPos + e;
-          const wy2 = b * fw + d * yPos + f;
-          ctx.beginPath();
-          ctx.moveTo(wx, wy);
-          ctx.lineTo(wx2, wy2);
-          ctx.stroke();
-          yPos += gapY;
-        }
-      }
-
-      if (draft) {
-        ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 1 / s.zoom;
-        ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
-
-        switch (draft.kind) {
-          case 'rect':
-          case 'frame':
-            ctx.strokeRect(draft.x, draft.y, draft.w, draft.h);
-            break;
-          case 'ellipse': {
-            const ecx = draft.x + draft.w / 2;
-            const ecy = draft.y + draft.h / 2;
-            ctx.beginPath();
-            ctx.ellipse(ecx, ecy, draft.w / 2, draft.h / 2, 0, 0, Math.PI * 2);
-            ctx.stroke();
-            break;
-          }
-          case 'polygon': {
-            const pcx = draft.x + draft.w / 2;
-            const pcy = draft.y + draft.h / 2;
-            const pr = Math.min(draft.w, draft.h) / 2;
-            ctx.beginPath();
-            for (let i = 0; i < draft.sides; i++) {
-              const a = (2 * Math.PI * i) / draft.sides - Math.PI / 2;
-              const px = pcx + pr * Math.cos(a);
-              const py = pcy + pr * Math.sin(a);
-              if (i === 0) ctx.moveTo(px, py);
-              else ctx.lineTo(px, py);
-            }
-            ctx.closePath();
-            ctx.stroke();
-            break;
-          }
-          case 'star': {
-            const scx = draft.x + draft.w / 2;
-            const scy = draft.y + draft.h / 2;
-            const outerR = Math.min(draft.w, draft.h) / 2;
-            const innerR = outerR * 0.4;
-            ctx.beginPath();
-            for (let i = 0; i < draft.points * 2; i++) {
-              const a = (Math.PI * i) / draft.points - Math.PI / 2;
-              const r = i % 2 === 0 ? outerR : innerR;
-              const px = scx + r * Math.cos(a);
-              const py = scy + r * Math.sin(a);
-              if (i === 0) ctx.moveTo(px, py);
-              else ctx.lineTo(px, py);
-            }
-            ctx.closePath();
-            ctx.stroke();
-            break;
-          }
-          case 'line':
-            ctx.beginPath();
-            ctx.moveTo(draft.x1, draft.y1);
-            ctx.lineTo(draft.x2, draft.y2);
-            ctx.stroke();
-            break;
-          case 'arrow':
-            ctx.beginPath();
-            ctx.moveTo(draft.x1, draft.y1);
-            ctx.lineTo(draft.x2, draft.y2);
-            ctx.stroke();
-            {
-              const angle = Math.atan2(draft.y2 - draft.y1, draft.x2 - draft.x1);
-              const spread = Math.PI / 7;
-              const headLen = 10 / s.zoom;
-              ctx.fillStyle = accentColor;
-              ctx.beginPath();
-              ctx.moveTo(draft.x2, draft.y2);
-              ctx.lineTo(
-                draft.x2 - headLen * Math.cos(angle - spread),
-                draft.y2 - headLen * Math.sin(angle - spread),
-              );
-              ctx.lineTo(
-                draft.x2 - headLen * Math.cos(angle + spread),
-                draft.y2 - headLen * Math.sin(angle + spread),
-              );
-              ctx.closePath();
-              ctx.fill();
-            }
-            break;
-        }
-
-        ctx.setLineDash([]);
-
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        const sx =
-          draft.kind === 'line' || draft.kind === 'arrow'
-            ? Math.min(draft.x1, draft.x2) * s.zoom + s.pan.x
-            : draft.x * s.zoom + s.pan.x;
-        const sy =
-          draft.kind === 'line' || draft.kind === 'arrow'
-            ? Math.min(draft.y1, draft.y2) * s.zoom + s.pan.y
-            : draft.y * s.zoom + s.pan.y;
-        const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
-        ctx.font = '11px system-ui';
-        ctx.fillStyle = accentColor;
-        const label =
-          draft.label ??
-          `${Math.round(sw / s.zoom)} x ${Math.round('h' in draft ? draft.h * s.zoom : (Math.abs(draft.y2 - draft.y1) * s.zoom) / s.zoom)}`;
-        ctx.fillText(label, sx + sw + 4, sy + 14);
-      }
     })();
-  }, [rootNodes, draft, state.zoom, state.pan.x, state.pan.y, state.canvasMode]);
+  }, [rootNodes, state.zoom, state.pan.x, state.pan.y, state.canvasMode]);
+
+  // ── Overlay canvas draw: layout grid overlay, draft shapes ──────────────
+
+  const drawOverlay = useCallback(() => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (!parent) return;
+
+    const dpr = window.devicePixelRatio ?? 1;
+    const cssW = parent.clientWidth;
+    const cssH = parent.clientHeight;
+    sizeCanvas(canvas, cssW, cssH, dpr);
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const s = stateRef.current;
+    const doc = s.document;
+    const cache = transformCacheRef.current;
+    const entries = walkNodes(doc);
+
+    const accentColor =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-accent-primary')
+        .trim() || '#3b82f6';
+
+    // Clear overlay canvas (it's transparent otherwise)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+
+    // ── Layout grid overlay for frames with gridTemplate ────────────────
+    ctx.strokeStyle = 'rgba(57, 208, 198, 0.25)';
+    ctx.lineWidth = 1 / s.zoom;
+    ctx.setLineDash([0]);
+    for (const [nid] of entries) {
+      const n = doc.nodes[nid];
+      if (n?.kind !== 'frame' || !n.layoutStyle) continue;
+      const frame = n as import('@strata/scene').FrameNode & {
+        layoutStyle: NonNullable<import('@strata/scene').FrameNode['layoutStyle']>;
+      };
+      const ls = frame.layoutStyle;
+      if (!ls.gridTemplateColumns && !ls.gridTemplateRows) continue;
+      const world = getCachedWorldTransform(cache, doc, nid);
+      const [a, b, c, d, e, f] = world;
+      const fw = frame.w;
+      const fh = frame.h;
+      const colSizes = parseGridTemplate(ls.gridTemplateColumns ?? '', fw);
+      const rowSizes = parseGridTemplate(ls.gridTemplateRows ?? '', fh);
+      const gapX = ls.columnGap ?? ls.gap ?? 0;
+      const gapY = ls.rowGap ?? ls.gap ?? 0;
+      let xPos = 0;
+      for (const cs of colSizes) {
+        xPos += cs;
+        const wx = a * xPos + c * 0 + e;
+        const wy = b * xPos + d * 0 + f;
+        const wx2 = a * xPos + c * fh + e;
+        const wy2 = b * xPos + d * fh + f;
+        ctx.beginPath();
+        ctx.moveTo(wx, wy);
+        ctx.lineTo(wx2, wy2);
+        ctx.stroke();
+        xPos += gapX;
+      }
+      let yPos = 0;
+      for (const rs of rowSizes) {
+        yPos += rs;
+        const wx = a * 0 + c * yPos + e;
+        const wy = b * 0 + d * yPos + f;
+        const wx2 = a * fw + c * yPos + e;
+        const wy2 = b * fw + d * yPos + f;
+        ctx.beginPath();
+        ctx.moveTo(wx, wy);
+        ctx.lineTo(wx2, wy2);
+        ctx.stroke();
+        yPos += gapY;
+      }
+    }
+
+    // ── Draft shape preview ─────────────────────────────────────────────
+    if (draft) {
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 1 / s.zoom;
+      ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
+
+      switch (draft.kind) {
+        case 'rect':
+        case 'frame':
+          ctx.strokeRect(draft.x, draft.y, draft.w, draft.h);
+          break;
+        case 'ellipse': {
+          const ecx = draft.x + draft.w / 2;
+          const ecy = draft.y + draft.h / 2;
+          ctx.beginPath();
+          ctx.ellipse(ecx, ecy, draft.w / 2, draft.h / 2, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+        }
+        case 'polygon': {
+          const pcx = draft.x + draft.w / 2;
+          const pcy = draft.y + draft.h / 2;
+          const pr = Math.min(draft.w, draft.h) / 2;
+          ctx.beginPath();
+          for (let i = 0; i < draft.sides; i++) {
+            const a = (2 * Math.PI * i) / draft.sides - Math.PI / 2;
+            const px = pcx + pr * Math.cos(a);
+            const py = pcy + pr * Math.sin(a);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'star': {
+          const scx = draft.x + draft.w / 2;
+          const scy = draft.y + draft.h / 2;
+          const outerR = Math.min(draft.w, draft.h) / 2;
+          const innerR = outerR * 0.4;
+          ctx.beginPath();
+          for (let i = 0; i < draft.points * 2; i++) {
+            const a = (Math.PI * i) / draft.points - Math.PI / 2;
+            const r = i % 2 === 0 ? outerR : innerR;
+            const px = scx + r * Math.cos(a);
+            const py = scy + r * Math.sin(a);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          break;
+        }
+        case 'line':
+          ctx.beginPath();
+          ctx.moveTo(draft.x1, draft.y1);
+          ctx.lineTo(draft.x2, draft.y2);
+          ctx.stroke();
+          break;
+        case 'arrow':
+          ctx.beginPath();
+          ctx.moveTo(draft.x1, draft.y1);
+          ctx.lineTo(draft.x2, draft.y2);
+          ctx.stroke();
+          {
+            const angle = Math.atan2(draft.y2 - draft.y1, draft.x2 - draft.x1);
+            const spread = Math.PI / 7;
+            const headLen = 10 / s.zoom;
+            ctx.fillStyle = accentColor;
+            ctx.beginPath();
+            ctx.moveTo(draft.x2, draft.y2);
+            ctx.lineTo(
+              draft.x2 - headLen * Math.cos(angle - spread),
+              draft.y2 - headLen * Math.sin(angle - spread),
+            );
+            ctx.lineTo(
+              draft.x2 - headLen * Math.cos(angle + spread),
+              draft.y2 - headLen * Math.sin(angle + spread),
+            );
+            ctx.closePath();
+            ctx.fill();
+          }
+          break;
+      }
+
+      ctx.setLineDash([]);
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const sx =
+        draft.kind === 'line' || draft.kind === 'arrow'
+          ? Math.min(draft.x1, draft.x2) * s.zoom + s.pan.x
+          : draft.x * s.zoom + s.pan.x;
+      const sy =
+        draft.kind === 'line' || draft.kind === 'arrow'
+          ? Math.min(draft.y1, draft.y2) * s.zoom + s.pan.y
+          : draft.y * s.zoom + s.pan.y;
+      const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
+      ctx.font = '11px system-ui';
+      ctx.fillStyle = accentColor;
+      const label =
+        draft.label ??
+        `${Math.round(sw / s.zoom)} x ${Math.round('h' in draft ? draft.h * s.zoom : (Math.abs(draft.y2 - draft.y1) * s.zoom) / s.zoom)}`;
+      ctx.fillText(label, sx + sw + 4, sy + 14);
+    }
+  }, [draft, state.zoom, state.pan.x, state.pan.y]);
+
+  // ── RAF scheduling ──────────────────────────────────────────────────────
 
   useEffect(() => {
-    // Cancel any pending draw, schedule one aligned to the next vsync.
-    // Prevents concurrent async IIFE interleaving when draw dependencies
-    // change faster than the frame budget (e.g. zoom/pan scroll).
-    if (drawRafRef.current !== null) {
-      cancelAnimationFrame(drawRafRef.current);
+    if (contentDrawRafRef.current !== null) {
+      cancelAnimationFrame(contentDrawRafRef.current);
     }
-    drawRafRef.current = requestAnimationFrame(() => {
-      drawRafRef.current = null;
-      draw();
+    contentDrawRafRef.current = requestAnimationFrame(() => {
+      contentDrawRafRef.current = null;
+      drawContent();
     });
     return () => {
-      if (drawRafRef.current !== null) {
-        cancelAnimationFrame(drawRafRef.current);
-        drawRafRef.current = null;
+      if (contentDrawRafRef.current !== null) {
+        cancelAnimationFrame(contentDrawRafRef.current);
+        contentDrawRafRef.current = null;
       }
     };
-  }, [draw]);
+  }, [drawContent]);
+
+  useEffect(() => {
+    if (overlayDrawRafRef.current !== null) {
+      cancelAnimationFrame(overlayDrawRafRef.current);
+    }
+    overlayDrawRafRef.current = requestAnimationFrame(() => {
+      overlayDrawRafRef.current = null;
+      drawOverlay();
+    });
+    return () => {
+      if (overlayDrawRafRef.current !== null) {
+        cancelAnimationFrame(overlayDrawRafRef.current);
+        overlayDrawRafRef.current = null;
+      }
+    };
+  }, [drawOverlay]);
 
   // ─── Touch pinch (two-pointer zoom/pan, bypasses ToolManager) ───────────
 
@@ -1734,13 +1745,8 @@ export function CanvasArea({
         tabIndex={0}
         role="img"
         aria-label="Design canvas"
-        style={{
-          display: 'block',
-          width: '100%',
-          height: '100%',
-          touchAction: 'none',
-          cursor,
-        }}
+        className="editor-canvas__content-layer"
+        style={{ cursor }}
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
         onDoubleClick={handleDoubleClick}
@@ -1754,7 +1760,6 @@ export function CanvasArea({
         }}
         onBlur={() => {
           stopAutoPan();
-          // Cancel any active drag and release spring-loaded tools on blur
           tm.current?.activeTool.onPointerCancel?.(
             new PointerEvent('pointercancel'),
             buildToolCtx(new PointerEvent('pointercancel')),
@@ -1763,6 +1768,11 @@ export function CanvasArea({
             tm.current.releaseSpring(buildToolCtx(new PointerEvent('pointercancel')));
           }
         }}
+      />
+      <canvas
+        ref={overlayCanvasRef}
+        className="editor-canvas__overlay-layer"
+        role="presentation"
       />
       <Ruler
         zoom={state.zoom}
@@ -1795,7 +1805,7 @@ export function CanvasArea({
             />
           );
         })()}
-      <SelectionOverlay contentCanvasRef={contentCanvasRef} />
+      <SelectionOverlay canvasRef={contentCanvasRef} />
       {(() => {
         const sel = state.selection;
         if (sel.length !== 1) return null;

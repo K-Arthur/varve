@@ -7,3 +7,4 @@ packages:
 # postinstall; approve it explicitly. strictDepBuilds defaults to true.
 allowBuilds:
   esbuild: true
+  protobufjs: set this to true or false

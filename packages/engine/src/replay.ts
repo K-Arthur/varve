@@ -89,6 +89,8 @@ export interface ReplayTarget {
   shadowOffsetY?: number;
   /** Create a pattern from an image source. */
   createPattern?(image: CanvasImageSource | string, repetition: string): ReplayPattern | null;
+  /** Canvas element reference for offscreen compositing (filter compositor, background blur). */
+  canvas?: { width: number; height: number };
 }
 
 export interface ReplayPattern {
@@ -149,68 +151,11 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
       target.globalCompositeOperation = itemBlend;
     }
 
-    // ── Effects pass (shadows, blur) ──────────────────────────────
-    // Each shadow effect is rendered independently as a colored blurred shape behind/inside.
-    // Blur effects track max radius and apply to the main content.
-    let maxLayerBlur = 0;
-    let maxBgBlur = 0;
-
-    if (item.effects && item.effects.length > 0) {
-      // Pre-compute the shape path once for all effect passes
-      for (const effect of item.effects) {
-        if (!effect.visible) continue;
-
-        if (effect.type === 'dropShadow') {
-          target.save();
-          // Apply per-effect compositing
-          if (effect.blendMode && effect.blendMode !== 'normal') {
-            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
-          }
-          // Offset and blur the shadow shape
-          target.transform(1, 0, 0, 1, effect.x, effect.y);
-          const blurRadius = effect.blur + Math.max(0, effect.spread) / 2;
-          if (blurRadius > 0) {
-            target.filter = `blur(${blurRadius}px)`;
-          }
-          target.fillStyle = rgba(effect.color, effect.opacity);
-          paintShapeFill(target, item);
-          target.restore();
-        }
-
-        if (effect.type === 'innerShadow') {
-          target.save();
-          // Build shape path as clip so the shadow only renders inside the shape
-          target.beginPath();
-          traceOutline(target, item.primitive);
-          target.closePath();
-          if (target.clip) target.clip();
-          // Apply per-effect compositing
-          if (effect.blendMode && effect.blendMode !== 'normal') {
-            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
-          }
-          // For inner shadow: draw a blurred shape offset INWARD (offset same sign as effect)
-          // Clip hides the outward-extending part; only the inward-shadow is visible
-          const blurRadius = effect.blur + Math.max(0, effect.spread) / 2;
-          if (blurRadius > 0) {
-            target.filter = `blur(${blurRadius}px)`;
-          }
-          target.fillStyle = rgba(effect.color, effect.opacity);
-          paintShapeFill(target, item);
-          target.restore();
-        }
-
-        if (effect.type === 'layerBlur') {
-          maxLayerBlur = Math.max(maxLayerBlur, effect.radius);
-        }
-
-        if (effect.type === 'backgroundBlur') {
-          maxBgBlur = Math.max(maxBgBlur, effect.radius);
-        }
-      }
-    }
-
-    // Apply nondestructive adjustment filters to the main content.
-    // Filters are applied before fills and persist through strokes.
+    // ── Filters pass (nondestructive adjustments) ──────────────────
+    // CSS-compatible filters are applied via ctx.filter to affect fills + strokes.
+    // Non-CSS filters (curves, levels, etc.) and filters requiring per-filter
+    // opacity/blendMode compositing are handled by applyFilterWithCompositing
+    // which uses offscreen canvas compositing (see filterCompositor.ts).
     if (item.filters && item.filters.length > 0) {
       applyFilterChain(target, item.filters);
     }
@@ -253,7 +198,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
         if (effect.type === 'dropShadow') {
           target.save();
           target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur;
+          target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
           target.shadowOffsetX = effect.x;
           target.shadowOffsetY = effect.y;
           target.globalAlpha = effect.opacity ?? 1;
@@ -268,7 +213,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           traceOutline(target, item.primitive);
           if (target.clip) target.clip();
           target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur;
+          target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
           target.shadowOffsetX = -effect.x;
           target.shadowOffsetY = -effect.y;
           target.globalAlpha = effect.opacity ?? 1;
@@ -571,6 +516,28 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
     case 'image':
       // Render the image via drawImage. The item transform positions the image,
       // so local origin is (0,0). If drawImage is unavailable, draw a placeholder.
+      // When an alpha mask is present, composite with transparency via offscreen canvas.
+      if (p.alphaMask && target.drawImage) {
+        const maskImg = getImageCache().getImage(p.alphaMask);
+        const srcImg = getImageCache().getImage(p.src);
+        if (maskImg && srcImg && typeof document !== 'undefined') {
+          try {
+            const oc = document.createElement('canvas');
+            oc.width = p.w;
+            oc.height = p.h;
+            const octx = oc.getContext('2d');
+            if (octx) {
+              octx.drawImage(srcImg, 0, 0, p.w, p.h);
+              octx.globalCompositeOperation = 'destination-in';
+              octx.drawImage(maskImg, 0, 0, p.w, p.h);
+              target.drawImage(oc, 0, 0, p.w, p.h);
+              break;
+            }
+          } catch {
+            /* fall through to basic rendering */
+          }
+        }
+      }
       if (target.drawImage && p.src) {
         target.drawImage(p.src, 0, 0, p.w, p.h);
       } else {

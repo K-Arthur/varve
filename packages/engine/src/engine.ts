@@ -43,7 +43,7 @@ function shapeToPrimitive(
   nodeMap?: Map<string, SceneNode>,
 ): RenderItem['primitive'] {
   if (node.kind === 'image') {
-    return { kind: 'image', w: node.w ?? 100, h: node.h ?? 100, src: node.src ?? '' };
+    return { kind: 'image', w: node.w ?? 100, h: node.h ?? 100, src: node.src ?? '', alphaMask: node.alphaMask };
   }
   if (node.kind === 'text') {
     const fontSize = node.fontSize ?? 14;

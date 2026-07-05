@@ -258,6 +258,8 @@ export interface SceneNode {
   pathTextSettings?: PathTextSettings;
   /** Uniform or per-corner radius for rect-anchored shapes. */
   cornerRadius?: number | [number, number, number, number];
+  /** Alpha mask data URL for compositing with transparency. */
+  alphaMask?: string;
 }
 
 /** P2: Fill type for the engine (mirrors @strata/scene Fill). */
@@ -331,7 +333,7 @@ export type Primitive =
     }
   | { kind: 'arrow'; from: Point; to: Point; tolerance: number; arrowheadSize: number }
   | { kind: 'path'; points: PathPoint[]; closed: boolean; tolerance: number }
-  | { kind: 'image'; w: number; h: number; src: string }
+  | { kind: 'image'; w: number; h: number; src: string; alphaMask?: string }
   | {
       kind: 'text';
       x: number;

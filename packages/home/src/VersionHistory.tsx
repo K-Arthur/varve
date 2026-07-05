@@ -1,6 +1,6 @@
 import type { Platform, VersionEntry } from '@strata/platform';
 import { formatAbsoluteTime, formatRelativeTime } from '@strata/platform';
-import { Button, Dialog, Icon } from '@strata/ui';
+import { AlertDialog, Button, Dialog, Icon } from '@strata/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface VersionHistoryProps {
@@ -122,6 +122,8 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [namingId, setNamingId] = useState<string | null>(null);
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
+  const [revertVersionId, setRevertVersionId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -183,6 +185,7 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
   const groups = groupByDay(versions);
 
   return (
+    <>
     <Dialog open title="Version History" onClose={onClose} className="version-history">
       <div className="version-history__header">
         <Button variant="primary" size="sm" loading={saving} onClick={handleSaveVersion}>
@@ -210,11 +213,13 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
 
       {!loading && !error && versions.length === 0 && (
         <div className="version-history__empty">
-          <Icon name="History" size={48} label={undefined} />
+          <div className="version-history__empty-icon">
+            <Icon name="History" size={48} label={undefined} />
+          </div>
           <p className="version-history__empty-title">No versions yet</p>
           <p className="version-history__empty-desc">
-            Save a version to track your design history. You can name versions later for easy
-            identification.
+            Every time you save, Strata creates a version so you can track changes, compare
+            snapshots, and restore earlier work with confidence.
           </p>
           <Button variant="secondary" size="sm" onClick={handleSaveVersion}>
             <Icon name="Save" label={undefined} />
@@ -265,8 +270,23 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
                         <p className="version-history__version-desc">{version.description}</p>
                       )}
                       <div className="version-history__version-actions">
-                        <Button variant="primary" size="sm" onClick={() => onRestore(version.id)}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => setRevertVersionId(version.id)}
+                        >
                           Restore
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setCompareVersionId(
+                              compareVersionId === version.id ? null : version.id,
+                            )
+                          }
+                        >
+                          {compareVersionId === version.id ? 'Stop comparing' : 'Compare'}
                         </Button>
                         <Button
                           variant="ghost"
@@ -283,6 +303,12 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
                           Duplicate
                         </Button>
                       </div>
+                      {compareVersionId === version.id && (
+                        <div className="version-history__diff" role="status">
+                          <Icon name="GitCompare" label={undefined} />
+                          <span>Comparing {version.name ?? version.id.slice(0, 8)} with current version</span>
+                        </div>
+                      )}
                       {namingId === version.id && (
                         <NamingForm
                           version={version}
@@ -299,5 +325,22 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
         </div>
       )}
     </Dialog>
+
+      {revertVersionId && (
+        <AlertDialog
+          open
+          onClose={() => setRevertVersionId(null)}
+          onConfirm={() => {
+            onRestore(revertVersionId);
+            setRevertVersionId(null);
+          }}
+          title="Restore this version?"
+          description="This will replace your current document with the selected version. You can undo this later by restoring another version."
+          confirmLabel="Restore"
+          cancelLabel="Cancel"
+          variant="danger"
+        />
+      )}
+    </>
   );
 }
