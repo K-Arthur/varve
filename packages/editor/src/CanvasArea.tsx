@@ -312,6 +312,9 @@ export function CanvasArea({
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const lastCursorUpdate = useRef(0);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [renameDialog, setRenameDialog] = useState<{ defaultValue: string } | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const renameDialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const el = contentCanvasRef.current?.parentElement;
@@ -330,6 +333,17 @@ export function CanvasArea({
       engineRef.current = eng;
     });
   }, []);
+
+  useEffect(() => {
+    const dlg = renameDialogRef.current;
+    if (!dlg) return;
+    if (renameDialog) {
+      dlg.showModal();
+      renameInputRef.current?.select();
+    } else {
+      dlg.close();
+    }
+  }, [renameDialog]);
 
   const tm = useRef<ReturnType<typeof getToolManager> | null>(null);
   if (!tm.current) {
@@ -1461,8 +1475,7 @@ export function CanvasArea({
       }
 
       if ((e.key === 'Enter' || e.key === 'F2') && firstSel) {
-        const name = prompt('Rename layer', nodes[idx]?.name ?? '');
-        if (name) eRef.renameSelected(name);
+        setRenameDialog({ defaultValue: nodes[idx]?.name ?? '' });
       }
 
       // ── Helper: zoom about the canvas centre ─────────────────────────
@@ -1636,6 +1649,8 @@ export function CanvasArea({
     const files = await collectFilesFromDataTransfer(e.dataTransfer);
     if (files.length === 0) return;
 
+    // Parse all files FIRST (expensive SVG parsing) before any setState
+    const parsedItems: { node: SceneNode; sourceDoc: Document; position?: { x: number; y: number } }[] = [];
     for (const [i, file] of files.entries()) {
       const result = importFile(file.name, file.data, {
         center: !dropWorld,
@@ -1644,17 +1659,20 @@ export function CanvasArea({
       for (const id of result.nodeIds) {
         const node = result.document.nodes[id];
         if (node) {
-          // Apply position if we have a drop world coordinate
           const positionedNode = dropWorld
             ? applyDropPosition(node, {
                 x: dropWorld[0] + i * 40,
                 y: dropWorld[1] + i * 40,
               })
             : node;
-          reader.importNode(positionedNode, result.document);
+          parsedItems.push({ node: positionedNode, sourceDoc: result.document });
         }
       }
-      reader.announceOperation('Import', `Imported ${file.name}`);
+    }
+
+    // Single batched setState for all imported nodes
+    if (parsedItems.length > 0) {
+      reader.batchImportNodes(parsedItems);
     }
   }, []);
 
@@ -1706,7 +1724,8 @@ export function CanvasArea({
       <canvas
         ref={contentCanvasRef}
         tabIndex={0}
-        role="img"
+        role="application"
+        aria-roledescription="Design canvas"
         aria-label="Design canvas"
         className="editor-canvas__content-layer"
         style={{ cursor }}
@@ -1899,7 +1918,7 @@ export function CanvasArea({
         />
       )}
       <ZoomIndicator zoom={state.zoom} />
-      <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" />
+      <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" aria-atomic="true" />
       <CanvasAccessibilityTree
         doc={state.document}
         camera={{ zoom: state.zoom, pan: state.pan }}
@@ -1908,6 +1927,49 @@ export function CanvasArea({
         nodeWorldBounds={nodeWorldBounds}
         isWorldRectInViewport={isWorldRectInViewport}
       />
+      {/* Accessible rename dialog — replaces blocking prompt() call */}
+      <dialog
+        ref={renameDialogRef}
+        className="strata-dialog strata-dialog--sm"
+        aria-labelledby="rename-dialog-title"
+        onClose={() => setRenameDialog(null)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setRenameDialog(null);
+        }}
+      >
+        <h2 id="rename-dialog-title" className="strata-dialog__title">Rename layer</h2>
+        <form
+          method="dialog"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const name = renameInputRef.current?.value.trim();
+            if (name) editor.renameSelected(name);
+            setRenameDialog(null);
+          }}
+        >
+          <input
+            ref={renameInputRef}
+            className="canvas-rename__input"
+            type="text"
+            defaultValue={renameDialog?.defaultValue ?? ''}
+            aria-label="Layer name"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <div className="strata-dialog__actions">
+            <button
+              type="button"
+              className="strata-btn strata-btn--ghost"
+              onClick={() => setRenameDialog(null)}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="strata-btn strata-btn--primary">
+              Rename
+            </button>
+          </div>
+        </form>
+      </dialog>
     </section>
   );
 }

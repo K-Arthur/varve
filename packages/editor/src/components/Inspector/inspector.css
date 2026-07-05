@@ -42,18 +42,7 @@
   padding-bottom: var(--space-2);
 }
 
-/* Visually-hidden but available to screen readers (WCAG 1.3.1). */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* Visually-hidden utility lives in components.css; import that instead. */
 .insp-panel__tabs {
   display: flex;
   border-bottom: 1px solid var(--color-border-subtle);
@@ -446,6 +435,11 @@
   color: var(--color-text-primary);
 }
 
+.insp-add-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
 .insp-swatch {
   width: 24px;
   height: 24px;
@@ -468,7 +462,7 @@
 
 .insp-picker-popover {
   position: fixed;
-  z-index: 1300;
+  z-index: var(--z-tooltip);
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -535,6 +529,12 @@
   color: var(--color-text-muted);
   padding: 0;
   flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
+.insp-flip-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 .insp-proportion-lock {
@@ -543,6 +543,12 @@
   justify-content: center;
   margin-top: var(--space-2);
   cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.insp-proportion-lock:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 .insp-proportion-icon {
@@ -710,7 +716,7 @@
 }
 
 .insp-opentype-tag {
-  font-family: var(--font-family-mono, monospace);
+  font-family: var(--font-mono, monospace);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   padding: 0 var(--space-1);
@@ -883,15 +889,15 @@
   flex-shrink: 0;
 }
 .intelligence-badge--high {
-  background: color-mix(in srgb, var(--color-feedback-success) 20%, transparent);
+  background: color-mix(in oklch, var(--color-feedback-success) 20%, transparent);
   color: var(--color-feedback-success);
 }
 .intelligence-badge--medium {
-  background: color-mix(in srgb, var(--color-feedback-warning) 20%, transparent);
+  background: color-mix(in oklch, var(--color-feedback-warning) 20%, transparent);
   color: var(--color-feedback-warning);
 }
 .intelligence-badge--low {
-  background: color-mix(in srgb, var(--color-text-muted) 15%, transparent);
+  background: color-mix(in oklch, var(--color-text-muted) 15%, transparent);
   color: var(--color-text-muted);
 }
 

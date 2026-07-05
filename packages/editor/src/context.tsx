@@ -127,9 +127,7 @@ import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import { getOrCreateSpatialIndex, queryPoint, type SpatialIndex } from './scene/spatialIndex';
 import {
-  readClipboardImages,
-  readClipboardText,
-  readClipboard as readFromClipboard,
+  readClipboardUnified,
   writeClipboard as writeToClipboard,
 } from './clipboard';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
@@ -158,7 +156,7 @@ import {
 } from './state/motion-state';
 import type { DraftShape } from './tools/types';
 
-import { ViewportProvider, SelectionProvider } from './context/';
+import { ViewportProvider, SelectionProvider } from './context/index';
 import type { ToolId, CanvasMode, SessionMeta, EditorState } from './context/types';
 
 // Re-export for backward compatibility
@@ -465,6 +463,10 @@ export interface EditorContextValue {
     node: SceneNode,
     sourceDoc: import('@strata/scene').Document,
     options?: { position?: { x: number; y: number } },
+  ) => void;
+  /** Batch-import multiple nodes in a single state update (for drag-and-drop). */
+  batchImportNodes: (
+    items: { node: SceneNode; sourceDoc: import('@strata/scene').Document; position?: { x: number; y: number } }[],
   ) => void;
   /** The field name currently targeted for variable binding, or null. */
   bindingField: string | null;
@@ -2847,22 +2849,35 @@ export function EditorProvider({
         announcerRef.current?.announce(`Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`);
       },
 
-      paste: () => {
-        readFromClipboard().then((data) => {
-          if (!data || data.nodes.length === 0) return;
-          setState((s) => {
-            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-            redoStackRef.current = [];
-            let doc = s.document;
-            const newIds: NodeId[] = [];
-            // Build a temporary node map from clipboard data so deepCloneSubtree
-            // can resolve child references within the copied set.
+      paste: async () => {
+        // Single clipboard read — parse SVG/images OUTSIDE setState
+        const unified = await readClipboardUnified();
+        const strataData = unified.strataData;
+
+        const importResults: { nodeIds: NodeId[]; document: Document }[] = [];
+        for (const item of unified.importItems) {
+          const result = importFile(item.name, item.data, {
+            center: true,
+            embedImages: true,
+          });
+          importResults.push(result);
+        }
+
+        if (!strataData && importResults.length === 0) return;
+
+        setState((s) => {
+          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          redoStackRef.current = [];
+          let doc = s.document;
+          const newIds: NodeId[] = [];
+
+          if (strataData) {
             const tempNodes: Record<string, SceneNode> = {};
-            for (const node of data.nodes) {
+            for (const node of strataData.nodes) {
               tempNodes[node.id] = node;
             }
             const tempDoc: Document = { ...doc, nodes: tempNodes };
-            for (const node of data.nodes) {
+            for (const node of strataData.nodes) {
               if (isContainer(node)) {
                 const result = deepCloneSubtree(tempDoc, node.id);
                 if (result.rootId) {
@@ -2880,71 +2895,30 @@ export function EditorProvider({
                 newIds.push(id);
               }
             }
-            return { ...s, document: doc, selection: newIds };
-          });
-          announcerRef.current?.announce(
-            `Pasted ${data.nodes.length} layer${data.nodes.length > 1 ? 's' : ''}`,
-          );
-        });
-        // Also try to paste images/SVG from clipboard
-        readClipboardImages().then((images) => {
-          if (images.length === 0) {
-            readClipboardText().then((text) => {
-              if (text && (text.trim().startsWith('<svg') || text.trim().startsWith('<?xml'))) {
-                try {
-                  setState((s) => {
-                    undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-                    redoStackRef.current = [];
-                    let doc = s.document;
-                    const newIds: NodeId[] = [];
-                    const result = importFile('clipboard.svg', text, {
-                      center: true,
-                      embedImages: true,
-                    });
-                    for (const id of result.nodeIds) {
-                      const node = result.document.nodes[id];
-                      if (node) {
-                        const { id: newId, doc: d2 } = nextNodeId(doc);
-                        doc = d2;
-                        doc = addNode(doc, { ...node, id: newId } as SceneNode);
-                        newIds.push(newId);
-                      }
-                    }
-                    return { ...s, document: doc, selection: newIds };
-                  });
-                } catch {
-                  /* ignore clipboard parse errors */
-                }
-              }
-            });
-          } else {
-            setState((s) => {
-              undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-              redoStackRef.current = [];
-              let doc = s.document;
-              const newIds: NodeId[] = [];
-              for (const img of images) {
-                const result = importFile(img.name, img.dataUrl, {
-                  center: true,
-                  embedImages: true,
-                });
-                for (const id of result.nodeIds) {
-                  const node = result.document.nodes[id];
-                  if (node) {
-                    const { id: newId, doc: d2 } = nextNodeId(doc);
-                    doc = d2;
-                    doc = addNode(doc, { ...node, id: newId } as SceneNode);
-                    newIds.push(newId);
-                  }
-                }
-              }
-              if (newIds.length > 0) {
-                return { ...s, document: doc, selection: newIds };
-              }
-              return s;
-            });
           }
+
+          for (const result of importResults) {
+            for (const id of result.nodeIds) {
+              const node = result.document.nodes[id];
+              if (node) {
+                const { id: newId, doc: d2 } = nextNodeId(doc);
+                doc = d2;
+                doc = addNode(doc, { ...node, id: newId } as SceneNode);
+                newIds.push(newId);
+              }
+            }
+          }
+
+          if (newIds.length === 0) return s;
+          return { ...s, document: doc, selection: newIds };
         });
+
+        const totalCount = (strataData?.nodes.length ?? 0) + importResults.length;
+        if (totalCount > 0) {
+          announcerRef.current?.announce(
+            `Pasted ${totalCount} layer${totalCount > 1 ? 's' : ''}`,
+          );
+        }
       },
 
       importNode: (node, sourceDoc, options) => {
@@ -2954,7 +2928,6 @@ export function EditorProvider({
           let doc = s.document;
           const { id, doc: d2 } = nextNodeId(doc);
           doc = d2;
-          // Apply explicit position if provided, otherwise center in viewport
           const imported = options?.position
             ? ({
                 ...applyDropPosition({ ...node, id } as SceneNode, options.position),
@@ -2982,6 +2955,46 @@ export function EditorProvider({
           return { ...s, document: doc, selection: [id] };
         });
         announcerRef.current?.announce('Imported layer');
+      },
+
+      batchImportNodes: (items) => {
+        setState((s) => {
+          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          redoStackRef.current = [];
+          let doc = s.document;
+          const newIds: NodeId[] = [];
+          for (const { node, sourceDoc, position } of items) {
+            const { id, doc: d2 } = nextNodeId(doc);
+            doc = d2;
+            const imported = position
+              ? ({
+                  ...applyDropPosition({ ...node, id } as SceneNode, position),
+                  id,
+                } as SceneNode)
+              : (() => {
+                  const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
+                  const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
+                  const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
+                  const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
+                  return {
+                    ...node,
+                    id,
+                    transform: [
+                      node.transform[0],
+                      node.transform[1],
+                      node.transform[2],
+                      node.transform[3],
+                      (node.transform[4] ?? 0) + offsetX,
+                      (node.transform[5] ?? 0) + offsetY,
+                    ] as Affine,
+                  } as SceneNode;
+                })();
+            doc = addNode(doc, imported);
+            newIds.push(id);
+          }
+          return { ...s, document: doc, selection: newIds };
+        });
+        announcerRef.current?.announce(`Imported ${items.length} layer${items.length > 1 ? 's' : ''}`);
       },
 
       bindingField,
@@ -3682,7 +3695,7 @@ export function useEditor(): EditorContextValue {
   return ctx;
 }
 
-export { useViewport, useSelection } from './context/';
+export { useViewport, useSelection } from './context/index';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);

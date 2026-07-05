@@ -95,6 +95,7 @@ function convertElement(
   inheritedTransform: string[],
   opts: ImportOptions,
   warnings: string[],
+  visitedIds = new Set<string>(),
 ): { doc: Document; ids: string[] } {
   const ids: string[] = [];
 
@@ -102,7 +103,7 @@ function convertElement(
 
   if (el.tag === 'svg') {
     for (const child of el.children) {
-      const r = convertElement(child, doc, defs, inheritedTransform, opts, warnings);
+      const r = convertElement(child, doc, defs, inheritedTransform, opts, warnings, visitedIds);
       doc = r.doc;
       ids.push(...r.ids);
     }
@@ -116,7 +117,7 @@ function convertElement(
     let gDoc = doc;
     const gIds: string[] = [];
     for (const child of el.children) {
-      const r = convertElement(child, gDoc, defs, transforms, opts, warnings);
+      const r = convertElement(child, gDoc, defs, transforms, opts, warnings, visitedIds);
       gDoc = r.doc;
       gIds.push(...r.ids);
     }
@@ -160,10 +161,16 @@ function convertElement(
       const refId = href.slice(1);
       const ref = defs.get(refId);
       if (ref) {
+        if (visitedIds.has(refId)) {
+          warnings.push(`Circular <use> reference detected for #${refId} — skipping`);
+          return { doc, ids };
+        }
+        visitedIds.add(refId);
         const x = parseFloat(el.attrs.x ?? '0');
         const y = parseFloat(el.attrs.y ?? '0');
         const useTransform = `translate(${x},${y})`;
-        const r = convertElement(ref, doc, defs, [...transforms, useTransform], opts, warnings);
+        const r = convertElement(ref, doc, defs, [...transforms, useTransform], opts, warnings, visitedIds);
+        visitedIds.delete(refId);
         return { doc: r.doc, ids: r.ids };
       }
     }

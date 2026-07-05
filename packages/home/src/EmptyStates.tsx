@@ -30,7 +30,7 @@ const EMPTY_COPY: Record<string, CopyEntry> = {
   default: { headline: '', description: '', cta: '' },
   drafts: {
     headline: 'No drafts yet',
-    description: 'Files you start but haven't published or moved to a project will show up here.',
+    description: "Files you start but haven't published or moved to a project will show up here.",
     cta: 'New design',
   },
   recent: {
