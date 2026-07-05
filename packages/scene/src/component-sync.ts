@@ -26,19 +26,13 @@ const SYNC_PROPERTIES: Array<keyof FrameNode> = [
 /**
  * Get the master FrameNode for a component, or undefined if missing.
  */
-function getMasterFrame(doc: Document, component: ComponentDefinition): FrameNode | undefined {
+function getMasterFrame(
+  doc: Document,
+  component: ComponentDefinition,
+): FrameNode | undefined {
   const node = doc.nodes[component.masterRootId];
   if (node?.kind !== 'frame') return undefined;
   return node as FrameNode;
-}
-
-/**
- * Compare two Fill values for equality using JSON serialization.
- */
-function fillsEqual(a: Fill | undefined, b: Fill | undefined): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /**
@@ -67,11 +61,7 @@ function detectOverrides(doc: Document, id: NodeId): string[] {
   for (const prop of SYNC_PROPERTIES) {
     const instanceVal = frame[prop];
     const masterVal = master[prop];
-    if (prop === 'fill') {
-      if (!fillsEqual(instanceVal as Fill | undefined, masterVal as Fill | undefined)) {
-        overrides.push(prop);
-      }
-    } else if (!propsEqual(instanceVal, masterVal)) {
+    if (!propsEqual(instanceVal, masterVal)) {
       overrides.push(prop);
     }
   }
@@ -187,7 +177,9 @@ export function pushMasterChanges(
 /**
  * Sync all instances of all components.
  */
-export function syncAllInstances(doc: Document): { doc: Document; result: SyncResult } {
+export function syncAllInstances(
+  doc: Document,
+): { doc: Document; result: SyncResult } {
   let currentDoc = doc;
   const result: SyncResult = {
     updatedInstances: [],
