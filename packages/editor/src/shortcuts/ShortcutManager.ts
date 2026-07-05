@@ -187,6 +187,11 @@ export const SHORTCUT_DEFS = {
     label: 'Full Render Mode',
     category: 'View',
   },
+  openHelp: {
+    binding: { key: 'F1' },
+    label: 'Help Browser',
+    category: 'View',
+  },
 } satisfies Record<string, ShortcutDef>;
 
 // ── Persistence ────────────────────────────────────────────────────────

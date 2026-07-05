@@ -197,6 +197,8 @@ importers:
         specifier: ^1.27.0
         version: 1.27.0
 
+  packages/help: {}
+
   packages/home:
     dependencies:
       '@dnd-kit/core':

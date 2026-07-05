@@ -1,5 +1,5 @@
-import type { Document, NodeId } from './document';
-import type { ComponentDefinition, Fill, FrameNode, SceneNode } from './types';
+import type { Document } from './document';
+import type { ComponentDefinition, FrameNode, NodeId } from './types';
 
 export type InstanceStatus = 'synced' | 'overridden' | 'broken';
 
@@ -121,7 +121,7 @@ export function syncInstance(
 
   for (const prop of SYNC_PROPERTIES) {
     if (!overrides.has(prop)) {
-      (updated as Record<string, unknown>)[prop] = master[prop];
+      (updated as unknown as Record<string, unknown>)[prop] = master[prop];
     }
   }
 

@@ -188,6 +188,7 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
   {
     id: 'Help',
     items: [
+      { label: 'Search help', shortcut: 'F1', action: 'openHelp' },
       { label: 'Take a tour', action: 'startTour' },
       { label: '---' },
       { label: 'About Strata', action: 'about' },
@@ -206,11 +207,13 @@ export function Menubar({
   onOpenSettings,
   onStartTour,
   onOpenPalette,
+  onOpenHelp,
 }: {
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
   onStartTour?: () => void;
   onOpenPalette?: () => void;
+  onOpenHelp?: () => void;
 }) {
   const {
     state,
@@ -357,6 +360,9 @@ export function Menubar({
           break;
         case 'shortcutPalette':
           onOpenPalette?.();
+          break;
+        case 'openHelp':
+          onOpenHelp?.();
           break;
         case 'group':
           groupSelected();
