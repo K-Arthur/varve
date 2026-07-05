@@ -27,7 +27,10 @@ strata-engine = { path = "../../../crates/strata-engine" }
 notify = "6"
 strata-sync = { path = "../../../crates/strata-sync" }
 strata-print = { path = "../../../crates/strata-print" }
+strata-bgremove = { path = "../../../crates/strata-bgremove" }
+image = "0.25"
 tauri-plugin-fs = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+ai = ["strata-bgremove/ai"]

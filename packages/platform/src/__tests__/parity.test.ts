@@ -1,8 +1,24 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { createMemoryPlatform, makeFileEntry, makeProject } from '../memory';
 import { createWebPlatform } from '../web';
 import type { Platform } from '../platform';
 import { DRAFTS_ID, type FileEntry, type Project } from '../types';
+
+// Mock IndexedDB for web platform tests using a setup function
+if (typeof globalThis.indexedDB === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { IDBFactory, IDBRequest, IDBOpenDBRequest, IDBVersionChangeEvent, IDBDatabase, IDBTransaction, IDBObjectStore, IDBIndex, IDBCursor } = require('fake-indexeddb');
+  globalThis.indexedDB = new IDBFactory();
+  globalThis.IDBRequest = IDBRequest;
+  globalThis.IDBOpenDBRequest = IDBOpenDBRequest;
+  globalThis.IDBVersionChangeEvent = IDBVersionChangeEvent;
+  globalThis.IDBDatabase = IDBDatabase;
+  globalThis.IDBTransaction = IDBTransaction;
+  globalThis.IDBObjectStore = IDBObjectStore;
+  globalThis.IDBIndex = IDBIndex;
+  globalThis.IDBCursor = IDBCursor;
+}
 
 async function testPlatform(name: string, factory: () => Promise<Platform>) {
   describe(name, () => {

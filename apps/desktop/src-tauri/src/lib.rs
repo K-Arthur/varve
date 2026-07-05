@@ -6,6 +6,7 @@ use strata_core::{Circle, Line, Point, Rect, Shape};
 use tauri::ipc::Response;
 use tauri::Emitter;
 use tauri::Manager;
+use image::load_from_memory;
 
 use crate::renderer::{generate_ir, generate_pixels, ShapeIr};
 
@@ -203,6 +204,65 @@ fn sync_save(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String
 #[tauri::command]
 fn sync_load(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String) -> Result<Option<String>, String> {
     store.load_document(&doc_id).map_err(|e| e.to_string())
+}
+
+// ── Background Removal ──────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct BgRemoveOptions {
+    method: String,
+    tolerance: Option<u8>,
+    feather_radius: Option<f32>,
+    decontaminate: Option<bool>,
+    click_x: Option<u32>,
+    click_y: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+struct BgRemoveResult {
+    mask_base64: String,
+    confidence: f32,
+    method: String,
+    processing_time_ms: u64,
+    width: u32,
+    height: u32,
+}
+
+/// Remove background from an image using heuristic (non-AI) methods.
+/// Accepts raw PNG bytes and returns a base64-encoded alpha mask.
+#[tauri::command]
+fn remove_background(
+    image_data: Vec<u8>,
+    options: BgRemoveOptions,
+) -> Result<BgRemoveResult, String> {
+    let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
+
+    let method = if options.method == "quick" || options.method.is_empty() {
+        strata_bgremove::RemovalMethod::Quick
+    } else {
+        // AI methods fall back to quick when backend isn't available
+        strata_bgremove::RemovalMethod::Quick
+    };
+
+    let remove_opts = strata_bgremove::RemovalOptions {
+        method,
+        tolerance: options.tolerance,
+        feather_radius: options.feather_radius,
+        decontaminate: options.decontaminate,
+        click_x: options.click_x,
+        click_y: options.click_y,
+    };
+
+    let result = strata_bgremove::remove_background(&img, &remove_opts)?;
+
+    Ok(BgRemoveResult {
+        mask_base64: result.mask_base64,
+        confidence: result.confidence,
+        method: result.method,
+        processing_time_ms: result.processing_time_ms,
+        width: result.width,
+        height: result.height,
+    })
 }
 
 // ── PDF export ─────────────────────────────────────────
@@ -779,6 +839,7 @@ pub fn run() {
             home_read_text_file,
             home_write_text_file,
             write_binary_file,
+            remove_background,
             export_node_pdf,
             export_pdfx1a,
             export_pdfx4,
