@@ -141,7 +141,7 @@
   transition: background var(--duration-quick) var(--ease-standard);
 }
 
-/* Type-coded row wash (visible on resting state, overridden by hover/selected) */
+/* Type-coded row wash (resting state only — selected/hover overrides via higher-specificity selectors below) */
 .layers-row[data-layer-type="frame"] {
   background: var(--color-layer-wash-frame);
 }
@@ -162,6 +162,16 @@
 }
 .layers-row[data-layer-type="adjustment"] {
   background: var(--color-layer-wash-adjustment);
+}
+
+/* Selected state must win over type-coded wash (matching specificity 0,2,0, later in source = wins).
+ * White text is readable against the dark-teal selected background. */
+.layers-row--selected[data-layer-type] {
+  background: var(--color-tree-row-selected);
+  color: var(--color-text-on-accent);
+}
+.layers-row--selected[data-layer-type]:hover {
+  background: var(--color-tree-row-selected);
 }
 
 /* Accent bar colors per type */
@@ -355,6 +365,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 80px;
+}
+
+/* ─── Style indicator (palette icon for style-linked nodes) ── */
+.layers-row__style-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent-primary);
+  flex-shrink: 0;
+  margin-right: var(--space-1);
+  opacity: 0.8;
 }
 
 /* ─── Blend mode / opacity badge ──────────────────────────── */

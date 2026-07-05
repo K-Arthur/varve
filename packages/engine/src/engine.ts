@@ -280,3 +280,23 @@ export async function createEngine(preferred: Backend | 'auto' = 'auto'): Promis
   }
   return stubEngine();
 }
+
+/**
+ * Apply resolved style overrides to a scene node.
+ * Returns a new node with overrides merged in (no mutation).
+ * This is the wiring point for `resolveAllStyles` from @strata/scene.
+ *
+ * Usage:
+ *   const resolved = resolveAllStyles(doc);
+ *   const mergedNodes = flatNodes.map(n =>
+ *     applyStyleOverrides(n, resolved.get(n.id))
+ *   );
+ *   const ir = await eng.buildIr({ nodes: mergedNodes });
+ */
+export function applyStyleOverrides(
+  node: SceneNode,
+  overrides: Record<string, unknown> | undefined,
+): SceneNode {
+  if (!overrides) return node;
+  return { ...node, ...overrides };
+}

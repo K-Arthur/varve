@@ -54,6 +54,7 @@ import {
   createDocument,
   createVariableStore,
   createVariant as createVariantDoc,
+  deepCloneSubtree,
   type Document,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
@@ -2837,7 +2838,7 @@ export function EditorProvider({
         announcerRef.current?.announce(`Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`);
       },
 
-      paste: () => {
+       paste: () => {
         readFromClipboard().then((data) => {
           if (!data || data.nodes.length === 0) return;
           setState((s) => {
@@ -2845,12 +2846,30 @@ export function EditorProvider({
             redoStackRef.current = [];
             let doc = s.document;
             const newIds: NodeId[] = [];
+            // Build a temporary node map from clipboard data so deepCloneSubtree
+            // can resolve child references within the copied set.
+            const tempNodes: Record<string, SceneNode> = {};
             for (const node of data.nodes) {
-              const { id, doc: d2 } = nextNodeId(doc);
-              doc = d2;
-              const cloned = { ...node, id } as SceneNode;
-              doc = addNode(doc, cloned);
-              newIds.push(id);
+              tempNodes[node.id] = node;
+            }
+            const tempDoc: Document = { ...doc, nodes: tempNodes };
+            for (const node of data.nodes) {
+              if (isContainer(node)) {
+                const result = deepCloneSubtree(tempDoc, node.id);
+                if (result.rootId) {
+                  doc = { ...doc, nextId: result.nextId };
+                  for (const cloned of Object.values(result.nodes)) {
+                    doc = addNode(doc, cloned);
+                    newIds.push(cloned.id);
+                  }
+                }
+              } else {
+                const { id, doc: d2 } = nextNodeId(doc);
+                doc = d2;
+                const cloned = { ...node, id } as SceneNode;
+                doc = addNode(doc, cloned);
+                newIds.push(id);
+              }
             }
             return { ...s, document: doc, selection: newIds };
           });

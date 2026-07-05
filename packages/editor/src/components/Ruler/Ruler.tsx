@@ -53,8 +53,13 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
       const dpr = window.devicePixelRatio ?? 1;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+      // Canvas2D cannot resolve CSS variables — resolve them via getComputedStyle.
+      const computed = getComputedStyle(document.documentElement);
+      const bgColor = computed.getPropertyValue('--color-surface-sunken').trim() || '#f0f0f0';
+      const tickColor = computed.getPropertyValue('--color-text-muted').trim() || '#888';
+
       ctx.clearRect(0, 0, size, RULER_SIZE);
-      ctx.fillStyle = 'var(--color-surface-sunken, #f0f0f0)';
+      ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, size, RULER_SIZE);
 
       const interval = getTickInterval(zoom);
@@ -65,8 +70,8 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
       const startWorld = Math.floor(-offset / zoom / interval) * interval;
       const endWorld = startWorld + size / zoom + interval;
 
-      ctx.strokeStyle = 'var(--color-text-muted, #999)';
-      ctx.fillStyle = 'var(--color-text-muted, #999)';
+      ctx.strokeStyle = tickColor;
+      ctx.fillStyle = tickColor;
       ctx.font = '9px system-ui';
 
       for (let w = startWorld; w <= endWorld; w += interval) {

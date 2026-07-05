@@ -9,7 +9,7 @@
 
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
+import { isContainer, nodeHasStyle } from '@strata/scene';
 import type { IconName } from '@strata/ui';
 import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -306,6 +306,17 @@ export const LayersRow = memo(function LayersRow({
             title={node.name}
           >
             {node.name}
+          </span>
+        )}
+
+        {/* Style indicator */}
+        {nodeHasStyle(node) && !editing && (
+          <span
+            className="layers-row__style-indicator"
+            title="Linked to style"
+            aria-label="Linked to style"
+          >
+            <Icon name={CHROME_ICONS.palette} size="0.75em" />
           </span>
         )}
 
