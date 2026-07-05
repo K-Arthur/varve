@@ -122,28 +122,42 @@
 
 .editor-menubar {
   grid-area: menubar;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 2px;
   padding: 0 var(--space-2);
-  background: var(--color-surface-sunken);
+  background: var(--color-surface-overlay);
   border-bottom: 1px solid var(--color-border-subtle);
-  box-shadow: var(--elevation-shadow-raised);
+  /* Linear-esque: deep surface, tight 1px border, no heavy shadow */
 }
+
+/* Divider between home icon and menu items */
+.editor-menubar__divider {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border-subtle);
+  margin: 0 var(--space-1);
+  flex-shrink: 0;
+}
+
 .editor-menubar__item {
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   cursor: default;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   background: none;
   border: none;
-  color: inherit;
+  color: var(--color-text-muted);
+  white-space: nowrap;
   transition:
     background var(--duration-fast) var(--ease-default),
     color var(--duration-fast) var(--ease-default);
 }
 .editor-menubar__item:hover {
   background: var(--color-surface-raised);
+  color: var(--color-text-primary);
 }
 .editor-menubar__item:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -172,7 +186,7 @@
   outline-offset: -2px;
 }
 
-/* Tab strip (A8) */
+/* Tab strip (A8) — compact file tabs à la VS Code / Figma */
 .editor-tabs {
   grid-area: tabs;
   display: flex;
@@ -182,7 +196,6 @@
   scrollbar-width: none;
   background: var(--color-surface-sunken);
   border-bottom: 1px solid var(--color-border-subtle);
-  box-shadow: var(--elevation-shadow-raised);
 }
 .editor-tabs::-webkit-scrollbar {
   display: none;
@@ -195,7 +208,7 @@
   padding: 0 var(--space-2);
   height: 32px;
   min-width: 80px;
-  max-width: 200px;
+  max-width: 180px;
   border: none;
   border-right: 1px solid var(--color-border-subtle);
   background: transparent;
@@ -222,11 +235,12 @@
   background: var(--color-surface-app);
   color: var(--color-text-primary);
   border-bottom: 2px solid var(--color-interactive-default);
+  border-right-color: transparent;
 }
 
 .editor-tabs__dirty-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--color-interactive-default);
   flex-shrink: 0;
@@ -243,8 +257,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -258,7 +272,7 @@
     background var(--duration-fast) var(--ease-default);
 }
 .editor-tabs__close:hover {
-  background: var(--color-surface-sunken);
+  background: color-mix(in oklch, var(--color-text-primary) 15%, transparent);
 }
 .editor-tabs__close:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -266,10 +280,13 @@
   opacity: 1;
 }
 .editor-tabs__tab:hover .editor-tabs__close {
-  opacity: 1;
+  opacity: 0.6;
 }
 .editor-tabs__tab--active .editor-tabs__close {
-  opacity: 1;
+  opacity: 0.6;
+}
+.editor-tabs__close:hover {
+  opacity: 1 !important;
 }
 
 .editor-tabs__new {
@@ -283,10 +300,17 @@
   color: var(--color-text-muted);
   cursor: pointer;
   flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
 }
 .editor-tabs__new:hover {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
+}
+.editor-tabs__new:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 /* ── Snap guides overlay ────────────────────────────── */
@@ -347,14 +371,13 @@
   z-index: var(--z-raised);
 }
 
-/* Side panels are sunken "rails"; sections inside render as raised cards
- * (see inspector.css .insp-disclosure) so they float on the rail. */
+/* Side panel rails — Neo-Bento: solid sunken surface, crisp 1px edge */
 .editor-layers {
   grid-area: layers;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-surface-base);
+  background: var(--color-surface-sunken);
   border-right: 1px solid var(--color-border-subtle);
 }
 
@@ -365,12 +388,15 @@
   min-height: 0;
   overflow: hidden;
   padding: var(--space-2);
-  background: var(--color-surface-base);
+  gap: var(--space-1);
+  background: var(--color-surface-sunken);
   border-left: 1px solid var(--color-border-subtle);
 }
 
+/* Legacy group — superseded by .insp-disclosure in inspector.css but kept
+ * for any embedded widget that still uses this class. */
 .editor-inspector__group {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
   background: var(--color-surface-raised);
   border: var(--border-micro);
   border-radius: var(--radius-md);
@@ -386,30 +412,42 @@
   border: 1px solid var(--color-border-subtle);
 }
 
+/* Neo-Bento status bar — deep surface, crisp top edge, monospace zoom chip */
 .editor-status {
   grid-area: status;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-2);
-  background: var(--color-surface-sunken);
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  background: var(--color-surface-overlay);
   border-top: 1px solid var(--color-border-subtle);
-  box-shadow: 0 -1px 3px var(--elevation-shadow-raised);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
+/* Zoom value: monospace numerics, compact chip wrapper */
+.editor-status__zoom-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px var(--space-2);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
 .editor-status__zoom-value {
-  width: 44px;
+  width: 36px;
   text-align: right;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   font-feature-settings: "tnum";
   background: none;
   border: none;
-  color: inherit;
+  color: var(--color-text-primary);
   cursor: text;
   padding: 0;
+  outline: none;
 }
 
 .editor-status__unit-select {
@@ -431,20 +469,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   background: none;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   cursor: pointer;
+  flex-shrink: 0;
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
 }
 .editor-status__toggle:hover {
-  background: var(--color-surface-raised);
+  background: color-mix(in oklch, var(--color-text-primary) 12%, transparent);
   color: var(--color-text-primary);
 }
 .editor-status__toggle--active {
@@ -454,6 +493,12 @@
 .editor-status__toggle:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
+}
+/* Zoom chip toggles (smaller, borderless, inline) */
+.editor-status__zoom-chip .editor-status__toggle {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
 }
 
 .editor-status__fit-btn {
@@ -500,25 +545,26 @@
 
 /* ── Docs name in menubar ── */
 .editor-menubar__doc-name {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  padding: 0 var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
+  max-width: 240px;
   min-width: 0;
-  cursor: default;
+  pointer-events: auto;
 }
 
 .editor-menubar__doc-name-input {
   background: none;
   border: none;
   border-bottom: 1px solid transparent;
-  color: inherit;
+  color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   text-align: center;
-  min-width: 60px;
-  max-width: 200px;
+  width: 200px;
   padding: 0 var(--space-1);
   outline: none;
   cursor: text;
@@ -593,11 +639,7 @@
     transform: translateX(0);
   }
 
-.page-nav-container {
-  grid-area: pagenav;
-}
-
-.editor-status {
+  .editor-status {
     font-size: var(--font-size-2xs);
     gap: var(--space-2);
   }
@@ -647,6 +689,7 @@
 .editor__layers-panel {
   container-type: inline-size;
   container-name: layers;
+  grid-area: layers;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -655,12 +698,16 @@
 .editor__inspector-panel {
   container-type: inline-size;
   container-name: inspector;
+  grid-area: inspector;
   position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+.page-nav-container {
+  grid-area: pagenav;
 }
 
 /* ── Panel resize handles (APG window splitter) ── */
@@ -697,7 +744,8 @@
   background: var(--color-interactive-default);
 }
 .panel-resize:focus-visible {
-  outline: none;
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 /* Overlay mode (small screens): panels are fixed drawers — no resizing. */
 @media (max-width: 899px) {
@@ -775,32 +823,6 @@
   outline-offset: -1px;
 }
 
-/* ── Resize handle ── */
-.panel-resize {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 5px;
-  z-index: var(--z-raised);
-  cursor: col-resize;
-  background: transparent;
-  transition: background var(--duration-fast) var(--ease-default);
-}
-.panel-resize:hover,
-.panel-resize--active {
-  background: var(--color-interactive-default);
-  opacity: 0.5;
-}
-.panel-resize:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
-}
-.panel-resize--right {
-  right: -3px;
-}
-.panel-resize--left {
-  left: -3px;
-}
 
 /* ── Collapsed panel state ── */
 .editor__layers-panel[data-collapsed],

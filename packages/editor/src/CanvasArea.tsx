@@ -22,7 +22,7 @@ import {
 } from '@strata/engine';
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
-import { buildParentIndexMap, walkNodes } from '@strata/scene';
+import { walkNodes } from '@strata/scene';
 import {
   clampZoom,
   fitBoundsCamera,
@@ -43,7 +43,14 @@ import { VariantBox } from './components/VariantBox/VariantBox';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { SelectionOverlay } from './SelectionOverlay';
-import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import { nodeWorldBounds } from './scene/world';
+import {
+  createTransformCache,
+  getWorldBounds as getCachedWorldBounds,
+  getWorldTransform as getCachedWorldTransform,
+  invalidateAll as invalidateTransformCache,
+  type TransformCache,
+} from './scene/transformCache';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
 import { ArrowTool } from './tools/ArrowTool';
@@ -331,6 +338,12 @@ export function CanvasArea({
   stateRef.current = state;
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  const transformCacheRef = useRef<TransformCache>(createTransformCache());
+  const prevDrawDocRef = useRef(state.document);
+  if (state.document !== prevDrawDocRef.current) {
+    invalidateTransformCache(transformCacheRef.current);
+    prevDrawDocRef.current = state.document;
+  }
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
   const drawRafRef = useRef<number | null>(null);
@@ -515,11 +528,10 @@ export function CanvasArea({
       // Pre-build all IR items in one call (single IPC round-trip for native engine).
       // Nodes are in DFS paint order so the indices align with the IR array.
       const entries = walkNodes(doc);
-      // Pre-build parent index for O(1) ancestor lookups in the render loop.
-      const parentIndex = buildParentIndexMap(doc);
+      const cache = transformCacheRef.current;
       const viewport = canvas.getBoundingClientRect();
       const vp = { width: viewport.width, height: viewport.height };
-      const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
+      const cam = { pan: s.pan, zoom: s.zoom };
       const nodeIds: string[] = [];
       const flatNodes: EngineNode[] = [];
       for (const [id] of entries) {
@@ -528,10 +540,10 @@ export function CanvasArea({
         // Skip groups — they are transparent pass-through containers, not drawables.
         // replaySubtree handles groups separately (line 343-350).
         if (n.kind === 'group') continue;
-        const world = nodeWorldTransform(doc, id, parentIndex);
+        const world = getCachedWorldTransform(cache, doc, id);
         // Viewport culling: skip nodes whose world bounds don't intersect the viewport.
         // This avoids building IR and rendering for off-screen content.
-        const worldBounds = nodeWorldBounds(doc, id, parentIndex);
+        const worldBounds = getCachedWorldBounds(cache, doc, id);
         if (worldBounds && !isWorldRectInViewport(cam, vp, worldBounds)) continue;
         nodeIds.push(id);
         flatNodes.push({ ...toEngineNode(n), transform: world });
@@ -618,7 +630,7 @@ export function CanvasArea({
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
         if (mask && maskChild && maskSrcId) {
           ctx.save();
-          const maskWorldTransform = nodeWorldTransform(doc, maskSrcId);
+          const maskWorldTransform = getCachedWorldTransform(cache, doc, maskSrcId);
           const [ma, mb, mc, md, me, mf] = maskWorldTransform;
           ctx.transform(ma, mb, mc, md, me, mf);
           ctx.beginPath();
@@ -673,7 +685,7 @@ export function CanvasArea({
               maxX = -Infinity,
               maxY = -Infinity;
             for (const childId of n.children) {
-              const b = nodeWorldBounds(doc, childId);
+              const b = getCachedWorldBounds(cache, doc, childId);
               if (b) {
                 minX = Math.min(minX, b.x);
                 minY = Math.min(minY, b.y);
@@ -744,7 +756,7 @@ export function CanvasArea({
         };
         const ls = frame.layoutStyle;
         if (!ls.gridTemplateColumns && !ls.gridTemplateRows) continue;
-        const world = nodeWorldTransform(doc, nid);
+        const world = getCachedWorldTransform(cache, doc, nid);
         const [a, b, c, d, e, f] = world;
         const fw = frame.w;
         const fh = frame.h;
@@ -978,7 +990,7 @@ export function CanvasArea({
           y: s.pan.y + (geo.centroid.y - pinch.lastCentroid.y),
         };
         // …then zoom about the current centroid by the distance ratio.
-        const cam = { pan: [panned.x, panned.y] as [number, number], zoom: s.zoom };
+        const cam = { pan: panned, zoom: s.zoom };
         const anchor = screenToWorld(
           cam,
           geo.centroid.x - (rect?.left ?? 0),
@@ -987,7 +999,7 @@ export function CanvasArea({
         const factor = pinch.lastDist > 0 ? geo.dist / pinch.lastDist : 1;
         const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor));
         editorRef.current.setZoom(newCam.zoom);
-        editorRef.current.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
+        editorRef.current.setPan(newCam.pan);
         pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
         return;
       }
@@ -1095,11 +1107,11 @@ export function CanvasArea({
     const zoomAboutClientPoint = (clientX: number, clientY: number, newZoom: number): void => {
       const s = stateRef.current;
       const rect = el.getBoundingClientRect();
-      const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
+      const cam = { pan: s.pan, zoom: s.zoom };
       const anchor = screenToWorld(cam, clientX - rect.left, clientY - rect.top);
       const newCam = zoomAboutPoint(cam, anchor, clampZoom(newZoom));
       editorRef.current.setZoom(newCam.zoom);
-      editorRef.current.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
+      editorRef.current.setPan(newCam.pan);
     };
 
     const onWheel = (e: WheelEvent): void => {
@@ -1228,11 +1240,11 @@ export function CanvasArea({
         const parent = canvasRef.current?.parentElement;
         const vpW = parent?.clientWidth ?? 800;
         const vpH = parent?.clientHeight ?? 600;
-        const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
+        const cam = { pan: s.pan, zoom: s.zoom };
         const centreWorld = screenToWorld(cam, vpW / 2, vpH / 2);
         const newCam = zoomAboutPoint(cam, centreWorld, newZoom);
         eRef.setZoom(newCam.zoom);
-        eRef.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
+        eRef.setPan(newCam.pan);
       }
 
       // ── Zoom presets (unmodified 1-6) ────────────────────────────────
@@ -1284,7 +1296,7 @@ export function CanvasArea({
         const canvasViewport = { width: vpW, height: vpH };
         const allBounds = rootNodes().reduce<{ x: number; y: number; w: number; h: number } | null>(
           (acc, n) => {
-            const b = nodeWorldBounds(state.document, n.id);
+            const b = editor.getWorldBounds(n.id);
             if (!b) return acc;
             if (!acc) return b;
             const minX = Math.min(acc.x, b.x);
@@ -1298,7 +1310,7 @@ export function CanvasArea({
         if (allBounds) {
           const cam = fitBoundsCamera(allBounds, canvasViewport, 40);
           eRef.setZoom(cam.zoom);
-          eRef.setPan({ x: cam.pan[0], y: cam.pan[1] });
+          eRef.setPan(cam.pan);
           eRef.announceOperation('Zoom', 'fit all');
         }
       }
@@ -1375,7 +1387,7 @@ export function CanvasArea({
     // Get drop position in world coordinates
     const rect = canvasRef.current?.getBoundingClientRect();
     const cam = {
-      pan: [stateRef.current.pan.x, stateRef.current.pan.y] as [number, number],
+      pan: stateRef.current.pan,
       zoom: stateRef.current.zoom,
     };
     const dropWorld = rect ? screenToWorld(cam, e.clientX - rect.left, e.clientY - rect.top) : null;
@@ -1515,7 +1527,7 @@ export function CanvasArea({
         (() => {
           const n = state.document.nodes[nodeEditTargetId];
           if (n?.kind !== 'shape' || n.shape.kind !== 'path') return null;
-          const worldMat = nodeWorldTransform(state.document, nodeEditTargetId);
+          const worldMat = editor.getWorldTransform(nodeEditTargetId);
           return (
             <NodeEditOverlay
               node={n}
@@ -1538,7 +1550,7 @@ export function CanvasArea({
         const component = state.document.components[frame.componentId];
         const hasVariants = component?.variants && component.variants.length > 0;
         if (!hasVariants) return null;
-        const worldB = nodeWorldBounds(state.document, singleId);
+        const worldB = editor.getWorldBounds(singleId);
         if (!worldB) return null;
         const screenX = worldB.x * state.zoom + state.pan.x;
         const screenY = worldB.y * state.zoom + state.pan.y;
@@ -1564,7 +1576,7 @@ export function CanvasArea({
           const canvasLeft = canvasRect?.left ?? 0;
           const canvasTop = canvasRect?.top ?? 0;
           // Compose world transform (includes ancestor frames + own rotation/scale)
-          const textWorldMat = nodeWorldTransform(state.document, textEditTargetId);
+          const textWorldMat = editor.getWorldTransform(textEditTargetId);
           const worldX = textWorldMat[4];
           const worldY = textWorldMat[5];
           const textScreenX = worldX * state.zoom + state.pan.x + canvasLeft;

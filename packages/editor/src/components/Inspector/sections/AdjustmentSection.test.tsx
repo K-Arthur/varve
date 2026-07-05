@@ -39,7 +39,7 @@ function makeAdjustmentNode(
             { x: 1, y: 1 },
           ],
         },
-      } as AdjustmentNode;
+      } as unknown as AdjustmentNode;
     case 'levels':
       return {
         ...base,
@@ -52,7 +52,7 @@ function makeAdjustmentNode(
           outputBlack: 0,
           outputWhite: 255,
         },
-      } as AdjustmentNode;
+      } as unknown as AdjustmentNode;
     case 'selectiveColor':
       return {
         ...base,

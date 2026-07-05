@@ -20,7 +20,6 @@ import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
-import { NumberField } from './controls/NumberField';
 import { AdjustmentSection } from './sections/AdjustmentSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';

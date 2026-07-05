@@ -45,7 +45,7 @@ function severityBg(severity: PrintPreflightSeverity): string {
 }
 
 export function PreflightWarnings() {
-  const { state, revealSelection, isSelected } = useEditor();
+  const { state, revealSelection } = useEditor();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 

@@ -180,14 +180,37 @@
   font-feature-settings: "tnum";
 }
 
-/* ---------- Disclosure section (APG) — rendered as a card ---------- */
+/* ---------- Disclosure section (APG) — Neo-Bento raised card ----------
+ * Each section is a discrete floating card on the sunken panel rail.
+ * Active (expanded) sections get a teal left accent bar — the same
+ * visual language as the page nav active chip and layer selection bar.
+ */
 .insp-disclosure {
-  margin-bottom: var(--space-2);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--space-1);
   background: var(--color-surface-raised);
   border: var(--border-micro);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
 }
+
+/* Teal left accent bar — visible only when section is open */
+.insp-disclosure::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: transparent;
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+.insp-disclosure:has(.insp-disclosure__trigger[aria-expanded="true"])::before {
+  background: var(--color-interactive-default);
+}
+
 .insp-disclosure__trigger {
   display: flex;
   align-items: center;
@@ -200,6 +223,7 @@
   font: inherit;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
   cursor: pointer;
 }
 .insp-disclosure__trigger:focus-visible {
@@ -213,6 +237,9 @@
 }
 .insp-disclosure__trigger[aria-expanded="true"] .insp-disclosure__chevron {
   transform: rotate(90deg);
+}
+.insp-disclosure__trigger[aria-expanded="true"] {
+  color: var(--color-text-primary);
 }
 .insp-disclosure__content {
   display: flex;
@@ -228,6 +255,9 @@
 /* High-contrast: surfaces don't differentiate, so cards need real borders. */
 [data-theme="high-contrast"] .insp-disclosure {
   border: 1px solid var(--color-border-subtle);
+}
+[data-theme="high-contrast"] .insp-disclosure::before {
+  display: none;
 }
 
 /* ---------- Field row ---------- */
@@ -617,20 +647,19 @@
   width: 100%;
   min-height: 48px;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--color-surface-default);
+  background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   font-family: inherit;
   font-size: var(--font-size-sm);
   resize: vertical;
   box-sizing: border-box;
+  outline: none;
 }
 
 .typography__text-input:focus {
-  outline: none;
-  border-color: var(--color-accent-primary);
-  box-shadow: 0 0 0 2px var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 /* ---------- OpenType feature list ---------- */

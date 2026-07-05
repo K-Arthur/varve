@@ -19,6 +19,10 @@ import {
   measureText,
   multiplyAffine,
 } from '@strata/shared';
+import type { TransformCache } from './transformCache';
+import { getWorldTransform as getCachedTransform } from './transformCache';
+import type { ParentIndexCache } from './parentIndexCache';
+import { getParentFast } from './parentIndexCache';
 
 /**
  * Walk the ancestor chain from `id` up to the root, composing local→parent
@@ -27,6 +31,10 @@ import {
  * When `parentIndex` is provided (from {@link buildParentIndexMap}), parent
  * lookups are O(1) instead of O(n) — callers in hot paths (render loop) should
  * pre-build the index once per frame.
+ *
+ * When `cache` is provided, the result is cached and reused across calls within
+ * the same cache generation — callers that repeatedly query transforms should
+ * pass a cache for O(1) amortized lookup.
  *
  * Composes in scene-graph order: for parent transforms P₁, P₂, …, Pₙ where
  * P₁ is the root ancestor, the world transform is
@@ -37,19 +45,23 @@ export function nodeWorldTransform(
   doc: Document,
   id: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
+  cache?: TransformCache,
+  parentCache?: ParentIndexCache,
 ): Affine {
+  if (cache) {
+    return getCachedTransform(cache, doc, id);
+  }
   const node = doc.nodes[id];
   if (!node) return identity;
 
-  // SceneNode union guarantees transform on all member types (ShapeNode,
-  // TextNode, GroupNode, FrameNode all have `transform: Affine`).
   const nodeTransform = node.transform as Affine;
   const chain: Affine[] = [nodeTransform];
 
-  // Walk up: use pre-built index for O(1) lookups when available.
   const getParentFn = parentIndex
     ? (_d: Document, childId: NodeId) => parentIndex.get(childId) ?? null
-    : getParent;
+    : parentCache && parentCache.docRef === doc
+      ? (_d: Document, childId: NodeId) => parentCache.parentMap.get(childId) ?? null
+      : getParent;
   let parentId = getParentFn(doc, id);
   while (parentId) {
     const parent = doc.nodes[parentId];
@@ -172,12 +184,14 @@ export function groupWorldBounds(
   doc: Document,
   groupId: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
+  cache?: TransformCache,
+  parentCache?: ParentIndexCache,
 ): Rect | null {
   const node = doc.nodes[groupId];
   if (node?.kind !== 'group') return null;
   let union: Rect | null = null;
   for (const childId of node.children) {
-    const b = nodeWorldBounds(doc, childId, parentIndex);
+    const b = nodeWorldBounds(doc, childId, parentIndex, cache);
     if (!b) continue;
     if (!union) {
       union = { x: b.x, y: b.y, w: b.w, h: b.h };
@@ -205,12 +219,14 @@ export function nodeWorldBounds(
   doc: Document,
   id: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
+  cache?: TransformCache,
+  parentCache?: ParentIndexCache,
 ): Rect | null {
   const node = doc.nodes[id];
   if (!node) return null;
-  if (node.kind === 'group') return groupWorldBounds(doc, id, parentIndex);
+  if (node.kind === 'group') return groupWorldBounds(doc, id, parentIndex, cache, parentCache);
   const local = nodeLocalBounds(node);
   if (!local) return null;
-  const worldMat = nodeWorldTransform(doc, id, parentIndex);
+  const worldMat = nodeWorldTransform(doc, id, parentIndex, cache, parentCache);
   return affineTransformRect(worldMat, local);
 }
