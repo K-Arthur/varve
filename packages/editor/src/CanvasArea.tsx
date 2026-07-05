@@ -626,7 +626,7 @@ export function CanvasArea({
           ctx.closePath();
           ctx.clip();
           ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
-          for (const childId of n.children) {
+          for (const childId of (n as import('@strata/scene').ContainerNode).children) {
             if (childId !== maskSrcId) replaySubtreeToCtx(childId, ctx);
           }
           ctx.restore();
@@ -699,7 +699,7 @@ export function CanvasArea({
               gCtx.restore();
               const bm = n.blendMode ?? 'passThrough';
               if (bm !== 'passThrough') {
-                ctx.globalCompositeOperation = mapBlendMode(bm);
+                ctx.globalCompositeOperation = mapBlendMode(bm) as GlobalCompositeOperation;
               } else if (isIsolated) {
                 ctx.globalCompositeOperation = 'source-over';
               }

@@ -46,7 +46,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     selectAllOfType,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
-  const [colorMenuOpen, setColorMenuOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
