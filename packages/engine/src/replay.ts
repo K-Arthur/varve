@@ -9,13 +9,14 @@
  * F6 (Phase 2): opacity, blend modes, per-fill compositing, stacked strokes
  * and effects, plus arrow/path/image primitive rendering.
  */
-import { mapBlendMode } from './compositeCanvas';
-import { getImageCache } from './imageCache';
-import { applyFilterChain, filterChainToCss, filterToCss } from './filters';
-import { applyFilterWithCompositing } from './filterCompositor';
-import { layoutRichText } from './textLayout';
-import { placeGlyphsOnPath } from './pathText';
+
 import { managedColorToRgba } from '@strata/shared';
+import { mapBlendMode } from './compositeCanvas';
+import { applyFilterWithCompositing } from './filterCompositor';
+import { applyFilterChain, filterChainToCss, filterToCss } from './filters';
+import { getImageCache } from './imageCache';
+import { placeGlyphsOnPath } from './pathText';
+import { layoutRichText } from './textLayout';
 import type { EngineColor, FillIR, RenderItem } from './types';
 
 export interface ReplayTarget {
@@ -210,11 +211,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
     // - Filters with opacity < 1
     // - Filters without a CSS equivalent (curves, levels, selectiveColor, etc.)
     const needsPostRenderFilters = item.filters?.some(
-      (f) =>
-        !f.blendMode ||
-        f.blendMode !== 'normal' ||
-        (f.opacity ?? 1) < 1 ||
-        !filterToCss(f),
+      (f) => !f.blendMode || f.blendMode !== 'normal' || (f.opacity ?? 1) < 1 || !filterToCss(f),
     );
     if (item.filters && item.filters.length > 0) {
       if (needsPostRenderFilters) {
@@ -304,23 +301,13 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           // and composite it clipped to the item shape. Item fills/strokes
           // render on top (handled in the fills pass below).
           // Requires the canvas target to have a valid .canvas reference.
-          const canvas = target.canvas as
-            | HTMLCanvasElement
-            | OffscreenCanvas
-            | undefined;
+          const canvas = target.canvas as HTMLCanvasElement | OffscreenCanvas | undefined;
           if (canvas && typeof OffscreenCanvas !== 'undefined') {
             // Capture backdrop
-            const backdrop = new OffscreenCanvas(
-              canvas.width,
-              canvas.height,
-            );
+            const backdrop = new OffscreenCanvas(canvas.width, canvas.height);
             const bCtx = backdrop.getContext('2d');
             if (bCtx) {
-              bCtx.drawImage(
-                canvas as unknown as CanvasImageSource,
-                0,
-                0,
-              );
+              bCtx.drawImage(canvas as unknown as CanvasImageSource, 0, 0);
               // Apply blur to backdrop
               bCtx.filter = `blur(${effect.radius}px)`;
               bCtx.drawImage(backdrop, 0, 0);
@@ -329,11 +316,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
               target.beginPath();
               traceOutline(target, item.primitive);
               if (target.clip) target.clip();
-              target.drawImage(
-                backdrop as unknown as CanvasImageSource,
-                0,
-                0,
-              );
+              target.drawImage(backdrop as unknown as CanvasImageSource, 0, 0);
               target.restore();
             }
           }

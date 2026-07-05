@@ -12,13 +12,19 @@
  *   W3C Compositing and Blending spec.
  */
 
-import type { FilterIR } from './types';
-import { filterToCss } from './filters';
-import { mapBlendMode } from './compositeCanvas';
-import { buildCurveLUT, applyCurve } from './adjustment/curves';
-import { buildLevelsLUT, applyLevels } from './adjustment/levels';
+import { applyCurve, buildCurveLUT } from './adjustment/curves';
+import { applyLevels, buildLevelsLUT } from './adjustment/levels';
 import { applySelectiveColor } from './adjustment/selectiveColor';
-import { applyHalftone, type HalftonePattern, type HalftoneDotShape, type HalftoneChannel, type HalftoneMethod } from './halftone';
+import { mapBlendMode } from './compositeCanvas';
+import { filterToCss } from './filters';
+import {
+  applyHalftone,
+  type HalftoneChannel,
+  type HalftoneDotShape,
+  type HalftoneMethod,
+  type HalftonePattern,
+} from './halftone';
+import type { FilterIR } from './types';
 
 /** Build a CSS filter string from all CSS-compatible filters, ignoring opacity/blend. */
 function filterChainToCssSimple(filters: FilterIR[]): string | null {
@@ -160,20 +166,28 @@ function applySoftwareFilter(
 
   switch (filter.kind) {
     case 'curves': {
-      const channel = 'channel' in filter ? (filter as { channel: string }).channel as 'rgb' | 'red' | 'green' | 'blue' : 'rgb';
-      const points = 'points' in filter
-        ? (filter as { points: Array<{ x: number; y: number }> }).points
-        : [];
+      const channel =
+        'channel' in filter
+          ? ((filter as { channel: string }).channel as 'rgb' | 'red' | 'green' | 'blue')
+          : 'rgb';
+      const points =
+        'points' in filter ? (filter as { points: Array<{ x: number; y: number }> }).points : [];
       const lut = buildCurveLUT(points);
       const result = applyCurve(imageData, channel, lut);
       ctx.putImageData(result, 0, 0);
       break;
     }
     case 'levels': {
-      const channel = 'channel' in filter ? (filter as { channel: string }).channel as 'rgb' | 'red' | 'green' | 'blue' : 'rgb';
+      const channel =
+        'channel' in filter
+          ? ((filter as { channel: string }).channel as 'rgb' | 'red' | 'green' | 'blue')
+          : 'rgb';
       const lvlFilter = filter as {
-        inputBlack?: number; inputWhite?: number; gamma?: number;
-        outputBlack?: number; outputWhite?: number;
+        inputBlack?: number;
+        inputWhite?: number;
+        gamma?: number;
+        outputBlack?: number;
+        outputWhite?: number;
       };
       const result = applyLevels(imageData, channel, {
         inputBlack: lvlFilter.inputBlack ?? 0,
@@ -186,11 +200,21 @@ function applySoftwareFilter(
       break;
     }
     case 'selectiveColor': {
-      const params = 'params' in filter
-        ? (filter as { params: Array<{
-            color: string; cyan: number; magenta: number; yellow: number; black: number; method: string
-          }> }).params
-        : [];
+      const params =
+        'params' in filter
+          ? (
+              filter as {
+                params: Array<{
+                  color: string;
+                  cyan: number;
+                  magenta: number;
+                  yellow: number;
+                  black: number;
+                  method: string;
+                }>;
+              }
+            ).params
+          : [];
       const result = applySelectiveColor(imageData, params);
       ctx.putImageData(result, 0, 0);
       break;
@@ -238,8 +262,10 @@ function applySoftwareFilter(
     }
     case 'channelMixer': {
       const cmf = filter as {
-        red?: [number, number, number]; green?: [number, number, number];
-        blue?: [number, number, number]; constant?: [number, number, number];
+        red?: [number, number, number];
+        green?: [number, number, number];
+        blue?: [number, number, number];
+        constant?: [number, number, number];
         monochrome?: boolean;
       };
       applyChannelMixer(
@@ -254,8 +280,17 @@ function applySoftwareFilter(
       break;
     }
     case 'photoFilter': {
-      const pf = filter as { color: { r: number; g: number; b: number; a: number }; density: number; preserveLuminosity: boolean };
-      applyPhotoFilter(imageData, pf.color ?? { r: 255, g: 165, b: 0, a: 255 }, pf.density ?? 25, pf.preserveLuminosity ?? true);
+      const pf = filter as {
+        color: { r: number; g: number; b: number; a: number };
+        density: number;
+        preserveLuminosity: boolean;
+      };
+      applyPhotoFilter(
+        imageData,
+        pf.color ?? { r: 255, g: 165, b: 0, a: 255 },
+        pf.density ?? 25,
+        pf.preserveLuminosity ?? true,
+      );
       ctx.putImageData(imageData, 0, 0);
       break;
     }
@@ -267,8 +302,12 @@ function applySoftwareFilter(
     }
     case 'halftone': {
       const hf = filter as {
-        pattern: string; frequency: number; angle: number;
-        dotShape: string; channel: string; method: string;
+        pattern: string;
+        frequency: number;
+        angle: number;
+        dotShape: string;
+        channel: string;
+        method: string;
       };
       applyHalftone(imageData, {
         pattern: hf.pattern as HalftonePattern,
@@ -325,12 +364,7 @@ function applyExposure(
 /**
  * Sharpen: unsharp mask via box blur difference.
  */
-function applySharpen(
-  data: ImageData,
-  amount: number,
-  radius: number,
-  threshold: number,
-): void {
+function applySharpen(data: ImageData, amount: number, radius: number, threshold: number): void {
   if (radius < 1 || amount === 0) return;
   const w = data.width;
   const h = data.height;
@@ -341,7 +375,10 @@ function applySharpen(
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
       // Simple 3x3 box blur
-      let ar = 0, ag = 0, ab = 0, count = 0;
+      let ar = 0,
+        ag = 0,
+        ab = 0,
+        count = 0;
       for (let dy = -radius; dy <= radius; dy++) {
         for (let dx = -radius; dx <= radius; dx++) {
           const nx = x + dx;
@@ -380,8 +417,8 @@ function applySharpen(
 function applyTemperature(data: ImageData, value: number): void {
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] = clampByte(pixels[i]! + value);       // Red: increase for warm
-    pixels[i + 1] = clampByte(pixels[i + 1]!);       // Green: unchanged
+    pixels[i] = clampByte(pixels[i]! + value); // Red: increase for warm
+    pixels[i + 1] = clampByte(pixels[i + 1]!); // Green: unchanged
     pixels[i + 2] = clampByte(pixels[i + 2]! - value); // Blue: decrease for warm
   }
 }
@@ -393,8 +430,8 @@ function applyTemperature(data: ImageData, value: number): void {
 function applyTint(data: ImageData, value: number): void {
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] = clampByte(pixels[i]! + value * 0.5);     // Red: increase for magenta
-    pixels[i + 1] = clampByte(pixels[i + 1]! - value);   // Green: decrease for magenta
+    pixels[i] = clampByte(pixels[i]! + value * 0.5); // Red: increase for magenta
+    pixels[i + 1] = clampByte(pixels[i + 1]! - value); // Green: decrease for magenta
     pixels[i + 2] = clampByte(pixels[i + 2]! + value * 0.5); // Blue: increase for magenta
   }
 }
@@ -422,9 +459,9 @@ function applyColorBalance(
     highlightW *= highlightW;
     midtoneW = 1 - shadowW - highlightW;
 
-    const dr = (shadows[0] * shadowW + midtones[0] * midtoneW + highlights[0] * highlightW);
-    const dg = (shadows[1] * shadowW + midtones[1] * midtoneW + highlights[1] * highlightW);
-    const db = (shadows[2] * shadowW + midtones[2] * midtoneW + highlights[2] * highlightW);
+    const dr = shadows[0] * shadowW + midtones[0] * midtoneW + highlights[0] * highlightW;
+    const dg = shadows[1] * shadowW + midtones[1] * midtoneW + highlights[1] * highlightW;
+    const db = shadows[2] * shadowW + midtones[2] * midtoneW + highlights[2] * highlightW;
 
     let nr = pixels[i]! + dr;
     let ng = pixels[i + 1]! + dg;
@@ -468,7 +505,9 @@ function applyChannelMixer(
       pixels[i] = pixels[i + 1] = pixels[i + 2] = clampByte(gray);
     } else {
       pixels[i] = clampByte((red[0] * sr + red[1] * sg + red[2] * sb) / 100 + constant[0]);
-      pixels[i + 1] = clampByte((green[0] * sr + green[1] * sg + green[2] * sb) / 100 + constant[1]);
+      pixels[i + 1] = clampByte(
+        (green[0] * sr + green[1] * sg + green[2] * sb) / 100 + constant[1],
+      );
       pixels[i + 2] = clampByte((blue[0] * sr + blue[1] * sg + blue[2] * sb) / 100 + constant[2]);
     }
   }

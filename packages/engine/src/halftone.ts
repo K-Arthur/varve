@@ -32,10 +32,10 @@ export interface HalftoneParams {
 // ── Standard CMYK Screen Angles ────────────────────────────────────────
 
 const STANDARD_ANGLES: Record<string, number> = {
-  c: 15,   // Cyan
-  m: 75,   // Magenta
-  y: 0,    // Yellow (least visible)
-  k: 45,   // Black (most visible)
+  c: 15, // Cyan
+  m: 75, // Magenta
+  y: 0, // Yellow (least visible)
+  k: 45, // Black (most visible)
 };
 
 // ── AM Screening ───────────────────────────────────────────────────────
@@ -48,10 +48,7 @@ const STANDARD_ANGLES: Record<string, number> = {
  * @param dotShape Shape of the halftone dot
  * @returns Uint8Array (size × size) with values 0-255
  */
-export function generateAMMatrix(
-  size: number,
-  dotShape: HalftoneDotShape,
-): Uint8Array {
+export function generateAMMatrix(size: number, dotShape: HalftoneDotShape): Uint8Array {
   const matrix = new Uint8Array(size * size);
   const half = size / 2;
 
@@ -170,10 +167,7 @@ export function applyAMScreening(
  * @param data ImageData to process (in-place)
  * @param levels Number of output levels (2 for 1-bit, more for multi-level)
  */
-export function applyFMStochastic(
-  data: ImageData,
-  params: HalftoneParams,
-): void {
+export function applyFMStochastic(data: ImageData, params: HalftoneParams): void {
   const w = data.width;
   const h = data.height;
   const pixels = data.data;
@@ -200,8 +194,7 @@ export function applyFMStochastic(
       const idx = (y * w + x) * step;
 
       // Convert to grayscale for single-channel halftone
-      const original =
-        0.299 * linear[idx]! + 0.587 * linear[idx + 1]! + 0.114 * linear[idx + 2]!;
+      const original = 0.299 * linear[idx]! + 0.587 * linear[idx + 1]! + 0.114 * linear[idx + 2]!;
 
       // Quantize to nearest level
       const quantized = Math.round(original * (levels - 1)) / (levels - 1);
@@ -241,7 +234,7 @@ function diffuseError(
   const downRight = idx + w * step + step;
 
   if (right < linear.length) addError(linear, right, error, 7 / 16);
-  if (downLeft >= 0 && (idx % (w * step)) >= step) addError(linear, downLeft, error, 3 / 16);
+  if (downLeft >= 0 && idx % (w * step) >= step) addError(linear, downLeft, error, 3 / 16);
   if (down < linear.length) addError(linear, down, error, 5 / 16);
   if (downRight < linear.length) addError(linear, downRight, error, 1 / 16);
 }
@@ -262,15 +255,11 @@ function diffuseErrorReversed(
   if (left >= 0) addError(linear, left, error, 7 / 16);
   if (downRight < linear.length) addError(linear, downRight, error, 3 / 16);
   if (down < linear.length) addError(linear, down, error, 5 / 16);
-  if (downLeft >= 0 && (idx % (w * step)) < (w * step - step)) addError(linear, downLeft, error, 1 / 16);
+  if (downLeft >= 0 && idx % (w * step) < w * step - step)
+    addError(linear, downLeft, error, 1 / 16);
 }
 
-function addError(
-  linear: Float32Array,
-  idx: number,
-  error: number,
-  weight: number,
-): void {
+function addError(linear: Float32Array, idx: number, error: number, weight: number): void {
   const e = error * weight;
   linear[idx] += e * 0.299;
   linear[idx + 1] += e * 0.587;
@@ -295,22 +284,23 @@ function nextPowerOfTwo(n: number): number {
  * For CMYK, each channel represents ink density.
  * For grayscale/RGB, use standard luminance weights.
  */
-function getChannelLuminance(
-  pixels: Uint8ClampedArray,
-  idx: number,
-  channel: string,
-): number {
+function getChannelLuminance(pixels: Uint8ClampedArray, idx: number, channel: string): number {
   const r = pixels[idx]!;
   const g = pixels[idx + 1]!;
   const b = pixels[idx + 2]!;
   const gray = 0.299 * r + 0.587 * g + 0.114 * b;
 
   switch (channel) {
-    case 'c': return 255 - b;    // Cyan = ~Blue
-    case 'm': return 255 - g;    // Magenta = ~Green
-    case 'y': return 255 - r;    // Yellow = ~Red
-    case 'k': return 255 - gray; // Black = luminance
-    default: return gray;
+    case 'c':
+      return 255 - b; // Cyan = ~Blue
+    case 'm':
+      return 255 - g; // Magenta = ~Green
+    case 'y':
+      return 255 - r; // Yellow = ~Red
+    case 'k':
+      return 255 - gray; // Black = luminance
+    default:
+      return gray;
   }
 }
 
@@ -318,10 +308,7 @@ function getChannelLuminance(
  * Apply halftone effect to pixel data.
  * Dispatches to AM or FM method based on params.
  */
-export function applyHalftone(
-  data: ImageData,
-  params: HalftoneParams,
-): ImageData {
+export function applyHalftone(data: ImageData, params: HalftoneParams): ImageData {
   if (params.method === 'fm') {
     applyFMStochastic(data, params);
   } else {

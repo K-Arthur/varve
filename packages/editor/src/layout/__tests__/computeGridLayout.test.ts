@@ -177,9 +177,10 @@ describe('computeGridLayout', () => {
     const ls = makeLayoutStyle({ gap: 10 });
     const result = computeGridLayout(docWithParent, parentId, 400, 200, ls, ['a', 'b']);
     expect(result).toHaveLength(2);
-    // 2 cols: (400 - 10) / 2 = 195 each, with 10px gap
-    expect(result[0]).toMatchObject({ id: 'a', x: 0, y: 0, w: 195, h: 100 });
-    expect(result[1]).toMatchObject({ id: 'b', x: 205, y: 0, w: 195, h: 100 });
+    // 2 cols: (400 - 10) / 2 = 195 each, with 10px column gap
+    // 2 rows: (200 - 10) / 2 = 95 each, with 10px row gap (from shared `gap`)
+    expect(result[0]).toMatchObject({ id: 'a', x: 0, y: 0, w: 195, h: 95 });
+    expect(result[1]).toMatchObject({ id: 'b', x: 205, y: 0, w: 195, h: 95 });
   });
 
   it('respects padding on parent', () => {
@@ -219,6 +220,16 @@ describe('computeGridLayout', () => {
     // item 'a' at (10, 10), item 'b' at (200, 10)
     expect(result[0]).toMatchObject({ id: 'a', x: 10, y: 10, w: 190, h: 90 });
     expect(result[1]).toMatchObject({ id: 'b', x: 200, y: 10, w: 190, h: 90 });
+  });
+
+  it('debug explicit placement node properties', () => {
+    const doc = addNode(makeDoc(), 'a', {
+      gridPlacement: { columnStart: 2, columnEnd: 3, rowStart: 1, rowEnd: 2 },
+    });
+    const node = doc.nodes['a'] as Record<string, unknown> | undefined;
+    expect(node?.gridPlacement).toBeDefined();
+    const gp = node?.gridPlacement as Record<string, unknown> | undefined;
+    expect(gp?.columnStart).toBe(2);
   });
 
   it('handles explicit placement via gridPlacement', () => {
@@ -459,12 +470,14 @@ describe('computeGridLayout', () => {
     });
     const result = computeGridLayout(docWithParent, parentId, 400, 400, ls, ['a', 'b', 'c', 'd']);
     expect(result).toHaveLength(4);
-    // 2x2 grid, col auto-flow:
-    // Col 1: a(0,0), c(0,200)
-    // Col 2: b(200,0), d(200,200)
+    // 2x2 grid, col auto-flow fills column-by-column:
+    // Col 1: a at (0,0), c at (0,200)
+    // Col 2: b at (200,0), d at (200,200)
+    // So result order = placement order = a→b→c→d
+    // a placed at (col=0,row=0), b at (col=0,row=1), c at (col=1,row=0), d at (col=1,row=1)
     expect(result[0]).toMatchObject({ id: 'a', x: 0, y: 0 });
-    expect(result[1]).toMatchObject({ id: 'b', x: 200, y: 0 });
-    expect(result[2]).toMatchObject({ id: 'c', x: 0, y: 200 });
+    expect(result[1]).toMatchObject({ id: 'b', x: 0, y: 200 });
+    expect(result[2]).toMatchObject({ id: 'c', x: 200, y: 0 });
     expect(result[3]).toMatchObject({ id: 'd', x: 200, y: 200 });
   });
 
@@ -501,8 +514,9 @@ describe('computeGridLayout', () => {
     const result = computeGridLayout(docWithParent, parentId, 400, 200, ls, ['a', 'b']);
     expect(result).toHaveLength(2);
     // 2 cols: (400 - 20) / 2 = 190 each, with 20px column gap
-    expect(result[0]).toMatchObject({ id: 'a', x: 0, y: 0, w: 190, h: 100 });
-    expect(result[1]).toMatchObject({ id: 'b', x: 210, y: 0, w: 190, h: 100 });
+    // Row gap = 10, so each row: (200 - 10) / 2 = 95
+    expect(result[0]).toMatchObject({ id: 'a', x: 0, y: 0, w: 190, h: 95 });
+    expect(result[1]).toMatchObject({ id: 'b', x: 210, y: 0, w: 190, h: 95 });
   });
 });
 
