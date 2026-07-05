@@ -13,6 +13,8 @@ export function useShortcuts(
   openPalette: () => void;
   quickActionsOpen: boolean;
   setQuickActionsOpen: (open: boolean) => void;
+  helpOpen: boolean;
+  setHelpOpen: (open: boolean) => void;
 } {
   const ref = useRef(editor);
   ref.current = editor;
@@ -27,6 +29,7 @@ export function useShortcuts(
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const getHandler = useCallback((id: string): (() => void) | null => {
     const e = ref.current;
@@ -229,6 +232,8 @@ export function useShortcuts(
             e.setCanvasMode('full');
           }
         };
+      case 'openHelp':
+        return () => setHelpOpen((p) => !p);
       default:
         return null;
     }
@@ -279,5 +284,7 @@ export function useShortcuts(
     openPalette: () => setPaletteOpen(true),
     quickActionsOpen,
     setQuickActionsOpen,
+    helpOpen,
+    setHelpOpen,
   };
 }

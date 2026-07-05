@@ -19,6 +19,7 @@ import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
+import { HelpBrowser } from '@strata/help';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
 import {
@@ -81,8 +82,15 @@ function ShellInner({
   active?: boolean;
 }) {
   const editor = useEditor();
-  const { paletteOpen, closePalette, openPalette, quickActionsOpen, setQuickActionsOpen } =
-    useShortcuts(editor, onBackToHome, active);
+  const {
+    paletteOpen,
+    closePalette,
+    openPalette,
+    quickActionsOpen,
+    setQuickActionsOpen,
+    helpOpen,
+    setHelpOpen,
+  } = useShortcuts(editor, onBackToHome, active);
 
   // ── Lifecycle event handlers ─────────────────────────────────────────────
   const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
@@ -320,6 +328,7 @@ function ShellInner({
           onOpenSettings={() => setSettingsOpen(true)}
           onStartTour={onboarding.reopen}
           onOpenPalette={openPalette}
+          onOpenHelp={() => setHelpOpen(true)}
         />
         <FloatingToolbar />
         <TabStrip onBackToHome={onBackToHome} />
@@ -535,6 +544,9 @@ function ShellInner({
             onDontShowAgain={dontShowAgainTip}
           />
         )}
+
+        {/* Help Browser */}
+        <HelpBrowser open={helpOpen} onClose={() => setHelpOpen(false)} />
       </div>
 
       {/* DragOverlay for cross-panel drag */}

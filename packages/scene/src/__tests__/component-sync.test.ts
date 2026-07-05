@@ -222,7 +222,7 @@ describe('pushMasterChanges', () => {
       },
     };
 
-    const { doc: resultDoc, result } = pushMasterChanges(doc, componentId);
+    const { result } = pushMasterChanges(doc, componentId);
 
     expect(result.updatedInstances).toHaveLength(2);
     expect(result.updatedInstances).toContain('inst1');

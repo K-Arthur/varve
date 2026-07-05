@@ -74,3 +74,13 @@ export function seeFeatureBadge(state: OnboardingStore, featureId: string): Onbo
   if (state.seenFeatureBadges.includes(featureId)) return state;
   return { ...state, seenFeatureBadges: [...state.seenFeatureBadges, featureId] };
 }
+
+export function listenForStorageChanges(onChange: () => void): () => void {
+  const handler = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) {
+      onChange();
+    }
+  };
+  window.addEventListener('storage', handler);
+  return () => window.removeEventListener('storage', handler);
+}
