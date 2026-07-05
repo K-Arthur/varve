@@ -535,7 +535,9 @@ export function CanvasArea({
       // otherwise the theme-aware surface-sunken token (warm gray / dark blue-gray).
       const boardColor = (() => {
         const bg = doc.canvasBackground;
-        if (bg) return `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
+        if (bg?.space === 'rgb') {
+          return `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
+        }
         return (
           getComputedStyle(document.documentElement).getPropertyValue('--color-surface-sunken').trim() ||
           '#f5f5f4'
