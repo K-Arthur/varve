@@ -1171,3 +1171,106 @@
     transform: translateY(8px);
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Neo-Bento Grid Primitives (Research basis: Linear, Apple, Aceternity)
+   ════════════════════════════════════════════════════════════════════ */
+
+.bento-grid {
+  display: grid;
+  gap: var(--bento-gap, var(--space-4));
+  contain: layout style paint;
+}
+
+.bento-cell {
+  border-radius: var(--radius-xl);
+  background: var(--elevation-surface-default);
+  box-shadow: var(--elevation-shadow-raised);
+  border: var(--border-micro);
+  overflow: hidden;
+  contain: layout style paint;
+}
+
+.bento-cell--featured {
+  border-radius: var(--radius-2xl);
+  background: var(--elevation-surface-raised);
+  box-shadow: var(--elevation-shadow-overlay);
+  border: var(--border-micro-accent);
+}
+
+/* Span helpers */
+.bento-span-2 { grid-column: span 2; }
+.bento-span-3 { grid-column: span 3; }
+.bento-span-full { grid-column: 1 / -1; }
+.bento-row-span-2 { grid-row: span 2; }
+
+.bento-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.bento-grid--2 { grid-template-columns: repeat(2, 1fr); }
+
+@media (max-width: 768px) {
+  .bento-grid--3,
+  .bento-grid--2 { grid-template-columns: 1fr; }
+  .bento-span-2,
+  .bento-span-3,
+  .bento-span-full { grid-column: 1; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Density Controls (Research basis: Linear compact/comfortable/cozy)
+   ════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-density="comfortable"] {
+  --density-rows-gap: var(--space-1);
+  --density-rows-padding: var(--space-2);
+  --density-rows-min-height: 34px;
+  --density-icon-size: 16px;
+  --density-font-size: var(--font-size-sm);
+  --density-avatar-size: 20px;
+}
+
+[data-density="compact"] {
+  --density-rows-gap: 0;
+  --density-rows-padding: var(--space-1);
+  --density-rows-min-height: 28px;
+  --density-icon-size: 14px;
+  --density-font-size: var(--font-size-xs);
+  --density-avatar-size: 16px;
+}
+
+[data-density="cozy"] {
+  --density-rows-gap: var(--space-2);
+  --density-rows-padding: var(--space-3);
+  --density-rows-min-height: 42px;
+  --density-icon-size: 18px;
+  --density-font-size: var(--font-size-base);
+  --density-avatar-size: 24px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Shortcut Tooltip (Linear-style shortcut labels in tooltips)
+   ════════════════════════════════════════════════════════════════════ */
+
+.strata-tip__shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-1);
+  margin-left: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--elevation-surface-sunken);
+  border: var(--border-micro);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bento-cell,
+  .bento-cell--featured { transition: none; }
+}
