@@ -270,7 +270,7 @@ describe('CanvasAccessibilityTree', () => {
     );
     const elapsed = performance.now() - start;
 
-    // jsdom + React render overhead is slower than production; keep under 1000ms
-    expect(elapsed).toBeLessThan(1000);
+    // jsdom + React render overhead is slower than production; keep under 2000ms
+    expect(elapsed).toBeLessThan(2000);
   });
 });

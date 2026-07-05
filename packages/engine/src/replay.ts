@@ -11,7 +11,8 @@
  */
 import { mapBlendMode } from './compositeCanvas';
 import { getImageCache } from './imageCache';
-import { applyFilterChain } from './filters';
+import { applyFilterChain, filterChainToCss, filterToCss } from './filters';
+import { applyFilterWithCompositing } from './filterCompositor';
 import { layoutRichText } from './textLayout';
 import { placeGlyphsOnPath } from './pathText';
 import { managedColorToRgba } from '@strata/shared';
@@ -152,12 +153,33 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
     }
 
     // ── Filters pass (nondestructive adjustments) ──────────────────
-    // CSS-compatible filters are applied via ctx.filter to affect fills + strokes.
-    // Non-CSS filters (curves, levels, etc.) and filters requiring per-filter
-    // opacity/blendMode compositing are handled by applyFilterWithCompositing
-    // which uses offscreen canvas compositing (see filterCompositor.ts).
+    // CSS-compatible filters with opacity=1 and blendMode=normal are applied
+    // via ctx.filter for GPU-accelerated rendering of fills + strokes.
+    // Non-CSS filters and filters requiring per-filter opacity/blendMode
+    // are handled after rendering via offscreen canvas compositing.
+    // Determine if any filter requires post-render offscreen compositing:
+    // - Filters with non-normal blend mode
+    // - Filters with opacity < 1
+    // - Filters without a CSS equivalent (curves, levels, selectiveColor, etc.)
+    const needsPostRenderFilters = item.filters?.some(
+      (f) =>
+        !f.blendMode ||
+        f.blendMode !== 'normal' ||
+        (f.opacity ?? 1) < 1 ||
+        !filterToCss(f),
+    );
     if (item.filters && item.filters.length > 0) {
-      applyFilterChain(target, item.filters);
+      if (needsPostRenderFilters) {
+        // Simple CSS filters are applied before fills for GPU rendering.
+        // Complex filters are deferred to post-render compositing.
+        const simpleFilters = item.filters.filter(
+          (f) => f.blendMode === 'normal' && (f.opacity ?? 1) >= 1,
+        );
+        const simpleCss = filterChainToCss(simpleFilters);
+        if (simpleCss) target.filter = simpleCss;
+      } else {
+        applyFilterChain(target, item.filters);
+      }
     }
 
     // ── Fills pass ────────────────────────────────────────────────
@@ -236,6 +258,24 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           paintShapeFill(target, item);
           target.restore();
         }
+      }
+    }
+
+    // ── Post-render filter compositing ────────────────────────────
+    // Apply complex filters (non-CSS, or requiring per-filter opacity/blend)
+    // via offscreen canvas compositing on the fully rendered item.
+    if (needsPostRenderFilters && item.filters && item.filters.length > 0) {
+      const complexFilters = item.filters.filter(
+        (f) => f.blendMode !== 'normal' || (f.opacity ?? 1) < 1,
+      );
+      if (complexFilters.length > 0) {
+        const targetCanvas = target as unknown as CanvasRenderingContext2D;
+        applyFilterWithCompositing(
+          targetCanvas,
+          complexFilters,
+          targetCanvas.canvas?.width ?? 100,
+          targetCanvas.canvas?.height ?? 100,
+        );
       }
     }
 
