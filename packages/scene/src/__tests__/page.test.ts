@@ -328,10 +328,11 @@ describe('Page operations', () => {
   });
 
   describe('Active page & global children', () => {
-    it('createDocument sets activePageId and globalChildren', () => {
+    it('createDocument sets activePageId to Page.id and globalChildren', () => {
       const doc = createDocument();
       expect(doc.activePageId).toBeDefined();
-      expect(doc.activePageId).toBe(doc.pages![0]!.contentRoot);
+      expect(doc.activePageId).toBe(doc.pages![0]!.id);
+      expect(doc.activePageId).not.toBe(doc.pages![0]!.contentRoot);
       expect(doc.globalChildren).toEqual([]);
     });
 

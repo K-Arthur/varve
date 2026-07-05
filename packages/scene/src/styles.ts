@@ -299,7 +299,10 @@ export function getEffectiveStyle(
   const styleId = (node as { styleId?: string }).styleId;
   if (!styleId || !doc.styles) return { style: undefined, overrides: {} };
   const styleDef = doc.styles[styleId];
-  return { style: styleDef, overrides: (node as { styleOverrides?: Record<string, unknown> }).styleOverrides ?? {} };
+  return {
+    style: styleDef,
+    overrides: (node as { styleOverrides?: Record<string, unknown> }).styleOverrides ?? {},
+  };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

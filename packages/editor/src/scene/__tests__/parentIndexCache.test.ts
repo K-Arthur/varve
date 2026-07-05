@@ -25,7 +25,11 @@ function buildDoc() {
   const rect3 = makeShapeNode('r3', { kind: 'rect', x: 0, y: 0, w: 30, h: 30 }, { name: 'Rect3' });
   doc = addChild(doc, 'f2', rect3);
 
-  const rectRoot = makeShapeNode('root_r', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }, { name: 'RootRect' });
+  const rectRoot = makeShapeNode(
+    'root_r',
+    { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+    { name: 'RootRect' },
+  );
   doc = addNode(doc, rectRoot);
 
   return doc;

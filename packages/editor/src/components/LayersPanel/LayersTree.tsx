@@ -228,7 +228,13 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     return new Set(ids);
   }, [searchIdx, filterSpec.search]);
 
-  const entries = useFlatTree(state.document, expanded, filterSpec, matchedIds, state.document.activePageId ?? undefined);
+  const entries = useFlatTree(
+    state.document,
+    expanded,
+    filterSpec,
+    matchedIds,
+    state.document.activePageId ?? undefined,
+  );
 
   // Dev-mode performance benchmark: log when flatten takes > 50ms
   // (timing is measured inside useFlatTree — this tracks entry count changes)
@@ -329,12 +335,16 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   );
 
   const handleCollapseAll = useCallback(() => {
-    setExpanded((prev) => collapseAll(state.document, state.selection[0], prev, parentCacheRef.current));
+    setExpanded((prev) =>
+      collapseAll(state.document, state.selection[0], prev, parentCacheRef.current),
+    );
   }, [state.document, state.selection]);
 
   const handleCollapseOthers = useCallback(
     (containerId: NodeId) => {
-      setExpanded((prev) => collapseOthers(state.document, containerId, prev, parentCacheRef.current));
+      setExpanded((prev) =>
+        collapseOthers(state.document, containerId, prev, parentCacheRef.current),
+      );
     },
     [state.document],
   );

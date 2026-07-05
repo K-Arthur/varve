@@ -1,10 +1,5 @@
 import { type MenuEntry, ContextMenu } from '@strata/ui';
-import {
-  addPage as addPageFn,
-  duplicatePage,
-  removePage,
-  type Page,
-} from '@strata/scene';
+import { addPage as addPageFn, duplicatePage, removePage, type Page } from '@strata/scene';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import './pagenav.css';
@@ -38,15 +33,12 @@ export function PageNav() {
     [setCurrentPageId],
   );
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, pageId: string) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setCtxPos({ x: e.clientX, y: e.clientY });
-      setCtxPageId(pageId);
-    },
-    [],
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent, pageId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxPos({ x: e.clientX, y: e.clientY });
+    setCtxPageId(pageId);
+  }, []);
 
   const closeContextMenu = useCallback(() => {
     setCtxPos(null);

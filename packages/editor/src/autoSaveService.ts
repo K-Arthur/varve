@@ -11,6 +11,7 @@
  */
 
 import type { Document } from '@strata/scene';
+import { serializeDocument } from '@strata/scene';
 
 export interface AutoSaveConfig {
   intervalMs: number;
@@ -99,7 +100,7 @@ export class AutoSaveService {
       attempts++;
       try {
         const { document, meta } = this.getDocument();
-        const json = JSON.stringify({ ...document, formatVersion: '1.0' });
+        const json = serializeDocument({ ...document });
         const ok = await this.saveFn(json);
         if (ok) {
           this._lastSavedAt = Date.now();

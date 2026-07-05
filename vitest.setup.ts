@@ -1,6 +1,28 @@
 /**
  * Vitest browser API shims for jsdom-only tests.
- *
+ */
+// Provide IndexedDB for node environment tests (platform/web.ts).
+// Guard to avoid conflicts with jsdom's own implementation.
+if (typeof globalThis.indexedDB === 'undefined') {
+  try {
+    const { IDBFactory } = await import('fake-indexeddb');
+    globalThis.indexedDB = new IDBFactory();
+  } catch {
+    // fake-indexeddb not available — skip
+  }
+}
+
+// Polyfill ResizeObserver for jsdom tests that render React components
+// with hooks that observe container sizes (e.g., LayersPanel, Shell).
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (globalThis as any).ResizeObserver = ResizeObserverStub as any;
+}
+/**
  * Research basis: jsdom intentionally omits CanvasRenderingContext2D unless the
  * optional native canvas package is installed; shell tests only need a no-op
  * target so React effects can mount without noisy environment errors.

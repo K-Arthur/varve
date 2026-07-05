@@ -146,6 +146,11 @@ export function stampVersion<T extends { formatVersion?: string }>(
   return { ...doc, formatVersion: CURRENT_DOCUMENT_VERSION };
 }
 
+export function serializeDocument(doc: Record<string, unknown> | unknown): string {
+  const target = doc as Record<string, unknown>;
+  return JSON.stringify(stampVersion(target));
+}
+
 export function isForwardCompatible(fileVersion: string): boolean {
   const [fMajor = 0, fMinor = 0] = parseVersion(fileVersion);
   const [cMajor = 0, cMinor = 0] = parseVersion(CURRENT_DOCUMENT_VERSION);

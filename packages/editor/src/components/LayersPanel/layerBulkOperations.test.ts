@@ -32,13 +32,7 @@ function simulateSelectSameLayerColor(doc: Document, selection: NodeId[]): NodeI
   const targetColor = firstNode.layerColor;
   const matches: NodeId[] = [];
   for (const n of Object.values(doc.nodes)) {
-    if (
-      n &&
-      n.visible &&
-      !n.locked &&
-      n.id !== firstNode.id &&
-      n.layerColor === targetColor
-    ) {
+    if (n && n.visible && !n.locked && n.id !== firstNode.id && n.layerColor === targetColor) {
       matches.push(n.id);
     }
   }
@@ -93,16 +87,30 @@ function simulateBulkColorTag(doc: Document, ids: NodeId[], color: LayerColor): 
   return { ...doc, nodes };
 }
 
-function setupDoc(): { doc: Document; rect1: string; rect2: string; text1: string; frame1: string; hiddenRect: string; lockedRect: string } {
+function setupDoc(): {
+  doc: Document;
+  rect1: string;
+  rect2: string;
+  text1: string;
+  frame1: string;
+  hiddenRect: string;
+  lockedRect: string;
+} {
   let doc = createDocument();
 
   const { id: rect1, doc: d1 } = nextNodeId(doc);
   doc = d1;
-  doc = addNode(doc, makeShapeNode(rect1, { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'Rect 1' }));
+  doc = addNode(
+    doc,
+    makeShapeNode(rect1, { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'Rect 1' }),
+  );
 
   const { id: rect2, doc: d2 } = nextNodeId(doc);
   doc = d2;
-  doc = addNode(doc, makeShapeNode(rect2, { kind: 'rect', x: 60, y: 0, w: 50, h: 50 }, { name: 'Rect 2' }));
+  doc = addNode(
+    doc,
+    makeShapeNode(rect2, { kind: 'rect', x: 60, y: 0, w: 50, h: 50 }, { name: 'Rect 2' }),
+  );
 
   const { id: text1, doc: d3 } = nextNodeId(doc);
   doc = d3;
@@ -114,11 +122,25 @@ function setupDoc(): { doc: Document; rect1: string; rect2: string; text1: strin
 
   const { id: hiddenRect, doc: d5 } = nextNodeId(doc);
   doc = d5;
-  doc = addNode(doc, makeShapeNode(hiddenRect, { kind: 'rect', x: 0, y: 60, w: 50, h: 50 }, { name: 'Hidden Rect', visible: false }));
+  doc = addNode(
+    doc,
+    makeShapeNode(
+      hiddenRect,
+      { kind: 'rect', x: 0, y: 60, w: 50, h: 50 },
+      { name: 'Hidden Rect', visible: false },
+    ),
+  );
 
   const { id: lockedRect, doc: d6 } = nextNodeId(doc);
   doc = d6;
-  doc = addNode(doc, makeShapeNode(lockedRect, { kind: 'rect', x: 0, y: 120, w: 50, h: 50 }, { name: 'Locked Rect', locked: true }));
+  doc = addNode(
+    doc,
+    makeShapeNode(
+      lockedRect,
+      { kind: 'rect', x: 0, y: 120, w: 50, h: 50 },
+      { name: 'Locked Rect', locked: true },
+    ),
+  );
 
   return { doc, rect1, rect2, text1, frame1, hiddenRect, lockedRect };
 }

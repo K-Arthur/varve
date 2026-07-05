@@ -35,6 +35,7 @@ export {
   stripExtension,
   uuid,
 } from './pure';
+export type { ContentSearchMatch } from './searchIndex';
 export { createTauriPlatform } from './tauri';
 export * from './types';
 export type { WebPlatformOptions } from './web';

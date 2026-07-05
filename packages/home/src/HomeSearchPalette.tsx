@@ -1,4 +1,10 @@
-import type { FileEntry, Project, TemplateLibrary } from '@strata/platform';
+import type {
+  ContentSearchMatch,
+  FileEntry,
+  Platform,
+  Project,
+  TemplateLibrary,
+} from '@strata/platform';
 import { fuzzySearch } from '@strata/platform';
 import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -20,6 +26,7 @@ export interface HomeSearchPaletteProps {
   files: FileEntry[];
   projects: Project[];
   templates: TemplateLibrary[];
+  platform: Platform;
 }
 
 export function HomeSearchPalette({
@@ -29,9 +36,11 @@ export function HomeSearchPalette({
   files,
   projects,
   templates,
+  platform,
 }: HomeSearchPaletteProps) {
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
+  const [contentMatches, setContentMatches] = useState<ContentSearchMatch[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,6 +50,41 @@ export function HomeSearchPalette({
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [open]);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setContentMatches([]);
+      return;
+    }
+    const seen = new Set<string>();
+    const controller = new AbortController();
+    let cancelled = false;
+    const results: ContentSearchMatch[] = [];
+    for (const f of files) {
+      if (cancelled) break;
+      platform.searchFileContent(f.id, q).then((jsonStrings) => {
+        if (cancelled) return;
+        for (const json of jsonStrings) {
+          try {
+            const match: ContentSearchMatch = JSON.parse(json);
+            const key = `${match.fileId}:${match.nodeId}:${match.matchType}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              results.push(match);
+            }
+          } catch {
+            // skip malformed entries
+          }
+        }
+        setContentMatches([...results]);
+      });
+    }
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [query, files, platform]);
 
   const allItems = useMemo(() => {
     const q = query.trim();
@@ -115,8 +159,30 @@ export function HomeSearchPalette({
       }
     }
 
+    if (contentMatches.length > 0) {
+      items.push({
+        id: '__header__content',
+        name: 'In Documents',
+        groupKind: 'header',
+        groupLabel: '',
+        groupIcon: 'Search',
+        isFirstInGroup: false,
+      });
+      for (const m of contentMatches.slice(0, 8)) {
+        items.push({
+          id: `${m.fileId}||${m.nodeId}`,
+          name: m.nodeName,
+          sub: `${m.snippet}`,
+          groupKind: 'content',
+          groupLabel: 'In Documents',
+          groupIcon: 'Search',
+          isFirstInGroup: false,
+        });
+      }
+    }
+
     return items;
-  }, [query, files, projects, templates]);
+  }, [query, files, projects, templates, contentMatches]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset selection when query changes
   useEffect(() => {
@@ -156,7 +222,8 @@ export function HomeSearchPalette({
           }
           const hit = allItems[idx];
           if (hit && hit.groupKind !== 'header') {
-            onOpenFile(hit.id);
+            const resolvedId = hit.groupKind === 'content' ? hit.id.split('||')[0]! : hit.id;
+            onOpenFile(resolvedId);
             onClose();
           }
           break;
@@ -172,7 +239,7 @@ export function HomeSearchPalette({
     <div
       className="search-palette"
       role="dialog"
-      aria-label="Search files, projects, and templates"
+      aria-label="Search files, projects, templates, and documents"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -185,7 +252,7 @@ export function HomeSearchPalette({
             ref={inputRef}
             type="text"
             className="search-palette__input"
-            placeholder="Search files, projects, templates\u2026"
+            placeholder="Search files, projects, templates, documents\u2026"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search"
@@ -214,7 +281,7 @@ export function HomeSearchPalette({
               return (
                 <div key={item.id} className="search-palette__group-label">
                   <Icon
-                    name={item.groupIcon as 'FileText' | 'Folder' | 'LayoutGrid'}
+                    name={item.groupIcon as 'FileText' | 'Folder' | 'LayoutGrid' | 'Search'}
                     label={undefined}
                     size="0.85em"
                   />
@@ -229,7 +296,9 @@ export function HomeSearchPalette({
                 type="button"
                 className={`search-palette__result ${isActive ? 'search-palette__result--active' : ''}`}
                 onClick={() => {
-                  onOpenFile(item.id);
+                  const resolvedId =
+                    item.groupKind === 'content' ? item.id.split('||')[0]! : item.id;
+                  onOpenFile(resolvedId);
                   onClose();
                 }}
                 onMouseEnter={() => setActiveIdx(idx)}

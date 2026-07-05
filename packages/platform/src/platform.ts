@@ -45,6 +45,7 @@ export interface Platform {
   touchFile(id: string, openedAt?: number): Promise<void>;
   renameFile(id: string, name: string): Promise<void>;
   setPinned(id: string, pinned: boolean): Promise<void>;
+  setFavorited(id: string, favoritedAt: number | null): Promise<void>;
   moveToProject(id: string, projectId: string | null): Promise<void>;
   trashFile(id: string): Promise<void>;
   restoreFile(id: string): Promise<void>;

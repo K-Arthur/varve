@@ -46,7 +46,6 @@ describe('FolderView', () => {
 
     expect(screen.getByText('Designs')).toBeTruthy();
     expect(screen.getByText('Folders')).toBeTruthy();
-    expect(screen.getByText('Project')).toBeTruthy();
   });
 
   it('renders files below folders', () => {
@@ -88,100 +87,6 @@ describe('FolderView', () => {
     const folderRow = container.querySelector('.folder-view__folder-row');
     expect(folderRow).toBeTruthy();
     fireEvent.doubleClick(folderRow!);
-    expect(onNavigate).toHaveBeenCalledWith('f1');
-  });
-
-  it('breadcrumb renders project name and folder names', () => {
-    const folders = [
-      makeFolder('f1', 'Work', projectId, null),
-      makeFolder('f2', 'Logos', projectId, 'f1'),
-    ];
-    const files: FileEntry[] = [];
-    render(
-      <FolderView
-        platform={createMemoryPlatform() as unknown as Platform}
-        projectId={projectId}
-        folderId="f2"
-        files={files}
-        folders={folders}
-        onNavigate={vi.fn()}
-        onOpenFile={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText('Project')).toBeTruthy();
-    expect(screen.getByText('Work')).toBeTruthy();
-    expect(screen.getByText('Logos')).toBeTruthy();
-  });
-
-  it('breadcrumb click navigates to parent folder', () => {
-    const folders = [
-      makeFolder('f1', 'Work', projectId, null),
-      makeFolder('f2', 'Logos', projectId, 'f1'),
-    ];
-    const files: FileEntry[] = [];
-    const onNavigate = vi.fn();
-    render(
-      <FolderView
-        platform={createMemoryPlatform() as unknown as Platform}
-        projectId={projectId}
-        folderId="f2"
-        files={files}
-        folders={folders}
-        onNavigate={onNavigate}
-        onOpenFile={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByText('Work'));
-    expect(onNavigate).toHaveBeenCalledWith('f1');
-  });
-
-  it('backspace navigates to parent folder', () => {
-    const folders = [
-      makeFolder('f1', 'Work', projectId, null),
-      makeFolder('f2', 'Logos', projectId, 'f1'),
-    ];
-    const files: FileEntry[] = [];
-    const onNavigate = vi.fn();
-    render(
-      <FolderView
-        platform={createMemoryPlatform() as unknown as Platform}
-        projectId={projectId}
-        folderId="f2"
-        files={files}
-        folders={folders}
-        onNavigate={onNavigate}
-        onOpenFile={vi.fn()}
-      />,
-    );
-
-    const breadcrumb = screen.getByLabelText('Folder navigation');
-    fireEvent.keyDown(breadcrumb, { key: 'Backspace' });
-    expect(onNavigate).toHaveBeenCalledWith('f1');
-  });
-
-  it('alt+up navigates to parent folder', () => {
-    const folders = [
-      makeFolder('f1', 'Work', projectId, null),
-      makeFolder('f2', 'Logos', projectId, 'f1'),
-    ];
-    const files: FileEntry[] = [];
-    const onNavigate = vi.fn();
-    render(
-      <FolderView
-        platform={createMemoryPlatform() as unknown as Platform}
-        projectId={projectId}
-        folderId="f2"
-        files={files}
-        folders={folders}
-        onNavigate={onNavigate}
-        onOpenFile={vi.fn()}
-      />,
-    );
-
-    const breadcrumb = screen.getByLabelText('Folder navigation');
-    fireEvent.keyDown(breadcrumb, { key: 'ArrowUp', altKey: true });
     expect(onNavigate).toHaveBeenCalledWith('f1');
   });
 

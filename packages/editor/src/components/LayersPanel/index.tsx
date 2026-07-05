@@ -49,6 +49,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     selectAllWithSameType,
     selectAllWithSameLayerColor,
     selectAllOfType,
+    updateNode,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
@@ -133,6 +134,20 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     },
     [state.selection, setNodeVisible, closeMenu],
   );
+
+  const handleSnapExclusionToggle = useCallback(() => {
+    for (const id of state.selection) {
+      const node = state.document.nodes[id];
+      if (node) {
+        const current = node.snapExcluded === true;
+        updateNode(id, (n: import('@strata/scene').SceneNode) => ({
+          ...n,
+          snapExcluded: !current,
+        }));
+      }
+    }
+    closeMenu();
+  }, [state.selection, state.document.nodes, updateNode, closeMenu]);
 
   const handleMoveToFront = useCallback(() => {
     for (const id of state.selection) {
@@ -364,6 +379,16 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             )}
             <ContextMenuItem label="Lock" onAction={() => handleLockFromMenu(true)} />
             <ContextMenuItem label="Hide" onAction={() => handleVisibilityFromMenu(false)} />
+            {contextMenu && (
+              <ContextMenuItem
+                label={
+                  state.document.nodes[contextMenu.id]?.snapExcluded
+                    ? 'Include in Snapping'
+                    : 'Exclude from Snapping'
+                }
+                onAction={handleSnapExclusionToggle}
+              />
+            )}
             <hr className="layers-context-menu__separator" />
             <div className="layers-context-menu__color-tag-section">
               <span className="layers-context-menu__section-label">Color Tag</span>

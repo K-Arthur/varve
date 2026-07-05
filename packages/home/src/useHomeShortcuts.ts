@@ -9,6 +9,7 @@ export interface HomeShortcutHandlers {
   showHelp: () => void;
   searchCommand: () => void;
   importFiles: () => void;
+  toggleFavorite?: () => void;
 }
 
 export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boolean) {
@@ -60,6 +61,12 @@ export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boo
 
       if (isCtrl && e.key === 'f') {
         focusSearch();
+        e.preventDefault();
+        return;
+      }
+
+      if (isCtrl && e.key === 'd' && handlers.toggleFavorite) {
+        handlers.toggleFavorite();
         e.preventDefault();
         return;
       }

@@ -175,7 +175,9 @@ export class SelectTool extends BaseTool {
         const thisBounds = ctx.nodeWorldBounds(node);
         if (thisBounds) {
           const otherBounds = allBounds
-            .filter((entry) => !selectedIds.has(entry.id))
+            .filter(
+              (entry) => !selectedIds.has(entry.id) && !(ctx.isSnapExcluded?.(entry.id) ?? false),
+            )
             .map((entry) => entry.b);
           if (otherBounds.length > 0) {
             const snapped = ctx.snapPosition(

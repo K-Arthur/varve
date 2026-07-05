@@ -1,0 +1,5 @@
+.guide-ctxmenu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-overlay, 100) + 10);
+}

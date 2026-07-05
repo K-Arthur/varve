@@ -189,9 +189,7 @@ describe('deepCloneSubtree', () => {
     const result = deepCloneSubtree(doc, g.id);
 
     expect(result.idMap.get(g.id)).toBe(result.rootId);
-    expect(result.idMap.get(a.id)).toBe(
-      (result.nodes[result.rootId] as GroupNode).children[0]!,
-    );
+    expect(result.idMap.get(a.id)).toBe((result.nodes[result.rootId] as GroupNode).children[0]!);
   });
 
   it('clones frame slots with remapped child IDs', () => {
@@ -228,7 +226,10 @@ describe('deepCloneSubtree', () => {
       ...doc,
       nodes: {
         ...doc.nodes,
-        [g.id]: { ...doc.nodes[g.id], mask: { type: 'clip', sourceNodeId: maskChild.id, visible: true } } as GroupNode,
+        [g.id]: {
+          ...doc.nodes[g.id],
+          mask: { type: 'clip', sourceNodeId: maskChild.id, visible: true },
+        } as GroupNode,
       },
     };
 
@@ -315,7 +316,11 @@ describe('deepCloneSubtree', () => {
       adjustmentType: 'curves',
       params: {
         channel: 'rgb',
-        points: [{ x: 0, y: 0 }, { x: 0.5, y: 0.6 }, { x: 1, y: 1 }],
+        points: [
+          { x: 0, y: 0 },
+          { x: 0.5, y: 0.6 },
+          { x: 1, y: 1 },
+        ],
       },
       transform: [1, 0, 0, 1, 0, 0],
       clipping: true,
@@ -350,7 +355,12 @@ describe('deepCloneSubtree', () => {
     const textNode = makeTextNode('', 'Hello');
     const { id: textId, doc: d2 } = nextNodeId(doc);
     doc = d2;
-    const textWithPath: import('../types').TextNode = { ...textNode, id: textId, name: 'Text', pathId: pathNode.id };
+    const textWithPath: import('../types').TextNode = {
+      ...textNode,
+      id: textId,
+      name: 'Text',
+      pathId: pathNode.id,
+    };
     doc = addNode(doc, textWithPath);
 
     const result = deepCloneSubtree(doc, textId);

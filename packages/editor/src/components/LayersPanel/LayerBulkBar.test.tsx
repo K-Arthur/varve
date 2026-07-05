@@ -49,35 +49,70 @@ describe('LayerBulkBar', () => {
 
   it('calls onGroup when Group button clicked', () => {
     let called = false;
-    render(<LayerBulkBar {...defaultProps} onGroup={() => { called = true; }} />);
+    render(
+      <LayerBulkBar
+        {...defaultProps}
+        onGroup={() => {
+          called = true;
+        }}
+      />,
+    );
     screen.getByLabelText('Group').click();
     expect(called).toBe(true);
   });
 
   it('calls onLockAll when Lock All button clicked', () => {
     let called = false;
-    render(<LayerBulkBar {...defaultProps} onLockAll={() => { called = true; }} />);
+    render(
+      <LayerBulkBar
+        {...defaultProps}
+        onLockAll={() => {
+          called = true;
+        }}
+      />,
+    );
     screen.getByLabelText('Lock all').click();
     expect(called).toBe(true);
   });
 
   it('calls onUnlockAll when Unlock All button clicked', () => {
     let called = false;
-    render(<LayerBulkBar {...defaultProps} onUnlockAll={() => { called = true; }} />);
+    render(
+      <LayerBulkBar
+        {...defaultProps}
+        onUnlockAll={() => {
+          called = true;
+        }}
+      />,
+    );
     screen.getByLabelText('Unlock all').click();
     expect(called).toBe(true);
   });
 
   it('calls onHideAll when Hide All button clicked', () => {
     let called = false;
-    render(<LayerBulkBar {...defaultProps} onHideAll={() => { called = true; }} />);
+    render(
+      <LayerBulkBar
+        {...defaultProps}
+        onHideAll={() => {
+          called = true;
+        }}
+      />,
+    );
     screen.getByLabelText('Hide all').click();
     expect(called).toBe(true);
   });
 
   it('calls onShowAll when Show All button clicked', () => {
     let called = false;
-    render(<LayerBulkBar {...defaultProps} onShowAll={() => { called = true; }} />);
+    render(
+      <LayerBulkBar
+        {...defaultProps}
+        onShowAll={() => {
+          called = true;
+        }}
+      />,
+    );
     screen.getByLabelText('Show all').click();
     expect(called).toBe(true);
   });
@@ -87,7 +122,9 @@ describe('LayerBulkBar', () => {
     render(
       <LayerBulkBar
         {...defaultProps}
-        onColorTag={(c) => { received = c; }}
+        onColorTag={(c) => {
+          received = c;
+        }}
       />,
     );
     screen.getByLabelText('Green').click();
@@ -96,7 +133,14 @@ describe('LayerBulkBar', () => {
 
   it('calls onDeleteAll when Delete All button clicked', () => {
     let called = false;
-    render(<LayerBulkBar {...defaultProps} onDeleteAll={() => { called = true; }} />);
+    render(
+      <LayerBulkBar
+        {...defaultProps}
+        onDeleteAll={() => {
+          called = true;
+        }}
+      />,
+    );
     screen.getByLabelText('Delete all').click();
     expect(called).toBe(true);
   });

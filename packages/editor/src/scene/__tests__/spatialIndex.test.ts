@@ -149,17 +149,9 @@ describe('queryPoint', () => {
   it('returns multiple nodes in the same cell', () => {
     let doc = createDocument();
     // Two rects in same cell (0,0)
-    const r1 = makeShapeNode(
-      'r1',
-      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-      { name: 'R1' },
-    );
+    const r1 = makeShapeNode('r1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'R1' });
     doc = addNode(doc, r1);
-    const r2 = makeShapeNode(
-      'r2',
-      { kind: 'rect', x: 20, y: 20, w: 10, h: 10 },
-      { name: 'R2' },
-    );
+    const r2 = makeShapeNode('r2', { kind: 'rect', x: 20, y: 20, w: 10, h: 10 }, { name: 'R2' });
     doc = addNode(doc, r2);
     const index = buildSpatialIndex(doc);
     const candidates = queryPoint(index, 5, 5);
@@ -207,11 +199,7 @@ describe('queryRect', () => {
   it('returns unique nodes (no duplicates if node spans multiple cells)', () => {
     let doc = createDocument();
     // Large node spanning many cells
-    const big = makeShapeNode(
-      'big',
-      { kind: 'rect', x: 0, y: 0, w: 500, h: 500 },
-      { name: 'Big' },
-    );
+    const big = makeShapeNode('big', { kind: 'rect', x: 0, y: 0, w: 500, h: 500 }, { name: 'Big' });
     doc = addNode(doc, big);
     const index = buildSpatialIndex(doc);
     const candidates = queryRect(index, { x: 0, y: 0, w: 500, h: 500 });

@@ -252,6 +252,8 @@ export interface NodeBase {
   styleId?: NodeId;
   /** Property overrides applied on top of the referenced style. */
   styleOverrides?: Record<string, unknown>;
+  /** When true, this node is excluded from snapping calculations. */
+  snapExcluded?: boolean;
 }
 
 export interface ShapeNode extends NodeBase {

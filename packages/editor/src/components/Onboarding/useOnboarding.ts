@@ -1,44 +1,42 @@
 import { useCallback, useEffect, useState } from 'react';
+import {
+  dismissTip as dismissTipStore,
+  loadOnboardingState,
+  markOnboardingComplete,
+  saveOnboardingState,
+} from '../../onboard/onboardingStore';
 import { TOUR_STEPS } from './tourSteps';
 
-const STORAGE_KEY = 'strata-onboarding-complete';
-
 export interface OnboardingState {
-  /** Whether the onboarding dialog/overlay is visible. */
   active: boolean;
-  /** Current tour step index (-1 = welcome screen shown). */
   stepIndex: number;
-  /** Whether the welcome screen is shown. */
   showWelcome: boolean;
 }
 
 export interface OnboardingActions {
-  /** Start the onboarding tour from the welcome screen. */
   startTour: () => void;
-  /** Go to the next tour step. */
   nextStep: () => void;
-  /** Go to the previous tour step. */
   prevStep: () => void;
-  /** Skip/dismiss the entire onboarding. */
   dismiss: () => void;
-  /** Check if onboarding is complete. */
   isComplete: () => boolean;
-  /** Reopen the onboarding (for Help menu). */
   reopen: () => void;
+  dismissTip: (tipId: string) => void;
 }
 
 export function useOnboarding(): OnboardingState & OnboardingActions {
   const [state, setState] = useState<OnboardingState>(() => {
-    const completed = localStorage.getItem(STORAGE_KEY) === 'true';
+    const saved = loadOnboardingState();
     return {
-      active: !completed,
+      active: !saved.onboardingComplete,
       stepIndex: -1,
-      showWelcome: !completed,
+      showWelcome: !saved.onboardingComplete,
     };
   });
 
   const complete = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, 'true');
+    const saved = loadOnboardingState();
+    const updated = markOnboardingComplete(saved);
+    saveOnboardingState(updated);
     setState({ active: false, stepIndex: -1, showWelcome: false });
   }, []);
 
@@ -70,11 +68,18 @@ export function useOnboarding(): OnboardingState & OnboardingActions {
   }, [complete]);
 
   const isComplete = useCallback(() => {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
+    const saved = loadOnboardingState();
+    return saved.onboardingComplete;
   }, []);
 
   const reopen = useCallback(() => {
     setState({ active: true, stepIndex: 0, showWelcome: false });
+  }, []);
+
+  const dismissTip = useCallback((tipId: string) => {
+    const saved = loadOnboardingState();
+    const updated = dismissTipStore(saved, tipId);
+    saveOnboardingState(updated);
   }, []);
 
   useEffect(() => {
@@ -105,5 +110,6 @@ export function useOnboarding(): OnboardingState & OnboardingActions {
     dismiss,
     isComplete,
     reopen,
+    dismissTip,
   };
 }

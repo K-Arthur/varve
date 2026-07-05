@@ -26,6 +26,7 @@ export interface HomeToolbarProps {
   onDateFromChange: (date: number | null) => void;
   onDateToChange: (date: number | null) => void;
   onClearFilters: () => void;
+  onSaveSearch?: () => void;
 }
 
 const sortOptions: SegmentedOption<SortKey>[] = [
@@ -65,6 +66,7 @@ export function HomeToolbar({
   onDateFromChange,
   onDateToChange,
   onClearFilters,
+  onSaveSearch,
 }: HomeToolbarProps) {
   return (
     <>
@@ -92,6 +94,12 @@ export function HomeToolbar({
       </div>
       <div className="strata-home__toolbar-center">
         <SearchField value={query} onChange={onQueryChange} resultCount={resultCount} />
+        {query && onSaveSearch && (
+          <Button variant="ghost" onClick={onSaveSearch} aria-label="Save current search">
+            <Icon name="Save" label={undefined} size="0.85em" />
+            Save
+          </Button>
+        )}
       </div>
       <div className="strata-home__toolbar-right">
         <FilterDropdown

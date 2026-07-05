@@ -5,6 +5,7 @@ export type FileMenuAction =
   | 'open'
   | 'rename'
   | 'duplicate'
+  | 'favorite'
   | 'trash'
   | 'restore'
   | 'purge'
@@ -76,6 +77,12 @@ export function FileContextMenu({
       });
     }
     items.push({ id: 'sep3', separator: true });
+    items.push({
+      id: 'favorite',
+      label:
+        file.favoritedAt && file.favoritedAt > 0 ? 'Remove from Favorites' : 'Add to Favorites',
+      onAction: () => onAction('favorite'),
+    });
     items.push({
       id: 'pin',
       label: file.pinned ? 'Unpin' : 'Pin',

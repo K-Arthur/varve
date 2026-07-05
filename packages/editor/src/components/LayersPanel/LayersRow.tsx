@@ -328,9 +328,7 @@ export const LayersRow = memo(function LayersRow({
         )}
 
         {/* Blend mode / opacity badge */}
-        {badgeText && !editing && (
-          <span className="layers-row__badge">{badgeText}</span>
-        )}
+        {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
 
         {/* Visibility toggle */}
         <button

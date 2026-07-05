@@ -14,6 +14,66 @@ export interface SnapResult {
 
 const SNAP_THRESHOLD = 5;
 
+const SNAP_RANGE_PX = 200;
+
+/** Screen-space bounding box of a target (cx, cy, half-extent). */
+function screenBounds(
+  b: { x: number; y: number; w: number; h: number },
+  camera: { zoom: number },
+): { cx: number; cy: number; rx: number; ry: number } {
+  return {
+    cx: (b.x + b.w / 2) * camera.zoom,
+    cy: (b.y + b.h / 2) * camera.zoom,
+    rx: (b.w / 2) * camera.zoom,
+    ry: (b.h / 2) * camera.zoom,
+  };
+}
+
+/** AABB overlap check in screen space. */
+function intersect(
+  a: ReturnType<typeof screenBounds>,
+  b: ReturnType<typeof screenBounds>,
+): boolean {
+  return (
+    Math.abs(a.cx - b.cx) < a.rx + b.rx + SNAP_RANGE_PX &&
+    Math.abs(a.cy - b.cy) < a.ry + b.ry + SNAP_RANGE_PX
+  );
+}
+
+/**
+ * Filter snap targets by spatial proximity and sibling preference.
+ * Only targets whose screen-space AABB intersects the dragged object's
+ * AABB expanded by SNAP_RANGE_PX in each direction are included.
+ */
+export function filterSnapTargets(
+  draggedBounds: { x: number; y: number; w: number; h: number },
+  camera: { zoom: number },
+  allBounds: Array<{
+    nodeId: string;
+    bounds: { x: number; y: number; w: number; h: number };
+  }>,
+  parentIndex: Map<string, string | null>,
+  draggedId: string,
+): Array<{ x: number; y: number; w: number; h: number }> {
+  const draggedParent = parentIndex.get(draggedId) ?? null;
+  const draggedScreen = screenBounds(draggedBounds, camera);
+  const results: Array<{ x: number; y: number; w: number; h: number; priority: number }> = [];
+
+  for (const entry of allBounds) {
+    if (entry.nodeId === draggedId) continue;
+    const targetScreen = screenBounds(entry.bounds, camera);
+    if (!intersect(draggedScreen, targetScreen)) continue;
+    // Priority: siblings score 0, non-siblings score 1 (lower = preferred)
+    const targetParent = parentIndex.get(entry.nodeId) ?? null;
+    const priority = draggedParent !== null && targetParent === draggedParent ? 0 : 1;
+    results.push({ ...entry.bounds, priority });
+  }
+
+  // Sort by priority (siblings first), then by x distance for determinism
+  results.sort((a, b) => a.priority - b.priority);
+  return results.map(({ priority: _, ...bounds }) => bounds);
+}
+
 export function snapPosition(
   x: number,
   y: number,
@@ -21,10 +81,17 @@ export function snapPosition(
   h: number,
   otherBounds: Array<{ x: number; y: number; w: number; h: number }>,
   grid?: number,
+  snapExcludedIds?: Set<string>,
 ): SnapResult {
   let snappedX = x;
   let snappedY = y;
   const guides: SnapGuide[] = [];
+
+  // Filter out snap-excluded targets
+  const activeBounds =
+    snapExcludedIds && snapExcludedIds.size > 0
+      ? otherBounds.filter((_, i) => !snapExcludedIds.has(String(i)))
+      : otherBounds;
 
   const cx = x + w / 2;
   const cy = y + h / 2;
@@ -55,10 +122,10 @@ export function snapPosition(
   }
 
   // Mid-point snapping (before edge/center to allow edge override)
-  for (let i = 0; i < otherBounds.length; i++) {
-    const a = otherBounds[i]!;
-    for (let j = i + 1; j < otherBounds.length; j++) {
-      const b = otherBounds[j]!;
+  for (let i = 0; i < activeBounds.length; i++) {
+    const a = activeBounds[i]!;
+    for (let j = i + 1; j < activeBounds.length; j++) {
+      const b = activeBounds[j]!;
       const aCX = a.x + a.w / 2;
       const aCY = a.y + a.h / 2;
       const bCX = b.x + b.w / 2;
@@ -77,7 +144,7 @@ export function snapPosition(
   }
 
   // Object snapping
-  for (const b of otherBounds) {
+  for (const b of activeBounds) {
     const bCX = b.x + b.w / 2;
     const bCY = b.y + b.h / 2;
     const bEdges = {
@@ -145,19 +212,33 @@ export function snapPosition(
     }
   }
   if (xGaps.length > 0) {
-    const best = xGaps.reduce((a, b) => (Math.abs(a.gap - (a.mid - draggedCx)) < Math.abs(b.gap - (b.mid - draggedCx)) ? a : b));
+    const best = xGaps.reduce((a, b) =>
+      Math.abs(a.gap - (a.mid - draggedCx)) < Math.abs(b.gap - (b.mid - draggedCx)) ? a : b,
+    );
     const idealCx = best.mid;
     if (Math.abs(cx - idealCx) < SNAP_THRESHOLD * 3) {
       snappedX = x - (cx - idealCx);
-      guides.push({ axis: 'vertical', position: idealCx, type: 'spacing', label: `${Math.round(best.gap)}px` });
+      guides.push({
+        axis: 'vertical',
+        position: idealCx,
+        type: 'spacing',
+        label: `${Math.round(best.gap)}px`,
+      });
     }
   }
   if (yGaps.length > 0) {
-    const best = yGaps.reduce((a, b) => (Math.abs(a.gap - (a.mid - draggedCy)) < Math.abs(b.gap - (b.mid - draggedCy)) ? a : b));
+    const best = yGaps.reduce((a, b) =>
+      Math.abs(a.gap - (a.mid - draggedCy)) < Math.abs(b.gap - (b.mid - draggedCy)) ? a : b,
+    );
     const idealCy = best.mid;
     if (Math.abs(cy - idealCy) < SNAP_THRESHOLD * 3) {
       snappedY = y - (cy - idealCy);
-      guides.push({ axis: 'horizontal', position: idealCy, type: 'spacing', label: `${Math.round(best.gap)}px` });
+      guides.push({
+        axis: 'horizontal',
+        position: idealCy,
+        type: 'spacing',
+        label: `${Math.round(best.gap)}px`,
+      });
     }
   }
 

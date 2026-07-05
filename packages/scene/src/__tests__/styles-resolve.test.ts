@@ -166,7 +166,10 @@ describe('resolveAllStyles', () => {
     doc = addNode(doc, shape1);
     doc = addNode(doc, shape2);
 
-    doc = { ...doc, nodes: { ...doc.nodes, n1: { ...doc.nodes.n1, styleId: style.id } as SceneNode } };
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, n1: { ...doc.nodes.n1, styleId: style.id } as SceneNode },
+    };
 
     const result = resolveAllStyles(doc);
     expect(result.size).toBe(1);
@@ -231,7 +234,10 @@ describe('getEffectiveStyle', () => {
     doc = d1;
     const text = makeTextNode('n1', 'Hello');
     doc = addNode(doc, text);
-    doc = { ...doc, nodes: { ...doc.nodes, n1: { ...doc.nodes.n1, styleId: style.id } as SceneNode } };
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, n1: { ...doc.nodes.n1, styleId: style.id } as SceneNode },
+    };
 
     const result = getEffectiveStyle(doc, 'n1');
     expect(result).toBeDefined();

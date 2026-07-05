@@ -4,12 +4,15 @@ import {
   detectFileKind,
   type FileEntry,
   type Platform,
+  type SavedSearch,
   type TemplateLibrary,
 } from '@strata/platform';
+import { createDocument, serializeDocument } from '@strata/scene';
 import { generateKeyBetween } from '@strata/shared';
 import { Dialog, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
+import { BreadcrumbNav, type BreadcrumbSegment } from './BreadcrumbNav';
 import { AssetBrowser } from './AssetBrowser';
 import { BatchActions } from './BatchActions';
 import { BulkImportDialog } from './BulkImportDialog';
@@ -17,7 +20,6 @@ import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
 import { FileList } from './FileList';
-import type { FormatMigrationResult } from './FormatMigration';
 import { HomeSearchPalette } from './HomeSearchPalette';
 import { HomeShortcutHelp } from './HomeShortcutHelp';
 import { HomeToolbar } from './HomeToolbar';
@@ -87,9 +89,13 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
   const [versionHistoryFileId, setVersionHistoryFileId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
-  const [_bulkImportOpen] = useState(false);
   const [templates, setTemplates] = useState<TemplateLibrary[]>([]);
-  const [_migrationResults] = useState<FormatMigrationResult[] | null>(null);
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [activeSavedSearchId, setActiveSavedSearchId] = useState<string | null>(null);
+  const [saveSearchDialogOpen, setSaveSearchDialogOpen] = useState(false);
+  const [saveSearchName, setSaveSearchName] = useState('');
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const [folderBreadcrumb, setFolderBreadcrumb] = useState<BreadcrumbSegment[]>([]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -127,11 +133,24 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     checkMissingFiles();
   }, [platform, view.files]);
 
+  // Reset folder state when switching to a different project
+  useEffect(() => {
+    setFolderId(null);
+    setFolderBreadcrumb([]);
+  }, [view.state.activeProjectId]);
+
   useEffect(() => {
     platform
       .listTemplates()
       .then((list) => setTemplates(list))
       .catch(() => setTemplates([]));
+  }, [platform]);
+
+  useEffect(() => {
+    platform
+      .listSavedSearches()
+      .then(setSavedSearches)
+      .catch(() => setSavedSearches([]));
   }, [platform]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -202,6 +221,17 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     showHelp: useCallback(() => setShortcutHelpOpen(true), []),
     importFiles: useCallback(() => setImportOpen(true), []),
     searchCommand: useCallback(() => setSearchPaletteOpen(true), []),
+    toggleFavorite: useCallback(() => {
+      if (selectedIds.length === 0) {
+        const firstFile = view.visibleFiles[0];
+        if (firstFile) actions.toggleFavorite(firstFile);
+      } else {
+        for (const id of selectedIds) {
+          const entry = view.files.find((f) => f.id === id);
+          if (entry) actions.toggleFavorite(entry);
+        }
+      }
+    }, [selectedIds, view, actions]),
   };
   useHomeShortcuts(shortcutHandlers, dialogOpen);
 
@@ -214,16 +244,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
       count: view.files.length - view.trashedFiles.length,
     },
     { id: 'drafts', label: 'Drafts', icon: 'Pen' as const, count: view.draftFiles.length },
-    ...(view.favoriteFiles.length > 0
-      ? [
-          {
-            id: 'favorites',
-            label: 'Favorites',
-            icon: 'Star' as const,
-            count: view.favoriteFiles.length,
-          },
-        ]
-      : []),
+    { id: 'favorites', label: 'Favorites', icon: 'Star' as const, count: view.favoriteFiles.length },
     ...view.projects.map((p) => ({
       id: p.id,
       label: p.name,
@@ -236,6 +257,17 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     { id: 'activity', label: 'Activity', icon: 'History', count: 0 },
     { id: 'trash', label: 'Trash', icon: 'Archive', count: view.trashedFiles.length },
   ];
+
+  const sidebarSectionCounts: Record<string, number> = {
+    recent: view.recentFiles.length,
+    all: view.files.length - view.trashedFiles.length,
+    drafts: view.draftFiles.length,
+    favorites: view.favoriteFiles.length,
+    templates: 0,
+    assets: 0,
+    activity: 0,
+    trash: view.trashedFiles.length,
+  };
 
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
   const sensors = useSensors(pointerSensor);
@@ -319,6 +351,9 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           });
           break;
         }
+        case 'favorite':
+          actions.toggleFavorite(contextFile);
+          break;
         case 'trash':
           actions.trash(contextFile.id);
           break;
@@ -406,15 +441,8 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     (name: string) => {
       const id = crypto.randomUUID();
       const now = Date.now();
-      const doc = {
-        id,
-        name,
-        rootChildren: [] as string[],
-        nodes: {},
-        components: {},
-        nextId: 1,
-      };
-      const docJson = JSON.stringify(doc);
+      const doc = createDocument(name);
+      const docJson = serializeDocument(doc);
       const entry: FileEntry = {
         id,
         name,
@@ -427,7 +455,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
         pinned: false,
         trashedAt: null,
         ordering: '',
-        contentHash: '',
+        contentHash: contentHash(docJson),
       };
       platform.upsertFile(entry, docJson);
       generateThumbnail(platform, entry, docJson);
@@ -440,6 +468,24 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     const result = await platform.openDocumentFromDisk();
     if (result) onOpenFile(result.entry);
   }, [platform, onOpenFile]);
+
+  const handleBreadcrumbNavigate = useCallback(
+    (id: string) => {
+      if (view.workspaces.some((w) => w.id === id) || id === 'personal') {
+        view.setActiveProject(null);
+        view.setSection('all');
+        setFolderId(null);
+        return;
+      }
+      if (view.projects.some((p) => p.id === id)) {
+        view.setActiveProject(id);
+        setFolderId(null);
+        return;
+      }
+      setFolderId(id);
+    },
+    [view],
+  );
 
   const renderContent = () => {
     if (view.loading) {
@@ -491,30 +537,47 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             onRefresh={view.refresh}
           />
         );
-      case 'project':
-        return state.activeProjectId ? (
-          <ProjectsView
-            project={projects.find((p) => p.id === state.activeProjectId) ?? null}
-            files={visibleFiles}
-            thumbnails={thumbnails.thumbnails}
-            platform={platform}
-            onOpen={onOpenFile}
-            onContext={handleFileContext}
-            onRename={actions.renameProject}
-            onDelete={actions.deleteProject}
-            onFileRename={handleRename}
-            selectedIds={selectedIds}
-            onSelect={handleSelect}
-            onToggleSelect={handleToggleSelect}
-            onSelectRange={handleSelectRange}
-            onSelectAll={handleSelectAll}
-            renamingId={renamingId}
-            onStartRename={handleStartRename}
-            missingFiles={missingFiles}
-          />
-        ) : (
-          <EmptyStates section="project" onAction={() => view.setSection('recent')} />
+      case 'project': {
+        const activeProject = projects.find((p) => p.id === state.activeProjectId) ?? null;
+        if (!activeProject) {
+          return <EmptyStates section="project" onAction={() => view.setSection('recent')} />;
+        }
+        const activeWsName =
+          view.workspaces.find((w) => w.id === view.activeWorkspaceId)?.name ?? 'Personal';
+        const activeWsId = view.activeWorkspaceId ?? 'personal';
+        const breadcrumbPath: BreadcrumbSegment[] = [
+          { id: activeWsId, name: activeWsName },
+          { id: activeProject.id, name: activeProject.name },
+          ...folderBreadcrumb,
+        ];
+        return (
+          <>
+            <BreadcrumbNav path={breadcrumbPath} onNavigate={handleBreadcrumbNavigate} />
+            <ProjectsView
+              project={activeProject}
+              files={visibleFiles}
+              thumbnails={thumbnails.thumbnails}
+              platform={platform}
+              onOpen={onOpenFile}
+              onContext={handleFileContext}
+              onRename={actions.renameProject}
+              onDelete={actions.deleteProject}
+              onFileRename={handleRename}
+              selectedIds={selectedIds}
+              onSelect={handleSelect}
+              onToggleSelect={handleToggleSelect}
+              onSelectRange={handleSelectRange}
+              onSelectAll={handleSelectAll}
+              renamingId={renamingId}
+              onStartRename={handleStartRename}
+              missingFiles={missingFiles}
+              activeFolderId={folderId}
+              onSetFolderId={setFolderId}
+              onFolderBreadcrumb={setFolderBreadcrumb}
+            />
+          </>
         );
+      }
       case 'collections':
         return <EmptyStates section="collections" onAction={() => view.setSection('all')} />;
       case 'activity':
@@ -615,6 +678,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                 renamingId={renamingId}
                 onStartRename={handleStartRename}
                 missingFiles={missingFiles}
+                onToggleFavorite={actions.toggleFavorite}
               />
             ) : (
               <FileList
@@ -635,6 +699,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                 renamingId={renamingId}
                 onStartRename={handleStartRename}
                 missingFiles={missingFiles}
+                onToggleFavorite={actions.toggleFavorite}
               />
             )}
           </>
@@ -684,6 +749,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           )}
           <SidebarNav
             entries={sidebarEntries}
+            sectionCounts={sidebarSectionCounts}
             activeId={
               view.state.section === 'project'
                 ? (view.state.activeProjectId ?? 'all')
@@ -715,8 +781,21 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                     | 'templates'
                     | 'trash',
                 );
+                setActiveSavedSearchId(null);
               } else {
-                view.setActiveProject(id);
+                const savedSearch = savedSearches.find((s) => s.id === id);
+                if (savedSearch) {
+                  view.setFilter({
+                    query: savedSearch.query,
+                    kinds: savedSearch.kinds ?? [],
+                    tagIds: savedSearch.tagIds ?? [],
+                  });
+                  setActiveSavedSearchId(id);
+                  view.setSection('all');
+                } else {
+                  view.setActiveProject(id);
+                  setActiveSavedSearchId(null);
+                }
               }
               setSidebarOpen(false);
             }}
@@ -728,6 +807,15 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             onCreateProject={async () => {
               setNewProjectOpen(true);
             }}
+            savedSearches={savedSearches}
+            activeSavedSearchId={activeSavedSearchId}
+            onDeleteSavedSearch={async (id) => {
+              await platform.deleteSavedSearch(id);
+              setSavedSearches((prev) => prev.filter((s) => s.id !== id));
+              if (activeSavedSearchId === id) {
+                setActiveSavedSearchId(null);
+              }
+            }}
           />
         </div>
         <div className="strata-home__toolbar">
@@ -737,7 +825,10 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             viewMode={view.state.view}
             onViewModeChange={view.setView}
             query={view.state.filter.query}
-            onQueryChange={(q) => view.setFilter({ query: q })}
+            onQueryChange={(q) => {
+              view.setFilter({ query: q });
+              setActiveSavedSearchId(null);
+            }}
             resultCount={view.visibleFiles.length}
             sortKey={view.state.sort.key}
             sortDirection={view.state.sort.direction}
@@ -752,13 +843,30 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             pinnedOnly={view.state.filter.pinnedOnly}
             dateFrom={view.state.filter.dateFrom}
             dateTo={view.state.filter.dateTo}
-            onKindFilterChange={(kinds) => view.setFilter({ kinds })}
-            onPinnedOnlyChange={(pinnedOnly) => view.setFilter({ pinnedOnly })}
-            onDateFromChange={(dateFrom) => view.setFilter({ dateFrom })}
-            onDateToChange={(dateTo) => view.setFilter({ dateTo })}
-            onClearFilters={() =>
-              view.setFilter({ kinds: [], pinnedOnly: false, dateFrom: null, dateTo: null })
-            }
+            onKindFilterChange={(kinds) => {
+              view.setFilter({ kinds });
+              setActiveSavedSearchId(null);
+            }}
+            onPinnedOnlyChange={(pinnedOnly) => {
+              view.setFilter({ pinnedOnly });
+              setActiveSavedSearchId(null);
+            }}
+            onDateFromChange={(dateFrom) => {
+              view.setFilter({ dateFrom });
+              setActiveSavedSearchId(null);
+            }}
+            onDateToChange={(dateTo) => {
+              view.setFilter({ dateTo });
+              setActiveSavedSearchId(null);
+            }}
+            onClearFilters={() => {
+              view.setFilter({ kinds: [], pinnedOnly: false, dateFrom: null, dateTo: null });
+              setActiveSavedSearchId(null);
+            }}
+            onSaveSearch={() => {
+              setSaveSearchName(view.state.filter.query);
+              setSaveSearchDialogOpen(true);
+            }}
           />
         </div>
         {selectedIds.length > 0 && (
@@ -836,6 +944,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           files={view.files.filter((f) => !f.trashedAt)}
           projects={view.projects}
           templates={templates}
+          platform={platform}
         />
         <HomeShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
         {versionHistoryFileId && (
@@ -907,6 +1016,81 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                 }}
               >
                 Create
+              </button>
+            </div>
+          </div>
+        </Dialog>
+        <Dialog
+          open={saveSearchDialogOpen}
+          title="Save Search"
+          onClose={() => setSaveSearchDialogOpen(false)}
+        >
+          <div className="strata-home__new-project-dialog">
+            <label htmlFor="save-search-name" className="strata-home__new-project-label">
+              Search name
+            </label>
+            <input
+              id="save-search-name"
+              type="text"
+              className="strata-home__new-project-input"
+              placeholder="e.g. Recent logos"
+              value={saveSearchName}
+              onChange={(e) => setSaveSearchName(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && saveSearchName.trim()) {
+                  platform
+                    .createSavedSearch(
+                      saveSearchName.trim(),
+                      view.state.filter.query,
+                      view.state.filter.kinds,
+                      view.state.filter.tagIds,
+                    )
+                    .then((s) => {
+                      setSavedSearches((prev) => [...prev, s]);
+                      setSaveSearchDialogOpen(false);
+                      setSaveSearchName('');
+                    });
+                }
+                if (e.key === 'Escape') {
+                  setSaveSearchDialogOpen(false);
+                  setSaveSearchName('');
+                }
+              }}
+            />
+            <div className="strata-home__new-project-actions">
+              <button
+                type="button"
+                className="strata-home__new-project-cancel"
+                onClick={() => {
+                  setSaveSearchDialogOpen(false);
+                  setSaveSearchName('');
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="strata-home__new-project-confirm"
+                disabled={!saveSearchName.trim()}
+                onClick={() => {
+                  if (saveSearchName.trim()) {
+                    platform
+                      .createSavedSearch(
+                        saveSearchName.trim(),
+                        view.state.filter.query,
+                        view.state.filter.kinds,
+                        view.state.filter.tagIds,
+                      )
+                      .then((s) => {
+                        setSavedSearches((prev) => [...prev, s]);
+                        setSaveSearchDialogOpen(false);
+                        setSaveSearchName('');
+                      });
+                  }
+                }}
+              >
+                Save
               </button>
             </div>
           </div>
