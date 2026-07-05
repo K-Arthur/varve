@@ -5,16 +5,18 @@
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  background: var(--elevation-surface-default);
+  border-left: var(--border-micro);
   /* In light theme the code block is dark to ensure syntax-token contrast.
      In dark theme it follows the sunken surface. */
-  --spec-code-bg: var(--color-surface-sunken);
+  --spec-code-bg: var(--elevation-surface-sunken);
   --spec-code-text: var(--color-text-primary);
 }
 
 @media (prefers-color-scheme: light) {
   .spec-panel {
     --spec-code-bg: var(--color-text-primary);
-    --spec-code-text: var(--color-surface-raised);
+    --spec-code-text: var(--color-text-on-accent);
   }
 }
 
@@ -24,7 +26,7 @@
   gap: var(--space-2);
   margin-bottom: var(--space-3);
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: var(--border-micro);
 }
 
 .spec-panel__name {
@@ -39,7 +41,7 @@
 .spec-panel__kind {
   display: inline-block;
   padding: 0 var(--space-1);
-  background: var(--color-surface-sunken);
+  background: var(--elevation-surface-sunken);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
@@ -181,8 +183,8 @@
   overflow: auto;
   background: var(--spec-code-bg);
   color: var(--spec-code-text);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
   padding: var(--space-2);
   margin: 0;
   font-family: var(--font-mono);
@@ -284,7 +286,16 @@
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
+  outline-offset: 2px;
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+.spec-export__download:hover {
+  background: var(--color-interactive-hover);
+}
+.spec-export__download:active {
+  transform: scale(0.97);
 }
 .spec-export__download:disabled {
   opacity: 0.5;
@@ -469,4 +480,18 @@
 .spec-codegen__pre .token.important,
 .spec-codegen__pre .token.variable {
   color: var(--color-feedback-warning, #eab308);
+}
+
+/* ── High-contrast overrides ──────────────────────────── */
+[data-theme="high-contrast"] .spec-panel {
+  border-left: 1px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .spec-panel__header {
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .spec-codegen__pre {
+  border: 1px solid var(--color-border-strong);
+  background: var(--elevation-surface-sunken);
 }

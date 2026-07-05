@@ -143,7 +143,9 @@ export function NodeEditOverlay({
                 cx={c.x}
                 cy={c.y}
                 r={5}
-                fill={selected ? 'var(--color-interactive-default)' : 'var(--color-surface-overlay)'}
+                fill={
+                  selected ? 'var(--color-interactive-default)' : 'var(--color-surface-overlay)'
+                }
                 stroke="var(--color-interactive-default)"
                 strokeWidth={1.5}
               />
@@ -153,7 +155,9 @@ export function NodeEditOverlay({
                 y={c.y - 4}
                 width={8}
                 height={8}
-                fill={selected ? 'var(--color-interactive-default)' : 'var(--color-surface-overlay)'}
+                fill={
+                  selected ? 'var(--color-interactive-default)' : 'var(--color-surface-overlay)'
+                }
                 stroke="var(--color-interactive-default)"
                 strokeWidth={1.5}
               />

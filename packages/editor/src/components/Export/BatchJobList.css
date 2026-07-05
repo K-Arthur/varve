@@ -1,18 +1,19 @@
 .batch-job-list {
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
   overflow: hidden;
+  background: var(--elevation-surface-default);
 }
 .batch-job-list__header {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-sunken);
+  background: var(--elevation-surface-sunken);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  font-weight: 600;
-  border-bottom: 1px solid var(--color-border-subtle);
+  font-weight: var(--font-weight-semibold);
+  border-bottom: var(--border-micro);
 }
 .batch-job-list__select-all {
   width: 20px;
@@ -51,17 +52,20 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: var(--border-micro);
   font-size: var(--font-size-sm);
+  background: var(--elevation-surface-default);
+  transition: background var(--duration-quick) var(--ease-standard);
 }
 .batch-job-row:last-child {
   border-bottom: none;
 }
 .batch-job-row:hover {
-  background: var(--color-surface-sunken);
+  background: var(--elevation-surface-sunken);
 }
 .batch-job-row--selected {
   background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
 }
 .batch-job-row__checkbox {
   width: 20px;
@@ -91,19 +95,36 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 }
+.batch-job-row--selected .batch-job-row__name,
+.batch-job-row--selected .batch-job-row__format,
+.batch-job-row--selected .batch-job-row__dims,
+.batch-job-row--selected .batch-job-row__size {
+  color: var(--color-text-on-accent);
+}
 .batch-job-row__status {
   width: 24px;
   text-align: center;
 }
 .batch-job-row__status--done {
-  color: var(--color-success-primary);
+  color: var(--color-feedback-success);
 }
 .batch-job-row__status--error {
-  color: var(--color-danger-primary);
+  color: var(--color-feedback-danger);
 }
 .batch-job-row__status--running {
   color: var(--color-accent-primary);
 }
 .batch-job-row__status--pending {
   color: var(--color-text-muted);
+}
+
+/* ── High-contrast overrides ──────────────────────────── */
+[data-theme="high-contrast"] .batch-job-list {
+  border: 1px solid var(--color-border-strong);
+}
+[data-theme="high-contrast"] .batch-job-list__header {
+  border-bottom: 1px solid var(--color-border-strong);
+}
+[data-theme="high-contrast"] .batch-job-row {
+  border-bottom: 1px solid var(--color-border-strong);
 }

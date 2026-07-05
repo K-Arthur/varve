@@ -26,7 +26,12 @@ export const GETTING_STARTED: Record<string, HelpArticle> = {
     body: 'The Strata editor is organized into several areas: The Menubar at the top provides file operations, editing commands, view options, and help. The Toolbar (floating) contains drawing and selection tools. The Canvas is the main work area where you create and manipulate designs. The Layers Panel (left sidebar) shows the hierarchy of all objects in your document. The Inspector Panel (right sidebar) displays editable properties for the selected object. The Status Bar at the bottom shows zoom level, canvas mode, and toggle controls. Page navigation appears below the canvas for multi-page documents.',
     keywords: ['interface', 'layout', 'editor', 'canvas', 'toolbar', 'panels', 'menubar'],
     category: 'Getting Started',
-    related: ['getting-started:overview', 'getting-started:keys', 'panel:layers', 'panel:inspector'],
+    related: [
+      'getting-started:overview',
+      'getting-started:keys',
+      'panel:layers',
+      'panel:inspector',
+    ],
   },
   'getting-started:saving': {
     id: 'getting-started:saving',

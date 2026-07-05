@@ -7,9 +7,15 @@ describe('FocusTrap', () => {
   it('Tab on last element wraps to first', () => {
     render(
       <FocusTrap active={true}>
-        <button type="button" data-testid="btn1">First</button>
-        <button type="button" data-testid="btn2">Second</button>
-        <button type="button" data-testid="btn3">Third</button>
+        <button type="button" data-testid="btn1">
+          First
+        </button>
+        <button type="button" data-testid="btn2">
+          Second
+        </button>
+        <button type="button" data-testid="btn3">
+          Third
+        </button>
       </FocusTrap>,
     );
     const btn1 = screen.getByTestId('btn1');
@@ -25,9 +31,15 @@ describe('FocusTrap', () => {
   it('Shift+Tab on first element wraps to last', () => {
     render(
       <FocusTrap active={true}>
-        <button type="button" data-testid="btn1">First</button>
-        <button type="button" data-testid="btn2">Second</button>
-        <button type="button" data-testid="btn3">Third</button>
+        <button type="button" data-testid="btn1">
+          First
+        </button>
+        <button type="button" data-testid="btn2">
+          Second
+        </button>
+        <button type="button" data-testid="btn3">
+          Third
+        </button>
       </FocusTrap>,
     );
     const btn1 = screen.getByTestId('btn1');
@@ -42,9 +54,15 @@ describe('FocusTrap', () => {
   it('Tab on middle element does not wrap', () => {
     render(
       <FocusTrap active={true}>
-        <button type="button" data-testid="btn1">First</button>
-        <button type="button" data-testid="btn2">Second</button>
-        <button type="button" data-testid="btn3">Third</button>
+        <button type="button" data-testid="btn1">
+          First
+        </button>
+        <button type="button" data-testid="btn2">
+          Second
+        </button>
+        <button type="button" data-testid="btn3">
+          Third
+        </button>
       </FocusTrap>,
     );
     const btn1 = screen.getByTestId('btn1');
@@ -71,7 +89,9 @@ describe('FocusTrap', () => {
   it('does not trap focus when active=false', () => {
     render(
       <FocusTrap active={false}>
-        <button type="button" data-testid="btn">Test</button>
+        <button type="button" data-testid="btn">
+          Test
+        </button>
       </FocusTrap>,
     );
 
@@ -87,7 +107,9 @@ describe('FocusTrap', () => {
     render(
       <FocusTrap active={true} initialFocus="#focus-me">
         <button type="button">First</button>
-        <button type="button" id="focus-me" data-testid="target">Target</button>
+        <button type="button" id="focus-me" data-testid="target">
+          Target
+        </button>
         <button type="button">Last</button>
       </FocusTrap>,
     );

@@ -548,11 +548,9 @@ export function CanvasArea({
         if (bg?.space === 'rgb') {
           return `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
         }
-        return (
-          getComputedStyle(document.documentElement)
-            .getPropertyValue('--color-surface-sunken')
-            .trim()
-        );
+        return getComputedStyle(document.documentElement)
+          .getPropertyValue('--color-surface-sunken')
+          .trim();
       })();
 
       const entries = walkNodes(doc);
@@ -911,10 +909,9 @@ export function CanvasArea({
     const cache = transformCacheRef.current;
     const entries = walkNodes(doc);
 
-    const accentColor =
-      getComputedStyle(document.documentElement)
-        .getPropertyValue('--color-accent-primary')
-        .trim();
+    const accentColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-accent-primary')
+      .trim();
 
     // Clear overlay canvas (it's transparent otherwise)
     ctx.setTransform(1, 0, 0, 1, 0, 0);

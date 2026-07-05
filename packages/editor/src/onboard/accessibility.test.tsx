@@ -72,9 +72,7 @@ describe('accessibility integration', () => {
   });
 
   it('DidYouKnowTip has status role and aria-live', () => {
-    render(
-      <DidYouKnowTip tip={makeTip()} onDismiss={vi.fn()} onDontShowAgain={vi.fn()} />,
-    );
+    render(<DidYouKnowTip tip={makeTip()} onDismiss={vi.fn()} onDontShowAgain={vi.fn()} />);
     const status = screen.getByRole('status');
     expect(status).toHaveAttribute('aria-live', 'polite');
   });

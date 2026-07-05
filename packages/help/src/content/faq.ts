@@ -12,7 +12,7 @@ export const FAQ: Record<string, HelpArticle> = {
   },
   'faq:color': {
     id: 'faq:color',
-    title: 'How do I change a shape\'s color?',
+    title: "How do I change a shape's color?",
     summary: 'Apply and modify fill colors for any shape.',
     body: 'Select the shape on the canvas, then look at the Inspector panel on the right. Find the Fill section. Click the color swatch to open the color picker. Choose a color from the picker, or type a hex value directly. You can also use the eyedropper to pick a color from anywhere on the screen. Add multiple fills by clicking the plus button, and reorder them by dragging. Each fill can have its own blend mode and opacity.',
     keywords: ['color', 'fill', 'paint', 'change', 'shape', 'how'],
@@ -59,7 +59,7 @@ export const FAQ: Record<string, HelpArticle> = {
     id: 'faq:save',
     title: 'How do I save my work?',
     summary: 'Save your document manually or rely on auto-save.',
-    body: 'Strata auto-saves your work periodically as you design, creating recovery points without interrupting you. For manual saves, press Ctrl+S or go to File > Save. Save As (Ctrl+Shift+S) creates a copy with a new name. Documents are saved in Strata\'s native JSON format. The document name appears in the center of the menubar and can be edited by clicking on it.',
+    body: "Strata auto-saves your work periodically as you design, creating recovery points without interrupting you. For manual saves, press Ctrl+S or go to File > Save. Save As (Ctrl+Shift+S) creates a copy with a new name. Documents are saved in Strata's native JSON format. The document name appears in the center of the menubar and can be edited by clicking on it.",
     keywords: ['save', 'auto-save', 'persist', 'file', 'how'],
     category: 'FAQ',
     related: ['getting-started:saving', 'faq:recover'],

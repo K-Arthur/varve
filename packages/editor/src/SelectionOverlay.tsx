@@ -481,7 +481,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             style={{ pointerEvents: hasInteractiveHandles ? 'auto' : 'none', cursor: 'grab' }}
             onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, 8) : undefined}
           />
-            <circle
+          <circle
             cx={rotX}
             cy={rotY}
             r={HANDLE_HALF}

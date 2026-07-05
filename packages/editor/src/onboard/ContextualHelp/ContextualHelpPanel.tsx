@@ -118,7 +118,9 @@ export function ContextualHelpPanel({
               ))}
             </ul>
           ) : (
-            <p className="contextual-help-panel__empty" aria-live="polite">No results found.</p>
+            <p className="contextual-help-panel__empty" aria-live="polite">
+              No results found.
+            </p>
           )
         ) : state.article ? (
           <article className="contextual-help-panel__article">

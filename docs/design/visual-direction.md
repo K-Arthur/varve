@@ -152,3 +152,117 @@ All changes use existing tokens; no new WCAG pairs needed.
 ### WCAG audit
 - 90/90 pairs pass across 3 themes (100%)
 - Elevation pairs verified at each level for both light and dark
+
+---
+
+## Session 36+ — Design Language Evolution: Neo-Bento × Linear Hybrid (2026-07-05)
+
+### Competitive Research Summary
+
+**Research scope**: Figma, Linear, Adobe Illustrator, Adobe InDesign, Affinity Designer,
+Canva, Sketch design systems and interaction paradigms.
+
+**Key findings**:
+
+| Tool | Best at | Design language |
+|------|---------|-----------------|
+| Figma | Browser-native collaboration, Auto Layout, universal Cmd+K | Clean chrome, purple accent, context-adaptive inspector |
+| Linear | Keyboard-first workflows, density control, Cmd+K as primary UI | Typography-first, single blue accent, compact/comfortable/cozy |
+| Affinity | Persona-based workspace, native performance | Modern flat, persona switcher, clean tool organization |
+| Canva | Template-first, accessibility | Pastel, rounded, consumer-oriented |
+| Sketch | Symbol system, Mac-native | Minimal, HIG-compliant |
+| Adobe Illustrator | Deepest vector toolset, Appearance panel | Mature/dense, customizable workspace |
+| Adobe InDesign | Page layout, paragraph styles, preflight | Production-oriented, panel-heavy |
+
+### Design Language Evaluation: Neo-Bento × Linear Hybrid
+
+**Decision: HYBRID APPROACH ADOPTED — with strict boundary rules**
+
+| Domain | Strategy | Rationale |
+|--------|----------|-----------|
+| **Canvas workspace** | Pure Linear — minimal chrome, keyboard-first | Data-dense, needs maximum content space |
+| **Home page** | Neo-Bento — bento grid file cards, atmospheric depth | Overview/snapshot, varied content types |
+| **Panels (Layers/Inspector)** | Bento-lite — modular disclosure cells | Sectioned content, benefits from visual hierarchy |
+| **Toolbars** | Linear — flat, single-accent, tooltip shortcuts | Power-user efficiency, reduced noise |
+| **Dialogs** | Linear — clean, keyboard-navigable, focus-trapped | Task-focused, needs fast dismissal |
+| **Navigation** | Linear — Cmd+K universal command entry | Always available, shortcut-discovering |
+
+**Where Neo-Bento was REJECTED**:
+- Canvas workspace (would compete with content)
+- Layers tree (data-dense, needs uniform rows)
+- Timeline panel (chronological linear)
+- Text/code editors (reading flow disruption)
+
+**Where Linear was REJECTED**:
+- Home page file grid (needs visual hierarchy for discovery)
+- Template gallery (needs differentiated preview cells)
+- Settings/configuration (grouped content benefits from bento)
+
+### New CSS Primitives Added
+
+| Primitive | Purpose | File |
+|-----------|---------|------|
+| `.bento-grid` | CSS Grid container with gap + containment | components.css |
+| `.bento-cell` | Neut-Bento card: radius-xl, micro-border, elevation-raised | components.css |
+| `.bento-cell--featured` | Hero cell: radius-2xl, micro-border-accent, elevation-overlay | components.css |
+| `.bento-span-2/3/full` | CSS Grid column span helpers | components.css |
+| `.bento-grid--3/--2` | Preset grid templates | components.css |
+| `[data-density]` | Three-tier density system (compact/comfortable/cozy) | components.css |
+| `.strata-tip__shortcut` | Keyboard shortcut badge in tooltips | components.css |
+
+### Density Control System
+
+Research basis: Linear's compact/comfortable/cozy system (March 2026 refresh).
+
+| Mode | row-gap | padding | min-height | icon-size | font-size |
+|------|---------|---------|------------|-----------|-----------|
+| compact | 0 | space-1 | 28px | 14px | xs |
+| comfortable (default) | space-1 | space-2 | 34px | 16px | sm |
+| cozy | space-2 | space-3 | 42px | 18px | base |
+
+Applied via `data-density` attribute on panels. Layers tree,
+inspector sections, and file lists support all 3 densities.
+
+### Tooltip Shortcut System
+
+Research basis: Linear shows keyboard shortcuts in all tooltips,
+teaching users to graduate from Cmd+K to direct shortcuts.
+
+20+ tool shortcuts registered in `FloatingToolbar.tsx`:
+- V=Select, H=Hand, Z=Zoom, F=Frame, R=Rect, O=Ellipse
+- L=Line, A=Arrow, P=Pen, T=Text, S=Scale, K=Slice
+- I=Eyedropper, Ctrl=Inspect, J=Clone Stamp (2x=Heal, 3x=Spot)
+
+### Architecture Decomposition
+
+**Problem**: `EditorProvider` in context.tsx was 3831 lines with ~250 methods.
+
+**Solution**: Provider Composition Pattern — focused sub-contexts compose
+EditorProvider, with backward-compatible useEditor().
+
+| Sub-context | Responsibility | Status |
+|-------------|---------------|--------|
+| `ViewportContext` | zoom, pan, canvas mode, camera animation | **Extracted** |
+| `SelectionContext` | selection CRUD, multi-select helpers | **Extracted** |
+| DocumentContext | document ops, undo/redo, file I/O | Pattern established |
+| ToolContext | active tool, tool state | Pattern established |
+| MotionContext | timeline, animation playback | Planned |
+| PrototypeContext | prototype mode, presentation | Planned |
+
+Each sub-context exposes:
+1. Focused provider that wraps children
+2. Focused hook (useViewport, useSelection)
+3. Integration into EditorProvider for backward-compatible useEditor()
+
+### Remaining Work (Deferred)
+
+| Item | Phase | Dependencies |
+|------|-------|-------------|
+| Multi-canvas layering (3 canvases) | B-07 | — |
+| Worker-based rendering (OffscreenCanvas) | C | B-07 |
+| Background blur (real backdrop capture) | F-09 | — |
+| Snap pruning + frame snapping | D-02/D-04 | — |
+| Guide context menu | D-07 | — |
+| Canvas accessibility tree expansion | E-01 | — |
+| Focus traps on all 8 dialogs | E-02 | Completed (FocusTrap component) |
+| Visual regression test suite | — | Playwright setup |

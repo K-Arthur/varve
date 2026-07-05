@@ -7,14 +7,14 @@
 .export-progress__bar {
   flex: 1;
   height: 8px;
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 .export-progress__fill {
   height: 100%;
   background: var(--color-accent-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   transition: width 150ms ease;
 }
 .export-progress__text {
@@ -23,17 +23,39 @@
   white-space: nowrap;
 }
 .export-progress__errors {
-  color: var(--color-danger-primary);
+  color: var(--color-feedback-danger);
 }
 .export-progress__cancel {
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: var(--space-5);
+  padding: 0 var(--space-2);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
+  font-family: var(--font-body);
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
+  outline-offset: 2px;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-default);
 }
 .export-progress__cancel:hover {
-  background: var(--color-surface-raised);
+  background: var(--elevation-surface-sunken);
+}
+.export-progress__cancel:active {
+  transform: scale(0.97);
+}
+.export-progress__cancel:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+}
+
+/* ── High-contrast overrides ──────────────────────────── */
+[data-theme="high-contrast"] .export-progress__bar {
+  border: 1px solid var(--color-border-strong);
 }

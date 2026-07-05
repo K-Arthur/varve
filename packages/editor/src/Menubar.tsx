@@ -614,12 +614,12 @@ export function Menubar({
                   top: '100%',
                   left: 0,
                   zIndex: 100,
-                  background: 'var(--color-surface-raised)',
-                  border: '1px solid var(--color-border-subtle)',
+                  background: 'var(--elevation-surface-overlay)',
+                  border: 'var(--border-micro)',
                   borderRadius: 'var(--radius-sm)',
                   minWidth: 180,
                   padding: 'var(--space-1)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  boxShadow: 'var(--elevation-shadow-overlay)',
                 }}
               >
                 {menu.items.map((item) => {
@@ -655,7 +655,7 @@ export function Menubar({
                       onClick={() => handleAction(item.action ?? '')}
                       onMouseEnter={(e) => {
                         (e.currentTarget as HTMLElement).style.background =
-                          'var(--color-interactive-default)';
+                          'var(--color-interactive-hover)';
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLElement).style.background = isActiveTheme(item)

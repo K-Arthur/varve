@@ -6,22 +6,30 @@
 .export-settings__custom-scale {
   width: 64px;
   padding: var(--space-1);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--elevation-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   text-align: center;
 }
+.export-settings__custom-scale:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
 .export-settings__template {
   width: 100%;
   padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--elevation-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-family: monospace;
+}
+.export-settings__template:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 .export-settings__hints {
   margin-top: var(--space-1);
@@ -29,9 +37,15 @@
   gap: var(--space-1);
 }
 .export-settings__hints code {
-  background: var(--color-surface-sunken);
+  background: var(--elevation-surface-sunken);
   padding: 0 var(--space-1);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+}
+
+/* ── High-contrast overrides ──────────────────────────── */
+[data-theme="high-contrast"] .export-settings__custom-scale,
+[data-theme="high-contrast"] .export-settings__template {
+  border: 1px solid var(--color-border-strong);
 }

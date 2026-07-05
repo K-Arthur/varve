@@ -13,14 +13,32 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-accent-default);
-  border: 2px solid var(--color-surface-raised);
+  background: var(--color-feedback-danger);
+  border: 2px solid var(--elevation-surface-raised);
   pointer-events: none;
+  animation: new-feature-pulse 2s var(--ease-out) infinite;
+}
+
+@keyframes new-feature-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.15);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .new-feature-badge {
-    transition: none;
+  .new-feature-badge__dot {
     animation: none;
   }
+}
+
+[data-theme="high-contrast"] .new-feature-badge__dot {
+  background: var(--color-feedback-danger);
+  border-color: var(--color-text-primary);
+  outline: 1px solid var(--color-text-primary);
 }

@@ -162,11 +162,20 @@ describe('syncInstance', () => {
       ...doc,
       nodes: {
         ...doc.nodes,
-        [instanceId]: { ...instance, opacity: overriddenOpacity, rotation: overriddenRotation } as FrameNode,
+        [instanceId]: {
+          ...instance,
+          opacity: overriddenOpacity,
+          rotation: overriddenRotation,
+        } as FrameNode,
       },
     };
 
-    const changedMaster: FrameNode = { ...master, fill: rgb(255, 0, 0), opacity: 0.8, rotation: 15 };
+    const changedMaster: FrameNode = {
+      ...master,
+      fill: rgb(255, 0, 0),
+      opacity: 0.8,
+      rotation: 15,
+    };
     const d1 = {
       ...d0,
       nodes: {
@@ -320,13 +329,19 @@ describe('syncAllInstances', () => {
     doc = docC2;
 
     const i1 = makeFrameNode('i1', {
-      name: 'I1', componentId: c1.id, fill: rgb(0, 100, 200),
-      w: 100, h: 50,
+      name: 'I1',
+      componentId: c1.id,
+      fill: rgb(0, 100, 200),
+      w: 100,
+      h: 50,
     });
     doc = addNode(doc, i1);
     const i2 = makeFrameNode('i2', {
-      name: 'I2', componentId: c2.id, fill: rgb(200, 50, 0),
-      w: 200, h: 100,
+      name: 'I2',
+      componentId: c2.id,
+      fill: rgb(200, 50, 0),
+      w: 200,
+      h: 100,
     });
     doc = addNode(doc, i2);
 
