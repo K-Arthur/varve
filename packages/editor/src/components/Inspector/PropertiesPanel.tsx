@@ -155,7 +155,7 @@ function EmptySelectionState() {
           <span className="insp-field__label">Background</span>
           <div className="insp-field__control">
             <ColorPicker
-              value={canvasBg ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
+              value={canvasBg ?? { space: 'rgb', r: 255, g: 255, b: 255, a: 255 }}
               onChange={(c) => setCanvasBackground(c as ManagedColor)}
             />
           </div>

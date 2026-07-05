@@ -9,6 +9,7 @@
 export * from './adjustments';
 export * from './boolean';
 export * from './brush';
+export * from './clone';
 export * from './colorManagement';
 export * from './colorMode';
 export * from './component';

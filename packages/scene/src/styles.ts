@@ -202,6 +202,106 @@ export function duplicateStyle(
   };
 }
 
+// ── Style Resolution (render-time inlining) ─────────────────────────────────
+
+/**
+ * Resolve a single node's styles.
+ * Returns a record with style properties inlined.
+ * Applies node-level styleOverrides on top of the style definition.
+ * If no styleId or style not found, returns undefined.
+ */
+export function resolveNodeStyles(
+  node: SceneNode,
+  styleId: string,
+  styles: Record<string, Style>,
+): Record<string, unknown> | undefined {
+  const styleDef = styles[styleId];
+  if (!styleDef) return undefined;
+
+  const resolved: Record<string, unknown> = {};
+
+  switch (styleDef.type) {
+    case 'color': {
+      if (styleDef.fill) resolved.fill = styleDef.fill;
+      break;
+    }
+    case 'text': {
+      if (styleDef.fontFamily) resolved.fontFamily = styleDef.fontFamily;
+      if (styleDef.fontWeight) resolved.fontWeight = styleDef.fontWeight;
+      if (styleDef.fontStyle) resolved.fontStyle = styleDef.fontStyle;
+      if (styleDef.fontSize) resolved.fontSize = styleDef.fontSize;
+      if (styleDef.lineHeight) resolved.lineHeight = styleDef.lineHeight;
+      if (styleDef.letterSpacing) resolved.letterSpacing = styleDef.letterSpacing;
+      if (styleDef.textAlign) resolved.textAlign = styleDef.textAlign;
+      if (styleDef.textCase) resolved.textCase = styleDef.textCase;
+      if (styleDef.textDecoration) resolved.textDecoration = styleDef.textDecoration;
+      if (styleDef.listStyle) resolved.listStyle = styleDef.listStyle;
+      break;
+    }
+    case 'effect': {
+      if (styleDef.effects) resolved.effects = styleDef.effects;
+      break;
+    }
+    case 'layout': {
+      break;
+    }
+  }
+
+  // Apply node-level styleOverrides on top of the resolved style properties
+  const styleOverrides = (node as { styleOverrides?: Record<string, unknown> }).styleOverrides;
+  if (styleOverrides) {
+    Object.assign(resolved, styleOverrides);
+  }
+
+  return resolved;
+}
+
+/**
+ * Resolve all styles in a document.
+ * Returns a Map<NodeId, Record<string, unknown>> with resolved style properties
+ * for every node that has a `styleId` referencing an existing style.
+ */
+export function resolveAllStyles(doc: Document): Map<NodeId, Record<string, unknown>> {
+  if (!doc.styles) return new Map();
+  const result = new Map<NodeId, Record<string, unknown>>();
+
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    const styleId = (node as { styleId?: string }).styleId;
+    if (!styleId) continue;
+
+    const resolved = resolveNodeStyles(node, styleId, doc.styles);
+    if (resolved) {
+      result.set(nodeId as NodeId, resolved);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Check if a node has an applied style.
+ */
+export function nodeHasStyle(node: SceneNode): boolean {
+  const styleId = (node as { styleId?: string }).styleId;
+  return !!styleId;
+}
+
+/**
+ * Get the effective style chain: style definition + node-level overrides.
+ * Returns undefined if the node does not exist.
+ */
+export function getEffectiveStyle(
+  doc: Document,
+  nodeId: NodeId,
+): { style: Style | undefined; overrides: Record<string, unknown> } | undefined {
+  const node = doc.nodes[nodeId];
+  if (!node) return undefined;
+  const styleId = (node as { styleId?: string }).styleId;
+  if (!styleId || !doc.styles) return { style: undefined, overrides: {} };
+  const styleDef = doc.styles[styleId];
+  return { style: styleDef, overrides: (node as { styleOverrides?: Record<string, unknown> }).styleOverrides ?? {} };
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function nextStyleId(doc: Document): NodeId {

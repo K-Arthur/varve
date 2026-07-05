@@ -24,7 +24,7 @@ export interface HistogramWidgetProps {
   onChange: (levels: LevelParams) => void;
 }
 
-function drawHistogram(ctx: CanvasRenderingContext2D, histogram: Histogram) {
+function drawHistogram(ctx: CanvasRenderingContext2D, histogram: Histogram, barColor: string) {
   ctx.clearRect(0, 0, WIDTH, BAR_AREA_H);
 
   const data = histogram.luminance;
@@ -38,7 +38,7 @@ function drawHistogram(ctx: CanvasRenderingContext2D, histogram: Histogram) {
   if (maxCount === 0) return;
 
   const barW = WIDTH / 256;
-  ctx.fillStyle = 'var(--color-text-muted, #888)';
+  ctx.fillStyle = barColor;
 
   for (let i = 0; i < 256; i++) {
     const h = (data[i]! / maxCount) * BAR_AREA_H;
@@ -46,7 +46,13 @@ function drawHistogram(ctx: CanvasRenderingContext2D, histogram: Histogram) {
   }
 }
 
-function drawTriangle(ctx: CanvasRenderingContext2D, x: number, color: string, label: string) {
+function drawTriangle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  color: string,
+  label: string,
+  labelColor: string,
+) {
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(x, TRI_Y);
@@ -55,7 +61,7 @@ function drawTriangle(ctx: CanvasRenderingContext2D, x: number, color: string, l
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = 'var(--color-text-muted)';
+  ctx.fillStyle = labelColor;
   ctx.font = '8px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(label, x, TRI_Y + TRI_SIZE + 10);
@@ -70,19 +76,27 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Canvas2D cannot resolve CSS variables — resolve via getComputedStyle.
+    const computed = getComputedStyle(document.documentElement);
+    const mutedColor = computed.getPropertyValue('--color-text-muted').trim() || '#888';
+    const accentColor = computed.getPropertyValue('--color-accent-primary').trim() || '#39d0c6';
+    const interactiveColor =
+      computed.getPropertyValue('--color-interactive-default').trim() || '#555';
+
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
     if (histogram) {
-      drawHistogram(ctx, histogram);
+      drawHistogram(ctx, histogram, mutedColor);
     }
 
     const blackX = (levels.inputBlack / 255) * WIDTH;
     const whiteX = (levels.inputWhite / 255) * WIDTH;
     const gammaX = Math.pow(levels.gamma, 0.5) * (whiteX - blackX) + blackX;
 
-    drawTriangle(ctx, blackX, 'var(--color-accent-primary, #39d0c6)', 'B');
-    drawTriangle(ctx, gammaX, 'var(--color-interactive-default, #555)', 'G');
-    drawTriangle(ctx, whiteX, 'var(--color-accent-primary, #39d0c6)', 'W');
+    drawTriangle(ctx, blackX, accentColor, 'B', mutedColor);
+    drawTriangle(ctx, gammaX, interactiveColor, 'G', mutedColor);
+    drawTriangle(ctx, whiteX, accentColor, 'W', mutedColor);
   }, [histogram, levels]);
 
   useEffect(() => {
