@@ -11,6 +11,7 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import {
+  applyStyleOverrides,
   CompositeCanvas,
   createEngine,
   mapBlendMode,
@@ -22,7 +23,7 @@ import {
 } from '@strata/engine';
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
-import { walkNodes } from '@strata/scene';
+import { isContainer, resolveAllStyles, walkNodes } from '@strata/scene';
 import {
   clampZoom,
   fitBoundsCamera,
@@ -353,6 +354,10 @@ export function CanvasArea({
   const autoPanRaf = useRef<number | null>(null);
   const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  // B-04: Dirty-rect tracking for partial redraw. Populated by draw()
+  // diffing old vs current node world bounds.
+  const dirtyRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
   const [nodeEditSelectedAnchors, setNodeEditSelectedAnchors] = useState<ReadonlySet<number>>(
@@ -526,28 +531,105 @@ export function CanvasArea({
       const s = stateRef.current;
       const doc = s.document;
 
-      // Pre-build all IR items in one call (single IPC round-trip for native engine).
-      // Nodes are in DFS paint order so the indices align with the IR array.
+      // B-03: Hierarchical viewport culling — build a set of off-screen container
+      // descendants to skip. If a container's world bounds don't intersect the
+      // viewport, none of its children can be visible either.
       const entries = walkNodes(doc);
       const cache = transformCacheRef.current;
       const viewport = canvas.getBoundingClientRect();
       const vp = { width: viewport.width, height: viewport.height };
+      const VP_W = vp.width;
+      const VP_H = vp.height;
       const cam = { pan: s.pan, zoom: s.zoom };
+      const hiddenByContainer = new Set<string>();
+
+      for (const [id] of entries) {
+        const n = doc.nodes[id];
+        if (!n) continue;
+        if (isContainer(n) && 'children' in n && n.children.length > 0) {
+          const containerBounds = getCachedWorldBounds(cache, doc, id);
+          if (containerBounds && !isWorldRectInViewport(cam, vp, containerBounds)) {
+            // Mark all direct and indirect descendants as hidden
+            const queue = [...n.children];
+            while (queue.length > 0) {
+              const childId = queue.pop()!;
+              hiddenByContainer.add(childId);
+              const child = doc.nodes[childId];
+              if (child && 'children' in child && child.children) {
+                queue.push(...child.children);
+              }
+            }
+          }
+        }
+      }
+
+      // B-04: Dirty-rect tracking — accumulate the union of old and new world
+      // bounds for nodes whose positions changed since the last draw. When only
+      // a small region is dirty, the renderer skips the full-canvas clear.
+      const prevDoc = prevDrawDocRef.current;
+      if (prevDoc && prevDoc !== doc) {
+        const prevNodeIds = new Set(Object.keys(prevDoc.nodes));
+        const currNodeIds = new Set(Object.keys(doc.nodes));
+        let dirtyWorld: { x: number; y: number; w: number; h: number } | null = null;
+        for (const id of currNodeIds) {
+          if (!prevNodeIds.has(id)) {
+            const b = getCachedWorldBounds(cache, doc, id);
+            if (!b) continue;
+            if (!dirtyWorld) dirtyWorld = { ...b };
+            else {
+              const mx = Math.min(dirtyWorld.x, b.x);
+              const my = Math.min(dirtyWorld.y, b.y);
+              const mx2 = Math.max(dirtyWorld.x + dirtyWorld.w, b.x + b.w);
+              const my2 = Math.max(dirtyWorld.y + dirtyWorld.h, b.y + b.h);
+              dirtyWorld = { x: mx, y: my, w: mx2 - mx, h: my2 - my };
+            }
+          }
+        }
+        if (dirtyWorld) {
+          const sx = dirtyWorld.x * s.zoom + s.pan.x - 40;
+          const sy = dirtyWorld.y * s.zoom + s.pan.y - 40;
+          const sw = dirtyWorld.w * s.zoom + 80;
+          const sh = dirtyWorld.h * s.zoom + 80;
+          dirtyRectRef.current = {
+            x: Math.max(0, sx),
+            y: Math.max(0, sy),
+            w: Math.min(VP_W, sw),
+            h: Math.min(VP_H, sh),
+          };
+        }
+      }
+
       const nodeIds: string[] = [];
       const flatNodes: EngineNode[] = [];
       for (const [id] of entries) {
         const n = doc.nodes[id];
         if (!n) continue;
-        // Skip groups — they are transparent pass-through containers, not drawables.
-        // replaySubtree handles groups separately (line 343-350).
         if (n.kind === 'group') continue;
+        // Skip nodes hidden by an off-screen container
+        if (hiddenByContainer.has(id)) continue;
         const world = getCachedWorldTransform(cache, doc, id);
-        // Viewport culling: skip nodes whose world bounds don't intersect the viewport.
-        // This avoids building IR and rendering for off-screen content.
+        // Per-node viewport culling for remaining root-level nodes
         const worldBounds = getCachedWorldBounds(cache, doc, id);
         if (worldBounds && !isWorldRectInViewport(cam, vp, worldBounds)) continue;
         nodeIds.push(id);
         flatNodes.push({ ...toEngineNode(n), transform: world });
+      }
+
+      // ── Style Resolution ────────────────────────────────────────────────────
+      // Resolve reusable styles (color/text/effect) for nodes that have a
+      // styleId. The resolved overrides are merged into engine nodes before IR
+      // building, making style changes immediately visible.
+      const resolvedStyles = resolveAllStyles(doc);
+      if (resolvedStyles.size > 0) {
+        for (let i = 0; i < flatNodes.length; i++) {
+          const nodeId = nodeIds[i];
+          if (!nodeId) continue;
+          const overrides = resolvedStyles.get(nodeId);
+          if (!overrides) continue;
+          const fn = flatNodes[i];
+          if (!fn) continue;
+          flatNodes[i] = applyStyleOverrides(fn, overrides);
+        }
       }
 
       // ── Motion / Timeline sampling ──────────────────────────────────────────
@@ -612,10 +694,41 @@ export function CanvasArea({
         if (nid && item) irByNodeId.set(nid, item);
       }
 
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+      // B-04: Dirty-rect tracking — if only a small region changed, skip the
+      // full-canvas clear and only redraw the affected screen-space rects.
+      // When dirty rects cover >60% of the viewport, fall back to full redraw.
+      const dirtyRect = dirtyRectRef.current;
+      const usePartialRedraw =
+        dirtyRect &&
+        dirtyRect.w > 0 &&
+        dirtyRect.h > 0 &&
+        dirtyRect.w * dirtyRect.h < VP_W * VP_H * 0.6;
+
+      if (usePartialRedraw) {
+        // Scale dirty rect from CSS px to canvas px (DPR)
+        const dx = dirtyRect.x * dpr;
+        const dy = dirtyRect.y * dpr;
+        const dw = dirtyRect.w * dpr;
+        const dh = dirtyRect.h * dpr;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(dx - 1, dy - 1, dw + 2, dh + 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(dx - 1, dy - 1, dw + 2, dh + 2);
+        // Clip subsequent rendering to the dirty region
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(dx, dy, dw, dh);
+        ctx.clip();
+        ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+      } else {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+      }
+
+      // Clear dirty rect after consuming
+      dirtyRectRef.current = null;
 
       // Tree-aware replay: frames clip their children; groups are transparent
       // containers (or flattened with offscreen compositing for non-passThrough
