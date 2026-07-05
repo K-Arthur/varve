@@ -71,7 +71,7 @@ export const TOOLS: Record<string, HelpArticle> = {
     body: 'Click on the canvas to create a text box, then start typing. Edit font family, size, weight, alignment, color, line height, letter spacing, and more in the Inspector panel. Double-click any text object to edit it inline on the canvas. Text objects support OpenType features and variable font axes.',
     keywords: ['text', 'type', 'font', 'typography', 't'],
     category: 'Tools',
-    related: ['panel:inspector', 'export'],
+    related: ['panel:inspector', 'export:overview'],
   },
   'tool:frame': {
     id: 'tool:frame',
@@ -105,7 +105,7 @@ export const TOOLS: Record<string, HelpArticle> = {
     title: 'Node Edit Tool',
     summary: 'Edit anchor points and bezier handles on paths.',
     body: 'Entered by double-clicking a path with the Select tool. Click an anchor point to select it. Drag to move. Click and drag bezier handles to adjust curves. Press Backspace to delete the selected anchor. Press C to toggle between corner and smooth handle types.',
-    keywords: ['node', 'edit', 'anchor', 'bezier', 'handle', 'path'],
+    keywords: ['node', 'edit', 'anchor', 'bezier', 'handle', 'path', 'nodeedit'],
     category: 'Tools',
     related: ['tool:pen', 'tool:pencil', 'tool:select'],
   },
@@ -116,6 +116,6 @@ export const TOOLS: Record<string, HelpArticle> = {
     body: 'Click on any object to view its properties, dimensions, and position in a read-only overlay. The inspect tool shows measurement readouts and spec information. Useful for design handoff and quality assurance.',
     keywords: ['inspect', 'measure', 'properties', 'read-only', 'i'],
     category: 'Tools',
-    related: ['tool:select', 'export'],
+    related: ['tool:select', 'export:overview'],
   },
 };

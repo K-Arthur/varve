@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HelpArticle } from './content/helpTypes';
-import { CATEGORIES } from './content/helpTypes';
 import { getHelpContent, HELP_CONTENT, searchHelpContent } from './content/helpContent';
 import './HelpBrowser.css';
 
@@ -82,8 +81,8 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
       if (e.key !== 'Tab') return;
       const focusable = dialog.querySelectorAll<HTMLElement>(focusableSelector);
       if (focusable.length === 0) return;
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
+      const first = focusable[0] as HTMLElement;
+      const last = focusable[focusable.length - 1] as HTMLElement;
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
         last.focus();
@@ -170,7 +169,7 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
     >
       <div className="help-browser__header">
         <h2 className="help-browser__title">Help</h2>
-        <div className="help-browser__search" role="search">
+        <search className="help-browser__search">
           <svg
             className="help-browser__search-icon"
             width="16"
@@ -197,7 +196,8 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
             onClick={onClose}
             aria-label="Close help"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <title>Close</title>
               <path
                 d="M4 4l8 8M12 4l-8 8"
                 stroke="currentColor"
@@ -206,7 +206,7 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
               />
             </svg>
           </button>
-        </div>
+        </search>
       </div>
 
       <div className="help-browser__body">
@@ -230,13 +230,12 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
           })}
         </nav>
 
-        <main className="help-browser__content" role="region" aria-label="Help content">
+        <section className="help-browser__content" aria-label="Help content">
           {showingResults ? (
             hasResults ? (
               <div
                 className="help-browser__results"
                 aria-live="polite"
-                aria-label={`${searchResults.length} search results`}
               >
                 <p className="help-browser__results-count">
                   {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
@@ -395,7 +394,7 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
               </div>
             </div>
           )}
-        </main>
+        </section>
       </div>
     </div>
   );

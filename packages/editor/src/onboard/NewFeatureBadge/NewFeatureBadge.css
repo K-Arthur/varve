@@ -17,3 +17,10 @@
   border: 2px solid var(--color-surface-raised);
   pointer-events: none;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .new-feature-badge {
+    transition: none;
+    animation: none;
+  }
+}

@@ -102,6 +102,7 @@ export function ContextualHelpPanel({
               className="contextual-help-panel__results"
               role="listbox"
               aria-label="Search results"
+              aria-live="polite"
             >
               {state.searchResults.map((article) => (
                 <li key={article.id} role="option" aria-selected={state.article?.id === article.id}>
@@ -117,7 +118,7 @@ export function ContextualHelpPanel({
               ))}
             </ul>
           ) : (
-            <p className="contextual-help-panel__empty">No results found.</p>
+            <p className="contextual-help-panel__empty" aria-live="polite">No results found.</p>
           )
         ) : state.article ? (
           <article className="contextual-help-panel__article">

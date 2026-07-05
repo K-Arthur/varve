@@ -85,7 +85,13 @@ export function OnboardingChecklist({
         </span>
       </div>
 
-      <div className="onboarding-checklist__progress-bar">
+      <div
+        className="onboarding-checklist__progress-bar"
+        role="progressbar"
+        aria-valuenow={completedCount}
+        aria-valuemin={0}
+        aria-valuemax={totalCount}
+      >
         <div
           className="onboarding-checklist__progress-fill"
           style={{ width: `${(completedCount / totalCount) * 100}%` }}
