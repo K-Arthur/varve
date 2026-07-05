@@ -135,6 +135,7 @@ import {
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import { applyDropPosition } from './dropUtils';
 import { computeFlexLayout } from './layout/computeFlexLayout';
+import { applyGridLayout } from './layout/computeGridLayout';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import {
@@ -810,11 +811,14 @@ const INITIAL_SESSION_ID = 'session-0';
 
 // ─── standalone helpers ─────────────────────────────────────────────────
 
-/** Apply computeFlexLayout to a frame's children and return the updated doc. */
+/** Apply layout to a frame's children and return the updated doc. */
 function applyFrameLayout(doc: Document, parentId: string | null | undefined): Document {
   if (!parentId) return doc;
   const parent = doc.nodes[parentId];
   if (parent?.kind !== 'frame' || !parent.layoutStyle) return doc;
+  if (parent.layoutStyle.mode === 'grid') {
+    return applyGridLayout(doc, parentId);
+  }
   const childNodes = parent.children
     .map((cid) => doc.nodes[cid])
     .filter((n): n is SceneNode => Boolean(n));

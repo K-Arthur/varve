@@ -31,7 +31,12 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ContainerNode, Document, NodeId } from '@strata/scene';
-import { getInstanceStatus, getKeyframeCount, getNodesInTimeline, isContainer } from '@strata/scene';
+import {
+  getInstanceStatus,
+  getKeyframeCount,
+  getNodesInTimeline,
+  isContainer,
+} from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';

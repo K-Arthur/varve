@@ -5,7 +5,16 @@
  * if the tip is relevant to the user's current workflow.
  */
 
-export type TipCategory = 'shortcuts' | 'editing' | 'panels' | 'layers' | 'text' | 'color' | 'export' | 'prototype' | 'grids';
+export type TipCategory =
+  | 'shortcuts'
+  | 'editing'
+  | 'panels'
+  | 'layers'
+  | 'text'
+  | 'color'
+  | 'export'
+  | 'prototype'
+  | 'grids';
 
 export interface Tip {
   id: string;
@@ -22,21 +31,24 @@ export const TIPS: Tip[] = [
     title: 'Quick tool switching',
     body: 'Press V to switch to the Select tool, R for Rectangle, T for Text. Keyboard shortcuts speed up your workflow significantly.',
     category: 'shortcuts',
-    condition: (getCount) => getCount('tool:select', 300000) > 10 && getCount('shortcut:', 300000) < 3,
+    condition: (getCount) =>
+      getCount('tool:select', 300000) > 10 && getCount('shortcut:', 300000) < 3,
   },
   {
     id: 'shortcut-shift-constrain',
     title: 'Constrain proportions',
     body: 'Hold Shift while drawing a shape to constrain its proportions — perfect circles and squares are just a keystroke away.',
     category: 'editing',
-    condition: (getCount) => getCount('tool:rect', 300000) > 5 || getCount('tool:ellipse', 300000) > 5,
+    condition: (getCount) =>
+      getCount('tool:rect', 300000) > 5 || getCount('tool:ellipse', 300000) > 5,
   },
   {
     id: 'layer-drag',
     title: 'Reorder layers',
     body: 'Drag layers in the Layers panel to change their stacking order. Layers at the top of the list appear in front.',
     category: 'layers',
-    condition: (getCount) => getCount('op:createNode', 600000) > 2 && getCount('menu:bringFront', 600000) < 1,
+    condition: (getCount) =>
+      getCount('op:createNode', 600000) > 2 && getCount('menu:bringFront', 600000) < 1,
   },
   {
     id: 'text-edit',
@@ -64,7 +76,8 @@ export const TIPS: Tip[] = [
     title: 'Duplicate fast',
     body: 'Select an object and press Ctrl+D to duplicate it instantly. The duplicate appears offset from the original.',
     category: 'shortcuts',
-    condition: (getCount) => getCount('op:createNode', 600000) > 5 && getCount('shortcut:', 600000) < 5,
+    condition: (getCount) =>
+      getCount('op:createNode', 600000) > 5 && getCount('shortcut:', 600000) < 5,
   },
   {
     id: 'shortcut-undo',
@@ -155,6 +168,7 @@ export const TIPS: Tip[] = [
     title: 'Align and distribute',
     body: 'Select multiple objects and use the Align tools in the Inspector to arrange them evenly. Distribute makes spacing between objects equal.',
     category: 'editing',
-    condition: (getCount) => getCount('tool:select', 600000) > 8 && getCount('menu:align', 600000) < 2,
+    condition: (getCount) =>
+      getCount('tool:select', 600000) > 8 && getCount('menu:align', 600000) < 2,
   },
 ];

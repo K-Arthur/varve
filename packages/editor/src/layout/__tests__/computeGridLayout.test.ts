@@ -1,6 +1,11 @@
 import type { Document, LayoutStyle, NodeId } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { parseGridTracks, computeGridLayout, applyGridLayout, type GridItem } from '../computeGridLayout';
+import {
+  parseGridTracks,
+  computeGridLayout,
+  applyGridLayout,
+  type GridItem,
+} from '../computeGridLayout';
 
 function makeDoc(overrides: Partial<Document> = {}): Document {
   return {
@@ -223,9 +228,12 @@ describe('computeGridLayout', () => {
   });
 
   it('handles explicit placement via gridPlacement', () => {
-    const doc = addNode(addNode(makeDoc(), 'a', {
-      gridPlacement: { gridColumnStart: 2, gridColumnEnd: 3, gridRowStart: 1, gridRowEnd: 2 },
-    }), 'b');
+    const doc = addNode(
+      addNode(makeDoc(), 'a', {
+        gridPlacement: { gridColumnStart: 2, gridColumnEnd: 3, gridRowStart: 1, gridRowEnd: 2 },
+      }),
+      'b',
+    );
     const parentId = 'parent';
     const docWithParent = {
       ...doc,
@@ -279,7 +287,10 @@ describe('computeGridLayout', () => {
           w: 400,
           h: 400,
           children: ['a', 'b', 'c', 'd'],
-          layoutStyle: makeLayoutStyle({ gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' }),
+          layoutStyle: makeLayoutStyle({
+            gridTemplateColumns: '1fr 1fr',
+            gridTemplateRows: '1fr 1fr',
+          }),
           fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 1 },
           index: 0,
           order: 'a0',

@@ -5,28 +5,59 @@ import type { FilterIR } from './types';
 /** Minimal mock CanvasRenderingContext2D for testing filter behavior in node. */
 function mockTarget() {
   const calls: string[] = [];
-  const props: Record<string, unknown> = { filter: 'none', globalCompositeOperation: 'source-over', globalAlpha: 1 };
+  const props: Record<string, unknown> = {
+    filter: 'none',
+    globalCompositeOperation: 'source-over',
+    globalAlpha: 1,
+  };
 
   const get = (name: string) => () => props[name];
-  const set = (name: string) => (v: unknown) => { props[name] = v; calls.push(`set ${name}`); };
+  const set = (name: string) => (v: unknown) => {
+    props[name] = v;
+    calls.push(`set ${name}`);
+  };
 
   const canvas = { width: 100, height: 100 } as HTMLCanvasElement;
   const target = {
-    get filter() { return get('filter')(); },
-    set filter(v) { set('filter')(v); },
-    get globalCompositeOperation() { return get('globalCompositeOperation')(); },
-    set globalCompositeOperation(v) { set('globalCompositeOperation')(v); },
-    get globalAlpha() { return get('globalAlpha')(); },
-    set globalAlpha(v) { set('globalAlpha')(v); },
+    get filter() {
+      return get('filter')();
+    },
+    set filter(v) {
+      set('filter')(v);
+    },
+    get globalCompositeOperation() {
+      return get('globalCompositeOperation')();
+    },
+    set globalCompositeOperation(v) {
+      set('globalCompositeOperation')(v);
+    },
+    get globalAlpha() {
+      return get('globalAlpha')();
+    },
+    set globalAlpha(v) {
+      set('globalAlpha')(v);
+    },
     canvas,
-    save: () => { calls.push('save'); },
-    restore: () => { calls.push('restore'); },
-    drawImage: () => { calls.push('drawImage'); },
-    clearRect: () => { calls.push('clearRect'); },
+    save: () => {
+      calls.push('save');
+    },
+    restore: () => {
+      calls.push('restore');
+    },
+    drawImage: () => {
+      calls.push('drawImage');
+    },
+    clearRect: () => {
+      calls.push('clearRect');
+    },
     getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
-    putImageData: () => { calls.push('putImageData'); },
+    putImageData: () => {
+      calls.push('putImageData');
+    },
     createImageData: (w: number, h: number) => new ImageData(w, h),
-    fillRect: () => { calls.push('fillRect'); },
+    fillRect: () => {
+      calls.push('fillRect');
+    },
     fillStyle: '',
   };
   return { target: target as unknown as CanvasRenderingContext2D, calls, props };
@@ -69,7 +100,10 @@ describe('filter compositing', () => {
     const filters: FilterIR[] = [
       {
         kind: 'curves',
-        points: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+        points: [
+          { x: 0, y: 0 },
+          { x: 255, y: 255 },
+        ],
         channel: 'rgb',
         opacity: 1,
         blendMode: 'normal',
@@ -98,8 +132,11 @@ describe('filter compositing', () => {
       { kind: 'brightness', value: 10, opacity: 1, blendMode: 'normal' },
       {
         kind: 'levels',
-        inputBlack: 0, inputWhite: 255, gamma: 1,
-        outputBlack: 0, outputWhite: 255,
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
         channel: 'rgb',
         opacity: 0.8,
         blendMode: 'normal',

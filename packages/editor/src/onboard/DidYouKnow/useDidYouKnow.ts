@@ -31,9 +31,7 @@ function saveTipsToday(data: TipsTodayData): void {
   localStorage.setItem(TIPS_TODAY_KEY, JSON.stringify(data));
 }
 
-export function useDidYouKnow(tracker: {
-  getCount: (id: string, windowMs?: number) => number;
-}): {
+export function useDidYouKnow(tracker: { getCount: (id: string, windowMs?: number) => number }): {
   currentTip: Tip | null;
   dismiss: () => void;
   dontShowAgain: () => void;

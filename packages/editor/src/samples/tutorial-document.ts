@@ -77,12 +77,29 @@ export function createTutorialDocument(): Document {
   // Line shape
   const line1 = makeShapeNode(
     'line-1',
-    { kind: 'line', from: [0, 0] as [number, number], to: [160, 0] as [number, number], tolerance: 5 },
+    {
+      kind: 'line',
+      from: [0, 0] as [number, number],
+      to: [160, 0] as [number, number],
+      tolerance: 5,
+    },
     {
       name: 'Line \u2014 connect things with lines',
       transform: translate(40, 440),
       fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 } as ManagedColor,
-      strokes: [{ color: DARK, weight: 2, align: 'center', cap: 'round', join: 'miter', miterLimit: 4, visible: true, dashPattern: [], dashOffset: 0 }],
+      strokes: [
+        {
+          color: DARK,
+          weight: 2,
+          align: 'center',
+          cap: 'round',
+          join: 'miter',
+          miterLimit: 4,
+          visible: true,
+          dashPattern: [],
+          dashOffset: 0,
+        },
+      ],
     },
   );
   doc = addChild(doc, frame1.id, line1);
@@ -98,12 +115,16 @@ export function createTutorialDocument(): Document {
   });
   doc = addNode(doc, frame2);
 
-  const txt2a = makeTextNode('txt-2a', 'Layers organize your design. Try reordering these shapes.', {
-    name: 'Instruction text',
-    transform: translate(40, 40),
-    fontSize: 16,
-    fill: DARK,
-  });
+  const txt2a = makeTextNode(
+    'txt-2a',
+    'Layers organize your design. Try reordering these shapes.',
+    {
+      name: 'Instruction text',
+      transform: translate(40, 40),
+      fontSize: 16,
+      fill: DARK,
+    },
+  );
   doc = addChild(doc, frame2.id, txt2a);
 
   const rect2 = makeShapeNode(
@@ -165,16 +186,12 @@ export function createTutorialDocument(): Document {
   );
   doc = addChild(doc, frame3.id, txt3a);
 
-  const txt3b = makeTextNode(
-    'txt-3b',
-    'Strata supports PNG, SVG, PDF, and code export.',
-    {
-      name: 'Export formats info',
-      transform: translate(40, 180),
-      fontSize: 14,
-      fill: DARK,
-    },
-  );
+  const txt3b = makeTextNode('txt-3b', 'Strata supports PNG, SVG, PDF, and code export.', {
+    name: 'Export formats info',
+    transform: translate(40, 180),
+    fontSize: 14,
+    fill: DARK,
+  });
   doc = addChild(doc, frame3.id, txt3b);
 
   // Star shape at center as decorative element

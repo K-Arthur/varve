@@ -7,9 +7,8 @@
  *
  * Research basis: CSS Grid Layout Module Level 1, Figma auto-layout grid.
  */
-import type { Document, LayoutStyle, NodeId } from '@strata/scene';
+import type { Document, LayoutStyle, NodeId, SceneNode } from '@strata/scene';
 import { measureText } from '@strata/shared';
-import type { SceneNode } from '@strata/scene';
 
 export interface GridItem {
   id: NodeId;
@@ -38,7 +37,7 @@ function parseTrackTemplate(template: string): TrackSize[] {
       return { kind: 'auto' };
     }
     const val = parseFloat(part);
-    return isNaN(val) ? { kind: 'auto' } : { kind: 'px', value: val };
+    return Number.isNaN(val) ? { kind: 'auto' } : { kind: 'px', value: val };
   });
 }
 
@@ -70,6 +69,8 @@ export function parseGridTracks(template: string, availableSize: number, gap: nu
         return perFr * t.value;
       case 'auto':
         return -1;
+      default:
+        return 0;
     }
   });
 }
@@ -120,8 +121,10 @@ function resolveAutoTracks(
 
     let maxSize = 0;
     for (const ci of childIndices) {
-      const sz = childSize(children[ci]!);
-      maxSize = Math.max(maxSize, isColumn ? sz.h : sz.w);
+      if (children[ci]) {
+        const sz = childSize(children[ci]);
+        maxSize = Math.max(maxSize, isColumn ? sz.h : sz.w);
+      }
     }
     return maxSize || 100;
   });
@@ -140,7 +143,7 @@ interface CellAssignment {
  */
 export function computeGridLayout(
   doc: Document,
-  parentId: NodeId,
+  _parentId: NodeId,
   parentW: number,
   parentH: number,
   layoutStyle: LayoutStyle,
@@ -155,20 +158,12 @@ export function computeGridLayout(
   const availH = Math.max(0, parentH - pt - pb);
   const gridAutoFlow = layoutStyle.gridAutoFlow ?? 'row';
 
-  // Parse explicit tracks
   const cols = parseGridTracks(layoutStyle.gridTemplateColumns ?? '', availW, columnGap);
   const rows = parseGridTracks(layoutStyle.gridTemplateRows ?? '', availH, rowGap);
 
-  // If no explicit columns, auto-generate based on children (single column)
-  const explicitCols = cols.length > 0 ? cols : [-1]; // auto column
-
-  // Resolve auto tracks to content-based sizes
-  const colCount = explicitCols.length;
-
-  // Auto-resolve rows if not specified (use 1fr default)
+  const explicitCols = cols.length > 0 ? cols : [-1];
   const explicitRows = rows.length > 0 ? rows : [availH];
 
-  // Build list of child scene nodes
   const childNodes = children
     .map((cid) => doc.nodes[cid])
     .filter((n): n is SceneNode => Boolean(n));
@@ -183,7 +178,8 @@ export function computeGridLayout(
   const autoFlowIndices: number[] = [];
 
   for (let i = 0; i < childNodes.length; i++) {
-    const child = childNodes[i]!;
+    const child = childNodes[i];
+    if (!child) continue;
     const g = child.gridPlacement;
     if (g && (g.gridColumnStart != null || g.gridRowStart != null)) {
       explicitPlacements.push({
@@ -198,14 +194,12 @@ export function computeGridLayout(
     }
   }
 
-
   // Build grid placement matrix
-  // First, place explicit items
   const usedCells = new Set<string>();
   const assignments: CellAssignment[] = [];
 
   for (const ep of explicitPlacements) {
-    const cs = ep.colStart - 1; // convert to 0-indexed
+    const cs = ep.colStart - 1;
     const ce = ep.colEnd - 1;
     const rs = ep.rowStart - 1;
     const re = ep.rowEnd - 1;
@@ -221,13 +215,10 @@ export function computeGridLayout(
 
   // Auto-flow remaining items
   if (gridAutoFlow === 'column' || gridAutoFlow === 'columnDense') {
-    // Fill column by column
     let col = 0;
     let row = 0;
     for (const idx of autoFlowIndices) {
-      // Find next available cell scanning column by column
       if (gridAutoFlow === 'columnDense') {
-        // Dense: fill from top, packing into gaps
         let found = false;
         for (let c = 0; !found; c++) {
           for (let r = 0; r <= Math.max(row, explicitRows.length - 1); r++) {
@@ -240,7 +231,6 @@ export function computeGridLayout(
           }
         }
       } else {
-        // Sparse: fill sequentially
         while (usedCells.has(`${col},${row}`)) {
           row++;
           if (row >= Math.max(explicitRows.length, 1)) {
@@ -251,7 +241,6 @@ export function computeGridLayout(
       }
       usedCells.add(`${col},${row}`);
       assignments.push({ childIndex: idx, col, row, colSpan: 1, rowSpan: 1 });
-      // Advance to next position
       row++;
       if (row >= Math.max(explicitRows.length, 1)) {
         row = 0;
@@ -259,12 +248,10 @@ export function computeGridLayout(
       }
     }
   } else {
-    // Fill row by row (default), including rowDense
     let col = 0;
     let row = 0;
     for (const idx of autoFlowIndices) {
       if (gridAutoFlow === 'rowDense') {
-        // Dense: fill from left, packing into gaps
         let found = false;
         for (let r = 0; !found; r++) {
           for (let c = 0; c <= Math.max(col, explicitCols.length - 1); c++) {
@@ -277,7 +264,6 @@ export function computeGridLayout(
           }
         }
       } else {
-        // Sparse: fill sequentially
         while (usedCells.has(`${col},${row}`)) {
           col++;
           if (col >= explicitCols.length) {
@@ -288,7 +274,6 @@ export function computeGridLayout(
       }
       usedCells.add(`${col},${row}`);
       assignments.push({ childIndex: idx, col, row, colSpan: 1, rowSpan: 1 });
-      // Advance to next position
       col++;
       if (col >= explicitCols.length) {
         col = 0;
@@ -297,7 +282,6 @@ export function computeGridLayout(
     }
   }
 
-  // Determine total implicit rows and columns
   let maxCol = explicitCols.length;
   let maxRow = explicitRows.length;
   for (const a of assignments) {
@@ -305,13 +289,11 @@ export function computeGridLayout(
     maxRow = Math.max(maxRow, a.row + a.rowSpan);
   }
 
-  // Resolve column and row sizes, handling auto and implicit tracks
   const resolvedCols: number[] = [];
   for (let c = 0; c < maxCol; c++) {
     if (c < explicitCols.length) {
-      resolvedCols.push(explicitCols[c]!);
+      resolvedCols.push(explicitCols[c] ?? 100);
     } else {
-      // Implicit column: use previous column size, or 100px default
       resolvedCols.push(explicitCols[explicitCols.length - 1] ?? 100);
     }
   }
@@ -319,14 +301,12 @@ export function computeGridLayout(
   const resolvedRows: number[] = [];
   for (let r = 0; r < maxRow; r++) {
     if (r < explicitRows.length) {
-      resolvedRows.push(explicitRows[r]!);
+      resolvedRows.push(explicitRows[r] ?? 100);
     } else {
-      // Implicit row: use previous row size, or 100px default
       resolvedRows.push(explicitRows[explicitRows.length - 1] ?? 100);
     }
   }
 
-  // Resolve auto tracks based on content
   const cellMap: number[] = [];
   for (const a of assignments) {
     cellMap[a.col] = a.childIndex;
@@ -334,26 +314,28 @@ export function computeGridLayout(
   const resolvedColSizes = resolveAutoTracks(resolvedCols, childNodes, cellMap, false);
   const resolvedRowSizes = resolveAutoTracks(resolvedRows, childNodes, cellMap, true);
 
-  // Build position arrays
   const colPositions: number[] = [pl];
   for (let c = 0; c < resolvedColSizes.length; c++) {
-    colPositions.push(colPositions[c]! + resolvedColSizes[c]! + columnGap);
+    const prev = colPositions[c] ?? 0;
+    colPositions.push(prev + (resolvedColSizes[c] ?? 0) + columnGap);
   }
 
   const rowPositions: number[] = [pt];
   for (let r = 0; r < resolvedRowSizes.length; r++) {
-    rowPositions.push(rowPositions[r]! + resolvedRowSizes[r]! + rowGap);
+    const prev = rowPositions[r] ?? 0;
+    rowPositions.push(prev + (resolvedRowSizes[r] ?? 0) + rowGap);
   }
 
-  // Build results
   const results: GridItem[] = [];
   for (const a of assignments) {
+    const childId = childNodes[a.childIndex]?.id;
+    if (!childId) continue;
     const cw = resolvedColSizes.slice(a.col, a.col + a.colSpan).reduce((s, v) => s + v + columnGap, 0) - columnGap;
     const rh = resolvedRowSizes.slice(a.row, a.row + a.rowSpan).reduce((s, v) => s + v + rowGap, 0) - rowGap;
     results.push({
-      id: childNodes[a.childIndex]!.id,
-      x: colPositions[a.col]!,
-      y: rowPositions[a.row]!,
+      id: childId,
+      x: colPositions[a.col] ?? 0,
+      y: rowPositions[a.row] ?? 0,
       w: Math.max(0, cw),
       h: Math.max(0, rh),
     });

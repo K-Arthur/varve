@@ -1,11 +1,7 @@
 import { useMemo, useCallback, useState } from 'react';
 import type { Document } from '@strata/scene';
 import { TUTORIAL_DOCUMENT_ID } from '../../samples/tutorial-document';
-import {
-  loadOnboardingState,
-  saveOnboardingState,
-  checkChecklistItem,
-} from '../onboardingStore';
+import { loadOnboardingState, saveOnboardingState, checkChecklistItem } from '../onboardingStore';
 
 function lessonCheckpointId(frameId: string): string {
   return `tutorial:lesson-${frameId}`;
@@ -45,20 +41,17 @@ export function useTutorialProgress(doc: Document): TutorialProgress {
     return completed;
   });
 
-  const markLessonComplete = useCallback(
-    (frameId: string) => {
-      setCompletedLessons((prev) => {
-        if (prev.has(frameId)) return prev;
-        const next = new Set(prev);
-        next.add(frameId);
-        const state = loadOnboardingState();
-        const updated = checkChecklistItem(state, lessonCheckpointId(frameId));
-        saveOnboardingState(updated);
-        return next;
-      });
-    },
-    [],
-  );
+  const markLessonComplete = useCallback((frameId: string) => {
+    setCompletedLessons((prev) => {
+      if (prev.has(frameId)) return prev;
+      const next = new Set(prev);
+      next.add(frameId);
+      const state = loadOnboardingState();
+      const updated = checkChecklistItem(state, lessonCheckpointId(frameId));
+      saveOnboardingState(updated);
+      return next;
+    });
+  }, []);
 
   const progressPercent = useMemo(() => {
     if (totalLessons === 0) return 0;

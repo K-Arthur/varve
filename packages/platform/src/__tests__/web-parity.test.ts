@@ -39,7 +39,20 @@ describe('web platform', () => {
 
   it('creates templates', async () => {
     const p = await createWebPlatform();
-    const mf = { id: 'f1', name: 'test', kind: 'strata' as const, projectId: null, createdAt: 0, updatedAt: 0, openedAt: 0, size: 2, pinned: false, trashedAt: null, ordering: '', contentHash: 'h' };
+    const mf = {
+      id: 'f1',
+      name: 'test',
+      kind: 'strata' as const,
+      projectId: null,
+      createdAt: 0,
+      updatedAt: 0,
+      openedAt: 0,
+      size: 2,
+      pinned: false,
+      trashedAt: null,
+      ordering: '',
+      contentHash: 'h',
+    };
     await p.upsertFile(mf, '{}');
     const t = await p.createTemplateFromFile('f1', 'Tpl', 'general');
     expect(t.name).toBe('Tpl');
@@ -55,7 +68,20 @@ describe('web platform', () => {
 
   it('manages versions', async () => {
     const p = await createWebPlatform();
-    const mf = { id: 'f1', name: 'test', kind: 'strata' as const, projectId: null, createdAt: 0, updatedAt: 0, openedAt: 0, size: 2, pinned: false, trashedAt: null, ordering: '', contentHash: 'h' };
+    const mf = {
+      id: 'f1',
+      name: 'test',
+      kind: 'strata' as const,
+      projectId: null,
+      createdAt: 0,
+      updatedAt: 0,
+      openedAt: 0,
+      size: 2,
+      pinned: false,
+      trashedAt: null,
+      ordering: '',
+      contentHash: 'h',
+    };
     await p.upsertFile(mf, '{}');
     const v = await p.saveVersion('f1', 'v1', 'desc');
     expect(v.name).toBe('v1');

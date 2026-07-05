@@ -17,6 +17,7 @@ import {
   createEngine,
   mapBlendMode,
   renderAlphaMask,
+  traceSceneNodeOutline,
   type Engine,
   type EngineColor,
   type SceneNode as EngineNode,
@@ -82,79 +83,6 @@ import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
 
 type DocNode = SceneNode;
-
-/** Trace the outline of a scene node's shape on a CanvasRenderingContext2D.
- * Used for mask clipping — traces in the node's local space. The caller is
- * responsible for applying the node's world transform before calling. */
-function traceShapeOutline(ctx: CanvasRenderingContext2D, n: SceneNode): void {
-  if (n.kind === 'shape' && n.shape) {
-    const s = n.shape;
-    switch (s.kind) {
-      case 'rect':
-        ctx.rect(s.x, s.y, s.w, s.h);
-        break;
-      case 'ellipse':
-        ctx.ellipse(s.cx, s.cy, s.rx, s.ry, 0, 0, Math.PI * 2);
-        break;
-      case 'circle':
-        ctx.arc(s.cx, s.cy, s.r, 0, Math.PI * 2);
-        break;
-      case 'line':
-        ctx.moveTo(s.from[0], s.from[1]);
-        ctx.lineTo(s.to[0], s.to[1]);
-        break;
-      case 'arrow':
-        ctx.moveTo(s.from[0], s.from[1]);
-        ctx.lineTo(s.to[0], s.to[1]);
-        break;
-      case 'polygon':
-        for (let i = 0; i < s.sides; i++) {
-          const a = (2 * Math.PI * i) / s.sides - Math.PI / 2 + s.rotation;
-          const px = s.cx + s.radius * Math.cos(a);
-          const py = s.cy + s.radius * Math.sin(a);
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-        break;
-      case 'star':
-        for (let i = 0; i < s.points * 2; i++) {
-          const a = (Math.PI * i) / s.points - Math.PI / 2 + s.rotation;
-          const r = i % 2 === 0 ? s.outerRadius : s.innerRadius;
-          const px = s.cx + r * Math.cos(a);
-          const py = s.cy + r * Math.sin(a);
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-        break;
-      case 'path':
-        if (s.points.length > 0) {
-          ctx.moveTo(s.points[0]?.x ?? 0, s.points[0]?.y ?? 0);
-          for (let i = 1; i < s.points.length; i++) {
-            const pt = s.points[i];
-            const prev = s.points[i - 1];
-            if (!pt || !prev) continue;
-            if (prev.handleOut || pt.handleIn) {
-              const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
-              const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
-              const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
-              const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
-              ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
-            } else {
-              ctx.lineTo(pt.x, pt.y);
-            }
-          }
-          if (s.closed) ctx.closePath();
-        }
-        break;
-    }
-  } else if (n.kind === 'frame' || n.kind === 'image') {
-    const w = 'w' in n ? (n.w ?? 100) : 100;
-    const h = 'h' in n ? (n.h ?? 100) : 100;
-    ctx.rect(0, 0, w, h);
-  }
-}
 
 function toEngineNode(n: DocNode): EngineNode {
   const base = {
@@ -818,13 +746,27 @@ export function CanvasArea({
               ctx,
               {
                 draw: (maskCtx: CanvasRenderingContext2D) => {
-                  maskCtx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+                  maskCtx.setTransform(
+                    dpr * s.zoom,
+                    0,
+                    0,
+                    dpr * s.zoom,
+                    dpr * s.pan.x,
+                    dpr * s.pan.y,
+                  );
                   replaySubtreeToCtx(maskSrcId, maskCtx);
                 },
               },
               {
                 draw: (contentCtx: CanvasRenderingContext2D) => {
-                  contentCtx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+                  contentCtx.setTransform(
+                    dpr * s.zoom,
+                    0,
+                    0,
+                    dpr * s.zoom,
+                    dpr * s.pan.x,
+                    dpr * s.pan.y,
+                  );
                   for (const childId of (n as import('@strata/scene').ContainerNode).children) {
                     if (childId !== maskSrcId) replaySubtreeToCtx(childId, contentCtx);
                   }
@@ -838,7 +780,7 @@ export function CanvasArea({
           const [ma, mb, mc, md, me, mf] = maskWorldTransform;
           ctx.transform(ma, mb, mc, md, me, mf);
           ctx.beginPath();
-          traceShapeOutline(ctx, maskChild);
+          traceSceneNodeOutline(ctx, maskChild);
           ctx.closePath();
           ctx.clip();
           ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
@@ -1793,11 +1735,7 @@ export function CanvasArea({
           }
         }}
       />
-      <canvas
-        ref={overlayCanvasRef}
-        className="editor-canvas__overlay-layer"
-        role="presentation"
-      />
+      <canvas ref={overlayCanvasRef} className="editor-canvas__overlay-layer" role="presentation" />
       <Ruler
         zoom={state.zoom}
         pan={state.pan}
@@ -1913,46 +1851,47 @@ export function CanvasArea({
             </>
           );
         })()}
-      {state.tool !== 'inspect' && Object.keys(state.document.nodes).filter((id) => {
-        const n = state.document.nodes[id];
-        return n && n.kind !== 'group';
-      }).length === 0 && (
-        <div className="editor-canvas__empty">
-          <EmptyState
-            illustration={
-              <svg
-                width="64"
-                height="64"
-                viewBox="0 0 64 64"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                aria-hidden
-              >
-                <title>Empty canvas</title>
-                <path
-                  d="M24 20 L24 16 C24 14.9 24.9 14 26 14 L44 14 C45.1 14 46 14.9 46 16 L46 40 C46 41.1 45.1 42 44 42 L40 42"
-                  opacity="0.4"
-                />
-                <path
-                  d="M18 24 L26 24 C27.1 24 28 24.9 28 26 L28 48 C28 49.1 27.1 50 26 50 L18 50 C16.9 50 16 49.1 16 48 L16 26 C16 24.9 16.9 24 18 24Z"
-                  opacity="0.3"
-                />
-                <line x1="22" y1="30" x2="30" y2="30" opacity="0.2" />
-                <line x1="22" y1="34" x2="30" y2="34" opacity="0.2" />
-                <line x1="22" y1="38" x2="28" y2="38" opacity="0.2" />
-                <path
-                  d="M38 26 L42 22 M42 22 L46 26 M42 22 L42 34"
-                  opacity="0.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            }
-            headline="Empty canvas"
-            description="Click a tool and drag on the canvas to create your first shape"
-          />
-        </div>
-      )}
+      {state.tool !== 'inspect' &&
+        Object.keys(state.document.nodes).filter((id) => {
+          const n = state.document.nodes[id];
+          return n && n.kind !== 'group';
+        }).length === 0 && (
+          <div className="editor-canvas__empty">
+            <EmptyState
+              illustration={
+                <svg
+                  width="64"
+                  height="64"
+                  viewBox="0 0 64 64"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden
+                >
+                  <title>Empty canvas</title>
+                  <path
+                    d="M24 20 L24 16 C24 14.9 24.9 14 26 14 L44 14 C45.1 14 46 14.9 46 16 L46 40 C46 41.1 45.1 42 44 42 L40 42"
+                    opacity="0.4"
+                  />
+                  <path
+                    d="M18 24 L26 24 C27.1 24 28 24.9 28 26 L28 48 C28 49.1 27.1 50 26 50 L18 50 C16.9 50 16 49.1 16 48 L16 26 C16 24.9 16.9 24 18 24Z"
+                    opacity="0.3"
+                  />
+                  <line x1="22" y1="30" x2="30" y2="30" opacity="0.2" />
+                  <line x1="22" y1="34" x2="30" y2="34" opacity="0.2" />
+                  <line x1="22" y1="38" x2="28" y2="38" opacity="0.2" />
+                  <path
+                    d="M38 26 L42 22 M42 22 L46 26 M42 22 L42 34"
+                    opacity="0.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              }
+              headline="Empty canvas"
+              description="Click a tool and drag on the canvas to create your first shape"
+            />
+          </div>
+        )}
       {showOverlays && state.tool === 'inspect' && (
         <MeasureOverlay
           zoom={state.zoom}

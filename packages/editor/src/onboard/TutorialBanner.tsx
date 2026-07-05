@@ -7,8 +7,7 @@ const LESSON_INSTRUCTIONS: Record<string, string> = {
   'Lesson 1': 'Try clicking on shapes, editing text, and changing colors in the inspector panel.',
   'Lesson 2':
     'Drag layers in the left panel to reorder. Try selecting different shapes in the canvas.',
-  'Lesson 3':
-    'Open the File menu or press Ctrl+E to explore export options for your design.',
+  'Lesson 3': 'Open the File menu or press Ctrl+E to explore export options for your design.',
 };
 
 function getInstruction(lessonIndex: number): string {

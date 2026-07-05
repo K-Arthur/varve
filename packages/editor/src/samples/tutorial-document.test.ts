@@ -1,6 +1,10 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it } from 'vitest';
-import { createTutorialDocument, TUTORIAL_DOCUMENT_ID, TUTORIAL_DOCUMENT_VERSION } from './tutorial-document';
+import {
+  createTutorialDocument,
+  TUTORIAL_DOCUMENT_ID,
+  TUTORIAL_DOCUMENT_VERSION,
+} from './tutorial-document';
 
 describe('tutorial-document', () => {
   it('creates a valid Document with formatVersion', () => {
@@ -32,9 +36,7 @@ describe('tutorial-document', () => {
 
     for (const frame of frameNodes) {
       const childIds = frame.children;
-      const textChildren = childIds
-        .map((cid) => doc.nodes[cid])
-        .filter((n) => n?.kind === 'text');
+      const textChildren = childIds.map((cid) => doc.nodes[cid]).filter((n) => n?.kind === 'text');
       expect(textChildren.length).toBeGreaterThanOrEqual(1);
       for (const t of textChildren) {
         expect((t as import('@strata/scene').TextNode).text).toBeTruthy();

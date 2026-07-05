@@ -10,6 +10,9 @@ import type {
   BlendMode,
   Effect,
   FrameNode,
+  GroupNode,
+  ImageNode,
+  AdjustmentNode,
   ManagedColor,
   SceneNode,
   ShapeNode,
@@ -29,7 +32,7 @@ export interface EffectsSectionProps {
   nodes: SceneNode[];
 }
 
-type EffectNode = ShapeNode | TextNode | FrameNode;
+type EffectNode = ShapeNode | TextNode | FrameNode | ImageNode | AdjustmentNode | GroupNode;
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -51,7 +54,14 @@ const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
 ];
 
 function hasEffects(n: SceneNode): n is EffectNode {
-  return n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame';
+  return (
+    n.kind === 'shape' ||
+    n.kind === 'text' ||
+    n.kind === 'frame' ||
+    n.kind === 'group' ||
+    n.kind === 'image' ||
+    n.kind === 'adjustment'
+  );
 }
 
 function getEffect(n: SceneNode, i: number): Effect | undefined {
@@ -89,6 +99,26 @@ function defaultEffect(type: Effect['type']): Effect {
       return { type, radius: 4, visible: true };
     case 'backgroundBlur':
       return { type, radius: 8, visible: true };
+    case 'outerGlow':
+      return {
+        type,
+        blur: 6,
+        spread: 0,
+        color: { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 128 },
+        opacity: 0.6,
+        blendMode: 'screen',
+        visible: true,
+      };
+    case 'innerGlow':
+      return {
+        type,
+        blur: 6,
+        spread: 0,
+        color: { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 128 },
+        opacity: 0.6,
+        blendMode: 'screen',
+        visible: true,
+      };
   }
 }
 
@@ -100,6 +130,8 @@ function toSwatchBg(color: ManagedColor): string {
 const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
   { value: 'dropShadow', label: 'Drop Shadow' },
   { value: 'innerShadow', label: 'Inner Shadow' },
+  { value: 'outerGlow', label: 'Outer Glow' },
+  { value: 'innerGlow', label: 'Inner Glow' },
   { value: 'layerBlur', label: 'Layer Blur' },
   { value: 'backgroundBlur', label: 'Background Blur' },
 ];
@@ -388,6 +420,9 @@ function EffectParams({
     case 'dropShadow':
     case 'innerShadow':
       return <ShadowParams nodes={nodes} index={index} onChange={onChange} />;
+    case 'outerGlow':
+    case 'innerGlow':
+      return <GlowParams nodes={nodes} index={index} onChange={onChange} />;
     case 'layerBlur':
     case 'backgroundBlur':
       return <SingleBlurParam nodes={nodes} index={index} onChange={onChange} />;
@@ -527,6 +562,120 @@ function ShadowParams({
           ))}
         </select>
       </FieldRow>
+    </div>
+  );
+}
+
+function GlowParams({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const blurRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && (e.type === 'outerGlow' || e.type === 'innerGlow')) return e.blur;
+    return 0;
+  });
+  const spreadRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && (e.type === 'outerGlow' || e.type === 'innerGlow')) return e.spread;
+    return 0;
+  });
+  const opacityRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && (e.type === 'outerGlow' || e.type === 'innerGlow')) return e.opacity;
+    return 1;
+  });
+  const blendRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && (e.type === 'outerGlow' || e.type === 'innerGlow')) return e.blendMode;
+    return 'normal';
+  });
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+        paddingLeft: 'var(--space-2)',
+      }}
+    >
+      <div className="insp-field">
+        <NumberField
+          label="Blur"
+          value={isMixed(blurRaw) ? 0 : blurRaw}
+          mixed={isMixed(blurRaw)}
+          step={1}
+          min={0}
+          onChange={(v) =>
+            onChange((e) => {
+              if (e.type === 'outerGlow' || e.type === 'innerGlow') return { ...e, blur: v };
+              return e;
+            })
+          }
+        />
+      </div>
+      <div className="insp-field">
+        <NumberField
+          label="Spread"
+          value={isMixed(spreadRaw) ? 0 : spreadRaw}
+          mixed={isMixed(spreadRaw)}
+          step={1}
+          min={0}
+          onChange={(v) =>
+            onChange((e) => {
+              if (e.type === 'outerGlow' || e.type === 'innerGlow') return { ...e, spread: v };
+              return e;
+            })
+          }
+        />
+      </div>
+      <div className="insp-field">
+        <label className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
+          Opacity
+        </label>
+        <NumberField
+          label=""
+          value={isMixed(opacityRaw) ? 0 : opacityRaw}
+          mixed={isMixed(opacityRaw)}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(v) =>
+            onChange((e) => {
+              if (e.type === 'outerGlow' || e.type === 'innerGlow') return { ...e, opacity: v };
+              return e;
+            })
+          }
+        />
+      </div>
+      <div className="insp-field">
+        <label className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
+          Blend
+        </label>
+        <select
+          className="insp-select"
+          value={isMixed(blendRaw) ? '' : blendRaw}
+          onChange={(e) => {
+            const v = e.target.value as BlendMode;
+            onChange((effect) => {
+              if (effect.type === 'outerGlow' || effect.type === 'innerGlow')
+                return { ...effect, blendMode: v };
+              return effect;
+            });
+          }}
+        >
+          {BLEND_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }

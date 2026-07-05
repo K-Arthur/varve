@@ -26,10 +26,7 @@ const SYNC_PROPERTIES: Array<keyof FrameNode> = [
 /**
  * Get the master FrameNode for a component, or undefined if missing.
  */
-function getMasterFrame(
-  doc: Document,
-  component: ComponentDefinition,
-): FrameNode | undefined {
+function getMasterFrame(doc: Document, component: ComponentDefinition): FrameNode | undefined {
   const node = doc.nodes[component.masterRootId];
   if (node?.kind !== 'frame') return undefined;
   return node as FrameNode;
@@ -190,9 +187,7 @@ export function pushMasterChanges(
 /**
  * Sync all instances of all components.
  */
-export function syncAllInstances(
-  doc: Document,
-): { doc: Document; result: SyncResult } {
+export function syncAllInstances(doc: Document): { doc: Document; result: SyncResult } {
   let currentDoc = doc;
   const result: SyncResult = {
     updatedInstances: [],

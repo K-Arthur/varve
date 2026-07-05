@@ -57,15 +57,20 @@ export function DidYouKnowTip({ tip, onDismiss, onDontShowAgain }: DidYouKnowTip
     .join(' ');
 
   return (
-    <div
-      className={className}
-      role="status"
-      aria-live="polite"
-      aria-label={`Tip: ${tip.title}`}
-    >
+    <div className={className} role="status" aria-live="polite" aria-label={`Tip: ${tip.title}`}>
       <div className="did-you-know-tip__indicator" />
       <div className="did-you-know-tip__icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <circle cx="12" cy="12" r="10" />
           <path d="M12 16v-4" />
           <path d="M12 8h.01" />
@@ -78,7 +83,11 @@ export function DidYouKnowTip({ tip, onDismiss, onDontShowAgain }: DidYouKnowTip
           <button type="button" className="did-you-know-tip__got-it" onClick={handleGotIt}>
             Got it
           </button>
-          <button type="button" className="did-you-know-tip__dont-show" onClick={handleDontShowAgain}>
+          <button
+            type="button"
+            className="did-you-know-tip__dont-show"
+            onClick={handleDontShowAgain}
+          >
             Don't show again
           </button>
         </div>
