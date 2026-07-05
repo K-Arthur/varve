@@ -143,6 +143,9 @@ importers:
       '@strata/engine':
         specifier: workspace:*
         version: link:../engine
+      '@strata/help':
+        specifier: workspace:*
+        version: link:../help
       '@strata/import':
         specifier: workspace:*
         version: link:../import
