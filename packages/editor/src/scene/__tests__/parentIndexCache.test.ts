@@ -13,31 +13,19 @@ function buildDoc() {
   const frameA = makeFrameNode('f1', { name: 'FrameA', w: 200, h: 200 });
   doc = addNode(doc, frameA);
 
-  const rect1 = makeShapeNode('r1', {
-    name: 'Rect1',
-    shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
-  });
+  const rect1 = makeShapeNode('r1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'Rect1' });
   doc = addChild(doc, 'f1', rect1);
 
-  const rect2 = makeShapeNode('r2', {
-    name: 'Rect2',
-    shape: { kind: 'rect', x: 60, y: 0, w: 50, h: 50 },
-  });
+  const rect2 = makeShapeNode('r2', { kind: 'rect', x: 60, y: 0, w: 50, h: 50 }, { name: 'Rect2' });
   doc = addChild(doc, 'f1', rect2);
 
   const innerFrame = makeFrameNode('f2', { name: 'InnerFrame', w: 100, h: 100 });
   doc = addChild(doc, 'f1', innerFrame);
 
-  const rect3 = makeShapeNode('r3', {
-    name: 'Rect3',
-    shape: { kind: 'rect', x: 0, y: 0, w: 30, h: 30 },
-  });
+  const rect3 = makeShapeNode('r3', { kind: 'rect', x: 0, y: 0, w: 30, h: 30 }, { name: 'Rect3' });
   doc = addChild(doc, 'f2', rect3);
 
-  const rectRoot = makeShapeNode('root_r', {
-    name: 'RootRect',
-    shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
-  });
+  const rectRoot = makeShapeNode('root_r', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }, { name: 'RootRect' });
   doc = addNode(doc, rectRoot);
 
   return doc;
