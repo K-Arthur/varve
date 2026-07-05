@@ -311,6 +311,25 @@ export function deleteVariable(store: VariableStore, id: string): VariableStore 
   return { ...store, variables: vars };
 }
 
+// ── Merge ────────────────────────────────────────────────────────────────────
+
+/**
+ * Merge variables from two stores.
+ * Source takes priority on conflict (variables, collections, modes, activeMode).
+ */
+export function mergeVariableStores(
+  base: VariableStore,
+  source: VariableStore,
+): VariableStore {
+  return {
+    variables: { ...base.variables, ...source.variables },
+    collections: { ...base.collections, ...source.collections },
+    activeCollectionId: source.activeCollectionId || base.activeCollectionId,
+    modes: source.modes.length > 0 ? source.modes : base.modes,
+    activeMode: source.activeMode || base.activeMode || 'default',
+  };
+}
+
 // ── Resolution ──────────────────────────────────────────────────────────────
 
 /**

@@ -11,7 +11,7 @@
  * Research basis: Figma mask model (Fill → Mask, alpha/vector masks),
  * Adobe Illustrator clipping masks.
  */
-import type { Mask, SceneNode } from './types';
+import type { Document, Mask, NodeId, SceneNode } from './types';
 
 /** Return the effective mask for a container node, or null if no mask is set. */
 export function resolveMask(node: SceneNode): Mask | null {
@@ -26,4 +26,56 @@ export function resolveMask(node: SceneNode): Mask | null {
 export function isMasked(node: SceneNode): boolean {
   const mask = resolveMask(node);
   return mask ? mask.visible : false;
+}
+
+/**
+ * Find all nodes whose mask references the given sourceNodeId.
+ */
+export function findNodesUsingMaskSource(doc: Document, sourceId: NodeId): NodeId[] {
+  const result: NodeId[] = [];
+  for (const [id, node] of Object.entries(doc.nodes)) {
+    const n = node as SceneNode & { mask?: Mask };
+    if (n.mask?.sourceNodeId === sourceId) {
+      result.push(id as NodeId);
+    }
+  }
+  return result;
+}
+
+/**
+ * Remove mask references to the given source node from all container nodes.
+ * Returns a new Document with the masks cleared.
+ */
+export function clearMaskSource(doc: Document, sourceId: NodeId): Document {
+  let nodes = { ...doc.nodes };
+  for (const [id, node] of Object.entries(nodes)) {
+    const n = node as SceneNode & { mask?: Mask };
+    if (n.mask?.sourceNodeId === sourceId) {
+      const { mask: _unused, ...rest } = node;
+      nodes = { ...nodes, [id]: rest as SceneNode };
+    }
+  }
+  return { ...doc, nodes };
+}
+
+/**
+ * Validate that no mask references point to non-existent nodes.
+ * Returns list of NodeIds with dangling mask references.
+ */
+export function validateMasks(doc: Document): NodeId[] {
+  const dangling: NodeId[] = [];
+  for (const [id, node] of Object.entries(doc.nodes)) {
+    const n = node as SceneNode & { mask?: Mask };
+    if (n.mask?.sourceNodeId && !doc.nodes[n.mask.sourceNodeId]) {
+      dangling.push(id as NodeId);
+    }
+  }
+  return dangling;
+}
+
+/**
+ * Check if a node is used as a mask source.
+ */
+export function isMaskSource(doc: Document, sourceId: NodeId): boolean {
+  return findNodesUsingMaskSource(doc, sourceId).length > 0;
 }
