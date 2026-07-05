@@ -30,7 +30,8 @@ export type AdjustmentKind =
   | 'selectiveColor'
   | 'colorBalance'
   | 'channelMixer'
-  | 'photoFilter';
+  | 'photoFilter'
+  | 'halftone';
 
 export type AdjustmentBlendMode =
   | 'normal'
@@ -182,6 +183,15 @@ export interface PhotoFilterAdjustment extends AdjustmentBase {
   density: number;
   preserveLuminosity: boolean;
 }
+export interface HalftoneAdjustment extends AdjustmentBase {
+  kind: 'halftone';
+  pattern: 'dot' | 'line' | 'cross' | 'circle';
+  frequency: number;
+  angle: number;
+  dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
+  channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
+  method: 'am' | 'fm';
+}
 
 export type Adjustment =
   | BrightnessAdjustment
@@ -192,6 +202,7 @@ export type Adjustment =
   | SepiaAdjustment
   | GrayscaleAdjustment
   | InvertAdjustment
+  | HalftoneAdjustment
   | OpacityAdjustment
   | BlurAdjustment
   | SharpenAdjustment
@@ -343,6 +354,7 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'colorBalance':
     case 'channelMixer':
     case 'photoFilter':
+    case 'halftone':
       // No direct CSS equivalent; use identity or a placeholder.
       return null;
     case 'chain':

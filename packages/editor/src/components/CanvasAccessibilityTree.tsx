@@ -79,7 +79,7 @@ export function CanvasAccessibilityTree({
         <span
           key={node.id}
           role="img"
-          aria-label={`${node.name}, ${node.kind}, at (${node.x}, ${node.y}), ${node.w} × ${node.h}`}
+          aria-label={`${node.name}, ${node.kind}, at (${node.x}, ${node.y}), ${node.w} x ${node.h}`}
         />
       ))}
     </div>
