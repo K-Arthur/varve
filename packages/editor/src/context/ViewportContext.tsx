@@ -1,6 +1,14 @@
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { animateCamera, clampZoom, fitBoundsCamera, revealBoundsCamera, screenToWorld, zoomAboutPoint, type Viewport } from '@strata/shared';
+import {
+  animateCamera,
+  clampZoom,
+  fitBoundsCamera,
+  revealBoundsCamera,
+  screenToWorld,
+  zoomAboutPoint,
+  type Viewport,
+} from '@strata/shared';
 import type { NodeId, SceneNode } from '@strata/scene';
 import type { CanvasMode, EditorState } from './types';
 
@@ -15,12 +23,20 @@ export interface ViewportContextValue {
   zoomTo: (level: number) => void;
   smoothZoomTo: (targetZoom: number, durationMs?: number) => void;
   smoothPanTo: (target: { x: number; y: number }, durationMs?: number) => void;
-  smoothReveal: (bounds: { x: number; y: number; w: number; h: number }, opts?: { padding?: number; durationMs?: number }) => void;
+  smoothReveal: (
+    bounds: { x: number; y: number; w: number; h: number },
+    opts?: { padding?: number; durationMs?: number },
+  ) => void;
   setCanvasMode: (mode: CanvasMode) => void;
   canvasToWorld: (cx: number, cy: number) => { x: number; y: number };
   worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
-  revealSelection: (opts?: { nodeId?: NodeId; fit?: boolean; padding?: number; viewport?: Viewport }) => void;
+  revealSelection: (opts?: {
+    nodeId?: NodeId;
+    fit?: boolean;
+    padding?: number;
+    viewport?: Viewport;
+  }) => void;
   fitAll: () => void;
 }
 
@@ -40,7 +56,13 @@ interface ViewportProviderProps {
   panAnimationRef?: React.MutableRefObject<number | null>;
 }
 
-export function ViewportProvider({ children, state, setState, stateRef, panAnimationRef }: ViewportProviderProps) {
+export function ViewportProvider({
+  children,
+  state,
+  setState,
+  stateRef,
+  panAnimationRef,
+}: ViewportProviderProps) {
   const animRef = panAnimationRef ?? { current: null };
 
   const patch = useCallback(
@@ -48,10 +70,7 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
     [setState],
   );
 
-  const setZoom = useCallback(
-    (z: number) => patch({ zoom: clampZoom(z) }),
-    [patch],
-  );
+  const setZoom = useCallback((z: number) => patch({ zoom: clampZoom(z) }), [patch]);
 
   const setPan = useCallback(
     (p: { x: number; y: number }) => patch({ pan: { x: p.x, y: p.y } }),
@@ -68,10 +87,7 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
     [patch],
   );
 
-  const zoomTo = useCallback(
-    (level: number) => patch({ zoom: clampZoom(level) }),
-    [patch],
-  );
+  const zoomTo = useCallback((level: number) => patch({ zoom: clampZoom(level) }), [patch]);
 
   const smoothZoomTo = useCallback(
     (targetZoom: number, durationMs = 200) => {
@@ -83,7 +99,9 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
         { zoom: toZoom, pan: s.pan },
         durationMs,
         (camera) => patch({ zoom: camera.zoom, pan: camera.pan }),
-        (id) => { animRef.current = id; },
+        (id) => {
+          animRef.current = id;
+        },
       );
     },
     [patch, stateRef, animRef],
@@ -98,14 +116,19 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
         { zoom: s.zoom, pan: target },
         durationMs,
         (camera) => patch({ zoom: camera.zoom, pan: camera.pan }),
-        (id) => { animRef.current = id; },
+        (id) => {
+          animRef.current = id;
+        },
       );
     },
     [patch, stateRef, animRef],
   );
 
   const smoothReveal = useCallback(
-    (bounds: { x: number; y: number; w: number; h: number }, opts?: { padding?: number; durationMs?: number }) => {
+    (
+      bounds: { x: number; y: number; w: number; h: number },
+      opts?: { padding?: number; durationMs?: number },
+    ) => {
       const s = stateRef.current;
       const vp = { width: window.innerWidth, height: window.innerHeight };
       const target = revealBoundsCamera(s, vp, bounds, opts?.padding ?? 40);
@@ -115,10 +138,7 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
     [stateRef, smoothZoomTo, smoothPanTo],
   );
 
-  const setCanvasMode = useCallback(
-    (mode: CanvasMode) => patch({ canvasMode: mode }),
-    [patch],
-  );
+  const setCanvasMode = useCallback((mode: CanvasMode) => patch({ canvasMode: mode }), [patch]);
 
   const canvasToWorld = useCallback(
     (cx: number, cy: number) => screenToWorld({ pan: state.pan, zoom: state.zoom }, cx, cy),
@@ -148,7 +168,10 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
       const padding = opts?.padding ?? 40;
 
       if (opts?.fit) {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
         const entries = Object.values(s.document.nodes);
         if (entries.length === 0) return;
         for (const n of entries) {
@@ -160,7 +183,12 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
           maxX = Math.max(maxX, b.x + b.w);
           maxY = Math.max(maxY, b.y + b.h);
         }
-        const target = fitBoundsCamera(s, vp, { x: minX, y: minY, w: maxX - minX, h: maxY - minY }, padding);
+        const target = fitBoundsCamera(
+          s,
+          vp,
+          { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+          padding,
+        );
         smoothZoomTo(target.zoom, 300);
         smoothPanTo(target.pan, 300);
       } else if (opts?.nodeId) {
@@ -174,7 +202,10 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
       } else {
         const sel = s.selection;
         if (sel.length === 0) return;
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
         for (const id of sel) {
           const n = s.document.nodes[id];
           if (!n) continue;
@@ -185,7 +216,12 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
           maxX = Math.max(maxX, b.x + b.w);
           maxY = Math.max(maxY, b.y + b.h);
         }
-        const target = revealBoundsCamera(s, vp, { x: minX, y: minY, w: maxX - minX, h: maxY - minY }, padding);
+        const target = revealBoundsCamera(
+          s,
+          vp,
+          { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+          padding,
+        );
         smoothZoomTo(target.zoom, 250);
         smoothPanTo(target.pan, 250);
       }
@@ -193,10 +229,7 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
     [stateRef, smoothZoomTo, smoothPanTo],
   );
 
-  const fitAll = useCallback(
-    () => revealSelection({ fit: true }),
-    [revealSelection],
-  );
+  const fitAll = useCallback(() => revealSelection({ fit: true }), [revealSelection]);
 
   const value = useMemo<ViewportContextValue>(
     () => ({
@@ -219,11 +252,23 @@ export function ViewportProvider({ children, state, setState, stateRef, panAnima
       fitAll,
     }),
     [
-      state.zoom, state.pan, state.canvasMode,
-      setZoom, setPan, zoomIn, zoomOut, zoomTo,
-      smoothZoomTo, smoothPanTo, smoothReveal,
-      setCanvasMode, canvasToWorld, worldToCanvas, canvasDeltaToWorld,
-      revealSelection, fitAll,
+      state.zoom,
+      state.pan,
+      state.canvasMode,
+      setZoom,
+      setPan,
+      zoomIn,
+      zoomOut,
+      zoomTo,
+      smoothZoomTo,
+      smoothPanTo,
+      smoothReveal,
+      setCanvasMode,
+      canvasToWorld,
+      worldToCanvas,
+      canvasDeltaToWorld,
+      revealSelection,
+      fitAll,
     ],
   );
 
@@ -236,8 +281,10 @@ function nodeWorldBoundsInner(n: SceneNode): { x: number; y: number; w: number; 
   if (n.kind === 'shape') {
     const s = (n as import('@strata/scene').ShapeNode).shape;
     if (s.kind === 'rect') return { x: tx + s.x, y: ty + s.y, w: s.w, h: s.h };
-    if (s.kind === 'ellipse') return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
-    if (s.kind === 'circle') return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
+    if (s.kind === 'ellipse')
+      return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
+    if (s.kind === 'circle')
+      return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
     if (s.kind === 'line') {
       const minX = Math.min(s.from[0], s.to[0]);
       const maxX = Math.max(s.from[0], s.to[0]);

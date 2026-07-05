@@ -3,7 +3,7 @@ import type { HelpArticle } from './helpTypes';
 export const TROUBLESHOOTING: Record<string, HelpArticle> = {
   'trouble:startup': {
     id: 'trouble:startup',
-    title: 'App won\'t start',
+    title: "App won't start",
     summary: 'Check Rust dependencies and system requirements.',
     body: 'If Strata fails to launch, verify your system meets the requirements. On Linux, ensure WebKitGTK 2.38+ and GTK 3.24+ are installed. Run "just check-env" from the project root to verify your toolchain. Common missing dependencies include librsvg, openssl, and libsoup. On macOS, ensure Xcode Command Line Tools are installed. On Windows, ensure WebView2 is available (included with Windows 11 and recent Windows 10 updates).',
     keywords: ['startup', 'launch', 'crash', 'install', 'dependencies', 'webkit'],
@@ -21,7 +21,7 @@ export const TROUBLESHOOTING: Record<string, HelpArticle> = {
   },
   'trouble:file': {
     id: 'trouble:file',
-    title: 'File won\'t open',
+    title: "File won't open",
     summary: 'Format version mismatch or corrupted file.',
     body: 'If a saved document will not open, the file may be from a newer version of Strata with features not supported by your current version. Check that you are running the latest version of Strata. The document format version is checked on load, and migration is attempted automatically. If the file is corrupted, try restoring from a recovery session or backup. Files are stored as JSON text and can be inspected in any text editor.',
     keywords: ['file', 'open', 'load', 'corrupt', 'version', 'migration'],

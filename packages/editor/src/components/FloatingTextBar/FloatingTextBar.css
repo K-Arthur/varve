@@ -6,10 +6,10 @@
   align-items: center;
   gap: var(--space-05);
   padding: var(--space-1);
-  background: var(--color-surface-overlay);
+  background: var(--elevation-surface-raised);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.15));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elevation-shadow-raised);
   font-size: var(--font-size-sm);
   white-space: nowrap;
   pointer-events: auto;
@@ -18,9 +18,9 @@
 .floating-text-bar__select {
   font-size: var(--font-size-xs);
   padding: 2px 4px;
-  border: 1px solid var(--color-border-default);
+  border: var(--border-micro);
   border-radius: var(--radius-sm);
-  background: var(--color-surface-default);
+  background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   cursor: pointer;
   max-width: 110px;
@@ -57,8 +57,7 @@
 }
 
 .floating-text-bar__btn:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-default);
+  background: var(--color-interactive-hover);
   color: var(--color-text-primary);
 }
 
@@ -68,9 +67,8 @@
 }
 
 .floating-text-bar__btn--active {
-  background: var(--color-interactive-subtle);
-  border-color: var(--color-interactive-default);
-  color: var(--color-interactive-default);
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
 }
 
 .floating-text-bar__swatch {
@@ -78,7 +76,7 @@
   width: 20px;
   height: 20px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border-default);
+  border: var(--border-micro);
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
@@ -97,9 +95,9 @@
   width: 48px;
   font-size: var(--font-size-xs);
   padding: 2px 4px;
-  border: 1px solid var(--color-border-default);
+  border: var(--border-micro);
   border-radius: var(--radius-sm);
-  background: var(--color-surface-default);
+  background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   text-align: center;
   font-family: inherit;
@@ -118,4 +116,34 @@
 
 .floating-text-bar__size-input[type="number"] {
   -moz-appearance: textfield;
+}
+
+/* High-contrast theme overrides */
+[data-theme="high-contrast"] .floating-text-bar {
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface-raised);
+}
+
+[data-theme="high-contrast"] .floating-text-bar__btn:hover {
+  outline: 1px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .floating-text-bar__btn--active {
+  outline: 2px solid var(--color-border-strong);
+  outline-offset: 1px;
+}
+
+[data-theme="high-contrast"] .floating-text-bar__select,
+[data-theme="high-contrast"] .floating-text-bar__size-input {
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface-sunken);
+}
+
+[data-theme="high-contrast"] .floating-text-bar__swatch {
+  border: 2px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .floating-text-bar__separator {
+  background: var(--color-border-strong);
+  width: 2px;
 }

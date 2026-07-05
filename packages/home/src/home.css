@@ -358,25 +358,25 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   cursor: pointer;
   text-align: left;
   color: var(--color-text-primary);
-  min-height: 5rem;
+  min-height: 5.5rem;
   transition:
     box-shadow var(--duration-quick) var(--ease-standard),
     transform var(--duration-quick) var(--ease-standard);
 }
 .quick-start__card:hover {
-  box-shadow: var(--elevation-shadow-raised);
-  transform: translateY(-2px);
+  box-shadow: var(--elevation-shadow-overlay);
+  transform: translateY(-3px);
 }
 .quick-start__card:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-xs);
+  transform: translateY(-1px);
+  box-shadow: var(--elevation-shadow-raised);
 }
 .quick-start__card:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -385,30 +385,32 @@
 .quick-start__card--primary {
   background: linear-gradient(
     135deg,
-    color-mix(in oklch, var(--color-accent-primary) 14%, var(--color-surface-raised)),
-    var(--color-surface-raised)
+    color-mix(in oklch, var(--color-accent-primary) 18%, var(--elevation-surface-default)) 0%,
+    var(--elevation-surface-default) 100%
   );
-  border-color: color-mix(in oklch, var(--color-accent-primary) 35%, transparent);
+  border-color: color-mix(in oklch, var(--color-accent-primary) 40%, transparent);
 }
 .quick-start__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
-  border-radius: var(--radius-md);
-  background: var(--color-surface-sunken);
+  border-radius: var(--radius-lg);
+  background: var(--elevation-surface-raised);
+  border: var(--border-micro);
   color: var(--color-interactive-default);
 }
 .quick-start__card--primary .quick-start__icon {
   background: var(--color-accent-primary);
+  border-color: color-mix(in oklch, var(--color-accent-primary) 50%, transparent);
   color: var(--color-text-on-accent);
 }
 .quick-start__text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 .quick-start__title {
@@ -416,7 +418,7 @@
   font-weight: var(--font-weight-semibold);
 }
 .quick-start__sub {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
@@ -1002,26 +1004,47 @@
 }
 
 /* ─── Hero greeting (P7+P8 design direction) ─────────── */
+/* ─── Hero greeting — Neo-Bento atmospheric card ────── */
 .strata-home__hero {
   position: relative;
-  padding: var(--space-6) 0 var(--space-5);
+  padding: var(--space-7) var(--space-6);
+  margin-bottom: var(--space-5);
+  border-radius: var(--radius-2xl);
+  background: var(--elevation-surface-raised);
+  border: var(--border-micro);
   overflow: hidden;
 }
 
-/* Atmospheric glow — one subtle instance behind hero text */
+/* Dual atmospheric glows — teal + sandstone */
 .strata-home__hero::before {
   content: "";
   position: absolute;
-  top: -80px;
-  right: -60px;
-  width: 320px;
-  height: 320px;
+  top: -100px;
+  right: -40px;
+  width: 400px;
+  height: 400px;
   background: radial-gradient(
     circle,
-    color-mix(in oklch, var(--color-hero-glow) 18%, transparent) 0%,
-    transparent 70%
+    color-mix(in oklch, var(--color-accent-primary) 15%, transparent) 0%,
+    transparent 65%
   );
-  filter: blur(60px);
+  filter: blur(50px);
+  pointer-events: none;
+}
+
+.strata-home__hero::after {
+  content: "";
+  position: absolute;
+  bottom: -60px;
+  left: -60px;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--color-brand-sandstone, #e28c3c) 10%, transparent) 0%,
+    transparent 60%
+  );
+  filter: blur(40px);
   pointer-events: none;
 }
 
@@ -1033,6 +1056,8 @@
   color: var(--color-text-primary);
   margin: 0;
   line-height: var(--font-line-tight);
+  position: relative;
+  z-index: 1;
 }
 
 .strata-home__hero-subtitle {
@@ -1040,15 +1065,27 @@
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
   margin: var(--space-2) 0 0;
+  position: relative;
+  z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .strata-home__hero::before {
+  .strata-home__hero::before,
+  .strata-home__hero::after {
     filter: none;
+  }
+  .strata-home__hero::before {
     background: radial-gradient(
       circle,
-      color-mix(in oklch, var(--color-hero-glow) 8%, transparent) 0%,
-      transparent 70%
+      color-mix(in oklch, var(--color-accent-primary) 8%, transparent) 0%,
+      transparent 65%
+    );
+  }
+  .strata-home__hero::after {
+    background: radial-gradient(
+      circle,
+      color-mix(in oklch, var(--color-brand-sandstone, #e28c3c) 5%, transparent) 0%,
+      transparent 60%
     );
   }
 }

@@ -1,6 +1,6 @@
 /* Layers panel — APG Tree View styles. All values trace to CSS custom properties. */
 
-/* ─── Container ─────────────────────────────────────────────── */
+/* ─── Container — density-aware ──────────────────────────────── */
 .layers-panel {
   height: 100%;
   display: flex;
@@ -9,19 +9,20 @@
   min-height: 0;
 }
 
-/* Neo-Bento panel header: bold label, teal top strip for visual identity */
+/* Neo-Bento panel header: accent top strip + density-aware sizing */
 .layers-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-xs);
+  padding: calc(6px + var(--density-rows-padding, var(--space-2))) var(--space-3);
+  font-size: var(--density-font-size, var(--font-size-xs));
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
+  border-top: 3px solid var(--color-accent-primary);
 }
 
 .layers-panel__collapse-all-btn {
@@ -116,12 +117,12 @@
 .layers-row {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-1);
+  gap: var(--density-rows-gap, var(--space-1));
+  padding: var(--density-rows-padding, var(--space-1));
   border-radius: var(--radius-sm);
   cursor: default;
   user-select: none;
-  min-height: 28px;
+  min-height: var(--density-rows-min-height, 28px);
   min-width: max-content;
   background: var(--color-tree-row);
   color: var(--color-text-primary);

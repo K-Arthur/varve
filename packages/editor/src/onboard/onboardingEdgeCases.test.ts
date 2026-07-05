@@ -10,7 +10,11 @@ import {
   type OnboardingStore,
 } from './onboardingStore';
 import { TIPS } from './DidYouKnow/tips';
-import { FEATURE_VERSIONS, CURRENT_APP_VERSION, compareVersions } from './NewFeatureBadge/featureVersions';
+import {
+  FEATURE_VERSIONS,
+  CURRENT_APP_VERSION,
+  compareVersions,
+} from './NewFeatureBadge/featureVersions';
 import { HELP_CONTENT, getHelpContent } from './ContextualHelp/helpContent';
 
 describe('onboardingEdgeCases', () => {
@@ -75,7 +79,9 @@ describe('onboardingEdgeCases', () => {
     // The shortcut tips like "shortcut-select" have condition based on low shortcut usage
     const shortcutSelect = TIPS.find((t) => t.id === 'shortcut-select');
     if (shortcutSelect?.condition) {
-      const result = shortcutSelect.condition(getCount as (actionId: string, windowMs?: number) => number);
+      const result = shortcutSelect.condition(
+        getCount as (actionId: string, windowMs?: number) => number,
+      );
       // With 10 shortcuts in 300s, the condition "getCount('shortcut:', 300000) < 3" should be false
       expect(result).toBe(false);
     }

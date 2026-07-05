@@ -12,7 +12,7 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
   ...TOOLS,
   ...PANELS,
   ...EXPORT,
-  'shortcuts': SHORTCUTS_REFERENCE,
+  shortcuts: SHORTCUTS_REFERENCE,
   ...FAQ,
   ...TROUBLESHOOTING,
 };

@@ -6,15 +6,31 @@
  * WCAG 2.2 focus-visible (2.4.7) and status-not-by-colour (1.4.1).
  */
 
-/* ---------- Panel shell ----------
+/* ---------- Panel shell — Neo-Bento bento-lite ----------
  * Card-based section layout: each disclosure section renders as a discrete
- * rounded card floating on the sunken panel rail, separated by gaps rather
- * than hairline dividers (reference: modern Figma properties panel).
+ * rounded card with micro-border floating on the sunken panel rail,
+ * separated by gaps rather than hairline dividers.
  */
 .insp-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-2);
+}
+.insp-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+  margin-bottom: var(--space-1);
+}
+.insp-panel__header-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* Only the direct-child content pane scrolls; nested .insp-panel instances
@@ -189,13 +205,17 @@
   position: relative;
   overflow: hidden;
   margin-bottom: var(--space-1);
-  background: var(--color-surface-raised);
+  background: var(--elevation-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-2) var(--space-3);
+  transition: box-shadow var(--duration-quick) var(--ease-standard);
+}
+.insp-disclosure:has(.insp-disclosure__trigger[aria-expanded="true"]) {
+  box-shadow: var(--elevation-shadow-raised);
 }
 
-/* Teal left accent bar — visible only when section is open */
+/* Teal accent bar — visible only when section is open, shifts to accent-primary */
 .insp-disclosure::before {
   content: "";
   position: absolute;
@@ -208,7 +228,7 @@
   transition: background var(--duration-quick) var(--ease-standard);
 }
 .insp-disclosure:has(.insp-disclosure__trigger[aria-expanded="true"])::before {
-  background: var(--color-interactive-default);
+  background: var(--color-accent-primary);
 }
 
 .insp-disclosure__trigger {

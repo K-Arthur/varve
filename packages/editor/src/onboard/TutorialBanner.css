@@ -1,10 +1,10 @@
 .tutorial-banner {
-  background: var(--color-surface-raised, #ffffff);
-  border-bottom: 1px solid var(--color-border-subtle, #e0e0e0);
+  background: var(--elevation-surface-raised);
+  border-bottom: var(--border-micro);
   padding: 0;
   transition:
-    height 0.2s ease,
-    padding 0.2s ease;
+    height var(--duration-fast) var(--ease-default),
+    padding var(--duration-fast) var(--ease-default);
   overflow: hidden;
 }
 
@@ -19,37 +19,37 @@
 }
 
 .tutorial-banner__content {
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
 }
 
 .tutorial-banner__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .tutorial-banner__title-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .tutorial-banner__label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary, #10151f);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .tutorial-banner__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .tutorial-banner__progress-text {
-  font-size: 12px;
-  color: var(--color-text-secondary, #6b7280);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   min-width: 32px;
   text-align: right;
 }
@@ -57,16 +57,16 @@
 .tutorial-banner__progress-bar {
   width: 80px;
   height: 6px;
-  background: var(--color-border-subtle, #e0e0e0);
-  border-radius: 3px;
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
 .tutorial-banner__progress-fill {
   height: 100%;
-  background: var(--color-accent-primary, #39d0c6);
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  background: var(--color-accent-primary);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-base) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -76,19 +76,22 @@
 }
 
 .tutorial-banner__action {
-  font-size: 12px;
-  padding: 2px 8px;
-  border: 1px solid var(--color-border-subtle, #e0e0e0);
-  border-radius: 4px;
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--color-text-secondary);
   cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-default),
+    color var(--duration-quick) var(--ease-default);
 }
 
 .tutorial-banner__action:hover,
 .tutorial-banner__action:focus-visible {
-  color: var(--color-text-primary, #10151f);
-  border-color: var(--color-text-primary, #10151f);
+  background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 .tutorial-banner__minimize {
@@ -100,38 +103,53 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  color: var(--color-text-secondary, #6b7280);
-  border-radius: 4px;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-md);
+  transition:
+    background var(--duration-quick) var(--ease-default),
+    color var(--duration-quick) var(--ease-default);
 }
 
 .tutorial-banner__minimize:hover,
 .tutorial-banner__minimize:focus-visible {
-  color: var(--color-text-primary, #10151f);
-  background: var(--color-surface-hover, #f3f4f6);
+  color: var(--color-text-primary);
+  background: var(--elevation-surface-sunken);
 }
 
 .tutorial-banner__instruction {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--color-text-secondary, #6b7280);
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   line-height: 1.4;
 }
 
 .tutorial-banner__expand {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
   width: 100%;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
-  color: var(--color-text-secondary, #6b7280);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  transition: background var(--duration-quick) var(--ease-default);
 }
 
 .tutorial-banner__expand:hover,
 .tutorial-banner__expand:focus-visible {
-  background: var(--color-surface-hover, #f3f4f6);
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+[data-theme="high-contrast"] .tutorial-banner {
+  border-bottom: 1px solid var(--color-border-strong);
+}
+[data-theme="high-contrast"] .tutorial-banner__action:hover,
+[data-theme="high-contrast"] .tutorial-banner__action:focus-visible {
+  background: var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }

@@ -14,10 +14,9 @@ function getAllArticles(): HelpArticle[] {
 describe('helpContent', () => {
   it('all articles have non-empty title', () => {
     for (const article of getAllArticles()) {
-      expect(
-        article.title.trim().length,
-        `Article ${article.id} has empty title`,
-      ).toBeGreaterThan(0);
+      expect(article.title.trim().length, `Article ${article.id} has empty title`).toBeGreaterThan(
+        0,
+      );
     }
   });
 
@@ -32,10 +31,7 @@ describe('helpContent', () => {
 
   it('all articles have non-empty body', () => {
     for (const article of getAllArticles()) {
-      expect(
-        article.body.trim().length,
-        `Article ${article.id} has empty body`,
-      ).toBeGreaterThan(0);
+      expect(article.body.trim().length, `Article ${article.id} has empty body`).toBeGreaterThan(0);
     }
   });
 
@@ -63,18 +59,12 @@ describe('helpContent', () => {
     for (const article of getAllArticles()) {
       const body = article.body;
       const boldPairs = (body.match(/\*\*/g) || []).length;
-      expect(
-        boldPairs % 2,
-        `Article ${article.id} has unmatched ** in body`,
-      ).toBe(0);
+      expect(boldPairs % 2, `Article ${article.id} has unmatched ** in body`).toBe(0);
       // Allow underscores in things like `Ctrl_`, measure_text, etc.
       // Just check that there are no isolated unmatched markdown underscores
       const mdItalic = body.match(/(?<!\w)_(?!_|\w)/g);
       if (mdItalic) {
-        expect(
-          mdItalic.length % 2,
-          `Article ${article.id} has unmatched _ in body`,
-        ).toBe(0);
+        expect(mdItalic.length % 2, `Article ${article.id} has unmatched _ in body`).toBe(0);
       }
     }
   });
@@ -95,10 +85,9 @@ describe('helpContent', () => {
         const id = article.id.replace('tool:', '').toLowerCase();
         return k.toLowerCase().includes(id);
       });
-      expect(
-        hasToolKeyword,
-        `Article ${article.id} should include tool name in keywords`,
-      ).toBe(true);
+      expect(hasToolKeyword, `Article ${article.id} should include tool name in keywords`).toBe(
+        true,
+      );
     }
   });
 

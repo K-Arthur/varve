@@ -9,11 +9,33 @@ import type { PrototypeData, PrototypeRuntime } from '@strata/prototype';
 import { PrototypeDebugConsole } from '@strata/prototype';
 
 export type ToolId =
-  | 'select' | 'frame' | 'rect' | 'ellipse' | 'polygon' | 'star'
-  | 'line' | 'arrow' | 'pen' | 'pencil' | 'nodeEdit' | 'text'
-  | 'hand' | 'zoom' | 'scale' | 'image' | 'slice' | 'eyedropper'
-  | 'inspect' | 'booleanUnion' | 'booleanSubtract' | 'booleanIntersect'
-  | 'booleanExclude' | 'cloneStamp' | 'healBrush' | 'spotHeal' | 'patch';
+  | 'select'
+  | 'frame'
+  | 'rect'
+  | 'ellipse'
+  | 'polygon'
+  | 'star'
+  | 'line'
+  | 'arrow'
+  | 'pen'
+  | 'pencil'
+  | 'nodeEdit'
+  | 'text'
+  | 'hand'
+  | 'zoom'
+  | 'scale'
+  | 'image'
+  | 'slice'
+  | 'eyedropper'
+  | 'inspect'
+  | 'booleanUnion'
+  | 'booleanSubtract'
+  | 'booleanIntersect'
+  | 'booleanExclude'
+  | 'cloneStamp'
+  | 'healBrush'
+  | 'spotHeal'
+  | 'patch';
 
 export type CanvasMode = 'full' | 'outline' | 'preview';
 
@@ -67,12 +89,20 @@ export interface EditorContextValue {
   zoomTo: (level: number) => void;
   smoothZoomTo: (targetZoom: number, durationMs?: number) => void;
   smoothPanTo: (target: { x: number; y: number }, durationMs?: number) => void;
-  smoothReveal: (bounds: { x: number; y: number; w: number; h: number }, opts?: { padding?: number; durationMs?: number }) => void;
+  smoothReveal: (
+    bounds: { x: number; y: number; w: number; h: number },
+    opts?: { padding?: number; durationMs?: number },
+  ) => void;
   canvasToWorld: (cx: number, cy: number) => { x: number; y: number };
   worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   setCanvasMode: (mode: CanvasMode) => void;
-  revealSelection: (opts?: { nodeId?: NodeId; fit?: boolean; padding?: number; viewport?: Viewport }) => void;
+  revealSelection: (opts?: {
+    nodeId?: NodeId;
+    fit?: boolean;
+    padding?: number;
+    viewport?: Viewport;
+  }) => void;
   fitAll: () => void;
   // Workspace
   toggleLeftPanel: () => void;
@@ -87,8 +117,18 @@ export interface EditorContextValue {
   selectAllWithSameLayerColor: () => void;
   selectAllOfType: () => void;
   // Document CRUD
-  createShapeAt: (world: { x: number; y: number }, size?: { w: number; h: number }, parentId?: NodeId | null, pathPoints?: PathPoint[]) => void;
-  createTextNodeAt: (world: { x: number; y: number }, size?: { w: number; h: number }, parentId?: NodeId | null, text?: string) => void;
+  createShapeAt: (
+    world: { x: number; y: number },
+    size?: { w: number; h: number },
+    parentId?: NodeId | null,
+    pathPoints?: PathPoint[],
+  ) => void;
+  createTextNodeAt: (
+    world: { x: number; y: number },
+    size?: { w: number; h: number },
+    parentId?: NodeId | null,
+    text?: string,
+  ) => void;
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
   findContainingFrame: (world: { x: number; y: number }) => NodeId | null;
   nodeWorldBounds: (n: SceneNode) => { x: number; y: number; w: number; h: number } | null;
@@ -96,7 +136,10 @@ export interface EditorContextValue {
   getWorldBounds: (id: NodeId) => import('@strata/shared').Rect | null;
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
   getNode: (id: NodeId) => SceneNode | undefined;
-  walkNodes: () => Map<NodeId, { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }>;
+  walkNodes: () => Map<
+    NodeId,
+    { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }
+  >;
   setDraft: (draft: DraftShape | null) => void;
   removeSelected: () => void;
   renameSelected: (name: string) => void;
@@ -132,7 +175,10 @@ export interface EditorContextValue {
   setCanvasWidth: (value: number) => void;
   setCanvasHeight: (value: number) => void;
   setCanvasBackground: (value: import('@strata/scene').ManagedColor) => void;
-  setSelectedBinding: (target: string, binding: import('@strata/scene').PropertyBinding | null) => void;
+  setSelectedBinding: (
+    target: string,
+    binding: import('@strata/scene').PropertyBinding | null,
+  ) => void;
   beginTransaction: () => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
@@ -146,7 +192,12 @@ export interface EditorContextValue {
   saveAs: () => Promise<boolean>;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
-  openFile: (fileId: string, name: string, filePath: string | undefined, json: string | null) => void;
+  openFile: (
+    fileId: string,
+    name: string,
+    filePath: string | undefined,
+    json: string | null,
+  ) => void;
   rootNodes: () => SceneNode[];
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
   arrangeSelected: (op: import('@strata/scene').ArrangeOp) => void;
@@ -155,7 +206,11 @@ export interface EditorContextValue {
   detachSelected: () => void;
 
   // Components
-  createComponentFromFrame: (name: string, masterRootId: NodeId, slots: import('@strata/scene').Slot[]) => void;
+  createComponentFromFrame: (
+    name: string,
+    masterRootId: NodeId,
+    slots: import('@strata/scene').Slot[],
+  ) => void;
   createComponentInstance: (componentId: NodeId) => void;
   fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
   swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
@@ -180,7 +235,10 @@ export interface EditorContextValue {
   // Variables
   resolveVariable: (nameOrId: string) => VariableValue;
   addVariable: (v: Omit<import('@strata/scene').Variable, 'id'>) => void;
-  updateVariable: (id: string, patch: Partial<Omit<import('@strata/scene').Variable, 'id'>>) => void;
+  updateVariable: (
+    id: string,
+    patch: Partial<Omit<import('@strata/scene').Variable, 'id'>>,
+  ) => void;
   deleteVariable: (id: string) => void;
   setVariableMode: (mode: string) => void;
 
@@ -198,7 +256,11 @@ export interface EditorContextValue {
   createAdjustmentLayer: (initialAdjustments?: Adjustment[]) => void;
   addAdjustmentToLayer: (nodeId: NodeId, adjustment: Adjustment) => void;
   removeAdjustmentFromLayer: (nodeId: NodeId, adjustmentId: string) => void;
-  updateAdjustmentInLayer: (nodeId: NodeId, adjustmentId: string, patch: Partial<Adjustment>) => void;
+  updateAdjustmentInLayer: (
+    nodeId: NodeId,
+    adjustmentId: string,
+    patch: Partial<Adjustment>,
+  ) => void;
   reorderAdjustmentInLayer: (nodeId: NodeId, adjustmentId: string, newIndex: number) => void;
   setAdjustmentLayerOpacity: (nodeId: NodeId, opacity: number) => void;
   setAdjustmentLayerBlendMode: (nodeId: NodeId, blendMode: string) => void;
@@ -207,7 +269,11 @@ export interface EditorContextValue {
   copySelected: () => void;
   cutSelected: () => void;
   paste: () => void;
-  importNode: (node: SceneNode, sourceDoc: Document, options?: { position?: { x: number; y: number } }) => void;
+  importNode: (
+    node: SceneNode,
+    sourceDoc: Document,
+    options?: { position?: { x: number; y: number } },
+  ) => void;
 
   // Binding
   bindingField: string | null;
@@ -266,8 +332,19 @@ export interface EditorContextValue {
 
   // Variants
   setVariantForInstance: (instanceId: NodeId, variantId: string) => void;
-  createVariant: (componentId: NodeId, name: string, propertyValues: Record<string, string | boolean | NodeId>) => void;
-  addComponentProperty: (componentId: NodeId, prop: { name: string; type: 'text' | 'boolean' | 'instanceSwap'; defaultValue: string | boolean | NodeId }) => void;
+  createVariant: (
+    componentId: NodeId,
+    name: string,
+    propertyValues: Record<string, string | boolean | NodeId>,
+  ) => void;
+  addComponentProperty: (
+    componentId: NodeId,
+    prop: {
+      name: string;
+      type: 'text' | 'boolean' | 'instanceSwap';
+      defaultValue: string | boolean | NodeId;
+    },
+  ) => void;
   resolveVariantPropertiesForNode: (nodeId: NodeId) => Record<string, string | boolean | NodeId>;
 
   // Pages

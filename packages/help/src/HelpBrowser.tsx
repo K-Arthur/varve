@@ -124,17 +124,14 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
     setSelectedArticle(article);
   }, []);
 
-  const handleRelatedClick = useCallback(
-    (id: string) => {
-      const article = getHelpContent(id);
-      if (article) {
-        const cat = article.category;
-        setSelectedCategory(cat);
-        setSelectedArticle(article);
-      }
-    },
-    [],
-  );
+  const handleRelatedClick = useCallback((id: string) => {
+    const article = getHelpContent(id);
+    if (article) {
+      const cat = article.category;
+      setSelectedCategory(cat);
+      setSelectedArticle(article);
+    }
+  }, []);
 
   const handleHelpfulClick = useCallback(
     (articleId: string, isHelpful: boolean) => {
@@ -160,13 +157,7 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
   const hasResults = searchResults.length > 0;
 
   return (
-    <div
-      className="help-browser"
-      role="dialog"
-      aria-label="Help"
-      aria-modal="true"
-      ref={dialogRef}
-    >
+    <div className="help-browser" role="dialog" aria-label="Help" aria-modal="true" ref={dialogRef}>
       <div className="help-browser__header">
         <h2 className="help-browser__title">Help</h2>
         <search className="help-browser__search">
@@ -179,7 +170,12 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
             aria-hidden="true"
           >
             <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <path
+              d="M11 11l3.5 3.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
           </svg>
           <input
             ref={searchRef}
@@ -233,12 +229,10 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
         <section className="help-browser__content" aria-label="Help content">
           {showingResults ? (
             hasResults ? (
-              <div
-                className="help-browser__results"
-                aria-live="polite"
-              >
+              <div className="help-browser__results" aria-live="polite">
                 <p className="help-browser__results-count">
-                  {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
+                  {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for &ldquo;
+                  {searchQuery}&rdquo;
                 </p>
                 {searchResults.map((article) => (
                   <button
@@ -279,9 +273,7 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
                 <span className="help-browser__breadcrumb-sep" aria-hidden="true">
                   &rsaquo;
                 </span>
-                <span className="help-browser__breadcrumb-current">
-                  {selectedArticle.title}
-                </span>
+                <span className="help-browser__breadcrumb-current">{selectedArticle.title}</span>
               </div>
 
               <h3 className="help-browser__article-title">{selectedArticle.title}</h3>

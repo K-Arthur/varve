@@ -29,59 +29,55 @@ interface CopyEntry {
 const EMPTY_COPY: Record<string, CopyEntry> = {
   default: { headline: '', description: '', cta: '' },
   recent: {
-    headline: 'No recent files',
-    description:
-      'Your recently opened designs will appear here. Create a new design or open an existing one to get started.',
+    headline: 'Nothing here yet',
+    description: 'Open a design or create something new — your recent work will show up here.',
     cta: 'Create your first design',
   },
   all: {
-    headline: 'No files yet',
-    description:
-      'This is where all your designs live. Start creating with a blank canvas or open a design from your computer.',
+    headline: 'Start with a blank slate',
+    description: 'No designs yet. Drop a file, import something, or begin with a fresh canvas.',
     cta: 'New design',
   },
   templates: {
-    headline: 'No templates',
+    headline: 'Templates coming soon',
     description:
-      'Choose from a variety of pre-made templates to jump-start your design. Templates are coming soon.',
+      'Pre-built templates are on the way. For now, start from scratch or import an existing file.',
     cta: 'Back to files',
   },
   trash: {
     headline: 'Trash is empty',
-    description:
-      'Deleted files will appear here. You can restore them or permanently delete them from your device.',
+    description: 'Deleted files end up here for 30 days before being permanently removed.',
     cta: 'Browse files',
   },
   project: {
-    headline: 'No files in this project',
-    description:
-      'Files assigned to this project will appear here. Drag a design here or create a new one.',
+    headline: 'This project is empty',
+    description: 'Add files to this project by dragging them here or creating new designs.',
     cta: 'Browse all files',
   },
   search: {
     headline: 'No results found',
-    description: 'Try different keywords or clear your filters.',
+    description: 'Try different keywords, check your spelling, or clear your filters.',
     cta: 'Clear search',
   },
   collections: {
     headline: 'No collections yet',
-    description: 'Create a collection to organize files across projects.',
+    description: 'Collections help you organize files across projects. Create one to get started.',
     cta: 'Browse all files',
   },
   activity: {
-    headline: 'No recent activity',
-    description: 'Activity from your workspace will appear here.',
+    headline: 'Quiet around here',
+    description: 'Changes to your workspace — file edits, comments, shares — will show up here.',
     cta: 'Browse all files',
   },
   missing: {
     headline: 'File not found',
     description:
-      'This file has been moved or deleted from your device. You can remove it from your recent files or locate it manually.',
+      'This file was moved or deleted. You can remove it from your recent files or find it on your device.',
     cta: 'Remove from recents',
   },
   savedSearch: {
     headline: 'No saved searches yet',
-    description: 'Search for files and save your filter.',
+    description: 'Save your filter configurations to quickly access them later.',
     cta: 'Browse all files',
   },
 };

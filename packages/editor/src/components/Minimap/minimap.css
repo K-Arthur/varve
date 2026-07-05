@@ -1,10 +1,10 @@
 .minimap-panel {
-  border: 1px solid var(--color-border-subtle, #333);
-  border-radius: var(--radius-md, 8px);
-  background: var(--color-surface-raised, #1e1e1e);
+  border: var(--border-micro);
+  border-radius: var(--radius-lg);
+  background: var(--elevation-surface-default);
   overflow: hidden;
-  padding: var(--space-2, 4px);
-  margin: var(--space-2, 4px);
+  padding: var(--space-2);
+  margin: var(--space-2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,6 +12,12 @@
 
 .minimap-panel__canvas {
   display: block;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   cursor: pointer;
+}
+
+/* High-contrast theme overrides */
+[data-theme="high-contrast"] .minimap-panel {
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface-default);
 }
