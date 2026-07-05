@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ManagedColor } from '../colorManagement';
 import { createComponent } from '../component';
 import { addNode, createDocument, makeFrameNode } from '../document';
 import {
@@ -9,16 +10,10 @@ import {
   syncInstance,
 } from '../component-sync';
 import type { Document } from '../document';
-import type { ComponentDefinition, Fill, FrameNode } from '../types';
+import type { ComponentDefinition, FrameNode } from '../types';
 
-function makeDefaultFill(r = 200, g = 200, b = 200): Fill {
-  return {
-    type: 'solid',
-    color: { space: 'rgb', r, g, b, a: 255 },
-    opacity: 1,
-    blendMode: 'normal',
-    visible: true,
-  };
+function rgb(r: number, g: number, b: number): ManagedColor {
+  return { space: 'rgb', r, g, b, a: 255 };
 }
 
 function setupComponentWithInstance(): {
@@ -35,7 +30,7 @@ function setupComponentWithInstance(): {
     name: 'Button',
     w: 120,
     h: 40,
-    fill: makeDefaultFill(0, 100, 200),
+    fill: rgb(0, 100, 200),
     opacity: 1,
     blendMode: 'normal',
     rotation: 0,
@@ -52,7 +47,7 @@ function setupComponentWithInstance(): {
   const instance = makeFrameNode(instanceId, {
     name: 'Button Instance',
     componentId,
-    fill: makeDefaultFill(0, 100, 200),
+    fill: rgb(0, 100, 200),
     opacity: 1,
     blendMode: 'normal',
     rotation: 0,
@@ -136,10 +131,10 @@ describe('hasInstanceOverrides', () => {
 });
 
 describe('syncInstance', () => {
-  it('preserves matching properties and returns synced status', () => {
+  it('preserves matching properties and returns overridden status when master changed', () => {
     const { doc, instanceId, master } = setupComponentWithInstance();
 
-    const changedMaster: FrameNode = { ...master, fill: makeDefaultFill(255, 0, 0), w: 200, h: 80 };
+    const changedMaster: FrameNode = { ...master, fill: rgb(255, 0, 0), w: 200, h: 80 };
     const d0 = {
       ...doc,
       nodes: {
@@ -167,20 +162,11 @@ describe('syncInstance', () => {
       ...doc,
       nodes: {
         ...doc.nodes,
-        [instanceId]: {
-          ...instance,
-          opacity: overriddenOpacity,
-          rotation: overriddenRotation,
-        } as FrameNode,
+        [instanceId]: { ...instance, opacity: overriddenOpacity, rotation: overriddenRotation } as FrameNode,
       },
     };
 
-    const changedMaster: FrameNode = {
-      ...master,
-      fill: makeDefaultFill(255, 0, 0),
-      opacity: 0.8,
-      rotation: 15,
-    };
+    const changedMaster: FrameNode = { ...master, fill: rgb(255, 0, 0), opacity: 0.8, rotation: 15 };
     const d1 = {
       ...d0,
       nodes: {
@@ -215,7 +201,7 @@ describe('pushMasterChanges', () => {
     const instance2 = makeFrameNode(instance2Id, {
       name: 'Button 2',
       componentId,
-      fill: makeDefaultFill(0, 100, 200),
+      fill: rgb(0, 100, 200),
       opacity: 1,
       blendMode: 'normal',
       rotation: 0,
@@ -227,7 +213,7 @@ describe('pushMasterChanges', () => {
     });
     doc = addNode(doc, instance2);
 
-    const changedMaster: FrameNode = { ...master, fill: makeDefaultFill(0, 200, 100) };
+    const changedMaster: FrameNode = { ...master, fill: rgb(0, 200, 100) };
     doc = {
       ...doc,
       nodes: {
@@ -286,7 +272,7 @@ describe('pushMasterChanges', () => {
     const instance2 = makeFrameNode(instance2Id, {
       name: 'Button 2',
       componentId,
-      fill: makeDefaultFill(0, 100, 200),
+      fill: rgb(0, 100, 200),
       opacity: 0.7,
       blendMode: 'normal',
       rotation: 0,
@@ -298,7 +284,7 @@ describe('pushMasterChanges', () => {
     });
     doc = addNode(doc, instance2);
 
-    const changedMaster: FrameNode = { ...master, fill: makeDefaultFill(255, 50, 50), rotation: 0 };
+    const changedMaster: FrameNode = { ...master, fill: rgb(255, 50, 50), rotation: 0 };
     doc = {
       ...doc,
       nodes: {
@@ -323,40 +309,24 @@ describe('syncAllInstances', () => {
   it('syncs all instances of all components', () => {
     let doc = createDocument('test', true);
 
-    const m1 = makeFrameNode('m1', {
-      name: 'Comp1',
-      w: 100,
-      h: 50,
-      fill: makeDefaultFill(0, 100, 200),
-    });
+    const m1 = makeFrameNode('m1', { name: 'Comp1', w: 100, h: 50, fill: rgb(0, 100, 200) });
     doc = addNode(doc, m1);
     const { component: c1, doc: docC1 } = createComponent(doc, 'Comp1', 'm1', []);
     doc = docC1;
 
-    const m2 = makeFrameNode('m2', {
-      name: 'Comp2',
-      w: 200,
-      h: 100,
-      fill: makeDefaultFill(200, 50, 0),
-    });
+    const m2 = makeFrameNode('m2', { name: 'Comp2', w: 200, h: 100, fill: rgb(200, 50, 0) });
     doc = addNode(doc, m2);
     const { component: c2, doc: docC2 } = createComponent(doc, 'Comp2', 'm2', []);
     doc = docC2;
 
     const i1 = makeFrameNode('i1', {
-      name: 'I1',
-      componentId: c1.id,
-      fill: makeDefaultFill(0, 100, 200),
-      w: 100,
-      h: 50,
+      name: 'I1', componentId: c1.id, fill: rgb(0, 100, 200),
+      w: 100, h: 50,
     });
     doc = addNode(doc, i1);
     const i2 = makeFrameNode('i2', {
-      name: 'I2',
-      componentId: c2.id,
-      fill: makeDefaultFill(200, 50, 0),
-      w: 200,
-      h: 100,
+      name: 'I2', componentId: c2.id, fill: rgb(200, 50, 0),
+      w: 200, h: 100,
     });
     doc = addNode(doc, i2);
 
@@ -365,7 +335,7 @@ describe('syncAllInstances', () => {
       ...doc,
       nodes: {
         ...doc.nodes,
-        ['m1']: { ...c1Master, fill: makeDefaultFill(0, 200, 100) },
+        ['m1']: { ...c1Master, fill: rgb(0, 200, 100) },
       },
     };
 

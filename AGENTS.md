@@ -216,6 +216,38 @@ Full APG Tree View layers panel implemented:
 
 **Next:** DnD reorder+reparent with @dnd-kit, E2E Playwright suite, axe-core scan, thumbnail optimization (see `docs/plans/layers-panel-deferred.md`).
 
+## Effects System Overhaul (2026-07-05)
+
+Complete effects system overhaul — P0 rendering bug fixes, filter compositor, halftone engine.
+
+| Phase | What | Key Files | Tests |
+|---|---|---|---|
+| **0** | Critical rendering fixes: removed Pass 1 double-render (shadows drew twice), implemented spread in Pass 2, wired `filters` through `toEngineNode`, fixed `hasEffects()` type guard (ImageNode + AdjustmentNode + GroupNode) | `replay.ts`, `CanvasArea.tsx`, `EffectsSection.tsx` | 569 (baseline) |
+| **1.1-1.2** | Filter compositor: offscreen canvas compositing for non-CSS filters with per-filter opacity/blend mode. 7 new software pixel engines (exposure, sharpen, temperature, tint, colorBalance, channelMixer, photoFilter, vibrance). Wired existing curves/levels/selectiveColor engines. | `filterCompositor.ts`, `replay.ts` | +8 |
+| **1.3** | Background blur: replaced stub with real backdrop capture via OffscreenCanvas. Captures content behind item, blurs, clips to shape, composites. Graceful fallback where OffscreenCanvas unavailable. | `replay.ts` | 577 |
+| **2.1-2.4** | Halftone screening engine: AM (clustered-dot threshold matrix, 5 dot shapes), FM (Floyd-Steinberg error diffusion, serpentine scan), standard CMYK angles (C:15°/M:75°/Y:0°/K:45°), per-channel and CMYK separation. | `halftone.ts`, `types.ts` (FilterIR), `filterCompositor.ts` | +13 |
+| **2.5-2.6** | Halftone UI + pipeline: FilterIR variant, AdjustmentKind, HalftoneSection UI component, filterToCss fallback, adjustmentDefaults, adjustmentToFilter mapping. | `HalftoneSection.tsx`, `filters.ts` | 590 |
+| **3.1-3.4** | UX/Accessibility: CurveEditor keyboard support (arrow keys, Tab, Delete), HistogramWidget keyboard support (arrow keys for sliders, Tab to cycle), AdjustmentPanel menu keyboard navigation (ArrowUp/Down, Home/End, auto-focus). | `CurveEditor.tsx`, `HistogramWidget.tsx`, `AdjustmentPanel.tsx` | — |
+| **4** | Effect expansion: outerGlow/innerGlow (no-offset shadow-like), GroupNode.effects support, glow UI controls in inspector, Rust parity (OuterGlow/InnerGlow variants). | `replay.ts`, `types.ts` (TS+Rust), `scene/types.ts`, `EffectsSection.tsx` | 595 |
+| **5.4** | ICC-aware soft proofing: per-pixel CMYK simulation with TAC clamping, analytical rgbToCmyk conversion in overlay. | `SoftProofOverlay.tsx` | — |
+
+**Architecture decisions:**
+- Single-pass effects rendering (removed redundant Pass 1) — shadow rendering now uses Canvas2D native shadow API only, not duplicated CSS filter approach
+- Filter compositor uses offline canvas compositing for non-CSS filters, CSS filter string for simple cases
+- Halftone uses FilterIR (not Effect) so it composes in the nondestructive filter chain with other adjustments
+- Both AM and FM screening available; AM for traditional print, FM for stochastic/modern output
+- Standard CMYK angles from ISO 12647-2; users can override per channel
+- Glow effects implemented as no-offset shadows using canvas shadow API (consistent with dropShadow/innerShadow)
+
+**New modules:**
+| File | What |
+|---|---|
+| `packages/engine/src/filterCompositor.ts` | Offscreen compositing for non-CSS filters with per-filter opacity/blend |
+| `packages/engine/src/halftone.ts` | AM + FM halftone screening engine |
+| `packages/editor/src/components/Inspector/sections/HalftoneSection.tsx` | Halftone inspector UI |
+
+**Verification:** 595/597 JS tests pass (2 pre-existing alpha-mask failures), lint clean on all modified files.
+
 ## Projects & Home Directory Overhaul (2026-07-03)
 
 Complete 10-phase redesign of the project/workspace/home system:
