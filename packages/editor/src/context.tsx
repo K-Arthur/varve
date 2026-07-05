@@ -60,7 +60,6 @@ import {
   fillSlot as fillSlotDoc,
   type Guide,
   getNestedValue,
-  getParent,
   groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
   isContainer,
@@ -94,6 +93,7 @@ import {
 } from '@strata/scene';
 
 import {
+  animateCamera,
   clampZoom,
   fitBoundsCamera,
   revealBoundsCamera,
@@ -253,6 +253,15 @@ export interface EditorContextValue {
   zoomOut: () => void;
   /** Zoom to an absolute level anchored to the viewport center. */
   zoomTo: (level: number) => void;
+  /** Smoothly animate zoom to target level over duration ms. */
+  smoothZoomTo: (targetZoom: number, durationMs?: number) => void;
+  /** Smoothly animate pan to target position over duration ms. */
+  smoothPanTo: (target: { x: number; y: number }, durationMs?: number) => void;
+  /** Smoothly animate to reveal a rect (zoom-to-fit with animation). */
+  smoothReveal: (
+    bounds: { x: number; y: number; w: number; h: number },
+    opts?: { padding?: number; durationMs?: number },
+  ) => void;
   /** Toggle layers (left) panel visibility; persists to editor settings. */
   toggleLeftPanel: () => void;
   /** Toggle inspector (right) panel visibility; persists to editor settings. */
@@ -1183,6 +1192,47 @@ export function EditorProvider({
         const centre = screenToWorld(cam, vpW / 2, vpH / 2);
         const newCam = zoomAboutPoint(cam, centre, clampZoom(level));
         patch({ zoom: newCam.zoom, pan: newCam.pan });
+      },
+      smoothZoomTo: (targetZoom, durationMs = 200) => {
+        const startCam = { pan: stateRef.current.pan, zoom: stateRef.current.zoom };
+        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
+        const centre = screenToWorld(startCam, vpW / 2, vpH / 2);
+        const endCam = zoomAboutPoint(startCam, centre, clampZoom(targetZoom));
+        const startTime = performance.now();
+        requestAnimationFrame(function tick(now: number) {
+          const elapsed = now - startTime;
+          const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
+          patch({ zoom: camera.zoom, pan: camera.pan });
+          if (!done) requestAnimationFrame(tick);
+        });
+      },
+      smoothPanTo: (target, durationMs = 150) => {
+        const startCam = { pan: stateRef.current.pan, zoom: stateRef.current.zoom };
+        const endCam = { pan: target, zoom: startCam.zoom };
+        const startTime = performance.now();
+        requestAnimationFrame(function tick(now: number) {
+          const elapsed = now - startTime;
+          const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
+          patch({ zoom: camera.zoom, pan: camera.pan });
+          if (!done) requestAnimationFrame(tick);
+        });
+      },
+      smoothReveal: (bounds, opts) => {
+        const startCam = { pan: stateRef.current.pan, zoom: stateRef.current.zoom };
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        const endCam = fitBoundsCamera(bounds, vp, opts?.padding ?? 40);
+        const durationMs = opts?.durationMs ?? 250;
+        const startTime = performance.now();
+        requestAnimationFrame(function tick(now: number) {
+          const elapsed = now - startTime;
+          const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
+          patch({ zoom: camera.zoom, pan: camera.pan });
+          if (!done) requestAnimationFrame(tick);
+        });
       },
       toggleLeftPanel: () => {
         const next = !state.leftPanelVisible;

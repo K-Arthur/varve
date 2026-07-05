@@ -40,6 +40,7 @@ import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { TextEditOverlay } from './components/TextEditOverlay';
 import { VariantBox } from './components/VariantBox/VariantBox';
+import { ZoomIndicator } from './components/ZoomIndicator';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { SelectionOverlay } from './SelectionOverlay';
@@ -1114,20 +1115,63 @@ export function CanvasArea({
       editorRef.current.setPan(newCam.pan);
     };
 
+    // ── Inertial scroll state (A-06) ──────────────────────────────────
+    const inertiaRef = { current: { vx: 0, vy: 0, rafId: 0, active: false } };
+    const INERTIA_FRICTION = 0.9;
+    const INERTIA_THRESHOLD = 0.5;
+
+    function startInertia(): void {
+      if (inertiaRef.current.active) return;
+      inertiaRef.current.active = true;
+      const tick = (): void => {
+        const s = stateRef.current;
+        const v = inertiaRef.current;
+        if (Math.abs(v.vx) < INERTIA_THRESHOLD && Math.abs(v.vy) < INERTIA_THRESHOLD) {
+          v.active = false;
+          v.vx = 0;
+          v.vy = 0;
+          return;
+        }
+        editorRef.current.setPan({ x: s.pan.x + v.vx, y: s.pan.y + v.vy });
+        v.vx *= INERTIA_FRICTION;
+        v.vy *= INERTIA_FRICTION;
+        v.rafId = requestAnimationFrame(tick);
+      };
+      inertiaRef.current.rafId = requestAnimationFrame(tick);
+    }
+
+    function cancelInertia(): void {
+      if (inertiaRef.current.rafId) cancelAnimationFrame(inertiaRef.current.rafId);
+      inertiaRef.current.active = false;
+      inertiaRef.current.vx = 0;
+      inertiaRef.current.vy = 0;
+    }
+
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
       const s = stateRef.current;
       const k = deltaScale(e);
       if (e.ctrlKey || e.metaKey) {
-        // Exponential in deltaY so a stream of small trackpad pinch deltas
-        // zooms smoothly; clamp per-event so a discrete mouse-wheel notch
-        // (deltaY ≈ ±120) stays a reasonable step instead of jumping 3×.
         const d = Math.max(-24, Math.min(24, e.deltaY * k));
         zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * Math.exp(-d * 0.01));
+        cancelInertia();
       } else if (e.shiftKey && e.deltaX === 0) {
         editorRef.current.setPan({ x: s.pan.x - e.deltaY * k, y: s.pan.y });
+        cancelInertia();
       } else {
-        editorRef.current.setPan({ x: s.pan.x - e.deltaX * k, y: s.pan.y - e.deltaY * k });
+        const dx = -e.deltaX * k;
+        const dy = -e.deltaY * k;
+        editorRef.current.setPan({ x: s.pan.x + dx, y: s.pan.y + dy });
+        // Accumulate velocity for inertia; weight recent deltas higher
+        inertiaRef.current.vx = inertiaRef.current.vx * 0.4 + dx * 0.6;
+        inertiaRef.current.vy = inertiaRef.current.vy * 0.4 + dy * 0.6;
+        // Cap velocity to prevent runaway
+        const maxV = 80;
+        inertiaRef.current.vx = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vx));
+        inertiaRef.current.vy = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vy));
+        // Start/restart inertia deceleration
+        cancelInertia();
+        startInertia();
       }
     };
 
@@ -1668,6 +1712,7 @@ export function CanvasArea({
           hoveredNode={hoveredNode}
         />
       )}
+      <ZoomIndicator zoom={state.zoom} />
       <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" />
     </section>
   );
