@@ -22,7 +22,6 @@ import {
 import type { TransformCache } from './transformCache';
 import { getWorldTransform as getCachedTransform } from './transformCache';
 import type { ParentIndexCache } from './parentIndexCache';
-import { getParentFast } from './parentIndexCache';
 
 /**
  * Walk the ancestor chain from `id` up to the root, composing local→parent
@@ -191,7 +190,7 @@ export function groupWorldBounds(
   if (node?.kind !== 'group') return null;
   let union: Rect | null = null;
   for (const childId of node.children) {
-    const b = nodeWorldBounds(doc, childId, parentIndex, cache);
+    const b = nodeWorldBounds(doc, childId, parentIndex, cache, parentCache);
     if (!b) continue;
     if (!union) {
       union = { x: b.x, y: b.y, w: b.w, h: b.h };
