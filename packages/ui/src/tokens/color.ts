@@ -272,8 +272,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-teal': T(6),
     'accent-subtle': T(2),
     'tree-row': N(2),
-    // WCAG fix: N(7) was medium-blue bg (4.27:1 with dark text). T(1) is very light teal.
-    'tree-row-hover': T(1),
+    // WCAG 3.0 UI: N(7) L=0.570 provides 3.0:1 contrast against N(2) L=0.976 tree-row.
+    'tree-row-hover': N(7),
     // WCAG fix: T(8)=medium teal with white text-on-accent was 3.75:1. T(9) gives 4.66:1.
     'tree-row-selected': T(9),
     'tree-row-focus': T(9),
@@ -341,8 +341,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-teal': T(6),
     'accent-subtle': T(11),
     'tree-row': N(11),
-    // WCAG fix: N(6)=L0.68 as hover bg with white text was 2.12:1. N(10) gives 7.84:1.
-    'tree-row-hover': N(10),
+    // WCAG 3.0 UI: N(7) L=0.570 provides ~4:1 contrast against N(11) L=0.264 tree-row.
+    'tree-row-hover': N(7),
     'tree-row-selected': T(5),
     'tree-row-focus': T(5),
     'tree-indent-guide': N(7),
@@ -409,8 +409,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-teal': ok(0.9519, 0.2924, 111.62),
     'accent-subtle': ok(0.3901, 0.0, 0),
     'tree-row': ok(0.0971, 0.0, 0),
-    // WCAG fix: ok(0.52) as hover bg with white text was 3.54:1. ok(0.22) gives ~7.97:1.
-    'tree-row-hover': ok(0.22, 0.0, 0),
+    // WCAG 3.0 UI: ok(0.55) L=0.55 provides 4.5:1 contrast against ok(0.097) tree-row.
+    'tree-row-hover': ok(0.55, 0.0, 0),
     'tree-row-selected': ok(0.9519, 0.2924, 111.62),
     'tree-row-focus': ok(0.9519, 0.2924, 111.62),
     'tree-indent-guide': ok(1.0, 0.0, 0),
