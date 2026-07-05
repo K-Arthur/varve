@@ -1,6 +1,6 @@
 import type { AdjustmentBlendMode, BlendMode } from '@strata/engine';
 import { filterKindDisplayName } from '@strata/engine';
-import type { Adjustment, AdjustmentKind } from '@strata/scene';
+import type { Adjustment, AdjustmentKind, SceneNode } from '@strata/scene';
 import { makeAdjustment } from '@strata/scene';
 import type { AdjustmentLayerNode } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
@@ -79,7 +79,7 @@ export function AdjustmentPanel() {
       const adj = makeAdjustment(newId, kind);
       updateNode(nodeId, (n) => {
         const an = n as AdjustmentLayerNode;
-        return { ...an, adjustments: [...an.adjustments, adj] };
+        return { ...an, adjustments: [...an.adjustments, adj] } as SceneNode;
       });
       setSelectedAdjId(newId);
       setShowAddMenu(false);
@@ -91,7 +91,7 @@ export function AdjustmentPanel() {
     (adjId: string) => {
       updateNode(nodeId, (n) => {
         const an = n as AdjustmentLayerNode;
-        return { ...an, adjustments: an.adjustments.filter((a) => a.id !== adjId) };
+        return { ...an, adjustments: an.adjustments.filter((a) => a.id !== adjId) } as SceneNode;
       });
       setSelectedAdjId((cur) => (cur === adjId ? null : cur));
     },
@@ -107,7 +107,7 @@ export function AdjustmentPanel() {
           adjustments: an.adjustments.map((a) =>
             a.id === adjId ? ({ ...a, ...patch } as Adjustment) : a,
           ),
-        };
+        } as SceneNode;
       });
     },
     [nodeId, updateNode],

@@ -694,7 +694,7 @@ export function Menubar({
         ))}
       </div>
 
-      {/* ── Center: Document name ── */}
+      {/* ── Center: Document name (absolutely centered in menubar) ── */}
       <div className="editor-menubar__doc-name">
         {editingName ? (
           <input
@@ -722,7 +722,18 @@ export function Menubar({
               }
             }}
             title="Click to rename"
-            style={{ cursor: 'pointer' }}
+            style={{
+              cursor: 'pointer',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 'var(--font-weight-medium)',
+              color: 'var(--color-text-primary)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '220px',
+              display: 'block',
+              textAlign: 'center',
+            }}
           >
             {state.document.name || 'Untitled'}
           </span>

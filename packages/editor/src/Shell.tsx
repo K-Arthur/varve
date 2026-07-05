@@ -263,7 +263,7 @@ function ShellInner({
         if (canvasEl) {
           const rect = canvasEl.getBoundingClientRect();
           const cam = {
-            pan: [editor.state.pan.x, editor.state.pan.y] as [number, number],
+            pan: editor.state.pan,
             zoom: editor.state.zoom,
           };
           const [wx, wy] = screenToWorld(

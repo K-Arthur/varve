@@ -9,6 +9,7 @@
   min-height: 0;
 }
 
+/* Neo-Bento panel header: bold label, teal top strip for visual identity */
 .layers-panel__header {
   display: flex;
   align-items: center;
@@ -17,6 +18,10 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
 }
 
 .layers-panel__collapse-all-btn {
@@ -41,15 +46,15 @@
   background: var(--color-surface-hover);
 }
 
-/* ─── Filter — rounded search chip ──────────────────────────── */
+/* ─── Filter — compact search field ──────────────────────────── */
 .layers-panel__filter {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  margin: 0 var(--space-2) var(--space-2);
+  margin: var(--space-1) var(--space-2) var(--space-1);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, type ToolId, useEditor } from './context';
 import { Shell } from './Shell';
-import type { SceneNode, Document } from '@strata/scene';
+import type { SceneNode } from '@strata/scene';
 
 afterEach(() => {
   vi.restoreAllMocks();

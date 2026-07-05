@@ -15,6 +15,7 @@ import type {
   ShapeNode,
   TextNode,
 } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { Icon } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';

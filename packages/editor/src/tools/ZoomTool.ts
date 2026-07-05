@@ -69,10 +69,10 @@ export class ZoomTool extends BaseTool {
       const factor = ctx.altKey ? 0.8 : 1.25;
       const newZoom = clampZoom(ctx.zoom * factor);
       const anchor: [number, number] = [this.drag.startWorld.x, this.drag.startWorld.y];
-      const cam = { pan: [ctx.pan.x, ctx.pan.y] as [number, number], zoom: ctx.zoom };
+      const cam = { pan: ctx.pan, zoom: ctx.zoom };
       const newCam = zoomAboutPoint(cam, anchor, newZoom);
       ctx.setZoom(newCam.zoom);
-      ctx.setPan({ x: newCam.pan[0], y: newCam.pan[1] });
+      ctx.setPan(newCam.pan);
     }
     this.marqueeStart = null;
   }

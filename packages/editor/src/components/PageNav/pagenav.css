@@ -1,88 +1,138 @@
 /* ── Page navigation strip ─────────────────────────── */
+/* Neo-Bento: compact horizontal page switcher strip.   */
+/* Linear-esque: 1px borders, clean chips, no clutter.  */
+
+.page-nav-container {
+  grid-area: pagenav;
+}
+
 .page-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
   overflow-x: auto;
   overflow-y: hidden;
-  background: var(--color-surface-default);
+  scrollbar-width: none;
+  background: var(--color-surface-sunken);
   border-top: 1px solid var(--color-border-subtle);
-  min-height: 72px;
+  min-height: 48px;
   flex-shrink: 0;
 }
 
+.page-nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* Each page as a Linear-style compact chip */
 .page-nav__item {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  padding: var(--space-1);
-  transition: border-color 100ms, background 100ms;
   flex-shrink: 0;
   user-select: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    border-color var(--duration-fast) var(--ease-default);
+  position: relative;
+  min-width: 0;
 }
 
 .page-nav__item:hover {
   background: var(--color-surface-raised);
+  color: var(--color-text-primary);
 }
 
 .page-nav__item--active {
-  border-color: var(--color-accent-primary);
   background: var(--color-surface-raised);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+  box-shadow: var(--elevation-shadow-raised);
 }
 
+/* Active page accent: teal left bar */
+.page-nav__item--active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--color-interactive-default);
+}
+
+.page-nav__item:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Thumbnail (small preview icon) — shown when canvas has content */
 .page-nav__thumbnail {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-surface-sunken);
+  width: 24px;
+  height: 18px;
+  background: var(--color-surface-app);
   border-radius: 2px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   overflow: hidden;
-  position: relative;
+  flex-shrink: 0;
 }
 
 .page-nav__thumb-label {
-  font-size: 10px;
-  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-subtle);
   text-align: center;
-  line-height: 1.2;
-  padding: 2px;
-  word-break: break-word;
+  line-height: 1;
 }
 
+/* Page label */
 .page-nav__label {
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  text-align: center;
-  max-width: 90px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Add page button */
 .page-nav__add-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
-  border: 1px dashed var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 16px;
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: border-color 100ms, color 100ms;
   margin-left: var(--space-1);
+  transition:
+    border-color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
 }
 
 .page-nav__add-btn:hover {
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
+  background: var(--color-surface-raised);
+  color: var(--color-interactive-default);
+}
+
+.page-nav__add-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }

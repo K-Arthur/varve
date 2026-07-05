@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { PreflightWarnings } from './PreflightWarnings';
 
 // The component uses useEditor() which throws if not within EditorProvider.

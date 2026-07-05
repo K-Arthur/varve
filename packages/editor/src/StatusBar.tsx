@@ -82,42 +82,42 @@ export function StatusBar() {
         </button>
       )}
       <span aria-hidden>—</span>
-      <button
-        type="button"
-        onClick={zoomOut}
-        aria-label="Zoom out"
-        className="editor-status__toggle"
-        title="Zoom out (−)"
-      >
-        <Icon name="Minus" size={12} />
-      </button>
-      <label htmlFor="status-zoom" className="sr-only">
-        Zoom
-      </label>
-      <input
-        id="status-zoom"
-        type="number"
-        min={1}
-        max={1000}
-        step={1}
-        value={Math.round(state.zoom * 100)}
-        onChange={handleZoomInput}
-        onKeyDown={handleZoomKey}
-        aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
-        className="editor-status__zoom-value"
-      />
-      <span className="num-display__suffix" style={{ marginLeft: 0 }}>
-        %
-      </span>
-      <button
-        type="button"
-        onClick={zoomIn}
-        aria-label="Zoom in"
-        className="editor-status__toggle"
-        title="Zoom in (+)"
-      >
-        <Icon name="Plus" size={12} />
-      </button>
+      <div className="editor-status__zoom-chip">
+        <button
+          type="button"
+          onClick={zoomOut}
+          aria-label="Zoom out"
+          className="editor-status__toggle"
+          title="Zoom out (−)"
+        >
+          <Icon name="Minus" size={10} />
+        </button>
+        <label htmlFor="status-zoom" className="sr-only">
+          Zoom
+        </label>
+        <input
+          id="status-zoom"
+          type="number"
+          min={1}
+          max={1000}
+          step={1}
+          value={Math.round(state.zoom * 100)}
+          onChange={handleZoomInput}
+          onKeyDown={handleZoomKey}
+          aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
+          className="editor-status__zoom-value"
+        />
+        <span aria-hidden>%</span>
+        <button
+          type="button"
+          onClick={zoomIn}
+          aria-label="Zoom in"
+          className="editor-status__toggle"
+          title="Zoom in (+)"
+        >
+          <Icon name="Plus" size={10} />
+        </button>
+      </div>
       <button
         type="button"
         onClick={fitAll}

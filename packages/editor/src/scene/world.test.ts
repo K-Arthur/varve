@@ -8,6 +8,14 @@ import {
   makeShapeNode,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
+import {
+  createTransformCache,
+  getWorldBounds as getCachedWorldBounds,
+  getWorldTransform as getCachedWorldTransform,
+  invalidateAll,
+  invalidateNodes,
+  invalidateSubtree,
+} from './transformCache';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
 
 function buildDoc() {
@@ -232,5 +240,206 @@ describe('nodeWorldBounds', () => {
   it('returns null for non-existent nodes', () => {
     const doc = createDocument();
     expect(nodeWorldBounds(doc, 'nope')).toBeNull();
+  });
+});
+
+describe('TransformCache', () => {
+  it('returns cached value on second call', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    // First call — computes and caches
+    const t1 = getCachedWorldTransform(cache, doc, 's1');
+    expect(t1[4]).toBeCloseTo(170, EPS);
+    expect(t1[5]).toBeCloseTo(130, EPS);
+
+    // Second call — should return same reference from cache
+    const t2 = getCachedWorldTransform(cache, doc, 's1');
+    expect(t2).toBe(t1);
+    expect(t2[4]).toBeCloseTo(170, EPS);
+    expect(t2[5]).toBeCloseTo(130, EPS);
+
+    // Cache map has the entry
+    expect(cache.worldTransform.has('s1')).toBe(true);
+    // Dirty set has no entry for s1
+    expect(cache.dirty.has('s1')).toBe(false);
+  });
+
+  it('returns cached worldBounds on second call', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    const b1 = getCachedWorldBounds(cache, doc, 's1');
+    expect(b1).not.toBeNull();
+    if (!b1) return;
+    expect(b1.x).toBeCloseTo(170, 4);
+    expect(b1.y).toBeCloseTo(130, 4);
+
+    const b2 = getCachedWorldBounds(cache, doc, 's1');
+    expect(b2).toBe(b1);
+  });
+
+  it('invalidates a node, causing recomputation', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    const t1 = getCachedWorldTransform(cache, doc, 's1');
+    expect(t1[4]).toBeCloseTo(170, EPS);
+
+    // Invalidate s1
+    invalidateNodes(cache, ['s1']);
+    expect(cache.dirty.has('s1')).toBe(true);
+    expect(cache.generation).toBe(1);
+
+    const t2 = getCachedWorldTransform(cache, doc, 's1');
+    // Verify it was recomputed (new cached entry)
+    expect(t2[4]).toBeCloseTo(170, EPS);
+    expect(cache.dirty.has('s1')).toBe(false);
+  });
+
+  it('invalidates all via invalidateAll', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    getCachedWorldTransform(cache, doc, 's1');
+    getCachedWorldTransform(cache, doc, 's2');
+    getCachedWorldBounds(cache, doc, 's1');
+
+    expect(cache.worldTransform.size).toBe(2);
+    expect(cache.worldBounds.size).toBe(1);
+
+    const gen = cache.generation;
+    invalidateAll(cache);
+
+    expect(cache.worldTransform.size).toBe(0);
+    expect(cache.worldBounds.size).toBe(0);
+    expect(cache.dirty.size).toBe(0);
+    expect(cache.generation).toBe(gen + 1);
+  });
+
+  it('invalidates parent and all descendants on invalidateSubtree', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    // Warm the cache
+    getCachedWorldTransform(cache, doc, 'f1');
+    getCachedWorldTransform(cache, doc, 'f2');
+    getCachedWorldTransform(cache, doc, 's1');
+    getCachedWorldTransform(cache, doc, 's2');
+
+    expect(cache.dirty.size).toBe(0);
+
+    // Invalidate f1 — should mark f1, f2, s1 as dirty (but not s2, which is root-level)
+    invalidateSubtree(cache, doc, 'f1');
+    expect(cache.dirty.has('f1')).toBe(true);
+    expect(cache.dirty.has('f2')).toBe(true);
+    expect(cache.dirty.has('s1')).toBe(true);
+    expect(cache.dirty.has('s2')).toBe(false);
+  });
+
+  it('works with nodeWorldTransform via cache parameter', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    const t1 = nodeWorldTransform(doc, 's1', undefined, cache);
+    expect(t1[4]).toBeCloseTo(170, EPS);
+
+    // Calling the non-cached path gives same result
+    const t2 = nodeWorldTransform(doc, 's1');
+    expect(t2[4]).toBeCloseTo(170, EPS);
+
+    // Cached returns same value (and from cache now)
+    const t3 = nodeWorldTransform(doc, 's1', undefined, cache);
+    expect(t3).toBe(t1);
+  });
+
+  it('works with nodeWorldBounds via cache parameter', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    const b = nodeWorldBounds(doc, 's1', undefined, cache);
+    expect(b).not.toBeNull();
+    if (!b) return;
+    expect(b.x).toBeCloseTo(170, 4);
+    expect(b.y).toBeCloseTo(130, 4);
+    expect(b.w).toBeCloseTo(40, 4);
+    expect(b.h).toBeCloseTo(30, 4);
+  });
+
+  it('handles identity for non-existent node with cache', () => {
+    const cache = createTransformCache();
+    const doc = createDocument();
+    const t = getCachedWorldTransform(cache, doc, 'nonexistent');
+    expect(t).toEqual([1, 0, 0, 1, 0, 0]);
+    expect(cache.dirty.has('nonexistent')).toBe(false);
+  });
+
+  it('handles null bounds for non-existent node with cache', () => {
+    const cache = createTransformCache();
+    const doc = createDocument();
+    const b = getCachedWorldBounds(cache, doc, 'nonexistent');
+    expect(b).toBeNull();
+  });
+
+  it('returns correct transform for root-level node from cache', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+    const t = getCachedWorldTransform(cache, doc, 's2');
+    expect(t[4]).toBeCloseTo(200, EPS);
+    expect(t[5]).toBeCloseTo(50, EPS);
+    expect(cache.dirty.has('s2')).toBe(false);
+  });
+
+  it('dirty set is cleared after successful cache read', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    // Load the cache for s1
+    getCachedWorldTransform(cache, doc, 's1');
+    expect(cache.dirty.has('s1')).toBe(false);
+
+    // Invalidate
+    invalidateNodes(cache, ['s1']);
+    expect(cache.dirty.has('s1')).toBe(true);
+
+    // Read — should recompute and clear dirty
+    getCachedWorldTransform(cache, doc, 's1');
+    expect(cache.dirty.has('s1')).toBe(false);
+  });
+
+  it('generation increments on each invalidation', () => {
+    const cache = createTransformCache();
+    expect(cache.generation).toBe(0);
+
+    invalidateNodes(cache, ['x']);
+    expect(cache.generation).toBe(1);
+
+    invalidateAll(cache);
+    expect(cache.generation).toBe(2);
+  });
+
+  it('reuses cached worldBounds when reading world transform after bounds', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    // Getting bounds caches both bounds and the transform
+    getCachedWorldBounds(cache, doc, 's1');
+    expect(cache.worldBounds.has('s1')).toBe(true);
+    expect(cache.worldTransform.has('s1')).toBe(true);
+
+    // Getting transform reuses cached transform
+    const t = getCachedWorldTransform(cache, doc, 's1');
+    expect(t).toBe(cache.worldTransform.get('s1'));
+    expect(t[4]).toBeCloseTo(170, EPS);
+  });
+
+  it('invalidateSubtree generation increments per recursive call', () => {
+    const doc = buildDoc();
+    const cache = createTransformCache();
+
+    const genBefore = cache.generation;
+    // f1 → 3 nodes marked dirty (f1, f2, s1) = 3 recursive calls = generation +3
+    invalidateSubtree(cache, doc, 'f1');
+    expect(cache.generation).toBe(genBefore + 3);
   });
 });

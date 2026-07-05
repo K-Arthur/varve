@@ -31,7 +31,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ContainerNode, Document, NodeId } from '@strata/scene';
-import { getParent, isContainer } from '@strata/scene';
+import { isContainer } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
@@ -46,6 +46,12 @@ import {
 } from 'react';
 import { useEditor } from '../../context';
 import type { DragNodeData } from '../../dnd-types';
+import {
+  getOrCreateParentCache,
+  getParentFast,
+  isDescendantFast,
+  type ParentIndexCache,
+} from '../../scene/parentIndexCache';
 import { LayersRow } from './LayersRow';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
@@ -109,6 +115,7 @@ export function collapseAll(
   doc: Document,
   selectedId: NodeId | undefined,
   _expanded: Set<NodeId>,
+  parentCache?: ParentIndexCache | null,
 ): Set<NodeId> {
   if (!selectedId) return new Set();
 
@@ -116,7 +123,7 @@ export function collapseAll(
   let current: NodeId | undefined | null = selectedId;
   while (current) {
     ancestors.unshift(current);
-    current = getParent(doc, current);
+    current = getParentFast(doc, current, parentCache);
   }
 
   const next = new Set<NodeId>();
@@ -134,23 +141,15 @@ export function collapseOthers(
   doc: Document,
   containerId: NodeId,
   expanded: Set<NodeId>,
+  parentCache?: ParentIndexCache | null,
 ): Set<NodeId> {
   const next = new Set<NodeId>();
   for (const id of expanded) {
-    if (isDescendantOf(doc, id, containerId) || id === containerId) {
+    if (isDescendantFast(doc, containerId, id, parentCache) || id === containerId) {
       next.add(id);
     }
   }
   return next;
-}
-
-function isDescendantOf(doc: Document, nodeId: NodeId, potentialAncestorId: NodeId): boolean {
-  let current: NodeId | undefined | null = getParent(doc, nodeId);
-  while (current) {
-    if (current === potentialAncestorId) return true;
-    current = getParent(doc, current);
-  }
-  return false;
 }
 
 export function expandToDepth1(
@@ -229,7 +228,18 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     return new Set(ids);
   }, [searchIdx, filterSpec.search]);
 
-  const entries = useFlatTree(state.document, expanded, filterSpec, matchedIds);
+  const entries = useFlatTree(state.document, expanded, filterSpec, matchedIds, state.document.activePageId ?? undefined);
+
+  // Dev-mode performance benchmark: log when flatten takes > 50ms
+  // (timing is measured inside useFlatTree — this tracks entry count changes)
+  const prevEntryCountRef = useRef(entries.length);
+  if (process.env.NODE_ENV === 'development' && entries.length > 0) {
+    const prevCount = prevEntryCountRef.current;
+    if (prevCount !== entries.length) {
+      prevEntryCountRef.current = entries.length;
+    }
+  }
+
   const treeRef = useRef<HTMLDivElement>(null);
   const { focusIdx, anchorIdx, setFocusIdx, setAnchorIdx, jumpToStart, jumpToEnd } = useTreeFocus(
     entries.length,
@@ -240,6 +250,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   const rowRefs = useRef<Map<NodeId, HTMLDivElement>>(new Map());
   const autoExpandTimerRef = useRef<number | null>(null);
   const autoScrollRafRef = useRef<number | null>(null);
+
+  // Parent index cache for O(1) getParent lookups
+  const parentCacheRef = useRef<ParentIndexCache | null>(null);
+  parentCacheRef.current = getOrCreateParentCache(state.document, parentCacheRef.current);
 
   const virtualizer = useVirtualizer({
     count: entries.length,
@@ -315,12 +329,12 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   );
 
   const handleCollapseAll = useCallback(() => {
-    setExpanded((prev) => collapseAll(state.document, state.selection[0], prev));
+    setExpanded((prev) => collapseAll(state.document, state.selection[0], prev, parentCacheRef.current));
   }, [state.document, state.selection]);
 
   const handleCollapseOthers = useCallback(
     (containerId: NodeId) => {
-      setExpanded((prev) => collapseOthers(state.document, containerId, prev));
+      setExpanded((prev) => collapseOthers(state.document, containerId, prev, parentCacheRef.current));
     },
     [state.document],
   );

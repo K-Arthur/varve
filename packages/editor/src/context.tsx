@@ -114,6 +114,11 @@ import {
 import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
+  getOrCreateSpatialIndex,
+  queryPoint,
+  type SpatialIndex,
+} from './scene/spatialIndex';
+import {
   readClipboardImages,
   readClipboardText,
   readClipboard as readFromClipboard,
@@ -131,6 +136,11 @@ import {
   invalidateAll as invalidateTransformCache,
   type TransformCache,
 } from './scene/transformCache';
+import {
+  getOrCreateParentCache,
+  getParentFast,
+  type ParentIndexCache,
+} from './scene/parentIndexCache';
 import { loadSettings, updateSettings } from './settings';
 import {
   createInitialMotionState,
@@ -965,10 +975,14 @@ export function EditorProvider({
   /** Transform cache — invalidated whenever document reference changes. */
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const prevDocRef = useRef(state.document);
+  const spatialIndexRef = useRef<SpatialIndex | null>(null);
   if (state.document !== prevDocRef.current) {
     invalidateTransformCache(transformCacheRef.current);
     prevDocRef.current = state.document;
   }
+  /** Parent index cache — rebuilt when document reference changes. */
+  const parentCacheRef = useRef<ParentIndexCache | null>(null);
+  parentCacheRef.current = getOrCreateParentCache(state.document, parentCacheRef.current);
   const undoStackRef = useRef<Document[]>([]);
   const redoStackRef = useRef<Document[]>([]);
   const undoSelStackRef = useRef<NodeId[][]>([]);
@@ -1147,28 +1161,28 @@ export function EditorProvider({
       zoomIn: () => {
         const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
         const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const cam = { pan: [state.pan.x, state.pan.y] as [number, number], zoom: state.zoom };
+        const cam = { pan: state.pan, zoom: state.zoom };
         const centre = screenToWorld(cam, vpW / 2, vpH / 2);
         const newZoom = clampZoom(state.zoom * 1.25);
         const newCam = zoomAboutPoint(cam, centre, newZoom);
-        patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
+        patch({ zoom: newCam.zoom, pan: newCam.pan });
       },
       zoomOut: () => {
         const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
         const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const cam = { pan: [state.pan.x, state.pan.y] as [number, number], zoom: state.zoom };
+        const cam = { pan: state.pan, zoom: state.zoom };
         const centre = screenToWorld(cam, vpW / 2, vpH / 2);
         const newZoom = clampZoom(state.zoom * 0.8);
         const newCam = zoomAboutPoint(cam, centre, newZoom);
-        patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
+        patch({ zoom: newCam.zoom, pan: newCam.pan });
       },
       zoomTo: (level) => {
         const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
         const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const cam = { pan: [state.pan.x, state.pan.y] as [number, number], zoom: state.zoom };
+        const cam = { pan: state.pan, zoom: state.zoom };
         const centre = screenToWorld(cam, vpW / 2, vpH / 2);
         const newCam = zoomAboutPoint(cam, centre, clampZoom(level));
-        patch({ zoom: newCam.zoom, pan: { x: newCam.pan[0], y: newCam.pan[1] } });
+        patch({ zoom: newCam.zoom, pan: newCam.pan });
       },
       toggleLeftPanel: () => {
         const next = !state.leftPanelVisible;
@@ -1200,7 +1214,7 @@ export function EditorProvider({
         }
         if (union) {
           const cam = fitBoundsCamera(union, { width: vpW, height: vpH }, 40);
-          patch({ zoom: cam.zoom, pan: { x: cam.pan[0], y: cam.pan[1] } });
+          patch({ zoom: cam.zoom, pan: cam.pan });
         }
       },
       revealSelection: (opts) => {
@@ -1219,15 +1233,15 @@ export function EditorProvider({
         const padding = opts?.padding ?? 40;
         if (opts?.fit) {
           const cam = fitBoundsCamera(bounds, viewportEst, padding);
-          patch({ zoom: cam.zoom, pan: { x: cam.pan[0], y: cam.pan[1] } });
+          patch({ zoom: cam.zoom, pan: cam.pan });
         } else {
           const current: import('@strata/shared').Camera = {
-            pan: [state.pan.x, state.pan.y],
+            pan: state.pan,
             zoom: state.zoom,
           };
           const cam = revealBoundsCamera(current, viewportEst, bounds, padding);
-          if (cam.pan[0] !== state.pan.x || cam.pan[1] !== state.pan.y) {
-            patch({ pan: { x: cam.pan[0], y: cam.pan[1] }, zoom: cam.zoom });
+          if (cam.pan.x !== state.pan.x || cam.pan.y !== state.pan.y) {
+            patch({ pan: cam.pan, zoom: cam.zoom });
           }
         }
       },
@@ -1445,7 +1459,7 @@ export function EditorProvider({
           // fit-reveal below corrects the framing precisely afterward).
           const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
           const vpH = typeof window !== 'undefined' ? window.innerHeight : 800;
-          const cam = { pan: [s.pan.x, s.pan.y] as [number, number], zoom: s.zoom };
+          const cam = { pan: s.pan, zoom: s.zoom };
           const center = screenToWorld(cam, vpW / 2, vpH / 2);
           const transform: Affine = [
             1,
@@ -1492,6 +1506,11 @@ export function EditorProvider({
       },
 
       hitTestNode: (world) => {
+        // Get or build spatial index for O(1) candidate lookup.
+        const spatialIndex = getOrCreateSpatialIndex(state.document, spatialIndexRef.current);
+        spatialIndexRef.current = spatialIndex;
+        const candidates = queryPoint(spatialIndex, world.x, world.y);
+
         // Walk all nodes in paint order (DFS) and reverse so that
         // children are tested before parents and later siblings before
         // earlier ones — the correct topmost-first hit order.
@@ -1500,6 +1519,8 @@ export function EditorProvider({
         for (const entry of ordered) {
           const n = entry.node;
           if (n.locked || !n.visible) continue;
+          // Only test nodes that overlap the query point's cell.
+          if (!candidates.has(entry.nodeId)) continue;
           if (n.kind === 'shape') {
             const worldMat = nodeWorldTransform(state.document, entry.nodeId);
             const wInv = invertAffine(worldMat);
@@ -1547,7 +1568,7 @@ export function EditorProvider({
           return;
         const parentIds = new Set(
           sel
-            .map((id) => getParent(state.document, id))
+            .map((id) => getParentFast(state.document, id, parentCacheRef.current))
             .filter((pid): pid is string => Boolean(pid)),
         );
         updateDoc((doc) => {
@@ -1633,7 +1654,7 @@ export function EditorProvider({
             d = d2;
 
             // Add to root children if it's a root node
-            const parentId = getParent(s.document, id);
+            const parentId = getParentFast(s.document, id, parentCacheRef.current);
             if (parentId === null) {
               d = { ...d, rootChildren: [...d.rootChildren, newId] };
             } else {
@@ -2145,7 +2166,7 @@ export function EditorProvider({
             const nodeOriginWorldY = targetWorldY - bOffY;
 
             // Convert world origin to local (parent) space.
-            const parentId = getParent(doc, id);
+            const parentId = getParentFast(doc, id, parentCacheRef.current);
             let newLocalX = nodeOriginWorldX;
             let newLocalY = nodeOriginWorldY;
             if (parentId) {
@@ -2224,7 +2245,7 @@ export function EditorProvider({
             const bOffY = b.y - wm[5];
             const targetWorldX = axis === 'horizontal' ? cursor - bOffX : wm[4];
             const targetWorldY = axis === 'vertical' ? cursor - bOffY : wm[5];
-            const parentId = getParent(doc, id);
+            const parentId = getParentFast(doc, id, parentCacheRef.current);
             let newLocalX = targetWorldX;
             let newLocalY = targetWorldY;
             if (parentId) {
@@ -2581,7 +2602,7 @@ export function EditorProvider({
         updateDoc((doc) => {
           const node = doc.nodes[id];
           if (!node) return doc;
-          const oldParentId = getParent(doc, id);
+          const oldParentId = getParentFast(doc, id, parentCacheRef.current);
           const oldWorld = nodeWorldTransform(doc, id);
           let newDoc: Document;
           if (newParentId) {

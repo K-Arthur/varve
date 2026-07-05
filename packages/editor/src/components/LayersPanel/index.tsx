@@ -6,12 +6,17 @@
  */
 
 import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@strata/scene';
-import { getParent, isContainer } from '@strata/scene';
+import { isContainer } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../../context';
+import {
+  getOrCreateParentCache,
+  getParentFast,
+  type ParentIndexCache,
+} from '../../scene/parentIndexCache';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
@@ -51,6 +56,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     y: number;
     id: NodeId;
   } | null>(null);
+
+  // Parent index cache for O(1) lookups
+  const parentCacheRef = useRef<ParentIndexCache | null>(null);
+  parentCacheRef.current = getOrCreateParentCache(state.document, parentCacheRef.current);
 
   // Compute match count for the filter bar
   const totalCount = useMemo(
@@ -127,7 +136,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const handleMoveToFront = useCallback(() => {
     for (const id of state.selection) {
-      const parentId = getParent(state.document, id);
+      const parentId = getParentFast(state.document, id, parentCacheRef.current);
       const siblings = parentId
         ? ((state.document.nodes[parentId] as ContainerNode | undefined)?.children ??
           state.document.rootChildren)
@@ -140,7 +149,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const handleMoveToBack = useCallback(() => {
     for (const id of state.selection) {
-      const parentId = getParent(state.document, id);
+      const parentId = getParentFast(state.document, id, parentCacheRef.current);
       reparentNode(id, parentId, 0);
       announce('Moved to back');
     }
