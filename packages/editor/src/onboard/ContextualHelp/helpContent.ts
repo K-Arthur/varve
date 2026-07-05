@@ -108,7 +108,7 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
     category: 'Panels',
     related: ['tool:select', 'panel:layers'],
   },
-  'export': {
+  export: {
     id: 'export',
     title: 'Exporting Your Design',
     summary: 'Export your work in multiple formats.',
@@ -117,7 +117,7 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
     category: 'Export',
     related: ['shortcuts', 'tool:select'],
   },
-  'shortcuts': {
+  shortcuts: {
     id: 'shortcuts',
     title: 'Keyboard Shortcuts',
     summary: 'Speed up your workflow with keyboard shortcuts.',

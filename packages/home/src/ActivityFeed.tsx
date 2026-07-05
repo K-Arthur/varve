@@ -7,6 +7,9 @@ export interface ActivityFeedProps {
   platform: Platform;
   workspaceId: string;
   onOpenFile?: (fileId: string) => void;
+  filterTypes?: string[];
+  viewAllLink?: boolean;
+  onViewAll?: () => void;
 }
 
 type TimePeriod = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'older';

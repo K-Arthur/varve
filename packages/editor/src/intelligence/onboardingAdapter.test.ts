@@ -56,7 +56,9 @@ describe('classifySkill', () => {
   });
 
   it('classifies as intermediate when using color/typography controls with other signals', () => {
-    const result = classifySkill(makeStats({ usedStyleControls: true, nodesCreated: 4, sessionTimeSec: 120 }));
+    const result = classifySkill(
+      makeStats({ usedStyleControls: true, nodesCreated: 4, sessionTimeSec: 120 }),
+    );
     expect(result.level).toBe('intermediate');
   });
 

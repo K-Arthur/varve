@@ -244,7 +244,12 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
       count: view.files.length - view.trashedFiles.length,
     },
     { id: 'drafts', label: 'Drafts', icon: 'Pen' as const, count: view.draftFiles.length },
-    { id: 'favorites', label: 'Favorites', icon: 'Star' as const, count: view.favoriteFiles.length },
+    {
+      id: 'favorites',
+      label: 'Favorites',
+      icon: 'Star' as const,
+      count: view.favoriteFiles.length,
+    },
     ...view.projects.map((p) => ({
       id: p.id,
       label: p.name,

@@ -10,6 +10,7 @@ members = [
     "crates/strata-sync",
     "crates/strata-trace",
     "crates/strata-print",
+    "crates/strata-bgremove",
 ]
 
 [workspace.package]

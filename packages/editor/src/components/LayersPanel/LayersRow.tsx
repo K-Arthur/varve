@@ -8,7 +8,7 @@
  */
 
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
-import type { NodeId, SceneNode, ShapeNode } from '@strata/scene';
+import type { AdjustmentNode, NodeId, SceneNode, ShapeNode } from '@strata/scene';
 import { isContainer, nodeHasStyle } from '@strata/scene';
 import type { IconName } from '@strata/ui';
 import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
@@ -42,6 +42,10 @@ export interface LayersRowProps {
   dragAttributes?: DraggableAttributes;
   /** Optional resolved variant name for component instances. */
   variantName?: string;
+  /** Whether this node has animation keyframes in any timeline. */
+  hasMotion?: boolean;
+  /** Number of keyframes across all timelines for this node. */
+  keyframeCount?: number;
 }
 
 const NODE_ICONS: Record<string, IconName> = {
@@ -102,6 +106,8 @@ export const LayersRow = memo(function LayersRow({
   dragListeners,
   dragAttributes,
   variantName,
+  hasMotion,
+  keyframeCount,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -325,6 +331,21 @@ export const LayersRow = memo(function LayersRow({
         {/* Variant badge */}
         {isInstance && !editing && variantName && (
           <span className="layers-row__variant-badge">{variantName}</span>
+        )}
+
+        {/* Adjustment type badge */}
+        {node.kind === 'adjustment' && !editing && (
+          <span className="layers-row__adjustment-badge">
+            {(node as AdjustmentNode).adjustmentType}
+          </span>
+        )}
+
+        {/* Motion indicator dot */}
+        {hasMotion && !editing && <span className="layers-row__motion-dot" title="Has animation" />}
+
+        {/* Keyframe count badge */}
+        {keyframeCount != null && keyframeCount > 0 && !editing && (
+          <span className="layers-row__keyframe-badge">{keyframeCount}</span>
         )}
 
         {/* Blend mode / opacity badge */}

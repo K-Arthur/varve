@@ -327,7 +327,8 @@ export function CanvasArea({
 }: {
   canvasContainerRef?: React.RefObject<HTMLDivElement | null>;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const contentCanvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const announcer = useRef<HTMLDivElement>(null);
   const editor = useEditor();
   const { state, rootNodes } = editor;
@@ -349,7 +350,16 @@ export function CanvasArea({
   }
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
-  const drawRafRef = useRef<number | null>(null);
+  const contentDrawRafRef = useRef<number | null>(null);
+  const overlayDrawRafRef = useRef<number | null>(null);
+
+  /** Size a canvas element to match its CSS dimensions at the given DPR. */
+  function sizeCanvas(canvas: HTMLCanvasElement, cssW: number, cssH: number, dpr: number): void {
+    if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
+      canvas.width = cssW * dpr;
+      canvas.height = cssH * dpr;
+    }
+  }
 
   // E1: Auto-pan when dragging near canvas edge.
   const autoPanRaf = useRef<number | null>(null);
@@ -371,7 +381,7 @@ export function CanvasArea({
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
-    const el = canvasRef.current?.parentElement;
+    const el = contentCanvasRef.current?.parentElement;
     if (!el) return;
     const updateSize = () => {
       setCanvasSize({ width: el.clientWidth, height: el.clientHeight });
@@ -468,7 +478,7 @@ export function CanvasArea({
       // accounting for the canvas element's screen offset below the menubar.
       // See BaseTool.ts:66-67.
       canvasToWorld: (cx, cy) => {
-        const rect = canvasRef.current?.getBoundingClientRect();
+        const rect = contentCanvasRef.current?.getBoundingClientRect();
         return {
           x: (cx - (rect?.left ?? 0) - s.pan.x) / s.zoom,
           y: (cy - (rect?.top ?? 0) - s.pan.y) / s.zoom,
@@ -482,11 +492,11 @@ export function CanvasArea({
       },
 
       setPointerCapture: (pointerId) => {
-        const el = canvasRef.current;
+        const el = contentCanvasRef.current;
         if (el) el.setPointerCapture(pointerId);
       },
       releasePointerCapture: (pointerId) => {
-        const el = canvasRef.current;
+        const el = contentCanvasRef.current;
         if (el) el.releasePointerCapture(pointerId);
       },
 
@@ -494,7 +504,7 @@ export function CanvasArea({
       nodeWorldBounds: (n) => nodeWorldBounds(s.document, n.id) ?? nodeWorldBoundsFn(n),
 
       engine: eng,
-      canvasElement: canvasRef.current,
+      canvasElement: contentCanvasRef.current,
       hitTest: (world) => e.hitTestNode(world),
 
       beginTransaction: () => e.beginTransaction(),
@@ -577,7 +587,7 @@ export function CanvasArea({
   // ─── Drawing ─────────────────────────────────────────────────────────────
 
   const draw = useCallback(() => {
-    const canvas = canvasRef.current;
+    const canvas = contentCanvasRef.current;
     if (!canvas) return;
     const parent = canvas.parentElement;
     if (!parent) return;
@@ -1187,7 +1197,7 @@ export function CanvasArea({
       const geo = pinchGeometry();
       if (pinch && geo) {
         const s = stateRef.current;
-        const rect = canvasRef.current?.getBoundingClientRect();
+        const rect = contentCanvasRef.current?.getBoundingClientRect();
         // Pan by centroid movement…
         const panned = {
           x: s.pan.x + (geo.centroid.x - pinch.lastCentroid.x),
@@ -1233,7 +1243,7 @@ export function CanvasArea({
 
     // E1: Auto-pan when dragging near canvas edge.
     if (e.buttons !== 0) {
-      const rect = canvasRef.current?.getBoundingClientRect();
+      const rect = contentCanvasRef.current?.getBoundingClientRect();
       if (rect) {
         const vx = computeEdgeVelocity(e.clientX, rect.left, rect.right);
         const vy = computeEdgeVelocity(e.clientY, rect.top, rect.bottom);
@@ -1301,7 +1311,7 @@ export function CanvasArea({
   // pinch as proprietary gesturestart/change/end events carrying a `scale`;
   // those are handled below and no-op on engines that never fire them.
   useEffect(() => {
-    const el = canvasRef.current;
+    const el = contentCanvasRef.current;
     if (!el) return;
 
     // Normalize deltaMode: Firefox mouse wheels report DOM_DELTA_LINE (1).
@@ -1484,7 +1494,7 @@ export function CanvasArea({
       // ── Helper: zoom about the canvas centre ─────────────────────────
       function zoomAboutCanvasCentre(newZoom: number): void {
         const s = stateRef.current;
-        const parent = canvasRef.current?.parentElement;
+        const parent = contentCanvasRef.current?.parentElement;
         const vpW = parent?.clientWidth ?? 800;
         const vpH = parent?.clientHeight ?? 600;
         const cam = { pan: s.pan, zoom: s.zoom };
@@ -1537,7 +1547,7 @@ export function CanvasArea({
       if (e.key === '1' && e.shiftKey) {
         e.preventDefault();
         // Shift+1: fit all nodes — use actual canvas element bounds
-        const parent = canvasRef.current?.parentElement;
+        const parent = contentCanvasRef.current?.parentElement;
         const vpW = parent?.clientWidth ?? 800;
         const vpH = parent?.clientHeight ?? 600;
         const canvasViewport = { width: vpW, height: vpH };
@@ -1564,7 +1574,7 @@ export function CanvasArea({
       if (e.key === '2' && e.shiftKey) {
         e.preventDefault();
         if (selArr.length > 0) {
-          const parent = canvasRef.current?.parentElement;
+          const parent = contentCanvasRef.current?.parentElement;
           const viewport = parent
             ? { width: parent.clientWidth, height: parent.clientHeight }
             : undefined;
@@ -1632,7 +1642,7 @@ export function CanvasArea({
     setIsDragOver(false);
 
     // Get drop position in world coordinates
-    const rect = canvasRef.current?.getBoundingClientRect();
+    const rect = contentCanvasRef.current?.getBoundingClientRect();
     const cam = {
       pan: stateRef.current.pan,
       zoom: stateRef.current.zoom,
@@ -1720,7 +1730,7 @@ export function CanvasArea({
         />
       )}
       <canvas
-        ref={canvasRef}
+        ref={contentCanvasRef}
         tabIndex={0}
         role="img"
         aria-label="Design canvas"
@@ -1785,7 +1795,7 @@ export function CanvasArea({
             />
           );
         })()}
-      <SelectionOverlay canvasRef={canvasRef} />
+      <SelectionOverlay contentCanvasRef={contentCanvasRef} />
       {(() => {
         const sel = state.selection;
         if (sel.length !== 1) return null;
@@ -1819,7 +1829,7 @@ export function CanvasArea({
         (() => {
           const n = state.document.nodes[textEditTargetId];
           if (n?.kind !== 'text') return null;
-          const canvasRect = canvasRef.current?.getBoundingClientRect();
+          const canvasRect = contentCanvasRef.current?.getBoundingClientRect();
           const canvasLeft = canvasRect?.left ?? 0;
           const canvasTop = canvasRect?.top ?? 0;
           // Compose world transform (includes ancestor frames + own rotation/scale)
@@ -1845,7 +1855,7 @@ export function CanvasArea({
                 node={n}
                 zoom={state.zoom}
                 pan={state.pan}
-                canvasElement={canvasRef.current}
+                canvasElement={contentCanvasRef.current}
                 worldX={worldX}
                 worldY={worldY}
                 worldTransform={textWorldMat}

@@ -1,0 +1,19 @@
+/* ── New Feature Badge ───────────────────────────── */
+
+.new-feature-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.new-feature-badge__dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-default);
+  border: 2px solid var(--color-surface-raised);
+  pointer-events: none;
+}

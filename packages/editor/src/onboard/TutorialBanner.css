@@ -1,0 +1,135 @@
+.tutorial-banner {
+  background: var(--color-surface-raised, #ffffff);
+  border-bottom: 1px solid var(--color-border-subtle, #e0e0e0);
+  padding: 0;
+  transition: height 0.2s ease, padding 0.2s ease;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-banner {
+    transition: none;
+  }
+}
+
+.tutorial-banner--minimized {
+  height: 32px;
+}
+
+.tutorial-banner__content {
+  padding: 8px 16px;
+}
+
+.tutorial-banner__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tutorial-banner__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tutorial-banner__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #10151f);
+}
+
+.tutorial-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tutorial-banner__progress-text {
+  font-size: 12px;
+  color: var(--color-text-secondary, #6b7280);
+  min-width: 32px;
+  text-align: right;
+}
+
+.tutorial-banner__progress-bar {
+  width: 80px;
+  height: 6px;
+  background: var(--color-border-subtle, #e0e0e0);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tutorial-banner__progress-fill {
+  height: 100%;
+  background: var(--color-accent-primary, #39d0c6);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-banner__progress-fill {
+    transition: none;
+  }
+}
+
+.tutorial-banner__action {
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border-subtle, #e0e0e0);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+}
+
+.tutorial-banner__action:hover,
+.tutorial-banner__action:focus-visible {
+  color: var(--color-text-primary, #10151f);
+  border-color: var(--color-text-primary, #10151f);
+}
+
+.tutorial-banner__minimize {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-secondary, #6b7280);
+  border-radius: 4px;
+}
+
+.tutorial-banner__minimize:hover,
+.tutorial-banner__minimize:focus-visible {
+  color: var(--color-text-primary, #10151f);
+  background: var(--color-surface-hover, #f3f4f6);
+}
+
+.tutorial-banner__instruction {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary, #6b7280);
+  line-height: 1.4;
+}
+
+.tutorial-banner__expand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.tutorial-banner__expand:hover,
+.tutorial-banner__expand:focus-visible {
+  background: var(--color-surface-hover, #f3f4f6);
+}
