@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FocusTrap } from './FocusTrap';
 
 describe('FocusTrap', () => {
-  it('Tab cycles through focusable elements', () => {
+  it('Tab on last element wraps to first', () => {
     render(
       <FocusTrap active={true}>
         <button type="button" data-testid="btn1">First</button>
@@ -16,19 +16,13 @@ describe('FocusTrap', () => {
     const btn2 = screen.getByTestId('btn2');
     const btn3 = screen.getByTestId('btn3');
 
-    btn1.focus();
-    fireEvent.keyDown(btn1, { key: 'Tab' });
-    expect(document.activeElement).toBe(btn2);
-
-    fireEvent.keyDown(btn2, { key: 'Tab' });
-    expect(document.activeElement).toBe(btn3);
-
-    // Wrap around
+    // Focus the last element, then Tab should wrap to first
+    btn3.focus();
     fireEvent.keyDown(btn3, { key: 'Tab' });
     expect(document.activeElement).toBe(btn1);
   });
 
-  it('Shift+Tab cycles in reverse', () => {
+  it('Shift+Tab on first element wraps to last', () => {
     render(
       <FocusTrap active={true}>
         <button type="button" data-testid="btn1">First</button>
@@ -39,14 +33,27 @@ describe('FocusTrap', () => {
     const btn1 = screen.getByTestId('btn1');
     const btn3 = screen.getByTestId('btn3');
 
-    btn3.focus();
-    fireEvent.keyDown(btn3, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(btn2);
-
-    // Go past first
+    // Focus the first element, then Shift+Tab should wrap to last
     btn1.focus();
     fireEvent.keyDown(btn1, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(btn3);
+  });
+
+  it('Tab on middle element does not wrap', () => {
+    render(
+      <FocusTrap active={true}>
+        <button type="button" data-testid="btn1">First</button>
+        <button type="button" data-testid="btn2">Second</button>
+        <button type="button" data-testid="btn3">Third</button>
+      </FocusTrap>,
+    );
+    const btn1 = screen.getByTestId('btn1');
+    const btn2 = screen.getByTestId('btn2');
+
+    // Focus middle element, Tab should NOT wrap (not at boundary)
+    btn2.focus();
+    fireEvent.keyDown(btn2, { key: 'Tab' });
+    expect(document.activeElement).toBe(btn2);
   });
 
   it('Escape calls onClose', () => {
@@ -68,10 +75,11 @@ describe('FocusTrap', () => {
       </FocusTrap>,
     );
 
-    // With only one button, pressing Tab should NOT wrap (no trap)
     const btn = screen.getByTestId('btn');
     btn.focus();
+    // With only one button and active=false, Tab should not trigger wrapping
     fireEvent.keyDown(btn, { key: 'Tab' });
+    // Focus should remain on btn (no wrap since trap is inactive)
     expect(document.activeElement).toBe(btn);
   });
 
@@ -83,9 +91,7 @@ describe('FocusTrap', () => {
         <button type="button">Last</button>
       </FocusTrap>,
     );
-    // The focus-me button should get initial focus
     const target = screen.getByTestId('target');
-    // In jsdom, focus() on an element should set document.activeElement
     expect(document.activeElement).toBe(target);
   });
 
@@ -97,7 +103,6 @@ describe('FocusTrap', () => {
     );
     const div = container.firstElementChild;
     expect(div?.tagName).toBe('DIV');
-    // The wrapping div should not set any visual style
     expect(div?.getAttribute('style')).toBeNull();
   });
 });

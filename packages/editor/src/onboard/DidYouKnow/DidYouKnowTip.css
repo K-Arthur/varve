@@ -150,3 +150,10 @@
     transform: translateX(16px);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .did-you-know-tip {
+    transition: none;
+    animation: none;
+  }
+}

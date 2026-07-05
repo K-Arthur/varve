@@ -22,6 +22,12 @@
   text-align: center;
   padding: var(--space-4);
 }
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-checklist {
+    transition: none;
+    animation: none;
+  }
+}
 
 .onboarding-checklist__header {
   display: flex;

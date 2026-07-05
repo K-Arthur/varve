@@ -67,7 +67,6 @@ describe('helpContent', () => {
         boldPairs % 2,
         `Article ${article.id} has unmatched ** in body`,
       ).toBe(0);
-      const italicPairs = (body.match(/_(?!\s)/g) || []).length;
       // Allow underscores in things like `Ctrl_`, measure_text, etc.
       // Just check that there are no isolated unmatched markdown underscores
       const mdItalic = body.match(/(?<!\w)_(?!_|\w)/g);
@@ -93,8 +92,8 @@ describe('helpContent', () => {
     const toolArticles = getAllArticles().filter((a) => a.category === 'Tools');
     for (const article of toolArticles) {
       const hasToolKeyword = article.keywords.some((k) => {
-        const id = article.id.replace('tool:', '');
-        return k.includes(id);
+        const id = article.id.replace('tool:', '').toLowerCase();
+        return k.toLowerCase().includes(id);
       });
       expect(
         hasToolKeyword,

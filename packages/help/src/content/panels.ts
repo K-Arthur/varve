@@ -17,7 +17,7 @@ export const PANELS: Record<string, HelpArticle> = {
     body: 'The Inspector shows editable properties for the selected object. The Properties tab includes position, size, rotation, corner radius, fill, stroke, effects, and typography settings. The Export tab shows export options for the selected node. The Spec tab shows design specifications for handoff. The Intelligence tab provides design guidance including WCAG contrast audits, spacing harmonization, and auto-naming suggestions.',
     keywords: ['inspector', 'properties', 'edit', 'fill', 'stroke', 'transform', 'position'],
     category: 'Panels',
-    related: ['tool:select', 'panel:layers', 'export'],
+    related: ['tool:select', 'panel:layers', 'export:overview'],
   },
   'panel:timeline': {
     id: 'panel:timeline',
@@ -26,7 +26,7 @@ export const PANELS: Record<string, HelpArticle> = {
     body: 'The Timeline panel lets you create animations by adding keyframes to object properties. Select an object and click the Add Animation button to create a new animation track. Add keyframes for position, scale, rotation, opacity, and other animatable properties. Use the playback controls to preview your animation. Adjust easing curves for natural motion. Timelines support multi-track editing for complex animations.',
     keywords: ['timeline', 'animation', 'keyframe', 'motion', 'playback', 'easing'],
     category: 'Panels',
-    related: ['export', 'tool:select'],
+    related: ['export:overview', 'tool:select'],
   },
   'panel:prototype': {
     id: 'panel:prototype',
@@ -44,6 +44,6 @@ export const PANELS: Record<string, HelpArticle> = {
     body: 'The Intelligence panel provides AI-powered design assistance directly in your workflow. The Audit tab runs WCAG contrast checks on your design and can auto-fix accessibility issues. The Spacing tab analyzes element positioning and can harmonize inconsistent spacing. The Naming tab suggests meaningful names for layers based on their content and type. Each suggestion shows a confidence level so you can decide which to apply.',
     keywords: ['intelligence', 'audit', 'wcag', 'contrast', 'spacing', 'naming', 'ai'],
     category: 'Panels',
-    related: ['panel:inspector', 'tool:select', 'export'],
+    related: ['panel:inspector', 'tool:select', 'export:overview'],
   },
 };
