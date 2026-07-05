@@ -925,7 +925,7 @@ export function CanvasArea({
       }
 
       if (draft) {
-        ctx.strokeStyle = '#3b82f6';
+        ctx.strokeStyle = accentColor;
         ctx.lineWidth = 1 / s.zoom;
         ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
 
