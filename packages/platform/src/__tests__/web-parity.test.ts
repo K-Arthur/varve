@@ -26,7 +26,8 @@ describe('web platform', () => {
     const ws = await p.createWorkspace('Test', 'team');
     expect(ws.name).toBe('Test');
     const list = await p.listWorkspaces();
-    expect(list.length).toBe(1);
+    // Auto-created "Personal" workspace + new "Test" workspace
+    expect(list.length).toBe(2);
   });
 
   it('manages libraries', async () => {

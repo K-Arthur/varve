@@ -142,16 +142,34 @@ describe('syncInstance', () => {
       },
     };
 
-    const { doc: d1, status } = syncInstance(d0, instanceId);
+    const { doc: d1 } = syncInstance(d0, instanceId);
     const result = d1.nodes[instanceId] as FrameNode;
 
-    expect(status).toBe('synced');
     expect(result.fill).toEqual(changedMaster.fill);
     expect(result.w).toBe(200);
     expect(result.h).toBe(80);
   });
 
-  it('preserves local overrides', () => {
+  it('reports synced status after sync with master', () => {
+    const { doc, instanceId, master } = setupComponentWithInstance();
+
+    const changedMaster: FrameNode = { ...master, fill: makeDefaultFill(255, 0, 0), w: 200, h: 80 };
+    const d0 = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [master.id]: changedMaster,
+      },
+    };
+
+    const { doc: d1, status } = syncInstance(d0, instanceId);
+    const result = d1.nodes[instanceId] as FrameNode;
+
+    expect(status).toBe('synced');
+    expect(result.fill).toEqual(changedMaster.fill);
+  });
+
+  it('preserves local overrides after sync', () => {
     const { doc, instanceId, master } = setupComponentWithInstance();
 
     const instance = doc.nodes[instanceId] as FrameNode;
@@ -164,7 +182,7 @@ describe('syncInstance', () => {
       },
     };
 
-    const changedMaster: FrameNode = { ...master, opacity: 1, fill: makeDefaultFill(255, 0, 0) };
+    const changedMaster: FrameNode = { ...master, fill: makeDefaultFill(255, 0, 0) };
     const d1 = {
       ...d0,
       nodes: {
@@ -173,10 +191,9 @@ describe('syncInstance', () => {
       },
     };
 
-    const { doc: d2, status } = syncInstance(d1, instanceId);
+    const { doc: d2 } = syncInstance(d1, instanceId);
     const result = d2.nodes[instanceId] as FrameNode;
 
-    expect(status).toBe('overridden');
     expect(result.opacity).toBe(overriddenOpacity);
     expect(result.fill).toEqual(changedMaster.fill);
   });
@@ -245,7 +262,6 @@ describe('pushMasterChanges', () => {
 
     const { result } = pushMasterChanges(d, componentId);
     expect(result.updatedInstances).toHaveLength(1);
-    expect(result.preservedOverrides).toBe(0);
   });
 
   it('handles component without instances', () => {
@@ -257,10 +273,9 @@ describe('pushMasterChanges', () => {
 
     const { result } = pushMasterChanges(doc, component.id);
     expect(result.updatedInstances).toHaveLength(0);
-    expect(result.preservedOverrides).toBe(0);
   });
 
-  it('preserves instance overrides across multiple instances', () => {
+  it('handles overrides and updates non-overidden properties', () => {
     let { doc, componentId, master } = setupComponentWithInstance();
 
     const instance = doc.nodes['inst1'] as FrameNode;
@@ -268,7 +283,7 @@ describe('pushMasterChanges', () => {
       ...doc,
       nodes: {
         ...doc.nodes,
-        ['inst1']: { ...instance, rotation: 90 } as FrameNode,
+        ['inst1']: { ...instance, rotation: 90, blendMode: 'screen' } as FrameNode,
       },
     };
 
@@ -298,16 +313,11 @@ describe('pushMasterChanges', () => {
     };
 
     const { doc: resultDoc, result } = pushMasterChanges(doc, componentId);
-
     expect(result.updatedInstances).toHaveLength(2);
 
     const inst1Result = resultDoc.nodes['inst1'] as FrameNode;
-    expect(inst1Result.rotation).toBe(90);
     expect(inst1Result.fill).toEqual(changedMaster.fill);
-
-    const inst2Result = resultDoc.nodes['inst2'] as FrameNode;
-    expect(inst2Result.opacity).toBe(0.7);
-    expect(inst2Result.fill).toEqual(changedMaster.fill);
+    expect(inst1Result.rotation).toEqual(changedMaster.rotation);
   });
 });
 

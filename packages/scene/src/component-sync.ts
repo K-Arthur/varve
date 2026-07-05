@@ -57,7 +57,7 @@ function propsEqual(a: unknown, b: unknown): boolean {
  * Detect which frame-level properties of an instance differ from its master.
  * Returns a list of property names that have been locally overridden.
  */
-export function instanceOverrides(doc: Document, id: NodeId): string[] {
+function detectOverrides(doc: Document, id: NodeId): string[] {
   const node = doc.nodes[id];
   if (node?.kind !== 'frame') return [];
   const frame = node as FrameNode;
@@ -85,7 +85,7 @@ export function instanceOverrides(doc: Document, id: NodeId): string[] {
  * Check if an instance has any local overrides compared to the master.
  */
 export function hasInstanceOverrides(doc: Document, instanceId: NodeId): boolean {
-  return instanceOverrides(doc, instanceId).length > 0;
+  return detectOverrides(doc, instanceId).length > 0;
 }
 
 /**
@@ -109,7 +109,12 @@ export function getInstanceStatus(doc: Document, instanceId: NodeId): InstanceSt
 /**
  * Sync a single instance from its master.
  * Applies master frame-level properties to the instance,
- * preserving any property that is a local override.
+ * preserving any property that differs from the master (local override).
+ *
+ * NOTE (V1): Override detection compares the instance to the master's current
+ * values. A property that differs because the master changed is treated as an
+ * override and preserved. Use `resetInstanceOverrides` from document.ts to
+ * force reset an instance to master values.
  */
 export function syncInstance(
   doc: Document,
@@ -124,7 +129,7 @@ export function syncInstance(
   const master = getMasterFrame(doc, comp);
   if (!master) return { doc, status: 'broken' as InstanceStatus };
 
-  const overrides = new Set(instanceOverrides(doc, instanceId));
+  const overrides = new Set(detectOverrides(doc, instanceId));
   const updated = { ...frame } as FrameNode;
 
   for (const prop of SYNC_PROPERTIES) {
