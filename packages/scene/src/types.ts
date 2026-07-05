@@ -137,7 +137,25 @@ export type Effect =
       visible: boolean;
     }
   | { type: 'layerBlur'; radius: number; visible: boolean }
-  | { type: 'backgroundBlur'; radius: number; visible: boolean };
+  | { type: 'backgroundBlur'; radius: number; visible: boolean }
+  | {
+      type: 'outerGlow';
+      blur: number;
+      spread: number;
+      color: ManagedColor;
+      opacity: number;
+      blendMode: BlendMode;
+      visible: boolean;
+    }
+  | {
+      type: 'innerGlow';
+      blur: number;
+      spread: number;
+      color: ManagedColor;
+      opacity: number;
+      blendMode: BlendMode;
+      visible: boolean;
+    };
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
 
@@ -339,6 +357,8 @@ export interface GroupNode extends NodeBase {
    * transparent black initial backdrop."
    */
   isolated?: boolean;
+  /** Effects applied to the group as a whole (shadows, blurs, glows). */
+  effects: Effect[];
 }
 
 /** B2: TypeScript mirror of strata-layout LayoutStyle (Rust). */

@@ -178,7 +178,25 @@ export type Effect =
       visible: boolean;
     }
   | { type: 'layerBlur'; radius: number; visible: boolean }
-  | { type: 'backgroundBlur'; radius: number; visible: boolean };
+  | { type: 'backgroundBlur'; radius: number; visible: boolean }
+  | {
+      type: 'outerGlow';
+      blur: number;
+      spread: number;
+      color: EngineColor;
+      opacity: number;
+      blendMode: BlendMode;
+      visible: boolean;
+    }
+  | {
+      type: 'innerGlow';
+      blur: number;
+      spread: number;
+      color: EngineColor;
+      opacity: number;
+      blendMode: BlendMode;
+      visible: boolean;
+    };
 
 export interface PathPoint {
   x: number;
@@ -478,11 +496,11 @@ export type FilterIR =
   | {
       kind: 'halftone';
       pattern: 'dot' | 'line' | 'cross' | 'circle';
-      frequency: number;          // LPI (lines per inch)
-      angle: number;              // Screen angle in degrees (0-359)
+      frequency: number; // LPI (lines per inch)
+      angle: number; // Screen angle in degrees (0-359)
       dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
       channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
-      method: 'am' | 'fm';       // Amplitude modulation or frequency modulation
+      method: 'am' | 'fm'; // Amplitude modulation or frequency modulation
       opacity: number;
       blendMode: string;
     };

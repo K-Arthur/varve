@@ -55,10 +55,13 @@ const METHOD_OPTIONS: { value: string; label: string }[] = [
 
 export function HalftoneSection({ nodes }: HalftoneSectionProps): React.ReactNode {
   // For now: read-only display. Interactive controls deferred to Phase 2.5 full UI.
-  const hasHalftone = nodes.some((n) =>
-    'filters' in n && Array.isArray((n as Record<string, unknown>).filters) &&
-    ((n as Record<string, unknown>).filters as Array<Record<string, unknown>>)
-      .some((f) => f.kind === 'halftone'),
+  const hasHalftone = nodes.some(
+    (n) =>
+      'filters' in n &&
+      Array.isArray((n as Record<string, unknown>).filters) &&
+      ((n as Record<string, unknown>).filters as Array<Record<string, unknown>>).some(
+        (f) => f.kind === 'halftone',
+      ),
   );
 
   return (

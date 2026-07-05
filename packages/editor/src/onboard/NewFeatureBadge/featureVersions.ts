@@ -10,8 +10,8 @@ export const FEATURE_VERSIONS: Record<string, string> = {
   'adjustment-layers': '0.6.0',
   'prototype-transitions': '0.6.0',
   'print-export': '0.7.0',
-  'variables': '0.7.0',
-  'intelligence': '0.8.0',
+  variables: '0.7.0',
+  intelligence: '0.8.0',
   'onboarding-tutorial': '0.8.0',
   'contextual-help': '0.8.0',
 };

@@ -318,6 +318,19 @@ export const LayersRow = memo(function LayersRow({
           </span>
         )}
 
+        {/* Grid layout indicator */}
+        {node.kind === 'frame' &&
+          (node as { layoutStyle?: { mode?: string } }).layoutStyle?.mode === 'grid' &&
+          !editing && (
+            <span
+              className="layers-row__grid-indicator"
+              title="Grid layout"
+              aria-label="Grid layout"
+            >
+              <Icon name={CHROME_ICONS.layoutGrid} size="0.75em" />
+            </span>
+          )}
+
         {/* Style indicator */}
         {nodeHasStyle(node) && !editing && (
           <span

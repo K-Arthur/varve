@@ -65,9 +65,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
           </div>
         )}
 
-        {status === 'done' && (
-          <p className="model-download__done">Model ready!</p>
-        )}
+        {status === 'done' && <p className="model-download__done">Model ready!</p>}
 
         {status === 'error' && (
           <div className="model-download__error">

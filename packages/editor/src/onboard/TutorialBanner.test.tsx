@@ -12,9 +12,7 @@ function Wrapper() {
 
 function NonTutorialWrapper() {
   const nonTutorial = { ...createTutorialDocument(), id: 'other-id' };
-  const progress = useTutorialProgress(
-    nonTutorial as ReturnType<typeof createTutorialDocument>,
-  );
+  const progress = useTutorialProgress(nonTutorial as ReturnType<typeof createTutorialDocument>);
   return <TutorialBanner progress={progress} />;
 }
 

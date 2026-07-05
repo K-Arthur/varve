@@ -43,11 +43,7 @@ export function NewFeatureBadge({
     >
       {children}
       {showBadge && (
-        <span
-          className="new-feature-badge__dot"
-          aria-label={`New: ${featureId}`}
-          role="status"
-        />
+        <span className="new-feature-badge__dot" aria-label={`New: ${featureId}`} role="status" />
       )}
     </span>
   );

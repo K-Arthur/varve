@@ -156,17 +156,14 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
     [thumbnails, processQueue],
   );
 
-  const prioritize = useCallback(
-    (entryId: string) => {
-      for (const item of queueRef.current) {
-        if (item.entry.id === entryId) {
-          item.priority = 1;
-          return;
-        }
+  const prioritize = useCallback((entryId: string) => {
+    for (const item of queueRef.current) {
+      if (item.entry.id === entryId) {
+        item.priority = 1;
+        return;
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   useEffect(() => {
     return () => {

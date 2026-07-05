@@ -135,9 +135,7 @@ export function ActivityFeed({
     return () => clearInterval(interval);
   }, [load]);
 
-  const filteredEvents = filterTypes
-    ? events.filter((e) => filterTypes.includes(e.type))
-    : events;
+  const filteredEvents = filterTypes ? events.filter((e) => filterTypes.includes(e.type)) : events;
 
   const groups = groupEvents(filteredEvents, onOpenFile);
 
@@ -192,11 +190,7 @@ export function ActivityFeed({
                     className="activity-feed__event"
                     onClick={event.onOpen}
                     disabled={!event.onOpen}
-                    title={
-                      event.onOpen && event.fileName
-                        ? `Open ${event.fileName}`
-                        : undefined
-                    }
+                    title={event.onOpen && event.fileName ? `Open ${event.fileName}` : undefined}
                   >
                     <div className="activity-feed__event-icon" aria-hidden>
                       <Icon name={event.icon} label={undefined} />

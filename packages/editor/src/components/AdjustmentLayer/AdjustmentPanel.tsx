@@ -260,37 +260,40 @@ function AddAdjustmentMenu({
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    const items = menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
-    if (!items || items.length === 0) return;
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const items = menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
+      if (!items || items.length === 0) return;
 
-    const currentIndex = Array.from(items).findIndex((el) => el === document.activeElement);
+      const currentIndex = Array.from(items).findIndex((el) => el === document.activeElement);
 
-    switch (e.key) {
-      case 'Escape':
-        e.preventDefault();
-        onClose();
-        break;
-      case 'ArrowDown':
-      case 'ArrowRight':
-        e.preventDefault();
-        items[(currentIndex + 1) % items.length]?.focus();
-        break;
-      case 'ArrowUp':
-      case 'ArrowLeft':
-        e.preventDefault();
-        items[(currentIndex - 1 + items.length) % items.length]?.focus();
-        break;
-      case 'Home':
-        e.preventDefault();
-        items[0]?.focus();
-        break;
-      case 'End':
-        e.preventDefault();
-        items[items.length - 1]?.focus();
-        break;
-    }
-  }, [onClose]);
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault();
+          onClose();
+          break;
+        case 'ArrowDown':
+        case 'ArrowRight':
+          e.preventDefault();
+          items[(currentIndex + 1) % items.length]?.focus();
+          break;
+        case 'ArrowUp':
+        case 'ArrowLeft':
+          e.preventDefault();
+          items[(currentIndex - 1 + items.length) % items.length]?.focus();
+          break;
+        case 'Home':
+          e.preventDefault();
+          items[0]?.focus();
+          break;
+        case 'End':
+          e.preventDefault();
+          items[items.length - 1]?.focus();
+          break;
+      }
+    },
+    [onClose],
+  );
 
   return (
     <div

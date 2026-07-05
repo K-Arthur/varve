@@ -359,6 +359,7 @@ export function makeGroupNode(
       | 'rotation'
       | 'order'
       | 'isolated'
+      | 'effects'
     >
   > & {
     index?: number;
@@ -380,6 +381,7 @@ export function makeGroupNode(
     fill: opts.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
     children: opts.children ?? [],
     isolated: opts.isolated,
+    effects: opts.effects ?? [],
   };
 }
 

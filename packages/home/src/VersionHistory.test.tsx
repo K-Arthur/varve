@@ -266,8 +266,6 @@ describe('VersionHistory', () => {
     await waitFor(() => {
       expect(screen.getByText('No versions yet')).toBeTruthy();
     });
-    expect(
-      screen.getByText(/track changes, compare snapshots, and restore/),
-    ).toBeTruthy();
+    expect(screen.getByText(/track changes, compare snapshots, and restore/)).toBeTruthy();
   });
 });

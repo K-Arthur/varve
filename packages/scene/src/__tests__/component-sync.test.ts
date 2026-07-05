@@ -12,7 +12,13 @@ import type { Document } from '../document';
 import type { ComponentDefinition, Fill, FrameNode } from '../types';
 
 function makeDefaultFill(r = 200, g = 200, b = 200): Fill {
-  return { type: 'solid', color: { space: 'rgb', r, g, b, a: 255 }, opacity: 1, blendMode: 'normal', visible: true };
+  return {
+    type: 'solid',
+    color: { space: 'rgb', r, g, b, a: 255 },
+    opacity: 1,
+    blendMode: 'normal',
+    visible: true,
+  };
 }
 
 function setupComponentWithInstance(): {
@@ -161,11 +167,20 @@ describe('syncInstance', () => {
       ...doc,
       nodes: {
         ...doc.nodes,
-        [instanceId]: { ...instance, opacity: overriddenOpacity, rotation: overriddenRotation } as FrameNode,
+        [instanceId]: {
+          ...instance,
+          opacity: overriddenOpacity,
+          rotation: overriddenRotation,
+        } as FrameNode,
       },
     };
 
-    const changedMaster: FrameNode = { ...master, fill: makeDefaultFill(255, 0, 0), opacity: 0.8, rotation: 15 };
+    const changedMaster: FrameNode = {
+      ...master,
+      fill: makeDefaultFill(255, 0, 0),
+      opacity: 0.8,
+      rotation: 15,
+    };
     const d1 = {
       ...d0,
       nodes: {
@@ -308,24 +323,40 @@ describe('syncAllInstances', () => {
   it('syncs all instances of all components', () => {
     let doc = createDocument('test', true);
 
-    const m1 = makeFrameNode('m1', { name: 'Comp1', w: 100, h: 50, fill: makeDefaultFill(0, 100, 200) });
+    const m1 = makeFrameNode('m1', {
+      name: 'Comp1',
+      w: 100,
+      h: 50,
+      fill: makeDefaultFill(0, 100, 200),
+    });
     doc = addNode(doc, m1);
     const { component: c1, doc: docC1 } = createComponent(doc, 'Comp1', 'm1', []);
     doc = docC1;
 
-    const m2 = makeFrameNode('m2', { name: 'Comp2', w: 200, h: 100, fill: makeDefaultFill(200, 50, 0) });
+    const m2 = makeFrameNode('m2', {
+      name: 'Comp2',
+      w: 200,
+      h: 100,
+      fill: makeDefaultFill(200, 50, 0),
+    });
     doc = addNode(doc, m2);
     const { component: c2, doc: docC2 } = createComponent(doc, 'Comp2', 'm2', []);
     doc = docC2;
 
     const i1 = makeFrameNode('i1', {
-      name: 'I1', componentId: c1.id, fill: makeDefaultFill(0, 100, 200),
-      w: 100, h: 50,
+      name: 'I1',
+      componentId: c1.id,
+      fill: makeDefaultFill(0, 100, 200),
+      w: 100,
+      h: 50,
     });
     doc = addNode(doc, i1);
     const i2 = makeFrameNode('i2', {
-      name: 'I2', componentId: c2.id, fill: makeDefaultFill(200, 50, 0),
-      w: 200, h: 100,
+      name: 'I2',
+      componentId: c2.id,
+      fill: makeDefaultFill(200, 50, 0),
+      w: 200,
+      h: 100,
     });
     doc = addNode(doc, i2);
 

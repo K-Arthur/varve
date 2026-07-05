@@ -163,5 +163,10 @@ export {
 } from './intelligence/pathSimplifier';
 export type { BackgroundRemovalOptions, BackgroundRemovalResult } from './backgroundRemoval';
 export { AVAILABLE_MODELS } from './backgroundRemoval';
-export type { ModelMetadata, ModelState, RemovalMethod, HeuristicMethod } from './backgroundRemoval';
+export type {
+  ModelMetadata,
+  ModelState,
+  RemovalMethod,
+  HeuristicMethod,
+} from './backgroundRemoval';
 export { getModelLoader, resetModelLoader } from './backgroundRemoval';

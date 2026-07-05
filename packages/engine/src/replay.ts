@@ -296,6 +296,37 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           target.filter = `blur(${effect.radius}px)`;
           paintShapeFill(target, item);
           target.restore();
+        } else if (effect.type === 'outerGlow') {
+          // Outer glow: render a blurred colored shape behind the item (no offset)
+          target.save();
+          target.shadowColor = rgba(effect.color);
+          target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
+          target.shadowOffsetX = 0;
+          target.shadowOffsetY = 0;
+          target.globalAlpha = effect.opacity ?? 1;
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          paintShapeFill(target, item);
+          target.restore();
+        } else if (effect.type === 'innerGlow') {
+          // Inner glow: render a blurred colored shape clipped inside the item (no offset)
+          target.save();
+          target.beginPath();
+          traceOutline(target, item.primitive);
+          if (target.clip) target.clip();
+          target.shadowColor = rgba(effect.color);
+          target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
+          target.shadowOffsetX = 0;
+          target.shadowOffsetY = 0;
+          target.globalAlpha = effect.opacity ?? 1;
+          if (effect.blendMode && effect.blendMode !== 'normal') {
+            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
+          }
+          target.fillStyle = rgba(effect.color);
+          const b = primitiveBounds(item.primitive);
+          target.fillRect(b.x - b.w * 2, b.y - b.h * 2, b.w * 5, b.h * 5);
+          target.restore();
         } else if (effect.type === 'backgroundBlur') {
           // Background blur: capture canvas backdrop behind the item, blur it,
           // and composite it clipped to the item shape. Item fills/strokes

@@ -26,11 +26,7 @@ export function WelcomeDialog({
   );
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Welcome to Strata"
-    >
+    <Dialog open={open} onClose={onClose} title="Welcome to Strata">
       <div className="welcome-dialog">
         <div className="welcome-dialog__logo">
           <Icon name="Layers" size="2.5em" label="Strata logo" />

@@ -150,6 +150,24 @@ pub enum Effect {
     LayerBlur { radius: f64, visible: bool },
     #[serde(rename = "backgroundBlur")]
     BackgroundBlur { radius: f64, visible: bool },
+    #[serde(rename = "outerGlow")]
+    OuterGlow {
+        blur: f64,
+        spread: f64,
+        color: [u8; 4],
+        opacity: f64,
+        blend_mode: BlendMode,
+        visible: bool,
+    },
+    #[serde(rename = "innerGlow")]
+    InnerGlow {
+        blur: f64,
+        spread: f64,
+        color: [u8; 4],
+        opacity: f64,
+        blend_mode: BlendMode,
+        visible: bool,
+    },
 }
 
 // ── SceneNode ───────────────────────────────────────────────────────────────
