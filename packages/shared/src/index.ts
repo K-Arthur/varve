@@ -110,7 +110,9 @@ export {
 } from './units';
 export type { Camera, Viewport } from './viewport';
 export {
+  animateCamera,
   centerBoundsCamera,
+  clampCamera,
   clampZoom,
   clientToCanvas,
   DEFAULT_REVEAL_MAX_ZOOM,
@@ -119,6 +121,7 @@ export {
   fitZoom,
   isRectInView,
   isWorldRectInViewport,
+  lerpCamera,
   localRectToScreen,
   MAX_ZOOM,
   MIN_ZOOM,

@@ -345,6 +345,29 @@
   z-index: 1;
   opacity: 0.15;
 }
+
+.editor-canvas__zoom-indicator {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 100;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.2s ease-out;
+  animation: zoom-indicator-fadein 0.15s ease-out;
+}
+
+@keyframes zoom-indicator-fadein {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .editor-canvas:focus-visible {
   outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
