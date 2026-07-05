@@ -37,7 +37,7 @@ import {
   handleEvent as protoHandleEvent,
   setVariable as protoSetVar,
 } from '@strata/prototype';
-import type { ExportPreset, NodeId, Slot } from '@strata/scene';
+import type { ExportPreset, InstanceStatus, NodeId, Slot, SyncResult } from '@strata/scene';
 import {
   type ArrangeOp,
   type BleedConfig,
@@ -91,6 +91,10 @@ import {
   mergeVariableStores,
   setVariantForInstance as setVariantForInstanceDoc,
   swapInstance as swapInstanceDoc,
+  syncAllInstances as syncAllInstancesDoc,
+  syncInstance as syncInstanceDoc,
+  pushMasterChanges as pushMasterChangesDoc,
+  getInstanceStatus as getInstanceStatusDoc,
   toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
   type Variable,
@@ -458,6 +462,14 @@ export interface EditorContextValue {
   swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
   /** Reset overrides on a component instance to master defaults. */
   resetInstanceOverrides: (instanceId: NodeId) => void;
+  /** Sync all instances of a component with its master. */
+  syncComponentInstances: (componentId: NodeId) => SyncResult;
+  /** Sync a single instance from its master. */
+  syncInstance: (instanceId: NodeId) => InstanceStatus;
+  /** Get the sync status of an instance. */
+  getInstanceStatus: (instanceId: NodeId) => InstanceStatus;
+  /** Sync all component instances in the document. */
+  syncAllInstances: () => SyncResult;
   /** Toggle the locked state of a node. */
   setNodeLocked: (id: NodeId, locked: boolean) => void;
   /** Toggle the visible state of a node. */
@@ -2508,6 +2520,40 @@ export function EditorProvider({
 
       resetInstanceOverrides: (instanceId) => {
         updateDoc((doc) => resetInstanceOverridesDoc(doc, instanceId));
+      },
+
+      syncComponentInstances: (componentId) => {
+        let result: SyncResult = { updatedInstances: [], preservedOverrides: 0 };
+        updateDoc((doc) => {
+          const r = pushMasterChangesDoc(doc, componentId);
+          result = r.result;
+          return r.doc;
+        });
+        return result;
+      },
+
+      syncInstance: (instanceId) => {
+        let status: InstanceStatus = 'broken';
+        updateDoc((doc) => {
+          const r = syncInstanceDoc(doc, instanceId);
+          status = r.status;
+          return r.doc;
+        });
+        return status;
+      },
+
+      getInstanceStatus: (instanceId) => {
+        return getInstanceStatusDoc(state.document, instanceId);
+      },
+
+      syncAllInstances: () => {
+        let result: SyncResult = { updatedInstances: [], preservedOverrides: 0 };
+        updateDoc((doc) => {
+          const r = syncAllInstancesDoc(doc);
+          result = r.result;
+          return r.doc;
+        });
+        return result;
       },
 
       setVariantForInstance: (instanceId, variantId) => {

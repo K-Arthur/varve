@@ -64,7 +64,7 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 3042+ tests across 236 files: codegen 8, editor 330+, scene 217, **engine 620+** (+65 from baseline: +31 effects, +13 halftone, +8 filterCompositor, +13 other), platform 43, home 185+, print 4, prototype 191, ui 147, shared 310+, E2E 21, intelligence 48+
+- **JS:** 3254+ tests across 242 files: codegen 8, editor 330+, scene 217, **engine 620+** (+65 from baseline), platform 162 (+119: +40 pure, +28 memory, +13 parity, +9 searchIndex, +28 existing), home 310+ (+125: +97 existing, +28 new), print 4, prototype 191, ui 147, shared 310+, E2E 21, intelligence 48+
 - **Effects engine:** 52+ tests: 31 replay-fill effects, 13 halftone (AM matrix + FM stochastic + CMYK), 8 filterCompositor
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 96/96 WCAG-AA across 3 themes
@@ -79,10 +79,11 @@ git log --oneline -3
 ```
 
 | Artifact | Location |
-|---|---|
+|---|---|---|
 | Working branch | `master` |
 | Deferred plan | `docs/plans/layers-panel-deferred.md` |
 | Export deferred | `docs/plans/export-system-deferred.md` |
+| Home/Workspace System | `docs/plans/projects-home-workspace-completed.md` |
 
 Always verify the commit exists before claiming work persisted:
 ```bash

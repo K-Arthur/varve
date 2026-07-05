@@ -64,7 +64,7 @@ export function OnboardingChecklist({
         aria-label="Getting started checklist"
       >
         <div className="onboarding-checklist__celebration">
-          <Icon name="CheckCircle" size="1.5em" label="Complete" />
+          <Icon name="Check" size="1.5em" label="Complete" />
           <p className="onboarding-checklist__celebration-text">All done!</p>
           <p className="onboarding-checklist__celebration-sub">You have completed all the steps</p>
         </div>

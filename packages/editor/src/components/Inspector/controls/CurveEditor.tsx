@@ -133,6 +133,7 @@ export interface CurveEditorProps {
 export function CurveEditor({ value, onChange }: CurveEditorProps) {
   const [channel, setChannel] = useState<Channel>('rgb');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const points = value.length === 0 ? identityPoints() : value;
@@ -157,11 +158,15 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
 
       if (hitIdx >= 0) {
         setDragIndex(hitIdx);
+        setSelectedIndex(hitIdx);
+        svgRef.current.focus();
         return;
       }
 
       const newPoint = toCurveCoord(sx, sy);
       onChange([...points, newPoint]);
+      // Select the newly added point (it's now the last in the unsorted array)
+      setSelectedIndex(sorted.length);
     },
     [points, sorted, onChange],
   );
@@ -186,6 +191,74 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
       }
     },
     [points, sorted, onChange],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<SVGSVGElement>) => {
+      if (selectedIndex === null) return;
+      const step = e.shiftKey ? 0.05 : 0.02;
+      const current = sorted[selectedIndex];
+      if (!current) return;
+
+      let newX = current.x;
+      let newY = current.y;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          newY = Math.min(1, newY + step);
+          e.preventDefault();
+          break;
+        case 'ArrowDown':
+          newY = Math.max(0, newY - step);
+          e.preventDefault();
+          break;
+        case 'ArrowLeft':
+          newX = Math.max(0, newX - step);
+          e.preventDefault();
+          break;
+        case 'ArrowRight':
+          newX = Math.min(1, newX + step);
+          e.preventDefault();
+          break;
+        case 'Tab': {
+          e.preventDefault();
+          const dir = e.shiftKey ? -1 : 1;
+          const next = (selectedIndex + dir + sorted.length) % sorted.length;
+          setSelectedIndex(next);
+          return;
+        }
+        case 'Delete':
+        case 'Backspace': {
+          if (sorted.length <= 2) return; // Keep at least 2 points
+          e.preventDefault();
+          const remaining = points.filter((p) => p !== current);
+          if (remaining.length >= 2) {
+            onChange(remaining);
+            setSelectedIndex(null);
+          }
+          return;
+        }
+        case 'Home':
+          setSelectedIndex(0);
+          e.preventDefault();
+          return;
+        case 'End':
+          setSelectedIndex(sorted.length - 1);
+          e.preventDefault();
+          return;
+        default:
+          return;
+      }
+
+      const updated = [...points];
+      const orig = updated.find((p) => p.x === current.x && p.y === current.y);
+      if (orig) {
+        const idx = updated.indexOf(orig);
+        updated[idx] = { x: newX, y: newY };
+        onChange(updated);
+      }
+    },
+    [selectedIndex, sorted, points, onChange],
   );
 
   const handlePointerMove = useCallback(
@@ -255,8 +328,6 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
         width={WIDTH}
         height={HEIGHT}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        aria-label="Curve editor"
-        role="graphics-document"
         style={{
           background: 'var(--color-surface-sunken)',
           borderRadius: 'var(--radius-sm)',
@@ -264,11 +335,15 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
           touchAction: 'none',
           userSelect: 'none',
         }}
+        tabIndex={0}
+        role="graphics-document"
+        aria-label="Curve editor. Use arrow keys to move selected point, Tab to cycle, Delete to remove."
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
         onDoubleClick={handleDoubleClick}
+        onKeyDown={handleKeyDown}
       >
         <rect
           x={PADDING}

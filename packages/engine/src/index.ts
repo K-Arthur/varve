@@ -104,7 +104,7 @@ export {
 } from './nonSeparable';
 export type { NonSeparableMode } from './nonSeparable';
 export type { ReplayTarget } from './replay';
-export { replayIr } from './replay';
+export { renderAlphaMask, replayIr } from './replay';
 export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './textOutlines';
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { ThumbnailOptions } from './thumbnail';

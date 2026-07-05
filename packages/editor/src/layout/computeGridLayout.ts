@@ -173,7 +173,6 @@ export function computeGridLayout(
     .map((cid) => doc.nodes[cid])
     .filter((n): n is SceneNode => Boolean(n));
 
-  // Collect explicit placements and auto-flow assignments
   const explicitPlacements: Array<{
     childIndex: number;
     colStart: number;
@@ -198,6 +197,7 @@ export function computeGridLayout(
       autoFlowIndices.push(i);
     }
   }
+
 
   // Build grid placement matrix
   // First, place explicit items

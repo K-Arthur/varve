@@ -16,6 +16,7 @@ import {
   CompositeCanvas,
   createEngine,
   mapBlendMode,
+  renderAlphaMask,
   type Engine,
   type EngineColor,
   type SceneNode as EngineNode,
@@ -809,6 +810,29 @@ export function CanvasArea({
         const maskSrcId = mask ? mask.sourceNodeId : null;
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
         if (mask && maskChild && maskSrcId) {
+          if (mask.type === 'alpha') {
+            const cameraTransform = () => {
+              ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+            };
+            renderAlphaMask(
+              ctx,
+              {
+                draw: (maskCtx: CanvasRenderingContext2D) => {
+                  maskCtx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+                  replaySubtreeToCtx(maskSrcId, maskCtx);
+                },
+              },
+              {
+                draw: (contentCtx: CanvasRenderingContext2D) => {
+                  contentCtx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+                  for (const childId of (n as import('@strata/scene').ContainerNode).children) {
+                    if (childId !== maskSrcId) replaySubtreeToCtx(childId, contentCtx);
+                  }
+                },
+              },
+            );
+            return;
+          }
           ctx.save();
           const maskWorldTransform = getCachedWorldTransform(cache, doc, maskSrcId);
           const [ma, mb, mc, md, me, mf] = maskWorldTransform;
@@ -1889,7 +1913,10 @@ export function CanvasArea({
             </>
           );
         })()}
-      {state.tool !== 'inspect' && Object.keys(state.document.nodes).length === 0 && (
+      {state.tool !== 'inspect' && Object.keys(state.document.nodes).filter((id) => {
+        const n = state.document.nodes[id];
+        return n && n.kind !== 'group';
+      }).length === 0 && (
         <div className="editor-canvas__empty">
           <EmptyState
             illustration={

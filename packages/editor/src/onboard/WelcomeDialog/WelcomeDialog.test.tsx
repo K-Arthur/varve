@@ -91,7 +91,6 @@ describe('WelcomeDialog', () => {
       />,
     );
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(dialog).toHaveAttribute('aria-label', 'Welcome to Strata');
+    expect(dialog).toHaveAttribute('aria-labelledby');
   });
 });

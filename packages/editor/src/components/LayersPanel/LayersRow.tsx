@@ -8,7 +8,7 @@
  */
 
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
-import type { AdjustmentNode, NodeId, SceneNode, ShapeNode } from '@strata/scene';
+import type { AdjustmentNode, InstanceStatus, NodeId, SceneNode, ShapeNode } from '@strata/scene';
 import { isContainer, nodeHasStyle } from '@strata/scene';
 import type { IconName } from '@strata/ui';
 import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
@@ -46,6 +46,8 @@ export interface LayersRowProps {
   hasMotion?: boolean;
   /** Number of keyframes across all timelines for this node. */
   keyframeCount?: number;
+  /** Sync status for component instances. */
+  syncStatus?: InstanceStatus;
 }
 
 const NODE_ICONS: Record<string, IconName> = {
@@ -108,6 +110,7 @@ export const LayersRow = memo(function LayersRow({
   variantName,
   hasMotion,
   keyframeCount,
+  syncStatus,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -328,6 +331,19 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Instance badge */}
         {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
+        {/* Sync status indicator for component instances */}
+        {isInstance && !editing && syncStatus && syncStatus !== 'synced' && (
+          <span
+            className={`layers-row__sync-badge layers-row__sync-badge--${syncStatus}`}
+            title={
+              syncStatus === 'overridden'
+                ? 'Has local overrides'
+                : 'Broken — master component not found'
+            }
+          >
+            {syncStatus === 'overridden' ? 'modified' : 'broken'}
+          </span>
+        )}
         {/* Variant badge */}
         {isInstance && !editing && variantName && (
           <span className="layers-row__variant-badge">{variantName}</span>
