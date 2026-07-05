@@ -71,7 +71,6 @@ function recorder(): RecorderProxy {
     fill: mk('fill'),
     stroke: mk('stroke'),
     closePath: mk('closePath'),
-    clip: mk('clip'),
     setLineDash: mk('setLineDash'),
     roundRect: mk('roundRect'),
     fillText: mk('fillText'),

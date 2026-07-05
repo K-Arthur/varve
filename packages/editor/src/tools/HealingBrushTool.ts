@@ -104,9 +104,9 @@ export class HealingBrushTool extends BaseTool {
   }
 
   private healStroke(
-    world: { x: number; y: number },
+    _world: { x: number; y: number },
     canvas: HTMLCanvasElement,
-    ctx: ToolContext,
+    _ctx: ToolContext,
   ): void {
     const canvasCtx = canvas.getContext('2d');
     if (!canvasCtx || !this.sourcePoint) return;
@@ -132,10 +132,13 @@ export class HealingBrushTool extends BaseTool {
       for (let dx = -r; dx <= r; dx++) {
         const si = ((bestPatch.y + dy) * canvasW + (bestPatch.x + dx)) * 4;
         const pi = ((dy + r) * pw + (dx + r)) * 4;
-        patchData[pi] = fullData.data[si];
-        patchData[pi + 1] = fullData.data[si + 1];
-        patchData[pi + 2] = fullData.data[si + 2];
-        patchData[pi + 3] = fullData.data[si + 3];
+        const sx = bestPatch.x!;
+        const sy = bestPatch.y!;
+        const si2 = ((sy + dy) * canvasW + (sx + dx)) * 4;
+        patchData[pi] = fullData.data[si2];
+        patchData[pi + 1] = fullData.data[si2 + 1];
+        patchData[pi + 2] = fullData.data[si2 + 2];
+        patchData[pi + 3] = fullData.data[si2 + 3];
       }
     }
 

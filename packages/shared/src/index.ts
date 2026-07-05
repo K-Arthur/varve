@@ -129,7 +129,19 @@ export {
   zoomAboutPoint,
 } from './viewport';
 
-export { cmykToRgb, managedColorToCss, managedColorToRgba, rgbToCmyk } from './colorConversion';
+export {
+  cmykToRgb,
+  gamutMapToSrgb,
+  linearSrgbToOklab,
+  linearToSrgb,
+  managedColorToCss,
+  managedColorToRgba,
+  oklabToLinearSrgb,
+  oklabToOkLch,
+  oklchToOkLab,
+  rgbToCmyk,
+  srgbToLinear,
+} from './colorConversion';
 
 /** Semantic Strata package marker. */
 export const PACKAGE = '@strata/shared' as const;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { animateScreenTransition, createTransitionAnimation } from './transitions';
-import type { PrototypeState, TransitionConfig } from './types';
+import type { TransitionConfig } from './types';
 
 describe('Transitions', () => {
   describe('createTransitionAnimation', () => {

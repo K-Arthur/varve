@@ -7,9 +7,9 @@
  *
  * Research basis: Photoshop Patch tool, GIMP Clone tool (perspective).
  */
-import { createBrushMask, patchRegion } from '@strata/engine';
+import { patchRegion } from '@strata/engine';
 import { BaseTool } from './BaseTool';
-import type { CursorSpec, DraftShape, ToolContext, ToolCursorState } from './types';
+import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 interface PatchState {
   phase: 'select' | 'position' | 'idle';
@@ -21,7 +21,7 @@ export class PatchTool extends BaseTool {
 
   private patchState: PatchState = { phase: 'idle', sourceRect: null };
 
-  override cursor(state: ToolCursorState): CursorSpec {
+  override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
   }
 

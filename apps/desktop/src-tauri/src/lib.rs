@@ -285,6 +285,10 @@ impl PdfXOptions {
             author: self.author.clone(),
             outline_text: self.outline_text,
             font_data: self.font_data.clone(),
+            fonts: Vec::new(),
+            registration_marks: false,
+            color_bar: false,
+            print_profile: None,
         }
     }
 }

@@ -64,7 +64,6 @@ if (typeof HTMLCanvasElement !== 'undefined') {
           fontBoundingBoxDescent: 0,
         }),
         translate: vi.fn(),
-        rotate: vi.fn(),
         scale: vi.fn(),
         clearRect: vi.fn(),
         createImageData: vi.fn((w: number, h: number) => new ImageData(w, h)),

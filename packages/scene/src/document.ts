@@ -73,6 +73,12 @@ export interface Document {
   /** State machines for prototype interactions (v1.3). */
   stateMachines?: Record<string, import('./state-machine-types').StateMachine>;
 
+  /** ID of the currently active page. Undefined for single-page documents. */
+  activePageId?: NodeId;
+
+  /** Node IDs of layers shared across all pages (visible on every page). */
+  globalChildren?: NodeId[];
+
   // ── Print production properties (v1.1) ────────────────────────────────────
 
   /** Document color management configuration. */
@@ -141,6 +147,8 @@ export function createDocument(name = 'Untitled'): Document {
 
   return {
     ...d1,
+    activePageId: contentRootId,
+    globalChildren: [],
     pages: [page],
     rootChildren: [contentRootId],
     nodes: { ...d1.nodes, [contentRootId]: contentRoot },
@@ -1311,4 +1319,35 @@ export function toggleGuideLock(doc: Document, id: string): Document {
 /** Clear all guides from a document. */
 export function clearGuides(doc: Document): Document {
   return { ...doc, guides: [] };
+}
+
+// ── Active page & global children operations ───────────────────────────────
+
+/** Set the active page. */
+export function setActivePage(doc: Document, pageId: NodeId): Document {
+  return { ...doc, activePageId: pageId };
+}
+
+/** Add a node to global children (visible on all pages). */
+export function addGlobalChild(doc: Document, nodeId: NodeId): Document {
+  const current = doc.globalChildren ?? [];
+  if (current.includes(nodeId)) return doc;
+  return { ...doc, globalChildren: [...current, nodeId] };
+}
+
+/** Remove a node from global children. */
+export function removeGlobalChild(doc: Document, nodeId: NodeId): Document {
+  const current = doc.globalChildren ?? [];
+  return { ...doc, globalChildren: current.filter((id) => id !== nodeId) };
+}
+
+/** Get all nodes visible on the active page (page content + global children). */
+export function activePageNodes(doc: Document): NodeId[] {
+  const globals = doc.globalChildren ?? [];
+  if (!doc.activePageId) return [...globals, ...doc.rootChildren];
+  const page = doc.pages?.find((p) => p.contentRoot === doc.activePageId);
+  if (!page) return [...globals, ...doc.rootChildren];
+  const contentRootNode = doc.nodes[page.contentRoot] as GroupNode | undefined;
+  const pageChildren = contentRootNode?.children ?? [];
+  return [...globals, ...pageChildren];
 }

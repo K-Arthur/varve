@@ -11,10 +11,9 @@ describe('useTreeFocus', () => {
 
   describe('entries length clamping', () => {
     it('clamps focusIdx when entries decrease below current index', () => {
-      const { result, rerender } = renderHook(
-        ({ len }) => useTreeFocus(len),
-        { initialProps: { len: 10 } },
-      );
+      const { result, rerender } = renderHook(({ len }) => useTreeFocus(len), {
+        initialProps: { len: 10 },
+      });
 
       act(() => result.current.setFocusIdx(8));
       expect(result.current.focusIdx).toBe(8);
@@ -25,10 +24,9 @@ describe('useTreeFocus', () => {
     });
 
     it('clamps focusIdx to 0 when entries become empty', () => {
-      const { result, rerender } = renderHook(
-        ({ len }) => useTreeFocus(len),
-        { initialProps: { len: 5 } },
-      );
+      const { result, rerender } = renderHook(({ len }) => useTreeFocus(len), {
+        initialProps: { len: 5 },
+      });
 
       act(() => result.current.setFocusIdx(3));
       rerender({ len: 0 });
@@ -36,10 +34,9 @@ describe('useTreeFocus', () => {
     });
 
     it('leaves focusIdx unchanged when entries increase', () => {
-      const { result, rerender } = renderHook(
-        ({ len }) => useTreeFocus(len),
-        { initialProps: { len: 5 } },
-      );
+      const { result, rerender } = renderHook(({ len }) => useTreeFocus(len), {
+        initialProps: { len: 5 },
+      });
 
       act(() => result.current.setFocusIdx(3));
       rerender({ len: 10 });
@@ -47,10 +44,9 @@ describe('useTreeFocus', () => {
     });
 
     it('clamps anchorIdx when entries decrease below current index', () => {
-      const { result, rerender } = renderHook(
-        ({ len }) => useTreeFocus(len),
-        { initialProps: { len: 10 } },
-      );
+      const { result, rerender } = renderHook(({ len }) => useTreeFocus(len), {
+        initialProps: { len: 10 },
+      });
 
       act(() => result.current.setAnchorIdx(7));
       rerender({ len: 4 });
@@ -58,10 +54,9 @@ describe('useTreeFocus', () => {
     });
 
     it('clamps both focusIdx and anchorIdx simultaneously', () => {
-      const { result, rerender } = renderHook(
-        ({ len }) => useTreeFocus(len),
-        { initialProps: { len: 10 } },
-      );
+      const { result, rerender } = renderHook(({ len }) => useTreeFocus(len), {
+        initialProps: { len: 10 },
+      });
 
       act(() => {
         result.current.setFocusIdx(9);
@@ -73,10 +68,9 @@ describe('useTreeFocus', () => {
     });
 
     it('does not clamp when entries length stays the same', () => {
-      const { result, rerender } = renderHook(
-        ({ len }) => useTreeFocus(len),
-        { initialProps: { len: 10 } },
-      );
+      const { result, rerender } = renderHook(({ len }) => useTreeFocus(len), {
+        initialProps: { len: 10 },
+      });
 
       act(() => result.current.setFocusIdx(5));
       rerender({ len: 10 });
