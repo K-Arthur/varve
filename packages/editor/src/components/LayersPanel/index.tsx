@@ -5,17 +5,19 @@
  * Research basis: W3C APG Tree View, Menu pattern (for context menu).
  */
 
-import type { ContainerNode, NodeId, SceneNode } from '@strata/scene';
-import { getParent } from '@strata/scene';
+import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@strata/scene';
+import { getParent, isContainer } from '@strata/scene';
+import { CHROME_ICONS, Icon } from '@strata/ui';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../../context';
-import type { LayerFilterSpec } from './layerFilterTypes';
-import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
+import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
 import { LayersTree } from './LayersTree';
+import type { LayerFilterSpec } from './layerFilterTypes';
+import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
 import { VariablePanel } from '../../VariablePanel';
 
@@ -27,6 +29,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     renameSelected,
     setNodeLocked,
     setNodeVisible,
+    setLayerColor,
     reparentNode,
     groupSelected,
     ungroupSelected,
@@ -35,8 +38,15 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     copySelected,
     cutSelected,
     paste,
+    bulkSetNodeLocked,
+    bulkSetNodeVisible,
+    bulkSetLayerColor,
+    selectAllWithSameType,
+    selectAllWithSameLayerColor,
+    selectAllOfType,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
+  const [colorMenuOpen, setColorMenuOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -168,6 +178,87 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [paste, closeMenu]);
 
+  const handleSetLayerColor = useCallback(
+    (color: LayerColor) => {
+      for (const id of state.selection) setLayerColor(id, color);
+      closeMenu();
+    },
+    [state.selection, setLayerColor, closeMenu],
+  );
+
+  const handleBulkLockAll = useCallback(() => {
+    bulkSetNodeLocked(state.selection, true);
+  }, [state.selection, bulkSetNodeLocked]);
+
+  const handleBulkUnlockAll = useCallback(() => {
+    bulkSetNodeLocked(state.selection, false);
+  }, [state.selection, bulkSetNodeLocked]);
+
+  const handleBulkHideAll = useCallback(() => {
+    bulkSetNodeVisible(state.selection, false);
+  }, [state.selection, bulkSetNodeVisible]);
+
+  const handleBulkShowAll = useCallback(() => {
+    bulkSetNodeVisible(state.selection, true);
+  }, [state.selection, bulkSetNodeVisible]);
+
+  const handleBulkColorTag = useCallback(
+    (color: LayerColor) => {
+      bulkSetLayerColor(state.selection, color);
+    },
+    [state.selection, bulkSetLayerColor],
+  );
+
+  const handleBulkDelete = useCallback(() => {
+    removeSelected();
+  }, [removeSelected]);
+
+  const handleSelectSameType = useCallback(() => {
+    selectAllWithSameType();
+    closeMenu();
+  }, [selectAllWithSameType, closeMenu]);
+
+  const handleSelectSameLayerColor = useCallback(() => {
+    selectAllWithSameLayerColor();
+    closeMenu();
+  }, [selectAllWithSameLayerColor, closeMenu]);
+
+  const handleSelectAllOfType = useCallback(() => {
+    selectAllOfType();
+    closeMenu();
+  }, [selectAllOfType, closeMenu]);
+
+  const COLOR_LABELS: Record<NonNullable<LayerColor>, string> = {
+    red: 'Red',
+    orange: 'Orange',
+    yellow: 'Yellow',
+    green: 'Green',
+    blue: 'Blue',
+    purple: 'Purple',
+    gray: 'Gray',
+  };
+
+  const LAYER_COLORS: NonNullable<LayerColor>[] = [
+    'red',
+    'orange',
+    'yellow',
+    'green',
+    'blue',
+    'purple',
+    'gray',
+  ];
+
+  const handleCollapseAll = useCallback(() => {
+    dndRef?.current?.collapseAll();
+  }, [dndRef]);
+
+  const handleCollapseOthers = useCallback(() => {
+    if (contextMenu) {
+      dndRef?.current?.collapseOthers(contextMenu.id);
+      closeMenu();
+    }
+  }, [dndRef, contextMenu, closeMenu]);
+
   const canGroup = state.selection.length >= 2;
   const firstSelId = state.selection[0];
   const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
@@ -181,6 +272,15 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     <div className="editor-layers layers-panel">
       <div className="layers-panel__header">
         <span>Layers</span>
+        <button
+          type="button"
+          className="layers-panel__collapse-all-btn"
+          onClick={handleCollapseAll}
+          aria-label="Collapse all layers"
+          title="Collapse all"
+        >
+          <Icon name={CHROME_ICONS.collapseAll} size="0.85em" />
+        </button>
       </div>
 
       <LayerFilterBar
@@ -191,6 +291,19 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       />
 
       <LayersTree ref={dndRef} filterSpec={filterSpec} onContextMenu={handleContextMenu} />
+
+      {state.selection.length >= 2 && !isFiltering(filterSpec) && (
+        <LayerBulkBar
+          selectedCount={state.selection.length}
+          onGroup={handleGroup}
+          onLockAll={handleBulkLockAll}
+          onUnlockAll={handleBulkUnlockAll}
+          onHideAll={handleBulkHideAll}
+          onShowAll={handleBulkShowAll}
+          onColorTag={handleBulkColorTag}
+          onDeleteAll={handleBulkDelete}
+        />
+      )}
 
       {contextMenu &&
         createPortal(
@@ -238,8 +351,40 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               onAction={handleMoveToBack}
             />
             <hr className="layers-context-menu__separator" />
+            {contextMenu && isContainer(state.document.nodes[contextMenu.id] as SceneNode) && (
+              <ContextMenuItem label="Collapse Others" onAction={handleCollapseOthers} />
+            )}
             <ContextMenuItem label="Lock" onAction={() => handleLockFromMenu(true)} />
             <ContextMenuItem label="Hide" onAction={() => handleVisibilityFromMenu(false)} />
+            <hr className="layers-context-menu__separator" />
+            <div className="layers-context-menu__color-tag-section">
+              <span className="layers-context-menu__section-label">Color Tag</span>
+              <div className="layers-context-menu__color-tag-grid">
+                {LAYER_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`layers-context-menu__color-tag-btn layers-context-menu__color-tag-btn--${c}`}
+                    aria-label={COLOR_LABELS[c]}
+                    onClick={() => handleSetLayerColor(c)}
+                    title={COLOR_LABELS[c]}
+                  />
+                ))}
+                <button
+                  type="button"
+                  className="layers-context-menu__color-tag-btn layers-context-menu__color-tag-btn--none"
+                  aria-label="No color"
+                  onClick={() => handleSetLayerColor(null)}
+                  title="No color"
+                >
+                  <Icon name="X" label={undefined} />
+                </button>
+              </div>
+            </div>
+            <hr className="layers-context-menu__separator" />
+            <ContextMenuItem label="Select Same Type" onAction={handleSelectSameType} />
+            <ContextMenuItem label="Select Same Color" onAction={handleSelectSameLayerColor} />
+            <ContextMenuItem label="Select All of Type" onAction={handleSelectAllOfType} />
           </div>,
           document.body,
         )}

@@ -23,10 +23,16 @@ export interface LayersRowProps {
   expanded: boolean;
   editing: boolean;
   onToggleExpand: (id: NodeId) => void;
+  onExpandSubtree?: (id: NodeId) => void;
+  onCollapseSubtree?: (id: NodeId) => void;
+  onExpandToDepth1?: (id: NodeId) => void;
   onSelect: (id: NodeId, shift: boolean, ctrl: boolean) => void;
   onRename: (id: NodeId, name: string) => void;
   onRenameCommit: () => void;
   onRenameCancel: () => void;
+  onRenameCycle?: (direction: 'next' | 'previous') => void;
+  /** Fires when the type icon is double-clicked (zoom-to-layer). */
+  onDoubleClickIcon?: (id: NodeId) => void;
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
   onFocus: (idx: number) => void;
@@ -79,10 +85,15 @@ export const LayersRow = memo(function LayersRow({
   expanded,
   editing,
   onToggleExpand,
+  onExpandSubtree,
+  onCollapseSubtree,
+  onExpandToDepth1,
   onSelect,
   onRename,
   onRenameCommit,
   onRenameCancel,
+  onRenameCycle,
+  onDoubleClickIcon,
   onToggleVisibility,
   onToggleLock,
   onFocus,
@@ -103,6 +114,26 @@ export const LayersRow = memo(function LayersRow({
     (node.kind === 'frame' || node.kind === 'image') && thumbnailDataUrl != null;
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
+
+  // Blend mode / opacity badge
+  const blendModeLabel =
+    node.blendMode !== 'normal' && node.blendMode !== 'passThrough'
+      ? node.blendMode.charAt(0).toUpperCase() + node.blendMode.slice(1)
+      : null;
+  const opacityLabel = node.opacity < 1 ? `${Math.round(node.opacity * 100)}%` : null;
+  const badgeText =
+    blendModeLabel || opacityLabel
+      ? [blendModeLabel, opacityLabel].filter(Boolean).join(' ')
+      : null;
+
+  const handleIconDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDoubleClickIcon?.(node.id);
+    },
+    [node.id, onDoubleClickIcon],
+  );
+
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       onSelect(node.id, e.shiftKey, e.ctrlKey || e.metaKey);
@@ -132,9 +163,13 @@ export const LayersRow = memo(function LayersRow({
       } else if (e.key === 'Escape') {
         e.preventDefault();
         onRenameCancel();
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        commitRename();
+        onRenameCycle?.(e.shiftKey ? 'previous' : 'next');
       }
     },
-    [commitRename, onRenameCancel],
+    [commitRename, onRenameCancel, onRenameCycle],
   );
 
   useEffect(() => {
@@ -202,7 +237,15 @@ export const LayersRow = memo(function LayersRow({
             tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation();
-              onToggleExpand(node.id);
+              if (e.altKey) {
+                onExpandSubtree?.(node.id);
+              } else if (e.shiftKey) {
+                onCollapseSubtree?.(node.id);
+              } else if (e.ctrlKey || e.metaKey) {
+                onExpandToDepth1?.(node.id);
+              } else {
+                onToggleExpand(node.id);
+              }
             }}
             aria-label={expanded ? 'Collapse' : 'Expand'}
           >
@@ -215,19 +258,36 @@ export const LayersRow = memo(function LayersRow({
           <span className="layers-row__disclosure-spacer" />
         )}
 
+        {/* Color tag indicator (8px dot) */}
+        {node.layerColor && (
+          <span
+            className={`layers-row__color-tag layers-row__color-tag--${node.layerColor}`}
+            data-layer-color={node.layerColor}
+            aria-label={`Color: ${node.layerColor}`}
+          />
+        )}
+
         {/* Thumbnail preview (frames and images) */}
         {showThumbnail && (
           <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
         )}
 
-        {/* Type icon */}
-        <Icon
-          name={typeIcon}
-          size="0.85em"
-          aria-hidden
-          className="layers-row__type-icon"
-          style={isInstance ? { opacity: 0.6 } : undefined}
-        />
+        {/* Type icon — double-click zooms to layer */}
+        <span
+          className="layers-row__icon-area"
+          onDoubleClick={handleIconDoubleClick}
+          role="button"
+          aria-label={`Zoom to ${node.name}`}
+          tabIndex={-1}
+        >
+          <Icon
+            name={typeIcon}
+            size="0.85em"
+            aria-hidden
+            className="layers-row__type-icon"
+            style={isInstance ? { opacity: 0.6 } : undefined}
+          />
+        </span>
 
         {/* Name or rename input */}
         {editing ? (
@@ -254,6 +314,11 @@ export const LayersRow = memo(function LayersRow({
         {/* Variant badge */}
         {isInstance && !editing && variantName && (
           <span className="layers-row__variant-badge">{variantName}</span>
+        )}
+
+        {/* Blend mode / opacity badge */}
+        {badgeText && !editing && (
+          <span className="layers-row__badge">{badgeText}</span>
         )}
 
         {/* Visibility toggle */}

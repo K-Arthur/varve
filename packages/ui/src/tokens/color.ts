@@ -134,6 +134,15 @@ const BRAND_SANDSTONE: Oklch = ok(0.7161, 0.1398, 60.04);
 const BRAND_SANDSTONE_LIGHT: Oklch = ok(0.9652, 0.0214, 76.53);
 const BRAND_TERRACOTTA: Oklch = ok(0.5745, 0.1595, 30.53);
 
+/** Layer tag (7-color label) preset values. */
+const LAYER_TAG_RED: Oklch = ok(0.57, 0.1773, 22.78);
+const LAYER_TAG_ORANGE: Oklch = ok(0.6399, 0.1261, 79.82);
+const LAYER_TAG_YELLOW: Oklch = ok(0.7, 0.12, 95);
+const LAYER_TAG_GREEN: Oklch = ok(0.6342, 0.1283, 156.2);
+const LAYER_TAG_BLUE: Oklch = ok(0.6164, 0.132, 248.02);
+const LAYER_TAG_PURPLE: Oklch = ok(0.58, 0.16, 300);
+const LAYER_TAG_GRAY: Oklch = ok(0.6, 0.02, 0);
+
 /** Layer-shape accent/wash values. */
 const LAYER_ACCENT_SHAPE_LIGHT: Oklch = ok(0.6158, 0.1298, 57.3);
 const LAYER_WASH_SHAPE_LIGHT: Oklch = ok(0.9652, 0.0214, 76.53);
@@ -201,6 +210,13 @@ export type SemanticToken =
   | 'layer-wash-image'
   | 'layer-accent-adjustment'
   | 'layer-wash-adjustment'
+  | 'layer-tag-red'
+  | 'layer-tag-orange'
+  | 'layer-tag-yellow'
+  | 'layer-tag-green'
+  | 'layer-tag-blue'
+  | 'layer-tag-purple'
+  | 'layer-tag-gray'
   | 'hero-glow'
   | 'brand-teal'
   | 'brand-sandstone'
@@ -276,6 +292,13 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'brand-sandstone': BRAND_SANDSTONE,
     'brand-sandstone-light': BRAND_SANDSTONE_LIGHT,
     'brand-terracotta': BRAND_TERRACOTTA,
+    'layer-tag-red': LAYER_TAG_RED,
+    'layer-tag-orange': LAYER_TAG_ORANGE,
+    'layer-tag-yellow': LAYER_TAG_YELLOW,
+    'layer-tag-green': LAYER_TAG_GREEN,
+    'layer-tag-blue': LAYER_TAG_BLUE,
+    'layer-tag-purple': LAYER_TAG_PURPLE,
+    'layer-tag-gray': LAYER_TAG_GRAY,
     'text-primary-on-default': N(12),
     'text-secondary-on-default': N(10),
     'text-primary-on-raised': N(12),
@@ -336,6 +359,13 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'brand-sandstone': BRAND_SANDSTONE,
     'brand-sandstone-light': BRAND_SANDSTONE_LIGHT,
     'brand-terracotta': BRAND_TERRACOTTA,
+    'layer-tag-red': LAYER_TAG_RED,
+    'layer-tag-orange': LAYER_TAG_ORANGE,
+    'layer-tag-yellow': LAYER_TAG_YELLOW,
+    'layer-tag-green': LAYER_TAG_GREEN,
+    'layer-tag-blue': LAYER_TAG_BLUE,
+    'layer-tag-purple': LAYER_TAG_PURPLE,
+    'layer-tag-gray': LAYER_TAG_GRAY,
     'text-primary-on-default': N(2),
     'text-secondary-on-default': N(4),
     'text-primary-on-raised': N(2),
@@ -396,6 +426,13 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'brand-sandstone': ok(0.7161, 0.1398, 60.04),
     'brand-sandstone-light': ok(0.8221, 0.1524, 73.85),
     'brand-terracotta': ok(0.6597, 0.2267, 26.03),
+    'layer-tag-red': LAYER_TAG_RED,
+    'layer-tag-orange': LAYER_TAG_ORANGE,
+    'layer-tag-yellow': LAYER_TAG_YELLOW,
+    'layer-tag-green': LAYER_TAG_GREEN,
+    'layer-tag-blue': LAYER_TAG_BLUE,
+    'layer-tag-purple': LAYER_TAG_PURPLE,
+    'layer-tag-gray': LAYER_TAG_GRAY,
     'text-primary-on-default': ok(1.0, 0.0, 0),
     'text-secondary-on-default': ok(1.0, 0.0, 0),
     'text-primary-on-raised': ok(1.0, 0.0, 0),

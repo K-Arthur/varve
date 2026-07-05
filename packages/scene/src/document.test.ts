@@ -28,8 +28,9 @@ import {
   toggleGuideLock,
   ungroupNode,
   walkNodes,
+  setLayerColor,
 } from './document';
-import type { FrameNode, GroupNode, TextNode } from './types';
+import type { FrameNode, GroupNode, TextNode, LayerColor } from './types';
 
 function shape(doc: ReturnType<typeof createDocument>, name: string) {
   const { id, doc: d2 } = nextNodeId(doc);
@@ -785,5 +786,62 @@ describe('Document print production fields', () => {
     expect(withPrint.dpi).toBe(300);
     expect(withPrint.bleed?.top).toBe(3);
     expect(withPrint.safeArea?.enabled).toBe(true);
+  });
+
+  describe('setLayerColor', () => {
+    it('sets a color tag on a node', () => {
+      let doc = createDocument();
+      const a = shape(doc, 'a');
+      doc = a.doc;
+      doc = addNode(doc, a.node);
+      doc = setLayerColor(doc, a.id, 'red');
+      expect(doc.nodes[a.id]?.layerColor).toBe('red');
+    });
+
+    it('removes a color tag when set to null', () => {
+      let doc = createDocument();
+      const a = shape(doc, 'a');
+      doc = a.doc;
+      doc = addNode(doc, a.node);
+      doc = setLayerColor(doc, a.id, 'blue');
+      expect(doc.nodes[a.id]?.layerColor).toBe('blue');
+      doc = setLayerColor(doc, a.id, null);
+      expect(doc.nodes[a.id]?.layerColor).toBeNull();
+    });
+
+    it('is a no-op for non-existent node ids', () => {
+      let doc = createDocument();
+      doc = setLayerColor(doc, 'nonexistent' as any, 'green');
+      expect(doc.nodes).toEqual(createDocument().nodes);
+    });
+
+    it('works on all node kinds', () => {
+      let doc = createDocument();
+      const a = shape(doc, 'a');
+      doc = a.doc;
+      doc = addNode(doc, a.node);
+      doc = setLayerColor(doc, a.id, 'purple');
+      expect(doc.nodes[a.id]?.layerColor).toBe('purple');
+
+      const { id: textId, doc: d2 } = nextNodeId(doc);
+      doc = d2;
+      const textNode = makeTextNode(textId, 'hello');
+      doc = addNode(doc, textNode);
+      doc = setLayerColor(doc, textId, 'orange');
+      expect(doc.nodes[textId]?.layerColor).toBe('orange');
+    });
+
+    it('supports all 7 color values', () => {
+      const colors: LayerColor[] = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray'];
+      let doc = createDocument();
+      for (const c of colors) {
+        const { id, doc: d } = nextNodeId(doc);
+        doc = d;
+        const shapeNode = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+        doc = addNode(doc, shapeNode);
+        doc = setLayerColor(doc, id, c);
+        expect(doc.nodes[id]?.layerColor).toBe(c);
+      }
+    });
   });
 });

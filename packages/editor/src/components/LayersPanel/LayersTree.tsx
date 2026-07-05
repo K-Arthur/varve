@@ -30,8 +30,8 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { ContainerNode, NodeId } from '@strata/scene';
-import { isContainer } from '@strata/scene';
+import type { ContainerNode, Document, NodeId } from '@strata/scene';
+import { getParent, isContainer } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
@@ -54,12 +54,125 @@ import { useFlatTree } from './useFlatTree';
 import { useTreeFocus } from './useTreeFocus';
 import { useTypeAhead } from './useTypeAhead';
 
+// ── Expand/Collapse utilities ───────────────────────────────────────────
+
+export function expandAllDescendants(
+  doc: Document,
+  containerId: NodeId,
+  expanded: Set<NodeId>,
+): Set<NodeId> {
+  const next = new Set(expanded);
+
+  function walk(id: NodeId) {
+    const node = doc.nodes[id];
+    if (!node || !isContainer(node)) return;
+    if (node.children.length === 0) return;
+
+    next.add(id);
+    for (const childId of node.children) {
+      const child = doc.nodes[childId];
+      if (child && isContainer(child) && child.children.length > 0) {
+        walk(childId);
+      }
+    }
+  }
+
+  walk(containerId);
+  return next;
+}
+
+export function collapseAllDescendants(
+  doc: Document,
+  containerId: NodeId,
+  expanded: Set<NodeId>,
+): Set<NodeId> {
+  const next = new Set(expanded);
+
+  function removeDescendants(id: NodeId) {
+    const node = doc.nodes[id];
+    if (!node || !isContainer(node)) return;
+    for (const childId of node.children) {
+      const child = doc.nodes[childId];
+      if (child && isContainer(child)) {
+        next.delete(childId);
+        removeDescendants(childId);
+      }
+    }
+  }
+
+  next.delete(containerId);
+  removeDescendants(containerId);
+  return next;
+}
+
+export function collapseAll(
+  doc: Document,
+  selectedId: NodeId | undefined,
+  _expanded: Set<NodeId>,
+): Set<NodeId> {
+  if (!selectedId) return new Set();
+
+  const ancestors: NodeId[] = [];
+  let current: NodeId | undefined | null = selectedId;
+  while (current) {
+    ancestors.unshift(current);
+    current = getParent(doc, current);
+  }
+
+  const next = new Set<NodeId>();
+  for (const id of ancestors) {
+    const node = doc.nodes[id];
+    if (node && isContainer(node)) {
+      next.add(id);
+    }
+  }
+
+  return next;
+}
+
+export function collapseOthers(
+  doc: Document,
+  containerId: NodeId,
+  expanded: Set<NodeId>,
+): Set<NodeId> {
+  const next = new Set<NodeId>();
+  for (const id of expanded) {
+    if (isDescendantOf(doc, id, containerId) || id === containerId) {
+      next.add(id);
+    }
+  }
+  return next;
+}
+
+function isDescendantOf(doc: Document, nodeId: NodeId, potentialAncestorId: NodeId): boolean {
+  let current: NodeId | undefined | null = getParent(doc, nodeId);
+  while (current) {
+    if (current === potentialAncestorId) return true;
+    current = getParent(doc, current);
+  }
+  return false;
+}
+
+export function expandToDepth1(
+  doc: Document,
+  containerId: NodeId,
+  expanded: Set<NodeId>,
+): Set<NodeId> {
+  const next = new Set(expanded);
+  const node = doc.nodes[containerId];
+  if (!node || !isContainer(node)) return next;
+  if (node.children.length === 0) return next;
+
+  next.add(containerId);
+  return next;
+}
+
 export interface LayersTreeProps {
   filterSpec?: LayerFilterSpec;
   onContextMenu?: (e: React.MouseEvent, id: NodeId) => void;
 }
 
-/** Handlers exposed to the parent DndContext via ref. */
+/** Handlers exposed to the parent DndContext and LayersPanel via ref. */
 export interface LayersDnDHandle {
   handleDragStart: (event: DragStartEvent) => void;
   handleDragMove: (event: DragMoveEvent) => void;
@@ -67,6 +180,8 @@ export interface LayersDnDHandle {
   handleDragEnd: (event: DragEndEvent) => void;
   activeId: NodeId | null;
   dropIndicator: { nodeId: NodeId; zone: 'before' | 'after' | 'into' } | null;
+  collapseAll: () => void;
+  collapseOthers: (containerId: NodeId) => void;
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
@@ -178,6 +293,38 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     });
   }, []);
 
+  const handleExpandSubtree = useCallback(
+    (id: NodeId) => {
+      setExpanded((prev) => expandAllDescendants(state.document, id, prev));
+    },
+    [state.document],
+  );
+
+  const handleCollapseSubtree = useCallback(
+    (id: NodeId) => {
+      setExpanded((prev) => collapseAllDescendants(state.document, id, prev));
+    },
+    [state.document],
+  );
+
+  const handleExpandToDepth1 = useCallback(
+    (id: NodeId) => {
+      setExpanded((prev) => expandToDepth1(state.document, id, prev));
+    },
+    [state.document],
+  );
+
+  const handleCollapseAll = useCallback(() => {
+    setExpanded((prev) => collapseAll(state.document, state.selection[0], prev));
+  }, [state.document, state.selection]);
+
+  const handleCollapseOthers = useCallback(
+    (containerId: NodeId) => {
+      setExpanded((prev) => collapseOthers(state.document, containerId, prev));
+    },
+    [state.document],
+  );
+
   const handleSelect = useCallback(
     (id: NodeId, shift: boolean, ctrl: boolean) => {
       if (shift && anchorIdx >= 0) {
@@ -225,6 +372,21 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   const handleRenameCancel = useCallback(() => {
     setRenamingId(null);
   }, []);
+
+  const handleRenameCycle = useCallback(
+    (direction: 'next' | 'previous') => {
+      setRenamingId((currentId) => {
+        if (!currentId) return null;
+        const idx = entries.findIndex((e) => e.node.id === currentId);
+        if (idx < 0) return null;
+        const delta = direction === 'next' ? 1 : -1;
+        const newIdx = (idx + delta + entries.length) % entries.length;
+        const nextEntry = entries[newIdx];
+        return nextEntry?.node.id ?? null;
+      });
+    },
+    [entries],
+  );
 
   const selectAll = useCallback(() => {
     if (entries.length === 0) return;
@@ -651,7 +813,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     ],
   );
 
-  // Expose DnD handlers to parent DndContext via ref
+  // Expose DnD handlers and collapse methods to parent via ref
   useImperativeHandle(
     ref,
     () => ({
@@ -661,8 +823,19 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       handleDragEnd,
       activeId,
       dropIndicator,
+      collapseAll: handleCollapseAll,
+      collapseOthers: handleCollapseOthers,
     }),
-    [handleDragStart, handleDragMove, handleDragOver, handleDragEnd, activeId, dropIndicator],
+    [
+      handleDragStart,
+      handleDragMove,
+      handleDragOver,
+      handleDragEnd,
+      activeId,
+      dropIndicator,
+      handleCollapseAll,
+      handleCollapseOthers,
+    ],
   );
 
   const isFiltering =
@@ -771,10 +944,14 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   virtualizer={virtualizer}
                   dropClass={dropClass}
                   onToggleExpand={toggleExpand}
+                  onExpandSubtree={handleExpandSubtree}
+                  onCollapseSubtree={handleCollapseSubtree}
+                  onExpandToDepth1={handleExpandToDepth1}
                   onSelect={handleSelect}
                   onRename={handleRenameStart}
                   onRenameCommit={handleRenameCommit}
                   onRenameCancel={handleRenameCancel}
+                  onRenameCycle={handleRenameCycle}
                   onToggleVisibility={(id) => {
                     const n = state.document.nodes[id];
                     if (n) setNodeVisible(id, !n.visible);
@@ -811,6 +988,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               onToggleLock={() => {}}
               onFocus={() => {}}
               idx={-1}
+              onDoubleClickIcon={undefined}
             />
           </div>
         )}
@@ -830,10 +1008,14 @@ interface SortableVirtualRowProps {
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   dropClass: string;
   onToggleExpand: (id: NodeId) => void;
+  onExpandSubtree: (id: NodeId) => void;
+  onCollapseSubtree: (id: NodeId) => void;
+  onExpandToDepth1: (id: NodeId) => void;
   onSelect: (id: NodeId, shift: boolean, ctrl: boolean) => void;
   onRename: (id: NodeId, name: string) => void;
   onRenameCommit: () => void;
   onRenameCancel: () => void;
+  onRenameCycle?: (direction: 'next' | 'previous') => void;
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
   onFocus: (idx: number) => void;
@@ -851,16 +1033,20 @@ function SortableVirtualRow({
   virtualizer,
   dropClass,
   onToggleExpand,
+  onExpandSubtree,
+  onCollapseSubtree,
+  onExpandToDepth1,
   onSelect,
   onRename,
   onRenameCommit,
   onRenameCancel,
+  onRenameCycle,
   onToggleVisibility,
   onToggleLock,
   onFocus,
   idx,
 }: SortableVirtualRowProps) {
-  const { state: editorState } = useEditor();
+  const { state: editorState, revealSelection } = useEditor();
   const {
     attributes,
     listeners,
@@ -922,10 +1108,14 @@ function SortableVirtualRow({
         expanded={expanded}
         editing={editing}
         onToggleExpand={onToggleExpand}
+        onExpandSubtree={onExpandSubtree}
+        onCollapseSubtree={onCollapseSubtree}
+        onExpandToDepth1={onExpandToDepth1}
         onSelect={onSelect}
         onRename={onRename}
         onRenameCommit={onRenameCommit}
         onRenameCancel={onRenameCancel}
+        onRenameCycle={onRenameCycle}
         onToggleVisibility={onToggleVisibility}
         onToggleLock={onToggleLock}
         onFocus={onFocus}
@@ -933,6 +1123,7 @@ function SortableVirtualRow({
         dragListeners={isDragging ? undefined : listeners}
         dragAttributes={isDragging ? undefined : attributes}
         variantName={variantName}
+        onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
       />
     </div>
   );

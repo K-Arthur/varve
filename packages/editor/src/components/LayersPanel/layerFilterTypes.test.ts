@@ -239,7 +239,36 @@ describe('nodeMatchesFilter', () => {
   });
 
   it('handles undefined blendMode gracefully', () => {
-    const node = { ...makeTestShape(), blendMode: undefined } as unknown as import('@strata/scene').SceneNode;
+    const node = {
+      ...makeTestShape(),
+      blendMode: undefined,
+    } as unknown as import('@strata/scene').SceneNode;
     expect(nodeMatchesFilter(node, { ...DEFAULT_FILTER, blendModes: ['normal'] })).toBe(false);
+  });
+
+  it('filters by layerColor', () => {
+    const redNode = makeTestShape({ layerColor: 'red' });
+    const blueNode = makeTestShape({ layerColor: 'blue' });
+    const uncolored = makeTestShape({ layerColor: null });
+    expect(
+      nodeMatchesFilter(redNode, { ...DEFAULT_FILTER, attributes: { layerColor: 'red' } }),
+    ).toBe(true);
+    expect(
+      nodeMatchesFilter(blueNode, { ...DEFAULT_FILTER, attributes: { layerColor: 'red' } }),
+    ).toBe(false);
+    expect(
+      nodeMatchesFilter(uncolored, { ...DEFAULT_FILTER, attributes: { layerColor: 'red' } }),
+    ).toBe(false);
+  });
+
+  it('filters by layerColor null (uncolored)', () => {
+    const colored = makeTestShape({ layerColor: 'green' });
+    const uncolored = makeTestShape({ layerColor: null });
+    expect(
+      nodeMatchesFilter(colored, { ...DEFAULT_FILTER, attributes: { layerColor: null } }),
+    ).toBe(false);
+    expect(
+      nodeMatchesFilter(uncolored, { ...DEFAULT_FILTER, attributes: { layerColor: null } }),
+    ).toBe(true);
   });
 });

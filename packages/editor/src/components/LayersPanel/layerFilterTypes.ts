@@ -1,4 +1,4 @@
-import type { BlendMode, SceneNode } from '@strata/scene';
+import type { BlendMode, LayerColor, SceneNode } from '@strata/scene';
 
 /** Filter by node kind (e.g., 'shape', 'text', 'frame', etc.) */
 export type NodeKindFilter = SceneNode['kind'][];
@@ -12,6 +12,8 @@ export interface AttributeFilter {
   isInstance?: boolean;
   hasEffects?: boolean;
   isMasked?: boolean;
+  /** Filter nodes by their color tag value (or null for uncolored). */
+  layerColor?: LayerColor;
 }
 
 /** Filter by blend mode */
@@ -86,6 +88,9 @@ export function nodeMatchesFilter(node: SceneNode, filter: LayerFilterSpec): boo
   if (attr.isMasked !== undefined) {
     const isMasked = 'mask' in node && (node as any).mask != null;
     if (isMasked !== attr.isMasked) return false;
+  }
+  if (attr.layerColor !== undefined) {
+    if (node.layerColor !== attr.layerColor) return false;
   }
 
   if (filter.blendModes.length > 0) {

@@ -118,6 +118,7 @@ export {
   fitBoundsCamera,
   fitZoom,
   isRectInView,
+  isWorldRectInViewport,
   localRectToScreen,
   MAX_ZOOM,
   MIN_ZOOM,
