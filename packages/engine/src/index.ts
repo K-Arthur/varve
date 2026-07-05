@@ -170,3 +170,5 @@ export type {
   HeuristicMethod,
 } from './backgroundRemoval';
 export { getModelLoader, resetModelLoader } from './backgroundRemoval';
+export { applyStyleOverrides } from './engine';
+export { traceSceneNodeOutline } from './tracing';
