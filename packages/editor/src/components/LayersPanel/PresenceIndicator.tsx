@@ -17,27 +17,27 @@ export function PresenceIndicator({
   const overflow = presences.length - maxAvatars;
 
   return (
-    <span
+    <section
       className="layers-row__presence"
-      role="group"
       aria-label={`${presences.length} collaborators`}
     >
       {visible.map((p) => (
-        <span
+        <div
           key={p.userId}
           className="layers-row__presence-avatar"
           style={{ backgroundColor: p.color }}
           title={p.label}
           aria-label={p.label}
+          role="img"
         >
           {p.label.charAt(0).toUpperCase()}
-        </span>
+        </div>
       ))}
       {overflow > 0 && (
         <span className="layers-row__presence-overflow" title={`${overflow} more`}>
           +{overflow}
         </span>
       )}
-    </span>
+    </section>
   );
 }

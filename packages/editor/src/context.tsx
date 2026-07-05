@@ -158,7 +158,7 @@ import {
 } from './state/motion-state';
 import type { DraftShape } from './tools/types';
 
-import { ViewportProvider, SelectionProvider } from './context';
+import { ViewportProvider, SelectionProvider } from './context/';
 import type { ToolId, CanvasMode, SessionMeta, EditorState } from './context/types';
 
 // Re-export for backward compatibility
@@ -3682,7 +3682,7 @@ export function useEditor(): EditorContextValue {
   return ctx;
 }
 
-export { useViewport, useSelection } from './context';
+export { useViewport, useSelection } from './context/';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);
