@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { createMemoryPlatform, makeFileEntry } from '@strata/platform';
+import { createMemoryPlatform, makeFileEntry, type Workspace } from '@strata/platform';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useFileActions } from './useFileActions';
@@ -21,7 +21,7 @@ describe('useHomeView — workspace filtering', () => {
 
   it('scopes projects and files to the active workspace', async () => {
     const platform = createMemoryPlatform();
-    const [personal] = await platform.listWorkspaces();
+    const [personal] = (await platform.listWorkspaces()) as [Workspace];
     const team = await platform.createWorkspace('Team', 'team');
 
     const personalProj = await platform.createProject('Personal Project');
@@ -47,7 +47,7 @@ describe('useHomeView — workspace filtering', () => {
 
   it('switches workspace via setWorkspace and filters content', async () => {
     const platform = createMemoryPlatform();
-    const [personal] = await platform.listWorkspaces();
+    const [personal] = (await platform.listWorkspaces()) as [Workspace];
     const team = await platform.createWorkspace('Team', 'team');
 
     const personalProj = await platform.createProject('Personal Project');
@@ -76,7 +76,7 @@ describe('useHomeView — workspace filtering', () => {
 
   it('keeps unfiled and draft files in the personal workspace only', async () => {
     const platform = createMemoryPlatform();
-    const [personal] = await platform.listWorkspaces();
+    const [personal] = (await platform.listWorkspaces()) as [Workspace];
     const team = await platform.createWorkspace('Team', 'team');
 
     await platform.upsertFile(

@@ -28,7 +28,7 @@ export function FormatMigration({ open, onClose, results, onViewReport }: Format
         <div className="format-migration__summary">
           <div className="format-migration__stat-row">
             <span className="format-migration__stat format-migration__stat--success">
-              <Icon name="CheckCircle" label="Success" size="1em" />
+              <Icon name="CircleCheck" label="Success" size="1em" />
               {successCount} file{successCount !== 1 ? 's' : ''} imported
             </span>
           </div>
@@ -36,7 +36,7 @@ export function FormatMigration({ open, onClose, results, onViewReport }: Format
           {warnCount > 0 && (
             <div className="format-migration__warnings">
               <p className="format-migration__warn-heading">
-                <Icon name="AlertTriangle" label="Warning" size="1em" />
+                <Icon name="TriangleAlert" label="Warning" size="1em" />
                 {warnCount} file{warnCount !== 1 ? 's' : ''} with unsupported features
               </p>
               <ul className="format-migration__warn-list">

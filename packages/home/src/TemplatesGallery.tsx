@@ -17,7 +17,7 @@ const CATEGORY_META: Record<string, { color: string; icon: IconName }> = {
   Social: { color: 'var(--color-feedback-info)', icon: 'Share2' },
   Presentation: { color: 'var(--color-feedback-warning)', icon: 'Presentation' },
   Print: { color: 'var(--color-feedback-danger)', icon: 'Printer' },
-  UI: { color: 'var(--color-feedback-success)', icon: 'Layout' },
+  UI: { color: 'var(--color-feedback-success)', icon: 'LayoutTemplate' },
 };
 
 const SOURCE_BADGE_LABELS: Record<TemplateSource, string> = {
@@ -67,7 +67,7 @@ export function TemplatesGallery({
     const map: Record<string, TemplateLibrary[]> = {};
     for (const t of filtered) {
       if (!map[t.category]) map[t.category] = [];
-      map[t.category].push(t);
+      map[t.category]!.push(t);
     }
     return map;
   }, [filtered]);

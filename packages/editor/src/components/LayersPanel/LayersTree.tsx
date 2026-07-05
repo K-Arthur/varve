@@ -35,16 +35,27 @@ import { isContainer } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useEditor } from '../../context';
 import type { DragNodeData } from '../../dnd-types';
 import { LayersRow } from './LayersRow';
+import type { LayerFilterSpec } from './layerFilterTypes';
+import { DEFAULT_FILTER } from './layerFilterTypes';
+import { createSearchIndex, searchIndex } from './layerSearchIndex';
 import { useFlatTree } from './useFlatTree';
 import { useTreeFocus } from './useTreeFocus';
 import { useTypeAhead } from './useTypeAhead';
 
 export interface LayersTreeProps {
-  filter?: string;
+  filterSpec?: LayerFilterSpec;
   onContextMenu?: (e: React.MouseEvent, id: NodeId) => void;
 }
 
@@ -59,7 +70,7 @@ export interface LayersDnDHandle {
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
-  { filter = '', onContextMenu },
+  { filterSpec = DEFAULT_FILTER, onContextMenu },
   ref,
 ) {
   const {
@@ -92,7 +103,18 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     nodeId: NodeId;
     zone: 'before' | 'after' | 'into';
   } | null>(null);
-  const entries = useFlatTree(state.document, expanded, filter);
+
+  // Build search index once per document load
+  const searchIdx = useMemo(() => createSearchIndex(state.document), [state.document]);
+
+  // Pre-compute matched IDs via search index when filtering by name
+  const matchedIds = useMemo<Set<NodeId> | undefined>(() => {
+    if (!filterSpec.search) return undefined;
+    const ids = searchIndex(searchIdx, filterSpec.search);
+    return new Set(ids);
+  }, [searchIdx, filterSpec.search]);
+
+  const entries = useFlatTree(state.document, expanded, filterSpec, matchedIds);
   const treeRef = useRef<HTMLDivElement>(null);
   const { focusIdx, anchorIdx, setFocusIdx, setAnchorIdx, jumpToStart, jumpToEnd } = useTreeFocus(
     entries.length,
@@ -643,7 +665,13 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [handleDragStart, handleDragMove, handleDragOver, handleDragEnd, activeId, dropIndicator],
   );
 
-  if (entries.length === 0 && !filter) {
+  const isFiltering =
+    filterSpec.search !== '' ||
+    filterSpec.kinds.length > 0 ||
+    Object.values(filterSpec.attributes).some((v) => v !== undefined) ||
+    filterSpec.blendModes.length > 0;
+
+  if (entries.length === 0 && !isFiltering) {
     return (
       <div className="layers-panel__empty" role="tree" aria-label="Layers">
         <EmptyState
@@ -670,7 +698,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     );
   }
 
-  if (entries.length === 0 && filter) {
+  if (entries.length === 0 && isFiltering) {
     return (
       <div className="layers-panel__empty" role="tree" aria-label="Layers">
         <EmptyState
@@ -690,7 +718,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
             </svg>
           }
           headline="No results found"
-          description={`No layers match "${filter}"`}
+          description="No layers match the current filters"
         />
       </div>
     );

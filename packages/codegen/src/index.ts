@@ -105,10 +105,12 @@ export function computeDocumentBounds(doc: Document): {
     maxX = -Infinity,
     maxY = -Infinity;
   let hasNodes = false;
+  const contentRoots = new Set(doc.pages?.map((p) => p.contentRoot) ?? []);
 
   for (const id of doc.rootChildren) {
     const node = doc.nodes[id];
     if (!node?.visible) continue;
+    if (contentRoots.has(id)) continue;
     hasNodes = true;
     const tx = node.transform[4] ?? 0;
     const ty = node.transform[5] ?? 0;
@@ -245,7 +247,9 @@ export function exportDocumentToSvgAdvanced(
 ): string {
   const bounds = boundsOverride ?? computeDocumentBounds(doc);
   const nl = options.minify ? '' : '\n';
+  const contentRoots = new Set(doc.pages?.map((p) => p.contentRoot) ?? []);
   const children = doc.rootChildren
+    .filter((id) => !contentRoots.has(id))
     .map((id: NodeId) => {
       const node = doc.nodes[id];
       return node ? nodeToSvg(node, doc, 2, options) : '';

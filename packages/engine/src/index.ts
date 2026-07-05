@@ -155,3 +155,9 @@ export {
   splitComplementaryHarmony,
   triadicHarmony,
 } from './intelligence/paletteExtractor';
+export type { SimplifiedPath } from './intelligence/pathSimplifier';
+export {
+  fitCubicBezier,
+  simplifyPathRDP,
+  simplifyToBezier,
+} from './intelligence/pathSimplifier';

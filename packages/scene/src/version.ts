@@ -106,7 +106,9 @@ const migrations: DocumentMigration[] = [
     migrate: (raw) => {
       const pages = (raw.pages as Record<string, unknown>[]) ?? [];
       const activePageId =
-        pages.length > 0 ? ((pages[0] as Record<string, unknown> | undefined)?.contentRoot as string) : undefined;
+        pages.length > 0
+          ? ((pages[0] as Record<string, unknown> | undefined)?.contentRoot as string)
+          : undefined;
       return {
         ...raw,
         formatVersion: '1.4',

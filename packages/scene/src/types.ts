@@ -13,7 +13,7 @@
  * per-corner radius, and stacked-fill type enums. All new fields have safe
  * defaults so existing documents deserialize correctly.
  */
-import type { Affine, Shape } from '@strata/engine';
+import type { Adjustment, Affine, Shape } from '@strata/engine';
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 
@@ -475,6 +475,8 @@ export interface AdjustmentNode extends NodeBase {
   /** Adjustments can optionally have their own mask. */
   mask?: Mask;
   effects: Effect[];
+  /** Nondestructive adjustment entries applied in sequence. */
+  adjustments?: Adjustment[];
 }
 
 export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode | AdjustmentNode;

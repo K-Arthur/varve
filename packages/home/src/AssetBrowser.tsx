@@ -35,7 +35,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [assetList, folderList] = await Promise.all([
+      const [assetList] = await Promise.all([
         searchQuery.trim()
           ? platform.searchAssets(searchQuery)
           : platform.listAssets(workspaceId, selectedFolderId ?? undefined),
