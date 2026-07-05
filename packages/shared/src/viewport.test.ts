@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { translate } from './affine';
 import {
   type Camera,
+  animateCamera,
   centerBoundsCamera,
+  clampCamera,
   clampZoom,
   clientToCanvas,
   fitBoundsCamera,
   fitZoom,
   isRectInView,
   isWorldRectInViewport,
+  lerpCamera,
   localRectToScreen,
   MAX_ZOOM,
   MIN_ZOOM,
@@ -25,7 +28,7 @@ const EPS = 1e-9;
 const vp: Viewport = { width: 1920, height: 1080 };
 
 function cam(panX = 0, panY = 0, zoom = 1): Camera {
-  return { pan: [panX, panY] as [number, number], zoom };
+  return { pan: { x: panX, y: panY }, zoom };
 }
 
 describe('clampZoom', () => {
@@ -88,7 +91,6 @@ describe('worldToScreenAffine', () => {
 
 describe('isRectInView', () => {
   it('returns true for rect inside viewport', () => {
-    // At zoom=1 pan=(0,0), viewport shows world (-∞,∞) ∩ (vp.w,vp.h).
     const c = cam(0, 0, 1);
     expect(isRectInView(c, vp, { x: 10, y: 10, w: 100, h: 50 })).toBe(true);
   });
@@ -100,7 +102,6 @@ describe('isRectInView', () => {
 
   it('works at zoom=0.5 pan=(100,0)', () => {
     const c = cam(100, 0, 0.5);
-    // World viewport: left = -100/0.5 = -200, right = (1920-100)/0.5 = 3640
     expect(isRectInView(c, vp, { x: 0, y: 0, w: 100, h: 100 })).toBe(true);
     expect(isRectInView(c, vp, { x: 4000, y: 0, w: 10, h: 10 })).toBe(false);
   });
@@ -112,7 +113,7 @@ describe('isWorldRectInViewport', () => {
     expect(isWorldRectInViewport(c, vp, { x: 100, y: 100, w: 200, h: 200 })).toBe(true);
   });
 
-  it('returns true for rect partially inside viewport (intersecting left edge)', () => {
+  it('returns true for rect partially inside viewport', () => {
     const c = cam(0, 0, 1);
     expect(isWorldRectInViewport(c, vp, { x: -50, y: 100, w: 200, h: 200 })).toBe(true);
   });
@@ -134,7 +135,6 @@ describe('isWorldRectInViewport', () => {
 
   it('works at different zoom levels', () => {
     const c = cam(200, 100, 2);
-    // Viewport world: left=-100, right=(1920-200)/2=860, top=-50, bottom=(1080-100)/2=490
     expect(isWorldRectInViewport(c, vp, { x: 500, y: 200, w: 50, h: 50 })).toBe(true);
     expect(isWorldRectInViewport(c, vp, { x: 1000, y: 200, w: 50, h: 50 })).toBe(false);
     expect(isWorldRectInViewport(c, vp, { x: -200, y: 200, w: 50, h: 50 })).toBe(false);
@@ -142,16 +142,14 @@ describe('isWorldRectInViewport', () => {
 
   it('handles tiny rect on viewport edge', () => {
     const c = cam(0, 0, 1);
-    // Rect right on the viewport right edge
     expect(isWorldRectInViewport(c, vp, { x: 1919, y: 0, w: 1, h: 1 })).toBe(true);
     expect(isWorldRectInViewport(c, vp, { x: 1921, y: 0, w: 1, h: 1 })).toBe(false);
   });
 });
 
 describe('fitZoom', () => {
-  it('fits a 400×300 rect into a 1920×1080 viewport', () => {
+  it('fits a 400x300 rect into a 1920x1080 viewport', () => {
     const z = fitZoom({ x: 0, y: 0, w: 400, h: 300 }, vp, 40);
-    // Available: 1920-80=1840 W, 1080-80=1000 H. Restricting: 1840/400=4.6, 1000/300≈3.33 → min=3.33
     expect(z).toBeCloseTo(1000 / 300, 4);
   });
 
@@ -160,25 +158,23 @@ describe('fitZoom', () => {
     expect(z).toBe(5);
   });
 
-  it('handles tiny rect without blowing up', () => {
+  it('handles tiny rect', () => {
     const z = fitZoom({ x: 0, y: 0, w: 1e-9, h: 1e-9 }, vp, 40);
     expect(z).toBeGreaterThan(0);
     expect(z).toBeLessThanOrEqual(MAX_ZOOM);
   });
 
-  it('handles zero-padding edge case', () => {
+  it('handles zero-padding', () => {
     const z = fitZoom({ x: 0, y: 0, w: 1920, h: 1080 }, vp, 0);
     expect(z).toBe(1);
   });
 });
 
 describe('centerBoundsCamera', () => {
-  it('centers a 400×300 rect in a 1920×1080 viewport at zoom 3', () => {
+  it('centers a 400x300 rect in a 1920x1080 viewport at zoom 3', () => {
     const c = centerBoundsCamera({ x: 100, y: 50, w: 400, h: 300 }, vp, 3);
-    // World center: (300, 200). Screen center: (960, 540).
-    // pan = screenC - worldC * zoom = (960 - 300*3, 540 - 200*3) = (60, -60)
-    expect(c.pan[0]).toBe(960 - 300 * 3);
-    expect(c.pan[1]).toBe(540 - 200 * 3);
+    expect(c.pan.x).toBe(960 - 300 * 3);
+    expect(c.pan.y).toBe(540 - 200 * 3);
     expect(c.zoom).toBe(3);
   });
 });
@@ -190,8 +186,8 @@ describe('fitBoundsCamera', () => {
     expect(c.zoom).toBeCloseTo(expectedZoom, 4);
     const worldCentre: [number, number] = [200, 150];
     const screenCentre: [number, number] = [960, 540];
-    expect(c.pan[0]).toBeCloseTo(screenCentre[0] - worldCentre[0] * expectedZoom, 2);
-    expect(c.pan[1]).toBeCloseTo(screenCentre[1] - worldCentre[1] * expectedZoom, 2);
+    expect(c.pan.x).toBeCloseTo(screenCentre[0] - worldCentre[0] * expectedZoom, 2);
+    expect(c.pan.y).toBeCloseTo(screenCentre[1] - worldCentre[1] * expectedZoom, 2);
   });
 });
 
@@ -199,44 +195,29 @@ describe('revealBoundsCamera', () => {
   it('returns the same camera when already in view', () => {
     const c = cam(0, 0, 1);
     const out = revealBoundsCamera(c, vp, { x: 10, y: 10, w: 100, h: 50 }, 10);
-    expect(out.pan[0]).toBe(0);
-    expect(out.pan[1]).toBe(0);
+    expect(out.pan.x).toBe(0);
+    expect(out.pan.y).toBe(0);
     expect(out.zoom).toBe(1);
   });
 
   it('shifts left when the rect is off-screen left', () => {
     const c = cam(0, 0, 1);
     const out = revealBoundsCamera(c, vp, { x: -500, y: 0, w: 100, h: 50 }, 10);
-    // rectMinX=-500. leftReqX = -1*(-500) + 10 = 510. panX=0 < 510, snaps to 510.
-    // This shifts viewport left: viewportMinWorld = -510/1 = -510, so rect is visible.
-    expect(out.pan[0]).toBe(510);
+    expect(out.pan.x).toBe(510);
     expect(out.zoom).toBe(1);
   });
 
   it('shifts right when the rect is off-screen right', () => {
     const c = cam(0, 0, 1);
     const out = revealBoundsCamera(c, vp, { x: 2000, y: 0, w: 100, h: 50 }, 10);
-    // rectMaxX=2100, viewMaxX-pad=1920-10=1910. Shift needed: 2100-1910=190 world px = 190 CSS px.
-    // Wait, that would be negative shift... Let me think.
-    // The rect's right edge is at 2100. Viewport right edge (world) = 1920.
-    // rectMaxX > viewMaxX - pad => 2100 > 1910. Need to shift right by 2100-1910=190.
-    // Shift right means subtract from pan? Let me re-derive.
-    // If rect is to the right, we need to move viewport right. pan.x is world-origin's screen offset.
-    // To move viewport right, we add to pan.x (more of world is visible to the left).
-    // Actually: world X maps to screen X = wx*zoom + pan.x. If pan.x is large, world 0 shifts right.
-    // Wait no — the math: screen origin (0,0) is canvas top-left. world point (0,0) maps to screen (pan.x, pan.y).
-    // If pan.x = 0, world 0 is at canvas left edge. If pan.x = 100, world 0 is 100px to the right (shifted right).
-    // So to reveal a rect to the right, we need to make pan.x smaller (move world origin leftwards).
     const expectedPanX = 0 - (2100 - (1920 - 10));
-    expect(out.pan[0]).toBeCloseTo(expectedPanX, 0);
+    expect(out.pan.x).toBeCloseTo(expectedPanX, 0);
   });
 
   it('shifts down when the rect is below viewport', () => {
     const c = cam(0, 0, 1);
     const out = revealBoundsCamera(c, vp, { x: 0, y: 2000, w: 100, h: 50 }, 10);
-    // rect bottom edge = 2050. Need 2050*zoom + panY <= viewport.height - padding.
-    // 2050*1 + panY <= 1080 - 10 → panY <= -980. Result should be -980.
-    expect(out.pan[1]).toBeCloseTo(-980, 0);
+    expect(out.pan.y).toBeCloseTo(-980, 0);
   });
 });
 
@@ -265,11 +246,80 @@ describe('localRectToScreen', () => {
     const c = cam(10, 20, 2);
     const local = { x: 0, y: 0, w: 100, h: 80 };
     const screen = localRectToScreen(worldMatrix, c, local);
-    // World rect = translate(50,60) applied to local => x=50,y=60,w=100,h=80.
-    // Screen: x = (50*2 + 10) = 110, y = (60*2 + 20) = 140, w = 100*2 = 200, h = 80*2 = 160.
     expect(screen.x).toBe(110);
     expect(screen.y).toBe(140);
     expect(screen.w).toBe(200);
     expect(screen.h).toBe(160);
+  });
+});
+
+describe('lerpCamera', () => {
+  it('returns start at t=0', () => {
+    const from = cam(100, 200, 1);
+    const to = cam(300, 400, 3);
+    const result = lerpCamera(from, to, 0);
+    expect(result.pan.x).toBe(100);
+    expect(result.pan.y).toBe(200);
+    expect(result.zoom).toBe(1);
+  });
+
+  it('returns end at t=1', () => {
+    const from = cam(100, 200, 1);
+    const to = cam(300, 400, 3);
+    const result = lerpCamera(from, to, 1);
+    expect(result.pan.x).toBe(300);
+    expect(result.pan.y).toBe(400);
+    expect(result.zoom).toBe(3);
+  });
+
+  it('is eased (non-linear interpolation)', () => {
+    const from = cam(0, 0, 1);
+    const to = cam(100, 0, 2);
+    const mid = lerpCamera(from, to, 0.5);
+    expect(mid.pan.x).toBeGreaterThan(50);
+    expect(mid.zoom).toBeGreaterThan(1.5);
+  });
+
+  it('clamps t to [0, 1]', () => {
+    const from = cam(0, 0, 1);
+    const to = cam(100, 100, 2);
+    expect(lerpCamera(from, to, -0.5).pan.x).toBe(0);
+    expect(lerpCamera(from, to, 1.5).pan.x).toBe(100);
+  });
+});
+
+describe('animateCamera', () => {
+  it('returns done=true when elapsed >= duration', () => {
+    const result = animateCamera(cam(0, 0, 1), cam(100, 0, 2), 200, 200);
+    expect(result.done).toBe(true);
+    expect(result.camera.pan.x).toBe(100);
+  });
+
+  it('returns done=false for partial progress', () => {
+    const result = animateCamera(cam(0, 0, 1), cam(100, 0, 2), 100, 200);
+    expect(result.done).toBe(false);
+  });
+});
+
+describe('clampCamera', () => {
+  it('returns unchanged camera when within bounds', () => {
+    const c = cam(100, 100, 1);
+    const bounds = { x: 0, y: 0, w: 500, h: 500 };
+    const clamped = clampCamera(c, vp, bounds);
+    expect(clamped.pan.x).toBe(100);
+    expect(clamped.pan.y).toBe(100);
+    expect(clamped.zoom).toBe(1);
+  });
+
+  it('returns same camera when documentBounds is null', () => {
+    const c = cam(-9999, -9999, 1);
+    expect(clampCamera(c, vp, null)).toBe(c);
+  });
+
+  it('clamps pan when document is far off-screen', () => {
+    const c = cam(-5000, -5000, 1);
+    const bounds = { x: 0, y: 0, w: 100, h: 100 };
+    const clamped = clampCamera(c, vp, bounds, 100);
+    expect(clamped.pan.x).toBeGreaterThan(-2000);
   });
 });

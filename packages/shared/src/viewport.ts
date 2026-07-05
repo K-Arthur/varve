@@ -3,7 +3,7 @@
  * and screen<->world conversions. All editor code (canvas draw, tools,
  * overlays, reveal) imports from here instead of duplicating the math.
  *
- * Coordinate convention (verified against CanvasArea.tsx:235):
+ * Coordinate convention:
  *
  *   screen = world · zoom + pan          (world → canvas-area CSS px)
  *   world = (screen − pan) / zoom        (canvas-area CSS px → world)
@@ -36,10 +36,14 @@ export const MAX_ZOOM = 10;
 export const DEFAULT_REVEAL_MAX_ZOOM = 10;
 /** Default padding (CSS px) around a fitted/revealed node. */
 export const DEFAULT_REVEAL_PADDING = 40;
+/** Duration (ms) for smooth camera animations. */
+export const DEFAULT_CAMERA_ANIMATION_MS = 200;
+/** Ease-out factor for camera animations (1 = linear, <1 = ease-out). */
+export const CAMERA_EASE_OUT_FACTOR = 0.08;
 
 /** Camera state: pan (CSS px of world origin from canvas-area top-left) + zoom. */
 export interface Camera {
-  pan: Point;
+  pan: { x: number; y: number };
   zoom: number;
 }
 
@@ -62,12 +66,12 @@ export function clampZoom(z: number): number {
  * results — this was the root cause of the original placement bug.
  */
 export function screenToWorld(cam: Camera, cx: number, cy: number): Point {
-  return [(cx - cam.pan[0]) / cam.zoom, (cy - cam.pan[1]) / cam.zoom];
+  return [(cx - cam.pan.x) / cam.zoom, (cy - cam.pan.y) / cam.zoom];
 }
 
 /** Convert world coords → canvas-area-relative CSS px. */
 export function worldToScreen(cam: Camera, wx: number, wy: number): Point {
-  return [wx * cam.zoom + cam.pan[0], wy * cam.zoom + cam.pan[1]];
+  return [wx * cam.zoom + cam.pan.x, wy * cam.zoom + cam.pan.y];
 }
 
 /** Convert a CSS-pixel delta to a world-space delta (e.g. for drag math). */
@@ -96,15 +100,15 @@ export function clientToCanvas(
  * applies separately). Useful for transforming rects and overlays.
  */
 export function worldToScreenAffine(cam: Camera): Affine {
-  return multiplyAffine(translate(cam.pan[0], cam.pan[1]), scaleAffine(cam.zoom));
+  return multiplyAffine(translate(cam.pan.x, cam.pan.y), scaleAffine(cam.zoom));
 }
 
 /** True if `worldRect` is entirely inside the visible viewport (no pan needed). */
 export function isRectInView(cam: Camera, viewport: Viewport, worldRect: Rect): boolean {
-  const minX = (-cam.pan[0] - 0) / cam.zoom;
-  const minY = (-cam.pan[1] - 0) / cam.zoom;
-  const maxX = (viewport.width - cam.pan[0]) / cam.zoom;
-  const maxY = (viewport.height - cam.pan[1]) / cam.zoom;
+  const minX = (-cam.pan.x - 0) / cam.zoom;
+  const minY = (-cam.pan.y - 0) / cam.zoom;
+  const maxX = (viewport.width - cam.pan.x) / cam.zoom;
+  const maxY = (viewport.height - cam.pan.y) / cam.zoom;
   return (
     worldRect.x >= minX &&
     worldRect.y >= minY &&
@@ -123,12 +127,11 @@ export function isRectInView(cam: Camera, viewport: Viewport, worldRect: Rect): 
  * if one is completely to the left/right/above/below of the other.
  */
 export function isWorldRectInViewport(cam: Camera, viewport: Viewport, worldRect: Rect): boolean {
-  const viewMinX = (-cam.pan[0] - 0) / cam.zoom;
-  const viewMinY = (-cam.pan[1] - 0) / cam.zoom;
-  const viewMaxX = (viewport.width - cam.pan[0]) / cam.zoom;
-  const viewMaxY = (viewport.height - cam.pan[1]) / cam.zoom;
+  const viewMinX = (-cam.pan.x - 0) / cam.zoom;
+  const viewMinY = (-cam.pan.y - 0) / cam.zoom;
+  const viewMaxX = (viewport.width - cam.pan.x) / cam.zoom;
+  const viewMaxY = (viewport.height - cam.pan.y) / cam.zoom;
 
-  // Test for non-intersection on each axis.
   if (worldRect.x + worldRect.w < viewMinX) return false;
   if (worldRect.x > viewMaxX) return false;
   if (worldRect.y + worldRect.h < viewMinY) return false;
@@ -163,7 +166,7 @@ export function centerBoundsCamera(worldRect: Rect, viewport: Viewport, zoom: nu
   const cx = worldRect.x + worldRect.w / 2;
   const cy = worldRect.y + worldRect.h / 2;
   return {
-    pan: [viewport.width / 2 - cx * zoom, viewport.height / 2 - cy * zoom],
+    pan: { x: viewport.width / 2 - cx * zoom, y: viewport.height / 2 - cy * zoom },
     zoom,
   };
 }
@@ -213,18 +216,16 @@ export function revealBoundsCamera(
   padding: number = DEFAULT_REVEAL_PADDING,
 ): Camera {
   const z = cam.zoom;
-  const pz = padding / z; // padding in world units
+  const pz = padding / z;
 
-  // Current pan-derived constraints.
-  const panX = cam.pan[0];
-  const panY = cam.pan[1];
+  const panX = cam.pan.x;
+  const panY = cam.pan.y;
 
   const rectMinX = worldRect.x;
   const rectMinY = worldRect.y;
   const rectMaxX = worldRect.x + worldRect.w;
   const rectMaxY = worldRect.y + worldRect.h;
 
-  // Check if already in view.
   const vpMinX = -panX / z;
   const vpMinY = -panY / z;
   const vpMaxX = (viewport.width - panX) / z;
@@ -238,10 +239,9 @@ export function revealBoundsCamera(
     return cam;
   }
 
-  // ── X axis ─────────────────────────────────────────────────────────
-  const leftReqX = -z * rectMinX + padding; // min pan to satisfy left edge
-  const rightReqX = viewport.width - z * rectMaxX - padding; // max pan to satisfy right edge
-  const vpWidthWorld = vpMaxX - vpMinX; // viewport width in world units
+  const leftReqX = -z * rectMinX + padding;
+  const rightReqX = viewport.width - z * rectMaxX - padding;
+  const vpWidthWorld = vpMaxX - vpMinX;
   const fitsX = worldRect.w <= vpWidthWorld - 2 * pz;
 
   let newPanX: number;
@@ -254,7 +254,6 @@ export function revealBoundsCamera(
       newPanX = panX;
     }
   } else {
-    // Rect wider than viewport: snap the near edge.
     if (rectMinX < vpMinX + pz) {
       newPanX = leftReqX;
     } else {
@@ -262,7 +261,6 @@ export function revealBoundsCamera(
     }
   }
 
-  // ── Y axis ─────────────────────────────────────────────────────────
   const leftReqY = -z * rectMinY + padding;
   const rightReqY = viewport.height - z * rectMaxY - padding;
   const vpHeightWorld = vpMaxY - vpMinY;
@@ -286,7 +284,7 @@ export function revealBoundsCamera(
   }
 
   return {
-    pan: [Math.round(newPanX * 1000) / 1000, Math.round(newPanY * 1000) / 1000],
+    pan: { x: Math.round(newPanX * 1000) / 1000, y: Math.round(newPanY * 1000) / 1000 },
     zoom: z,
   };
 }
@@ -303,10 +301,10 @@ export function revealBoundsCamera(
 export function zoomAboutPoint(cam: Camera, worldAnchor: Point, newZoom: number): Camera {
   const z = clampZoom(newZoom);
   const [wx, wy] = worldAnchor;
-  const screenX = wx * cam.zoom + cam.pan[0];
-  const screenY = wy * cam.zoom + cam.pan[1];
+  const screenX = wx * cam.zoom + cam.pan.x;
+  const screenY = wy * cam.zoom + cam.pan.y;
   return {
-    pan: [screenX - wx * z, screenY - wy * z],
+    pan: { x: screenX - wx * z, y: screenY - wy * z },
     zoom: z,
   };
 }
@@ -319,15 +317,89 @@ export function localRectToScreen(worldMatrix: Affine, cam: Camera, localRect: R
   return transformRect(worldToScreenAffine(cam), transformRect(worldMatrix, localRect));
 }
 
+/**
+ * Smoothly interpolate from `from` camera to `to` camera.
+ * Returns an intermediate camera for the given progress `t` (0-1).
+ * Uses ease-out curve for natural-feeling animation.
+ */
+export function lerpCamera(from: Camera, to: Camera, t: number): Camera {
+  const clamped = Math.max(0, Math.min(1, t));
+  const eased = 1 - Math.pow(1 - clamped, 3);
+  return {
+    pan: {
+      x: from.pan.x + (to.pan.x - from.pan.x) * eased,
+      y: from.pan.y + (to.pan.y - from.pan.y) * eased,
+    },
+    zoom: from.zoom + (to.zoom - from.zoom) * eased,
+  };
+}
+
+/**
+ * Compute a camera that smoothly animates from `start` toward `end` over
+ * `duration` ms given `elapsed` ms have passed. Returns the intermediate
+ * camera and whether the animation is complete.
+ */
+export function animateCamera(
+  start: Camera,
+  end: Camera,
+  elapsed: number,
+  duration: number = DEFAULT_CAMERA_ANIMATION_MS,
+): { camera: Camera; done: boolean } {
+  const t = Math.min(1, elapsed / Math.max(1, duration));
+  return { camera: lerpCamera(start, end, t), done: t >= 1 };
+}
+
+/**
+ * Clamp a camera's pan so that the document bounds are never more than
+ * `margin` world units outside the viewport on each side. This prevents
+ * panning into infinite void while still allowing the user to see the
+ * pasteboard area around the document.
+ *
+ * When `documentBounds` is null (empty document), no clamping is applied.
+ */
+export function clampCamera(
+  cam: Camera,
+  viewport: Viewport,
+  documentBounds: Rect | null,
+  margin: number = 500,
+): Camera {
+  if (!documentBounds) return cam;
+
+  const z = cam.zoom;
+  const marginScreen = margin * z;
+
+  const docLeft = documentBounds.x * z + cam.pan.x - marginScreen;
+  const docRight = (documentBounds.x + documentBounds.w) * z + cam.pan.x + marginScreen;
+
+  let newPanX = cam.pan.x;
+  if (docRight < 0) {
+    newPanX = -(documentBounds.x + documentBounds.w) * z + marginScreen;
+  } else if (docLeft > viewport.width) {
+    newPanX = -documentBounds.x * z + viewport.width + marginScreen;
+  }
+
+  const docTop = documentBounds.y * z + cam.pan.y - marginScreen;
+  const docBottom = (documentBounds.y + documentBounds.h) * z + cam.pan.y + marginScreen;
+
+  let newPanY = cam.pan.y;
+  if (docBottom < 0) {
+    newPanY = -(documentBounds.y + documentBounds.h) * z + marginScreen;
+  } else if (docTop > viewport.height) {
+    newPanY = -documentBounds.y * z + viewport.height + marginScreen;
+  }
+
+  return {
+    pan: { x: newPanX, y: newPanY },
+    zoom: z,
+  };
+}
+
 /** Apply a CSS-pixel rotation about the screen-space anchor to a camera. */
 export function rotateAboutScreenPoint(
   _cam: Camera,
   _screenAnchor: Point,
   _radians: number,
 ): Camera {
-  // Camera rotation is not supported in the current viewport model — the
-  // canvas only supports pan + zoom. This stub exists so future artboard
-  // rotation can be added without reshaping the API. For now it is a no-op.
   void rotateRad;
   return _cam;
 }
