@@ -48,6 +48,26 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   patch: 'Patch Tool',
 };
 
+const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
+  select: 'V',
+  hand: 'H',
+  zoom: 'Z',
+  frame: 'F',
+  rect: 'R',
+  ellipse: 'O',
+  line: 'L',
+  arrow: 'A',
+  pen: 'P',
+  text: 'T',
+  scale: 'S',
+  slice: 'K',
+  eyedropper: 'I',
+  inspect: 'Ctrl',
+  cloneStamp: 'J',
+  healBrush: 'J 2x',
+  spotHeal: 'J 3x',
+};
+
 interface ToolButtonProps {
   id: ToolId;
   groupStart?: boolean;
@@ -56,8 +76,9 @@ interface ToolButtonProps {
 function ToolButton({ id, groupStart }: ToolButtonProps) {
   const { state, setTool } = useEditor();
   const label = TOOL_LABELS[id] ?? id;
+  const shortcut = TOOL_SHORTCUTS[id];
   return (
-    <Tooltip label={label}>
+    <Tooltip label={label} shortcut={shortcut}>
       <button
         type="button"
         className={`floating-toolbar__btn${state.tool === id ? ' floating-toolbar__btn--active' : ''}${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
