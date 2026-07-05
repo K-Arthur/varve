@@ -39,6 +39,8 @@ import type {
   Style,
   TextNode,
 } from './types';
+import type { Variable, VariableStore } from './variables';
+import { createVariableStore } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
 export interface Document {
@@ -119,7 +121,8 @@ export interface NodeEntry {
   depth: number;
 }
 
-export function createDocument(name = 'Untitled'): Document {
+export function createDocument(name?: string, flat?: boolean): Document;
+export function createDocument(name = 'Untitled', flat?: boolean): Document {
   const base: Document = {
     id: cryptoId(),
     formatVersion: CURRENT_DOCUMENT_VERSION,
@@ -129,6 +132,11 @@ export function createDocument(name = 'Untitled'): Document {
     components: {},
     nextId: 1,
   };
+
+  if (flat) {
+    // Flat document: no pages, just root-level nodes
+    return base;
+  }
 
   // Create a default page with a contentRoot group
   const { id: contentRootId, doc: d1 } = nextNodeId(base);
@@ -148,7 +156,7 @@ export function createDocument(name = 'Untitled'): Document {
 
   return {
     ...d1,
-    activePageId: contentRootId,
+    activePageId: page.id,
     globalChildren: [],
     pages: [page],
     rootChildren: [contentRootId],
@@ -634,6 +642,17 @@ export function removeNode(doc: Document, id: NodeId): Document {
     }
   } else {
     rootChildren = doc.rootChildren.filter((x) => !toRemove.has(x));
+  }
+
+  // Clear mask references that point to any removed node
+  for (const removedId of toRemove) {
+    for (const [id, nodeEntry] of Object.entries(nodes)) {
+      const n = nodeEntry as SceneNode & { mask?: import('./types').Mask };
+      if (n.mask?.sourceNodeId === removedId) {
+        const { mask: _unused, ...rest } = nodeEntry;
+        nodes = { ...nodes, [id]: rest as SceneNode };
+      }
+    }
   }
 
   // Delete all collected nodes
@@ -1281,9 +1300,75 @@ export function migrateToPages(doc: Document): Document {
 
   return {
     ...d1,
+    activePageId: page.id,
     pages: [page],
     rootChildren: [contentRootId],
     nodes: { ...d1.nodes, [contentRootId]: contentRoot },
+  };
+}
+
+// ── Variable operations ──────────────────────────────────────────────────────
+
+/**
+ * Add a variable to the document's variableStore.
+ * Creates a variableStore on the document if one does not exist.
+ */
+export function addVariableToDocument(doc: Document, variable: Variable): Document {
+  const store = doc.variableStore ?? createVariableStore();
+  return {
+    ...doc,
+    variableStore: {
+      ...store,
+      variables: { ...store.variables, [variable.id]: variable },
+    },
+  };
+}
+
+/**
+ * Update a variable in the document's variableStore.
+ * If the variable does not exist, returns the document unchanged.
+ */
+export function updateVariableInDocument(
+  doc: Document,
+  id: string,
+  patch: Partial<Omit<Variable, 'id'>>,
+): Document {
+  const store = doc.variableStore;
+  if (!store || !store.variables[id]) return doc;
+  return {
+    ...doc,
+    variableStore: {
+      ...store,
+      variables: {
+        ...store.variables,
+        [id]: { ...store.variables[id], ...patch },
+      },
+    },
+  };
+}
+
+/**
+ * Delete a variable from the document's variableStore.
+ * If the variable does not exist, returns the document unchanged.
+ */
+export function deleteVariableFromDocument(doc: Document, id: string): Document {
+  const store = doc.variableStore;
+  if (!store || !store.variables[id]) return doc;
+  const vars = { ...store.variables };
+  delete vars[id];
+  return { ...doc, variableStore: { ...store, variables: vars } };
+}
+
+/**
+ * Set the active mode on the document's variableStore.
+ * Adds the mode to the modes list if not already present.
+ */
+export function setVariableModeOnDocument(doc: Document, mode: string): Document {
+  const store = doc.variableStore ?? createVariableStore();
+  const modes = store.modes.includes(mode) ? store.modes : [...store.modes, mode];
+  return {
+    ...doc,
+    variableStore: { ...store, activeMode: mode, modes },
   };
 }
 
@@ -1363,8 +1448,10 @@ export function removeGlobalChild(doc: Document, nodeId: NodeId): Document {
 /** Get all nodes visible on the active page (page content + global children). */
 export function activePageNodes(doc: Document): NodeId[] {
   const globals = doc.globalChildren ?? [];
-  if (!doc.activePageId) return [...globals, ...doc.rootChildren];
-  const page = doc.pages?.find((p) => p.contentRoot === doc.activePageId);
+  if (!doc.activePageId || !doc.pages || doc.pages.length === 0) {
+    return [...globals, ...doc.rootChildren];
+  }
+  const page = doc.pages?.find((p) => p.id === doc.activePageId);
   if (!page) return [...globals, ...doc.rootChildren];
   const contentRootNode = doc.nodes[page.contentRoot] as GroupNode | undefined;
   const pageChildren = contentRootNode?.children ?? [];
