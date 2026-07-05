@@ -1,25 +1,9 @@
-// @vitest-environment node
+import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { createMemoryPlatform, makeFileEntry, makeProject } from '../memory';
 import { createWebPlatform } from '../web';
 import type { Platform } from '../platform';
 import { DRAFTS_ID, type FileEntry, type Project } from '../types';
-import { createRequire } from 'node:module';
-
-// Mock IndexedDB for web platform tests
-const _require = createRequire(import.meta.url);
-if (typeof globalThis.indexedDB === 'undefined') {
-  const { IDBFactory, IDBRequest, IDBOpenDBRequest, IDBVersionChangeEvent, IDBDatabase, IDBTransaction, IDBObjectStore, IDBIndex, IDBCursor } = _require('fake-indexeddb');
-  globalThis.indexedDB = new IDBFactory();
-  globalThis.IDBRequest = IDBRequest;
-  globalThis.IDBOpenDBRequest = IDBOpenDBRequest;
-  globalThis.IDBVersionChangeEvent = IDBVersionChangeEvent;
-  globalThis.IDBDatabase = IDBDatabase;
-  globalThis.IDBTransaction = IDBTransaction;
-  globalThis.IDBObjectStore = IDBObjectStore;
-  globalThis.IDBIndex = IDBIndex;
-  globalThis.IDBCursor = IDBCursor;
-}
 
 async function testPlatform(name: string, factory: () => Promise<Platform>) {
   describe(name, () => {

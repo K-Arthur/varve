@@ -18,6 +18,7 @@ import { mapBlendMode } from './compositeCanvas';
 import { buildCurveLUT, applyCurve } from './adjustment/curves';
 import { buildLevelsLUT, applyLevels } from './adjustment/levels';
 import { applySelectiveColor } from './adjustment/selectiveColor';
+import { applyHalftone, type HalftonePattern, type HalftoneDotShape, type HalftoneChannel, type HalftoneMethod } from './halftone';
 
 /** Build a CSS filter string from all CSS-compatible filters, ignoring opacity/blend. */
 function filterChainToCssSimple(filters: FilterIR[]): string | null {
@@ -261,6 +262,22 @@ function applySoftwareFilter(
     case 'vibrance': {
       const vf = filter as { value: number };
       applyVibrance(imageData, vf.value ?? 0);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'halftone': {
+      const hf = filter as {
+        pattern: string; frequency: number; angle: number;
+        dotShape: string; channel: string; method: string;
+      };
+      applyHalftone(imageData, {
+        pattern: hf.pattern as HalftonePattern,
+        frequency: hf.frequency ?? 20,
+        angle: hf.angle ?? 45,
+        dotShape: hf.dotShape as HalftoneDotShape,
+        channel: hf.channel as HalftoneChannel,
+        method: hf.method as HalftoneMethod,
+      });
       ctx.putImageData(imageData, 0, 0);
       break;
     }

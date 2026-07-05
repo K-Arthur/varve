@@ -474,7 +474,18 @@ export type FilterIR =
       opacity: number;
       blendMode: string;
     }
-  | { kind: 'chain'; filters: FilterIR[] };
+  | { kind: 'chain'; filters: FilterIR[] }
+  | {
+      kind: 'halftone';
+      pattern: 'dot' | 'line' | 'cross' | 'circle';
+      frequency: number;          // LPI (lines per inch)
+      angle: number;              // Screen angle in degrees (0-359)
+      dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
+      channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
+      method: 'am' | 'fm';       // Amplitude modulation or frequency modulation
+      opacity: number;
+      blendMode: string;
+    };
 
 /** P2: Fill IR — a single fill in the render IR (solid, gradient, image, or pattern). */
 export type FillIR =

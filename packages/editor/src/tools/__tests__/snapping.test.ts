@@ -292,11 +292,11 @@ describe('snapPosition — frame/page center (D-04)', () => {
     const result = snapPosition(910, 537, 100, 100, [pageBounds]);
     expect(result.x).toBe(910); // centerX=960 matches page centerX=960 (0 diff)
     // Actually, snap compares edges, not center. Let me adjust.
-    // Page left=0, dragged left=0 => diff=0 < 5 ✅
+    // Page left=0, dragged left=0 => diff=0 < 5 (pass)
     // Wait, dragged x=910, page x=0, diff=910 > 5. No snap.
     // Snap is edge-based: dragged.left -> page.left, dragged.right -> page.right
     // dragged.right = 910+100=1010, page.right = 1920, diff=910. No.
-    // dragged.centerX = 960, page.centerX = 960, diff=0 ✅ center snap.
+    // dragged.centerX = 960, page.centerX = 960, diff=0 center snap.
     expect(result.guides.some((g) => g.axis === 'vertical' && g.type === 'center')).toBe(true);
   });
 
