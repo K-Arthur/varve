@@ -376,12 +376,12 @@
   white-space: nowrap;
 }
 .layers-row__sync-badge--overridden {
-  color: var(--color-warning, #b8860b);
-  background: color-mix(in srgb, var(--color-warning, #b8860b) 15%, transparent);
+  color: var(--color-feedback-warning);
+  background: color-mix(in oklch, var(--color-feedback-warning) 15%, transparent);
 }
 .layers-row__sync-badge--broken {
-  color: var(--color-danger, #c0392b);
-  background: color-mix(in srgb, var(--color-danger, #c0392b) 15%, transparent);
+  color: var(--color-feedback-danger);
+  background: color-mix(in oklch, var(--color-feedback-danger) 15%, transparent);
 }
 
 /* ─── Style indicator (palette icon for style-linked nodes) ── */
@@ -725,6 +725,35 @@
   background: var(--color-feedback-warning);
   color: var(--color-text-primary);
   border-radius: 2px;
+}
+
+/* ─── Presence indicators (collaboration) ──────────────────── */
+.layers-row__presence {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.layers-row__presence-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 8px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-on-accent);
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.layers-row__presence-overflow {
+  font-size: 8px;
+  color: var(--color-text-muted);
+  padding: 0 2px;
 }
 
 /* ─── Reduced motion ────────────────────────────────────────── */
