@@ -18,10 +18,7 @@ export interface GridItem {
   h: number;
 }
 
-type TrackSize =
-  | { kind: 'px'; value: number }
-  | { kind: 'fr'; value: number }
-  | { kind: 'auto' };
+type TrackSize = { kind: 'px'; value: number } | { kind: 'fr'; value: number } | { kind: 'auto' };
 
 function parseTrackTemplate(template: string): TrackSize[] {
   if (!template || template.trim() === '') return [];
@@ -50,14 +47,8 @@ export function parseGridTracks(template: string, availableSize: number, gap: nu
   if (tracks.length === 0) return [];
 
   const gapTotal = Math.max(0, tracks.length - 1) * gap;
-  const fixedTotal = tracks.reduce(
-    (sum, t) => (t.kind === 'px' ? sum + t.value : sum),
-    0,
-  );
-  const frTotal = tracks.reduce(
-    (sum, t) => (t.kind === 'fr' ? sum + t.value : sum),
-    0,
-  );
+  const fixedTotal = tracks.reduce((sum, t) => (t.kind === 'px' ? sum + t.value : sum), 0);
+  const frTotal = tracks.reduce((sum, t) => (t.kind === 'fr' ? sum + t.value : sum), 0);
   const remaining = Math.max(0, availableSize - fixedTotal - gapTotal);
   const perFr = frTotal > 0 ? remaining / frTotal : 0;
 
@@ -330,8 +321,11 @@ export function computeGridLayout(
   for (const a of assignments) {
     const childId = childNodes[a.childIndex]?.id;
     if (!childId) continue;
-    const cw = resolvedColSizes.slice(a.col, a.col + a.colSpan).reduce((s, v) => s + v + columnGap, 0) - columnGap;
-    const rh = resolvedRowSizes.slice(a.row, a.row + a.rowSpan).reduce((s, v) => s + v + rowGap, 0) - rowGap;
+    const cw =
+      resolvedColSizes.slice(a.col, a.col + a.colSpan).reduce((s, v) => s + v + columnGap, 0) -
+      columnGap;
+    const rh =
+      resolvedRowSizes.slice(a.row, a.row + a.rowSpan).reduce((s, v) => s + v + rowGap, 0) - rowGap;
     results.push({
       id: childId,
       x: colPositions[a.col] ?? 0,

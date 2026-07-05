@@ -10,8 +10,24 @@ describe('CanvasArea empty state', () => {
         illustration={
           <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden>
             <title>Empty canvas</title>
-            <rect x="10" y="12" width="60" height="56" rx="4" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" />
-            <path d="M30 30 L50 30 M30 38 L45 38 M30 46 L40 46" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+            <rect
+              x="10"
+              y="12"
+              width="60"
+              height="56"
+              rx="4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              fill="none"
+              opacity="0.3"
+            />
+            <path
+              d="M30 30 L50 30 M30 38 L45 38 M30 46 L40 46"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              opacity="0.4"
+            />
             <circle cx="56" cy="28" r="6" fill="currentColor" opacity="0.15" />
           </svg>
         }
@@ -33,7 +49,11 @@ describe('CanvasArea empty state', () => {
   it('renders three CTA buttons', () => {
     render(
       <EmptyState
-        illustration={<svg width="80" height="80" aria-hidden><title>Empty canvas</title></svg>}
+        illustration={
+          <svg width="80" height="80" aria-hidden>
+            <title>Empty canvas</title>
+          </svg>
+        }
         headline="Your canvas is empty"
         actions={
           <div className="editor-canvas__empty-actions">
@@ -61,7 +81,11 @@ describe('CanvasArea empty state', () => {
   it('EmptyState component has correct structure', () => {
     render(
       <EmptyState
-        illustration={<svg width="64" height="64" aria-hidden><title>Test</title></svg>}
+        illustration={
+          <svg width="64" height="64" aria-hidden>
+            <title>Test</title>
+          </svg>
+        }
         headline="Test headline"
         description="Test description"
       />,
