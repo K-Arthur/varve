@@ -64,10 +64,8 @@ function SortablePage({
       ref={setNodeRef}
       style={style}
       className={`page-strip__page${isActive ? ' page-strip__page--active' : ''}`}
-      role="tab"
       aria-selected={isActive}
       aria-label={`Page: ${page.name}`}
-      tabIndex={isActive ? 0 : -1}
       onClick={() => onSelect(page.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') onSelect(page.id);
@@ -75,6 +73,8 @@ function SortablePage({
       onContextMenu={(e) => onContextMenu(e, page.id)}
       {...attributes}
       {...listeners}
+      role="tab"
+      tabIndex={isActive ? 0 : -1}
     >
       <div className="page-strip__page-thumb" style={{ width: 60, height: 40 }}>
         <span className="page-strip__thumb-label">{page.name.charAt(0)}</span>
