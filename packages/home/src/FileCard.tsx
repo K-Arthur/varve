@@ -145,7 +145,7 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
         aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
         aria-selected={selected}
         draggable
-        className={`file-card ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
+        className={`file-card bento-cell ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
         style={mergedStyle}
         onClick={onClick}
         onContextMenu={(e) => onContext(e, entry)}

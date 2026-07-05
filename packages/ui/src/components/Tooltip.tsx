@@ -17,6 +17,8 @@ export interface TooltipProps {
   delay?: number;
   /** Max width of the tooltip. Default 240px. */
   maxWidth?: number;
+  /** Keyboard shortcut label shown in the tooltip (e.g., "V" for Select). */
+  shortcut?: string;
 }
 
 export function Tooltip({
@@ -25,6 +27,7 @@ export function Tooltip({
   placement = 'top',
   delay = 300,
   maxWidth = 240,
+  shortcut,
 }: TooltipProps) {
   const [visible, setVisible] = useState(false);
   const triggerRef = useRef<HTMLSpanElement>(null);
@@ -141,6 +144,7 @@ export function Tooltip({
           }}
         >
           {label}
+          {shortcut && <span className="strata-tip__shortcut">{shortcut}</span>}
         </div>
       )}
     </span>
