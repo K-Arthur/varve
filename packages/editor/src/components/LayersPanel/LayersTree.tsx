@@ -31,7 +31,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ContainerNode, Document, NodeId } from '@strata/scene';
-import { getKeyframeCount, getNodesInTimeline, isContainer } from '@strata/scene';
+import { getInstanceStatus, getKeyframeCount, getNodesInTimeline, isContainer } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
@@ -1107,6 +1107,18 @@ function SortableVirtualRow({
         })()
       : undefined;
 
+  // Resolve sync status for component instances
+  const syncStatus: import('@strata/scene').InstanceStatus | undefined =
+    node.kind === 'frame' && node.componentId
+      ? (() => {
+          try {
+            return getInstanceStatus(editorState.document, node.id);
+          } catch {
+            return undefined;
+          }
+        })()
+      : undefined;
+
   // CSS.Transform.toString(null) returns undefined; interpolating that yields
   // "undefined translateY(…)" — an invalid transform the browser drops
   // entirely, stacking every row at top:0. Only compose it when present.
@@ -1158,6 +1170,7 @@ function SortableVirtualRow({
         variantName={variantName}
         hasMotion={hasMotion}
         keyframeCount={keyframeCount}
+        syncStatus={syncStatus}
         onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
       />
     </div>

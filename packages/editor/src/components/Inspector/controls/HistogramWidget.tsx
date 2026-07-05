@@ -70,6 +70,7 @@ function drawTriangle(
 export function HistogramWidget({ histogram, levels, onChange }: HistogramWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragType, setDragType] = useState<'black' | 'gamma' | 'white' | null>(null);
+  const [focusType, setFocusType] = useState<'black' | 'gamma' | 'white' | null>(null);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -186,6 +187,66 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
     setDragType(null);
   }, []);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+      const current = focusType ?? 'black';
+      const step = 5;
+
+      switch (e.key) {
+        case 'ArrowLeft': {
+          e.preventDefault();
+          const delta = current === 'gamma' ? -0.1 : -step;
+          if (current === 'black') {
+            const next = Math.max(0, levels.inputBlack + delta);
+            if (next < levels.inputWhite - 2) onChange({ ...levels, inputBlack: next });
+          } else if (current === 'white') {
+            const next = Math.min(255, levels.inputWhite + delta);
+            if (next > levels.inputBlack + 2) onChange({ ...levels, inputWhite: next });
+          } else if (current === 'gamma') {
+            const next = Math.max(0.1, levels.gamma + delta);
+            onChange({ ...levels, gamma: next });
+          }
+          break;
+        }
+        case 'ArrowRight': {
+          e.preventDefault();
+          const delta = current === 'gamma' ? 0.1 : step;
+          if (current === 'black') {
+            const next = Math.min(255, levels.inputBlack + delta);
+            if (next < levels.inputWhite - 2) onChange({ ...levels, inputBlack: next });
+          } else if (current === 'white') {
+            const next = Math.min(255, levels.inputWhite + delta);
+            if (next > levels.inputBlack + 2) onChange({ ...levels, inputWhite: next });
+          } else if (current === 'gamma') {
+            const next = Math.min(10, levels.gamma + delta);
+            onChange({ ...levels, gamma: next });
+          }
+          break;
+        }
+        case 'Tab': {
+          e.preventDefault();
+          const sliders: Array<'black' | 'gamma' | 'white'> = ['black', 'gamma', 'white'];
+          const idx = sliders.indexOf(current);
+          const dir = e.shiftKey ? -1 : 1;
+          const next = (idx + dir + sliders.length) % sliders.length;
+          setFocusType(sliders[next]!);
+          break;
+        }
+        case 'Home': {
+          e.preventDefault();
+          setFocusType('black');
+          break;
+        }
+        case 'End': {
+          e.preventDefault();
+          setFocusType('white');
+          break;
+        }
+      }
+    },
+    [focusType, levels, onChange],
+  );
+
   const handleAuto = useCallback(() => {
     if (!histogram) return;
     const auto = autoLevelsParams(histogram);
@@ -203,8 +264,9 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
         ref={canvasRef}
         width={WIDTH}
         height={HEIGHT}
-        role="img"
-        aria-label="Histogram with level sliders"
+        role="graphics-document"
+        tabIndex={0}
+        aria-label="Histogram with level sliders. Use arrow keys to adjust, Tab to cycle between black/gamma/white sliders, Home/End to jump to ends."
         style={{
           width: '100%',
           height: HEIGHT,
@@ -217,6 +279,7 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onKeyDown={handleKeyDown}
       />
       <button
         type="button"

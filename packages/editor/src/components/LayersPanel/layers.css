@@ -368,6 +368,22 @@
   max-width: 80px;
 }
 
+.layers-row__sync-badge {
+  font-size: var(--font-size-2xs);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.layers-row__sync-badge--overridden {
+  color: var(--color-warning, #b8860b);
+  background: color-mix(in srgb, var(--color-warning, #b8860b) 15%, transparent);
+}
+.layers-row__sync-badge--broken {
+  color: var(--color-danger, #c0392b);
+  background: color-mix(in srgb, var(--color-danger, #c0392b) 15%, transparent);
+}
+
 /* ─── Style indicator (palette icon for style-linked nodes) ── */
 .layers-row__style-indicator {
   display: inline-flex;

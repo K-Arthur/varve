@@ -12,7 +12,7 @@ afterEach(() => {
 /** Helper test component that exposes editor context for assertions. */
 function TestShell() {
   return (
-    <EditorProvider>
+    <EditorProvider initialDocumentJson={JSON.stringify({ id: 'empty', formatVersion: 1, name: 'Empty', rootChildren: [], nodes: {}, components: {}, nextId: 1 })}>
       <CanvasArea />
     </EditorProvider>
   );
@@ -45,7 +45,7 @@ describe('CanvasArea empty state', () => {
       return <CanvasArea />;
     }
     render(
-      <EditorProvider>
+      <EditorProvider initialDocumentJson={JSON.stringify({ id: 'empty', formatVersion: 1, name: 'Empty', rootChildren: [], nodes: {}, components: {}, nextId: 1 })}>
         <Test />
       </EditorProvider>,
     );

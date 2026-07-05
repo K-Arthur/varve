@@ -50,6 +50,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     selectAllWithSameLayerColor,
     selectAllOfType,
     updateNode,
+    syncInstance,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
@@ -185,6 +186,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     detachSelected();
     closeMenu();
   }, [detachSelected, closeMenu]);
+
+  const handleSyncInstance = useCallback(() => {
+    if (state.selection.length === 1) {
+      syncInstance(state.selection[0]);
+    }
+    closeMenu();
+  }, [state.selection, syncInstance, closeMenu]);
 
   const handleCopy = useCallback(() => {
     copySelected();
@@ -361,6 +369,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               label="Detach Instance"
               disabled={!isInstanceSelected}
               onAction={handleDetach}
+            />
+            <ContextMenuItem
+              label="Sync Component"
+              disabled={!isInstanceSelected}
+              onAction={handleSyncInstance}
             />
             <hr className="layers-context-menu__separator" />
             <ContextMenuItem
