@@ -234,13 +234,14 @@ fn k_means_mask(rgba: &[u8], width: u32, height: u32) -> Vec<u8> {
             counts[a] += 1;
         }
         for c in 0..2 {
-            if counts[c] > 0 {
-                centroids[c] = [
-                    (sums[c][0] / counts[c]) as u8,
-                    (sums[c][1] / counts[c]) as u8,
-                    (sums[c][2] / counts[c]) as u8,
-                ];
+            if counts[c] == 0 {
+                continue;
             }
+            centroids[c] = [
+                (sums[c][0] / counts[c]) as u8,
+                (sums[c][1] / counts[c]) as u8,
+                (sums[c][2] / counts[c]) as u8,
+            ];
         }
     }
 
@@ -265,75 +266,6 @@ fn k_means_mask(rgba: &[u8], width: u32, height: u32) -> Vec<u8> {
     };
     for (i, &ass) in assignments.iter().enumerate() {
         mask[i] = if ass == fg { 255 } else { 0 };
-    }
-
-    mask
-}
-
-/// Edge-based mask: find the largest contour and keep it as foreground.
-fn edge_detect_mask(rgba: &[u8], width: u32, height: u32) -> Vec<u8> {
-    let n = (width * height) as usize;
-    let mut edges = vec![0u8; n];
-
-    for y in 1..height - 1 {
-        for x in 1..width - 1 {
-            let gx = gray_at(rgba, width, x - 1, y - 1) as i16 * -1
-                + gray_at(rgba, width, x - 1, y) as i16 * -2
-                + gray_at(rgba, width, x - 1, y + 1) as i16 * -1
-                + gray_at(rgba, width, x + 1, y - 1) as i16 * 1
-                + gray_at(rgba, width, x + 1, y) as i16 * 2
-                + gray_at(rgba, width, x + 1, y + 1) as i16 * 1;
-            let gy = gray_at(rgba, width, x - 1, y - 1) as i16 * -1
-                + gray_at(rgba, width, x, y - 1) as i16 * -2
-                + gray_at(rgba, width, x + 1, y - 1) as i16 * -1
-                + gray_at(rgba, width, x - 1, y + 1) as i16 * 1
-                + gray_at(rgba, width, x, y + 1) as i16 * 2
-                + gray_at(rgba, width, x + 1, y + 1) as i16 * 1;
-            let mag = ((gx * gx + gy * gy) as f64).sqrt();
-            edges[(y * width + x) as usize] = if mag > 50.0 { 255 } else { 0 };
-        }
-    }
-
-    let mut mask = vec![255u8; n];
-    let mut visited = vec![0u8; n];
-
-    let corners = [
-        (0u32, 0u32),
-        (width / 2, 0),
-        (width - 1, 0),
-        (0, height / 2),
-        (0, height - 1),
-        (width - 1, height / 2),
-        (width / 2, height - 1),
-        (width - 1, height - 1),
-    ];
-
-    let mut stack: Vec<(u32, u32)> = corners.to_vec();
-    while let Some((x, y)) = stack.pop() {
-        if x >= width || y >= height {
-            continue;
-        }
-        let idx = (y * width + x) as usize;
-        if visited[idx] != 0 {
-            continue;
-        }
-        visited[idx] = 1;
-        if edges[idx] > 0 {
-            continue;
-        }
-        mask[idx] = 0;
-        if x > 0 {
-            stack.push((x - 1, y));
-        }
-        if x + 1 < width {
-            stack.push((x + 1, y));
-        }
-        if y > 0 {
-            stack.push((x, y - 1));
-        }
-        if y + 1 < height {
-            stack.push((x, y + 1));
-        }
     }
 
     mask
@@ -371,7 +303,7 @@ fn auto_detect(
     let sample = 100usize.min((width * height) as usize);
     let step = ((width * height) as usize / sample).max(1);
     for i in 0..sample {
-        let idx = (i * step) as usize * 4;
+        let idx = i * step * 4;
         if idx + 3 < rgba.len() {
             spread += rgb_dist(rgba[idx], rgba[idx + 1], rgba[idx + 2], 128, 128, 128);
         }

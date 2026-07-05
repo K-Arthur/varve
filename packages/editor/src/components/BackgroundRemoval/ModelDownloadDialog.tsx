@@ -1,6 +1,6 @@
-import type { ModelMetadata } from '@strata/engine';
 import { AVAILABLE_MODELS, getModelLoader } from '@strata/engine';
 import { useCallback, useEffect, useState } from 'react';
+import { FocusTrap } from '../../onboard/FocusTrap';
 import './ModelDownloadDialog.css';
 
 interface ModelDownloadDialogProps {
@@ -48,40 +48,42 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="model-download-dialog">
-        <h2>Download AI Model</h2>
-        {model && (
-          <p className="model-download__desc">
-            {model.name} — ~{sizeMB} MB
-          </p>
-        )}
+      <FocusTrap onClose={onClose}>
+        <div className="model-download-dialog">
+          <h2>Download AI Model</h2>
+          {model && (
+            <p className="model-download__desc">
+              {model.name} — ~{sizeMB} MB
+            </p>
+          )}
 
-        {status === 'downloading' && (
-          <div className="model-download__progress">
-            <div className="model-download__bar">
-              <div className="model-download__fill" style={{ width: `${progress}%` }} />
+          {status === 'downloading' && (
+            <div className="model-download__progress">
+              <div className="model-download__bar">
+                <div className="model-download__fill" style={{ width: `${progress}%` }} />
+              </div>
+              <span className="model-download__pct">{progress}%</span>
             </div>
-            <span className="model-download__pct">{progress}%</span>
-          </div>
-        )}
+          )}
 
-        {status === 'done' && <p className="model-download__done">Model ready!</p>}
+          {status === 'done' && <p className="model-download__done">Model ready!</p>}
 
-        {status === 'error' && (
-          <div className="model-download__error">
-            <p>Download failed: {error}</p>
-            <button className="button button--primary" onClick={handleDownload}>
-              Retry
+          {status === 'error' && (
+            <div className="model-download__error">
+              <p>Download failed: {error}</p>
+              <button className="button button--primary" onClick={handleDownload}>
+                Retry
+              </button>
+            </div>
+          )}
+
+          <div className="model-download__actions">
+            <button className="button button--ghost" onClick={onClose}>
+              {status === 'done' ? 'Close' : 'Cancel'}
             </button>
           </div>
-        )}
-
-        <div className="model-download__actions">
-          <button className="button button--ghost" onClick={onClose}>
-            {status === 'done' ? 'Close' : 'Cancel'}
-          </button>
         </div>
-      </div>
+      </FocusTrap>
     </div>
   );
 }

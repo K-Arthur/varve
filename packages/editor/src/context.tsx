@@ -509,6 +509,21 @@ export interface EditorContextValue {
   /** Apply a boolean operation to all selected nodes; replaces selection with result. */
   booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
 
+  /** Remove background from the selected image node. */
+  removeBackground: (method: import('@strata/scene').BackgroundRemovalMethod) => Promise<void>;
+  /** Remove background with custom feather and decontaminate options. */
+  removeBackgroundWithOptions: (
+    method: import('@strata/scene').BackgroundRemovalMethod,
+    feather: number,
+    decontaminate: boolean,
+  ) => Promise<void>;
+  /** Batch remove background from all selected image nodes. */
+  batchRemoveBackground: (
+    method: import('@strata/scene').BackgroundRemovalMethod,
+  ) => Promise<{ total: number; succeeded: number; failed: number }>;
+  /** Toggle preview of original image (without background removal mask). */
+  setShowOriginalBg: (nodeId: import('@strata/scene').NodeId | null) => void;
+
   /** Enter/exit prototype mode */
   setPrototypeMode: (active: boolean) => void;
   /** Set prototype data from current document */
@@ -717,6 +732,7 @@ function shapeForTool(tool: ToolId): Shape {
     case 'healBrush':
     case 'spotHeal':
     case 'patch':
+    case 'refineMask':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
@@ -918,6 +934,7 @@ export function EditorProvider({
       motion: createInitialMotionState(),
       canvasMode: 'full',
       currentPageId: null,
+      showOriginalBgNodeId: null,
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -3422,13 +3439,20 @@ export function EditorProvider({
           announce('Select an image node first');
           return;
         }
+        const processingNodeId = imageNode.id;
         announce(`Removing background using ${method}...`);
         try {
           const { removeBackground } = await import('@strata/engine');
           const { getImageCache } = await import('@strata/engine');
           const { setBackgroundRemoval } = await import('@strata/scene');
           const cache = getImageCache();
-          const img = await cache.load(imageNode.src);
+          let img: HTMLImageElement | ImageBitmap | null = null;
+          try {
+            img = await cache.load(imageNode.src);
+          } catch {
+            announce('Could not load image: the image source may be cross-origin or unavailable');
+            return;
+          }
           if (!img) {
             announce('Could not load image');
             return;
@@ -3437,8 +3461,21 @@ export function EditorProvider({
           canvas.width = imageNode.w;
           canvas.height = imageNode.h;
           const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, imageNode.w, imageNode.h);
-          const imageData = ctx.getImageData(0, 0, imageNode.w, imageNode.h);
+          try {
+            ctx.drawImage(img, 0, 0, imageNode.w, imageNode.h);
+          } catch {
+            announce('Could not render image: the image may be cross-origin (CORS blocked)');
+            return;
+          }
+          let imageData: ImageData;
+          try {
+            imageData = ctx.getImageData(0, 0, imageNode.w, imageNode.h);
+          } catch {
+            announce(
+              'Could not read image pixels: the image source may be cross-origin (CORS blocked)',
+            );
+            return;
+          }
           const result = await import('@strata/engine').then((m) =>
             m.removeBackground(imageData, {
               method,
@@ -3446,6 +3483,12 @@ export function EditorProvider({
               decontaminate: true,
             }),
           );
+          const currentSelection = stateRef.current.selection;
+          const stillSelected = currentSelection.includes(processingNodeId);
+          if (!stillSelected) {
+            announce('Background removal completed but the image is no longer selected');
+            return;
+          }
           updateDoc((d) =>
             setBackgroundRemoval(d, imageNode.id, {
               maskDataUrl: result.maskDataUrl,
@@ -3514,6 +3557,58 @@ export function EditorProvider({
           `Background removed from ${succeeded} image(s)${failed ? `, ${failed} failed` : ''}`,
         );
         return { total: imageNodes.length, succeeded, failed };
+      },
+
+      removeBackgroundWithOptions: async (method, feather, decontaminate) => {
+        const imageNode = state.selection
+          .map((id) => state.document.nodes[id] as import('@strata/scene').ImageNode | undefined)
+          .find((n) => n?.kind === 'image') as import('@strata/scene').ImageNode | undefined;
+        if (!imageNode) {
+          announce('Select an image node first');
+          return;
+        }
+        announce(`Removing background using ${method}...`);
+        try {
+          const { removeBackground } = await import('@strata/engine');
+          const { getImageCache } = await import('@strata/engine');
+          const { setBackgroundRemoval } = await import('@strata/scene');
+          const cache = getImageCache();
+          const img = await cache.load(imageNode.src);
+          if (!img) {
+            announce('Could not load image');
+            return;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = imageNode.w;
+          canvas.height = imageNode.h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, imageNode.w, imageNode.h);
+          const imageData = ctx.getImageData(0, 0, imageNode.w, imageNode.h);
+          const result = await import('@strata/engine').then((m) =>
+            m.removeBackground(imageData, {
+              method,
+              feather,
+              decontaminate,
+            }),
+          );
+          updateDoc((d) =>
+            setBackgroundRemoval(d, imageNode.id, {
+              maskDataUrl: result.maskDataUrl,
+              method: result.method,
+              confidence: result.confidence,
+              appliedAt: Date.now(),
+              feather,
+              decontaminate,
+            }),
+          );
+          announce('Background removed');
+        } catch (e) {
+          announce(`Background removal failed: ${(e as Error).message}`);
+        }
+      },
+
+      setShowOriginalBg: (nodeId) => {
+        patch({ showOriginalBgNodeId: nodeId });
       },
 
       setPrototypeMode: (active) => {

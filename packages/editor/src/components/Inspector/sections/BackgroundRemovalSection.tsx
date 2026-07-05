@@ -7,7 +7,8 @@ import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
-  const { state, removeBackground, updateNode, announce } = useEditor();
+  const { state, removeBackgroundWithOptions, updateNode, announce, setShowOriginalBg } =
+    useEditor();
   const node = nodes[0] as ImageNode;
   if (node.kind !== 'image') return null;
 
@@ -18,11 +19,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const [method, setMethod] = useState<RemovalMethod>(bg?.method ?? 'quick');
   const [pending, setPending] = useState(false);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [feather, setFeather] = useState(bg?.feather ?? 0.5);
+  const [decontaminate, setDecontaminate] = useState(bg?.decontaminate ?? true);
+  const showingOriginal = state.showOriginalBgNodeId === node.id;
 
   const handleApply = async () => {
     setPending(true);
     try {
-      await removeBackground(method);
+      await removeBackgroundWithOptions(method, feather, decontaminate);
     } finally {
       setPending(false);
     }
@@ -40,6 +44,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setShowDownloadDialog(true);
   };
 
+  const handleTogglePreview = () => {
+    setShowOriginalBg(showingOriginal ? null : node.id);
+    announce(
+      showingOriginal
+        ? 'Showing masked result'
+        : 'Showing original image without background removal',
+    );
+  };
+
   return (
     <DisclosureSection title="Background Removal">
       <div className="bg-removal__method">
@@ -47,6 +60,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         <select
           id="bg-method"
           value={method}
+          aria-label="Background removal method"
+          aria-describedby="bg-method-desc"
           onChange={(e) => setMethod(e.target.value as RemovalMethod)}
         >
           <option value="quick">Quick (no download needed)</option>
@@ -57,11 +72,19 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             AI Best Quality{!aiAvailable ? ' (not downloaded)' : ''}
           </option>
         </select>
+        <span id="bg-method-desc" className="sr-only">
+          Quick uses a fast heuristic. AI methods use a machine learning model for better results
+          but require a download.
+        </span>
       </div>
 
       {method !== 'quick' && !aiAvailable && modelState !== 'downloading' && (
         <div className="bg-removal__actions">
-          <button className="button--primary" onClick={handleDownload}>
+          <button
+            className="button--primary"
+            onClick={handleDownload}
+            aria-label="Download AI model for background removal"
+          >
             Download AI Model
           </button>
         </div>
@@ -77,13 +100,80 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         </div>
       )}
 
+      <div className="bg-removal__refinement">
+        <label htmlFor="bg-feather">Feather</label>
+        <div className="bg-removal__number-input">
+          <button
+            type="button"
+            className="bg-removal__number-btn"
+            onClick={() => setFeather((v) => Math.max(0, +(v - 0.1).toFixed(1)))}
+            aria-label="Decrease feather"
+          >
+            -
+          </button>
+          <input
+            id="bg-feather"
+            type="number"
+            min={0}
+            max={3}
+            step={0.1}
+            value={feather}
+            onChange={(e) => {
+              const v = Number.parseFloat(e.target.value);
+              if (!Number.isNaN(v)) setFeather(Math.max(0, Math.min(3, v)));
+            }}
+            className="bg-removal__number-field"
+          />
+          <button
+            type="button"
+            className="bg-removal__number-btn"
+            onClick={() => setFeather((v) => Math.min(3, +(v + 0.1).toFixed(1)))}
+            aria-label="Increase feather"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      <label className="bg-removal__checkbox-label">
+        <input
+          type="checkbox"
+          checked={decontaminate}
+          onChange={(e) => setDecontaminate(e.target.checked)}
+        />
+        <span>Decontaminate</span>
+      </label>
+
       <div className="bg-removal__actions">
-        <button className="button--primary" onClick={handleApply} disabled={pending}>
+        <button
+          className="button--primary"
+          onClick={handleApply}
+          disabled={pending}
+          aria-label={
+            pending
+              ? 'Processing background removal'
+              : bg
+                ? 'Re-apply background removal'
+                : 'Remove background from image'
+          }
+        >
           {pending ? 'Processing...' : bg ? 'Re-apply' : 'Remove Background'}
         </button>
         {bg && (
-          <button className="button--ghost" onClick={handleReset}>
+          <button
+            className="button--ghost"
+            onClick={handleReset}
+            aria-label="Reset background removal to original image"
+          >
             Reset to Original
+          </button>
+        )}
+        {bg && (
+          <button
+            className={`button--ghost ${showingOriginal ? 'button--active' : ''}`}
+            onClick={handleTogglePreview}
+          >
+            {showingOriginal ? 'Showing Original' : 'Show Original'}
           </button>
         )}
       </div>

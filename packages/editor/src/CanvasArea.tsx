@@ -73,6 +73,7 @@ import { PencilTool } from './tools/PencilTool';
 import { PenTool } from './tools/PenTool';
 import { PolygonTool } from './tools/PolygonTool';
 import { RectangleTool } from './tools/RectangleTool';
+import { RefineMaskTool } from './tools/RefineMaskTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
 import { SliceTool } from './tools/SliceTool';
@@ -83,6 +84,8 @@ import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
 
 type DocNode = SceneNode;
+
+let _showOriginalBgNodeId: string | null = null;
 
 function toEngineNode(n: DocNode): EngineNode {
   const base = {
@@ -121,13 +124,14 @@ function toEngineNode(n: DocNode): EngineNode {
     return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
   if (n.kind === 'image') {
     const imageNode = n as import('@strata/scene').ImageNode;
+    const skipAlphaMask = _showOriginalBgNodeId === n.id;
     return {
       ...base,
       kind: 'image',
       src: imageNode.src,
       w: imageNode.w,
       h: imageNode.h,
-      alphaMask: imageNode.backgroundRemoval?.maskDataUrl,
+      alphaMask: skipAlphaMask ? undefined : imageNode.backgroundRemoval?.maskDataUrl,
     };
   }
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
@@ -217,6 +221,7 @@ function getToolManager(): ToolManager {
     toolManager.register('healBrush', () => new HealingBrushTool());
     toolManager.register('spotHeal', () => new SpotHealTool());
     toolManager.register('patch', () => new PatchTool());
+    toolManager.register('refineMask', () => new RefineMaskTool());
   }
   toolManager.setTool('select');
   return toolManager;
@@ -555,6 +560,7 @@ export function CanvasArea({
       const ctxNN = ctx;
       const s = stateRef.current;
       const doc = s.document;
+      _showOriginalBgNodeId = s.showOriginalBgNodeId ?? null;
 
       const boardColor = (() => {
         const bg = doc.canvasBackground;
