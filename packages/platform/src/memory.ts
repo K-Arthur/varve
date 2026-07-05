@@ -11,6 +11,7 @@
  */
 import type { Platform } from './platform';
 import { contentHash, defaultViewState, uuid } from './pure';
+import type { ContentSearchMatch } from './searchIndex';
 import { indexDocumentContent, searchContentIndex } from './searchIndex';
 import type {
   ActivityEvent,
@@ -61,6 +62,8 @@ interface MemoryState {
   fileFolderIds: Map<string, string | null>;
   assetFolderIds: Map<string, string | null>;
   projectWorkspaceIds: Map<string, string>;
+  /** Cached content search index per file id to avoid re-indexing. */
+  contentIndexCache: Map<string, Map<string, ContentSearchMatch>>;
 }
 
 function freshState(): MemoryState {
@@ -88,6 +91,7 @@ function freshState(): MemoryState {
     fileFolderIds: new Map(),
     assetFolderIds: new Map(),
     projectWorkspaceIds: new Map(),
+    contentIndexCache: new Map(),
   };
 }
 
@@ -171,6 +175,7 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         },
         json: documentJson,
       });
+      state.contentIndexCache.delete(entry.id);
     },
     async touchFile(id, openedAt = Date.now()) {
       const rec = state.files.get(id);
@@ -460,7 +465,11 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async searchFileContent(fileId, query) {
       const rec = state.files.get(fileId);
       if (!rec || !query.trim()) return [];
-      const index = indexDocumentContent(fileId, rec.json);
+      let index = state.contentIndexCache.get(fileId);
+      if (!index) {
+        index = indexDocumentContent(fileId, rec.json);
+        state.contentIndexCache.set(fileId, index);
+      }
       const results = searchContentIndex(index, query);
       return results.map((r) => JSON.stringify(r));
     },
@@ -629,9 +638,9 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async listPermissions(fileId) {
       return [...(state.permissions.get(fileId) ?? [])];
     },
-    async setPermission(fileId, role) {
+    async setPermission(fileId, role, email) {
       const list = state.permissions.get(fileId) ?? [];
-      list.push({ fileId, role, grantedAt: Date.now() });
+      list.push({ fileId, role, email, grantedAt: Date.now() });
       state.permissions.set(fileId, list);
     },
     async listActivity(workspaceId, limit) {

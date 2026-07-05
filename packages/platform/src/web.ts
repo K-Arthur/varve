@@ -701,11 +701,11 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       const row = await db.get(STORE_KV, key);
       return (row?.value as Permission[] | undefined) ?? [];
     },
-    async setPermission(fileId: string, role: Permission['role']) {
+    async setPermission(fileId: string, role: Permission['role'], email?: string) {
       const key = `perm_${fileId}`;
       const row = await db.get(STORE_KV, key);
       const list: Permission[] = (row?.value as Permission[] | undefined) ?? [];
-      list.push({ fileId, role, grantedAt: Date.now() });
+      list.push({ fileId, role, email, grantedAt: Date.now() });
       await db.put(STORE_KV, { key, value: list });
     },
 

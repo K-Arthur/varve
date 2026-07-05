@@ -68,12 +68,24 @@ describe('ContextualHelpPanel', () => {
   it('Search filters results by keyword match', () => {
     const results = searchHelpContent('rectangle');
     expect(results.length).toBeGreaterThan(0);
-    expect(results.every((r) => r.title.toLowerCase().includes('rectangle') || r.summary.toLowerCase().includes('rectangle') || r.keywords.some((k) => k.includes('rectangle')))).toBeTruthy();
+    expect(
+      results.every(
+        (r) =>
+          r.title.toLowerCase().includes('rectangle') ||
+          r.summary.toLowerCase().includes('rectangle') ||
+          r.keywords.some((k) => k.includes('rectangle')),
+      ),
+    ).toBeTruthy();
   });
 
   it('Clicking search result loads that article', () => {
     const article = HELP_CONTENT['tool:rect'];
-    const state = createState({ open: true, article: null, searchQuery: 'rect', searchResults: [article] });
+    const state = createState({
+      open: true,
+      article: null,
+      searchQuery: 'rect',
+      searchResults: [article],
+    });
     const { onSetArticle } = renderPanel(state);
     const resultBtn = screen.getByText(article.title);
     fireEvent.click(resultBtn);

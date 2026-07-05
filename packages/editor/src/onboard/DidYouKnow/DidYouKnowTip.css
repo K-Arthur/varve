@@ -1,0 +1,152 @@
+/* ── Did You Know? Tip Toast ───────────────────────────── */
+
+.did-you-know-tip {
+  position: fixed;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--z-toast);
+  display: flex;
+  gap: var(--space-3);
+  min-width: 18rem;
+  max-width: 24rem;
+  padding: var(--space-3);
+  background: var(--color-surface-overlay);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  animation: did-you-know-slide-in var(--duration-base) var(--ease-out) both;
+  pointer-events: auto;
+}
+
+.did-you-know-tip--exiting {
+  animation: did-you-know-slide-out var(--duration-fast) var(--ease-in) both;
+}
+
+.did-you-know-tip--no-animation {
+  animation: none;
+}
+
+.did-you-know-tip__indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--color-accent-default);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.did-you-know-tip__icon {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--color-accent-default);
+  margin-top: var(--space-1);
+}
+
+.did-you-know-tip__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.did-you-know-tip__title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.did-you-know-tip__body {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+
+.did-you-know-tip__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.did-you-know-tip__got-it {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    opacity var(--duration-quick) var(--ease-standard);
+}
+.did-you-know-tip__got-it:hover {
+  opacity: 0.9;
+}
+.did-you-know-tip__got-it:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.did-you-know-tip__dont-show {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-1);
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--duration-quick) var(--ease-standard);
+}
+.did-you-know-tip__dont-show:hover {
+  color: var(--color-text-primary);
+}
+.did-you-know-tip__dont-show:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Animations ─────────────────────────────── */
+
+@keyframes did-you-know-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes did-you-know-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}

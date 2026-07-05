@@ -4,7 +4,16 @@ import { defineConfig } from 'vitest/config';
 //   // @vitest-environment jsdom
 // at the top of a test file when DOM is needed.
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@tauri-apps/api/core': './vitest.mocks.ts',
+      'onnxruntime-web': './vitest.mocks.ts',
+    },
+  },
   test: {
+    deps: {
+      inline: ['@strata/engine'],
+    },
     setupFiles: ['./vitest.setup.ts'],
     include: [
       'packages/**/src/**/*.{test,spec}.{ts,tsx}',

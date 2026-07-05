@@ -128,7 +128,7 @@ export interface Platform {
 
   // ─── Phase 8: Collaboration Foundation ───────────────────────────────────
   listPermissions(fileId: string): Promise<Permission[]>;
-  setPermission(fileId: string, role: Permission['role']): Promise<void>;
+  setPermission(fileId: string, role: Permission['role'], email?: string): Promise<void>;
   listActivity(workspaceId: string, limit?: number): Promise<ActivityEvent[]>;
   recordActivity(event: Omit<ActivityEvent, 'id' | 'timestamp'>): Promise<void>;
 

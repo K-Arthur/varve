@@ -300,3 +300,33 @@ export function getTimelines(doc: Document): Record<string, Timeline> {
 export function getTimeline(doc: Document, timelineId: string): Timeline | undefined {
   return doc.timelines?.[timelineId];
 }
+
+/**
+ * Returns a Set of NodeIds that have animation keyframes in any timeline.
+ */
+export function getNodesInTimeline(doc: Document): Set<NodeId> {
+  const result = new Set<NodeId>();
+  if (!doc.timelines) return result;
+  for (const timeline of Object.values(doc.timelines)) {
+    for (const track of timeline.tracks) {
+      if (track.nodeId) result.add(track.nodeId);
+    }
+  }
+  return result;
+}
+
+/**
+ * Returns the number of keyframes for a given node across all timelines.
+ */
+export function getKeyframeCount(doc: Document, nodeId: NodeId): number {
+  if (!doc.timelines) return 0;
+  let count = 0;
+  for (const timeline of Object.values(doc.timelines)) {
+    for (const track of timeline.tracks) {
+      if (track.nodeId === nodeId) {
+        count += track.keyframes.length;
+      }
+    }
+  }
+  return count;
+}

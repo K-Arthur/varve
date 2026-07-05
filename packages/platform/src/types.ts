@@ -358,6 +358,7 @@ export interface Permission {
   fileId?: string;
   projectId?: string;
   workspaceId?: string;
+  email?: string;
   role: PermissionRole;
   grantedAt: number;
 }

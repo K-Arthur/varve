@@ -100,7 +100,7 @@
     color var(--duration-fast) var(--ease-default),
     background var(--duration-fast) var(--ease-default);
 }
-.onboarding-checklist__label:hover:not([aria-disabled='true']) {
+.onboarding-checklist__label:hover:not([aria-disabled="true"]) {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }

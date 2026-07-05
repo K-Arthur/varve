@@ -98,7 +98,11 @@ export function ContextualHelpPanel({
       <div className="contextual-help-panel__content">
         {state.searchQuery ? (
           state.searchResults.length > 0 ? (
-            <ul className="contextual-help-panel__results" role="listbox" aria-label="Search results">
+            <ul
+              className="contextual-help-panel__results"
+              role="listbox"
+              aria-label="Search results"
+            >
               {state.searchResults.map((article) => (
                 <li key={article.id} role="option" aria-selected={state.article?.id === article.id}>
                   <button

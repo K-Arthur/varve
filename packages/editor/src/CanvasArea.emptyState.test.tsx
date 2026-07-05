@@ -25,9 +25,7 @@ describe('CanvasArea empty state', () => {
     await waitFor(() => {
       expect(screen.getByText('Your canvas is empty')).toBeTruthy();
     });
-    expect(
-      screen.getByText(/Draw a shape, add some text, or import an image/),
-    ).toBeTruthy();
+    expect(screen.getByText(/Draw a shape, add some text, or import an image/)).toBeTruthy();
   });
 
   it('renders three CTA buttons in the empty state', async () => {

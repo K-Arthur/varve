@@ -344,8 +344,8 @@ export function createTauriPlatform(): Platform {
       const c = core();
       return (await c.invoke('home_list_permissions', { fileId })) as Permission[];
     },
-    async setPermission(fileId, role) {
-      await core().invoke('home_set_permission', { fileId, role });
+    async setPermission(fileId, role, email) {
+      await core().invoke('home_set_permission', { fileId, role, email });
     },
     async listActivity(workspaceId, limit) {
       const c = core();
