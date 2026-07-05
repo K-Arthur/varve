@@ -150,6 +150,7 @@
   /* --- Elevation shadows (dark-theme adaptive) --- */
   --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.14);
   --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.2);
+  --elevation-scrim: oklch(0 0 0 / 0.3);
 
   /* --- Elevation z-index --- */
   --elevation-z-sunken: 0;
@@ -275,6 +276,7 @@
   /* Elevation shadows (dark mode — more visible on dark bg). */
   --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.3);
   --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
+  --elevation-scrim: oklch(0 0 0 / 0.55);
 
   /* Micro-borders (dark mode — more visible). */
   --border-micro: 1px solid oklch(1 0 0 / 0.08);
@@ -427,6 +429,7 @@
     /* Elevation shadows (dark mode — more visible on dark bg). */
     --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.3);
     --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
+    --elevation-scrim: oklch(0 0 0 / 0.55);
 
     /* Micro-borders (dark mode — more visible). */
     --border-micro: 1px solid oklch(1 0 0 / 0.08);

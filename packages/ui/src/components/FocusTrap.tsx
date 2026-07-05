@@ -19,18 +19,18 @@ export function FocusTrap({ children, active = true, initialFocus }: FocusTrapPr
     if (!container) return;
 
     function getFocusable(): HTMLElement[] {
-      return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+      return Array.from(container!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
         (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
       );
     }
 
-    function handleKeyDown(e: KeyboardEvent) {
+    function handleKeyDown(e: KeyboardEvent): void {
       if (e.key !== 'Tab') return;
       const focusable = getFocusable();
       if (focusable.length === 0) return;
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
 
       if (e.shiftKey) {
         if (document.activeElement === first) {

@@ -697,7 +697,7 @@
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-overlay) - 1);
-  background: oklch(0 0 0 / 0.3);
+  background: var(--elevation-scrim, oklch(0 0 0 / 0.3));
 }
 
 /* ── Floating action buttons ── */
@@ -1130,12 +1130,12 @@
 .spotlight-overlay__backdrop {
   position: absolute;
   inset: 0;
-  background: oklch(0 0 0 / 0.55);
+  background: var(--elevation-scrim, oklch(0 0 0 / 0.55));
 }
 .spotlight-overlay__highlight {
   position: absolute;
   border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 9999px oklch(0 0 0 / 0.55);
+  box-shadow: 0 0 0 9999px var(--elevation-scrim, oklch(0 0 0 / 0.55));
   z-index: 1;
   pointer-events: none;
 }

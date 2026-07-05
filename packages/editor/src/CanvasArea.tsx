@@ -551,7 +551,7 @@ export function CanvasArea({
         return (
           getComputedStyle(document.documentElement)
             .getPropertyValue('--color-surface-sunken')
-            .trim() || '#f5f5f4'
+            .trim()
         );
       })();
 
@@ -914,7 +914,7 @@ export function CanvasArea({
     const accentColor =
       getComputedStyle(document.documentElement)
         .getPropertyValue('--color-accent-primary')
-        .trim() || '#3b82f6';
+        .trim();
 
     // Clear overlay canvas (it's transparent otherwise)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -923,7 +923,7 @@ export function CanvasArea({
     ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
 
     // ── Layout grid overlay for frames with gridTemplate ────────────────
-    ctx.strokeStyle = 'rgba(57, 208, 198, 0.25)';
+    ctx.strokeStyle = accentColor.replace(')', ' / 0.25)');
     ctx.lineWidth = 1 / s.zoom;
     ctx.setLineDash([0]);
     for (const [nid] of entries) {

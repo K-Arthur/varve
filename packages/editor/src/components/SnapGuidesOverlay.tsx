@@ -7,11 +7,13 @@ interface SnapGuidesOverlayProps {
 }
 
 function guideColor(type?: string): string {
+  const root = document.documentElement;
+  const cs = getComputedStyle(root);
   switch (type) {
     case 'midpoint':
-      return '#22c55e';
+      return cs.getPropertyValue('--color-feedback-success').trim() || '#22c55e';
     case 'size-match':
-      return '#3b82f6';
+      return cs.getPropertyValue('--color-accent-primary').trim() || '#3b82f6';
     default:
       return 'currentColor';
   }

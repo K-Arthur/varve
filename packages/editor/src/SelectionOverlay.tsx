@@ -481,11 +481,11 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             style={{ pointerEvents: hasInteractiveHandles ? 'auto' : 'none', cursor: 'grab' }}
             onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, 8) : undefined}
           />
-          <circle
+            <circle
             cx={rotX}
             cy={rotY}
             r={HANDLE_HALF}
-            fill="white"
+            fill="var(--color-surface-overlay)"
             stroke="var(--color-interactive-default)"
             strokeWidth={1.5}
             aria-label="Rotate"
@@ -514,7 +514,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             y={hy - HANDLE_HALF}
             width={HANDLE_HALF * 2}
             height={HANDLE_HALF * 2}
-            fill="white"
+            fill="var(--color-surface-overlay)"
             stroke="var(--color-interactive-default)"
             strokeWidth={1.5}
             rx={1}
@@ -538,7 +538,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             cx={x + w / 2}
             cy={y + h / 2}
             r={4}
-            fill="white"
+            fill="var(--color-surface-overlay)"
             stroke="var(--color-interactive-default)"
             strokeWidth={1.5}
             aria-label="Transform origin"
