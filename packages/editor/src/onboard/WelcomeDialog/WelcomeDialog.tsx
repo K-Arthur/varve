@@ -30,17 +30,8 @@ export function WelcomeDialog({
       open={open}
       onClose={onClose}
       title="Welcome to Strata"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Welcome to Strata"
     >
-      <div
-        className="welcome-dialog"
-        onKeyDown={handleKeyDown}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Welcome to Strata"
-      >
+      <div className="welcome-dialog">
         <div className="welcome-dialog__logo">
           <Icon name="Layers" size="2.5em" label="Strata logo" />
         </div>

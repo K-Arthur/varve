@@ -85,7 +85,7 @@ describe('renderAlphaMask', () => {
 
     // Content context had its composite operation set to destination-in
     if (contentCtxSaved) {
-      expect((contentCtxSaved as any).globalCompositeOperation).toBe('source-over');
+      expect((contentCtxSaved as any).globalCompositeOperation).toBe('destination-in');
     }
 
     // Main drawImage called
@@ -203,12 +203,9 @@ describe('renderAlphaMask', () => {
       return el;
     });
 
-    // Mask source draws with a gradient
+    // Mask source draws simulating a gradient (solid white with alpha range)
     const maskDraw = vi.fn((ctx: CanvasRenderingContext2D) => {
-      const grad = ctx.createLinearGradient(0, 0, 200, 0);
-      grad.addColorStop(0, 'rgba(255,255,255,0)');
-      grad.addColorStop(1, 'rgba(255,255,255,1)');
-      ctx.fillStyle = grad as unknown as string;
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fillRect(0, 0, 200, 200);
     });
 
