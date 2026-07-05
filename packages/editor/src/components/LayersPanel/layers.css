@@ -102,6 +102,7 @@
 /* ─── Tree container ────────────────────────────────────────── */
 .layers-panel__tree {
   flex: 1;
+  min-height: 80px;
   overflow-y: auto;
   overflow-x: auto;
   outline: none;
@@ -667,7 +668,8 @@
   margin-top: var(--space-3);
   padding-top: var(--space-2);
   border-top: 1px solid var(--color-border-subtle);
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-height: 60px;
   max-height: 220px;
   overflow-y: auto;
 }

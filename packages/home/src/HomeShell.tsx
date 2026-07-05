@@ -705,6 +705,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                 onStartRename={handleStartRename}
                 missingFiles={missingFiles}
                 onToggleFavorite={actions.toggleFavorite}
+                onPin={actions.togglePin}
               />
             )}
           </>

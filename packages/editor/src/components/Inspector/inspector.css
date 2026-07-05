@@ -203,7 +203,7 @@
  */
 .insp-disclosure {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   margin-bottom: var(--space-1);
   background: var(--elevation-surface-default);
   border: var(--border-micro);

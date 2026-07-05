@@ -4,7 +4,7 @@ import type { FileEntry } from '@strata/platform';
 import { formatBytes, formatRelativeTime } from '@strata/platform';
 import { Icon } from '@strata/ui';
 import {
-  type ButtonHTMLAttributes,
+  type HTMLAttributes,
   forwardRef,
   type KeyboardEvent,
   useCallback,
@@ -13,7 +13,7 @@ import {
   useState,
 } from 'react';
 
-export interface FileCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface FileCardProps extends HTMLAttributes<HTMLDivElement> {
   entry: FileEntry;
   thumbnail: string | null | undefined;
   thumbnailLoading: boolean;
@@ -29,7 +29,7 @@ export interface FileCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   onToggleFavorite?: (entry: FileEntry) => void;
 }
 
-export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function FileCard(
+export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileCard(
   {
     entry,
     thumbnail,
@@ -64,7 +64,7 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
   const mergedStyle = { ...styleProp, ...dndStyle };
 
   const mergedRef = useCallback(
-    (node: HTMLButtonElement | null) => {
+    (node: HTMLDivElement | null) => {
       setNodeRef(node);
       if (typeof ref === 'function') ref(node);
       else if (ref) ref.current = node;
@@ -72,7 +72,6 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
     [ref, setNodeRef],
   );
 
-  // Focus rename input when renaming starts
   useEffect(() => {
     if (isRenaming && renameInputRef.current) {
       renameInputRef.current.focus();
@@ -80,7 +79,6 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
     }
   }, [isRenaming]);
 
-  // Reset rename value when entry changes
   useEffect(() => {
     setRenameValue(entry.name);
   }, [entry.name]);
@@ -94,12 +92,12 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
         } else {
           setRenameValue(entry.name);
         }
-        onStartRename?.(); // Exit rename mode
+        onStartRename?.();
       }
       if (e.key === 'Escape') {
         e.preventDefault();
         setRenameValue(entry.name);
-        onStartRename?.(); // Exit rename mode
+        onStartRename?.();
       }
     },
     [renameValue, entry.id, entry.name, onRename, onStartRename],
@@ -111,7 +109,7 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
     } else {
       setRenameValue(entry.name);
     }
-    onStartRename?.(); // Exit rename mode
+    onStartRename?.();
   }, [renameValue, entry.id, entry.name, onRename, onStartRename]);
 
   useEffect(() => {
@@ -137,87 +135,85 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
   };
 
   return (
-    <>
-      {/* biome-ignore lint/a11y/useSemanticElements: ARIA gridcell role required for virtualized grid */}
-      <button
-        ref={mergedRef}
-        type="button"
-        aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
-        aria-selected={selected}
-        draggable
-        className={`file-card bento-cell ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
-        style={mergedStyle}
-        onClick={onClick}
-        onContextMenu={(e) => onContext(e, entry)}
-        onKeyDown={handleKey}
-        onDragStart={(e) => onFileDragStart?.(e, entry)}
-        {...attributes}
-        role="gridcell"
-        {...listeners}
-        {...rest}
-      >
-        <div className="file-card__thumb" ref={thumbRef}>
-          {thumbnailLoading && !thumbnail && <div className="file-card__skeleton" />}
-        </div>
-        <div className="file-card__body">
-          {isRenaming ? (
-            <input
-              ref={renameInputRef}
-              type="text"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={handleRenameKeyDown}
-              onBlur={handleRenameBlur}
-              className="file-card__rename-input"
-              style={{
-                width: '100%',
-                background: 'var(--color-surface-raised)',
-                border: '1px solid var(--color-interactive-default)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '2px 4px',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 'var(--font-weight-medium)',
-                color: 'var(--color-text-primary)',
-                outline: 'none',
+    // biome-ignore lint/a11y/useSemanticElements: ARIA gridcell role required for virtualized grid; div used to allow nested interactive children (fav button, rename input)
+    <div
+      ref={mergedRef}
+      tabIndex={0}
+      aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
+      aria-selected={selected}
+      draggable
+      className={`file-card bento-cell ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
+      style={mergedStyle}
+      onClick={onClick}
+      onContextMenu={(e) => onContext(e, entry)}
+      onKeyDown={handleKey}
+      onDragStart={(e) => onFileDragStart?.(e, entry)}
+      {...attributes}
+      role="gridcell"
+      {...listeners}
+      {...rest}
+    >
+      <div className="file-card__thumb" ref={thumbRef}>
+        {thumbnailLoading && !thumbnail && <div className="file-card__skeleton" />}
+      </div>
+      <div className="file-card__body">
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={handleRenameKeyDown}
+            onBlur={handleRenameBlur}
+            className="file-card__rename-input"
+            style={{
+              width: '100%',
+              background: 'var(--color-surface-raised)',
+              border: '1px solid var(--color-interactive-default)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '2px 4px',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 'var(--font-weight-medium)',
+              color: 'var(--color-text-primary)',
+              outline: 'none',
+            }}
+          />
+        ) : (
+          <span className="file-card__name" title={entry.name}>
+            {entry.name}
+          </span>
+        )}
+        <div className="file-card__meta">
+          {onToggleFavorite && (
+            <button
+              type="button"
+              className={`file-card__fav ${entry.favoritedAt && entry.favoritedAt > 0 ? 'file-card__fav--active' : ''}`}
+              aria-label={
+                entry.favoritedAt && entry.favoritedAt > 0
+                  ? 'Remove from Favorites'
+                  : 'Add to Favorites'
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onToggleFavorite(entry);
               }}
-            />
-          ) : (
-            <span className="file-card__name" title={entry.name}>
-              {entry.name}
-            </span>
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <Icon
+                name="Star"
+                fill={entry.favoritedAt && entry.favoritedAt > 0 ? 'currentColor' : 'none'}
+                label={undefined}
+                size="0.85em"
+              />
+            </button>
           )}
-          <div className="file-card__meta">
-            {onToggleFavorite && (
-              <button
-                type="button"
-                className={`file-card__fav ${entry.favoritedAt && entry.favoritedAt > 0 ? 'file-card__fav--active' : ''}`}
-                aria-label={
-                  entry.favoritedAt && entry.favoritedAt > 0
-                    ? 'Remove from Favorites'
-                    : 'Add to Favorites'
-                }
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  onToggleFavorite(entry);
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <Icon
-                  name="Star"
-                  fill={entry.favoritedAt && entry.favoritedAt > 0 ? 'currentColor' : 'none'}
-                  label={undefined}
-                  size="0.85em"
-                />
-              </button>
-            )}
-            <span className="file-card__badge">{entry.kind}</span>
-            <span>{formatRelativeTime(entry.updatedAt)}</span>
-            {entry.size > 0 && <span>{formatBytes(entry.size)}</span>}
-          </div>
+          <span className="file-card__badge">{entry.kind}</span>
+          <span>{formatRelativeTime(entry.updatedAt)}</span>
+          {entry.size > 0 && <span>{formatBytes(entry.size)}</span>}
         </div>
-      </button>
-    </>
+      </div>
+    </div>
   );
 });

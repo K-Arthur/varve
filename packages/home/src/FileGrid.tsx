@@ -51,6 +51,11 @@ export function FileGrid({
   const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null);
   const typeAheadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typeAheadBufferRef = useRef('');
+  // Tracks intent to programmatically move focus (keyboard navigation only).
+  // Set before calling setFocusIdx so the effect below can distinguish
+  // keyboard-driven focus moves from incidental re-renders (e.g. thumbnail loads).
+  const pendingFocusRef = useRef(false);
+  const focusedCardRef = useRef<HTMLDivElement | null>(null);
 
   const rowCount = Math.ceil(files.length / columns);
 
@@ -87,8 +92,17 @@ export function FileGrid({
     }
   }, [files, columns, focusIdx, thumbnails, onLoadThumbnail]);
 
+  // Focus the card after keyboard navigation (not on incidental re-renders)
+  useEffect(() => {
+    if (pendingFocusRef.current) {
+      focusedCardRef.current?.focus();
+      pendingFocusRef.current = false;
+    }
+  }, [focusIdx]);
+
   const navigate = useCallback(
     (dir: number, wrap = true) => {
+      pendingFocusRef.current = true;
       setFocusIdx((i) => {
         const next = i + dir;
         if (wrap) {
@@ -124,10 +138,12 @@ export function FileGrid({
       }
       if (e.key === 'Home') {
         e.preventDefault();
+        pendingFocusRef.current = true;
         setFocusIdx(0);
       }
       if (e.key === 'End') {
         e.preventDefault();
+        pendingFocusRef.current = true;
         setFocusIdx(files.length - 1);
       }
       if (e.key === 'Enter') {
@@ -283,7 +299,7 @@ export function FileGrid({
                         }}
                         onFocus={() => setFocusIdx(fileIdx)}
                         ref={(el) => {
-                          if (fileIdx === focusIdx) el?.focus();
+                          if (fileIdx === focusIdx) focusedCardRef.current = el;
                         }}
                       />
                     );

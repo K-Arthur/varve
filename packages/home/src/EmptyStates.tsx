@@ -28,6 +28,11 @@ interface CopyEntry {
 
 const EMPTY_COPY: Record<string, CopyEntry> = {
   default: { headline: '', description: '', cta: '' },
+  drafts: {
+    headline: 'No drafts yet',
+    description: 'Files you start but haven't published or moved to a project will show up here.',
+    cta: 'New design',
+  },
   recent: {
     headline: 'Nothing here yet',
     description: 'Open a design or create something new — your recent work will show up here.',
