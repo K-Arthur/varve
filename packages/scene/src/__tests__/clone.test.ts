@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { deepCloneSubtree } from '../clone';
+import type { Document } from '../document';
 import {
   addNode,
   createDocument,
@@ -9,9 +11,7 @@ import {
   makeTextNode,
   nextNodeId,
 } from '../document';
-import { deepCloneSubtree } from '../clone';
 import type { FrameNode, GroupNode, NodeId, ShapeNode } from '../types';
-import type { Document } from '../document';
 
 function shape(doc: Document, name: string, opts?: Partial<ShapeNode>) {
   const { id, doc: d2 } = nextNodeId(doc);

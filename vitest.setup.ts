@@ -22,6 +22,7 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   }
   (globalThis as any).ResizeObserver = ResizeObserverStub as any;
 }
+
 /**
  * Research basis: jsdom intentionally omits CanvasRenderingContext2D unless the
  * optional native canvas package is installed; shell tests only need a no-op

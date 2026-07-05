@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { GroupNode } from '../types';
 import {
+  activePageNodes,
   addChild,
   addGlobalChild,
   addPage,
-  activePageNodes,
   createDocument,
   makeShapeNode,
   migrateToPages,
@@ -12,6 +11,7 @@ import {
   removePage,
   setActivePage,
 } from '../document';
+import type { GroupNode } from '../types';
 
 describe('Page model hygiene', () => {
   describe('createDocument flat parameter', () => {

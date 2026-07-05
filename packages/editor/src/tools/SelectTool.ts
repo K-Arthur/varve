@@ -12,9 +12,10 @@
  *
  * Research basis: Figma Move tool (V), Illustrator selection, Affinity Designer.
  */
-import { managedColorToRgba } from '@strata/shared';
+
 import { applyAffine, invertAffine, rectContains } from '@strata/engine';
 import { getParent, walkNodes } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';

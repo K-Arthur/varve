@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { TutorialBanner } from './TutorialBanner';
+
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTutorialDocument } from '../samples/tutorial-document';
+import { TutorialBanner } from './TutorialBanner';
 import { useTutorialProgress } from './TutorialFile/useTutorialProgress';
 
 function Wrapper() {

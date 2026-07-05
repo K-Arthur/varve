@@ -1,15 +1,20 @@
 import type { Document, LayoutStyle } from '@strata/scene';
 import { createDocument } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import {
-  parseGridTracks,
-  computeGridLayout,
-  applyGridLayout,
-} from '../computeGridLayout';
+import { applyGridLayout, computeGridLayout, parseGridTracks } from '../computeGridLayout';
 
 function makeDoc(overrides: Partial<Document> = {}): Document {
   const base = createDocument('test', true);
-  base.pages = [{ id: 'page1', name: 'Page 1', contentRoot: base.rootChildren[0] || 'root', backgrounds: [], width: 1920, height: 1080 }];
+  base.pages = [
+    {
+      id: 'page1',
+      name: 'Page 1',
+      contentRoot: base.rootChildren[0] || 'root',
+      backgrounds: [],
+      width: 1920,
+      height: 1080,
+    },
+  ];
   base.activePageId = 'page1';
   return { ...base, ...overrides };
 }
@@ -138,7 +143,10 @@ describe('computeGridLayout', () => {
       },
     };
     const ls = makeLayoutStyle();
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, ['a', 'b']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, [
+      'a',
+      'b',
+    ]);
     expect(result).toHaveLength(2);
     // 2 cols × 2 rows grid, each cell = 200 × 100
     // item 'a' goes to (0, 0), item 'b' goes to (200, 0)
@@ -176,7 +184,10 @@ describe('computeGridLayout', () => {
       },
     };
     const ls = makeLayoutStyle({ gap: 10 });
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, ['a', 'b']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, [
+      'a',
+      'b',
+    ]);
     expect(result).toHaveLength(2);
     // 2 cols: (400 - 10) / 2 = 195 each, with 10px column gap
     // 2 rows: (200 - 10) / 2 = 95 each, with 10px row gap (from shared `gap`)
@@ -214,7 +225,10 @@ describe('computeGridLayout', () => {
       },
     };
     const ls = makeLayoutStyle({ padding: [10, 10, 10, 10] });
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, ['a', 'b']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, [
+      'a',
+      'b',
+    ]);
     expect(result).toHaveLength(2);
     // Padding 10 all sides → usable = 380 × 180
     // 2 cols: 380 / 2 = 190 each
@@ -258,7 +272,10 @@ describe('computeGridLayout', () => {
       },
     };
     const ls = makeLayoutStyle();
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, ['a', 'b']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, [
+      'a',
+      'b',
+    ]);
     expect(result).toHaveLength(2);
     // 'a' explicitly placed at column 2, row 1
     // 2 cols each 200px → col 2 starts at x=200, spans 200
@@ -301,7 +318,12 @@ describe('computeGridLayout', () => {
       },
     };
     const ls = makeLayoutStyle({ gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' });
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 400, ls, ['a', 'b', 'c', 'd']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 400, ls, [
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
     expect(result).toHaveLength(4);
     // 2x2 grid: 200×200 each
     // Row 1: a(0,0), b(200,0)
@@ -345,7 +367,11 @@ describe('computeGridLayout', () => {
       },
     };
     const ls = makeLayoutStyle({ gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr' });
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 300, 200, ls, ['a', 'b', 'c']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 300, 200, ls, [
+      'a',
+      'b',
+      'c',
+    ]);
     expect(result).toHaveLength(3);
     // 2 cols × 1 row explicit, 3rd child flows to new implicit row
     // Cols: 150 each, Row1: 200
@@ -388,7 +414,10 @@ describe('computeGridLayout', () => {
       },
     };
     const ls = makeLayoutStyle({ gridTemplateColumns: '100px 1fr', gridTemplateRows: '1fr' });
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, ['a', 'b']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, [
+      'a',
+      'b',
+    ]);
     expect(result).toHaveLength(2);
     // Col 1: 100px fixed, Col 2: 300px fr
     expect(result[0]).toMatchObject({ id: 'a', x: 0, y: 0, w: 100, h: 200 });
@@ -465,7 +494,12 @@ describe('computeGridLayout', () => {
       gridTemplateRows: '1fr 1fr',
       gridAutoFlow: 'column',
     });
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 400, ls, ['a', 'b', 'c', 'd']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 400, ls, [
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
     expect(result).toHaveLength(4);
     // 2x2 grid, col auto-flow fills column-by-column:
     // Col 1: a at (0,0), c at (0,200)
@@ -508,7 +542,10 @@ describe('computeGridLayout', () => {
       },
     };
     const ls = makeLayoutStyle({ gap: 0, columnGap: 20, rowGap: 10 });
-    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, ['a', 'b']);
+    const result = computeGridLayout(docWithParent as unknown as Document, parentId, 400, 200, ls, [
+      'a',
+      'b',
+    ]);
     expect(result).toHaveLength(2);
     // 2 cols: (400 - 20) / 2 = 190 each, with 20px column gap
     // Row gap = 10, so each row: (200 - 10) / 2 = 95

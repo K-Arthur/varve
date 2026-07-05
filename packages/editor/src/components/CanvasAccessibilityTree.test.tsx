@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
+import type { Document, SceneNode } from '@strata/scene';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CanvasAccessibilityTree } from './CanvasAccessibilityTree';
-import type { Document, SceneNode } from '@strata/scene';
 
 afterEach(() => {
   cleanup();

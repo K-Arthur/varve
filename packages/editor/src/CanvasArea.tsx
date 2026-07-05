@@ -9,20 +9,19 @@
  *                 ToolManager pattern from Figma/Penpot architecture.
  */
 
-import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
 import { useDroppable } from '@dnd-kit/core';
 import {
   applyStyleOverrides,
   CompositeCanvas,
   createEngine,
-  mapBlendMode,
-  renderAlphaMask,
-  traceSceneNodeOutline,
   type Engine,
   type EngineColor,
   type SceneNode as EngineNode,
+  mapBlendMode,
   type ReplayTarget,
+  renderAlphaMask,
   replayIr,
+  traceSceneNodeOutline,
 } from '@strata/engine';
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
@@ -36,6 +35,7 @@ import {
 } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
 import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
@@ -48,7 +48,6 @@ import { ZoomIndicator } from './components/ZoomIndicator';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { SelectionOverlay } from './SelectionOverlay';
-import { nodeWorldBounds } from './scene/world';
 import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
@@ -56,11 +55,12 @@ import {
   invalidateAll as invalidateTransformCache,
   type TransformCache,
 } from './scene/transformCache';
+import { nodeWorldBounds } from './scene/world';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
 import { ArrowTool } from './tools/ArrowTool';
-import { CloneStampTool } from './tools/CloneStampTool';
 import { computeEdgeVelocity } from './tools/autoPan';
+import { CloneStampTool } from './tools/CloneStampTool';
 import { EllipseTool } from './tools/EllipseTool';
 import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
@@ -119,18 +119,17 @@ function toEngineNode(n: DocNode): EngineNode {
     };
   if (n.kind === 'frame')
     return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
-  if (n.kind === 'image')
+  if (n.kind === 'image') {
+    const imageNode = n as import('@strata/scene').ImageNode;
     return {
       ...base,
       kind: 'image',
-      src: n.src,
-      w: n.w,
-      h: n.h,
-      alphaMask: (n as Record<string, unknown>).backgroundRemoval
-        ? (((n as Record<string, unknown>).backgroundRemoval as Record<string, unknown>)
-            .maskDataUrl as string)
-        : undefined,
+      src: imageNode.src,
+      w: imageNode.w,
+      h: imageNode.h,
+      alphaMask: imageNode.backgroundRemoval?.maskDataUrl,
     };
+  }
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
 }
 
@@ -1650,7 +1649,11 @@ export function CanvasArea({
     if (files.length === 0) return;
 
     // Parse all files FIRST (expensive SVG parsing) before any setState
-    const parsedItems: { node: SceneNode; sourceDoc: Document; position?: { x: number; y: number } }[] = [];
+    const parsedItems: {
+      node: SceneNode;
+      sourceDoc: Document;
+      position?: { x: number; y: number };
+    }[] = [];
     for (const [i, file] of files.entries()) {
       const result = importFile(file.name, file.data, {
         center: !dropWorld,
@@ -1918,7 +1921,13 @@ export function CanvasArea({
         />
       )}
       <ZoomIndicator zoom={state.zoom} />
-      <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" aria-atomic="true" />
+      <div
+        className="editor-canvas__announcer"
+        ref={announcer}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      />
       <CanvasAccessibilityTree
         doc={state.document}
         camera={{ zoom: state.zoom, pan: state.pan }}
@@ -1937,7 +1946,9 @@ export function CanvasArea({
           if (e.key === 'Escape') setRenameDialog(null);
         }}
       >
-        <h2 id="rename-dialog-title" className="strata-dialog__title">Rename layer</h2>
+        <h2 id="rename-dialog-title" className="strata-dialog__title">
+          Rename layer
+        </h2>
         <form
           method="dialog"
           onSubmit={(e) => {

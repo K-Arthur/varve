@@ -3,9 +3,9 @@
  * and shape vertex computations.
  */
 
-import { managedColorToRgba } from '@strata/shared';
 import type { Affine } from '@strata/engine';
-import type { NodeId, Document as SceneDocument, SceneNode, ManagedColor } from '@strata/scene';
+import type { ManagedColor, NodeId, Document as SceneDocument, SceneNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 
 export function rgba(c: ManagedColor | readonly [number, number, number, number]): string {
   if ('space' in c) {

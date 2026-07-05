@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { translate } from './affine';
 import {
-  type Camera,
   animateCamera,
+  type Camera,
   centerBoundsCamera,
   clampCamera,
   clampZoom,

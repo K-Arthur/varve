@@ -1,7 +1,7 @@
-import { makeFrameNode, makeShapeNode, nextNodeId, createDocument } from '@strata/scene';
-import { describe, expect, it } from 'vitest';
-import { nodeMatchesFilter, type LayerFilterSpec, DEFAULT_FILTER } from './layerFilterTypes';
 import type { Affine } from '@strata/engine';
+import { createDocument, makeFrameNode, makeShapeNode, nextNodeId } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_FILTER, type LayerFilterSpec, nodeMatchesFilter } from './layerFilterTypes';
 
 function makeTestShape(overrides: Record<string, unknown> = {}) {
   const { id } = nextNodeId(createDocument());

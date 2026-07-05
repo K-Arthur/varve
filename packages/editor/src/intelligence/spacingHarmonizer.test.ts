@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import type { Document, NodeId } from '@strata/scene';
-import { createDocument, makeShapeNode, addNode } from '@strata/scene';
+import { addNode, createDocument, makeShapeNode } from '@strata/scene';
 import { translate } from '@strata/shared';
+import { describe, expect, it } from 'vitest';
 import { analyzeSpacing, harmonizeSpacing } from './spacingHarmonizer';
 
 // ── helpers ─────────────────────────────────────────────────────────────────

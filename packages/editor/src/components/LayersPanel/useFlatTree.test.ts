@@ -2,15 +2,15 @@ import {
   addChild,
   addNode,
   createDocument,
+  type Document,
   makeFrameNode,
   makeShapeNode,
   nextNodeId,
   renameNode,
-  type Document,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { computeDocumentDiff, flattenTree, setsEqual } from './useFlatTree';
 import { DEFAULT_FILTER, type LayerFilterSpec } from './layerFilterTypes';
+import { computeDocumentDiff, flattenTree, setsEqual } from './useFlatTree';
 
 describe('setsEqual', () => {
   it('returns true for identical sets', () => {
@@ -166,7 +166,7 @@ describe('computeDocumentDiff', () => {
   });
 
   it('reports multiple property changes', () => {
-    let doc = makeDocWithNodes(5);
+    const doc = makeDocWithNodes(5);
     const shapeIds = doc.rootChildren.filter((id) => doc.nodes[id]?.kind === 'shape');
     const id1 = shapeIds[0]!;
     const id2 = shapeIds[1]!;

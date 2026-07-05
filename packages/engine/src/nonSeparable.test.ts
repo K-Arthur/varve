@@ -3,26 +3,26 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  lum,
-  clipColor,
-  setLum,
-  sat,
-  setSat,
-  blendHueW3C,
-  blendSaturationW3C,
-  blendColorW3C,
-  blendLuminosityW3C,
-  blendHueLch,
-  blendSaturationLch,
   blendColorLch,
+  blendColorW3C,
+  blendHueLch,
+  blendHueW3C,
   blendLuminosityLch,
+  blendLuminosityW3C,
   blendNonSeparable,
-  rgbToLab,
+  blendSaturationLch,
+  blendSaturationW3C,
+  clipColor,
   labToRgb,
-  rgbToLch,
   lchToRgb,
+  lum,
+  rgbToLab,
+  rgbToLch,
+  sat,
+  setLum,
+  setSat,
 } from './nonSeparable';
 
 // ── W3C helpers ──────────────────────────────────────────────────────────────

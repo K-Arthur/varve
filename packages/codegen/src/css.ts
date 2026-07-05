@@ -5,8 +5,8 @@
  */
 
 import type {
-  Document as SceneDocument,
   ManagedColor,
+  Document as SceneDocument,
   SceneNode,
   VariableStore,
 } from '@strata/scene';

@@ -1,7 +1,7 @@
-import { useMemo, useCallback, useState } from 'react';
 import type { Document } from '@strata/scene';
+import { useCallback, useMemo, useState } from 'react';
 import { TUTORIAL_DOCUMENT_ID } from '../../samples/tutorial-document';
-import { loadOnboardingState, saveOnboardingState, checkChecklistItem } from '../onboardingStore';
+import { checkChecklistItem, loadOnboardingState, saveOnboardingState } from '../onboardingStore';
 
 function lessonCheckpointId(frameId: string): string {
   return `tutorial:lesson-${frameId}`;

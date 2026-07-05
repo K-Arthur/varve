@@ -1,6 +1,6 @@
+import type { AdjustmentNode } from '@strata/scene';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { AdjustmentNode } from '@strata/scene';
 import { EditorProvider } from '../../../context';
 import { AdjustmentSection } from './AdjustmentSection';
 

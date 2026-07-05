@@ -1,13 +1,13 @@
-import type { ManagedColor, Affine } from '@strata/engine';
+import type { Affine, ManagedColor } from '@strata/engine';
+import type { Document } from '@strata/scene';
 import {
+  addChild,
+  addNode,
   createDocument,
   makeFrameNode,
   makeShapeNode,
   makeTextNode,
-  addNode,
-  addChild,
 } from '@strata/scene';
-import type { Document } from '@strata/scene';
 
 export const TUTORIAL_DOCUMENT_VERSION = 1;
 export const TUTORIAL_DOCUMENT_ID = 'strata-tutorial';

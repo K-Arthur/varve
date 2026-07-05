@@ -10,8 +10,8 @@
  * and Figma's undocumented accessibility tree (inferred behaviour).
  */
 
-import { useMemo } from 'react';
 import type { Document } from '@strata/scene';
+import { useMemo } from 'react';
 
 interface CanvasAccessibilityTreeProps {
   doc: Document;

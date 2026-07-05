@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { computeHistogram, computeHistogramStats, autoLevelsParams } from './histogram';
+import { describe, expect, it } from 'vitest';
+import { autoLevelsParams, computeHistogram, computeHistogramStats } from './histogram';
 
 function makeImageData(pixels: number[][], w: number, h: number): ImageData {
   const data = new ImageData(w, h);

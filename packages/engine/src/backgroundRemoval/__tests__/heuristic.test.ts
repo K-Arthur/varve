@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  floodFillMask,
   chromaKeyMask,
-  kMeansMask,
   edgeDetectMask,
+  floodFillMask,
+  kMeansMask,
   removeBackgroundHeuristic,
 } from '../heuristic';
 import type { HeuristicMethod } from '../types';

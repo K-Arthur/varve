@@ -1,22 +1,35 @@
-import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
-export type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
-export { AVAILABLE_MODELS } from './types';
-export type { ModelMetadata, ModelState, RemovalMethod, HeuristicMethod } from './types';
+import { removeBackgroundHeuristic } from './heuristic';
+import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerCommand } from './types';
+
 export { removeBackgroundHeuristic } from './heuristic';
 export { getModelLoader, resetModelLoader } from './modelLoader';
+export type {
+  BackgroundRemovalOptions,
+  BackgroundRemovalResult,
+  HeuristicMethod,
+  ModelMetadata,
+  ModelState,
+  RemovalMethod,
+} from './types';
+export { AVAILABLE_MODELS } from './types';
 
 function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 
+function transferImageData(imageData: ImageData): ImageData {
+  return imageData;
+}
+
 /**
  * Remove background from an ImageData buffer.
  *
- * Supports two paths:
+ * Supports three paths:
  * 1. `method: 'quick'` — pure TypeScript heuristic (no download needed)
- * 2. `method: 'ai-balanced' | 'ai-quality'` — ONNX model (desktop or web)
+ * 2. `method: 'ai-balanced' | 'ai-quality'` — Web Worker with ONNX model (browser)
+ * 3. Tauri — native Rust inference via IPC
  *
- * AI methods fall back to quick when the model isn't loaded.
+ * Web Worker and AI methods fall back to heuristic when unavailable.
  */
 export async function removeBackground(
   imageData: ImageData,
@@ -30,6 +43,14 @@ export async function removeBackground(
     return invokeTauriRemoveBackground(imageData, options);
   }
 
+  if (typeof Worker !== 'undefined' && options.method !== 'quick') {
+    try {
+      return await runWorkerInference(imageData, options);
+    } catch {
+      // Fall through to heuristic
+    }
+  }
+
   const { getModelLoader } = await import('./modelLoader');
   const loader = getModelLoader();
 
@@ -38,6 +59,47 @@ export async function removeBackground(
   }
 
   return removeBackgroundHeuristic(imageData, options);
+}
+
+async function runWorkerInference(
+  imageData: ImageData,
+  options: BackgroundRemovalOptions,
+): Promise<BackgroundRemovalResult> {
+  const modelId = options.method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
+  const workerModelId =
+    options.method === 'ai-quality' ? ('birefnet-general-lite' as const) : ('u2netp' as const);
+  const modelPath = `/${modelId}.onnx`;
+
+  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+
+  return new Promise<BackgroundRemovalResult>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      worker.terminate();
+      reject(new Error('Worker inference timed out'));
+    }, 60000);
+
+    worker.onmessage = (e) => {
+      clearTimeout(timeout);
+      if (e.data.type === 'result') {
+        resolve(e.data.result);
+      } else if (e.data.type === 'error') {
+        reject(new Error(e.data.message));
+      }
+      worker.terminate();
+    };
+    worker.onerror = (e) => {
+      clearTimeout(timeout);
+      reject(new Error(`Worker error: ${e.message}`));
+      worker.terminate();
+    };
+
+    worker.postMessage({
+      type: 'infer',
+      imageData: transferImageData(imageData),
+      modelPath,
+      modelId: workerModelId,
+    } satisfies WorkerCommand);
+  });
 }
 
 async function invokeTauriRemoveBackground(
@@ -49,7 +111,7 @@ async function invokeTauriRemoveBackground(
   canvas.height = imageData.height;
   const ctx = canvas.getContext('2d')!;
   ctx.putImageData(imageData, 0, 0);
-  const blob = await new Promise<Blob>((resolve) => canvas.toBlob(resolve!, 'image/png'));
+  const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
   const bytes = new Uint8Array(await blob.arrayBuffer());
 
   const { invoke } = await import('@tauri-apps/api/core');

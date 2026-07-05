@@ -1,0 +1,72 @@
+# Research basis: Flatpak documentation — https://docs.flatpak.org/en/latest/manifests.html
+# GNOME SDK 47 (stable as of 2024) provides GTK 4, WebKitGTK, and GLib.
+# Tauri 2 uses WebKitGTK 4.1 (webkitgtk-6.0 branch is GTK 4; 4.1 is GTK 3).
+# We use org.gnome.Platform//47 + webkit2gtk-4.1 extension until Tauri 3 migrates to GTK 4.
+#
+# STATUS: STUB — not production-certified.
+# This manifest defines the structure and dependencies for sandboxed distribution
+# via Flathub. Completing it requires:
+#   1. Bundling Rust deps as a cargo-sources.json (via flatpak-cargo-generator).
+#   2. Bundling pnpm/Node deps as a node-sources.json (via flatpak-node-generator).
+#   3. Setting up finish-args for Wayland + X11 + filesystem access.
+#   4. CI build verification via flatpak-builder.
+#
+# PREVIEW — banner shown in the app when built from this manifest:
+# "This is a Flatpak preview build. Not production-certified."
+
+app-id: dev.strata.desktop
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node20
+
+command: strata
+
+finish-args:
+  # Wayland + X11 display
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  # GPU access (WebKit accelerated compositing)
+  - --device=dri
+  # User document access for opening/saving design files
+  - --filesystem=home
+  # D-Bus for desktop integration (notifications, file portal)
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --talk-name=org.freedesktop.Notifications
+
+build-options:
+  env:
+    RUST_BACKTRACE: '1'
+    CARGO_HOME: /run/build/strata/cargo
+    PNPM_HOME: /run/build/strata/pnpm
+
+modules:
+  # TODO: Add cargo-sources.json (generate with flatpak-cargo-generator).
+  # TODO: Add pnpm-sources.json (generate with flatpak-node-generator).
+
+  - name: strata
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+    build-commands:
+      # STUB: Full offline build requires pre-generated source manifests above.
+      # This command fails gracefully and prints a developer notice.
+      - |
+        echo "STUB BUILD — generate cargo-sources.json + pnpm-sources.json first."
+        echo "See packaging/flatpak/README.md for instructions."
+        exit 1
+    sources:
+      - type: git
+        url: https://github.com/strata/strata.git
+        tag: v0.0.0
+        # TODO: Replace with actual commit sha when publishing
+        commit: PLACEHOLDER_REPLACE_WITH_GIT_SHA
+      # TODO: Add generated cargo-sources.json here
+      # - type: file
+      #   path: cargo-sources.json
+      # TODO: Add generated pnpm-sources.json here
+      # - type: file
+      #   path: pnpm-sources.json

@@ -1,7 +1,7 @@
 import type { FileEntry, Folder, Platform, Project } from '@strata/platform';
 import { Button, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { type BreadcrumbSegment } from './BreadcrumbNav';
+import type { BreadcrumbSegment } from './BreadcrumbNav';
 import { FileGrid } from './FileGrid';
 import { FolderView } from './FolderView';
 

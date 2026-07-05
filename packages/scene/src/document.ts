@@ -15,11 +15,11 @@
 import type { Affine, Shape } from '@strata/engine';
 import type { DocumentUnit } from '@strata/shared';
 import { generateKeyBetween } from '@strata/shared';
-import type { ManagedColor } from './colorManagement';
 import type {
   BleedConfig,
   ColorConfig,
   ColorSwatch,
+  ManagedColor,
   SafeAreaConfig,
   SlugConfig,
   SpotColorDef,
@@ -771,6 +771,16 @@ export function setLayerColor(doc: Document, id: NodeId, color: LayerColor | nul
   const node = doc.nodes[id];
   if (!node) return doc;
   return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, layerColor: color } } };
+}
+
+export function setBackgroundRemoval(
+  doc: Document,
+  id: NodeId,
+  state: import('./types').BackgroundRemovalState | undefined,
+): Document {
+  const node = doc.nodes[id];
+  if (!node || node.kind !== 'image') return doc;
+  return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, backgroundRemoval: state } } };
 }
 
 export function renameNode(doc: Document, id: NodeId, name: string): Document {

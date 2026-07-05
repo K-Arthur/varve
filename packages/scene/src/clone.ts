@@ -4,9 +4,10 @@
  * All descendants get new IDs. Parent-child relationships, slots, masks,
  * and other node-to-node references are remapped.
  */
+
+import type { Document } from './document';
 import { isContainer, nextNodeId } from './document';
 import type { ContainerNode, FrameNode, GroupNode, NodeId, SceneNode } from './types';
-import type { Document } from './document';
 
 export interface CloneResult {
   nodes: Record<NodeId, SceneNode>;

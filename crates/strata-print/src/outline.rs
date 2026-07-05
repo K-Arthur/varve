@@ -347,7 +347,10 @@ mod tests {
         let result = outline_text_multi(&fonts, "NonExistentFont", "A", 16.0);
         assert!(result.is_ok(), "should fall back to first font");
         let outlines = result.unwrap();
-        assert!(!outlines.is_empty(), "should produce outline from fallback font");
+        assert!(
+            !outlines.is_empty(),
+            "should produce outline from fallback font"
+        );
     }
 
     #[test]
@@ -363,7 +366,10 @@ mod tests {
     fn outline_text_multi_empty_fonts() {
         let result = outline_text_multi(&[], "Any", "A", 16.0);
         assert!(result.is_err(), "empty fonts should error");
-        assert!(result.unwrap_err().contains("No fonts"), "should say no fonts");
+        assert!(
+            result.unwrap_err().contains("No fonts"),
+            "should say no fonts"
+        );
     }
 
     #[test]
@@ -389,12 +395,21 @@ mod tests {
         let outlines = outline_text_multi(&fonts, "Bold", "A", 16.0).expect("outline A with multi");
         assert!(!outlines.is_empty(), "should produce glyph");
         // The commands should contain path operators (MoveTo at minimum)
-        assert!(!outlines[0].commands.is_empty(), "glyph should have path commands");
-        let has_moveto = outlines[0].commands.iter().any(|c| matches!(c, PathCommand::MoveTo(_, _)));
+        assert!(
+            !outlines[0].commands.is_empty(),
+            "glyph should have path commands"
+        );
+        let has_moveto = outlines[0]
+            .commands
+            .iter()
+            .any(|c| matches!(c, PathCommand::MoveTo(_, _)));
         assert!(has_moveto, "glyph should start with MoveTo");
         // Most fonts use bezier curves, but some may be all lines for simple glyphs
         let has_path = outlines[0].commands.iter().any(|c| {
-            matches!(c, PathCommand::CurveTo(_, _, _, _, _, _) | PathCommand::LineTo(_, _))
+            matches!(
+                c,
+                PathCommand::CurveTo(_, _, _, _, _, _) | PathCommand::LineTo(_, _)
+            )
         });
         assert!(has_path, "glyph should have LineTo or CurveTo commands");
     }

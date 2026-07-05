@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { PresenceIndicator, type PresenceData } from '../PresenceIndicator';
+import { type PresenceData, PresenceIndicator } from '../PresenceIndicator';
 import { globalPresenceStore } from '../presenceStore';
 
 describe('PresenceIndicator component', () => {

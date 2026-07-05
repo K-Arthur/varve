@@ -1,10 +1,14 @@
+import { deleteModelBlob, hasModelBlob, loadModelBlob, saveModelBlob } from './modelStore';
 import type { ModelMetadata, ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';
 
-const MODEL_DIR = 'strata-models';
 const STATE_KEY = 'strata-bg-model-state';
 
 type StateListener = (state: ModelState, modelId: string) => void;
+
+function isBrowserEnv(): boolean {
+  return typeof window !== 'undefined' && typeof indexedDB !== 'undefined';
+}
 
 class ModelLoader {
   private state: ModelState = 'unavailable';
@@ -64,16 +68,7 @@ class ModelLoader {
     if (this.state !== 'ready' || this.currentModelId !== modelId) {
       return null;
     }
-
-    const baseDir = await this.getModelBaseDir();
-    return `${baseDir}/${modelId}.onnx`;
-  }
-
-  private async getModelBaseDir(): Promise<string> {
-    if (typeof window !== 'undefined' && 'process' in window) {
-      return MODEL_DIR;
-    }
-    return MODEL_DIR;
+    return `/${modelId}.onnx`;
   }
 
   async downloadModel(
@@ -114,15 +109,16 @@ class ModelLoader {
 
       const blob = new Blob(chunks, { type: 'application/octet-stream' });
 
-      const baseDir = await this.getModelBaseDir();
-      const key = `${baseDir}/${modelId}`;
-
-      try {
-        localStorage.setItem(key, await blob.text());
-      } catch {
-        throw new Error(
-          'Could not store model. Try clearing browser storage or use the desktop version.',
-        );
+      if (isBrowserEnv()) {
+        await saveModelBlob(modelId, blob);
+      } else {
+        try {
+          localStorage.setItem(`strata-model-${modelId}`, await blob.text());
+        } catch {
+          throw new Error(
+            'Could not store model. Try clearing browser storage or use the desktop version.',
+          );
+        }
       }
 
       this.state = 'ready';
@@ -141,7 +137,18 @@ class ModelLoader {
     return this.state === 'ready' && this.currentModelId === modelId;
   }
 
-  clearModel() {
+  async clearModel() {
+    if (this.currentModelId) {
+      try {
+        if (isBrowserEnv()) {
+          await deleteModelBlob(this.currentModelId);
+        } else {
+          localStorage.removeItem(`strata-model-${this.currentModelId}`);
+        }
+      } catch {
+        // ignore
+      }
+    }
     this.state = 'unavailable';
     this.currentModelId = '';
     this.saveState();

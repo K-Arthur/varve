@@ -2,8 +2,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HelpBrowser } from './HelpBrowser';
 import { HELP_CONTENT, searchHelpContent } from './content/helpContent';
+import { HelpBrowser } from './HelpBrowser';
 
 afterEach(cleanup);
 

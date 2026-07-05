@@ -342,19 +342,19 @@ function applyExposure(
   offset: number,
   gammaCorrection: number,
 ): void {
-  const factor = Math.pow(2, value); // Exposure in EV
+  const factor = 2 ** value; // Exposure in EV
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
     const r = pixels[i]! / 255;
     const g = pixels[i + 1]! / 255;
     const b = pixels[i + 2]! / 255;
     // Linearize, apply exposure, gamma correct, re-quantize
-    const lr = Math.pow(r, 2.2) * factor + offset;
-    const lg = Math.pow(g, 2.2) * factor + offset;
-    const lb = Math.pow(b, 2.2) * factor + offset;
-    const correctedR = Math.pow(Math.max(0, lr), 1 / gammaCorrection);
-    const correctedG = Math.pow(Math.max(0, lg), 1 / gammaCorrection);
-    const correctedB = Math.pow(Math.max(0, lb), 1 / gammaCorrection);
+    const lr = r ** 2.2 * factor + offset;
+    const lg = g ** 2.2 * factor + offset;
+    const lb = b ** 2.2 * factor + offset;
+    const correctedR = Math.max(0, lr) ** (1 / gammaCorrection);
+    const correctedG = Math.max(0, lg) ** (1 / gammaCorrection);
+    const correctedB = Math.max(0, lb) ** (1 / gammaCorrection);
     pixels[i] = clampByte(correctedR * 255);
     pixels[i + 1] = clampByte(correctedG * 255);
     pixels[i + 2] = clampByte(correctedB * 255);
@@ -573,9 +573,9 @@ function applyVibrance(data: ImageData, value: number): void {
     const boost = factor * (1 - currentSat);
     const avg = (sr + sg + sb) / 3;
 
-    let nr = sr + (sr - avg) * boost;
-    let ng = sg + (sg - avg) * boost;
-    let nb = sb + (sb - avg) * boost;
+    const nr = sr + (sr - avg) * boost;
+    const ng = sg + (sg - avg) * boost;
+    const nb = sb + (sb - avg) * boost;
 
     pixels[i] = clampByte(nr * 255);
     pixels[i + 1] = clampByte(ng * 255);

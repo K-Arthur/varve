@@ -8,6 +8,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { HelpBrowser } from '@strata/help';
 import type { NodeId } from '@strata/scene';
 import { screenToWorld } from '@strata/shared';
 import { Icon } from '@strata/ui';
@@ -19,20 +20,9 @@ import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
-import { HelpBrowser } from '@strata/help';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
-import {
-  DidYouKnowTip,
-  useDidYouKnow,
-  TutorialBanner,
-  useTutorialProgress,
-  loadOnboardingState,
-  saveOnboardingState,
-  markTutorialComplete,
-} from './onboard';
-import { createTutorialDocument } from './samples/tutorial-document';
-import { getActionTracker } from './intelligence/actionTracker';
+import { PageNav } from './components/PageNav/PageNav';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
@@ -40,13 +30,23 @@ import { RecoveryDialog } from './components/RecoveryDialog';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
-import { PageNav } from './components/PageNav/PageNav';
 import { EditorProvider, useEditor } from './context';
 import type { DragNodeData } from './dnd-types';
+import { getActionTracker } from './intelligence/actionTracker';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
+import {
+  DidYouKnowTip,
+  loadOnboardingState,
+  markTutorialComplete,
+  saveOnboardingState,
+  TutorialBanner,
+  useDidYouKnow,
+  useTutorialProgress,
+} from './onboard';
 import { getSharedRecoveryManager, type RecoverySession } from './recovery';
 import { StatusBar } from './StatusBar';
+import { createTutorialDocument } from './samples/tutorial-document';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import './components/Prototype/prototype.css';

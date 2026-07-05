@@ -1,9 +1,9 @@
-import React from 'react';
+import type { SceneNode } from '@strata/scene';
 import { render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, type ToolId, useEditor } from './context';
 import { Shell } from './Shell';
-import type { SceneNode } from '@strata/scene';
 
 afterEach(() => {
   vi.restoreAllMocks();

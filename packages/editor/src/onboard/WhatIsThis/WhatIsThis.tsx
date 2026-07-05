@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { getHelpContent } from '../ContextualHelp/helpContent';
 import type { HelpArticle } from '../ContextualHelp/helpContent';
+import { getHelpContent } from '../ContextualHelp/helpContent';
 import './WhatIsThis.css';
 
 interface WhatIsThisProps {

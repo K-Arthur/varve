@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { buildCurveLUT, applyCurve } from './curves';
+import { describe, expect, it } from 'vitest';
+import { applyCurve, buildCurveLUT } from './curves';
 
 function makeTestImageData(
   pixels: [number, number, number, number][],

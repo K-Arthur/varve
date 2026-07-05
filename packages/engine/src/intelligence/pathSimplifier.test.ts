@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { simplifyPathRDP, fitCubicBezier, simplifyToBezier } from './pathSimplifier';
+import { describe, expect, it } from 'vitest';
 import type { PathPoint } from '../types';
+import { fitCubicBezier, simplifyPathRDP, simplifyToBezier } from './pathSimplifier';
 
 function pt(x: number, y: number): PathPoint {
   return { x, y, handleIn: null, handleOut: null };

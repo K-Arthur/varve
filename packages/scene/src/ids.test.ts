@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ID_PREFIXES, createIdGenerator, generateId, nextId } from './ids';
+import { createIdGenerator, generateId, ID_PREFIXES, nextId } from './ids';
 
 describe('IdGenerator', () => {
   it('creates a generator with all counters at zero', () => {

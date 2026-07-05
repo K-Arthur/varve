@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { createMemoryPlatform, makeFileEntry, makeProject } from '../memory';
-import { createWebPlatform } from '../web';
 import type { Platform } from '../platform';
 import { DRAFTS_ID, type FileEntry, type Project } from '../types';
+import { createWebPlatform } from '../web';
 
 async function testPlatform(name: string, factory: () => Promise<Platform>) {
   describe(name, () => {

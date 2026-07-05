@@ -1,5 +1,5 @@
-import type { SceneNode, NodeId, Document } from '@strata/scene';
-import { getParent, shapeWidth, shapeHeight } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@strata/scene';
+import { getParent, shapeHeight, shapeWidth } from '@strata/scene';
 
 export interface NamingSuggestion {
   name: string;

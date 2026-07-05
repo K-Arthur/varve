@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { Page } from '../types';
-import type { GroupNode } from '../types';
 import {
+  activePageNodes,
   addChild,
   addGlobalChild,
   addPage,
-  activePageNodes,
   createDocument,
   duplicatePage,
+  makeShapeNode,
   migrateToPages,
   nextNodeId,
   removeGlobalChild,
@@ -15,8 +14,8 @@ import {
   reorderPages,
   setActivePage,
   setPageSize,
-  makeShapeNode,
 } from '../document';
+import type { GroupNode, Page } from '../types';
 
 function firstPage(doc: ReturnType<typeof createDocument>): Page {
   return doc.pages![0]!;
@@ -125,7 +124,7 @@ describe('Page operations', () => {
   });
 
   it('removePage prevents removal of last page', () => {
-    let doc = createDocument();
+    const doc = createDocument();
     const pageId = firstPage(doc).id;
     const result = removePage(doc, pageId);
     expect(result.pages!.length).toBe(1);

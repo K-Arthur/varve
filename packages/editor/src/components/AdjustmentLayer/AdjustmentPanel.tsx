@@ -1,8 +1,7 @@
 import type { AdjustmentBlendMode, BlendMode } from '@strata/engine';
 import { filterKindDisplayName } from '@strata/engine';
-import type { Adjustment, AdjustmentKind, SceneNode } from '@strata/scene';
+import type { Adjustment, AdjustmentKind, AdjustmentLayerNode, SceneNode } from '@strata/scene';
 import { makeAdjustment } from '@strata/scene';
-import type { AdjustmentLayerNode } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';

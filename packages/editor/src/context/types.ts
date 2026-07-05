@@ -1,12 +1,22 @@
-import type { NodeId, SceneNode } from '@strata/scene';
-import type { Document, Guide, VariableStore, VariableValue } from '@strata/scene';
-import type { LayoutStyle, LayerColor, Fill, LayoutSizing, GridItemPlacement } from '@strata/scene';
 import type { Adjustment, BlendMode, PathPoint } from '@strata/engine';
+import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@strata/prototype';
+import type {
+  BackgroundRemovalMethod,
+  Document,
+  Fill,
+  GridItemPlacement,
+  Guide,
+  LayerColor,
+  LayoutSizing,
+  LayoutStyle,
+  NodeId,
+  SceneNode,
+  VariableStore,
+  VariableValue,
+} from '@strata/scene';
 import type { DocumentUnit, Viewport } from '@strata/shared';
-import type { DraftShape } from '../tools/types';
 import type { MotionState } from '../state/motion-state';
-import type { PrototypeData, PrototypeRuntime } from '@strata/prototype';
-import { PrototypeDebugConsole } from '@strata/prototype';
+import type { DraftShape } from '../tools/types';
 
 export type ToolId =
   | 'select'
@@ -302,6 +312,12 @@ export interface EditorContextValue {
 
   // Boolean operations
   booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
+
+  // Background removal
+  removeBackground: (method: BackgroundRemovalMethod) => Promise<void>;
+  batchRemoveBackground: (
+    method: BackgroundRemovalMethod,
+  ) => Promise<{ total: number; succeeded: number; failed: number }>;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;

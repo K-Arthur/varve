@@ -1,10 +1,10 @@
-import type { SceneNode, ImageNode } from '@strata/scene';
-import { getModelLoader } from '@strata/engine';
 import type { RemovalMethod } from '@strata/engine';
+import { getModelLoader } from '@strata/engine';
+import type { ImageNode, SceneNode } from '@strata/scene';
 import { useState } from 'react';
 import { useEditor } from '../../../context';
-import { DisclosureSection } from '../controls/DisclosureSection';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
+import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, removeBackground, updateNode, announce } = useEditor();

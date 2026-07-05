@@ -73,12 +73,7 @@ fn feather_mask(mask: &[u8], width: u32, height: u32, radius: f32) -> Vec<u8> {
 }
 
 /// Public wrapper for feathering a mask. Used by the inference module.
-pub fn apply_feather(
-    mask: &[u8],
-    width: u32,
-    height: u32,
-    radius: f32,
-) -> Vec<u8> {
+pub fn apply_feather(mask: &[u8], width: u32, height: u32, radius: f32) -> Vec<u8> {
     feather_mask(mask, width, height, radius)
 }
 
@@ -202,8 +197,22 @@ fn k_means_mask(rgba: &[u8], width: u32, height: u32) -> Vec<u8> {
         let mut changed = 0;
         for (i, ass) in assignments.iter_mut().enumerate() {
             let pi = i * 4;
-            let d0 = rgb_dist(rgba[pi], rgba[pi + 1], rgba[pi + 2], centroids[0][0], centroids[0][1], centroids[0][2]);
-            let d1 = rgb_dist(rgba[pi], rgba[pi + 1], rgba[pi + 2], centroids[1][0], centroids[1][1], centroids[1][2]);
+            let d0 = rgb_dist(
+                rgba[pi],
+                rgba[pi + 1],
+                rgba[pi + 2],
+                centroids[0][0],
+                centroids[0][1],
+                centroids[0][2],
+            );
+            let d1 = rgb_dist(
+                rgba[pi],
+                rgba[pi + 1],
+                rgba[pi + 2],
+                centroids[1][0],
+                centroids[1][1],
+                centroids[1][2],
+            );
             let new_a = if d0 < d1 { 0 } else { 1 };
             if new_a != *ass {
                 changed += 1;
@@ -249,7 +258,11 @@ fn k_means_mask(rgba: &[u8], width: u32, height: u32) -> Vec<u8> {
         }
     }
 
-    let fg = if edge_scores[0] >= edge_scores[1] { 0 } else { 1 };
+    let fg = if edge_scores[0] >= edge_scores[1] {
+        0
+    } else {
+        1
+    };
     for (i, &ass) in assignments.iter().enumerate() {
         mask[i] = if ass == fg { 255 } else { 0 };
     }
@@ -334,12 +347,18 @@ fn auto_detect(
     click: Option<(u32, u32)>,
 ) -> (&'static str, Vec<u8>) {
     if let Some((sx, sy)) = click {
-        return ("flood_fill", flood_fill_mask(rgba, width, height, sx, sy, 30));
+        return (
+            "flood_fill",
+            flood_fill_mask(rgba, width, height, sx, sy, 30),
+        );
     }
 
     // Sample corners to check for uniform background
     let corners = [
-        (0u32, 0u32), (width - 1, 0), (0, height - 1), (width - 1, height - 1),
+        (0u32, 0u32),
+        (width - 1, 0),
+        (0, height - 1),
+        (width - 1, height - 1),
     ];
     let mut corner_colors = Vec::new();
     for &(cx, cy) in &corners {
@@ -365,7 +384,10 @@ fn auto_detect(
 
     // Check if corners have similar colors (likely chroma key candidate)
     let c0 = corner_colors[0];
-    let similar_corners = corner_colors.iter().filter(|&&c| rgb_dist(c0.0, c0.1, c0.2, c.0, c.1, c.2) < 30.0).count();
+    let similar_corners = corner_colors
+        .iter()
+        .filter(|&&c| rgb_dist(c0.0, c0.1, c0.2, c.0, c.1, c.2) < 30.0)
+        .count();
     if similar_corners >= 3 {
         return (
             "chroma_key",
@@ -437,7 +459,11 @@ mod tests {
     #[test]
     fn test_flood_fill_basic() {
         let img = make_test_image(20, 20, |x, _y| {
-            if x < 10 { [255, 0, 0, 255] } else { [0, 0, 255, 255] }
+            if x < 10 {
+                [255, 0, 0, 255]
+            } else {
+                [0, 0, 255, 255]
+            }
         });
         let opts = RemovalOptions {
             method: RemovalMethod::Quick,
@@ -457,7 +483,11 @@ mod tests {
     #[test]
     fn test_chroma_key() {
         let img = make_test_image(10, 10, |x, _y| {
-            if x < 3 { [0, 255, 0, 255] } else { [255, 0, 0, 255] }
+            if x < 3 {
+                [0, 255, 0, 255]
+            } else {
+                [255, 0, 0, 255]
+            }
         });
         let pixels = img.to_rgba8().into_raw();
         let mask = chroma_key_mask(&pixels, 10, 10, 0, 255, 0, 30);
@@ -468,7 +498,11 @@ mod tests {
     #[test]
     fn test_k_means() {
         let img = make_test_image(10, 10, |x, _y| {
-            if x < 5 { [255, 0, 0, 255] } else { [0, 0, 255, 255] }
+            if x < 5 {
+                [255, 0, 0, 255]
+            } else {
+                [0, 0, 255, 255]
+            }
         });
         let pixels = img.to_rgba8().into_raw();
         let mask = k_means_mask(&pixels, 10, 10);

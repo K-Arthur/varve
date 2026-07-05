@@ -12,12 +12,12 @@ import type { AuditIssue } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../context';
+import { type NamingSuggestion, renameSelected, suggestName } from '../intelligence/autoNamer';
 import {
   analyzeSpacing,
   harmonizeSpacing,
   type SpacingAnalysis,
 } from '../intelligence/spacingHarmonizer';
-import { type NamingSuggestion, renameSelected, suggestName } from '../intelligence/autoNamer';
 
 import '../components/Inspector/inspector.css';
 

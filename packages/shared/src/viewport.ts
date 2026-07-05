@@ -324,7 +324,7 @@ export function localRectToScreen(worldMatrix: Affine, cam: Camera, localRect: R
  */
 export function lerpCamera(from: Camera, to: Camera, t: number): Camera {
   const clamped = Math.max(0, Math.min(1, t));
-  const eased = 1 - Math.pow(1 - clamped, 3);
+  const eased = 1 - (1 - clamped) ** 3;
   return {
     pan: {
       x: from.pan.x + (to.pan.x - from.pan.x) * eased,

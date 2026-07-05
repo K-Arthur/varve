@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { loadOnboardingState, saveOnboardingState, dismissTip } from '../onboardingStore';
+import { dismissTip, loadOnboardingState, saveOnboardingState } from '../onboardingStore';
 import { TIPS, type Tip } from './tips';
 
 const TIPS_TODAY_KEY = 'strata:tips-today';

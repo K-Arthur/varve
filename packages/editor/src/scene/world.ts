@@ -19,9 +19,9 @@ import {
   measureText,
   multiplyAffine,
 } from '@strata/shared';
+import type { ParentIndexCache } from './parentIndexCache';
 import type { TransformCache } from './transformCache';
 import { getWorldTransform as getCachedTransform } from './transformCache';
-import type { ParentIndexCache } from './parentIndexCache';
 
 /**
  * Walk the ancestor chain from `id` up to the root, composing local→parent

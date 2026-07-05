@@ -2,8 +2,8 @@
  * Tests for textLayout Phase B: canvas measurement + CJK line breaking.
  */
 import { describe, expect, it } from 'vitest';
-import { layoutRichText } from './textLayout';
 import type { RichTextInput } from './textLayout';
+import { layoutRichText } from './textLayout';
 
 function makeRichText(text: string, fontSize = 16, fontFamily = 'Inter'): RichTextInput {
   return {

@@ -6,8 +6,48 @@
  * is talking to. The render IR is replayed to canvas by `replayIr`.
  */
 
+export type { AdjustmentChannel, AdjustmentParams } from './adjustment';
+export type { CurvePoint } from './adjustment/curves';
+export type { Histogram, HistogramStats } from './adjustment/histogram';
+export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
+export type { LevelParams } from './adjustment/levels';
+export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
+export type {
+  BackgroundRemovalOptions,
+  BackgroundRemovalResult,
+  HeuristicMethod,
+  ModelMetadata,
+  ModelState,
+  RemovalMethod,
+} from './backgroundRemoval';
+export {
+  AVAILABLE_MODELS,
+  getModelLoader,
+  removeBackground,
+  resetModelLoader,
+} from './backgroundRemoval';
+export {
+  blend,
+  blendColorBurn,
+  blendColorDodge,
+  blendDarken,
+  blendDifference,
+  blendExclusion,
+  blendHardLight,
+  blendLighten,
+  blendMultiply,
+  blendNormal,
+  blendOverlay,
+  blendPixels,
+  blendPlusDarker,
+  blendPlusLighter,
+  blendScreen,
+  blendSoftLight,
+} from './blendModes';
+export type { CompositeCanvasOptions } from './compositeCanvas';
+export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 export type { Engine } from './engine';
-export { createEngine } from './engine';
+export { applyStyleOverrides, createEngine } from './engine';
 export type {
   Adjustment,
   AdjustmentBase,
@@ -51,64 +91,53 @@ export { FontRegistry, getFontRegistry, resetFontRegistry } from './fontRegistry
 export * from './geometry';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
-export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
-export { pathLength, placeGlyphsOnPath, samplePathAtLength } from './pathText';
-export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
-export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
-export { CompositeCanvas, mapBlendMode } from './compositeCanvas';
-export { blendPixels as canvasBlendPixels } from './compositeCanvas';
-export type { CompositeCanvasOptions } from './compositeCanvas';
+export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
 export {
-  blend,
-  blendPixels,
-  blendNormal,
-  blendMultiply,
-  blendScreen,
-  blendOverlay,
-  blendDarken,
-  blendLighten,
-  blendColorDodge,
-  blendColorBurn,
-  blendHardLight,
-  blendSoftLight,
-  blendDifference,
-  blendExclusion,
-  blendPlusDarker,
-  blendPlusLighter,
-} from './blendModes';
+  analogousHarmony,
+  complementaryHarmony,
+  extractPalette,
+  splitComplementaryHarmony,
+  triadicHarmony,
+} from './intelligence/paletteExtractor';
+export type { SimplifiedPath } from './intelligence/pathSimplifier';
 export {
-  compositePixels,
-  porterDuffCompositing,
-  mapPorterDuffOp,
-} from './porterDuff';
-export type { PorterDuffOp } from './porterDuff';
+  fitCubicBezier,
+  simplifyPathRDP,
+  simplifyToBezier,
+} from './intelligence/pathSimplifier';
+export type { NonSeparableMode } from './nonSeparable';
 export {
-  blendHueW3C,
-  blendSaturationW3C,
+  blendColorLch,
   blendColorW3C,
+  blendHueLch,
+  blendHueW3C,
+  blendLuminosityLch,
   blendLuminosityW3C,
   blendNonSeparable,
-  blendHueLch,
   blendSaturationLch,
-  blendColorLch,
-  blendLuminosityLch,
-  lum,
+  blendSaturationW3C,
   clipColor,
-  setLum,
-  sat,
-  setSat,
-  rgbToLab,
   labToRgb,
-  rgbToLch,
   lchToRgb,
+  lum,
+  rgbToLab,
+  rgbToLch,
+  sat,
+  setLum,
+  setSat,
 } from './nonSeparable';
-export type { NonSeparableMode } from './nonSeparable';
+export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
+export { pathLength, placeGlyphsOnPath, samplePathAtLength } from './pathText';
+export type { PorterDuffOp } from './porterDuff';
+export {
+  compositePixels,
+  mapPorterDuffOp,
+  porterDuffCompositing,
+} from './porterDuff';
+export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
+export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type { ReplayTarget } from './replay';
 export { renderAlphaMask, replayIr } from './replay';
-export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './textOutlines';
-export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
-export type { ThumbnailOptions } from './thumbnail';
-export { renderThumbnail } from './thumbnail';
 export {
   buildBrushMask,
   clonePixels,
@@ -119,12 +148,11 @@ export {
   patchRegion,
   spotHeal,
 } from './retouch';
-export type { AdjustmentChannel, AdjustmentParams } from './adjustment';
-export type { CurvePoint } from './adjustment/curves';
-export type { Histogram, HistogramStats } from './adjustment/histogram';
-export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
-export type { LevelParams } from './adjustment/levels';
-export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
+export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './textOutlines';
+export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
+export type { ThumbnailOptions } from './thumbnail';
+export { renderThumbnail } from './thumbnail';
+export { traceSceneNodeOutline } from './tracing';
 export type {
   Affine,
   Backend,
@@ -147,28 +175,3 @@ export type {
   StrokeCap,
   StrokeJoin,
 } from './types';
-export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
-export {
-  analogousHarmony,
-  complementaryHarmony,
-  extractPalette,
-  splitComplementaryHarmony,
-  triadicHarmony,
-} from './intelligence/paletteExtractor';
-export type { SimplifiedPath } from './intelligence/pathSimplifier';
-export {
-  fitCubicBezier,
-  simplifyPathRDP,
-  simplifyToBezier,
-} from './intelligence/pathSimplifier';
-export type { BackgroundRemovalOptions, BackgroundRemovalResult } from './backgroundRemoval';
-export { AVAILABLE_MODELS } from './backgroundRemoval';
-export type {
-  ModelMetadata,
-  ModelState,
-  RemovalMethod,
-  HeuristicMethod,
-} from './backgroundRemoval';
-export { getModelLoader, resetModelLoader } from './backgroundRemoval';
-export { applyStyleOverrides } from './engine';
-export { traceSceneNodeOutline } from './tracing';

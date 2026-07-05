@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useState } from 'react';
-import { FEATURE_VERSIONS, CURRENT_APP_VERSION, compareVersions } from './featureVersions';
+import { CURRENT_APP_VERSION, compareVersions, FEATURE_VERSIONS } from './featureVersions';
 import './NewFeatureBadge.css';
 
 interface NewFeatureBadgeProps {

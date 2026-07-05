@@ -15,8 +15,6 @@
 
 import { getTransactionHooks } from '@strata/collab';
 import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
-import type { ManagedColor } from '@strata/scene';
-import { getActionTracker } from './intelligence/actionTracker';
 import {
   applyAffine,
   invertAffine,
@@ -37,30 +35,39 @@ import {
   handleEvent as protoHandleEvent,
   setVariable as protoSetVar,
 } from '@strata/prototype';
-import type { ExportPreset, InstanceStatus, NodeId, Slot, SyncResult } from '@strata/scene';
+import type {
+  ExportPreset,
+  InstanceStatus,
+  ManagedColor,
+  NodeId,
+  Slot,
+  SyncResult,
+} from '@strata/scene';
 import {
   type ArrangeOp,
-  type BleedConfig,
   addChild,
   addComponentProperty as addComponentPropertyDoc,
-  type SafeAreaConfig,
-  type SlugConfig,
   addGuide as addGuideDoc,
   addKeyframe,
   addNode,
   addTrack,
+  addVariableToDocument,
   arrangeNode as arrangeNodeDoc,
+  type BleedConfig,
   clearGuides,
   createComponent,
   createDocument,
   createVariableStore,
   createVariant as createVariantDoc,
-  deepCloneSubtree,
   type Document,
+  deepCloneSubtree,
+  deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
   fillSlot as fillSlotDoc,
   type Guide,
+  activePageNodes as getActivePageNodes,
+  getInstanceStatus as getInstanceStatusDoc,
   getNestedValue,
   groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
@@ -70,40 +77,37 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
+  mergeVariableStores,
   migrateDocumentJson,
   moveGuide as moveGuideDoc,
   moveNode,
   nextNodeId,
+  pushMasterChanges as pushMasterChangesDoc,
   removeGuide as removeGuideDoc,
   removeNode,
   renameNode,
-  serializeDocument,
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
   resolveNodeFills,
   resolveVariantProperties,
+  type SafeAreaConfig,
   type SceneNode,
-  addVariableToDocument,
-  updateVariableInDocument,
-  deleteVariableFromDocument as deleteVariableFromDocumentDoc,
+  type SlugConfig,
+  serializeDocument,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
-  mergeVariableStores,
   setVariantForInstance as setVariantForInstanceDoc,
   swapInstance as swapInstanceDoc,
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
-  pushMasterChanges as pushMasterChangesDoc,
-  getInstanceStatus as getInstanceStatusDoc,
   toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
+  updateVariableInDocument,
   type Variable,
   type VariableStore,
   type VariableValue,
-  activePageNodes as getActivePageNodes,
   walkNodes,
 } from '@strata/scene';
-
 import {
   animateCamera,
   clampZoom,
@@ -125,17 +129,21 @@ import {
 } from 'react';
 import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
-import { getOrCreateSpatialIndex, queryPoint, type SpatialIndex } from './scene/spatialIndex';
-import {
-  readClipboardUnified,
-  writeClipboard as writeToClipboard,
-} from './clipboard';
+import { readClipboardUnified, writeClipboard as writeToClipboard } from './clipboard';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
+import { SelectionProvider, ViewportProvider } from './context/index';
+import type { CanvasMode, EditorState, SessionMeta, ToolId } from './context/types';
 import { applyDropPosition } from './dropUtils';
+import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
-import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import {
+  getOrCreateParentCache,
+  getParentFast,
+  type ParentIndexCache,
+} from './scene/parentIndexCache';
+import { getOrCreateSpatialIndex, queryPoint, type SpatialIndex } from './scene/spatialIndex';
 import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
@@ -143,11 +151,7 @@ import {
   invalidateAll as invalidateTransformCache,
   type TransformCache,
 } from './scene/transformCache';
-import {
-  getOrCreateParentCache,
-  getParentFast,
-  type ParentIndexCache,
-} from './scene/parentIndexCache';
+import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import {
   createInitialMotionState,
@@ -156,11 +160,8 @@ import {
 } from './state/motion-state';
 import type { DraftShape } from './tools/types';
 
-import { ViewportProvider, SelectionProvider } from './context/index';
-import type { ToolId, CanvasMode, SessionMeta, EditorState } from './context/types';
-
 // Re-export for backward compatibility
-export type { ToolId, CanvasMode, SessionMeta, EditorState };
+export type { CanvasMode, EditorState, SessionMeta, ToolId };
 
 export interface EditorContextValue {
   state: EditorState;
@@ -466,7 +467,11 @@ export interface EditorContextValue {
   ) => void;
   /** Batch-import multiple nodes in a single state update (for drag-and-drop). */
   batchImportNodes: (
-    items: { node: SceneNode; sourceDoc: import('@strata/scene').Document; position?: { x: number; y: number } }[],
+    items: {
+      node: SceneNode;
+      sourceDoc: import('@strata/scene').Document;
+      position?: { x: number; y: number };
+    }[],
   ) => void;
   /** The field name currently targeted for variable binding, or null. */
   bindingField: string | null;
@@ -2915,9 +2920,7 @@ export function EditorProvider({
 
         const totalCount = (strataData?.nodes.length ?? 0) + importResults.length;
         if (totalCount > 0) {
-          announcerRef.current?.announce(
-            `Pasted ${totalCount} layer${totalCount > 1 ? 's' : ''}`,
-          );
+          announcerRef.current?.announce(`Pasted ${totalCount} layer${totalCount > 1 ? 's' : ''}`);
         }
       },
 
@@ -2994,7 +2997,9 @@ export function EditorProvider({
           }
           return { ...s, document: doc, selection: newIds };
         });
-        announcerRef.current?.announce(`Imported ${items.length} layer${items.length > 1 ? 's' : ''}`);
+        announcerRef.current?.announce(
+          `Imported ${items.length} layer${items.length > 1 ? 's' : ''}`,
+        );
       },
 
       bindingField,
@@ -3409,6 +3414,108 @@ export function EditorProvider({
         });
       },
 
+      removeBackground: async (method) => {
+        const imageNode = state.selection
+          .map((id) => state.document.nodes[id] as import('@strata/scene').ImageNode | undefined)
+          .find((n) => n?.kind === 'image') as import('@strata/scene').ImageNode | undefined;
+        if (!imageNode) {
+          announce('Select an image node first');
+          return;
+        }
+        announce(`Removing background using ${method}...`);
+        try {
+          const { removeBackground } = await import('@strata/engine');
+          const { getImageCache } = await import('@strata/engine');
+          const { setBackgroundRemoval } = await import('@strata/scene');
+          const cache = getImageCache();
+          const img = await cache.load(imageNode.src);
+          if (!img) {
+            announce('Could not load image');
+            return;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = imageNode.w;
+          canvas.height = imageNode.h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, imageNode.w, imageNode.h);
+          const imageData = ctx.getImageData(0, 0, imageNode.w, imageNode.h);
+          const result = await import('@strata/engine').then((m) =>
+            m.removeBackground(imageData, {
+              method,
+              feather: 0.5,
+              decontaminate: true,
+            }),
+          );
+          updateDoc((d) =>
+            setBackgroundRemoval(d, imageNode.id, {
+              maskDataUrl: result.maskDataUrl,
+              method: result.method,
+              confidence: result.confidence,
+              appliedAt: Date.now(),
+              feather: 0.5,
+              decontaminate: true,
+            }),
+          );
+          announce('Background removed');
+        } catch (e) {
+          announce(`Background removal failed: ${(e as Error).message}`);
+        }
+      },
+
+      batchRemoveBackground: async (method) => {
+        const imageNodes = state.selection
+          .map((id) => state.document.nodes[id])
+          .filter((n): n is import('@strata/scene').ImageNode => n?.kind === 'image');
+        if (imageNodes.length === 0) {
+          announce('Select one or more image nodes first');
+          return { total: 0, succeeded: 0, failed: 0 };
+        }
+        beginTransaction();
+        let succeeded = 0;
+        let failed = 0;
+        for (const node of imageNodes) {
+          try {
+            const { removeBackground, getImageCache } = await import('@strata/engine');
+            const { setBackgroundRemoval } = await import('@strata/scene');
+            const cache = getImageCache();
+            const img = await cache.load(node.src);
+            if (!img) {
+              failed++;
+              continue;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = node.w;
+            canvas.height = node.h;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, node.w, node.h);
+            const imageData = ctx.getImageData(0, 0, node.w, node.h);
+            const result = await removeBackground(imageData, {
+              method,
+              feather: 0.5,
+              decontaminate: true,
+            });
+            updateDoc((d) =>
+              setBackgroundRemoval(d, node.id, {
+                maskDataUrl: result.maskDataUrl,
+                method: result.method,
+                confidence: result.confidence,
+                appliedAt: Date.now(),
+                feather: 0.5,
+                decontaminate: true,
+              }),
+            );
+            succeeded++;
+          } catch {
+            failed++;
+          }
+        }
+        commitTransaction();
+        announce(
+          `Background removed from ${succeeded} image(s)${failed ? `, ${failed} failed` : ''}`,
+        );
+        return { total: imageNodes.length, succeeded, failed };
+      },
+
       setPrototypeMode: (active) => {
         patch({ prototypeMode: active });
         if (active) {
@@ -3695,7 +3802,7 @@ export function useEditor(): EditorContextValue {
   return ctx;
 }
 
-export { useViewport, useSelection } from './context/index';
+export { useSelection, useViewport } from './context/index';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);

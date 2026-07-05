@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
 import { rgbToCmyk } from '@strata/shared';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 
 export interface SoftProofOverlayProps {
   softProofEnabled: boolean;

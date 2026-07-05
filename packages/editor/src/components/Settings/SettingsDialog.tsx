@@ -1,5 +1,5 @@
-import { managedColorToRgba } from '@strata/shared';
 import type { ManagedColor } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { Button, ColorPicker, Dialog, NumberInput, Select } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useState } from 'react';

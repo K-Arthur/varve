@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WelcomeDialog } from './WelcomeDialog/WelcomeDialog';
-import { OnboardingChecklist } from './OnboardingChecklist/OnboardingChecklist';
 import { ContextualHelpPanel } from './ContextualHelp/ContextualHelpPanel';
-import { DidYouKnowTip } from './DidYouKnow/DidYouKnowTip';
-import { TutorialBanner } from './TutorialBanner';
-import { NewFeatureBadge } from './NewFeatureBadge/NewFeatureBadge';
 import { HELP_CONTENT } from './ContextualHelp/helpContent';
 import type { ContextualHelpState } from './ContextualHelp/useContextualHelp';
+import { DidYouKnowTip } from './DidYouKnow/DidYouKnowTip';
 import type { Tip } from './DidYouKnow/tips';
+import { NewFeatureBadge } from './NewFeatureBadge/NewFeatureBadge';
+import { OnboardingChecklist } from './OnboardingChecklist/OnboardingChecklist';
+import { TutorialBanner } from './TutorialBanner';
+import { WelcomeDialog } from './WelcomeDialog/WelcomeDialog';
 
 afterEach(cleanup);
 

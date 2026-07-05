@@ -6,8 +6,8 @@ import {
   migrateDocument,
   migrateDocumentDetailed,
   migrateDocumentJson,
-  serializeDocument,
   SUPPORTED_VERSIONS,
+  serializeDocument,
   stampVersion,
 } from './version';
 

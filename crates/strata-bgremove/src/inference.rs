@@ -33,7 +33,11 @@ pub fn remove_ai(
     let (orig_w, orig_h) = img.dimensions();
 
     // Resize to model input size (1024x1024 for BiRefNet, 320x320 for u2netp)
-    let input_size = if model_id == "u2netp" { 320u32 } else { 1024u32 };
+    let input_size = if model_id == "u2netp" {
+        320u32
+    } else {
+        1024u32
+    };
     let resized = img.resize_exact(
         input_size,
         input_size,
@@ -120,13 +124,7 @@ pub fn remove_ai(
 }
 
 /// Nearest-neighbor resize of a binary mask.
-fn resize_mask(
-    mask: &[u8],
-    src_w: u32,
-    src_h: u32,
-    dst_w: u32,
-    dst_h: u32,
-) -> Vec<u8> {
+fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> Vec<u8> {
     if src_w == dst_w && src_h == dst_h {
         return mask.to_vec();
     }

@@ -1,4 +1,3 @@
-import type { Affine } from '@strata/shared';
 import type { NodeId } from '@strata/scene';
 import {
   addChild,
@@ -8,6 +7,7 @@ import {
   makeGroupNode,
   makeShapeNode,
 } from '@strata/scene';
+import type { Affine } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import {
   buildSpatialIndex,

@@ -1,5 +1,5 @@
-import { createDocument, createKeyframe, makeTimelineObject } from '@strata/scene';
 import type { SceneNode } from '@strata/scene';
+import { createDocument, createKeyframe, makeTimelineObject } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { timelineToLottieJSON } from './animation-lottie';
 

@@ -3,9 +3,9 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HELP_CONTENT, searchHelpContent } from './helpContent';
-import type { HelpArticle } from './helpContent';
 import { ContextualHelpPanel } from './ContextualHelpPanel';
+import type { HelpArticle } from './helpContent';
+import { HELP_CONTENT, searchHelpContent } from './helpContent';
 import type { ContextualHelpState } from './useContextualHelp';
 
 afterEach(cleanup);

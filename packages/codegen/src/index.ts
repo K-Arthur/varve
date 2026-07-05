@@ -5,9 +5,10 @@
  * SVG, Flutter, and SwiftUI output. All exports are local-only:
  * zero network round-trips.
  */
-import { managedColorToRgba } from '@strata/shared';
+
 import type { Affine } from '@strata/engine';
-import type { Document, NodeId, SceneNode, ManagedColor } from '@strata/scene';
+import type { Document, ManagedColor, NodeId, SceneNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 
 export { timelineToCSSKeyframes } from './animation-css';
 export { timelineToLottieJSON } from './animation-lottie';

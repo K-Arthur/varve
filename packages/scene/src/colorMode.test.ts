@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ColorConfig } from './colorManagement';
-import type { Document } from './document';
-import type { ManagedColor } from './colorManagement';
+import type { ColorConfig, ManagedColor } from './colorManagement';
 import { switchColorMode } from './colorMode';
+import type { Document } from './document';
 
 function rgb(r: number, g: number, b: number, a = 255): ManagedColor {
   return { space: 'rgb' as const, r, g, b, a };

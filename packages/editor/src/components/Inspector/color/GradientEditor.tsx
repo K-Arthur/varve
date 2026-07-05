@@ -7,8 +7,9 @@
  * Research basis: Figma/Sketch gradient stop bar; APG Slider for stop
  * positioning; Pointer Events for drag (cross-platform, Linux-first).
  */
-import { managedColorToRgba } from '@strata/shared';
+
 import type { GradientFill, GradientStop, GradientType, ManagedColor } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { Icon } from '@strata/ui';
 import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';

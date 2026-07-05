@@ -24,7 +24,7 @@ import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
-import { type MaybeMixed, commonValue, isMixed } from '../selection/selectionState';
+import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
 
 export interface TypographySectionProps {
   nodes: SceneNode[];
