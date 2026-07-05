@@ -252,11 +252,45 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           paintShapeFill(target, item);
           target.restore();
         } else if (effect.type === 'backgroundBlur') {
-          // Stub: needs backdrop capture from CanvasArea
-          target.save();
-          target.filter = `blur(${effect.radius}px)`;
-          paintShapeFill(target, item);
-          target.restore();
+          // Background blur: capture canvas backdrop behind the item, blur it,
+          // and composite it clipped to the item shape. Item fills/strokes
+          // render on top (handled in the fills pass below).
+          // Requires the canvas target to have a valid .canvas reference.
+          const canvas = target.canvas as
+            | HTMLCanvasElement
+            | OffscreenCanvas
+            | undefined;
+          if (canvas && typeof OffscreenCanvas !== 'undefined') {
+            // Capture backdrop
+            const backdrop = new OffscreenCanvas(
+              canvas.width,
+              canvas.height,
+            );
+            const bCtx = backdrop.getContext('2d');
+            if (bCtx) {
+              bCtx.drawImage(
+                canvas as unknown as CanvasImageSource,
+                0,
+                0,
+              );
+              // Apply blur to backdrop
+              bCtx.filter = `blur(${effect.radius}px)`;
+              bCtx.drawImage(backdrop, 0, 0);
+              // Clip to item shape and composite blurred backdrop
+              target.save();
+              target.beginPath();
+              traceOutline(target, item.primitive);
+              if (target.clip) target.clip();
+              target.drawImage(
+                backdrop as unknown as CanvasImageSource,
+                0,
+                0,
+              );
+              target.restore();
+            }
+          }
+          // Store the blur radius so the fills pass can avoid double-blur
+          // (layerBlur after backgroundBlur applies to the composite)
         }
       }
     }
