@@ -62,11 +62,12 @@ export function dataUrlToBytes(dataUrl: string): Uint8Array {
 
 export function bytesToDataUrl(bytes: Uint8Array, mime: string): string {
   let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i] ?? 0);
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
   }
-  const base64 = btoa(binary);
-  return `data:${mime};base64,${base64}`;
+  return `data:${mime};base64,${btoa(binary)}`;
 }
 
 function startsWith(haystack: number[], needle: number[]): boolean {

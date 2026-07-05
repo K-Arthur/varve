@@ -274,6 +274,9 @@ export interface EditorContextValue {
     sourceDoc: Document,
     options?: { position?: { x: number; y: number } },
   ) => void;
+  batchImportNodes: (
+    items: { node: SceneNode; sourceDoc: Document; position?: { x: number; y: number } }[],
+  ) => void;
 
   // Binding
   bindingField: string | null;

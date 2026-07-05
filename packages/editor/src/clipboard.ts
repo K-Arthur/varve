@@ -3,7 +3,7 @@
  *
  * Copies nodes as `application/vnd.strata+json` (preserves structure for
  * in-app paste) and `text/plain` (fallback for paste-into-text-editor).
- * Also reads image/* and text/svg MIME types from clipboard for import.
+ * Reads clipboard in a single pass for Strata JSON, SVG text, and images.
  *
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
@@ -13,6 +13,17 @@ const STRATA_MIME = 'application/vnd.strata+json';
 
 export interface ClipboardData {
   nodes: SceneNode[];
+}
+
+export interface ClipboardImportItem {
+  data: string | Uint8Array;
+  mimeType: string;
+  name: string;
+}
+
+export interface UnifiedClipboardResult {
+  strataData: ClipboardData | null;
+  importItems: ClipboardImportItem[];
 }
 
 export async function writeClipboard(nodes: SceneNode[]): Promise<boolean> {
@@ -29,7 +40,6 @@ export async function writeClipboard(nodes: SceneNode[]): Promise<boolean> {
     ]);
     return true;
   } catch {
-    // Fallback: write text only
     try {
       await navigator.clipboard.writeText(JSON.stringify(nodes.map((n) => n.name)));
       return true;
@@ -58,36 +68,41 @@ export async function readClipboard(): Promise<ClipboardData | null> {
   }
 }
 
-export interface ClipboardImageResult {
-  dataUrl: string;
-  mimeType: string;
-  name: string;
-}
-
-export async function readClipboardImages(): Promise<ClipboardImageResult[]> {
+/**
+ * Single clipboard read that returns both Strata JSON data and importable
+ * items (SVG text, images) with raw data in the correct format.
+ *
+ * SVG is returned as raw text (not URL-encoded) so the SVG parser
+ * receives valid XML. Images are returned as Uint8Array bytes so
+ * importImageAsFile can process them.
+ */
+export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
+  const result: UnifiedClipboardResult = { strataData: null, importItems: [] };
   try {
     const items = await navigator.clipboard.read();
-    const results: ClipboardImageResult[] = [];
     for (const item of items) {
       for (const type of item.types) {
-        if (type.startsWith('image/')) {
+        if (type === STRATA_MIME) {
           const blob = await item.getType(type);
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-          results.push({
-            dataUrl,
+          const text = await blob.text();
+          const parsed = JSON.parse(text) as ClipboardData;
+          if (parsed.nodes && Array.isArray(parsed.nodes)) {
+            result.strataData = parsed;
+          }
+        } else if (type.startsWith('image/') && type !== 'image/svg+xml') {
+          const blob = await item.getType(type);
+          const buffer = await blob.arrayBuffer();
+          result.importItems.push({
+            data: new Uint8Array(buffer),
             mimeType: type,
             name: `clipboard.${type.split('/')[1] ?? 'png'}`,
           });
-        } else if (type === 'text/svg+xml' || type === 'text/plain') {
+        } else if (type === 'image/svg+xml' || type === 'text/svg+xml' || type === 'text/plain') {
           const blob = await item.getType(type);
           const text = await blob.text();
           if (text.trim().startsWith('<svg') || text.trim().startsWith('<?xml')) {
-            results.push({
-              dataUrl: `data:image/svg+xml,${encodeURIComponent(text)}`,
+            result.importItems.push({
+              data: text,
               mimeType: 'image/svg+xml',
               name: 'clipboard.svg',
             });
@@ -95,16 +110,8 @@ export async function readClipboardImages(): Promise<ClipboardImageResult[]> {
         }
       }
     }
-    return results;
   } catch {
-    return [];
+    // Clipboard read failed or permission denied
   }
-}
-
-export async function readClipboardText(): Promise<string | null> {
-  try {
-    return await navigator.clipboard.readText();
-  } catch {
-    return null;
-  }
+  return result;
 }

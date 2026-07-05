@@ -86,14 +86,6 @@
 }
 
 /* ── Editor shell layout ────────────────────────────── */
-:root {
-  --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
-  --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
-  --z-overlay: 100;
-  --z-raised: 50;
-  --duration-base: 0.2s;
-  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
-}
 
 .editor-shell {
   display: grid;
@@ -397,8 +389,8 @@
   line-height: 1.4;
   pointer-events: none;
   opacity: 1;
-  transition: opacity 0.2s ease-out;
-  animation: zoom-indicator-fadein 0.15s ease-out;
+  transition: opacity var(--duration-base) var(--ease-out);
+  animation: zoom-indicator-fadein var(--duration-fast) var(--ease-out);
 }
 
 @keyframes zoom-indicator-fadein {
@@ -424,8 +416,12 @@
   position: absolute;
   width: 1px;
   height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 .editor-canvas__empty {
   position: absolute;
@@ -1167,6 +1163,15 @@
 .welcome-dialog__option:hover {
   border-color: var(--color-interactive-default);
   background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.welcome-dialog__option:hover .welcome-dialog__option-desc {
+  color: var(--color-text-on-accent);
+  opacity: 0.85;
+}
+.welcome-dialog__option:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }
 .welcome-dialog__option-label {
   font-size: var(--font-size-sm);
@@ -1175,6 +1180,7 @@
 .welcome-dialog__option-desc {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  transition: color var(--duration-fast) var(--ease-default);
 }
 .welcome-dialog__actions {
   display: flex;
@@ -1946,4 +1952,36 @@
 .plan-badge__expiry {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
+}
+
+/* ════════════════════════════════════════════════════════════
+   Canvas Rename Dialog (replaces prompt() — WCAG 3.3.2)
+   ════════════════════════════════════════════════════════════ */
+.strata-dialog--sm {
+  max-width: 20rem;
+  width: min(90vw, 20rem);
+  padding: var(--space-4);
+}
+.canvas-rename__input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-3);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  transition: border-color var(--duration-quick) var(--ease-standard);
+}
+.canvas-rename__input:focus {
+  border-color: var(--color-interactive-focus-ring);
+  outline: none;
+}
+.canvas-rename__input:focus-visible {
+  border-color: var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }

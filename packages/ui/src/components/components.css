@@ -261,7 +261,7 @@
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   line-height: 1.4;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.18);
   animation: strata-tooltip-fade-in var(--duration-fast) ease;
 }
 
@@ -707,7 +707,7 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }
@@ -941,7 +941,7 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }
@@ -1259,7 +1259,7 @@
   --density-rows-padding: var(--space-3);
   --density-rows-min-height: 42px;
   --density-icon-size: 18px;
-  --density-font-size: var(--font-size-base);
+  --density-font-size: var(--font-size-md);
   --density-avatar-size: 24px;
 }
 

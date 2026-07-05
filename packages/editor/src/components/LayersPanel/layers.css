@@ -47,6 +47,11 @@
   background: var(--color-surface-hover);
 }
 
+.layers-panel__collapse-all-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
 /* ─── Filter — compact search field ──────────────────────────── */
 .layers-panel__filter {
   display: flex;
@@ -84,19 +89,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  min-width: 24px;
+  min-height: 24px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
   border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
 .layers-panel__filter-clear:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-sunken);
+}
+
+.layers-panel__filter-clear:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 /* ─── Tree container ────────────────────────────────────────── */
@@ -854,7 +867,9 @@
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
-  padding: 0;
+  /* Padding expands the hit area to ≥ 24px (WCAG 2.5.8) without enlarging the visual dot */
+  padding: 4px;
+  box-sizing: content-box;
   flex-shrink: 0;
   transition:
     border-color var(--duration-quick) var(--ease-standard),
@@ -918,7 +933,7 @@
   border-top: var(--border-micro);
   border-top-color: var(--color-border-subtle);
   flex-shrink: 0;
-  animation: layers-bulk-bar-slide-in 0.2s var(--ease-standard);
+  animation: layers-bulk-bar-slide-in var(--duration-base) var(--ease-standard);
   overflow-x: auto;
 }
 
@@ -996,7 +1011,9 @@
   border-radius: 50%;
   border: 1px solid transparent;
   cursor: pointer;
-  padding: 0;
+  /* Padding expands hit area to ≥ 24px (WCAG 2.5.8) */
+  padding: 6px;
+  box-sizing: content-box;
   flex-shrink: 0;
   transition:
     border-color var(--duration-quick) var(--ease-standard),
