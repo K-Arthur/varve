@@ -31,7 +31,8 @@
   cursor: pointer;
   padding: 0;
   border-radius: var(--radius-sm);
-  transition: color var(--duration-quick) var(--ease-standard),
+  transition:
+    color var(--duration-quick) var(--ease-standard),
     background var(--duration-quick) var(--ease-standard);
 }
 
@@ -839,7 +840,8 @@
   cursor: pointer;
   padding: 0;
   border-radius: var(--radius-sm);
-  transition: color var(--duration-quick) var(--ease-standard),
+  transition:
+    color var(--duration-quick) var(--ease-standard),
     background var(--duration-quick) var(--ease-standard);
   flex-shrink: 0;
 }
@@ -871,7 +873,8 @@
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
-  transition: border-color var(--duration-quick) var(--ease-standard),
+  transition:
+    border-color var(--duration-quick) var(--ease-standard),
     transform var(--duration-quick) var(--ease-standard);
 }
 
@@ -880,10 +883,24 @@
   transform: scale(1.3);
 }
 
-.layers-bulk-bar__color-btn--red { background: var(--color-layer-tag-red); }
-.layers-bulk-bar__color-btn--orange { background: var(--color-layer-tag-orange); }
-.layers-bulk-bar__color-btn--yellow { background: var(--color-layer-tag-yellow); }
-.layers-bulk-bar__color-btn--green { background: var(--color-layer-tag-green); }
-.layers-bulk-bar__color-btn--blue { background: var(--color-layer-tag-blue); }
-.layers-bulk-bar__color-btn--purple { background: var(--color-layer-tag-purple); }
-.layers-bulk-bar__color-btn--gray { background: var(--color-layer-tag-gray); }
+.layers-bulk-bar__color-btn--red {
+  background: var(--color-layer-tag-red);
+}
+.layers-bulk-bar__color-btn--orange {
+  background: var(--color-layer-tag-orange);
+}
+.layers-bulk-bar__color-btn--yellow {
+  background: var(--color-layer-tag-yellow);
+}
+.layers-bulk-bar__color-btn--green {
+  background: var(--color-layer-tag-green);
+}
+.layers-bulk-bar__color-btn--blue {
+  background: var(--color-layer-tag-blue);
+}
+.layers-bulk-bar__color-btn--purple {
+  background: var(--color-layer-tag-purple);
+}
+.layers-bulk-bar__color-btn--gray {
+  background: var(--color-layer-tag-gray);
+}
