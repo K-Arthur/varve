@@ -11,6 +11,7 @@
  */
 import type { Platform } from './platform';
 import { contentHash, defaultViewState, uuid } from './pure';
+import { indexDocumentContent, searchContentIndex } from './searchIndex';
 import type {
   ActivityEvent,
   Asset,
@@ -185,6 +186,11 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       const rec = state.files.get(id);
       if (!rec) return;
       rec.entry = { ...rec.entry, pinned };
+    },
+    async setFavorited(id, favoritedAt) {
+      const rec = state.files.get(id);
+      if (!rec) return;
+      rec.entry = { ...rec.entry, favoritedAt: favoritedAt ?? undefined };
     },
     async moveToProject(id, projectId) {
       const rec = state.files.get(id);
@@ -451,8 +457,12 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     },
 
     // ─── Phase 4: Content-Aware Search ──────────────────────────────────
-    async searchFileContent(_fileId, _query) {
-      return [];
+    async searchFileContent(fileId, query) {
+      const rec = state.files.get(fileId);
+      if (!rec || !query.trim()) return [];
+      const index = indexDocumentContent(fileId, rec.json);
+      const results = searchContentIndex(index, query);
+      return results.map((r) => JSON.stringify(r));
     },
 
     // ─── Phase 5: Templates ──────────────────────────────────────────────

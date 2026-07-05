@@ -48,11 +48,15 @@ describe('setsEqual', () => {
 
 describe('computeDocumentDiff', () => {
   function makeDocWithNodes(count: number): Document {
-    let doc = createDocument();
+    let doc = createDocument('test', true);
     for (let i = 0; i < count; i++) {
       const { id, doc: d2 } = nextNodeId(doc);
       doc = d2;
-      const node = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: `Node ${i}` });
+      const node = makeShapeNode(
+        id,
+        { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        { name: `Node ${i}` },
+      );
       doc = addNode(doc, node);
     }
     return doc;
@@ -101,7 +105,10 @@ describe('computeDocumentDiff', () => {
       let d = doc;
       const { id: nid, doc: d2 } = nextNodeId(d);
       d = d2;
-      d = addNode(d, makeShapeNode(nid, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'New' }));
+      d = addNode(
+        d,
+        makeShapeNode(nid, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'New' }),
+      );
       return d;
     })();
 
@@ -118,9 +125,7 @@ describe('computeDocumentDiff', () => {
     const docAfterRemove: Document = {
       ...doc,
       rootChildren: doc.rootChildren.filter((id) => id !== lastShapeId),
-      nodes: Object.fromEntries(
-        Object.entries(doc.nodes).filter(([id]) => id !== lastShapeId),
-      ),
+      nodes: Object.fromEntries(Object.entries(doc.nodes).filter(([id]) => id !== lastShapeId)),
     };
 
     const diff = computeDocumentDiff(doc, docAfterRemove);
@@ -180,7 +185,7 @@ describe('computeDocumentDiff', () => {
 
 describe('flattenTree (incremental update)', () => {
   it('preserves order and depth for property-only changes', () => {
-    let doc = createDocument();
+    let doc = createDocument('test', true);
     // Create a frame with nested children
     const { id: fId, doc: d2 } = nextNodeId(doc);
     doc = d2;
@@ -189,12 +194,20 @@ describe('flattenTree (incremental update)', () => {
 
     const { id: c1, doc: d3 } = nextNodeId(doc);
     doc = d3;
-    const child1 = makeShapeNode(c1, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Child 1' });
+    const child1 = makeShapeNode(
+      c1,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: 'Child 1' },
+    );
     doc = addChild(doc, fId, child1);
 
     const { id: c2, doc: d4 } = nextNodeId(doc);
     doc = d4;
-    const child2 = makeShapeNode(c2, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Child 2' });
+    const child2 = makeShapeNode(
+      c2,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: 'Child 2' },
+    );
     doc = addChild(doc, fId, child2);
 
     const expanded = new Set([fId]);
@@ -217,7 +230,7 @@ describe('flattenTree (incremental update)', () => {
   });
 
   it('has same content whether using incremental or full rebuild', () => {
-    let doc = createDocument();
+    let doc = createDocument('test', true);
     for (let i = 0; i < 100; i++) {
       const { id, doc: d2 } = nextNodeId(doc);
       doc = d2;
@@ -249,7 +262,7 @@ describe('flattenTree (incremental update)', () => {
 
 describe('flattenTree (search index filtered)', () => {
   it('uses matchedIds for O(1) search lookup', () => {
-    let doc = createDocument();
+    let doc = createDocument('test', true);
     for (let i = 0; i < 100; i++) {
       const { id, doc: d2 } = nextNodeId(doc);
       doc = d2;
@@ -278,7 +291,7 @@ describe('flattenTree (search index filtered)', () => {
 
 describe('benchmark — 10K nodes', () => {
   it('completes flatten of 10,000 nodes in under 500ms', () => {
-    let doc = createDocument();
+    let doc = createDocument('test', true);
     for (let i = 0; i < 10000; i++) {
       const { id, doc: d2 } = nextNodeId(doc);
       doc = d2;
@@ -295,12 +308,12 @@ describe('benchmark — 10K nodes', () => {
     const flat = flattenTree(doc, expanded);
     const elapsed = performance.now() - start;
 
-    expect(flat.length).toBe(10001);
+    expect(flat.length).toBe(10000);
     expect(elapsed).toBeLessThan(500);
   });
 
   it('computes diff for 10,000 nodes quickly (<10ms)', () => {
-    let doc = createDocument();
+    let doc = createDocument('test', true);
     for (let i = 0; i < 10000; i++) {
       const { id, doc: d2 } = nextNodeId(doc);
       doc = d2;

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { snapPosition, snapSize } from '../snapping';
+import { describe, expect, it, vi } from 'vitest';
+import { filterSnapTargets, snapPosition, snapSize } from '../snapping';
 
 const THRESHOLD = 5;
 
@@ -158,5 +158,155 @@ describe('snapSize', () => {
     expect(result.guide).toBeDefined();
     expect(result.guide?.type).toBe('size-match');
     expect(result.guide?.label).toBe('200px');
+  });
+});
+
+describe('filterSnapTargets — D-02', () => {
+  const dragged = { x: 0, y: 0, w: 100, h: 100 };
+  const camera = { zoom: 1 };
+
+  it('nearby target included, far target excluded', () => {
+    const allBounds = [
+      { nodeId: 'near', bounds: { x: 150, y: 0, w: 100, h: 100 } },
+      { nodeId: 'far', bounds: { x: 500, y: 0, w: 100, h: 100 } },
+    ];
+    const parentIndex = new Map<string, string | null>([
+      ['near', 'root'],
+      ['far', 'root'],
+    ]);
+    const result = filterSnapTargets(dragged, camera, allBounds, parentIndex, 'dragged');
+    const ids = result.map((b) => `${b.x},${b.y},${b.w},${b.h}`);
+    expect(ids).toContain('150,0,100,100');
+    expect(ids).not.toContain('500,0,100,100');
+  });
+
+  it('sibling preferred over distant node when both are within spatial range', () => {
+    // sibling at x=160 is closer than distant node at x=200, both within 200px
+    const allBounds = [
+      { nodeId: 'sibling', bounds: { x: 160, y: 0, w: 100, h: 100 } },
+      { nodeId: 'distant', bounds: { x: 200, y: 0, w: 100, h: 100 } },
+    ];
+    const parentIndex = new Map<string, string | null>([
+      ['sibling', 'parentA'],
+      ['distant', 'parentB'],
+      ['dragged', 'parentA'],
+    ]);
+    const result = filterSnapTargets(dragged, camera, allBounds, parentIndex, 'dragged');
+    expect(result.length).toBe(2); // both are within range
+  });
+
+  it('returns empty array when no targets within range', () => {
+    const allBounds = [
+      { nodeId: 'far1', bounds: { x: 500, y: 500, w: 100, h: 100 } },
+      { nodeId: 'far2', bounds: { x: 1000, y: 0, w: 100, h: 100 } },
+    ];
+    const parentIndex = new Map<string, string | null>([
+      ['far1', 'root'],
+      ['far2', 'root'],
+    ]);
+    const result = filterSnapTargets(dragged, camera, allBounds, parentIndex, 'dragged');
+    expect(result).toHaveLength(0);
+  });
+
+  it('performance: 500 targets filtered in < 1ms', () => {
+    const allBounds: Array<{
+      nodeId: string;
+      bounds: { x: number; y: number; w: number; h: number };
+    }> = [];
+    const parentIndex = new Map<string, string | null>();
+    for (let i = 0; i < 500; i++) {
+      const id = `n${i}`;
+      // Only one target is within 200px range
+      const x = i === 250 ? 160 : 1000 + i;
+      allBounds.push({ nodeId: id, bounds: { x, y: 0, w: 100, h: 100 } });
+      parentIndex.set(id, 'root');
+    }
+    const start = performance.now();
+    const result = filterSnapTargets(dragged, camera, allBounds, parentIndex, 'dragged');
+    const elapsed = performance.now() - start;
+    expect(result.length).toBe(1); // only the one nearby
+    expect(elapsed).toBeLessThan(1);
+  });
+});
+
+describe('snapPosition — snapExcludedIds (D-03)', () => {
+  it('excluded node skipped in object snapping', () => {
+    // target[0] at x=0 would snap to dragged left edge (x=4, diff=4<5).
+    // target[1] at x=300 is far. Y positions staggered so no Y snap.
+    const targets = [
+      { x: 0, y: 50, w: 100, h: 100 },
+      { x: 300, y: 500, w: 100, h: 100 },
+    ];
+    const result = snapPosition(4, 200, 100, 100, targets, 0, new Set(['0']));
+    expect(result.x).toBe(4); // not snapped to x=0 because target[0] excluded
+    expect(result.guides).toHaveLength(0);
+  });
+
+  it('snaps to target when not excluded (sanity check)', () => {
+    const targets = [{ x: 0, y: 50, w: 100, h: 100 }];
+    const result = snapPosition(4, 200, 100, 100, targets, 0);
+    expect(result.x).toBe(0);
+    expect(result.guides.length).toBeGreaterThan(0);
+  });
+});
+
+import {
+  createDocument,
+  makeShapeNode,
+  setSnapExcluded as sceneSetSnapExcluded,
+} from '@strata/scene';
+
+describe('setSnapExcluded — D-03', () => {
+  it('toggles snap exclusion on/off', () => {
+    const doc = createDocument('test', true);
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const d1 = { ...doc, rootChildren: ['n1'], nodes: { ...doc.nodes, n1: shape } };
+    const d2 = sceneSetSnapExcluded(d1, 'n1', true);
+    expect((d2.nodes.n1 as (typeof d2.nodes)[string]).snapExcluded).toBe(true);
+    const d3 = sceneSetSnapExcluded(d2, 'n1', false);
+    expect((d3.nodes.n1 as (typeof d3.nodes)[string]).snapExcluded).toBe(false);
+  });
+
+  it('exclusion persists through undo/redo pattern', () => {
+    const doc = createDocument('test', true);
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const d1 = { ...doc, rootChildren: ['n1'], nodes: { ...doc.nodes, n1: shape } };
+    const d2 = sceneSetSnapExcluded(d1, 'n1', true);
+    // "undo" — revert to d1
+    expect((d1.nodes.n1 as (typeof d1.nodes)[string]).snapExcluded).toBeUndefined();
+    // "redo" — apply d2 again
+    const d3 = sceneSetSnapExcluded(d1, 'n1', true);
+    expect((d3.nodes.n1 as (typeof d3.nodes)[string]).snapExcluded).toBe(true);
+  });
+});
+
+describe('snapPosition — frame/page center (D-04)', () => {
+  it('snaps to page center when dragged near it', () => {
+    // Page bounds: 1920x1080, center at (960, 540)
+    // Dragged object at x=957, y=537, w=100, h=100 => centerX=1007, centerY=587
+    // ... let me fix: centerX = 957+50 = 1007, page centerX = 960, diff = 47 > 5
+    // Need diff < 5. Dragged centerX should be near 960.
+    // Try: x=910, w=100 => centerX = 960. x=957 is wrong.
+    // x=910, w=100 => centerX=960 exactly.
+    const pageBounds = { x: 0, y: 0, w: 1920, h: 1080 };
+    const result = snapPosition(910, 537, 100, 100, [pageBounds]);
+    expect(result.x).toBe(910); // centerX=960 matches page centerX=960 (0 diff)
+    // Actually, snap compares edges, not center. Let me adjust.
+    // Page left=0, dragged left=0 => diff=0 < 5 ✅
+    // Wait, dragged x=910, page x=0, diff=910 > 5. No snap.
+    // Snap is edge-based: dragged.left -> page.left, dragged.right -> page.right
+    // dragged.right = 910+100=1010, page.right = 1920, diff=910. No.
+    // dragged.centerX = 960, page.centerX = 960, diff=0 ✅ center snap.
+    expect(result.guides.some((g) => g.axis === 'vertical' && g.type === 'center')).toBe(true);
+  });
+
+  it('snaps to parent frame center when dragged near it', () => {
+    // Frame: x=100, y=100, w=400, h=300 => centerX=300, centerY=250
+    // Dragged: x=250, y=200, w=100, h=100 => centerX=300, centerY=250
+    // diff=0 on both
+    const frameBounds = { x: 100, y: 100, w: 400, h: 300 };
+    const result = snapPosition(250, 200, 100, 100, [frameBounds]);
+    expect(result.guides.some((g) => g.axis === 'vertical' && g.type === 'center')).toBe(true);
+    expect(result.guides.some((g) => g.axis === 'horizontal' && g.type === 'center')).toBe(true);
   });
 });

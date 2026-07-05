@@ -43,4 +43,21 @@ export const TOUR_STEPS: TourStep[] = [
       'Export your design as SVG or React code. Use the File menu to export, or switch to Inspect mode to measure and inspect elements.',
     placement: 'bottom',
   },
+  {
+    id: 'layers',
+    target: '[class*="editor__layers-panel"], [class*="editor-layers"]',
+    title: 'Organize your layers',
+    description:
+      'The Layers panel shows every node in your document. Select, rename, reorder, and group layers to keep your project organized.',
+    placement: 'right',
+  },
+  {
+    id: 'shortcuts',
+    target: '[class*="editor-status"]',
+    title: 'Work faster with shortcuts',
+    description:
+      'Press Ctrl+; (Cmd+;) to open the Quick Actions bar, or press ? to view the full keyboard shortcuts palette.',
+    placement: 'top',
+    offset: { y: -8 },
+  },
 ];

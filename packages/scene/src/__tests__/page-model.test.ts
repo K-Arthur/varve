@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Page } from '../types';
 import type { GroupNode } from '../types';
-import type { Document } from '../document';
 import {
   addChild,
   addGlobalChild,
@@ -13,7 +11,6 @@ import {
   nextNodeId,
   removePage,
   setActivePage,
-  setPageSize,
 } from '../document';
 
 describe('Page model hygiene', () => {
@@ -200,6 +197,16 @@ describe('Page model hygiene', () => {
       const updated = setActivePage(doc, secondPageId);
       expect(updated.activePageId).toBe(secondPageId);
       expect(updated).not.toBe(doc);
+    });
+  });
+
+  describe('Editor integration', () => {
+    it('newDocument creates a flat document (no pages) for new blank files', () => {
+      // The editor uses createDocument('Untitled', true) for new files
+      const doc = createDocument('Untitled', true);
+      expect(doc.pages).toBeUndefined();
+      expect(doc.activePageId).toBeUndefined();
+      expect(doc.name).toBe('Untitled');
     });
   });
 });

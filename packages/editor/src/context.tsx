@@ -16,6 +16,7 @@
 import { getTransactionHooks } from '@strata/collab';
 import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
 import type { ManagedColor } from '@strata/scene';
+import { getActionTracker } from './intelligence/actionTracker';
 import {
   applyAffine,
   invertAffine,
@@ -76,6 +77,7 @@ import {
   removeGuide as removeGuideDoc,
   removeNode,
   renameNode,
+  serializeDocument,
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
@@ -119,11 +121,7 @@ import {
 } from 'react';
 import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
-import {
-  getOrCreateSpatialIndex,
-  queryPoint,
-  type SpatialIndex,
-} from './scene/spatialIndex';
+import { getOrCreateSpatialIndex, queryPoint, type SpatialIndex } from './scene/spatialIndex';
 import {
   readClipboardImages,
   readClipboardText,
@@ -667,6 +665,9 @@ export interface EditorContextValue {
 
   /** Get node IDs visible on the active page (page content + global children). */
   activePageNodes: () => NodeId[];
+
+  /** Record a user action for analytics/onboarding/intelligence. */
+  recordAction: (actionId: string) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -904,11 +905,11 @@ async function saveAsImpl(
   try {
     const s = stateRef.current;
     const meta = s.sessions.find((sess) => sess.id === s.activeId);
-    const json = JSON.stringify({ ...s.document, formatVersion: '1.0' });
+    const json = serializeDocument(s.document);
     const filePath = await platform.saveDocumentToDisk(meta?.name ?? 'Untitled', json);
     if (filePath) {
       await recoveryRef.current?.deleteSession(s.activeId);
-      const fileId = `file-${Date.now()}`;
+      const fileId = crypto.randomUUID();
       patch({
         dirty: false,
         saveState: 'saved',
@@ -1284,11 +1285,11 @@ export function EditorProvider({
         // Prefer caller-supplied viewport, then the actual canvas container element
         // (accurate when panels are open), then fall back to window minus chrome.
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
-        const viewportEst: Viewport = opts?.viewport ?? (
-          canvasEl
+        const viewportEst: Viewport =
+          opts?.viewport ??
+          (canvasEl
             ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
-            : { width: window.innerWidth, height: window.innerHeight - 120 }
-        );
+            : { width: window.innerWidth, height: window.innerHeight - 120 });
         const bounds = nodeWorldBounds(state.document, id);
         if (!bounds) return;
         const padding = opts?.padding ?? 40;
@@ -1561,8 +1562,7 @@ export function EditorProvider({
       nodeWorldBounds: (n) => nodeWorldBounds(state.document, n.id) ?? nodeWorldBoundsFn(n),
       getWorldTransform: (id) =>
         getCachedWorldTransform(transformCacheRef.current, state.document, id),
-      getWorldBounds: (id) =>
-        getCachedWorldBounds(transformCacheRef.current, state.document, id),
+      getWorldBounds: (id) => getCachedWorldBounds(transformCacheRef.current, state.document, id),
 
       canvasToWorld: (cx, cy) => {
         return { x: (cx - state.pan.x) / state.zoom, y: (cy - state.pan.y) / state.zoom };
@@ -2390,6 +2390,20 @@ export function EditorProvider({
       },
 
       newDocument: () => {
+        // Snapshot current session before replacing document
+        const sid = state.activeId;
+        if (sid) {
+          sessionStoreRef.current.set(sid, {
+            document: state.document,
+            selection: state.selection,
+            viewport: { zoom: state.zoom, pan: state.pan },
+            undo: [...undoStackRef.current],
+            redo: [...redoStackRef.current],
+            undoSel: [...undoSelStackRef.current],
+            redoSel: [...redoSelStackRef.current],
+            variableStore: state.variableStore,
+          });
+        }
         undoStackRef.current = [];
         redoStackRef.current = [];
         undoSelStackRef.current = [];
@@ -2398,8 +2412,7 @@ export function EditorProvider({
       },
 
       serializeDocument: () => {
-        const stamped = { ...state.document, formatVersion: '1.0' };
-        return JSON.stringify(stamped);
+        return serializeDocument(state.document);
       },
 
       save: async () => {
@@ -2411,7 +2424,7 @@ export function EditorProvider({
         try {
           const s = stateRef.current;
           const meta = s.sessions.find((sess) => sess.id === s.activeId);
-          const json = JSON.stringify({ ...s.document, formatVersion: '1.0' });
+          const json = serializeDocument(s.document);
           if (meta?.fileId) {
             const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
             await platform.upsertFile(fe, json);
@@ -2455,7 +2468,13 @@ export function EditorProvider({
           const sessions = state.sessions.map((s) =>
             s.id === state.activeId ? { ...s, name, filePath, dirty: false } : s,
           );
-          patch({ document: doc, selection: [], sessions, dirty: false });
+          patch({
+            document: doc,
+            selection: [],
+            sessions,
+            dirty: false,
+            variableStore: doc.variableStore ?? createVariableStore(),
+          });
         } catch {
           // invalid JSON — ignore silently
         }
@@ -2558,6 +2577,10 @@ export function EditorProvider({
         return getActivePageNodes(state.document);
       },
 
+      recordAction: (actionId: string) => {
+        getActionTracker().record(actionId);
+      },
+
       setNodeLocked: (id, locked) => {
         updateNodeProp(id, (n) => ({ ...n, locked }));
       },
@@ -2633,9 +2656,7 @@ export function EditorProvider({
         }
         if (matchingIds.length > 0) {
           patch({ selection: [firstNode.id, ...matchingIds] });
-          announcerRef.current?.announce(
-            `Selected ${matchingIds.length + 1} nodes with color tag`,
-          );
+          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} nodes with color tag`);
         }
       },
 
@@ -2653,9 +2674,7 @@ export function EditorProvider({
         }
         if (matchingIds.length > 0) {
           patch({ selection: [firstNode.id, ...matchingIds] });
-          announcerRef.current?.announce(
-            `Selected ${matchingIds.length + 1} ${targetKind} nodes`,
-          );
+          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} ${targetKind} nodes`);
         }
       },
 
@@ -2762,7 +2781,14 @@ export function EditorProvider({
         const node = makeAdjustmentNode(
           id,
           'levels',
-          { channel: 'rgb' as const, inputBlack: 0, inputWhite: 255, gamma: 1, outputBlack: 0, outputWhite: 255 },
+          {
+            channel: 'rgb' as const,
+            inputBlack: 0,
+            inputWhite: 255,
+            gamma: 1,
+            outputBlack: 0,
+            outputWhite: 255,
+          },
           {
             name: `Adjustment ${id.slice(0, 4)}`,
             opacity: 1,
@@ -2858,7 +2884,7 @@ export function EditorProvider({
         announcerRef.current?.announce(`Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`);
       },
 
-       paste: () => {
+      paste: () => {
         readFromClipboard().then((data) => {
           if (!data || data.nodes.length === 0) return;
           setState((s) => {
@@ -3128,7 +3154,8 @@ export function EditorProvider({
 
       // F2/A8 — session (tab) management -----------------------------------
 
-      resolveVariable: (nameOrId) => resolve(state.variableStore, nameOrId),
+      resolveVariable: (nameOrId) =>
+        resolve(state.document.variableStore ?? createVariableStore(), nameOrId),
 
       addVariable: (v) => {
         const id = `var-${Date.now()}`;
@@ -3177,7 +3204,7 @@ export function EditorProvider({
             zoom: 1,
             pan: { x: 0, y: 0 },
             dirty: false,
-            variableStore: createVariableStore(),
+            variableStore: newDoc.variableStore ?? createVariableStore(),
             sessions: [...syncedSessions, { id: newId, name: 'Untitled', dirty: false }],
             activeId: newId,
           };
@@ -3208,14 +3235,15 @@ export function EditorProvider({
           redoStackRef.current = saved ? [...saved.redo] : [];
           undoSelStackRef.current = saved ? [...saved.undoSel] : [];
           redoSelStackRef.current = saved ? [...saved.redoSel] : [];
+          const restoredDoc = saved?.document ?? createDocument(targetMeta?.name ?? 'Untitled');
           return {
             ...s,
-            document: saved?.document ?? createDocument(targetMeta?.name ?? 'Untitled'),
+            document: restoredDoc,
             selection: saved?.selection ?? [],
             zoom: saved?.viewport.zoom ?? 1,
             pan: saved?.viewport.pan ?? { x: 0, y: 0 },
             dirty: targetMeta?.dirty ?? false,
-            variableStore: saved?.variableStore ?? createVariableStore(),
+            variableStore: restoredDoc.variableStore ?? createVariableStore(),
             sessions: syncedSessions,
             activeId: id,
           };
@@ -3270,14 +3298,15 @@ export function EditorProvider({
             redoStackRef.current = saved ? [...saved.redo] : [];
             undoSelStackRef.current = saved ? [...saved.undoSel] : [];
             redoSelStackRef.current = saved ? [...saved.redoSel] : [];
+            const savedDoc = saved?.document ?? doc;
             return {
               ...s,
-              document: saved?.document ?? doc,
+              document: savedDoc,
               selection: saved?.selection ?? [],
               zoom: saved?.viewport.zoom ?? 1,
               pan: saved?.viewport.pan ?? { x: 0, y: 0 },
               dirty: existing.dirty,
-              variableStore: saved?.variableStore ?? createVariableStore(),
+              variableStore: savedDoc.variableStore ?? createVariableStore(),
               sessions: syncedSessions,
               activeId: existing.id,
             };
@@ -3306,7 +3335,7 @@ export function EditorProvider({
               zoom: 1,
               pan: { x: 0, y: 0 },
               dirty: false,
-              variableStore: createVariableStore(),
+              variableStore: doc.variableStore ?? createVariableStore(),
               sessions: s.sessions.map((sess) =>
                 sess.id === s.activeId ? { ...sess, name, filePath, fileId } : sess,
               ),
@@ -3323,7 +3352,7 @@ export function EditorProvider({
             zoom: 1,
             pan: { x: 0, y: 0 },
             dirty: false,
-            variableStore: createVariableStore(),
+            variableStore: doc.variableStore ?? createVariableStore(),
             sessions: [...syncedSessions, { id: newId, name, dirty: false, filePath, fileId }],
             activeId: newId,
           };
@@ -3637,14 +3666,15 @@ export function EditorProvider({
           redoStackRef.current = saved ? [...saved.redo] : [];
           undoSelStackRef.current = saved ? [...saved.undoSel] : [];
           redoSelStackRef.current = saved ? [...saved.redoSel] : [];
+          const nextDoc = saved?.document ?? createDocument(next.name);
           return {
             ...s,
-            document: saved?.document ?? createDocument(next.name),
+            document: nextDoc,
             selection: saved?.selection ?? [],
             zoom: saved?.viewport.zoom ?? 1,
             pan: saved?.viewport.pan ?? { x: 0, y: 0 },
             dirty: next.dirty,
-            variableStore: saved?.variableStore ?? createVariableStore(),
+            variableStore: nextDoc.variableStore ?? createVariableStore(),
             sessions: remaining,
             activeId: next.id,
           };

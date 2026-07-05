@@ -9,6 +9,7 @@
  *                 ToolManager pattern from Figma/Penpot architecture.
  */
 
+import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
 import { useDroppable } from '@dnd-kit/core';
 import {
   applyStyleOverrides,
@@ -23,7 +24,7 @@ import {
 } from '@strata/engine';
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
-import { isContainer, resolveAllStyles, walkNodes } from '@strata/scene';
+import { buildParentIndexMap, isContainer, resolveAllStyles, walkNodes } from '@strata/scene';
 import {
   clampZoom,
   fitBoundsCamera,
@@ -75,7 +76,7 @@ import { SelectTool } from './tools/SelectTool';
 import { SliceTool } from './tools/SliceTool';
 import { SpotHealTool } from './tools/SpotHealTool';
 import { StarTool } from './tools/StarTool';
-import { type SnapGuide, snapPosition } from './tools/snapping';
+import { filterSnapTargets, type SnapGuide, snapPosition } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
 
@@ -367,6 +368,19 @@ export function CanvasArea({
   const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const lastCursorUpdate = useRef(0);
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+
+  useEffect(() => {
+    const el = canvasRef.current?.parentElement;
+    if (!el) return;
+    const updateSize = () => {
+      setCanvasSize({ width: el.clientWidth, height: el.clientHeight });
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     createEngine('auto').then((eng) => {
@@ -495,9 +509,67 @@ export function CanvasArea({
 
       snapPosition: (bounds, targets) => {
         if (!s.snapEnabled) return { x: bounds.x, y: bounds.y, guides: [] };
-        const result = snapPosition(bounds.x, bounds.y, bounds.w, bounds.h, targets, s.snapGrid);
+
+        // D-02: Spatial + hierarchical filtering of snap targets
+        const doc = stateRef.current.document;
+        const allBoundsWithIds: Array<{
+          nodeId: string;
+          bounds: { x: number; y: number; w: number; h: number };
+        }> = [];
+        for (const n of Object.values(doc.nodes)) {
+          const b = nodeWorldBoundsFn(n);
+          if (b) allBoundsWithIds.push({ nodeId: n.id, bounds: b });
+        }
+        const parentIdx = buildParentIndexMap(doc);
+        const draggedId = stateRef.current.selection[0] ?? '';
+        const filtered = filterSnapTargets(
+          bounds,
+          { zoom: s.zoom },
+          allBoundsWithIds,
+          parentIdx,
+          draggedId,
+        );
+
+        // D-04: Add page bounds and containing frame bounds as snap targets
+        const pageBoundsTargets: Array<{ x: number; y: number; w: number; h: number }> = [];
+        const activePageId = doc.activePageId;
+        const pages = doc.pages;
+        if (activePageId && pages) {
+          const activePage = pages.find((p) => p.id === activePageId);
+          if (activePage) {
+            pageBoundsTargets.push({
+              x: 0,
+              y: 0,
+              w: activePage.width,
+              h: activePage.height,
+            });
+          }
+        }
+        // Find containing frame via findContainingFrame (uses cursor position from ev)
+        // Since we don't have the cursor here, we try the first selected node's parent
+        if (draggedId) {
+          const parentId = parentIdx.get(draggedId);
+          if (parentId) {
+            const parentNode = doc.nodes[parentId];
+            if (parentNode && 'w' in parentNode) {
+              pageBoundsTargets.push({
+                x: 0,
+                y: 0,
+                w: (parentNode as { w: number }).w,
+                h: (parentNode as { h: number }).h,
+              });
+            }
+          }
+        }
+
+        const allTargets = [...filtered, ...pageBoundsTargets];
+        const result = snapPosition(bounds.x, bounds.y, bounds.w, bounds.h, allTargets, s.snapGrid);
         setSnapGuides(result.guides);
         return result;
+      },
+      isSnapExcluded: (id: string) => {
+        const n = stateRef.current.document.nodes[id];
+        return n?.snapExcluded === true;
       },
     };
   }
@@ -539,13 +611,15 @@ export function CanvasArea({
           return `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
         }
         return (
-          getComputedStyle(document.documentElement).getPropertyValue('--color-surface-sunken').trim() ||
-          '#f5f5f4'
+          getComputedStyle(document.documentElement)
+            .getPropertyValue('--color-surface-sunken')
+            .trim() || '#f5f5f4'
         );
       })();
       const accentColor =
-        getComputedStyle(document.documentElement).getPropertyValue('--color-accent-primary').trim() ||
-        '#3b82f6';
+        getComputedStyle(document.documentElement)
+          .getPropertyValue('--color-accent-primary')
+          .trim() || '#3b82f6';
 
       // B-03: Hierarchical viewport culling — build a set of off-screen container
       // descendants to skip. If a container's world bounds don't intersect the
@@ -1843,6 +1917,14 @@ export function CanvasArea({
       )}
       <ZoomIndicator zoom={state.zoom} />
       <div className="editor-canvas__announcer" ref={announcer} role="status" aria-live="polite" />
+      <CanvasAccessibilityTree
+        doc={state.document}
+        camera={{ zoom: state.zoom, pan: state.pan }}
+        viewport={canvasSize}
+        walkNodes={walkNodes}
+        nodeWorldBounds={nodeWorldBounds}
+        isWorldRectInViewport={isWorldRectInViewport}
+      />
     </section>
   );
 }

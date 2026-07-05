@@ -6,6 +6,7 @@ import {
   migrateDocument,
   migrateDocumentDetailed,
   migrateDocumentJson,
+  serializeDocument,
   SUPPORTED_VERSIONS,
   stampVersion,
 } from './version';
@@ -313,5 +314,43 @@ describe('Detailed Migration', () => {
     expect(doc.formatVersion).toBe('1.4');
     expect(doc.timelines).toBeDefined();
     expect((doc.timelines as Record<string, unknown>)['tl-1']).toBeDefined();
+  });
+});
+
+describe('serializeDocument', () => {
+  it('stamps current version and produces valid JSON', () => {
+    const doc = { id: 'd1', name: 'test', rootChildren: [], nodes: {} };
+    const json = serializeDocument(doc);
+    const parsed = JSON.parse(json);
+    expect(parsed.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
+    expect(parsed.id).toBe('d1');
+  });
+
+  it('preserves all document fields', () => {
+    const doc = {
+      id: 'd1',
+      name: 'My Design',
+      rootChildren: ['n1'],
+      nodes: { n1: { id: 'n1', kind: 'rect', name: 'Box' } },
+      nextId: 2,
+    };
+    const json = serializeDocument(doc);
+    const parsed = JSON.parse(json);
+    expect(parsed.name).toBe('My Design');
+    expect(parsed.nodes.n1.kind).toBe('rect');
+    expect(parsed.nextId).toBe(2);
+  });
+
+  it('overrides existing older version with current version', () => {
+    const doc = { id: 'd1', name: 'test', formatVersion: '1.0', rootChildren: [], nodes: {} };
+    const json = serializeDocument(doc);
+    const parsed = JSON.parse(json);
+    expect(parsed.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
+  });
+
+  it('returns a string', () => {
+    const doc = { id: 'd1', name: 'test', rootChildren: [], nodes: {} };
+    const result = serializeDocument(doc);
+    expect(typeof result).toBe('string');
   });
 });

@@ -1,5 +1,6 @@
 import type { FileEntry, FileKind, Platform } from '@strata/platform';
-import { contentHash, detectFileKind, stripExtension, uuid } from '@strata/platform';
+import { contentHash, DRAFTS_ID, detectFileKind, stripExtension, uuid } from '@strata/platform';
+import { serializeDocument as serializeDoc } from '@strata/scene';
 import { Button, Dialog, Icon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 
@@ -111,7 +112,7 @@ export function BulkImportDialog({
           id: f.id,
           name: stripExtension(f.name),
           kind: f.kind,
-          projectId: '__drafts__',
+          projectId: DRAFTS_ID,
           createdAt: now,
           updatedAt: now,
           openedAt: now,
@@ -121,8 +122,7 @@ export function BulkImportDialog({
           ordering: '',
           contentHash: contentHash(f.name),
         };
-        const json = JSON.stringify({
-          formatVersion: '1.0',
+        const json = serializeDoc({
           id: f.id,
           name: stripExtension(f.name),
           rootChildren: [],

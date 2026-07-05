@@ -44,11 +44,7 @@ function computeWorldTransform(doc: Document, id: NodeId): Affine {
   return world;
 }
 
-export function getWorldTransform(
-  cache: TransformCache,
-  doc: Document,
-  nodeId: NodeId,
-): Affine {
+export function getWorldTransform(cache: TransformCache, doc: Document, nodeId: NodeId): Affine {
   const cached = cache.worldTransform.get(nodeId);
   if (cached !== undefined && !cache.dirty.has(nodeId)) {
     return cached;
@@ -60,11 +56,7 @@ export function getWorldTransform(
   return result;
 }
 
-export function getWorldBounds(
-  cache: TransformCache,
-  doc: Document,
-  nodeId: NodeId,
-): Rect | null {
+export function getWorldBounds(cache: TransformCache, doc: Document, nodeId: NodeId): Rect | null {
   const cached = cache.worldBounds.get(nodeId);
   if (cached !== undefined && !cache.dirty.has(nodeId)) {
     return cached;
@@ -90,11 +82,7 @@ export function invalidateAll(cache: TransformCache): void {
   cache.generation++;
 }
 
-export function invalidateSubtree(
-  cache: TransformCache,
-  doc: Document,
-  nodeId: NodeId,
-): void {
+export function invalidateSubtree(cache: TransformCache, doc: Document, nodeId: NodeId): void {
   cache.dirty.add(nodeId);
 
   const node = doc.nodes[nodeId];
@@ -107,10 +95,7 @@ export function invalidateSubtree(
   cache.generation++;
 }
 
-export function invalidateNodes(
-  cache: TransformCache,
-  nodeIds: NodeId[],
-): void {
+export function invalidateNodes(cache: TransformCache, nodeIds: NodeId[]): void {
   for (const id of nodeIds) {
     cache.dirty.add(id);
   }

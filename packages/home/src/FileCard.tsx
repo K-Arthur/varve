@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { FileEntry } from '@strata/platform';
 import { formatBytes, formatRelativeTime } from '@strata/platform';
+import { Icon } from '@strata/ui';
 import {
   type ButtonHTMLAttributes,
   forwardRef,
@@ -25,6 +26,7 @@ export interface FileCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isRenaming?: boolean;
   onStartRename?: () => void;
   isMissing?: boolean;
+  onToggleFavorite?: (entry: FileEntry) => void;
 }
 
 export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function FileCard(
@@ -41,6 +43,7 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
     isRenaming = false,
     onStartRename,
     isMissing = false,
+    onToggleFavorite,
     className = '',
     style: styleProp,
     ...rest
@@ -184,6 +187,31 @@ export const FileCard = forwardRef<HTMLButtonElement, FileCardProps>(function Fi
             </span>
           )}
           <div className="file-card__meta">
+            {onToggleFavorite && (
+              <button
+                type="button"
+                className={`file-card__fav ${entry.favoritedAt && entry.favoritedAt > 0 ? 'file-card__fav--active' : ''}`}
+                aria-label={
+                  entry.favoritedAt && entry.favoritedAt > 0
+                    ? 'Remove from Favorites'
+                    : 'Add to Favorites'
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onToggleFavorite(entry);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <Icon
+                  name="Star"
+                  fill={entry.favoritedAt && entry.favoritedAt > 0 ? 'currentColor' : 'none'}
+                  label={undefined}
+                  size="0.85em"
+                />
+              </button>
+            )}
             <span className="file-card__badge">{entry.kind}</span>
             <span>{formatRelativeTime(entry.updatedAt)}</span>
             {entry.size > 0 && <span>{formatBytes(entry.size)}</span>}

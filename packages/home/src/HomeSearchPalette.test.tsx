@@ -2,8 +2,13 @@
 
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { Platform } from '@strata/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { HomeSearchPalette } from './HomeSearchPalette';
+
+const mockPlatform: Platform = {
+  searchFileContent: vi.fn().mockResolvedValue([]),
+} as unknown as Platform;
 
 const mockFiles = [
   {
@@ -66,6 +71,7 @@ describe('HomeSearchPalette', () => {
         files={mockFiles}
         projects={mockProjects}
         templates={mockTemplates}
+        platform={mockPlatform}
       />,
     );
     expect(container.innerHTML).toBe('');
@@ -80,6 +86,7 @@ describe('HomeSearchPalette', () => {
         files={mockFiles}
         projects={mockProjects}
         templates={mockTemplates}
+        platform={mockPlatform}
       />,
     );
     expect(screen.getByPlaceholderText(/Search/)).toBeInTheDocument();
@@ -94,6 +101,7 @@ describe('HomeSearchPalette', () => {
         files={mockFiles}
         projects={mockProjects}
         templates={mockTemplates}
+        platform={mockPlatform}
       />,
     );
     const input = screen.getByPlaceholderText(/Search/);
@@ -111,6 +119,7 @@ describe('HomeSearchPalette', () => {
         files={mockFiles}
         projects={mockProjects}
         templates={mockTemplates}
+        platform={mockPlatform}
       />,
     );
     const input = screen.getByPlaceholderText(/Search/);
@@ -130,6 +139,7 @@ describe('HomeSearchPalette', () => {
         files={mockFiles}
         projects={mockProjects}
         templates={mockTemplates}
+        platform={mockPlatform}
       />,
     );
     const dialog = screen.getByRole('dialog');
@@ -147,6 +157,7 @@ describe('HomeSearchPalette', () => {
         files={mockFiles}
         projects={mockProjects}
         templates={mockTemplates}
+        platform={mockPlatform}
       />,
     );
     const dialog = screen.getByRole('dialog');

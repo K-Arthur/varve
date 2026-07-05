@@ -365,8 +365,14 @@
 }
 
 @keyframes zoom-indicator-fadein {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .editor-canvas:focus-visible {
   outline: 2px solid var(--color-interactive-default);
@@ -845,7 +851,6 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
-
 
 /* ── Collapsed panel state ── */
 .editor__layers-panel[data-collapsed],

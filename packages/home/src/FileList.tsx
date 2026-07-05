@@ -22,6 +22,7 @@ export interface FileListProps {
   renamingId?: string | null;
   onStartRename?: (id: string | null) => void;
   missingFiles?: Set<string>;
+  onToggleFavorite?: (entry: FileEntry) => void;
 }
 
 const ROW_HEIGHT = 48;
@@ -44,6 +45,7 @@ export function FileList({
   renamingId,
   onStartRename,
   missingFiles = new Set(),
+  onToggleFavorite,
 }: FileListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusIdx, setFocusIdx] = useState(0);
@@ -282,6 +284,8 @@ export function FileList({
             </>
           ))}
           <div />
+          <div />
+          <div />
         </div>
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -351,6 +355,28 @@ export function FileList({
                   <span className="file-row__meta">
                     {entry.size > 0 ? formatBytes(entry.size) : ''}
                   </span>
+                  {onToggleFavorite && (
+                    <button
+                      type="button"
+                      className={`file-row__fav ${entry.favoritedAt && entry.favoritedAt > 0 ? 'file-row__fav--active' : ''}`}
+                      aria-label={
+                        entry.favoritedAt && entry.favoritedAt > 0
+                          ? 'Remove from Favorites'
+                          : 'Add to Favorites'
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(entry);
+                      }}
+                    >
+                      <Icon
+                        name="Star"
+                        fill={entry.favoritedAt && entry.favoritedAt > 0 ? 'currentColor' : 'none'}
+                        label={undefined}
+                        size="0.85em"
+                      />
+                    </button>
+                  )}
                   <span className="file-card__badge">{entry.kind}</span>
                   <button
                     type="button"

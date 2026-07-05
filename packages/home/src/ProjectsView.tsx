@@ -1,6 +1,7 @@
 import type { FileEntry, Folder, Platform, Project } from '@strata/platform';
 import { Button, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type BreadcrumbSegment } from './BreadcrumbNav';
 import { FileGrid } from './FileGrid';
 import { FolderView } from './FolderView';
 
@@ -22,6 +23,9 @@ export interface ProjectsViewProps {
   renamingId?: string | null;
   onStartRename?: (id: string | null) => void;
   missingFiles?: Set<string>;
+  activeFolderId: string | null;
+  onSetFolderId: (id: string | null) => void;
+  onFolderBreadcrumb: (chain: BreadcrumbSegment[]) => void;
 }
 
 export function ProjectsView({
@@ -42,11 +46,13 @@ export function ProjectsView({
   renamingId,
   onStartRename,
   missingFiles = new Set(),
+  activeFolderId,
+  onSetFolderId,
+  onFolderBreadcrumb,
 }: ProjectsViewProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project?.name ?? '');
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!project) return;
@@ -61,9 +67,30 @@ export function ProjectsView({
     [files, project],
   );
 
-  const handleNavigate = useCallback((folderId: string | null) => {
-    setActiveFolderId(folderId);
-  }, []);
+  const handleNavigate = useCallback(
+    (folderId: string | null) => {
+      onSetFolderId(folderId);
+    },
+    [onSetFolderId],
+  );
+
+  useEffect(() => {
+    const crumbs: BreadcrumbSegment[] = [];
+    if (activeFolderId) {
+      const map = new Map<string, Folder>();
+      for (const f of folders) map.set(f.id, f);
+      const chain: Folder[] = [];
+      let current = map.get(activeFolderId);
+      while (current) {
+        chain.push(current);
+        current = current.parentId ? map.get(current.parentId) : undefined;
+      }
+      for (const f of chain.reverse()) {
+        crumbs.push({ id: f.id, name: f.name });
+      }
+    }
+    onFolderBreadcrumb(crumbs);
+  }, [folders, activeFolderId, onFolderBreadcrumb]);
 
   if (!project) {
     return <div>Project not found</div>;

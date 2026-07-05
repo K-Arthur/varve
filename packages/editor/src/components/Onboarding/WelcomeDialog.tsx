@@ -3,14 +3,16 @@ import { Button, Dialog, Icon } from '@strata/ui';
 export interface WelcomeDialogProps {
   open: boolean;
   onStartTour: () => void;
-  onStartFromScratch: () => void;
+  onStartBlank: () => void;
+  onStartTemplate: () => void;
   onClose: () => void;
 }
 
 export function WelcomeDialog({
   open,
   onStartTour,
-  onStartFromScratch,
+  onStartBlank,
+  onStartTemplate,
   onClose,
 }: WelcomeDialogProps) {
   return (
@@ -26,29 +28,22 @@ export function WelcomeDialog({
         </p>
 
         <div className="welcome-dialog__options">
-          <button type="button" className="welcome-dialog__option" onClick={onStartFromScratch}>
-            <Icon name="FilePlus" size="1.5em" />
-            <span className="welcome-dialog__option-label">Start from scratch</span>
-            <span className="welcome-dialog__option-desc">Begin with a blank canvas</span>
-          </button>
-
-          <button
-            type="button"
-            className="welcome-dialog__option"
-            onClick={() => {
-              document.querySelector<HTMLInputElement>('#file-open-input')?.click();
-              onClose();
-            }}
-          >
-            <Icon name="FolderOpen" size="1.5em" />
-            <span className="welcome-dialog__option-label">Open recent document</span>
-            <span className="welcome-dialog__option-desc">Continue where you left off</span>
-          </button>
-
           <button type="button" className="welcome-dialog__option" onClick={onStartTour}>
             <Icon name="GraduationCap" size="1.5em" />
-            <span className="welcome-dialog__option-label">Take a tour</span>
+            <span className="welcome-dialog__option-label">Take the tour</span>
             <span className="welcome-dialog__option-desc">Learn the basics in 60 seconds</span>
+          </button>
+
+          <button type="button" className="welcome-dialog__option" onClick={onStartTemplate}>
+            <Icon name="LayoutTemplate" size="1.5em" />
+            <span className="welcome-dialog__option-label">Start with a template</span>
+            <span className="welcome-dialog__option-desc">Jump-start your project</span>
+          </button>
+
+          <button type="button" className="welcome-dialog__option" onClick={onStartBlank}>
+            <Icon name="FilePlus" size="1.5em" />
+            <span className="welcome-dialog__option-label">Blank canvas</span>
+            <span className="welcome-dialog__option-desc">Begin with an empty design</span>
           </button>
         </div>
 

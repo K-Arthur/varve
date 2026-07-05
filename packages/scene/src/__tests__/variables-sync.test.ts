@@ -7,10 +7,7 @@ import {
   updateVariableInDocument,
 } from '../document';
 import type { Variable, VariableStore } from '../variables';
-import {
-  createVariableStore,
-  mergeVariableStores,
-} from '../variables';
+import { createVariableStore, mergeVariableStores } from '../variables';
 
 function makeVar(
   id: string,

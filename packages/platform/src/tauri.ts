@@ -109,6 +109,9 @@ export function createTauriPlatform(): Platform {
     async setPinned(id, pinned) {
       await core().invoke('home_set_pinned', { id, pinned });
     },
+    async setFavorited(id, favoritedAt) {
+      await core().invoke('home_set_favorited', { id, favoritedAt });
+    },
     async moveToProject(id, projectId) {
       await core().invoke('home_move_project', { id, projectId });
     },

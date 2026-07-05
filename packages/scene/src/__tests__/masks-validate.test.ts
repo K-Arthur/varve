@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { addNode, createDocument, makeFrameNode, makeGroupNode, makeShapeNode, removeNode } from '../document';
-import { findNodesUsingMaskSource, clearMaskSource, validateMasks, isMaskSource } from '../masks';
-import type { Mask } from '../types';
+import {
+  addNode,
+  createDocument,
+  makeFrameNode,
+  makeGroupNode,
+  makeShapeNode,
+  removeNode,
+} from '../document';
+import { clearMaskSource, findNodesUsingMaskSource, isMaskSource, validateMasks } from '../masks';
 
 describe('findNodesUsingMaskSource', () => {
   it('returns empty array when no masks use source', () => {
@@ -42,7 +48,7 @@ describe('clearMaskSource', () => {
     frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
     doc = addNode(doc, frame);
     doc = clearMaskSource(doc, 'n1');
-    const updatedFrame = doc.nodes['f1'] as { mask?: unknown };
+    const updatedFrame = doc.nodes.f1 as { mask?: unknown };
     expect(updatedFrame.mask).toBeUndefined();
   });
 
@@ -54,7 +60,7 @@ describe('clearMaskSource', () => {
     doc = addNode(doc, frame);
     doc = clearMaskSource(doc, 'n1');
     const doc2 = clearMaskSource(doc, 'n1');
-    const updatedFrame = doc2.nodes['f1'] as { mask?: unknown };
+    const updatedFrame = doc2.nodes.f1 as { mask?: unknown };
     expect(updatedFrame.mask).toBeUndefined();
   });
 });
@@ -85,7 +91,7 @@ describe('removeNode mask cleanup', () => {
     frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
     doc = addNode(doc, frame);
     doc = removeNode(doc, 'n1');
-    const updatedFrame = doc.nodes['f1'] as { mask?: unknown };
+    const updatedFrame = doc.nodes.f1 as { mask?: unknown };
     expect(updatedFrame.mask).toBeUndefined();
   });
 });

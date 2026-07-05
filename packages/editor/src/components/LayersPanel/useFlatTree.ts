@@ -59,10 +59,7 @@ export interface DocumentDiff {
  * Structural changes: rootChildren replaced, node added/removed, children arrays changed.
  * Property-only changes: node object reference changed but children array reference unchanged.
  */
-export function computeDocumentDiff(
-  prevDoc: Document | null,
-  doc: Document,
-): DocumentDiff {
+export function computeDocumentDiff(prevDoc: Document | null, doc: Document): DocumentDiff {
   if (!prevDoc) return { structureChanged: true, changedNodeIds: [] };
 
   // Same nodes map reference → no node-level changes
@@ -99,8 +96,10 @@ export function computeDocumentDiff(
     if (prevNode === currNode) continue;
 
     // Different reference: check if children array changed (structural)
-    const prevChildren = 'children' in prevNode ? (prevNode as { children?: NodeId[] }).children : undefined;
-    const currChildren = 'children' in currNode ? (currNode as { children?: NodeId[] }).children : undefined;
+    const prevChildren =
+      'children' in prevNode ? (prevNode as { children?: NodeId[] }).children : undefined;
+    const currChildren =
+      'children' in currNode ? (currNode as { children?: NodeId[] }).children : undefined;
 
     if (prevChildren !== currChildren) {
       return { structureChanged: true, changedNodeIds: [] };
@@ -109,7 +108,14 @@ export function computeDocumentDiff(
     changedNodeIds.push(key);
   }
 
-  return { structureChanged: changedNodeIds.length === 0 && Object.keys(prevDoc.nodes).length === Object.keys(doc.nodes).length ? false : false, changedNodeIds };
+  return {
+    structureChanged:
+      changedNodeIds.length === 0 &&
+      Object.keys(prevDoc.nodes).length === Object.keys(doc.nodes).length
+        ? false
+        : false,
+    changedNodeIds,
+  };
 }
 
 /**
@@ -133,21 +139,29 @@ function propsAffectFilter(
     if (prev.locked !== curr.locked) return true;
     if (prev.visible !== curr.visible) return true;
     if (prev.blendMode !== curr.blendMode) return true;
-    if ((prev as Record<string, unknown>).componentId !== (curr as Record<string, unknown>).componentId) return true;
+    if (
+      (prev as Record<string, unknown>).componentId !==
+      (curr as Record<string, unknown>).componentId
+    )
+      return true;
 
     if (filterSpec.attributes.hasChildren !== undefined) {
-      const prevCh = 'children' in prev ? (prev as { children?: unknown[] }).children?.length ?? 0 : 0;
-      const currCh = 'children' in curr ? (curr as { children?: unknown[] }).children?.length ?? 0 : 0;
-      if ((prevCh > 0) !== (currCh > 0)) return true;
+      const prevCh =
+        'children' in prev ? ((prev as { children?: unknown[] }).children?.length ?? 0) : 0;
+      const currCh =
+        'children' in curr ? ((curr as { children?: unknown[] }).children?.length ?? 0) : 0;
+      if (prevCh > 0 !== currCh > 0) return true;
     }
     if (filterSpec.attributes.hasEffects !== undefined) {
-      const prevFx = 'effects' in prev ? (prev as { effects?: unknown[] }).effects?.length ?? 0 : 0;
-      const currFx = 'effects' in curr ? (curr as { effects?: unknown[] }).effects?.length ?? 0 : 0;
-      if ((prevFx > 0) !== (currFx > 0)) return true;
+      const prevFx =
+        'effects' in prev ? ((prev as { effects?: unknown[] }).effects?.length ?? 0) : 0;
+      const currFx =
+        'effects' in curr ? ((curr as { effects?: unknown[] }).effects?.length ?? 0) : 0;
+      if (prevFx > 0 !== currFx > 0) return true;
     }
     if (filterSpec.attributes.isMasked !== undefined) {
-      const prevM = 'mask' in prev ? (prev as { mask?: unknown }).mask ?? null : null;
-      const currM = 'mask' in curr ? (curr as { mask?: unknown }).mask ?? null : null;
+      const prevM = 'mask' in prev ? ((prev as { mask?: unknown }).mask ?? null) : null;
+      const currM = 'mask' in curr ? ((curr as { mask?: unknown }).mask ?? null) : null;
       if ((prevM != null) !== (currM != null)) return true;
     }
     if (filterSpec.search && prev.name !== curr.name) return true;

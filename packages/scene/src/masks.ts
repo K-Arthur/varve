@@ -11,7 +11,8 @@
  * Research basis: Figma mask model (Fill → Mask, alpha/vector masks),
  * Adobe Illustrator clipping masks.
  */
-import type { Document, Mask, NodeId, SceneNode } from './types';
+import type { Document } from './document';
+import type { Mask, NodeId, SceneNode } from './types';
 
 /** Return the effective mask for a container node, or null if no mask is set. */
 export function resolveMask(node: SceneNode): Mask | null {
@@ -51,7 +52,7 @@ export function clearMaskSource(doc: Document, sourceId: NodeId): Document {
   for (const [id, node] of Object.entries(nodes)) {
     const n = node as SceneNode & { mask?: Mask };
     if (n.mask?.sourceNodeId === sourceId) {
-      const { mask: _unused, ...rest } = node;
+      const { mask: _unused, ...rest } = n;
       nodes = { ...nodes, [id]: rest as SceneNode };
     }
   }

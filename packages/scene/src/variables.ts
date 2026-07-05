@@ -317,10 +317,7 @@ export function deleteVariable(store: VariableStore, id: string): VariableStore 
  * Merge variables from two stores.
  * Source takes priority on conflict (variables, collections, modes, activeMode).
  */
-export function mergeVariableStores(
-  base: VariableStore,
-  source: VariableStore,
-): VariableStore {
+export function mergeVariableStores(base: VariableStore, source: VariableStore): VariableStore {
   return {
     variables: { ...base.variables, ...source.variables },
     collections: { ...base.collections, ...source.collections },

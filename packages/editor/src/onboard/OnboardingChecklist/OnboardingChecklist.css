@@ -1,0 +1,163 @@
+.onboarding-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-width: 240px;
+  font-size: var(--font-size-sm);
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+.onboarding-checklist--open {
+  opacity: 1;
+  transform: translateY(0);
+}
+.onboarding-checklist--celebration {
+  align-items: center;
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.onboarding-checklist__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.onboarding-checklist__title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.onboarding-checklist__progress {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.onboarding-checklist__progress-bar {
+  height: 4px;
+  background: var(--color-surface-sunken);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.onboarding-checklist__progress-fill {
+  height: 100%;
+  background: var(--color-interactive-default);
+  border-radius: 2px;
+  transition: width var(--duration-base) var(--ease-out);
+}
+
+.onboarding-checklist__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.onboarding-checklist__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+}
+
+.onboarding-checklist__circle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.onboarding-checklist__check-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-interactive-default);
+}
+
+.onboarding-checklist__label {
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-align: left;
+  padding: var(--space-1) 0;
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
+}
+.onboarding-checklist__label:hover:not([aria-disabled='true']) {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.onboarding-checklist__label:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+.onboarding-checklist__label--done {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.onboarding-checklist__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.onboarding-checklist__dismiss {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
+}
+.onboarding-checklist__dismiss:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+.onboarding-checklist__dismiss:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.onboarding-checklist__celebration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-interactive-default);
+}
+.onboarding-checklist__celebration-text {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+.onboarding-checklist__celebration-sub {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

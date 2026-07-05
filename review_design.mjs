@@ -37,7 +37,9 @@ const createBtn = page.locator('dialog').getByRole('button', { name: /^create$/i
 await createBtn.waitFor({ timeout: 5000 });
 await createBtn.click();
 // Wait for canvas
-await page.getByRole('img', { name: 'Design canvas' }).waitFor({ timeout: 10000, state: 'visible' });
+await page
+  .getByRole('img', { name: 'Design canvas' })
+  .waitFor({ timeout: 10000, state: 'visible' });
 await page.waitForTimeout(800);
 
 // ── Full editor — dark mode (default) ──
@@ -168,7 +170,9 @@ await darkPage.getByRole('button', { name: /new file/i }).click();
 const darkCreateBtn = darkPage.locator('dialog').getByRole('button', { name: /^create$/i });
 await darkCreateBtn.waitFor({ timeout: 5000 });
 await darkCreateBtn.click();
-await darkPage.getByRole('img', { name: 'Design canvas' }).waitFor({ timeout: 10000, state: 'visible' });
+await darkPage
+  .getByRole('img', { name: 'Design canvas' })
+  .waitFor({ timeout: 10000, state: 'visible' });
 await darkPage.waitForTimeout(800);
 await darkPage.keyboard.press('Escape');
 await darkPage.waitForTimeout(400);

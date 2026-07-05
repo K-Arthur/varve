@@ -9,6 +9,7 @@ export interface FileActions {
   restore: (id: string) => Promise<void>;
   purge: (id: string) => Promise<void>;
   togglePin: (entry: FileEntry) => Promise<void>;
+  toggleFavorite: (entry: FileEntry) => Promise<void>;
   moveToProject: (id: string, projectId: string | null) => Promise<void>;
   createProject: (name: string, workspaceId?: string) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
@@ -78,6 +79,15 @@ export function useFileActions(platform: Platform, onRefresh: () => void): FileA
     [platform, onRefresh],
   );
 
+  const toggleFavorite = useCallback(
+    async (entry: FileEntry) => {
+      const isFav = entry.favoritedAt != null && entry.favoritedAt > 0;
+      await platform.setFavorited(entry.id, isFav ? null : Date.now());
+      onRefresh();
+    },
+    [platform, onRefresh],
+  );
+
   const moveToProject = useCallback(
     async (id: string, projectId: string | null) => {
       await platform.moveToProject(id, projectId);
@@ -124,6 +134,7 @@ export function useFileActions(platform: Platform, onRefresh: () => void): FileA
     restore,
     purge,
     togglePin,
+    toggleFavorite,
     moveToProject,
     createProject,
     deleteProject,

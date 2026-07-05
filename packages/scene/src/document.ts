@@ -39,7 +39,7 @@ import type {
   Style,
   TextNode,
 } from './types';
-import type { Variable, VariableStore } from './variables';
+import type { Variable } from './variables';
 import { createVariableStore } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
@@ -649,7 +649,7 @@ export function removeNode(doc: Document, id: NodeId): Document {
     for (const [id, nodeEntry] of Object.entries(nodes)) {
       const n = nodeEntry as SceneNode & { mask?: import('./types').Mask };
       if (n.mask?.sourceNodeId === removedId) {
-        const { mask: _unused, ...rest } = nodeEntry;
+        const { mask: _unused, ...rest } = n;
         nodes = { ...nodes, [id]: rest as SceneNode };
       }
     }
@@ -757,6 +757,12 @@ export function moveChild(doc: Document, parentId: NodeId, id: NodeId, toIndex: 
   nodes[id] = { ...node, order: newOrder } as SceneNode;
   nodes[parentId] = { ...parent, children: newChildren } as SceneNode;
   return { ...doc, nodes };
+}
+
+export function setSnapExcluded(doc: Document, id: NodeId, excluded: boolean): Document {
+  const n = doc.nodes[id];
+  if (!n) return doc;
+  return { ...doc, nodes: { ...doc.nodes, [id]: { ...n, snapExcluded: excluded } } };
 }
 
 export function setLayerColor(doc: Document, id: NodeId, color: LayerColor | null): Document {

@@ -20,6 +20,7 @@ export interface FileGridProps {
   renamingId?: string | null;
   onStartRename?: (id: string | null) => void;
   missingFiles?: Set<string>;
+  onToggleFavorite?: (entry: FileEntry) => void;
 }
 
 const COL_WIDTH = 14 * 16 + 24; // 14rem + padding
@@ -42,6 +43,7 @@ export function FileGrid({
   renamingId,
   onStartRename,
   missingFiles = new Set(),
+  onToggleFavorite,
 }: FileGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(4);
@@ -274,6 +276,7 @@ export function FileGrid({
                         isRenaming={renamingId === entry.id}
                         onStartRename={() => onStartRename?.(entry.id)}
                         isMissing={missingFiles.has(entry.id)}
+                        onToggleFavorite={onToggleFavorite}
                         tabIndex={fileIdx === focusIdx ? 0 : -1}
                         style={{
                           flex: `0 0 ${COL_WIDTH}px`,
