@@ -14,7 +14,7 @@
  * (expensive, recursive, with filter logic).
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, Page, SceneNode } from '@strata/scene';
 import { isContainer } from '@strata/scene';
 import { useMemo, useRef } from 'react';
 import {
@@ -263,7 +263,10 @@ export function flattenTree(
   // "orphans" created by the pre-fix addNode path and must remain visible
   // for backward compatibility with existing documents.
   if (activePageId) {
-    const pageRoot = doc.nodes[activePageId];
+    // Resolve activePageId (Page.id) to the contentRoot (GroupNode.id)
+    const page: Page | undefined = doc.pages?.find((p) => p.id === activePageId);
+    const contentRootId: string | undefined = page?.contentRoot;
+    const pageRoot = contentRootId ? doc.nodes[contentRootId] : undefined;
     const pageChildren: NodeId[] =
       pageRoot && 'children' in pageRoot && Array.isArray((pageRoot as any).children)
         ? ((pageRoot as any).children as NodeId[])
@@ -272,7 +275,7 @@ export function flattenTree(
     // GroupNodes in rootChildren are page content roots (for other pages).
     // Non-group rootChildren items are orphaned shapes — show them too.
     const orphans = doc.rootChildren.filter((id) => {
-      if (id === activePageId) return false;
+      if (id === contentRootId) return false;
       const n = doc.nodes[id];
       return n && n.kind !== 'group';
     });
