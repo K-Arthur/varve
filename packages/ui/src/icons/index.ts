@@ -47,6 +47,7 @@ export const TOOL_ICONS = {
   healBrush: 'Bandage',
   spotHeal: 'Wand',
   patch: 'SquareStack',
+  refineMask: 'Paintbrush',
   adjustment: 'SlidersHorizontal',
 } as const satisfies Record<string, IconName>;
 

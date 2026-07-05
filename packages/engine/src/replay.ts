@@ -63,14 +63,8 @@ export interface ReplayTarget {
   filter: string;
   lineDashOffset: number;
   setLineDash(segments: number[]): void;
-  /** F6: draw an image. */
-  drawImage?(
-    image: CanvasImageSource | string,
-    dx: number,
-    dy: number,
-    dw: number,
-    dh: number,
-  ): void;
+  /** F6: draw an image. Matches the Canvas2D 3-arg and 5-arg overloads. */
+  drawImage?(image: CanvasImageSource | string, dx: number, dy: number, dw?: number, dh?: number): void;
   /** P2: create a linear gradient for gradient fills. */
   createLinearGradient?(x0: number, y0: number, x1: number, y1: number): ReplayGradient;
   /** P2: create a radial gradient for gradient fills. */
@@ -347,7 +341,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
               target.beginPath();
               traceOutline(target, item.primitive);
               if (target.clip) target.clip();
-              target.drawImage(backdrop as unknown as CanvasImageSource, 0, 0);
+              if (target.drawImage) target.drawImage(backdrop as unknown as CanvasImageSource, 0, 0);
               target.restore();
             }
           }

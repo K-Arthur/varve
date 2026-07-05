@@ -14,12 +14,12 @@ function colorAt(
   y: number,
 ): [number, number, number, number] {
   const i = (y * w + x) * 4;
-  return [data[i], data[i + 1], data[i + 2], data[i + 3]];
+  return [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0, data[i + 3] ?? 0];
 }
 
 function grayAt(data: Uint8ClampedArray, w: number, x: number, y: number): number {
   const i = (y * w + x) * 4;
-  return (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+  return ((data[i] ?? 0) * 77 + (data[i + 1] ?? 0) * 150 + (data[i + 2] ?? 0) * 29) >> 8;
 }
 
 export function floodFillMask(
@@ -37,7 +37,7 @@ export function floodFillMask(
   }
 
   const seedIdx = (sy * width + sx) * 4;
-  const seedA = data[seedIdx + 3];
+  const seedA = data[seedIdx + 3] ?? 0;
   const seedTransparent = seedA < 128;
 
   const stack: Array<{ x: number; y: number }> = [{ x: sx, y: sy }];
@@ -53,7 +53,7 @@ export function floodFillMask(
     const isBg = seedTransparent
       ? a < 128
       : a >= 128 &&
-        rgbDist(r, g, b, data[seedIdx], data[seedIdx + 1], data[seedIdx + 2]) <= tolerance;
+        rgbDist(r, g, b, data[seedIdx] ?? 0, data[seedIdx + 1] ?? 0, data[seedIdx + 2] ?? 0) <= tolerance;
 
     if (!isBg) continue;
     mask[idx] = 0;
@@ -74,7 +74,7 @@ export function chromaKeyMask(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
-      const dist = rgbDist(data[i], data[i + 1], data[i + 2], keyColor.r, keyColor.g, keyColor.b);
+      const dist = rgbDist(data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0, keyColor.r, keyColor.g, keyColor.b);
       if (dist <= tolerance) {
         mask[y * width + x] = 0;
       }
@@ -90,7 +90,7 @@ export function kMeansMask(img: ImageData): Uint8Array {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
-      flattened.push({ r: data[i], g: data[i + 1], b: data[i + 2], idx: y * width + x });
+      flattened.push({ r: data[i] ?? 0, g: data[i + 1] ?? 0, b: data[i + 2] ?? 0, idx: y * width + x });
     }
   }
 
@@ -103,17 +103,17 @@ export function kMeansMask(img: ImageData): Uint8Array {
   }
   const sampleArr = [...sampled];
   let c0 = {
-    r: flattened[sampleArr[0]].r,
-    g: flattened[sampleArr[0]].g,
-    b: flattened[sampleArr[0]].b,
+    r: flattened[sampleArr[0]!]!.r,
+    g: flattened[sampleArr[0]!]!.g,
+    b: flattened[sampleArr[0]!]!.b,
   };
   let c1 =
     sampleArr.length < 2
       ? { r: 255, g: 255, b: 255 }
       : {
-          r: flattened[sampleArr[1]].r,
-          g: flattened[sampleArr[1]].g,
-          b: flattened[sampleArr[1]].b,
+          r: flattened[sampleArr[1]!]!.r,
+          g: flattened[sampleArr[1]!]!.g,
+          b: flattened[sampleArr[1]!]!.b,
         };
 
   const assignments = new Uint8Array(nPixels);
@@ -121,10 +121,11 @@ export function kMeansMask(img: ImageData): Uint8Array {
     let changed = 0;
     for (let i = 0; i < nPixels; i++) {
       const p = flattened[i];
+      if (!p) continue;
       const d0 = rgbDist(p.r, p.g, p.b, c0.r, c0.g, c0.b);
       const d1 = rgbDist(p.r, p.g, p.b, c1.r, c1.g, c1.b);
       const newA = d0 < d1 ? 0 : 1;
-      if (newA !== assignments[i]) changed++;
+      if (newA !== (assignments[i] ?? 0)) changed++;
       assignments[i] = newA;
     }
     if (changed === 0) break;
@@ -139,7 +140,8 @@ export function kMeansMask(img: ImageData): Uint8Array {
       count1 = 0;
     for (let i = 0; i < nPixels; i++) {
       const p = flattened[i];
-      if (assignments[i] === 0) {
+      if (!p) continue;
+      if ((assignments[i] ?? 0) === 0) {
         sumR0 += p.r;
         sumG0 += p.g;
         sumB0 += p.b;
@@ -162,14 +164,17 @@ export function kMeansMask(img: ImageData): Uint8Array {
       const gx = grayAt(data, width, x + 1, y) - grayAt(data, width, x - 1, y);
       const gy = grayAt(data, width, x, y + 1) - grayAt(data, width, x, y - 1);
       const mag = Math.sqrt(gx * gx + gy * gy);
-      if (mag > 30) edgeScore[assignments[idx]]++;
+      if (mag > 30) {
+        const si = assignments[idx] ?? 0;
+        edgeScore[si] = (edgeScore[si] ?? 0) + 1;
+      }
     }
   }
 
-  const fgCluster = edgeScore[0] >= edgeScore[1] ? 0 : 1;
+  const fgCluster = (edgeScore[0] ?? 0) >= (edgeScore[1] ?? 0) ? 0 : 1;
   const mask = new Uint8Array(width * height);
   for (let i = 0; i < nPixels; i++) {
-    mask[flattened[i].idx] = assignments[i] === fgCluster ? 255 : 0;
+    mask[flattened[i]!.idx] = (assignments[i] ?? 0) === fgCluster ? 255 : 0;
   }
   return mask;
 }
@@ -220,7 +225,7 @@ export function edgeDetectMask(img: ImageData): Uint8Array {
     const idx = y * width + x;
     if (visited[idx]) continue;
     visited[idx] = 1;
-    if (edges[idx] > 0) continue;
+    if ((edges[idx] ?? 0) > 0) continue;
     mask[idx] = 0;
     stack.push({ x: x - 1, y }, { x: x + 1, y }, { x, y: y - 1 }, { x, y: y + 1 });
   }
@@ -241,7 +246,7 @@ function featherMask(mask: Uint8Array, width: number, height: number, radius: nu
     kernel[i + r] = v;
     kernelSum += v;
   }
-  for (let i = 0; i < kernelSize; i++) kernel[i] /= kernelSum;
+  for (let i = 0; i < kernelSize; i++) { const v = kernel[i] ?? 0; kernel[i] = v / kernelSum; }
 
   const temp = new Uint8Array(mask.length);
   for (let y = 0; y < height; y++) {
@@ -249,7 +254,7 @@ function featherMask(mask: Uint8Array, width: number, height: number, radius: nu
       let sum = 0;
       for (let k = -r; k <= r; k++) {
         const sx = Math.min(width - 1, Math.max(0, x + k));
-        sum += mask[y * width + sx] * kernel[k + r];
+        sum += (mask[y * width + sx] ?? 0) * (kernel[k + r] ?? 0);
       }
       temp[y * width + x] = Math.round(sum);
     }
@@ -261,7 +266,7 @@ function featherMask(mask: Uint8Array, width: number, height: number, radius: nu
       let sum = 0;
       for (let k = -r; k <= r; k++) {
         const sy = Math.min(height - 1, Math.max(0, y + k));
-        sum += temp[sy * width + x] * kernel[k + r];
+        sum += (temp[sy * width + x] ?? 0) * (kernel[k + r] ?? 0);
       }
       result[y * width + x] = Math.round(sum);
     }
@@ -277,10 +282,10 @@ export function maskToDataUrl(mask: Uint8Array, width: number, height: number): 
     const ctx = canvas.getContext('2d')!;
     const imageData = ctx.createImageData(width, height);
     for (let i = 0; i < mask.length; i++) {
-      imageData.data[i * 4] = mask[i];
-      imageData.data[i * 4 + 1] = mask[i];
-      imageData.data[i * 4 + 2] = mask[i];
-      imageData.data[i * 4 + 3] = mask[i];
+      imageData.data[i * 4] = mask[i] ?? 0;
+      imageData.data[i * 4 + 1] = mask[i] ?? 0;
+      imageData.data[i * 4 + 2] = mask[i] ?? 0;
+      imageData.data[i * 4 + 3] = mask[i] ?? 0;
     }
     ctx.putImageData(imageData, 0, 0);
     return canvas.toDataURL('image/png');
@@ -294,7 +299,7 @@ export function isBrowser(): boolean {
 
 function computeConfidence(mask: Uint8Array): number {
   let sum = 0;
-  for (let i = 0; i < mask.length; i++) sum += mask[i];
+  for (let i = 0; i < mask.length; i++) sum += mask[i] ?? 0;
   const avg = sum / mask.length / 255;
   const edgeBalance = Math.min(avg, 1 - avg) * 2;
   if (edgeBalance < 0.1) return 0.1;
@@ -313,7 +318,7 @@ function autoDetectMethod(
 
   let hasTransparent = false;
   for (let i = 3; i < data.length; i += 4) {
-    if (data[i] < 128) {
+    if ((data[i] ?? 0) < 128) {
       hasTransparent = true;
       break;
     }
@@ -325,7 +330,7 @@ function autoDetectMethod(
     const x = Math.floor(Math.random() * width);
     const y = Math.floor(Math.random() * height);
     const idx = (y * width + x) * 4;
-    colorSpread += rgbDist(data[idx], data[idx + 1], data[idx + 2], 128, 128, 128);
+    colorSpread += rgbDist(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, 128, 128, 128);
   }
   colorSpread /= sample;
 
@@ -339,16 +344,16 @@ function autoDetectMethod(
     [width - 1, 0],
     [0, height - 1],
     [width - 1, height - 1],
-  ]) {
+  ] as [number, number][]) {
     const idx = (cy * width + cx) * 4;
-    cornerColors.add(`${data[idx]},${data[idx + 1]},${data[idx + 2]}`);
+    cornerColors.add(`${data[idx] ?? 0},${data[idx + 1] ?? 0},${data[idx + 2] ?? 0}`);
   }
 
   if (cornerColors.size <= 2) {
     const idx = (0 * width + 0) * 4;
     return {
       method: 'chromaKey',
-      params: { keyColor: { r: data[idx], g: data[idx + 1], b: data[idx + 2] }, tolerance: 40 },
+      params: { keyColor: { r: data[idx] ?? 0, g: data[idx + 1] ?? 0, b: data[idx + 2] ?? 0 }, tolerance: 40 },
     };
   }
 

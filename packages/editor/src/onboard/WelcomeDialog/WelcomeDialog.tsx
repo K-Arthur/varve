@@ -1,5 +1,4 @@
 import { Button, Dialog, Icon } from '@strata/ui';
-import { useCallback } from 'react';
 
 export interface WelcomeDialogProps {
   open: boolean;
@@ -16,15 +15,6 @@ export function WelcomeDialog({
   onStartBlank,
   onClose,
 }: WelcomeDialogProps) {
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
   return (
     <Dialog open={open} onClose={onClose} title="Welcome to Strata">
       <div className="welcome-dialog">

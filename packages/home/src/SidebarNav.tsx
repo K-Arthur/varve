@@ -70,7 +70,7 @@ function SidebarProjectRow({
   focusIdx,
   idx,
   onSelect,
-  setFocusIdx,
+  setFocusIdx: _setFocusIdx,
   onPin,
   onDropOnProject,
   dropTargetId,
@@ -147,33 +147,6 @@ function SidebarProjectRow({
         </button>
       )}
     </div>
-  );
-}
-
-function SectionHeader({
-  id,
-  label,
-  count,
-  collapsed,
-  onToggle,
-}: {
-  id: string;
-  label: string;
-  count: number;
-  collapsed: boolean;
-  onToggle: (id: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="sidebar-section__header"
-      onClick={() => onToggle(id)}
-      aria-expanded={!collapsed}
-    >
-      <ChevronIcon collapsed={collapsed} />
-      <span>{label}</span>
-      <span className="sidebar-section__count">{count > 0 ? count : ''}</span>
-    </button>
   );
 }
 

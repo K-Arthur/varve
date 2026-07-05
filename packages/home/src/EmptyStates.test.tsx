@@ -7,10 +7,10 @@ import { EmptyStates } from './EmptyStates';
 describe('EmptyStates', () => {
   it('renders the correct headline for each section', () => {
     const { rerender } = render(<EmptyStates section="recent" onAction={vi.fn()} />);
-    expect(screen.getByText('No recent files')).toBeDefined();
+    expect(screen.getByText('Nothing here yet')).toBeDefined();
 
     rerender(<EmptyStates section="all" onAction={vi.fn()} />);
-    expect(screen.getByText('No files yet')).toBeDefined();
+    expect(screen.getByText('Start with a blank slate')).toBeDefined();
 
     rerender(<EmptyStates section="trash" onAction={vi.fn()} />);
     expect(screen.getByText('Trash is empty')).toBeDefined();

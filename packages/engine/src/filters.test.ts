@@ -120,6 +120,8 @@ describe('filterToCss', () => {
     const chain = {
       kind: 'chain' as const,
       filters: [adjustmentToFilter(makeAdjustment('b2', 'brightness', { value: 10 }))],
+      opacity: 1,
+      blendMode: 'normal',
     };
     expect(filterToCss(chain)).toBe('brightness(110%)');
   });

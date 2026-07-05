@@ -2,7 +2,7 @@
 
 import { EmptyState } from '@strata/ui';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('CanvasArea empty state', () => {
   it('renders empty state with headline', () => {

@@ -42,7 +42,7 @@ Plus: **assert native backend on desktop** for any task that added a facade meth
 | **1.5** CMYK/PDF-X | **Done** | cmyk.rs: rgb_to_cmyk, marks_geometry, export_pdfx1a/export_pdfx4 stubs. 7 tests. |
 | **1.6** Spec Inspector | **Done** | packages/codegen/src/spec.ts: buildSpec(), specToMarkdown(). 11 tests. |
 | **1.7** Auto-trace | **Done** | Rust strata-trace: Potrace-class contour tracing, RDP simplification, rayon. 8 tests. |
-| **0.11** Packaging | **Pending** | CI/CD matrix (AppImage/deb/dmg/msi/AUR). Ready for setup. |
+| **0.11** Packaging | **Done** | CI/CD matrix (AppImage/deb/dmg/msi/AUR). tauri.conf.json bundle metadata, publish.yml + build.yml matrix, AUR PKGBUILDs, Flatpak manifest stub, justfile recipes. TypeScript typecheck gate (0 errors) + full test suite (3572/3572) passing. |
 
 - **72 Rust tests** (was 37), **123 JS tests** (was 66), 195 total.
 - 42/42 WCAG-AA tokens, emoji 0, clippy clean, lint clean.

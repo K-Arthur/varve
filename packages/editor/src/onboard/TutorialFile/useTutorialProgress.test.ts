@@ -3,7 +3,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createTutorialDocument } from '../../samples/tutorial-document';
-import { loadOnboardingState, saveOnboardingState } from '../onboardingStore';
 import { useTutorialProgress } from './useTutorialProgress';
 
 describe('useTutorialProgress', () => {

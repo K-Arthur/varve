@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { type ActionStats, classifyFromActionTracker, classifySkill } from './onboardingAdapter';
 
 function makeStats(overrides: Partial<ActionStats> = {}): ActionStats {

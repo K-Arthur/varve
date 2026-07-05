@@ -83,12 +83,12 @@ export function computeDocumentDiff(prevDoc: Document | null, doc: Document): Do
   const changedNodeIds: NodeId[] = [];
 
   for (let i = 0; i < currKeys.length; i++) {
-    const key = currKeys[i];
+    const key = currKeys[i]!;
     const prevNode = prevDoc.nodes[key];
     const currNode = doc.nodes[key];
 
     // Node doesn't exist in prev doc → structural change (added)
-    if (!prevNode) {
+    if (!prevNode || !currNode) {
       return { structureChanged: true, changedNodeIds: [] };
     }
 
@@ -140,8 +140,8 @@ function propsAffectFilter(
     if (prev.visible !== curr.visible) return true;
     if (prev.blendMode !== curr.blendMode) return true;
     if (
-      (prev as Record<string, unknown>).componentId !==
-      (curr as Record<string, unknown>).componentId
+      (prev as unknown as Record<string, unknown>).componentId !==
+      (curr as unknown as Record<string, unknown>).componentId
     )
       return true;
 
@@ -338,7 +338,7 @@ export function useFlatTree(
       const diff = computeDocumentDiff(prevDoc, doc);
 
       // Same nodes map (top-level properties changed, e.g., name, canvasWidth)
-      if (!diff.structureChanged && prevDoc.nodes === doc.nodes) {
+      if (!diff.structureChanged && prevDoc !== null && prevDoc.nodes === doc.nodes) {
         // No node changes at all — return cached entries
         prevDocRef.current = doc;
         prevExpandedRef.current = expanded;
@@ -351,13 +351,14 @@ export function useFlatTree(
       if (
         !diff.structureChanged &&
         diff.changedNodeIds.length > 0 &&
-        !propsAffectFilter(diff.changedNodeIds, prevDoc, doc, filterSpec)
+        prevDoc !== null && !propsAffectFilter(diff.changedNodeIds, prevDoc, doc, filterSpec)
       ) {
         const changedSet = new Set(diff.changedNodeIds);
         const prev = prevEntriesRef.current;
         const next = new Array<FlatEntry>(prev.length);
         for (let i = 0; i < prev.length; i++) {
           const entry = prev[i];
+          if (!entry) continue;
           next[i] = changedSet.has(entry.node.id)
             ? { ...entry, node: doc.nodes[entry.node.id]! }
             : entry;

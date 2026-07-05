@@ -210,6 +210,7 @@ export interface CollectionFilter {
 }
 
 export interface CollectionEntry {
+  id: string;
   collectionId: string;
   fileId: string;
   addedAt: number;

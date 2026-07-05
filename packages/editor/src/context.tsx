@@ -27,7 +27,6 @@ import { makeFileEntry, type Platform } from '@strata/platform';
 import {
   createRuntime,
   type Interaction,
-  type PrototypeData,
   PrototypeDebugConsole,
   type PrototypeRuntime,
   applyActionResult as protoApplyActionResult,
@@ -155,7 +154,6 @@ import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/w
 import { loadSettings, updateSettings } from './settings';
 import {
   createInitialMotionState,
-  type MotionState,
   type MotionTimelineEngine,
 } from './state/motion-state';
 import type { DraftShape } from './tools/types';
@@ -3436,13 +3434,12 @@ export function EditorProvider({
           .map((id) => state.document.nodes[id] as import('@strata/scene').ImageNode | undefined)
           .find((n) => n?.kind === 'image') as import('@strata/scene').ImageNode | undefined;
         if (!imageNode) {
-          announce('Select an image node first');
+          announcerRef.current?.announce('Select an image node first');
           return;
         }
         const processingNodeId = imageNode.id;
-        announce(`Removing background using ${method}...`);
+        announcerRef.current?.announce(`Removing background using ${method}...`);
         try {
-          const { removeBackground } = await import('@strata/engine');
           const { getImageCache } = await import('@strata/engine');
           const { setBackgroundRemoval } = await import('@strata/scene');
           const cache = getImageCache();
@@ -3450,11 +3447,11 @@ export function EditorProvider({
           try {
             img = await cache.load(imageNode.src);
           } catch {
-            announce('Could not load image: the image source may be cross-origin or unavailable');
+            announcerRef.current?.announce('Could not load image: the image source may be cross-origin or unavailable');
             return;
           }
           if (!img) {
-            announce('Could not load image');
+            announcerRef.current?.announce('Could not load image');
             return;
           }
           const canvas = document.createElement('canvas');
@@ -3464,14 +3461,14 @@ export function EditorProvider({
           try {
             ctx.drawImage(img, 0, 0, imageNode.w, imageNode.h);
           } catch {
-            announce('Could not render image: the image may be cross-origin (CORS blocked)');
+            announcerRef.current?.announce('Could not render image: the image may be cross-origin (CORS blocked)');
             return;
           }
           let imageData: ImageData;
           try {
             imageData = ctx.getImageData(0, 0, imageNode.w, imageNode.h);
           } catch {
-            announce(
+            announcerRef.current?.announce(
               'Could not read image pixels: the image source may be cross-origin (CORS blocked)',
             );
             return;
@@ -3486,7 +3483,7 @@ export function EditorProvider({
           const currentSelection = stateRef.current.selection;
           const stillSelected = currentSelection.includes(processingNodeId);
           if (!stillSelected) {
-            announce('Background removal completed but the image is no longer selected');
+            announcerRef.current?.announce('Background removal completed but the image is no longer selected');
             return;
           }
           updateDoc((d) =>
@@ -3499,9 +3496,9 @@ export function EditorProvider({
               decontaminate: true,
             }),
           );
-          announce('Background removed');
+          announcerRef.current?.announce('Background removed');
         } catch (e) {
-          announce(`Background removal failed: ${(e as Error).message}`);
+          announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
         }
       },
 
@@ -3510,7 +3507,7 @@ export function EditorProvider({
           .map((id) => state.document.nodes[id])
           .filter((n): n is import('@strata/scene').ImageNode => n?.kind === 'image');
         if (imageNodes.length === 0) {
-          announce('Select one or more image nodes first');
+          announcerRef.current?.announce('Select one or more image nodes first');
           return { total: 0, succeeded: 0, failed: 0 };
         }
         beginTransaction();
@@ -3553,7 +3550,7 @@ export function EditorProvider({
           }
         }
         commitTransaction();
-        announce(
+        announcerRef.current?.announce(
           `Background removed from ${succeeded} image(s)${failed ? `, ${failed} failed` : ''}`,
         );
         return { total: imageNodes.length, succeeded, failed };
@@ -3564,18 +3561,17 @@ export function EditorProvider({
           .map((id) => state.document.nodes[id] as import('@strata/scene').ImageNode | undefined)
           .find((n) => n?.kind === 'image') as import('@strata/scene').ImageNode | undefined;
         if (!imageNode) {
-          announce('Select an image node first');
+          announcerRef.current?.announce('Select an image node first');
           return;
         }
-        announce(`Removing background using ${method}...`);
+        announcerRef.current?.announce(`Removing background using ${method}...`);
         try {
-          const { removeBackground } = await import('@strata/engine');
           const { getImageCache } = await import('@strata/engine');
           const { setBackgroundRemoval } = await import('@strata/scene');
           const cache = getImageCache();
           const img = await cache.load(imageNode.src);
           if (!img) {
-            announce('Could not load image');
+            announcerRef.current?.announce('Could not load image');
             return;
           }
           const canvas = document.createElement('canvas');
@@ -3601,9 +3597,9 @@ export function EditorProvider({
               decontaminate,
             }),
           );
-          announce('Background removed');
+          announcerRef.current?.announce('Background removed');
         } catch (e) {
-          announce(`Background removal failed: ${(e as Error).message}`);
+          announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
         }
       },
 

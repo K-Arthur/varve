@@ -167,7 +167,7 @@ export function applyAMScreening(
  * @param data ImageData to process (in-place)
  * @param levels Number of output levels (2 for 1-bit, more for multi-level)
  */
-export function applyFMStochastic(data: ImageData, params: HalftoneParams): void {
+export function applyFMStochastic(data: ImageData, _params: HalftoneParams): void {
   const w = data.width;
   const h = data.height;
   const pixels = data.data;
@@ -225,7 +225,7 @@ function diffuseError(
   idx: number,
   step: number,
   w: number,
-  h: number,
+  _h: number,
   error: number,
 ): void {
   const right = idx + step;
@@ -244,7 +244,7 @@ function diffuseErrorReversed(
   idx: number,
   step: number,
   w: number,
-  h: number,
+  _h: number,
   error: number,
 ): void {
   const left = idx - step;
@@ -261,9 +261,12 @@ function diffuseErrorReversed(
 
 function addError(linear: Float32Array, idx: number, error: number, weight: number): void {
   const e = error * weight;
-  linear[idx] += e * 0.299;
-  linear[idx + 1] += e * 0.587;
-  linear[idx + 2] += e * 0.114;
+  const v0 = linear[idx];
+  const v1 = linear[idx + 1];
+  const v2 = linear[idx + 2];
+  if (v0 !== undefined) linear[idx] = v0 + e * 0.299;
+  if (v1 !== undefined) linear[idx + 1] = v1 + e * 0.587;
+  if (v2 !== undefined) linear[idx + 2] = v2 + e * 0.114;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────

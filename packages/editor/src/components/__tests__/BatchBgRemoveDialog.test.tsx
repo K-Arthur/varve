@@ -28,7 +28,7 @@ function imageNode(
     id,
     name: `Image ${id}`,
     kind: 'image',
-    transform: [1, 0, 0, 1, 0, 0] as import('@strata/scene').Affine,
+    transform: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
     src: `https://example.com/${id}.png`,
     w: 100,
     h: 80,
@@ -39,6 +39,7 @@ function imageNode(
     rotation: 0,
     index: 0,
     order: 'a0',
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
     strokes: [],
     effects: [],
     backgroundRemoval: undefined,
@@ -51,7 +52,7 @@ function shapeNode(id: string) {
     id,
     name: `Shape ${id}`,
     kind: 'shape' as const,
-    transform: [1, 0, 0, 1, 0, 0] as import('@strata/scene').Affine,
+    transform: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
     visible: true,
     locked: false,
     opacity: 1,
@@ -85,7 +86,7 @@ function mockCanvasGetContext() {
       })),
     };
     return ctx as unknown as CanvasRenderingContext2D;
-  });
+  }) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 }
 
 function mockImageCacheLoad() {

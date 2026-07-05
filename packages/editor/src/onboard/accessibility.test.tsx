@@ -2,7 +2,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ContextualHelpPanel } from './ContextualHelp/ContextualHelpPanel';
-import { HELP_CONTENT } from './ContextualHelp/helpContent';
 import type { ContextualHelpState } from './ContextualHelp/useContextualHelp';
 import { DidYouKnowTip } from './DidYouKnow/DidYouKnowTip';
 import type { Tip } from './DidYouKnow/tips';

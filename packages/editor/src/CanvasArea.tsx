@@ -468,7 +468,7 @@ export function CanvasArea({
       setNodeEditSelectedAnchors,
       setTextEditTargetId,
 
-      snapPosition: (bounds, targets) => {
+      snapPosition: (bounds, _targets) => {
         if (!s.snapEnabled) return { x: bounds.x, y: bounds.y, guides: [] };
 
         // D-02: Spatial + hierarchical filtering of snap targets
@@ -756,9 +756,6 @@ export function CanvasArea({
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
         if (mask && maskChild && maskSrcId) {
           if (mask.type === 'alpha') {
-            const cameraTransform = () => {
-              ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
-            };
             renderAlphaMask(
               ctx,
               {
@@ -797,7 +794,7 @@ export function CanvasArea({
           const [ma, mb, mc, md, me, mf] = maskWorldTransform;
           ctx.transform(ma, mb, mc, md, me, mf);
           ctx.beginPath();
-          traceSceneNodeOutline(ctx, maskChild);
+          traceSceneNodeOutline(ctx, maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1]);
           ctx.closePath();
           ctx.clip();
           ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
@@ -1657,7 +1654,7 @@ export function CanvasArea({
     // Parse all files FIRST (expensive SVG parsing) before any setState
     const parsedItems: {
       node: SceneNode;
-      sourceDoc: Document;
+      sourceDoc: import('@strata/scene').Document;
       position?: { x: number; y: number };
     }[] = [];
     for (const [i, file] of files.entries()) {

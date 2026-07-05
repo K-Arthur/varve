@@ -38,7 +38,6 @@ export function indexDocumentContent(
     for (const [nodeId, node] of Object.entries(nodes)) {
       const name = (node.name as string) ?? '';
       const text = (node.text as string) ?? '';
-      const kind = (node.kind as string) ?? '';
 
       // Index by node name
       const nameTerms = tokenize(name);

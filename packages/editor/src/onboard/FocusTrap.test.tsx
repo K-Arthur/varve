@@ -19,7 +19,6 @@ describe('FocusTrap', () => {
       </FocusTrap>,
     );
     const btn1 = screen.getByTestId('btn1');
-    const btn2 = screen.getByTestId('btn2');
     const btn3 = screen.getByTestId('btn3');
 
     // Focus the last element, then Tab should wrap to first
@@ -65,7 +64,6 @@ describe('FocusTrap', () => {
         </button>
       </FocusTrap>,
     );
-    const btn1 = screen.getByTestId('btn1');
     const btn2 = screen.getByTestId('btn2');
 
     // Focus middle element, Tab should NOT wrap (not at boundary)

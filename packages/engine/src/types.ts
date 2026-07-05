@@ -492,7 +492,7 @@ export type FilterIR =
       opacity: number;
       blendMode: string;
     }
-  | { kind: 'chain'; filters: FilterIR[] }
+  | { kind: 'chain'; filters: FilterIR[]; opacity: number; blendMode: string }
   | {
       kind: 'halftone';
       pattern: 'dot' | 'line' | 'cross' | 'circle';

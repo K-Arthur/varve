@@ -20,7 +20,7 @@ export function useContextualHelp() {
   const open = useCallback((articleId?: string) => {
     const id = articleId ?? getHelpContext();
     const article = id ? getHelpContent(id) : null;
-    setState((s) => ({ ...s, open: true, article, searchQuery: '', searchResults: [] }));
+    setState((s) => ({ ...s, open: true, article: article ?? null, searchQuery: '', searchResults: [] }));
   }, []);
 
   const close = useCallback(() => {
@@ -34,7 +34,7 @@ export function useContextualHelp() {
         : {
             ...s,
             open: true,
-            article: getHelpContent(getHelpContext() ?? 'tool:select'),
+            article: getHelpContent(getHelpContext() ?? 'tool:select') ?? null,
           },
     );
   }, []);
