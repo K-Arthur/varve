@@ -101,9 +101,10 @@
     "menubar  menubar   menubar"
     "tabs     tabs      tabs"
     "layers   canvas    inspector"
+    "pagenav  pagenav   pagenav"
     "status   status    status";
   grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width);
-  grid-template-rows: var(--topbar-height) 32px 1fr var(--statusbar-height);
+  grid-template-rows: var(--topbar-height) 32px 1fr auto var(--statusbar-height);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -592,7 +593,11 @@
     transform: translateX(0);
   }
 
-  .editor-status {
+.page-nav-container {
+  grid-area: pagenav;
+}
+
+.editor-status {
     font-size: var(--font-size-2xs);
     gap: var(--space-2);
   }

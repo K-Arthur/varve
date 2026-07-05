@@ -31,6 +31,7 @@ import type {
   FrameNode,
   GroupNode,
   ImageNode,
+  LayerColor,
   NodeId,
   Page,
   SceneNode,
@@ -174,6 +175,7 @@ export function makeAdjustmentNode(
     Pick<
       import('./types').AdjustmentNode,
       | 'name'
+      | 'layerColor'
       | 'transform'
       | 'fill'
       | 'visible'
@@ -192,6 +194,7 @@ export function makeAdjustmentNode(
     kind: 'adjustment',
     name: opts.name ?? adjustmentType.charAt(0).toUpperCase() + adjustmentType.slice(1),
     index: opts.index ?? 0,
+    layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
@@ -214,6 +217,7 @@ export function makeShapeNode(
     Pick<
       ShapeNode,
       | 'name'
+      | 'layerColor'
       | 'transform'
       | 'fill'
       | 'visible'
@@ -235,6 +239,7 @@ export function makeShapeNode(
     kind: 'shape',
     name: opts.name ?? 'Shape',
     index: opts.index ?? 0,
+    layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
@@ -257,6 +262,7 @@ export function makeTextNode(
     Pick<
       TextNode,
       | 'name'
+      | 'layerColor'
       | 'transform'
       | 'fill'
       | 'fontSize'
@@ -294,6 +300,7 @@ export function makeTextNode(
     kind: 'text',
     name: opts.name ?? 'Text',
     index: opts.index ?? 0,
+    layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: true,
     locked: false,
@@ -333,6 +340,7 @@ export function makeGroupNode(
     Pick<
       GroupNode,
       | 'name'
+      | 'layerColor'
       | 'transform'
       | 'fill'
       | 'visible'
@@ -353,6 +361,7 @@ export function makeGroupNode(
     kind: 'group',
     name: opts.name ?? 'Group',
     index: opts.index ?? 0,
+    layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
@@ -372,6 +381,7 @@ export function makeFrameNode(
     Pick<
       FrameNode,
       | 'name'
+      | 'layerColor'
       | 'transform'
       | 'fill'
       | 'visible'
@@ -400,6 +410,7 @@ export function makeFrameNode(
     kind: 'frame',
     name: opts.name ?? 'Frame',
     index: opts.index ?? 0,
+    layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
@@ -427,6 +438,7 @@ export function makeImageNode(
     Pick<
       ImageNode,
       | 'name'
+      | 'layerColor'
       | 'transform'
       | 'fill'
       | 'visible'
@@ -451,6 +463,7 @@ export function makeImageNode(
     kind: 'image',
     name: opts.name ?? 'Image',
     index: opts.index ?? 0,
+    layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
     locked: opts.locked ?? false,
@@ -725,6 +738,12 @@ export function moveChild(doc: Document, parentId: NodeId, id: NodeId, toIndex: 
   nodes[id] = { ...node, order: newOrder } as SceneNode;
   nodes[parentId] = { ...parent, children: newChildren } as SceneNode;
   return { ...doc, nodes };
+}
+
+export function setLayerColor(doc: Document, id: NodeId, color: LayerColor | null): Document {
+  const node = doc.nodes[id];
+  if (!node) return doc;
+  return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, layerColor: color } } };
 }
 
 export function renameNode(doc: Document, id: NodeId, name: string): Document {

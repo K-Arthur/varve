@@ -73,7 +73,7 @@ export class CompositeCanvas {
 
     const ctx = this.canvas.getContext('2d');
     if (!ctx) throw new Error('CompositeCanvas: failed to get 2D context');
-    this.ctx = ctx;
+    this.ctx = ctx as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
     this.ctx.scale(this._dpr, this._dpr);
   }

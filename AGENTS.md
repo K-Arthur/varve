@@ -64,9 +64,9 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 1513+ tests across 137+ files: codegen 8, editor 330, scene 217, engine 338, platform 43, home 185+, print 4, prototype 191, ui 147, shared 144, E2E 21
+- **JS:** 3042+ tests across 236 files: codegen 8, editor 330+, scene 217, engine 555+, platform 43, home 185+, print 4, prototype 191, ui 147, shared 310+, E2E 21, intelligence 48+
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
-- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 93/93 WCAG-AA across 3 themes
+- **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 96/96 WCAG-AA across 3 themes
 
 ## Ephemeral tree recovery
 
@@ -1345,3 +1345,38 @@ Complete implementation of the 5-phase color management and print production arc
 **Rust clippy:** `cargo clippy --workspace -D warnings` clean
 
 **Next:** End-to-end export E2E tests (Phase 4.8), visual trim/bleed/safe-area overlays (Phase 2.5), inspector unit toggle (Phase 5.7), home package type fixes.
+
+## Session 36 — Canvas Architecture & Design Intelligence Implementation (2026-07-04)
+
+Complete implementation of canvas architecture improvements plus 8 deterministic intelligence features (TDD-first, $0 recurring cost):
+
+### Canvas Architecture Improvements
+
+| Feature | What was built | Tests |
+|---|---|---|
+| **Viewport culling** | `isWorldRectInViewport()` — intersection-based culling (not full-containment). Pre-builds parent index map for O(1) parent lookups. Skips off-screen nodes during IR build+replay. | +7 viewport tests |
+| **Parent index map** | `buildParentIndexMap(doc)` — O(n) single-pass parent map. `nodeWorldTransform`/`nodeWorldBounds` accept optional `parentIndex` param for O(1) ancestor traversal. | (existing tests) |
+| **Canvas mode system** | Three modes via `EditorState.canvasMode`: `full` (default, full IR rendering), `outline` (fills/effects stripped, uniform stroke), `preview` (all overlays hidden). Ctrl+Shift+O/R shortcuts. View menu checkboxes. | +11 editor tests |
+| **Coordinate deduplication** | All 8 files with duplicate `worldToScreen`/`screenToWorld` implementations now import from canonical `@strata/shared/viewport.ts`. 19 duplicate sites eliminated. | 32/32 SelectionOverlay tests pass |
+| **Minimap** | `MinimapPanel` — 160px overview canvas with DPR-aware node outlines, draggable viewport indicator, click-to-center-and-pan. Added to LayersPanel sidebar. | +3 tests |
+| **Multi-page UI** | `PageNav` — horizontal page thumbnail strip with add/duplicate/delete, `currentPageId` in editor state. | +4 tests |
+
+### Design Intelligence Features
+
+| Feature | What was built | Tests |
+|---|---|---|
+| **WCAG Contrast Audit & Auto-Fix** | `contrast.ts` — relative luminance, 21:1 ratio math, binary-search OKLCH lightness auto-fix with ΔEOK <5. WCAG AA/AAA level classification. `AuditIssue` types in scene package. | +30 |
+| **Content-Aware Spacing Harmonizer** | `spacingHarmonizer.ts` — pairwise edge-distance histogram, 4px-bin mode detection (>80% confidence threshold), `harmonizeSpacing()` equalizes gaps. | +10 |
+| **Path Simplification & Smoothing** | `pathSimplifier.ts` — Ramer-Douglas-Peucker (O(N log N)), least-squares cubic bezier fitting (Thomas algorithm), sharp-corner detection splat. | +8 |
+| **Color Palette Extraction** | `paletteExtractor.ts` — median-cut quantization in OKLCH space (12 steps/axis), 64×64 downsampling, weighted-mean color per cuboid. Harmony generation: complementary/triadic/analogous/split-complementary via OKLCH hue rotation with gamut clamping. | +10 |
+| **Content-Aware Layer Naming** | `autoNamer.ts` — 14-rule decision tree (first-match wins): component instances, button/link/heading text detection, icon dimensions, container types, layout grids. Batch rename with default-only mode. | +28 |
+| **Intelligence Panel** | `IntelligencePanel.tsx` — 3-tab inspector panel (Audit/Spacing/Naming) with severity dots, confidence badges, one-click fix/harmonize/rename buttons. Added as 4th tab in PropertiesPanel. | +38 (combined) |
+
+### Verification
+- **JS tests:** 3042+ pass (236 files, was ~1513)
+- **New tests:** 106 (30 WCAG contrast + 10 spacing + 8 path + 10 palette + 28 naming + 7 viewport + 11 canvas mode + 2 minimap)
+- **Typecheck:** clean on all modified packages
+- **Token audit:** 96/96 WCAG-AA (3 themes, was 93/93)
+- **Emoji audit:** clean (699 files)
+- **Lint:** 0 new errors on modified files
+- **Coordinate coverage:** 19 duplicate sites eliminated, all importing from canonical `viewport.ts`

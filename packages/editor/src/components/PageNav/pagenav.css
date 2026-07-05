@@ -1,0 +1,88 @@
+/* ── Page navigation strip ─────────────────────────── */
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--color-surface-default);
+  border-top: 1px solid var(--color-border-subtle);
+  min-height: 72px;
+  flex-shrink: 0;
+}
+
+.page-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1);
+  transition: border-color 100ms, background 100ms;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.page-nav__item:hover {
+  background: var(--color-surface-raised);
+}
+
+.page-nav__item--active {
+  border-color: var(--color-accent-primary);
+  background: var(--color-surface-raised);
+}
+
+.page-nav__thumbnail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-sunken);
+  border-radius: 2px;
+  border: 1px solid var(--color-border-default);
+  overflow: hidden;
+  position: relative;
+}
+
+.page-nav__thumb-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-align: center;
+  line-height: 1.2;
+  padding: 2px;
+  word-break: break-word;
+}
+
+.page-nav__label {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-nav__add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: border-color 100ms, color 100ms;
+  margin-left: var(--space-1);
+}
+
+.page-nav__add-btn:hover {
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
+}

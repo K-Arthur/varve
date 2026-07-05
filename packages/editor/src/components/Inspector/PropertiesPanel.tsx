@@ -15,6 +15,7 @@ import { EmptyState } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useState } from 'react';
 import { useEditor } from '../../context';
+import { IntelligencePanel } from '../../panels/IntelligencePanel';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
@@ -36,7 +37,7 @@ import { type SelectionSummary, summarize } from './selection/selectionState';
 
 import './inspector.css';
 
-type Tab = 'properties' | 'export' | 'spec';
+type Tab = 'properties' | 'export' | 'spec' | 'audit';
 
 export function PropertiesPanel() {
   const { selectedNodes, state } = useEditor();
@@ -59,7 +60,7 @@ export function PropertiesPanel() {
   return (
     <section className="editor-inspector" aria-label="Inspector">
       <div className="insp-panel__tabs" role="tablist" aria-label="Inspector tabs">
-        {(['properties', 'export', 'spec'] as const).map((t) => (
+        {(['properties', 'export', 'spec', 'audit'] as const).map((t) => (
           <button
             type="button"
             key={t}
@@ -109,6 +110,7 @@ export function PropertiesPanel() {
           variableStore={state.variableStore as VariableStore}
         />
       )}
+      {tab === 'audit' && <IntelligencePanel />}
     </section>
   );
 }

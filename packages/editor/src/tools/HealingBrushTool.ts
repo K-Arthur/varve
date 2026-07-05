@@ -130,15 +130,14 @@ export class HealingBrushTool extends BaseTool {
     const patchData = new Uint8ClampedArray(pw * pw * 4);
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
-        const si = ((bestPatch.y + dy) * canvasW + (bestPatch.x + dx)) * 4;
         const pi = ((dy + r) * pw + (dx + r)) * 4;
         const sx = bestPatch.x!;
         const sy = bestPatch.y!;
         const si2 = ((sy + dy) * canvasW + (sx + dx)) * 4;
-        patchData[pi] = fullData.data[si2];
-        patchData[pi + 1] = fullData.data[si2 + 1];
-        patchData[pi + 2] = fullData.data[si2 + 2];
-        patchData[pi + 3] = fullData.data[si2 + 3];
+        patchData[pi] = fullData.data[si2]!;
+        patchData[pi + 1] = fullData.data[si2 + 1]!;
+        patchData[pi + 2] = fullData.data[si2 + 2]!;
+        patchData[pi + 3] = fullData.data[si2 + 3]!;
       }
     }
 

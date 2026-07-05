@@ -683,3 +683,289 @@
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Intelligence Panel ---------- */
+.intelligence-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.intelligence-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border-subtle);
+  margin-bottom: var(--space-2);
+  flex-shrink: 0;
+}
+.intelligence-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  text-transform: capitalize;
+  cursor: pointer;
+  transition:
+    color var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+}
+.intelligence-tab[aria-selected="true"] {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-interactive-default);
+}
+.intelligence-tab:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.intelligence-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.intelligence-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+.intelligence-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-4) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Issue list (Audit tab) ---------- */
+.intelligence-issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.intelligence-issue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--color-surface-raised);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+}
+.intelligence-issue__target {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: var(--color-text-primary);
+}
+.intelligence-issue__target:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.intelligence-severity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.intelligence-issue--error .intelligence-severity-dot {
+  background: var(--color-feedback-danger);
+}
+.intelligence-issue--warning .intelligence-severity-dot {
+  background: var(--color-feedback-warning);
+}
+.intelligence-issue--info .intelligence-severity-dot {
+  background: var(--color-feedback-info);
+}
+.intelligence-issue__type {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+.intelligence-issue__message {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* ---------- Suggestion list (Naming tab) ---------- */
+.intelligence-suggestion-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.intelligence-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-raised);
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+}
+.intelligence-suggestion__name {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+.intelligence-badge {
+  font-size: var(--font-size-2xs);
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+}
+.intelligence-badge--high {
+  background: color-mix(in srgb, var(--color-feedback-success) 20%, transparent);
+  color: var(--color-feedback-success);
+}
+.intelligence-badge--medium {
+  background: color-mix(in srgb, var(--color-feedback-warning) 20%, transparent);
+  color: var(--color-feedback-warning);
+}
+.intelligence-badge--low {
+  background: color-mix(in srgb, var(--color-text-muted) 15%, transparent);
+  color: var(--color-text-muted);
+}
+
+/* ---------- Toggle ---------- */
+.intelligence-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.intelligence-toggle input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--color-accent-primary);
+}
+
+/* ---------- Action button ---------- */
+.intelligence-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: var(--space-5);
+  padding: 0 var(--space-2);
+  background: var(--color-interactive-default);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-on-accent);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: opacity var(--duration-quick) var(--ease-standard);
+}
+.intelligence-action-btn:hover {
+  opacity: 0.9;
+}
+.intelligence-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.intelligence-action-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+[data-theme="high-contrast"] .intelligence-action-btn {
+  border: 1px solid var(--color-border-strong);
+}
+
+/* ---------- Analysis section (Spacing tab) ---------- */
+.intelligence-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-surface-raised);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+}
+.intelligence-analysis__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.intelligence-analysis__value {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-feature-settings: "tnum";
+}
+
+/* ---------- Gap histogram ---------- */
+.intelligence-gap-histogram {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.intelligence-histogram__label {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.intelligence-histogram__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 40px;
+}
+.intelligence-histogram__bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.intelligence-histogram__bar {
+  width: 100%;
+  min-height: 2px;
+  background: var(--color-interactive-default);
+  border-radius: 1px 1px 0 0;
+  transition: height var(--duration-quick) var(--ease-standard);
+}
+.intelligence-histogram__tick {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  font-feature-settings: "tnum";
+}
+
+/* ---------- Success message ---------- */
+.intelligence-success {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-success);
+  margin: 0;
+}
+
+[data-theme="high-contrast"] .intelligence-issue,
+[data-theme="high-contrast"] .intelligence-analysis,
+[data-theme="high-contrast"] .intelligence-suggestion {
+  border: 1px solid var(--color-border-subtle);
+}

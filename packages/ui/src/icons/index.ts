@@ -95,4 +95,5 @@ export const CHROME_ICONS = {
   undo: 'Undo2',
   redo: 'Redo2',
   home: 'House',
+  collapseAll: 'ChevronsUpDown',
 } as const satisfies Record<string, IconName>;

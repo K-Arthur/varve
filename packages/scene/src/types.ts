@@ -19,6 +19,8 @@ import type { ExportPreset } from './export-types';
 
 export type NodeId = string;
 
+export type LayerColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray' | null;
+
 // ── Constraints types (Figma-style responsive positioning) ─────────────────
 
 export type ConstraintAxis = 'min' | 'max' | 'center' | 'stretch' | 'scale';
@@ -207,6 +209,8 @@ export interface PropertyBinding {
 export interface NodeBase {
   id: NodeId;
   name: string;
+  /** Optional 7-color layer tag (Photoshop/Affinity-style). Null = no tag. */
+  layerColor?: LayerColor;
   fill: ManagedColor;
   /** P2: stacked fills (solid/gradient/image). When present, takes precedence over `fill`. */
   fills?: Fill[];

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Document, NodeId } from '@strata/scene';
 import { createDocument, makeShapeNode, addNode } from '@strata/scene';
-import type { Rect } from '@strata/shared';
 import { translate } from '@strata/shared';
-import { analyzeSpacing, harmonizeSpacing, type SpacingAnalysis } from './spacingHarmonizer';
+import { analyzeSpacing, harmonizeSpacing } from './spacingHarmonizer';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 

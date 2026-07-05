@@ -14,7 +14,8 @@
  */
 
 import { getTransactionHooks } from '@strata/collab';
-import type { Affine, PathPoint, Shape } from '@strata/engine';
+import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
+import { makeAdjustment } from '@strata/engine';
 import type { ManagedColor } from '@strata/scene';
 import {
   applyAffine,
@@ -64,6 +65,7 @@ import {
   groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
   isContainer,
+  makeAdjustmentNode,
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
@@ -220,6 +222,8 @@ export interface EditorState {
   motion: MotionState;
   /** Canvas rendering mode: full render, outline (wireframe), or preview (no overlays). */
   canvasMode: CanvasMode;
+  /** Currently selected page id, or null when no pages exist. */
+  currentPageId: string | null;
 }
 
 export interface EditorContextValue {
@@ -386,6 +390,8 @@ export interface EditorContextValue {
   newDocument: () => void;
   /** Serialize current document to JSON string. */
   serializeDocument: () => string;
+  /** Apply a pure transformation to the document (one undo step). */
+  updateDoc: (fn: (doc: Document) => Document) => void;
   /** Load a document from a JSON string. */
   loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
   /** Save the current document via the platform. */
@@ -425,6 +431,18 @@ export interface EditorContextValue {
   setNodeVisible: (id: NodeId, visible: boolean) => void;
   /** Toggle clipContent on a frame node. */
   setNodeClipContent: (id: NodeId, clipContent: boolean) => void;
+  /** Set a layer color tag on a node (or null to remove). */
+  setLayerColor: (id: NodeId, color: import('@strata/scene').LayerColor) => void;
+  /** Batch: lock/unlock multiple nodes in one undo step. */
+  bulkSetNodeLocked: (ids: NodeId[], locked: boolean) => void;
+  /** Batch: show/hide multiple nodes in one undo step. */
+  bulkSetNodeVisible: (ids: NodeId[], visible: boolean) => void;
+  /** Batch: set a layer color tag on multiple nodes in one undo step. */
+  bulkSetLayerColor: (ids: NodeId[], color: import('@strata/scene').LayerColor) => void;
+  /** Select all visible unlocked nodes with the same layerColor tag as the first selected node. */
+  selectAllWithSameLayerColor: () => void;
+  /** Select all nodes (including locked/hidden) with the same kind as the first selected node. */
+  selectAllOfType: () => void;
   /** B2: set or update the layout style on a frame node. */
   setNodeLayout: (id: NodeId, layout: import('@strata/scene').LayoutStyle | undefined) => void;
   /** B1: resolve a variable to its current value (throws on missing/cycle). */
@@ -609,6 +627,8 @@ export interface EditorContextValue {
 
   /** Set the active page by page id. */
   setActivePage: (pageId: NodeId) => void;
+  /** Set the currently selected page in the editor UI (null = no pages mode). */
+  setCurrentPageId: (id: string | null) => void;
 
   /** Get node IDs visible on the active page (page content + global children). */
   activePageNodes: () => NodeId[];
@@ -921,6 +941,7 @@ export function EditorProvider({
       rightPanelVisible: loadSettings().panel.rightPanelVisible,
       motion: createInitialMotionState(),
       canvasMode: 'full',
+      currentPageId: null,
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -1095,6 +1116,7 @@ export function EditorProvider({
   const value = useMemo<EditorContextValue>(
     () => ({
       state,
+      updateDoc,
       setTool: (t) => {
         toolRef.current = t;
         patch({ tool: t });
@@ -2401,6 +2423,9 @@ export function EditorProvider({
       setActivePage: (pageId) => {
         updateDoc((doc) => ({ ...doc, activePageId: pageId }));
       },
+      setCurrentPageId: (id) => {
+        patch({ currentPageId: id });
+      },
 
       activePageNodes: () => {
         return getActivePageNodes(state.document);
@@ -2419,6 +2444,92 @@ export function EditorProvider({
           if (n.kind !== 'frame') return n;
           return { ...n, clipContent };
         });
+      },
+
+      setLayerColor: (id, color) => {
+        updateNodeProp(id, (n) => ({ ...n, layerColor: color }));
+      },
+
+      bulkSetNodeLocked: (ids, locked) => {
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of ids) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, locked } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      bulkSetNodeVisible: (ids, visible) => {
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of ids) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, visible } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      bulkSetLayerColor: (ids, color) => {
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of ids) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, layerColor: color } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      selectAllWithSameLayerColor: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const firstNode = state.document.nodes[sel[0]!];
+        if (!firstNode) return;
+        const targetColor = firstNode.layerColor;
+        const matchingIds: NodeId[] = [];
+        for (const n of Object.values(state.document.nodes)) {
+          if (
+            n &&
+            n.visible &&
+            !n.locked &&
+            n.id !== firstNode.id &&
+            n.layerColor === targetColor
+          ) {
+            matchingIds.push(n.id);
+          }
+        }
+        if (matchingIds.length > 0) {
+          patch({ selection: [firstNode.id, ...matchingIds] });
+          announcerRef.current?.announce(
+            `Selected ${matchingIds.length + 1} nodes with color tag`,
+          );
+        }
+      },
+
+      selectAllOfType: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const firstNode = state.document.nodes[sel[0]!];
+        if (!firstNode) return;
+        const targetKind = firstNode.kind;
+        const matchingIds: NodeId[] = [];
+        for (const n of Object.values(state.document.nodes)) {
+          if (n && n.kind === targetKind && n.id !== firstNode.id) {
+            matchingIds.push(n.id);
+          }
+        }
+        if (matchingIds.length > 0) {
+          patch({ selection: [firstNode.id, ...matchingIds] });
+          announcerRef.current?.announce(
+            `Selected ${matchingIds.length + 1} ${targetKind} nodes`,
+          );
+        }
       },
 
       announce: (msg) => {
@@ -2514,6 +2625,80 @@ export function EditorProvider({
         const id = sel[0];
         if (!id) return;
         updateDoc((doc) => detachInstanceDoc(doc, id));
+      },
+
+      createAdjustmentLayer: (initialAdjustments) => {
+        undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        redoStackRef.current = [];
+        const { id, doc: newDoc } = nextNodeId(state.document);
+        const adjs = initialAdjustments ?? [];
+        const node = makeAdjustmentNode(
+          id,
+          'hsl',
+          { hue: 0, saturation: 0, lightness: 0 },
+          {
+            name: `Adjustment ${id.slice(0, 4)}`,
+            opacity: 1,
+            blendMode: 'normal',
+            effects: [],
+          },
+        );
+        const withAdjustments = { ...node, adjustments: adjs };
+        const doc = addNode(newDoc, withAdjustments as import('@strata/scene').SceneNode);
+        patch({ document: doc, selection: [id] });
+        announcerRef.current?.announce('Created adjustment layer');
+      },
+
+      addAdjustmentToLayer: (nodeId, adjustment) => {
+        updateNodeProp(nodeId, (n) => {
+          if (n.kind !== 'adjustment') return n;
+          const existing = (n as any).adjustments ?? [];
+          return { ...n, adjustments: [...existing, adjustment] } as SceneNode;
+        });
+      },
+
+      removeAdjustmentFromLayer: (nodeId, adjustmentId) => {
+        updateNodeProp(nodeId, (n) => {
+          if (n.kind !== 'adjustment') return n;
+          const existing = (n as any).adjustments ?? [];
+          return {
+            ...n,
+            adjustments: existing.filter((a: Adjustment) => a.id !== adjustmentId),
+          } as SceneNode;
+        });
+      },
+
+      updateAdjustmentInLayer: (nodeId, adjustmentId, patch) => {
+        updateNodeProp(nodeId, (n) => {
+          if (n.kind !== 'adjustment') return n;
+          const existing = (n as any).adjustments ?? [];
+          return {
+            ...n,
+            adjustments: existing.map((a: Adjustment) =>
+              a.id === adjustmentId ? ({ ...a, ...patch } as Adjustment) : a,
+            ),
+          } as SceneNode;
+        });
+      },
+
+      reorderAdjustmentInLayer: (nodeId, adjustmentId, newIndex) => {
+        updateNodeProp(nodeId, (n) => {
+          if (n.kind !== 'adjustment') return n;
+          const existing = [...((n as any).adjustments ?? [])];
+          const idx = existing.findIndex((a: Adjustment) => a.id === adjustmentId);
+          if (idx < 0) return n;
+          const [item] = existing.splice(idx, 1);
+          existing.splice(Math.max(0, Math.min(newIndex, existing.length)), 0, item!);
+          return { ...n, adjustments: existing } as SceneNode;
+        });
+      },
+
+      setAdjustmentLayerOpacity: (nodeId, opacity) => {
+        updateNodeProp(nodeId, (n) => ({ ...n, opacity }) as SceneNode);
+      },
+
+      setAdjustmentLayerBlendMode: (nodeId, blendMode) => {
+        updateNodeProp(nodeId, (n) => ({ ...n, blendMode }) as SceneNode);
       },
 
       copySelected: () => {

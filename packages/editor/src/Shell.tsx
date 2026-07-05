@@ -18,6 +18,7 @@ import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
+import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
@@ -27,6 +28,7 @@ import { RecoveryDialog } from './components/RecoveryDialog';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
+import { PageNav } from './components/PageNav/PageNav';
 import { EditorProvider, useEditor } from './context';
 import type { DragNodeData } from './dnd-types';
 import { LayersPanel } from './LayersPanel';
@@ -303,11 +305,15 @@ function ShellInner({
         <TabStrip onBackToHome={onBackToHome} />
         <CanvasArea canvasContainerRef={canvasContainerRef} />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
+        <div className="page-nav-container">
+          <PageNav />
+        </div>
         <div
           className="editor__layers-panel"
           data-visible={layersVisible || undefined}
           data-collapsed={!leftPanelVisible || undefined}
         >
+          <MinimapPanel />
           <LayersPanel dndRef={layersDndRef} />
           <PanelResizeHandle
             side="layers"
