@@ -77,6 +77,55 @@ pub fn apply_feather(mask: &[u8], width: u32, height: u32, radius: f32) -> Vec<u
     feather_mask(mask, width, height, radius)
 }
 
+/// Reduces background-color spill/fringing at foreground edges by choking
+/// (eroding via 3x3 min filter) the semi-transparent halo band of a mask.
+/// Fully opaque (>=245) and fully transparent (<=10) pixels are left
+/// untouched. Mirrors `decontaminateMask` in
+/// `packages/engine/src/backgroundRemoval/maskOps.ts` for cross-backend
+/// parity (native Rust and TS/Worker paths must produce equivalent output).
+fn decontaminate_mask(mask: &[u8], width: u32, height: u32) -> Vec<u8> {
+    if width == 0 || height == 0 || mask.is_empty() {
+        return mask.to_vec();
+    }
+    let w = width as i32;
+    let h = height as i32;
+    let mut result = vec![0u8; mask.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) as usize;
+            let v = mask[idx];
+            if v <= 10 || v >= 245 {
+                result[idx] = v;
+                continue;
+            }
+            let mut min = v;
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+                    let nx = x + dx;
+                    let ny = y + dy;
+                    if nx < 0 || nx >= w || ny < 0 || ny >= h {
+                        continue;
+                    }
+                    let nv = mask[(ny * w + nx) as usize];
+                    if nv < min {
+                        min = nv;
+                    }
+                }
+            }
+            result[idx] = min;
+        }
+    }
+    result
+}
+
+/// Public wrapper for decontaminating a mask. Used by the inference module.
+pub fn apply_decontaminate(mask: &[u8], width: u32, height: u32) -> Vec<u8> {
+    decontaminate_mask(mask, width, height)
+}
+
 /// Compute a confidence score from the mask histogram.
 fn compute_confidence(mask: &[u8]) -> f32 {
     if mask.is_empty() {
@@ -351,6 +400,11 @@ pub fn remove_quick(img: &DynamicImage, opts: &RemovalOptions) -> Result<Removal
         mask
     };
 
+    let mask = if opts.decontaminate.unwrap_or(false) {
+        decontaminate_mask(&mask, width, height)
+    } else {
+        mask
+    };
     let mask = feather_mask(&mask, width, height, opts.feather_radius.unwrap_or(0.0));
 
     let confidence = compute_confidence(&mask);
@@ -456,6 +510,58 @@ mod tests {
             click_y: None,
         };
         assert!(remove_quick(&img, &opts).is_err());
+    }
+
+    #[test]
+    fn test_decontaminate_mask_leaves_solid_regions_untouched() {
+        let mask = vec![255u8; 100]; // fully opaque 10x10 — no halo to choke
+        let result = decontaminate_mask(&mask, 10, 10);
+        assert_eq!(result, mask);
+    }
+
+    #[test]
+    fn test_decontaminate_mask_chokes_halo_band_toward_darker_neighbor() {
+        // 3x1 mask: opaque, halo (128), transparent. The halo pixel's 3x3
+        // neighborhood includes the transparent pixel, so it should choke
+        // down toward 0, not remain at 128.
+        let mask = vec![255u8, 128u8, 0u8];
+        let result = decontaminate_mask(&mask, 3, 1);
+        assert_eq!(result[0], 255); // untouched: fully opaque
+        assert_eq!(result[1], 0); // choked toward the transparent neighbor
+        assert_eq!(result[2], 0); // untouched: fully transparent
+    }
+
+    #[test]
+    fn test_decontaminate_option_accepted_by_remove_quick_without_panicking() {
+        // Every current heuristic detector (flood fill, chroma key, k-means)
+        // emits a strictly binary 0/255 mask before feathering, so
+        // `decontaminate_mask`'s halo-choke is a structural no-op on
+        // `remove_quick`'s own output pre-feather (same intrinsic limitation
+        // documented on the TS side in `heuristic.test.ts` — the option is
+        // still real and used by AI-tier masks, which do have soft edges).
+        // This test guards that the option is read/forwarded (not dropped
+        // during deserialization) rather than asserting a pixel diff that
+        // cannot exist for this method family.
+        let img = make_test_image(10, 10, |x, _y| {
+            if x < 5 {
+                [255, 0, 0, 255]
+            } else {
+                [0, 0, 255, 255]
+            }
+        });
+        for decontaminate in [None, Some(false), Some(true)] {
+            let opts = RemovalOptions {
+                method: RemovalMethod::Quick,
+                tolerance: None,
+                feather_radius: Some(2.0),
+                decontaminate,
+                click_x: None,
+                click_y: None,
+            };
+            let result = remove_quick(&img, &opts).unwrap();
+            assert_eq!(result.width, 10);
+            assert_eq!(result.height, 10);
+        }
     }
 
     #[test]

@@ -67,7 +67,7 @@ export function TemplatesGallery({
     const map: Record<string, TemplateLibrary[]> = {};
     for (const t of filtered) {
       if (!map[t.category]) map[t.category] = [];
-      map[t.category]!.push(t);
+      map[t.category]?.push(t);
     }
     return map;
   }, [filtered]);

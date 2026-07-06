@@ -10,10 +10,10 @@ function makeTestImageData(
   const data = new ImageData(w, h);
   for (let i = 0; i < pixels.length; i++) {
     const off = i * 4;
-    data.data[off] = pixels[i]![0];
-    data.data[off + 1] = pixels[i]![1];
-    data.data[off + 2] = pixels[i]![2];
-    data.data[off + 3] = pixels[i]![3];
+    data.data[off] = pixels[i]?.[0];
+    data.data[off + 1] = pixels[i]?.[1];
+    data.data[off + 2] = pixels[i]?.[2];
+    data.data[off + 3] = pixels[i]?.[3];
   }
   return data;
 }

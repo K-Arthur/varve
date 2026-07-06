@@ -79,7 +79,7 @@ describe('searchIndex', () => {
 
     const results = searchAllContent(indexes, 'Footer');
     expect(results.length).toBe(1);
-    expect(results[0]!.nodeName).toBe('Footer');
+    expect(results[0]?.nodeName).toBe('Footer');
   });
 
   it('deduplicates results across files', () => {

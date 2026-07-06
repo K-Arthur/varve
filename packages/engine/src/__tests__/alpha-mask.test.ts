@@ -39,7 +39,7 @@ describe('renderAlphaMask', () => {
     const drawImageMock = mainCtx.drawImage as ReturnType<typeof vi.fn>;
     const firstCall = drawImageMock.mock.calls[0];
     expect(firstCall).toBeDefined();
-    const drawArg = firstCall![0];
+    const drawArg = firstCall?.[0];
     // The first argument to drawImage is the content canvas
     expect(drawArg).toBeInstanceOf(HTMLCanvasElement);
   });

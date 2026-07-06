@@ -1,7 +1,8 @@
 import type { RemovalMethod } from '@strata/engine';
-import { getModelLoader } from '@strata/engine';
-import type { ImageNode, SceneNode } from '@strata/scene';
-import { useState } from 'react';
+import { getModelLoaderReady, workerModelIdForMethod } from '@strata/engine';
+import type { SceneNode, ShapeNode } from '@strata/scene';
+import { isImageShape } from '@strata/scene';
+import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../../../context';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -9,21 +10,50 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, removeBackgroundWithOptions, updateNode, announce, setShowOriginalBg } =
     useEditor();
-  const node = nodes[0] as ImageNode;
-  if (node.kind !== 'image') return null;
+  const node = nodes[0] as ShapeNode;
+  if (!isImageShape(node) && !node.backgroundRemoval) return null;
 
   const bg = node.backgroundRemoval;
-  const loader = getModelLoader();
-  const modelState = loader.getState();
-  const aiAvailable = modelState === 'ready';
   const [method, setMethod] = useState<RemovalMethod>(bg?.method ?? 'quick');
   const [pending, setPending] = useState(false);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [feather, setFeather] = useState(bg?.feather ?? 0.5);
   const [decontaminate, setDecontaminate] = useState(bg?.decontaminate ?? true);
+  const [modelState, setModelState] = useState<'unavailable' | 'downloading' | 'ready' | 'error'>(
+    'unavailable',
+  );
+  const [aiAvailable, setAiAvailable] = useState(false);
   const showingOriginal = state.showOriginalBgNodeId === node.id;
 
+  const requiredModelId = workerModelIdForMethod(method);
+
+  const refreshModelStatus = useCallback(async () => {
+    const loader = await getModelLoaderReady();
+    setModelState(loader.getState());
+    if (method === 'quick' || !requiredModelId) {
+      setAiAvailable(true);
+      return;
+    }
+    setAiAvailable(await loader.isModelAvailable(requiredModelId));
+  }, [method, requiredModelId]);
+
+  useEffect(() => {
+    void refreshModelStatus();
+    let unsub: (() => void) | undefined;
+    void getModelLoaderReady().then((loader) => {
+      unsub = loader.subscribe(() => {
+        void refreshModelStatus();
+      });
+    });
+    return () => unsub?.();
+  }, [refreshModelStatus]);
+
   const handleApply = async () => {
+    if (method !== 'quick' && !aiAvailable) {
+      announce('Download the AI model first, or switch to Quick mode.');
+      setShowDownloadDialog(true);
+      return;
+    }
     setPending(true);
     try {
       await removeBackgroundWithOptions(method, feather, decontaminate);
@@ -34,7 +64,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleReset = () => {
     updateNode(node.id, (n) => {
-      const { backgroundRemoval: _, ...rest } = n as ImageNode;
+      const { backgroundRemoval: _, ...rest } = n as ShapeNode;
       return rest;
     });
     announce('Background removal reset');
@@ -53,6 +83,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     );
   };
 
+  const downloadModelId =
+    method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
+
   return (
     <DisclosureSection title="Background Removal">
       <div className="bg-removal__method">
@@ -65,11 +98,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           onChange={(e) => setMethod(e.target.value as RemovalMethod)}
         >
           <option value="quick">Quick (no download needed)</option>
-          <option value="ai-balanced" disabled={!aiAvailable}>
-            AI Balanced{!aiAvailable ? ' (not downloaded)' : ''}
+          <option value="ai-balanced">
+            AI Balanced{!aiAvailable ? ' (download required)' : ''}
           </option>
-          <option value="ai-quality" disabled={!aiAvailable}>
-            AI Best Quality{!aiAvailable ? ' (not downloaded)' : ''}
+          <option value="ai-quality">
+            AI Best Quality{!aiAvailable ? ' (download required)' : ''}
           </option>
         </select>
         <span id="bg-method-desc" className="sr-only">
@@ -87,10 +120,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           >
             Download AI Model
           </button>
+          <p className="bg-removal__hint">
+            Requires a one-time download stored on this device. Manage models in Settings → Offline
+            Models.
+          </p>
         </div>
       )}
       {method !== 'quick' && modelState === 'downloading' && (
-        <p className="bg-removal__hint">Downloading model... Please wait.</p>
+        <p className="bg-removal__hint" aria-live="polite">
+          Downloading model... Please wait.
+        </p>
       )}
 
       {bg && (
@@ -179,9 +218,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       </div>
       {showDownloadDialog && (
         <ModelDownloadDialog
-          modelId={method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite'}
+          modelId={downloadModelId}
           onClose={() => setShowDownloadDialog(false)}
-          onComplete={() => setShowDownloadDialog(false)}
+          onComplete={() => {
+            setShowDownloadDialog(false);
+            void refreshModelStatus();
+          }}
         />
       )}
     </DisclosureSection>

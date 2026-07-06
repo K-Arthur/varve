@@ -3,6 +3,7 @@ export type SettingsSection =
   | 'appearance'
   | 'shortcuts'
   | 'export'
+  | 'models'
   | 'collab'
   | 'ai'
   | 'about';

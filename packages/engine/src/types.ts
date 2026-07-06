@@ -280,6 +280,8 @@ export interface SceneNode {
   cornerSmoothing?: number;
   /** Alpha mask data URL for compositing with transparency. */
   alphaMask?: string;
+  /** Phase 5: nondestructive adjustment filter stack. */
+  filters?: FilterIR[];
 }
 
 /** P2: Fill type for the engine (mirrors @strata/scene Fill). */
@@ -355,7 +357,6 @@ export type Primitive =
     }
   | { kind: 'arrow'; from: Point; to: Point; tolerance: number; arrowheadSize: number }
   | { kind: 'path'; points: PathPoint[]; closed: boolean; tolerance: number }
-  | { kind: 'image'; w: number; h: number; src: string; alphaMask?: string }
   | {
       kind: 'text';
       x: number;

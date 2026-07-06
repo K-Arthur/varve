@@ -1,5 +1,5 @@
 import type { Document, NodeId, SceneNode } from '@strata/scene';
-import { getParent, shapeHeight, shapeWidth } from '@strata/scene';
+import { getParent, isImageShape, shapeHeight, shapeWidth } from '@strata/scene';
 
 export interface NamingSuggestion {
   name: string;
@@ -34,7 +34,7 @@ function isButtonLikeText(text: string): boolean {
   const trimmed = text.trim().toLowerCase();
   if (BUTTON_LIKE_TEXT.has(trimmed)) return true;
   for (const word of BUTTON_LIKE_TEXT) {
-    if (trimmed === word || trimmed.startsWith(word + ' ')) return true;
+    if (trimmed === word || trimmed.startsWith(`${word} `)) return true;
   }
   return false;
 }
@@ -49,7 +49,7 @@ function isLinkLikeText(text: string): boolean {
 
 function truncateText(text: string, maxLen: number = 30): string {
   if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - 1) + '\u2026';
+  return `${text.slice(0, maxLen - 1)}\u2026`;
 }
 
 function getNodeWidth(node: SceneNode): number | null {
@@ -147,7 +147,7 @@ export function suggestName(node: SceneNode, doc: Document, index?: number): Nam
   }
 
   // Rule 5: Image node -> "Image" (high)
-  if (node.kind === 'image') {
+  if (isImageShape(node)) {
     return {
       name: 'Image',
       confidence: 'high',

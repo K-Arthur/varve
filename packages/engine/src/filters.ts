@@ -311,6 +311,17 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         preserveLuminosity: adjustment.preserveLuminosity,
         ...base,
       };
+    case 'halftone':
+      return {
+        kind: 'halftone',
+        pattern: adjustment.pattern,
+        frequency: adjustment.frequency,
+        angle: adjustment.angle,
+        dotShape: adjustment.dotShape,
+        channel: adjustment.channel,
+        method: adjustment.method,
+        ...base,
+      };
     default:
       return { kind: 'opacity', value: 100, opacity: 1, blendMode: 'normal' };
   }
@@ -469,6 +480,16 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         color: [255, 255, 0, 255] as Color,
         density: 25,
         preserveLuminosity: true,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'halftone':
+      return {
+        ...base,
+        pattern: 'dot',
+        frequency: 45,
+        angle: 45,
+        dotShape: 'round',
+        channel: 'k',
+        method: 'am',
       } as Omit<Adjustment, 'id' | 'kind'>;
     default:
       return { ...base } as Omit<Adjustment, 'id' | 'kind'>;

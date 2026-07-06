@@ -40,7 +40,7 @@ function shape(doc: ReturnType<typeof createDocument>, name: string) {
 
 /** Return the contentRoot node id from the default page (used to account for it in rootChildren assertions). */
 function pageContentRoot(doc: ReturnType<typeof createDocument>): string {
-  return doc.pages![0]!.contentRoot;
+  return doc.pages?.[0]?.contentRoot;
 }
 
 describe('Document (root-level ops)', () => {
@@ -238,13 +238,13 @@ describe('Document (nested child ops)', () => {
     const child1 = getById(doc, firstId);
     expect(child1?.order).toBeTruthy();
 
-    const firstOrder = child1!.order;
+    const firstOrder = child1?.order;
     const { id: secondId, doc: d4, node: second } = shape(doc, 'second');
     doc = d4;
     doc = addChild(doc, frameId, second);
     const child2 = getById(doc, secondId);
     expect(child2?.order).toBeTruthy();
-    expect(child2!.order > firstOrder).toBe(true);
+    expect(child2?.order > firstOrder).toBe(true);
   });
 
   it('addChild with slotId fills the slot', () => {
@@ -755,7 +755,7 @@ describe('Document print production fields', () => {
 
   it('createDocument stamps current format version', () => {
     const doc = createDocument('test');
-    expect(['1.4', '1.3', '1.2', '1.1']).toContain(doc.formatVersion);
+    expect(['1.5', '1.4', '1.3', '1.2', '1.1']).toContain(doc.formatVersion);
   });
 
   it('Document interface accepts colorConfig and bleed', () => {

@@ -823,6 +823,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         }
     }
 
@@ -860,6 +861,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         }
     }
 
@@ -936,6 +938,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         };
         let ops = shape_path_operators(&node, 100.0);
         let s = String::from_utf8_lossy(&ops);
@@ -977,6 +980,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         };
         let ops = shape_path_operators(&node, 100.0);
         let s = String::from_utf8_lossy(&ops);
@@ -1009,6 +1013,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         };
         let ops = shape_path_operators(&node, 100.0);
         assert!(ops.is_empty(), "empty path should produce empty ops");
@@ -1123,6 +1128,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         }
     }
 
@@ -1350,6 +1356,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         }];
         let bytes = export_pdf(&nodes, &PdfOptions::default()).expect("pdf with circle");
         assert!(bytes.starts_with(b"%PDF"));
@@ -1537,6 +1544,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         };
         let opts = PdfOptions {
             outline_text: true,

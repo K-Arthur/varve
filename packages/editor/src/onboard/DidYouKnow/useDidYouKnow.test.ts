@@ -43,8 +43,8 @@ describe('useDidYouKnow', () => {
 
     // Should now have a tip
     expect(result.current.currentTip).not.toBeNull();
-    expect(result.current.currentTip!.id).toBeTruthy();
-    expect(result.current.currentTip!.title).toBeTruthy();
+    expect(result.current.currentTip?.id).toBeTruthy();
+    expect(result.current.currentTip?.title).toBeTruthy();
 
     vi.useRealTimers();
   });
@@ -63,7 +63,7 @@ describe('useDidYouKnow', () => {
     });
 
     expect(result.current.currentTip).not.toBeNull();
-    result.current.currentTip!.id;
+    result.current.currentTip?.id;
 
     act(() => {
       result.current.dismiss();

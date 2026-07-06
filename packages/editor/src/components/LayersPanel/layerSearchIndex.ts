@@ -38,12 +38,12 @@ function indexNode(
 
   for (const word of words) {
     if (!wordIndex.has(word)) wordIndex.set(word, new Set());
-    wordIndex.get(word)!.add(id);
+    wordIndex.get(word)?.add(id);
   }
 
   const kindWord = `kind:${node.kind}`;
   if (!wordIndex.has(kindWord)) wordIndex.set(kindWord, new Set());
-  wordIndex.get(kindWord)!.add(id);
+  wordIndex.get(kindWord)?.add(id);
 }
 
 function extractWords(name: string): string[] {

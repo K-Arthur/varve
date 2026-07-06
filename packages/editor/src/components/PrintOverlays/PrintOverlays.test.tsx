@@ -98,7 +98,7 @@ describe('PrintOverlays', () => {
     );
     const rect = container.querySelector('.print-bleed-rect');
     expect(rect).toBeTruthy();
-    expect(parseFloat(rect!.getAttribute('x')!)).toBeCloseTo(-3 * bigScale, 4);
+    expect(parseFloat(rect?.getAttribute('x')!)).toBeCloseTo(-3 * bigScale, 4);
   });
 
   it('computes bleed rect from pixel-scaled dimensions', () => {
@@ -108,10 +108,10 @@ describe('PrintOverlays', () => {
       <PrintOverlays {...defaultProps} pxPerUnit={pxPu} bleed={bleed} />,
     );
     const rect = container.querySelector('.print-bleed-rect');
-    const x = parseFloat(rect!.getAttribute('x')!);
-    const y = parseFloat(rect!.getAttribute('y')!);
-    const w = parseFloat(rect!.getAttribute('width')!);
-    const h = parseFloat(rect!.getAttribute('height')!);
+    const x = parseFloat(rect?.getAttribute('x')!);
+    const y = parseFloat(rect?.getAttribute('y')!);
+    const w = parseFloat(rect?.getAttribute('width')!);
+    const h = parseFloat(rect?.getAttribute('height')!);
     expect(x).toBeCloseTo(-bleed.left * pxPu, 4);
     expect(y).toBeCloseTo(-bleed.top * pxPu, 4);
     expect(w).toBeCloseTo(210 * pxPu + (bleed.left + bleed.right) * pxPu, 4);

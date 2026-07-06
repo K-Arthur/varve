@@ -6,7 +6,7 @@ import {
   instantiate,
   makeFrameNode,
   makeGroupNode,
-  makeImageNode,
+  makeImageShapeNode,
   makeShapeNode,
   makeTextNode,
 } from '@strata/scene';
@@ -105,7 +105,7 @@ describe('suggestName', () => {
 
   it('rule 5: image node gets "Image"', () => {
     const doc = createTestDoc();
-    const img = makeImageNode('img1', {
+    const img = makeImageShapeNode('img1', {
       src: 'data:image/png,...',
       w: 100,
       h: 100,
@@ -267,7 +267,7 @@ describe('suggestName', () => {
     doc = addNode(doc, frame);
     doc = addChild(doc, 'f1', shape);
     doc = addChild(doc, 'f1', caption);
-    const result = suggestName(doc.nodes['s1']!, doc);
+    const result = suggestName(doc.nodes.s1!, doc);
     expect(result.name).toBe('Caption');
     expect(result.confidence).toBe('low');
     expect(result.matchedRule).toBe('13-shape-text-below');
@@ -286,7 +286,7 @@ describe('suggestName', () => {
     doc = addNode(doc, frame);
     doc = addChild(doc, 'f1', caption);
     doc = addChild(doc, 'f1', shape);
-    const result = suggestName(doc.nodes['s1']!, doc);
+    const result = suggestName(doc.nodes.s1!, doc);
     expect(result.matchedRule).not.toBe('13-shape-text-below');
   });
 

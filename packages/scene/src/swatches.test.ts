@@ -12,23 +12,23 @@ describe('swatches', () => {
       const doc = createDocument();
       const result = addSwatch(doc, 'Red', red);
       expect(result.swatches).toBeDefined();
-      expect(result.swatches!.length).toBe(1);
-      expect(result.swatches![0]!.name).toBe('Red');
-      expect(result.swatches![0]!.color).toEqual(red);
+      expect(result.swatches?.length).toBe(1);
+      expect(result.swatches?.[0]?.name).toBe('Red');
+      expect(result.swatches?.[0]?.color).toEqual(red);
     });
 
     it('adds multiple swatches', () => {
       let doc = createDocument();
       doc = addSwatch(doc, 'Red', red);
       doc = addSwatch(doc, 'Blue', blue);
-      expect(doc.swatches!.length).toBe(2);
+      expect(doc.swatches?.length).toBe(2);
     });
 
     it('each swatch has a unique id', () => {
       const doc = createDocument();
       const r1 = addSwatch(doc, 'Red', red);
       const r2 = addSwatch(doc, 'Blue', blue);
-      expect(r1.swatches![0]!.id).not.toBe(r2.swatches![0]!.id);
+      expect(r1.swatches?.[0]?.id).not.toBe(r2.swatches?.[0]?.id);
     });
   });
 
@@ -37,10 +37,10 @@ describe('swatches', () => {
       let doc = createDocument();
       doc = addSwatch(doc, 'Red', red);
       doc = addSwatch(doc, 'Blue', blue);
-      const id = doc.swatches![0]!.id;
+      const id = doc.swatches?.[0]?.id;
       const result = removeSwatch(doc, id);
-      expect(result.swatches!.length).toBe(1);
-      expect(result.swatches![0]!.name).toBe('Blue');
+      expect(result.swatches?.length).toBe(1);
+      expect(result.swatches?.[0]?.name).toBe('Blue');
     });
 
     it('returns unchanged for unknown id', () => {
@@ -54,10 +54,10 @@ describe('swatches', () => {
     it('updates a swatch color', () => {
       let doc = createDocument();
       doc = addSwatch(doc, 'Red', red);
-      const id = doc.swatches![0]!.id;
+      const id = doc.swatches?.[0]?.id;
       const result = updateSwatch(doc, id, blue);
-      expect(result.swatches![0]!.color).toEqual(blue);
-      expect(result.swatches![0]!.name).toBe('Red');
+      expect(result.swatches?.[0]?.color).toEqual(blue);
+      expect(result.swatches?.[0]?.name).toBe('Red');
     });
 
     it('returns unchanged for unknown id', () => {
@@ -79,7 +79,7 @@ describe('swatches', () => {
         rootChildren: [...doc.rootChildren, nid],
       };
       doc = addSwatch(doc, 'Red', red);
-      const swatchId = doc.swatches![0]!.id;
+      const swatchId = doc.swatches?.[0]?.id;
       const result = applySwatchToNode(doc, nid, swatchId);
       expect(result.nodes[nid]?.fill).toEqual(red);
     });
@@ -101,7 +101,7 @@ describe('swatches', () => {
     it('returns unchanged for unknown node id', () => {
       let doc = createDocument();
       doc = addSwatch(doc, 'Red', red);
-      const result = applySwatchToNode(doc, 'nonexistent', doc.swatches![0]!.id);
+      const result = applySwatchToNode(doc, 'nonexistent', doc.swatches?.[0]?.id);
       expect(result).toBe(doc);
     });
   });

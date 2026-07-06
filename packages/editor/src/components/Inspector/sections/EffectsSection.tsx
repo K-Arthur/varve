@@ -12,7 +12,6 @@ import type {
   Effect,
   FrameNode,
   GroupNode,
-  ImageNode,
   ManagedColor,
   SceneNode,
   ShapeNode,
@@ -32,7 +31,7 @@ export interface EffectsSectionProps {
   nodes: SceneNode[];
 }
 
-type EffectNode = ShapeNode | TextNode | FrameNode | ImageNode | AdjustmentNode | GroupNode;
+type EffectNode = ShapeNode | TextNode | FrameNode | AdjustmentNode | GroupNode;
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -59,8 +58,8 @@ function hasEffects(n: SceneNode): n is EffectNode {
     n.kind === 'text' ||
     n.kind === 'frame' ||
     n.kind === 'group' ||
-    n.kind === 'image' ||
-    n.kind === 'adjustment'
+    n.kind === 'adjustment' ||
+    n.kind === 'path'
   );
 }
 

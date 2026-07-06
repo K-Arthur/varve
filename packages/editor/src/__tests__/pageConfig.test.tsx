@@ -61,8 +61,8 @@ describe('page-level bleed/safe-area/slug config', () => {
     await waitFor(() => {
       const page = ctx?.state.document.pages?.find((p) => p.id === 'page-1');
       expect(page?.bleed).toBeDefined();
-      expect(page!.bleed!.top).toBe(5);
-      expect(page!.bleed!.unit).toBe('mm');
+      expect(page?.bleed?.top).toBe(5);
+      expect(page?.bleed?.unit).toBe('mm');
     });
   });
 
@@ -97,8 +97,8 @@ describe('page-level bleed/safe-area/slug config', () => {
     await waitFor(() => {
       const page = ctx?.state.document.pages?.find((p) => p.id === 'page-1');
       expect(page?.safeArea).toBeDefined();
-      expect(page!.safeArea!.top).toBe(10);
-      expect(page!.safeArea!.enabled).toBe(true);
+      expect(page?.safeArea?.top).toBe(10);
+      expect(page?.safeArea?.enabled).toBe(true);
     });
   });
 
@@ -133,8 +133,8 @@ describe('page-level bleed/safe-area/slug config', () => {
     await waitFor(() => {
       const page = ctx?.state.document.pages?.find((p) => p.id === 'page-1');
       expect(page?.slug).toBeDefined();
-      expect(page!.slug!.top).toBe(15);
-      expect(page!.slug!.enabled).toBe(true);
+      expect(page?.slug?.top).toBe(15);
+      expect(page?.slug?.enabled).toBe(true);
     });
   });
 

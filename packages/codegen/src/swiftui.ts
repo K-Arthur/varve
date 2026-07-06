@@ -5,9 +5,10 @@
  */
 
 import type { Document as SceneDocument, SceneNode, TextNode, VariableStore } from '@strata/scene';
-import type { TargetGap } from './types';
+import { isImageShape } from '@strata/scene';
 import { colorToHex, computeNodePos, getChildren } from './shared';
 import { resolveTokenName } from './tokens';
+import type { TargetGap } from './types';
 
 export interface SwiftUIExportOptions {
   variableStore?: VariableStore;
@@ -97,7 +98,7 @@ export function exportNodeToSwiftUI(
 export function swiftuiTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
   const gaps: TargetGap[] = [];
 
-  if (node.kind === 'image') {
+  if (isImageShape(node)) {
     gaps.push({
       nodeId: node.id,
       nodeName: node.name,
@@ -128,9 +129,10 @@ export function swiftuiTargetGaps(node: SceneNode, _doc: SceneDocument): TargetG
     });
   }
 
-  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
-    ? (node.effects ?? [])
-    : [];
+  const effects =
+    node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group'
+      ? (node.effects ?? [])
+      : [];
   if (effects.some((e) => e.type === 'backgroundBlur')) {
     gaps.push({
       nodeId: node.id,

@@ -27,7 +27,7 @@ describe('resolveNodeStyles', () => {
 
     const resolved = resolveNodeStyles(d2.nodes.n1!, style.id, d2.styles!);
     expect(resolved).toBeDefined();
-    expect(resolved!.fill).toEqual(fill);
+    expect(resolved?.fill).toEqual(fill);
   });
 
   it('resolves text style properties', () => {
@@ -76,7 +76,7 @@ describe('resolveNodeStyles', () => {
 
     const resolved = resolveNodeStyles(d2.nodes.n1!, style.id, d2.styles!);
     expect(resolved).toBeDefined();
-    expect(resolved!.effects).toEqual(effects);
+    expect(resolved?.effects).toEqual(effects);
   });
 
   it('returns undefined for non-existent styleId', () => {
@@ -109,7 +109,7 @@ describe('resolveNodeStyles', () => {
 
     const resolved = resolveNodeStyles(d2.nodes.n1!, style.id, d2.styles!);
     expect(resolved).toBeDefined();
-    expect(resolved!.fill).toEqual(fill);
+    expect(resolved?.fill).toEqual(fill);
   });
 
   it('returns empty record when style has no resolvable properties (layout)', () => {
@@ -175,7 +175,7 @@ describe('resolveAllStyles', () => {
     expect(result.size).toBe(1);
     expect(result.has('n1')).toBe(true);
     expect(result.has('n2')).toBe(false);
-    expect(result.get('n1')!.fill).toEqual(fill);
+    expect(result.get('n1')?.fill).toEqual(fill);
   });
 
   it('skips nodes without styleId', () => {
@@ -241,9 +241,9 @@ describe('getEffectiveStyle', () => {
 
     const result = getEffectiveStyle(doc, 'n1');
     expect(result).toBeDefined();
-    expect(result!.style).toBeDefined();
-    expect(result!.style!.type).toBe('text');
-    expect(result!.overrides).toEqual({});
+    expect(result?.style).toBeDefined();
+    expect(result?.style?.type).toBe('text');
+    expect(result?.overrides).toEqual({});
   });
 
   it('returns undefined for non-existent node', () => {

@@ -239,11 +239,11 @@ describe('EditorContext', () => {
     });
 
     // Click at center of rect child (world-space 100,100)
-    const hit = ctx!.hitTestNode({ x: 100, y: 100 });
+    const hit = ctx?.hitTestNode({ x: 100, y: 100 });
     expect(hit).not.toBeNull();
     // Should return the rect child, not the frame parent
-    expect(hit!.nodeId).toBe('r1');
-    expect(hit!.node.kind).toBe('shape');
+    expect(hit?.nodeId).toBe('r1');
+    expect(hit?.node.kind).toBe('shape');
   });
 
   it('hitTestNode returns parent frame when clicking frame area without children', async () => {
@@ -275,9 +275,9 @@ describe('EditorContext', () => {
     await waitFor(() => expect(ctx).toBeDefined());
 
     // Click at a point inside the frame but outside the child rect
-    const hit = ctx!.hitTestNode({ x: 10, y: 10 });
+    const hit = ctx?.hitTestNode({ x: 10, y: 10 });
     expect(hit).not.toBeNull();
-    expect(hit!.nodeId).toBe('f1');
+    expect(hit?.nodeId).toBe('f1');
   });
 
   describe('duplicateSelected', () => {
@@ -316,7 +316,7 @@ describe('EditorContext', () => {
       );
       doc = addChild(doc, 'g2', r2);
 
-      const origChildIds = [...(doc.nodes['f1']! as unknown as { children: string[] }).children];
+      const origChildIds = [...(doc.nodes.f1! as unknown as { children: string[] }).children];
 
       let ctx: ReturnType<typeof useEditor> | undefined;
       let callCount = 0;
@@ -349,20 +349,20 @@ describe('EditorContext', () => {
 
       await waitFor(() => {
         expect(ctx).toBeDefined();
-        expect(ctx!.state.selection).toEqual(['f1']);
+        expect(ctx?.state.selection).toEqual(['f1']);
       });
 
       screen.getByText('duplicate').click();
 
       await waitFor(() => {
         expect(callCount).toBeGreaterThanOrEqual(1);
-        expect(ctx!.state.selection).toHaveLength(1);
-        expect(ctx!.state.selection[0]).not.toBe('f1');
+        expect(ctx?.state.selection).toHaveLength(1);
+        expect(ctx?.state.selection[0]).not.toBe('f1');
       });
 
-      const newId = ctx!.state.selection[0]!;
+      const newId = ctx?.state.selection[0]!;
 
-      const newFrame = ctx!.state.document.nodes[newId] as SceneNode & { children: string[] };
+      const newFrame = ctx?.state.document.nodes[newId] as SceneNode & { children: string[] };
       expect(newFrame).toBeDefined();
       expect(newFrame.name).toBe('Frame copy');
 
@@ -374,7 +374,7 @@ describe('EditorContext', () => {
 
       // Cloned children must exist as nodes in the document
       for (const childId of newFrame.children) {
-        expect(ctx!.state.document.nodes[childId]).toBeDefined();
+        expect(ctx?.state.document.nodes[childId]).toBeDefined();
       }
 
       // The cloned frame transform must be offset by +20,+20
@@ -382,13 +382,13 @@ describe('EditorContext', () => {
       expect(newFrame.transform[5]).toBe(120);
 
       // Direct child rect must have offset transform (+20,+20 from original)
-      const newChild1 = ctx!.state.document.nodes[newFrame.children[0]!] as SceneNode;
+      const newChild1 = ctx?.state.document.nodes[newFrame.children[0]!] as SceneNode;
       expect(newChild1.transform[4]).toBe(30); // was 10, now 30
       expect(newChild1.transform[5]).toBe(30); // was 10, now 30
       expect(newChild1.name).toBe('Rect1 copy');
 
       // The cloned group (second child) must also be offset and contain cloned children
-      const newGroup = ctx!.state.document.nodes[newFrame.children[1]!] as SceneNode & {
+      const newGroup = ctx?.state.document.nodes[newFrame.children[1]!] as SceneNode & {
         children: string[];
       };
       expect(newGroup).toBeDefined();
@@ -399,18 +399,18 @@ describe('EditorContext', () => {
       // The group's child must also be a clone (deep-cloned grandchild)
       expect(newGroup.children).toHaveLength(1);
       expect(newGroup.children[0]).not.toBe('r2');
-      const newChild2 = ctx!.state.document.nodes[newGroup.children[0]!] as SceneNode;
+      const newChild2 = ctx?.state.document.nodes[newGroup.children[0]!] as SceneNode;
       expect(newChild2).toBeDefined();
       expect(newChild2.name).toBe('Rect2 copy');
       expect(newChild2.transform[4]).toBe(25); // was 5, now 25
       expect(newChild2.transform[5]).toBe(25); // was 5, now 25
 
       // Original nodes must still exist unchanged
-      expect(ctx!.state.document.nodes['f1']).toBeDefined();
-      expect(ctx!.state.document.nodes['r1']).toBeDefined();
-      expect(ctx!.state.document.nodes['g2']).toBeDefined();
-      expect(ctx!.state.document.nodes['r2']).toBeDefined();
-      const origFrame = ctx!.state.document.nodes['f1'] as SceneNode & { children: string[] };
+      expect(ctx?.state.document.nodes.f1).toBeDefined();
+      expect(ctx?.state.document.nodes.r1).toBeDefined();
+      expect(ctx?.state.document.nodes.g2).toBeDefined();
+      expect(ctx?.state.document.nodes.r2).toBeDefined();
+      const origFrame = ctx?.state.document.nodes.f1 as SceneNode & { children: string[] };
       expect(origFrame.children).toEqual(origChildIds);
     });
 
@@ -434,7 +434,7 @@ describe('EditorContext', () => {
       doc = addChild(doc, 'g1', s1);
 
       let ctx: ReturnType<typeof useEditor> | undefined;
-      let callCount = 0;
+      let _callCount = 0;
       function Test() {
         ctx = useEditor();
         const clicked = React.useRef(false);
@@ -448,7 +448,7 @@ describe('EditorContext', () => {
           <button
             type="button"
             onClick={() => {
-              callCount++;
+              _callCount++;
               ctx?.duplicateSelected();
             }}
           >
@@ -464,22 +464,22 @@ describe('EditorContext', () => {
 
       await waitFor(() => {
         expect(ctx).toBeDefined();
-        expect(ctx!.state.selection).toEqual(['g1']);
+        expect(ctx?.state.selection).toEqual(['g1']);
       });
 
       screen.getByText('dup group').click();
 
       await waitFor(() => {
-        expect(ctx!.state.selection).toHaveLength(1);
-        expect(ctx!.state.selection[0]).not.toBe('g1');
+        expect(ctx?.state.selection).toHaveLength(1);
+        expect(ctx?.state.selection[0]).not.toBe('g1');
       });
 
-      const newId = ctx!.state.selection[0]!;
-      const newGroup = ctx!.state.document.nodes[newId] as SceneNode & { children: string[] };
+      const newId = ctx?.state.selection[0]!;
+      const newGroup = ctx?.state.document.nodes[newId] as SceneNode & { children: string[] };
       expect(newGroup.name).toBe('Group copy');
       expect(newGroup.children).toHaveLength(1);
       expect(newGroup.children[0]).not.toBe('s1');
-      expect(ctx!.state.document.nodes[newGroup.children[0]!]).toBeDefined();
+      expect(ctx?.state.document.nodes[newGroup.children[0]!]).toBeDefined();
       expect(newGroup.transform[4]).toBe(70);
       expect(newGroup.transform[5]).toBe(70);
     });

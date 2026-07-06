@@ -55,7 +55,7 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
         await p.addFileToCollection(c1.id, 'f1');
         let files = await p.listCollectionFiles(c1.id);
         expect(files.length).toBe(1);
-        expect(files[0]!.id).toBe('f1');
+        expect(files[0]?.id).toBe('f1');
 
         await p.removeFileFromCollection(c1.id, 'f1');
         files = await p.listCollectionFiles(c1.id);
@@ -215,7 +215,7 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
         await p.setPermission('f1', 'editor');
         const perms = await p.listPermissions('f1');
         expect(perms.length).toBe(1);
-        expect(perms[0]!.role).toBe('editor');
+        expect(perms[0]?.role).toBe('editor');
       });
     });
 
@@ -232,7 +232,7 @@ async function testPlatform(name: string, factory: () => Promise<Platform>) {
 
         const events = await p.listActivity(ws.id);
         expect(events.length).toBe(1);
-        expect(events[0]!.type).toBe('file_created');
+        expect(events[0]?.type).toBe('file_created');
       });
     });
 

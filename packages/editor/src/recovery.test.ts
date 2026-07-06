@@ -70,7 +70,7 @@ describe('RecoveryManager', () => {
     const sessions = await manager.listSessions();
     expect(sessions).toHaveLength(1);
     expect(sessions[0]).toBeDefined();
-    const restored = await manager.restoreSession(sessions[0]!.id);
+    const restored = await manager.restoreSession(sessions[0]?.id);
     expect(restored).not.toBeNull();
     expect(restored?.tabName).toBe('My Tab');
     expect(restored?.fileId).toBe('file-1');
@@ -84,7 +84,7 @@ describe('RecoveryManager', () => {
     const sessions1 = await manager.listSessions();
     expect(sessions1).toHaveLength(1);
     expect(sessions1[0]).toBeDefined();
-    await manager.deleteSession(sessions1[0]!.id);
+    await manager.deleteSession(sessions1[0]?.id);
     const sessions2 = await manager.listSessions();
     expect(sessions2).toHaveLength(0);
   });
@@ -176,7 +176,7 @@ describe('RecoveryManager', () => {
     const doc = { formatVersion: '1.0', name: 'test', nodes: { a: {} }, rootChildren: [] };
     await manager.createRecoveryPoint(doc as never, 'Tab');
     const sessions = await manager.listSessions();
-    const id = sessions[0]!.id;
+    const id = sessions[0]?.id;
     expect(await manager.verifySession(id)).toBe(true);
   });
 

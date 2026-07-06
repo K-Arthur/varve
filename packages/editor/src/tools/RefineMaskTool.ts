@@ -8,7 +8,8 @@
  *                 Canvas 2D ImageData compositing.
  */
 import { createBrushMask } from '@strata/engine';
-import type { ImageNode, SceneNode } from '@strata/scene';
+import type { SceneNode, ShapeNode } from '@strata/scene';
+import { isImageShape } from '@strata/scene';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
@@ -120,8 +121,8 @@ export class RefineMaskTool extends BaseTool {
       return;
     }
 
-    const node = ctx.getNode(selectedId) as ImageNode | undefined;
-    if (!node || node.kind !== 'image' || !node.backgroundRemoval?.maskDataUrl) {
+    const node = ctx.getNode(selectedId) as ShapeNode | undefined;
+    if (!node || !isImageShape(node) || !node.backgroundRemoval?.maskDataUrl) {
       this.maskData = null;
       this.nodeId = null;
       return;
@@ -202,7 +203,7 @@ export class RefineMaskTool extends BaseTool {
     if (!newDataUrl) return;
 
     ctx.updateNode(this.nodeId, (node: SceneNode) => {
-      const imgNode = node as ImageNode;
+      const imgNode = node as ShapeNode;
       if (!imgNode.backgroundRemoval) return node;
       return {
         ...imgNode,

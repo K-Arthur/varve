@@ -172,7 +172,7 @@
 }
 
 .batch-bg-remove__file-row--error {
-  background: var(--color-bg-danger-subtle, rgba(220, 38, 38, 0.06));
+  background: var(--color-feedback-danger-subtle);
 }
 
 .batch-bg-remove__file-row--processing {
@@ -225,18 +225,18 @@
 }
 
 .batch-bg-remove__status-badge--processing {
-  background: var(--color-accent-subtle, rgba(57, 208, 198, 0.12));
+  background: var(--color-accent-subtle);
   color: var(--color-accent-primary);
 }
 
 .batch-bg-remove__status-badge--done {
-  background: var(--color-success-subtle, rgba(34, 197, 94, 0.12));
-  color: var(--color-success-text, #16a34a);
+  background: var(--color-feedback-success-subtle);
+  color: var(--color-feedback-success);
 }
 
 .batch-bg-remove__status-badge--error {
-  background: var(--color-danger-subtle, rgba(220, 38, 38, 0.12));
-  color: var(--color-danger-text, #dc2626);
+  background: var(--color-feedback-danger-subtle);
+  color: var(--color-feedback-danger);
 }
 
 .batch-bg-remove__status-badge--skipped {
@@ -266,7 +266,7 @@
 }
 
 .batch-bg-remove__retry-btn:hover {
-  background: var(--color-accent-subtle, rgba(57, 208, 198, 0.12));
+  background: var(--color-accent-subtle);
   border-color: var(--color-accent-primary);
 }
 
@@ -317,11 +317,11 @@
 }
 
 .batch-bg-remove__results-success {
-  color: var(--color-success-text, #16a34a);
+  color: var(--color-feedback-success);
 }
 
 .batch-bg-remove__results-fail {
-  color: var(--color-danger-text, #dc2626);
+  color: var(--color-feedback-danger);
 }
 
 .batch-bg-remove__results-skipped {
@@ -428,5 +428,5 @@
 }
 
 [data-theme="high-contrast"] .batch-bg-remove__file-row--error {
-  border: 1px solid var(--color-danger-text, #dc2626);
+  border: 1px solid var(--color-feedback-danger);
 }

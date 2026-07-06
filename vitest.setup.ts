@@ -47,7 +47,7 @@ if (typeof HTMLCanvasElement !== 'undefined') {
 
       (this as HTMLCanvasElement).toDataURL = vi.fn(() => 'data:image/png;base64,test');
 
-      const pixelStore = new Uint8ClampedArray(8192 * 4);
+      const _pixelStore = new Uint8ClampedArray(8192 * 4);
       const ctx: Partial<CanvasRenderingContext2D> = {
         canvas: this as HTMLCanvasElement,
         fillStyle: '',
@@ -91,7 +91,7 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         clearRect: vi.fn(),
         createImageData: vi.fn((w: number, h: number) => new ImageData(w, h)),
         putImageData: vi.fn(),
-        getImageData: vi.fn((x: number, y: number, w: number, h: number) => {
+        getImageData: vi.fn((_x: number, _y: number, w: number, h: number) => {
           return new ImageData(w, h);
         }),
         drawImage: vi.fn(),

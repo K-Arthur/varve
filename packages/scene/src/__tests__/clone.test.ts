@@ -89,8 +89,8 @@ describe('deepCloneSubtree', () => {
     const child1 = result.nodes[clonedGroup.children[1]!];
     expect(child0).toBeDefined();
     expect(child1).toBeDefined();
-    expect(child0!.name).toBe('Child A');
-    expect(child1!.name).toBe('Child B');
+    expect(child0?.name).toBe('Child A');
+    expect(child1?.name).toBe('Child B');
 
     expect(result.idMap.get(a.id)).toBe(clonedGroup.children[0]);
     expect(result.idMap.get(b.id)).toBe(clonedGroup.children[1]);
@@ -124,8 +124,8 @@ describe('deepCloneSubtree', () => {
 
     const clonedLeaf = result.nodes[clonedG1.children[0]!];
     expect(clonedLeaf).toBeDefined();
-    expect(clonedLeaf!.name).toBe('Leaf');
-    expect(clonedLeaf!.kind).toBe('shape');
+    expect(clonedLeaf?.name).toBe('Leaf');
+    expect(clonedLeaf?.kind).toBe('shape');
   });
 
   it('preserves parent-child relationships in cloned nodes', () => {
@@ -209,8 +209,8 @@ describe('deepCloneSubtree', () => {
     const clonedFrame = result.nodes[result.rootId] as FrameNode;
     expect(clonedFrame.slots).toBeDefined();
     const newSlotChildId = clonedFrame.children[0]!;
-    expect(clonedFrame.slots!.header).toBe(newSlotChildId);
-    expect(clonedFrame.slots!.header).not.toBe(slotChild.id);
+    expect(clonedFrame.slots?.header).toBe(newSlotChildId);
+    expect(clonedFrame.slots?.header).not.toBe(slotChild.id);
   });
 
   it('clones mask references with remapped source ID', () => {
@@ -237,9 +237,9 @@ describe('deepCloneSubtree', () => {
 
     const clonedGroup = result.nodes[result.rootId] as GroupNode;
     expect(clonedGroup.mask).toBeDefined();
-    expect(clonedGroup.mask!.sourceNodeId).toBe(clonedGroup.children[0]!);
-    expect(clonedGroup.mask!.sourceNodeId).not.toBe(maskChild.id);
-    expect(clonedGroup.mask!.type).toBe('clip');
+    expect(clonedGroup.mask?.sourceNodeId).toBe(clonedGroup.children[0]!);
+    expect(clonedGroup.mask?.sourceNodeId).not.toBe(maskChild.id);
+    expect(clonedGroup.mask?.type).toBe('clip');
   });
 
   it('preserves node properties (name, fill, visible, locked)', () => {
@@ -303,7 +303,7 @@ describe('deepCloneSubtree', () => {
 
     const clonedChild = result.nodes[clonedFrame.children[0]!];
     expect(clonedChild).toBeDefined();
-    expect(clonedChild!.name).toBe('Frame Child');
+    expect(clonedChild?.name).toBe('Frame Child');
   });
 
   it('clones adjustment nodes', () => {

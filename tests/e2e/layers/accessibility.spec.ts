@@ -7,7 +7,7 @@ test.describe('Layers Panel - Accessibility', () => {
   });
 
   test('tab enters layers tree', async ({ page }) => {
-    const tree = page.getByRole('tree', { name: /layers/i });
+    const _tree = page.getByRole('tree', { name: /layers/i });
     // Press Tab until the tree receives focus
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
@@ -161,7 +161,7 @@ test.describe('Layers Panel - Accessibility', () => {
 
   test('reduced motion disables animations', async ({ page }) => {
     // Check that the reduced motion media query is respected
-    const hasReducedMotionStyles = await page.evaluate(() => {
+    const _hasReducedMotionStyles = await page.evaluate(() => {
       const style = document.createElement('style');
       style.textContent =
         '@media (prefers-reduced-motion: reduce) { .layers-row { transition: none !important; } }';

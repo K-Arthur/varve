@@ -77,7 +77,7 @@ describe('LayersRow blend mode / opacity badge', () => {
     });
     const badge = container.querySelector('.layers-row__badge');
     expect(badge).not.toBeNull();
-    expect(badge!.textContent).toBe('Multiply');
+    expect(badge?.textContent).toBe('Multiply');
   });
 
   it('renders opacity badge when opacity < 1', () => {
@@ -86,7 +86,7 @@ describe('LayersRow blend mode / opacity badge', () => {
     });
     const badge = container.querySelector('.layers-row__badge');
     expect(badge).not.toBeNull();
-    expect(badge!.textContent).toBe('50%');
+    expect(badge?.textContent).toBe('50%');
   });
 
   it('renders both badges when non-default blend mode AND opacity < 1', () => {
@@ -95,7 +95,7 @@ describe('LayersRow blend mode / opacity badge', () => {
     });
     const badge = container.querySelector('.layers-row__badge');
     expect(badge).not.toBeNull();
-    expect(badge!.textContent).toBe('Screen 75%');
+    expect(badge?.textContent).toBe('Screen 75%');
   });
 
   it('capitalizes compound blend mode names correctly', () => {
@@ -104,7 +104,7 @@ describe('LayersRow blend mode / opacity badge', () => {
     });
     const badge = container.querySelector('.layers-row__badge');
     expect(badge).not.toBeNull();
-    expect(badge!.textContent).toBe('ColorDodge');
+    expect(badge?.textContent).toBe('ColorDodge');
   });
 
   it('renders rounded opacity correctly', () => {
@@ -113,7 +113,7 @@ describe('LayersRow blend mode / opacity badge', () => {
     });
     const badge = container.querySelector('.layers-row__badge');
     expect(badge).not.toBeNull();
-    expect(badge!.textContent).toBe('33%');
+    expect(badge?.textContent).toBe('33%');
   });
 });
 

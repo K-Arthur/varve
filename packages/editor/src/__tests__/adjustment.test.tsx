@@ -58,9 +58,9 @@ describe('adjustment layer', () => {
     const node = getCtx().state.document.nodes[nodeId]!;
     expect(node.kind).toBe('adjustment');
     if (node.kind === 'adjustment') {
-      expect(node.adjustments!.length).toBe(1);
-      expect(node.adjustments![0]!.kind).toBe('brightness');
-      expect((node.adjustments![0] as any).value).toBe(20);
+      expect(node.adjustments?.length).toBe(1);
+      expect(node.adjustments?.[0]?.kind).toBe('brightness');
+      expect((node.adjustments?.[0] as any).value).toBe(20);
     }
   });
 
@@ -82,8 +82,8 @@ describe('adjustment layer', () => {
       const n = getCtx().state.document.nodes[nodeId]!;
       expect(n.kind).toBe('adjustment');
       if (n.kind === 'adjustment') {
-        expect(n.adjustments!.length).toBe(1);
-        expect(n.adjustments![0]!.kind).toBe('contrast');
+        expect(n.adjustments?.length).toBe(1);
+        expect(n.adjustments?.[0]?.kind).toBe('contrast');
       }
     });
   });
@@ -107,7 +107,7 @@ describe('adjustment layer', () => {
       const n = getCtx().state.document.nodes[nodeId]!;
       expect(n.kind).toBe('adjustment');
       if (n.kind === 'adjustment') {
-        expect(n.adjustments!.length).toBe(0);
+        expect(n.adjustments?.length).toBe(0);
       }
     });
   });
@@ -131,9 +131,9 @@ describe('adjustment layer', () => {
       const n = getCtx().state.document.nodes[nodeId]!;
       expect(n.kind).toBe('adjustment');
       if (n.kind === 'adjustment') {
-        const updated = n.adjustments!.find((a: { id: string }) => a.id === 'adj-upd');
+        const updated = n.adjustments?.find((a: { id: string }) => a.id === 'adj-upd');
         expect(updated).toBeDefined();
-        expect(updated!.visible).toBe(false);
+        expect(updated?.visible).toBe(false);
       }
     });
   });
@@ -158,8 +158,8 @@ describe('adjustment layer', () => {
       const n = getCtx().state.document.nodes[nodeId]!;
       expect(n.kind).toBe('adjustment');
       if (n.kind === 'adjustment') {
-        expect(n.adjustments![0]!.id).toBe('adj-b');
-        expect(n.adjustments![1]!.id).toBe('adj-a');
+        expect(n.adjustments?.[0]?.id).toBe('adj-b');
+        expect(n.adjustments?.[1]?.id).toBe('adj-a');
       }
     });
   });
@@ -179,7 +179,7 @@ describe('adjustment layer', () => {
     getCtx().setAdjustmentLayerOpacity(nodeId, 0.5);
 
     await waitFor(() => {
-      expect(getCtx().state.document.nodes[nodeId]!.opacity).toBe(0.5);
+      expect(getCtx().state.document.nodes[nodeId]?.opacity).toBe(0.5);
     });
   });
 
@@ -198,7 +198,7 @@ describe('adjustment layer', () => {
     getCtx().setAdjustmentLayerBlendMode(nodeId, 'multiply');
 
     await waitFor(() => {
-      expect(getCtx().state.document.nodes[nodeId]!.blendMode).toBe('multiply');
+      expect(getCtx().state.document.nodes[nodeId]?.blendMode).toBe('multiply');
     });
   });
 });

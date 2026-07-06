@@ -74,7 +74,7 @@ export function traceSceneNodeOutline(ctx: CanvasRenderingContext2D, n: SceneNod
         }
         break;
     }
-  } else if (n.kind === 'frame' || n.kind === 'image') {
+  } else if (n.kind === 'frame') {
     const w = 'w' in n ? (n.w ?? 100) : 100;
     const h = 'h' in n ? (n.h ?? 100) : 100;
     ctx.rect(0, 0, w, h);

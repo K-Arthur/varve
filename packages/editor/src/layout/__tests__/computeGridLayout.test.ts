@@ -590,8 +590,8 @@ describe('applyGridLayout', () => {
     };
 
     const updated = applyGridLayout(doc, parentId);
-    expect(updated.nodes['a']?.transform).toEqual([1, 0, 0, 1, 0, 0]);
-    expect(updated.nodes['b']?.transform).toEqual([1, 0, 0, 1, 200, 0]);
+    expect(updated.nodes.a?.transform).toEqual([1, 0, 0, 1, 0, 0]);
+    expect(updated.nodes.b?.transform).toEqual([1, 0, 0, 1, 200, 0]);
   });
 
   it('returns doc unchanged when parent is not a frame', () => {

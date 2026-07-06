@@ -1074,7 +1074,7 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: oklch(0 0 0 / 0.3);
+  background: var(--elevation-scrim);
   z-index: var(--z-overlay);
 }
 
@@ -1380,7 +1380,7 @@
   font-size: var(--font-size-sm);
 }
 .bulk-import__results-success {
-  color: var(--color-feedback-success, #22c55e);
+  color: var(--color-feedback-success);
   font-weight: var(--font-weight-semibold);
 }
 .bulk-import__results-fail {
@@ -1410,7 +1410,7 @@
 }
 .bulk-import__result-item--error {
   color: var(--color-feedback-danger);
-  background: var(--color-feedback-danger-subtle, rgba(239, 68, 68, 0.08));
+  background: var(--color-feedback-danger-subtle);
 }
 .bulk-import__result-item--importing {
   color: var(--color-text-secondary);
@@ -1681,7 +1681,7 @@
   display: flex;
   justify-content: center;
   padding-top: 12vh;
-  background: oklch(0 0 0 / 0.3);
+  background: var(--elevation-scrim);
 }
 .search-palette__container {
   width: 480px;

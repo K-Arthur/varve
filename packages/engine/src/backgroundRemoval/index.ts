@@ -1,9 +1,11 @@
 import { removeBackgroundHeuristic } from './heuristic';
+import { decontaminateMask } from './maskOps';
 import { runPooledInference } from './workerPool';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
+import { workerModelIdForMethod } from './types';
 
 export { removeBackgroundHeuristic } from './heuristic';
-export { getModelLoader, resetModelLoader } from './modelLoader';
+export { getModelLoader, getModelLoaderReady, resetModelLoader } from './modelLoader';
 export { cancelAllWorkerJobs, terminateWorkerPool } from './workerPool';
 export type {
   BackgroundRemovalOptions,
@@ -12,8 +14,9 @@ export type {
   ModelMetadata,
   ModelState,
   RemovalMethod,
+  WorkerModelId,
 } from './types';
-export { AVAILABLE_MODELS } from './types';
+export { AVAILABLE_MODELS, workerModelIdForMethod } from './types';
 
 function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI__' in window;
@@ -26,12 +29,26 @@ function transferImageData(imageData: ImageData): ImageData {
 /**
  * Remove background from an ImageData buffer.
  *
- * Supports three paths:
- * 1. `method: 'quick'` — pure TypeScript heuristic (no download needed)
- * 2. `method: 'ai-balanced' | 'ai-quality'` — Web Worker with ONNX model (browser)
- * 3. Tauri — native Rust inference via IPC
- *
- * Web Worker and AI methods fall back to heuristic when unavailable.
+ * Dispatch order:
+ * 1. `method: 'quick'` — pure TypeScript heuristic, always available, no
+ *    download and no IPC round-trip needed. Never touches the AI paths.
+ * 2. `method: 'ai-balanced' | 'ai-quality'` — Web Worker + onnxruntime-web
+ *    (WASM/WebGL). Tried FIRST for AI methods on *every* platform, including
+ *    inside the Tauri webview: the desktop native `strata-bgremove` crate
+ *    only ships heuristic support by default (the `ai` Cargo feature that
+ *    would enable ONNX Runtime is opt-in and not part of the distributed
+ *    build, per ADR-0005 offline-first bundling), so gating AI methods
+ *    behind `isTauri()` would silently and permanently downgrade every
+ *    desktop AI request to the heuristic with no way to recover. Routing
+ *    through the Worker first means desktop users get genuine AI-quality
+ *    output whenever a model has been downloaded, exactly like web users.
+ * 3. Tauri native IPC — attempted only if the Worker path is unavailable or
+ *    throws. Native only implements `Quick` today, so this exists as a
+ *    resilient fallback (and the forward-compatible seam for a future
+ *    native `ai`-feature build).
+ * 4. Direct (non-Worker) onnxruntime-web import — last resort for AI
+ *    methods when `Worker` doesn't exist in the current environment.
+ * 5. Heuristic — final fallback when nothing else is available.
  */
 export async function removeBackground(
   imageData: ImageData,
@@ -45,15 +62,19 @@ export async function removeBackground(
     return removeBackgroundHeuristic(imageData, options);
   }
 
-  if (isTauri()) {
-    return invokeTauriRemoveBackground(imageData, options);
-  }
-
   if (typeof Worker !== 'undefined') {
     try {
       return await runWorkerInference(imageData, options);
     } catch {
-      // Fall through to heuristic
+      // Fall through to native/direct/heuristic below.
+    }
+  }
+
+  if (isTauri()) {
+    try {
+      return await invokeTauriRemoveBackground(imageData, options);
+    } catch {
+      // Fall through to direct/heuristic below.
     }
   }
 
@@ -61,7 +82,15 @@ export async function removeBackground(
   const loader = getModelLoader();
 
   if (loader.getState() === 'ready') {
-    return removeBackgroundAI(imageData, options);
+    try {
+      return await removeBackgroundAI(imageData, options);
+    } catch {
+      // Last-resort AI tier failed too (e.g. cached model file went
+      // missing on disk, or both WebGL and WASM execution providers are
+      // unavailable in this environment). Fall through to the
+      // always-available heuristic rather than surfacing a hard failure
+      // for what the user experiences as "remove background didn't work".
+    }
   }
 
   return removeBackgroundHeuristic(imageData, options);
@@ -71,12 +100,25 @@ async function runWorkerInference(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
 ): Promise<BackgroundRemovalResult> {
-  const modelId = options.method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
-  const workerModelId =
-    options.method === 'ai-quality' ? ('birefnet-general-lite' as const) : ('u2netp' as const);
+  const workerModelId = workerModelIdForMethod(options.method);
+  if (!workerModelId) {
+    throw new Error(`No worker model for method: ${options.method}`);
+  }
   const loader = (await import('./modelLoader')).getModelLoader();
+  await loader.syncFromStorage();
   const path = (await loader.getModelPath(workerModelId)) ?? `/models/${workerModelId}.onnx`;
   return runPooledInference(imageData, options, path, workerModelId);
+}
+
+/** Wire-format response from the Rust `remove_background` Tauri command
+ * (see `BgRemoveResult` in `apps/desktop/src-tauri/src/lib.rs`). */
+interface TauriBgRemoveResponse {
+  maskBase64: string;
+  confidence: number;
+  method: string;
+  processingTimeMs: number;
+  width: number;
+  height: number;
 }
 
 async function invokeTauriRemoveBackground(
@@ -92,15 +134,30 @@ async function invokeTauriRemoveBackground(
   const bytes = new Uint8Array(await blob.arrayBuffer());
 
   const { invoke } = await import('@tauri-apps/api/core');
-  return invoke('remove_background', {
+  const raw = await invoke<TauriBgRemoveResponse>('remove_background', {
     imageData: Array.from(bytes),
     options: {
-      method: options.method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite',
-      featherRadius: options.feather ?? 0,
-      smoothIterations: options.smooth ?? 0,
+      method: options.method,
+      tolerance: options.tolerance,
+      featherRadius: options.feather,
       decontaminate: options.decontaminate ?? true,
+      clickX: options.clickPoint?.x,
+      clickY: options.clickPoint?.y,
     },
   });
+
+  // Native `RemovalMethod`/`RemovalResult` only round-trips `'quick'`
+  // (the `ai` Cargo feature is opt-in per ADR-0005), so `raw.method` is the
+  // ground truth for what actually ran — never trust the requested
+  // `options.method` when reporting back what happened.
+  return {
+    maskDataUrl: `data:image/png;base64,${raw.maskBase64}`,
+    confidence: raw.confidence,
+    method: raw.method === 'quick' ? 'quick' : options.method,
+    processingTimeMs: raw.processingTimeMs,
+    width: raw.width,
+    height: raw.height,
+  };
 }
 
 async function removeBackgroundAI(
@@ -144,6 +201,9 @@ async function removeBackgroundAI(
   const upscaledMask = resizeMask(mask, maskWidth, maskHeight, imageData.width, imageData.height);
 
   let finalMask = upscaledMask;
+  if (options.decontaminate) {
+    finalMask = decontaminateMask(finalMask, imageData.width, imageData.height);
+  }
   if (options.feather && options.feather > 0) {
     finalMask = await applySimpleFeather(
       finalMask,

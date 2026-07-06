@@ -18,7 +18,10 @@ import type {
   ImageFillData,
   ImageFit,
   PatternFillData,
+  SceneNode,
+  ShapeNode,
 } from './types';
+import { shapeHeight, shapeWidth } from './types';
 
 /** Create a solid fill from a ManagedColor. */
 export function solidFill(
@@ -168,4 +171,31 @@ export function primaryColor(fills: Fill[]): ManagedColor | null {
     }
   }
   return null;
+}
+
+// ── Image shape utilities (replacement for the removed ImageNode) ─────────
+
+/** True if this shape node has at least one visible image fill with a src. */
+export function isImageShape(n: SceneNode): n is ShapeNode {
+  return n.kind === 'shape' && !!n.fills?.some((f) => f.type === 'image' && !!f.image?.src);
+}
+
+/** Returns the first image fill on a shape node, or undefined. */
+export function getImageFill(n: ShapeNode): Fill | undefined {
+  return n.fills?.find((f) => f.type === 'image');
+}
+
+/** Returns the image src from the first image fill, or '' if none. */
+export function imageShapeSrc(n: ShapeNode): string {
+  return getImageFill(n)?.image?.src ?? '';
+}
+
+/** Returns the rendered width of an image shape (via shapeWidth). */
+export function imageShapeW(n: ShapeNode): number {
+  return shapeWidth(n.shape);
+}
+
+/** Returns the rendered height of an image shape (via shapeHeight). */
+export function imageShapeH(n: ShapeNode): number {
+  return shapeHeight(n.shape);
 }

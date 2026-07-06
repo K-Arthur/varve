@@ -39,8 +39,8 @@ function ensureEndpoints(points: CurvePoint[]): CurvePoint[] {
     ];
   }
   const sorted = [...points].sort((a, b) => a.x - b.x);
-  if (sorted[0]!.x > 0) sorted.unshift({ x: 0, y: 0 });
-  if (sorted[sorted.length - 1]!.x < 1) sorted.push({ x: 1, y: 1 });
+  if (sorted[0]?.x > 0) sorted.unshift({ x: 0, y: 0 });
+  if (sorted[sorted.length - 1]?.x < 1) sorted.push({ x: 1, y: 1 });
   return sorted;
 }
 
@@ -51,7 +51,7 @@ export function buildCurveLUT(points: CurvePoint[]): Uint8Array {
   if (pts.length === 2) {
     for (let i = 0; i < 256; i++) {
       const t = i / 255;
-      const y = pts[0]!.y + (pts[1]!.y - pts[0]!.y) * t;
+      const y = pts[0]?.y + (pts[1]?.y - pts[0]?.y) * t;
       lut[i] = Math.round(clamp01(y) * 255);
     }
     return lut;
@@ -62,7 +62,7 @@ export function buildCurveLUT(points: CurvePoint[]): Uint8Array {
 
     let segmentIndex = 0;
     for (let j = 0; j < pts.length - 1; j++) {
-      if (x >= pts[j]!.x && x <= pts[j + 1]!.x) {
+      if (x >= pts[j]?.x && x <= pts[j + 1]?.x) {
         segmentIndex = j;
         break;
       }

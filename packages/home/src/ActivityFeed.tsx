@@ -178,43 +178,41 @@ export function ActivityFeed({
           </p>
         </div>
       ) : (
-        <>
-          {groups.map((group) => (
-            <div key={group.period} className="activity-feed__group">
-              <div className="activity-feed__group-label">{group.label}</div>
-              <div className="activity-feed__events">
-                {group.events.map((event) => (
-                  <button
-                    key={event.id}
-                    type="button"
-                    className="activity-feed__event"
-                    onClick={event.onOpen}
-                    disabled={!event.onOpen}
-                    title={event.onOpen && event.fileName ? `Open ${event.fileName}` : undefined}
-                  >
-                    <div className="activity-feed__event-icon" aria-hidden>
-                      <Icon name={event.icon} label={undefined} />
-                    </div>
-                    <div className="activity-feed__event-body">
-                      <span className="activity-feed__event-text">
-                        {event.fileName ? (
-                          <>
-                            <strong>{event.fileName}</strong> {event.verb}
-                          </>
-                        ) : (
-                          <>{event.verb}</>
-                        )}
-                      </span>
-                      <span className="activity-feed__event-time">
-                        {formatRelativeTime(event.timestamp)}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+        groups.map((group) => (
+          <div key={group.period} className="activity-feed__group">
+            <div className="activity-feed__group-label">{group.label}</div>
+            <div className="activity-feed__events">
+              {group.events.map((event) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  className="activity-feed__event"
+                  onClick={event.onOpen}
+                  disabled={!event.onOpen}
+                  title={event.onOpen && event.fileName ? `Open ${event.fileName}` : undefined}
+                >
+                  <div className="activity-feed__event-icon" aria-hidden>
+                    <Icon name={event.icon} label={undefined} />
+                  </div>
+                  <div className="activity-feed__event-body">
+                    <span className="activity-feed__event-text">
+                      {event.fileName ? (
+                        <>
+                          <strong>{event.fileName}</strong> {event.verb}
+                        </>
+                      ) : (
+                        event.verb
+                      )}
+                    </span>
+                    <span className="activity-feed__event-time">
+                      {formatRelativeTime(event.timestamp)}
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
-          ))}
-        </>
+          </div>
+        ))
       )}
       {viewAllLink && onViewAll && (
         <button type="button" className="activity-feed__view-all" onClick={onViewAll}>

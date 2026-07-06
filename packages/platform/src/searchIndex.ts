@@ -58,13 +58,13 @@ export function indexDocumentContent(
         const textTerms = tokenize(text);
         for (const term of textTerms) {
           const existing = index.get(term);
-          if (!existing || existing.matchType !== 'text' || existing.nodeId !== nodeId) {
+          if (existing?.matchType !== 'text' || existing.nodeId !== nodeId) {
             index.set(term, {
               fileId,
               nodeId,
               nodeName: name,
               matchType: 'text',
-              snippet: text.length > 80 ? text.slice(0, 77) + '...' : text,
+              snippet: text.length > 80 ? `${text.slice(0, 77)}...` : text,
             });
           }
         }

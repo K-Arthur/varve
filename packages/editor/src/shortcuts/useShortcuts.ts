@@ -45,7 +45,9 @@ export function useShortcuts(
       case 'cut':
         return () => e.cutSelected();
       case 'paste':
-        return () => e.paste();
+        // Paste is handled by a native ClipboardEvent listener in Shell.
+        // The keyboard shortcut is only kept for menu display (SHORTCUT_DEFS).
+        return () => {}; // no-op — native event handler does the work
       case 'duplicate':
         return () => e.duplicateSelected();
       case 'flipH':

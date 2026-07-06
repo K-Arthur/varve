@@ -12,7 +12,8 @@
 import { physicalToPx } from '@strata/shared';
 import type { ColorMode } from './colorManagement';
 import type { Document } from './document';
-import type { NodeId } from './types';
+import { isImageShape } from './fills';
+import type { NodeId, ShapeNode } from './types';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -181,8 +182,8 @@ export function runPrintPreflight(
 
   // ── Node-level checks ─────────────────────────────────────────────────
   for (const node of Object.values(doc.nodes)) {
-    if (node.kind === 'image') {
-      checkImageNode(node, doc, opts, issues);
+    if (isImageShape(node)) {
+      checkImageNode(node as ShapeNode, doc, opts, issues);
     }
   }
 
@@ -211,7 +212,7 @@ function convertToMm(value: number, unit: import('@strata/shared').DocumentUnit)
 }
 
 function checkImageNode(
-  node: import('./types').ImageNode,
+  node: ShapeNode,
   doc: Document,
   opts: PrintPreflightOptions,
   issues: PrintPreflightIssue[],

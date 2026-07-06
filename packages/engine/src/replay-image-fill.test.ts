@@ -20,7 +20,13 @@ function mockImage(src: string, naturalWidth: number, naturalHeight: number): HT
 function makeRecorder(): {
   calls: string[];
   filter: string;
-  drawImage: (image: CanvasImageSource | string, dx: number, dy: number, dw: number, dh: number) => void;
+  drawImage: (
+    image: CanvasImageSource | string,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+  ) => void;
   target: Parameters<typeof replayIr>[0];
 } {
   const calls: string[] = [];
@@ -33,7 +39,13 @@ function makeRecorder(): {
     set filter(v: string) {
       filter = v;
     },
-    drawImage: (image: CanvasImageSource | string, dx: number, dy: number, dw: number, dh: number) => {
+    drawImage: (
+      image: CanvasImageSource | string,
+      dx: number,
+      dy: number,
+      dw: number,
+      dh: number,
+    ) => {
       calls.push(
         `drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`,
       );
@@ -74,7 +86,13 @@ function makeRecorder(): {
       },
       lineDashOffset: 0,
       setLineDash: () => calls.push('setLineDash'),
-      drawImage: (image: CanvasImageSource | string, dx: number, dy: number, dw: number, dh: number) => {
+      drawImage: (
+        image: CanvasImageSource | string,
+        dx: number,
+        dy: number,
+        dw: number,
+        dh: number,
+      ) => {
         calls.push(
           `drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`,
         );

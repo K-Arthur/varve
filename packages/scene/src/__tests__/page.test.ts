@@ -18,14 +18,14 @@ import {
 import type { GroupNode, Page } from '../types';
 
 function firstPage(doc: ReturnType<typeof createDocument>): Page {
-  return doc.pages![0]!;
+  return doc.pages?.[0]!;
 }
 
 describe('Page operations', () => {
   it('createDocument creates an initial default page', () => {
     const doc = createDocument();
     expect(doc.pages).toBeDefined();
-    expect(doc.pages!.length).toBe(1);
+    expect(doc.pages?.length).toBe(1);
     const page = firstPage(doc);
     expect(page.name).toBe('Page 1');
     expect(page.width).toBe(1920);
@@ -39,8 +39,8 @@ describe('Page operations', () => {
     const page = firstPage(doc);
     const contentRoot = doc.nodes[page.contentRoot];
     expect(contentRoot).toBeDefined();
-    expect(contentRoot!.kind).toBe('group');
-    expect(contentRoot!.name).toBe('Page 1 content');
+    expect(contentRoot?.kind).toBe('group');
+    expect(contentRoot?.name).toBe('Page 1 content');
   });
 
   it('default page contentRoot is in rootChildren', () => {
@@ -52,32 +52,32 @@ describe('Page operations', () => {
   it('addPage creates a new page with auto-generated name', () => {
     let doc = createDocument();
     doc = addPage(doc);
-    expect(doc.pages!.length).toBe(2);
-    expect(doc.pages![1]!.name).toBe('Page 2');
+    expect(doc.pages?.length).toBe(2);
+    expect(doc.pages?.[1]?.name).toBe('Page 2');
   });
 
   it('addPage creates a new page with custom name', () => {
     let doc = createDocument();
     doc = addPage(doc, { name: 'Cover' });
-    expect(doc.pages!.length).toBe(2);
-    expect(doc.pages![1]!.name).toBe('Cover');
+    expect(doc.pages?.length).toBe(2);
+    expect(doc.pages?.[1]?.name).toBe('Cover');
   });
 
   it('addPage creates a new page with custom dimensions', () => {
     let doc = createDocument();
     doc = addPage(doc, { width: 1080, height: 1920 });
-    expect(doc.pages!.length).toBe(2);
-    expect(doc.pages![1]!.width).toBe(1080);
-    expect(doc.pages![1]!.height).toBe(1920);
+    expect(doc.pages?.length).toBe(2);
+    expect(doc.pages?.[1]?.width).toBe(1080);
+    expect(doc.pages?.[1]?.height).toBe(1920);
   });
 
   it('addPage adds contentRoot and background nodes correctly', () => {
     let doc = createDocument();
     doc = addPage(doc);
-    const newPage = doc.pages![1]!;
+    const newPage = doc.pages?.[1]!;
     const contentRoot = doc.nodes[newPage.contentRoot];
     expect(contentRoot).toBeDefined();
-    expect(contentRoot!.kind).toBe('group');
+    expect(contentRoot?.kind).toBe('group');
     expect(newPage.backgrounds).toEqual([]);
   });
 
@@ -86,12 +86,12 @@ describe('Page operations', () => {
     const firstPageId = firstPage(doc).id;
     const firstContentRootId = firstPage(doc).contentRoot;
     doc = addPage(doc);
-    const secondPageId = doc.pages![1]!.id;
-    const secondContentRootId = doc.pages![1]!.contentRoot;
+    const secondPageId = doc.pages?.[1]?.id;
+    const secondContentRootId = doc.pages?.[1]?.contentRoot;
 
     doc = removePage(doc, secondPageId);
-    expect(doc.pages!.length).toBe(1);
-    expect(doc.pages![0]!.id).toBe(firstPageId);
+    expect(doc.pages?.length).toBe(1);
+    expect(doc.pages?.[0]?.id).toBe(firstPageId);
 
     // Content root should be removed from nodes
     expect(doc.nodes[secondContentRootId]).toBeUndefined();
@@ -112,37 +112,37 @@ describe('Page operations', () => {
 
     // Add another page
     doc = addPage(doc);
-    const secondPageId = doc.pages![1]!.id;
+    const secondPageId = doc.pages?.[1]?.id;
 
     // Remove first page (should remove contentRoot and its child)
     doc = removePage(doc, pageId);
     expect(doc.nodes[contentRootId]).toBeUndefined();
     expect(doc.nodes[childId]).toBeUndefined();
     // Second page should still exist
-    expect(doc.pages!.length).toBe(1);
-    expect(doc.pages![0]!.id).toBe(secondPageId);
+    expect(doc.pages?.length).toBe(1);
+    expect(doc.pages?.[0]?.id).toBe(secondPageId);
   });
 
   it('removePage prevents removal of last page', () => {
     const doc = createDocument();
     const pageId = firstPage(doc).id;
     const result = removePage(doc, pageId);
-    expect(result.pages!.length).toBe(1);
-    expect(result.pages![0]!.id).toBe(pageId);
+    expect(result.pages?.length).toBe(1);
+    expect(result.pages?.[0]?.id).toBe(pageId);
   });
 
   it('reorderPages reorders pages', () => {
     let doc = createDocument();
     doc = addPage(doc);
     doc = addPage(doc);
-    expect(doc.pages!.length).toBe(3);
+    expect(doc.pages?.length).toBe(3);
 
-    const ids = doc.pages!.map((p) => p.id);
+    const ids = doc.pages?.map((p) => p.id);
     const reversed = [...ids].reverse();
     doc = reorderPages(doc, reversed);
-    expect(doc.pages!.map((p) => p.id)).toEqual(reversed);
+    expect(doc.pages?.map((p) => p.id)).toEqual(reversed);
     // Names should be preserved (not renamed)
-    expect(doc.pages!.map((p) => p.name)).toEqual(['Page 3', 'Page 2', 'Page 1']);
+    expect(doc.pages?.map((p) => p.name)).toEqual(['Page 3', 'Page 2', 'Page 1']);
   });
 
   it('reorderPages validates all page IDs exist', () => {
@@ -155,7 +155,7 @@ describe('Page operations', () => {
   it('reorderPages validates all page IDs are present (not a subset)', () => {
     let doc = createDocument();
     doc = addPage(doc);
-    const firstIdOnly = [doc.pages![0]!.id];
+    const firstIdOnly = [doc.pages?.[0]?.id];
     const result = reorderPages(doc, firstIdOnly);
     expect(result).toBe(doc);
   });
@@ -173,16 +173,16 @@ describe('Page operations', () => {
 
     // Now duplicate
     doc = duplicatePage(doc, originalId);
-    expect(doc.pages!.length).toBe(2);
-    expect(doc.pages![1]!.name).toBe('Page 1 Copy');
-    expect(doc.pages![1]!.id).not.toBe(originalId);
-    expect(doc.pages![1]!.contentRoot).not.toBe(contentRootId);
+    expect(doc.pages?.length).toBe(2);
+    expect(doc.pages?.[1]?.name).toBe('Page 1 Copy');
+    expect(doc.pages?.[1]?.id).not.toBe(originalId);
+    expect(doc.pages?.[1]?.contentRoot).not.toBe(contentRootId);
 
     // Content should be duplicated with new IDs
     const origContentRoot = doc.nodes[contentRootId];
-    const dupContentRoot = doc.nodes[doc.pages![1]!.contentRoot];
+    const dupContentRoot = doc.nodes[doc.pages?.[1]?.contentRoot];
     expect(dupContentRoot).toBeDefined();
-    expect(dupContentRoot!.kind).toBe('group');
+    expect(dupContentRoot?.kind).toBe('group');
 
     // Original node should still exist
     expect(doc.nodes[childId]).toBeDefined();
@@ -205,10 +205,10 @@ describe('Page operations', () => {
     doc = addChild(doc, contentRootId, shape);
 
     doc = duplicatePage(doc, originalId);
-    const dupContentRoot = doc.nodes[doc.pages![1]!.contentRoot];
+    const dupContentRoot = doc.nodes[doc.pages?.[1]?.contentRoot];
 
     // Structure check: both content roots exist and have children
-    expect(contentRootId).not.toBe(doc.pages![1]!.contentRoot);
+    expect(contentRootId).not.toBe(doc.pages?.[1]?.contentRoot);
     expect(doc.nodes[contentRootId]).toBeDefined();
     expect(dupContentRoot).toBeDefined();
   });
@@ -217,8 +217,8 @@ describe('Page operations', () => {
     let doc = createDocument();
     const pageId = firstPage(doc).id;
     doc = setPageSize(doc, pageId, 800, 600);
-    expect(doc.pages![0]!.width).toBe(800);
-    expect(doc.pages![0]!.height).toBe(600);
+    expect(doc.pages?.[0]?.width).toBe(800);
+    expect(doc.pages?.[0]?.height).toBe(600);
   });
 
   it('setPageSize does not scale content', () => {
@@ -257,14 +257,14 @@ describe('Page operations', () => {
     doc = migrateToPages(doc);
 
     expect(doc.pages).toBeDefined();
-    expect(doc.pages!.length).toBe(1);
+    expect(doc.pages?.length).toBe(1);
     // The rootChildren should now be the contentRoot
-    const page = doc.pages![0]!;
+    const page = doc.pages?.[0]!;
     expect(doc.rootChildren).toEqual([page.contentRoot]);
     // The contentRoot should contain the old rootChildren as children
     const contentRoot = doc.nodes[page.contentRoot] as { children: string[] } | undefined;
     expect(contentRoot).toBeDefined();
-    expect(contentRoot!.children).toEqual([childId]);
+    expect(contentRoot?.children).toEqual([childId]);
   });
 
   it('migrateToPages uses A4 size for print-oriented documents', () => {
@@ -287,8 +287,8 @@ describe('Page operations', () => {
 
     doc = migrateToPages(doc);
     expect(doc.pages).toBeDefined();
-    expect(doc.pages![0]!.width).toBe(210);
-    expect(doc.pages![0]!.height).toBe(297);
+    expect(doc.pages?.[0]?.width).toBe(210);
+    expect(doc.pages?.[0]?.height).toBe(297);
   });
 
   it('migrateToPages preserves already-paginated documents', () => {
@@ -320,18 +320,18 @@ describe('Page operations', () => {
     } as unknown as ReturnType<typeof createDocument>;
 
     const migrated = migrateToPages(doc);
-    expect(migrated.pages![0]!.width).toBe(210);
-    expect(migrated.pages![0]!.height).toBe(297);
-    expect(migrated.pages![0]!.bleed).toBeDefined();
-    expect(migrated.pages![0]!.bleed!.top).toBe(3);
+    expect(migrated.pages?.[0]?.width).toBe(210);
+    expect(migrated.pages?.[0]?.height).toBe(297);
+    expect(migrated.pages?.[0]?.bleed).toBeDefined();
+    expect(migrated.pages?.[0]?.bleed?.top).toBe(3);
   });
 
   describe('Active page & global children', () => {
     it('createDocument sets activePageId to Page.id and globalChildren', () => {
       const doc = createDocument();
       expect(doc.activePageId).toBeDefined();
-      expect(doc.activePageId).toBe(doc.pages![0]!.id);
-      expect(doc.activePageId).not.toBe(doc.pages![0]!.contentRoot);
+      expect(doc.activePageId).toBe(doc.pages?.[0]?.id);
+      expect(doc.activePageId).not.toBe(doc.pages?.[0]?.contentRoot);
       expect(doc.globalChildren).toEqual([]);
     });
 
@@ -368,7 +368,7 @@ describe('Page operations', () => {
 
     it('activePageNodes returns global children + page children when activePageId is set', () => {
       let doc = createDocument();
-      const contentRootId = doc.pages![0]!.contentRoot;
+      const contentRootId = doc.pages?.[0]?.contentRoot;
       const globalId = 'global-1';
       doc = addGlobalChild(doc, globalId);
       const pageChildId = 'page-child-1';

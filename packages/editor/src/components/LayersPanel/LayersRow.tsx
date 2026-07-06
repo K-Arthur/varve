@@ -9,7 +9,7 @@
 
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { AdjustmentNode, InstanceStatus, NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { isContainer, nodeHasStyle } from '@strata/scene';
+import { isContainer, isImageShape, nodeHasStyle } from '@strata/scene';
 import type { IconName } from '@strata/ui';
 import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -119,8 +119,7 @@ export const LayersRow = memo(function LayersRow({
   const isContainerNode = isContainer(node);
   const typeIcon = nodeTypeIcon(node);
   const thumbnailDataUrl = useThumbnail(node);
-  const showThumbnail =
-    (node.kind === 'frame' || node.kind === 'image') && thumbnailDataUrl != null;
+  const showThumbnail = (node.kind === 'frame' || isImageShape(node)) && thumbnailDataUrl != null;
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
 

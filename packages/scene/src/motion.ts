@@ -43,7 +43,7 @@ export function createTimeline(
 
 /** Remove a timeline by id. No-op if not found. */
 export function removeTimeline(doc: Document, timelineId: string): Document {
-  if (!doc.timelines || !doc.timelines[timelineId]) return doc;
+  if (!doc.timelines?.[timelineId]) return doc;
   const next = { ...doc.timelines };
   delete next[timelineId];
   const result: Document = { ...doc, timelines: next };
@@ -225,7 +225,7 @@ export function removeKeyframe(
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return doc;
   const track = timeline.tracks.find((t) => t.id === trackId);
-  if (!track || !track.keyframes.some((k) => k.progress === progress)) return doc;
+  if (!track?.keyframes.some((k) => k.progress === progress)) return doc;
   return {
     ...doc,
     timelines: {

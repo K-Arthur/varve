@@ -191,6 +191,78 @@ describe('halftone dispatch', () => {
   });
 });
 
+describe('halftone CMYK channel screening', () => {
+  it('preserves the original alpha channel when screening the cmyk channel', () => {
+    const data = new ImageData(32, 32);
+    fillGradient(data, 32, 32);
+    for (let i = 3; i < data.data.length; i += 4) {
+      data.data[i] = 200;
+    }
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 20,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'cmyk',
+      method: 'am',
+    };
+    applyAMScreening(data, params);
+    for (let i = 3; i < data.data.length; i += 4) {
+      expect(data.data[i]).toBe(200);
+    }
+  });
+
+  it('produces valid RGB byte values (not raw separation bytes) for cmyk screening', () => {
+    const data = new ImageData(32, 32);
+    fillGradient(data, 32, 32);
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 20,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'cmyk',
+      method: 'am',
+    };
+    applyAMScreening(data, params);
+    for (let i = 0; i < data.data.length; i += 4) {
+      expect(data.data[i]!).toBeGreaterThanOrEqual(0);
+      expect(data.data[i]!).toBeLessThanOrEqual(255);
+      expect(data.data[i + 1]!).toBeGreaterThanOrEqual(0);
+      expect(data.data[i + 1]!).toBeLessThanOrEqual(255);
+      expect(data.data[i + 2]!).toBeGreaterThanOrEqual(0);
+      expect(data.data[i + 2]!).toBeLessThanOrEqual(255);
+    }
+  });
+
+  it('renders a fully black (K-saturated) source as near-black RGB output, not a stray alpha flip', () => {
+    const data = new ImageData(16, 16);
+    for (let i = 0; i < data.data.length; i += 4) {
+      data.data[i] = 0;
+      data.data[i + 1] = 0;
+      data.data[i + 2] = 0;
+      data.data[i + 3] = 255;
+    }
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 20,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'cmyk',
+      method: 'am',
+    };
+    applyAMScreening(data, params);
+    for (let i = 0; i < data.data.length; i += 4) {
+      // K channel is fully "on" everywhere (input luminance is 0 -> ink density 255),
+      // so overprint should drive every pixel to black regardless of dot phase.
+      expect(data.data[i]).toBe(0);
+      expect(data.data[i + 1]).toBe(0);
+      expect(data.data[i + 2]).toBe(0);
+      // Alpha must remain untouched by ink-channel screening.
+      expect(data.data[i + 3]).toBe(255);
+    }
+  });
+});
+
 function fillGradient(data: ImageData, w: number, h: number): void {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {

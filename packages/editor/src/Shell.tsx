@@ -10,13 +10,14 @@ import {
 } from '@dnd-kit/core';
 import { HelpBrowser } from '@strata/help';
 import type { NodeId } from '@strata/scene';
+import { isImageShape } from '@strata/scene';
 import { screenToWorld } from '@strata/shared';
-import { ContextMenu } from '@strata/ui';
 import type { MenuEntry } from '@strata/ui';
-import { Icon } from '@strata/ui';
+import { ContextMenu, Icon } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
+import { captureClipboardEvent } from './clipboard';
 import { BatchBgRemoveDialog } from './components/BatchBgRemoveDialog';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
@@ -151,6 +152,24 @@ function ShellInner({
     window.addEventListener('pagehide', handler);
     return () => window.removeEventListener('pagehide', handler);
   }, [editor, editor.state.dirty]);
+
+  // Native paste event listener (cross-platform, works on Wayland).
+  // Captures clipboard data from the DOM event directly, bypassing
+  // the permission-gated `navigator.clipboard.read()` Web API.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as ClipboardEvent;
+      // Skip if the event target is an input/textarea (browser default is fine)
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      captureClipboardEvent(ce);
+      // Let the editor paste handler process the captured event data
+      editor.paste();
+    };
+    window.addEventListener('paste', handler);
+    return () => window.removeEventListener('paste', handler);
+  }, [editor]);
 
   // ── Recovery dialog handlers ─────────────────────────────────────────────
   const handleRecoveryRestore = useCallback(
@@ -343,7 +362,10 @@ function ShellInner({
         />
         <FloatingToolbar />
         <TabStrip onBackToHome={onBackToHome} />
-        <CanvasArea canvasContainerRef={canvasContainerRef} onContextMenu={handleCanvasContextMenu} />
+        <CanvasArea
+          canvasContainerRef={canvasContainerRef}
+          onContextMenu={handleCanvasContextMenu}
+        />
         <TutorialBanner
           progress={tutorialProgress}
           onComplete={() => {
@@ -560,54 +582,119 @@ function ShellInner({
         <HelpBrowser open={helpOpen} onClose={() => setHelpOpen(false)} />
 
         {/* Canvas right-click context menu */}
-        {canvasContextMenu && (() => {
-          const hasSelection = editor.state.selection.length > 0;
-          const hasMultiple = editor.state.selection.length > 1;
-          const closeMenu = () => setCanvasContextMenu(null);
-          const isSingleGroup =
-            hasSelection &&
-            editor.state.selection.length === 1 &&
-            editor.state.document.nodes[editor.state.selection[0]!]?.kind === 'group';
-          const items: MenuEntry[] = [
-            ...(hasSelection ? [
-              { id: 'ctx-cut', label: 'Cut', onAction: () => { editor.cutSelected(); closeMenu(); } } satisfies MenuEntry,
-              { id: 'ctx-copy', label: 'Copy', onAction: () => { editor.copySelected(); closeMenu(); } } satisfies MenuEntry,
-            ] : []),
-            { id: 'ctx-paste', label: 'Paste', onAction: () => { editor.paste(); closeMenu(); } } satisfies MenuEntry,
-            ...(hasSelection ? [
-              { id: 'ctx-sep1', separator: true as const } satisfies MenuEntry,
-              { id: 'ctx-dup', label: 'Duplicate', onAction: () => { editor.duplicateSelected(); closeMenu(); } } satisfies MenuEntry,
-              { id: 'ctx-del', label: 'Delete', onAction: () => { editor.removeSelected(); closeMenu(); } } satisfies MenuEntry,
-            ] : []),
-            ...(hasMultiple ? [
-              { id: 'ctx-sep2', separator: true as const } satisfies MenuEntry,
-              { id: 'ctx-group', label: 'Group Selection', onAction: () => { editor.groupSelected(); closeMenu(); } } satisfies MenuEntry,
-            ] : []),
-            ...(isSingleGroup ? [
-              { id: 'ctx-sep3', separator: true as const } satisfies MenuEntry,
-              { id: 'ctx-ungroup', label: 'Ungroup', onAction: () => { editor.ungroupSelected(); closeMenu(); } } satisfies MenuEntry,
-            ] : []),
-            { id: 'ctx-sep4', separator: true as const } satisfies MenuEntry,
-            { id: 'ctx-selectall', label: 'Select All', onAction: () => {
-              const nodes = editor.rootNodes();
-              if (nodes.length === 0) { closeMenu(); return; }
-              editor.setSelection(nodes[0]?.id ?? null);
-              for (let i = 1; i < nodes.length; i++) {
-                const n = nodes[i];
-                if (n) editor.toggleSelection(n.id, true);
-              }
-              closeMenu();
-            } } satisfies MenuEntry,
-          ];
-          return (
-            <ContextMenu
-              items={items}
-              position={canvasContextMenu}
-              onClose={closeMenu}
-              label="Canvas context menu"
-            />
-          );
-        })()}
+        {canvasContextMenu &&
+          (() => {
+            const hasSelection = editor.state.selection.length > 0;
+            const hasMultiple = editor.state.selection.length > 1;
+            const closeMenu = () => setCanvasContextMenu(null);
+            const isSingleGroup =
+              hasSelection &&
+              editor.state.selection.length === 1 &&
+              editor.state.document.nodes[editor.state.selection[0]!]?.kind === 'group';
+            const items: MenuEntry[] = [
+              ...(hasSelection
+                ? [
+                    {
+                      id: 'ctx-cut',
+                      label: 'Cut',
+                      onAction: () => {
+                        editor.cutSelected();
+                        closeMenu();
+                      },
+                    } satisfies MenuEntry,
+                    {
+                      id: 'ctx-copy',
+                      label: 'Copy',
+                      onAction: () => {
+                        editor.copySelected();
+                        closeMenu();
+                      },
+                    } satisfies MenuEntry,
+                  ]
+                : []),
+              {
+                id: 'ctx-paste',
+                label: 'Paste',
+                onAction: () => {
+                  editor.paste();
+                  closeMenu();
+                },
+              } satisfies MenuEntry,
+              ...(hasSelection
+                ? [
+                    { id: 'ctx-sep1', separator: true as const } satisfies MenuEntry,
+                    {
+                      id: 'ctx-dup',
+                      label: 'Duplicate',
+                      onAction: () => {
+                        editor.duplicateSelected();
+                        closeMenu();
+                      },
+                    } satisfies MenuEntry,
+                    {
+                      id: 'ctx-del',
+                      label: 'Delete',
+                      onAction: () => {
+                        editor.removeSelected();
+                        closeMenu();
+                      },
+                    } satisfies MenuEntry,
+                  ]
+                : []),
+              ...(hasMultiple
+                ? [
+                    { id: 'ctx-sep2', separator: true as const } satisfies MenuEntry,
+                    {
+                      id: 'ctx-group',
+                      label: 'Group Selection',
+                      onAction: () => {
+                        editor.groupSelected();
+                        closeMenu();
+                      },
+                    } satisfies MenuEntry,
+                  ]
+                : []),
+              ...(isSingleGroup
+                ? [
+                    { id: 'ctx-sep3', separator: true as const } satisfies MenuEntry,
+                    {
+                      id: 'ctx-ungroup',
+                      label: 'Ungroup',
+                      onAction: () => {
+                        editor.ungroupSelected();
+                        closeMenu();
+                      },
+                    } satisfies MenuEntry,
+                  ]
+                : []),
+              { id: 'ctx-sep4', separator: true as const } satisfies MenuEntry,
+              {
+                id: 'ctx-selectall',
+                label: 'Select All',
+                onAction: () => {
+                  const nodes = editor.rootNodes();
+                  if (nodes.length === 0) {
+                    closeMenu();
+                    return;
+                  }
+                  editor.setSelection(nodes[0]?.id ?? null);
+                  for (let i = 1; i < nodes.length; i++) {
+                    const n = nodes[i];
+                    if (n) editor.toggleSelection(n.id, true);
+                  }
+                  closeMenu();
+                },
+              } satisfies MenuEntry,
+            ];
+            return (
+              <ContextMenu
+                items={items}
+                position={canvasContextMenu}
+                onClose={closeMenu}
+                label="Canvas context menu"
+              />
+            );
+          })()}
 
         {/* Batch background removal dialog */}
         <BatchBgRemoveDialog
@@ -615,11 +702,7 @@ function ShellInner({
           onClose={() => setBatchBgRemoveOpen(false)}
           nodes={editor.state.selection
             .map((id) => editor.state.document.nodes[id])
-            .filter((n): n is import('@strata/scene').SceneNode =>
-              !!n &&
-              (n.kind === 'image' ||
-                (n.kind === 'shape' && !!n.fills?.some((f) => f.type === 'image' && !!f.image?.src)))
-            )}
+            .filter((n): n is import('@strata/scene').ShapeNode => !!n && isImageShape(n))}
           onNodeUpdate={(id, state) => {
             editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
           }}

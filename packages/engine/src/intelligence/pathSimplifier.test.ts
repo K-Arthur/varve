@@ -20,10 +20,10 @@ describe('simplifyPathRDP', () => {
     const points = [pt(0, 0), pt(50, 0), pt(100, 0)];
     const result = simplifyPathRDP(points, 1);
     expect(result.points).toHaveLength(2);
-    expect(result.points[0]!.x).toBe(0);
-    expect(result.points[0]!.y).toBe(0);
-    expect(result.points[1]!.x).toBe(100);
-    expect(result.points[1]!.y).toBe(0);
+    expect(result.points[0]?.x).toBe(0);
+    expect(result.points[0]?.y).toBe(0);
+    expect(result.points[1]?.x).toBe(100);
+    expect(result.points[1]?.y).toBe(0);
     expect(result.reduction).toBeCloseTo(1 / 3, 5);
   });
 
@@ -70,14 +70,14 @@ describe('fitCubicBezier', () => {
     const points = [pt(0, 0), pt(10, 5), pt(20, 15), pt(30, 30), pt(40, 50)];
     const result = fitCubicBezier(points);
     expect(result).not.toBeNull();
-    expect(result!.p0.x).toBe(0);
-    expect(result!.p0.y).toBe(0);
-    expect(result!.p3.x).toBe(40);
-    expect(result!.p3.y).toBe(50);
-    expect(typeof result!.p1.x).toBe('number');
-    expect(typeof result!.p1.y).toBe('number');
-    expect(typeof result!.p2.x).toBe('number');
-    expect(typeof result!.p2.y).toBe('number');
+    expect(result?.p0.x).toBe(0);
+    expect(result?.p0.y).toBe(0);
+    expect(result?.p3.x).toBe(40);
+    expect(result?.p3.y).toBe(50);
+    expect(typeof result?.p1.x).toBe('number');
+    expect(typeof result?.p1.y).toBe('number');
+    expect(typeof result?.p2.x).toBe('number');
+    expect(typeof result?.p2.y).toBe('number');
   });
 });
 

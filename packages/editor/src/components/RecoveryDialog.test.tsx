@@ -67,8 +67,8 @@ describe('RecoveryDialog', () => {
     // Order: Close, Restore, Discard, Restore All, Discard All
     const restoreBtn = buttons[1] as HTMLButtonElement | undefined;
     expect(restoreBtn).toBeDefined();
-    expect(restoreBtn!.textContent).toBe('Restore');
-    restoreBtn!.click();
+    expect(restoreBtn?.textContent).toBe('Restore');
+    restoreBtn?.click();
     expect(onRestore).toHaveBeenCalledWith('rec-1');
   });
 
@@ -90,8 +90,8 @@ describe('RecoveryDialog', () => {
     // Order: Close, Restore, Discard, Restore All, Discard All
     const discardBtn = buttons[2] as HTMLButtonElement | undefined;
     expect(discardBtn).toBeDefined();
-    expect(discardBtn!.textContent).toBe('Discard');
-    discardBtn!.click();
+    expect(discardBtn?.textContent).toBe('Discard');
+    discardBtn?.click();
     expect(onDiscard).toHaveBeenCalledWith('rec-2');
   });
 
@@ -112,7 +112,7 @@ describe('RecoveryDialog', () => {
     // Find the Restore All button by text
     const restoreAllBtn = Array.from(buttons).find((b) => b.textContent === 'Restore All');
     expect(restoreAllBtn).toBeDefined();
-    restoreAllBtn!.click();
+    restoreAllBtn?.click();
     expect(onRestoreAll).toHaveBeenCalled();
   });
 
@@ -132,7 +132,7 @@ describe('RecoveryDialog', () => {
     const buttons = container.querySelectorAll('button');
     const discardAllBtn = Array.from(buttons).find((b) => b.textContent === 'Discard All');
     expect(discardAllBtn).toBeDefined();
-    discardAllBtn!.click();
+    discardAllBtn?.click();
     expect(onDiscardAll).toHaveBeenCalled();
   });
 
@@ -151,7 +151,7 @@ describe('RecoveryDialog', () => {
     );
     const closeBtn = container.querySelector<HTMLButtonElement>('[aria-label="Close"]')!;
     expect(closeBtn).toBeDefined();
-    closeBtn!.click();
+    closeBtn?.click();
     expect(onClose).toHaveBeenCalled();
   });
 

@@ -124,9 +124,6 @@ function nodeLocalBoundsSimple(
   if (node.kind === 'group') {
     return { x: tx, y: ty, w: 100, h: 100 };
   }
-  if (node.kind === 'image') {
-    return { x: tx, y: ty, w: node.w ?? 100, h: node.h ?? 100 };
-  }
   return null;
 }
 
