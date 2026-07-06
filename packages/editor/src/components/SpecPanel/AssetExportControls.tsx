@@ -108,6 +108,10 @@ export function AssetExportControls({
           setMessage(`Exported ${node.name} as SVG`);
         }
       } else {
+        if (!eng) {
+          setMessage('Engine not ready');
+          return;
+        }
         const blob = await exportNodeAsRaster(node, doc, eng, {
           format: format as 'image/png' | 'image/jpeg' | 'image/webp',
           scale: effectiveScale,

@@ -1,6 +1,12 @@
 import type { Affine } from '@strata/engine';
 import type { Document, SceneNode } from '@strata/scene';
-import { createDocument, imageShapeH, imageShapeW, isImageShape, nextNodeId } from '@strata/scene';
+import {
+  createDocument,
+  deepCloneSubtree,
+  imageShapeH,
+  imageShapeW,
+  isImageShape,
+} from '@strata/scene';
 import { getParserForData, getParserForExtension } from './registry';
 import type { BatchFileResult } from './types';
 
@@ -87,18 +93,18 @@ export function batchImport(
 
       const idMap = new Map<string, string>();
       for (const nid of importResult.nodeIds) {
-        const node = importResult.document.nodes[nid];
-        if (!node) continue;
-        const { id, doc: d2 } = nextNodeId(doc);
-        doc = d2;
-        const newNode = { ...node, id } as SceneNode;
+        if (!importResult.document.nodes[nid]) continue;
+        const cloneSource = { ...importResult.document, nextId: doc.nextId };
+        const cloned = deepCloneSubtree(cloneSource, nid);
+        if (Object.keys(cloned.nodes).length === 0) continue;
         doc = {
           ...doc,
-          rootChildren: [...doc.rootChildren, id],
-          nodes: { ...doc.nodes, [id]: newNode },
+          nextId: cloned.nextId,
+          rootChildren: [...doc.rootChildren, cloned.rootId],
+          nodes: { ...doc.nodes, ...cloned.nodes },
         };
-        idMap.set(nid, id);
-        nodeIds.push(id);
+        for (const [oldId, newId] of cloned.idMap) idMap.set(oldId, newId);
+        nodeIds.push(cloned.rootId);
       }
 
       successCount++;
