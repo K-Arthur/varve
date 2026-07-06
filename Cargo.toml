@@ -11,6 +11,8 @@ members = [
     "crates/strata-trace",
     "crates/strata-print",
     "crates/strata-bgremove",
+    "crates/strata-bridge",
+    "crates/strata-wasm",
 ]
 
 [workspace.package]

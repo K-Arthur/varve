@@ -1,0 +1,22 @@
+{
+  "name": "@strata/compositor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pluggable render compositor: Canvas2D baseline, WebGPU when available.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/compositor"
+  },
+  "dependencies": {
+    "@strata/engine": "workspace:*",
+    "@strata/shared": "workspace:*"
+  }
+}

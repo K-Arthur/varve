@@ -4101,6 +4101,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-bridge"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "strata-core",
+]
+
+[[package]]
 name = "strata-core"
 version = "0.0.0"
 dependencies = [
@@ -4119,6 +4128,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strata-bgremove",
+ "strata-bridge",
  "strata-core",
  "strata-engine",
  "strata-print",

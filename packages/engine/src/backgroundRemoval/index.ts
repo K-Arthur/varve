@@ -1,8 +1,10 @@
 import { removeBackgroundHeuristic } from './heuristic';
-import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerCommand } from './types';
+import { runPooledInference } from './workerPool';
+import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 
 export { removeBackgroundHeuristic } from './heuristic';
 export { getModelLoader, resetModelLoader } from './modelLoader';
+export { cancelAllWorkerJobs, terminateWorkerPool } from './workerPool';
 export type {
   BackgroundRemovalOptions,
   BackgroundRemovalResult,
@@ -72,38 +74,9 @@ async function runWorkerInference(
   const modelId = options.method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
   const workerModelId =
     options.method === 'ai-quality' ? ('birefnet-general-lite' as const) : ('u2netp' as const);
-  const modelPath = `/${modelId}.onnx`;
-
-  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
-
-  return new Promise<BackgroundRemovalResult>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      worker.terminate();
-      reject(new Error('Worker inference timed out'));
-    }, 60000);
-
-    worker.onmessage = (e) => {
-      clearTimeout(timeout);
-      if (e.data.type === 'result') {
-        resolve(e.data.result);
-      } else if (e.data.type === 'error') {
-        reject(new Error(e.data.message));
-      }
-      worker.terminate();
-    };
-    worker.onerror = (e) => {
-      clearTimeout(timeout);
-      reject(new Error(`Worker error: ${e.message}`));
-      worker.terminate();
-    };
-
-    worker.postMessage({
-      type: 'infer',
-      imageData: transferImageData(imageData),
-      modelPath,
-      modelId: workerModelId,
-    } satisfies WorkerCommand);
-  });
+  const loader = (await import('./modelLoader')).getModelLoader();
+  const path = (await loader.getModelPath(workerModelId)) ?? `/models/${workerModelId}.onnx`;
+  return runPooledInference(imageData, options, path, workerModelId);
 }
 
 async function invokeTauriRemoveBackground(
@@ -201,7 +174,7 @@ function resizeImageData(src: ImageData, targetW: number, targetH: number): Imag
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = src.width;
   tempCanvas.height = src.height;
-  tempCanvas.getContext('2d')!.putImageData(src, 0, 0);
+  tempCanvas.getContext('2d')?.putImageData(src, 0, 0);
   ctx.drawImage(tempCanvas, 0, 0, targetW, targetH);
   return ctx.getImageData(0, 0, targetW, targetH);
 }

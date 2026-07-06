@@ -22,9 +22,11 @@ export type {
 } from './backgroundRemoval';
 export {
   AVAILABLE_MODELS,
+  cancelAllWorkerJobs,
   getModelLoader,
   removeBackground,
   resetModelLoader,
+  terminateWorkerPool,
 } from './backgroundRemoval';
 export {
   blend,
@@ -48,6 +50,7 @@ export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
+export { createWasmEngineFromModule, loadWasmEngineModule, tryWasmEngine } from './wasmLoader';
 export type {
   Adjustment,
   AdjustmentBase,

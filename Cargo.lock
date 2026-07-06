@@ -1320,6 +1320,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-bridge"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "strata-core",
+]
+
+[[package]]
 name = "strata-core"
 version = "0.0.0"
 dependencies = [
@@ -1372,6 +1381,17 @@ dependencies = [
  "rayon",
  "serde",
  "strata-core",
+]
+
+[[package]]
+name = "strata-wasm"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "strata-bridge",
+ "strata-core",
+ "strata-engine",
+ "wasm-bindgen",
 ]
 
 [[package]]

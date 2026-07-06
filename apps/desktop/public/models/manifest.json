@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "u2netp",
+      "filename": "u2netp.onnx",
+      "localPath": "/models/u2netp.onnx",
+      "sha256": null,
+      "bundled": true,
+      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
+    },
+    {
+      "id": "birefnet-general-lite",
+      "filename": "birefnet-general-lite.onnx",
+      "localPath": "/models/birefnet-general-lite.onnx",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "https://github.com/ZhengPeng7/BiRefNet/releases/download/v1.0/birefnet-general-lite.onnx"
+    }
+  ]
+}

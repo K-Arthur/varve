@@ -2,143 +2,18 @@ mod renderer;
 
 use notify::Watcher;
 use serde::{Deserialize, Serialize};
-use strata_core::{Circle, Line, Point, Rect, Shape};
+use strata_core::Point;
 use tauri::ipc::Response;
 use tauri::Emitter;
 use tauri::Manager;
 use image::load_from_memory;
 
+use strata_bridge::{convert_engine_nodes, IpcSceneNode};
+
 use crate::renderer::{generate_ir, generate_pixels, ShapeIr};
 
-#[derive(Debug, Deserialize)]
-#[serde(tag = "kind")]
-enum IpcShape {
-    #[serde(rename = "rect")]
-    Rect { x: f64, y: f64, w: f64, h: f64 },
-    #[serde(rename = "ellipse")]
-    Ellipse { cx: f64, cy: f64, rx: f64, ry: f64 },
-    #[serde(rename = "circle")]
-    Circle { cx: f64, cy: f64, r: f64 },
-    #[serde(rename = "line")]
-    Line { from: [f64; 2], to: [f64; 2], tolerance: f64 },
-    #[serde(rename = "polygon")]
-    Polygon { cx: f64, cy: f64, radius: f64, sides: u32, rotation: f64 },
-    #[serde(rename = "star")]
-    Star { cx: f64, cy: f64, #[serde(rename = "innerRadius")] inner_radius: f64, #[serde(rename = "outerRadius")] outer_radius: f64, points: u32, rotation: f64 },
-    #[serde(rename = "text")]
-    Text {
-        text: String,
-        #[serde(rename = "fontSize")]
-        font_size: f64,
-        #[serde(rename = "fontFamily")]
-        font_family: String,
-        #[serde(rename = "fontWeight")]
-        font_weight: u16,
-        #[serde(rename = "fontStyle")]
-        font_style: String,
-        #[serde(rename = "textAlign")]
-        text_align: String,
-        x: f64,
-        y: f64,
-        w: f64,
-        h: f64,
-        #[serde(default, rename = "letterSpacing")]
-        letter_spacing: Option<f64>,
-        #[serde(default, rename = "lineHeight")]
-        line_height: Option<f64>,
-        #[serde(default, rename = "textCase")]
-        text_case: Option<String>,
-        #[serde(default, rename = "textDecoration")]
-        text_decoration: Option<String>,
-        #[serde(default, rename = "openTypeFeatures")]
-        open_type_features: Option<serde_json::Value>,
-        #[serde(default, rename = "variableAxes")]
-        variable_axes: Option<serde_json::Value>,
-    },
-}
-
-impl IpcShape {
-    fn into_shape(self) -> Shape {
-        match self {
-            IpcShape::Rect { x, y, w, h } => Shape::Rect(Rect::new(x, y, x + w, y + h)),
-            IpcShape::Ellipse { cx, cy, rx, ry } => Shape::Ellipse { center: Point::new(cx, cy), rx, ry },
-            IpcShape::Circle { cx, cy, r } => Shape::Circle(Circle::new(Point::new(cx, cy), r)),
-            IpcShape::Line { from, to, tolerance } => Shape::Line { line: Line::new(Point::new(from[0], from[1]), Point::new(to[0], to[1])), tolerance },
-            IpcShape::Polygon { cx, cy, radius, sides, rotation } => Shape::Polygon { cx, cy, radius, sides, rotation },
-            IpcShape::Star { inner_radius, outer_radius, cx, cy, points, rotation } => Shape::Star { cx, cy, inner_radius, outer_radius, points, rotation },
-            IpcShape::Text { text, font_size, font_family, font_weight, font_style, text_align, x, y, w, h, letter_spacing, line_height, text_case, text_decoration, open_type_features, variable_axes } => Shape::Text {
-                text,
-                font_size,
-                font_family,
-                font_weight,
-                font_style,
-                text_align,
-                x,
-                y,
-                w,
-                h,
-                letter_spacing,
-                line_height,
-                text_case,
-                text_decoration,
-                open_type_features,
-                variable_axes,
-            },
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct IpcSceneNode {
-    #[allow(dead_code)]
-    id: String,
-    name: String,
-    #[serde(with = "affine_serde")]
-    transform: strata_core::Affine,
-    shape: IpcShape,
-    fill: [u8; 4],
-    #[serde(default = "default_opacity")]
-    opacity: f64,
-    #[serde(default = "default_blend")]
-    blend_mode: String,
-    #[serde(default)]
-    rotation: f64,
-    #[serde(default)]
-    strokes: Vec<strata_core::Stroke>,
-    #[serde(default)]
-    effects: Vec<strata_core::Effect>,
-}
-
-fn default_opacity() -> f64 { 1.0 }
-fn default_blend() -> String { "normal".into() }
-
-mod affine_serde {
-    use serde::{Deserialize, Deserializer};
-    use strata_core::Affine;
-    pub fn deserialize<'de, D>(d: D) -> Result<Affine, D::Error> where D: Deserializer<'de> {
-        let coeffs: [f64; 6] = Deserialize::deserialize(d)?;
-        Ok(Affine::new(coeffs))
-    }
-}
-
 fn convert_scene(nodes: Vec<IpcSceneNode>) -> Vec<strata_core::SceneNode> {
-    nodes.into_iter().enumerate().map(|(i, n)| strata_core::SceneNode {
-        id: strata_core::NodeId(i as u64),
-        name: n.name,
-        transform: n.transform,
-        shape: n.shape.into_shape(),
-        fill: n.fill,
-        children: Vec::new(),
-        component_id: None,
-        slots: None,
-        opacity: n.opacity,
-        blend_mode: n.blend_mode,
-        rotation: n.rotation,
-        strokes: n.strokes,
-        effects: n.effects,
-        corner_radius: None,
-        fills: None,
-    }).collect()
+    convert_engine_nodes(nodes)
 }
 
 #[tauri::command]
@@ -982,6 +857,40 @@ mod tests {
             assert_eq!(font_style, "normal");
         } else {
             panic!("expected text primitive");
+        }
+    }
+
+    #[test]
+    fn ipc_parity_fills_filters_corner_radius() {
+        let json = serde_json::json!([{
+            "id": "n0",
+            "name": "Rounded",
+            "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            "shape": { "kind": "rect", "x": 0.0, "y": 0.0, "w": 20.0, "h": 20.0, "cornerRadius": 8 },
+            "fill": { "space": "rgb", "r": 57, "g": 208, "b": 198, "a": 255 },
+            "fills": [{
+                "type": "solid",
+                "color": [57, 208, 198, 255],
+                "opacity": 1.0,
+                "blendMode": "normal",
+                "visible": true
+            }],
+            "filters": [{ "type": "exposure", "exposure": 0.5 }]
+        }]);
+        let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
+        let scene = convert_scene(nodes);
+        assert!(scene[0].fills.is_some());
+        assert!(scene[0].filters.is_some());
+        assert!(scene[0].corner_radius.is_some());
+        assert_eq!(scene[0].fill, [57, 208, 198, 255]);
+
+        let ir = strata_engine::build_render_ir(&scene);
+        assert!(ir[0].fills.is_some());
+        assert!(ir[0].filters.is_some());
+        if let strata_engine::Primitive::Rect { corner_radius, .. } = &ir[0].primitive {
+            assert!(corner_radius.is_some());
+        } else {
+            panic!("expected rect");
         }
     }
 
