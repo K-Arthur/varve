@@ -1,7 +1,7 @@
 /**
  * Canvas2D compositor backend — wraps replayIr + tile cache.
  */
-import { replayIr, type RenderItem, type ReplayTarget } from '@strata/engine';
+import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
 import type { CompositorBackend, CompositorFrame } from '../types';
 import { TileCache } from './tileCache';
 
@@ -19,12 +19,15 @@ export class Canvas2DBackend implements CompositorBackend {
     this.ctx = ctx;
   }
 
-  beginFrame(frame: CompositorFrame, opts?: { applyCamera?: boolean }): void {
+  beginFrame(frame: CompositorFrame, opts?: { applyCamera?: boolean; clear?: boolean }): void {
     this.currentFrame = frame;
     if (!this.ctx) return;
     const { viewport } = frame;
+    const shouldClear = opts?.clear !== false;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.ctx.clearRect(0, 0, viewport.width, viewport.height);
+    if (shouldClear) {
+      this.ctx.clearRect(0, 0, viewport.width, viewport.height);
+    }
     this.ctx.save();
     if (opts?.applyCamera !== false) {
       this.applyCamera(frame);
@@ -36,9 +39,8 @@ export class Canvas2DBackend implements CompositorBackend {
     const bucket = TileCache.cameraBucket(this.currentFrame?.camera.zoom ?? 1);
     const hash = `${items.length}:${items[0]?.transform.join(',') ?? ''}`;
     const key = TileCache.tileKey(hash, bucket);
-    if (this.tileCache.has(key)) {
-      return;
-    }
+    // Always replay: immediate-mode canvas is cleared each frame; skipping draws
+    // without a persistent backing store would blank the canvas on cache hits.
     replayIr(this.ctx as unknown as ReplayTarget, items);
     this.tileCache.touch(key);
   }
@@ -79,9 +81,9 @@ export class Canvas2DBackend implements CompositorBackend {
 
   private applyCamera(frame: CompositorFrame): void {
     if (!this.ctx) return;
-    const { camera, viewport } = frame;
-    this.ctx.translate(viewport.width / 2, viewport.height / 2);
+    const { camera } = frame;
+    // Matches @strata/shared/viewport: screen = world * zoom + pan
+    this.ctx.translate(camera.pan.x, camera.pan.y);
     this.ctx.scale(camera.zoom, camera.zoom);
-    this.ctx.translate(-camera.pan.x, -camera.pan.y);
   }
 }

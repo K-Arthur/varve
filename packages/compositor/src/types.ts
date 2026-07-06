@@ -19,17 +19,19 @@ export interface CompositorFrame {
   docVersion: number;
 }
 
+export interface CompositorBeginFrameOptions {
+  /** Apply camera transform (pan/zoom). Default true. */
+  applyCamera?: boolean;
+  /** Clear the viewport before drawing. Default true. */
+  clear?: boolean;
+}
+
 export interface CompositorBackend {
   readonly id: CompositorBackendId;
   init(canvas: HTMLCanvasElement): Promise<void>;
-  beginFrame(frame: CompositorFrame, opts?: { applyCamera?: boolean }): void;
+  beginFrame(frame: CompositorFrame, opts?: CompositorBeginFrameOptions): void;
   drawVectorItems(items: RenderItem[]): void;
-  compositeRasterLayer(
-    id: string,
-    bitmap: ImageBitmap,
-    transform: Affine,
-    blendMode: string,
-  ): void;
+  compositeRasterLayer(id: string, bitmap: ImageBitmap, transform: Affine, blendMode: string): void;
   endFrame(): void;
   destroy(): void;
   onDeviceLost?: () => Promise<void>;

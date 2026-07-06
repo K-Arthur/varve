@@ -3,7 +3,9 @@
 //! Shared by Tauri IPC and wasm-pack bindings.
 
 use serde::Deserialize;
-use strata_core::{Affine, Circle, FillIR, Line, PathPoint, Point, Rect, SceneNode, Shape, Stroke, Effect};
+use strata_core::{
+    Affine, Circle, Effect, FillIR, Line, PathPoint, Point, Rect, SceneNode, Shape, Stroke,
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind")]
@@ -22,9 +24,19 @@ pub enum IpcShape {
     #[serde(rename = "circle")]
     Circle { cx: f64, cy: f64, r: f64 },
     #[serde(rename = "line")]
-    Line { from: [f64; 2], to: [f64; 2], tolerance: f64 },
+    Line {
+        from: [f64; 2],
+        to: [f64; 2],
+        tolerance: f64,
+    },
     #[serde(rename = "polygon")]
-    Polygon { cx: f64, cy: f64, radius: f64, sides: u32, rotation: f64 },
+    Polygon {
+        cx: f64,
+        cy: f64,
+        radius: f64,
+        sides: u32,
+        rotation: f64,
+    },
     #[serde(rename = "star")]
     Star {
         cx: f64,
@@ -96,11 +108,21 @@ impl IpcShape {
                 ry,
             },
             IpcShape::Circle { cx, cy, r } => Shape::Circle(Circle::new(Point::new(cx, cy), r)),
-            IpcShape::Line { from, to, tolerance } => Shape::Line {
+            IpcShape::Line {
+                from,
+                to,
+                tolerance,
+            } => Shape::Line {
                 line: Line::new(Point::new(from[0], from[1]), Point::new(to[0], to[1])),
                 tolerance,
             },
-            IpcShape::Polygon { cx, cy, radius, sides, rotation } => Shape::Polygon {
+            IpcShape::Polygon {
+                cx,
+                cy,
+                radius,
+                sides,
+                rotation,
+            } => Shape::Polygon {
                 cx,
                 cy,
                 radius,
@@ -133,7 +155,15 @@ impl IpcShape {
                 tolerance,
                 arrowhead_size,
             },
-            IpcShape::Path { points, closed, tolerance } => Shape::Path { points, closed, tolerance },
+            IpcShape::Path {
+                points,
+                closed,
+                tolerance,
+            } => Shape::Path {
+                points,
+                closed,
+                tolerance,
+            },
             IpcShape::Text {
                 text,
                 font_size,
@@ -300,5 +330,32 @@ mod tests {
     fn parse_rgb_fill_object() {
         let v = serde_json::json!({"space": "rgb", "r": 57, "g": 208, "b": 198, "a": 255});
         assert_eq!(parse_fill_rgba(&v), [57, 208, 198, 255]);
+    }
+
+    #[test]
+    fn parse_text_shape_node() {
+        let json = serde_json::json!([{
+            "id": "t1",
+            "name": "Title",
+            "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            "shape": {
+                "kind": "text",
+                "text": "Hello",
+                "fontSize": 16.0,
+                "fontFamily": "Inter",
+                "fontWeight": 400,
+                "fontStyle": "normal",
+                "textAlign": "left",
+                "x": 0.0,
+                "y": 0.0,
+                "w": 80.0,
+                "h": 20.0
+            },
+            "fill": {"space": "rgb", "r": 0, "g": 0, "b": 0, "a": 255}
+        }]);
+        let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize text node");
+        let scene = convert_engine_nodes(nodes);
+        assert_eq!(scene.len(), 1);
+        assert!(matches!(scene[0].shape, strata_core::Shape::Text { .. }));
     }
 }

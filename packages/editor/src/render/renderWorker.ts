@@ -1,7 +1,7 @@
 /**
  * Render worker entry — replays IR to OffscreenCanvas.
  */
-import { replayIr, type RenderItem } from '@strata/engine';
+import { type RenderItem, replayIr } from '@strata/engine';
 import type { WorkerCommand, WorkerResponse } from './workerHost';
 
 let canvas: OffscreenCanvas | null = null;
@@ -30,19 +30,31 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       ctx = canvas.getContext('2d');
     }
     if (!ctx) {
-      post({ type: 'error', message: 'OffscreenCanvas 2d unavailable', docVersion: msg.docVersion });
+      post({
+        type: 'error',
+        message: 'OffscreenCanvas 2d unavailable',
+        docVersion: msg.docVersion,
+      });
       return;
     }
     ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
     ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
     ctx.save();
-    ctx.translate(msg.viewport.width / 2, msg.viewport.height / 2);
+    ctx.translate(msg.camera.pan.x, msg.camera.pan.y);
     ctx.scale(msg.camera.zoom, msg.camera.zoom);
-    ctx.translate(-msg.camera.pan.x, -msg.camera.pan.y);
     replayIr(ctx, msg.ir as RenderItem[]);
     ctx.restore();
     if (msg.docVersion >= activeDocVersion) {
-      post({ type: 'frameRendered', docVersion: msg.docVersion });
+      const bitmap = canvas.transferToImageBitmap();
+      post(
+        {
+          type: 'frameRendered',
+          docVersion: msg.docVersion,
+          camera: msg.camera,
+          bitmap,
+        },
+        [bitmap],
+      );
     }
     return;
   }
@@ -51,6 +63,10 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
   }
 };
 
-function post(response: WorkerResponse): void {
-  self.postMessage(response);
+function post(response: WorkerResponse, transfer?: Transferable[]): void {
+  if (transfer) {
+    self.postMessage(response, transfer);
+  } else {
+    self.postMessage(response);
+  }
 }

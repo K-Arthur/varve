@@ -57,4 +57,5 @@ Rust `hit_test` IPC exists but is **not called** from `CanvasArea`. Engine `hitT
 ## Known Gaps
 
 - WebKitGTK (Linux Tauri) has no WebGPU; Canvas2D is the production path on CachyOS/Wayland.
-- Group/frame compositing (masks, isolated blend) lives in `CanvasArea.replaySubtree`, migrating into `@strata/compositor`.
+- Leaf IR replay routes through `@strata/compositor.drawVectorItems`; mask/frame-clip/group-flatten structural logic remains in `CanvasArea.replaySubtreeToCtx`.
+- Render worker offloads flat scenes via `ImageBitmap` + `compositeRasterLayer`; structural scenes stay on main-thread replay. Full `transferControlToOffscreen` deferred.

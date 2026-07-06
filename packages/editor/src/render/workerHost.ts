@@ -1,7 +1,7 @@
 /**
  * Render worker host — OffscreenCanvas replay with docVersion stale guards.
  */
-import type { RenderItem, SceneNode as EngineNode } from '@strata/engine';
+import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
 import type { Camera, Viewport } from '@strata/shared';
 
 export type WorkerCommand =
@@ -19,7 +19,7 @@ export type WorkerCommand =
   | { type: 'cancel'; docVersion: number };
 
 export type WorkerResponse =
-  | { type: 'frameRendered'; docVersion: number }
+  | { type: 'frameRendered'; docVersion: number; camera: Camera; bitmap?: ImageBitmap }
   | { type: 'hitTestResult'; nodeId: number | null; docVersion: number }
   | { type: 'error'; message: string; docVersion?: number };
 

@@ -25,5 +25,9 @@ IR-replay remains the stable seam; compositor consumes `RenderItem[]`.
 
 ## Verification
 
-- `packages/compositor/src/compositor.test.ts`
+- `packages/compositor/src/compositor.test.ts` — Canvas2D camera/clear/cache regression
+- `packages/compositor/src/webgpu/golden.test.ts` — WebGPU vs Canvas2D tolerance diff (skips without `navigator.gpu`)
+- `packages/editor/src/CanvasArea.render.test.tsx` — single compositor frame pass per draw
 - Golden replay hashes in `packages/engine/src/__goldens__/`
+
+WebGPUBackend acquires a real `GPUDevice` when `navigator.gpu` is available; unsupported primitives and device loss fall back to the embedded Canvas2D backend.

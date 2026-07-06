@@ -46,6 +46,37 @@ describe('golden replay hashes', () => {
     expect(h1.length).toBe(16);
   });
 
+  it('linear gradient fill produces stable hash', () => {
+    const items: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'gradient',
+            gradientType: 'linear',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+            ],
+            rotation: 0,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 64, h: 64 },
+        opacity: 1,
+        blendMode: 'normal',
+        strokes: [],
+        effects: [],
+      },
+    ];
+    const h1 = canvasToHash(replayToCanvas(items));
+    const h2 = canvasToHash(replayToCanvas(items));
+    expect(h1).toBe(h2);
+  });
+
   it('circle and rect use distinct canvas draw paths', () => {
     const rect: RenderItem[] = [
       {
