@@ -12,18 +12,59 @@
  * Research basis: Web Animations API §5 Animation model (keyframe effect
  * value computation), GSAP TweenLite.render(), Lottie interpolators.
  */
-import type { AnimationKeyframe, Document, Timeline } from '@strata/scene';
+import type { AnimationKeyframe, CompositeOperation, Document, Timeline } from '@strata/scene';
 import type { EasingDefinition } from '@strata/shared';
 import {
+  ensureVertexMatch,
   getEasingFn,
   interpolateAffine,
   interpolateColor,
+  interpolatePath,
   interpolateSpatialBezier,
   interpolateValue,
+  type PathPoint,
 } from '@strata/shared';
 
 export interface SampleResult {
   overrides: Map<string, Map<string, unknown>>;
+}
+
+/** Segment cache for sorted keyframes per track. */
+const trackKeyframeCache = new Map<string, AnimationKeyframe[]>();
+let samplerCacheGeneration = 0;
+
+/** Invalidate sampler caches after timeline mutations. */
+export function invalidateSamplerCache(): void {
+  samplerCacheGeneration++;
+  trackKeyframeCache.clear();
+}
+
+export function getSamplerCacheGeneration(): number {
+  return samplerCacheGeneration;
+}
+
+function getSortedKeyframes(trackId: string, keyframes: AnimationKeyframe[]): AnimationKeyframe[] {
+  const fingerprint = keyframes.map((k) => `${k.progress}:${String(k.value)}`).join('|');
+  const cacheKey = `${samplerCacheGeneration}:${trackId}:${fingerprint}`;
+  const cached = trackKeyframeCache.get(cacheKey);
+  if (cached) return cached;
+  const sorted = [...keyframes].sort((a, b) => a.progress - b.progress);
+  trackKeyframeCache.set(cacheKey, sorted);
+  return sorted;
+}
+
+function applyComposite(
+  op: CompositeOperation | undefined,
+  existing: unknown,
+  incoming: unknown,
+): unknown {
+  if (existing === undefined || op === 'replace' || !op) return incoming;
+  if (op === 'add' || op === 'accumulate') {
+    if (typeof existing === 'number' && typeof incoming === 'number') {
+      return existing + incoming;
+    }
+  }
+  return incoming;
 }
 
 export interface SampleOptions {
@@ -83,17 +124,20 @@ export function sampleTimeline(
     if (track.enabled === false || track.keyframes.length === 0) continue;
 
     const val = interpolateTrack(
-      track.keyframes,
+      getSortedKeyframes(track.id, track.keyframes),
       timing.progress,
       timeline.defaultEasing,
       track.interpolation ?? 'linear',
+      track.property,
     );
 
     if (val !== undefined && !timing.inactive) {
       if (!overrides.has(track.nodeId)) {
         overrides.set(track.nodeId, new Map());
       }
-      overrides.get(track.nodeId)?.set(track.property, val);
+      const nodeOverrides = overrides.get(track.nodeId)!;
+      const existing = nodeOverrides.get(track.property);
+      nodeOverrides.set(track.property, applyComposite(track.composite, existing, val));
     }
   }
 
@@ -171,12 +215,12 @@ function interpolateTrack(
   progress: number,
   defaultEasing: EasingDefinition,
   interpolation: NonNullable<import('@strata/scene').AnimationTrack['interpolation']>,
+  property: string,
 ): unknown {
   if (keyframes.length === 0) return undefined;
   if (keyframes.length === 1) return keyframes[0]?.value;
 
-  // Sort by progress (defensive — should already be sorted)
-  const sorted = [...keyframes].sort((a, b) => a.progress - b.progress);
+  const sorted = keyframes;
 
   // Discrete: hold the previous keyframe value until the next keyframe.
   if (interpolation === 'discrete') {
@@ -221,14 +265,22 @@ function interpolateTrack(
         );
       }
 
-      return interpolateTypedValue(before.value, after.value, easedT);
+      return interpolateTypedValue(before.value, after.value, easedT, property);
     }
   }
 
   return sorted[sorted.length - 1]?.value;
 }
 
-function interpolateTypedValue(from: unknown, to: unknown, t: number): unknown {
+function interpolateTypedValue(from: unknown, to: unknown, t: number, property?: string): unknown {
+  // Text animation: interpolate string content when both values are strings.
+  if (
+    (property === 'text' || property?.startsWith('text.')) &&
+    typeof from === 'string' &&
+    typeof to === 'string'
+  ) {
+    return interpolateValue(from, to, t);
+  }
   // Check affine first: 6-element numeric arrays are transforms, not colors.
   const fromAffine = tryParseAffine(from);
   const toAffine = tryParseAffine(to);
@@ -242,7 +294,24 @@ function interpolateTypedValue(from: unknown, to: unknown, t: number): unknown {
     return interpolateColor(fromColor, toColor, t);
   }
 
+  const fromPath = tryParsePath(from);
+  const toPath = tryParsePath(to);
+  if (fromPath && toPath) {
+    const matched = ensureVertexMatch(fromPath, toPath);
+    return interpolatePath(matched.from, matched.to, t);
+  }
+
   return interpolateValue(from, to, t);
+}
+
+function tryParsePath(v: unknown): PathPoint[] | null {
+  if (!Array.isArray(v)) return null;
+  if (v.length === 0) return [];
+  const first = v[0];
+  if (typeof first !== 'object' || first === null || !('x' in first) || !('y' in first)) {
+    return null;
+  }
+  return v as PathPoint[];
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

@@ -373,7 +373,11 @@ fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
 /// black copy of the path. Other effects are emitted as comments.
 fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
-    let has_filters = node.filters.as_ref().map(|f| !f.is_empty()).unwrap_or(false);
+    let has_filters = node
+        .filters
+        .as_ref()
+        .map(|f| !f.is_empty())
+        .unwrap_or(false);
     if path_ops.is_empty() || (node.effects.is_empty() && !has_filters) {
         return Vec::new();
     }

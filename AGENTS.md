@@ -118,6 +118,20 @@ git log --oneline -3
 | Offline models | `apps/desktop/public/models/manifest.json` |
 | Architecture docs | `docs/architecture/render-pipeline.md`, `docs/architecture/wasm-backends.md`, `docs/perf/ledger.md` |
 
+## Motion System Overhaul (2026-07-06)
+
+P0–P5 motion integration complete. Canonical doc: `docs/architecture/motion-system.md`.
+
+| Phase | What | Key files |
+|---|---|---|
+| **P0** | MotionFacade playback, TimelinePanel in Shell, Document.interactions v1.6, prototype renderer | `motion/MotionFacade.ts`, `interactions.ts`, `PrototypeScreenView.tsx` |
+| **P2** | SM bridge, variable bridge, InteractionSection, PrototypeFlowView, Smart Animate | `stateMachineBridge.ts`, `smartAnimate.ts`, `InteractionSection.tsx` |
+| **P3** | Oklab colors, path morph, composite ops, markers, motion presets | `interpolation.ts`, `TimelineSampler.ts`, `motion.ts` |
+| **P4** | ExportDialog CSS/Lottie, videoExport stub, sampler cache, benchmark | `ExportDialog.tsx`, `videoExport.ts`, `motion.bench.test.ts` |
+| **P5** | Extension types only (skeleton/IK/audio/nested timelines deferred) | `motion-types.ts` |
+
+**Document version:** 1.6 (`interactions` field). **Shortcut:** `Ctrl+Alt+T` toggles timeline panel.
+
 ## Quality gates (Cascade Review, §7) — every task must pass
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations
 → input-method audit (mouse/keyboard/touch/SR) → reduced-motion → 3-OS build

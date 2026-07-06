@@ -132,6 +132,11 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Inspector Panel',
     category: 'View',
   },
+  toggleTimelinePanel: {
+    binding: { key: 't', ctrl: true, alt: true },
+    label: 'Toggle Timeline Panel',
+    category: 'View',
+  },
   booleanUnion: {
     binding: { key: 'u', ctrl: true, alt: true },
     label: 'Boolean Union',

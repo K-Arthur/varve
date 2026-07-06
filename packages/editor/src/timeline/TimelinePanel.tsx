@@ -114,6 +114,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
               currentTime={currentTime}
               zoom={zoom}
               onSeek={onSeek}
+              markers={activeTimeline?.markers}
             />
           </div>
 

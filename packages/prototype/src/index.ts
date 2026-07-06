@@ -65,6 +65,7 @@ export {
   getActiveOverlays,
   getVariable,
   handleEvent,
+  processDelays,
   setVariable,
 } from './runtime';
 export type { ScrollContainer, ScrollState } from './scrolling';
@@ -82,7 +83,8 @@ export {
   animateScreenTransition,
   createTransitionAnimation,
 } from './transitions';
-export type { PrototypeEvent } from './triggers';
+export { buildSmartAnimateValues, matchLayersByName } from './smartAnimate';
+export type { LayerMatch } from './smartAnimate';
 // Trigger system
 export { matchTrigger } from './triggers';
 // Types

@@ -114,6 +114,14 @@ export interface Document {
   timelines?: Record<string, import('./motion-types').Timeline>;
   /** The currently active timeline for playback. */
   activeTimelineId?: string;
+
+  /** Prototype interactions keyed by node id (v1.6). */
+  interactions?: Record<NodeId, import('./interaction-types').DocumentInteraction[]>;
+
+  /** Phase 5+ motion extensions (skeleton, IK, mesh deform). */
+  motionExtensions?: Record<string, import('./motion-types').MotionExtension>;
+  /** Reusable motion presets captured from timelines. */
+  motionPresets?: Record<string, import('./motion-types').MotionPreset>;
 }
 
 export interface NodeEntry {

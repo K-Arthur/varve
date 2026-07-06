@@ -193,9 +193,9 @@ describe('sampleTimeline', () => {
         },
       ],
     });
-    const linear = sampleTimeline(tl, 500).overrides.get('n1')?.get('opacity') as number;
-    // With easeOut, value at t=0.5 should be > 0.5 (starts fast, ends slow)
-    expect(linear).toBeGreaterThan(0.5);
+    const eased = sampleTimeline(tl, 250).overrides.get('n1')?.get('opacity') as number;
+    // With easeOut, value at t=0.25 should be > 0.25 (starts fast, ends slow)
+    expect(eased).toBeGreaterThan(0.25);
   });
 
   it('samples at time 0', () => {
@@ -396,16 +396,16 @@ describe('sampleTimeline', () => {
             nodeId: 'n1',
             property: 'fill',
             keyframes: [
-              { progress: 0, value: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
-              { progress: 1, value: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+              { progress: 0, value: [0, 0, 0, 255] },
+              { progress: 1, value: [255, 255, 255, 255] },
             ],
           },
         ],
       });
       const result = sampleTimeline(tl, 500).overrides.get('n1')?.get('fill') as number[];
-      expect(result[0]).toBe(127.5);
-      expect(result[1]).toBe(127.5);
-      expect(result[2]).toBe(127.5);
+      expect(result[0]).toBe(128);
+      expect(result[1]).toBe(128);
+      expect(result[2]).toBe(128);
     });
 
     it('interpolates affine transforms', () => {
@@ -562,5 +562,45 @@ describe('sampleTimelineAt (document integration)', () => {
 
     const result = sampleTimelineAt(d4, tlId, 500);
     expect(result.overrides.get('n1')?.get('opacity')).toBe(0.5);
+  });
+});
+
+describe('composite operations', () => {
+  it('adds numeric values when composite is add', () => {
+    const tl = makeTimeline({
+      tracks: [
+        {
+          id: 'tr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          composite: 'add',
+          keyframes: [
+            { progress: 0, value: 0.2 },
+            { progress: 1, value: 0.3 },
+          ],
+        },
+        {
+          id: 'tr-2',
+          nodeId: 'n1',
+          property: 'opacity',
+          composite: 'add',
+          keyframes: [
+            { progress: 0, value: 0.1 },
+            { progress: 1, value: 0.1 },
+          ],
+        },
+      ],
+    });
+    const result = sampleTimeline(tl, 0);
+    expect(result.overrides.get('n1')?.get('opacity')).toBeCloseTo(0.3);
+  });
+});
+
+describe('sampler cache', () => {
+  it('invalidateSamplerCache clears generation', async () => {
+    const { invalidateSamplerCache, getSamplerCacheGeneration } = await import('./TimelineSampler');
+    const before = getSamplerCacheGeneration();
+    invalidateSamplerCache();
+    expect(getSamplerCacheGeneration()).toBeGreaterThan(before);
   });
 });

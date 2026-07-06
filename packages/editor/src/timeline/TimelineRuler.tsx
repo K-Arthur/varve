@@ -5,6 +5,7 @@ export interface TimelineRulerProps {
   currentTime: number;
   zoom: number;
   onSeek: (time: number) => void;
+  markers?: Array<{ id: string; name: string; progress: number }>;
 }
 
 function getTickInterval(zoom: number): number {
@@ -15,7 +16,13 @@ function getTickInterval(zoom: number): number {
   return 1000;
 }
 
-export const TimelineRuler: FC<TimelineRulerProps> = ({ duration, currentTime, zoom, onSeek }) => {
+export const TimelineRuler: FC<TimelineRulerProps> = ({
+  duration,
+  currentTime,
+  zoom,
+  onSeek,
+  markers = [],
+}) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -92,6 +99,14 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({ duration, currentTime, z
           <div className="timeline-ruler__tick-mark" />
           {tick.label && <span className="timeline-ruler__tick-label">{tick.label}</span>}
         </div>
+      ))}
+      {markers.map((marker) => (
+        <div
+          key={marker.id}
+          className="timeline-ruler__marker"
+          style={{ left: marker.progress * duration * zoom, position: 'absolute', top: 0 }}
+          title={marker.name}
+        />
       ))}
       <div
         className="timeline-ruler__playhead"

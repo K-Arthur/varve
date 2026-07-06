@@ -93,10 +93,11 @@
     "menubar  menubar   menubar"
     "tabs     tabs      tabs"
     "layers   canvas    inspector"
+    "timeline timeline  timeline"
     "pagenav  pagenav   pagenav"
     "status   status    status";
   grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width);
-  grid-template-rows: var(--topbar-height) 32px 1fr auto var(--statusbar-height);
+  grid-template-rows: var(--topbar-height) 32px 1fr auto auto var(--statusbar-height);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -780,6 +781,16 @@
 }
 .page-nav-container {
   grid-area: pagenav;
+}
+
+.editor__timeline-panel {
+  grid-area: timeline;
+  min-height: 0;
+  max-height: 220px;
+  overflow: hidden;
+  border-top: var(--border-micro);
+  background: var(--elevation-surface-default);
+  box-shadow: 0 -1px 4px rgb(0 0 0 / 0.04);
 }
 
 /* ── Panel resize handles (APG window splitter) ── */

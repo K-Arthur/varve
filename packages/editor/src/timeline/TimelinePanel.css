@@ -170,6 +170,16 @@
   z-index: 1;
 }
 
+.timeline-ruler__marker {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--color-accent-secondary);
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* ── Track Row ───────────────────────────────────────────────────────────────── */
 
 .timeline-track-row {

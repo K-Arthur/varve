@@ -204,6 +204,8 @@ export function useShortcuts(
         return () => e.toggleLeftPanel();
       case 'toggleRightPanel':
         return () => e.toggleRightPanel();
+      case 'toggleTimelinePanel':
+        return () => e.toggleTimelinePanel();
       case 'booleanUnion':
         return () => e.booleanOp('union');
       case 'booleanSubtract':

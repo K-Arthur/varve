@@ -313,3 +313,88 @@
 [data-theme="high-contrast"] .prototype-player__hints-overlay > span {
   border: 1px solid var(--color-border-strong);
 }
+
+/* ── Prototype screen view (minimal canvas renderer) ── */
+.prototype-screen-view {
+  position: relative;
+  background: var(--elevation-surface-default);
+  border: var(--border-micro);
+  overflow: hidden;
+}
+
+.prototype-screen-view__label {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.prototype-screen-view__hotspot {
+  position: absolute;
+  padding: 0;
+  margin: 0;
+  border: 1px dashed var(--color-accent-primary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.prototype-screen-view__hotspot:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 1px;
+}
+
+.prototype-screen-view__empty {
+  padding: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.prototype-flow {
+  padding: var(--space-2);
+}
+
+.prototype-flow__empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.prototype-flow__entry {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.prototype-flow__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.prototype-flow__item {
+  margin-bottom: var(--space-2);
+}
+
+.prototype-flow__node {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-default);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.prototype-flow__node--current {
+  border-color: var(--color-accent-primary);
+}
+
+.prototype-flow__edges {
+  list-style: none;
+  margin: var(--space-1) 0 0 var(--space-3);
+  padding: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

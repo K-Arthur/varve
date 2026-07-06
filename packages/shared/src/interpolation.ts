@@ -10,6 +10,12 @@
  * After Effects vertex interpolation.
  */
 import type { Affine } from './affine';
+import {
+  linearSrgbToOklab,
+  linearToSrgb,
+  oklabToLinearSrgb,
+  srgbToLinear,
+} from './colorConversion';
 
 export type InterpolationResult = number | string | number[] | Record<string, unknown> | unknown;
 
@@ -86,16 +92,15 @@ export function interpolateObject(
 }
 
 /**
- * Interpolate between two color values.
+ * Interpolate between two color values in Oklab space (perceptually uniform).
  * Accepts hex strings (#RRGGBB or #RRGGBBAA) or RGBA tuples [r, g, b, a].
- * Returns the same format as the input.
  */
-export function interpolateColor(
+export function interpolateColorOklch(
   from: string | number[],
   to: string | number[],
   t: number,
 ): string | number[] {
-  const parseColor = (c: string | number[]): [number, number, number, number] => {
+  const parseRgba = (c: string | number[]): [number, number, number, number] => {
     if (Array.isArray(c)) {
       return [
         typeof c[0] === 'number' ? c[0] : 0,
@@ -117,27 +122,48 @@ export function interpolateColor(
     ];
   };
 
-  const hasAlpha = (c: string | number[]): boolean => {
-    if (Array.isArray(c)) return c.length >= 4;
-    return c.replace('#', '').length >= 8;
-  };
+  const toLinear = (rgba: [number, number, number, number]): [number, number, number] => [
+    srgbToLinear(rgba[0] / 255),
+    srgbToLinear(rgba[1] / 255),
+    srgbToLinear(rgba[2] / 255),
+  ];
 
-  const [r1, g1, b1, a1] = parseColor(from);
-  const [r2, g2, b2, a2] = parseColor(to);
-  const result: [number, number, number, number] = [
-    r1 + (r2 - r1) * t,
-    g1 + (g2 - g1) * t,
-    b1 + (b2 - b1) * t,
+  const fromRgba = parseRgba(from);
+  const toRgba = parseRgba(to);
+  const [l1, a1, b1] = linearSrgbToOklab(toLinear(fromRgba));
+  const [l2, a2, b2] = linearSrgbToOklab(toLinear(toRgba));
+  const lerpedLab: [number, number, number] = [
+    l1 + (l2 - l1) * t,
     a1 + (a2 - a1) * t,
+    b1 + (b2 - b1) * t,
+  ];
+  const [lr, lg, lb] = oklabToLinearSrgb(lerpedLab);
+  const result: [number, number, number, number] = [
+    Math.round(linearToSrgb(lr) * 255),
+    Math.round(linearToSrgb(lg) * 255),
+    Math.round(linearToSrgb(lb) * 255),
+    Math.round(fromRgba[3] + (toRgba[3] - fromRgba[3]) * t),
   ];
 
   if (Array.isArray(from)) return result;
-  const toHex = (n: number) =>
-    Math.max(0, Math.min(255, Math.round(n)))
-      .toString(16)
-      .padStart(2, '0');
-  const includeAlpha = hasAlpha(from) || hasAlpha(to);
+  const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+  const includeAlpha =
+    (Array.isArray(from) && from.length >= 4) ||
+    (typeof from === 'string' && from.replace('#', '').length >= 8) ||
+    (typeof to === 'string' && to.replace('#', '').length >= 8);
   return `#${toHex(result[0])}${toHex(result[1])}${toHex(result[2])}${includeAlpha ? toHex(result[3]) : ''}`;
+}
+
+/**
+ * Interpolate between two color values.
+ * Uses Oklab interpolation for perceptually uniform blending.
+ */
+export function interpolateColor(
+  from: string | number[],
+  to: string | number[],
+  t: number,
+): string | number[] {
+  return interpolateColorOklch(from, to, t);
 }
 
 /**
@@ -250,4 +276,27 @@ export function interpolatePath(from: PathPoint[], to: PathPoint[], t: number): 
           : null,
     };
   });
+}
+
+/**
+ * Pad the shorter path by duplicating its last vertex so both paths share length.
+ */
+export function ensureVertexMatch(
+  from: PathPoint[],
+  to: PathPoint[],
+): {
+  from: PathPoint[];
+  to: PathPoint[];
+} {
+  if (from.length === to.length) return { from, to };
+  if (from.length < to.length) {
+    const last = from[from.length - 1] ?? { x: 0, y: 0, handleIn: null, handleOut: null };
+    const padded = [...from];
+    while (padded.length < to.length) padded.push({ ...last });
+    return { from: padded, to };
+  }
+  const last = to[to.length - 1] ?? { x: 0, y: 0, handleIn: null, handleOut: null };
+  const padded = [...to];
+  while (padded.length < from.length) padded.push({ ...last });
+  return { from, to: padded };
 }
