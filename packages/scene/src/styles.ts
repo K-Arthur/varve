@@ -140,14 +140,13 @@ export function unlinkStyleFromNode(doc: Document, nodeId: NodeId): Document {
   const styleId = (node as { styleId?: NodeId }).styleId;
   if (!styleId) return doc;
 
-  const resolved = doc.styles
-    ? resolveNodeStyles(node, styleId, doc.styles)
-    : undefined;
+  const resolved = doc.styles ? resolveNodeStyles(node, styleId, doc.styles) : undefined;
 
-  const { styleId: _removed, styleOverrides: _overrides, ...rest } = node as unknown as Record<
-    string,
-    unknown
-  >;
+  const {
+    styleId: _removed,
+    styleOverrides: _overrides,
+    ...rest
+  } = node as unknown as Record<string, unknown>;
 
   const baked: Record<string, unknown> = resolved ? { ...rest, ...resolved } : { ...rest };
   const styleDef = styleId && doc.styles ? doc.styles[styleId] : undefined;

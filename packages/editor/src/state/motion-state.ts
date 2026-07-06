@@ -37,9 +37,19 @@ export function createInitialMotionState(): MotionState {
   };
 }
 
+export interface MotionPlaybackOptions {
+  loop?: boolean;
+  speed?: number;
+}
+
+export interface MotionEngineCallbacks {
+  onFrame?: (time: number) => void;
+  onFinish?: () => void;
+}
+
 export interface MotionTimelineEngine {
   engine: TimelineEngine | null;
-  startPlayback: (timeline: Timeline) => void;
+  startPlayback: (timeline: Timeline, options?: MotionPlaybackOptions) => void;
   pausePlayback: () => void;
   stopPlayback: () => void;
   seekPlayback: (time: number) => void;
@@ -48,25 +58,31 @@ export interface MotionTimelineEngine {
   getCurrentSample: () => SampleResult;
 }
 
-export function createMotionTimelineEngine(): MotionTimelineEngine {
+export function createMotionTimelineEngine(
+  callbacks?: MotionEngineCallbacks,
+): MotionTimelineEngine {
   const currentSample: { result: SampleResult } = { result: { overrides: new Map() } };
   let engine: TimelineEngine | null = null;
 
-  return {
+  const engineRef: MotionTimelineEngine = {
     engine: null,
 
-    startPlayback(timeline: Timeline) {
-      this.stopPlayback();
+    startPlayback(timeline: Timeline, options?: MotionPlaybackOptions) {
+      engineRef.stopPlayback();
       const reducedMotion = prefersReducedMotion();
+      const loop = options?.loop ?? false;
       const eng = new TimelineEngine({
         duration: timeline.duration,
-        iterations: timeline.defaultIterations ?? 1,
-        loop: false,
+        iterations: loop ? Number.POSITIVE_INFINITY : (timeline.defaultIterations ?? 1),
+        loop,
         autoReverse: timeline.autoReverse ?? false,
         reducedMotion,
       });
+      if (options?.speed !== undefined) {
+        eng.setSpeed(options.speed);
+      }
       engine = eng;
-      this.engine = eng;
+      engineRef.engine = eng;
 
       eng.play({
         onFrame: (time) => {
@@ -76,10 +92,12 @@ export function createMotionTimelineEngine(): MotionTimelineEngine {
             iterations: timeline.defaultIterations,
             autoReverse: timeline.autoReverse,
           });
+          callbacks?.onFrame?.(time);
         },
         onFinish: () => {
           engine = null;
-          this.engine = null;
+          engineRef.engine = null;
+          callbacks?.onFinish?.();
         },
       });
     },
@@ -94,7 +112,7 @@ export function createMotionTimelineEngine(): MotionTimelineEngine {
       if (engine) {
         engine.stop();
         engine = null;
-        this.engine = null;
+        engineRef.engine = null;
       }
       currentSample.result = { overrides: new Map() };
     },
@@ -115,4 +133,6 @@ export function createMotionTimelineEngine(): MotionTimelineEngine {
       return currentSample.result;
     },
   };
+
+  return engineRef;
 }

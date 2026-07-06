@@ -23,7 +23,16 @@ export type PlaybackDirection = 'normal' | 'reverse' | 'alternate' | 'alternate-
 export type CompositeOperation = 'replace' | 'add' | 'accumulate';
 
 /** Interpolation strategy for a track. */
-export type InterpolationStrategy = 'linear' | 'discrete' | 'bezier';
+export type InterpolationStrategy = 'linear' | 'discrete' | 'bezier' | 'path';
+
+/** Timeline marker for organization. */
+export interface TimelineMarker {
+  id: string;
+  name: string;
+  /** Position as progress 0–1 within timeline duration. */
+  progress: number;
+  color?: string;
+}
 
 /**
  * A single keyframe on an animation track.
@@ -92,6 +101,59 @@ export interface Timeline {
   defaultIterations?: number;
   /** Whether to reverse direction on alternating iterations. */
   autoReverse?: boolean;
+  /** Named markers along the timeline. */
+  markers?: TimelineMarker[];
+}
+
+/** Phase 5+ extension kinds — reserved, not yet implemented. */
+export type MotionExtensionKind =
+  | 'skeleton'
+  | 'bone'
+  | 'ikConstraint'
+  | 'meshDeform'
+  | 'pathConstraint';
+
+/** Future rigging/deformation extension slot (Phase 5+). */
+export interface MotionExtension {
+  kind: MotionExtensionKind;
+  id: string;
+  nodeId: NodeId;
+  data: Record<string, unknown>;
+}
+
+/** Reusable motion preset (parallel to TextStyle / EffectStyle). */
+export interface MotionPreset {
+  id: string;
+  name: string;
+  /** Source timeline id this preset was captured from. */
+  timelineId: string;
+  duration: number;
+  description?: string;
+}
+
+/** Nested timeline reference (Lottie pre-comp pattern, Phase 5+). */
+export interface NestedTimelineRef {
+  id: string;
+  timelineId: string;
+  /** Parent timeline that references this nested timeline. */
+  parentTimelineId: string;
+  startProgress: number;
+}
+
+/** Audio sync track for timeline alignment (Phase 5+). */
+export interface AudioSyncTrack {
+  id: string;
+  timelineId: string;
+  src: string;
+  offsetMs: number;
+  volume?: number;
+}
+
+/** Collaborative keyframe lock stub (Phase 5+). */
+export interface CollaborativeKeyframeLock {
+  keyframeId: string;
+  userId: string;
+  lockedAt: number;
 }
 
 /**

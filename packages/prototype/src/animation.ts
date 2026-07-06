@@ -1,8 +1,8 @@
 /**
  * Animation engine — keyframes, timelines, interpolation, and sampling.
  *
- * Supports multi-keyframe timelines with arbitrary property paths,
- * multiple easing functions, and spring-physics-based motion.
+ * @deprecated Use `Document.timelines` via `@strata/scene` and `TimelineSampler`
+ * instead. This standalone model is retained for backward-compatible tests only.
  *
  * Research basis: Web Animations API (KeyframeEffect, Animation.timeline),
  * Framer Motion (spring physics, keyframe arrays), CSS Animations

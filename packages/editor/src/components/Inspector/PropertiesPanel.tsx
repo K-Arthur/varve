@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { useEditor } from '../../context';
 import { docVariableStore } from '../../docVariableStore';
 import { IntelligencePanel } from '../../panels/IntelligencePanel';
+import { PrototypeFlowView } from '../Prototype/PrototypeFlowView';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
@@ -29,6 +30,7 @@ import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
 import { FramePresetsSection } from './sections/FramePresetsSection';
+import { InteractionSection } from './sections/InteractionSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
@@ -173,6 +175,7 @@ function EmptySelectionState() {
 }
 
 function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
+  const { state, navigatePrototypeTo, prototypeCurrentScreen } = useEditor();
   const node = nodes[0] as SceneNode;
   const isFrame = node.kind === 'frame';
   const isComponentInstance = isFrame && (node as import('@strata/scene').FrameNode).componentId;
@@ -198,6 +201,16 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />
+      <InteractionSection />
+      {state.prototypeMode && (
+        <DisclosureSection title="Prototype Flow" defaultOpen>
+          <PrototypeFlowView
+            document={state.document}
+            currentScreenId={prototypeCurrentScreen}
+            onSelectScreen={navigatePrototypeTo}
+          />
+        </DisclosureSection>
+      )}
     </>
   );
 }

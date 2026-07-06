@@ -330,3 +330,75 @@ export function getKeyframeCount(doc: Document, nodeId: NodeId): number {
   }
   return count;
 }
+
+// ── Timeline markers ─────────────────────────────────────────────────────────
+
+export function addTimelineMarker(
+  doc: Document,
+  timelineId: string,
+  marker: import('./motion-types').TimelineMarker,
+): Document {
+  const timeline = doc.timelines?.[timelineId];
+  if (!timeline) return doc;
+  const markers = [...(timeline.markers ?? []), marker];
+  return {
+    ...doc,
+    timelines: {
+      ...doc.timelines,
+      [timelineId]: { ...timeline, markers },
+    },
+  };
+}
+
+export function removeTimelineMarker(
+  doc: Document,
+  timelineId: string,
+  markerId: string,
+): Document {
+  const timeline = doc.timelines?.[timelineId];
+  if (!timeline) return doc;
+  const markers = (timeline.markers ?? []).filter((m) => m.id !== markerId);
+  return {
+    ...doc,
+    timelines: {
+      ...doc.timelines,
+      [timelineId]: { ...timeline, markers },
+    },
+  };
+}
+
+// ── Motion presets ───────────────────────────────────────────────────────────
+
+function presetId(): string {
+  return `mp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function createMotionPreset(
+  doc: Document,
+  timelineId: string,
+  name: string,
+): { doc: Document; id: string } {
+  const timeline = doc.timelines?.[timelineId];
+  if (!timeline) return { doc, id: '' };
+  const id = presetId();
+  const preset: import('./motion-types').MotionPreset = {
+    id,
+    name,
+    timelineId,
+    duration: timeline.duration,
+  };
+  return {
+    doc: {
+      ...doc,
+      motionPresets: { ...(doc.motionPresets ?? {}), [id]: preset },
+    },
+    id,
+  };
+}
+
+export function removeMotionPreset(doc: Document, presetId: string): Document {
+  if (!doc.motionPresets?.[presetId]) return doc;
+  const next = { ...doc.motionPresets };
+  delete next[presetId];
+  return { ...doc, motionPresets: next };
+}

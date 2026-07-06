@@ -1,6 +1,6 @@
-export const CURRENT_DOCUMENT_VERSION = '1.5';
+export const CURRENT_DOCUMENT_VERSION = '1.6';
 
-export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5'];
+export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6'];
 
 export interface DocumentMigration {
   from: string;
@@ -151,6 +151,15 @@ const migrations: DocumentMigration[] = [
       }
       return { ...raw, formatVersion: '1.5', nodes: migrated };
     },
+  },
+  {
+    from: '1.5',
+    to: '1.6',
+    migrate: (raw) => ({
+      ...raw,
+      formatVersion: '1.6',
+      interactions: raw.interactions ?? undefined,
+    }),
   },
 ];
 

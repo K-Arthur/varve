@@ -158,6 +158,8 @@ export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './text
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
+export type { VideoExportOptions, VideoExportResult } from './videoExport';
+export { exportTimelineToVideo } from './videoExport';
 export { traceSceneNodeOutline } from './tracing';
 export type {
   Affine,

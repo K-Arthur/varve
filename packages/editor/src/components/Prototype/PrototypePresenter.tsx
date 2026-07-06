@@ -1,6 +1,8 @@
 import { Icon } from '@strata/ui';
+import type { Document, NodeId } from '@strata/scene';
 import { useCallback, useEffect, useMemo } from 'react';
 import { DeviceFrame } from './DeviceFrame';
+import { PrototypeScreenView } from './PrototypeScreenView';
 
 interface PrototypePresenterProps {
   isOpen: boolean;
@@ -9,6 +11,11 @@ interface PrototypePresenterProps {
   currentScreenId: string;
   onNavigate: (screenId: string) => void;
   onEvent: (event: unknown) => void;
+  /** Document for screen rendering (optional — falls back to placeholder). */
+  prototypeDocument?: Document;
+  overlayStack?: string[];
+  hitTestNode?: (world: { x: number; y: number }) => { nodeId: NodeId } | null;
+  getNodeBounds?: (nodeId: NodeId) => { x: number; y: number; w: number; h: number } | null;
   deviceConfig?: {
     type: string;
     name: string;
@@ -30,6 +37,10 @@ export function PrototypePresenter({
   onNavigate,
   onEvent,
   deviceConfig,
+  prototypeDocument,
+  overlayStack = [],
+  hitTestNode,
+  getNodeBounds,
 }: PrototypePresenterProps) {
   const currentIndex = useMemo(
     () => screens.findIndex((s) => s.id === currentScreenId),
@@ -77,31 +88,34 @@ export function PrototypePresenter({
 
   if (!isOpen) return null;
 
-  const content = (
-    <button
-      type="button"
-      className="prototype-presenter__content"
-      onClick={() => onEvent({ type: 'click', screenId: currentScreenId })}
-    >
-      {screens.length === 0 ? (
-        <div className="prototype-presenter__empty">
-          <p>No screens found. Add frames to your design to preview interactions.</p>
-        </div>
-      ) : deviceConfig ? (
-        <div className="prototype-presenter__device-frame">
-          <DeviceFrame device={deviceConfig} scale={1}>
-            <div className="prototype-presenter__screen">
-              Screen: {currentScreen?.name ?? 'Unknown'}
-            </div>
-          </DeviceFrame>
-        </div>
-      ) : (
-        <div className="prototype-presenter__screen">
-          Screen: {currentScreen?.name ?? 'Unknown'}
-        </div>
-      )}
-    </button>
-  );
+  const screenContent =
+    prototypeDocument && hitTestNode && getNodeBounds && currentScreenId ? (
+      <PrototypeScreenView
+        document={prototypeDocument}
+        screenId={currentScreenId}
+        overlayStack={overlayStack}
+        hitTestNode={hitTestNode}
+        getNodeBounds={getNodeBounds}
+        onEvent={(ev) => onEvent(ev)}
+      />
+    ) : (
+      <div className="prototype-presenter__screen">Screen: {currentScreen?.name ?? 'Unknown'}</div>
+    );
+
+  const content =
+    screens.length === 0 ? (
+      <div className="prototype-presenter__empty">
+        <p>No screens found. Add frames to your design to preview interactions.</p>
+      </div>
+    ) : deviceConfig ? (
+      <div className="prototype-presenter__device-frame">
+        <DeviceFrame device={deviceConfig} scale={1}>
+          {screenContent}
+        </DeviceFrame>
+      </div>
+    ) : (
+      screenContent
+    );
 
   return (
     <div

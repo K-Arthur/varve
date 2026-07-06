@@ -2,16 +2,41 @@
 
 ## Executive Summary
 
-Strata already has a foundational motion subsystem, but it is fragmented,
-incomplete, and not yet competitive with modern tools. The architecture treats
-motion as a document-level timeline system, which is the correct long-term
-direction, but the sampling, playback, and rendering integration are missing
-essential features such as fill modes, playback direction, looping, and robust
-property interpolation.
+Strata's motion subsystem has a solid document-level foundation (`Document.timelines`,
+`TimelineSampler`, `TimelineEngine`) and **integration is wired through Phase 5 types**
+(2026-07-06):
 
-This audit identifies the current state, research-backed gaps, and an
-incremental roadmap to build a professional motion system without architectural
-rewrites.
+**P0 — Playback & prototype (complete)**
+- `MotionFacade` replaces the context playback stub; `currentTime` advances via RAF
+- `TimelinePanel` mounted in `Shell` bottom dock
+- `Document.interactions` (v1.6) persists prototype wiring
+- `createRuntimeFromDocument` loads interactions; `processDelays` polled in present mode
+- `PrototypeScreenView` dispatches click events with `nodeId`
+
+**P2 — Unification (complete)**
+- State machine RAF bridge syncs `activeTimelineId` from `SMRuntime`
+- Prototype variable bridge: `setPrototypeVariable` writes `Document.variableStore`
+- `InteractionSection` inspector UI + `PrototypeFlowView` flow graph
+- Smart Animate: `matchLayersByName` / `buildSmartAnimateValues` + editor bridge on navigate
+
+**P3 — Fidelity (complete)**
+- Oklab color interpolation in sampler
+- Path morphing via `ensureVertexMatch` + `interpolatePath`
+- Composite operations (`replace`/`add`/`accumulate`)
+- Text property animation (string midpoint)
+- Timeline markers on ruler; `MotionPreset` CRUD on Document
+
+**P4 — Export & performance (complete)**
+- ExportDialog CSS/Lottie motion export buttons
+- `videoExport.ts` WebCodecs contract stub
+- Sampler keyframe cache + `invalidateSamplerCache()` on timeline mutations
+- Motion benchmark: 100 tracks × 10 keyframes under budget
+
+**P5 — Advanced (types only, deferred implementation)**
+- `MotionExtension`, `NestedTimelineRef`, `AudioSyncTrack`, `CollaborativeKeyframeLock`
+
+Remaining gaps: full video muxer, SM inspector panel, auto-keyframe mode, rigging/IK solver.
+See `docs/architecture/motion-system.md`.
 
 ## 1. Current-State Audit
 
@@ -25,10 +50,10 @@ rewrites.
 | Timeline sampler | `packages/editor/src/timeline/TimelineSampler.ts` | Built |
 | Playback engine (RAF) | `packages/editor/src/timeline/TimelineEngine.ts` | Built |
 | Editor motion state | `packages/editor/src/state/motion-state.ts` | Built |
-| Editor playback controls | `packages/editor/src/context.tsx`, `TimelinePanel.tsx` | Built |
-| Canvas rendering integration | `packages/editor/src/CanvasArea.tsx` | Partial |
-| Prototype transitions | `packages/prototype/src/transitions.ts` | Built |
-| Prototype animation (simple) | `packages/prototype/src/animation.ts` | Built |
+| Editor playback controls | `packages/editor/src/context.tsx`, `TimelinePanel.tsx` | **Wired (P0)** |
+| Canvas rendering integration | `packages/editor/src/CanvasArea.tsx` | **Wired (P0)** |
+| Prototype interactions on Document | `packages/scene/src/interactions.ts` | **Built (v1.6)** |
+| Prototype animation (simple) | `packages/prototype/src/animation.ts` | **Deprecated** |
 | Prototype runtime actions | `packages/prototype/src/runtime.ts` | Built |
 
 ### 1.2 Architecture Strengths
@@ -396,6 +421,44 @@ Implemented and tested:
 
 - Targeted motion tests: 165/165 passed.
 - `pnpm audit:emoji`: clean.
+
+### Motion System Overhaul — Phases 2–5 (2026-07-06)
+
+Implemented:
+
+**Phase 2 — Unification**
+- `packages/editor/src/motion/stateMachineBridge.ts` — SM timeline id resolution
+- `packages/editor/src/motion/smartAnimateBridge.ts` — screen transition layer matching
+- `packages/editor/src/motion/prototypeRuntime.ts` — `createRuntimeFromDocument`
+- `packages/editor/src/components/Inspector/sections/InteractionSection.tsx`
+- `packages/editor/src/components/Prototype/PrototypeFlowView.tsx`
+- Context: `addNodeInteraction`, `removeNodeInteraction`, SM RAF loop, variable bridge
+
+**Phase 3 — Fidelity**
+- `packages/shared/src/interpolation.ts` — `interpolateColorOklch`, path `ensureVertexMatch`
+- `packages/editor/src/timeline/TimelineSampler.ts` — composite ops, cache, path/text dispatch
+- `packages/scene/src/motion.ts` — `addTimelineMarker`, `createMotionPreset`
+- Timeline ruler marker rendering
+
+**Phase 4 — Export & performance**
+- `packages/editor/src/components/Export/ExportDialog.tsx` — CSS/Lottie motion export
+- `packages/engine/src/videoExport.ts` — export contract stub
+- `packages/engine/src/motion.bench.test.ts` — sampler benchmark
+- `invalidateSamplerCache()` wired in context timeline CRUD
+
+**Phase 5 — Extension types**
+- `MotionExtension`, `NestedTimelineRef`, `AudioSyncTrack`, `CollaborativeKeyframeLock`
+  in `motion-types.ts`; `motionExtensions` / `motionPresets` on Document
+
+**Docs**
+- `docs/architecture/motion-system.md` — canonical architecture reference
+
+**Tests added**
+- `packages/editor/src/motion/*.test.ts` (Facade, playback, prototype, smartAnimate bridge)
+- `packages/scene/src/interactions.test.ts`, `motion-presets.test.ts`
+- `packages/prototype/src/smartAnimate.test.ts`
+- `packages/editor/src/Shell.motion.test.tsx`
+- `tests/e2e/motion/timeline-playback.spec.ts`
 - `pnpm audit:tokens`: 93/93 pass.
 - `pnpm exec biome check` on all touched files: clean (0 errors).
 - `pnpm typecheck`: pre-existing errors in `packages/engine/src/replay-fill.test.ts`,
