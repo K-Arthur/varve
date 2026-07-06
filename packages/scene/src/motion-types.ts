@@ -76,6 +76,10 @@ export interface AnimationTrack {
   interpolation?: InterpolationStrategy;
   /** Whether this track is currently active. */
   enabled?: boolean;
+  /** Nested pre-comp timeline id (Phase E slice). When set, keyframes on this track are ignored. */
+  nestedTimelineId?: string;
+  /** Parent progress (0–1) where the nested timeline begins. Defaults to 0. */
+  nestedStartProgress?: number;
 }
 
 /**

@@ -86,6 +86,7 @@ export {
   interpolatePath,
   interpolateSpatialBezier,
   interpolateValue,
+  ensureVertexMatch,
 } from './interpolation';
 export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';

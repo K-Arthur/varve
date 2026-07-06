@@ -465,7 +465,5 @@ export const ZOOM_STEP_FACTOR = 1.25;
 
 /** Compute next zoom level for zoom-in/out buttons. */
 export function stepZoom(current: number, direction: 'in' | 'out'): number {
-  return clampZoom(
-    direction === 'in' ? current * ZOOM_STEP_FACTOR : current / ZOOM_STEP_FACTOR,
-  );
+  return clampZoom(direction === 'in' ? current * ZOOM_STEP_FACTOR : current / ZOOM_STEP_FACTOR);
 }

@@ -7,6 +7,7 @@ function makeTimeline(duration = 1000): Timeline {
     id: 'tl-1',
     name: 'Test',
     duration,
+    defaultEasing: { kind: 'linear' },
     tracks: [
       {
         id: 'tr-1',

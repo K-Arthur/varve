@@ -136,6 +136,9 @@ export function batchImport(
 
 function getNodeBounds(node: SceneNode): { w: number; h: number } {
   if (node.kind === 'shape') {
+    if (isImageShape(node)) {
+      return { w: imageShapeW(node), h: imageShapeH(node) };
+    }
     const s = node.shape;
     switch (s.kind) {
       case 'rect':
@@ -168,9 +171,6 @@ function getNodeBounds(node: SceneNode): { w: number; h: number } {
   if (node.kind === 'text') {
     const fs = node.fontSize ?? 16;
     return { w: fs * 6, h: fs * 1.4 };
-  }
-  if (isImageShape(node)) {
-    return { w: imageShapeW(node), h: imageShapeH(node) };
   }
   if (node.kind === 'frame') {
     return { w: node.w ?? 100, h: node.h ?? 100 };

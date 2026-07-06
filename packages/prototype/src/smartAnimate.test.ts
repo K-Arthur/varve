@@ -16,6 +16,8 @@ function makeFrame(id: string, name: string, children: string[]): FrameNode {
     rotation: 0,
     transform: [1, 0, 0, 1, 0, 0],
     fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+    strokes: [],
+    effects: [],
     children,
     w: 400,
     h: 800,
@@ -36,6 +38,8 @@ function makeRect(id: string, name: string): ShapeNode {
     rotation: 0,
     transform: [1, 0, 0, 1, 10, 20],
     fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+    strokes: [],
+    effects: [],
     shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
   };
 }

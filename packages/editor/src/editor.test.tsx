@@ -24,12 +24,14 @@ describe('Shell', () => {
     expect(screen.getByRole('region', { name: /inspector/i })).toBeTruthy();
   });
 
-  it('renders without canvas environment errors', () => {
+  it('renders without canvas environment errors', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     render(<Shell />);
+    await waitFor(() => expect(screen.getByRole('menubar')).toBeTruthy());
 
     expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
 

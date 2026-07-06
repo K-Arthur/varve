@@ -5,6 +5,7 @@
  * All assertions verify that `setZoom` + `setPan` are called with values that
  * keep the world point under the cursor fixed after zoom.
  */
+import { MAX_ZOOM, MIN_ZOOM } from '@strata/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { ToolContext } from './types';
 import { ZoomTool } from './ZoomTool';
@@ -186,25 +187,25 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
 });
 
 describe('ZoomTool — zoom clamping', () => {
-  it('does not zoom above MAX_ZOOM (10)', () => {
+  it(`does not zoom above MAX_ZOOM (${MAX_ZOOM})`, () => {
     const tool = new ZoomTool();
-    const ctx = makeCtx({ zoom: 9.9, pan: { x: 0, y: 0 } });
+    const ctx = makeCtx({ zoom: MAX_ZOOM * 0.99, pan: { x: 0, y: 0 } });
     const ev = makePointerEvent(0, 0);
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
     const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
-    expect(newZoom).toBeLessThanOrEqual(10);
+    expect(newZoom).toBeLessThanOrEqual(MAX_ZOOM);
   });
 
-  it('does not zoom below MIN_ZOOM (0.1)', () => {
+  it(`does not zoom below MIN_ZOOM (${MIN_ZOOM})`, () => {
     const tool = new ZoomTool();
-    const ctx = makeCtx({ zoom: 0.11, pan: { x: 0, y: 0 }, altKey: true });
+    const ctx = makeCtx({ zoom: MIN_ZOOM * 1.1, pan: { x: 0, y: 0 }, altKey: true });
     const ev = makePointerEvent(0, 0, { altKey: true });
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
     const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
-    expect(newZoom).toBeGreaterThanOrEqual(0.1);
+    expect(newZoom).toBeGreaterThanOrEqual(MIN_ZOOM);
   });
 });

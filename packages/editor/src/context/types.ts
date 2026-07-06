@@ -11,7 +11,6 @@ import type {
   LayoutStyle,
   NodeId,
   SceneNode,
-  VariableStore,
   VariableValue,
 } from '@strata/scene';
 import type { DocumentUnit, Viewport } from '@strata/shared';

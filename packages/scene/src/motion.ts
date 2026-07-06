@@ -160,7 +160,16 @@ export function updateTrack(
   timelineId: string,
   trackId: string,
   updates: Partial<
-    Pick<AnimationTrack, 'property' | 'interpolation' | 'composite' | 'enabled' | 'nodeId'>
+    Pick<
+      AnimationTrack,
+      | 'property'
+      | 'interpolation'
+      | 'composite'
+      | 'enabled'
+      | 'nodeId'
+      | 'nestedTimelineId'
+      | 'nestedStartProgress'
+    >
   >,
 ): Document {
   const timeline = doc.timelines?.[timelineId];
@@ -172,7 +181,17 @@ export function updateTrack(
       ...doc.timelines,
       [timelineId]: {
         ...timeline,
-        tracks: timeline.tracks.map((t) => (t.id === trackId ? { ...t, ...updates } : t)),
+        tracks: timeline.tracks.map((t) => {
+          if (t.id !== trackId) return t;
+          const next: AnimationTrack = { ...t, ...updates };
+          if ('nestedTimelineId' in updates && updates.nestedTimelineId === undefined) {
+            delete next.nestedTimelineId;
+          }
+          if ('nestedStartProgress' in updates && updates.nestedStartProgress === undefined) {
+            delete next.nestedStartProgress;
+          }
+          return next;
+        }),
       },
     },
   };

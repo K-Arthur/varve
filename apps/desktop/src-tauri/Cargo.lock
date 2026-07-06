@@ -4092,12 +4092,10 @@ version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "dirs-next",
- "fastrand",
  "image",
  "ort",
  "serde",
  "serde_json",
- "strata-core",
 ]
 
 [[package]]

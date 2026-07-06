@@ -14,7 +14,7 @@ import {
   replayIr,
   type ReplayTarget,
 } from '@strata/engine';
-import type { Document, NodeId, SceneNode, Timeline } from '@strata/scene';
+import type { Document, NodeId, Timeline } from '@strata/scene';
 import {
   applyBindingsToNode,
   buildAllVariantCaches,

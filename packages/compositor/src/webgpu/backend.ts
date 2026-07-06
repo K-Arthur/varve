@@ -45,7 +45,7 @@ function buildVertices(
   let circleMeta: { center: [number, number]; radius: number } | null = null;
   const color = (item: RenderItem) => {
     const c = fillToRgba(item.fill);
-    return [c[0], c[1], c[2], c[3] * item.opacity] as [number, number, number, number];
+    return [c[0], c[1], c[2], c[3] * (item.opacity ?? 1)] as [number, number, number, number];
   };
   const xf = (item: RenderItem) => {
     const t = item.transform;

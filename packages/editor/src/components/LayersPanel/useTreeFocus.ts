@@ -1,13 +1,15 @@
 /**
- * useTreeFocus — manages roving tabindex and anchor for multi-select range.
+ * useTreeFocus — tracks the roving-tabindex index and range-select anchor.
  *
- * Exactly one row has tabIndex={0} (the "roving" focus). Arrow keys move the
- * focus index. For multi-select, an "anchor" index tracks the range start so
- * Shift+click and Shift+Arrow extend the selection from that anchor.
+ * `focusIdx` drives which row's treeitem gets tabIndex={0} (every other row
+ * gets -1) in LayersTree/LayersRow, and LayersTree's own effect moves actual
+ * DOM focus to match when the user is already navigating inside the tree.
+ * Arrow keys move focusIdx; for multi-select, `anchorIdx` tracks the range
+ * start so Shift+click and Shift+Arrow extend the selection from there.
  *
- * Research basis: APG Tree View pattern — roving tabindex,
- * aria-activedescendant alternative not used because we need focus on each
- * treeitem for drag-and-drop interoperability.
+ * Research basis: APG Tree View pattern — roving tabindex over
+ * aria-activedescendant, since real per-item DOM focus is what drag-and-drop
+ * interoperability and native Tab-into-tree behavior need.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 

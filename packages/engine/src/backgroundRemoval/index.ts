@@ -7,6 +7,7 @@ import {
   resizeMaskNearestNeighbor,
   thresholdMask,
 } from './maskOps';
+import { downscaleImageData } from './previewDownscale';
 import { runPooledInference } from './workerPool';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 import { workerModelIdForMethod } from './types';
@@ -162,6 +163,7 @@ async function invokeTauriRemoveBackground(
       decontaminate: options.decontaminate ?? true,
       clickX: options.clickPoint?.x,
       clickY: options.clickPoint?.y,
+      previewMaxDimension: options.previewMaxDimension,
     },
   });
 
@@ -225,7 +227,10 @@ async function removeBackgroundAI(
   const { session, executionProvider } = await createOrtSession(ort, modelPath);
 
   const inputSize = modelId === 'u2netp' ? 320 : 1024;
-  const resized = resizeImageData(imageData, inputSize, inputSize);
+  const previewMax = options.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION;
+  const sourceImage = previewMax > 0 ? downscaleImageData(imageData, previewMax) : imageData;
+
+  const resized = resizeImageDataToModelInput(sourceImage, inputSize, inputSize);
   const floatData = packChwFloat32(resized);
   const inputTensor = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
 
@@ -271,7 +276,8 @@ async function removeBackgroundAI(
   };
 }
 
-function resizeImageData(src: ImageData, targetW: number, targetH: number): ImageData {
+/** Resize source image to square model input dimensions (after preview downscale). */
+function resizeImageDataToModelInput(src: ImageData, targetW: number, targetH: number): ImageData {
   const canvas = document.createElement('canvas');
   canvas.width = targetW;
   canvas.height = targetH;
@@ -300,3 +306,22 @@ function maskToDataUrl(mask: Uint8Array, width: number, height: number): string 
   ctx.putImageData(imageData, 0, 0);
   return canvas.toDataURL('image/png');
 }
+
+export { maskToDataUrl as maskArrayToDataUrl };
+export {
+  decontaminateMask,
+  featherMaskArray,
+  filterMaskByComponents,
+  findConnectedComponents,
+  maskFromImageData,
+  maskToImageData,
+} from './maskOps';
+export { downscaleImageData } from './previewDownscale';
+export { refineHairMatting, TRIMap } from './refineHairMatting';
+export type { HairMattingOptions } from './refineHairMatting';
+export { solveTrimapMatting, trimapFromMask } from './trimapMatting';
+export type { TrimapMattingOptions } from './trimapMatting';
+export type { MaskComponent, MaskComponentBBox } from './maskOps';
+export { decodeMaskDataUrl } from './maskDecode';
+export { finalizeMaskResult } from './finalizeMask';
+export type { FinalizeMaskOptions, FinalizeMaskResult } from './finalizeMask';

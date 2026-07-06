@@ -25,6 +25,40 @@
   border-top: 3px solid var(--color-accent-primary);
 }
 
+.layers-panel__isolation-breadcrumb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  background: var(--color-surface-accent-subtle, var(--color-surface-raised));
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.layers-panel__isolation-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layers-panel__isolation-breadcrumb button {
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-subtle);
+  background: none;
+  color: var(--color-text-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.layers-panel__isolation-breadcrumb button:hover {
+  background: var(--color-surface-hover);
+}
+
 .layers-panel__collapse-all-btn {
   display: flex;
   align-items: center;

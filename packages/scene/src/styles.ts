@@ -114,7 +114,7 @@ export function deleteStyle(doc: Document, styleId: NodeId): Document {
   for (const [nodeId, node] of Object.entries(nodes)) {
     if ('styleId' in node && node.styleId === styleId) {
       const { styleId: _removed, ...rest } = node as unknown as Record<string, unknown>;
-      nodes[nodeId] = rest as SceneNode;
+      nodes[nodeId] = rest as unknown as SceneNode;
     }
   }
 
@@ -156,7 +156,7 @@ export function unlinkStyleFromNode(doc: Document, nodeId: NodeId): Document {
 
   return {
     ...doc,
-    nodes: { ...doc.nodes, [nodeId]: baked as SceneNode },
+    nodes: { ...doc.nodes, [nodeId]: baked as unknown as SceneNode },
   };
 }
 

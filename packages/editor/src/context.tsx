@@ -65,6 +65,7 @@ import {
   renameTimeline as renameTimelineDoc,
   renameTimelineMarker as renameTimelineMarkerDoc,
   removeTrack as removeTrackDoc,
+  updateTrack as updateTrackDoc,
   setActiveTimeline as setActiveTimelineDoc,
   triggerSMEvent,
   updateInteraction as updateInteractionDoc,
@@ -156,10 +157,25 @@ import {
 import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
+import {
+  bulkSetLayerColorDoc,
+  bulkSetNodeLockedDoc,
+  bulkSetNodeVisibleDoc,
+  findAllOfKindIds,
+  findSameKindIds,
+  findSameLayerColorIds,
+} from './components/LayersPanel/layerBulkOperations';
 import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPublish';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import { SelectionProvider, ViewportProvider } from './context/index';
-import type { CanvasMode, EditorState, GridOverlayMode, RulerMode, SessionMeta, ToolId } from './context/types';
+import type {
+  CanvasMode,
+  EditorState,
+  GridOverlayMode,
+  RulerMode,
+  SessionMeta,
+  ToolId,
+} from './context/types';
 import { applyDropPosition } from './dropUtils';
 import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
@@ -566,6 +582,23 @@ export interface EditorContextValue {
   ) => Promise<void>;
   /** Toggle preview of original image (without background removal mask). */
   setShowOriginalBg: (nodeId: import('@strata/scene').NodeId | null) => void;
+  setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
+  setTrimapEditOptions: (
+    opts: Partial<{
+      brushSize: number;
+      hardness: number;
+      penMode: import('./context/types').TrimapPenMode;
+    }>,
+  ) => void;
+  refineHairEdges: () => Promise<void>;
+  startTrimapEdit: () => void;
+  applyTrimapMatting: () => Promise<void>;
+  confirmSubjectPicker: (keepIds: number[]) => void;
+  cancelSubjectPicker: () => void;
+  getTrimapData: (
+    nodeId: NodeId,
+  ) => { data: Uint8Array; width: number; height: number } | null;
+  setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => void;
 
   /** Enter/exit prototype mode */
   setPrototypeMode: (active: boolean) => void;
@@ -604,6 +637,9 @@ export interface EditorContextValue {
   /** Active screen transition during prototype navigation. */
   prototypeTransition: ActivePrototypeTransition | null;
   clearPrototypeTransition: () => void;
+  /** Flow-view / inspector focus for a prototype interaction. */
+  selectedInteractionId: string | null;
+  selectPrototypeInteraction: (nodeId: NodeId, interactionId: string) => void;
 
   // ── Motion / Animation ─────────────────────────────────────────────────────
 
@@ -627,6 +663,12 @@ export interface EditorContextValue {
   removeTimeline: (id: string) => void;
   renameTimeline: (id: string, name: string) => void;
   removeTrack: (timelineId: string, trackId: string) => void;
+  setTrackNestedTimeline: (
+    timelineId: string,
+    trackId: string,
+    nestedTimelineId: string | null,
+    startProgress?: number,
+  ) => void;
   toggleTimelinePanel: () => void;
   addTimelineMarker: (timelineId: string, name: string, progress: number) => void;
   removeTimelineMarker: (timelineId: string, markerId: string) => void;
@@ -1113,6 +1155,7 @@ export function EditorProvider({
     null,
   );
   const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
+  const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
   const motionFacadeRef = useRef<MotionFacade | null>(null);
   /** In-flight single-image background removal — aborted on selection change/unmount. */
   const bgRemovalAbortRef = useRef<AbortController | null>(null);
@@ -1441,20 +1484,11 @@ export function EditorProvider({
 
       // B3: Select-similar actions
       selectAllWithSameType: () => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        const firstNode = state.document.nodes[sel[0]!];
-        if (!firstNode) return;
-        const targetKind = firstNode.kind;
-        const matchingIds: NodeId[] = [];
-        for (const n of Object.values(state.document.nodes)) {
-          if (n && n.kind === targetKind && n.visible && !n.locked && n.id !== firstNode.id) {
-            matchingIds.push(n.id);
-          }
-        }
-        if (matchingIds.length > 0) {
-          patch({ selection: [firstNode.id, ...matchingIds] });
-          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} ${targetKind} nodes`);
+        const ids = findSameKindIds(state.document, state.selection);
+        if (ids.length > 0) {
+          const kind = state.document.nodes[ids[0]!]?.kind;
+          patch({ selection: ids });
+          announcerRef.current?.announce(`Selected ${ids.length} ${kind} nodes`);
         }
       },
       selectAllWithSameFill: () => {
@@ -2807,74 +2841,31 @@ export function EditorProvider({
       },
 
       bulkSetNodeLocked: (ids, locked) => {
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of ids) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, locked } as SceneNode;
-          }
-          return { ...doc, nodes };
-        });
+        updateDoc((doc) => bulkSetNodeLockedDoc(doc, ids, locked));
       },
 
       bulkSetNodeVisible: (ids, visible) => {
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of ids) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, visible } as SceneNode;
-          }
-          return { ...doc, nodes };
-        });
+        updateDoc((doc) => bulkSetNodeVisibleDoc(doc, ids, visible));
       },
 
       bulkSetLayerColor: (ids, color) => {
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of ids) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, layerColor: color } as SceneNode;
-          }
-          return { ...doc, nodes };
-        });
+        updateDoc((doc) => bulkSetLayerColorDoc(doc, ids, color));
       },
 
       selectAllWithSameLayerColor: () => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        const firstNode = state.document.nodes[sel[0]!];
-        if (!firstNode) return;
-        const targetColor = firstNode.layerColor;
-        const matchingIds: NodeId[] = [];
-        for (const n of Object.values(state.document.nodes)) {
-          if (n?.visible && !n.locked && n.id !== firstNode.id && n.layerColor === targetColor) {
-            matchingIds.push(n.id);
-          }
-        }
-        if (matchingIds.length > 0) {
-          patch({ selection: [firstNode.id, ...matchingIds] });
-          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} nodes with color tag`);
+        const ids = findSameLayerColorIds(state.document, state.selection);
+        if (ids.length > 0) {
+          patch({ selection: ids });
+          announcerRef.current?.announce(`Selected ${ids.length} nodes with color tag`);
         }
       },
 
       selectAllOfType: () => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        const firstNode = state.document.nodes[sel[0]!];
-        if (!firstNode) return;
-        const targetKind = firstNode.kind;
-        const matchingIds: NodeId[] = [];
-        for (const n of Object.values(state.document.nodes)) {
-          if (n && n.kind === targetKind && n.id !== firstNode.id) {
-            matchingIds.push(n.id);
-          }
-        }
-        if (matchingIds.length > 0) {
-          patch({ selection: [firstNode.id, ...matchingIds] });
-          announcerRef.current?.announce(`Selected ${matchingIds.length + 1} ${targetKind} nodes`);
+        const ids = findAllOfKindIds(state.document, state.selection);
+        if (ids.length > 0) {
+          const kind = state.document.nodes[ids[0]!]?.kind;
+          patch({ selection: ids });
+          announcerRef.current?.announce(`Selected ${ids.length} ${kind} nodes`);
         }
       },
 
@@ -3899,21 +3890,27 @@ export function EditorProvider({
         patch({ showOriginalBgNodeId: nodeId });
       },
 
-      setRefineMaskOptions: (opts) => {
+      setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => {
         setState((s) => ({
           ...s,
           refineMaskOptions: { ...s.refineMaskOptions, ...opts },
         }));
       },
 
-      setTrimapEditOptions: (opts) => {
+      setTrimapEditOptions: (
+        opts: Partial<{
+          brushSize: number;
+          hardness: number;
+          penMode: import('./context/types').TrimapPenMode;
+        }>,
+      ) => {
         setState((s) => ({
           ...s,
           trimapEditOptions: { ...s.trimapEditOptions, ...opts },
         }));
       },
 
-      confirmSubjectPicker: (keepIds) => {
+      confirmSubjectPicker: (keepIds: number[]) => {
         const session = stateRef.current.subjectPickerSession;
         if (!session) return;
         void (async () => {
@@ -4047,9 +4044,9 @@ export function EditorProvider({
         }
       },
 
-      getTrimapData: (nodeId) => trimapStoreRef.current.get(nodeId) ?? null,
+      getTrimapData: (nodeId: NodeId) => trimapStoreRef.current.get(nodeId) ?? null,
 
-      setTrimapData: (nodeId, data, width, height) => {
+      setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => {
         trimapStoreRef.current.set(nodeId, { data, width, height });
       },
 
@@ -4112,6 +4109,7 @@ export function EditorProvider({
                   toScreenId: actionResult.targetId,
                   transition,
                   smartAnimateValues: smartValues,
+                  layerMatches: prototypeSmartAnimateRef.current?.matches,
                   startedAt: performance.now(),
                 });
               }
@@ -4216,6 +4214,12 @@ export function EditorProvider({
 
       updateNodeInteraction: (interactionId, updates) => {
         updateDoc((doc) => updateInteractionDoc(doc, interactionId, updates));
+      },
+
+      selectedInteractionId,
+      selectPrototypeInteraction: (nodeId, interactionId) => {
+        setSelectedInteractionId(interactionId);
+        patch({ selection: [nodeId] });
       },
 
       prototypeTransition,
@@ -4365,6 +4369,16 @@ export function EditorProvider({
         invalidateSamplerCache();
       },
 
+      setTrackNestedTimeline: (timelineId, trackId, nestedTimelineId, startProgress = 0) => {
+        updateDoc((doc) =>
+          updateTrackDoc(doc, timelineId, trackId, {
+            nestedTimelineId: nestedTimelineId ?? undefined,
+            nestedStartProgress: nestedTimelineId ? startProgress : undefined,
+          }),
+        );
+        invalidateSamplerCache();
+      },
+
       addTimelineMarker: (timelineId, name, progress) => {
         const markerId = `mk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         updateDoc((doc) => addTimelineMarkerDoc(doc, timelineId, { id: markerId, name, progress }));
@@ -4490,6 +4504,7 @@ export function EditorProvider({
       showExportDialog,
       prototypeCurrentScreen,
       prototypeTransition,
+      selectedInteractionId,
       platform,
     ],
   );

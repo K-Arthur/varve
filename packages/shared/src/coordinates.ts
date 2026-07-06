@@ -22,10 +22,7 @@ export function artboardToWorld(point: Point, artboard: Rect): Point {
 }
 
 /** World-space ruler origin for tick labels (top-left of artboard + optional offset). */
-export function getArtboardRulerOrigin(
-  artboard: Rect,
-  rulerOrigin?: Point,
-): Point {
+export function getArtboardRulerOrigin(artboard: Rect, rulerOrigin?: Point): Point {
   if (rulerOrigin) {
     return [artboard.x + rulerOrigin[0], artboard.y + rulerOrigin[1]];
   }

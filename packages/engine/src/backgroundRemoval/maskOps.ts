@@ -150,8 +150,7 @@ export function packChwFloat32(imageData: {
   return floatData;
 }
 
-/**
- * Compute confidence from raw sigmoid outputs as mean distance from 0.5,
+/** Compute confidence from raw sigmoid outputs as mean distance from 0.5,
  * scaled to [0, 1]. Higher separation from the decision boundary = higher confidence.
  */
 export function computeMaskConfidence(rawOutput: Float32Array): number {
@@ -161,4 +160,200 @@ export function computeMaskConfidence(rawOutput: Float32Array): number {
     sum += Math.abs((rawOutput[i] ?? 0) - 0.5);
   }
   return Math.min(1, (sum / rawOutput.length) * 2);
+}
+
+/** Bounding box of a connected mask component. */
+export interface MaskComponentBBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** One foreground blob from connected-component labeling. */
+export interface MaskComponent {
+  id: number;
+  pixelCount: number;
+  bbox: MaskComponentBBox;
+}
+
+const FG_THRESHOLD = 128;
+
+/**
+ * 8-connected component labeling on a binary/soft mask.
+ * Returns components sorted by pixel count descending.
+ */
+export function findConnectedComponents(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  threshold = FG_THRESHOLD,
+): MaskComponent[] {
+  if (width <= 0 || height <= 0 || mask.length === 0) return [];
+
+  const labels = new Int32Array(width * height);
+  let nextId = 1;
+  const components = new Map<
+    number,
+    { count: number; minX: number; minY: number; maxX: number; maxY: number }
+  >();
+
+  const idx = (x: number, y: number) => y * width + x;
+  const neighbors8 = [
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+    [-1, 0],
+    [1, 0],
+    [-1, 1],
+    [0, 1],
+    [1, 1],
+  ] as const;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = idx(x, y);
+      if ((mask[i] ?? 0) < threshold || labels[i] !== 0) continue;
+
+      const stack: number[] = [i];
+      labels[i] = nextId;
+      let count = 0;
+      let minX = x;
+      let minY = y;
+      let maxX = x;
+      let maxY = y;
+
+      while (stack.length > 0) {
+        const cur = stack.pop()!;
+        const cy = Math.floor(cur / width);
+        const cx = cur - cy * width;
+        count++;
+        if (cx < minX) minX = cx;
+        if (cy < minY) minY = cy;
+        if (cx > maxX) maxX = cx;
+        if (cy > maxY) maxY = cy;
+
+        for (const [dx, dy] of neighbors8) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          const ni = idx(nx, ny);
+          if ((mask[ni] ?? 0) < threshold || labels[ni] !== 0) continue;
+          labels[ni] = nextId;
+          stack.push(ni);
+        }
+      }
+
+      components.set(nextId, {
+        count,
+        minX,
+        minY,
+        maxX,
+        maxY,
+      });
+      nextId++;
+    }
+  }
+
+  const result: MaskComponent[] = [];
+  for (const [id, c] of components) {
+    result.push({
+      id,
+      pixelCount: c.count,
+      bbox: {
+        x: c.minX,
+        y: c.minY,
+        w: c.maxX - c.minX + 1,
+        h: c.maxY - c.minY + 1,
+      },
+    });
+  }
+  result.sort((a, b) => b.pixelCount - a.pixelCount);
+  return result;
+}
+
+/** Keep only pixels belonging to the given component ids (8-connected labels). */
+export function filterMaskByComponents(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  keepIds: ReadonlySet<number>,
+  threshold = FG_THRESHOLD,
+): Uint8Array {
+  if (keepIds.size === 0) return new Uint8Array(mask.length);
+
+  const labels = new Int32Array(width * height);
+  let nextId = 1;
+  const idx = (x: number, y: number) => y * width + x;
+  const neighbors8 = [
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+    [-1, 0],
+    [1, 0],
+    [-1, 1],
+    [0, 1],
+    [1, 1],
+  ] as const;
+
+  const labelToKeep = new Map<number, boolean>();
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = idx(x, y);
+      if ((mask[i] ?? 0) < threshold || labels[i] !== 0) continue;
+
+      const stack: number[] = [i];
+      labels[i] = nextId;
+
+      while (stack.length > 0) {
+        const cur = stack.pop()!;
+        const cy = Math.floor(cur / width);
+        const cx = cur - cy * width;
+        for (const [dx, dy] of neighbors8) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          const ni = idx(nx, ny);
+          if ((mask[ni] ?? 0) < threshold || labels[ni] !== 0) continue;
+          labels[ni] = nextId;
+          stack.push(ni);
+        }
+      }
+      labelToKeep.set(nextId, keepIds.has(nextId));
+      nextId++;
+    }
+  }
+
+  const result = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) {
+    const label = labels[i] ?? 0;
+    if (label > 0 && labelToKeep.get(label)) {
+      result[i] = mask[i] ?? 0;
+    }
+  }
+  return result;
+}
+
+/** Extract single-channel mask from RGBA ImageData (red channel; our mask PNGs store value in RGB). */
+export function maskFromImageData(imageData: ImageData): Uint8Array {
+  const { width, height, data } = imageData;
+  const mask = new Uint8Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    mask[i] = data[i * 4] ?? 0;
+  }
+  return mask;
+}
+
+/** Pack single-channel mask into RGBA ImageData for data URL encoding. */
+export function maskToImageData(mask: Uint8Array, width: number, height: number): ImageData {
+  const imageData = new ImageData(width, height);
+  for (let i = 0; i < mask.length; i++) {
+    const v = mask[i] ?? 0;
+    imageData.data[i * 4] = v;
+    imageData.data[i * 4 + 1] = v;
+    imageData.data[i * 4 + 2] = v;
+    imageData.data[i * 4 + 3] = 255;
+  }
+  return imageData;
 }

@@ -13,6 +13,8 @@ import { managedColorToRgba } from '@strata/shared';
 export { timelineToCSSKeyframes } from './animation-css';
 export { timelineToLottieJSON } from './animation-lottie';
 export { timelineToSVGAnimations } from './animation-svg';
+export { exportInteractiveAnimations } from './animation-interactive';
+export type { InteractiveExportOptions, InteractiveExportResult } from './animation-interactive';
 export { cssTargetGaps, exportNodeToCss } from './css';
 export { cssModulesTargetGaps, exportNodeToCssModules } from './css-modules';
 export { exportNodeToFlutter, flutterTargetGaps } from './flutter';

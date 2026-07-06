@@ -4,12 +4,20 @@
  * Uses OffscreenCanvas with requestIdleCallback for non-blocking rendering.
  * Falls back to setTimeout if requestIdleCallback is unavailable.
  *
+ * Backed by a shared LRU cache (`ThumbnailCache`) keyed on node identity +
+ * kind + a fill hash: rows re-mount constantly as the layers-panel
+ * virtualizer scrolls them in/out of view, and without a cache every
+ * re-mount re-rendered from scratch. On a cache hit the thumbnail is
+ * available synchronously (no idle-callback round trip); a miss falls back
+ * to the original async render path and populates the cache for next time.
+ *
  * Research basis: OffscreenCanvas (WICG), idle-until-urgent pattern.
  */
 
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ThumbnailCache, thumbnailCacheKey } from './thumbnailCache';
 
 const THUMB_W = 28;
 const THUMB_H = 28;
@@ -102,12 +110,18 @@ function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTMLCanva
   return canvas;
 }
 
-export function useThumbnail(node: SceneNode): string | null {
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
+/** Shared across every row — thumbnails survive virtualizer mount/unmount. */
+export const sharedThumbnailCache = new ThumbnailCache();
+
+export function useThumbnail(node: SceneNode, docId?: string): string | null {
+  const cacheKey = thumbnailCacheKey(node, docId);
+  const [dataUrl, setDataUrl] = useState<string | null>(
+    () => sharedThumbnailCache.get(cacheKey) ?? null,
+  );
   const nodeRef = useRef(node);
   nodeRef.current = node;
 
-  const render = useCallback(() => {
+  const render = useCallback((key: string) => {
     let canvas: OffscreenCanvas | HTMLCanvasElement;
     let useOffscreen = false;
 
@@ -125,25 +139,37 @@ export function useThumbnail(node: SceneNode): string | null {
     if (useOffscreen) {
       (canvas as OffscreenCanvas).convertToBlob().then((blob) => {
         const reader = new FileReader();
-        reader.onloadend = () => setDataUrl(reader.result as string);
+        reader.onloadend = () => {
+          const url = reader.result as string;
+          sharedThumbnailCache.set(key, url);
+          setDataUrl(url);
+        };
         reader.readAsDataURL(blob);
       });
     } else {
-      setDataUrl((canvas as HTMLCanvasElement).toDataURL('image/png'));
+      const url = (canvas as HTMLCanvasElement).toDataURL('image/png');
+      sharedThumbnailCache.set(key, url);
+      setDataUrl(url);
     }
   }, []);
 
   useEffect(() => {
-    // Reset thumbnail on node change, render in idle callback
+    const cached = sharedThumbnailCache.get(cacheKey);
+    if (cached) {
+      setDataUrl(cached);
+      return;
+    }
+
+    // Cache miss — reset and render in idle callback.
     setDataUrl(null);
 
     if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(render, { timeout: 300 });
+      const id = requestIdleCallback(() => render(cacheKey), { timeout: 300 });
       return () => cancelIdleCallback(id);
     }
-    const id = setTimeout(render, 50);
+    const id = setTimeout(() => render(cacheKey), 50);
     return () => clearTimeout(id);
-  }, [node.id, node.kind, render]);
+  }, [cacheKey, render]);
 
   return dataUrl;
 }

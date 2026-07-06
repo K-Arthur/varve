@@ -98,7 +98,9 @@ describe('ModelDownloadDialog — consent gate', () => {
 
   it('shows actionable copy when storage quota is exceeded', async () => {
     mockDownloadModel.mockRejectedValue(
-      new Error('Storage quota exceeded. Free disk space or delete old models in Settings, Offline Models.'),
+      new Error(
+        'Storage quota exceeded. Free disk space or delete old models in Settings, Offline Models.',
+      ),
     );
     render(
       <ModelDownloadDialog

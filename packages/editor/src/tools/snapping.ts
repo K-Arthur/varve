@@ -142,11 +142,21 @@ export function snapPosition(
     const snappedGridY = Math.round(y / grid) * grid;
     if (Math.abs(snappedGridX - x) < thresh) {
       snappedX = snappedGridX;
-      guides.push({ axis: 'vertical', position: snappedGridX, label: `${snappedGridX}px`, type: 'edge' });
+      guides.push({
+        axis: 'vertical',
+        position: snappedGridX,
+        label: `${snappedGridX}px`,
+        type: 'edge',
+      });
     }
     if (Math.abs(snappedGridY - y) < thresh) {
       snappedY = snappedGridY;
-      guides.push({ axis: 'horizontal', position: snappedGridY, label: `${snappedGridY}px`, type: 'edge' });
+      guides.push({
+        axis: 'horizontal',
+        position: snappedGridY,
+        label: `${snappedGridY}px`,
+        type: 'edge',
+      });
     }
   }
 
@@ -237,7 +247,15 @@ export function snapPosition(
     session = { ...session, stickyX: stickyResult.snapped ? stickyResult.session : null };
     if (stickyResult.snapped || !sticky) guides.push(bestXGuide);
   } else if (sticky && session.stickyX) {
-    const hold = tryStickyAxis(x, x, session.stickyX.guidePosition, session.stickyX, thresh, release, true);
+    const hold = tryStickyAxis(
+      x,
+      x,
+      session.stickyX.guidePosition,
+      session.stickyX,
+      thresh,
+      release,
+      true,
+    );
     if (hold.snapped) snappedX = hold.coord;
     else session = { ...session, stickyX: null };
   }
@@ -256,7 +274,15 @@ export function snapPosition(
     session = { ...session, stickyY: stickyResult.snapped ? stickyResult.session : null };
     if (stickyResult.snapped || !sticky) guides.push(bestYGuide);
   } else if (sticky && session.stickyY) {
-    const hold = tryStickyAxis(y, y, session.stickyY.guidePosition, session.stickyY, thresh, release, true);
+    const hold = tryStickyAxis(
+      y,
+      y,
+      session.stickyY.guidePosition,
+      session.stickyY,
+      thresh,
+      release,
+      true,
+    );
     if (hold.snapped) snappedY = hold.coord;
     else session = { ...session, stickyY: null };
   }
@@ -282,7 +308,12 @@ export function snapPosition(
     );
     if (Math.abs(cx - best.mid) < thresh * 3) {
       snappedX = x - (cx - best.mid);
-      guides.push({ axis: 'vertical', position: best.mid, type: 'spacing', label: `${Math.round(best.gap)}px` });
+      guides.push({
+        axis: 'vertical',
+        position: best.mid,
+        type: 'spacing',
+        label: `${Math.round(best.gap)}px`,
+      });
     }
   }
   if (yGaps.length > 0) {
@@ -291,7 +322,12 @@ export function snapPosition(
     );
     if (Math.abs(cy - best.mid) < thresh * 3) {
       snappedY = y - (cy - best.mid);
-      guides.push({ axis: 'horizontal', position: best.mid, type: 'spacing', label: `${Math.round(best.gap)}px` });
+      guides.push({
+        axis: 'horizontal',
+        position: best.mid,
+        type: 'spacing',
+        label: `${Math.round(best.gap)}px`,
+      });
     }
   }
 

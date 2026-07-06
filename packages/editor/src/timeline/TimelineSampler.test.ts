@@ -403,9 +403,9 @@ describe('sampleTimeline', () => {
         ],
       });
       const result = sampleTimeline(tl, 500).overrides.get('n1')?.get('fill') as number[];
-      expect(result[0]).toBe(128);
-      expect(result[1]).toBe(128);
-      expect(result[2]).toBe(128);
+      expect(result[0]).toBe(127.5);
+      expect(result[1]).toBe(127.5);
+      expect(result[2]).toBe(127.5);
     });
 
     it('interpolates affine transforms', () => {
@@ -593,6 +593,133 @@ describe('composite operations', () => {
     });
     const result = sampleTimeline(tl, 0);
     expect(result.overrides.get('n1')?.get('opacity')).toBeCloseTo(0.3);
+  });
+});
+
+describe('findKeyframeSegmentIndex hot path', () => {
+  it('1000-keyframe track midpoint matches linear reference', async () => {
+    const { findKeyframeSegmentIndex } = await import('./TimelineSampler');
+    const keyframes = Array.from({ length: 1000 }, (_, i) => ({
+      progress: i / 999,
+      value: i,
+    }));
+    const tl = makeTimeline({
+      duration: 1000,
+      tracks: [{ id: 'tr-1', nodeId: 'n1', property: 'opacity', keyframes }],
+    });
+
+    let linearRef = 0;
+    for (let i = 0; i < keyframes.length - 1; i++) {
+      const before = keyframes[i]!;
+      const after = keyframes[i + 1]!;
+      if (0.5 >= before.progress && 0.5 <= after.progress) {
+        const range = after.progress - before.progress;
+        const localT = range > 0 ? (0.5 - before.progress) / range : 0;
+        linearRef =
+          (before.value as number) + ((after.value as number) - (before.value as number)) * localT;
+        break;
+      }
+    }
+
+    const result = sampleTimeline(tl, 500).overrides.get('n1')?.get('opacity');
+    expect(result).toBeCloseTo(linearRef, 5);
+    expect(findKeyframeSegmentIndex(keyframes, 0.5)).toBe(499);
+  });
+});
+
+describe('nested timeline sampling', () => {
+  it('at startProgress returns nested t=0 values', () => {
+    const doc = createDocument();
+    const nested: Timeline = {
+      id: 'tl-nested',
+      name: 'Nested',
+      duration: 2000,
+      defaultEasing: { kind: 'linear' },
+      tracks: [
+        {
+          id: 'ntr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [
+            { progress: 0, value: 0.2 },
+            { progress: 1, value: 1 },
+          ],
+        },
+      ],
+    };
+    const parent: Timeline = {
+      id: 'tl-parent',
+      name: 'Parent',
+      duration: 4000,
+      defaultEasing: { kind: 'linear' },
+      tracks: [
+        {
+          id: 'ptr-1',
+          nodeId: 'unused',
+          property: 'opacity',
+          keyframes: [],
+          nestedTimelineId: 'tl-nested',
+          nestedStartProgress: 0.25,
+        },
+      ],
+    };
+    const fullDoc = {
+      ...doc,
+      timelines: { 'tl-parent': parent, 'tl-nested': nested },
+    };
+
+    const before = sampleTimelineAt(fullDoc, 'tl-parent', 500);
+    expect(before.overrides.size).toBe(0);
+
+    const atStart = sampleTimelineAt(fullDoc, 'tl-parent', 1000);
+    expect(atStart.overrides.get('n1')?.get('opacity')).toBe(0.2);
+  });
+
+  it('nested overrides win on property conflict', () => {
+    const doc = createDocument();
+    const nested: Timeline = {
+      id: 'tl-nested',
+      name: 'Nested',
+      duration: 1000,
+      defaultEasing: { kind: 'linear' },
+      tracks: [
+        {
+          id: 'ntr-1',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [{ progress: 0, value: 0.9 }],
+        },
+      ],
+    };
+    const parent: Timeline = {
+      id: 'tl-parent',
+      name: 'Parent',
+      duration: 1000,
+      defaultEasing: { kind: 'linear' },
+      tracks: [
+        {
+          id: 'ptr-direct',
+          nodeId: 'n1',
+          property: 'opacity',
+          keyframes: [{ progress: 0, value: 0.1 }],
+        },
+        {
+          id: 'ptr-nested',
+          nodeId: 'unused',
+          property: 'opacity',
+          keyframes: [],
+          nestedTimelineId: 'tl-nested',
+          nestedStartProgress: 0,
+        },
+      ],
+    };
+    const fullDoc = {
+      ...doc,
+      timelines: { 'tl-parent': parent, 'tl-nested': nested },
+    };
+
+    const result = sampleTimelineAt(fullDoc, 'tl-parent', 0);
+    expect(result.overrides.get('n1')?.get('opacity')).toBe(0.9);
   });
 });
 

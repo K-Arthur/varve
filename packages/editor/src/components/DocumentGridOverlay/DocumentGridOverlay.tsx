@@ -2,7 +2,7 @@
  * Document-level grid overlays — baseline and isometric guides.
  */
 import { useMemo } from 'react';
-import type { GridOverlayMode } from '../context/types';
+import type { GridOverlayMode } from '../../context/types';
 import './DocumentGridOverlay.css';
 
 interface DocumentGridOverlayProps {
@@ -42,7 +42,7 @@ export function DocumentGridOverlay({
 
     if (mode === 'baseline') {
       const startY = Math.floor(-pan.y / zoom / baselineStep) * baselineStep - baselineStep * 2;
-      const endY = startY + (height / zoom) + baselineStep * 4;
+      const endY = startY + height / zoom + baselineStep * 4;
       for (let y = startY; y <= endY; y += baselineStep) {
         const [x1, y1] = toScreen(-10000, y);
         const [x2, y2] = toScreen(10000, y);

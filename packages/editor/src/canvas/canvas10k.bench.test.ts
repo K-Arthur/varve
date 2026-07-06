@@ -8,7 +8,7 @@ import { nodeWorldBounds } from '../scene/world';
 
 describe('canvas 10k bench', () => {
   it('viewport cull 10k nodes under 500ms', () => {
-    let doc = createDocument(true);
+    let doc = createDocument('bench', true);
     const ids: string[] = [];
     for (let i = 0; i < 10_000; i++) {
       const col = i % 200;
@@ -22,7 +22,11 @@ describe('canvas 10k bench', () => {
           transform: [1, 0, 0, 1, col * 100, row * 100],
         },
       );
-      doc = { ...doc, nodes: { ...doc.nodes, [id]: node }, rootChildren: [...doc.rootChildren, id] };
+      doc = {
+        ...doc,
+        nodes: { ...doc.nodes, [id]: node },
+        rootChildren: [...doc.rootChildren, id],
+      };
       ids.push(id);
     }
 

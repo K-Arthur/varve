@@ -17,6 +17,10 @@ const { mockRemoveBackground, mockImageCache, mockIsModelAvailable } = vi.hoiste
 vi.mock('@strata/engine', () => ({
   getImageCache: () => mockImageCache,
   removeBackground: mockRemoveBackground,
+  finalizeMaskResult: vi.fn(async (result: { maskDataUrl: string }) => ({
+    ...result,
+    needsSubjectPicker: false,
+  })),
   getModelLoaderReady: vi.fn().mockResolvedValue({
     isModelAvailable: mockIsModelAvailable,
     getState: () => 'ready',

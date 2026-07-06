@@ -91,7 +91,11 @@ export function classifyFromActionTracker(tracker: {
 
   let totalTime = 0;
   if (recentActions.length >= 2) {
-    totalTime = recentActions[recentActions.length - 1]?.timestamp - recentActions[0]?.timestamp;
+    const lastTs = recentActions[recentActions.length - 1]?.timestamp;
+    const firstTs = recentActions[0]?.timestamp;
+    if (lastTs != null && firstTs != null) {
+      totalTime = lastTs - firstTs;
+    }
   }
   const avgActionTimeSec =
     recentActions.length > 1 ? totalTime / (recentActions.length - 1) / 1000 : 0;

@@ -48,6 +48,7 @@ export const TOOL_ICONS = {
   spotHeal: 'Wand',
   patch: 'SquareStack',
   refineMask: 'Paintbrush',
+  trimapEdit: 'Paintbrush',
   adjustment: 'SlidersHorizontal',
 } as const satisfies Record<string, IconName>;
 

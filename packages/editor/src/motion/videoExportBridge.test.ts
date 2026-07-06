@@ -27,11 +27,11 @@ describe('resolveVideoExportBounds', () => {
 describe('createVideoFrameRenderer', () => {
   it('calls sampler at requested times via renderFrame', async () => {
     const doc = createDocument();
-    const rect = makeShapeNode({
-      id: 'n1',
-      name: 'Rect',
-      shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
-    });
+    const rect = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      { name: 'Rect' },
+    );
     doc.nodes.n1 = rect;
     doc.rootChildren = ['n1'];
 
@@ -58,11 +58,11 @@ describe('createVideoFrameRenderer', () => {
 
   it('returns RGBA frame bytes', async () => {
     const doc = createDocument();
-    const rect = makeShapeNode({
-      id: 'n1',
-      name: 'Rect',
-      shape: { kind: 'rect', x: 10, y: 10, w: 40, h: 40 },
-    });
+    const rect = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 10, y: 10, w: 40, h: 40 },
+      { name: 'Rect' },
+    );
     doc.nodes.n1 = rect;
     doc.rootChildren = ['n1'];
 

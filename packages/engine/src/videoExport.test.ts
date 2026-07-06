@@ -34,9 +34,12 @@ describe('checkVideoExportSupport', () => {
   });
 
   it('reports supported when VideoEncoder and canvas are available', () => {
-    vi.stubGlobal('VideoEncoder', class VideoEncoder {
-      static isConfigSupported = vi.fn(async () => ({ supported: true }));
-    });
+    vi.stubGlobal(
+      'VideoEncoder',
+      class VideoEncoder {
+        static isConfigSupported = vi.fn(async () => ({ supported: true }));
+      },
+    );
     vi.stubGlobal('VideoFrame', class VideoFrame {});
     vi.stubGlobal('OffscreenCanvas', class OffscreenCanvas {});
     const result = checkVideoExportSupport();
@@ -102,15 +105,18 @@ describe('exportTimelineToVideo frame timing (mock encoder)', () => {
 
     vi.stubGlobal('VideoEncoder', MockVideoEncoder);
     vi.stubGlobal('VideoFrame', MockVideoFrame);
-    vi.stubGlobal('OffscreenCanvas', class OffscreenCanvas {
-      width = 0;
-      height = 0;
-      getContext() {
-        return {
-          putImageData: vi.fn(),
-        };
-      }
-    });
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class OffscreenCanvas {
+        width = 0;
+        height = 0;
+        getContext() {
+          return {
+            putImageData: vi.fn(),
+          };
+        }
+      },
+    );
     vi.stubGlobal(
       'ImageData',
       class ImageData {
@@ -153,11 +159,14 @@ describe('exportTimelineToVideo frame timing (mock encoder)', () => {
         close() {}
       },
     );
-    vi.stubGlobal('OffscreenCanvas', class OffscreenCanvas {
-      getContext() {
-        return { putImageData: vi.fn() };
-      }
-    });
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class OffscreenCanvas {
+        getContext() {
+          return { putImageData: vi.fn() };
+        }
+      },
+    );
     vi.stubGlobal(
       'ImageData',
       class ImageData {

@@ -60,8 +60,15 @@ import {
 import { LayersRow } from './LayersRow';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
-import { createSearchIndex, searchIndex } from './layerSearchIndex';
-import { useFlatTree } from './useFlatTree';
+import {
+  createSearchIndex,
+  type LayerSearchIndex,
+  removeFromIndex,
+  searchIndex,
+  updateIndex,
+} from './layerSearchIndex';
+import { usePresence } from './presenceStore';
+import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
 import { useTreeFocus } from './useTreeFocus';
 import { useTypeAhead } from './useTypeAhead';
 
@@ -157,6 +164,141 @@ export function collapseOthers(
   return next;
 }
 
+/**
+ * Resolve which node ids should actually move when a drag starts on a row
+ * that's part of a multi-selection. The whole selection is dragged together
+ * (matching Figma/Sketch/Illustrator), but only "top-level" selected ids move
+ * directly — a selected node whose parent is also selected is carried along
+ * automatically as part of its parent's subtree, and must not be reparented
+ * a second time on its own. Falls back to `[activeId]` when the dragged row
+ * isn't part of a multi-selection, preserving today's single-item behavior.
+ *
+ * The returned ids are ordered to match their visual (flattened) order so
+ * callers can reparent them one at a time at consecutive target indices.
+ */
+export function resolveDragMoveIds(
+  doc: Document,
+  selection: NodeId[],
+  entries: FlatEntry[],
+  activeId: NodeId,
+  parentCache?: ParentIndexCache | null,
+): NodeId[] {
+  if (selection.length <= 1 || !selection.includes(activeId)) {
+    return [activeId];
+  }
+
+  const selectedSet = new Set(selection);
+  const isTopLevel = (id: NodeId): boolean => {
+    let parent = getParentFast(doc, id, parentCache);
+    while (parent) {
+      if (selectedSet.has(parent)) return false;
+      parent = getParentFast(doc, parent, parentCache);
+    }
+    return true;
+  };
+
+  const topLevelSet = new Set(selection.filter(isTopLevel));
+  const ordered = entries.filter((e) => topLevelSet.has(e.node.id)).map((e) => e.node.id);
+  for (const id of topLevelSet) {
+    if (!ordered.includes(id)) ordered.push(id);
+  }
+  return ordered;
+}
+
+/**
+ * Compute (id, index) insertion steps for landing a multi-node move
+ * contiguously at `basePosition` in `targetSiblings`, applied as a sequence
+ * of single-item splice-style inserts (matching how `reparentNode` is called
+ * one node at a time). `moveIdsVisualOrder` must be in panel/entries order
+ * (front-most/highest-array-index first, since flattenTree walks children
+ * back-to-front) — this function reverses it to ascending array-index order
+ * so each call's index composes correctly against the previous ones and the
+ * group's original relative order is preserved either way you read it.
+ */
+export function computeMultiMoveSteps(
+  targetSiblings: NodeId[],
+  moveIdsVisualOrder: NodeId[],
+  basePosition: number,
+): Array<{ id: NodeId; index: number }> {
+  const shiftCount = moveIdsVisualOrder.filter((id) => {
+    const idx = targetSiblings.indexOf(id);
+    return idx !== -1 && idx < basePosition;
+  }).length;
+  const adjustedBase = basePosition - shiftCount;
+
+  const ascendingOrder = [...moveIdsVisualOrder].reverse();
+  return ascendingOrder.map((id, i) => ({ id, index: adjustedBase + i }));
+}
+
+/**
+ * Decide whether the search index can be patched in place or needs a full
+ * rebuild, given the previous and current document. `prevIndex` is mutated
+ * in place when patching (cheap: only touched nodes are re-tokenized) — the
+ * return value is always a fresh object reference so memoized consumers
+ * keyed on it (e.g. matchedIds) correctly recompute after a patch.
+ */
+export function updateSearchIndexIncremental(
+  prevDoc: Document | null,
+  doc: Document,
+  prevIndex: LayerSearchIndex | null,
+): LayerSearchIndex {
+  if (!prevIndex || !prevDoc) {
+    return createSearchIndex(doc);
+  }
+
+  const diff = computeDocumentDiff(prevDoc, doc);
+  if (diff.structureChanged) {
+    return createSearchIndex(doc);
+  }
+  if (diff.changedNodeIds.length === 0) {
+    return prevIndex;
+  }
+
+  for (const id of diff.changedNodeIds) {
+    const node = doc.nodes[id];
+    if (node) updateIndex(prevIndex, id, node);
+    else removeFromIndex(prevIndex, id);
+  }
+
+  return { ...prevIndex };
+}
+
+/**
+ * Precompute keyframe counts for every animated node in one pass per
+ * document reference. `getKeyframeCount` scans all tracks in all timelines
+ * per call — calling it once per row per render (as before) meant that cost
+ * scaled with (visible rows × timelines × tracks) on *every* render, not just
+ * document changes.
+ */
+export function computeKeyframeCounts(
+  doc: Document,
+  animatedNodes: Set<NodeId>,
+): Map<NodeId, number> {
+  const counts = new Map<NodeId, number>();
+  for (const id of animatedNodes) {
+    counts.set(id, getKeyframeCount(doc, id));
+  }
+  return counts;
+}
+
+/**
+ * Compute the drop zone for a drag-over row from the pointer's relative
+ * vertical position within that row (0 = top edge, 1 = bottom edge). The
+ * middle third of a container row (and only a container, and never a
+ * descendant of the node being dragged — that would create a cycle) is the
+ * "into" band; otherwise the row is split top/bottom into before/after.
+ */
+export function computeDropZone(
+  relativeY: number,
+  overIsContainer: boolean,
+  isDescendant: boolean,
+): 'before' | 'after' | 'into' {
+  if (overIsContainer && !isDescendant && relativeY > 0.33 && relativeY < 0.67) {
+    return 'into';
+  }
+  return relativeY < 0.5 ? 'before' : 'after';
+}
+
 export function expandToDepth1(
   doc: Document,
   containerId: NodeId,
@@ -202,6 +344,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     reparentNode,
     announce,
     revealSelection,
+    beginTransaction,
+    commitTransaction,
+    exitIsolation,
   } = useEditor();
 
   // Pre-expand all containers with children on init so every layer is visible
@@ -223,8 +368,22 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     zone: 'before' | 'after' | 'into';
   } | null>(null);
 
-  // Build search index once per document load
-  const searchIdx = useMemo(() => createSearchIndex(state.document), [state.document]);
+  // Search index: patched incrementally on property-only document changes
+  // (renames are the common case while a search/filter is active) instead of
+  // a full O(n) rebuild on every document reference change. Structural
+  // changes (add/remove/reparent) still fall back to a full rebuild.
+  const searchIndexRef = useRef<LayerSearchIndex | null>(null);
+  const prevDocForIndexRef = useRef<Document | null>(null);
+  const searchIdx = useMemo(() => {
+    const next = updateSearchIndexIncremental(
+      prevDocForIndexRef.current,
+      state.document,
+      searchIndexRef.current,
+    );
+    searchIndexRef.current = next;
+    prevDocForIndexRef.current = state.document;
+    return next;
+  }, [state.document]);
 
   // Pre-compute matched IDs via search index when filtering by name
   const matchedIds = useMemo<Set<NodeId> | undefined>(() => {
@@ -235,6 +394,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   // Pre-compute animated nodes for motion indicators
   const animatedNodes = useMemo(() => getNodesInTimeline(state.document), [state.document]);
+  const keyframeCounts = useMemo(
+    () => computeKeyframeCounts(state.document, animatedNodes),
+    [state.document, animatedNodes],
+  );
 
   const entries = useFlatTree(
     state.document,
@@ -242,6 +405,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     filterSpec,
     matchedIds,
     state.document.activePageId ?? undefined,
+    state.isolatedNodeId ?? undefined,
   );
 
   // Dev-mode performance benchmark: log when flatten takes > 50ms
@@ -264,6 +428,18 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   const rowRefs = useRef<Map<NodeId, HTMLDivElement>>(new Map());
   const autoExpandTimerRef = useRef<number | null>(null);
   const autoScrollRafRef = useRef<number | null>(null);
+
+  // Roving tabindex: move actual DOM focus to the newly-focused row whenever
+  // focusIdx changes *while the user is already keyboard-navigating inside
+  // this tree* (an element within treeRef currently holds focus). Guarded so
+  // mounting the panel, or focusIdx changing because selection changed from
+  // the canvas, never steals focus from elsewhere in the app.
+  useEffect(() => {
+    if (!treeRef.current?.contains(document.activeElement)) return;
+    const focusedEntry = entries[focusIdx];
+    if (!focusedEntry) return;
+    rowRefs.current.get(focusedEntry.node.id)?.focus();
+  }, [focusIdx, entries]);
 
   // Parent index cache for O(1) getParent lookups
   const parentCacheRef = useRef<ParentIndexCache | null>(null);
@@ -454,6 +630,13 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Escape exits isolation/focus view regardless of filter state.
+      if (e.key === 'Escape' && state.isolatedNodeId) {
+        e.preventDefault();
+        exitIsolation();
+        return;
+      }
+
       if (entries.length === 0) return;
 
       const focusedNode = entries[focusIdx]?.node;
@@ -633,6 +816,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       focusIdx,
       expanded,
       state.document,
+      state.isolatedNodeId,
+      exitIsolation,
       doKeyboardMove,
       toggleExpand,
       toggleSelection,
@@ -761,12 +946,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
           return node.children.some((c) => isAncestor(id, c));
         })(activeNodeId, overId);
 
-      let zone: 'before' | 'after' | 'into' = 'after';
-      if (overIsContainer && !isDescendant && relativeY > 0.33 && relativeY < 0.67) {
-        zone = 'into';
-      } else if (relativeY < 0.5) {
-        zone = 'before';
-      }
+      const zone = computeDropZone(relativeY, !!overIsContainer, !!isDescendant);
       setDropIndicator({ nodeId: overId, zone });
 
       if (!isDescendant && overIsContainer && zone === 'into' && !expanded.has(overId)) {
@@ -805,14 +985,41 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       const activeNode = doc.nodes[activeNodeId];
       if (!overNode || !activeNode) return;
 
+      // Dragging a row that's part of a multi-selection carries the whole
+      // selection along (Figma/Sketch/Illustrator convention), not just the
+      // row under the pointer.
+      const moveIds = resolveDragMoveIds(
+        doc,
+        state.selection,
+        entries,
+        activeNodeId,
+        parentCacheRef.current,
+      );
+
+      // Never drop a moving node's own subtree onto/into itself.
+      if (moveIds.some((id) => isDescendantFast(doc, id, overId, parentCacheRef.current))) {
+        return;
+      }
+
+      const isMulti = moveIds.length > 1;
+
       if (zone === 'into') {
         const overContainer = doc.nodes[overId];
         const children =
           overContainer && isContainer(overContainer)
             ? (overContainer as ContainerNode).children
             : [];
-        reparentNode(activeNodeId, overId, children.length);
-        announce(`Moved ${activeNode.name} into ${overNode.name}`);
+        const steps = computeMultiMoveSteps(children, moveIds, children.length);
+
+        if (isMulti) beginTransaction();
+        for (const step of steps) reparentNode(step.id, overId, step.index);
+        if (isMulti) commitTransaction();
+
+        announce(
+          isMulti
+            ? `Moved ${moveIds.length} layers into ${overNode.name}`
+            : `Moved ${activeNode.name} into ${overNode.name}`,
+        );
         return;
       }
 
@@ -825,23 +1032,32 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       let overIdx = targetSiblings.indexOf(overId);
       if (overIdx < 0) overIdx = targetSiblings.length;
 
-      const newIndex = zone === 'before' ? overIdx : overIdx + 1;
-      reparentNode(activeNodeId, targetParentId, newIndex);
+      const basePosition = zone === 'before' ? overIdx : overIdx + 1;
+      const steps = computeMultiMoveSteps(targetSiblings, moveIds, basePosition);
+
+      if (isMulti) beginTransaction();
+      for (const step of steps) reparentNode(step.id, targetParentId, step.index);
+      if (isMulti) commitTransaction();
 
       announce(
-        zone === 'before'
-          ? `Moved ${activeNode.name} above ${overNode.name}`
-          : `Moved ${activeNode.name} below ${overNode.name}`,
+        isMulti
+          ? `Moved ${moveIds.length} layers ${zone === 'before' ? 'above' : 'below'} ${overNode.name}`
+          : zone === 'before'
+            ? `Moved ${activeNode.name} above ${overNode.name}`
+            : `Moved ${activeNode.name} below ${overNode.name}`,
       );
     },
     [
       state.document,
+      state.selection,
       entries,
       dropIndicator,
       reparentNode,
       announce,
       cancelAutoExpand,
       cancelAutoScroll,
+      beginTransaction,
+      commitTransaction,
     ],
   );
 
@@ -939,7 +1155,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         role="tree"
         aria-label="Layers"
         aria-multiselectable="true"
-        tabIndex={0}
+        tabIndex={-1}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
       >
@@ -976,7 +1192,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   virtualizer={virtualizer}
                   dropClass={dropClass}
                   hasMotion={animatedNodes.has(node.id)}
-                  keyframeCount={getKeyframeCount(state.document, node.id)}
+                  keyframeCount={keyframeCounts.get(node.id) ?? 0}
                   onToggleExpand={toggleExpand}
                   onExpandSubtree={handleExpandSubtree}
                   onCollapseSubtree={handleCollapseSubtree}
@@ -996,6 +1212,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   }}
                   onFocus={handleRowFocus}
                   idx={virtualItem.index}
+                  rowRefs={rowRefs}
                 />
               );
             })}
@@ -1056,6 +1273,9 @@ interface SortableVirtualRowProps {
   onToggleLock: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
+  /** Shared map of currently-mounted row elements, keyed by node id — used by
+   * the parent's DnD handlers to resolve a row's rect for drop-zone math. */
+  rowRefs: React.MutableRefObject<Map<NodeId, HTMLDivElement>>;
 }
 
 function SortableVirtualRow({
@@ -1083,8 +1303,10 @@ function SortableVirtualRow({
   onToggleLock,
   onFocus,
   idx,
+  rowRefs,
 }: SortableVirtualRowProps) {
   const { state: editorState, revealSelection } = useEditor();
+  const presences = usePresence(node.id);
   const {
     attributes,
     listeners,
@@ -1145,6 +1367,8 @@ function SortableVirtualRow({
       ref={(el) => {
         setSortableRef(el);
         virtualizer.measureElement(el);
+        if (el) rowRefs.current.set(node.id, el);
+        else rowRefs.current.delete(node.id);
       }}
       data-index={virtualItem.index}
       style={style}
@@ -1176,6 +1400,7 @@ function SortableVirtualRow({
         hasMotion={hasMotion}
         keyframeCount={keyframeCount}
         syncStatus={syncStatus}
+        presences={presences}
         onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
       />
     </div>

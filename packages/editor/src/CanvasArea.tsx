@@ -162,23 +162,8 @@ export function toEngineNode(n: DocNode): EngineNode {
       textDecoration: n.textDecoration,
       textOverflow: n.textOverflow,
       listStyle: n.listStyle,
-      shape: {
-        kind: 'text' as const,
-        text,
-        fontSize,
-        fontFamily: n.fontFamily ?? 'Inter',
-        fontWeight: n.fontWeight ?? 400,
-        fontStyle: n.fontStyle ?? 'normal',
-        textAlign: n.textAlign ?? 'left',
-        x: 0,
-        y: 0,
-        w: estW,
-        h: estH,
-        letterSpacing: n.letterSpacing,
-        lineHeight: n.lineHeight,
-        textCase: n.textCase,
-        textDecoration: n.textDecoration,
-      },
+      w: estW,
+      h: estH,
     };
   }
   if (n.kind === 'path') {
@@ -222,7 +207,7 @@ function parsePropertyPath(path: string): string[] {
       continue;
     }
     segments.push(match[1]!);
-    const bracketGroups = match[2]?.matchAll(/\[([^\]]+)\]/g);
+    const bracketGroups = match[2] ? match[2].matchAll(/\[([^\]]+)\]/g) : [];
     for (const m of bracketGroups) {
       segments.push(m[1]!);
     }
@@ -687,11 +672,20 @@ export function CanvasArea({
         }
 
         const allTargets = [...filtered, ...pageBoundsTargets];
-        const result = snapPosition(bounds.x, bounds.y, bounds.w, bounds.h, allTargets, s.snapGrid, undefined, {
-          zoom: s.zoom,
-          session: snapSessionRef.current,
-          layoutGridStep,
-        });
+        const result = snapPosition(
+          bounds.x,
+          bounds.y,
+          bounds.w,
+          bounds.h,
+          allTargets,
+          s.snapGrid,
+          undefined,
+          {
+            zoom: s.zoom,
+            session: snapSessionRef.current,
+            layoutGridStep,
+          },
+        );
         snapSessionRef.current = result.session;
         setSnapGuides(result.guides);
         return { x: result.x, y: result.y, guides: result.guides };
@@ -867,41 +861,79 @@ export function CanvasArea({
       }
 
       const docVersion = docVersionRef.current;
-      const canUseIrCache = s.canvasMode === 'full' && !s.motion.isPlaying;
+      const animatedNodeIds = new Set<string>();
+      if (s.motion.activeTimelineId) {
+        const activeTl = doc.timelines?.[s.motion.activeTimelineId];
+        for (const tr of activeTl?.tracks ?? []) {
+          if (tr.enabled === false) continue;
+          if (tr.nestedTimelineId) {
+            const nested = doc.timelines?.[tr.nestedTimelineId];
+            for (const ntr of nested?.tracks ?? []) {
+              if (ntr.enabled !== false) animatedNodeIds.add(ntr.nodeId);
+            }
+          } else if (tr.keyframes.length > 0) {
+            animatedNodeIds.add(tr.nodeId);
+          }
+        }
+      }
+
+      const canUsePerNodeIrCache = s.canvasMode === 'full';
       let ir: Awaited<ReturnType<Engine['buildIr']>>;
 
-      if (canUseIrCache && nodeIds.length > 0) {
-        let allCached = true;
-        const cachedItems: Awaited<ReturnType<Engine['buildIr']>> = [];
+      if (canUsePerNodeIrCache && nodeIds.length > 0) {
+        const irSlots: Array<Awaited<ReturnType<Engine['buildIr']>>[number] | undefined> =
+          new Array(nodeIds.length);
+        const nodesToBuild: EngineNode[] = [];
+        const buildSlotIndices: number[] = [];
+
         for (let i = 0; i < nodeIds.length; i++) {
           const nodeId = nodeIds[i]!;
           const fn = flatNodes[i];
-          if (!fn) {
-            allCached = false;
-            break;
+          if (!fn) continue;
+          const isAnimated = animatedNodeIds.has(nodeId);
+          if (!isAnimated) {
+            const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
+            const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
+            const cached = subtreeIrCacheRef.current.get(nodeId, hash);
+            if (cached) {
+              irSlots[i] = cached;
+              continue;
+            }
           }
-          const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-          const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
-          const cached = subtreeIrCacheRef.current.get(nodeId, hash);
-          if (cached) cachedItems.push(cached);
-          else {
-            allCached = false;
-            break;
-          }
+          nodesToBuild.push(fn);
+          buildSlotIndices.push(i);
         }
-        if (allCached && cachedItems.length === nodeIds.length) {
-          ir = cachedItems;
-        } else {
+
+        if (buildSlotIndices.length === 0) {
+          ir = irSlots as Awaited<ReturnType<Engine['buildIr']>>;
+        } else if (buildSlotIndices.length === nodeIds.length) {
           ir = await eng.buildIr({ nodes: flatNodes });
           for (let i = 0; i < nodeIds.length; i++) {
             const nodeId = nodeIds[i];
             const fn = flatNodes[i];
             const item = ir[i];
             if (!nodeId || !fn || !item) continue;
-            const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-            const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
-            subtreeIrCacheRef.current.set(nodeId, hash, item);
+            if (!animatedNodeIds.has(nodeId)) {
+              const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
+              const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
+              subtreeIrCacheRef.current.set(nodeId, hash, item);
+            }
           }
+        } else {
+          const built = await eng.buildIr({ nodes: nodesToBuild });
+          let builtIdx = 0;
+          for (const slot of buildSlotIndices) {
+            const nodeId = nodeIds[slot];
+            const fn = flatNodes[slot];
+            const item = built[builtIdx++];
+            if (item) irSlots[slot] = item;
+            if (nodeId && fn && item && !animatedNodeIds.has(nodeId)) {
+              const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
+              const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
+              subtreeIrCacheRef.current.set(nodeId, hash, item);
+            }
+          }
+          ir = irSlots as Awaited<ReturnType<Engine['buildIr']>>;
         }
       } else {
         ir = await eng.buildIr({ nodes: flatNodes });

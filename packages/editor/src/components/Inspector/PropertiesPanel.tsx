@@ -10,7 +10,7 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import type { ManagedColor, SceneNode, VariableStore } from '@strata/scene';
+import type { ManagedColor, SceneNode } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useState } from 'react';
@@ -175,7 +175,13 @@ function EmptySelectionState() {
 }
 
 function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
-  const { state, navigatePrototypeTo, prototypeCurrentScreen } = useEditor();
+  const {
+    state,
+    navigatePrototypeTo,
+    prototypeCurrentScreen,
+    selectedInteractionId,
+    selectPrototypeInteraction,
+  } = useEditor();
   const node = nodes[0] as SceneNode;
   const isFrame = node.kind === 'frame';
   const isComponentInstance = isFrame && (node as import('@strata/scene').FrameNode).componentId;
@@ -203,11 +209,13 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       <TypographySection nodes={nodes} />
       <InteractionSection />
       {state.prototypeMode && (
-        <DisclosureSection title="Prototype Flow" defaultOpen>
+        <DisclosureSection title="Prototype Flow" defaultExpanded>
           <PrototypeFlowView
             document={state.document}
             currentScreenId={prototypeCurrentScreen}
+            selectedInteractionId={selectedInteractionId}
             onSelectScreen={navigatePrototypeTo}
+            onSelectInteraction={selectPrototypeInteraction}
           />
         </DisclosureSection>
       )}

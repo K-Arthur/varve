@@ -33,6 +33,31 @@ This session closed cross-platform gaps: **correct AI model routing**, **Indexed
 
 ---
 
+## Session 40 verification (2026-07-06) — Phase E complete
+
+| Gate | Result |
+|---|---|
+| Focused bg-removal suite | **163/163** pass (23 files) |
+| `@strata/engine` typecheck | **0 errors** |
+| `cargo clippy --workspace -D warnings` | **clean** |
+| `cargo test --workspace` | **167/167** pass (+1 model metadata test) |
+| Full `pnpm test` | motion WIP failures unchanged (unrelated) |
+
+Phase E delivered: E.0 direct-ONNX `previewMaxDimension`, E.2 hair matting, E.3 multi-subject picker, E.4 trimap editor, E.1 ADR Option B + native ONNX parity.
+
+BiRefNet release checksum (before bundling):
+
+```bash
+node scripts/compute-model-checksum.mjs \
+  "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx" \
+  birefnet-general-lite
+node scripts/compute-model-checksum.mjs \
+  "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx" \
+  birefnet-general
+```
+
+---
+
 ## Session 39 verification (2026-07-06)
 
 | Gate | Result |
@@ -108,19 +133,20 @@ replay.ts → destination-in compositing
 | No settings surface for model storage | P1 | **Fixed** (Offline Models tab) |
 | Silent AI→heuristic downgrade | P1 | **Fixed** (announce + store actual `result.method`) |
 | Bundled models in shipping build (`bundled: false` in manifest) | P2 | **Fixed** — `u2netp.onnx` bundled with SHA-256 CI check |
-| Hair/fur matting refinement | P2 | **Phase E** — `RefineMaskTool` exists; dedicated matting pass in E.2 |
+| Hair/fur matting refinement | P2 | **Fixed (E.2)** — `refineHairMatting` guided filter + inspector action |
 | HTTP Range resume on interrupted download | P3 | **Fixed** (Session 39) |
-| SHA-256 in manifest (`null` today) | P2 | **Fixed** for `u2netp`; BiRefNet hashes via release script |
-| Select-and-Mask style trimap UI | P3 | **Phase E.4** — greenfield |
-| Direct-ONNX `previewMaxDimension` parity | P2 | **Phase E.0 stub** — worker has it; `removeBackgroundAI()` does not |
-| Native Rust `ai` Cargo feature | P2 | **Phase E.1** — `inference.rs` exists; ADR amendment required |
+| SHA-256 in manifest (`null` today) | P2 | **Fixed** for `u2netp`; BiRefNet hashes via release script (documented) |
+| Select-and-Mask style trimap UI | P3 | **Fixed (E.4)** — ephemeral `TrimapEditTool` + `solveTrimapMatting` |
+| Direct-ONNX `previewMaxDimension` parity | P2 | **Fixed (E.0)** — `downscaleImageData` before model input |
+| Native Rust `ai` Cargo feature | P2 | **Fixed (E.1)** — Option B ADR; dynamic IO, preview downscale, real confidence |
+| Multi-subject instance picker | P2 | **Fixed (E.3)** — `findConnectedComponents` + `SubjectPickerOverlay` |
 | Per-model gating on direct-ONNX tier | P0 | **Fixed** — `isModelAvailable(workerModelIdForMethod)` |
 | Broken direct-ONNX path (hardcoded path, raw Float32Array) | P0 | **Fixed** — `getModelPath()`, `ort.Tensor`, shared maskOps |
 | Batch/Export silent AI downgrade | P0 | **Fixed** — gating + `result.method` persistence + aria-live |
 | `RefineMaskTool` unreachable from UI | P0 | **Fixed** — inspector button + brush controls + Escape |
 | Worker pool abort/timeout dequeue bugs | P2 | **Fixed** — splice on abort/timeout; context selection-change abort |
 | `batchRemoveBackground` dead code drift | P1 | **Removed** — `BatchBgRemoveDialog` is sole batch path |
-| Native Rust `ai` Cargo feature | P2 | **Deferred (Option A)** — Worker ONNX is sole desktop AI path (ADR-0005) |
+| Native Rust `ai` Cargo feature | P2 | **Fixed (E.1)** — opt-in `ai` feature; Worker-first dispatch unchanged (ADR-0005) |
 
 ---
 
@@ -153,7 +179,7 @@ replay.ts → destination-in compositing
 - Worker pool with session reuse (`workerPool.ts`)
 - Inference off main thread (Worker + OffscreenCanvas)
 - Heuristic: O(n) pixel ops — suitable for preview
-- Large images: `previewMaxDimension` default 2048 (Worker + inspector hint); direct-ONNX path still full-res (Phase E.0)
+- Large images: `previewMaxDimension` default 2048 (Worker, direct-ONNX, native Rust)
 - Batch: sequential with error isolation (no abort-all on one failure)
 
 ---
@@ -162,9 +188,9 @@ replay.ts → destination-in compositing
 
 | Suite | Count | Covers |
 |---|---|---|
-| `backgroundRemoval/__tests__/*` | 70+ | Dispatch, model loader, manifest, worker, heuristic, mask ops, bundled integrity, EP telemetry |
-| `ModelDownloadDialog.test.tsx` | 4 | Consent gate + cancel abort |
-| `bgRemovalFeatures.test.tsx` | 20 | Preview, feather, decontaminate, export toggle, RefineMask wiring |
+| `backgroundRemoval/__tests__/*` | 93 | Dispatch, CC labeling, hair matting, trimap, preview downscale, mask ops |
+| `SubjectPickerOverlay.test.tsx` | 3 | Multi-blob picker confirm/cancel |
+| `bgRemovalFeatures.test.tsx` | 23 | Preview, feather, Phase E inspector actions |
 | `BatchBgRemoveDialog.test.tsx` | 16 | Batch UI, AI gating, fallback announce |
 | `RefineMaskTool.test.ts` | — | Escape/V, cancel-restore, per-stroke commit |
 | `ToolManager.test.ts` | 2 | `getTool()` accessor |
@@ -217,20 +243,19 @@ Regression guards added this session:
 | P0 | Ship u2netp bundled in desktop builds (`bundled: true` + sha256) | 1d |
 | P1 | Populate manifest SHA-256 checksums | 0.5d |
 | P1 | Per-method model availability in batch dialog | 1d |
-| P2 | Enable `strata-bgremove` `ai` feature for native ONNX on desktop | 3–5d |
-| P2 | WebGPU EP when WebKit ships it | 2d — **blocked:** WebKitGTK has no WebGPU; WASM/WebGL only (ADR-0005 note) |
-| P2 | Interrupted download cleanup (delete partial blob) | **Done** — Range resume + partial IndexedDB store |
-| P3 | Dedicated hair refinement / matting pass | 1–2w |
-| P3 | Multi-subject instance picker | 2w+ |
+| P2 | Enable `strata-bgremove` `ai` feature for native ONNX on desktop | **Done (E.1)** — opt-in; separate CI job |
+| P2 | WebGPU EP when WebKit ships it | 2d — **blocked:** WebKitGTK has no WebGPU |
+| P3 | Dedicated hair refinement / matting pass | **Done (E.2)** |
+| P3 | Multi-subject instance picker | **Done (E.3)** |
+| P3 | Trimap editor (Select-and-Mask lite) | **Done (E.4)** |
 
 ---
 
 ## 12. Technical debt
 
-- BiRefNet manifest SHA-256 still null (remote-only; use `scripts/compute-model-checksum.mjs` at release time — see Session 39 verification)
-- Rust `ai` feature formally deferred — Worker ONNX is the desktop AI path (ADR-0005 Option A)
+- BiRefNet manifest SHA-256 still null (remote-only; run `scripts/compute-model-checksum.mjs` at release — commands in Session 40 verification)
+- Native `ai` feature opt-in only — not in default CI/release (ADR-0005 Option B)
 - WebGPU EP deferred until WebKitGTK exposes `navigator.gpu` on Linux Tauri webviews
-- Hair/fur matting and multi-subject segmentation — **Phase E** (`docs/plans/bg-removal-phase-e-prompt.md`)
 
 ---
 

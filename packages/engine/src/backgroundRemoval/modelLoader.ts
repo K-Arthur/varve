@@ -1,4 +1,4 @@
-import { getManifestEntry, loadModelManifest, verifyModelChecksum } from './modelManifest';
+import { getManifestEntry, verifyModelChecksum } from './modelManifest';
 import {
   deleteModelBlob,
   deletePartialDownload,
@@ -270,7 +270,11 @@ class ModelLoader {
 
       const existingPartial =
         isBrowserEnv() && remoteUrl ? await loadPartialDownload(modelId) : null;
-      if (existingPartial && existingPartial.meta.url === remoteUrl && existingPartial.bytes.length > 0) {
+      if (
+        existingPartial &&
+        existingPartial.meta.url === remoteUrl &&
+        existingPartial.bytes.length > 0
+      ) {
         partialChunks = [existingPartial.bytes];
         partialLoaded = existingPartial.bytes.length;
       } else if (existingPartial) {

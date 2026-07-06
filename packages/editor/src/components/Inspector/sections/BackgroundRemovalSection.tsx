@@ -1,5 +1,9 @@
 import type { RemovalMethod } from '@strata/engine';
-import { DEFAULT_PREVIEW_MAX_DIMENSION, getModelLoaderReady, workerModelIdForMethod } from '@strata/engine';
+import {
+  DEFAULT_PREVIEW_MAX_DIMENSION,
+  getModelLoaderReady,
+  workerModelIdForMethod,
+} from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import { useCallback, useEffect, useState } from 'react';
@@ -16,6 +20,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setShowOriginalBg,
     setTool,
     setRefineMaskOptions,
+    refineHairEdges,
+    startTrimapEdit,
+    applyTrimapMatting,
+    setTrimapEditOptions,
   } = useEditor();
   const node = nodes[0] as ShapeNode;
   if (!isImageShape(node) && !node.backgroundRemoval) return null;
@@ -32,13 +40,17 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const [aiAvailable, setAiAvailable] = useState(false);
   const showingOriginal = state.showOriginalBgNodeId === node.id;
   const refiningMask = state.tool === 'refineMask' && state.selection[0] === node.id;
+  const editingTrimap = state.tool === 'trimapEdit' && state.selection[0] === node.id;
   const { brushSize, hardness } = state.refineMaskOptions ?? { brushSize: 20, hardness: 0.8 };
+  const trimapOpts = state.trimapEditOptions ?? {
+    brushSize: 20,
+    hardness: 0.8,
+    penMode: 'unknown' as const,
+  };
 
   const requiredModelId = workerModelIdForMethod(method);
-  const imageMaxDim =
-    node.shape?.kind === 'rect' ? Math.max(node.shape.w, node.shape.h) : 0;
-  const previewDownscaleActive =
-    method !== 'quick' && imageMaxDim > DEFAULT_PREVIEW_MAX_DIMENSION;
+  const imageMaxDim = node.shape?.kind === 'rect' ? Math.max(node.shape.w, node.shape.h) : 0;
+  const previewDownscaleActive = method !== 'quick' && imageMaxDim > DEFAULT_PREVIEW_MAX_DIMENSION;
 
   const refreshModelStatus = useCallback(async () => {
     const loader = await getModelLoaderReady();
@@ -99,6 +111,18 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const handleRefineMask = () => {
     setTool('refineMask');
     announce('Refine mask: paint to add, Alt+paint to subtract, Escape to finish');
+  };
+
+  const handleRefineHair = () => {
+    void refineHairEdges();
+  };
+
+  const handleEditTrimap = () => {
+    startTrimapEdit();
+  };
+
+  const handleApplyTrimap = () => {
+    void applyTrimapMatting();
   };
 
   const downloadModelId = method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
@@ -241,6 +265,24 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         )}
         {bg && (
           <button
+            className="button--ghost"
+            onClick={handleRefineHair}
+            aria-label="Refine hair and fur edges with guided matting"
+          >
+            Refine edges (hair/fur)
+          </button>
+        )}
+        {bg && (
+          <button
+            className="button--ghost"
+            onClick={handleEditTrimap}
+            aria-label="Edit trimap for difficult edges"
+          >
+            Edit trimap
+          </button>
+        )}
+        {bg && (
+          <button
             className={`button--ghost ${showingOriginal ? 'button--active' : ''}`}
             onClick={handleTogglePreview}
           >
@@ -278,6 +320,43 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           </div>
           <button type="button" className="button--ghost" onClick={() => setTool('select')}>
             Done
+          </button>
+        </div>
+      )}
+      {editingTrimap && bg && (
+        <div className="bg-removal__refine-controls">
+          <div className="bg-removal__refinement">
+            <label htmlFor="bg-trimap-mode">Trimap pen</label>
+            <select
+              id="bg-trimap-mode"
+              value={trimapOpts.penMode}
+              onChange={(e) =>
+                setTrimapEditOptions({
+                  penMode: e.target.value as 'foreground' | 'unknown' | 'background',
+                })
+              }
+            >
+              <option value="foreground">Foreground</option>
+              <option value="unknown">Unknown</option>
+              <option value="background">Background</option>
+            </select>
+          </div>
+          <div className="bg-removal__refinement">
+            <label htmlFor="bg-trimap-brush">Brush size</label>
+            <input
+              id="bg-trimap-brush"
+              type="range"
+              min={5}
+              max={100}
+              value={trimapOpts.brushSize}
+              onChange={(e) => setTrimapEditOptions({ brushSize: Number(e.target.value) })}
+            />
+          </div>
+          <button type="button" className="button--primary" onClick={handleApplyTrimap}>
+            Apply trimap matting
+          </button>
+          <button type="button" className="button--ghost" onClick={() => setTool('select')}>
+            Cancel
           </button>
         </div>
       )}

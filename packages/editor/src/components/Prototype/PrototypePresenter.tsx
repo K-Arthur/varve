@@ -1,8 +1,15 @@
-import { Icon } from '@strata/ui';
+import { prefersReducedMotion } from '@strata/prototype';
 import type { Document, NodeId } from '@strata/scene';
-import { useCallback, useEffect, useMemo } from 'react';
+import { Icon } from '@strata/ui';
+import { type CSSProperties, useCallback, useEffect, useMemo } from 'react';
+import { computeSmartAnimateHotspotOverrides } from '../../motion/smartAnimateBridge';
 import { DeviceFrame } from './DeviceFrame';
-import { PrototypeScreenView } from './PrototypeScreenView';
+import { PrototypeScreenView, type PrototypeScreenViewProps } from './PrototypeScreenView';
+import {
+  type ActivePrototypeTransition,
+  computeTransitionVisuals,
+  usePrototypeTransition,
+} from './usePrototypeTransition';
 
 interface PrototypePresenterProps {
   isOpen: boolean;
@@ -16,6 +23,8 @@ interface PrototypePresenterProps {
   overlayStack?: string[];
   hitTestNode?: (world: { x: number; y: number }) => { nodeId: NodeId } | null;
   getNodeBounds?: (nodeId: NodeId) => { x: number; y: number; w: number; h: number } | null;
+  activeTransition?: ActivePrototypeTransition | null;
+  onClearTransition?: () => void;
   deviceConfig?: {
     type: string;
     name: string;
@@ -41,7 +50,18 @@ export function PrototypePresenter({
   overlayStack = [],
   hitTestNode,
   getNodeBounds,
+  activeTransition = null,
+  onClearTransition,
 }: PrototypePresenterProps) {
+  const transitionProgress = usePrototypeTransition(activeTransition ?? null);
+
+  useEffect(() => {
+    if (activeTransition && transitionProgress >= 1) {
+      onClearTransition?.();
+    }
+  }, [activeTransition, transitionProgress, onClearTransition]);
+
+  const reducedMotion = prefersReducedMotion();
   const currentIndex = useMemo(
     () => screens.findIndex((s) => s.id === currentScreenId),
     [screens, currentScreenId],
@@ -88,8 +108,79 @@ export function PrototypePresenter({
 
   if (!isOpen) return null;
 
+  const smartHotspotOverrides =
+    activeTransition &&
+    transitionProgress < 1 &&
+    !reducedMotion &&
+    activeTransition.transition.kind === 'smartAnimate' &&
+    activeTransition.layerMatches &&
+    activeTransition.smartAnimateValues &&
+    prototypeDocument &&
+    getNodeBounds
+      ? computeSmartAnimateHotspotOverrides(
+          prototypeDocument,
+          activeTransition.layerMatches,
+          activeTransition.smartAnimateValues,
+          transitionProgress,
+          activeTransition.transition.easing ?? { kind: 'ease' },
+          getNodeBounds,
+        )
+      : null;
+
+  const renderScreen = (
+    screenId: string,
+    style?: CSSProperties,
+    hotspotOverrides?: PrototypeScreenViewProps['hotspotOverrides'],
+  ) => {
+    if (!prototypeDocument || !hitTestNode || !getNodeBounds) {
+      const name = screens.find((s) => s.id === screenId)?.name ?? 'Unknown';
+      return (
+        <div className="prototype-presenter__screen" style={style}>
+          Screen: {name}
+        </div>
+      );
+    }
+    return (
+      <div className="prototype-presenter__screen-layer" style={style}>
+        <PrototypeScreenView
+          document={prototypeDocument}
+          screenId={screenId}
+          overlayStack={overlayStack}
+          hitTestNode={hitTestNode}
+          getNodeBounds={getNodeBounds}
+          hotspotOverrides={hotspotOverrides}
+          onEvent={(ev) => onEvent(ev)}
+        />
+      </div>
+    );
+  };
+
+  const transitionVisuals =
+    activeTransition && transitionProgress < 1 && !reducedMotion
+      ? computeTransitionVisuals(activeTransition, transitionProgress)
+      : null;
+
   const screenContent =
-    prototypeDocument && hitTestNode && getNodeBounds && currentScreenId ? (
+    transitionVisuals && activeTransition ? (
+      <div className="prototype-presenter__transition-stack">
+        {renderScreen(
+          activeTransition.fromScreenId,
+          {
+            opacity: transitionVisuals.from.opacity,
+            transform: transitionVisuals.from.transform,
+          },
+          smartHotspotOverrides?.from,
+        )}
+        {renderScreen(
+          activeTransition.toScreenId,
+          {
+            opacity: transitionVisuals.to.opacity,
+            transform: transitionVisuals.to.transform,
+          },
+          smartHotspotOverrides?.to,
+        )}
+      </div>
+    ) : prototypeDocument && hitTestNode && getNodeBounds && currentScreenId ? (
       <PrototypeScreenView
         document={prototypeDocument}
         screenId={currentScreenId}
@@ -102,6 +193,8 @@ export function PrototypePresenter({
       <div className="prototype-presenter__screen">Screen: {currentScreen?.name ?? 'Unknown'}</div>
     );
 
+  const contentInner = screenContent;
+
   const content =
     screens.length === 0 ? (
       <div className="prototype-presenter__empty">
@@ -110,11 +203,11 @@ export function PrototypePresenter({
     ) : deviceConfig ? (
       <div className="prototype-presenter__device-frame">
         <DeviceFrame device={deviceConfig} scale={1}>
-          {screenContent}
+          {contentInner}
         </DeviceFrame>
       </div>
     ) : (
-      screenContent
+      contentInner
     );
 
   return (

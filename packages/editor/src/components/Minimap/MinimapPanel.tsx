@@ -1,5 +1,6 @@
 import type { Shape } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
+import { imageShapeH, imageShapeW, isImageShape } from '@strata/scene';
 import { transformRect } from '@strata/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { useEditor } from '../../context';
@@ -13,6 +14,9 @@ const PADDING = 12;
 function getNodeLocalBounds(node: SceneNode): { x: number; y: number; w: number; h: number } {
   switch (node.kind) {
     case 'shape':
+      if (isImageShape(node)) {
+        return { x: 0, y: 0, w: imageShapeW(node), h: imageShapeH(node) };
+      }
       return getShapeBounds(node.shape);
     case 'frame':
       return { x: 0, y: 0, w: node.w, h: node.h };
@@ -25,8 +29,6 @@ function getNodeLocalBounds(node: SceneNode): { x: number; y: number; w: number;
         w: Math.max((node.text?.length || 1) * (node.fontSize || 16) * 0.6, 20),
         h: (node.fontSize || 16) * 1.4,
       };
-    case 'image':
-      return { x: 0, y: 0, w: node.w || 100, h: node.h || 100 };
     case 'adjustment':
       return { x: 0, y: 0, w: 100, h: 100 };
     default:

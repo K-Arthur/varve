@@ -458,6 +458,7 @@ mod tests {
             decontaminate: None,
             click_x: Some(15),
             click_y: Some(10),
+            preview_max_dimension: None,
         };
         let result = remove_quick(&img, &opts).unwrap();
         assert!(result.mask_base64.len() > 10);
@@ -508,6 +509,7 @@ mod tests {
             decontaminate: None,
             click_x: None,
             click_y: None,
+            preview_max_dimension: None,
         };
         assert!(remove_quick(&img, &opts).is_err());
     }
@@ -557,6 +559,7 @@ mod tests {
                 decontaminate,
                 click_x: None,
                 click_y: None,
+                preview_max_dimension: None,
             };
             let result = remove_quick(&img, &opts).unwrap();
             assert_eq!(result.width, 10);

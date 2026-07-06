@@ -43,9 +43,7 @@ export function StatusBar() {
         </span>
       )}
       {state.cameraRotation !== 0 && (
-        <span title="View rotation">
-          {Math.round((state.cameraRotation * 180) / Math.PI)}°
-        </span>
+        <span title="View rotation">{Math.round((state.cameraRotation * 180) / Math.PI)}°</span>
       )}
       <span aria-hidden>—</span>
       <select

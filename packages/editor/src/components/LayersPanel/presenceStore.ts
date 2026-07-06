@@ -1,7 +1,10 @@
 import type { NodeId } from '@strata/scene';
+import { useEffect, useState } from 'react';
 import type { PresenceData } from './PresenceIndicator';
 
 export type PresenceMap = Map<NodeId, PresenceData[]>;
+
+const EMPTY_PRESENCES: PresenceData[] = [];
 
 class PresenceStore {
   private presences: PresenceMap = new Map();
@@ -13,7 +16,7 @@ class PresenceStore {
   }
 
   getPresences(nodeId: NodeId): PresenceData[] {
-    return this.presences.get(nodeId) ?? [];
+    return this.presences.get(nodeId) ?? EMPTY_PRESENCES;
   }
 
   setPresence(nodeId: NodeId, data: PresenceData): void {
@@ -59,3 +62,16 @@ class PresenceStore {
 }
 
 export const globalPresenceStore = new PresenceStore();
+
+/**
+ * Subscribe a component to live presence data for a single node.
+ * Re-renders on any presence change (setPresence/removePresence/clearUser
+ * anywhere in the store) — presence updates are human-cursor-rate events,
+ * not a hot path, so a coarse "any change, re-read my node" subscription is
+ * simpler and safer than per-node fine-grained diffing.
+ */
+export function usePresence(nodeId: NodeId): PresenceData[] {
+  const [, forceRender] = useState(0);
+  useEffect(() => globalPresenceStore.subscribe(() => forceRender((n) => n + 1)), []);
+  return globalPresenceStore.getPresences(nodeId);
+}

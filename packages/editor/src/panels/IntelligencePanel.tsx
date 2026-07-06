@@ -92,7 +92,10 @@ function AuditTab() {
             <button
               type="button"
               className="intelligence-action-btn"
-              onClick={() => updateDoc(() => issue.autoFix?.())}
+              onClick={() => {
+                const fixed = issue.autoFix?.();
+                if (fixed) updateDoc(() => fixed);
+              }}
             >
               <Icon name="Wand" label={undefined} size="0.85em" />
               Auto-fix

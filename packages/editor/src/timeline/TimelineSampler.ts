@@ -44,7 +44,9 @@ export function getSamplerCacheGeneration(): number {
 }
 
 function getSortedKeyframes(trackId: string, keyframes: AnimationKeyframe[]): AnimationKeyframe[] {
-  const fingerprint = keyframes.map((k) => `${k.progress}:${String(k.value)}`).join('|');
+  const fingerprint = keyframes
+    .map((k) => `${k.progress}:${String(k.value)}:${JSON.stringify(k.easing ?? null)}`)
+    .join('|');
   const cacheKey = `${samplerCacheGeneration}:${trackId}:${fingerprint}`;
   const cached = trackKeyframeCache.get(cacheKey);
   if (cached) return cached;
@@ -91,7 +93,7 @@ export function sampleTimelineAt(
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return { overrides: new Map() };
 
-  return sampleTimeline(timeline, currentTime, options);
+  return sampleTimeline(timeline, currentTime, options, doc);
 }
 
 /**
@@ -102,6 +104,7 @@ export function sampleTimeline(
   timeline: Timeline,
   currentTime: number,
   options?: SampleOptions,
+  doc?: Document,
 ): SampleResult {
   const overrides = new Map<string, Map<string, unknown>>();
   const duration = timeline.duration > 0 ? timeline.duration : 1;
@@ -121,7 +124,22 @@ export function sampleTimeline(
   );
 
   for (const track of timeline.tracks) {
-    if (track.enabled === false || track.keyframes.length === 0) continue;
+    if (track.enabled === false) continue;
+
+    if (track.nestedTimelineId && doc) {
+      const nested = doc.timelines?.[track.nestedTimelineId];
+      if (!nested) continue;
+      const start = track.nestedStartProgress ?? 0;
+      if (timing.inactive || timing.progress < start) continue;
+      const span = 1 - start;
+      const nestedProgress = span > 0 ? (timing.progress - start) / span : 1;
+      const nestedTime = nestedProgress * nested.duration;
+      const nestedSample = sampleTimeline(nested, nestedTime, options, doc);
+      mergeOverrides(overrides, nestedSample.overrides);
+      continue;
+    }
+
+    if (track.keyframes.length === 0) continue;
 
     const val = interpolateTrack(
       getSortedKeyframes(track.id, track.keyframes),
@@ -142,6 +160,19 @@ export function sampleTimeline(
   }
 
   return { overrides };
+}
+
+function mergeOverrides(
+  target: Map<string, Map<string, unknown>>,
+  source: Map<string, Map<string, unknown>>,
+): void {
+  for (const [nodeId, props] of source) {
+    if (!target.has(nodeId)) target.set(nodeId, new Map());
+    const nodeOverrides = target.get(nodeId)!;
+    for (const [prop, val] of props) {
+      nodeOverrides.set(prop, val);
+    }
+  }
 }
 
 interface TimingResult {
@@ -237,39 +268,82 @@ function interpolateTrack(
   }
 
   // Clamp at boundaries
-  if (progress <= sorted[0]?.progress) return sorted[0]?.value;
-  if (progress >= sorted[sorted.length - 1]?.progress) return sorted[sorted.length - 1]?.value;
+  const first = sorted[0]!;
+  const last = sorted[sorted.length - 1]!;
+  if (progress <= first.progress) return first.value;
+  if (progress >= last.progress) return last.value;
 
-  // Find surrounding keyframes
+  // Find surrounding keyframes — binary search for large tracks
+  if (sorted.length >= 32) {
+    const segIdx = findKeyframeSegmentIndex(sorted, progress);
+    if (segIdx >= 0) {
+      const before = sorted[segIdx]!;
+      const after = sorted[segIdx + 1]!;
+      return interpolateSegment(before, after, progress, defaultEasing, interpolation, property);
+    }
+  }
+
   for (let i = 0; i < sorted.length - 1; i++) {
     const before = sorted[i]!;
     const after = sorted[i + 1]!;
 
     if (progress >= before.progress && progress <= after.progress) {
-      const range = after.progress - before.progress;
-      const localT = range > 0 ? (progress - before.progress) / range : 0;
-
-      // Easing is defined on the destination keyframe (WAAPI convention).
-      const easingDef = after.easing ?? defaultEasing;
-      const easingFn = getEasingFn(easingDef);
-      const easedT = easingFn(localT);
-
-      // Spatial bezier interpolation for position/path tracks with tangents.
-      if (interpolation === 'bezier' && before.spatialTangents && after.spatialTangents) {
-        return interpolateSpatialBezier(
-          before.value,
-          after.value,
-          easedT,
-          before.spatialTangents,
-          after.spatialTangents,
-        );
-      }
-
-      return interpolateTypedValue(before.value, after.value, easedT, property);
+      return interpolateSegment(before, after, progress, defaultEasing, interpolation, property);
     }
   }
 
   return sorted[sorted.length - 1]?.value;
+}
+
+function interpolateSegment(
+  before: AnimationKeyframe,
+  after: AnimationKeyframe,
+  progress: number,
+  defaultEasing: EasingDefinition,
+  interpolation: NonNullable<import('@strata/scene').AnimationTrack['interpolation']>,
+  property: string,
+): unknown {
+  const range = after.progress - before.progress;
+  const localT = range > 0 ? (progress - before.progress) / range : 0;
+
+  const easingDef = after.easing ?? defaultEasing;
+  const easingFn = getEasingFn(easingDef);
+  const easedT = easingFn(localT);
+
+  if (interpolation === 'bezier' && before.spatialTangents && after.spatialTangents) {
+    return interpolateSpatialBezier(
+      before.value,
+      after.value,
+      easedT,
+      before.spatialTangents,
+      after.spatialTangents,
+    );
+  }
+
+  return interpolateTypedValue(before.value, after.value, easedT, property);
+}
+
+/** O(log n) segment lookup for tracks with many keyframes. Returns segment start index or -1. */
+export function findKeyframeSegmentIndex(sorted: AnimationKeyframe[], progress: number): number {
+  if (sorted.length < 2) return -1;
+  if (progress <= sorted[0]!.progress) return 0;
+  if (progress >= sorted[sorted.length - 1]!.progress) return sorted.length - 2;
+
+  let lo = 0;
+  let hi = sorted.length - 2;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const before = sorted[mid]!;
+    const after = sorted[mid + 1]!;
+    if (progress < before.progress) {
+      hi = mid - 1;
+    } else if (progress > after.progress) {
+      lo = mid + 1;
+    } else {
+      return mid;
+    }
+  }
+  return -1;
 }
 
 function interpolateTypedValue(from: unknown, to: unknown, t: number, property?: string): unknown {
@@ -286,6 +360,23 @@ function interpolateTypedValue(from: unknown, to: unknown, t: number, property?:
   const toAffine = tryParseAffine(to);
   if (fromAffine && toAffine) {
     return interpolateAffine(fromAffine, toAffine, t);
+  }
+
+  // RGBA tuples: linear channel lerp (OKLab clips near pure black).
+  if (
+    Array.isArray(from) &&
+    Array.isArray(to) &&
+    from.length >= 3 &&
+    to.length >= 3 &&
+    from.every((n) => typeof n === 'number') &&
+    to.every((n) => typeof n === 'number')
+  ) {
+    const len = Math.min(from.length, to.length);
+    return Array.from({ length: len }, (_, i) => {
+      const a = from[i] as number;
+      const b = to[i] as number;
+      return a + (b - a) * t;
+    });
   }
 
   const fromColor = tryParseColor(from);

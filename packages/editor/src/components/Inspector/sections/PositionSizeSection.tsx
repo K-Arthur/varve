@@ -49,15 +49,27 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   const toDisplayX = (worldX: number) =>
     useArtboardCoords
-      ? formatCoordForRuler(worldX, 'x', 'artboard', artboard, activePage?.rulerOrigin
-          ? [activePage.rulerOrigin.x, activePage.rulerOrigin.y]
-          : undefined)
+      ? formatCoordForRuler(
+          worldX,
+          'x',
+          'artboard',
+          artboard,
+          activePage?.rulerOrigin
+            ? [activePage.rulerOrigin.x, activePage.rulerOrigin.y]
+            : undefined,
+        )
       : worldX;
   const toDisplayY = (worldY: number) =>
     useArtboardCoords
-      ? formatCoordForRuler(worldY, 'y', 'artboard', artboard, activePage?.rulerOrigin
-          ? [activePage.rulerOrigin.x, activePage.rulerOrigin.y]
-          : undefined)
+      ? formatCoordForRuler(
+          worldY,
+          'y',
+          'artboard',
+          artboard,
+          activePage?.rulerOrigin
+            ? [activePage.rulerOrigin.x, activePage.rulerOrigin.y]
+            : undefined,
+        )
       : worldY;
   const fromDisplayX = (displayX: number) => {
     if (!useArtboardCoords || !artboard) return displayX;

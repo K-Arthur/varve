@@ -99,6 +99,7 @@ struct BgRemoveOptions {
     decontaminate: Option<bool>,
     click_x: Option<u32>,
     click_y: Option<u32>,
+    preview_max_dimension: Option<u32>,
 }
 
 /// Wire format matches `BackgroundRemovalResult` in `@strata/engine` —
@@ -146,6 +147,7 @@ fn remove_background(
         decontaminate: options.decontaminate,
         click_x: options.click_x,
         click_y: options.click_y,
+        preview_max_dimension: options.preview_max_dimension,
     };
 
     let result = strata_bgremove::remove_background(&img, &remove_opts)?;

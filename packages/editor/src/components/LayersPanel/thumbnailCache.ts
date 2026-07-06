@@ -51,11 +51,11 @@ export class ThumbnailCache {
   }
 
   /**
-   * Remove entries for a specific node ID.
+   * Remove entries for a specific node ID (any document).
    */
   invalidate(nodeId: string): void {
     for (const [key] of this.cache) {
-      if (key.startsWith(`${nodeId}:`)) {
+      if (key.includes(`:${nodeId}:`)) {
         this.cache.delete(key);
       }
     }
@@ -87,10 +87,18 @@ export class ThumbnailCache {
 
 /**
  * Compute a cache key for a scene node thumbnail.
- * The key incorporates node identity and visual properties
- * so that changes to appearance invalidate the cache entry.
+ * The key incorporates node identity and visual properties so that changes
+ * to appearance invalidate the cache entry, and — critically — `docId`, since
+ * node ids are per-document sequential counters starting at `n1`: two
+ * different open documents routinely have colliding ids (every new document's
+ * first node is `n1`), and this cache is a module-level singleton shared for
+ * the process lifetime, so without `docId` switching tabs could serve a
+ * different document's stale thumbnail for a coincidentally-matching id.
  */
-export function thumbnailCacheKey(node: { id: string; kind: string; fill?: unknown }): string {
+export function thumbnailCacheKey(
+  node: { id: string; kind: string; fill?: unknown },
+  docId?: string,
+): string {
   const fillStr = node.fill ? JSON.stringify(node.fill) : 'none';
   let fillHash = 0;
   for (let i = 0; i < fillStr.length; i++) {
@@ -98,5 +106,5 @@ export function thumbnailCacheKey(node: { id: string; kind: string; fill?: unkno
     fillHash = (fillHash << 5) - fillHash + char;
     fillHash |= 0;
   }
-  return `${node.id}:${node.kind}:${fillHash}`;
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}`;
 }
