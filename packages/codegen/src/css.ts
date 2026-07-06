@@ -11,7 +11,7 @@ import type {
   VariableStore,
 } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { colorToHex, computeNodePos, rgba } from './shared';
+import { adjustmentStackTargetGaps, colorToHex, computeNodePos, rgba } from './shared';
 import { resolveTokenName } from './tokens';
 import type { TargetGap } from './types';
 
@@ -105,7 +105,7 @@ export function exportNodeToCss(
  * CSS syntax, image fills requiring a URL source, and blur effects.
  */
 export function cssTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
-  const gaps: TargetGap[] = [];
+  const gaps: TargetGap[] = [...adjustmentStackTargetGaps(node)];
 
   if (isImageShape(node)) {
     gaps.push({

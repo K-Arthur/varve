@@ -2,7 +2,15 @@
  * Tests for targetGaps() functions and target-analysis module.
  */
 
-import { addNode, createDocument, makeImageNode, makeShapeNode, nextNodeId } from '@strata/scene';
+import {
+  addNode,
+  createDocument,
+  makeAdjustment,
+  makeAdjustmentNode,
+  makeImageNode,
+  makeShapeNode,
+  nextNodeId,
+} from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { cssTargetGaps } from './css';
 import { cssModulesTargetGaps } from './css-modules';
@@ -94,6 +102,30 @@ function polygonNode() {
   return { node, doc: d };
 }
 
+function adjustmentNode() {
+  let d = doc();
+  const { id, doc: d2 } = nextNodeId(d);
+  d = d2;
+  const node = {
+    ...makeAdjustmentNode(
+      id,
+      'levels',
+      {
+        channel: 'rgb' as const,
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
+      },
+      { name: 'Halftone Adjustment' },
+    ),
+    adjustments: [makeAdjustment('h1', 'halftone')],
+  };
+  d = addNode(d, node);
+  return { node, doc: d };
+}
+
 // ─── tailwindTargetGaps ─────────────────────────────────────────────────────
 
 describe('tailwindTargetGaps', () => {
@@ -125,6 +157,12 @@ describe('tailwindTargetGaps', () => {
     const gaps = tailwindTargetGaps(node, d);
     expect(gaps.some((g) => g.feature.includes('blur'))).toBe(true);
   });
+
+  it('warns for a nondestructive adjustment stack (e.g. halftone) — previously silently dropped', () => {
+    const { node, doc: d } = adjustmentNode();
+    const gaps = tailwindTargetGaps(node, d);
+    expect(gaps.some((g) => g.feature.includes('adjustment stack'))).toBe(true);
+  });
 });
 
 // ─── cssTargetGaps ──────────────────────────────────────────────────────────
@@ -145,6 +183,12 @@ describe('cssTargetGaps', () => {
     const { node, doc: d } = polygonNode();
     const gaps = cssTargetGaps(node, d);
     expect(gaps.some((g) => g.feature.includes('polygon'))).toBe(true);
+  });
+
+  it('warns for a nondestructive adjustment stack (e.g. halftone) — previously silently dropped', () => {
+    const { node, doc: d } = adjustmentNode();
+    const gaps = cssTargetGaps(node, d);
+    expect(gaps.some((g) => g.feature.includes('adjustment stack'))).toBe(true);
   });
 });
 
@@ -182,6 +226,12 @@ describe('flutterTargetGaps', () => {
     const gaps = flutterTargetGaps(node, d);
     expect(gaps.some((g) => g.feature.includes('gradient'))).toBe(true);
   });
+
+  it('warns for a nondestructive adjustment stack (e.g. halftone) — previously silently dropped', () => {
+    const { node, doc: d } = adjustmentNode();
+    const gaps = flutterTargetGaps(node, d);
+    expect(gaps.some((g) => g.feature.includes('adjustment stack'))).toBe(true);
+  });
 });
 
 // ─── swiftuiTargetGaps ──────────────────────────────────────────────────────
@@ -203,6 +253,12 @@ describe('swiftuiTargetGaps', () => {
     const gaps = swiftuiTargetGaps(node, d);
     expect(gaps.some((g) => g.feature.includes('gradient'))).toBe(true);
   });
+
+  it('warns for a nondestructive adjustment stack (e.g. halftone) — previously silently dropped', () => {
+    const { node, doc: d } = adjustmentNode();
+    const gaps = swiftuiTargetGaps(node, d);
+    expect(gaps.some((g) => g.feature.includes('adjustment stack'))).toBe(true);
+  });
 });
 
 // ─── svgTargetGaps ──────────────────────────────────────────────────────────
@@ -217,6 +273,12 @@ describe('svgTargetGaps', () => {
     const { node, doc: d } = imageNode();
     const gaps = svgTargetGaps(node, d);
     expect(gaps.some((g) => g.severity === 'warning')).toBe(true);
+  });
+
+  it('warns for a nondestructive adjustment stack (e.g. halftone) — previously silently dropped', () => {
+    const { node, doc: d } = adjustmentNode();
+    const gaps = svgTargetGaps(node, d);
+    expect(gaps.some((g) => g.feature.includes('adjustment stack'))).toBe(true);
   });
 });
 

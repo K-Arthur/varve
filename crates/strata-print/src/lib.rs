@@ -373,7 +373,8 @@ fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
 /// black copy of the path. Other effects are emitted as comments.
 fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
-    if path_ops.is_empty() || node.effects.is_empty() {
+    let has_filters = node.filters.as_ref().map(|f| !f.is_empty()).unwrap_or(false);
+    if path_ops.is_empty() || (node.effects.is_empty() && !has_filters) {
         return Vec::new();
     }
 
@@ -448,6 +449,18 @@ fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
             }
         }
     }
+
+    if has_filters {
+        // The nondestructive adjustment stack (curves, levels, halftone, etc.)
+        // is CPU-rasterized by the live canvas renderer only; there is no
+        // Rust-side implementation of it (see packages/engine/src/filters.ts
+        // and halftone.ts). Surface that honestly instead of silently
+        // dropping the effect from print output.
+        buf.extend_from_slice(
+            b"% nondestructive adjustment stack (e.g. halftone, curves, levels) not rendered in basic PDF export\n",
+        );
+    }
+
     buf
 }
 
@@ -1235,6 +1248,32 @@ mod tests {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         let result = render_effects(&node, 100.0, false);
         assert!(result.is_empty(), "no effects should produce no output");
+    }
+
+    #[test]
+    fn render_effects_adjustment_filters_commented() {
+        // A nondestructive adjustment stack (halftone, curves, etc.) has no
+        // Rust-side renderer. It must be surfaced as an honest PDF comment
+        // rather than silently vanishing from print export.
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.filters = Some(vec![serde_json::json!({ "kind": "halftone" })]);
+        let result = render_effects(&node, 100.0, false);
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            s.contains("nondestructive adjustment stack"),
+            "adjustment/filter stack should be honestly flagged as unrendered, got: {s}"
+        );
+    }
+
+    #[test]
+    fn render_effects_empty_filters_produce_no_output() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.filters = Some(vec![]);
+        let result = render_effects(&node, 100.0, false);
+        assert!(
+            result.is_empty(),
+            "an empty filters array should not produce a spurious comment"
+        );
     }
 
     #[test]

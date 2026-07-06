@@ -6,6 +6,7 @@
  * stable shapes.
  */
 
+export * from './adjustments';
 export * from './bindings';
 export * from './variant-apply';
 export * from './boolean';
@@ -22,6 +23,8 @@ export * from './export-types';
 export * from './expr';
 export * from './fills';
 export * from './governance';
+export * from './interaction-types';
+export * from './interactions';
 export * from './intelligence';
 export * from './library';
 export * from './masks';

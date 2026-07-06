@@ -6,6 +6,30 @@
 import type { Affine } from '@strata/engine';
 import type { ManagedColor, NodeId, Document as SceneDocument, SceneNode } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
+import type { TargetGap } from './types';
+
+/**
+ * Report a nondestructive adjustment stack (curves, levels, halftone, etc.)
+ * on an adjustment-layer node. No codegen target renders this stack today —
+ * it is CPU-rasterized by the live canvas renderer only — so every target
+ * must surface it as an explicit gap rather than silently dropping it.
+ */
+export function adjustmentStackTargetGaps(node: SceneNode): TargetGap[] {
+  if (node.kind !== 'adjustment') return [];
+  const visible = (node.adjustments ?? []).filter((a) => a.visible && a.opacity > 0);
+  if (visible.length === 0) return [];
+  const kinds = [...new Set(visible.map((a) => a.kind))].join(', ');
+  return [
+    {
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: `nondestructive adjustment stack (${kinds})`,
+      severity: 'warning',
+      fallback:
+        'Flatten the adjustment layer and export a rasterized bitmap, or reimplement the equivalent color/halftone processing natively for this target',
+    },
+  ];
+}
 
 export function rgba(c: ManagedColor | readonly [number, number, number, number]): string {
   if ('space' in c) {

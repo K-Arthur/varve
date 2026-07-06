@@ -4,12 +4,9 @@
 
 import type { Adjustment } from '@strata/engine';
 import { describe, expect, it } from 'vitest';
-import {
-  type AdjustmentLayerNode,
-  adjustmentEnabledCount,
-  makeAdjustment,
-  visibleAdjustments,
-} from './adjustments';
+import { adjustmentEnabledCount, makeAdjustment, visibleAdjustments } from './adjustments';
+import { makeAdjustmentNode } from './document';
+import type { AdjustmentNode } from './types';
 
 function narrow<K extends Adjustment['kind']>(
   adjustment: Adjustment,
@@ -86,21 +83,26 @@ describe('adjustmentEnabledCount', () => {
   });
 });
 
-describe('AdjustmentLayerNode', () => {
-  it('can be constructed with adjustments and bounds', () => {
-    const layer: AdjustmentLayerNode = {
-      id: 'layer1',
-      kind: 'adjustment',
-      name: 'Color Grade',
-      visible: true,
-      locked: false,
-      opacity: 1,
-      blendMode: 'normal',
+describe('AdjustmentNode', () => {
+  it('can be constructed with a nondestructive adjustment stack', () => {
+    const layer: AdjustmentNode = {
+      ...makeAdjustmentNode(
+        'layer1',
+        'levels',
+        {
+          channel: 'rgb',
+          inputBlack: 0,
+          inputWhite: 255,
+          gamma: 1,
+          outputBlack: 0,
+          outputWhite: 255,
+        },
+        { name: 'Color Grade' },
+      ),
       adjustments: [makeAdjustment('l1', 'brightness', { value: 10 })],
-      bounds: { x: 0, y: 0, w: 100, h: 100 },
     };
     expect(layer.kind).toBe('adjustment');
-    expect(layer.adjustments.length).toBe(1);
-    expect(layer.bounds?.w).toBe(100);
+    expect(layer.adjustments?.length).toBe(1);
+    expect(adjustmentEnabledCount(layer.adjustments ?? [])).toBe(1);
   });
 });

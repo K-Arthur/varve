@@ -38,6 +38,34 @@ const STANDARD_ANGLES: Record<string, number> = {
   k: 45, // Black (most visible)
 };
 
+// ── Threshold Matrix Cache ──────────────────────────────────────────────
+//
+// applyAMScreening previously regenerated the threshold matrix from scratch
+// on every call (i.e. every render frame for a live preview), even though
+// the matrix depends only on (size, dotShape) and the halftone parameters
+// that drive `size` change far less often than frames render. Caching this
+// pure computation avoids redundant O(size²) work per frame.
+//
+// The cached array is shared by reference and read-only by every consumer
+// in this module — callers must not mutate a matrix returned from here.
+
+const MATRIX_CACHE_LIMIT = 64;
+const matrixCache = new Map<string, Uint8Array>();
+
+export function cachedAMMatrix(size: number, dotShape: HalftoneDotShape): Uint8Array {
+  const key = `${size}:${dotShape}`;
+  const cached = matrixCache.get(key);
+  if (cached) return cached;
+
+  const matrix = generateAMMatrix(size, dotShape);
+  if (matrixCache.size >= MATRIX_CACHE_LIMIT) {
+    const oldestKey = matrixCache.keys().next().value;
+    if (oldestKey !== undefined) matrixCache.delete(oldestKey);
+  }
+  matrixCache.set(key, matrix);
+  return matrix;
+}
+
 // ── AM Screening ───────────────────────────────────────────────────────
 
 /**
@@ -138,7 +166,7 @@ export function applyAMScreening(
 
   // Generate threshold matrix for the dot shape
   const matrixSize = nextPowerOfTwo(cellSize * 2);
-  const matrix = generateAMMatrix(matrixSize, dotShape);
+  const matrix = cachedAMMatrix(matrixSize, dotShape);
 
   if (channel === 'cmyk') {
     // Screen each process-color ink independently (its own ink density and
@@ -204,9 +232,11 @@ export function applyAMScreening(
     return;
   }
 
-  // Single (mono) channel: halftone the luminance for that one channel,
-  // using its standard screen angle unless the caller overrides it.
-  const angle = STANDARD_ANGLES[channel] ?? params.angle;
+  // Single (mono) channel: halftone the luminance for that one channel.
+  // Unlike the cmyk path (where fixed standard angles prevent moiré between
+  // simultaneous screens), a single channel has no other screen to clash
+  // with, so the user's own angle control fully governs screen rotation.
+  const angle = params.angle;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;

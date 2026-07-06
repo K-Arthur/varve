@@ -358,6 +358,9 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
     case 'photoFilter':
       return <PhotoFilterEditor adjustment={adjustment} onChange={onChange} />;
 
+    case 'halftone':
+      return <HalftoneEditor adjustment={adjustment} onChange={onChange} />;
+
     default:
       return (
         <div className="adj-editor__slider-row">
@@ -806,6 +809,127 @@ function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           aria-label="Constant"
         />
       </div>
+    </div>
+  );
+}
+
+function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@strata/scene').HalftoneAdjustment;
+  const handleSelect = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onChange({ [key]: e.target.value } as unknown as Partial<Adjustment>);
+  };
+  const handleNumber = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = Number.parseFloat(e.target.value);
+    if (!Number.isNaN(v)) {
+      onChange({ [key]: v } as unknown as Partial<Adjustment>);
+    }
+  };
+
+  return (
+    <div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Method</span>
+        <select
+          className="adj-editor__select"
+          value={adj.method}
+          onChange={handleSelect('method')}
+          aria-label="Screening method"
+        >
+          <option value="am">AM (clustered dot)</option>
+          <option value="fm">FM (stochastic)</option>
+        </select>
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Pattern</span>
+        <select
+          className="adj-editor__select"
+          value={adj.pattern}
+          onChange={handleSelect('pattern')}
+          aria-label="Halftone pattern"
+        >
+          <option value="dot">Dot</option>
+          <option value="line">Line</option>
+          <option value="cross">Cross</option>
+          <option value="circle">Circle</option>
+        </select>
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Dot Shape</span>
+        <select
+          className="adj-editor__select"
+          value={adj.dotShape}
+          onChange={handleSelect('dotShape')}
+          aria-label="Dot shape"
+        >
+          <option value="round">Round</option>
+          <option value="elliptical">Elliptical</option>
+          <option value="square">Square</option>
+          <option value="diamond">Diamond</option>
+          <option value="line">Line</option>
+        </select>
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Channel</span>
+        <select
+          className="adj-editor__select"
+          value={adj.channel}
+          onChange={handleSelect('channel')}
+          aria-label="Ink channel"
+        >
+          <option value="k">Black (K)</option>
+          <option value="c">Cyan (C)</option>
+          <option value="m">Magenta (M)</option>
+          <option value="y">Yellow (Y)</option>
+          <option value="cmyk">CMYK (all channels)</option>
+        </select>
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Frequency (LPI)</span>
+          <span>{adj.frequency}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={5}
+          max={150}
+          step={1}
+          value={adj.frequency}
+          onChange={handleNumber('frequency')}
+          aria-label="Screen frequency in lines per inch"
+          disabled={adj.channel === 'cmyk'}
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Angle</span>
+          <span>{adj.angle}°</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={179}
+          step={1}
+          value={adj.angle}
+          onChange={handleNumber('angle')}
+          aria-label="Screen angle in degrees"
+          disabled={adj.channel === 'cmyk'}
+        />
+      </div>
+      {adj.channel === 'cmyk' && (
+        <div className="adj-editor__row">
+          <span
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              color: 'var(--text-tertiary)',
+            }}
+          >
+            CMYK mode screens each ink at its standard press angle (C 15°, M 75°, Y 0°, K 45°) to
+            avoid moiré between channels.
+          </span>
+        </div>
+      )}
     </div>
   );
 }

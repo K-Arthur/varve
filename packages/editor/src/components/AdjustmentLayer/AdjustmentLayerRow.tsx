@@ -1,12 +1,12 @@
 import { filterKindDisplayName } from '@strata/engine';
-import type { AdjustmentLayerNode, NodeId } from '@strata/scene';
+import type { AdjustmentNode, NodeId } from '@strata/scene';
 import { adjustmentEnabledCount } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import './adjustment.css';
 
 export interface AdjustmentLayerRowProps {
-  node: AdjustmentLayerNode;
+  node: AdjustmentNode;
   depth: number;
   selected: boolean;
   focused: boolean;
@@ -42,7 +42,7 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
 }: AdjustmentLayerRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
-  const enabledCount = adjustmentEnabledCount(node.adjustments);
+  const enabledCount = adjustmentEnabledCount(node.adjustments ?? []);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -100,7 +100,7 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
     .filter(Boolean)
     .join(' ');
 
-  const adjustmentNames = node.adjustments
+  const adjustmentNames = (node.adjustments ?? [])
     .filter((a) => a.visible)
     .slice(0, 2)
     .map((a) => filterKindDisplayName(a.kind));

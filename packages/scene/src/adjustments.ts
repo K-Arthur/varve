@@ -25,6 +25,7 @@ export type {
   ExposureAdjustment,
   FilterIR,
   GrayscaleAdjustment,
+  HalftoneAdjustment,
   HueRotateAdjustment,
   InvertAdjustment,
   LevelsAdjustment,
@@ -39,25 +40,17 @@ export type {
   VibranceAdjustment,
 } from '@strata/engine';
 
-import type { Adjustment, AdjustmentBlendMode } from '@strata/engine';
+import type { Adjustment } from '@strata/engine';
 
 export { adjustmentDefaults, makeAdjustment } from '@strata/engine';
 
-export interface AdjustmentLayerNode {
-  id: string;
-  kind: 'adjustment';
-  name: string;
-  visible: boolean;
-  locked: boolean;
-  opacity: number;
-  blendMode: AdjustmentBlendMode;
-  /** Adjustments applied to the composited result of all layers below this node. */
-  adjustments: Adjustment[];
-  /** Optional clipping mask (a child node or external shape id). */
-  clipMaskId?: string;
-  /** Bounds that limit where the adjustment is applied. */
-  bounds?: { x: number; y: number; w: number; h: number };
-}
+// Note: the scene-level adjustment-layer node type is `AdjustmentNode`
+// (defined in ./types, part of the `SceneNode` union). This module used to
+// define a second, structurally incompatible `AdjustmentLayerNode` interface
+// that also claimed `kind: 'adjustment'` but was never part of `SceneNode` —
+// consumers cast between the two unsafely. Use `AdjustmentNode` instead; its
+// `adjustments` field is optional (`Adjustment[] | undefined`), so treat an
+// absent stack as `[]` rather than assuming it is always populated.
 
 export function visibleAdjustments(adjustments: Adjustment[]): Adjustment[] {
   return adjustments.filter((a) => a.visible && a.opacity > 0);
