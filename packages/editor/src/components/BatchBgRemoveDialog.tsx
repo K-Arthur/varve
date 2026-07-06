@@ -7,7 +7,12 @@
  * - Results: summary with retry for failed items
  */
 
-import { getImageCache, removeBackground } from '@strata/engine';
+import {
+  getImageCache,
+  getModelLoaderReady,
+  removeBackground,
+  workerModelIdForMethod,
+} from '@strata/engine';
 import type {
   BackgroundRemovalMethod,
   BackgroundRemovalState,
@@ -26,6 +31,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { FocusTrap } from '../onboard/FocusTrap';
+import { ModelDownloadDialog } from './BackgroundRemoval/ModelDownloadDialog';
 import './BatchBgRemoveDialog.css';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -101,9 +107,28 @@ export function BatchBgRemoveDialog({
   const [files, setFiles] = useState<ProcessingFile[]>([]);
   const [progress, setProgress] = useState(0);
   const cancelledRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const hadAiFallbackRef = useRef(false);
   const [announceMsg, setAnnounceMsg] = useState('');
+  const [aiAvailable, setAiAvailable] = useState(true);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   const imageNodes = useMemo(() => nodes.filter((n) => isImageShape(n)), [nodes]);
+
+  const requiredModelId = workerModelIdForMethod(method);
+
+  const refreshModelStatus = useCallback(async () => {
+    if (method === 'quick' || !requiredModelId) {
+      setAiAvailable(true);
+      return;
+    }
+    const loader = await getModelLoaderReady();
+    setAiAvailable(await loader.isModelAvailable(requiredModelId));
+  }, [method, requiredModelId]);
+
+  useEffect(() => {
+    if (open) void refreshModelStatus();
+  }, [open, refreshModelStatus]);
 
   useEffect(() => {
     if (open) {
@@ -131,6 +156,8 @@ export function BatchBgRemoveDialog({
 
   const handleClose = useCallback(() => {
     cancelledRef.current = true;
+    abortRef.current?.abort();
+    abortRef.current = null;
     setStage('select');
     setFiles([]);
     setProgress(0);
@@ -174,20 +201,32 @@ export function BatchBgRemoveDialog({
 
       let result: import('@strata/engine').BackgroundRemovalResult;
       try {
-        result = await removeBackground(imageData, {
-          method,
-          feather: 2,
-          smooth: 1,
-          decontaminate: true,
-        });
+        result = await removeBackground(
+          imageData,
+          {
+            method,
+            feather: 2,
+            smooth: 1,
+            decontaminate: true,
+          },
+          abortRef.current?.signal,
+        );
       } catch (err) {
+        if (abortRef.current?.signal.aborted) return 'error';
         updateFileStatus(file.id, 'error', `Background removal failed: ${err}`);
         return 'error';
       }
 
+      if (method !== 'quick' && result.method === 'quick') {
+        hadAiFallbackRef.current = true;
+        setAnnounceMsg(
+          'AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.',
+        );
+      }
+
       const state: BackgroundRemovalState = {
         maskDataUrl: result.maskDataUrl,
-        method,
+        method: result.method,
         confidence: result.confidence,
         appliedAt: Date.now(),
         feather: 2,
@@ -206,6 +245,16 @@ export function BatchBgRemoveDialog({
   );
 
   const handleStart = useCallback(async () => {
+    if (method !== 'quick' && !aiAvailable) {
+      setAnnounceMsg('Download the AI model first, or switch to Quick mode.');
+      setShowDownloadDialog(true);
+      return;
+    }
+
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    hadAiFallbackRef.current = false;
+
     const filtered = files.map((f) => {
       const node = nodes.find((n) => n.id === f.id);
       if ((node as ShapeNode).backgroundRemoval) return { ...f, status: 'skipped' as const };
@@ -248,12 +297,17 @@ export function BatchBgRemoveDialog({
 
     if (!cancelledRef.current) {
       setProgress(total);
-      setAnnounceMsg(
-        `Background removal complete: ${done} succeeded, ${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ''}`,
-      );
+      let completionMsg = `Background removal complete: ${done} succeeded, ${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ''}`;
+      if (hadAiFallbackRef.current) {
+        completionMsg +=
+          '. AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.';
+      }
+      setAnnounceMsg(completionMsg);
       setStage('results');
     }
-  }, [files, nodes, runFile, updateFileStatus]);
+  }, [files, nodes, runFile, updateFileStatus, method, aiAvailable]);
+
+  const downloadModelId = method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
 
   const handleRetry = useCallback(
     async (id: NodeId) => {
@@ -275,7 +329,9 @@ export function BatchBgRemoveDialog({
   );
 
   const canStart =
-    files.length > 0 && files.some((f) => f.status === 'queued' || f.status === 'error');
+    files.length > 0 &&
+    files.some((f) => f.status === 'queued' || f.status === 'error') &&
+    (method === 'quick' || aiAvailable);
   const doneCount = files.filter((f) => f.status === 'done').length;
   const failedCount = files.filter((f) => f.status === 'error').length;
   const skippedCount = files.filter((f) => f.status === 'skipped').length;
@@ -348,7 +404,22 @@ export function BatchBgRemoveDialog({
                               name="bg-remove-method"
                               value={opt.value}
                               checked={method === opt.value}
-                              onChange={() => setMethod(opt.value)}
+                              onChange={() => {
+                                setMethod(opt.value);
+                                void (async () => {
+                                  if (opt.value === 'quick') {
+                                    setAiAvailable(true);
+                                    return;
+                                  }
+                                  const modelId = workerModelIdForMethod(opt.value);
+                                  if (!modelId) {
+                                    setAiAvailable(true);
+                                    return;
+                                  }
+                                  const loader = await getModelLoaderReady();
+                                  setAiAvailable(await loader.isModelAvailable(modelId));
+                                })();
+                              }}
                               className="batch-bg-remove__method-radio"
                             />
                             <span className="batch-bg-remove__method-label">{opt.label}</span>
@@ -357,6 +428,21 @@ export function BatchBgRemoveDialog({
                         ))}
                       </div>
                     </section>
+
+                    {method !== 'quick' && !aiAvailable && (
+                      <div className="batch-bg-remove__section">
+                        <p className="batch-bg-remove__hint">
+                          AI model not downloaded. Download it first or switch to Quick mode.
+                        </p>
+                        <button
+                          type="button"
+                          className="batch-bg-remove__btn batch-bg-remove__btn--secondary"
+                          onClick={() => setShowDownloadDialog(true)}
+                        >
+                          Download AI Model
+                        </button>
+                      </div>
+                    )}
 
                     <section className="batch-bg-remove__section" aria-label="Files">
                       <h3 className="batch-bg-remove__section-title">
@@ -507,6 +593,17 @@ export function BatchBgRemoveDialog({
           <div role="status" aria-live="polite" className="strata-visually-hidden">
             {announceMsg}
           </div>
+
+          {showDownloadDialog && (
+            <ModelDownloadDialog
+              modelId={downloadModelId}
+              onClose={() => setShowDownloadDialog(false)}
+              onComplete={() => {
+                setShowDownloadDialog(false);
+                void refreshModelStatus();
+              }}
+            />
+          )}
         </div>
       </FocusTrap>
     </div>

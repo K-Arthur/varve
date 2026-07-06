@@ -8,14 +8,26 @@ afterEach(cleanup);
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-const { mockRemoveBackground, mockImageCache } = vi.hoisted(() => ({
+const { mockRemoveBackground, mockImageCache, mockIsModelAvailable } = vi.hoisted(() => ({
   mockRemoveBackground: vi.fn(),
   mockImageCache: { load: vi.fn() },
+  mockIsModelAvailable: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('@strata/engine', () => ({
   getImageCache: () => mockImageCache,
   removeBackground: mockRemoveBackground,
+  getModelLoaderReady: vi.fn().mockResolvedValue({
+    isModelAvailable: mockIsModelAvailable,
+    getState: () => 'ready',
+    subscribe: () => () => {},
+  }),
+  workerModelIdForMethod: (method: string) =>
+    method === 'ai-balanced'
+      ? 'birefnet-general-lite'
+      : method === 'ai-quality'
+        ? 'birefnet-general'
+        : null,
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -321,5 +333,51 @@ describe('BatchBgRemoveDialog', () => {
 
     const liveRegion = document.querySelector('[role="status"]');
     expect(liveRegion?.textContent).toContain('succeeded');
+  });
+
+  it('blocks start when AI method selected but model unavailable', async () => {
+    mockIsModelAvailable.mockResolvedValue(false);
+    renderDialog([imageNode('i1')]);
+    await vi.waitFor(() => {
+      expect(findStartBtn()).toHaveProperty('disabled', true);
+    });
+    expect(screen.getByText(/AI model not downloaded/i)).toBeTruthy();
+  });
+
+  it('persists result.method not requested method on fallback', async () => {
+    mockIsModelAvailable.mockResolvedValue(true);
+    setupSuccessMocks();
+    mockRemoveBackground.mockResolvedValue({
+      maskDataUrl: 'data:image/png;base64,fallback',
+      confidence: 0.5,
+      method: 'quick',
+      processingTimeMs: 1,
+      width: 100,
+      height: 80,
+    });
+
+    const { onNodeUpdate } = renderDialog([imageNode('i1')]);
+    fireEvent.click(findStartBtn());
+    expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
+    expect(onNodeUpdate).toHaveBeenCalledWith('i1', expect.objectContaining({ method: 'quick' }));
+  });
+
+  it('announces fallback via aria-live when AI downgrades to quick', async () => {
+    mockIsModelAvailable.mockResolvedValue(true);
+    setupSuccessMocks();
+    mockRemoveBackground.mockResolvedValue({
+      maskDataUrl: 'data:image/png;base64,fallback',
+      confidence: 0.5,
+      method: 'quick',
+      processingTimeMs: 1,
+      width: 100,
+      height: 80,
+    });
+
+    renderDialog([imageNode('i1')]);
+    fireEvent.click(findStartBtn());
+    expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
+    const liveRegion = document.querySelector('[role="status"]');
+    expect(liveRegion?.textContent).toMatch(/quick heuristic/i);
   });
 });

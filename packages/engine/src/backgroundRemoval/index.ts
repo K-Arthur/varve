@@ -1,5 +1,12 @@
 import { removeBackgroundHeuristic } from './heuristic';
-import { decontaminateMask } from './maskOps';
+import {
+  computeMaskConfidence,
+  decontaminateMask,
+  featherMaskArray,
+  packChwFloat32,
+  resizeMaskNearestNeighbor,
+  thresholdMask,
+} from './maskOps';
 import { runPooledInference } from './workerPool';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 import { workerModelIdForMethod } from './types';
@@ -20,10 +27,6 @@ export { AVAILABLE_MODELS, workerModelIdForMethod } from './types';
 
 function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI__' in window;
-}
-
-function transferImageData(imageData: ImageData): ImageData {
-  return imageData;
 }
 
 /**
@@ -53,6 +56,7 @@ function transferImageData(imageData: ImageData): ImageData {
 export async function removeBackground(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
+  signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult> {
   if (imageData.width === 0 || imageData.height === 0) {
     throw new Error('Cannot remove background from a 0-byte image (width or height is zero)');
@@ -64,7 +68,7 @@ export async function removeBackground(
 
   if (typeof Worker !== 'undefined') {
     try {
-      return await runWorkerInference(imageData, options);
+      return await runWorkerInference(imageData, options, signal);
     } catch {
       // Fall through to native/direct/heuristic below.
     }
@@ -78,18 +82,18 @@ export async function removeBackground(
     }
   }
 
-  const { getModelLoader } = await import('./modelLoader');
-  const loader = getModelLoader();
+  const workerModelId = workerModelIdForMethod(options.method);
+  if (workerModelId) {
+    const { getModelLoader } = await import('./modelLoader');
+    const loader = getModelLoader();
+    await loader.syncFromStorage();
 
-  if (loader.getState() === 'ready') {
-    try {
-      return await removeBackgroundAI(imageData, options);
-    } catch {
-      // Last-resort AI tier failed too (e.g. cached model file went
-      // missing on disk, or both WebGL and WASM execution providers are
-      // unavailable in this environment). Fall through to the
-      // always-available heuristic rather than surfacing a hard failure
-      // for what the user experiences as "remove background didn't work".
+    if (await loader.isModelAvailable(workerModelId)) {
+      try {
+        return await removeBackgroundAI(imageData, options, workerModelId, signal);
+      } catch {
+        // Last-resort AI tier failed too — fall through to heuristic.
+      }
     }
   }
 
@@ -99,6 +103,7 @@ export async function removeBackground(
 async function runWorkerInference(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
+  signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult> {
   const workerModelId = workerModelIdForMethod(options.method);
   if (!workerModelId) {
@@ -107,7 +112,7 @@ async function runWorkerInference(
   const loader = (await import('./modelLoader')).getModelLoader();
   await loader.syncFromStorage();
   const path = (await loader.getModelPath(workerModelId)) ?? `/models/${workerModelId}.onnx`;
-  return runPooledInference(imageData, options, path, workerModelId);
+  return runPooledInference(imageData, options, path, workerModelId, signal);
 }
 
 /** Wire-format response from the Rust `remove_background` Tauri command
@@ -147,70 +152,95 @@ async function invokeTauriRemoveBackground(
   });
 
   // Native `RemovalMethod`/`RemovalResult` only round-trips `'quick'`
-  // (the `ai` Cargo feature is opt-in per ADR-0005), so `raw.method` is the
-  // ground truth for what actually ran — never trust the requested
-  // `options.method` when reporting back what happened.
+  // (the `ai` Cargo feature is opt-in per ADR-0005). Never trust
+  // `raw.method` for AI claims — the shipped native path always runs
+  // the heuristic engine regardless of what the caller requested.
   return {
     maskDataUrl: `data:image/png;base64,${raw.maskBase64}`,
     confidence: raw.confidence,
-    method: raw.method === 'quick' ? 'quick' : options.method,
+    method: 'quick',
     processingTimeMs: raw.processingTimeMs,
     width: raw.width,
     height: raw.height,
   };
 }
 
+async function createOrtSession(
+  ort: typeof import('onnxruntime-web'),
+  modelPath: string,
+): Promise<{
+  session: import('onnxruntime-web').InferenceSession;
+  executionProvider: 'webgl' | 'wasm';
+}> {
+  try {
+    const session = await ort.InferenceSession.create(modelPath, {
+      executionProviders: ['webgl', 'wasm'],
+    });
+    return { session, executionProvider: 'webgl' };
+  } catch {
+    const session = await ort.InferenceSession.create(modelPath, {
+      executionProviders: ['wasm'],
+    });
+    return { session, executionProvider: 'wasm' };
+  }
+}
+
 async function removeBackgroundAI(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
+  modelId: import('./types').WorkerModelId,
+  signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult> {
+  if (signal?.aborted) {
+    throw new Error('cancelled');
+  }
+
   const start = performance.now();
 
-  const modelId = options.method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
-  const modelPath = `/${modelId}.onnx`;
+  const loader = (await import('./modelLoader')).getModelLoader();
+  await loader.syncFromStorage();
+  const modelPath = (await loader.getModelPath(modelId)) ?? `/models/${modelId}.onnx`;
 
-  let ort: any;
+  let ort: typeof import('onnxruntime-web');
   try {
     ort = await import('onnxruntime-web');
   } catch {
     throw new Error('ONNX Runtime Web not available. Install onnxruntime-web or use quick remove.');
   }
 
-  const session = await ort.InferenceSession.create(modelPath);
+  const { session, executionProvider } = await createOrtSession(ort, modelPath);
 
-  const inputSize = 1024;
+  const inputSize = modelId === 'u2netp' ? 320 : 1024;
   const resized = resizeImageData(imageData, inputSize, inputSize);
-  const inputTensor = imageDataToTensor(resized);
+  const floatData = packChwFloat32(resized);
+  const inputTensor = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
 
-  const feeds: Record<string, any> = {};
+  const feeds: Record<string, import('onnxruntime-web').Tensor> = {};
   const inputNames = session.inputNames;
-  feeds[inputNames[0]] = inputTensor;
+  feeds[inputNames[0]!] = inputTensor;
 
   const results = await session.run(feeds);
-  const outputTensor = results[session.outputNames[0]];
-  const outputData = outputTensor.data as Float32Array;
+  const outputTensor = results[session.outputNames[0]!];
+  const outputData = outputTensor?.data as Float32Array;
 
-  const maskWidth = outputTensor.dims[3];
-  const maskHeight = outputTensor.dims[2];
+  const maskWidth = outputTensor?.dims[3] ?? inputSize;
+  const maskHeight = outputTensor?.dims[2] ?? inputSize;
 
-  const mask = new Uint8Array(maskWidth * maskHeight);
-  for (let i = 0; i < outputData.length; i++) {
-    mask[i] = (outputData[i] ?? 0) > 0.5 ? 255 : 0;
-  }
-
-  const upscaledMask = resizeMask(mask, maskWidth, maskHeight, imageData.width, imageData.height);
+  const mask = thresholdMask(outputData);
+  const upscaledMask = resizeMaskNearestNeighbor(
+    mask,
+    maskWidth,
+    maskHeight,
+    imageData.width,
+    imageData.height,
+  );
 
   let finalMask = upscaledMask;
   if (options.decontaminate) {
     finalMask = decontaminateMask(finalMask, imageData.width, imageData.height);
   }
   if (options.feather && options.feather > 0) {
-    finalMask = await applySimpleFeather(
-      finalMask,
-      imageData.width,
-      imageData.height,
-      options.feather,
-    );
+    finalMask = featherMaskArray(finalMask, imageData.width, imageData.height, options.feather);
   }
 
   const maskDataUrl = maskToDataUrl(finalMask, imageData.width, imageData.height);
@@ -218,11 +248,12 @@ async function removeBackgroundAI(
 
   return {
     maskDataUrl,
-    confidence: 0.85,
+    confidence: computeMaskConfidence(outputData),
     method: options.method,
     processingTimeMs: Math.round(processingTimeMs),
     width: imageData.width,
     height: imageData.height,
+    executionProvider,
   };
 }
 
@@ -237,41 +268,6 @@ function resizeImageData(src: ImageData, targetW: number, targetH: number): Imag
   tempCanvas.getContext('2d')?.putImageData(src, 0, 0);
   ctx.drawImage(tempCanvas, 0, 0, targetW, targetH);
   return ctx.getImageData(0, 0, targetW, targetH);
-}
-
-function resizeMask(
-  mask: Uint8Array,
-  srcW: number,
-  srcH: number,
-  dstW: number,
-  dstH: number,
-): Uint8Array {
-  if (srcW === dstW && srcH === dstH) return mask;
-
-  const result = new Uint8Array(dstW * dstH);
-  for (let dy = 0; dy < dstH; dy++) {
-    for (let dx = 0; dx < dstW; dx++) {
-      const sx = (dx * srcW) / dstW;
-      const sy = (dy * srcH) / dstH;
-      const ix = Math.min(Math.floor(sx), srcW - 1);
-      const iy = Math.min(Math.floor(sy), srcH - 1);
-      result[dy * dstW + dx] = mask[iy * srcW + ix] ?? 0;
-    }
-  }
-  return result;
-}
-
-function imageDataToTensor(imageData: ImageData): any {
-  const { data, width, height } = imageData;
-  const floatData = new Float32Array(width * height * 3);
-
-  for (let i = 0; i < data.length / 4; i++) {
-    floatData[i] = (data[i * 4] ?? 0) / 255;
-    floatData[width * height + i] = (data[i * 4 + 1] ?? 0) / 255;
-    floatData[width * height * 2 + i] = (data[i * 4 + 2] ?? 0) / 255;
-  }
-
-  return new Float32Array(floatData);
 }
 
 function maskToDataUrl(mask: Uint8Array, width: number, height: number): string {
@@ -289,36 +285,4 @@ function maskToDataUrl(mask: Uint8Array, width: number, height: number): string 
   }
   ctx.putImageData(imageData, 0, 0);
   return canvas.toDataURL('image/png');
-}
-
-async function applySimpleFeather(
-  mask: Uint8Array,
-  width: number,
-  height: number,
-  radius: number,
-): Promise<Uint8Array> {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-  const imageData = ctx.createImageData(width, height);
-  for (let i = 0; i < mask.length; i++) {
-    imageData.data[i * 4] = mask[i] ?? 0;
-    imageData.data[i * 4 + 1] = mask[i] ?? 0;
-    imageData.data[i * 4 + 2] = mask[i] ?? 0;
-    imageData.data[i * 4 + 3] = mask[i] ?? 0;
-  }
-  ctx.putImageData(imageData, 0, 0);
-
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.filter = `blur(${Math.round(radius)}px)`;
-  ctx.drawImage(canvas, 0, 0);
-  ctx.filter = 'none';
-
-  const blurred = ctx.getImageData(0, 0, width, height);
-  const result = new Uint8Array(width * height);
-  for (let i = 0; i < result.length; i++) {
-    result[i] = blurred.data[i * 4] ?? 0;
-  }
-  return result;
 }

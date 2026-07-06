@@ -5,7 +5,14 @@
  */
 
 import type { InferenceSession, Tensor } from 'onnxruntime-web';
-import { decontaminateMask, featherMaskArray } from './maskOps';
+import {
+  computeMaskConfidence,
+  decontaminateMask,
+  featherMaskArray,
+  packChwFloat32,
+  resizeMaskNearestNeighbor,
+  thresholdMask,
+} from './maskOps';
 import type { BackgroundRemovalResult } from './types';
 
 interface WorkerCommand {
@@ -16,6 +23,7 @@ interface WorkerCommand {
   reuseSession?: boolean;
   feather?: number;
   decontaminate?: boolean;
+  previewMaxDimension?: number;
 }
 
 interface WorkerResponse {
@@ -34,26 +42,64 @@ interface WorkerReady {
 
 let cachedSession: InferenceSession | null = null;
 let cachedModelPath: string | null = null;
+let cachedExecutionProvider: 'webgl' | 'wasm' = 'wasm';
 
-async function getSession(modelPath: string): Promise<InferenceSession> {
+async function getSession(
+  modelPath: string,
+): Promise<{ session: InferenceSession; executionProvider: 'webgl' | 'wasm' }> {
   if (cachedSession && cachedModelPath === modelPath) {
-    return cachedSession;
+    return { session: cachedSession, executionProvider: cachedExecutionProvider };
   }
   const ort = await import('onnxruntime-web');
-  cachedSession = await ort.InferenceSession.create(modelPath, {
-    executionProviders: ['webgl', 'wasm'],
-  });
+  try {
+    cachedSession = await ort.InferenceSession.create(modelPath, {
+      executionProviders: ['webgl', 'wasm'],
+    });
+    cachedExecutionProvider = 'webgl';
+  } catch {
+    cachedSession = await ort.InferenceSession.create(modelPath, {
+      executionProviders: ['wasm'],
+    });
+    cachedExecutionProvider = 'wasm';
+  }
   cachedModelPath = modelPath;
-  return cachedSession;
+  return { session: cachedSession, executionProvider: cachedExecutionProvider };
+}
+
+function downscaleImageData(imageData: ImageData, maxDim: number): ImageData {
+  const { width, height } = imageData;
+  if (width <= maxDim && height <= maxDim) return imageData;
+
+  const scale = maxDim / Math.max(width, height);
+  const targetW = Math.round(width * scale);
+  const targetH = Math.round(height * scale);
+
+  const canvas = new OffscreenCanvas(targetW, targetH);
+  const ctx = canvas.getContext('2d')!;
+  const srcCanvas = new OffscreenCanvas(width, height);
+  srcCanvas.getContext('2d')!.putImageData(imageData, 0, 0);
+  ctx.drawImage(srcCanvas, 0, 0, targetW, targetH);
+  return ctx.getImageData(0, 0, targetW, targetH);
 }
 
 self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
-  const { imageData, modelPath, modelId, reuseSession, feather, decontaminate } = e.data;
+  const {
+    imageData,
+    modelPath,
+    modelId,
+    reuseSession,
+    feather,
+    decontaminate,
+    previewMaxDimension,
+  } = e.data;
 
   try {
+    const start = performance.now();
     const hadSession = cachedSession !== null && cachedModelPath === modelPath;
-    const session =
-      reuseSession && hadSession && cachedSession ? cachedSession : await getSession(modelPath);
+    const { session, executionProvider } =
+      reuseSession && hadSession && cachedSession
+        ? { session: cachedSession, executionProvider: cachedExecutionProvider }
+        : await getSession(modelPath);
 
     if (!hadSession) {
       self.postMessage({ type: 'ready' } satisfies WorkerReady);
@@ -63,21 +109,19 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
 
     const inputSize = modelId === 'u2netp' ? 320 : 1024;
 
+    const sourceImage =
+      previewMaxDimension && previewMaxDimension > 0
+        ? downscaleImageData(imageData, previewMaxDimension)
+        : imageData;
+
     const resizedCanvas = new OffscreenCanvas(inputSize, inputSize);
     const resizedCtx = resizedCanvas.getContext('2d')!;
 
-    const imageBitmap = await createImageBitmap(imageData);
+    const imageBitmap = await createImageBitmap(sourceImage);
     resizedCtx.drawImage(imageBitmap, 0, 0, inputSize, inputSize);
     const resizedData = resizedCtx.getImageData(0, 0, inputSize, inputSize);
 
-    const { width, height } = resizedData;
-    const data = resizedData.data as Uint8ClampedArray;
-    const floatData = new Float32Array(width * height * 3);
-    for (let i = 0; i < data.length / 4; i++) {
-      floatData[i] = (data[i * 4] ?? 0) / 255;
-      floatData[width * height + i] = (data[i * 4 + 1] ?? 0) / 255;
-      floatData[width * height * 2 + i] = (data[i * 4 + 2] ?? 0) / 255;
-    }
+    const floatData = packChwFloat32(resizedData);
 
     const inputName = session.inputNames[0]!;
     const feeds: Record<string, Tensor> = {};
@@ -88,51 +132,30 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     const outputData = results[outputName]?.data as Float32Array;
 
     const dims = results[outputName]?.dims;
-    const maskW = dims[3] ?? inputSize;
-    const maskH = dims[2] ?? inputSize;
-    const mask = new Uint8Array(maskW * maskH);
-    for (let i = 0; i < outputData.length; i++) {
-      mask[i] = (outputData[i] ?? 0) > 0.5 ? 255 : 0;
-    }
+    const maskW = dims?.[3] ?? inputSize;
+    const maskH = dims?.[2] ?? inputSize;
+    const mask = thresholdMask(outputData);
 
-    const maskCanvas = new OffscreenCanvas(imageData.width, imageData.height);
-    const maskCtx = maskCanvas.getContext('2d')!;
-    const maskImageData = maskCtx.createImageData(maskW, maskH);
-    for (let i = 0; i < mask.length; i++) {
-      const v = mask[i] ?? 0;
-      maskImageData.data[i * 4] = v;
-      maskImageData.data[i * 4 + 1] = v;
-      maskImageData.data[i * 4 + 2] = v;
-      maskImageData.data[i * 4 + 3] = 255;
+    let fullMask = resizeMaskNearestNeighbor(mask, maskW, maskH, imageData.width, imageData.height);
+
+    if (decontaminate) {
+      fullMask = decontaminateMask(fullMask, imageData.width, imageData.height);
     }
-    maskCtx.putImageData(maskImageData, 0, 0);
+    if (feather && feather > 0) {
+      fullMask = featherMaskArray(fullMask, imageData.width, imageData.height, feather);
+    }
 
     const finalCanvas = new OffscreenCanvas(imageData.width, imageData.height);
     const finalCtx = finalCanvas.getContext('2d')!;
-    finalCtx.drawImage(maskCanvas, 0, 0, imageData.width, imageData.height);
-
-    if (decontaminate || (feather && feather > 0)) {
-      const upscaled = finalCtx.getImageData(0, 0, imageData.width, imageData.height);
-      let fullMask = new Uint8Array(imageData.width * imageData.height);
-      for (let i = 0; i < fullMask.length; i++) {
-        fullMask[i] = upscaled.data[i * 4] ?? 0;
-      }
-      if (decontaminate) {
-        fullMask = decontaminateMask(fullMask, imageData.width, imageData.height);
-      }
-      if (feather && feather > 0) {
-        fullMask = featherMaskArray(fullMask, imageData.width, imageData.height, feather);
-      }
-      const refined = finalCtx.createImageData(imageData.width, imageData.height);
-      for (let i = 0; i < fullMask.length; i++) {
-        const v = fullMask[i] ?? 0;
-        refined.data[i * 4] = v;
-        refined.data[i * 4 + 1] = v;
-        refined.data[i * 4 + 2] = v;
-        refined.data[i * 4 + 3] = 255;
-      }
-      finalCtx.putImageData(refined, 0, 0);
+    const refined = finalCtx.createImageData(imageData.width, imageData.height);
+    for (let i = 0; i < fullMask.length; i++) {
+      const v = fullMask[i] ?? 0;
+      refined.data[i * 4] = v;
+      refined.data[i * 4 + 1] = v;
+      refined.data[i * 4 + 2] = v;
+      refined.data[i * 4 + 3] = 255;
     }
+    finalCtx.putImageData(refined, 0, 0);
 
     const finalBlob = await finalCanvas.convertToBlob({ type: 'image/png' });
     const buffer = await finalBlob.arrayBuffer();
@@ -143,20 +166,23 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     }
     const maskDataUrl = `data:image/png;base64,${btoa(binary)}`;
 
+    const processingTimeMs = Math.round(performance.now() - start);
+
     const response: WorkerResponse = {
       type: 'result',
       result: {
         maskDataUrl,
-        confidence: 0.85,
+        confidence: computeMaskConfidence(outputData),
         method:
           modelId === 'birefnet-general'
             ? 'ai-quality'
             : modelId === 'birefnet-general-lite'
               ? 'ai-balanced'
               : 'quick',
-        processingTimeMs: 0,
+        processingTimeMs,
         width: imageData.width,
         height: imageData.height,
+        executionProvider,
       },
     };
     self.postMessage(response);

@@ -5,8 +5,8 @@
       "id": "u2netp",
       "filename": "u2netp.onnx",
       "localPath": "/models/u2netp.onnx",
-      "sha256": null,
-      "bundled": false,
+      "sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+      "bundled": true,
       "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
     },
     {

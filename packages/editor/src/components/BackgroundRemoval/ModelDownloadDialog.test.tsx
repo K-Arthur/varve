@@ -75,13 +75,21 @@ describe('ModelDownloadDialog — consent gate', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
     expect(mockDownloadModel).toHaveBeenCalledTimes(1);
-    expect(mockDownloadModel).toHaveBeenCalledWith('birefnet-general-lite', expect.any(Function));
+    expect(mockDownloadModel).toHaveBeenCalledWith(
+      'birefnet-general-lite',
+      expect.any(Function),
+      expect.any(AbortSignal),
+    );
   });
 
   it('lets the user cancel without ever triggering a download', () => {
     const onClose = vi.fn();
     render(
-      <ModelDownloadDialog modelId="birefnet-general-lite" onClose={onClose} onComplete={() => {}} />,
+      <ModelDownloadDialog
+        modelId="birefnet-general-lite"
+        onClose={onClose}
+        onComplete={() => {}}
+      />,
     );
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
     expect(mockDownloadModel).not.toHaveBeenCalled();

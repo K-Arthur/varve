@@ -101,3 +101,64 @@ export function featherMaskArray(
   }
   return result;
 }
+
+/** Threshold raw sigmoid outputs to a binary 0/255 mask. */
+export function thresholdMask(data: Float32Array, threshold = 0.5): Uint8Array {
+  const mask = new Uint8Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    mask[i] = (data[i] ?? 0) > threshold ? 255 : 0;
+  }
+  return mask;
+}
+
+/** Nearest-neighbor upscale/downscale of a single-channel mask. */
+export function resizeMaskNearestNeighbor(
+  mask: Uint8Array,
+  srcW: number,
+  srcH: number,
+  dstW: number,
+  dstH: number,
+): Uint8Array {
+  if (srcW === dstW && srcH === dstH) return mask;
+
+  const result = new Uint8Array(dstW * dstH);
+  for (let dy = 0; dy < dstH; dy++) {
+    for (let dx = 0; dx < dstW; dx++) {
+      const sx = (dx * srcW) / dstW;
+      const sy = (dy * srcH) / dstH;
+      const ix = Math.min(Math.floor(sx), srcW - 1);
+      const iy = Math.min(Math.floor(sy), srcH - 1);
+      result[dy * dstW + dx] = mask[iy * srcW + ix] ?? 0;
+    }
+  }
+  return result;
+}
+
+/** Pack RGBA ImageData into CHW float32 tensor data (0-1 range). */
+export function packChwFloat32(imageData: {
+  data: Uint8ClampedArray | Uint8Array;
+  width: number;
+  height: number;
+}): Float32Array {
+  const { data, width, height } = imageData;
+  const floatData = new Float32Array(width * height * 3);
+  for (let i = 0; i < data.length / 4; i++) {
+    floatData[i] = (data[i * 4] ?? 0) / 255;
+    floatData[width * height + i] = (data[i * 4 + 1] ?? 0) / 255;
+    floatData[width * height * 2 + i] = (data[i * 4 + 2] ?? 0) / 255;
+  }
+  return floatData;
+}
+
+/**
+ * Compute confidence from raw sigmoid outputs as mean distance from 0.5,
+ * scaled to [0, 1]. Higher separation from the decision boundary = higher confidence.
+ */
+export function computeMaskConfidence(rawOutput: Float32Array): number {
+  if (rawOutput.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < rawOutput.length; i++) {
+    sum += Math.abs((rawOutput[i] ?? 0) - 0.5);
+  }
+  return Math.min(1, (sum / rawOutput.length) * 2);
+}

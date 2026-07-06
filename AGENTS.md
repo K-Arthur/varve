@@ -1517,3 +1517,19 @@ Complete 18-phase overhaul of the Layers Panel subsystem — architecture audit,
 - **Token audit:** 96/96 WCAG-AA
 - **Emoji audit:** clean (823 files)
 - **Lint:** 0 new errors on modified files
+
+## Session 38 — Background Removal AI Pipeline Hardening (2026-07-06)
+
+Closed all P0-P3 gaps in the AI background-removal pipeline (audit + ADR-0005 + deferred plan Phases 5-6).
+
+| Phase | What | Key files | Tests |
+|---|---|---|---|
+| **1** | ADR-0005: IndexedDB sole source of truth; native Rust AI deferred (Option A); Worker-first dispatch | `docs/adr/0005-offline-model-bundling.md` | `index.test.ts` Tauri method coercion |
+| **2** | Shared mask pipeline; per-model gating; fixed direct-ONNX path | `maskOps.ts`, `index.ts`, `worker.ts` | `maskOps.test.ts`, `directAi.telemetry.test.ts` |
+| **3** | Batch + Export AI gating parity; removed dead `batchRemoveBackground` | `BatchBgRemoveDialog.tsx`, `ExportDialog.tsx`, `context.tsx` | `BatchBgRemoveDialog.test.tsx`, `bgRemovalFeatures.test.tsx` |
+| **3b** | Wired `RefineMaskTool` into inspector | `BackgroundRemovalSection.tsx`, `RefineMaskTool.ts` | `ToolManager.test.ts`, `RefineMaskTool.test.ts` |
+| **4-5** | AbortSignal downloads + bundled `u2netp.onnx` SHA-256 | `modelLoader.ts`, `manifest.json` | `modelLoader.test.ts`, `bundledModel.test.ts` |
+| **6-7** | Worker pool cancel + telemetry (`executionProvider`, `processingTimeMs`) | `workerPool.ts`, `context.tsx` | `workerPool.test.ts`, `directAi.telemetry.test.ts` |
+| **8-9** | Native Rust deferral; RefineMask bugs; a11y method label | `strata-bgremove/Cargo.toml`, `CanvasAccessibilityTree.tsx` | `RefineMaskTool.test.ts` |
+
+**Verification:** Focused bg-removal suite **113/113** pass.

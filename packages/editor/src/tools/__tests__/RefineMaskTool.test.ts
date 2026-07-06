@@ -158,4 +158,37 @@ describe('RefineMaskTool', () => {
       'Select an image with background removal applied first',
     );
   });
+
+  it('Escape exits refine mask mode', () => {
+    const tool = new RefineMaskTool();
+    const ctx = makeMinimalCtx({ setTool: vi.fn() });
+    const handled = tool.onKeyDown({ key: 'Escape' } as KeyboardEvent, ctx);
+    expect(handled).toBe(true);
+    expect(ctx.setTool).toHaveBeenCalledWith('select');
+  });
+
+  it('V key exits refine mask mode', () => {
+    const tool = new RefineMaskTool();
+    const ctx = makeMinimalCtx({ setTool: vi.fn() });
+    const handled = tool.onKeyDown({ key: 'v' } as KeyboardEvent, ctx);
+    expect(handled).toBe(true);
+    expect(ctx.setTool).toHaveBeenCalledWith('select');
+  });
+
+  it('onDragCancel restores pre-stroke mask snapshot', () => {
+    const tool = new RefineMaskTool();
+    const maskData = createWhiteMaskImageData();
+    maskData.data[0] = 200;
+    (tool as any).maskData = maskData;
+    (tool as any).maskSnapshot = createWhiteMaskImageData();
+    (tool as any).nodeId = 'img-1';
+    const ctx = makeMinimalCtx();
+
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1 } as any, ctx);
+    maskData.data[0] = 50;
+    tool.onDragCancel(ctx);
+
+    expect(maskData.data[0]).toBe(255);
+    expect(ctx.abortTransaction).toHaveBeenCalled();
+  });
 });

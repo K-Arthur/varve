@@ -48,6 +48,7 @@ export function CanvasAccessibilityTree({
       w: number;
       h: number;
       backgroundRemoved: boolean;
+      bgRemovalMethod?: string;
     }> = [];
 
     for (const [id] of entries) {
@@ -56,7 +57,10 @@ export function CanvasAccessibilityTree({
       const bounds = nodeWorldBounds(doc, id);
       if (!bounds) continue;
       if (!isWorldRectInViewport(camera, viewport, bounds)) continue;
-      const hasBgRemoval = 'backgroundRemoval' in n && n.backgroundRemoval != null;
+      const bgRemoval =
+        'backgroundRemoval' in n && n.backgroundRemoval != null
+          ? (n.backgroundRemoval as { method?: string })
+          : null;
       result.push({
         id,
         name: n.name ?? 'Untitled',
@@ -65,7 +69,8 @@ export function CanvasAccessibilityTree({
         y: Math.round(bounds.y),
         w: Math.round(bounds.w),
         h: Math.round(bounds.h),
-        backgroundRemoved: hasBgRemoval,
+        backgroundRemoved: bgRemoval != null,
+        bgRemovalMethod: bgRemoval?.method,
       });
     }
 
@@ -82,7 +87,11 @@ export function CanvasAccessibilityTree({
         <span
           key={node.id}
           role="img"
-          aria-label={`${node.name}, ${node.kind}, at (${node.x}, ${node.y}), ${node.w} x ${node.h}${node.backgroundRemoved ? ', background removed' : ''}`}
+          aria-label={`${node.name}, ${node.kind}, at (${node.x}, ${node.y}), ${node.w} x ${node.h}${
+            node.backgroundRemoved
+              ? `, background removed (${node.bgRemovalMethod === 'quick' ? 'quick' : 'AI'})`
+              : ''
+          }`}
         />
       ))}
     </div>

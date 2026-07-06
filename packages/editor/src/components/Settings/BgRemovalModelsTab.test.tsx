@@ -31,21 +31,11 @@ vi.mock('@strata/engine', () => ({
   ],
   getModelLoaderReady: mockGetModelLoaderReady,
   workerModelIdForMethod: (m: string) =>
-    m === 'ai-balanced'
-      ? 'birefnet-general-lite'
-      : m === 'ai-quality'
-        ? 'birefnet-general'
-        : null,
+    m === 'ai-balanced' ? 'birefnet-general-lite' : m === 'ai-quality' ? 'birefnet-general' : null,
 }));
 
 vi.mock('../BackgroundRemoval/ModelDownloadDialog', () => ({
-  ModelDownloadDialog: ({
-    modelId,
-    onComplete,
-  }: {
-    modelId: string;
-    onComplete: () => void;
-  }) => (
+  ModelDownloadDialog: ({ modelId, onComplete }: { modelId: string; onComplete: () => void }) => (
     <div data-testid="download-dialog">
       <span>Downloading {modelId}</span>
       <button type="button" onClick={onComplete}>
@@ -87,8 +77,20 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
   it('lists every known model with size and install status, even before any download', async () => {
     mockGetModelLoaderReady.mockResolvedValue(
       mockLoader([
-        { id: 'birefnet-general-lite', name: 'BiRefNet Lite', size: 120_000_000, installed: false, source: 'none' },
-        { id: 'birefnet-general', name: 'BiRefNet Full', size: 380_000_000, installed: false, source: 'none' },
+        {
+          id: 'birefnet-general-lite',
+          name: 'BiRefNet Lite',
+          size: 120_000_000,
+          installed: false,
+          source: 'none',
+        },
+        {
+          id: 'birefnet-general',
+          name: 'BiRefNet Full',
+          size: 380_000_000,
+          installed: false,
+          source: 'none',
+        },
       ]),
     );
 
@@ -104,15 +106,29 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
   it('shows a Delete action only for user-downloaded models, never for bundled ones', async () => {
     mockGetModelLoaderReady.mockResolvedValue(
       mockLoader([
-        { id: 'birefnet-general-lite', name: 'BiRefNet Lite', size: 120_000_000, installed: true, source: 'downloaded' },
-        { id: 'birefnet-general', name: 'BiRefNet Full', size: 380_000_000, installed: true, source: 'bundled' },
+        {
+          id: 'birefnet-general-lite',
+          name: 'BiRefNet Lite',
+          size: 120_000_000,
+          installed: true,
+          source: 'downloaded',
+        },
+        {
+          id: 'birefnet-general',
+          name: 'BiRefNet Full',
+          size: 380_000_000,
+          installed: true,
+          source: 'bundled',
+        },
       ]),
     );
 
     render(<BgRemovalModelsTab />);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /delete birefnet lite model/i })).toBeInTheDocument(),
+      expect(
+        screen.getByRole('button', { name: /delete birefnet lite model/i }),
+      ).toBeInTheDocument(),
     );
     expect(
       screen.queryByRole('button', { name: /delete birefnet full model/i }),
@@ -123,7 +139,13 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
   it('deletes the model and refreshes the list on click', async () => {
     mockGetModelLoaderReady.mockResolvedValue(
       mockLoader([
-        { id: 'birefnet-general-lite', name: 'BiRefNet Lite', size: 120_000_000, installed: true, source: 'downloaded' },
+        {
+          id: 'birefnet-general-lite',
+          name: 'BiRefNet Lite',
+          size: 120_000_000,
+          installed: true,
+          source: 'downloaded',
+        },
       ]),
     );
 
@@ -139,12 +161,20 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
   it('opens the consent-gated download dialog for a not-installed model instead of downloading directly', async () => {
     mockGetModelLoaderReady.mockResolvedValue(
       mockLoader([
-        { id: 'birefnet-general-lite', name: 'BiRefNet Lite', size: 120_000_000, installed: false, source: 'none' },
+        {
+          id: 'birefnet-general-lite',
+          name: 'BiRefNet Lite',
+          size: 120_000_000,
+          installed: false,
+          source: 'none',
+        },
       ]),
     );
 
     render(<BgRemovalModelsTab />);
-    const downloadBtn = await screen.findByRole('button', { name: /download birefnet lite model/i });
+    const downloadBtn = await screen.findByRole('button', {
+      name: /download birefnet lite model/i,
+    });
     fireEvent.click(downloadBtn);
 
     expect(screen.getByTestId('download-dialog')).toBeInTheDocument();

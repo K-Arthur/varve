@@ -5,9 +5,23 @@
  * destination configuration, and cancellation support.
  */
 
-import type { ExportBatch, ExportJob, ExportPreset, SceneNode, ShapeNode } from '@strata/scene';
+import type {
+  BackgroundRemovalMethod,
+  BackgroundRemovalState,
+  Document,
+  ExportBatch,
+  ExportJob,
+  ExportPreset,
+  NodeId,
+  SceneNode,
+  ShapeNode,
+  Timeline,
+} from '@strata/scene';
+import { timelineToCSSKeyframes, timelineToLottieJSON } from '@strata/codegen';
 import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
+import { getModelLoaderReady, workerModelIdForMethod } from '@strata/engine';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
 import { ExportProgressBar } from './ExportProgressBar';
@@ -18,9 +32,19 @@ export interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
   nodes: SceneNode[];
+  document?: Document;
+  timelines?: Record<string, Timeline>;
   onExport: (batch: ExportBatch) => Promise<void>;
+  onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
+  onExportMotion?: (format: 'css' | 'lottie', fileName: string, content: string) => void;
   initialTemplate?: string;
 }
+
+const BG_METHOD_OPTIONS: { value: BackgroundRemovalMethod; label: string }[] = [
+  { value: 'quick', label: 'Quick' },
+  { value: 'ai-balanced', label: 'AI Balanced' },
+  { value: 'ai-quality', label: 'AI Quality' },
+];
 
 function safeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'export';
@@ -66,7 +90,11 @@ export function ExportDialog({
   isOpen,
   onClose,
   nodes,
+  document,
+  timelines = {},
   onExport,
+  onApplyBackgroundRemoval,
+  onExportMotion,
   initialTemplate = '{name}{suffix}.{ext}',
 }: ExportDialogProps) {
   const [running, setRunning] = useState(false);
@@ -77,6 +105,39 @@ export function ExportDialog({
   const [destinationLabel, setDestinationLabel] = useState('');
   const [announceMsg, setAnnounceMsg] = useState('');
   const [removeBgBeforeExport, setRemoveBgBeforeExport] = useState(false);
+  const [bgMethod, setBgMethod] = useState<BackgroundRemovalMethod>('quick');
+  const [aiAvailable, setAiAvailable] = useState(true);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+
+  const requiredModelId = workerModelIdForMethod(bgMethod);
+
+  const timelineList = useMemo(() => Object.values(timelines), [timelines]);
+
+  const nodeNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const node of nodes) {
+      names[node.id] = node.name;
+    }
+    if (document) {
+      for (const [id, node] of Object.entries(document.nodes)) {
+        names[id] = node.name;
+      }
+    }
+    return names;
+  }, [nodes, document]);
+
+  const refreshModelStatus = useCallback(async () => {
+    if (bgMethod === 'quick' || !requiredModelId) {
+      setAiAvailable(true);
+      return;
+    }
+    const loader = await getModelLoaderReady();
+    setAiAvailable(await loader.isModelAvailable(requiredModelId));
+  }, [bgMethod, requiredModelId]);
+
+  useEffect(() => {
+    if (isOpen) void refreshModelStatus();
+  }, [isOpen, refreshModelStatus]);
 
   const jobs = useMemo(() => buildJobs(nodes), [nodes]);
 
@@ -108,9 +169,16 @@ export function ExportDialog({
     const selectedJobs = jobs.filter((job) => selectedIds.has(`${job.nodeId}-${job.presetId}`));
 
     if (removeBgBeforeExport) {
+      if (bgMethod !== 'quick' && !aiAvailable) {
+        setAnnounceMsg('Download the AI model first, or switch to Quick mode.');
+        setShowDownloadDialog(true);
+        setRunning(false);
+        return;
+      }
+
       const imageNodes = nodes.filter((n): n is ShapeNode => isImageShape(n));
       const pendingImages = imageNodes.filter((n) => !n.backgroundRemoval);
-      if (pendingImages.length > 0) {
+      if (pendingImages.length > 0 && onApplyBackgroundRemoval) {
         setAnnounceMsg(`Removing background from ${pendingImages.length} image(s)...`);
         const { removeBackground: removeBgFn } = await import('@strata/engine');
         const { getImageCache } = await import('@strata/engine');
@@ -130,26 +198,22 @@ export function ExportDialog({
             ctx.drawImage(img, 0, 0, w, h);
             const imageData = ctx.getImageData(0, 0, w, h);
             const result = await removeBgFn(imageData, {
-              method: 'quick',
+              method: bgMethod,
               feather: 0.5,
               decontaminate: true,
             });
-            const { setBackgroundRemoval } = await import('@strata/scene');
-            nodes.forEach((n, i) => {
-              if (n.id === imgNode.id) {
-                (nodes as unknown[])[i] = setBackgroundRemoval(
-                  { nodes: { [n.id]: n } } as never,
-                  n.id,
-                  {
-                    maskDataUrl: result.maskDataUrl,
-                    method: result.method,
-                    confidence: result.confidence,
-                    appliedAt: Date.now(),
-                    feather: 0.5,
-                    decontaminate: true,
-                  },
-                ).nodes[n.id];
-              }
+            if (bgMethod !== 'quick' && result.method === 'quick') {
+              setAnnounceMsg(
+                'AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.',
+              );
+            }
+            onApplyBackgroundRemoval(imgNode.id, {
+              maskDataUrl: result.maskDataUrl,
+              method: result.method,
+              confidence: result.confidence,
+              appliedAt: Date.now(),
+              feather: 0.5,
+              decontaminate: true,
             });
           } catch {
             // continue with export even if bg removal fails
@@ -176,6 +240,9 @@ export function ExportDialog({
     folderRule,
     removeBgBeforeExport,
     nodes,
+    onApplyBackgroundRemoval,
+    bgMethod,
+    aiAvailable,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -275,6 +342,49 @@ export function ExportDialog({
               />
               <span>Remove background before export</span>
             </label>
+            {removeBgBeforeExport && (
+              <div className="export-dialog__bg-method">
+                <label htmlFor="export-bg-method">Method</label>
+                <select
+                  id="export-bg-method"
+                  value={bgMethod}
+                  aria-label="Background removal method for export"
+                  onChange={(e) => {
+                    const next = e.target.value as BackgroundRemovalMethod;
+                    setBgMethod(next);
+                    void (async () => {
+                      if (next === 'quick') {
+                        setAiAvailable(true);
+                        return;
+                      }
+                      const modelId = workerModelIdForMethod(next);
+                      if (!modelId) {
+                        setAiAvailable(true);
+                        return;
+                      }
+                      const loader = await getModelLoaderReady();
+                      setAiAvailable(await loader.isModelAvailable(modelId));
+                    })();
+                  }}
+                >
+                  {BG_METHOD_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                      {opt.value !== 'quick' && !aiAvailable ? ' (download required)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {bgMethod !== 'quick' && !aiAvailable && (
+                  <button
+                    type="button"
+                    className="export-dialog__btn export-dialog__btn--secondary"
+                    onClick={() => setShowDownloadDialog(true)}
+                  >
+                    Download AI Model
+                  </button>
+                )}
+              </div>
+            )}
             {removeBgBeforeExport &&
               (() => {
                 const imageCount = nodes.filter(
@@ -290,6 +400,44 @@ export function ExportDialog({
                 );
               })()}
           </section>
+
+          {timelineList.length > 0 && onExportMotion && (
+            <section className="export-dialog__section" aria-label="Motion export">
+              <h3 className="export-dialog__section-title">Motion Export</h3>
+              <p className="export-dialog__note">
+                Export document timelines as CSS keyframes or Lottie JSON.
+              </p>
+              <div className="export-dialog__motion-actions">
+                {timelineList.map((tl) => (
+                  <div key={tl.id} className="export-dialog__motion-row">
+                    <span>{tl.name}</span>
+                    <button
+                      type="button"
+                      className="export-dialog__btn export-dialog__btn--secondary"
+                      onClick={() => {
+                        const css = timelineToCSSKeyframes(tl, nodeNames);
+                        onExportMotion('css', `${tl.name}.css`, css);
+                      }}
+                    >
+                      CSS
+                    </button>
+                    <button
+                      type="button"
+                      className="export-dialog__btn export-dialog__btn--secondary"
+                      onClick={() => {
+                        const json = document
+                          ? timelineToLottieJSON(tl, document)
+                          : timelineToLottieJSON(tl, { nodes: nodeNames } as Document);
+                        onExportMotion('lottie', `${tl.name}.json`, json);
+                      }}
+                    >
+                      Lottie
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {(running || progress.done > 0 || progress.errors > 0) && (
             <section className="export-dialog__section" aria-label="Progress">
@@ -327,6 +475,17 @@ export function ExportDialog({
         <div role="status" aria-live="polite" className="strata-visually-hidden">
           {announceMsg}
         </div>
+
+        {showDownloadDialog && (
+          <ModelDownloadDialog
+            modelId={bgMethod === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite'}
+            onClose={() => setShowDownloadDialog(false)}
+            onComplete={() => {
+              setShowDownloadDialog(false);
+              void refreshModelStatus();
+            }}
+          />
+        )}
       </div>
     </div>
   );

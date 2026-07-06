@@ -22,6 +22,8 @@ export interface BackgroundRemovalResult {
   processingTimeMs: number;
   width: number;
   height: number;
+  /** Which ONNX execution provider succeeded (Worker/direct AI paths only). */
+  executionProvider?: 'webgl' | 'wasm';
 }
 
 export interface ModelMetadata {
@@ -37,7 +39,12 @@ export interface ModelMetadata {
 /** ONNX model ids used by the Web Worker inference path. */
 export type WorkerModelId = 'u2netp' | 'birefnet-general-lite' | 'birefnet-general';
 
-/** Map a UI removal method to the ONNX model that should run it. */
+/** Map a UI removal method to the ONNX model that should run it.
+ *
+ * `u2netp` is intentionally NOT mapped here — it is a bundled zero-download
+ * starter asset for a possible future 4th tier, never silently substituted
+ * for birefnet-general(-lite) (that would be a silent downgrade bug).
+ */
 export function workerModelIdForMethod(method: RemovalMethod): WorkerModelId | null {
   switch (method) {
     case 'quick':

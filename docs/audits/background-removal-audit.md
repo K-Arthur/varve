@@ -84,12 +84,18 @@ replay.ts → destination-in compositing
 | Model state lost on page reload | P0 | **Fixed** (`syncFromStorage`) |
 | No settings surface for model storage | P1 | **Fixed** (Offline Models tab) |
 | Silent AI→heuristic downgrade | P1 | **Fixed** (announce + store actual `result.method`) |
-| Native Rust AI (`ai` Cargo feature) | P2 | Deferred — Worker path covers desktop |
-| Bundled models in shipping build (`bundled: false` in manifest) | P2 | Packaging decision — ship u2netp in AppImage |
-| Hair/fur matting refinement | P2 | Deferred — `RefineMaskTool` partial |
+| Bundled models in shipping build (`bundled: false` in manifest) | P2 | **Fixed** — `u2netp.onnx` bundled with SHA-256 CI check |
+| Hair/fur matting refinement | P2 | Deferred — `RefineMaskTool` wired in inspector; dedicated matting pass out of scope |
 | HTTP Range resume on interrupted download | P3 | Deferred |
-| SHA-256 in manifest (`null` today) | P2 | Add hashes when models bundled |
+| SHA-256 in manifest (`null` today) | P2 | **Fixed** for `u2netp`; BiRefNet hashes documented via `scripts/compute-model-checksum.mjs` |
 | Select-and-Mask style trimap UI | P3 | Over-engineered for v1 |
+| Per-model gating on direct-ONNX tier | P0 | **Fixed** — `isModelAvailable(workerModelIdForMethod)` |
+| Broken direct-ONNX path (hardcoded path, raw Float32Array) | P0 | **Fixed** — `getModelPath()`, `ort.Tensor`, shared maskOps |
+| Batch/Export silent AI downgrade | P0 | **Fixed** — gating + `result.method` persistence + aria-live |
+| `RefineMaskTool` unreachable from UI | P0 | **Fixed** — inspector button + brush controls + Escape |
+| Worker pool abort/timeout dequeue bugs | P2 | **Fixed** — splice on abort/timeout; context selection-change abort |
+| `batchRemoveBackground` dead code drift | P1 | **Removed** — `BatchBgRemoveDialog` is sole batch path |
+| Native Rust `ai` Cargo feature | P2 | **Deferred (Option A)** — Worker ONNX is sole desktop AI path (ADR-0005) |
 
 ---
 
@@ -103,7 +109,7 @@ replay.ts → destination-in compositing
 | Worker crash | Falls through chain to heuristic |
 | IndexedDB unavailable | Download fails with clear error; Quick mode works |
 | Checksum mismatch | Download rejected, state `error`, retry available |
-| Selection changes mid-process | Completes but skips doc update if deselected |
+| Selection changes mid-process | Aborts in-flight AI request; skips doc update if deselected |
 | Offline | Quick works; AI needs prior download or bundled asset |
 
 ---
@@ -131,23 +137,39 @@ replay.ts → destination-in compositing
 
 | Suite | Count | Covers |
 |---|---|---|
-| `backgroundRemoval/__tests__/*` | 62 | Dispatch, model loader, manifest, worker, heuristic, mask ops |
-| `ModelDownloadDialog.test.tsx` | 4 | Consent gate |
-| `bgRemovalFeatures.test.tsx` | 14 | Preview, feather, decontaminate, export toggle |
-| `BatchBgRemoveDialog.test.tsx` | — | Batch UI |
+| `backgroundRemoval/__tests__/*` | 70+ | Dispatch, model loader, manifest, worker, heuristic, mask ops, bundled integrity, EP telemetry |
+| `ModelDownloadDialog.test.tsx` | 4 | Consent gate + cancel abort |
+| `bgRemovalFeatures.test.tsx` | 20 | Preview, feather, decontaminate, export toggle, RefineMask wiring |
+| `BatchBgRemoveDialog.test.tsx` | 16 | Batch UI, AI gating, fallback announce |
+| `RefineMaskTool.test.ts` | — | Escape/V, cancel-restore, per-stroke commit |
+| `ToolManager.test.ts` | 2 | `getTool()` accessor |
 
 **Regression guards added:** model routing per method, `syncFromStorage`, stale state cleanup, platform dispatch order (Worker before Tauri for AI).
 
 ---
 
-## 9. Verification (this session)
+## 9. Verification (hardening session, 2026-07-06)
 
 ```
-vitest packages/engine/src/backgroundRemoval
-       packages/editor/.../BackgroundRemoval
-       packages/editor/.../bgRemovalFeatures.test.tsx
-→ 76/76 pass (10 files)
+Focused suite (bg-removal pipeline):
+  packages/engine/src/backgroundRemoval/**          → 57/57 pass
+  BatchBgRemoveDialog.test.tsx                      → 16/16 pass
+  RefineMaskTool.test.ts + ToolManager.test.ts      →  8/8  pass
+  bgRemovalFeatures.test.tsx                        → 20/20 pass
+                                          focused   → 113/113 pass
+
+Full regression (see AGENTS.md session entry for complete gate output)
 ```
+
+Regression guards added this session:
+- Per-method `isModelAvailable` gating on direct-ONNX tier (`index.test.ts`)
+- Tauri IPC `method` never trusted as AI (`index.test.ts:243`)
+- Worker-first dispatch even when `__TAURI__` present (`index.test.ts:87`)
+- WASM EP fallback + non-zero `processingTimeMs` (`directAi.telemetry.test.ts`)
+- Bundled `u2netp.onnx` SHA-256 integrity (`bundledModel.test.ts`)
+- Batch/Export AI gating + `result.method` persistence (`BatchBgRemoveDialog.test.tsx`, `bgRemovalFeatures.test.tsx`)
+- Worker pool abort dequeues job (`workerPool.test.ts`)
+- Model download checksum mismatch + cancel (`modelLoader.test.ts`)
 
 ---
 
@@ -180,11 +202,9 @@ vitest packages/engine/src/backgroundRemoval
 
 ## 12. Technical debt
 
-- `index.ts` direct ONNX path duplicates worker logic
-- Manifest checksums null — verification noop
-- `BackgroundRemovalSection` uses separate model IDs for balanced vs quality but single `loader.getState()` tracks one model
-- Rust `ai` feature not in default desktop build
-- Export pre-process bg removal toggle tested in inspector test file (should move)
+- BiRefNet manifest SHA-256 still null (remote-only; use `scripts/compute-model-checksum.mjs` at release time)
+- Rust `ai` feature formally deferred — Worker ONNX is the desktop AI path (ADR-0005 Option A)
+- Hair/fur matting and multi-subject segmentation explicitly out of scope for v1
 
 ---
 

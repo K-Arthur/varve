@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { decontaminateMask, featherMaskArray } from '../maskOps';
+import {
+  computeMaskConfidence,
+  decontaminateMask,
+  featherMaskArray,
+  packChwFloat32,
+  resizeMaskNearestNeighbor,
+  thresholdMask,
+} from '../maskOps';
 
 describe('decontaminateMask', () => {
   it('leaves a fully binary mask unchanged', () => {
@@ -68,5 +75,62 @@ describe('featherMaskArray', () => {
     // Far from the edge, values should remain close to the original.
     expect(result[0]!).toBeGreaterThan(200);
     expect(result[9]!).toBeLessThan(55);
+  });
+});
+
+describe('thresholdMask', () => {
+  it('binarizes at 0.5 threshold', () => {
+    const data = new Float32Array([0.1, 0.6, 0.5, 0.9]);
+    const mask = thresholdMask(data);
+    expect(Array.from(mask)).toEqual([0, 255, 0, 255]);
+  });
+});
+
+describe('resizeMaskNearestNeighbor', () => {
+  it('upscales a 2x2 mask to 4x4', () => {
+    const mask = new Uint8Array([255, 0, 0, 255]);
+    const result = resizeMaskNearestNeighbor(mask, 2, 2, 4, 4);
+    expect(result.length).toBe(16);
+    expect(result[0]).toBe(255);
+    expect(result[3]).toBe(0);
+  });
+
+  it('returns the same array when dimensions match', () => {
+    const mask = new Uint8Array([255, 0]);
+    expect(resizeMaskNearestNeighbor(mask, 2, 1, 2, 1)).toBe(mask);
+  });
+});
+
+describe('packChwFloat32', () => {
+  it('packs RGBA into CHW layout normalized to 0-1', () => {
+    const data = new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255]);
+    const packed = packChwFloat32({ data, width: 2, height: 1 });
+    expect(packed.length).toBe(6);
+    expect(packed[0]).toBeCloseTo(1);
+    expect(packed[1]).toBeCloseTo(0);
+    expect(packed[2]).toBeCloseTo(0);
+    expect(packed[3]).toBeCloseTo(1);
+    expect(packed[4]).toBeCloseTo(0);
+    expect(packed[5]).toBeCloseTo(0);
+  });
+});
+
+describe('computeMaskConfidence', () => {
+  it('returns a value in [0, 1]', () => {
+    const data = new Float32Array([0.9, 0.1, 0.95, 0.05]);
+    const conf = computeMaskConfidence(data);
+    expect(conf).toBeGreaterThanOrEqual(0);
+    expect(conf).toBeLessThanOrEqual(1);
+  });
+
+  it('differs for high-vs-low separation mask data', () => {
+    const highSep = new Float32Array([0.95, 0.05, 0.9, 0.1]);
+    const lowSep = new Float32Array([0.48, 0.52, 0.49, 0.51]);
+    expect(computeMaskConfidence(highSep)).toBeGreaterThan(computeMaskConfidence(lowSep));
+  });
+
+  it('is not a constant 0.85', () => {
+    const data = new Float32Array([0.9, 0.1]);
+    expect(computeMaskConfidence(data)).not.toBe(0.85);
   });
 });

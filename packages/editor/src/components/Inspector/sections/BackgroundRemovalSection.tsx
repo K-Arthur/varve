@@ -8,8 +8,15 @@ import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
-  const { state, removeBackgroundWithOptions, updateNode, announce, setShowOriginalBg } =
-    useEditor();
+  const {
+    state,
+    removeBackgroundWithOptions,
+    updateNode,
+    announce,
+    setShowOriginalBg,
+    setTool,
+    setRefineMaskOptions,
+  } = useEditor();
   const node = nodes[0] as ShapeNode;
   if (!isImageShape(node) && !node.backgroundRemoval) return null;
 
@@ -24,6 +31,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   );
   const [aiAvailable, setAiAvailable] = useState(false);
   const showingOriginal = state.showOriginalBgNodeId === node.id;
+  const refiningMask = state.tool === 'refineMask' && state.selection[0] === node.id;
+  const { brushSize, hardness } = state.refineMaskOptions ?? { brushSize: 20, hardness: 0.8 };
 
   const requiredModelId = workerModelIdForMethod(method);
 
@@ -83,8 +92,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     );
   };
 
-  const downloadModelId =
-    method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
+  const handleRefineMask = () => {
+    setTool('refineMask');
+    announce('Refine mask: paint to add, Alt+paint to subtract, Escape to finish');
+  };
+
+  const downloadModelId = method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
 
   return (
     <DisclosureSection title="Background Removal">
@@ -121,7 +134,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             Download AI Model
           </button>
           <p className="bg-removal__hint">
-            Requires a one-time download stored on this device. Manage models in Settings → Offline
+            Requires a one-time download stored on this device. Manage models in Settings, Offline
             Models.
           </p>
         </div>
@@ -209,6 +222,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         )}
         {bg && (
           <button
+            className="button--ghost"
+            onClick={handleRefineMask}
+            aria-label="Refine background removal mask with brush"
+          >
+            Refine Mask
+          </button>
+        )}
+        {bg && (
+          <button
             className={`button--ghost ${showingOriginal ? 'button--active' : ''}`}
             onClick={handleTogglePreview}
           >
@@ -216,6 +238,39 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           </button>
         )}
       </div>
+
+      {refiningMask && bg && (
+        <div className="bg-removal__refine-controls">
+          <div className="bg-removal__refinement">
+            <label htmlFor="bg-refine-brush">Brush size</label>
+            <input
+              id="bg-refine-brush"
+              type="range"
+              min={5}
+              max={100}
+              value={brushSize}
+              onChange={(e) => setRefineMaskOptions({ brushSize: Number(e.target.value) })}
+            />
+            <span>{brushSize}px</span>
+          </div>
+          <div className="bg-removal__refinement">
+            <label htmlFor="bg-refine-hardness">Hardness</label>
+            <input
+              id="bg-refine-hardness"
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={hardness}
+              onChange={(e) => setRefineMaskOptions({ hardness: Number(e.target.value) })}
+            />
+            <span>{Math.round(hardness * 100)}%</span>
+          </div>
+          <button type="button" className="button--ghost" onClick={() => setTool('select')}>
+            Done
+          </button>
+        </div>
+      )}
       {showDownloadDialog && (
         <ModelDownloadDialog
           modelId={downloadModelId}

@@ -61,6 +61,11 @@ export class ToolManager {
     return this.activeId;
   }
 
+  /** Return a previously-activated tool instance without forcing instantiation. */
+  getTool<T extends Tool = Tool>(id: ToolId): T | undefined {
+    return this.instances.get(id) as T | undefined;
+  }
+
   setTool(id: ToolId, ctx?: ToolContext): void {
     if (id === this.activeId) return;
     const prev = this.activeTool;

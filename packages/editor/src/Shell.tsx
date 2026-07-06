@@ -50,7 +50,8 @@ import {
 } from './onboard';
 import { getSharedRecoveryManager, type RecoverySession } from './recovery';
 import { StatusBar } from './StatusBar';
-import { createTutorialDocument } from './samples/tutorial-document';
+import { TimelinePanel } from './timeline/TimelinePanel';
+import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import './components/Prototype/prototype.css';
@@ -402,6 +403,35 @@ function ShellInner({
             onResize={(w) => setWidth('inspector', w)}
           />
         </div>
+        {editor.state.timelinePanelVisible && (
+          <div className="editor__timeline-panel">
+            <TimelinePanel
+              timelines={editor.state.document.timelines ?? {}}
+              activeTimelineId={editor.state.motion.activeTimelineId}
+              currentTime={editor.state.motion.currentTime}
+              isPlaying={editor.state.motion.isPlaying}
+              playbackSpeed={editor.state.motion.playbackSpeed}
+              loop={editor.state.motion.loop}
+              selectedTrackIds={editor.state.motion.selectedTrackIds}
+              selectedKeyframeIndex={null}
+              onPlay={() => editor.playTimeline()}
+              onPause={() => editor.pauseTimeline()}
+              onStop={() => editor.stopTimeline()}
+              onSeek={(time) => editor.seekTimeline(time)}
+              onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
+              onToggleLoop={() => editor.toggleLoop()}
+              onSelectTimeline={(id) => editor.setActiveTimeline(id)}
+              onSelectTrack={() => {}}
+              onClickKeyframe={(_trackId, progress) => {
+                const tl = editor.state.motion.activeTimelineId
+                  ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
+                  : null;
+                if (tl) editor.seekTimeline(progress * tl.duration);
+              }}
+              getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
+            />
+          </div>
+        )}
         <StatusBar />
         {/* FAB for layers (responsive) */}
         <button
@@ -509,7 +539,21 @@ function ShellInner({
           isOpen={editor.showExportDialog}
           onClose={() => editor.setShowExportDialog(false)}
           nodes={editor.rootNodes()}
+          timelines={editor.state.document.timelines}
+          document={editor.state.document}
           onExport={async () => {}}
+          onExportMotion={(_format, fileName, content) => {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          onApplyBackgroundRemoval={(id, state) => {
+            editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
+          }}
         />
 
         {/* Onboarding: Welcome dialog */}
@@ -567,6 +611,17 @@ function ShellInner({
           currentScreenId={editor.prototypeCurrentScreen}
           onNavigate={editor.navigatePrototypeTo}
           onEvent={editor.handlePrototypeEvent}
+          prototypeDocument={editor.state.document}
+          overlayStack={editor.state.prototypeRuntime?.state.overlayStack ?? []}
+          hitTestNode={(world) => {
+            const hit = editor.hitTestNode(world);
+            return hit ? { nodeId: hit.nodeId } : null;
+          }}
+          getNodeBounds={(nodeId) => {
+            const node = editor.state.document.nodes[nodeId];
+            if (!node) return null;
+            return nodeLocalBounds(node);
+          }}
         />
 
         {/* Did You Know? contextual tips */}

@@ -13,6 +13,7 @@ interface PoolJob {
   resolve: (r: BackgroundRemovalResult) => void;
   reject: (e: Error) => void;
   abort: AbortController;
+  timeout: ReturnType<typeof setTimeout>;
 }
 
 let nextJobId = 1;
@@ -29,6 +30,11 @@ function getWorker(): Worker {
   return sharedWorker;
 }
 
+function removeJob(job: PoolJob): void {
+  const idx = pending.indexOf(job);
+  if (idx >= 0) pending.splice(idx, 1);
+}
+
 function onWorkerMessage(e: MessageEvent): void {
   if (e.data?.type === 'ready') {
     sessionReady = true;
@@ -36,6 +42,7 @@ function onWorkerMessage(e: MessageEvent): void {
   }
   const job = pending.shift();
   if (!job) return;
+  clearTimeout(job.timeout);
   if (e.data?.type === 'result') {
     job.resolve(e.data.result as BackgroundRemovalResult);
   } else if (e.data?.type === 'error') {
@@ -45,7 +52,10 @@ function onWorkerMessage(e: MessageEvent): void {
 
 function onWorkerError(e: ErrorEvent): void {
   const job = pending.shift();
-  job?.reject(new Error(e.message));
+  if (job) {
+    clearTimeout(job.timeout);
+    job.reject(new Error(e.message));
+  }
   sessionReady = false;
   sharedWorker?.terminate();
   sharedWorker = null;
@@ -53,6 +63,7 @@ function onWorkerError(e: ErrorEvent): void {
 
 export function cancelAllWorkerJobs(): void {
   for (const job of pending) {
+    clearTimeout(job.timeout);
     job.abort.abort();
     job.reject(new Error('cancelled'));
   }
@@ -75,17 +86,16 @@ export async function runPooledInference(
 ): Promise<BackgroundRemovalResult> {
   const worker = getWorker();
   const abort = new AbortController();
-  signal?.addEventListener('abort', () => abort.abort());
 
   return new Promise((resolve, reject) => {
-    if (abort.signal.aborted) {
+    if (signal?.aborted || abort.signal.aborted) {
       reject(new Error('cancelled'));
       return;
     }
-    const job: PoolJob = { id: nextJobId++, resolve, reject, abort };
-    pending.push(job);
 
     const timeout = setTimeout(() => {
+      const idx = pending.findIndex((j) => j.reject === wrappedReject);
+      if (idx >= 0) pending.splice(idx, 1);
       reject(new Error('Worker inference timed out'));
     }, 60_000);
 
@@ -97,8 +107,23 @@ export async function runPooledInference(
       clearTimeout(timeout);
       reject(e);
     };
-    job.resolve = wrappedResolve;
-    job.reject = wrappedReject;
+
+    const job: PoolJob = {
+      id: nextJobId++,
+      resolve: wrappedResolve,
+      reject: wrappedReject,
+      abort,
+      timeout,
+    };
+    pending.push(job);
+
+    const onAbort = () => {
+      removeJob(job);
+      clearTimeout(timeout);
+      reject(new Error('cancelled'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    abort.signal.addEventListener('abort', onAbort, { once: true });
 
     worker.postMessage({
       type: 'infer',
@@ -108,6 +133,7 @@ export async function runPooledInference(
       reuseSession: sessionReady,
       feather: options.feather,
       decontaminate: options.decontaminate,
+      previewMaxDimension: options.previewMaxDimension,
     } satisfies WorkerCommand & { reuseSession?: boolean });
   });
 }

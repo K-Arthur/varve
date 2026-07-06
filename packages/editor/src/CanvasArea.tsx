@@ -476,6 +476,13 @@ export function CanvasArea({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.tool]);
 
+  // Push live refine-mask brush options into the active tool instance.
+  useEffect(() => {
+    if (state.tool !== 'refineMask' || !tm.current) return;
+    const tool = tm.current.getTool<RefineMaskTool>('refineMask');
+    tool?.setOptions(state.refineMaskOptions);
+  }, [state.refineMaskOptions, state.tool]);
+
   // Re-render the canvas whenever an async image finishes loading.
   useEffect(() => {
     const unsub = getImageCache().subscribeGlobal(() => {
@@ -1088,7 +1095,17 @@ export function CanvasArea({
 
       compositorRef.current?.endFrame();
     })();
-  }, [rootNodes, state.zoom, state.pan.x, state.pan.y, state.canvasMode, imageCacheStamp]);
+  }, [
+    rootNodes,
+    state.zoom,
+    state.pan.x,
+    state.pan.y,
+    state.canvasMode,
+    imageCacheStamp,
+    state.motion.currentTime,
+    state.motion.isPlaying,
+    state.motion.activeTimelineId,
+  ]);
 
   useEffect(() => {
     requestContentDrawRef.current = () => drawContent();
