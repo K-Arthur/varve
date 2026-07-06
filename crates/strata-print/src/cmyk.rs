@@ -193,9 +193,12 @@ pub fn rgb_to_cmyk_icc(
     )
 }
 
-/// Bleed/trim marks geometry (stub — returns default values).
+/// Return default bleed/trim marks geometry as `(bleed_mm, trim_offset_mm, mark_length_mm)`.
+///
+/// Delegates to `MarksGeometry::default()` so the single source of truth is `marks.rs`.
 pub fn marks_geometry() -> (f64, f64, f64) {
-    (3.0, 3.0, 10.0)
+    let g = MarksGeometry::default();
+    (g.bleed_mm, g.trim_offset_mm, g.mark_length_mm)
 }
 
 /// Build PDF content stream bytes from scene nodes, optionally converting

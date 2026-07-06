@@ -11,6 +11,7 @@ import type {
   SceneNode,
   VariableStore,
 } from '@strata/scene';
+import type { TargetGap } from './types';
 import { colorToHex, computeNodePos, escapeXml } from './shared';
 import { resolveTokenName } from './tokens';
 
@@ -97,4 +98,73 @@ export function exportNodeToTailwind(
   }
 
   return `<${tag} className="${classes.join(' ')}">${children}\n        </${tag}>`;
+}
+
+/**
+ * Report features used by `node` that Tailwind CSS cannot faithfully represent.
+ *
+ * Checks: non-rectangular shapes (need SVG), gradient fills, image nodes,
+ * and effects (shadows, blurs) that require manual Tailwind extension config.
+ */
+export function tailwindTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
+  const gaps: TargetGap[] = [];
+
+  if (node.kind === 'image') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'image node',
+      severity: 'warning',
+      fallback: 'Use <img> or bg-[url(...)] with a Tailwind arbitrary value',
+    });
+  }
+
+  if (node.kind === 'shape') {
+    const shapeKind = node.shape.kind;
+    if (shapeKind !== 'rect') {
+      gaps.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        feature: `non-rectangular shape (${shapeKind})`,
+        severity: 'warning',
+        fallback: 'Wrap in an <svg> element or use an inline SVG component',
+      });
+    }
+  }
+
+  const fills = node.fills ?? [];
+  if (fills.some((f) => f.type === 'gradient')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'gradient fill',
+      severity: 'warning',
+      fallback: 'Use bg-gradient-to-r or a custom CSS class with the gradient value',
+    });
+  }
+
+  if (fills.some((f) => f.type === 'image')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'image fill',
+      severity: 'warning',
+      fallback: 'Use bg-[url(...)] with an arbitrary value or an <img> tag',
+    });
+  }
+
+  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
+    ? (node.effects ?? [])
+    : [];
+  if (effects.some((e) => e.type === 'layerBlur' || e.type === 'backgroundBlur')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'blur effect',
+      severity: 'warning',
+      fallback: 'Use blur-* or backdrop-blur-* Tailwind classes',
+    });
+  }
+
+  return gaps;
 }

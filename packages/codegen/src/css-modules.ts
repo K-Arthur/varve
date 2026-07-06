@@ -8,8 +8,9 @@
  */
 
 import type { Document as SceneDocument, SceneNode } from '@strata/scene';
-import { type CssExportOptions, exportNodeToCss } from './css';
+import { type CssExportOptions, cssTargetGaps, exportNodeToCss } from './css';
 import { escapeXml } from './shared';
+import type { TargetGap } from './types';
 
 export interface CssModulesExportOptions extends CssExportOptions {
   /** Component name. Default: node.name or 'Component'. */
@@ -33,4 +34,12 @@ export function exportNodeToCssModules(
       : `import styles from './${componentName}.module.css';\n\nexport function ${componentName}() {\n  return <div className={styles.${selector}} />;\n}\n`;
 
   return { jsx, css: cssWithModule };
+}
+
+/**
+ * CSS Modules has the same representational limits as plain CSS.
+ * Delegates to `cssTargetGaps` and adds a note about the module scope.
+ */
+export function cssModulesTargetGaps(node: SceneNode, doc: SceneDocument): TargetGap[] {
+  return cssTargetGaps(node, doc);
 }

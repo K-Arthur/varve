@@ -5,6 +5,7 @@
  */
 
 import type { Document as SceneDocument, SceneNode, TextNode, VariableStore } from '@strata/scene';
+import type { TargetGap } from './types';
 import { colorToHex, computeNodePos, getChildren } from './shared';
 import { resolveTokenName } from './tokens';
 
@@ -84,4 +85,67 @@ export function exportNodeToFlutter(
 ): string {
   const effectiveDoc = doc ?? ({ nodes: {}, rootChildren: [] } as unknown as SceneDocument);
   return emitNode(node, effectiveDoc, 0, opts);
+}
+
+/**
+ * Report features used by `node` that Flutter widgets cannot represent
+ * without custom code (CustomPainter, ShaderMask, BackdropFilter, etc.).
+ */
+export function flutterTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
+  const gaps: TargetGap[] = [];
+
+  if (node.kind === 'image') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'image node',
+      severity: 'warning',
+      fallback: 'Use Image.network() or Image.asset() in Flutter',
+    });
+  }
+
+  if (node.kind === 'shape' && node.shape.kind !== 'rect' && node.shape.kind !== 'ellipse') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: `non-standard shape (${node.shape.kind})`,
+      severity: 'error',
+      fallback: 'Use CustomPainter with Canvas.drawPath()',
+    });
+  }
+
+  const fills = node.fills ?? [];
+  if (fills.some((f) => f.type === 'gradient')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'gradient fill',
+      severity: 'warning',
+      fallback: 'Use DecoratedBox with BoxDecoration(gradient: LinearGradient(...))',
+    });
+  }
+
+  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
+    ? (node.effects ?? [])
+    : [];
+  if (effects.some((e) => e.type === 'backgroundBlur')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'background blur effect',
+      severity: 'warning',
+      fallback: 'Use BackdropFilter(filter: ImageFilter.blur(...))',
+    });
+  }
+  if (effects.some((e) => e.type === 'layerBlur')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'layer blur effect',
+      severity: 'warning',
+      fallback: 'Use ImageFilter.blur() wrapped in a BackdropFilter widget',
+    });
+  }
+
+  return gaps;
 }
