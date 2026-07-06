@@ -7,7 +7,14 @@
 import type { Affine } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode, TextNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { affineToSvg, escapeXml, getChildren, rgba, shapeVerticesToPoints } from './shared';
+import {
+  adjustmentStackTargetGaps,
+  affineToSvg,
+  escapeXml,
+  getChildren,
+  rgba,
+  shapeVerticesToPoints,
+} from './shared';
 import type { TargetGap } from './types';
 
 export interface SvgExportOptions {
@@ -258,7 +265,7 @@ export function exportNodeToSvg(
  * browser-specific filter support.
  */
 export function svgTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
-  const gaps: TargetGap[] = [];
+  const gaps: TargetGap[] = [...adjustmentStackTargetGaps(node)];
 
   if (isImageShape(node)) {
     gaps.push({

@@ -12,7 +12,7 @@ import type {
   VariableStore,
 } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { colorToHex, computeNodePos, escapeXml } from './shared';
+import { adjustmentStackTargetGaps, colorToHex, computeNodePos, escapeXml } from './shared';
 import { resolveTokenName } from './tokens';
 import type { TargetGap } from './types';
 
@@ -108,7 +108,7 @@ export function exportNodeToTailwind(
  * and effects (shadows, blurs) that require manual Tailwind extension config.
  */
 export function tailwindTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
-  const gaps: TargetGap[] = [];
+  const gaps: TargetGap[] = [...adjustmentStackTargetGaps(node)];
 
   if (isImageShape(node)) {
     gaps.push({

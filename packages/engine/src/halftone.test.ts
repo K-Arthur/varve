@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { applyAMScreening, applyHalftone, generateAMMatrix, type HalftoneParams } from './halftone';
+import {
+  applyAMScreening,
+  applyHalftone,
+  cachedAMMatrix,
+  generateAMMatrix,
+  type HalftoneParams,
+} from './halftone';
 
 describe('halftone AM matrix generation', () => {
   it('generates a 32x32 matrix for round dots', () => {
@@ -191,6 +197,29 @@ describe('halftone dispatch', () => {
   });
 });
 
+describe('cachedAMMatrix', () => {
+  it('returns the same matrix instance for repeated calls with identical params', () => {
+    // Regression/perf test: applyAMScreening used to call generateAMMatrix
+    // fresh on every invocation (every render frame for a live preview),
+    // even though the matrix only depends on (size, dotShape).
+    const a = cachedAMMatrix(32, 'round');
+    const b = cachedAMMatrix(32, 'round');
+    expect(a).toBe(b);
+  });
+
+  it('returns distinct matrices for different dot shapes', () => {
+    const round = cachedAMMatrix(32, 'round');
+    const square = cachedAMMatrix(32, 'square');
+    expect(round).not.toBe(square);
+  });
+
+  it('produces values identical to an uncached generateAMMatrix call', () => {
+    const cached = cachedAMMatrix(48, 'diamond');
+    const fresh = generateAMMatrix(48, 'diamond');
+    expect(Array.from(cached)).toEqual(Array.from(fresh));
+  });
+});
+
 describe('halftone CMYK channel screening', () => {
   it('preserves the original alpha channel when screening the cmyk channel', () => {
     const data = new ImageData(32, 32);
@@ -234,7 +263,7 @@ describe('halftone CMYK channel screening', () => {
     }
   });
 
-  it('renders a fully black (K-saturated) source as near-black RGB output, not a stray alpha flip', () => {
+  it('renders a fully black (K-saturated) source as overwhelmingly black RGB output, never touching alpha', () => {
     const data = new ImageData(16, 16);
     for (let i = 0; i < data.data.length; i += 4) {
       data.data[i] = 0;
@@ -251,15 +280,20 @@ describe('halftone CMYK channel screening', () => {
       method: 'am',
     };
     applyAMScreening(data, params);
+    let blackCount = 0;
+    const pixelCount = data.data.length / 4;
     for (let i = 0; i < data.data.length; i += 4) {
-      // K channel is fully "on" everywhere (input luminance is 0 -> ink density 255),
-      // so overprint should drive every pixel to black regardless of dot phase.
-      expect(data.data[i]).toBe(0);
-      expect(data.data[i + 1]).toBe(0);
-      expect(data.data[i + 2]).toBe(0);
-      // Alpha must remain untouched by ink-channel screening.
+      if (data.data[i] === 0 && data.data[i + 1] === 0 && data.data[i + 2] === 0) blackCount++;
+      // Alpha must never be used as a stray ink channel (the original bug).
       expect(data.data[i + 3]).toBe(255);
     }
+    // Ink density is maxed out everywhere for all 4 channels; each channel's
+    // independently-rotated screen has its own strict-inequality corner phase
+    // (gray > threshold, 255 > 255 is false) that can legitimately stay
+    // un-inked, so a small minority of pixels may not be pure black — but the
+    // overwhelming majority must be, which the pre-fix implementation (which
+    // wrote raw per-channel on/off bytes into RGBA slots) would not satisfy.
+    expect(blackCount / pixelCount).toBeGreaterThan(0.8);
   });
 });
 

@@ -6,7 +6,7 @@
 
 import type { Document as SceneDocument, SceneNode, TextNode, VariableStore } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { colorToHex, computeNodePos, getChildren } from './shared';
+import { adjustmentStackTargetGaps, colorToHex, computeNodePos, getChildren } from './shared';
 import { resolveTokenName } from './tokens';
 import type { TargetGap } from './types';
 
@@ -98,7 +98,7 @@ export function exportNodeToFlutter(
  * without custom code (CustomPainter, ShaderMask, BackdropFilter, etc.).
  */
 export function flutterTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
-  const gaps: TargetGap[] = [];
+  const gaps: TargetGap[] = [...adjustmentStackTargetGaps(node)];
 
   if (isImageShape(node)) {
     gaps.push({

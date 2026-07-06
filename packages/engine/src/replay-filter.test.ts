@@ -158,16 +158,13 @@ describe('replay filter chain', () => {
       opacity: 1,
       blendMode: 'normal' as const,
     },
-  ])(
-    'routes non-CSS filter $kind at default opacity/blendMode to pixel-level compositing instead of silently dropping it',
-    (filter) => {
-      const { target } = makeRecorder();
-      replayIr(target, [{ ...rectItem(10, 10), filters: [filter] }]);
-      expect(applyFilterWithCompositingSpy).toHaveBeenCalledTimes(1);
-      const [, appliedFilters] = applyFilterWithCompositingSpy.mock.calls[0]!;
-      expect(appliedFilters).toEqual([filter]);
-    },
-  );
+  ])('routes non-CSS filter $kind at default opacity/blendMode to pixel-level compositing instead of silently dropping it', (filter) => {
+    const { target } = makeRecorder();
+    replayIr(target, [{ ...rectItem(10, 10), filters: [filter] }]);
+    expect(applyFilterWithCompositingSpy).toHaveBeenCalledTimes(1);
+    const [, appliedFilters] = applyFilterWithCompositingSpy.mock.calls[0]!;
+    expect(appliedFilters).toEqual([filter]);
+  });
 
   it('composes multiple convertible filters into one filter string', () => {
     const { target, calls } = makeRecorder();

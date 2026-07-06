@@ -1,6 +1,6 @@
 import type { AdjustmentBlendMode, BlendMode } from '@strata/engine';
 import { filterKindDisplayName } from '@strata/engine';
-import type { Adjustment, AdjustmentKind, AdjustmentLayerNode, SceneNode } from '@strata/scene';
+import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@strata/scene';
 import { makeAdjustment } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
@@ -30,6 +30,7 @@ const ADJUSTMENT_KINDS: AdjustmentKind[] = [
   'blur',
   'sharpen',
   'photoFilter',
+  'halftone',
 ];
 
 const ADJUSTMENT_BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] = [
@@ -62,11 +63,13 @@ export function AdjustmentPanel() {
   const { state, updateNode, setSelectedOpacity, setSelectedBlendMode } = useEditor();
   const selId = state.selection.length === 1 ? state.selection[0] : undefined;
   const selNode = selId ? state.document.nodes[selId] : undefined;
-  if (selNode?.kind !== 'adjustment') return null;
-
-  const adjNode = selNode as AdjustmentLayerNode;
-  const { adjustments, opacity, blendMode } = adjNode;
-  const nodeId = adjNode.id;
+  const isAdjustmentNode = selNode?.kind === 'adjustment';
+  // nodeId is only meaningful when isAdjustmentNode is true; the callbacks
+  // below are unreachable otherwise since the component returns null before
+  // any of them can be invoked. Hooks themselves must still run on every
+  // render regardless (Rules of Hooks), so they cannot sit behind the
+  // `if (!isAdjustmentNode) return null` early return.
+  const nodeId = isAdjustmentNode ? selNode.id : undefined;
 
   const [selectedAdjId, setSelectedAdjId] = useState<string | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -74,11 +77,12 @@ export function AdjustmentPanel() {
 
   const handleAddAdjustment = useCallback(
     (kind: AdjustmentKind) => {
+      if (!nodeId) return;
       const newId = localAdjId();
       const adj = makeAdjustment(newId, kind);
       updateNode(nodeId, (n) => {
-        const an = n as AdjustmentLayerNode;
-        return { ...an, adjustments: [...an.adjustments, adj] } as SceneNode;
+        const an = n as AdjustmentNode;
+        return { ...an, adjustments: [...(an.adjustments ?? []), adj] } as SceneNode;
       });
       setSelectedAdjId(newId);
       setShowAddMenu(false);
@@ -88,9 +92,13 @@ export function AdjustmentPanel() {
 
   const handleRemoveAdjustment = useCallback(
     (adjId: string) => {
+      if (!nodeId) return;
       updateNode(nodeId, (n) => {
-        const an = n as AdjustmentLayerNode;
-        return { ...an, adjustments: an.adjustments.filter((a) => a.id !== adjId) } as SceneNode;
+        const an = n as AdjustmentNode;
+        return {
+          ...an,
+          adjustments: (an.adjustments ?? []).filter((a) => a.id !== adjId),
+        } as SceneNode;
       });
       setSelectedAdjId((cur) => (cur === adjId ? null : cur));
     },
@@ -99,11 +107,12 @@ export function AdjustmentPanel() {
 
   const handleUpdateAdjustment = useCallback(
     (adjId: string) => (patch: Partial<Adjustment>) => {
+      if (!nodeId) return;
       updateNode(nodeId, (n) => {
-        const an = n as AdjustmentLayerNode;
+        const an = n as AdjustmentNode;
         return {
           ...an,
-          adjustments: an.adjustments.map((a) =>
+          adjustments: (an.adjustments ?? []).map((a) =>
             a.id === adjId ? ({ ...a, ...patch } as Adjustment) : a,
           ),
         } as SceneNode;
@@ -119,6 +128,11 @@ export function AdjustmentPanel() {
     [handleUpdateAdjustment],
   );
 
+  if (!isAdjustmentNode) return null;
+
+  const adjNode = selNode as AdjustmentNode;
+  const { opacity, blendMode } = adjNode;
+  const adjustments = adjNode.adjustments ?? [];
   const selectedAdj = adjustments.find((a) => a.id === selectedAdjId) ?? null;
 
   return (
@@ -264,7 +278,7 @@ function AddAdjustmentMenu({
       const items = menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
       if (!items || items.length === 0) return;
 
-      const currentIndex = Array.from(items).indexOf(document.activeElement);
+      const currentIndex = Array.from(items).indexOf(document.activeElement as HTMLElement);
 
       switch (e.key) {
         case 'Escape':

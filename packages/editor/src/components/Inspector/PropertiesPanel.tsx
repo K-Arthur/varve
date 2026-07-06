@@ -20,8 +20,8 @@ import { IntelligencePanel } from '../../panels/IntelligencePanel';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
+import { AdjustmentPanel } from '../AdjustmentLayer/AdjustmentPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
-import { AdjustmentSection } from './sections/AdjustmentSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { ComponentSection } from './sections/ComponentSection';
@@ -189,7 +189,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       </header>
       {isComponentInstance && <ComponentSection node={node as import('@strata/scene').FrameNode} />}
       {isFrame && !isComponentInstance && <FramePresetsSection mode="resize" />}
-      <AdjustmentSection nodes={nodes} />
+      <AdjustmentPanel />
       <PositionSizeSection nodes={nodes} />
       {isRect && <CornerRadiusSection nodes={nodes} />}
       {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}

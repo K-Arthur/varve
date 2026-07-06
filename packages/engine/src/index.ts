@@ -68,6 +68,7 @@ export type {
   CurvesPoint,
   ExposureAdjustment,
   GrayscaleAdjustment,
+  HalftoneAdjustment,
   HueRotateAdjustment,
   InvertAdjustment,
   LevelsAdjustment,
