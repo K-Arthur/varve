@@ -69,8 +69,11 @@ function importImageAsFile(
 
   const fill = importImageAsFill(data, filename, { embedAsDataUrl: opts.embedImages });
   const info = getBitmapInfo(data);
-  const w = info.w * opts.scale;
-  const h = info.h * opts.scale;
+  // Fall back to a sensible default when the format's dimensions can't be parsed
+  // (e.g. rare BMP variants, future formats). The engine will show the image at
+  // natural size once the async cache load completes and triggers a re-render.
+  const w = (info.w || 200) * opts.scale;
+  const h = (info.h || 200) * opts.scale;
 
   const node: SceneNode = {
     id,

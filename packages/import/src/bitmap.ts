@@ -45,6 +45,11 @@ export function getImageDimensions(data: Uint8Array): ImageDimensions {
     }
   }
 
+  // BMP: "BM" magic at offset 0; width at offset 18, height at offset 22 (LE)
+  if (data.length >= 26 && data[0] === 0x42 && data[1] === 0x4d) {
+    return readBmpDimensions(data);
+  }
+
   return { w: 0, h: 0 };
 }
 
@@ -205,6 +210,12 @@ function readTiffDimensions(data: Uint8Array): ImageDimensions {
     if (tag === 0x0101) h = value;
   }
 
+  return { w, h };
+}
+
+function readBmpDimensions(data: Uint8Array): ImageDimensions {
+  const w = readUint32LE(data, 18);
+  const h = Math.abs(readUint32LE(data, 22) | 0); // height can be negative for top-down BMP
   return { w, h };
 }
 

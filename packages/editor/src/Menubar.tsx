@@ -137,6 +137,8 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         action: 'ungroup',
       },
       { label: '---' },
+      { label: 'Remove Background...', action: 'batchBgRemove' },
+      { label: '---' },
       {
         label: 'Union',
         shortcut: formatShortcut(SHORTCUT_DEFS.booleanUnion.binding),
@@ -208,12 +210,14 @@ export function Menubar({
   onStartTour,
   onOpenPalette,
   onOpenHelp,
+  onBatchBgRemove,
 }: {
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
   onStartTour?: () => void;
   onOpenPalette?: () => void;
   onOpenHelp?: () => void;
+  onBatchBgRemove?: () => void;
 }) {
   const {
     state,
@@ -364,6 +368,9 @@ export function Menubar({
         case 'openHelp':
           onOpenHelp?.();
           break;
+        case 'batchBgRemove':
+          onBatchBgRemove?.();
+          break;
         case 'group':
           groupSelected();
           break;
@@ -435,6 +442,7 @@ export function Menubar({
       onBackToHome,
       onOpenSettings,
       onStartTour,
+      onBatchBgRemove,
       save,
       saveAs,
     ],

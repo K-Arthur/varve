@@ -15,6 +15,7 @@ import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
+import { BatchBgRemoveDialog } from './components/BatchBgRemoveDialog';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
@@ -202,6 +203,7 @@ function ShellInner({
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [batchBgRemoveOpen, setBatchBgRemoveOpen] = useState(false);
   const { shellStyle, widths, setWidth } = usePanelWidths();
 
   // Register all actions into the ActionRegistry once on mount
@@ -329,6 +331,7 @@ function ShellInner({
           onStartTour={onboarding.reopen}
           onOpenPalette={openPalette}
           onOpenHelp={() => setHelpOpen(true)}
+          onBatchBgRemove={() => setBatchBgRemoveOpen(true)}
         />
         <FloatingToolbar />
         <TabStrip onBackToHome={onBackToHome} />
@@ -547,6 +550,18 @@ function ShellInner({
 
         {/* Help Browser */}
         <HelpBrowser open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+        {/* Batch background removal dialog */}
+        <BatchBgRemoveDialog
+          open={batchBgRemoveOpen}
+          onClose={() => setBatchBgRemoveOpen(false)}
+          nodes={editor.state.selection
+            .map((id) => editor.state.document.nodes[id])
+            .filter((n): n is import('@strata/scene').SceneNode => !!n && n.kind === 'image')}
+          onNodeUpdate={(id, state) => {
+            editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
+          }}
+        />
       </div>
 
       {/* DragOverlay for cross-panel drag */}

@@ -407,71 +407,64 @@ function paintImageFill(
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
 
-  const imgEntry = getImageCache().get(fill.src);
+  const cache = getImageCache();
+  const imgEntry = cache.get(fill.src);
   const hasCached = imgEntry?.state === 'loaded' && imgEntry.image;
+
+  // Kick off async loading for images not yet in cache. CanvasArea subscribes
+  // to cache.subscribeGlobal() and will schedule a re-render on completion.
+  if (!imgEntry || imgEntry.state === 'idle') {
+    cache.load(fill.src).catch(() => {/* errors recorded in cache entry */});
+  }
+
   if (!target.drawImage) {
-    target.fillRect(0, 0, bw, bh);
+    target.fillRect(bounds.x, bounds.y, bw, bh);
     return;
   }
 
-  const imageW = fill.imageWidth ?? bw;
-  const imageH = fill.imageHeight ?? bh;
   const scale = fill.scale ?? 1;
   const fit = fill.fit ?? 'fill';
 
   if (hasCached) {
-    let dw = bw * scale;
-    let dh = bh * scale;
-    if (fit === 'fit') {
-      const img = imgEntry.image!;
-      const aspect = img.naturalWidth / img.naturalHeight;
-      const boundsAspect = bw / bh;
-      if (aspect > boundsAspect) dh = bw / aspect;
-      else dw = bh * aspect;
-    }
-    target.drawImage(imgEntry.image!, fill.x ?? 0, fill.y ?? 0, dw, dh);
-  } else if (fit === 'stretch') {
-    target.drawImage(fill.src, bounds.x, bounds.y, bounds.w, bounds.h);
-  } else if (fit === 'tile') {
-    const tileW = imageW * scale;
-    const tileH = imageH * scale;
-    if (tileW > 0 && tileH > 0) {
-      const startX =
-        bounds.x + (fill.x ?? 0) - Math.floor((bounds.x + (fill.x ?? 0)) / tileW) * tileW;
-      const startY =
-        bounds.y + (fill.y ?? 0) - Math.floor((bounds.y + (fill.y ?? 0)) / tileH) * tileH;
-      for (let y = startY; y < bounds.y + bounds.h; y += tileH) {
-        for (let x = startX; x < bounds.x + bounds.w; x += tileW) {
-          target.drawImage(fill.src, x, y, tileW, tileH);
-        }
-      }
-    }
-  } else {
-    const scaledW = imageW * scale;
-    const scaledH = imageH * scale;
-    const imgAspect = scaledW / scaledH;
+    const img = imgEntry.image!;
+    // Effective reference dimensions: scale the natural size (matches old IR convention).
+    const refW = (img.naturalWidth || bw) * scale;
+    const refH = (img.naturalHeight || bh) * scale;
+    const aspect = refW / refH;
     const boundsAspect = bw / bh;
     let dw: number, dh: number;
-    if (fit === 'fit') {
-      if (imgAspect > boundsAspect) {
-        dw = bw;
-        dh = bw / imgAspect;
-      } else {
-        dh = bh;
-        dw = bh * imgAspect;
+    if (fit === 'stretch') {
+      dw = bw;
+      dh = bh;
+    } else if (fit === 'tile') {
+      if (refW > 0 && refH > 0) {
+        const startX = bounds.x + (fill.x ?? 0) - Math.floor((bounds.x + (fill.x ?? 0)) / refW) * refW;
+        const startY = bounds.y + (fill.y ?? 0) - Math.floor((bounds.y + (fill.y ?? 0)) / refH) * refH;
+        for (let ty = startY; ty < bounds.y + bh; ty += refH) {
+          for (let tx = startX; tx < bounds.x + bw; tx += refW) {
+            target.drawImage(img, tx, ty, refW, refH);
+          }
+        }
       }
+      return;
+    } else if (fit === 'fit') {
+      // Scale refW/refH to fit within bounds, preserving aspect ratio.
+      if (aspect > boundsAspect) { dw = bw; dh = bw / aspect; }
+      else { dh = bh; dw = bh * aspect; }
     } else {
-      if (imgAspect > boundsAspect) {
-        dh = bh;
-        dw = bh * imgAspect;
-      } else {
-        dw = bw;
-        dh = bw / imgAspect;
-      }
+      // fill: scale to cover bounds, preserving aspect ratio, centered.
+      if (aspect > boundsAspect) { dh = bh; dw = bh * aspect; }
+      else { dw = bw; dh = bw / aspect; }
     }
     const dx = bounds.x + (fill.x ?? 0) + (bw - dw) / 2;
     const dy = bounds.y + (fill.y ?? 0) + (bh - dh) / 2;
-    target.drawImage(fill.src, dx, dy, dw, dh);
+    target.drawImage(img, dx, dy, dw, dh);
+  } else {
+    // Image still loading — draw a subtle placeholder so the node is visible
+    const prev = target.fillStyle;
+    target.fillStyle = '#e8eaed';
+    target.fillRect(bounds.x, bounds.y, bw, bh);
+    target.fillStyle = prev;
   }
 }
 
@@ -571,12 +564,64 @@ function createGradientStyle(
   return rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
 }
 
+/**
+ * Trace a squircle (continuous-corner rect) path.
+ * smoothing=0 → identical to roundRect; smoothing=1 → fully smooth iOS-style corners.
+ *
+ * Uses cubic bezier approximation: the arc endpoints are "pulled" further along
+ * each straight edge by `r * s * 0.55`, while bezier handle length stays at
+ * `r * 0.5523` (the standard circle-arc approximation constant). This produces
+ * the characteristic wide, smooth corner that fills more of the bounding box.
+ */
+function traceSquirclePath(
+  target: ReplayTarget,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  cornerRadius: number | [number, number, number, number],
+  smoothing: number,
+): void {
+  const maxR = Math.min(w, h) / 2;
+  const [tl, tr, br, bl] = (Array.isArray(cornerRadius) ? cornerRadius : [cornerRadius, cornerRadius, cornerRadius, cornerRadius]).map(
+    (v) => Math.min(v, maxR),
+  ) as [number, number, number, number];
+  const s = Math.max(0, Math.min(1, smoothing));
+  // How far from the corner vertex the straight edge ends (> r when s > 0).
+  const ext = (r: number) => Math.min(r * (1 + s * 0.55), maxR);
+  // Bezier handle length for the arc (circle-arc approximation constant × r).
+  const hnd = (r: number) => r * 0.5523;
+
+  target.beginPath();
+  target.moveTo(x + ext(tl), y);
+  // Top edge →
+  target.lineTo(x + w - ext(tr), y);
+  // Top-right corner
+  target.bezierCurveTo(x + w - ext(tr) + hnd(tr), y, x + w, y + ext(tr) - hnd(tr), x + w, y + ext(tr));
+  // Right edge ↓
+  target.lineTo(x + w, y + h - ext(br));
+  // Bottom-right corner
+  target.bezierCurveTo(x + w, y + h - ext(br) + hnd(br), x + w - ext(br) + hnd(br), y + h, x + w - ext(br), y + h);
+  // Bottom edge ←
+  target.lineTo(x + ext(bl), y + h);
+  // Bottom-left corner
+  target.bezierCurveTo(x + ext(bl) - hnd(bl), y + h, x, y + h - ext(bl) + hnd(bl), x, y + h - ext(bl));
+  // Left edge ↑
+  target.lineTo(x, y + ext(tl));
+  // Top-left corner
+  target.bezierCurveTo(x, y + ext(tl) - hnd(tl), x + ext(tl) - hnd(tl), y, x + ext(tl), y);
+  target.closePath();
+}
+
 /** Paint the primitive shape fill (without fillStyle). */
 function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
   const p = item.primitive;
   switch (p.kind) {
     case 'rect':
-      if (p.cornerRadius && target.roundRect) {
+      if (p.cornerRadius && p.cornerSmoothing && p.cornerSmoothing > 0) {
+        traceSquirclePath(target, p.x, p.y, p.w, p.h, p.cornerRadius, p.cornerSmoothing);
+        target.fill();
+      } else if (p.cornerRadius && target.roundRect) {
         target.beginPath();
         target.roundRect(p.x, p.y, p.w, p.h, p.cornerRadius);
         target.fill();
@@ -979,7 +1024,10 @@ function paintStroke(
   const p = item.primitive;
   switch (p.kind) {
     case 'rect':
-      if (p.cornerRadius && target.roundRect) {
+      if (p.cornerRadius && p.cornerSmoothing && p.cornerSmoothing > 0) {
+        traceSquirclePath(target, p.x, p.y, p.w, p.h, p.cornerRadius, p.cornerSmoothing);
+        target.stroke();
+      } else if (p.cornerRadius && target.roundRect) {
         target.beginPath();
         target.roundRect(p.x, p.y, p.w, p.h, p.cornerRadius);
         target.stroke();

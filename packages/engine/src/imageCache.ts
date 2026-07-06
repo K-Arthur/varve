@@ -19,6 +19,7 @@ export class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
   private pending = new Map<string, Promise<HTMLImageElement>>();
   private listeners = new Map<string, Set<() => void>>();
+  private globalListeners = new Set<() => void>();
 
   /** Total number of entries in the cache. */
   get size(): number {
@@ -130,6 +131,19 @@ export class ImageCache {
     this.cache.clear();
     this.pending.clear();
     this.listeners.clear();
+    this.globalListeners.clear();
+  }
+
+  /**
+   * Subscribe to any image load/error event (regardless of URL).
+   * Useful for triggering a canvas re-render when any image finishes loading.
+   * Returns an unsubscribe function.
+   */
+  subscribeGlobal(callback: () => void): () => void {
+    this.globalListeners.add(callback);
+    return () => {
+      this.globalListeners.delete(callback);
+    };
   }
 
   /**
@@ -155,11 +169,23 @@ export class ImageCache {
     return this.cache.get(url)?.state ?? 'idle';
   }
 
+  /**
+   * Directly inject a pre-loaded image into the cache.
+   * Intended for tests and offline-preload scenarios where the caller
+   * already has the decoded image and wants it available synchronously.
+   */
+  setLoaded(url: string, image: HTMLImageElement): void {
+    this.cache.set(url, { state: 'loaded', image });
+    this.pending.delete(url);
+    this.notifyListeners(url);
+  }
+
   private notifyListeners(url: string): void {
     const set = this.listeners.get(url);
     if (set) {
       for (const cb of set) cb();
     }
+    for (const cb of this.globalListeners) cb();
   }
 }
 

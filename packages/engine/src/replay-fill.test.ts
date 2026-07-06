@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { getImageCache, resetImageCache } from './imageCache';
 import type { ReplayGradient, ReplayTarget } from './replay';
 import { replayIr } from './replay';
 import type { RenderItem } from './types';
@@ -131,6 +132,18 @@ function recorder(): RecorderProxy {
 
   return { target: target as unknown as ReplayTarget, calls, props };
 }
+
+function mockImage(src: string, w: number, h: number): HTMLImageElement {
+  return { src, naturalWidth: w, naturalHeight: h, toString: () => src } as unknown as HTMLImageElement;
+}
+
+beforeEach(() => {
+  resetImageCache();
+});
+
+afterEach(() => {
+  resetImageCache();
+});
 
 describe('gradient fill rendering', () => {
   it('renders linear gradient fill (createLinearGradient + addColorStop + fill)', () => {
@@ -980,6 +993,8 @@ describe('multi-item compositing edge cases', () => {
   });
 
   it('image fill draws via drawImage when target supports it', () => {
+    // Pre-load the image so paintImageFill takes the cached path.
+    getImageCache().setLoaded('test.png', mockImage('test.png', 50, 50));
     const rec = recorder();
     const target = rec.target as unknown as Record<string, unknown>;
     let drawImageCalled = false;

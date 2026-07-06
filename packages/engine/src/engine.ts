@@ -118,6 +118,7 @@ function shapeToPrimitive(
         w: s.w,
         h: s.h,
         ...(node.cornerRadius ? { cornerRadius: node.cornerRadius } : {}),
+        ...(node.cornerSmoothing ? { cornerSmoothing: node.cornerSmoothing } : {}),
       };
     case 'ellipse':
       return { kind: 'ellipse', cx: s.cx, cy: s.cy, rx: s.rx, ry: s.ry };
