@@ -6,6 +6,7 @@
 
 import type { Affine } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode, TextNode } from '@strata/scene';
+import type { TargetGap } from './types';
 import { affineToSvg, escapeXml, getChildren, rgba, shapeVerticesToPoints } from './shared';
 
 export interface SvgExportOptions {
@@ -246,4 +247,51 @@ export function exportNodeToSvg(
     `</svg>`,
     '',
   ].join('\n');
+}
+
+/**
+ * Report features used by `node` that inline SVG 1.1 cannot represent
+ * portably — primarily external image references and CSS-only effects.
+ *
+ * SVG has broad coverage; gaps are limited to embedded assets and
+ * browser-specific filter support.
+ */
+export function svgTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
+  const gaps: TargetGap[] = [];
+
+  if (node.kind === 'image') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'external image reference',
+      severity: 'warning',
+      fallback: 'Embed image as a base64 data URL for self-contained SVG portability',
+    });
+  }
+
+  const fills = node.fills ?? [];
+  if (fills.some((f) => f.type === 'pattern')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'pattern fill',
+      severity: 'warning',
+      fallback: 'Use an SVG <pattern> element with patternUnits="userSpaceOnUse"',
+    });
+  }
+
+  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
+    ? (node.effects ?? [])
+    : [];
+  if (effects.some((e) => e.type === 'backgroundBlur')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'background blur effect',
+      severity: 'warning',
+      fallback: 'Use feGaussianBlur inside an SVG <filter> element (limited browser support)',
+    });
+  }
+
+  return gaps;
 }

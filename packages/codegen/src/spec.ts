@@ -152,13 +152,16 @@ export function buildSpec(doc: Document): SpecSheet {
       };
 
       if (node.kind === 'frame') {
-        // Estimate padding from transform offset vs children positions
-        // For now this is a stub; real padding extraction needs layout data
+        const ls = node.layoutStyle;
+        const padding: [number, number, number, number] = ls?.padding ?? [0, 0, 0, 0];
+        const gap = ls?.gap ?? 0;
+        detail.padding = padding;
+        detail.gap = gap;
         if (node.children.length > 0) {
-          addSpacing('frame-padding', 0);
+          const paddingTotal = padding[0] + padding[1] + padding[2] + padding[3];
+          if (paddingTotal > 0) addSpacing('frame-padding', paddingTotal / 4);
+          if (gap > 0) addSpacing('frame-gap', gap);
         }
-        detail.padding = [0, 0, 0, 0];
-        detail.gap = 0;
         nodes.push(detail);
         walk(node.children, depth + 1);
         continue;

@@ -5,6 +5,7 @@
  */
 
 import type { Document as SceneDocument, SceneNode, TextNode, VariableStore } from '@strata/scene';
+import type { TargetGap } from './types';
 import { colorToHex, computeNodePos, getChildren } from './shared';
 import { resolveTokenName } from './tokens';
 
@@ -87,4 +88,67 @@ export function exportNodeToSwiftUI(
 ): string {
   const effectiveDoc = doc ?? ({ nodes: {}, rootChildren: [] } as unknown as SceneDocument);
   return emitNode(node, effectiveDoc, 0, opts);
+}
+
+/**
+ * Report features used by `node` that SwiftUI views cannot represent
+ * without custom Path/Shape code or additional modifiers.
+ */
+export function swiftuiTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
+  const gaps: TargetGap[] = [];
+
+  if (node.kind === 'image') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'image node',
+      severity: 'warning',
+      fallback: 'Use Image("assetName") or AsyncImage(url:) in SwiftUI',
+    });
+  }
+
+  if (node.kind === 'shape' && node.shape.kind !== 'rect' && node.shape.kind !== 'ellipse') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: `non-standard shape (${node.shape.kind})`,
+      severity: 'warning',
+      fallback: 'Implement a custom Shape with a Path { path in ... } body',
+    });
+  }
+
+  const fills = node.fills ?? [];
+  if (fills.some((f) => f.type === 'gradient')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'gradient fill',
+      severity: 'warning',
+      fallback: 'Use .overlay(LinearGradient(...)) or .background(gradient)',
+    });
+  }
+
+  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
+    ? (node.effects ?? [])
+    : [];
+  if (effects.some((e) => e.type === 'backgroundBlur')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'background blur effect',
+      severity: 'warning',
+      fallback: 'Use .background(.ultraThinMaterial) or UIVisualEffectView',
+    });
+  }
+  if (effects.some((e) => e.type === 'dropShadow')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'drop shadow',
+      severity: 'warning',
+      fallback: 'Use .shadow(color:radius:x:y:) modifier',
+    });
+  }
+
+  return gaps;
 }

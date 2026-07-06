@@ -13,15 +13,17 @@ import { managedColorToRgba } from '@strata/shared';
 export { timelineToCSSKeyframes } from './animation-css';
 export { timelineToLottieJSON } from './animation-lottie';
 export { timelineToSVGAnimations } from './animation-svg';
-export { exportNodeToCss } from './css';
-export { exportNodeToCssModules } from './css-modules';
-export { exportNodeToFlutter } from './flutter';
+export { exportNodeToCss, cssTargetGaps } from './css';
+export { exportNodeToCssModules, cssModulesTargetGaps } from './css-modules';
+export { exportNodeToFlutter, flutterTargetGaps } from './flutter';
 export * from './shared';
 export * from './spec';
-export { exportNodeToSvg } from './svg';
-export { exportNodeToSwiftUI } from './swiftui';
-export { exportNodeToTailwind } from './tailwind';
+export { exportNodeToSvg, svgTargetGaps } from './svg';
+export { exportNodeToSwiftUI, swiftuiTargetGaps } from './swiftui';
+export { exportNodeToTailwind, tailwindTargetGaps } from './tailwind';
 export { resolveTokenName } from './tokens';
+export * from './target-analysis';
+export type { CodeEmitter, TargetGap } from './types';
 
 export const PACKAGE = '@strata/codegen' as const;
 

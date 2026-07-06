@@ -10,6 +10,7 @@ import type {
   SceneNode,
   VariableStore,
 } from '@strata/scene';
+import type { TargetGap } from './types';
 import { colorToHex, computeNodePos, rgba } from './shared';
 import { resolveTokenName } from './tokens';
 
@@ -94,4 +95,60 @@ export function exportNodeToCss(
 
   lines.push('}');
   return lines.join('\n');
+}
+
+/**
+ * Report features used by `node` that plain CSS classes cannot represent.
+ *
+ * Checks: non-rectangular shapes (need SVG), gradient fills needing complex
+ * CSS syntax, image fills requiring a URL source, and blur effects.
+ */
+export function cssTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
+  const gaps: TargetGap[] = [];
+
+  if (node.kind === 'image') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'image node',
+      severity: 'warning',
+      fallback: 'Use background-image with a URL or an <img> tag',
+    });
+  }
+
+  if (node.kind === 'shape' && node.shape.kind !== 'rect') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: `non-rectangular shape (${node.shape.kind})`,
+      severity: 'warning',
+      fallback: 'Use clip-path or an inline SVG element',
+    });
+  }
+
+  const fills = node.fills ?? [];
+  if (fills.some((f) => f.type === 'gradient')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'gradient fill',
+      severity: 'warning',
+      fallback: 'Use background: linear-gradient(...) or conic-gradient(...)',
+    });
+  }
+
+  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
+    ? (node.effects ?? [])
+    : [];
+  if (effects.some((e) => e.type === 'backgroundBlur')) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'background blur effect',
+      severity: 'warning',
+      fallback: 'Use backdrop-filter: blur(...) with browser prefix if needed',
+    });
+  }
+
+  return gaps;
 }
