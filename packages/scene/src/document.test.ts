@@ -31,6 +31,7 @@ import {
   walkNodes,
 } from './document';
 import type { FrameNode, GroupNode, LayerColor, TextNode } from './types';
+import { CURRENT_DOCUMENT_VERSION } from './version';
 
 function shape(doc: ReturnType<typeof createDocument>, name: string) {
   const { id, doc: d2 } = nextNodeId(doc);
@@ -755,7 +756,7 @@ describe('Document print production fields', () => {
 
   it('createDocument stamps current format version', () => {
     const doc = createDocument('test');
-    expect(['1.6', '1.5', '1.4', '1.3', '1.2', '1.1']).toContain(doc.formatVersion);
+    expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
   });
 
   it('Document interface accepts colorConfig and bleed', () => {
