@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import type { SavedSearch } from '@strata/platform';
 import type { IconName } from '@strata/ui';
-import { Icon } from '@strata/ui';
+import { Icon, SearchField } from '@strata/ui';
 import {
   type DragEvent,
   type KeyboardEvent,
@@ -36,6 +36,12 @@ export interface SidebarNavProps {
   onDeleteSavedSearch?: (id: string) => void;
   /** Counts to show on section badges, keyed by section id. */
   sectionCounts?: Record<string, number>;
+  /** Search query for the sidebar search field. */
+  searchQuery?: string;
+  /** Called when sidebar search query changes. */
+  onSearchQueryChange?: (query: string) => void;
+  /** Result count for the sidebar search field. */
+  searchResultCount?: number;
 }
 
 const SECTION_LEADER_IDS = new Set([
@@ -161,6 +167,9 @@ export function SidebarNav({
   activeSavedSearchId,
   onDeleteSavedSearch,
   sectionCounts,
+  searchQuery,
+  onSearchQueryChange,
+  searchResultCount,
 }: SidebarNavProps) {
   const [focusIdx, setFocusIdx] = useState(0);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
@@ -291,6 +300,18 @@ export function SidebarNav({
       onKeyDown={handleKey}
       aria-label="File navigation"
     >
+      {/* Sidebar search field */}
+      {onSearchQueryChange && (
+        <div className="sidebar-search">
+          <SearchField
+            value={searchQuery ?? ''}
+            onChange={onSearchQueryChange}
+            resultCount={searchResultCount}
+            placeholder="Search files…"
+          />
+        </div>
+      )}
+
       {/* Top nav items — direct single-click navigation, no collapsible wrapper */}
       <div className="sidebar-group">
         {topNavIds.map((id) => {

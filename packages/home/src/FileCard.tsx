@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { FileEntry } from '@strata/platform';
-import { formatBytes, formatRelativeTime } from '@strata/platform';
+import { formatRelativeTime } from '@strata/platform';
 import { Icon } from '@strata/ui';
 import {
   forwardRef,
@@ -155,6 +155,7 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
     >
       <div className="file-card__thumb" ref={thumbRef}>
         {thumbnailLoading && !thumbnail && <div className="file-card__skeleton" />}
+        {entry.kind && <span className="file-card__thumb-badge">{entry.kind}</span>}
       </div>
       <div className="file-card__body">
         {isRenaming ? (
@@ -205,13 +206,11 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
                 name="Star"
                 fill={entry.favoritedAt && entry.favoritedAt > 0 ? 'currentColor' : 'none'}
                 label={undefined}
-                size="0.85em"
+                size="0.75em"
               />
             </button>
           )}
-          <span className="file-card__badge">{entry.kind}</span>
           <span>{formatRelativeTime(entry.updatedAt)}</span>
-          {entry.size > 0 && <span>{formatBytes(entry.size)}</span>}
         </div>
       </div>
     </div>
