@@ -168,7 +168,8 @@ import {
 import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPublish';
 import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
-import { SelectionProvider, ViewportProvider } from './context/index';
+import type { DocumentContextValue } from './context/DocumentContext';
+import { DocumentProvider, SelectionProvider, ViewportProvider } from './context/index';
 import type {
   CanvasMode,
   EditorState,
@@ -4507,13 +4508,121 @@ export function EditorProvider({
     ],
   );
 
+  const documentValue = useMemo<DocumentContextValue>(
+    () => ({
+      createShapeAt: value.createShapeAt,
+      createTextNodeAt: value.createTextNodeAt,
+      applyFramePreset: value.applyFramePreset,
+      removeSelected: value.removeSelected,
+      renameSelected: value.renameSelected,
+      moveNode: value.moveNode,
+      duplicateSelected: value.duplicateSelected,
+      setSelectedFill: value.setSelectedFill,
+      setSelectedFills: value.setSelectedFills,
+      updateSelectedFillAt: value.updateSelectedFillAt,
+      addSelectedFill: value.addSelectedFill,
+      removeSelectedFillAt: value.removeSelectedFillAt,
+      reorderSelectedFill: value.reorderSelectedFill,
+      setNodePosition: value.setNodePosition,
+      setNodeSize: value.setNodeSize,
+      updateNode: value.updateNode,
+      setSelectedOpacity: value.setSelectedOpacity,
+      setSelectedBlendMode: value.setSelectedBlendMode,
+      setSelectedRotation: value.setSelectedRotation,
+      setSelectedFlipH: value.setSelectedFlipH,
+      setSelectedFlipV: value.setSelectedFlipV,
+      setSelectedCornerRadius: value.setSelectedCornerRadius,
+      alignSelected: value.alignSelected,
+      distributeSelected: value.distributeSelected,
+      beginTransaction: value.beginTransaction,
+      commitTransaction: value.commitTransaction,
+      abortTransaction: value.abortTransaction,
+      undo: value.undo,
+      redo: value.redo,
+      newDocument: value.newDocument,
+      serializeDocument: value.serializeDocument,
+      updateDoc: value.updateDoc,
+      loadDocument: value.loadDocument,
+      save: value.save,
+      saveAs: value.saveAs,
+      saveState: value.saveState,
+      lastSavedAt: value.lastSavedAt,
+      openFile: value.openFile,
+      rootNodes: value.rootNodes,
+      reparentNode: value.reparentNode,
+      arrangeSelected: value.arrangeSelected,
+      groupSelected: value.groupSelected,
+      ungroupSelected: value.ungroupSelected,
+      detachSelected: value.detachSelected,
+      copySelected: value.copySelected,
+      cutSelected: value.cutSelected,
+      paste: value.paste,
+      importNode: value.importNode,
+      booleanOp: value.booleanOp,
+      setNodeLocked: value.setNodeLocked,
+      setNodeVisible: value.setNodeVisible,
+      setNodeClipContent: value.setNodeClipContent,
+      setLayerColor: value.setLayerColor,
+      setNodeLayout: value.setNodeLayout,
+      guides: value.guides,
+      addGuide: value.addGuide,
+      removeGuide: value.removeGuide,
+      moveGuide: value.moveGuide,
+      toggleGuideLock: value.toggleGuideLock,
+      clearAllGuides: value.clearAllGuides,
+      showExportDialog: value.showExportDialog,
+      setShowExportDialog: value.setShowExportDialog,
+      addPreset: value.addPreset,
+      updatePreset: value.updatePreset,
+      removePreset: value.removePreset,
+      createComponentFromFrame: value.createComponentFromFrame,
+      createComponentInstance: value.createComponentInstance,
+      fillSlot: value.fillSlot,
+      swapComponentInstance: value.swapComponentInstance,
+      resetInstanceOverrides: value.resetInstanceOverrides,
+      syncComponentInstances: value.syncComponentInstances,
+      syncInstance: value.syncInstance,
+      getInstanceStatus: value.getInstanceStatus,
+      syncAllInstances: value.syncAllInstances,
+      resolveVariable: value.resolveVariable,
+      addVariable: value.addVariable,
+      updateVariable: value.updateVariable,
+      deleteVariable: value.deleteVariable,
+      setVariableMode: value.setVariableMode,
+      newTab: value.newTab,
+      switchTab: value.switchTab,
+      closeTab: value.closeTab,
+      createAdjustmentLayer: value.createAdjustmentLayer,
+      addAdjustmentToLayer: value.addAdjustmentToLayer,
+      removeAdjustmentFromLayer: value.removeAdjustmentFromLayer,
+      updateAdjustmentInLayer: value.updateAdjustmentInLayer,
+      reorderAdjustmentInLayer: value.reorderAdjustmentInLayer,
+      setAdjustmentLayerOpacity: value.setAdjustmentLayerOpacity,
+      setAdjustmentLayerBlendMode: value.setAdjustmentLayerBlendMode,
+      setVariantForInstance: value.setVariantForInstance,
+      createVariant: value.createVariant,
+      setPropertyOverride: value.setPropertyOverride,
+      addComponentProperty: value.addComponentProperty,
+      resolveVariantPropertiesForNode: value.resolveVariantPropertiesForNode,
+      setPageBleed: value.setPageBleed,
+      setPageSafeArea: value.setPageSafeArea,
+      setPageSlug: value.setPageSlug,
+      setActivePage: value.setActivePage,
+      setCurrentPageId: value.setCurrentPageId,
+      activePageNodes: value.activePageNodes,
+    }),
+    [value],
+  );
+
   return (
     <EditorCtx.Provider value={value}>
-      <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
-        <SelectionProvider state={state} setState={setState}>
-          {children}
-        </SelectionProvider>
-      </ViewportProvider>
+      <DocumentProvider value={documentValue}>
+        <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
+          <SelectionProvider state={state} setState={setState}>
+            {children}
+          </SelectionProvider>
+        </ViewportProvider>
+      </DocumentProvider>
     </EditorCtx.Provider>
   );
 }
@@ -4524,7 +4633,7 @@ export function useEditor(): EditorContextValue {
   return ctx;
 }
 
-export { useSelection, useViewport } from './context/index';
+export { useDocument, useSelection, useViewport } from './context/index';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);

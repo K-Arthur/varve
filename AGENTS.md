@@ -677,6 +677,41 @@ Implemented from text plan:
 | `packages/codegen/src/swiftui.ts` | SwiftUI emitter (HStack/VStack/ZStack auto-layout) |
 | `packages/platform/src/platform.ts` | Platform interface with saveBinaryFile, searchFiles, reorderFile, listenForChanges |
 | `pnpm-workspace.yaml` | Workspace config + allowBuilds |
+| `packages/editor/src/context/` | Sub-context architecture: `ViewportContext`, `SelectionContext`, `DocumentContext` extracted from the monolith `context.tsx` |
+
+## Editor sub-context architecture
+
+The 4,598-line `context.tsx` is being decomposed into focused sub-contexts in `packages/editor/src/context/`. Each sub-context:
+1. Defines its own interface and provider in a separate file
+2. Accepts `state`/`setState` (and optional refs) from the parent `EditorProvider`
+3. Returns a memoized value via `useMemo`
+4. Exports its own `useX()` hook for direct consumption
+
+Current sub-contexts:
+
+| Context | File | Members | Status |
+|---------|------|---------|--------|
+| `ViewportContext` | `ViewportContext.tsx` (314 lines) | 20 viewport/zoom/camera methods | Extracted |
+| `SelectionContext` | `SelectionContext.tsx` (175 lines) | 9 selection methods | Extracted |
+| `DocumentContext` | `DocumentContext.tsx` (184 lines) | ~80 document CRUD methods | Extracted (pass-through) |
+| Main `EditorContextValue` | `context/types.ts` (328 lines) | All 285 members | Full interface, backward-compatible |
+
+The `EditorProvider` composes them:
+```tsx
+<EditorCtx.Provider value={value}>
+  <DocumentProvider value={documentValue}>
+    <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
+      <SelectionProvider state={state} setState={setState}>
+        {children}
+      </SelectionProvider>
+    </ViewportProvider>
+  </DocumentProvider>
+</EditorCtx.Provider>
+```
+
+Consumers can use either the general `useEditor()` hook or the focused hooks: `useViewport()`, `useSelection()`, `useDocument()`. The sub-context hook pattern is the preferred path for new code. The full `EditorContextValue` interface at `context/types.ts:128` is the single source of truth for all context members; individual sub-context interfaces are subsets of it.
+
+**Next extraction targets:** `ToolContext`, `MotionContext`, `PrototypeContext`. See `docs/plans/context-extraction.md`.
 
 ## Session 14 — Frame dimensions, clipping, and Rust IR completeness (2026-06-30)
 

@@ -1,3 +1,5 @@
+export type { DocumentContextValue } from './DocumentContext';
+export { DocumentProvider, useDocument } from './DocumentContext';
 export type { SelectionContextValue } from './SelectionContext';
 export { SelectionProvider, useSelection } from './SelectionContext';
 export type {
