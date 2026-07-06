@@ -39,6 +39,7 @@ describe('visitNode', () => {
       frame: () => 'frame',
       image: () => 'image',
       adjustment: () => 'adjustment',
+      path: () => 'path',
     });
     expect(result).toBe(expected);
   });
@@ -52,6 +53,7 @@ describe('visitNode', () => {
       frame: () => 'nope',
       image: () => 'nope',
       adjustment: () => 'nope',
+      path: () => 'nope',
     });
     expect(result).toBe('s1');
   });
@@ -66,6 +68,7 @@ describe('visitNode', () => {
         frame: () => '',
         image: () => '',
         adjustment: () => '',
+        path: () => '',
       }),
     ).toThrow('Unhandled node kind');
   });

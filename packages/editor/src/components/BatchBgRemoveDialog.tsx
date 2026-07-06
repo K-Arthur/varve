@@ -15,6 +15,7 @@ import type {
   NodeId,
   SceneNode,
 } from '@strata/scene';
+import { shapeHeight, shapeWidth } from '@strata/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import './BatchBgRemoveDialog.css';
@@ -51,15 +52,20 @@ const METHOD_OPTIONS: { value: BackgroundRemovalMethod; label: string; desc: str
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 function nodeToFile(node: SceneNode): ProcessingFile | null {
-  if (node.kind !== 'image') return null;
-  return {
-    id: node.id,
-    name: node.name,
-    src: node.src,
-    w: node.w,
-    h: node.h,
-    status: 'queued',
-  };
+  // Traditional image node
+  if (node.kind === 'image') {
+    const img = node as ImageNode;
+    return { id: img.id, name: img.name, src: img.src, w: img.w, h: img.h, status: 'queued' };
+  }
+  // Shape node with an image fill (e.g., pasted from clipboard)
+  if (node.kind === 'shape') {
+    const imageFill = node.fills?.find((f) => f.type === 'image' && !!f.image?.src);
+    if (!imageFill?.image?.src) return null;
+    const w = shapeWidth(node.shape);
+    const h = shapeHeight(node.shape);
+    return { id: node.id, name: node.name, src: imageFill.image.src, w: w || 200, h: h || 200, status: 'queued' };
+  }
+  return null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

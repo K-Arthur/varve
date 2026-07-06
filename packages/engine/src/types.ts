@@ -276,6 +276,8 @@ export interface SceneNode {
   pathTextSettings?: PathTextSettings;
   /** Uniform or per-corner radius for rect-anchored shapes. */
   cornerRadius?: number | [number, number, number, number];
+  /** 0–1 squircle smoothing applied on top of cornerRadius (iOS continuous-corner style). */
+  cornerSmoothing?: number;
   /** Alpha mask data URL for compositing with transparency. */
   alphaMask?: string;
 }
