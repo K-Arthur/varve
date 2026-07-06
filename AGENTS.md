@@ -118,6 +118,22 @@ git log --oneline -3
 | Offline models | `apps/desktop/public/models/manifest.json` |
 | Architecture docs | `docs/architecture/render-pipeline.md`, `docs/architecture/wasm-backends.md`, `docs/perf/ledger.md` |
 
+## Canvas System (2026-07-06)
+
+Phases A–F **implemented**. Canonical audit: `docs/audits/canvas-system-audit.md`.
+
+| Area | Location |
+|---|---|
+| Camera + floating origin | `packages/shared/src/viewport.ts`, `packages/editor/src/canvas/cameraState.ts` |
+| Artboard coordinates | `packages/shared/src/coordinates.ts`, `Page.rulerOrigin` |
+| Sticky snap | `packages/editor/src/tools/snapping.ts` |
+| Draw hub | `CanvasArea.tsx` — `applyEditorCameraToCtx`, `SubtreeIrCache`, grid overlays |
+| UI | Menubar/StatusBar shortcuts: fit page/frame, rotate view, ruler mode, grid overlays |
+| Collab (stub) | `PresenceIndicator` in Shell, `CollabCursorOverlay`, `useCollabPresence` |
+| Perf | `canvas10k.bench.test.ts`, `SubtreeReplayCache` (renamed from TileCache) |
+
+**Next:** spatial tile renderer, WebGPU on Linux, real-time collab transport.
+
 ## Motion System Overhaul (2026-07-06)
 
 P0–P5 motion integration complete. Canonical doc: `docs/architecture/motion-system.md`.
@@ -1561,3 +1577,46 @@ Closed Phases A–D from the deferred-work plan. Phase E (native Rust AI, hair m
 | **D** | `DEFAULT_PREVIEW_MAX_DIMENSION=2048` wired end-to-end; inspector downscale hint; WebGPU EP blocked on WebKitGTK (ADR-0005 note) |
 
 **Verification:** Focused bg-removal suite **145/145** pass; `@strata/engine` typecheck clean; `cargo clippy` + `cargo test --workspace` (166/166) clean. Full `pnpm test`: **3731/3743** pass (11 failures in uncommitted motion WIP). Phase E prompt: `docs/plans/bg-removal-phase-e-prompt.md`.
+
+## Session 40 — Background Removal Phase E (2026-07-06)
+
+Completed Phase E deferred work: stub parity, hair matting, multi-subject picker, trimap editor, native Rust AI parity + ADR-0005 Option B amendment.
+
+| Slice | What | Key files | Tests |
+|---|---|---|---|
+| **E.0** | Direct-ONNX `previewMaxDimension` parity; Rust metadata sync | `index.ts`, `model.rs` | +1 directPreviewDownscale |
+| **E.1** | ADR Option B native cache; inference dynamic IO, preview downscale, decontaminate, confidence | `inference.rs`, `docs/adr/0005` | +1 model metadata |
+| **E.2** | Guided-filter hair/fur edge refinement | `refineHairMatting.ts`, `BackgroundRemovalSection` | +3 |
+| **E.3** | 8-connected CC labeling + subject picker overlay | `maskOps.ts`, `SubjectPickerOverlay`, `finalizeMask.ts` | +8 |
+| **E.4** | Ephemeral trimap editor + matting solver | `TrimapEditTool.ts`, `trimapMatting.ts` | +3 |
+
+**Verification:** Focused bg-removal suite **163/163** pass (23 files); `@strata/engine` typecheck **0 errors**; `cargo clippy -D warnings` clean; `cargo test --workspace` **167/167** pass.
+
+## Session 41 — Canvas System Architecture Audit (2026-07-06)
+
+Audit-only session (no implementation). Comprehensive canvas subsystem review: current-state inventory, web research (Figma tile/GPU renderer, Illustrator artboard coordinates, floating-origin precision, sticky snap UX, Figma presence architecture), competitive matrix, gap analysis on six priority axes, architecture recommendations, phased roadmap (A–F), test strategy, risks.
+
+| Deliverable | Location |
+|---|---|
+| Canvas audit doc | `docs/audits/canvas-system-audit.md` |
+| Render pipeline reference | `docs/architecture/render-pipeline.md` |
+| Camera SSOT | `packages/shared/src/viewport.ts` |
+
+**Key findings:** `rotateAboutScreenPoint` is a no-op stub; zoom capped `[0.1, 10]`; magnetic snap only; no artboard-local coordinate space; compositor `TileCache` is subtree-hash cache not spatial tiling; `PresenceIndicator` built but unmounted.
+
+**Next:** Phase A implementation — sticky snap, extended zoom, view rotation, fit-to-page/frame.
+
+## Session 42 — Canvas System Phases A–F Implementation (2026-07-06)
+
+Implemented full canvas roadmap from `docs/audits/canvas-system-audit.md`:
+
+| Phase | What | Key files |
+|---|---|---|
+| **A** | Sticky snap, zoom `[0.001,64]`, view rotation, fit page/frame | `viewport.ts`, `snapping.ts`, `context.tsx`, shortcuts |
+| **B** | Artboard coords, ruler mode, inspector readout | `coordinates.ts`, `Ruler.tsx`, `PositionSizeSection.tsx` |
+| **C** | Floating origin camera transform | `applyCameraTransform`, `CanvasArea.tsx` |
+| **D** | Subtree IR cache, replay cache rename, 10k bench | `subtreeIrCache.ts`, `tileCache.ts`, `canvas10k.bench.test.ts` |
+| **E** | Layout grid snap, baseline/isometric overlays | `DocumentGridOverlay`, snap `layoutGridStep` |
+| **F** | Presence UI + collab cursor stub | `Shell.tsx`, `CollabCursorOverlay`, `useCollabPresence` |
+
+**Verification:** Shared viewport/coordinates/snapping tests pass; canvas module tests pass; render test pass.

@@ -46,9 +46,33 @@ export type ToolId =
   | 'healBrush'
   | 'spotHeal'
   | 'patch'
-  | 'refineMask';
+  | 'refineMask'
+  | 'trimapEdit';
+
+export type TrimapPenMode = 'foreground' | 'unknown' | 'background';
+
+export interface SubjectPickerSession {
+  nodeId: NodeId;
+  width: number;
+  height: number;
+  components: Array<{
+    id: number;
+    pixelCount: number;
+    bbox: { x: number; y: number; w: number; h: number };
+  }>;
+  keepIds: number[];
+  pendingMaskDataUrl: string;
+  method: BackgroundRemovalMethod;
+  confidence: number;
+  feather: number;
+  decontaminate: boolean;
+}
 
 export type CanvasMode = 'full' | 'outline' | 'preview';
+
+export type RulerMode = 'global' | 'artboard';
+
+export type GridOverlayMode = 'none' | 'baseline' | 'isometric';
 
 export interface SessionMeta {
   id: string;
@@ -85,9 +109,21 @@ export interface EditorState {
   timelinePanelVisible: boolean;
   motion: MotionState;
   canvasMode: CanvasMode;
+  /** View rotation in radians (non-destructive canvas rotate). */
+  cameraRotation: number;
+  /** Global vs artboard-relative ruler ticks. */
+  rulerMode: RulerMode;
+  /** Optional document overlay grid type. */
+  gridOverlayMode: GridOverlayMode;
   currentPageId: string | null;
+  /** Isolation/focus view: when set, the layers panel shows only this
+   * container's subtree. A view-mode flag, not a document mutation — not
+   * part of undo/redo history. */
+  isolatedNodeId: NodeId | null;
   showOriginalBgNodeId: NodeId | null;
   refineMaskOptions: { brushSize: number; hardness: number };
+  trimapEditOptions: { brushSize: number; hardness: number; penMode: TrimapPenMode };
+  subjectPickerSession: SubjectPickerSession | null;
 }
 
 export interface EditorContextValue {
@@ -110,6 +146,13 @@ export interface EditorContextValue {
   worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   setCanvasMode: (mode: CanvasMode) => void;
+  setCameraRotation: (radians: number) => void;
+  rotateViewBy: (radians: number, screenAnchor?: { x: number; y: number }) => void;
+  resetViewRotation: () => void;
+  setRulerMode: (mode: RulerMode) => void;
+  setGridOverlayMode: (mode: GridOverlayMode) => void;
+  fitActivePage: () => void;
+  fitActiveFrame: () => void;
   revealSelection: (opts?: {
     nodeId?: NodeId;
     fit?: boolean;
@@ -326,6 +369,16 @@ export interface EditorContextValue {
   ) => Promise<void>;
   setShowOriginalBg: (nodeId: NodeId | null) => void;
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
+  setTrimapEditOptions: (
+    opts: Partial<{ brushSize: number; hardness: number; penMode: TrimapPenMode }>,
+  ) => void;
+  refineHairEdges: () => Promise<void>;
+  startTrimapEdit: () => void;
+  applyTrimapMatting: () => Promise<void>;
+  confirmSubjectPicker: (keepIds: number[]) => void;
+  cancelSubjectPicker: () => void;
+  getTrimapData: (nodeId: NodeId) => { data: Uint8Array; width: number; height: number } | null;
+  setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => void;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;

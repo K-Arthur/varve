@@ -1,13 +1,16 @@
+import { formatCoordForRuler, type RulerMode } from '@strata/shared';
 import { useCallback, useRef } from 'react';
 import './Ruler.css';
 
 interface RulerProps {
   zoom: number;
   pan: { x: number; y: number };
+  cameraRotation?: number;
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
-  /** Called when the user drags from the ruler to create a guide. */
+  rulerMode?: RulerMode;
+  artboard?: { x: number; y: number; w: number; h: number } | null;
+  pageRulerOrigin?: { x: number; y: number };
   onAddGuide: (axis: 'horizontal' | 'vertical', position: number) => void;
-  /** Current canvas container size for clamping. */
   canvasWidth?: number;
   canvasHeight?: number;
 }
@@ -17,12 +20,9 @@ const TICK_HEIGHT_SMALL = 4;
 const TICK_HEIGHT_MED = 8;
 const TICK_HEIGHT_LARGE = 12;
 
-/** Compute zoom-aware tick intervals. */
 function getTickInterval(zoom: number): number {
-  // Aim for ~100px on screen at any zoom level.
   const targetScreenPx = 80;
   const worldPx = targetScreenPx / zoom;
-  // Round to nearest nice number: 1, 2, 5, 10, 20, 50, 100, 200, 500...
   const magnitude = 10 ** Math.floor(Math.log10(worldPx));
   const residual = worldPx / magnitude;
   let nice: number;
@@ -42,10 +42,18 @@ const UNIT_SCALE: Record<string, number> = {
   '%': 1,
 };
 
-export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
+export function Ruler({
+  zoom,
+  pan,
+  cameraRotation = 0,
+  unitType,
+  rulerMode = 'global',
+  artboard = null,
+  pageRulerOrigin,
+  onAddGuide,
+}: RulerProps) {
   const topRulerRef = useRef<HTMLCanvasElement>(null);
   const leftRulerRef = useRef<HTMLCanvasElement>(null);
-  const cornerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef<'h' | 'v' | null>(null);
 
   const drawRuler = useCallback(
@@ -53,7 +61,6 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
       const dpr = window.devicePixelRatio ?? 1;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Canvas2D cannot resolve CSS variables — resolve them via getComputedStyle.
       const computed = getComputedStyle(document.documentElement);
       const bgColor = computed.getPropertyValue('--color-surface-sunken').trim() || '#f0f0f0';
       const tickColor = computed.getPropertyValue('--color-text-muted').trim() || '#888';
@@ -64,11 +71,16 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
 
       const interval = getTickInterval(zoom);
       const scale = UNIT_SCALE[unitType] ?? 1;
-
-      // Determine visible world range.
       const offset = axis === 'horizontal' ? pan.x : pan.y;
-      const startWorld = Math.floor(-offset / zoom / interval) * interval;
-      const endWorld = startWorld + size / zoom + interval;
+      const originOffset =
+        rulerMode === 'artboard' && artboard
+          ? axis === 'horizontal'
+            ? (pageRulerOrigin?.x ?? 0) + artboard.x
+            : (pageRulerOrigin?.y ?? 0) + artboard.y
+          : 0;
+
+      const startWorld = Math.floor((-offset / zoom - originOffset) / interval) * interval + originOffset;
+      const endWorld = startWorld + size / zoom + interval * 2;
 
       ctx.strokeStyle = tickColor;
       ctx.fillStyle = tickColor;
@@ -76,11 +88,10 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
 
       for (let w = startWorld; w <= endWorld; w += interval) {
         const screenPos = w * zoom + offset;
-        if (screenPos < 0 || screenPos > size) continue;
+        if (screenPos < -RULER_SIZE || screenPos > size + RULER_SIZE) continue;
 
-        // Determine tick level (every 5th = large, every 2nd = medium)
-        const isLarge = Math.abs(w % (interval * 5)) < 0.001;
-        const isMed = Math.abs(w % (interval * 2)) < 0.001;
+        const isLarge = Math.abs((w - originOffset) % (interval * 5)) < 0.001;
+        const isMed = Math.abs((w - originOffset) % (interval * 2)) < 0.001;
 
         ctx.beginPath();
         if (axis === 'horizontal') {
@@ -100,9 +111,15 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
         }
         ctx.stroke();
 
-        // Label on large ticks
         if (isLarge) {
-          const label = `${Math.round(w * scale)}`;
+          const display = formatCoordForRuler(
+            w,
+            axis === 'horizontal' ? 'x' : 'y',
+            rulerMode,
+            artboard,
+            pageRulerOrigin ? [pageRulerOrigin.x, pageRulerOrigin.y] : undefined,
+          );
+          const label = `${Math.round(display * scale)}`;
           if (axis === 'horizontal') {
             ctx.fillText(label, screenPos + 3, RULER_SIZE - 4);
           } else {
@@ -114,11 +131,12 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
           }
         }
       }
+
+      void cameraRotation;
     },
-    [zoom, pan.x, pan.y, unitType],
+    [zoom, pan.x, pan.y, unitType, rulerMode, artboard, pageRulerOrigin, cameraRotation],
   );
 
-  // Draw top ruler
   const topCanvasRef = useCallback(
     (canvas: HTMLCanvasElement | null) => {
       topRulerRef.current = canvas;
@@ -137,7 +155,6 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
     [drawRuler],
   );
 
-  // Draw left ruler
   const leftCanvasRef = useCallback(
     (canvas: HTMLCanvasElement | null) => {
       leftRulerRef.current = canvas;
@@ -182,7 +199,7 @@ export function Ruler({ zoom, pan, unitType, onAddGuide }: RulerProps) {
 
   return (
     <div className="ruler-container" aria-hidden>
-      <div className="ruler-corner" ref={cornerRef} />
+      <div className="ruler-corner" />
       <div className="ruler-top-wrapper">
         <canvas
           ref={topCanvasRef}

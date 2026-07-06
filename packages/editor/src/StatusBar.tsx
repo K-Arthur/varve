@@ -8,10 +8,14 @@ export function StatusBar() {
     setUnitType,
     setPixelGridEnabled,
     setSnapEnabled,
+    setRulerMode,
+    setGridOverlayMode,
     revealSelection,
     zoomIn,
     zoomOut,
     fitAll,
+    fitActivePage,
+    resetViewRotation,
     selectedNodes,
     rootNodes,
     clearAllGuides,
@@ -35,7 +39,12 @@ export function StatusBar() {
       <span>{state.tool}</span>
       {state.cursorPos && (
         <span>
-          X: {state.cursorPos.x} Y: {state.cursorPos.y}
+          X: {Math.round(state.cursorPos.x)} Y: {Math.round(state.cursorPos.y)}
+        </span>
+      )}
+      {state.cameraRotation !== 0 && (
+        <span title="View rotation">
+          {Math.round((state.cameraRotation * 180) / Math.PI)}°
         </span>
       )}
       <span aria-hidden>—</span>
@@ -70,6 +79,39 @@ export function StatusBar() {
       >
         <Icon name="Magnet" size={12} />
       </button>
+      <button
+        type="button"
+        aria-pressed={state.rulerMode === 'artboard'}
+        onClick={() => setRulerMode(state.rulerMode === 'artboard' ? 'global' : 'artboard')}
+        aria-label="Toggle artboard ruler origin"
+        className={`editor-status__toggle${state.rulerMode === 'artboard' ? ' editor-status__toggle--active' : ''}`}
+        title="Artboard ruler (Alt+;)"
+      >
+        AB
+      </button>
+      <button
+        type="button"
+        aria-pressed={state.gridOverlayMode === 'baseline'}
+        onClick={() =>
+          setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline')
+        }
+        aria-label="Toggle baseline grid overlay"
+        className={`editor-status__toggle${state.gridOverlayMode === 'baseline' ? ' editor-status__toggle--active' : ''}`}
+        title="Baseline grid"
+      >
+        <Icon name="AlignVerticalSpaceAround" size={12} />
+      </button>
+      {state.cameraRotation !== 0 && (
+        <button
+          type="button"
+          onClick={() => resetViewRotation()}
+          aria-label="Reset view rotation"
+          className="editor-status__fit-btn"
+          title="Reset view rotation (Shift+R)"
+        >
+          Reset rot
+        </button>
+      )}
       {state.document.guides && state.document.guides.length > 0 && (
         <button
           type="button"
@@ -118,6 +160,15 @@ export function StatusBar() {
           <Icon name="Plus" size={10} />
         </button>
       </div>
+      <button
+        type="button"
+        onClick={fitActivePage}
+        aria-label="Fit active page"
+        className="editor-status__fit-btn"
+        title="Fit page (Shift+3)"
+      >
+        Fit page
+      </button>
       <button
         type="button"
         onClick={fitAll}

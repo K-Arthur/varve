@@ -90,6 +90,25 @@ export function useShortcuts(
         return () => e.fitAll();
       case 'fitSelection':
         return () => e.revealSelection({ fit: true });
+      case 'fitActivePage':
+        return () => e.fitActivePage();
+      case 'fitActiveFrame':
+        return () => e.fitActiveFrame();
+      case 'resetViewRotation':
+        return () => e.resetViewRotation();
+      case 'rotateViewCW':
+        return () => e.rotateViewBy(Math.PI / 12);
+      case 'rotateViewCCW':
+        return () => e.rotateViewBy(-Math.PI / 12);
+      case 'toggleRulerMode':
+        return () =>
+          e.setRulerMode(e.state.rulerMode === 'artboard' ? 'global' : 'artboard');
+      case 'gridOverlayBaseline':
+        return () =>
+          e.setGridOverlayMode(e.state.gridOverlayMode === 'baseline' ? 'none' : 'baseline');
+      case 'gridOverlayIsometric':
+        return () =>
+          e.setGridOverlayMode(e.state.gridOverlayMode === 'isometric' ? 'none' : 'isometric');
       case 'zoom50':
         return () => e.zoomTo(0.5);
       case 'zoom75':

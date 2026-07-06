@@ -1,22 +1,26 @@
 /**
- * Tile cache for static subtrees — skip re-replay when hash unchanged.
+ * Subtree replay cache — skip re-replay when subtree hash + zoom bucket unchanged.
+ * Not a spatial tile renderer; keys are content-hash + camera bucket.
  */
 const DEFAULT_TILE = 256;
 
-export interface TileCacheEntry {
+export interface SubtreeReplayCacheEntry {
   key: string;
   lastUsed: number;
 }
 
-export class TileCache {
+/** @deprecated Use SubtreeReplayCache — kept for backward compatibility. */
+export type TileCacheEntry = SubtreeReplayCacheEntry;
+
+export class SubtreeReplayCache {
   private readonly maxEntries: number;
-  private readonly entries = new Map<string, TileCacheEntry>();
+  private readonly entries = new Map<string, SubtreeReplayCacheEntry>();
 
   constructor(maxEntries = 200) {
     this.maxEntries = maxEntries;
   }
 
-  static tileKey(subtreeHash: string, cameraBucket: string): string {
+  static replayKey(subtreeHash: string, cameraBucket: string): string {
     return `${subtreeHash}:${cameraBucket}`;
   }
 
@@ -54,5 +58,12 @@ export class TileCache {
     const sorted = [...this.entries.values()].sort((a, b) => a.lastUsed - b.lastUsed);
     const remove = sorted.slice(0, this.entries.size - this.maxEntries);
     for (const e of remove) this.entries.delete(e.key);
+  }
+}
+
+/** @deprecated Use SubtreeReplayCache */
+export class TileCache extends SubtreeReplayCache {
+  static tileKey(subtreeHash: string, cameraBucket: string): string {
+    return SubtreeReplayCache.replayKey(subtreeHash, cameraBucket);
   }
 }

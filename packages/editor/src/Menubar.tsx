@@ -121,6 +121,50 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       },
       { label: '---' },
       {
+        label: 'Fit Active Page',
+        shortcut: formatShortcut(SHORTCUT_DEFS.fitActivePage.binding),
+        action: 'fitActivePage',
+      },
+      {
+        label: 'Fit Active Frame',
+        shortcut: formatShortcut(SHORTCUT_DEFS.fitActiveFrame.binding),
+        action: 'fitActiveFrame',
+      },
+      {
+        label: 'Reset View Rotation',
+        shortcut: formatShortcut(SHORTCUT_DEFS.resetViewRotation.binding),
+        action: 'resetViewRotation',
+      },
+      {
+        label: 'Rotate View Clockwise',
+        shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCW.binding),
+        action: 'rotateViewCW',
+      },
+      {
+        label: 'Rotate View Counter-clockwise',
+        shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCCW.binding),
+        action: 'rotateViewCCW',
+      },
+      {
+        label: 'Artboard Ruler Origin',
+        action: 'rulerModeArtboard',
+      },
+      {
+        label: 'Global Ruler Origin',
+        action: 'rulerModeGlobal',
+      },
+      {
+        label: 'Baseline Grid Overlay',
+        shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayBaseline.binding),
+        action: 'gridOverlayBaseline',
+      },
+      {
+        label: 'Isometric Grid Overlay',
+        shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayIsometric.binding),
+        action: 'gridOverlayIsometric',
+      },
+      { label: '---' },
+      {
         label: 'Home',
         shortcut: formatShortcut(SHORTCUT_DEFS.home.binding),
         action: 'home',
@@ -236,6 +280,12 @@ export function Menubar({
     setSnapEnabled,
     setSoftProofEnabled,
     setCanvasMode,
+    setRulerMode,
+    setGridOverlayMode,
+    fitActivePage,
+    fitActiveFrame,
+    resetViewRotation,
+    rotateViewBy,
     booleanOp,
     startPresentation,
     clearAllGuides,
@@ -418,6 +468,33 @@ export function Menubar({
           break;
         case 'canvasModePreview':
           setCanvasMode('preview');
+          break;
+        case 'fitActivePage':
+          fitActivePage();
+          break;
+        case 'fitActiveFrame':
+          fitActiveFrame();
+          break;
+        case 'resetViewRotation':
+          resetViewRotation();
+          break;
+        case 'rotateViewCW':
+          rotateViewBy(Math.PI / 12);
+          break;
+        case 'rotateViewCCW':
+          rotateViewBy(-Math.PI / 12);
+          break;
+        case 'rulerModeArtboard':
+          setRulerMode('artboard');
+          break;
+        case 'rulerModeGlobal':
+          setRulerMode('global');
+          break;
+        case 'gridOverlayBaseline':
+          setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline');
+          break;
+        case 'gridOverlayIsometric':
+          setGridOverlayMode(state.gridOverlayMode === 'isometric' ? 'none' : 'isometric');
           break;
         default:
           if (action.startsWith('theme:')) {

@@ -20,6 +20,7 @@ import { CanvasArea } from './CanvasArea';
 import { captureClipboardEvent } from './clipboard';
 import { BatchBgRemoveDialog } from './components/BatchBgRemoveDialog';
 import { ExportDialog } from './components/Export/ExportDialog';
+import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
@@ -96,6 +97,12 @@ function ShellInner({
     helpOpen,
     setHelpOpen,
   } = useShortcuts(editor, onBackToHome, active);
+
+  const { presences: collabPresences } = useCollabPresence(
+    editor.state.activeId,
+    editor.state.cursorPos,
+    editor.state.pan,
+  );
 
   const [canvasContextMenu, setCanvasContextMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -383,6 +390,7 @@ function ShellInner({
           data-visible={layersVisible || undefined}
           data-collapsed={!leftPanelVisible || undefined}
         >
+          <PresenceIndicator presences={collabPresences} />
           <MinimapPanel />
           <LayersPanel dndRef={layersDndRef} />
           <PanelResizeHandle
@@ -605,6 +613,14 @@ function ShellInner({
           }}
         />
 
+        {editor.state.subjectPickerSession && (
+          <SubjectPickerOverlay
+            session={editor.state.subjectPickerSession}
+            onConfirm={(keepIds) => editor.confirmSubjectPicker(keepIds)}
+            onCancel={() => editor.cancelSubjectPicker()}
+          />
+        )}
+
         {/* Onboarding: Welcome dialog */}
         <WelcomeDialog
           open={onboarding.showWelcome && onboarding.active}
@@ -671,6 +687,8 @@ function ShellInner({
             if (!node) return null;
             return nodeLocalBounds(node);
           }}
+          activeTransition={editor.prototypeTransition}
+          onClearTransition={editor.clearPrototypeTransition}
         />
 
         {/* Did You Know? contextual tips */}

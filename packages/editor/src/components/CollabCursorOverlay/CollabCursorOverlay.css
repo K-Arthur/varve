@@ -1,0 +1,36 @@
+.collab-cursor-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: var(--z-overlay, 20);
+}
+
+.collab-cursor-overlay__cursor {
+  position: absolute;
+  transform: translate(-2px, -2px);
+  color: var(--cursor-color, var(--color-accent-primary));
+}
+
+.collab-cursor-overlay__cursor::before {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 8px solid var(--cursor-color, var(--color-accent-primary));
+  border-top: 4px solid transparent;
+  border-bottom: 10px solid transparent;
+}
+
+.collab-cursor-overlay__label {
+  display: inline-block;
+  margin-left: 10px;
+  margin-top: -4px;
+  padding: var(--space-0-5) var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary-on-overlay);
+  background: var(--cursor-color, var(--color-accent-primary));
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}

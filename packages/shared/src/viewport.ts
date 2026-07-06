@@ -3,48 +3,54 @@
  * and screen<->world conversions. All editor code (canvas draw, tools,
  * overlays, reveal) imports from here instead of duplicating the math.
  *
- * Coordinate convention:
+ * Coordinate convention (rotation = 0, renderOrigin = 0):
  *
  *   screen = world · zoom + pan          (world → canvas-area CSS px)
  *   world = (screen − pan) / zoom        (canvas-area CSS px → world)
  *
- * `pan` is in **CSS pixels** and represents the offset of the world origin
- * from the canvas-area's top-left corner. `zoom` is unitless (clamped to
- * [MIN_ZOOM, MAX_ZOOM]). DPR is folded into the canvas 2D context transform
- * separately (`ctx.setTransform(dpr*zoom, 0, 0, dpr*zoom, dpr*pan.x, …)`);
- * pointer coords arrive as CSS pixels and **must not** be double-scaled by
- * DPR.
+ * With rotation, transforms compose around the viewport centre:
+ *   screen = T(pan) · T(vpCentre) · R(θ) · T(−vpCentre) · S(zoom) · T(−origin) · world
  *
- * Research basis: HTML Canvas Transform spec, Figma's camera model, and
- * Strata ADR-0001 (IR-replay: webview owns the camera, Rust emits world IR).
+ * `pan` is in **CSS pixels**. DPR is applied separately on the canvas context.
+ *
+ * Research basis: HTML Canvas Transform spec, Figma camera model, Illustrator
+ * Rotate View, Babylon.js floating origin, Strata ADR-0001.
  */
 
 import type { Affine, Point, Rect } from './affine';
 import {
+  applyAffine,
   multiplyAffine,
   rotateRad,
   scale as scaleAffine,
   transformRect,
   translate,
+  tryInvertAffine,
 } from './affine';
 
-/** Minimum supported zoom (10%). Below this, content becomes unreadable. */
-export const MIN_ZOOM = 0.1;
-/** Maximum supported zoom (1000%). Above this, sub-pixel artefacts dominate. */
-export const MAX_ZOOM = 10;
-/** Default zoom-to-fit cap so single-pixel shapes don't fill the screen. */
-export const DEFAULT_REVEAL_MAX_ZOOM = 10;
+/** Minimum supported zoom (0.1%). */
+export const MIN_ZOOM = 0.001;
+/** Maximum supported zoom (6400%). */
+export const MAX_ZOOM = 64;
+/** Default zoom-to-fit cap. */
+export const DEFAULT_REVEAL_MAX_ZOOM = MAX_ZOOM;
 /** Default padding (CSS px) around a fitted/revealed node. */
 export const DEFAULT_REVEAL_PADDING = 40;
 /** Duration (ms) for smooth camera animations. */
 export const DEFAULT_CAMERA_ANIMATION_MS = 200;
-/** Ease-out factor for camera animations (1 = linear, <1 = ease-out). */
-export const CAMERA_EASE_OUT_FACTOR = 0.08;
+/** Screen-pixel snap acquire threshold (world = threshold / zoom). */
+export const SNAP_THRESHOLD_PX = 8;
+/** Hysteresis multiplier for sticky snap release. */
+export const STICKY_SNAP_RELEASE_FACTOR = 1.5;
+/** World-unit grid for floating-origin snapping. */
+export const FLOATING_ORIGIN_GRID = 512;
 
-/** Camera state: pan (CSS px of world origin from canvas-area top-left) + zoom. */
+/** Camera state: pan, zoom, optional view rotation (radians). */
 export interface Camera {
   pan: { x: number; y: number };
   zoom: number;
+  /** View rotation in radians (non-destructive canvas rotate). Default 0. */
+  rotation?: number;
 }
 
 /** A viewport size in CSS pixels (the canvas-area's clientWidth/Height). */
@@ -58,35 +64,88 @@ export function clampZoom(z: number): number {
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
 }
 
+/** Snap threshold in world units for the given zoom. */
+export function snapThresholdWorld(zoom: number): number {
+  return SNAP_THRESHOLD_PX / Math.max(MIN_ZOOM, zoom);
+}
+
+/**
+ * Floating render origin — subtract from world coords before replay so large
+ * coordinates stay numerically stable in Canvas2D transforms.
+ */
+export function computeFloatingOrigin(cam: Camera, _viewport?: Viewport): Point {
+  const probe = screenToWorld({ ...cam, rotation: 0 }, 0, 0);
+  const g = FLOATING_ORIGIN_GRID;
+  return [Math.floor(probe[0] / g) * g, Math.floor(probe[1] / g) * g];
+}
+
+/** Build world→screen affine including rotation, zoom, pan, and floating origin. */
+export function buildWorldToScreenAffine(
+  cam: Camera,
+  viewport: Viewport,
+  origin: Point = [0, 0],
+): Affine {
+  const r = cam.rotation ?? 0;
+  const cx = viewport.width / 2;
+  const cy = viewport.height / 2;
+  let m = translate(-origin[0], -origin[1]);
+  m = multiplyAffine(scaleAffine(cam.zoom), m);
+  m = multiplyAffine(translate(-cx, -cy), m);
+  if (r !== 0) {
+    m = multiplyAffine(rotateRad(r), m);
+  }
+  m = multiplyAffine(translate(cx + cam.pan.x, cy + cam.pan.y), m);
+  return m;
+}
+
+/** Build screen→world affine (inverse of {@link buildWorldToScreenAffine}). */
+export function buildScreenToWorldAffine(
+  cam: Camera,
+  viewport: Viewport,
+  origin: Point = [0, 0],
+): Affine | null {
+  return tryInvertAffine(buildWorldToScreenAffine(cam, viewport, origin));
+}
+
 /**
  * Convert canvas-area-relative CSS px → world coords.
- *
- * `cx/cy` must already have `getBoundingClientRect().left/top` subtracted
- * (see {@link clientToCanvas}). Raw `clientX/clientY` will produce wrong
- * results — this was the root cause of the original placement bug.
  */
-export function screenToWorld(cam: Camera, cx: number, cy: number): Point {
-  return [(cx - cam.pan.x) / cam.zoom, (cy - cam.pan.y) / cam.zoom];
+export function screenToWorld(
+  cam: Camera,
+  cx: number,
+  cy: number,
+  viewport: Viewport = { width: 1920, height: 1080 },
+  origin: Point = [0, 0],
+): Point {
+  const inv = buildScreenToWorldAffine(cam, viewport, origin);
+  if (!inv) return [(cx - cam.pan.x) / cam.zoom, (cy - cam.pan.y) / cam.zoom];
+  return applyAffine(inv, [cx, cy]);
 }
 
 /** Convert world coords → canvas-area-relative CSS px. */
-export function worldToScreen(cam: Camera, wx: number, wy: number): Point {
-  return [wx * cam.zoom + cam.pan.x, wy * cam.zoom + cam.pan.y];
+export function worldToScreen(
+  cam: Camera,
+  wx: number,
+  wy: number,
+  viewport: Viewport = { width: 1920, height: 1080 },
+  origin: Point = [0, 0],
+): Point {
+  const m = buildWorldToScreenAffine(cam, viewport, origin);
+  return applyAffine(m, [wx, wy]);
 }
 
-/** Convert a CSS-pixel delta to a world-space delta (e.g. for drag math). */
+/** Convert a CSS-pixel delta to a world-space delta. */
 export function screenDeltaToWorld(cam: Camera, dx: number, dy: number): Point {
-  return [dx / cam.zoom, dy / cam.zoom];
+  const z = cam.zoom;
+  const r = cam.rotation ?? 0;
+  if (r === 0) return [dx / z, dy / z];
+  const cos = Math.cos(-r);
+  const sin = Math.sin(-r);
+  const rx = dx * cos - dy * sin;
+  const ry = dx * sin + dy * cos;
+  return [rx / z, ry / z];
 }
 
-/**
- * Convert raw `clientX/clientY` (viewport-relative) to canvas-area-relative
- * CSS px by subtracting the canvas element's bounding rect.
- *
- * This is the **one** place that compensates for the canvas element's screen
- * offset. Tools should never read `clientX/Y` directly — they should receive
- * pre-converted `canvasX/Y` from `CanvasArea`'s pointer handlers.
- */
 export function clientToCanvas(
   rect: { left: number; top: number },
   clientX: number,
@@ -95,54 +154,82 @@ export function clientToCanvas(
   return [clientX - rect.left, clientY - rect.top];
 }
 
-/**
- * The full world→screen affine (excluding DPR, which the canvas context
- * applies separately). Useful for transforming rects and overlays.
- */
+/** Legacy alias — uses zero origin and default viewport. */
 export function worldToScreenAffine(cam: Camera): Affine {
-  return multiplyAffine(translate(cam.pan.x, cam.pan.y), scaleAffine(cam.zoom));
+  return buildWorldToScreenAffine(cam, { width: 1920, height: 1080 }, [0, 0]);
 }
 
-/** True if `worldRect` is entirely inside the visible viewport (no pan needed). */
+/** Apply camera transform to a Canvas2D context (DPR-aware). */
+export function applyCameraTransform(
+  ctx: {
+    setTransform: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    translate: (x: number, y: number) => void;
+    rotate: (r: number) => void;
+    scale: (x: number, y: number) => void;
+  },
+  cam: Camera,
+  dpr: number,
+  viewport: Viewport,
+  origin: Point,
+): void {
+  const cx = viewport.width / 2;
+  const cy = viewport.height / 2;
+  const r = cam.rotation ?? 0;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.translate(cam.pan.x, cam.pan.y);
+  ctx.translate(cx, cy);
+  if (r !== 0) ctx.rotate(r);
+  ctx.translate(-cx, -cy);
+  ctx.scale(cam.zoom, cam.zoom);
+  ctx.translate(-origin[0], -origin[1]);
+}
+
 export function isRectInView(cam: Camera, viewport: Viewport, worldRect: Rect): boolean {
-  const minX = (-cam.pan.x - 0) / cam.zoom;
-  const minY = (-cam.pan.y - 0) / cam.zoom;
-  const maxX = (viewport.width - cam.pan.x) / cam.zoom;
-  const maxY = (viewport.height - cam.pan.y) / cam.zoom;
-  return (
-    worldRect.x >= minX &&
-    worldRect.y >= minY &&
-    worldRect.x + worldRect.w <= maxX &&
-    worldRect.y + worldRect.h <= maxY
-  );
+  const origin = computeFloatingOrigin(cam, viewport);
+  const corners: Point[] = [
+    [worldRect.x, worldRect.y],
+    [worldRect.x + worldRect.w, worldRect.y],
+    [worldRect.x, worldRect.y + worldRect.h],
+    [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
+  ];
+  let minSx = Infinity;
+  let minSy = Infinity;
+  let maxSx = -Infinity;
+  let maxSy = -Infinity;
+  for (const c of corners) {
+    const [sx, sy] = worldToScreen(cam, c[0], c[1], viewport, origin);
+    minSx = Math.min(minSx, sx);
+    minSy = Math.min(minSy, sy);
+    maxSx = Math.max(maxSx, sx);
+    maxSy = Math.max(maxSy, sy);
+  }
+  return minSx >= 0 && minSy >= 0 && maxSx <= viewport.width && maxSy <= viewport.height;
 }
 
-/**
- * Check if `worldRect` intersects the visible viewport (partial visibility
- * counts as intersecting). Used for viewport culling — nodes that do not
- * intersect the viewport can be skipped during rendering.
- *
- * This is different from `isRectInView` which requires full containment.
- * Here we use the Separating Axis Theorem: two rectangles don't intersect
- * if one is completely to the left/right/above/below of the other.
- */
 export function isWorldRectInViewport(cam: Camera, viewport: Viewport, worldRect: Rect): boolean {
-  const viewMinX = (-cam.pan.x - 0) / cam.zoom;
-  const viewMinY = (-cam.pan.y - 0) / cam.zoom;
-  const viewMaxX = (viewport.width - cam.pan.x) / cam.zoom;
-  const viewMaxY = (viewport.height - cam.pan.y) / cam.zoom;
-
-  if (worldRect.x + worldRect.w < viewMinX) return false;
-  if (worldRect.x > viewMaxX) return false;
-  if (worldRect.y + worldRect.h < viewMinY) return false;
-  if (worldRect.y > viewMaxY) return false;
+  const origin = computeFloatingOrigin(cam, viewport);
+  const corners: Point[] = [
+    [worldRect.x, worldRect.y],
+    [worldRect.x + worldRect.w, worldRect.y],
+    [worldRect.x, worldRect.y + worldRect.h],
+    [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
+  ];
+  let minSx = Infinity;
+  let minSy = Infinity;
+  let maxSx = -Infinity;
+  let maxSy = -Infinity;
+  for (const c of corners) {
+    const [sx, sy] = worldToScreen(cam, c[0], c[1], viewport, origin);
+    minSx = Math.min(minSx, sx);
+    minSy = Math.min(minSy, sy);
+    maxSx = Math.max(maxSx, sx);
+    maxSy = Math.max(maxSy, sy);
+  }
+  if (maxSx < 0 || maxSy < 0) return false;
+  if (minSx > viewport.width || minSy > viewport.height) return false;
   return true;
 }
 
-/**
- * Compute the zoom that fits `worldRect` into `viewport` with `padding` (CSS
- * px) on all sides, clamped to `[MIN_ZOOM, maxZoom]`.
- */
 export function fitZoom(
   worldRect: Rect,
   viewport: Viewport,
@@ -156,26 +243,16 @@ export function fitZoom(
   return clampZoom(Math.min(availW / rectW, availH / rectH, maxZoom));
 }
 
-/**
- * Camera that centres `worldRect` in `viewport` at `zoom` (CSS px pan coords).
- *
- * Used by zoom-to-fit / zoom-to-selection: caller computes zoom via
- * {@link fitZoom}, then calls this to get the matching pan.
- */
 export function centerBoundsCamera(worldRect: Rect, viewport: Viewport, zoom: number): Camera {
   const cx = worldRect.x + worldRect.w / 2;
   const cy = worldRect.y + worldRect.h / 2;
   return {
     pan: { x: viewport.width / 2 - cx * zoom, y: viewport.height / 2 - cy * zoom },
     zoom,
+    rotation: 0,
   };
 }
 
-/**
- * Camera that fits `worldRect` into `viewport` with `padding`.
- *
- * One-shot helper combining {@link fitZoom} + {@link centerBoundsCamera}.
- */
 export function fitBoundsCamera(
   worldRect: Rect,
   viewport: Viewport,
@@ -186,29 +263,6 @@ export function fitBoundsCamera(
   return centerBoundsCamera(worldRect, viewport, zoom);
 }
 
-/**
- * Minimal-pan camera that brings `worldRect` into view without changing zoom.
- *
- * - If the rect is already in view, returns the input camera unchanged.
- * - Otherwise shifts pan by the smallest amount that fully reveals the rect
- *   (snapping the nearer edge to `padding`). For rects larger than the
- *   viewport, aligns the rect's near edge with padding and lets the far edge
- *   overflow.
- *
- * Derivation for each axis independently:
- *
- *   viewportMinWorld = -pan / zoom           (screenX = 0)
- *   viewportMaxWorld = (vpSize - pan) / zoom (screenX = vpSize)
- *
- *   Left-edge constraint: rectMin >= viewportMinWorld + pad/zoom
- *     → pan >= -zoom · rectMin + pad
- *
- *   Right-edge constraint: rectMax <= viewportMaxWorld - pad/zoom
- *     → pan <= vpSize - zoom · rectMax - pad
- *
- * The tightest valid pan is the midpoint of the two constraints (fits case)
- * or the single active constraint (overflow case).
- */
 export function revealBoundsCamera(
   cam: Camera,
   viewport: Viewport,
@@ -253,12 +307,10 @@ export function revealBoundsCamera(
     } else {
       newPanX = panX;
     }
+  } else if (rectMinX < vpMinX + pz) {
+    newPanX = leftReqX;
   } else {
-    if (rectMinX < vpMinX + pz) {
-      newPanX = leftReqX;
-    } else {
-      newPanX = rightReqX;
-    }
+    newPanX = rightReqX;
   }
 
   const leftReqY = -z * rectMinY + padding;
@@ -275,70 +327,64 @@ export function revealBoundsCamera(
     } else {
       newPanY = panY;
     }
+  } else if (rectMinY < vpMinY + pz) {
+    newPanY = leftReqY;
   } else {
-    if (rectMinY < vpMinY + pz) {
-      newPanY = leftReqY;
-    } else {
-      newPanY = rightReqY;
-    }
+    newPanY = rightReqY;
   }
 
   return {
     pan: { x: Math.round(newPanX * 1000) / 1000, y: Math.round(newPanY * 1000) / 1000 },
     zoom: z,
+    rotation: cam.rotation,
   };
 }
 
-/**
- * Camera centred on `worldPoint` at the current zoom (used for cursor-anchored
- * zoom). Maintains the world point under the same screen position before and
- * after the zoom change.
- *
- * Derivation: we want `worldToScreen(camBefore, p) === worldToScreen(camAfter, p)`.
- * Solving: `panAfter = screenP - p · zoomAfter` where `screenP` is the
- * pre-zoom screen position of `p`.
- */
-export function zoomAboutPoint(cam: Camera, worldAnchor: Point, newZoom: number): Camera {
+export function zoomAboutPoint(
+  cam: Camera,
+  worldAnchor: Point,
+  newZoom: number,
+  viewport: Viewport = { width: 1920, height: 1080 },
+): Camera {
   const z = clampZoom(newZoom);
-  const [wx, wy] = worldAnchor;
-  const screenX = wx * cam.zoom + cam.pan.x;
-  const screenY = wy * cam.zoom + cam.pan.y;
+  const noOrigin: Point = [0, 0];
+  const [screenX, screenY] = worldToScreen(cam, worldAnchor[0], worldAnchor[1], viewport, noOrigin);
+  const after: Camera = { ...cam, zoom: z };
+  const [newScreenX, newScreenY] = worldToScreen(
+    after,
+    worldAnchor[0],
+    worldAnchor[1],
+    viewport,
+    noOrigin,
+  );
   return {
-    pan: { x: screenX - wx * z, y: screenY - wy * z },
-    zoom: z,
+    ...after,
+    pan: {
+      x: cam.pan.x + (screenX - newScreenX),
+      y: cam.pan.y + (screenY - newScreenY),
+    },
   };
 }
 
-/**
- * Transform a local-space rect to a screen-space rect by composing
- * `local→world` (the node's world matrix) with the camera. Used by overlays.
- */
 export function localRectToScreen(worldMatrix: Affine, cam: Camera, localRect: Rect): Rect {
   return transformRect(worldToScreenAffine(cam), transformRect(worldMatrix, localRect));
 }
 
-/**
- * Smoothly interpolate from `from` camera to `to` camera.
- * Returns an intermediate camera for the given progress `t` (0-1).
- * Uses ease-out curve for natural-feeling animation.
- */
 export function lerpCamera(from: Camera, to: Camera, t: number): Camera {
   const clamped = Math.max(0, Math.min(1, t));
   const eased = 1 - (1 - clamped) ** 3;
+  const fromRot = from.rotation ?? 0;
+  const toRot = to.rotation ?? 0;
   return {
     pan: {
       x: from.pan.x + (to.pan.x - from.pan.x) * eased,
       y: from.pan.y + (to.pan.y - from.pan.y) * eased,
     },
     zoom: from.zoom + (to.zoom - from.zoom) * eased,
+    rotation: fromRot + (toRot - fromRot) * eased,
   };
 }
 
-/**
- * Compute a camera that smoothly animates from `start` toward `end` over
- * `duration` ms given `elapsed` ms have passed. Returns the intermediate
- * camera and whether the animation is complete.
- */
 export function animateCamera(
   start: Camera,
   end: Camera,
@@ -349,14 +395,6 @@ export function animateCamera(
   return { camera: lerpCamera(start, end, t), done: t >= 1 };
 }
 
-/**
- * Clamp a camera's pan so that the document bounds are never more than
- * `margin` world units outside the viewport on each side. This prevents
- * panning into infinite void while still allowing the user to see the
- * pasteboard area around the document.
- *
- * When `documentBounds` is null (empty document), no clamping is applied.
- */
 export function clampCamera(
   cam: Camera,
   viewport: Viewport,
@@ -364,42 +402,70 @@ export function clampCamera(
   margin: number = 500,
 ): Camera {
   if (!documentBounds) return cam;
-
+  const origin = computeFloatingOrigin(cam, viewport);
   const z = cam.zoom;
   const marginScreen = margin * z;
-
-  const docLeft = documentBounds.x * z + cam.pan.x - marginScreen;
-  const docRight = (documentBounds.x + documentBounds.w) * z + cam.pan.x + marginScreen;
-
+  const topLeft = worldToScreen(cam, documentBounds.x, documentBounds.y, viewport, origin);
+  const bottomRight = worldToScreen(
+    cam,
+    documentBounds.x + documentBounds.w,
+    documentBounds.y + documentBounds.h,
+    viewport,
+    origin,
+  );
   let newPanX = cam.pan.x;
-  if (docRight < 0) {
-    newPanX = -(documentBounds.x + documentBounds.w) * z + marginScreen;
-  } else if (docLeft > viewport.width) {
-    newPanX = -documentBounds.x * z + viewport.width + marginScreen;
+  if (bottomRight[0] < 0) {
+    newPanX = cam.pan.x + (marginScreen - bottomRight[0]);
+  } else if (topLeft[0] > viewport.width) {
+    newPanX = cam.pan.x - (topLeft[0] - viewport.width + marginScreen);
   }
-
-  const docTop = documentBounds.y * z + cam.pan.y - marginScreen;
-  const docBottom = (documentBounds.y + documentBounds.h) * z + cam.pan.y + marginScreen;
-
   let newPanY = cam.pan.y;
-  if (docBottom < 0) {
-    newPanY = -(documentBounds.y + documentBounds.h) * z + marginScreen;
-  } else if (docTop > viewport.height) {
-    newPanY = -documentBounds.y * z + viewport.height + marginScreen;
+  if (bottomRight[1] < 0) {
+    newPanY = cam.pan.y + (marginScreen - bottomRight[1]);
+  } else if (topLeft[1] > viewport.height) {
+    newPanY = cam.pan.y - (topLeft[1] - viewport.height + marginScreen);
   }
+  return { ...cam, pan: { x: newPanX, y: newPanY } };
+}
 
+/** Rotate view about a screen-space anchor; keeps anchor fixed on screen. */
+export function rotateAboutScreenPoint(
+  cam: Camera,
+  screenAnchor: Point,
+  radians: number,
+  viewport: Viewport = { width: 1920, height: 1080 },
+): Camera {
+  const origin = computeFloatingOrigin(cam, viewport);
+  const worldAnchor = screenToWorld(cam, screenAnchor[0], screenAnchor[1], viewport, origin);
+  const newRot = (cam.rotation ?? 0) + radians;
+  const rotated: Camera = { ...cam, rotation: newRot };
+  const newScreen = worldToScreen(rotated, worldAnchor[0], worldAnchor[1], viewport, origin);
   return {
-    pan: { x: newPanX, y: newPanY },
-    zoom: z,
+    ...rotated,
+    pan: {
+      x: cam.pan.x + (screenAnchor[0] - newScreen[0]),
+      y: cam.pan.y + (screenAnchor[1] - newScreen[1]),
+    },
   };
 }
 
-/** Apply a CSS-pixel rotation about the screen-space anchor to a camera. */
-export function rotateAboutScreenPoint(
-  _cam: Camera,
-  _screenAnchor: Point,
-  _radians: number,
+/** Reset view rotation to 0, keeping viewport centre stable. */
+export function resetViewRotation(
+  cam: Camera,
+  viewport: Viewport = { width: 1920, height: 1080 },
 ): Camera {
-  void rotateRad;
-  return _cam;
+  if ((cam.rotation ?? 0) === 0) return cam;
+  const cx = viewport.width / 2;
+  const cy = viewport.height / 2;
+  return rotateAboutScreenPoint(cam, [cx, cy], -(cam.rotation ?? 0), viewport);
+}
+
+/** Logarithmic zoom step factor (matches pro tool feel). */
+export const ZOOM_STEP_FACTOR = 1.25;
+
+/** Compute next zoom level for zoom-in/out buttons. */
+export function stepZoom(current: number, direction: 'in' | 'out'): number {
+  return clampZoom(
+    direction === 'in' ? current * ZOOM_STEP_FACTOR : current / ZOOM_STEP_FACTOR,
+  );
 }

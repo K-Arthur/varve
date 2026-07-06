@@ -542,6 +542,8 @@ export interface Page {
   backgrounds: NodeId[];
   /** Group node id that holds all page content as children. */
   contentRoot: NodeId;
+  /** Optional ruler origin offset within the page (artboard-local px). */
+  rulerOrigin?: { x: number; y: number };
 }
 
 export type SlotKind = 'single' | 'multiple' | 'text';

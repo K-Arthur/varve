@@ -66,6 +66,8 @@ import {
   renameTimelineMarker as renameTimelineMarkerDoc,
   removeTrack as removeTrackDoc,
   setActiveTimeline as setActiveTimelineDoc,
+  triggerSMEvent,
+  updateInteraction as updateInteractionDoc,
   addVariableToDocument,
   arrangeNode as arrangeNodeDoc,
   type BleedConfig,
@@ -127,10 +129,20 @@ import {
   clampZoom,
   fitBoundsCamera,
   revealBoundsCamera,
+  screenDeltaToWorld,
   screenToWorld,
+  stepZoom,
   type Viewport,
   zoomAboutPoint,
 } from '@strata/shared';
+import {
+  editorScreenToWorld,
+  editorWorldToScreen,
+  fitBoundsToState,
+  resetViewRotationState,
+  rotateViewAtScreen,
+  toCamera,
+} from './canvas/cameraState';
 import {
   createContext,
   type ReactNode,
@@ -144,9 +156,10 @@ import {
 import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
+import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPublish';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import { SelectionProvider, ViewportProvider } from './context/index';
-import type { CanvasMode, EditorState, SessionMeta, ToolId } from './context/types';
+import type { CanvasMode, EditorState, GridOverlayMode, RulerMode, SessionMeta, ToolId } from './context/types';
 import { applyDropPosition } from './dropUtils';
 import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
@@ -172,6 +185,7 @@ import { applyAutoKeyframes } from './motion/autoKeyframe';
 import { createRuntimeFromDocument, interactionsMapFromDocument } from './motion/prototypeRuntime';
 import { getPrimaryStateMachineTimelineId } from './motion/stateMachineBridge';
 import { computeSmartAnimateTransition } from './motion/smartAnimateBridge';
+import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import { createInitialMotionState } from './state/motion-state';
 import type { DraftShape } from './tools/types';
@@ -399,6 +413,16 @@ export interface EditorContextValue {
   getInstanceStatus: (instanceId: NodeId) => InstanceStatus;
   /** Sync all component instances in the document. */
   syncAllInstances: () => SyncResult;
+  /**
+   * Publish the component defined by `nodeId`'s master root to a
+   * throwaway library package, copied to the system clipboard as JSON.
+   * No-ops (and returns false) when `nodeId` isn't a component master.
+   */
+  publishComponentToLibrary: (nodeId: NodeId) => boolean;
+  /** Enter isolation/focus view scoped to a single container's subtree. */
+  enterIsolation: (nodeId: NodeId) => void;
+  /** Exit isolation/focus view, returning to the normal tree. */
+  exitIsolation: () => void;
   /** Toggle the locked state of a node. */
   setNodeLocked: (id: NodeId, locked: boolean) => void;
   /** Toggle the visible state of a node. */
@@ -513,6 +537,13 @@ export interface EditorContextValue {
   setSnapEnabled: (v: boolean) => void;
   /** Set canvas rendering mode (full / outline / preview). */
   setCanvasMode: (mode: CanvasMode) => void;
+  setCameraRotation: (radians: number) => void;
+  rotateViewBy: (radians: number, screenAnchor?: { x: number; y: number }) => void;
+  resetViewRotation: () => void;
+  setRulerMode: (mode: import('./context/types').RulerMode) => void;
+  setGridOverlayMode: (mode: import('./context/types').GridOverlayMode) => void;
+  fitActivePage: () => void;
+  fitActiveFrame: () => void;
   /** Show the export dialog modal. */
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
@@ -565,6 +596,14 @@ export interface EditorContextValue {
   ) => void;
   /** Remove an interaction by id. */
   removeNodeInteraction: (interactionId: string) => void;
+  /** Update an interaction by id. */
+  updateNodeInteraction: (
+    interactionId: string,
+    updates: Partial<Omit<import('@strata/scene').DocumentInteraction, 'id' | 'nodeId'>>,
+  ) => void;
+  /** Active screen transition during prototype navigation. */
+  prototypeTransition: ActivePrototypeTransition | null;
+  clearPrototypeTransition: () => void;
 
   // ── Motion / Animation ─────────────────────────────────────────────────────
 
@@ -771,6 +810,7 @@ function shapeForTool(tool: ToolId): Shape {
     case 'spotHeal':
     case 'patch':
     case 'refineMask':
+    case 'trimapEdit':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
@@ -971,9 +1011,15 @@ export function EditorProvider({
       timelinePanelVisible: true,
       motion: createInitialMotionState(),
       canvasMode: 'full',
+      cameraRotation: 0,
+      rulerMode: 'artboard' as RulerMode,
+      gridOverlayMode: 'none' as GridOverlayMode,
       currentPageId: null,
+      isolatedNodeId: null,
       showOriginalBgNodeId: null,
       refineMaskOptions: { brushSize: 20, hardness: 0.8 },
+      trimapEditOptions: { brushSize: 20, hardness: 0.8, penMode: 'unknown' as const },
+      subjectPickerSession: null,
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -1063,11 +1109,18 @@ export function EditorProvider({
   const prototypeSmartAnimateRef = useRef<ReturnType<typeof computeSmartAnimateTransition> | null>(
     null,
   );
+  const [prototypeTransition, setPrototypeTransition] = useState<ActivePrototypeTransition | null>(
+    null,
+  );
   const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
   const motionFacadeRef = useRef<MotionFacade | null>(null);
   /** In-flight single-image background removal — aborted on selection change/unmount. */
   const bgRemovalAbortRef = useRef<AbortController | null>(null);
   const processingBgNodeRef = useRef<NodeId | null>(null);
+  /** Ephemeral trimap buffers keyed by node id (not undo-able). */
+  const trimapStoreRef = useRef<Map<string, { data: Uint8Array; width: number; height: number }>>(
+    new Map(),
+  );
 
   /** Abort pending background removal when the processed node is deselected. */
   useEffect(() => {
@@ -1222,22 +1275,34 @@ export function EditorProvider({
       setZoom: (z) => patch({ zoom: clampZoom(z) }),
       setPan: (p) => patch({ pan: p }),
       zoomIn: () => {
-        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const cam = { pan: state.pan, zoom: state.zoom };
-        const centre = screenToWorld(cam, vpW / 2, vpH / 2);
-        const newZoom = clampZoom(state.zoom * 1.25);
-        const newCam = zoomAboutPoint(cam, centre, newZoom);
-        patch({ zoom: newCam.zoom, pan: newCam.pan });
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        const camState = {
+          zoom: state.zoom,
+          pan: state.pan,
+          cameraRotation: state.cameraRotation,
+        };
+        const centre = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
+        const newZoom = stepZoom(state.zoom, 'in');
+        const newCam = zoomAboutPoint(toCamera(camState), centre, newZoom);
+        patch({ zoom: newCam.zoom, pan: newCam.pan, cameraRotation: newCam.rotation ?? 0 });
       },
       zoomOut: () => {
-        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const cam = { pan: state.pan, zoom: state.zoom };
-        const centre = screenToWorld(cam, vpW / 2, vpH / 2);
-        const newZoom = clampZoom(state.zoom * 0.8);
-        const newCam = zoomAboutPoint(cam, centre, newZoom);
-        patch({ zoom: newCam.zoom, pan: newCam.pan });
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        const camState = {
+          zoom: state.zoom,
+          pan: state.pan,
+          cameraRotation: state.cameraRotation,
+        };
+        const centre = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
+        const newZoom = stepZoom(state.zoom, 'out');
+        const newCam = zoomAboutPoint(toCamera(camState), centre, newZoom);
+        patch({ zoom: newCam.zoom, pan: newCam.pan, cameraRotation: newCam.rotation ?? 0 });
       },
       zoomTo: (level) => {
         const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -1607,15 +1672,44 @@ export function EditorProvider({
       getWorldBounds: (id) => getCachedWorldBounds(transformCacheRef.current, state.document, id),
 
       canvasToWorld: (cx, cy) => {
-        return { x: (cx - state.pan.x) / state.zoom, y: (cy - state.pan.y) / state.zoom };
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: 1920, height: 1080 };
+        const [wx, wy] = editorScreenToWorld(
+          { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation },
+          cx,
+          cy,
+          vp,
+        );
+        return { x: wx, y: wy };
       },
 
       worldToCanvas: (wx, wy) => {
-        return { x: wx * state.zoom + state.pan.x, y: wy * state.zoom + state.pan.y };
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: 1920, height: 1080 };
+        const [sx, sy] = editorWorldToScreen(
+          { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation },
+          wx,
+          wy,
+          vp,
+        );
+        return { x: sx, y: sy };
       },
 
       canvasDeltaToWorld: (dx, dy) => {
-        return { dx: dx / state.zoom, dy: dy / state.zoom };
+        const [wdx, wdy] = screenDeltaToWorld(
+          toCamera({
+            zoom: state.zoom,
+            pan: state.pan,
+            cameraRotation: state.cameraRotation,
+          }),
+          dx,
+          dy,
+        );
+        return { dx: wdx, dy: wdy };
       },
 
       hitTestNode: (world) => {
@@ -2602,6 +2696,27 @@ export function EditorProvider({
         return result;
       },
 
+      publishComponentToLibrary: (nodeId) => {
+        const result = buildComponentLibraryPackage(state.document, nodeId);
+        if (!result) return false;
+        const json = JSON.stringify(result.pkg, null, 2);
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(json).catch(() => {});
+        }
+        announcerRef.current?.announce(
+          `Published "${result.component.name}" to library — package copied to clipboard`,
+        );
+        return true;
+      },
+
+      enterIsolation: (nodeId) => {
+        patch({ isolatedNodeId: nodeId });
+      },
+
+      exitIsolation: () => {
+        patch({ isolatedNodeId: null });
+      },
+
       setVariantForInstance: (instanceId, variantId) => {
         updateDoc((doc) => setVariantForInstanceDoc(doc, instanceId, variantId));
       },
@@ -3145,6 +3260,59 @@ export function EditorProvider({
       setPixelGridEnabled: (v) => patch({ pixelGridEnabled: v }),
       setSnapEnabled: (v) => patch({ snapEnabled: v }),
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
+      setCameraRotation: (radians) => patch({ cameraRotation: radians }),
+      rotateViewBy: (radians, screenAnchor) => {
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        const anchor = screenAnchor ?? { x: vp.width / 2, y: vp.height / 2 };
+        const next = rotateViewAtScreen(
+          { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation },
+          [anchor.x, anchor.y],
+          radians,
+          vp,
+        );
+        patch(next);
+      },
+      resetViewRotation: () => {
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        patch(
+          resetViewRotationState(
+            { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation },
+            vp,
+          ),
+        );
+      },
+      setRulerMode: (mode) => patch({ rulerMode: mode }),
+      setGridOverlayMode: (mode) => patch({ gridOverlayMode: mode }),
+      fitActivePage: () => {
+        const doc = state.document;
+        const pageId = doc.activePageId;
+        const page = doc.pages?.find((p) => p.id === pageId);
+        if (!page) return;
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        patch(fitBoundsToState({ x: 0, y: 0, w: page.width, h: page.height }, vp));
+      },
+      fitActiveFrame: () => {
+        const sel = state.selection[0];
+        if (!sel) return;
+        const node = state.document.nodes[sel];
+        if (!node || node.kind !== 'frame') return;
+        const bounds = nodeWorldBounds(state.document, sel);
+        if (!bounds) return;
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        patch(fitBoundsToState(bounds, vp));
+      },
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
 
       setNodeLayout: (id, layout) => {
@@ -3680,11 +3848,36 @@ export function EditorProvider({
               'AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.',
             );
           }
+
+          const { finalizeMaskResult } = await import('@strata/engine');
+          const finalized = await finalizeMaskResult(result, { promptIfMultiple: true });
+
+          if (finalized.needsSubjectPicker && finalized.components) {
+            patch({
+              subjectPickerSession: {
+                nodeId: imageNode.id,
+                width: finalized.width,
+                height: finalized.height,
+                components: finalized.components,
+                keepIds: finalized.components[0] ? [finalized.components[0].id] : [],
+                pendingMaskDataUrl: finalized.maskDataUrl,
+                method: finalized.method,
+                confidence: finalized.confidence,
+                feather,
+                decontaminate,
+              },
+            });
+            announcerRef.current?.announce(
+              'Multiple subjects detected — pick which regions to keep',
+            );
+            return;
+          }
+
           updateDoc((d) =>
             setBackgroundRemoval(d, imageNode.id, {
-              maskDataUrl: result.maskDataUrl,
-              method: result.method,
-              confidence: result.confidence,
+              maskDataUrl: finalized.maskDataUrl,
+              method: finalized.method,
+              confidence: finalized.confidence,
               appliedAt: Date.now(),
               feather,
               decontaminate,
@@ -3711,6 +3904,153 @@ export function EditorProvider({
           ...s,
           refineMaskOptions: { ...s.refineMaskOptions, ...opts },
         }));
+      },
+
+      setTrimapEditOptions: (opts) => {
+        setState((s) => ({
+          ...s,
+          trimapEditOptions: { ...s.trimapEditOptions, ...opts },
+        }));
+      },
+
+      confirmSubjectPicker: (keepIds) => {
+        const session = stateRef.current.subjectPickerSession;
+        if (!session) return;
+        void (async () => {
+          const { decodeMaskDataUrl, filterMaskByComponents, maskArrayToDataUrl } = await import(
+            '@strata/engine'
+          );
+          const { setBackgroundRemoval } = await import('@strata/scene');
+          const { mask, width, height } = await decodeMaskDataUrl(session.pendingMaskDataUrl);
+          const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
+          updateDoc((d) =>
+            setBackgroundRemoval(d, session.nodeId, {
+              maskDataUrl: maskArrayToDataUrl(filtered, width, height),
+              method: session.method,
+              confidence: session.confidence,
+              appliedAt: Date.now(),
+              feather: session.feather,
+              decontaminate: session.decontaminate,
+            }),
+          );
+          patch({ subjectPickerSession: null });
+          announcerRef.current?.announce(`Kept ${keepIds.length} subject(s)`);
+        })();
+      },
+
+      cancelSubjectPicker: () => {
+        patch({ subjectPickerSession: null });
+        announcerRef.current?.announce('Subject selection cancelled');
+      },
+
+      refineHairEdges: async () => {
+        const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
+          '@strata/scene'
+        );
+        const imageNode = state.selection
+          .map((id) => state.document.nodes[id] as import('@strata/scene').ShapeNode | undefined)
+          .find((n) => n && isImageShape(n) && n.backgroundRemoval?.maskDataUrl) as
+          | import('@strata/scene').ShapeNode
+          | undefined;
+        if (!imageNode?.backgroundRemoval?.maskDataUrl) {
+          announcerRef.current?.announce('Apply background removal first');
+          return;
+        }
+        try {
+          const { decodeMaskDataUrl, getImageCache, maskArrayToDataUrl, refineHairMatting } =
+            await import('@strata/engine');
+          const { setBackgroundRemoval } = await import('@strata/scene');
+          const w = imageShapeW(imageNode);
+          const h = imageShapeH(imageNode);
+          const img = await getImageCache().load(imageShapeSrc(imageNode));
+          if (!img) {
+            announcerRef.current?.announce('Could not load image');
+            return;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          const imageData = ctx.getImageData(0, 0, w, h);
+          const { mask } = await decodeMaskDataUrl(imageNode.backgroundRemoval.maskDataUrl);
+          const refined = refineHairMatting(imageData, mask);
+          updateDoc((d) =>
+            setBackgroundRemoval(d, imageNode.id, {
+              ...imageNode.backgroundRemoval!,
+              maskDataUrl: maskArrayToDataUrl(refined, w, h),
+              appliedAt: Date.now(),
+            }),
+          );
+          announcerRef.current?.announce('Hair/fur edges refined');
+        } catch (e) {
+          announcerRef.current?.announce(`Edge refinement failed: ${(e as Error).message}`);
+        }
+      },
+
+      startTrimapEdit: () => {
+        const nodeId = state.selection[0];
+        if (!nodeId) {
+          announcerRef.current?.announce('Select an image first');
+          return;
+        }
+        patch({ tool: 'trimapEdit' });
+        announcerRef.current?.announce(
+          'Trimap edit: 1=foreground, 2=unknown, 3=background. Escape to finish.',
+        );
+      },
+
+      applyTrimapMatting: async () => {
+        const nodeId = state.selection[0];
+        if (!nodeId) return;
+        const trimapEntry = trimapStoreRef.current.get(nodeId);
+        const node = state.document.nodes[nodeId] as import('@strata/scene').ShapeNode | undefined;
+        if (!trimapEntry || !node?.backgroundRemoval) {
+          announcerRef.current?.announce('Paint a trimap first');
+          return;
+        }
+        try {
+          const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
+            '@strata/scene'
+          );
+          if (!isImageShape(node)) return;
+          const { getImageCache, maskArrayToDataUrl, solveTrimapMatting } = await import(
+            '@strata/engine'
+          );
+          const { setBackgroundRemoval } = await import('@strata/scene');
+          const w = imageShapeW(node);
+          const h = imageShapeH(node);
+          const img = await getImageCache().load(imageShapeSrc(node));
+          if (!img) {
+            announcerRef.current?.announce('Could not load image');
+            return;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          const imageData = ctx.getImageData(0, 0, w, h);
+          const matte = solveTrimapMatting(imageData, trimapEntry.data);
+          updateDoc((d) =>
+            setBackgroundRemoval(d, nodeId, {
+              ...node.backgroundRemoval!,
+              maskDataUrl: maskArrayToDataUrl(matte, w, h),
+              appliedAt: Date.now(),
+            }),
+          );
+          trimapStoreRef.current.delete(nodeId);
+          patch({ tool: 'select' });
+          announcerRef.current?.announce('Trimap matting applied');
+        } catch (e) {
+          announcerRef.current?.announce(`Trimap matting failed: ${(e as Error).message}`);
+        }
+      },
+
+      getTrimapData: (nodeId) => trimapStoreRef.current.get(nodeId) ?? null,
+
+      setTrimapData: (nodeId, data, width, height) => {
+        trimapStoreRef.current.set(nodeId, { data, width, height });
       },
 
       setPrototypeMode: (active) => {
@@ -3750,23 +4090,49 @@ export function EditorProvider({
       handlePrototypeEvent: (event) => {
         const runtime = prototypeRuntimeRef.current;
         if (!runtime) return;
+        const fromScreenId = runtime.state.currentScreenId;
         const results = protoHandleEvent(runtime, event as Parameters<typeof protoHandleEvent>[1]);
         for (const result of results) {
           for (const actionResult of result.actionResults) {
-            if (
-              actionResult.kind === 'navigateTo' &&
-              actionResult.transition.kind === 'smartAnimate'
-            ) {
-              const transition = computeSmartAnimateTransition(
-                stateRef.current.document,
-                runtime.state.currentScreenId,
-                actionResult.targetId,
-              );
-              prototypeSmartAnimateRef.current = transition;
+            if (actionResult.kind === 'navigateTo') {
+              const transition = actionResult.transition;
+              let smartValues: Record<string, Record<string, unknown>> | undefined;
+              if (transition.kind === 'smartAnimate') {
+                const sa = computeSmartAnimateTransition(
+                  stateRef.current.document,
+                  fromScreenId,
+                  actionResult.targetId,
+                );
+                prototypeSmartAnimateRef.current = sa;
+                smartValues = sa?.values;
+              }
+              if (transition.kind !== 'instant') {
+                setPrototypeTransition({
+                  fromScreenId,
+                  toScreenId: actionResult.targetId,
+                  transition,
+                  smartAnimateValues: smartValues,
+                  startedAt: performance.now(),
+                });
+              }
             }
             protoApplyActionResult(runtime, actionResult);
           }
         }
+
+        if (smRuntimeRef.current) {
+          const ev = event as { type?: string };
+          if (ev.type === 'click') {
+            smRuntimeRef.current = triggerSMEvent(smRuntimeRef.current, 'onClick');
+            const tlId = getCurrentStateTimelineId(smRuntimeRef.current);
+            if (tlId) {
+              patch({
+                motion: { ...stateRef.current.motion, activeTimelineId: tlId, currentTime: 0 },
+              });
+            }
+          }
+        }
+
         setPrototypeCurrentScreen(runtime.state.currentScreenId);
       },
 
@@ -3848,7 +4214,12 @@ export function EditorProvider({
         updateDoc((doc) => removeInteractionDoc(doc, interactionId));
       },
 
-      // ── Motion / Animation implementations ────────────────────────────────────
+      updateNodeInteraction: (interactionId, updates) => {
+        updateDoc((doc) => updateInteractionDoc(doc, interactionId, updates));
+      },
+
+      prototypeTransition,
+      clearPrototypeTransition: () => setPrototypeTransition(null),
 
       playTimeline: (timelineId) => {
         const s = stateRef.current;
@@ -3996,9 +4367,7 @@ export function EditorProvider({
 
       addTimelineMarker: (timelineId, name, progress) => {
         const markerId = `mk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        updateDoc((doc) =>
-          addTimelineMarkerDoc(doc, timelineId, { id: markerId, name, progress }),
-        );
+        updateDoc((doc) => addTimelineMarkerDoc(doc, timelineId, { id: markerId, name, progress }));
         invalidateSamplerCache();
       },
 
@@ -4120,6 +4489,7 @@ export function EditorProvider({
       setFocusedField,
       showExportDialog,
       prototypeCurrentScreen,
+      prototypeTransition,
       platform,
     ],
   );

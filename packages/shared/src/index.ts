@@ -120,28 +120,45 @@ export {
   remToPx,
   UNIT_TO_PX,
 } from './units';
+export type { RulerMode } from './coordinates';
+export {
+  artboardToWorld,
+  formatCoordForRuler,
+  getArtboardRulerOrigin,
+  worldToArtboard,
+} from './coordinates';
 export type { Camera, Viewport } from './viewport';
 export {
   animateCamera,
+  applyCameraTransform,
+  buildScreenToWorldAffine,
+  buildWorldToScreenAffine,
   centerBoundsCamera,
   clampCamera,
   clampZoom,
   clientToCanvas,
+  computeFloatingOrigin,
   DEFAULT_REVEAL_MAX_ZOOM,
   DEFAULT_REVEAL_PADDING,
   fitBoundsCamera,
   fitZoom,
+  FLOATING_ORIGIN_GRID,
   isRectInView,
   isWorldRectInViewport,
   lerpCamera,
   localRectToScreen,
   MAX_ZOOM,
   MIN_ZOOM,
+  resetViewRotation,
   revealBoundsCamera,
+  rotateAboutScreenPoint,
   screenDeltaToWorld,
   screenToWorld,
+  snapThresholdWorld,
+  stepZoom,
   worldToScreen,
   worldToScreenAffine,
+  ZOOM_STEP_FACTOR,
   zoomAboutPoint,
 } from './viewport';
 

@@ -1,0 +1,21 @@
+.document-grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.document-grid-overlay__line {
+  stroke: var(--color-border-subtle);
+  stroke-width: 1;
+}
+
+.document-grid-overlay__line--baseline {
+  stroke: var(--color-accent-primary);
+  opacity: 0.25;
+}
+
+.document-grid-overlay__line--isometric {
+  stroke: var(--color-text-muted);
+  opacity: 0.2;
+}
