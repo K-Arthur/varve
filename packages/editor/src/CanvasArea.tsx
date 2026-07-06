@@ -101,7 +101,16 @@ function toEngineNode(n: DocNode): EngineNode {
     strokes: 'strokes' in n ? (n.strokes ?? []) : [],
     effects: 'effects' in n ? (n.effects ?? []) : [],
   };
-  if (n.kind === 'shape') return { ...base, shape: n.shape, cornerRadius: n.cornerRadius };
+  if (n.kind === 'shape') {
+    const shapeNode = n as import('@strata/scene').ShapeNode;
+    const skipAlphaMask = _showOriginalBgNodeId === n.id;
+    return {
+      ...base,
+      shape: n.shape,
+      cornerRadius: n.cornerRadius,
+      alphaMask: skipAlphaMask ? undefined : shapeNode.backgroundRemoval?.maskDataUrl,
+    };
+  }
   if (n.kind === 'text')
     return {
       ...base,

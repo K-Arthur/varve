@@ -84,7 +84,12 @@ export function BatchBgRemoveDialog({
   const [announceMsg, setAnnounceMsg] = useState('');
 
   const imageNodes = useMemo(
-    () => nodes.filter((n): n is ImageNode => n.kind === 'image'),
+    () =>
+      nodes.filter(
+        (n) =>
+          n.kind === 'image' ||
+          (n.kind === 'shape' && !!n.fills?.some((f) => f.type === 'image' && !!f.image?.src)),
+      ),
     [nodes],
   );
 
@@ -190,8 +195,8 @@ export function BatchBgRemoveDialog({
 
   const handleStart = useCallback(async () => {
     const filtered = files.map((f) => {
-      const node = nodes.find((n) => n.id === f.id) as ImageNode | undefined;
-      if (node?.backgroundRemoval) return { ...f, status: 'skipped' as const };
+      const node = nodes.find((n) => n.id === f.id);
+      if ((node as ImageNode | undefined)?.backgroundRemoval) return { ...f, status: 'skipped' as const };
       return f;
     });
 

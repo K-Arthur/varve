@@ -534,6 +534,8 @@ export type FillIR =
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
+      /** Alpha mask data URL for background removal compositing on shape nodes. */
+      alphaMask?: string;
     }
   | {
       type: 'pattern';

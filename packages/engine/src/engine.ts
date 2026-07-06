@@ -220,6 +220,8 @@ function stubEngine(): Engine {
                   opacity: f.opacity,
                   blendMode: f.blendMode,
                   visible: f.visible,
+                  // Propagate node-level alpha mask (from background removal on shape nodes)
+                  alphaMask: n.alphaMask,
                 };
               }
               if (f.type === 'pattern' && f.pattern) {

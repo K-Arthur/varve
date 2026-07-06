@@ -11,6 +11,8 @@ import {
 import { HelpBrowser } from '@strata/help';
 import type { NodeId } from '@strata/scene';
 import { screenToWorld } from '@strata/shared';
+import { ContextMenu } from '@strata/ui';
+import type { MenuEntry } from '@strata/ui';
 import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
@@ -93,15 +95,11 @@ function ShellInner({
     setHelpOpen,
   } = useShortcuts(editor, onBackToHome, active);
 
-  const [quickActionsPosition, setQuickActionsPosition] = useState<{ x: number; y: number } | undefined>(undefined);
+  const [canvasContextMenu, setCanvasContextMenu] = useState<{ x: number; y: number } | null>(null);
 
-  const handleCanvasContextMenu = useCallback(
-    (pos: { x: number; y: number }) => {
-      setQuickActionsPosition(pos);
-      setQuickActionsOpen(true);
-    },
-    [setQuickActionsOpen],
-  );
+  const handleCanvasContextMenu = useCallback((pos: { x: number; y: number }) => {
+    setCanvasContextMenu(pos);
+  }, []);
 
   // ── Lifecycle event handlers ─────────────────────────────────────────────
   const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
@@ -417,15 +415,13 @@ function ShellInner({
         <ShortcutPalette open={paletteOpen} onClose={closePalette} onSelect={handlePaletteSelect} />
         <QuickActionsBar
           open={quickActionsOpen}
-          position={quickActionsPosition}
-          onClose={() => { setQuickActionsOpen(false); setQuickActionsPosition(undefined); }}
+          onClose={() => setQuickActionsOpen(false)}
           onExecute={(id) => {
             if (id === 'open') {
               const input = fileRef.current;
               if (input) input.click();
             }
             setQuickActionsOpen(false);
-            setQuickActionsPosition(undefined);
           }}
         />
         <input
@@ -562,6 +558,56 @@ function ShellInner({
 
         {/* Help Browser */}
         <HelpBrowser open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+        {/* Canvas right-click context menu */}
+        {canvasContextMenu && (() => {
+          const hasSelection = editor.state.selection.length > 0;
+          const hasMultiple = editor.state.selection.length > 1;
+          const closeMenu = () => setCanvasContextMenu(null);
+          const isSingleGroup =
+            hasSelection &&
+            editor.state.selection.length === 1 &&
+            editor.state.document.nodes[editor.state.selection[0]!]?.kind === 'group';
+          const items: MenuEntry[] = [
+            ...(hasSelection ? [
+              { id: 'ctx-cut', label: 'Cut', onAction: () => { editor.cutSelected(); closeMenu(); } } satisfies MenuEntry,
+              { id: 'ctx-copy', label: 'Copy', onAction: () => { editor.copySelected(); closeMenu(); } } satisfies MenuEntry,
+            ] : []),
+            { id: 'ctx-paste', label: 'Paste', onAction: () => { editor.paste(); closeMenu(); } } satisfies MenuEntry,
+            ...(hasSelection ? [
+              { id: 'ctx-sep1', separator: true as const } satisfies MenuEntry,
+              { id: 'ctx-dup', label: 'Duplicate', onAction: () => { editor.duplicateSelected(); closeMenu(); } } satisfies MenuEntry,
+              { id: 'ctx-del', label: 'Delete', onAction: () => { editor.removeSelected(); closeMenu(); } } satisfies MenuEntry,
+            ] : []),
+            ...(hasMultiple ? [
+              { id: 'ctx-sep2', separator: true as const } satisfies MenuEntry,
+              { id: 'ctx-group', label: 'Group Selection', onAction: () => { editor.groupSelected(); closeMenu(); } } satisfies MenuEntry,
+            ] : []),
+            ...(isSingleGroup ? [
+              { id: 'ctx-sep3', separator: true as const } satisfies MenuEntry,
+              { id: 'ctx-ungroup', label: 'Ungroup', onAction: () => { editor.ungroupSelected(); closeMenu(); } } satisfies MenuEntry,
+            ] : []),
+            { id: 'ctx-sep4', separator: true as const } satisfies MenuEntry,
+            { id: 'ctx-selectall', label: 'Select All', onAction: () => {
+              const nodes = editor.rootNodes();
+              if (nodes.length === 0) { closeMenu(); return; }
+              editor.setSelection(nodes[0]?.id ?? null);
+              for (let i = 1; i < nodes.length; i++) {
+                const n = nodes[i];
+                if (n) editor.toggleSelection(n.id, true);
+              }
+              closeMenu();
+            } } satisfies MenuEntry,
+          ];
+          return (
+            <ContextMenu
+              items={items}
+              position={canvasContextMenu}
+              onClose={closeMenu}
+              label="Canvas context menu"
+            />
+          );
+        })()}
 
         {/* Batch background removal dialog */}
         <BatchBgRemoveDialog
