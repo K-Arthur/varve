@@ -10,6 +10,7 @@
  */
 
 import { useDroppable } from '@dnd-kit/core';
+import { type CompositorBackend, createCompositorBackend } from '@strata/compositor';
 import {
   adjustmentsToFilters,
   applyStyleOverrides,
@@ -25,10 +26,18 @@ import {
   replayIr,
   traceSceneNodeOutline,
 } from '@strata/engine';
-import { createCompositorBackend, type CompositorBackend } from '@strata/compositor';
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
-import { buildParentIndexMap, isContainer, resolveAllStyles, walkNodes } from '@strata/scene';
+import {
+  applyBindingsToNode,
+  buildAllVariantCaches,
+  buildParentIndexMap,
+  createVariableStore,
+  getEffectiveNode,
+  isContainer,
+  resolveAllStyles,
+  walkNodes,
+} from '@strata/scene';
 import {
   clampZoom,
   fitBoundsCamera,
@@ -50,6 +59,12 @@ import { VariantBox } from './components/VariantBox/VariantBox';
 import { ZoomIndicator } from './components/ZoomIndicator';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
+import { sceneNeedsStructuralCompositing } from './render/sceneCompositing';
+import {
+  createRenderWorkerHost,
+  isStaleResponse,
+  type RenderWorkerHost,
+} from './render/workerHost';
 import { SelectionOverlay } from './SelectionOverlay';
 import {
   createTransformCache,
@@ -85,11 +100,6 @@ import { StarTool } from './tools/StarTool';
 import { filterSnapTargets, type SnapGuide, snapPosition } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
-import {
-  createRenderWorkerHost,
-  isStaleResponse,
-  type RenderWorkerHost,
-} from './render/workerHost';
 
 type DocNode = SceneNode;
 
@@ -118,7 +128,11 @@ function toEngineNode(n: DocNode): EngineNode {
       alphaMask: skipAlphaMask ? undefined : shapeNode.backgroundRemoval?.maskDataUrl,
     };
   }
-  if (n.kind === 'text')
+  if (n.kind === 'text') {
+    const fontSize = n.fontSize ?? 14;
+    const text = n.text ?? '';
+    const estW = Math.max(text.length * fontSize * 0.55, fontSize * 3);
+    const estH = fontSize * 1.4;
     return {
       ...base,
       kind: 'text',
@@ -136,7 +150,37 @@ function toEngineNode(n: DocNode): EngineNode {
       textDecoration: n.textDecoration,
       textOverflow: n.textOverflow,
       listStyle: n.listStyle,
+      shape: {
+        kind: 'text' as const,
+        text,
+        fontSize,
+        fontFamily: n.fontFamily ?? 'Inter',
+        fontWeight: n.fontWeight ?? 400,
+        fontStyle: n.fontStyle ?? 'normal',
+        textAlign: n.textAlign ?? 'left',
+        x: 0,
+        y: 0,
+        w: estW,
+        h: estH,
+        letterSpacing: n.letterSpacing,
+        lineHeight: n.lineHeight,
+        textCase: n.textCase,
+        textDecoration: n.textDecoration,
+      },
     };
+  }
+  if (n.kind === 'path') {
+    const pathNode = n as import('@strata/scene').PathNode;
+    return {
+      ...base,
+      shape: {
+        kind: 'path' as const,
+        points: pathNode.points,
+        closed: pathNode.closed,
+        tolerance: 4,
+      },
+    };
+  }
   if (n.kind === 'frame')
     return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
   if (n.kind === 'adjustment') {
@@ -294,6 +338,12 @@ export function CanvasArea({
   const engineRef = useRef<Engine | null>(null);
   const compositorRef = useRef<CompositorBackend | null>(null);
   const renderWorkerRef = useRef<RenderWorkerHost | null>(null);
+  const workerBitmapRef = useRef<{
+    bitmap: ImageBitmap;
+    docVersion: number;
+    camera: { zoom: number; pan: { x: number; y: number } };
+  } | null>(null);
+  const requestContentDrawRef = useRef<(() => void) | null>(null);
   const docVersionRef = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -377,13 +427,27 @@ export function CanvasArea({
 
   useEffect(() => {
     renderWorkerRef.current = createRenderWorkerHost((msg) => {
-      if (msg.type === 'frameRendered' && isStaleResponse(docVersionRef.current, msg.docVersion)) {
-        return;
+      if (msg.type === 'frameRendered') {
+        if (isStaleResponse(docVersionRef.current, msg.docVersion)) {
+          msg.bitmap?.close();
+          return;
+        }
+        if (msg.bitmap) {
+          workerBitmapRef.current?.bitmap.close();
+          workerBitmapRef.current = {
+            bitmap: msg.bitmap,
+            docVersion: msg.docVersion,
+            camera: msg.camera,
+          };
+          requestContentDrawRef.current?.();
+        }
       }
     });
     return () => {
       renderWorkerRef.current?.terminate();
       renderWorkerRef.current = null;
+      workerBitmapRef.current?.bitmap.close();
+      workerBitmapRef.current = null;
     };
   }, []);
 
@@ -690,13 +754,19 @@ export function CanvasArea({
         }
       }
 
+      const variantCaches = buildAllVariantCaches(doc);
+      const variableStore = doc.variableStore ?? createVariableStore();
+
       const nodeIds: string[] = [];
       const flatNodes: EngineNode[] = [];
       for (const [id] of entries) {
-        const n = doc.nodes[id];
-        if (!n) continue;
+        const raw = doc.nodes[id];
+        if (!raw) continue;
+        let n = getEffectiveNode(doc, id, variantCaches) ?? raw;
+        if (!n.visible) continue;
         if (n.kind === 'group') continue;
         if (hiddenByContainer.has(id)) continue;
+        n = applyBindingsToNode(n, variableStore);
         const world = getCachedWorldTransform(cache, doc, id);
         const worldBounds = getCachedWorldBounds(cache, doc, id);
         if (worldBounds && !isWorldRectInViewport(cam, vp, worldBounds)) continue;
@@ -736,25 +806,7 @@ export function CanvasArea({
       const ir = await eng.buildIr({ nodes: flatNodes });
 
       const docVersion = docVersionRef.current;
-      renderWorkerRef.current?.post({
-        type: 'render',
-        nodes: flatNodes,
-        ir,
-        camera: { zoom: s.zoom, pan: s.pan },
-        viewport: { width: VP_W, height: VP_H },
-        docVersion,
-        dpr,
-      });
-
-      compositorRef.current?.beginFrame(
-        {
-          items: ir,
-          camera: { zoom: s.zoom, pan: s.pan },
-          viewport: { width: VP_W, height: VP_H },
-          docVersion,
-        },
-        { applyCamera: false },
-      );
+      const needsStructural = sceneNeedsStructuralCompositing(doc);
 
       if (s.canvasMode === 'outline') {
         const outlineColor: EngineColor = { space: 'rgb', r: 30, g: 30, b: 36, a: 255 };
@@ -794,6 +846,16 @@ export function CanvasArea({
         if (nid && item) irByNodeId.set(nid, item);
       }
 
+      compositorRef.current?.beginFrame(
+        {
+          items: ir,
+          camera: { zoom: s.zoom, pan: s.pan },
+          viewport: { width: VP_W, height: VP_H },
+          docVersion,
+        },
+        { applyCamera: false, clear: false },
+      );
+
       const dirtyRect = dirtyRectRef.current;
       const usePartialRedraw =
         dirtyRect &&
@@ -824,7 +886,15 @@ export function CanvasArea({
 
       dirtyRectRef.current = null;
 
-      function replaySubtreeToCtx(nodeId: string, ctx: CanvasRenderingContext2D): void {
+      const paintLeafItem = (item: IrItem, targetCtx: CanvasRenderingContext2D): void => {
+        if (targetCtx === ctxNN && compositorRef.current) {
+          compositorRef.current.drawVectorItems([item]);
+        } else {
+          replayIr(targetCtx as unknown as ReplayTarget, [item]);
+        }
+      };
+
+      function replaySubtreeToCtx(nodeId: string, targetCtx: CanvasRenderingContext2D): void {
         const n = doc.nodes[nodeId];
         if (!n || n.visible === false) return;
         const item = irByNodeId.get(nodeId);
@@ -835,7 +905,7 @@ export function CanvasArea({
         if (mask && maskChild && maskSrcId) {
           if (mask.type === 'alpha') {
             renderAlphaMask(
-              ctx,
+              targetCtx,
               {
                 draw: (maskCtx: CanvasRenderingContext2D) => {
                   maskCtx.setTransform(
@@ -867,27 +937,27 @@ export function CanvasArea({
             );
             return;
           }
-          ctx.save();
+          targetCtx.save();
           const maskWorldTransform = getCachedWorldTransform(cache, doc, maskSrcId);
           const [ma, mb, mc, md, me, mf] = maskWorldTransform;
-          ctx.transform(ma, mb, mc, md, me, mf);
-          ctx.beginPath();
+          targetCtx.transform(ma, mb, mc, md, me, mf);
+          targetCtx.beginPath();
           traceSceneNodeOutline(
-            ctx,
+            targetCtx,
             maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
           );
-          ctx.closePath();
-          ctx.clip();
-          ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+          targetCtx.closePath();
+          targetCtx.clip();
+          targetCtx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
           for (const childId of (n as import('@strata/scene').ContainerNode).children) {
-            if (childId !== maskSrcId) replaySubtreeToCtx(childId, ctx);
+            if (childId !== maskSrcId) replaySubtreeToCtx(childId, targetCtx);
           }
-          ctx.restore();
+          targetCtx.restore();
           return;
         }
 
         if (n.kind === 'frame') {
-          if (item) replayIr(ctx as unknown as ReplayTarget, [item]);
+          if (item) paintLeafItem(item, targetCtx);
           if (n.children.length > 0) {
             const shouldClip = n.clipContent !== false;
             if (shouldClip) {
@@ -895,21 +965,21 @@ export function CanvasArea({
               const [a, b, c, d, e, f] = t;
               const fw = n.w;
               const fh = n.h;
-              ctx.save();
-              ctx.beginPath();
-              ctx.moveTo(e, f);
-              ctx.lineTo(a * fw + e, b * fw + f);
-              ctx.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
-              ctx.lineTo(c * fh + e, d * fh + f);
-              ctx.closePath();
-              ctx.clip();
+              targetCtx.save();
+              targetCtx.beginPath();
+              targetCtx.moveTo(e, f);
+              targetCtx.lineTo(a * fw + e, b * fw + f);
+              targetCtx.lineTo(a * fw + c * fh + e, b * fw + d * fh + f);
+              targetCtx.lineTo(c * fh + e, d * fh + f);
+              targetCtx.closePath();
+              targetCtx.clip();
               for (const childId of n.children) {
-                replaySubtreeToCtx(childId, ctx);
+                replaySubtreeToCtx(childId, targetCtx);
               }
-              ctx.restore();
+              targetCtx.restore();
             } else {
               for (const childId of n.children) {
-                replaySubtreeToCtx(childId, ctx);
+                replaySubtreeToCtx(childId, targetCtx);
               }
             }
           }
@@ -934,7 +1004,7 @@ export function CanvasArea({
               }
             }
             if (Number.isFinite(minX)) {
-              ctx.save();
+              targetCtx.save();
               const gw = Math.ceil(maxX - minX) + 4;
               const gh = Math.ceil(maxY - minY) + 4;
               const gCanvas = new CompositeCanvas({
@@ -951,25 +1021,25 @@ export function CanvasArea({
               gCtx.restore();
               const bm = n.blendMode ?? 'passThrough';
               if (bm !== 'passThrough') {
-                ctx.globalCompositeOperation = mapBlendMode(bm) as GlobalCompositeOperation;
+                targetCtx.globalCompositeOperation = mapBlendMode(bm) as GlobalCompositeOperation;
               } else if (isIsolated) {
-                ctx.globalCompositeOperation = 'source-over';
+                targetCtx.globalCompositeOperation = 'source-over';
               }
-              ctx.globalAlpha = n.opacity ?? 1;
-              ctx.drawImage(
+              targetCtx.globalAlpha = n.opacity ?? 1;
+              targetCtx.drawImage(
                 gCanvas.canvas as CanvasImageSource,
                 Math.floor(minX) - 2,
                 Math.floor(minY) - 2,
               );
-              ctx.restore();
+              targetCtx.restore();
             }
           } else {
             for (const childId of n.children) {
-              replaySubtreeToCtx(childId, ctx);
+              replaySubtreeToCtx(childId, targetCtx);
             }
           }
         } else {
-          if (item) replayIr(ctx as unknown as ReplayTarget, [item]);
+          if (item) paintLeafItem(item, targetCtx);
         }
       }
 
@@ -977,14 +1047,52 @@ export function CanvasArea({
         replaySubtreeToCtx(nodeId, ctxNN);
       }
 
-      for (const [id, entry] of entries) {
-        if (entry.parentId === null) {
-          replaySubtree(id);
+      if (needsStructural) {
+        for (const [id, entry] of entries) {
+          if (entry.parentId === null) {
+            replaySubtree(id);
+          }
         }
+      } else if (renderWorkerRef.current) {
+        renderWorkerRef.current.post({
+          type: 'render',
+          nodes: flatNodes,
+          ir,
+          camera: { zoom: s.zoom, pan: s.pan },
+          viewport: { width: VP_W, height: VP_H },
+          docVersion,
+          dpr,
+        });
+        const wb = workerBitmapRef.current;
+        const cameraMatches =
+          wb &&
+          wb.camera.zoom === s.zoom &&
+          wb.camera.pan.x === s.pan.x &&
+          wb.camera.pan.y === s.pan.y;
+        if (wb && wb.docVersion === docVersion && cameraMatches) {
+          ctxNN.save();
+          ctxNN.setTransform(1, 0, 0, 1, 0, 0);
+          compositorRef.current?.compositeRasterLayer(
+            'worker-frame',
+            wb.bitmap,
+            [1, 0, 0, 1, 0, 0],
+            'normal',
+          );
+          ctxNN.restore();
+        } else {
+          compositorRef.current?.drawVectorItems(ir);
+        }
+      } else {
+        compositorRef.current?.drawVectorItems(ir);
       }
+
       compositorRef.current?.endFrame();
     })();
   }, [rootNodes, state.zoom, state.pan.x, state.pan.y, state.canvasMode, imageCacheStamp]);
+
+  useEffect(() => {
+    requestContentDrawRef.current = () => drawContent();
+  }, [drawContent]);
 
   // ── Overlay canvas draw: layout grid overlay, draft shapes ──────────────
 
@@ -1902,6 +2010,8 @@ export function CanvasArea({
             nodeId={singleId}
             document={state.document}
             onSetVariant={editor.setVariantForInstance}
+            onCreateVariant={editor.createVariant}
+            onSetPropertyOverride={editor.setPropertyOverride}
             screenBounds={{ x: screenX, y: screenY, w: screenW, h: screenH }}
             onClose={() => {
               editor.announce('Closed variant panel');

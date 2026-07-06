@@ -3,8 +3,8 @@
  */
 import { Canvas2DBackend } from './canvas2d/backend';
 import type { CompositorBackend, CompositorCapabilities, CompositorOptions } from './types';
-import { detectWebGPU } from './webgpu/detect';
 import { WebGPUBackend } from './webgpu/backend';
+import { detectWebGPU } from './webgpu/detect';
 
 export async function createCompositorBackend(
   canvas: HTMLCanvasElement,

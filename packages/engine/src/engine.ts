@@ -42,9 +42,19 @@ function shapeToPrimitive(
   measureTextFn?: MeasureTextFn,
   nodeMap?: Map<string, SceneNode>,
 ): RenderItem['primitive'] {
-  if (node.kind === 'text') {
-    const fontSize = node.fontSize ?? 14;
-    const text = node.text ?? '';
+  if (node.kind === 'text' || (node.shape as { kind?: string } | undefined)?.kind === 'text') {
+    const textShape =
+      node.shape && 'text' in node.shape
+        ? (node.shape as {
+            text?: string;
+            fontSize?: number;
+            fontFamily?: string;
+            fontWeight?: number;
+            fontStyle?: string;
+          })
+        : null;
+    const fontSize = node.fontSize ?? textShape?.fontSize ?? 14;
+    const text = node.text ?? textShape?.text ?? '';
     const fontFamily = node.fontFamily ?? 'sans-serif';
     const textOptions = {
       fontSize,

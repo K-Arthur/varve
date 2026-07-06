@@ -39,9 +39,9 @@ Coarse scene-level calls only (avoid per-node WASM transitions):
 
 ## Offline Asset Policy
 
-- WASM modules ship in app bundle (`apps/desktop/public/wasm/`).
-- ONNX models ship locally (`apps/desktop/public/models/` + `manifest.json` with SHA-256).
-- Remote model URLs are opt-in download only, never required at startup.
+- WASM modules ship in app bundle (`apps/desktop/public/wasm/`). CI runs `just wasm-build` and passes artifacts to E2E.
+- ONNX models use `manifest.json` with SHA-256 verification via `ModelLoader`. No `.onnx` binaries are committed yet (`bundled: false`); users download explicitly from settings (ADR-0005).
+- `strata-layout` / `strata-trace` WASM bindings remain deferred stubs.
 
 ## Build
 

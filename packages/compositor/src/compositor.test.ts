@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Canvas2DBackend } from './canvas2d/backend';
 import { TileCache } from './canvas2d/tileCache';
 import { createCompositorBackend } from './router';
@@ -48,6 +48,59 @@ describe('@strata/compositor', () => {
     cache.touch('c');
     expect(cache.has('a')).toBe(false);
     expect(cache.has('c')).toBe(true);
+  });
+
+  it('drawVectorItems always replays even on cache hit', async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const backend = new Canvas2DBackend();
+    await backend.init(canvas);
+    const item = {
+      transform: [1, 0, 0, 1, 5, 5] as const,
+      fill: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 },
+      primitive: { kind: 'rect' as const, x: 0, y: 0, w: 10, h: 10 },
+      opacity: 1,
+      blendMode: 'normal' as const,
+      strokes: [],
+      effects: [],
+    };
+    backend.beginFrame(
+      {
+        items: [item],
+        camera: { zoom: 1, pan: { x: 0, y: 0 } },
+        viewport: { width: 64, height: 64 },
+        docVersion: 1,
+      },
+      { applyCamera: false },
+    );
+    backend.drawVectorItems([item]);
+    backend.drawVectorItems([item]);
+    backend.endFrame();
+    backend.destroy();
+    expect(true).toBe(true);
+  });
+
+  it('beginFrame with clear:false skips clearRect', async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d')!;
+    const clearRectSpy = vi.spyOn(ctx, 'clearRect');
+    const backend = new Canvas2DBackend();
+    await backend.init(canvas);
+    backend.beginFrame(
+      {
+        items: [],
+        camera: { zoom: 1, pan: { x: 0, y: 0 } },
+        viewport: { width: 32, height: 32 },
+        docVersion: 1,
+      },
+      { clear: false, applyCamera: false },
+    );
+    backend.endFrame();
+    expect(clearRectSpy).not.toHaveBeenCalled();
+    backend.destroy();
   });
 
   it('WebGPUBackend delegates to canvas2d fallback', async () => {
