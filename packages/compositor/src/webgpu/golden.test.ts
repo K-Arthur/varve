@@ -77,7 +77,9 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     c2d.beginFrame(frame, { applyCamera: false });
     c2d.drawVectorItems(FIXTURE_ITEMS);
     c2d.endFrame();
-    const ref = canvasRef.getContext('2d')!.getImageData(0, 0, 128, 128).data;
+    const refCtx = canvasRef.getContext('2d');
+    if (!refCtx) throw new Error('Expected 2d context for canvas');
+    const ref = refCtx.getImageData(0, 0, 128, 128).data;
 
     const canvasGpu = document.createElement('canvas');
     canvasGpu.width = 128;
@@ -87,7 +89,9 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     wgpu.beginFrame(frame, { applyCamera: false });
     wgpu.drawVectorItems(FIXTURE_ITEMS);
     wgpu.endFrame();
-    const out = canvasGpu.getContext('2d')!.getImageData(0, 0, 128, 128).data;
+    const outCtx = canvasGpu.getContext('2d');
+    if (!outCtx) throw new Error('Expected 2d context for canvas');
+    const out = outCtx.getImageData(0, 0, 128, 128).data;
 
     expect(pixelDiff(ref, out)).toBeLessThan(8);
     c2d.destroy();

@@ -302,7 +302,8 @@ describe('AutoSaveService', () => {
       const result = await svc.saveNow();
       expect(result).toBe(true);
       expect(capturedJson).toBeDefined();
-      const parsed = JSON.parse(capturedJson!);
+      if (!capturedJson) throw new Error('Expected captured JSON');
+      const parsed = JSON.parse(capturedJson);
       expect(parsed.id).toBe('doc-untitled');
     });
 

@@ -725,10 +725,12 @@ function ShellInner({
             const hasSelection = editor.state.selection.length > 0;
             const hasMultiple = editor.state.selection.length > 1;
             const closeMenu = () => setCanvasContextMenu(null);
+            const selectedId = editor.state.selection[0];
             const isSingleGroup =
               hasSelection &&
               editor.state.selection.length === 1 &&
-              editor.state.document.nodes[editor.state.selection[0]!]?.kind === 'group';
+              selectedId !== undefined &&
+              editor.state.document.nodes[selectedId]?.kind === 'group';
             const items: MenuEntry[] = [
               ...(hasSelection
                 ? [

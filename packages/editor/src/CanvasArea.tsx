@@ -206,10 +206,12 @@ function parsePropertyPath(path: string): string[] {
       segments.push(part);
       continue;
     }
-    segments.push(match[1]!);
-    const bracketGroups = match[2] ? match[2].matchAll(/\[([^\]]+)\]/g) : [];
+    const [, first, second] = match;
+    if (first) segments.push(first);
+    const bracketGroups = second ? second.matchAll(/\[([^\]]+)\]/g) : [];
     for (const m of bracketGroups) {
-      segments.push(m[1]!);
+      const [, inner] = m;
+      if (inner) segments.push(inner);
     }
   }
   return segments;
