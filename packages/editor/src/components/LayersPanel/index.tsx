@@ -51,6 +51,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     selectAllOfType,
     updateNode,
     syncInstance,
+    revealSelection,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
@@ -290,6 +291,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     }
   }, [dndRef, contextMenu, closeMenu]);
 
+  const handleRevealOnCanvas = useCallback(() => {
+    if (state.selection.length > 0) {
+      revealSelection({ fit: true });
+    }
+    closeMenu();
+  }, [state.selection, revealSelection, closeMenu]);
+
   const canGroup = state.selection.length >= 2;
   const firstSelId = state.selection[0];
   const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
@@ -431,6 +439,8 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             <ContextMenuItem label="Select Same Type" onAction={handleSelectSameType} />
             <ContextMenuItem label="Select Same Color" onAction={handleSelectSameLayerColor} />
             <ContextMenuItem label="Select All of Type" onAction={handleSelectAllOfType} />
+            <hr className="layers-context-menu__separator" />
+            <ContextMenuItem label="Reveal on Canvas" onAction={handleRevealOnCanvas} />
           </div>,
           document.body,
         )}

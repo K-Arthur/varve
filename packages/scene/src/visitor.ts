@@ -3,6 +3,7 @@ import type {
   FrameNode,
   GroupNode,
   ImageNode,
+  PathNode,
   SceneNode,
   ShapeNode,
   TextNode,
@@ -16,6 +17,7 @@ export type NodeVisitor<T> = {
   frame: (node: FrameNode) => T;
   image: (node: ImageNode) => T;
   adjustment: (node: AdjustmentNode) => T;
+  path: (node: PathNode) => T;
 };
 
 /** Visit a SceneNode with type-safe dispatch. */
@@ -33,6 +35,8 @@ export function visitNode<T>(node: SceneNode, visitor: NodeVisitor<T>): T {
       return visitor.image(node as ImageNode);
     case 'adjustment':
       return visitor.adjustment(node as AdjustmentNode);
+    case 'path':
+      return visitor.path(node as PathNode);
     default: {
       const _exhaustive: never = node;
       throw new Error(`Unhandled node kind: ${(_exhaustive as SceneNode).kind}`);

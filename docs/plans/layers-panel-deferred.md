@@ -200,16 +200,17 @@ test('layers panel has no axe violations', async ({ page }) => {
 
 ## Other deferred items
 
-### 1. ImageNode + PathNode [OK] COMPLETED (Session 11)
+### 1. ImageNode + PathNode [OK] COMPLETED (Session 11 + Session 39)
 
 Engine IR supports both image and path primitives.
 
 | File | Changes |
 |---|---|
-| `packages/scene/src/types.ts` | Add `ImageNode` (`kind:'image'`, `src: string`, `w`, `h`), `PathNode` (`kind:'path'`, `points: Point[]`, `closed: boolean`) |
+| `packages/scene/src/types.ts` | `ImageNode` (`kind:'image'`), `PathNode` (`kind:'path'`, `points: PathPoint[]`, `closed: boolean`) — both top-level `SceneNode` union members |
 | `packages/scene/src/document.ts` | `makeImageNode()`, `makePathNode()` |
-| `packages/editor/src/components/LayersPanel/useAutoName.ts` | Add `image: 'Image'`, `path: 'Path'` to `TYPE_LABELS` |
-| `packages/editor/src/components/LayersPanel/LayersRow.tsx` | `nodeTypeIcon` already handles `image` and `pen`/`path` via `NODE_ICONS` |
+| `packages/scene/src/visitor.ts` | `NodeVisitor<T>` and `visitNode` switch extended with `path` handler |
+| `packages/editor/src/components/LayersPanel/useAutoName.ts` | `image: 'Image'`, `path: 'Path'` in `TYPE_LABELS` |
+| `packages/editor/src/components/LayersPanel/LayersRow.tsx` | `nodeTypeIcon` handles `path` via `NODE_ICONS` |
 
 ### 2. Real fractional indexing (CRDT-safe) [OK] COMPLETED (Session 11)
 
