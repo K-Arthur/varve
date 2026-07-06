@@ -1,7 +1,10 @@
 import type { Document } from '@strata/scene';
 import {
+  addKeyframe,
   addNode,
+  addTrack,
   createDocument,
+  createTimeline,
   makeFrameNode,
   makeShapeNode,
   makeTextNode,
@@ -132,11 +135,38 @@ describe('buildSpec', () => {
     const spec = buildSpec(doc);
     expect(spec.nodes).toHaveLength(2);
   });
+
+  it('includes timeline summary with track and keyframe counts', () => {
+    let doc = createDocument('Motion Spec');
+    const { doc: d1, id: tlId } = createTimeline(doc, 'Intro', 3000);
+    const { doc: d2, trackId } = addTrack(
+      d1,
+      tlId,
+      'node-x' as import('@strata/scene').NodeId,
+      'opacity',
+    );
+    doc = addKeyframe(d2, tlId, trackId, { progress: 0, value: 0 });
+    doc = addKeyframe(doc, tlId, trackId, { progress: 1, value: 1 });
+
+    const spec = buildSpec(doc);
+    expect(spec.timelines).toHaveLength(1);
+    expect(spec.timelines[0]?.trackCount).toBe(1);
+    expect(spec.timelines[0]?.keyframeCount).toBe(2);
+    expect(spec.exportHash).toMatch(/^[0-9a-f]{8}$/);
+  });
 });
 
 describe('specToMarkdown', () => {
   it('formats an empty spec', () => {
-    const spec: SpecSheet = { spacings: [], typeStyles: [], assets: [], nodes: [], palette: [] };
+    const spec: SpecSheet = {
+      spacings: [],
+      typeStyles: [],
+      assets: [],
+      nodes: [],
+      palette: [],
+      timelines: [],
+      exportHash: '00000000',
+    };
     const md = specToMarkdown(spec);
     expect(md).toContain('# Design Spec');
   });
@@ -156,6 +186,8 @@ describe('specToMarkdown', () => {
       assets: [],
       nodes: [],
       palette: [],
+      timelines: [],
+      exportHash: 'abc12345',
     };
     const md = specToMarkdown(spec);
     expect(md).toContain('## Type Styles');
@@ -169,6 +201,8 @@ describe('specToMarkdown', () => {
       assets: [],
       nodes: [],
       palette: [],
+      timelines: [],
+      exportHash: 'abc12345',
     };
     const md = specToMarkdown(spec);
     expect(md).toContain('## Spacing');
@@ -182,9 +216,36 @@ describe('specToMarkdown', () => {
       assets: [],
       nodes: [],
       palette: [{ space: 'rgb', r: 57, g: 208, b: 198, a: 255 }],
+      timelines: [],
+      exportHash: 'abc12345',
     };
     const md = specToMarkdown(spec);
     expect(md).toContain('## Colors');
     expect(md).toContain('rgba(57, 208, 198, 1.00)');
+  });
+
+  it('includes motion timelines section', () => {
+    const spec: SpecSheet = {
+      spacings: [],
+      typeStyles: [],
+      assets: [],
+      nodes: [],
+      palette: [],
+      exportHash: 'deadbeef',
+      timelines: [
+        {
+          id: 'tl-1',
+          name: 'Hero',
+          durationMs: 2000,
+          trackCount: 3,
+          keyframeCount: 8,
+          markerCount: 1,
+        },
+      ],
+    };
+    const md = specToMarkdown(spec);
+    expect(md).toContain('## Motion Timelines');
+    expect(md).toContain('**Hero** (2000ms): 3 tracks, 8 keyframes, 1 markers');
+    expect(md).toContain('deadbeef');
   });
 });

@@ -7,6 +7,7 @@ export interface PlaybackControlsProps {
   duration: number;
   speed: number;
   loop: boolean;
+  autoKeyframe?: boolean;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
@@ -15,6 +16,10 @@ export interface PlaybackControlsProps {
   onSeek: (time: number) => void;
   onSpeedChange: (speed: number) => void;
   onToggleLoop: () => void;
+  onToggleAutoKeyframe?: () => void;
+  onSavePreset?: () => void;
+  presetOptions?: Array<{ id: string; name: string }>;
+  onApplyPreset?: (presetId: string) => void;
 }
 
 export function formatTime(ms: number): string {
@@ -33,6 +38,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
   duration,
   speed,
   loop,
+  autoKeyframe = false,
   onPlay,
   onPause,
   onStop,
@@ -41,6 +47,10 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
   onSeek: _onSeek,
   onSpeedChange,
   onToggleLoop,
+  onToggleAutoKeyframe,
+  onSavePreset,
+  presetOptions = [],
+  onApplyPreset,
 }) => {
   const handlePlayPause = useCallback(() => {
     if (isPlaying) {
@@ -97,6 +107,53 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
       >
         <Icon name="Repeat" size={14} />
       </button>
+
+      {onToggleAutoKeyframe && (
+        <button
+          type="button"
+          className={`timeline-playback-btn ${autoKeyframe ? 'timeline-playback-btn--active' : ''}`}
+          onClick={onToggleAutoKeyframe}
+          aria-label={autoKeyframe ? 'Disable auto-keyframe' : 'Enable auto-keyframe'}
+          aria-pressed={autoKeyframe}
+        >
+          <Icon name="Diamond" size={14} />
+        </button>
+      )}
+
+      {onSavePreset && (
+        <button
+          type="button"
+          className="timeline-playback-btn"
+          onClick={onSavePreset}
+          aria-label="Save timeline as motion preset"
+        >
+          <Icon name="Save" size={14} />
+        </button>
+      )}
+
+      {onApplyPreset && presetOptions.length > 0 && (
+        <select
+          className="timeline-playback-speed"
+          defaultValue=""
+          onChange={(e) => {
+            const id = e.target.value;
+            if (id) {
+              onApplyPreset(id);
+              e.target.value = '';
+            }
+          }}
+          aria-label="Apply motion preset"
+        >
+          <option value="" disabled>
+            Apply preset
+          </option>
+          {presetOptions.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      )}
 
       <select
         className="timeline-playback-speed"

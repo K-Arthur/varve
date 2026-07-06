@@ -1,4 +1,5 @@
-import { type FC, useCallback, useRef } from 'react';
+import { ContextMenu, type MenuEntry } from '@strata/ui';
+import { type FC, useCallback, useRef, useState } from 'react';
 
 export interface TimelineRulerProps {
   duration: number;
@@ -6,6 +7,9 @@ export interface TimelineRulerProps {
   zoom: number;
   onSeek: (time: number) => void;
   markers?: Array<{ id: string; name: string; progress: number }>;
+  onAddMarker?: (timeMs: number) => void;
+  onRenameMarker?: (markerId: string) => void;
+  onDeleteMarker?: (markerId: string) => void;
 }
 
 function getTickInterval(zoom: number): number {
@@ -22,9 +26,14 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
   zoom,
   onSeek,
   markers = [],
+  onAddMarker,
+  onRenameMarker,
+  onDeleteMarker,
 }) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
+  const [ctxMarkerId, setCtxMarkerId] = useState<string | null>(null);
 
   const computeTimeFromEvent = useCallback(
     (clientX: number) => {
@@ -40,6 +49,7 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
       isDragging.current = true;
       const time = computeTimeFromEvent(e.clientX);
       onSeek(time);
@@ -62,6 +72,50 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
     [computeTimeFromEvent, onSeek],
   );
 
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!onAddMarker) return;
+      const time = computeTimeFromEvent(e.clientX);
+      onAddMarker(time);
+    },
+    [computeTimeFromEvent, onAddMarker],
+  );
+
+  const handleMarkerContextMenu = useCallback((e: React.MouseEvent, markerId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxPos({ x: e.clientX, y: e.clientY });
+    setCtxMarkerId(markerId);
+  }, []);
+
+  const closeContextMenu = useCallback(() => {
+    setCtxPos(null);
+    setCtxMarkerId(null);
+  }, []);
+
+  const ctxItems: MenuEntry[] = [];
+  if (onRenameMarker && ctxMarkerId) {
+    ctxItems.push({
+      id: 'rename',
+      label: 'Rename marker',
+      onAction: () => {
+        onRenameMarker(ctxMarkerId);
+        closeContextMenu();
+      },
+    });
+  }
+  if (onDeleteMarker && ctxMarkerId) {
+    ctxItems.push({
+      id: 'delete',
+      label: 'Delete marker',
+      onAction: () => {
+        onDeleteMarker(ctxMarkerId);
+        closeContextMenu();
+      },
+    });
+  }
+
   const interval = getTickInterval(zoom);
   const totalWidth = duration * zoom;
   const ticks: { x: number; label?: string }[] = [];
@@ -78,40 +132,52 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
   const playheadX = currentTime * zoom;
 
   return (
-    <div
-      ref={rulerRef}
-      className="timeline-ruler"
-      onMouseDown={handleMouseDown}
-      role="slider"
-      aria-label="Timeline ruler"
-      aria-valuemin={0}
-      aria-valuemax={duration}
-      aria-valuenow={currentTime}
-      tabIndex={0}
-      style={{ width: totalWidth }}
-    >
-      {ticks.map((tick, i) => (
-        <div
-          key={i}
-          className="timeline-ruler__tick"
-          style={{ left: tick.x, position: 'absolute', top: 0 }}
-        >
-          <div className="timeline-ruler__tick-mark" />
-          {tick.label && <span className="timeline-ruler__tick-label">{tick.label}</span>}
-        </div>
-      ))}
-      {markers.map((marker) => (
-        <div
-          key={marker.id}
-          className="timeline-ruler__marker"
-          style={{ left: marker.progress * duration * zoom, position: 'absolute', top: 0 }}
-          title={marker.name}
-        />
-      ))}
+    <>
       <div
-        className="timeline-ruler__playhead"
-        style={{ left: playheadX, position: 'absolute', top: 0, height: '100%' }}
+        ref={rulerRef}
+        className="timeline-ruler"
+        onMouseDown={handleMouseDown}
+        onDoubleClick={handleDoubleClick}
+        role="slider"
+        aria-label="Timeline ruler"
+        aria-valuemin={0}
+        aria-valuemax={duration}
+        aria-valuenow={currentTime}
+        tabIndex={0}
+        style={{ width: totalWidth }}
+      >
+        {ticks.map((tick, i) => (
+          <div
+            key={i}
+            className="timeline-ruler__tick"
+            style={{ left: tick.x, position: 'absolute', top: 0 }}
+          >
+            <div className="timeline-ruler__tick-mark" />
+            {tick.label && <span className="timeline-ruler__tick-label">{tick.label}</span>}
+          </div>
+        ))}
+        {markers.map((marker) => (
+          <button
+            key={marker.id}
+            type="button"
+            className="timeline-ruler__marker"
+            style={{ left: marker.progress * duration * zoom, position: 'absolute', top: 0 }}
+            title={marker.name}
+            aria-label={`Marker: ${marker.name}`}
+            onContextMenu={(e) => handleMarkerContextMenu(e, marker.id)}
+          />
+        ))}
+        <div
+          className="timeline-ruler__playhead"
+          style={{ left: playheadX, position: 'absolute', top: 0, height: '100%' }}
+        />
+      </div>
+      <ContextMenu
+        items={ctxItems}
+        position={ctxPos}
+        onClose={closeContextMenu}
+        label="Marker context menu"
       />
-    </div>
+    </>
   );
 };

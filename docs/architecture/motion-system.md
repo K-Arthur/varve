@@ -72,7 +72,9 @@ Inspector (prototype mode)
 | SM bridge | `packages/editor/src/motion/stateMachineBridge.ts` |
 | Export (CSS/Lottie) | `packages/codegen/src/animation-*.ts` |
 | Export (UI) | `packages/editor/src/components/Export/ExportDialog.tsx` |
-| Video export (stub) | `packages/engine/src/videoExport.ts` |
+| Video export (UI) | `packages/editor/src/components/Export/ExportDialog.tsx` |
+| Video export bridge | `packages/editor/src/motion/videoExportBridge.ts` |
+| Interactive export stub | `packages/codegen/src/animation-interactive.ts` |
 | Benchmark | `packages/engine/src/motion.bench.test.ts` |
 
 ## Rendering Integration
@@ -93,8 +95,10 @@ Sampler cache: `invalidateSamplerCache()` is called on timeline mutations; keyfr
 
 ## Export (Phase 4)
 
-- **ExportDialog** exposes per-timeline CSS keyframes and Lottie JSON download buttons when `document.timelines` is non-empty.
-- **videoExport.ts** defines `exportTimelineToVideo()` contract (WebCodecs + OffscreenCanvas stub; full muxer deferred).
+- **ExportDialog** exposes per-timeline CSS keyframes, Lottie JSON, SVG animate, and MP4/WebM video (WebCodecs + `mp4-muxer` / `webm-muxer`).
+- **videoExport.ts** — `exportTimelineToVideo()` with injected frame renderer; `videoExportBridge.ts` wires `sampleTimelineAt` → `buildIr` → `replayIr` on OffscreenCanvas.
+- **animation-interactive.ts** — stub export of `Document.interactions` to React/CSS scroll bindings.
+- Reduced-motion video export: single final frame when `prefers-reduced-motion` is active.
 
 ## Extension Points (Phase 5 — types only)
 
@@ -117,6 +121,13 @@ Reserved in `motion-types.ts`, not yet implemented:
 |---|---|
 | `Ctrl+Alt+T` | Toggle timeline panel |
 
+## Phase C — Timeline UX (complete)
+
+- Marker CRUD on ruler (double-click add, context menu rename/delete)
+- Motion preset save/apply from timeline panel
+- Auto-keyframe toggle (Diamond icon) inserts keyframes at playhead during playback
+- Spec panel motion summary with export hash
+
 ## Tests
 
 | Area | File |
@@ -129,5 +140,7 @@ Reserved in `motion-types.ts`, not yet implemented:
 | Motion presets | `packages/scene/src/motion-presets.test.ts` |
 | Sampler | `packages/editor/src/timeline/TimelineSampler.test.ts` |
 | Shell timeline | `packages/editor/src/Shell.motion.test.tsx` |
+| Auto-keyframe | `packages/editor/src/motion/autoKeyframe.test.ts` |
+| Timeline ruler | `packages/editor/src/timeline/TimelineRuler.test.tsx` |
 | E2E | `tests/e2e/motion/timeline-playback.spec.ts` |
 | Benchmark | `packages/engine/src/motion.bench.test.ts` |

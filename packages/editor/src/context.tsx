@@ -49,7 +49,10 @@ import {
   addInteraction as addInteractionDoc,
   addKeyframe,
   addNode,
+  addTimelineMarker as addTimelineMarkerDoc,
   addTrack,
+  applyMotionPreset as applyMotionPresetDoc,
+  createMotionPreset as createMotionPresetDoc,
   createTimeline as createTimelineDoc,
   createStateMachineRuntime,
   getCurrentStateTimelineId,
@@ -57,8 +60,10 @@ import {
   advanceSMTransition,
   type SMRuntime,
   removeTimeline as removeTimelineDoc,
+  removeTimelineMarker as removeTimelineMarkerDoc,
   removeInteraction as removeInteractionDoc,
   renameTimeline as renameTimelineDoc,
+  renameTimelineMarker as renameTimelineMarkerDoc,
   removeTrack as removeTrackDoc,
   setActiveTimeline as setActiveTimelineDoc,
   addVariableToDocument,
@@ -163,6 +168,7 @@ import {
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import { MotionFacade } from './motion/MotionFacade';
+import { applyAutoKeyframes } from './motion/autoKeyframe';
 import { createRuntimeFromDocument, interactionsMapFromDocument } from './motion/prototypeRuntime';
 import { getPrimaryStateMachineTimelineId } from './motion/stateMachineBridge';
 import { computeSmartAnimateTransition } from './motion/smartAnimateBridge';
@@ -583,6 +589,12 @@ export interface EditorContextValue {
   renameTimeline: (id: string, name: string) => void;
   removeTrack: (timelineId: string, trackId: string) => void;
   toggleTimelinePanel: () => void;
+  addTimelineMarker: (timelineId: string, name: string, progress: number) => void;
+  removeTimelineMarker: (timelineId: string, markerId: string) => void;
+  renameTimelineMarker: (timelineId: string, markerId: string, name: string) => void;
+  createMotionPresetFromTimeline: (timelineId: string, name: string) => string;
+  applyMotionPreset: (presetId: string, timelineId: string) => void;
+  toggleAutoKeyframe: () => void;
 
   // ── Guide management ────────────────────────────────────────────────────────
 
@@ -2105,8 +2117,9 @@ export function EditorProvider({
 
       // F6: batch-edit opacity on all selected nodes
       setSelectedOpacity: (value) => {
-        const sel = state.selection;
+        const sel = stateRef.current.selection;
         if (sel.length === 0) return;
+        const motion = stateRef.current.motion;
         updateDoc((doc) => {
           const nodes = { ...doc.nodes };
           for (const id of sel) {
@@ -2114,8 +2127,25 @@ export function EditorProvider({
             if (!node) continue;
             nodes[id] = { ...node, opacity: value };
           }
-          return { ...doc, nodes };
+          let d = { ...doc, nodes };
+          if (motion.autoKeyframe && motion.isPlaying && motion.activeTimelineId) {
+            d = applyAutoKeyframes(
+              d,
+              {
+                autoKeyframe: motion.autoKeyframe,
+                isPlaying: motion.isPlaying,
+                activeTimelineId: motion.activeTimelineId,
+                currentTime: motion.currentTime,
+                selection: sel,
+              },
+              'opacity',
+            );
+          }
+          return d;
         });
+        if (motion.autoKeyframe && motion.isPlaying) {
+          invalidateSamplerCache();
+        }
       },
 
       // F6: batch-edit blend mode
@@ -3962,6 +3992,49 @@ export function EditorProvider({
       removeTrack: (timelineId, trackId) => {
         updateDoc((doc) => removeTrackDoc(doc, timelineId, trackId));
         invalidateSamplerCache();
+      },
+
+      addTimelineMarker: (timelineId, name, progress) => {
+        const markerId = `mk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        updateDoc((doc) =>
+          addTimelineMarkerDoc(doc, timelineId, { id: markerId, name, progress }),
+        );
+        invalidateSamplerCache();
+      },
+
+      removeTimelineMarker: (timelineId, markerId) => {
+        updateDoc((doc) => removeTimelineMarkerDoc(doc, timelineId, markerId));
+        invalidateSamplerCache();
+      },
+
+      renameTimelineMarker: (timelineId, markerId, name) => {
+        updateDoc((doc) => renameTimelineMarkerDoc(doc, timelineId, markerId, name));
+        invalidateSamplerCache();
+      },
+
+      createMotionPresetFromTimeline: (timelineId, name) => {
+        let presetId = '';
+        updateDoc((doc) => {
+          const { doc: next, id } = createMotionPresetDoc(doc, timelineId, name);
+          presetId = id;
+          return next;
+        });
+        invalidateSamplerCache();
+        return presetId;
+      },
+
+      applyMotionPreset: (presetId, timelineId) => {
+        updateDoc((doc) => applyMotionPresetDoc(doc, presetId, timelineId));
+        invalidateSamplerCache();
+      },
+
+      toggleAutoKeyframe: () => {
+        patch({
+          motion: {
+            ...stateRef.current.motion,
+            autoKeyframe: !stateRef.current.motion.autoKeyframe,
+          },
+        });
       },
 
       toggleTimelinePanel: () => {

@@ -12,6 +12,8 @@ export interface TimelinePanelProps {
   isPlaying: boolean;
   playbackSpeed: number;
   loop: boolean;
+  autoKeyframe?: boolean;
+  motionPresets?: Record<string, { id: string; name: string }>;
   selectedTrackIds: string[];
   selectedKeyframeIndex: number | null;
   onPlay: () => void;
@@ -20,6 +22,12 @@ export interface TimelinePanelProps {
   onSeek: (time: number) => void;
   onSpeedChange: (speed: number) => void;
   onToggleLoop: () => void;
+  onToggleAutoKeyframe?: () => void;
+  onAddMarker?: (timeMs: number) => void;
+  onRenameMarker?: (markerId: string) => void;
+  onDeleteMarker?: (markerId: string) => void;
+  onSavePreset?: () => void;
+  onApplyPreset?: (presetId: string) => void;
   onSelectTimeline: (id: string | null) => void;
   onSelectTrack: (trackId: string) => void;
   onClickKeyframe: (trackId: string, progress: number) => void;
@@ -33,6 +41,8 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   isPlaying,
   playbackSpeed,
   loop,
+  autoKeyframe = false,
+  motionPresets = {},
   selectedTrackIds,
   selectedKeyframeIndex,
   onPlay,
@@ -41,6 +51,12 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   onSeek,
   onSpeedChange,
   onToggleLoop,
+  onToggleAutoKeyframe,
+  onAddMarker,
+  onRenameMarker,
+  onDeleteMarker,
+  onSavePreset,
+  onApplyPreset,
   onSelectTimeline,
   onSelectTrack,
   onClickKeyframe,
@@ -51,6 +67,11 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   const duration = activeTimeline?.duration ?? 0;
   const tracks = activeTimeline?.tracks ?? [];
   const zoom = 1;
+
+  const presetOptions = useMemo(
+    () => Object.values(motionPresets).map((p) => ({ id: p.id, name: p.name })),
+    [motionPresets],
+  );
 
   const handleTimelineSelect = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -98,6 +119,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             duration={duration}
             speed={playbackSpeed}
             loop={loop}
+            autoKeyframe={autoKeyframe}
             onPlay={onPlay}
             onPause={onPause}
             onStop={onStop}
@@ -106,6 +128,10 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             onSeek={onSeek}
             onSpeedChange={onSpeedChange}
             onToggleLoop={onToggleLoop}
+            onToggleAutoKeyframe={onToggleAutoKeyframe}
+            onSavePreset={onSavePreset}
+            presetOptions={presetOptions}
+            onApplyPreset={onApplyPreset}
           />
 
           <div className="timeline-panel__ruler-container">
@@ -115,6 +141,9 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
               zoom={zoom}
               onSeek={onSeek}
               markers={activeTimeline?.markers}
+              onAddMarker={onAddMarker}
+              onRenameMarker={onRenameMarker}
+              onDeleteMarker={onDeleteMarker}
             />
           </div>
 

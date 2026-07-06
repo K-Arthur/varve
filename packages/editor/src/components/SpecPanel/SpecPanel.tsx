@@ -15,6 +15,7 @@ import { type Annotation, AnnotationsDisplay } from './AnnotationsDisplay';
 import { AssetExportControls } from './AssetExportControls';
 import { CodeGenView } from './CodeGenView';
 import { MeasurementReadout } from './MeasurementReadout';
+import { MotionSpecSection } from './MotionSpecSection';
 import { SpecReadouts } from './SpecReadouts';
 import { UnitSelector, useSpecUnit } from './UnitSelector';
 import './SpecPanel.css';
@@ -77,6 +78,7 @@ export function SpecPanel({ nodes, doc, variableStore, engine, platform }: SpecP
       <UnitSelector value={unit} onChange={setUnit} />
 
       <MeasurementReadout node={node} doc={doc} unit={unit} baseFontSize={BASE_FONT_SIZE} />
+      <MotionSpecSection doc={doc} />
       <SpecReadouts {...readoutsProps} />
       <CodeGenView node={node} doc={doc} variableStore={variableStore} />
 

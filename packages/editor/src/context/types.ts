@@ -353,6 +353,12 @@ export interface EditorContextValue {
   renameTimeline: (id: string, name: string) => void;
   removeTrack: (timelineId: string, trackId: string) => void;
   toggleTimelinePanel: () => void;
+  addTimelineMarker: (timelineId: string, name: string, progress: number) => void;
+  removeTimelineMarker: (timelineId: string, markerId: string) => void;
+  renameTimelineMarker: (timelineId: string, markerId: string, name: string) => void;
+  createMotionPresetFromTimeline: (timelineId: string, name: string) => string;
+  applyMotionPreset: (presetId: string, timelineId: string) => void;
+  toggleAutoKeyframe: () => void;
 
   // Guides
   addGuide: (axis: 'horizontal' | 'vertical', position: number) => void;
