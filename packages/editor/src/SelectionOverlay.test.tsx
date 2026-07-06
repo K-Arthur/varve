@@ -7,7 +7,12 @@
 import type { Document, SceneNode, ShapeNode } from '@strata/scene';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { computeResize, SelectionOverlay, type SelectionOverlayProps } from './SelectionOverlay';
+import {
+  computeResize,
+  computeRotatedLocalBBox,
+  SelectionOverlay,
+  type SelectionOverlayProps,
+} from './SelectionOverlay';
 
 vi.mock('./context', () => ({
   useEditor: vi.fn(),
@@ -93,6 +98,47 @@ function renderOverlay(
   const { container } = render(<SelectionOverlay {...props} />);
   return container;
 }
+
+describe('computeRotatedLocalBBox', () => {
+  it('expands width when dragging right handle on 45-degree rotated rect', () => {
+    const lb = { x: 0, y: 0, w: 100, h: 80 };
+    const rot = Math.PI / 4;
+    const cos = Math.cos(rot);
+    const sin = Math.sin(rot);
+    const worldMat = [cos, sin, -sin, cos, 0, 0] as const;
+    const det = cos * cos - sin * -sin;
+    const invMat = [cos / det, -sin / det, sin / det, cos / det, 0, 0] as const;
+
+    const result = computeRotatedLocalBBox(
+      3,
+      lb,
+      worldMat as any,
+      invMat as any,
+      20,
+      0,
+      false,
+      false,
+    );
+    expect(result.w).toBeGreaterThan(100);
+  });
+
+  it('preserves aspect ratio with shift key', () => {
+    const lb = { x: 0, y: 0, w: 100, h: 50 };
+    const worldMat = [1, 0, 0, 1, 0, 0] as const;
+    const invMat = [1, 0, 0, 1, 0, 0] as const;
+    const result = computeRotatedLocalBBox(
+      4,
+      lb,
+      worldMat as any,
+      invMat as any,
+      50,
+      50,
+      true,
+      false,
+    );
+    expect(result.w / result.h).toBeCloseTo(2, 1);
+  });
+});
 
 describe('computeResize', () => {
   it('handle 0 (top-left) moves top-left corner', () => {

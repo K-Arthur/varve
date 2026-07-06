@@ -1,7 +1,7 @@
 import type { Document, NodeId } from '@strata/scene';
 import { getParent } from '@strata/scene';
 import type { Affine, Rect } from '@strata/shared';
-import { identity, multiplyAffine, transformRect } from '@strata/shared';
+import { identity, multiplyAffine, rotateDeg, transformRect } from '@strata/shared';
 import { nodeLocalBounds } from './world';
 
 export interface TransformCache {
@@ -25,13 +25,19 @@ function computeWorldTransform(doc: Document, id: NodeId): Affine {
   if (!node) return identity;
 
   const nodeTransform = node.transform as Affine;
-  const chain: Affine[] = [nodeTransform];
+  const rot = node.rotation ?? 0;
+  const combined = rot !== 0 ? multiplyAffine(nodeTransform, rotateDeg(rot)) : nodeTransform;
+  const chain: Affine[] = [combined];
 
   let parentId = getParent(doc, id);
   while (parentId) {
     const parent = doc.nodes[parentId];
     if (!parent) break;
-    chain.push(parent.transform as Affine);
+    const parentRot = parent.rotation ?? 0;
+    const parentTransform = parent.transform as Affine;
+    chain.push(
+      parentRot !== 0 ? multiplyAffine(parentTransform, rotateDeg(parentRot)) : parentTransform,
+    );
     parentId = getParent(doc, parentId);
   }
 

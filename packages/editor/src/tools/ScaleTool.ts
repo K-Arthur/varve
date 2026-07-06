@@ -9,7 +9,9 @@
  */
 
 import type { Affine } from '@strata/engine';
+import { getParent } from '@strata/scene';
 import { multiplyAffine } from '@strata/shared';
+import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -139,8 +141,36 @@ export class ScaleTool extends BaseTool {
         const nodeDy = init.centroidY - origin.y;
         const scaleAffine: Affine = [scaleX, 0, 0, scaleY, 0, 0];
         const composed = multiplyAffine(scaleAffine, node.transform as Affine);
-        const adjustX = nodeDx * (scaleX - 1);
-        const adjustY = nodeDy * (scaleY - 1);
+
+        // Map world-space centroid offset into the transform space the node lives in
+        // (parent local space when nested, world root otherwise).
+        const parentId = ctx.document ? getParent(ctx.document, init.id) : null;
+        const spaceMat = parentId
+          ? nodeWorldTransform(ctx.document, parentId)
+          : ctx.document
+            ? nodeWorldTransform(ctx.document, init.id)
+            : (() => {
+                const rot = node.rotation ?? 0;
+                if (rot === 0) return [1, 0, 0, 1, 0, 0] as Affine;
+                const rad = (rot * Math.PI) / 180;
+                return [
+                  Math.cos(rad),
+                  Math.sin(rad),
+                  -Math.sin(rad),
+                  Math.cos(rad),
+                  0,
+                  0,
+                ] as Affine;
+              })();
+        const det = spaceMat[0] * spaceMat[3] - spaceMat[1] * spaceMat[2];
+        let localDx = nodeDx;
+        let localDy = nodeDy;
+        if (Math.abs(det) > 1e-10) {
+          localDx = (spaceMat[3] * nodeDx - spaceMat[2] * nodeDy) / det;
+          localDy = (-spaceMat[1] * nodeDx + spaceMat[0] * nodeDy) / det;
+        }
+        const adjustX = localDx * (scaleX - 1);
+        const adjustY = localDy * (scaleY - 1);
         return {
           ...node,
           transform: [

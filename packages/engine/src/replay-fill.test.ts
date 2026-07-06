@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
 import type { ReplayGradient, ReplayTarget } from './replay';
@@ -134,7 +135,12 @@ function recorder(): RecorderProxy {
 }
 
 function mockImage(src: string, w: number, h: number): HTMLImageElement {
-  return { src, naturalWidth: w, naturalHeight: h, toString: () => src } as unknown as HTMLImageElement;
+  return {
+    src,
+    naturalWidth: w,
+    naturalHeight: h,
+    toString: () => src,
+  } as unknown as HTMLImageElement;
 }
 
 beforeEach(() => {
@@ -641,29 +647,89 @@ describe('effects rendering', () => {
     expect(restores.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('layerBlur sets CSS filter before fills', () => {
+  it('layerBlur uses single offscreen pass (filter + drawImage, no double fillRect)', () => {
     const rec = recorder();
+    let drawImageCount = 0;
+    (rec.target as { drawImage?: (...args: unknown[]) => void }).drawImage = (
+      ...args: unknown[]
+    ) => {
+      drawImageCount++;
+      rec.calls.push(`drawImage(${args.length})`);
+    };
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 128 },
+      fills: [
+        {
+          type: 'solid',
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 128 },
+          opacity: 0.5,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      effects: [{ type: 'layerBlur', radius: 4, visible: true }],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // Offscreen fill is not duplicated on main target — only one drawImage composite
+    expect(drawImageCount).toBe(1);
+    const filterCalls = rec.calls.filter((c) => c === 'set filter');
+    expect(filterCalls.length).toBeGreaterThanOrEqual(1);
+    // Main target should not receive a second fillRect from layerBlur
+    expect(rec.calls.filter((c) => c.startsWith('fillRect')).length).toBe(0);
+  });
+
+  it('innerShadow uses source-over (not destination-over)', () => {
+    const rec = recorder();
+    const compositeOps: string[] = [];
+    const target: ReplayTarget = {
+      ...rec.target,
+      drawImage: (...args: unknown[]) => {
+        rec.calls.push(`drawImage(${args.length})`);
+      },
+      get globalCompositeOperation() {
+        return (rec.props.globalCompositeOperation as string) ?? 'source-over';
+      },
+      set globalCompositeOperation(v: string) {
+        compositeOps.push(v);
+        rec.props.globalCompositeOperation = v;
+        rec.calls.push('set globalCompositeOperation');
+      },
+    };
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
       effects: [
         {
-          type: 'layerBlur',
-          radius: 4,
+          type: 'innerShadow',
+          x: 2,
+          y: 4,
+          blur: 8,
+          spread: 0,
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          opacity: 0.8,
+          blendMode: 'normal',
           visible: true,
         },
       ],
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
-    replayIr(rec.target, [item]);
-    const filterCalls = rec.calls.filter((c) => c === 'set filter');
-    // filter is set for blur, then reset to 'none' = 2 calls
-    expect(filterCalls.length).toBe(2);
-    expect(rec.props.filter).toBe('none');
+    replayIr(target, [item]);
+    expect(compositeOps).not.toContain('destination-over');
+    expect(compositeOps).toContain('source-over');
   });
 
-  it('innerShadow uses clip + blurred fill', () => {
+  it('innerShadow uses clip + silhouette compositing', () => {
     const rec = recorder();
+    let drawImageCalled = false;
+    const target: ReplayTarget = {
+      ...rec.target,
+      drawImage: (...args: unknown[]) => {
+        drawImageCalled = true;
+        rec.calls.push(`drawImage(${args.length})`);
+      },
+    };
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
       fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
@@ -682,12 +748,39 @@ describe('effects rendering', () => {
       ],
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
-    replayIr(rec.target, [item]);
-    // innerShadow: save → beginPath → rect/roundRect → closePath → clip → set filter → set fillStyle → fill → restore
-    expect(rec.calls.some((c) => c.startsWith('beginPath'))).toBe(true);
+    replayIr(target, [item]);
+    expect(drawImageCalled).toBe(true);
     expect(rec.calls.some((c) => c.startsWith('clip'))).toBe(true);
-    expect(rec.calls.some((c) => c.startsWith('set fillStyle'))).toBe(true);
-    expect(rec.calls.some((c) => c.startsWith('fill'))).toBe(true);
+  });
+
+  it('backgroundBlur captures before fill (fillRect after backdrop drawImage)', () => {
+    const callOrder: string[] = [];
+    const mockCanvas = { width: 200, height: 200 } as HTMLCanvasElement;
+
+    const target: ReplayTarget = {
+      ...recorder().target,
+      canvas: mockCanvas,
+      getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+      drawImage: (...args: unknown[]) => {
+        callOrder.push('drawImage');
+      },
+      fillRect: (...args: unknown[]) => {
+        callOrder.push('fillRect');
+      },
+    };
+
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 10, 10],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+      effects: [{ type: 'backgroundBlur', radius: 4, visible: true }],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(target, [item]);
+    const firstDrawImage = callOrder.indexOf('drawImage');
+    const firstFillRect = callOrder.indexOf('fillRect');
+    expect(firstDrawImage).toBeGreaterThanOrEqual(0);
+    expect(firstFillRect).toBeGreaterThanOrEqual(0);
+    expect(firstDrawImage).toBeLessThan(firstFillRect);
   });
 
   it('backgroundBlur gracefully handles unavailable OffscreenCanvas', () => {
@@ -763,6 +856,11 @@ describe('effects rendering', () => {
 
   it('multiple effects: dropShadow + layerBlur both render', () => {
     const rec = recorder();
+    (rec.target as { drawImage?: (...args: unknown[]) => void }).drawImage = (
+      ...args: unknown[]
+    ) => {
+      rec.calls.push(`drawImage(${args.length})`);
+    };
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
       fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
@@ -787,10 +885,10 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    // dropShadow draws a fillRect, layerBlur triggers filter set
-    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('fill'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('drawImage'))).toBe(true);
     const filterSets = rec.calls.filter((c) => c === 'set filter');
-    expect(filterSets.length).toBeGreaterThanOrEqual(2);
+    expect(filterSets.length).toBeGreaterThanOrEqual(1);
   });
 
   it('effect state reset after each item', () => {
@@ -913,13 +1011,14 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    // Each shadow creates its own save/restore pair + fillRect
+    // Each shadow creates its own save/restore pair
     const saves = rec.calls.filter((c) => c.startsWith('save'));
-    const fillRects = rec.calls.filter((c) => c.startsWith('fillRect'));
+    const fills = rec.calls.filter((c) => c === 'fill(0)');
     // 1 for the item + 2 for the shadows = 3 saves
     expect(saves.length).toBeGreaterThanOrEqual(3);
-    // Each shadow draws a fillRect, plus the main fill = 3 fillRects
-    expect(fillRects.length).toBeGreaterThanOrEqual(3);
+    // Effects pass now uses fill() (via traceOutline) instead of fillRect for shadows
+    // 2 fill() calls for shadows via outline trace
+    expect(fills.length).toBeGreaterThanOrEqual(2);
   });
 });
 

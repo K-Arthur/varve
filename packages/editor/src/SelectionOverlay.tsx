@@ -9,10 +9,12 @@
  *
  * Research basis: Figma/Penpot handle layout conventions; MDN SVG coordinate system.
  */
+
 import type { SceneNode } from '@strata/scene';
+import { applyAffine, tryInvertAffine } from '@strata/shared';
 import { Fragment, useCallback, useRef } from 'react';
 import { useEditor } from './context';
-import { nodeWorldBounds } from './scene/world';
+import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 
 const HANDLE_HALF = 4;
 const ROT_OFFSET = 20;
@@ -203,6 +205,153 @@ export function computeResize(
   return { x, y, w, h, flippedX, flippedY };
 }
 
+/** Apply resized local bounding box to a shape node (per-kind geometry update). */
+function applyShapeLocalBBox(
+  nodeId: string,
+  node: SceneNode,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  setNodePosition: (id: string, x: number, y: number) => void,
+  setNodeSize: (id: string, w: number, h: number) => void,
+  updateNode: (id: string, updater: (n: SceneNode) => SceneNode) => void,
+): void {
+  if (node.kind === 'shape') {
+    const s = node.shape;
+    if (
+      s.kind === 'rect' ||
+      s.kind === 'polygon' ||
+      s.kind === 'star' ||
+      s.kind === 'path' ||
+      s.kind === 'line' ||
+      s.kind === 'arrow'
+    ) {
+      setNodePosition(nodeId, bx, by);
+      setNodeSize(nodeId, bw, bh);
+    } else if (s.kind === 'ellipse') {
+      setNodePosition(nodeId, bx, by);
+      updateNode(nodeId, (n) => {
+        if (n.kind !== 'shape') return n;
+        const rx = bw / 2;
+        const ry = bh / 2;
+        return {
+          ...n,
+          shape: { ...n.shape, kind: 'ellipse', rx, ry, cx: rx, cy: ry } as typeof n.shape,
+        };
+      });
+    } else if (s.kind === 'circle') {
+      setNodePosition(nodeId, bx, by);
+      updateNode(nodeId, (n) => {
+        if (n.kind !== 'shape') return n;
+        const r = Math.max(bw, bh) / 2;
+        return {
+          ...n,
+          shape: { ...n.shape, kind: 'circle', r, cx: r, cy: r } as typeof n.shape,
+        };
+      });
+    }
+  } else if (node.kind === 'frame') {
+    setNodePosition(nodeId, bx, by);
+    setNodeSize(nodeId, bw, bh);
+  } else if (node.kind === 'text') {
+    setNodePosition(nodeId, bx, by);
+  }
+}
+
+/** Compute new local bbox after dragging a handle on a rotated/transformed node. */
+export function computeRotatedLocalBBox(
+  handleIndex: number,
+  lb: { x: number; y: number; w: number; h: number },
+  worldMat: import('@strata/shared').Affine,
+  invMat: import('@strata/shared').Affine,
+  dx: number,
+  dy: number,
+  shiftKey: boolean,
+  altKey: boolean,
+): { x: number; y: number; w: number; h: number } {
+  const { x: bx, y: by, w: bw, h: bh } = lb;
+  const localCorners: Record<number, [number, number]> = {
+    0: [bx, by],
+    1: [bx + bw / 2, by],
+    2: [bx + bw, by],
+    3: [bx + bw, by + bh / 2],
+    4: [bx + bw, by + bh],
+    5: [bx + bw / 2, by + bh],
+    6: [bx, by + bh],
+    7: [bx, by + bh / 2],
+  };
+  const localCorner = localCorners[handleIndex];
+  if (!localCorner) return lb;
+
+  const curWorld = applyAffine(worldMat, localCorner);
+  const newWorld: [number, number] = [curWorld[0] + dx, curWorld[1] + dy];
+  const newLocal = applyAffine(invMat, newWorld);
+
+  let newX = bx;
+  let newY = by;
+  let newW = bw;
+  let newH = bh;
+
+  switch (handleIndex) {
+    case 0:
+      newX = newLocal[0];
+      newY = newLocal[1];
+      newW = bw + bx - newX;
+      newH = bh + by - newY;
+      break;
+    case 1:
+      newY = newLocal[1];
+      newH = bh + by - newY;
+      break;
+    case 2:
+      newY = newLocal[1];
+      newW = newLocal[0] - bx;
+      newH = bh + by - newY;
+      break;
+    case 3:
+      newW = newLocal[0] - bx;
+      break;
+    case 4:
+      newW = newLocal[0] - bx;
+      newH = newLocal[1] - by;
+      break;
+    case 5:
+      newH = newLocal[1] - by;
+      break;
+    case 6:
+      newX = newLocal[0];
+      newW = bw + bx - newX;
+      newH = newLocal[1] - by;
+      break;
+    case 7:
+      newX = newLocal[0];
+      newW = bw + bx - newX;
+      break;
+  }
+
+  if (shiftKey && bh > 0) {
+    const aspect = bw / bh;
+    if (newW / newH > aspect) {
+      newW = newH * aspect;
+    } else {
+      newH = newW / aspect;
+    }
+  }
+
+  if (altKey) {
+    const cx = bx + bw / 2;
+    const cy = by + bh / 2;
+    newX = cx - newW / 2;
+    newY = cy - newH / 2;
+  }
+
+  newW = Math.max(MIN_SIZE, newW);
+  newH = Math.max(MIN_SIZE, newH);
+
+  return { x: newX, y: newY, w: newW, h: newH };
+}
+
 export interface SelectionOverlayProps {
   canvasRef?: React.RefObject<HTMLCanvasElement | null>;
 }
@@ -338,6 +487,44 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const shiftKey = e.shiftKey;
       const altKey = e.altKey;
 
+      const node = state.document.nodes[g.nodeId];
+      if (!node) return;
+
+      const worldMat = nodeWorldTransform(state.document, g.nodeId);
+      const invMat = tryInvertAffine(worldMat);
+      const hasRotation =
+        (node.rotation ?? 0) !== 0 || Math.abs(worldMat[1]) > 1e-6 || Math.abs(worldMat[2]) > 1e-6;
+
+      // Rotated/transformed path: inverse world transform for all shape kinds
+      if (hasRotation && node.kind === 'shape' && invMat) {
+        const lb = nodeLocalBounds(node);
+        if (lb) {
+          const resized = computeRotatedLocalBBox(
+            g.handleIndex,
+            lb,
+            worldMat,
+            invMat,
+            dx,
+            dy,
+            shiftKey,
+            altKey,
+          );
+          applyShapeLocalBBox(
+            g.nodeId,
+            node,
+            resized.x,
+            resized.y,
+            resized.w,
+            resized.h,
+            setNodePosition,
+            setNodeSize,
+            updateNode,
+          );
+          return;
+        }
+      }
+
+      // Non-rotated path: compute world-space AABB and apply directly
       const { x, y, w, h } = computeResize(
         g.handleIndex,
         g.initX,
@@ -350,50 +537,9 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         altKey,
       );
 
-      const node = state.document.nodes[g.nodeId];
-      if (!node) return;
-
       // Convert world bounds back to local shape params
-      if (node.kind === 'shape') {
-        const s = node.shape;
-        if (
-          s.kind === 'rect' ||
-          s.kind === 'polygon' ||
-          s.kind === 'star' ||
-          s.kind === 'path' ||
-          s.kind === 'line' ||
-          s.kind === 'arrow'
-        ) {
-          setNodePosition(g.nodeId, x, y);
-          setNodeSize(g.nodeId, w, h);
-        } else if (s.kind === 'ellipse') {
-          setNodePosition(g.nodeId, x, y);
-          updateNode(g.nodeId, (n) => {
-            if (n.kind !== 'shape') return n;
-            const rx = w / 2;
-            const ry = h / 2;
-            return {
-              ...n,
-              shape: { ...n.shape, kind: 'ellipse', rx, ry, cx: rx, cy: ry } as typeof n.shape,
-            };
-          });
-        } else if (s.kind === 'circle') {
-          setNodePosition(g.nodeId, x, y);
-          updateNode(g.nodeId, (n) => {
-            if (n.kind !== 'shape') return n;
-            const r = Math.max(w, h) / 2;
-            return {
-              ...n,
-              shape: { ...n.shape, kind: 'circle', r, cx: r, cy: r } as typeof n.shape,
-            };
-          });
-        }
-      } else if (node.kind === 'frame') {
-        setNodePosition(g.nodeId, x, y);
-        setNodeSize(g.nodeId, w, h);
-      } else if (node.kind === 'text') {
-        // Text: adjust transform (font size stays)
-        setNodePosition(g.nodeId, x, y);
+      if (node.kind === 'shape' || node.kind === 'frame' || node.kind === 'text') {
+        applyShapeLocalBBox(g.nodeId, node, x, y, w, h, setNodePosition, setNodeSize, updateNode);
       }
     },
     [
