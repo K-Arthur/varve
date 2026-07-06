@@ -15,6 +15,7 @@ import { EmptyState } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useState } from 'react';
 import { useEditor } from '../../context';
+import { docVariableStore } from '../../docVariableStore';
 import { IntelligencePanel } from '../../panels/IntelligencePanel';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
@@ -50,7 +51,7 @@ export function PropertiesPanel() {
         <SpecPanel
           nodes={selNodes}
           doc={state.document}
-          variableStore={state.variableStore as VariableStore}
+          variableStore={docVariableStore(state.document)}
         />
       </section>
     );
@@ -92,7 +93,7 @@ export function PropertiesPanel() {
               <CodeGenView
                 node={selNodes[0] as SceneNode}
                 doc={state.document}
-                variableStore={state.variableStore as VariableStore}
+                variableStore={docVariableStore(state.document)}
               />
             </>
           ) : (
@@ -106,7 +107,7 @@ export function PropertiesPanel() {
         <SpecPanel
           nodes={selNodes}
           doc={state.document}
-          variableStore={state.variableStore as VariableStore}
+          variableStore={docVariableStore(state.document)}
         />
       )}
       {tab === 'audit' && <IntelligencePanel />}

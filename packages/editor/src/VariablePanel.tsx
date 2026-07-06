@@ -10,13 +10,14 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
+import { docVariableStore } from './docVariableStore';
 
 const TYPE_OPTIONS = ['number', 'string', 'boolean', 'color'] as const;
 
 export function VariablePanel() {
   const { state, addVariable, updateVariable, deleteVariable, setVariableMode, resolveVariable } =
     useEditor();
-  const { variableStore } = state;
+  const variableStore = docVariableStore(state.document);
   const vars = Object.values(variableStore.variables);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<'number' | 'string' | 'boolean' | 'color'>('number');

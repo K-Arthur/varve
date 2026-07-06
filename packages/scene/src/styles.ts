@@ -109,7 +109,16 @@ export function deleteStyle(doc: Document, styleId: NodeId): Document {
   if (!doc.styles?.[styleId]) return doc;
   const styles = { ...doc.styles };
   delete styles[styleId];
-  return { ...doc, styles };
+
+  const nodes = { ...doc.nodes };
+  for (const [nodeId, node] of Object.entries(nodes)) {
+    if ('styleId' in node && node.styleId === styleId) {
+      const { styleId: _removed, ...rest } = node as unknown as Record<string, unknown>;
+      nodes[nodeId] = rest as SceneNode;
+    }
+  }
+
+  return { ...doc, styles, nodes };
 }
 
 /**
@@ -128,8 +137,28 @@ export function applyStyleToNode(doc: Document, nodeId: NodeId, styleId: NodeId)
 export function unlinkStyleFromNode(doc: Document, nodeId: NodeId): Document {
   const node = doc.nodes[nodeId];
   if (!node) return doc;
-  const { styleId: _removed, ...rest } = node as unknown as Record<string, unknown>;
-  return { ...doc, nodes: { ...doc.nodes, [nodeId]: rest as unknown as SceneNode } };
+  const styleId = (node as { styleId?: NodeId }).styleId;
+  if (!styleId) return doc;
+
+  const resolved = doc.styles
+    ? resolveNodeStyles(node, styleId, doc.styles)
+    : undefined;
+
+  const { styleId: _removed, styleOverrides: _overrides, ...rest } = node as unknown as Record<
+    string,
+    unknown
+  >;
+
+  const baked: Record<string, unknown> = resolved ? { ...rest, ...resolved } : { ...rest };
+  const styleDef = styleId && doc.styles ? doc.styles[styleId] : undefined;
+  if (styleDef?.type === 'color' && styleDef.fill?.type === 'solid' && styleDef.fill.color) {
+    baked.fill = styleDef.fill.color;
+  }
+
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, [nodeId]: baked as SceneNode },
+  };
 }
 
 /**

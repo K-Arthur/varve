@@ -17,6 +17,17 @@ export interface VariantBoxProps {
   nodeId: NodeId;
   document: Document;
   onSetVariant: (instanceId: NodeId, variantId: string) => void;
+  onCreateVariant: (
+    componentId: NodeId,
+    name: string,
+    propertyValues: Record<string, string | boolean | NodeId>,
+    instanceId: NodeId,
+  ) => void;
+  onSetPropertyOverride: (
+    instanceId: NodeId,
+    propName: string,
+    value: string | boolean | NodeId,
+  ) => void;
   screenBounds: { x: number; y: number; w: number; h: number };
   onClose: () => void;
 }
@@ -25,6 +36,8 @@ export function VariantBox({
   nodeId,
   document: doc,
   onSetVariant,
+  onCreateVariant,
+  onSetPropertyOverride,
   screenBounds,
   onClose,
 }: VariantBoxProps) {
@@ -61,11 +74,11 @@ export function VariantBox({
   }, [resolvedProps]);
 
   const confirmCreateVariant = useCallback(() => {
-    if (!newVariantName.trim()) return;
-    onSetVariant(nodeId, '');
+    if (!newVariantName.trim() || !componentId) return;
+    onCreateVariant(componentId, newVariantName.trim(), pendingProps, nodeId);
     setShowCreateForm(false);
     setNewVariantName('');
-  }, [newVariantName, nodeId, onSetVariant]);
+  }, [newVariantName, componentId, nodeId, pendingProps, onCreateVariant]);
 
   const cancelCreateVariant = useCallback(() => {
     setShowCreateForm(false);
@@ -76,9 +89,11 @@ export function VariantBox({
     (propName: string, value: string | boolean | NodeId) => {
       if (showCreateForm) {
         setPendingProps((prev) => ({ ...prev, [propName]: value }));
+      } else {
+        onSetPropertyOverride(nodeId, propName, value);
       }
     },
-    [showCreateForm],
+    [showCreateForm, nodeId, onSetPropertyOverride],
   );
 
   const PADDING = 8;

@@ -215,6 +215,26 @@ describe('Style System — Update & Delete', () => {
     });
   });
 
+  it('clears styleId from nodes when style is deleted', () => {
+    let doc = createDocument('test');
+    const fill: Fill = {
+      type: 'solid',
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    };
+    const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
+    doc = d1;
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    doc = addNode(doc, shape);
+    doc = applyStyleToNode(doc, 'n1', style.id);
+    expect(doc.nodes.n1?.styleId).toBe(style.id);
+
+    doc = deleteStyle(doc, style.id);
+    expect((doc.nodes.n1 as { styleId?: string }).styleId).toBeUndefined();
+  });
+
   it('deletes a style', () => {
     let doc = createDocument('test');
     const fill: Fill = {
@@ -263,6 +283,33 @@ describe('Style System — Apply & Unlink', () => {
 
     doc = applyStyleToNode(doc, 'n1', style.id);
     expect(doc.nodes.n1?.styleId).toBe(style.id);
+  });
+
+  it('bakes resolved style values when unlinking', () => {
+    let doc = createDocument('test');
+    const fill: Fill = {
+      type: 'solid',
+      color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    };
+    const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
+    doc = d1;
+    const shape = makeShapeNode('n1', {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 100,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+    });
+    doc = addNode(doc, shape);
+    doc = applyStyleToNode(doc, 'n1', style.id);
+
+    doc = unlinkStyleFromNode(doc, 'n1');
+    expect((doc.nodes.n1 as { styleId?: string }).styleId).toBeUndefined();
+    expect(doc.nodes.n1?.fill).toEqual(fill.color);
   });
 
   it('unlinks a style from a node', () => {

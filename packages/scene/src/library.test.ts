@@ -78,6 +78,23 @@ describe('Library System', () => {
     expect(pkg.formatVersion).toBe('1.0');
   });
 
+  it('installs bundled master nodes into consumer document', () => {
+    let doc = createDocument('test');
+    const master = makeFrameNode('m1', { name: 'Button', w: 120, h: 40 });
+    doc = addNode(doc, master);
+    const { component, doc: d1 } = createComponent(doc, 'Button', 'm1', []);
+    doc = d1;
+
+    const lib = createLibrary('UI Kit', 'Components', '1.0.0');
+    const { library } = publishComponentToLibrary(lib, component, doc);
+
+    const freshDoc = createDocument('consumer');
+    const result = installLibrary(freshDoc, library);
+    const installed = result.doc.components[component.id];
+    expect(installed).toBeDefined();
+    expect(result.doc.nodes[installed!.masterRootId]?.name).toBe('Button');
+  });
+
   it('installs a library into a document', () => {
     let doc = createDocument('test');
     const master = makeFrameNode('m1', { name: 'Button', w: 120, h: 40 });

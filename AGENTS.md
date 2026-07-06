@@ -503,7 +503,7 @@ Complete implementation of 7 major feature systems:
 | **4. Quick Actions Bar** | `ActionRegistry` singleton with `register/search/getByCategory/has/remove`, `registerAllShortcuts` + `registerEditorActions` for populating from SHORTCUT_DEFS + editor actions. `QuickActionsBar` component with fuzzy search, recent actions, keyboard navigation (arrows + Enter), position at cursor or bottom-center. Tests: 14 |
 | **5. Layout Guides System** | `Guide` type in scene model + `addGuide`/`removeGuide`/`moveGuide`/`toggleGuideLock`/`clearGuides` ops (12 tests). `Ruler` component with zoom-aware ticks, unit-aware labels, drag-from-ruler guide creation. `GuideOverlay` with persistent guide lines, drag repositioning, hover tooltips. Zoom-aware canvas grid (dynamic `background-size` from zoom). Wired `pixelGridEnabled` toggle to pixel grid overlay. Layout grid rendering for frames with `gridTemplateColumns`/`gridTemplateRows`. |
 | **6. Intelligent Layer Coloring** | Added `image`/`arrow`/`path` to NODE_ICONS in LayersRow. Added `image` theme tokens (`layer-accent-image`/`layer-wash-image`, magenta/purple range) across all 3 themes (93/93 WCAG-AA). Added `arrow: 'Arrow'` to auto-naming. Enabled thumbnails via `useThumbnail` in LayersRow. High-contrast mode: distinctive purple for image layers so type distinction is not lost. |
-| **7. Floating Variant Box** | `setVariantForInstance`/`createVariant`/`addComponentProperty`/`resolveVariantPropertiesForNode` wired in editor context. `VariantBox` component with variant property controls (boolean toggle, text input, instanceSwap label), create-variant inline form, appearance/disappearance logic. Variant name badge in LayersRow. Variant resolution in render pipeline. Tests: 10 |
+| **7. Floating Variant Box** | `setVariantForInstance`/`createVariant`/`setPropertyOverride`/`addComponentProperty`/`resolveVariantPropertiesForNode` wired in editor context. `VariantBox` creates variants via `createVariant` and edits overrides outside create-mode. Variant property execution via `variant-apply.ts` + `buildAllVariantCaches` in `CanvasArea` draw path. Variant name badge in LayersRow. Tests: 12+ |
 
 **Pre-existing fixes:** Resolved all typecheck errors in `packages/scene` (collections.test.ts, governance.ts/test.ts, styles.ts/test.ts, library.ts, variables.ts, variants.test.ts, expr.ts) — 30+ type errors fixed. Added `rotate` to canvas mock in vitest.setup.ts. Fixed emoji violations in PrototypePresenter.tsx (arrow chars → Lucide icons).
 
@@ -1109,7 +1109,7 @@ All phases implemented TDD-first with test counts verified at every gate.
 | **Group ops** | `createGroup` with path-based nesting (e.g., "Semantic/Text") |
 | **Expression operators** | `min()`, `max()`, `round()`, `ceil()`, `floor()` functions + unary minus in Pratt parser |
 | **Document persistence** | `variableStore?: VariableStore` added to Document interface |
-| **DTCG export** | `packages/ui/src/tokens/dtcg.ts` — W3C DTCG-compliant JSON export with CTI hierarchy, Figma Tokens Studio v2 format |
+| **DTCG export** | `packages/ui/src/tokens/dtcg.ts` — W3C DTCG-compliant JSON export for **static UI chrome tokens** only; document `VariableStore` export not yet implemented |
 | **Tests** | 36 expression tests + 9 collection tests + 13 DTCG tests |
 
 ### Phase 3 — Component Properties & Variant System
@@ -1480,7 +1480,7 @@ Complete 18-phase overhaul of the Layers Panel subsystem — architecture audit,
 | **1.1 Parent Index** | `parentIndexCache.ts` with `getParentFast`/`isDescendantFast` for O(1) lookups. Replaced 5 O(n) `getParent` calls in `context.tsx`. Optional `parentCache` param on `nodeWorldTransform`. | `parentIndexCache.ts`, `world.ts`, `context.tsx`, `LayersTree.tsx` | +12 |
 | **1.2 Spatial Index** | `spatialIndex.ts` — 64px grid-based spatial hash for O(1) average hit-test candidate filtering. Wired into `hitTestNode` in context.tsx (pre-filters via spatial index, precise check only on candidates). | `spatialIndex.ts`, `context.tsx` | +20 |
 | **1.3 Deep Clone** | `clone.ts` — `deepCloneSubtree()` with recursive subtree cloning + ID remapping. Fixed clipboard paste (was shallow clone, lost children). Remaps `slots`, `mask` references. | `clone.ts`, `clipboard.ts`, `context.tsx` | +13 |
-| **1.4 Variable Sync** | `mergeVariableStores()` — single source of truth (`Document.variableStore`). All variable mutations flow through `updateDoc`. Removed dual-store desync. | `variables.ts`, `document.ts`, `context.tsx` | +8 |
+| **1.4 Variable Sync** | `Document.variableStore` is the sole source of truth; all variable mutations flow through `updateDoc` (editor no longer mirrors a separate `state.variableStore`). `resolveBinding` wired into render via `applyBindingsToNode` in `CanvasArea`. | `variables.ts`, `bindings.ts`, `document.ts`, `context.tsx`, `CanvasArea.tsx` | +8 |
 | **1.5 Style Pipeline** | `resolveNodeStyles`/`resolveAllStyles` — style resolution wired into render pipeline. Palette icon indicator on style-linked layers. `applyStyleOverrides` in engine. | `styles.ts`, `engine.ts`, `CanvasArea.tsx`, `LayersRow.tsx` | +16 |
 | **1.6 Page Model Hygiene** | `createDocument(flat?)` — option for flat (page-less) documents. Fixed `activePageId` to point to `Page.id` (not `contentRoot` GroupNode). Editor creates flat by default. | `document.ts`, `version.ts`, `context.tsx`, `useFlatTree.ts` | +15 |
 | **1.7 Mask Validation** | `findNodesUsingMaskSource`/`clearMaskSource`/`validateMasks`/`isMaskSource`. `removeNode` clears mask references to removed nodes. | `masks.ts`, `document.ts` | +10 |
@@ -1497,10 +1497,10 @@ Complete 18-phase overhaul of the Layers Panel subsystem — architecture audit,
 
 | Task | What was built | Files | Tests |
 |---|---|---|---|
-| **3.13 Component Sync** | `component-sync.ts` — `pushMasterChanges`, `syncInstance`, `syncAllInstances`, `getInstanceStatus` (synced/overridden/broken). Naive override detection. Sync status badges in LayersRow. "Sync Component" context menu item. | `component-sync.ts`, `context.tsx`, `LayersRow.tsx`, `LayersTree.tsx` | +16 |
+| **3.13 Component Sync** | `component-sync.ts` — baseline-aware override detection (`syncBaseline` per instance), `pushMasterChanges`, `syncInstance`, `syncAllInstances`, `getInstanceStatus`. Master edits propagate to non-overridden instances. `component.ts` `propagateMaster` (full subtree re-clone) exists but editor uses `component-sync.ts` frame-prop sync. Sync badges in LayersRow. | `component-sync.ts`, `component.ts`, `context.tsx`, `LayersRow.tsx` | +16 |
 | **3.14 Grid Layout** | `computeGridLayout.ts` — full CSS Grid engine (px/fr/auto tracks, explicit placement via `gridPlacement`, auto-flow, gap, padding). Wired into `applyFrameLayout` when `mode === 'grid'`. Grid icon in LayersRow. | `computeGridLayout.ts`, `context.tsx` | +21 |
 | **3.15 Alpha Mask** | `renderAlphaMask` — offscreen canvas compositing via `destination-in`. Alpha mask branch in `replaySubtreeToCtx`. State isolation, zero-size guards, gradient support. | `replay.ts`, `CanvasArea.tsx` | +7 |
-| **3.16 Collaboration** | `PresenceIndicator` (avatar dots + overflow). `PresenceStore` (singleton with subscribe/notify). `lockedBy` field on `NodeBase`. Wired into LayersRow via LayersTree subscription. | `PresenceIndicator.tsx`, `presenceStore.ts`, `types.ts`, `LayersRow.tsx`, `LayersTree.tsx` | +12 |
+| **3.16 Collaboration** | `PresenceIndicator` (avatar dots + overflow) and `PresenceStore` (singleton) exist as UI scaffolding; **not mounted** in `Shell.tsx`/`LayersRow` as of 2026-07-06. `@strata/collab` returns stub users/cursors. Real multiplayer deferred in `docs/plans/phase2-plan.md`. `NodeBase` uses boolean `locked` (no `lockedBy` field). | `PresenceIndicator.tsx`, `presenceStore.ts`, `types.ts` | +12 |
 
 ### Phase 4 — Stress & Polish
 

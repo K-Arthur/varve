@@ -12,6 +12,7 @@
  */
 
 import { addChild, type Document, isContainer } from './document';
+import { captureSyncBaseline } from './component-sync';
 import type {
   ComponentDefinition,
   ComponentProperty,
@@ -155,18 +156,21 @@ export function instantiate(
     order: 'a0',
     visible: true,
     locked: false,
-    opacity: 1,
-    blendMode: 'normal',
-    rotation: 0,
-    transform: [1, 0, 0, 1, 0, 0],
-    fill: { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
-    w: 200,
-    h: 160,
+    opacity: masterRoot.opacity ?? 1,
+    blendMode: masterRoot.blendMode ?? 'normal',
+    rotation: masterRoot.rotation ?? 0,
+    transform: masterRoot.transform ?? [1, 0, 0, 1, 0, 0],
+    fill: masterRoot.fill,
+    fills: masterRoot.fills,
+    w: masterRoot.w,
+    h: masterRoot.h,
     children: newChildren,
     componentId: componentDef.id,
     slots: Object.keys(slots).length > 0 ? slots : undefined,
-    strokes: [],
-    effects: [],
+    strokes: masterRoot.strokes ?? [],
+    effects: masterRoot.effects ?? [],
+    clipContent: masterRoot.clipContent,
+    syncBaseline: captureSyncBaseline(masterRoot),
   };
 
   return {
@@ -415,6 +419,32 @@ export function setVariantForInstance(
     nodes: {
       ...doc.nodes,
       [instanceId]: { ...frame, variant: variantId } as FrameNode,
+    },
+  };
+}
+
+/**
+ * Set a per-instance component property override on a component instance frame.
+ */
+export function setPropertyOverride(
+  doc: Document,
+  instanceId: NodeId,
+  propName: string,
+  value: string | boolean | NodeId,
+): Document {
+  const node = doc.nodes[instanceId];
+  if (node?.kind !== 'frame') return doc;
+  const frame = node as FrameNode;
+  if (!frame.componentId) return doc;
+
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [instanceId]: {
+        ...frame,
+        propertyOverrides: { ...(frame.propertyOverrides ?? {}), [propName]: value },
+      } as FrameNode,
     },
   };
 }

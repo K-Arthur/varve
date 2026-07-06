@@ -76,7 +76,6 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
-  mergeVariableStores,
   migrateDocumentJson,
   moveGuide as moveGuideDoc,
   moveNode,
@@ -89,11 +88,12 @@ import {
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
   resolveNodeFills,
-  resolveVariantProperties,
+  resolveVariantPropertiesForNode as resolveVariantPropertiesForNodeDoc,
   type SafeAreaConfig,
   type SceneNode,
   type SlugConfig,
   serializeDocument,
+  setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
   swapInstance as swapInstanceDoc,
@@ -103,7 +103,6 @@ import {
   ungroupNode as ungroupNodeDoc,
   updateVariableInDocument,
   type Variable,
-  type VariableStore,
   type VariableValue,
   walkNodes,
 } from '@strata/scene';
@@ -128,7 +127,7 @@ import {
 } from 'react';
 import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
-import { readClipboardUnified, writeClipboard as writeToClipboard } from './clipboard';
+import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import { SelectionProvider, ViewportProvider } from './context/index';
 import type { CanvasMode, EditorState, SessionMeta, ToolId } from './context/types';
@@ -152,10 +151,7 @@ import {
 } from './scene/transformCache';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
-import {
-  createInitialMotionState,
-  type MotionTimelineEngine,
-} from './state/motion-state';
+import { createInitialMotionState, type MotionTimelineEngine } from './state/motion-state';
 import type { DraftShape } from './tools/types';
 
 // Re-export for backward compatibility
@@ -579,11 +575,18 @@ export interface EditorContextValue {
 
   /** Set the active variant on a component instance. */
   setVariantForInstance: (instanceId: NodeId, variantId: string) => void;
-  /** Create a new variant for a component. */
+  /** Create a new variant for a component; optionally activate on an instance. */
   createVariant: (
     componentId: NodeId,
     name: string,
     propertyValues: Record<string, string | boolean | NodeId>,
+    instanceId?: NodeId,
+  ) => void;
+  /** Set a per-instance component property override. */
+  setPropertyOverride: (
+    instanceId: NodeId,
+    propName: string,
+    value: string | boolean | NodeId,
   ) => void;
   /** Add a component property to a component definition. */
   addComponentProperty: (
@@ -627,7 +630,6 @@ interface SavedSession {
   redo: Document[];
   undoSel: NodeId[][];
   redoSel: NodeId[][];
-  variableStore: VariableStore;
 }
 
 // F4: human-readable type name per tool
@@ -913,7 +915,6 @@ export function EditorProvider({
       sessions: [{ id: INITIAL_SESSION_ID, name, dirty: false }],
       activeId: INITIAL_SESSION_ID,
       dirty: false,
-      variableStore: doc.variableStore ?? createVariableStore(),
       cursorPos: null,
       unitType: 'px',
       pixelGridEnabled: false,
@@ -1028,10 +1029,11 @@ export function EditorProvider({
     }
   }, [state.document, state.dirty]);
 
-  /** Cleanup auto-save on unmount. */
+  /** Cleanup auto-save and background-removal worker pool on unmount. */
   useEffect(() => {
     return () => {
       autoSaveRef.current?.stop();
+      void import('@strata/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
     };
   }, []);
 
@@ -1052,10 +1054,6 @@ export function EditorProvider({
       return {
         ...s,
         document: newDoc,
-        variableStore: mergeVariableStores(
-          s.variableStore,
-          newDoc.variableStore ?? createVariableStore(),
-        ),
         dirty: true,
         sessions: s.sessions.map((sess) =>
           sess.id === s.activeId ? { ...sess, dirty: true } : sess,
@@ -2352,7 +2350,6 @@ export function EditorProvider({
             redo: [...redoStackRef.current],
             undoSel: [...undoSelStackRef.current],
             redoSel: [...redoSelStackRef.current],
-            variableStore: state.variableStore,
           });
         }
         undoStackRef.current = [];
@@ -2424,7 +2421,6 @@ export function EditorProvider({
             selection: [],
             sessions,
             dirty: false,
-            variableStore: doc.variableStore ?? createVariableStore(),
           });
         } catch {
           // invalid JSON — ignore silently
@@ -2499,11 +2495,17 @@ export function EditorProvider({
         updateDoc((doc) => setVariantForInstanceDoc(doc, instanceId, variantId));
       },
 
-      createVariant: (componentId, name, propertyValues) => {
+      createVariant: (componentId, name, propertyValues, instanceId) => {
         updateDoc((doc) => {
-          const { doc: newDoc } = createVariantDoc(doc, componentId, name, propertyValues);
-          return newDoc;
+          const { doc: newDoc, variant } = createVariantDoc(doc, componentId, name, propertyValues);
+          return instanceId
+            ? setVariantForInstanceDoc(newDoc, instanceId, variant.id)
+            : newDoc;
         });
+      },
+
+      setPropertyOverride: (instanceId, propName, value) => {
+        updateDoc((doc) => setPropertyOverrideDoc(doc, instanceId, propName, value));
       },
 
       addComponentProperty: (componentId, prop) => {
@@ -2513,13 +2515,8 @@ export function EditorProvider({
         });
       },
 
-      resolveVariantPropertiesForNode: (nodeId) => {
-        const node = state.document.nodes[nodeId];
-        if (node?.kind !== 'frame') return {};
-        const frame = node;
-        if (!frame.componentId || !frame.variant) return {};
-        return resolveVariantProperties(state.document, frame.componentId, frame.variant);
-      },
+      resolveVariantPropertiesForNode: (nodeId) =>
+        resolveVariantPropertiesForNodeDoc(state.document, nodeId),
 
       setPageBleed: (pageId, bleed) => {
         updateDoc((doc) => {
@@ -2629,13 +2626,7 @@ export function EditorProvider({
         const targetColor = firstNode.layerColor;
         const matchingIds: NodeId[] = [];
         for (const n of Object.values(state.document.nodes)) {
-          if (
-            n &&
-            n.visible &&
-            !n.locked &&
-            n.id !== firstNode.id &&
-            n.layerColor === targetColor
-          ) {
+          if (n?.visible && !n.locked && n.id !== firstNode.id && n.layerColor === targetColor) {
             matchingIds.push(n.id);
           }
         }
@@ -2870,8 +2861,10 @@ export function EditorProvider({
       },
 
       paste: async () => {
-        // Single clipboard read — parse SVG/images OUTSIDE setState
-        const unified = await readClipboardUnified();
+        // Single clipboard read — uses DOM ClipboardEvent when available
+        // (cross-platform, no Wayland permission issues), falls back to
+        // navigator.clipboard.read() for menu-triggered pastes.
+        const unified = await readClipboardUnifiedWithFallback();
         const strataData = unified.strataData;
 
         const importResults: { nodeIds: NodeId[]; document: Document }[] = [];
@@ -3182,7 +3175,6 @@ export function EditorProvider({
             redo: [...redoStackRef.current],
             undoSel: [...undoSelStackRef.current],
             redoSel: [...redoSelStackRef.current],
-            variableStore: s.variableStore,
           });
           const syncedSessions = s.sessions.map((sess) =>
             sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
@@ -3200,7 +3192,6 @@ export function EditorProvider({
             zoom: 1,
             pan: { x: 0, y: 0 },
             dirty: false,
-            variableStore: newDoc.variableStore ?? createVariableStore(),
             sessions: [...syncedSessions, { id: newId, name: 'Untitled', dirty: false }],
             activeId: newId,
           };
@@ -3219,7 +3210,6 @@ export function EditorProvider({
             redo: [...redoStackRef.current],
             undoSel: [...undoSelStackRef.current],
             redoSel: [...redoSelStackRef.current],
-            variableStore: s.variableStore,
           });
           const syncedSessions = s.sessions.map((sess) =>
             sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
@@ -3239,7 +3229,6 @@ export function EditorProvider({
             zoom: saved?.viewport.zoom ?? 1,
             pan: saved?.viewport.pan ?? { x: 0, y: 0 },
             dirty: targetMeta?.dirty ?? false,
-            variableStore: restoredDoc.variableStore ?? createVariableStore(),
             sessions: syncedSessions,
             activeId: id,
           };
@@ -3280,7 +3269,6 @@ export function EditorProvider({
               redo: [...redoStackRef.current],
               undoSel: [...undoSelStackRef.current],
               redoSel: [...redoSelStackRef.current],
-              variableStore: s.variableStore,
             });
           };
           const syncedSessions = s.sessions.map((sess) =>
@@ -3302,7 +3290,6 @@ export function EditorProvider({
               zoom: saved?.viewport.zoom ?? 1,
               pan: saved?.viewport.pan ?? { x: 0, y: 0 },
               dirty: existing.dirty,
-              variableStore: savedDoc.variableStore ?? createVariableStore(),
               sessions: syncedSessions,
               activeId: existing.id,
             };
@@ -3331,7 +3318,6 @@ export function EditorProvider({
               zoom: 1,
               pan: { x: 0, y: 0 },
               dirty: false,
-              variableStore: doc.variableStore ?? createVariableStore(),
               sessions: s.sessions.map((sess) =>
                 sess.id === s.activeId ? { ...sess, name, filePath, fileId } : sess,
               ),
@@ -3348,7 +3334,6 @@ export function EditorProvider({
             zoom: 1,
             pan: { x: 0, y: 0 },
             dirty: false,
-            variableStore: doc.variableStore ?? createVariableStore(),
             sessions: [...syncedSessions, { id: newId, name, dirty: false, filePath, fileId }],
             activeId: newId,
           };
@@ -3430,14 +3415,20 @@ export function EditorProvider({
       },
 
       removeBackground: async (method) => {
+        const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
+          '@strata/scene'
+        );
         const imageNode = state.selection
-          .map((id) => state.document.nodes[id] as import('@strata/scene').ImageNode | undefined)
-          .find((n) => n?.kind === 'image') as import('@strata/scene').ImageNode | undefined;
+          .map((id) => state.document.nodes[id] as import('@strata/scene').ShapeNode | undefined)
+          .find((n) => n && isImageShape(n)) as import('@strata/scene').ShapeNode | undefined;
         if (!imageNode) {
           announcerRef.current?.announce('Select an image node first');
           return;
         }
         const processingNodeId = imageNode.id;
+        const src = imageShapeSrc(imageNode);
+        const w = imageShapeW(imageNode);
+        const h = imageShapeH(imageNode);
         announcerRef.current?.announce(`Removing background using ${method}...`);
         try {
           const { getImageCache } = await import('@strata/engine');
@@ -3445,9 +3436,11 @@ export function EditorProvider({
           const cache = getImageCache();
           let img: HTMLImageElement | ImageBitmap | null = null;
           try {
-            img = await cache.load(imageNode.src);
+            img = await cache.load(src);
           } catch {
-            announcerRef.current?.announce('Could not load image: the image source may be cross-origin or unavailable');
+            announcerRef.current?.announce(
+              'Could not load image: the image source may be cross-origin or unavailable',
+            );
             return;
           }
           if (!img) {
@@ -3455,18 +3448,20 @@ export function EditorProvider({
             return;
           }
           const canvas = document.createElement('canvas');
-          canvas.width = imageNode.w;
-          canvas.height = imageNode.h;
+          canvas.width = w;
+          canvas.height = h;
           const ctx = canvas.getContext('2d')!;
           try {
-            ctx.drawImage(img, 0, 0, imageNode.w, imageNode.h);
+            ctx.drawImage(img, 0, 0, w, h);
           } catch {
-            announcerRef.current?.announce('Could not render image: the image may be cross-origin (CORS blocked)');
+            announcerRef.current?.announce(
+              'Could not render image: the image may be cross-origin (CORS blocked)',
+            );
             return;
           }
           let imageData: ImageData;
           try {
-            imageData = ctx.getImageData(0, 0, imageNode.w, imageNode.h);
+            imageData = ctx.getImageData(0, 0, w, h);
           } catch {
             announcerRef.current?.announce(
               'Could not read image pixels: the image source may be cross-origin (CORS blocked)',
@@ -3480,10 +3475,17 @@ export function EditorProvider({
               decontaminate: true,
             }),
           );
+          if (method !== 'quick' && result.method === 'quick') {
+            announcerRef.current?.announce(
+              'AI model unavailable; used quick heuristic instead. Download the AI model in Settings → Offline Models.',
+            );
+          }
           const currentSelection = stateRef.current.selection;
           const stillSelected = currentSelection.includes(processingNodeId);
           if (!stillSelected) {
-            announcerRef.current?.announce('Background removal completed but the image is no longer selected');
+            announcerRef.current?.announce(
+              'Background removal completed but the image is no longer selected',
+            );
             return;
           }
           updateDoc((d) =>
@@ -3503,9 +3505,12 @@ export function EditorProvider({
       },
 
       batchRemoveBackground: async (method) => {
+        const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
+          '@strata/scene'
+        );
         const imageNodes = state.selection
           .map((id) => state.document.nodes[id])
-          .filter((n): n is import('@strata/scene').ImageNode => n?.kind === 'image');
+          .filter((n): n is import('@strata/scene').ShapeNode => !!n && isImageShape(n));
         if (imageNodes.length === 0) {
           announcerRef.current?.announce('Select one or more image nodes first');
           return { total: 0, succeeded: 0, failed: 0 };
@@ -3518,17 +3523,20 @@ export function EditorProvider({
             const { removeBackground, getImageCache } = await import('@strata/engine');
             const { setBackgroundRemoval } = await import('@strata/scene');
             const cache = getImageCache();
-            const img = await cache.load(node.src);
+            const src = imageShapeSrc(node);
+            const w = imageShapeW(node);
+            const h = imageShapeH(node);
+            const img = await cache.load(src);
             if (!img) {
               failed++;
               continue;
             }
             const canvas = document.createElement('canvas');
-            canvas.width = node.w;
-            canvas.height = node.h;
+            canvas.width = w;
+            canvas.height = h;
             const ctx = canvas.getContext('2d')!;
-            ctx.drawImage(img, 0, 0, node.w, node.h);
-            const imageData = ctx.getImageData(0, 0, node.w, node.h);
+            ctx.drawImage(img, 0, 0, w, h);
+            const imageData = ctx.getImageData(0, 0, w, h);
             const result = await removeBackground(imageData, {
               method,
               feather: 0.5,
@@ -3557,29 +3565,35 @@ export function EditorProvider({
       },
 
       removeBackgroundWithOptions: async (method, feather, decontaminate) => {
+        const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
+          '@strata/scene'
+        );
         const imageNode = state.selection
-          .map((id) => state.document.nodes[id] as import('@strata/scene').ImageNode | undefined)
-          .find((n) => n?.kind === 'image') as import('@strata/scene').ImageNode | undefined;
+          .map((id) => state.document.nodes[id] as import('@strata/scene').ShapeNode | undefined)
+          .find((n) => n && isImageShape(n)) as import('@strata/scene').ShapeNode | undefined;
         if (!imageNode) {
           announcerRef.current?.announce('Select an image node first');
           return;
         }
+        const src = imageShapeSrc(imageNode);
+        const w = imageShapeW(imageNode);
+        const h = imageShapeH(imageNode);
         announcerRef.current?.announce(`Removing background using ${method}...`);
         try {
           const { getImageCache } = await import('@strata/engine');
           const { setBackgroundRemoval } = await import('@strata/scene');
           const cache = getImageCache();
-          const img = await cache.load(imageNode.src);
+          const img = await cache.load(src);
           if (!img) {
             announcerRef.current?.announce('Could not load image');
             return;
           }
           const canvas = document.createElement('canvas');
-          canvas.width = imageNode.w;
-          canvas.height = imageNode.h;
+          canvas.width = w;
+          canvas.height = h;
           const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, imageNode.w, imageNode.h);
-          const imageData = ctx.getImageData(0, 0, imageNode.w, imageNode.h);
+          ctx.drawImage(img, 0, 0, w, h);
+          const imageData = ctx.getImageData(0, 0, w, h);
           const result = await import('@strata/engine').then((m) =>
             m.removeBackground(imageData, {
               method,
@@ -3587,6 +3601,11 @@ export function EditorProvider({
               decontaminate,
             }),
           );
+          if (method !== 'quick' && result.method === 'quick') {
+            announcerRef.current?.announce(
+              'AI model unavailable; used quick heuristic instead. Download the AI model in Settings → Offline Models.',
+            );
+          }
           updateDoc((d) =>
             setBackgroundRemoval(d, imageNode.id, {
               maskDataUrl: result.maskDataUrl,
@@ -3848,7 +3867,6 @@ export function EditorProvider({
             zoom: saved?.viewport.zoom ?? 1,
             pan: saved?.viewport.pan ?? { x: 0, y: 0 },
             dirty: next.dirty,
-            variableStore: nextDoc.variableStore ?? createVariableStore(),
             sessions: remaining,
             activeId: next.id,
           };

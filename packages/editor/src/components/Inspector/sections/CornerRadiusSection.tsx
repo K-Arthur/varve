@@ -12,6 +12,7 @@
 import type { SceneNode } from '@strata/scene';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { docVariableStore } from '../../../docVariableStore';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
@@ -97,7 +98,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
         )}
         {editor.bindingField === 'cornerRadius' && (
           <BindingMenu
-            variableStore={editor.state.variableStore as import('@strata/scene').VariableStore}
+            variableStore={docVariableStore(editor.state.document)}
             targetType="number"
             onBind={(variableId, expression) => {
               if (editor.bindingField) {

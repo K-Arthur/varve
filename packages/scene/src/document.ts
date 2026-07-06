@@ -30,7 +30,6 @@ import type {
   ContainerNode,
   FrameNode,
   GroupNode,
-  ImageNode,
   LayerColor,
   NodeId,
   Page,
@@ -40,8 +39,11 @@ import type {
   Style,
   TextNode,
 } from './types';
+import { stripBindingForVariable } from './bindings';
+import { captureSyncBaseline, detectOverrides } from './component-sync';
+import { deepCloneSubtree } from './clone';
 import type { Variable } from './variables';
-import { createVariableStore } from './variables';
+import { createVariableStore, deleteVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
 export interface Document {
@@ -411,6 +413,7 @@ export function makeFrameNode(
       | 'clipContent'
       | 'variant'
       | 'propertyOverrides'
+      | 'syncBaseline'
     >
   > & {
     index?: number;
@@ -438,16 +441,21 @@ export function makeFrameNode(
     clipContent: opts.clipContent,
     variant: opts.variant,
     propertyOverrides: opts.propertyOverrides,
+    syncBaseline: opts.syncBaseline,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
   };
 }
 
-export function makeImageNode(
+/**
+ * Canonical factory for creating a shape node with an image fill.
+ * Replaces the deprecated makeImageNode.
+ */
+export function makeImageShapeNode(
   id: NodeId,
   opts: Partial<
     Pick<
-      ImageNode,
+      ShapeNode,
       | 'name'
       | 'layerColor'
       | 'transform'
@@ -460,18 +468,25 @@ export function makeImageNode(
       | 'strokes'
       | 'effects'
       | 'order'
-      | 'src'
-      | 'w'
-      | 'h'
-      | 'imageFit'
+      | 'cornerRadius'
     >
   > & {
     index?: number;
+    /** Image source URL (data URL, file path, or asset id). */
+    src?: string;
+    /** Width of the image area in world-space px. */
+    w?: number;
+    /** Height of the image area in world-space px. */
+    h?: number;
+    /** How the image fills the bounds. */
+    imageFit?: import('./types').ImageFit;
   } = {},
-): ImageNode {
+): ShapeNode {
+  const w = opts.w ?? 100;
+  const h = opts.h ?? 100;
   return {
     id,
-    kind: 'image',
+    kind: 'shape',
     name: opts.name ?? 'Image',
     index: opts.index ?? 0,
     layerColor: opts.layerColor ?? null,
@@ -481,16 +496,26 @@ export function makeImageNode(
     opacity: opts.opacity ?? 1,
     blendMode: opts.blendMode ?? 'normal',
     rotation: opts.rotation ?? 0,
+    shape: { kind: 'rect', x: 0, y: 0, w, h } as Shape,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
-    src: opts.src ?? '',
-    w: opts.w ?? 100,
-    h: opts.h ?? 100,
-    imageFit: opts.imageFit ?? 'fill',
+    fills: [
+      {
+        type: 'image',
+        image: { src: opts.src ?? '', fit: opts.imageFit ?? 'fill', x: 0, y: 0, scale: 1 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ],
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
+    cornerRadius: opts.cornerRadius,
   };
 }
+
+/** @deprecated Use makeImageShapeNode. */
+export const makeImageNode = makeImageShapeNode;
 
 export function makePathNode(
   id: NodeId,
@@ -825,7 +850,9 @@ export function setBackgroundRemoval(
   state: import('./types').BackgroundRemovalState | undefined,
 ): Document {
   const node = doc.nodes[id];
-  if (!node || node.kind !== 'image') return doc;
+  if (!node) return doc;
+  // Supported on ShapeNode (shape with image fill) only
+  if (node.kind !== 'shape') return doc;
   return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, backgroundRemoval: state } } };
 }
 
@@ -1063,14 +1090,39 @@ export function swapInstance(doc: Document, id: NodeId, newComponentId: NodeId):
   const master = doc.nodes[newComponent.masterRootId];
   if (master?.kind !== 'frame') return doc;
   const masterFrame = master as FrameNode;
+
+  // Remove old instance children from document
+  let workingDoc = doc;
+  const oldChildIds = [...frame.children];
+  for (const childId of oldChildIds) {
+    workingDoc = removeNode(workingDoc, childId);
+  }
+
+  // Clone new master children into instance
+  const newChildren: NodeId[] = [];
+  const newNodes: Record<NodeId, SceneNode> = {};
+  const slots: Record<string, NodeId> = {};
+
+  for (const childId of masterFrame.children) {
+    const slotDef = newComponent.slots.find((s) => s.defaultContentId === childId);
+    const cloneResult = deepCloneSubtree(workingDoc, childId);
+    workingDoc = { ...workingDoc, nextId: cloneResult.nextId };
+    Object.assign(newNodes, cloneResult.nodes);
+    newChildren.push(cloneResult.rootId);
+    if (slotDef) {
+      slots[slotDef.id] = cloneResult.rootId;
+    }
+  }
+
   return {
-    ...doc,
+    ...workingDoc,
     nodes: {
-      ...doc.nodes,
+      ...workingDoc.nodes,
+      ...newNodes,
       [id]: {
         ...frame,
         componentId: newComponentId,
-        // Inherit appearance/layout from the new master, keep transform/position
+        children: newChildren,
         fill: masterFrame.fill,
         fills: masterFrame.fills,
         strokes: masterFrame.strokes,
@@ -1079,8 +1131,13 @@ export function swapInstance(doc: Document, id: NodeId, newComponentId: NodeId):
         blendMode: masterFrame.blendMode,
         rotation: masterFrame.rotation,
         layoutStyle: masterFrame.layoutStyle,
-        // Reset slots — caller re-fills via fillSlot
-        slots: {},
+        w: masterFrame.w,
+        h: masterFrame.h,
+        clipContent: masterFrame.clipContent,
+        slots: Object.keys(slots).length > 0 ? slots : undefined,
+        syncBaseline: captureSyncBaseline(masterFrame),
+        variant: undefined,
+        propertyOverrides: undefined,
       } as FrameNode,
     },
   };
@@ -1124,28 +1181,7 @@ export function resetInstanceOverrides(doc: Document, id: NodeId): Document {
  * Returns a list of property names that have been locally overridden.
  */
 export function instanceOverrides(doc: Document, id: NodeId): string[] {
-  const node = doc.nodes[id];
-  if (node?.kind !== 'frame') return [];
-  const frame = node as FrameNode;
-  if (!frame.componentId) return [];
-  const component = doc.components[frame.componentId];
-  if (!component) return [];
-  const master = doc.nodes[component.masterRootId];
-  if (master?.kind !== 'frame') return [];
-  const masterFrame = master as FrameNode;
-  const overrides: string[] = [];
-  // Compare fill by value (RGBA array) since each makeFrameNode creates a new array
-  if (JSON.stringify(frame.fill) !== JSON.stringify(masterFrame.fill)) overrides.push('fill');
-  if (frame.opacity !== masterFrame.opacity) overrides.push('opacity');
-  if (frame.blendMode !== masterFrame.blendMode) overrides.push('blendMode');
-  if (frame.rotation !== masterFrame.rotation) overrides.push('rotation');
-  if (JSON.stringify(frame.layoutStyle) !== JSON.stringify(masterFrame.layoutStyle))
-    overrides.push('layout');
-  if (JSON.stringify(frame.strokes) !== JSON.stringify(masterFrame.strokes))
-    overrides.push('strokes');
-  if (JSON.stringify(frame.effects) !== JSON.stringify(masterFrame.effects))
-    overrides.push('effects');
-  return overrides;
+  return detectOverrides(doc, id);
 }
 
 // ── Page operations ──────────────────────────────────────────────────────────
@@ -1398,7 +1434,7 @@ export function updateVariableInDocument(
   patch: Partial<Omit<Variable, 'id'>>,
 ): Document {
   const store = doc.variableStore;
-  if (!store || !store.variables[id]) return doc;
+  if (!store?.variables[id]) return doc;
   return {
     ...doc,
     variableStore: {
@@ -1417,10 +1453,20 @@ export function updateVariableInDocument(
  */
 export function deleteVariableFromDocument(doc: Document, id: string): Document {
   const store = doc.variableStore;
-  if (!store || !store.variables[id]) return doc;
-  const vars = { ...store.variables };
-  delete vars[id];
-  return { ...doc, variableStore: { ...store, variables: vars } };
+  if (!store?.variables[id]) return doc;
+
+  const cleanedStore = deleteVariable(store, id);
+
+  const nodes = { ...doc.nodes };
+  for (const [nodeId, node] of Object.entries(nodes)) {
+    if (!node.bindings) continue;
+    const nextBindings = stripBindingForVariable(node.bindings, id);
+    if (nextBindings !== node.bindings) {
+      nodes[nodeId] = { ...node, bindings: nextBindings } as SceneNode;
+    }
+  }
+
+  return { ...doc, variableStore: cleanedStore, nodes };
 }
 
 /**
