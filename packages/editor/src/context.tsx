@@ -210,6 +210,28 @@ import type { DraftShape } from './tools/types';
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
 
+function insertImportedSubtree(
+  targetDoc: Document,
+  sourceDoc: Document,
+  rootId: NodeId,
+  adjustRoot: (node: SceneNode) => SceneNode,
+): { doc: Document; rootId: NodeId } | null {
+  const cloned = deepCloneSubtree({ ...sourceDoc, nextId: targetDoc.nextId }, rootId);
+  const root = cloned.nodes[cloned.rootId];
+  if (!root || Object.keys(cloned.nodes).length === 0) return null;
+
+  const nodes = { ...cloned.nodes, [cloned.rootId]: adjustRoot(root) };
+  return {
+    rootId: cloned.rootId,
+    doc: {
+      ...targetDoc,
+      nextId: cloned.nextId,
+      rootChildren: [...targetDoc.rootChildren, cloned.rootId],
+      nodes: { ...targetDoc.nodes, ...nodes },
+    },
+  };
+}
+
 export interface EditorContextValue {
   state: EditorState;
   /** The platform facade (Tauri/web/memory) — undefined if none was provided. */
@@ -3150,13 +3172,10 @@ export function EditorProvider({
 
           for (const result of importResults) {
             for (const id of result.nodeIds) {
-              const node = result.document.nodes[id];
-              if (node) {
-                const { id: newId, doc: d2 } = nextNodeId(doc);
-                doc = d2;
-                doc = addNode(doc, { ...node, id: newId } as SceneNode);
-                newIds.push(newId);
-              }
+              const inserted = insertImportedSubtree(doc, result.document, id, (node) => node);
+              if (!inserted) continue;
+              doc = inserted.doc;
+              newIds.push(inserted.rootId);
             }
           }
 
@@ -3174,22 +3193,17 @@ export function EditorProvider({
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
-          let doc = s.document;
-          const { id, doc: d2 } = nextNodeId(doc);
-          doc = d2;
-          const imported = options?.position
-            ? ({
-                ...applyDropPosition({ ...node, id } as SceneNode, options.position),
-                id,
-              } as SceneNode)
-            : (() => {
+          const inserted = insertImportedSubtree(s.document, sourceDoc, node.id, (clonedRoot) => {
+            if (options?.position) {
+              return applyDropPosition(clonedRoot, options.position);
+            }
+            return (() => {
                 const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
                 const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
                 const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
                 const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
                 return {
-                  ...node,
-                  id,
+                  ...clonedRoot,
                   transform: [
                     node.transform[0],
                     node.transform[1],
@@ -3200,8 +3214,9 @@ export function EditorProvider({
                   ] as Affine,
                 } as SceneNode;
               })();
-          doc = addNode(doc, imported);
-          return { ...s, document: doc, selection: [id] };
+          });
+          if (!inserted) return s;
+          return { ...s, document: inserted.doc, selection: [inserted.rootId] };
         });
         announcerRef.current?.announce('Imported layer');
       },
@@ -3213,21 +3228,17 @@ export function EditorProvider({
           let doc = s.document;
           const newIds: NodeId[] = [];
           for (const { node, sourceDoc, position } of items) {
-            const { id, doc: d2 } = nextNodeId(doc);
-            doc = d2;
-            const imported = position
-              ? ({
-                  ...applyDropPosition({ ...node, id } as SceneNode, position),
-                  id,
-                } as SceneNode)
-              : (() => {
+            const inserted = insertImportedSubtree(doc, sourceDoc, node.id, (clonedRoot) => {
+              if (position) {
+                return applyDropPosition(clonedRoot, position);
+              }
+              return (() => {
                   const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
                   const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
                   const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
                   const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
                   return {
-                    ...node,
-                    id,
+                    ...clonedRoot,
                     transform: [
                       node.transform[0],
                       node.transform[1],
@@ -3238,8 +3249,10 @@ export function EditorProvider({
                     ] as Affine,
                   } as SceneNode;
                 })();
-            doc = addNode(doc, imported);
-            newIds.push(id);
+            });
+            if (!inserted) continue;
+            doc = inserted.doc;
+            newIds.push(inserted.rootId);
           }
           return { ...s, document: doc, selection: newIds };
         });
