@@ -5,6 +5,17 @@ export { bytesToDataUrl, dataUrlToBytes, detectImageMime, getImageDimensions } f
 export { createEpsParser } from './eps';
 export { getBitmapInfo, importImageAsFill } from './image';
 export { importFile, importImageFile, importSvgString } from './import';
+export type {
+  FidelityIssue,
+  ImportArtifact,
+  ImportFileInput,
+  ImportFileReport,
+  ImportReport,
+  ImportServiceOptions,
+  ImportSource,
+  UnsupportedFeature,
+} from './service';
+export { ImportService } from './service';
 export { createPdfParser } from './pdf';
 export { createPsdParser } from './psd';
 export {

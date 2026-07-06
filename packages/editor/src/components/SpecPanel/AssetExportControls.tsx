@@ -35,6 +35,19 @@ function isTauriPlatform(p?: Platform): boolean {
   return p?.kind === 'tauri';
 }
 
+async function blobToBytes(blob: Blob): Promise<Uint8Array> {
+  if (typeof blob.arrayBuffer === 'function') {
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+  if (typeof Response !== 'undefined') {
+    return new Uint8Array(await new Response(blob).arrayBuffer());
+  }
+  if (typeof blob.text === 'function') {
+    return new TextEncoder().encode(await blob.text());
+  }
+  throw new Error('Blob byte extraction is not supported in this environment');
+}
+
 export function AssetExportControls({
   node,
   doc,
@@ -63,7 +76,7 @@ export function AssetExportControls({
 
   const handleExport = useCallback(async () => {
     const eng = engine;
-    if (!eng) {
+    if (!eng && format !== 'svg') {
       setMessage('Engine not ready');
       return;
     }
@@ -79,20 +92,18 @@ export function AssetExportControls({
         const saved = await platform?.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
         setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
       } else if (format === 'svg') {
-        const blob = await exportNodeAsRaster(node, doc, eng, {
-          format: 'image/png',
-          scale: effectiveScale,
-        });
+        const svg = exportNodeToSvg(node, doc);
         if (isTauri && platform) {
-          const buf = await blob.arrayBuffer();
+          const bytes = new TextEncoder().encode(svg);
           await platform.saveBinaryFile(
             buildFilename(node.name, 'svg'),
-            new Uint8Array(buf),
+            bytes,
             'image/svg+xml',
             '.svg',
           );
           setMessage(`Exported ${node.name} as SVG`);
         } else {
+          const blob = new Blob([svg], { type: 'image/svg+xml' });
           downloadBlob(blob, buildFilename(node.name, 'svg'));
           setMessage(`Exported ${node.name} as SVG`);
         }
@@ -104,10 +115,10 @@ export function AssetExportControls({
         });
         const ext = format === 'image/png' ? 'png' : format === 'image/jpeg' ? 'jpg' : 'webp';
         if (isTauri && platform) {
-          const buf = await blob.arrayBuffer();
+          const bytes = await blobToBytes(blob);
           await platform.saveBinaryFile(
             buildFilename(node.name, ext),
-            new Uint8Array(buf),
+            bytes,
             blob.type,
             `.${ext}`,
           );
