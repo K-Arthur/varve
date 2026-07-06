@@ -262,8 +262,10 @@ function parseGridTemplate(template: string, totalSize: number): number[] {
 
 export function CanvasArea({
   canvasContainerRef,
+  onContextMenu,
 }: {
   canvasContainerRef?: React.RefObject<HTMLDivElement | null>;
+  onContextMenu?: (pos: { x: number; y: number }) => void;
 }) {
   const contentCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -1708,6 +1710,14 @@ export function CanvasArea({
     [setDroppableRef, canvasContainerRef],
   );
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      onContextMenu?.({ x: e.clientX, y: e.clientY });
+    },
+    [onContextMenu],
+  );
+
   return (
     <section
       ref={setCombinedRef}
@@ -1716,6 +1726,7 @@ export function CanvasArea({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onContextMenu={handleContextMenu}
     >
       {/* Zoom-aware dot grid layer */}
       <div

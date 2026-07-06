@@ -5,10 +5,8 @@
 import {
   addNode,
   createDocument,
-  makeFrameNode,
   makeImageNode,
   makeShapeNode,
-  makeTextNode,
   nextNodeId,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
@@ -57,11 +55,12 @@ function gradientShapeNode() {
         color: base.fill,
         opacity: 1,
         blendMode: 'normal' as const,
+        visible: true,
         gradient: {
           type: 'linear' as const,
           stops: [
-            { offset: 0, color: base.fill },
-            { offset: 1, color: base.fill },
+            { position: 0, color: base.fill },
+            { position: 1, color: base.fill },
           ],
           angle: 0,
         },
@@ -89,7 +88,7 @@ function polygonNode() {
   let d = doc();
   const { id, doc: d2 } = nextNodeId(d);
   d = d2;
-  const node = makeShapeNode(id, { kind: 'polygon', sides: 5, x: 0, y: 0, w: 100, h: 100 });
+  const node = makeShapeNode(id, { kind: 'polygon', cx: 50, cy: 50, radius: 50, sides: 5, rotation: 0 });
   d = addNode(d, node);
   return { node, doc: d };
 }
@@ -256,7 +255,7 @@ describe('analyseNode', () => {
     const { node, doc: d } = imageNode();
     const gaps = analyseNode(node, d, 'flutter');
     expect(gaps.length).toBeGreaterThan(0);
-    expect(gaps[0].nodeId).toBe(node.id);
+    expect(gaps[0]!.nodeId).toBe(node.id);
   });
 });
 

@@ -93,6 +93,16 @@ function ShellInner({
     setHelpOpen,
   } = useShortcuts(editor, onBackToHome, active);
 
+  const [quickActionsPosition, setQuickActionsPosition] = useState<{ x: number; y: number } | undefined>(undefined);
+
+  const handleCanvasContextMenu = useCallback(
+    (pos: { x: number; y: number }) => {
+      setQuickActionsPosition(pos);
+      setQuickActionsOpen(true);
+    },
+    [setQuickActionsOpen],
+  );
+
   // ── Lifecycle event handlers ─────────────────────────────────────────────
   const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
   const [showRecovery, setShowRecovery] = useState(false);
@@ -335,7 +345,7 @@ function ShellInner({
         />
         <FloatingToolbar />
         <TabStrip onBackToHome={onBackToHome} />
-        <CanvasArea canvasContainerRef={canvasContainerRef} />
+        <CanvasArea canvasContainerRef={canvasContainerRef} onContextMenu={handleCanvasContextMenu} />
         <TutorialBanner
           progress={tutorialProgress}
           onComplete={() => {
@@ -407,13 +417,15 @@ function ShellInner({
         <ShortcutPalette open={paletteOpen} onClose={closePalette} onSelect={handlePaletteSelect} />
         <QuickActionsBar
           open={quickActionsOpen}
-          onClose={() => setQuickActionsOpen(false)}
+          position={quickActionsPosition}
+          onClose={() => { setQuickActionsOpen(false); setQuickActionsPosition(undefined); }}
           onExecute={(id) => {
             if (id === 'open') {
               const input = fileRef.current;
               if (input) input.click();
             }
             setQuickActionsOpen(false);
+            setQuickActionsPosition(undefined);
           }}
         />
         <input
@@ -557,7 +569,11 @@ function ShellInner({
           onClose={() => setBatchBgRemoveOpen(false)}
           nodes={editor.state.selection
             .map((id) => editor.state.document.nodes[id])
-            .filter((n): n is import('@strata/scene').SceneNode => !!n && n.kind === 'image')}
+            .filter((n): n is import('@strata/scene').SceneNode =>
+              !!n &&
+              (n.kind === 'image' ||
+                (n.kind === 'shape' && !!n.fills?.some((f) => f.type === 'image' && !!f.image?.src)))
+            )}
           onNodeUpdate={(id, state) => {
             editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
           }}

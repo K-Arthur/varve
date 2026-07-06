@@ -6,24 +6,22 @@
  * WCAG 2.2 focus-visible (2.4.7) and status-not-by-colour (1.4.1).
  */
 
-/* ---------- Panel shell — Neo-Bento bento-lite ----------
- * Card-based section layout: each disclosure section renders as a discrete
- * rounded card with micro-border floating on the sunken panel rail,
- * separated by gaps rather than hairline dividers.
+/* ---------- Panel shell — flat Figma-style ----------
+ * Sections are full-width rows separated by 1px hairlines;
+ * no floating cards, no rounded containers.
  */
 .insp-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2);
+  gap: 0;
+  padding: 0;
 }
 .insp-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-2) var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-1);
   border-bottom: 1px solid var(--color-border-subtle);
-  margin-bottom: var(--space-1);
 }
 .insp-panel__header-title {
   font-size: var(--font-size-xs);
@@ -39,14 +37,12 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: var(--space-2);
 }
 
 /* Visually-hidden utility lives in components.css; import that instead. */
 .insp-panel__tabs {
   display: flex;
   border-bottom: 1px solid var(--color-border-subtle);
-  margin-bottom: var(--space-2);
   flex-shrink: 0;
 }
 .insp-panel__tab {
@@ -72,12 +68,13 @@
 .insp-panel__multi-count {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
+  padding: var(--space-1) var(--space-3);
 }
 
 /* ---------- Selection header (single node) ---------- */
 .insp-panel__node-header {
-  padding: var(--space-1) var(--space-1) 0;
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 .insp-panel__node-name {
   margin: 0;
@@ -93,7 +90,7 @@
 
 /* ---------- Empty selection canvas info ---------- */
 .insp-panel__canvas-info {
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
@@ -108,7 +105,7 @@
 
 /* ---------- Export empty state ---------- */
 .insp-panel__empty-hint {
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
@@ -138,7 +135,7 @@
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
@@ -150,6 +147,7 @@
 }
 .frame-presets__item:hover {
   border-color: var(--color-border-focus);
+  background: var(--color-surface-hover);
 }
 .frame-presets__item:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -185,39 +183,18 @@
   font-feature-settings: "tnum";
 }
 
-/* ---------- Disclosure section (APG) — Neo-Bento raised card ----------
- * Each section is a discrete floating card on the sunken panel rail.
- * Active (expanded) sections get a teal left accent bar — the same
- * visual language as the page nav active chip and layer selection bar.
+/* ---------- Disclosure section (APG) — flat Figma-style ----------
+ * Sections are full-width rows with a hairline bottom border.
+ * No floating cards, no rounded containers, no accent bar.
+ * This matches the reference design (Figma properties panel aesthetic).
  */
 .insp-disclosure {
   position: relative;
-  overflow: visible;
-  margin-bottom: var(--space-1);
-  background: var(--elevation-surface-default);
-  border: var(--border-micro);
-  border-radius: var(--radius-lg);
-  padding: var(--space-2) var(--space-3);
-  transition: box-shadow var(--duration-quick) var(--ease-standard);
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: 0 var(--space-3);
 }
-.insp-disclosure:has(.insp-disclosure__trigger[aria-expanded="true"]) {
-  box-shadow: var(--elevation-shadow-raised);
-}
-
-/* Teal accent bar — visible only when section is open, shifts to accent-primary */
-.insp-disclosure::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  border-radius: 0 1px 1px 0;
-  background: transparent;
-  transition: background var(--duration-quick) var(--ease-standard);
-}
-.insp-disclosure:has(.insp-disclosure__trigger[aria-expanded="true"])::before {
-  background: var(--color-accent-primary);
+.insp-disclosure:last-child {
+  border-bottom: none;
 }
 
 .insp-disclosure__trigger {
@@ -225,7 +202,7 @@
   align-items: center;
   gap: var(--space-1);
   width: 100%;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
   background: none;
   border: none;
   color: var(--color-text-primary);
@@ -237,18 +214,16 @@
 }
 .insp-disclosure__trigger:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
+  outline-offset: -2px;
   border-radius: var(--radius-sm);
 }
 .insp-disclosure__chevron {
   transition: transform var(--duration-quick) var(--ease-standard);
   color: var(--color-text-muted);
+  margin-left: auto;
 }
 .insp-disclosure__trigger[aria-expanded="true"] .insp-disclosure__chevron {
   transform: rotate(90deg);
-}
-.insp-disclosure__trigger[aria-expanded="true"] {
-  color: var(--color-text-primary);
 }
 .insp-disclosure__content {
   display: flex;
@@ -258,15 +233,20 @@
   border: none;
   margin: 0;
   min-inline-size: 0;
-  padding: var(--space-2) 0 0;
+  padding: 0 0 var(--space-2);
 }
 
-/* High-contrast: surfaces don't differentiate, so cards need real borders. */
+/* High-contrast: make the hairline borders more visible. */
 [data-theme="high-contrast"] .insp-disclosure {
-  border: 1px solid var(--color-border-subtle);
+  border-bottom: 2px solid var(--color-border-subtle);
 }
-[data-theme="high-contrast"] .insp-disclosure::before {
-  display: none;
+[data-theme="high-contrast"] .insp-disclosure:last-child {
+  border-bottom: none;
+}
+@media (forced-colors: active) {
+  .insp-disclosure {
+    border-bottom-color: ButtonBorder;
+  }
 }
 
 /* ---------- Field row ---------- */
@@ -558,15 +538,14 @@
 .insp-align-bar {
   display: flex;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  justify-content: center;
-  background: var(--color-surface-raised);
-  border: var(--border-micro);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-2);
+  padding: var(--space-1) 0;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 [data-theme="high-contrast"] .insp-align-bar {
-  border: 1px solid var(--color-border-subtle);
+  outline: 1px solid var(--color-border-subtle);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .insp-separator {
