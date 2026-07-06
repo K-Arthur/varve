@@ -50,7 +50,7 @@ describe('textToOutlines', () => {
       fontSize: 16,
       fontFamily: 'Noto Sans CJK',
     });
-    expect(cjk.glyphs[0]?.advance).toBeGreaterThan(latin.glyphs[0]?.advance);
+    expect(cjk.glyphs[0]!.advance).toBeGreaterThan(latin.glyphs[0]!.advance);
   });
 
   it('handles newline characters', () => {

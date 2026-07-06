@@ -61,6 +61,26 @@ export class RefineMaskTool extends BaseTool {
       ctx.setTool('select');
       return true;
     }
+    if (e.key === '[' && !e.shiftKey) {
+      this.setOptions({ brushSize: Math.max(4, this.options.brushSize - 4) });
+      ctx.announce(`Brush size ${this.options.brushSize}`);
+      return true;
+    }
+    if (e.key === ']' && !e.shiftKey) {
+      this.setOptions({ brushSize: Math.min(200, this.options.brushSize + 4) });
+      ctx.announce(`Brush size ${this.options.brushSize}`);
+      return true;
+    }
+    if (e.key === '[' && e.shiftKey) {
+      this.setOptions({ hardness: Math.max(0, this.options.hardness - 0.1) });
+      ctx.announce(`Hardness ${Math.round(this.options.hardness * 100)}%`);
+      return true;
+    }
+    if (e.key === ']' && e.shiftKey) {
+      this.setOptions({ hardness: Math.min(1, this.options.hardness + 0.1) });
+      ctx.announce(`Hardness ${Math.round(this.options.hardness * 100)}%`);
+      return true;
+    }
     return false;
   }
 

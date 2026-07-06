@@ -2,6 +2,18 @@
 
 **Base commit:** Current HEAD | **Branch:** master
 
+## Phases A–D completion (Session 39, 2026-07-06)
+
+| Phase | Status | Notes |
+|---|---|---|
+| **A** Release hygiene | **Done** | Engine typecheck, clippy, BiRefNet URLs, bundle verify UI |
+| **B** Download resilience | **Done** | Range resume, partial store, quota UX |
+| **C** RefineMask polish | **Done** | CSS, keyboard shortcuts, commit-on-drag tests |
+| **D** Inference perf | **Done** | `previewMaxDimension` default 2048; WebGPU deferred |
+| **E** Advanced features | **Not started** | See **`docs/plans/bg-removal-phase-e-prompt.md`** — agent prompt with stub inventory |
+
+Focused suite: **145/145** pass. See `docs/audits/background-removal-audit.md` Session 39 verification table.
+
 ---
 
 ## Pre-Flight Checklist

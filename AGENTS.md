@@ -1546,4 +1546,18 @@ Closed all P0-P3 gaps in the AI background-removal pipeline (audit + ADR-0005 + 
 | **6-7** | Worker pool cancel + telemetry (`executionProvider`, `processingTimeMs`) | `workerPool.ts`, `context.tsx` | `workerPool.test.ts`, `directAi.telemetry.test.ts` |
 | **8-9** | Native Rust deferral; RefineMask bugs; a11y method label | `strata-bgremove/Cargo.toml`, `CanvasAccessibilityTree.tsx` | `RefineMaskTool.test.ts` |
 
-**Verification:** Focused bg-removal suite **113/113** pass.
+**Verification:** Focused bg-removal suite **113/113** pass (Session 38 baseline).
+
+## Session 39 — Background Removal Deferred Work (Phases A–D, 2026-07-06)
+
+Closed Phases A–D from the deferred-work plan. Phase E (native Rust AI, hair matting, multi-subject picker, trimap editor) remains deferred pending ADR amendment.
+
+| Phase | What |
+|---|---|
+| **P0** | RefineMaskTool `onDragCancel` test fix; ExportDialog `globalThis.document` shadowing fix; CurveEditor `role="graphics-document"` |
+| **A** | `@strata/engine` typecheck cleanup (~35 sites); `strata-bridge` clippy box fix; BiRefNet rembg mirror URLs (214MB/928MB); `verifyBundledModel` on Settings first open |
+| **B** | HTTP Range resume + partial IndexedDB store; `ModelStorageQuotaError` actionable UX |
+| **C** | RefineMask commit-on-drag-end tests; `[`/`]` brush shortcuts; all `.bg-removal__*` + export bg-method CSS |
+| **D** | `DEFAULT_PREVIEW_MAX_DIMENSION=2048` wired end-to-end; inspector downscale hint; WebGPU EP blocked on WebKitGTK (ADR-0005 note) |
+
+**Verification:** Focused bg-removal suite **145/145** pass; `@strata/engine` typecheck clean; `cargo clippy` + `cargo test --workspace` (166/166) clean. Full `pnpm test`: **3731/3743** pass (11 failures in uncommitted motion WIP). Phase E prompt: `docs/plans/bg-removal-phase-e-prompt.md`.

@@ -4,7 +4,7 @@
  */
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { replayIr } from '../replay';
+import { replayIr, type ReplayTarget } from '../replay';
 import type { RenderItem } from '../types';
 
 function simpleCanvas(w = 64, h = 64): HTMLCanvasElement {
@@ -23,7 +23,7 @@ function canvasToHash(canvas: HTMLCanvasElement): string {
 function replayToCanvas(items: RenderItem[], w = 64, h = 64): HTMLCanvasElement {
   const canvas = simpleCanvas(w, h);
   const ctx = canvas.getContext('2d')!;
-  replayIr(ctx, items);
+  replayIr(ctx as unknown as ReplayTarget, items);
   return canvas;
 }
 
@@ -102,12 +102,12 @@ describe('golden replay hashes', () => {
     ];
     const rectCanvas = simpleCanvas();
     const rectCtx = rectCanvas.getContext('2d')!;
-    replayIr(rectCtx, rect);
+    replayIr(rectCtx as unknown as ReplayTarget, rect);
     expect(vi.mocked(rectCtx.fillRect).mock.calls.length).toBeGreaterThan(0);
 
     const circleCanvas = simpleCanvas();
     const circleCtx = circleCanvas.getContext('2d')!;
-    replayIr(circleCtx, circle);
+    replayIr(circleCtx as unknown as ReplayTarget, circle);
     expect(vi.mocked(circleCtx.arc).mock.calls.length).toBeGreaterThan(0);
   });
 });
