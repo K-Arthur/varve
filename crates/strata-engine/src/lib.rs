@@ -167,7 +167,7 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
             strokes: n.strokes.clone(),
             effects: n.effects.clone(),
             fills: n.fills.clone(),
-            filters: None,
+            filters: n.filters.clone(),
         })
         .collect()
 }
@@ -327,6 +327,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         }
     }
 
@@ -379,6 +380,7 @@ mod tests {
                 effects: Vec::new(),
                 fills: None,
                 corner_radius: None,
+                filters: None,
             },
             SceneNode {
                 id: strata_core::NodeId(2),
@@ -396,6 +398,7 @@ mod tests {
                 effects: Vec::new(),
                 fills: None,
                 corner_radius: None,
+                filters: None,
             },
             SceneNode {
                 id: strata_core::NodeId(3),
@@ -413,6 +416,7 @@ mod tests {
                 effects: Vec::new(),
                 fills: None,
                 corner_radius: None,
+                filters: None,
             },
             SceneNode {
                 id: strata_core::NodeId(4),
@@ -430,6 +434,7 @@ mod tests {
                 effects: Vec::new(),
                 fills: None,
                 corner_radius: None,
+                filters: None,
             },
         ];
 
@@ -503,6 +508,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         };
         let ir = build_render_ir(&[node]);
         assert!(matches!(ir[0].primitive, Primitive::Circle { r: 8.0, .. }));

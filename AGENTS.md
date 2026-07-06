@@ -102,6 +102,21 @@ git log --oneline -3
 ## Architecture decisions
 - **ADR-0001** — native engine renders by **IR-replay** (not pixel-push). Validated empirically on Wayland: 86 fps vs 8.5 fps. Rust computes scene, emits compact IR (~42 KB/frame for 600 shapes); webview replays to canvas2D/WebGPU.
 - **ADR-0002** — teal accent (#39d0c6), 12-step neutral+teal ramps, Light/Dark/High-Contrast themes.
+- **ADR-0003** — `@strata/compositor` backend router: Canvas2D default, WebGPU opt-in with fallback. Linux Tauri (WebKitGTK) stays Canvas2D until WebGPU ships.
+- **ADR-0004** — `strata-bridge` + `strata-wasm` for shared IPC/WASM IR; `createEngine('wasm')` loads `/wasm/strata_wasm_bg.wasm`.
+- **ADR-0005** — Offline-first ONNX: bundled `/models/` manifest, remote download explicit only.
+
+## WebGPU + WASM program (2026-07-06)
+
+| Area | Location |
+|---|---|
+| Baseline bench + goldens | `packages/engine/src/bench/`, `packages/engine/src/__goldens__/` |
+| IPC parity | `crates/strata-bridge/`, Tauri `convert_engine_nodes` |
+| Compositor | `packages/compositor/` — Canvas2D + WebGPU scaffold |
+| Render worker | `packages/editor/src/render/` — OffscreenCanvas + docVersion stale guard |
+| WASM build | `just wasm-build` → `apps/desktop/public/wasm/` |
+| Offline models | `apps/desktop/public/models/manifest.json` |
+| Architecture docs | `docs/architecture/render-pipeline.md`, `docs/architecture/wasm-backends.md`, `docs/perf/ledger.md` |
 
 ## Quality gates (Cascade Review, §7) — every task must pass
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations

@@ -206,6 +206,9 @@ pub struct SceneNode {
     /// Corner radius for rect shapes (uniform or per-corner).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub corner_radius: Option<serde_json::Value>,
+    /// Phase 5: nondestructive adjustment filter stack. Pass-through for the webview renderer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Vec<serde_json::Value>>,
 }
 
 fn default_opacity() -> f64 {
@@ -303,6 +306,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         }
     }
 
@@ -348,6 +352,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         };
         assert_eq!(hit_test(&[node], Point::new(9.0, 9.0)), Some(0));
     }

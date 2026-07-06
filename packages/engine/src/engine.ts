@@ -42,15 +42,6 @@ function shapeToPrimitive(
   measureTextFn?: MeasureTextFn,
   nodeMap?: Map<string, SceneNode>,
 ): RenderItem['primitive'] {
-  if (node.kind === 'image') {
-    return {
-      kind: 'image',
-      w: node.w ?? 100,
-      h: node.h ?? 100,
-      src: node.src ?? '',
-      alphaMask: node.alphaMask,
-    };
-  }
   if (node.kind === 'text') {
     const fontSize = node.fontSize ?? 14;
     const text = node.text ?? '';
@@ -239,6 +230,10 @@ function stubEngine(): Engine {
             })
             .filter((f): f is FillIR => f !== null);
         }
+        // Phase 5: pass through filters from scene node to render item
+        if (n.filters && n.filters.length > 0) {
+          item.filters = n.filters;
+        }
         return item;
       });
     },
@@ -285,7 +280,13 @@ export async function createEngine(preferred: Backend | 'auto' = 'auto'): Promis
     return nativeEngine();
   }
   if (preferred === 'wasm') {
-    return stubEngine(); // TODO(0.7+): load the wasm-pack module dynamically.
+    const { tryWasmEngine } = await import('./wasmLoader');
+    return tryWasmEngine(stubEngine);
+  }
+  if (preferred === 'auto' && !(globalThis as TauriGlobal).__TAURI__) {
+    const { tryWasmEngine } = await import('./wasmLoader');
+    const eng = await tryWasmEngine(stubEngine);
+    if (eng.backend === 'wasm') return eng;
   }
   return stubEngine();
 }

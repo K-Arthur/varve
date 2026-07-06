@@ -1,0 +1,19 @@
+[
+  {
+    "id": "r1",
+    "name": "Rect",
+    "transform": [1, 0, 0, 1, 0, 0],
+    "shape": { "kind": "rect", "x": 0, "y": 0, "w": 10, "h": 10 },
+    "fill": { "space": "rgb", "r": 57, "g": 208, "b": 198, "a": 255 },
+    "opacity": 1,
+    "blendMode": "normal",
+    "cornerRadius": 4
+  },
+  {
+    "id": "c1",
+    "name": "Circle",
+    "transform": [1, 0, 0, 1, 50, 50],
+    "shape": { "kind": "circle", "cx": 0, "cy": 0, "r": 5 },
+    "fill": { "space": "rgb", "r": 255, "g": 0, "b": 0, "a": 255 }
+  }
+]

@@ -25,6 +25,15 @@ build-rust:
 build-js:
     pnpm -r --filter "./packages/*" run build
 
+# --- WASM build (web engine backend) ---
+wasm-build:
+    rustup target add wasm32-unknown-unknown
+    cd crates/strata-wasm && wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name strata_wasm
+
+wasm-check:
+    rustup target add wasm32-unknown-unknown
+    cargo check --target wasm32-unknown-unknown -p strata-wasm
+
 # --- Tests (TDD-first) ---
 test: test-rust test-js
 test-rust:

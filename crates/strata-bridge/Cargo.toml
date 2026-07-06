@@ -1,0 +1,15 @@
+[package]
+name = "strata-bridge"
+description = "TS wire-format to strata-core SceneNode conversion (Tauri IPC + WASM)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+strata-core = { path = "../strata-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints]
+workspace = true

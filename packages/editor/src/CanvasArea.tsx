@@ -11,6 +11,7 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import {
+  adjustmentsToFilters,
   applyStyleOverrides,
   CompositeCanvas,
   createEngine,
@@ -24,6 +25,7 @@ import {
   replayIr,
   traceSceneNodeOutline,
 } from '@strata/engine';
+import { createCompositorBackend, type CompositorBackend } from '@strata/compositor';
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
 import { buildParentIndexMap, isContainer, resolveAllStyles, walkNodes } from '@strata/scene';
@@ -83,6 +85,11 @@ import { StarTool } from './tools/StarTool';
 import { filterSnapTargets, type SnapGuide, snapPosition } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
+import {
+  createRenderWorkerHost,
+  isStaleResponse,
+  type RenderWorkerHost,
+} from './render/workerHost';
 
 type DocNode = SceneNode;
 
@@ -132,16 +139,14 @@ function toEngineNode(n: DocNode): EngineNode {
     };
   if (n.kind === 'frame')
     return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
-  if (n.kind === 'image') {
-    const imageNode = n as import('@strata/scene').ImageNode;
-    const skipAlphaMask = _showOriginalBgNodeId === n.id;
+  if (n.kind === 'adjustment') {
+    const adjNode = n as import('@strata/scene').AdjustmentNode;
     return {
       ...base,
-      kind: 'image',
-      src: imageNode.src,
-      w: imageNode.w,
-      h: imageNode.h,
-      alphaMask: skipAlphaMask ? undefined : imageNode.backgroundRemoval?.maskDataUrl,
+      shape: { kind: 'rect', x: 0, y: 0, w: 0, h: 0 } as const,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 } as const,
+      opacity: 0,
+      filters: adjustmentsToFilters(adjNode.adjustments ?? []),
     };
   }
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
@@ -161,7 +166,7 @@ function parsePropertyPath(path: string): string[] {
       continue;
     }
     segments.push(match[1]!);
-    const bracketGroups = match[2]!.matchAll(/\[([^\]]+)\]/g);
+    const bracketGroups = match[2]?.matchAll(/\[([^\]]+)\]/g);
     for (const m of bracketGroups) {
       segments.push(m[1]!);
     }
@@ -287,6 +292,9 @@ export function CanvasArea({
   });
 
   const engineRef = useRef<Engine | null>(null);
+  const compositorRef = useRef<CompositorBackend | null>(null);
+  const renderWorkerRef = useRef<RenderWorkerHost | null>(null);
+  const docVersionRef = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
   const editorRef = useRef(editor);
@@ -295,6 +303,7 @@ export function CanvasArea({
   const prevDrawDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
     invalidateTransformCache(transformCacheRef.current);
+    docVersionRef.current += 1;
     prevDrawDocRef.current = state.document;
   }
 
@@ -350,6 +359,32 @@ export function CanvasArea({
     createEngine('auto').then((eng) => {
       engineRef.current = eng;
     });
+  }, []);
+
+  useEffect(() => {
+    const canvas = contentCanvasRef.current;
+    if (!canvas) return;
+    let backend: CompositorBackend | null = null;
+    void createCompositorBackend(canvas).then(({ backend: b }) => {
+      backend = b;
+      compositorRef.current = b;
+    });
+    return () => {
+      backend?.destroy();
+      compositorRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    renderWorkerRef.current = createRenderWorkerHost((msg) => {
+      if (msg.type === 'frameRendered' && isStaleResponse(docVersionRef.current, msg.docVersion)) {
+        return;
+      }
+    });
+    return () => {
+      renderWorkerRef.current?.terminate();
+      renderWorkerRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -700,6 +735,27 @@ export function CanvasArea({
       }
       const ir = await eng.buildIr({ nodes: flatNodes });
 
+      const docVersion = docVersionRef.current;
+      renderWorkerRef.current?.post({
+        type: 'render',
+        nodes: flatNodes,
+        ir,
+        camera: { zoom: s.zoom, pan: s.pan },
+        viewport: { width: VP_W, height: VP_H },
+        docVersion,
+        dpr,
+      });
+
+      compositorRef.current?.beginFrame(
+        {
+          items: ir,
+          camera: { zoom: s.zoom, pan: s.pan },
+          viewport: { width: VP_W, height: VP_H },
+          docVersion,
+        },
+        { applyCamera: false },
+      );
+
       if (s.canvasMode === 'outline') {
         const outlineColor: EngineColor = { space: 'rgb', r: 30, g: 30, b: 36, a: 255 };
         for (let i = 0; i < ir.length; i++) {
@@ -816,7 +872,10 @@ export function CanvasArea({
           const [ma, mb, mc, md, me, mf] = maskWorldTransform;
           ctx.transform(ma, mb, mc, md, me, mf);
           ctx.beginPath();
-          traceSceneNodeOutline(ctx, maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1]);
+          traceSceneNodeOutline(
+            ctx,
+            maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
+          );
           ctx.closePath();
           ctx.clip();
           ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
@@ -874,7 +933,7 @@ export function CanvasArea({
                 maxY = Math.max(maxY, b.y + b.h);
               }
             }
-            if (isFinite(minX)) {
+            if (Number.isFinite(minX)) {
               ctx.save();
               const gw = Math.ceil(maxX - minX) + 4;
               const gh = Math.ceil(maxY - minY) + 4;
@@ -923,6 +982,7 @@ export function CanvasArea({
           replaySubtree(id);
         }
       }
+      compositorRef.current?.endFrame();
     })();
   }, [rootNodes, state.zoom, state.pan.x, state.pan.y, state.canvasMode, imageCacheStamp]);
 
@@ -1761,7 +1821,6 @@ export function CanvasArea({
       <canvas
         ref={contentCanvasRef}
         tabIndex={0}
-        role="application"
         aria-roledescription="Design canvas"
         aria-label="Design canvas"
         className="editor-canvas__content-layer"
@@ -1788,7 +1847,7 @@ export function CanvasArea({
           }
         }}
       />
-      <canvas ref={overlayCanvasRef} className="editor-canvas__overlay-layer" role="presentation" />
+      <canvas ref={overlayCanvasRef} className="editor-canvas__overlay-layer" />
       <Ruler
         zoom={state.zoom}
         pan={state.pan}

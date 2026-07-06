@@ -1,0 +1,5 @@
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os"]
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false

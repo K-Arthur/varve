@@ -132,6 +132,15 @@ importers:
         specifier: workspace:*
         version: link:../scene
 
+  packages/compositor:
+    dependencies:
+      '@strata/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@strata/shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/editor:
     dependencies:
       '@strata/ai':
@@ -143,6 +152,9 @@ importers:
       '@strata/collab':
         specifier: workspace:*
         version: link:../collab
+      '@strata/compositor':
+        specifier: workspace:*
+        version: link:../compositor
       '@strata/engine':
         specifier: workspace:*
         version: link:../engine

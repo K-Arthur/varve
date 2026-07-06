@@ -4,7 +4,7 @@
  * stays responsive during processing.
  */
 
-import type { Tensor } from 'onnxruntime-web';
+import type { InferenceSession, Tensor } from 'onnxruntime-web';
 import type { BackgroundRemovalResult } from './types';
 
 interface WorkerCommand {
@@ -12,6 +12,7 @@ interface WorkerCommand {
   imageData: ImageData;
   modelPath: string;
   modelId: 'u2netp' | 'birefnet-general-lite';
+  reuseSession?: boolean;
 }
 
 interface WorkerResponse {
@@ -24,14 +25,40 @@ interface WorkerError {
   message: string;
 }
 
+interface WorkerReady {
+  type: 'ready';
+}
+
+let cachedSession: InferenceSession | null = null;
+let cachedModelPath: string | null = null;
+
+async function getSession(modelPath: string): Promise<InferenceSession> {
+  if (cachedSession && cachedModelPath === modelPath) {
+    return cachedSession;
+  }
+  const ort = await import('onnxruntime-web');
+  cachedSession = await ort.InferenceSession.create(modelPath, {
+    executionProviders: ['webgl', 'wasm'],
+  });
+  cachedModelPath = modelPath;
+  return cachedSession;
+}
+
 self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
-  const { imageData, modelPath, modelId } = e.data;
+  const { imageData, modelPath, modelId, reuseSession } = e.data;
 
   try {
+    const hadSession = cachedSession !== null && cachedModelPath === modelPath;
+    const session =
+      reuseSession && hadSession && cachedSession
+        ? cachedSession
+        : await getSession(modelPath);
+
+    if (!hadSession) {
+      self.postMessage({ type: 'ready' } satisfies WorkerReady);
+    }
+
     const ort = await import('onnxruntime-web');
-    const session = await ort.InferenceSession.create(modelPath, {
-      executionProviders: ['webgl', 'wasm'],
-    });
 
     const inputSize = modelId === 'u2netp' ? 320 : 1024;
 
@@ -57,9 +84,9 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
 
     const results = await session.run(feeds as Parameters<typeof session.run>[0]);
     const outputName = session.outputNames[0]!;
-    const outputData = results[outputName]!.data as Float32Array;
+    const outputData = results[outputName]?.data as Float32Array;
 
-    const dims = results[outputName]!.dims;
+    const dims = results[outputName]?.dims;
     const maskW = dims[3] ?? inputSize;
     const maskH = dims[2] ?? inputSize;
     const mask = new Uint8Array(maskW * maskH);
@@ -90,7 +117,7 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i] ?? 0);
     }
-    const maskDataUrl = 'data:image/png;base64,' + btoa(binary);
+    const maskDataUrl = `data:image/png;base64,${btoa(binary)}`;
 
     const response: WorkerResponse = {
       type: 'result',

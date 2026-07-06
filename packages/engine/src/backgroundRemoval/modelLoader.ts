@@ -65,10 +65,26 @@ class ModelLoader {
   }
 
   async getModelPath(modelId: string): Promise<string | null> {
-    if (this.state !== 'ready' || this.currentModelId !== modelId) {
-      return null;
+    const bundled = `/models/${modelId}.onnx`;
+    try {
+      if (typeof fetch !== 'undefined') {
+        const head = await fetch(bundled, { method: 'HEAD' });
+        if (head.ok) return bundled;
+      }
+    } catch {
+      // offline or blocked — fall through
     }
-    return `/${modelId}.onnx`;
+    if (this.state === 'ready' && this.currentModelId === modelId) {
+      return `/${modelId}.onnx`;
+    }
+    return null;
+  }
+
+  /** Resolve download URL: bundled local first, remote only when explicitly downloading. */
+  resolveDownloadSources(modelId: string): { local: string; remote: string } | null {
+    const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
+    if (!model) return null;
+    return { local: `/models/${modelId}.onnx`, remote: model.remoteUrl };
   }
 
   async downloadModel(
@@ -86,7 +102,17 @@ class ModelLoader {
     this.saveState();
 
     try {
-      const response = await fetch(model.remoteUrl);
+      const sources = this.resolveDownloadSources(modelId);
+      const localPath = sources?.local ?? `/models/${modelId}.onnx`;
+      let response: Response | null = null;
+      try {
+        response = await fetch(localPath);
+      } catch {
+        response = null;
+      }
+      if (!response?.ok) {
+        response = await fetch(model.remoteUrl);
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to download model: ${response.statusText}`);
@@ -96,7 +122,7 @@ class ModelLoader {
       const total = contentLength ? parseInt(contentLength, 10) : model.size;
       let loaded = 0;
 
-      const reader = response.body!.getReader();
+      const reader = response.body?.getReader();
       const chunks: Uint8Array[] = [];
 
       while (true) {
