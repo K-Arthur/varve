@@ -274,7 +274,8 @@ export class WebGPUBackend {
 
     const data = new Float32Array(vertices.length * 12);
     for (let i = 0; i < vertices.length; i++) {
-      const v = vertices[i]!;
+      const v = vertices[i];
+      if (!v) continue;
       const o = i * 12;
       data[o] = v.localPos[0];
       data[o + 1] = v.localPos[1];

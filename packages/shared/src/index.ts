@@ -79,6 +79,7 @@ export {
 } from './easing';
 export type { PathPoint, SpatialTangents } from './interpolation';
 export {
+  ensureVertexMatch,
   interpolateAffine,
   interpolateArray,
   interpolateColor,
@@ -86,7 +87,6 @@ export {
   interpolatePath,
   interpolateSpatialBezier,
   interpolateValue,
-  ensureVertexMatch,
 } from './interpolation';
 export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';

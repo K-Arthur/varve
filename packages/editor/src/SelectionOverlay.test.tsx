@@ -5,6 +5,7 @@
  */
 
 import type { Document, SceneNode, ShapeNode } from '@strata/scene';
+import type { Affine } from '@strata/shared';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -112,8 +113,8 @@ describe('computeRotatedLocalBBox', () => {
     const result = computeRotatedLocalBBox(
       3,
       lb,
-      worldMat as any,
-      invMat as any,
+      worldMat as Affine,
+      invMat as Affine,
       20,
       0,
       false,
@@ -129,8 +130,8 @@ describe('computeRotatedLocalBBox', () => {
     const result = computeRotatedLocalBBox(
       4,
       lb,
-      worldMat as any,
-      invMat as any,
+      worldMat as Affine,
+      invMat as Affine,
       50,
       50,
       true,

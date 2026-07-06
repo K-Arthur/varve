@@ -32,7 +32,7 @@ describe('interactions', () => {
   });
 
   it('flattenInteractions returns all entries', () => {
-    let doc = createDocument();
+    const doc = createDocument();
     const { doc: d1 } = addInteraction(doc, 'n1', {
       name: 'A',
       trigger: { kind: 'onClick' },

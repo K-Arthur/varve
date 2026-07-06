@@ -2,7 +2,7 @@
  * Build a prototype runtime from Document interactions.
  */
 import { createRuntime, type Interaction, type PrototypeRuntime } from '@strata/prototype';
-import { flattenInteractions, type Document } from '@strata/scene';
+import { type Document, flattenInteractions } from '@strata/scene';
 
 export function createRuntimeFromDocument(doc: Document): {
   runtime: PrototypeRuntime;

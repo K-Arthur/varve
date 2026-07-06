@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ToolManager } from '../ToolManager';
-import { SelectTool } from '../SelectTool';
 import { RefineMaskTool } from '../RefineMaskTool';
+import { SelectTool } from '../SelectTool';
+import { ToolManager } from '../ToolManager';
 
 describe('ToolManager.getTool', () => {
   it('returns undefined for a never-activated tool id', () => {

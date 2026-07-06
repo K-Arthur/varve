@@ -6,9 +6,9 @@ import {
   loadModelBlob,
   loadPartialDownload,
   ModelStorageQuotaError,
+  type PartialDownloadRecord,
   saveModelBlob,
   savePartialDownload,
-  type PartialDownloadRecord,
 } from './modelStore';
 import type { ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';

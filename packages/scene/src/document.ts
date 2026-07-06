@@ -15,6 +15,8 @@
 import type { Affine, Shape } from '@strata/engine';
 import type { DocumentUnit } from '@strata/shared';
 import { generateKeyBetween } from '@strata/shared';
+import { stripBindingForVariable } from './bindings';
+import { deepCloneSubtree } from './clone';
 import type {
   BleedConfig,
   ColorConfig,
@@ -24,6 +26,7 @@ import type {
   SlugConfig,
   SpotColorDef,
 } from './colorManagement';
+import { captureSyncBaseline, detectOverrides } from './component-sync';
 import type { ExportSettings } from './export-types';
 import type {
   ComponentDefinition,
@@ -39,9 +42,6 @@ import type {
   Style,
   TextNode,
 } from './types';
-import { stripBindingForVariable } from './bindings';
-import { captureSyncBaseline, detectOverrides } from './component-sync';
-import { deepCloneSubtree } from './clone';
 import type { Variable } from './variables';
 import { createVariableStore, deleteVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';

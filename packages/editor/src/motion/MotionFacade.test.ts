@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
 import type { Timeline } from '@strata/scene';
+import { describe, expect, it, vi } from 'vitest';
 import { MotionFacade } from './MotionFacade';
 
 function makeTimeline(duration = 1000): Timeline {

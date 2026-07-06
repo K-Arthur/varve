@@ -1,8 +1,9 @@
 /**
  * Integration test: MotionFacade drives editor-style state updates.
  */
-import { describe, expect, it, vi } from 'vitest';
+
 import type { Timeline } from '@strata/scene';
+import { describe, expect, it, vi } from 'vitest';
 import { MotionFacade } from './MotionFacade';
 
 function makeTimeline(): Timeline {

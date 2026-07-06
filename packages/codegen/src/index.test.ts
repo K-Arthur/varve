@@ -91,7 +91,8 @@ describe('exportDocumentToSvgAdvanced', () => {
     // Find the rect node (skip contentRoot)
     const rectId = doc.rootChildren.find((id) => doc.nodes[id]?.name === 'Rect');
     if (!rectId) throw new Error('Rect not found');
-    const node = doc.nodes[rectId]!;
+    const node = doc.nodes[rectId];
+    if (!node) throw new Error('Rect node not found in document');
     doc = { ...doc, nodes: { ...doc.nodes, [rectId]: { ...node, visible: false } } };
     const excluded = exportDocumentToSvgAdvanced(doc, { includeHidden: false });
     const included = exportDocumentToSvgAdvanced(doc, { includeHidden: true });

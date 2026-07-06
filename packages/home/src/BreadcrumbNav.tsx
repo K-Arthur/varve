@@ -19,8 +19,7 @@ export function BreadcrumbNav({ path, onNavigate }: BreadcrumbNavProps) {
     );
     if (!buttons || buttons.length === 0) return;
     const active = document.activeElement;
-    const current =
-      active instanceof HTMLButtonElement ? Array.from(buttons).indexOf(active) : -1;
+    const current = active instanceof HTMLButtonElement ? Array.from(buttons).indexOf(active) : -1;
     switch (e.key) {
       case 'Home':
         e.preventDefault();

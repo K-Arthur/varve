@@ -85,7 +85,8 @@ describe('@strata/compositor', () => {
     const canvas = document.createElement('canvas');
     canvas.width = 32;
     canvas.height = 32;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Expected 2d context');
     const clearRectSpy = vi.spyOn(ctx, 'clearRect');
     const backend = new Canvas2DBackend();
     await backend.init(canvas);

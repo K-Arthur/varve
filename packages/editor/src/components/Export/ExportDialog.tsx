@@ -5,6 +5,18 @@
  * destination configuration, and cancellation support.
  */
 
+import {
+  timelineToCSSKeyframes,
+  timelineToLottieJSON,
+  timelineToSVGAnimations,
+} from '@strata/codegen';
+import {
+  checkVideoExportSupport,
+  computeVideoFrameCount,
+  getModelLoaderReady,
+  workerModelIdForMethod,
+} from '@strata/engine';
+import { prefersReducedMotion } from '@strata/prototype';
 import type {
   BackgroundRemovalMethod,
   BackgroundRemovalState,
@@ -18,18 +30,6 @@ import type {
   Timeline,
 } from '@strata/scene';
 import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
-import {
-  timelineToCSSKeyframes,
-  timelineToLottieJSON,
-  timelineToSVGAnimations,
-} from '@strata/codegen';
-import {
-  checkVideoExportSupport,
-  computeVideoFrameCount,
-  getModelLoaderReady,
-  workerModelIdForMethod,
-} from '@strata/engine';
-import { prefersReducedMotion } from '@strata/prototype';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
@@ -536,7 +536,9 @@ export function ExportDialog({
                           onClick={() => {
                             const json = document
                               ? timelineToLottieJSON(tl, document)
-                              : timelineToLottieJSON(tl, { nodes: nodeNames } as unknown as Document);
+                              : timelineToLottieJSON(tl, {
+                                  nodes: nodeNames,
+                                } as unknown as Document);
                             onExportMotion('lottie', `${tl.name}.json`, json);
                           }}
                         >

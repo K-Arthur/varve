@@ -8,13 +8,13 @@ import {
   thresholdMask,
 } from './maskOps';
 import { downscaleImageData } from './previewDownscale';
-import { runPooledInference } from './workerPool';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 import { workerModelIdForMethod } from './types';
+import { runPooledInference } from './workerPool';
 
 export { removeBackgroundHeuristic } from './heuristic';
 export { getModelLoader, getModelLoaderReady, resetModelLoader } from './modelLoader';
-export { cancelAllWorkerJobs, terminateWorkerPool } from './workerPool';
+export { ModelStorageQuotaError } from './modelStore';
 export type {
   BackgroundRemovalOptions,
   BackgroundRemovalResult,
@@ -25,7 +25,7 @@ export type {
   WorkerModelId,
 } from './types';
 export { AVAILABLE_MODELS, workerModelIdForMethod } from './types';
-export { ModelStorageQuotaError } from './modelStore';
+export { cancelAllWorkerJobs, terminateWorkerPool } from './workerPool';
 
 /** Default downscale cap for AI inference (mask is upscaled to source dimensions). */
 export const DEFAULT_PREVIEW_MAX_DIMENSION = 2048;
@@ -307,7 +307,10 @@ function maskToDataUrl(mask: Uint8Array, width: number, height: number): string 
   return canvas.toDataURL('image/png');
 }
 
-export { maskToDataUrl as maskArrayToDataUrl };
+export type { FinalizeMaskOptions, FinalizeMaskResult } from './finalizeMask';
+export { finalizeMaskResult } from './finalizeMask';
+export { decodeMaskDataUrl } from './maskDecode';
+export type { MaskComponent, MaskComponentBBox } from './maskOps';
 export {
   decontaminateMask,
   featherMaskArray,
@@ -317,11 +320,8 @@ export {
   maskToImageData,
 } from './maskOps';
 export { downscaleImageData } from './previewDownscale';
-export { refineHairMatting, TRIMap } from './refineHairMatting';
 export type { HairMattingOptions } from './refineHairMatting';
-export { solveTrimapMatting, trimapFromMask } from './trimapMatting';
+export { refineHairMatting, TRIMap } from './refineHairMatting';
 export type { TrimapMattingOptions } from './trimapMatting';
-export type { MaskComponent, MaskComponentBBox } from './maskOps';
-export { decodeMaskDataUrl } from './maskDecode';
-export { finalizeMaskResult } from './finalizeMask';
-export type { FinalizeMaskOptions, FinalizeMaskResult } from './finalizeMask';
+export { solveTrimapMatting, trimapFromMask } from './trimapMatting';
+export { maskToDataUrl as maskArrayToDataUrl };

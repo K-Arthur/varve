@@ -1,5 +1,4 @@
 import type { Affine } from '@strata/engine';
-import { multiplyAffine, rotateDeg } from '@strata/shared';
 import {
   addChild,
   addNode,
@@ -8,6 +7,7 @@ import {
   makeGroupNode,
   makeShapeNode,
 } from '@strata/scene';
+import { multiplyAffine, rotateDeg } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import {
   createTransformCache,

@@ -1,8 +1,9 @@
 /**
  * Ephemeral collaborator cursor labels on the canvas (stub transport).
  */
-import type { CSSProperties } from 'react';
+
 import type { CollabUser } from '@strata/collab';
+import type { CSSProperties } from 'react';
 import './CollabCursorOverlay.css';
 
 export interface RemoteCursor {

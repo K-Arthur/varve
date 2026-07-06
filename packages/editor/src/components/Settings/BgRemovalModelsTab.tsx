@@ -6,8 +6,8 @@
 import {
   AVAILABLE_MODELS,
   getModelLoaderReady,
-  workerModelIdForMethod,
   type RemovalMethod,
+  workerModelIdForMethod,
 } from '@strata/engine';
 import { Button } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';

@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
 import {
   addInteraction,
   addNode,
@@ -9,6 +7,8 @@ import {
   makeFrameNode,
   makeShapeNode,
 } from '@strata/scene';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../../context';
 import { InteractionSection } from './InteractionSection';
 
