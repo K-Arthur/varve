@@ -50,6 +50,7 @@ CanvasArea.drawContent
 PrototypePresenter
   └── PrototypeScreenView (hotspots + hit-test nodeId)
       └── createRuntimeFromDocument(doc)
+      └── usePrototypeTransition — dissolve/slide/push/smart-animate screen transitions
       └── smartAnimateBridge on navigate (layer name matching)
 
 Inspector (prototype mode)
@@ -74,7 +75,8 @@ Inspector (prototype mode)
 | Export (UI) | `packages/editor/src/components/Export/ExportDialog.tsx` |
 | Video export (UI) | `packages/editor/src/components/Export/ExportDialog.tsx` |
 | Video export bridge | `packages/editor/src/motion/videoExportBridge.ts` |
-| Interactive export stub | `packages/codegen/src/animation-interactive.ts` |
+| Interactive export | `packages/codegen/src/animation-interactive.ts` |
+| Prototype transitions | `packages/editor/src/components/Prototype/usePrototypeTransition.ts` |
 | Benchmark | `packages/engine/src/motion.bench.test.ts` |
 
 ## Rendering Integration
@@ -97,8 +99,21 @@ Sampler cache: `invalidateSamplerCache()` is called on timeline mutations; keyfr
 
 - **ExportDialog** exposes per-timeline CSS keyframes, Lottie JSON, SVG animate, and MP4/WebM video (WebCodecs + `mp4-muxer` / `webm-muxer`).
 - **videoExport.ts** — `exportTimelineToVideo()` with injected frame renderer; `videoExportBridge.ts` wires `sampleTimelineAt` → `buildIr` → `replayIr` on OffscreenCanvas.
-- **animation-interactive.ts** — stub export of `Document.interactions` to React/CSS scroll bindings.
+- **animation-interactive.ts** — exports `Document.interactions` to React event handlers and optional CSS scroll bindings (`useScrollTimeline` partial).
 - Reduced-motion video export: single final frame when `prefers-reduced-motion` is active.
+
+## Video export (complete)
+
+- **WebCodecs path**: `exportTimelineToVideo()` in `packages/engine/src/videoExport.ts` encodes frames via `VideoEncoder`, muxes with `mp4-muxer` / `webm-muxer`.
+- **Frame renderer**: `videoExportBridge.ts` samples timeline → `buildIr` → `replayIr` on OffscreenCanvas per frame.
+- **UI**: ExportDialog motion section lists per-timeline MP4/WebM buttons when timelines exist and WebCodecs is available.
+- **E2E**: `tests/e2e/motion/video-export.spec.ts` (skipped when `VideoEncoder` unavailable).
+
+## Prototype screen transitions (complete)
+
+- **usePrototypeTransition** — hook coordinating transition kind, duration, easing, and Smart Animate layer overrides between prototype screens.
+- Wired in `PrototypePresenter` / `PrototypeScreenView` for present mode navigation.
+- Per-layer Smart Animate via `computeSmartAnimateHotspotOverrides` + `smartAnimateBridge`.
 
 ## Extension Points (Phase 5 — types only)
 
@@ -107,7 +122,7 @@ Reserved in `motion-types.ts`, not yet implemented:
 | Type | Purpose |
 |---|---|
 | `MotionExtension` / `MotionExtensionKind` | skeleton, bone, IK, mesh deform, path constraint |
-| `NestedTimelineRef` | Lottie pre-comp style nested timelines |
+| `NestedTimelineRef` | Lottie pre-comp style nested timelines — **proof slice implemented** |
 | `AudioSyncTrack` | Timeline-aligned audio |
 | `CollaborativeKeyframeLock` | Multiplayer keyframe editing stub |
 
@@ -142,5 +157,6 @@ Reserved in `motion-types.ts`, not yet implemented:
 | Shell timeline | `packages/editor/src/Shell.motion.test.tsx` |
 | Auto-keyframe | `packages/editor/src/motion/autoKeyframe.test.ts` |
 | Timeline ruler | `packages/editor/src/timeline/TimelineRuler.test.tsx` |
-| E2E | `tests/e2e/motion/timeline-playback.spec.ts` |
+| E2E playback | `tests/e2e/motion/timeline-playback.spec.ts` |
+| E2E video export | `tests/e2e/motion/video-export.spec.ts` |
 | Benchmark | `packages/engine/src/motion.bench.test.ts` |

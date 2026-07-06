@@ -27,15 +27,16 @@ Strata's motion subsystem has a solid document-level foundation (`Document.timel
 - Timeline markers on ruler; `MotionPreset` CRUD on Document
 
 **P4 — Export & performance (complete)**
-- ExportDialog CSS/Lottie motion export buttons
-- `videoExport.ts` WebCodecs contract stub
+- ExportDialog CSS/Lottie/SVG/MP4/WebM motion export
+- `videoExport.ts` WebCodecs encoder + MP4/WebM mux (`mp4-muxer` / `webm-muxer`)
 - Sampler keyframe cache + `invalidateSamplerCache()` on timeline mutations
 - Motion benchmark: 100 tracks × 10 keyframes under budget
 
 **P5 — Advanced (types only, deferred implementation)**
-- `MotionExtension`, `NestedTimelineRef`, `AudioSyncTrack`, `CollaborativeKeyframeLock`
+- `MotionExtension`, `AudioSyncTrack`, `CollaborativeKeyframeLock`
+- `NestedTimelineRef` — **implemented (proof slice, 2026-07-06)**: track `nestedTimelineId` + `nestedStartProgress`, sampler resolution, TrackRow inspector dropdown
 
-Remaining gaps: dirty IR rebuild benchmark, NestedTimelineRef sampler, SM inspector panel, full interactive export fidelity.
+Remaining gaps: state machine inspector panel, rigging/IK/skeleton extensions, full interactive export parity (Lottie/scroll timeline bindings), real-time collaborative keyframe locks, audio sync tracks. Phase C (timeline UX) complete as of 2026-07-06.
 
 See `docs/architecture/motion-system.md`.
 
@@ -455,7 +456,7 @@ Implemented:
 - `packages/editor/src/components/Export/ExportDialog.tsx` — CSS/Lottie/SVG/MP4/WebM motion export
 - `packages/engine/src/videoExport.ts` — WebCodecs + MP4/WebM mux via mp4-muxer/webm-muxer
 - `packages/editor/src/motion/videoExportBridge.ts` — IR-replay frame renderer
-- `packages/codegen/src/animation-interactive.ts` — interactions export stub
+- `packages/codegen/src/animation-interactive.ts` — React/CSS scroll binding export (navigate handlers; scroll timeline partial)
 - `packages/engine/src/motion.bench.test.ts` — sampler benchmark
 - `findKeyframeSegmentIndex()` in TimelineSampler for O(log n) lookup
 - `invalidateSamplerCache()` wired in context timeline CRUD

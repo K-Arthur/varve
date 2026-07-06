@@ -29,8 +29,14 @@ export interface TimelinePanelProps {
   onSavePreset?: () => void;
   onApplyPreset?: (presetId: string) => void;
   onSelectTimeline: (id: string | null) => void;
+  onCreateTimeline?: () => void;
   onSelectTrack: (trackId: string) => void;
   onClickKeyframe: (trackId: string, progress: number) => void;
+  onSetTrackNestedTimeline?: (
+    trackId: string,
+    nestedTimelineId: string | null,
+    startProgress?: number,
+  ) => void;
   getNodeName?: (nodeId: string) => string | undefined;
 }
 
@@ -58,8 +64,10 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   onSavePreset,
   onApplyPreset,
   onSelectTimeline,
+  onCreateTimeline,
   onSelectTrack,
   onClickKeyframe,
+  onSetTrackNestedTimeline,
   getNodeName,
 }) => {
   const timelineIds = useMemo(() => Object.keys(timelines), [timelines]);
@@ -107,10 +115,34 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             </option>
           ))}
         </select>
+        {onCreateTimeline && (
+          <button
+            type="button"
+            className="timeline-panel__create-btn"
+            aria-label="Create timeline"
+            data-testid="timeline-create"
+            onClick={onCreateTimeline}
+          >
+            New timeline
+          </button>
+        )}
       </div>
 
       {!activeTimeline ? (
-        <div className="timeline-panel__empty">No timeline selected</div>
+        <div className="timeline-panel__empty">
+          <span>No timeline selected</span>
+          {onCreateTimeline && timelineIds.length === 0 && (
+            <button
+              type="button"
+              className="timeline-panel__create-btn timeline-panel__create-btn--primary"
+              aria-label="Create timeline"
+              data-testid="timeline-create-empty"
+              onClick={onCreateTimeline}
+            >
+              Create timeline
+            </button>
+          )}
+        </div>
       ) : (
         <>
           <PlaybackControls
@@ -160,8 +192,11 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
                   zoom={zoom}
                   selected={selectedTrackIds.includes(track.id)}
                   selectedKeyframeIndex={selectedKeyframeIndex}
+                  timelines={timelines}
+                  activeTimelineId={activeTimelineId}
                   onSelectTrack={onSelectTrack}
                   onClickKeyframe={onClickKeyframe}
+                  onSetNestedTimeline={onSetTrackNestedTimeline}
                 />
               ))
             )}

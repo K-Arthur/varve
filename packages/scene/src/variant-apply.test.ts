@@ -39,8 +39,8 @@ describe('variant-apply', () => {
 
   it('applies text variant property to matching text layer', () => {
     let doc = createDocument('test');
-    const label = makeTextNode('label1', 'Old', { name: 'Label' });
-    doc = addNode(doc, label);
+    const labelNode = makeTextNode('label1', 'Old', { name: 'Label' });
+    doc = addNode(doc, labelNode);
     const master = makeFrameNode('m1', { name: 'Button', w: 120, h: 40, children: ['label1'] });
     doc = addNode(doc, master);
 
@@ -69,8 +69,9 @@ describe('variant-apply', () => {
     const cache = buildAllVariantCaches(doc);
     const instCache = cache.get('inst1');
     expect(instCache?.get('label1')?.kind).toBe('text');
-    if (instCache?.get('label1')?.kind === 'text') {
-      expect(instCache.get('label1')!.text).toBe('Submit');
+    const cachedLabel = instCache?.get('label1');
+    if (cachedLabel?.kind === 'text') {
+      expect(cachedLabel.text).toBe('Submit');
     }
   });
 });
