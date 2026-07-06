@@ -56,6 +56,7 @@ describe('removeBackground dispatch', () => {
       getState: () => 'unavailable',
       getModelPath: vi.fn().mockResolvedValue('/models/test.onnx'),
       syncFromStorage: vi.fn().mockResolvedValue(undefined),
+      isModelAvailable: vi.fn().mockResolvedValue(false),
     });
     vi.unstubAllGlobals();
     delete (window as unknown as { __TAURI__?: unknown }).__TAURI__;
@@ -169,6 +170,7 @@ describe('removeBackground dispatch', () => {
       expect.anything(),
       expect.anything(),
       'birefnet-general-lite',
+      undefined,
     );
   });
 
@@ -194,6 +196,7 @@ describe('removeBackground dispatch', () => {
       expect.anything(),
       expect.anything(),
       'birefnet-general',
+      undefined,
     );
   });
 
@@ -206,21 +209,12 @@ describe('removeBackground dispatch', () => {
   });
 
   it('falls through to the heuristic — not a hard failure — when the direct AI path throws', async () => {
-    // No Worker, no Tauri, but the loader believes a model was previously
-    // downloaded ('ready'). This exercises the last-resort direct
-    // onnxruntime-web import path (`removeBackgroundAI`), which is expected
-    // to throw in this test environment since `onnxruntime-web` isn't
-    // actually installed/mocked here — simulating a real-world case where
-    // the cached model file went missing, WebGL+WASM execution providers
-    // are both unavailable, or the dependency failed to load. Regression:
-    // this call used to reject outright instead of degrading to the
-    // always-available heuristic, turning a quality-tier problem into a
-    // total feature failure.
     vi.stubGlobal('Worker', undefined);
     mockGetModelLoader.mockReturnValue({
       getState: () => 'ready',
-      getModelPath: vi.fn().mockResolvedValue('/models/test.onnx'),
+      getModelPath: vi.fn().mockResolvedValue('/models/birefnet-general-lite.onnx'),
       syncFromStorage: vi.fn().mockResolvedValue(undefined),
+      isModelAvailable: vi.fn().mockResolvedValue(true),
     });
 
     const { removeBackground } = await import('../index');
@@ -228,5 +222,50 @@ describe('removeBackground dispatch', () => {
 
     expect(result).toEqual(HEURISTIC_RESULT);
     expect(mockHeuristic).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not attempt direct AI when the specific model is unavailable', async () => {
+    vi.stubGlobal('Worker', undefined);
+    mockGetModelLoader.mockReturnValue({
+      getState: () => 'ready',
+      getModelPath: vi.fn().mockResolvedValue('/models/birefnet-general.onnx'),
+      syncFromStorage: vi.fn().mockResolvedValue(undefined),
+      isModelAvailable: vi.fn().mockImplementation(async (id: string) => id === 'birefnet-general'),
+    });
+
+    const { removeBackground } = await import('../index');
+    const result = await removeBackground(makeImage(), { method: 'ai-balanced' });
+
+    expect(result).toEqual(HEURISTIC_RESULT);
+    expect(mockHeuristic).toHaveBeenCalledTimes(1);
+  });
+
+  it('Tauri IPC result method is never trusted as AI when native returns quick', async () => {
+    (window as unknown as { __TAURI__?: unknown }).__TAURI__ = {};
+    vi.stubGlobal('Worker', class {});
+    mockRunPooledInference.mockRejectedValue(new Error('worker unavailable'));
+    mockInvoke.mockResolvedValue({
+      maskBase64: 'fake',
+      confidence: 0.99,
+      method: 'ai-quality',
+      processingTimeMs: 5,
+      width: 4,
+      height: 4,
+    });
+
+    const fakeCtx = { putImageData: vi.fn(), getImageData: vi.fn() };
+    const fakeBlob = { arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as Blob;
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      width: 0,
+      height: 0,
+      getContext: () => fakeCtx,
+      toBlob: (cb: (b: Blob) => void) => cb(fakeBlob),
+    } as unknown as HTMLCanvasElement);
+
+    const { removeBackground } = await import('../index');
+    const result = await removeBackground(makeImage(), { method: 'ai-quality' });
+
+    expect(result.method).toBe('quick');
+    vi.restoreAllMocks();
   });
 });

@@ -18,6 +18,12 @@ interface RefineMaskOptions {
   hardness: number;
 }
 
+function cloneImageData(src: ImageData): ImageData {
+  const copy = new ImageData(src.width, src.height);
+  copy.data.set(src.data);
+  return copy;
+}
+
 export class RefineMaskTool extends BaseTool {
   id = 'refineMask' as const;
 
@@ -27,9 +33,10 @@ export class RefineMaskTool extends BaseTool {
   };
   private brushMask: Uint8Array | null = null;
   private maskData: ImageData | null = null;
+  private maskSnapshot: ImageData | null = null;
   private nodeId: string | null = null;
   private lastPaintedPoint: { x: number; y: number } | null = null;
-  private pendingLoad: boolean = false;
+  private pendingLoad = false;
 
   override onActivate(ctx: ToolContext): void {
     this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
@@ -38,6 +45,7 @@ export class RefineMaskTool extends BaseTool {
 
   override onDeactivate(_ctx: ToolContext): void {
     this.maskData = null;
+    this.maskSnapshot = null;
     this.nodeId = null;
     this.lastPaintedPoint = null;
     this.pendingLoad = false;
@@ -46,6 +54,14 @@ export class RefineMaskTool extends BaseTool {
   override cursor(state: ToolCursorState): CursorSpec {
     if (state === 'drag') return { css: 'none' };
     return { css: 'crosshair' };
+  }
+
+  override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
+    if (e.key === 'Escape' || e.key === 'v' || e.key === 'V') {
+      ctx.setTool('select');
+      return true;
+    }
+    return false;
   }
 
   override onPointerDown(
@@ -59,6 +75,8 @@ export class RefineMaskTool extends BaseTool {
       ctx.announce('Select an image with background removal applied first');
       return { consumed: false };
     }
+
+    this.maskSnapshot = cloneImageData(this.maskData);
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.lastPaintedPoint = world;
@@ -74,7 +92,7 @@ export class RefineMaskTool extends BaseTool {
       currentWorld: world,
     };
 
-    this.paintStroke(world, e.altKey, ctx);
+    this.paintStroke(world, e.altKey);
 
     return { consumed: true, captured: true };
   }
@@ -90,7 +108,7 @@ export class RefineMaskTool extends BaseTool {
 
     if (dist < step) return;
 
-    this.paintStroke(world, ctx.altKey, ctx);
+    this.paintStroke(world, ctx.altKey);
     this.lastPaintedPoint = world;
   }
 
@@ -98,14 +116,17 @@ export class RefineMaskTool extends BaseTool {
     ctx.setDraft(null);
     this.commitMask(ctx);
     ctx.commitTransaction();
+    this.maskSnapshot = null;
     this.lastPaintedPoint = null;
   }
 
   override onDragCancel(ctx: ToolContext): void {
+    if (this.maskSnapshot) {
+      this.maskData = cloneImageData(this.maskSnapshot);
+    }
+    this.maskSnapshot = null;
     ctx.abortTransaction();
     this.lastPaintedPoint = null;
-    this.maskData = null;
-    this.nodeId = null;
   }
 
   setOptions(opts: Partial<RefineMaskOptions>): void {
@@ -114,7 +135,7 @@ export class RefineMaskTool extends BaseTool {
   }
 
   private loadMask(ctx: ToolContext): void {
-    const selectedId = ctx.selection[0];
+    const selectedId = ctx.selection?.[0];
     if (!selectedId) {
       this.maskData = null;
       this.nodeId = null;
@@ -153,7 +174,7 @@ export class RefineMaskTool extends BaseTool {
     img.src = node.backgroundRemoval.maskDataUrl;
   }
 
-  private paintStroke(world: { x: number; y: number }, subtract: boolean, ctx: ToolContext): void {
+  private paintStroke(world: { x: number; y: number }, subtract: boolean): void {
     if (!this.maskData) return;
 
     this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
@@ -192,8 +213,6 @@ export class RefineMaskTool extends BaseTool {
         }
       }
     }
-
-    this.commitMask(ctx);
   }
 
   private commitMask(ctx: ToolContext): void {

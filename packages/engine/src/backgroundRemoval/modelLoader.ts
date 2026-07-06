@@ -233,6 +233,7 @@ class ModelLoader {
   async downloadModel(
     modelId: string,
     onProgress?: (loaded: number, total: number) => void,
+    signal?: AbortSignal,
   ): Promise<void> {
     const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
     if (!model) {
@@ -250,15 +251,16 @@ class ModelLoader {
       const manifestEntry = await getManifestEntry(modelId);
       let response: Response | null = null;
       try {
-        response = await fetch(localPath);
-      } catch {
+        response = await fetch(localPath, { signal });
+      } catch (err) {
+        if (signal?.aborted) throw new Error('Download cancelled');
         response = null;
       }
       if (!response?.ok) {
         if (!sources?.remote) {
           throw new Error(`Model ${modelId} is not bundled; download explicitly from settings.`);
         }
-        response = await fetch(sources.remote);
+        response = await fetch(sources.remote, { signal });
       }
 
       if (!response.ok) {
@@ -273,6 +275,10 @@ class ModelLoader {
       const chunks: Uint8Array[] = [];
 
       while (true) {
+        if (signal?.aborted) {
+          await reader?.cancel();
+          throw new Error('Download cancelled');
+        }
         const { done, value } = await reader!.read();
         if (done) break;
         chunks.push(value);
@@ -298,11 +304,6 @@ class ModelLoader {
       if (isBrowserEnv()) {
         await saveModelBlob(modelId, blob);
       } else {
-        // No IndexedDB available (e.g. a restricted embedding). localStorage's
-        // ~5MB quota and string-only API cannot hold model binaries without
-        // corrupting them (`Blob#text()` decodes as UTF-8, which is lossy for
-        // arbitrary binary data), so fail loudly instead of "succeeding" with
-        // a corrupted, unusable model on disk.
         throw new Error(
           'This environment cannot store AI models (IndexedDB unavailable). Use Quick mode, or run in a browser/desktop build with storage enabled.',
         );
@@ -312,11 +313,28 @@ class ModelLoader {
       this.notify();
       this.saveState();
     } catch (error) {
-      this.state = 'error';
+      this.state = signal?.aborted ? 'unavailable' : 'error';
       this.currentModelId = '';
       this.notify();
       this.saveState();
       throw error;
+    }
+  }
+
+  /** Verify a bundled model's bytes against the manifest SHA-256. */
+  async verifyBundledModel(modelId: string): Promise<'verified' | 'corrupt' | 'skipped'> {
+    const entry = await getManifestEntry(modelId);
+    if (!entry?.bundled || !entry.sha256) return 'skipped';
+
+    const bundled = entry.localPath ?? `/models/${modelId}.onnx`;
+    try {
+      const response = await fetch(bundled);
+      if (!response.ok) return 'corrupt';
+      const buffer = await response.arrayBuffer();
+      const ok = await verifyModelChecksum(buffer, entry.sha256);
+      return ok ? 'verified' : 'corrupt';
+    } catch {
+      return 'corrupt';
     }
   }
 

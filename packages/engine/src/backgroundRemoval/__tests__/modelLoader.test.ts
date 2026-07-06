@@ -327,4 +327,79 @@ describe('ModelLoader', () => {
     expect(sources?.bundled).toBe(true);
     expect(sources?.remote).toContain('u2netp');
   });
+
+  it('rejects corrupted download when checksum mismatches', async () => {
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    const { resetModelManifestCache } = await import('../modelManifest');
+    resetModelLoader();
+    resetModelManifestCache();
+    const loader = await getModelLoaderReady();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes('manifest.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              version: 1,
+              models: [
+                {
+                  id: 'u2netp',
+                  filename: 'u2netp.onnx',
+                  localPath: '/models/u2netp.onnx',
+                  sha256: 'deadbeef',
+                  bundled: false,
+                  remoteUrl: 'https://example.com/u2netp.onnx',
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.resolve(
+          mockFetchResponse({ ok: true, chunks: [new Uint8Array([9, 9, 9])] }),
+        );
+      }),
+    );
+
+    await expect(loader.downloadModel('u2netp')).rejects.toThrow(/SHA-256/);
+    expect(loader.getState()).toBe('error');
+    expect(mockSave).not.toHaveBeenCalled();
+  });
+
+  it('cancel mid-download aborts fetch and resets state to unavailable', async () => {
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+    const loader = await getModelLoaderReady();
+    const controller = new AbortController();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        if (String(url).includes('manifest.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ version: 1, models: [] }),
+          });
+        }
+        if (init?.method === 'HEAD') {
+          return Promise.resolve({ ok: false });
+        }
+        if (init?.signal?.aborted) {
+          return Promise.reject(new DOMException('Aborted', 'AbortError'));
+        }
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          );
+        });
+      }),
+    );
+
+    const download = loader.downloadModel('u2netp', undefined, controller.signal);
+    controller.abort();
+    await expect(download).rejects.toThrow(/cancelled/i);
+    expect(loader.getState()).toBe('unavailable');
+    expect(mockSave).not.toHaveBeenCalled();
+  });
 });

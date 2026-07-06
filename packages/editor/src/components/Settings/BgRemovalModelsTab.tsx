@@ -128,8 +128,8 @@ export function BgRemovalModelsTab() {
       )}
 
       <p className="settings-section__hint">
-        AI Balanced uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general-lite')?.name}.
-        AI Best Quality uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general')?.name}.
+        AI Balanced uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general-lite')?.name}. AI
+        Best Quality uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general')?.name}.
       </p>
 
       {downloadModelId && (

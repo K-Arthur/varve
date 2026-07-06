@@ -15,10 +15,16 @@ afterEach(cleanup);
 
 const mockedUseEditor = useEditor as unknown as ReturnType<typeof vi.fn>;
 
+const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } = vi.hoisted(() => ({
+  mockExportRemoveBg: vi.fn(),
+  mockExportImageCache: { load: vi.fn() },
+  mockExportIsModelAvailable: vi.fn().mockResolvedValue(true),
+}));
+
 vi.mock('@strata/engine', () => ({
   getModelLoaderReady: vi.fn().mockResolvedValue({
     getState: () => 'unavailable',
-    isModelAvailable: vi.fn().mockResolvedValue(false),
+    isModelAvailable: mockExportIsModelAvailable,
     subscribe: () => () => {},
   }),
   workerModelIdForMethod: (method: string) =>
@@ -27,6 +33,8 @@ vi.mock('@strata/engine', () => ({
       : method === 'ai-balanced'
         ? 'birefnet-general-lite'
         : null,
+  removeBackground: mockExportRemoveBg,
+  getImageCache: () => mockExportImageCache,
 }));
 
 vi.mock('../../../BackgroundRemoval/ModelDownloadDialog', () => ({
@@ -71,6 +79,21 @@ function makeImageNode(overrides: Record<string, unknown> = {}) {
   } as import('@strata/scene').ShapeNode;
 }
 
+function makeExportableImageNode(overrides: Record<string, unknown> = {}) {
+  return makeImageNode({
+    presets: [
+      {
+        id: 'p1',
+        enabled: true,
+        format: 'png',
+        scale: { type: 'factor', value: 1 },
+        suffix: '',
+      },
+    ],
+    ...overrides,
+  });
+}
+
 function createMockEditorContext(overrides: Record<string, unknown> = {}) {
   const mockState = {
     tool: 'select' as const,
@@ -78,6 +101,7 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
     pan: { x: 0, y: 0 },
     selection: ['n1'],
     showOriginalBgNodeId: null,
+    refineMaskOptions: { brushSize: 20, hardness: 0.8 },
     ...(overrides.state ?? {}),
   };
   return {
@@ -87,6 +111,8 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
     updateNode: vi.fn(),
     announce: vi.fn(),
     setShowOriginalBg: vi.fn(),
+    setTool: vi.fn(),
+    setRefineMaskOptions: vi.fn(),
     ...overrides,
   };
 }
@@ -262,9 +288,153 @@ describe('BackgroundRemovalSection - Decontaminate checkbox', () => {
 });
 
 describe('ExportDialog - Remove background toggle', () => {
+  beforeEach(() => {
+    mockExportRemoveBg.mockReset().mockResolvedValue({
+      maskDataUrl: 'data:image/png;base64,export',
+      method: 'quick',
+      confidence: 0.8,
+      processingTimeMs: 1,
+      width: 200,
+      height: 160,
+    });
+    mockExportImageCache.load.mockReset().mockResolvedValue({ width: 200, height: 160 });
+    mockExportIsModelAvailable.mockResolvedValue(true);
+    const canvasProto = HTMLCanvasElement.prototype;
+    canvasProto.getContext = vi.fn(() => ({
+      drawImage: vi.fn(),
+      getImageData: vi.fn(() => new ImageData(200, 160)),
+    })) as typeof canvasProto.getContext;
+  });
+
   it('renders remove background before export checkbox', async () => {
     const { ExportDialog } = await import('../../../Export/ExportDialog');
     render(<ExportDialog isOpen={true} onClose={() => {}} nodes={[]} onExport={async () => {}} />);
     expect(screen.getByText('Remove background before export')).toBeTruthy();
+  });
+
+  it('does not call onApplyBackgroundRemoval when toggle is off', async () => {
+    const { ExportDialog } = await import('../../../Export/ExportDialog');
+    const onApplyBackgroundRemoval = vi.fn();
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[makeImageNode()]}
+        onExport={async () => {}}
+        onApplyBackgroundRemoval={onApplyBackgroundRemoval}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /export/i }));
+    await vi.waitFor(() => expect(onApplyBackgroundRemoval).not.toHaveBeenCalled());
+  });
+
+  it('invokes onApplyBackgroundRemoval callback with correct id+state', async () => {
+    const { ExportDialog } = await import('../../../Export/ExportDialog');
+    const onApplyBackgroundRemoval = vi.fn();
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[makeExportableImageNode()]}
+        onExport={async () => {}}
+        onApplyBackgroundRemoval={onApplyBackgroundRemoval}
+      />,
+    );
+    fireEvent.click(screen.getByText('Remove background before export'));
+    fireEvent.click(screen.getByRole('button', { name: /export \(1\)/i }));
+    await vi.waitFor(() => {
+      expect(onApplyBackgroundRemoval).toHaveBeenCalledWith(
+        'n1',
+        expect.objectContaining({
+          method: 'quick',
+          maskDataUrl: expect.stringContaining('export'),
+        }),
+      );
+    });
+  });
+
+  it('blocks export bg removal when AI method selected but model unavailable', async () => {
+    mockExportIsModelAvailable.mockResolvedValue(false);
+    const { ExportDialog } = await import('../../../Export/ExportDialog');
+    const onApplyBackgroundRemoval = vi.fn();
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[makeExportableImageNode()]}
+        onExport={async () => {}}
+        onApplyBackgroundRemoval={onApplyBackgroundRemoval}
+      />,
+    );
+    fireEvent.click(screen.getByText('Remove background before export'));
+    const methodSelect = screen.getByLabelText('Background removal method for export');
+    fireEvent.change(methodSelect, { target: { value: 'ai-balanced' } });
+    await vi.waitFor(() => {
+      expect(screen.getByRole('button', { name: /download ai model/i })).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /export \(1\)/i }));
+    await vi.waitFor(() => {
+      const liveRegion = document.querySelector('[role="status"]');
+      expect(liveRegion?.textContent).toMatch(/Download the AI model first/i);
+    });
+    expect(onApplyBackgroundRemoval).not.toHaveBeenCalled();
+  });
+});
+
+describe('BackgroundRemovalSection - Refine mask wiring', () => {
+  it('shows Refine Mask button only when background removal exists', () => {
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(screen.queryByText('Refine Mask')).toBeNull();
+
+    render(
+      <BackgroundRemovalSection
+        nodes={[
+          makeImageNode({
+            backgroundRemoval: {
+              maskDataUrl: 'data:image/png;base64,mask',
+              method: 'quick',
+              confidence: 0.9,
+              appliedAt: Date.now(),
+            },
+          }),
+        ]}
+      />,
+    );
+    expect(screen.getByText('Refine Mask')).toBeTruthy();
+  });
+
+  it('calls setTool(refineMask) when Refine Mask is clicked', () => {
+    const setTool = vi.fn();
+    mockedUseEditor.mockReturnValue(createMockEditorContext({ setTool }));
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'quick',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Refine Mask'));
+    expect(setTool).toHaveBeenCalledWith('refineMask');
+  });
+
+  it('shows brush controls only while refineMask tool is active', () => {
+    mockedUseEditor.mockReturnValue(
+      createMockEditorContext({
+        state: { tool: 'refineMask', selection: ['n1'] },
+      }),
+    );
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'quick',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    expect(screen.getByLabelText('Brush size')).toBeTruthy();
+    expect(screen.getByLabelText('Hardness')).toBeTruthy();
   });
 });

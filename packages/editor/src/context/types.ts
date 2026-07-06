@@ -82,10 +82,12 @@ export interface EditorState {
   softProofEnabled: boolean;
   leftPanelVisible: boolean;
   rightPanelVisible: boolean;
+  timelinePanelVisible: boolean;
   motion: MotionState;
   canvasMode: CanvasMode;
   currentPageId: string | null;
   showOriginalBgNodeId: NodeId | null;
+  refineMaskOptions: { brushSize: number; hardness: number };
 }
 
 export interface EditorContextValue {
@@ -322,10 +324,8 @@ export interface EditorContextValue {
     feather: number,
     decontaminate: boolean,
   ) => Promise<void>;
-  batchRemoveBackground: (
-    method: BackgroundRemovalMethod,
-  ) => Promise<{ total: number; succeeded: number; failed: number }>;
   setShowOriginalBg: (nodeId: NodeId | null) => void;
+  setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;
@@ -348,6 +348,11 @@ export interface EditorContextValue {
   setPlaybackSpeed: (speed: number) => void;
   toggleLoop: () => void;
   addKeyframeToSelected: (property: string) => void;
+  createTimeline: (name?: string, duration?: number) => string;
+  removeTimeline: (id: string) => void;
+  renameTimeline: (id: string, name: string) => void;
+  removeTrack: (timelineId: string, trackId: string) => void;
+  toggleTimelinePanel: () => void;
 
   // Guides
   addGuide: (axis: 'horizontal' | 'vertical', position: number) => void;

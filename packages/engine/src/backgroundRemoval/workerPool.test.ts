@@ -57,4 +57,27 @@ describe('workerPool', () => {
     await expect(pending).rejects.toThrow('timed out');
     vi.useRealTimers();
   });
+
+  it('rejects and dequeues when external AbortSignal fires', async () => {
+    vi.useFakeTimers();
+    const mockWorker = new MockWorker();
+    vi.stubGlobal(
+      'Worker',
+      vi.fn(() => mockWorker),
+    );
+
+    const imageData = { width: 4, height: 4, data: new Uint8ClampedArray(4 * 4 * 4) } as ImageData;
+    const controller = new AbortController();
+    const pending = runPooledInference(
+      imageData,
+      { method: 'ai-balanced' },
+      '/models/u2netp.onnx',
+      'u2netp',
+      controller.signal,
+    );
+    pending.catch(() => {});
+    controller.abort();
+    await expect(pending).rejects.toThrow('cancelled');
+    vi.useRealTimers();
+  });
 });

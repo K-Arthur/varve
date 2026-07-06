@@ -1,5 +1,5 @@
 import { AVAILABLE_MODELS, getModelLoader } from '@strata/engine';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { FocusTrap } from '../../onboard/FocusTrap';
 import './ModelDownloadDialog.css';
 
@@ -22,31 +22,50 @@ type DownloadStatus = 'confirm' | 'downloading' | 'done' | 'error';
 export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownloadDialogProps) {
   const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
   const [progress, setProgress] = useState(0);
-  // Downloads are tens-to-hundreds of MB over the network — this is opt-in
-  // by design (ADR-0005). The dialog must never start transferring data
-  // before the user has seen the size/source and explicitly agreed; it only
-  // opens once the caller's own "Download AI Model" button was already
-  // clicked, so this second, more detailed gate is the actual point of
-  // informed consent (name + size + source + purpose, not just a button).
   const [status, setStatus] = useState<DownloadStatus>('confirm');
   const [error, setError] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
 
   const handleDownload = useCallback(async () => {
     setStatus('downloading');
     setProgress(0);
     setError('');
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const loader = getModelLoader();
-      await loader.downloadModel(modelId, (loaded, total) => {
-        setProgress(Math.round((loaded / total) * 100));
-      });
+      await loader.downloadModel(
+        modelId,
+        (loaded, total) => {
+          setProgress(Math.round((loaded / total) * 100));
+        },
+        controller.signal,
+      );
       setStatus('done');
       setTimeout(onComplete, 1000);
     } catch (e) {
+      if (controller.signal.aborted) {
+        setStatus('confirm');
+        return;
+      }
       setStatus('error');
       setError((e as Error).message);
+    } finally {
+      abortRef.current = null;
     }
   }, [modelId, onComplete]);
+
+  const handleCancel = useCallback(() => {
+    if (status === 'downloading') {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setStatus('confirm');
+      setProgress(0);
+      return;
+    }
+    onClose();
+  }, [status, onClose]);
 
   const sizeMB = model ? Math.round(model.size / 1_000_000) : 0;
   const sourceHost = model ? sourceHostname(model.remoteUrl) : 'a remote server';
@@ -58,10 +77,10 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
       aria-modal="true"
       aria-label="Download AI Model"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) handleCancel();
       }}
     >
-      <FocusTrap onClose={onClose}>
+      <FocusTrap onClose={handleCancel}>
         <div className="model-download-dialog">
           <h2>Download AI Model</h2>
 
@@ -75,7 +94,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
                 with no download required.
               </p>
               <div className="model-download__actions">
-                <button className="button button--ghost" onClick={onClose}>
+                <button className="button button--ghost" onClick={handleCancel}>
                   Cancel
                 </button>
                 <button className="button button--primary" onClick={handleDownload}>
@@ -113,7 +132,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
 
           {status !== 'confirm' && (
             <div className="model-download__actions">
-              <button className="button button--ghost" onClick={onClose}>
+              <button className="button button--ghost" onClick={handleCancel}>
                 {status === 'done' ? 'Close' : 'Cancel'}
               </button>
             </div>
