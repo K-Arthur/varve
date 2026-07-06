@@ -5,6 +5,7 @@ import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useState } from 'react';
 import { ShortcutPalette } from '../../shortcuts';
 import { ExportSettingsTab } from './ExportSettingsTab';
+import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { useSettings } from './SettingsContext';
 import type { SettingsSection, ThemeMode, UnitType } from './settings';
 
@@ -13,6 +14,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'shortcuts', label: 'Keyboard Shortcuts' },
   { id: 'export', label: 'Export' },
+  { id: 'models', label: 'Offline Models' },
   { id: 'collab', label: 'Collab' },
   { id: 'ai', label: 'AI Assistant' },
   { id: 'about', label: 'About' },
@@ -118,6 +120,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <ShortcutsSection onOpenPalette={() => setShortcutsOpen(true)} />
             )}
             {activeSection === 'export' && <ExportSettingsTab />}
+            {activeSection === 'models' && <BgRemovalModelsTab />}
             {activeSection === 'collab' && <CollabSection />}
             {activeSection === 'ai' && <AISection />}
             {activeSection === 'about' && <AboutSection />}

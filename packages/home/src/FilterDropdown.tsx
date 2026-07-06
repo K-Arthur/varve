@@ -141,5 +141,5 @@ function dateToInputValue(epochMs: number): string {
 }
 
 function dateFromInput(value: string): number {
-  return new Date(value + 'T00:00:00Z').getTime();
+  return new Date(`${value}T00:00:00Z`).getTime();
 }

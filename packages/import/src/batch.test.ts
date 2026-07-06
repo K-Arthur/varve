@@ -96,10 +96,10 @@ describe('batchImport', () => {
     expect(result.successCount).toBe(2);
     const nodeA = result.document.nodes[result.nodeIds[0]!];
     const nodeB = result.document.nodes[result.nodeIds[1]!];
-    expect(nodeA!.transform[4]).toBe(100);
-    expect(nodeA!.transform[5]).toBe(200);
-    expect(nodeB!.transform[4]).toBe(200);
-    expect(nodeB!.transform[5]).toBe(200);
+    expect(nodeA?.transform[4]).toBe(100);
+    expect(nodeA?.transform[5]).toBe(200);
+    expect(nodeB?.transform[4]).toBe(200);
+    expect(nodeB?.transform[5]).toBe(200);
   });
 
   it('applies custom spacing between nodes', () => {

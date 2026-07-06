@@ -337,10 +337,10 @@ function evaluateBezier(curve: readonly [number, number, number, number], t: num
 
 export function strokeBounds(dabs: BrushDab[]): { x: number; y: number; w: number; h: number } {
   if (dabs.length === 0) return { x: 0, y: 0, w: 0, h: 0 };
-  let minX = dabs[0]!.x - dabs[0]!.radius;
-  let minY = dabs[0]!.y - dabs[0]!.radius;
-  let maxX = dabs[0]!.x + dabs[0]!.radius;
-  let maxY = dabs[0]!.y + dabs[0]!.radius;
+  let minX = dabs[0]?.x - dabs[0]?.radius;
+  let minY = dabs[0]?.y - dabs[0]?.radius;
+  let maxX = dabs[0]?.x + dabs[0]?.radius;
+  let maxY = dabs[0]?.y + dabs[0]?.radius;
   for (const d of dabs) {
     minX = Math.min(minX, d.x - d.radius);
     minY = Math.min(minY, d.y - d.radius);

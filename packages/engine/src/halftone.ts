@@ -97,6 +97,31 @@ export function generateAMMatrix(size: number, dotShape: HalftoneDotShape): Uint
  * @param params Halftone parameters
  * @param pixelScale Resolution scale (1.0 for screen, higher for print export)
  */
+/**
+ * Screen a single ink channel at a given rotation and return whether the
+ * ink dot is "on" (deposited) at pixel (x, y).
+ */
+function screenChannelAt(
+  x: number,
+  y: number,
+  gray: number,
+  angle: number,
+  cellSize: number,
+  matrix: Uint8Array,
+  matrixSize: number,
+): boolean {
+  const rad = (angle * Math.PI) / 180;
+  // Rotate coordinates for screen angle
+  const rx = x * Math.cos(rad) - y * Math.sin(rad);
+  const ry = x * Math.sin(rad) + y * Math.cos(rad);
+  const sx = Math.round(rx / cellSize) % matrixSize;
+  const sy = Math.round(ry / cellSize) % matrixSize;
+  const mx = ((sx % matrixSize) + matrixSize) % matrixSize;
+  const my = ((sy % matrixSize) + matrixSize) % matrixSize;
+  const threshold = matrix[my * matrixSize + mx]!;
+  return gray > threshold;
+}
+
 export function applyAMScreening(
   data: ImageData,
   params: HalftoneParams,
@@ -115,45 +140,82 @@ export function applyAMScreening(
   const matrixSize = nextPowerOfTwo(cellSize * 2);
   const matrix = generateAMMatrix(matrixSize, dotShape);
 
-  // Apply per-channel screening
-  const channels = channel === 'cmyk' ? ['c', 'm', 'y', 'k'] : [channel];
-  const numChannels = channels.length;
+  if (channel === 'cmyk') {
+    // Screen each process-color ink independently (its own ink density and
+    // its own standard screen angle), then recombine via subtractive
+    // overprint into an RGB preview pixel. Alpha is left untouched — it is
+    // not a fifth ink channel.
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
 
+        const c = screenChannelAt(
+          x,
+          y,
+          getChannelLuminance(pixels, idx, 'c'),
+          STANDARD_ANGLES.c!,
+          cellSize,
+          matrix,
+          matrixSize,
+        )
+          ? 1
+          : 0;
+        const m = screenChannelAt(
+          x,
+          y,
+          getChannelLuminance(pixels, idx, 'm'),
+          STANDARD_ANGLES.m!,
+          cellSize,
+          matrix,
+          matrixSize,
+        )
+          ? 1
+          : 0;
+        const yInk = screenChannelAt(
+          x,
+          y,
+          getChannelLuminance(pixels, idx, 'y'),
+          STANDARD_ANGLES.y!,
+          cellSize,
+          matrix,
+          matrixSize,
+        )
+          ? 1
+          : 0;
+        const k = screenChannelAt(
+          x,
+          y,
+          getChannelLuminance(pixels, idx, 'k'),
+          STANDARD_ANGLES.k!,
+          cellSize,
+          matrix,
+          matrixSize,
+        )
+          ? 1
+          : 0;
+
+        // Standard uncalibrated CMYK -> RGB overprint approximation.
+        pixels[idx] = Math.round(255 * (1 - c) * (1 - k));
+        pixels[idx + 1] = Math.round(255 * (1 - m) * (1 - k));
+        pixels[idx + 2] = Math.round(255 * (1 - yInk) * (1 - k));
+        // pixels[idx + 3] (alpha) intentionally untouched.
+      }
+    }
+    return;
+  }
+
+  // Single (mono) channel: halftone the luminance for that one channel,
+  // using its standard screen angle unless the caller overrides it.
+  const angle = STANDARD_ANGLES[channel] ?? params.angle;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
-      const gray = getChannelLuminance(pixels, idx, channels[0]!);
-
-      // Rotate screen by angle for each channel
-      for (let ci = 0; ci < numChannels; ci++) {
-        const angle = STANDARD_ANGLES[channels[ci]!] ?? params.angle;
-        const rad = (angle * Math.PI) / 180;
-        // Rotate coordinates for screen angle
-        const rx = x * Math.cos(rad) - y * Math.sin(rad);
-        const ry = x * Math.sin(rad) + y * Math.cos(rad);
-        const sx = Math.round(rx / cellSize) % matrixSize;
-        const sy = Math.round(ry / cellSize) % matrixSize;
-        const mx = ((sx % matrixSize) + matrixSize) % matrixSize;
-        const my = ((sy % matrixSize) + matrixSize) % matrixSize;
-
-        const threshold = matrix[my * matrixSize + mx]!;
-        const isOn = gray > threshold;
-
-        if (channel === 'cmyk' && numChannels > 1) {
-          // For CMYK, set pixel black/white based on this channel
-          // Each channel in the data represents one separation
-          const ciIdx = idx + ci; // 0=C, 1=M, 2=Y, 3=K
-          if (ciIdx < pixels.length) {
-            pixels[ciIdx] = isOn ? 0 : 255;
-          }
-        } else {
-          // Single channel: halftone the luminance
-          const val = isOn ? 0 : 255;
-          pixels[idx] = val;
-          pixels[idx + 1] = val;
-          pixels[idx + 2] = val;
-        }
-      }
+      const gray = getChannelLuminance(pixels, idx, channel);
+      const isOn = screenChannelAt(x, y, gray, angle, cellSize, matrix, matrixSize);
+      const val = isOn ? 0 : 255;
+      pixels[idx] = val;
+      pixels[idx + 1] = val;
+      pixels[idx + 2] = val;
     }
   }
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   chromaKeyMask,
   edgeDetectMask,
@@ -6,7 +6,6 @@ import {
   kMeansMask,
   removeBackgroundHeuristic,
 } from '../heuristic';
-import type { HeuristicMethod } from '../types';
 
 function makeTestImage(
   w: number,
@@ -186,5 +185,27 @@ describe('removeBackgroundHeuristic', () => {
     expect(typeof result.maskDataUrl).toBe('string');
     expect(result.width).toBe(1);
     expect(result.height).toBe(1);
+  });
+
+  it('decontaminate option actually chokes the mask before encoding', async () => {
+    // `maskDataUrl` degrades to a fixed placeholder string outside a DOM
+    // environment (`maskToDataUrl`'s `typeof document` guard), and a mostly
+    // 50/50-split confidence score saturates at the same clamped value
+    // whether or not decontamination ran — neither is a reliable observable
+    // here. Instead, verify the wiring directly: `decontaminateMask` (unit
+    // tested in isolation in `maskOps.test.ts`) must be invoked exactly when
+    // `opts.decontaminate` is set, and never otherwise.
+    const spy = vi.spyOn(await import('../maskOps'), 'decontaminateMask');
+    const img = redBlueSplit(20, 20);
+    const base = { method: 'quick' as const, clickPoint: { x: 15, y: 10 } };
+
+    await removeBackgroundHeuristic(img, base);
+    expect(spy).not.toHaveBeenCalled();
+
+    await removeBackgroundHeuristic(img, { ...base, decontaminate: true });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith(expect.any(Uint8Array), 20, 20);
+
+    spy.mockRestore();
   });
 });

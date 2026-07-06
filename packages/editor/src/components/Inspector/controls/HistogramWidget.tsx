@@ -264,7 +264,6 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
         ref={canvasRef}
         width={WIDTH}
         height={HEIGHT}
-        role="graphics-document"
         tabIndex={0}
         aria-label="Histogram with level sliders. Use arrow keys to adjust, Tab to cycle between black/gamma/white sliders, Home/End to jump to ends."
         style={{

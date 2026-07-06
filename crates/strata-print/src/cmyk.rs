@@ -550,6 +550,7 @@ mod tests {
             effects: Vec::new(),
             fills: None,
             corner_radius: None,
+            filters: None,
         }
     }
 

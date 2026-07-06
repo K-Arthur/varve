@@ -98,7 +98,7 @@ export function FileGrid({
       focusedCardRef.current?.focus();
       pendingFocusRef.current = false;
     }
-  }, [focusIdx]);
+  }, []);
 
   const navigate = useCallback(
     (dir: number, wrap = true) => {

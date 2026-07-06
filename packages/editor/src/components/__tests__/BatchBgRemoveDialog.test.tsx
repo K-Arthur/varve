@@ -23,15 +23,22 @@ vi.mock('@strata/engine', () => ({
 function imageNode(
   id: string,
   overrides: Record<string, unknown> = {},
-): import('@strata/scene').ImageNode {
+): import('@strata/scene').ShapeNode {
   return {
     id,
     name: `Image ${id}`,
-    kind: 'image',
+    kind: 'shape',
+    shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
     transform: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
-    src: `https://example.com/${id}.png`,
-    w: 100,
-    h: 80,
+    fills: [
+      {
+        type: 'image',
+        image: { src: `https://example.com/${id}.png`, fit: 'fill', x: 0, y: 0, scale: 1 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ],
     visible: true,
     locked: false,
     opacity: 1,
@@ -230,6 +237,33 @@ describe('BatchBgRemoveDialog', () => {
     const { onClose } = renderDialog([imageNode('i1')]);
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('traps focus inside the dialog and auto-focuses on open (keyboard-only users cannot tab behind the modal)', () => {
+    renderDialog([imageNode('i1')]);
+
+    const dialog = screen.getByRole('dialog', { name: /batch background removal/i });
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    expect(focusable.length).toBeGreaterThan(1);
+    const first = focusable[0]!;
+    const last = focusable[focusable.length - 1]!;
+
+    // On mount, focus should already be inside the dialog, not on <body>.
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    // Shift+Tab from the first element wraps around to the last.
+    first.focus();
+    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+
+    // Tab from the last element wraps around to the first.
+    last.focus();
+    fireEvent.keyDown(last, { key: 'Tab' });
+    expect(document.activeElement).toBe(first);
   });
 
   it('retry failed item', async () => {

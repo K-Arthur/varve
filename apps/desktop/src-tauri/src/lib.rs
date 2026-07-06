@@ -83,8 +83,16 @@ fn sync_load(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String
 
 // ── Background Removal ──────────────────────────────────
 
+/// Wire format matches the `BackgroundRemovalOptions` shape sent by
+/// `@strata/engine`'s `invokeTauriRemoveBackground` — camelCase, since
+/// (unlike top-level command argument names) Tauri does NOT auto-convert
+/// casing for fields nested inside a command's argument structs.
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct BgRemoveOptions {
+    // Only read when built with the `ai` feature (see the match below);
+    // without it, every request is unconditionally routed to `Quick`.
+    #[cfg_attr(not(feature = "ai"), allow(dead_code))]
     method: String,
     tolerance: Option<u8>,
     feather_radius: Option<f32>,
@@ -93,7 +101,11 @@ struct BgRemoveOptions {
     click_y: Option<u32>,
 }
 
+/// Wire format matches `BackgroundRemovalResult` in `@strata/engine` —
+/// see the `BgRemoveOptions` note on casing above; this applies
+/// symmetrically to values returned from the command.
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct BgRemoveResult {
     mask_base64: String,
     confidence: f32,
@@ -103,8 +115,14 @@ struct BgRemoveResult {
     height: u32,
 }
 
-/// Remove background from an image using heuristic (non-AI) methods.
-/// Accepts raw PNG bytes and returns a base64-encoded alpha mask.
+/// Remove background from an image via the native `strata-bgremove` crate.
+///
+/// `method: "quick"` always uses the heuristic engine (always available).
+/// `"ai-balanced"` / `"ai-quality"` use ONNX inference when this binary was
+/// built with the `ai` Cargo feature (opt-in, requires a downloaded model —
+/// see ADR-0005); otherwise they fall back to the heuristic rather than
+/// failing, matching the same graceful-degradation contract as the
+/// TypeScript facade in `@strata/engine`.
 #[tauri::command]
 fn remove_background(
     image_data: Vec<u8>,
@@ -112,12 +130,14 @@ fn remove_background(
 ) -> Result<BgRemoveResult, String> {
     let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
 
-    let method = if options.method == "quick" || options.method.is_empty() {
-        strata_bgremove::RemovalMethod::Quick
-    } else {
-        // AI methods fall back to quick when backend isn't available
-        strata_bgremove::RemovalMethod::Quick
+    #[cfg(feature = "ai")]
+    let method = match options.method.as_str() {
+        "ai-balanced" => strata_bgremove::RemovalMethod::AiBalanced,
+        "ai-quality" => strata_bgremove::RemovalMethod::AiQuality,
+        _ => strata_bgremove::RemovalMethod::Quick,
     };
+    #[cfg(not(feature = "ai"))]
+    let method = strata_bgremove::RemovalMethod::Quick;
 
     let remove_opts = strata_bgremove::RemovalOptions {
         method,
@@ -1149,5 +1169,102 @@ mod tests {
         assert!((opts.bleed_mm - 3.0).abs() < 1e-6);
         assert!(!opts.include_crop_marks);
         assert!(!opts.outline_text);
+    }
+
+    fn make_test_png(w: u32, h: u32) -> Vec<u8> {
+        let mut buf = image::RgbaImage::new(w, h);
+        for (x, _y, px) in buf.enumerate_pixels_mut() {
+            *px = if x < w / 2 {
+                image::Rgba([255, 0, 0, 255])
+            } else {
+                image::Rgba([0, 0, 255, 255])
+            };
+        }
+        let mut bytes: Vec<u8> = Vec::new();
+        image::DynamicImage::ImageRgba8(buf)
+            .write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .expect("encode png");
+        bytes
+    }
+
+    #[test]
+    fn bg_remove_options_deserializes_camel_case_wire_format() {
+        // This is exactly the shape `invokeTauriRemoveBackground` (TS) sends.
+        let json = serde_json::json!({
+            "method": "quick",
+            "featherRadius": 2.5,
+            "decontaminate": true,
+            "clickX": 10,
+            "clickY": 20,
+        });
+        let opts: BgRemoveOptions = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(opts.method, "quick");
+        assert_eq!(opts.feather_radius, Some(2.5));
+        assert_eq!(opts.decontaminate, Some(true));
+        assert_eq!(opts.click_x, Some(10));
+        assert_eq!(opts.click_y, Some(20));
+    }
+
+    #[test]
+    fn bg_remove_result_serializes_camel_case_wire_format() {
+        let result = BgRemoveResult {
+            mask_base64: "abc123".to_string(),
+            confidence: 0.75,
+            method: "quick".to_string(),
+            processing_time_ms: 42,
+            width: 10,
+            height: 20,
+        };
+        let json = serde_json::to_value(&result).expect("serialize");
+        // The TS side (`BackgroundRemovalResult`/`invokeTauriRemoveBackground`)
+        // reads these exact camelCase keys — a regression here silently breaks
+        // background removal on the desktop build with no compile-time signal.
+        assert_eq!(json["maskBase64"], "abc123");
+        assert_eq!(json["processingTimeMs"], 42);
+        assert!(json.get("mask_base64").is_none());
+        assert!(json.get("processing_time_ms").is_none());
+    }
+
+    #[test]
+    fn remove_background_quick_end_to_end_via_command() {
+        let png = make_test_png(20, 20);
+        let options: BgRemoveOptions = serde_json::from_value(serde_json::json!({
+            "method": "quick",
+        }))
+        .expect("deserialize options");
+
+        let result = remove_background(png, options).expect("remove_background should succeed");
+        assert_eq!(result.method, "quick");
+        assert_eq!(result.width, 20);
+        assert_eq!(result.height, 20);
+        assert!(!result.mask_base64.is_empty());
+        assert!(result.confidence > 0.0);
+    }
+
+    #[test]
+    fn remove_background_rejects_undecodable_bytes() {
+        let options: BgRemoveOptions = serde_json::from_value(serde_json::json!({
+            "method": "quick",
+        }))
+        .expect("deserialize options");
+        let err = remove_background(vec![0, 1, 2, 3], options).unwrap_err();
+        assert!(err.contains("decode"), "should report a decode error: {err}");
+    }
+
+    #[test]
+    fn remove_background_ai_method_falls_back_to_quick_without_ai_feature() {
+        // Without the `ai` Cargo feature compiled in (the default distributed
+        // build per ADR-0005), requesting an AI method must not error — it
+        // should transparently degrade to the heuristic and say so honestly
+        // via the returned `method` field.
+        let png = make_test_png(10, 10);
+        let options: BgRemoveOptions = serde_json::from_value(serde_json::json!({
+            "method": "ai-balanced",
+        }))
+        .expect("deserialize options");
+
+        let result = remove_background(png, options).expect("should degrade, not error");
+        #[cfg(not(feature = "ai"))]
+        assert_eq!(result.method, "quick");
     }
 }

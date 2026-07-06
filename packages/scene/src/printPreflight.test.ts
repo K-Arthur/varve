@@ -47,7 +47,7 @@ describe('runPrintPreflight', () => {
     expect(result.errorCount).toBeGreaterThan(0);
     const bleedIssue = result.issues.find((i) => i.category === 'bleed');
     expect(bleedIssue).toBeDefined();
-    expect(bleedIssue!.severity).toBe('error');
+    expect(bleedIssue?.severity).toBe('error');
     expect(result.ready).toBe(false);
   });
 

@@ -103,7 +103,6 @@ function NamingForm({ version, onName, onCancel }: NamingFormProps) {
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           className="version-history__naming-input"
-          autoFocus
         />
         <Button variant="primary" size="sm" type="submit" disabled={!value.trim()}>
           Save

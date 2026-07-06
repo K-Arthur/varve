@@ -335,8 +335,6 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
           touchAction: 'none',
           userSelect: 'none',
         }}
-        tabIndex={0}
-        role="graphics-document"
         aria-label="Curve editor. Use arrow keys to move selected point, Tab to cycle, Delete to remove."
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

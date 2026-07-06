@@ -93,7 +93,7 @@ export function sampleTimeline(
       if (!overrides.has(track.nodeId)) {
         overrides.set(track.nodeId, new Map());
       }
-      overrides.get(track.nodeId)!.set(track.property, val);
+      overrides.get(track.nodeId)?.set(track.property, val);
     }
   }
 
@@ -173,7 +173,7 @@ function interpolateTrack(
   interpolation: NonNullable<import('@strata/scene').AnimationTrack['interpolation']>,
 ): unknown {
   if (keyframes.length === 0) return undefined;
-  if (keyframes.length === 1) return keyframes[0]!.value;
+  if (keyframes.length === 1) return keyframes[0]?.value;
 
   // Sort by progress (defensive — should already be sorted)
   const sorted = [...keyframes].sort((a, b) => a.progress - b.progress);
@@ -193,8 +193,8 @@ function interpolateTrack(
   }
 
   // Clamp at boundaries
-  if (progress <= sorted[0]!.progress) return sorted[0]!.value;
-  if (progress >= sorted[sorted.length - 1]!.progress) return sorted[sorted.length - 1]!.value;
+  if (progress <= sorted[0]?.progress) return sorted[0]?.value;
+  if (progress >= sorted[sorted.length - 1]?.progress) return sorted[sorted.length - 1]?.value;
 
   // Find surrounding keyframes
   for (let i = 0; i < sorted.length - 1; i++) {
@@ -225,7 +225,7 @@ function interpolateTrack(
     }
   }
 
-  return sorted[sorted.length - 1]!.value;
+  return sorted[sorted.length - 1]?.value;
 }
 
 function interpolateTypedValue(from: unknown, to: unknown, t: number): unknown {

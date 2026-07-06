@@ -1,10 +1,22 @@
 /**
  * Tests for nondestructive adjustment filter application in replay.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyFilterChain } from './filters';
-import { replayIr } from './replay';
 import type { RenderItem } from './types';
+
+const applyFilterWithCompositingSpy = vi.fn();
+vi.mock('./filterCompositor', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./filterCompositor')>();
+  return {
+    ...actual,
+    applyFilterWithCompositing: (...args: Parameters<typeof actual.applyFilterWithCompositing>) => {
+      applyFilterWithCompositingSpy(...args);
+    },
+  };
+});
+
+const { replayIr } = await import('./replay');
 
 function makeRecorder(): {
   calls: string[];
@@ -83,6 +95,10 @@ describe('applyFilterChain', () => {
 });
 
 describe('replay filter chain', () => {
+  beforeEach(() => {
+    applyFilterWithCompositingSpy.mockClear();
+  });
+
   it('sets filter from CSS-convertible filters', () => {
     const { target, calls } = makeRecorder();
     const item = {
@@ -95,7 +111,7 @@ describe('replay filter chain', () => {
     expect(calls.some((c) => c === 'fill filter=brightness(130%)')).toBe(true);
   });
 
-  it('does not set filter when no CSS equivalent exists', () => {
+  it('does not leak a CSS filter string when no CSS equivalent exists', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
       {
@@ -114,6 +130,44 @@ describe('replay filter chain', () => {
     ]);
     expect(calls.some((c) => c.startsWith('fill filter=') && c !== 'fill filter=none')).toBe(false);
   });
+
+  it.each([
+    {
+      kind: 'exposure' as const,
+      value: 1,
+      offset: 0,
+      gammaCorrection: 1,
+      opacity: 1,
+      blendMode: 'normal' as const,
+    },
+    {
+      kind: 'halftone' as const,
+      pattern: 'dot' as const,
+      frequency: 45,
+      angle: 45,
+      dotShape: 'round' as const,
+      channel: 'k' as const,
+      method: 'am' as const,
+      opacity: 1,
+      blendMode: 'normal' as const,
+    },
+    {
+      kind: 'curves' as const,
+      channel: 'rgb' as const,
+      points: [],
+      opacity: 1,
+      blendMode: 'normal' as const,
+    },
+  ])(
+    'routes non-CSS filter $kind at default opacity/blendMode to pixel-level compositing instead of silently dropping it',
+    (filter) => {
+      const { target } = makeRecorder();
+      replayIr(target, [{ ...rectItem(10, 10), filters: [filter] }]);
+      expect(applyFilterWithCompositingSpy).toHaveBeenCalledTimes(1);
+      const [, appliedFilters] = applyFilterWithCompositingSpy.mock.calls[0]!;
+      expect(appliedFilters).toEqual([filter]);
+    },
+  );
 
   it('composes multiple convertible filters into one filter string', () => {
     const { target, calls } = makeRecorder();

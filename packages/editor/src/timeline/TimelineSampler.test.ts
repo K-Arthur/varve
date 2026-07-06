@@ -41,7 +41,7 @@ describe('sampleTimeline', () => {
       ],
     });
     const result = sampleTimeline(tl, 2500);
-    expect(result.overrides.get('n1')!.get('opacity')).toBe(0.5);
+    expect(result.overrides.get('n1')?.get('opacity')).toBe(0.5);
   });
 
   it('interpolates between two keyframes', () => {
@@ -59,7 +59,7 @@ describe('sampleTimeline', () => {
       ],
     });
     const result = sampleTimeline(tl, 2500); // halfway
-    expect(result.overrides.get('n1')!.get('opacity')).toBe(0.5);
+    expect(result.overrides.get('n1')?.get('opacity')).toBe(0.5);
   });
 
   it('interpolates at a specific offset', () => {
@@ -77,9 +77,9 @@ describe('sampleTimeline', () => {
         },
       ],
     });
-    expect(sampleTimeline(tl, 250).overrides.get('n1')!.get('rotation')).toBe(90);
-    expect(sampleTimeline(tl, 500).overrides.get('n1')!.get('rotation')).toBe(180);
-    expect(sampleTimeline(tl, 750).overrides.get('n1')!.get('rotation')).toBe(270);
+    expect(sampleTimeline(tl, 250).overrides.get('n1')?.get('rotation')).toBe(90);
+    expect(sampleTimeline(tl, 500).overrides.get('n1')?.get('rotation')).toBe(180);
+    expect(sampleTimeline(tl, 750).overrides.get('n1')?.get('rotation')).toBe(270);
   });
 
   it('handles three keyframes', () => {
@@ -98,10 +98,10 @@ describe('sampleTimeline', () => {
         },
       ],
     });
-    expect(sampleTimeline(tl, 0).overrides.get('n1')!.get('x')).toBe(0);
-    expect(sampleTimeline(tl, 250).overrides.get('n1')!.get('x')).toBe(50);
-    expect(sampleTimeline(tl, 500).overrides.get('n1')!.get('x')).toBe(100);
-    expect(sampleTimeline(tl, 750).overrides.get('n1')!.get('x')).toBe(50);
+    expect(sampleTimeline(tl, 0).overrides.get('n1')?.get('x')).toBe(0);
+    expect(sampleTimeline(tl, 250).overrides.get('n1')?.get('x')).toBe(50);
+    expect(sampleTimeline(tl, 500).overrides.get('n1')?.get('x')).toBe(100);
+    expect(sampleTimeline(tl, 750).overrides.get('n1')?.get('x')).toBe(50);
   });
 
   it('handles disabled tracks', () => {
@@ -127,8 +127,8 @@ describe('sampleTimeline', () => {
       ],
     });
     const result = sampleTimeline(tl, 2500);
-    expect(result.overrides.get('n1')!.has('opacity')).toBe(false);
-    expect(result.overrides.get('n1')!.get('rotation')).toBe(180);
+    expect(result.overrides.get('n1')?.has('opacity')).toBe(false);
+    expect(result.overrides.get('n1')?.get('rotation')).toBe(180);
   });
 
   it('samples multiple nodes', () => {
@@ -156,8 +156,8 @@ describe('sampleTimeline', () => {
       ],
     });
     const result = sampleTimeline(tl, 500);
-    expect(result.overrides.get('n1')!.get('opacity')).toBe(0.5);
-    expect(result.overrides.get('n2')!.get('x')).toBe(100);
+    expect(result.overrides.get('n1')?.get('opacity')).toBe(0.5);
+    expect(result.overrides.get('n2')?.get('x')).toBe(100);
     expect(result.overrides.size).toBe(2);
   });
 
@@ -174,7 +174,7 @@ describe('sampleTimeline', () => {
       ],
     });
     const result = sampleTimeline(tl, 0);
-    expect(result.overrides.get('n1')!.get('opacity')).toBe(1);
+    expect(result.overrides.get('n1')?.get('opacity')).toBe(1);
   });
 
   it('applies per-keyframe easing', () => {
@@ -193,7 +193,7 @@ describe('sampleTimeline', () => {
         },
       ],
     });
-    const linear = sampleTimeline(tl, 500).overrides.get('n1')!.get('opacity') as number;
+    const linear = sampleTimeline(tl, 500).overrides.get('n1')?.get('opacity') as number;
     // With easeOut, value at t=0.5 should be > 0.5 (starts fast, ends slow)
     expect(linear).toBeGreaterThan(0.5);
   });
@@ -214,7 +214,7 @@ describe('sampleTimeline', () => {
       ],
     });
     const result = sampleTimeline(tl, 0);
-    expect(result.overrides.get('n1')!.get('opacity')).toBe(0);
+    expect(result.overrides.get('n1')?.get('opacity')).toBe(0);
   });
 
   describe('timing model', () => {
@@ -235,7 +235,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      expect(sampleTimeline(tl, 1500).overrides.get('n1')!.get('opacity')).toBe(1);
+      expect(sampleTimeline(tl, 1500).overrides.get('n1')?.get('opacity')).toBe(1);
     });
 
     it('honors fill mode backwards before active interval', () => {
@@ -254,7 +254,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      expect(sampleTimeline(tl, -500).overrides.get('n1')!.get('opacity')).toBe(0);
+      expect(sampleTimeline(tl, -500).overrides.get('n1')?.get('opacity')).toBe(0);
     });
 
     it('fill mode none removes overrides outside active interval', () => {
@@ -294,9 +294,9 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      expect(sampleTimeline(tl, 0).overrides.get('n1')!.get('opacity')).toBe(1);
-      expect(sampleTimeline(tl, 1000).overrides.get('n1')!.get('opacity')).toBe(0);
-      expect(sampleTimeline(tl, 500).overrides.get('n1')!.get('opacity')).toBe(0.5);
+      expect(sampleTimeline(tl, 0).overrides.get('n1')?.get('opacity')).toBe(1);
+      expect(sampleTimeline(tl, 1000).overrides.get('n1')?.get('opacity')).toBe(0);
+      expect(sampleTimeline(tl, 500).overrides.get('n1')?.get('opacity')).toBe(0.5);
     });
 
     it('supports alternate playback direction', () => {
@@ -316,8 +316,8 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      expect(sampleTimeline(tl, 250).overrides.get('n1')!.get('opacity')).toBe(0.25);
-      expect(sampleTimeline(tl, 1250).overrides.get('n1')!.get('opacity')).toBe(0.75);
+      expect(sampleTimeline(tl, 250).overrides.get('n1')?.get('opacity')).toBe(0.25);
+      expect(sampleTimeline(tl, 1250).overrides.get('n1')?.get('opacity')).toBe(0.75);
     });
 
     it('supports multiple iterations', () => {
@@ -336,7 +336,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      expect(sampleTimeline(tl, 2500).overrides.get('n1')!.get('opacity')).toBe(0.5);
+      expect(sampleTimeline(tl, 2500).overrides.get('n1')?.get('opacity')).toBe(0.5);
     });
 
     it('supports loop via Infinity iterations', () => {
@@ -355,7 +355,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      expect(sampleTimeline(tl, 3500).overrides.get('n1')!.get('opacity')).toBe(0.5);
+      expect(sampleTimeline(tl, 3500).overrides.get('n1')?.get('opacity')).toBe(0.5);
     });
   });
 
@@ -378,11 +378,11 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      expect(sampleTimeline(tl, 0).overrides.get('n1')!.get('opacity')).toBe('a');
-      expect(sampleTimeline(tl, 499).overrides.get('n1')!.get('opacity')).toBe('a');
-      expect(sampleTimeline(tl, 500).overrides.get('n1')!.get('opacity')).toBe('b');
-      expect(sampleTimeline(tl, 999).overrides.get('n1')!.get('opacity')).toBe('b');
-      expect(sampleTimeline(tl, 1000).overrides.get('n1')!.get('opacity')).toBe('c');
+      expect(sampleTimeline(tl, 0).overrides.get('n1')?.get('opacity')).toBe('a');
+      expect(sampleTimeline(tl, 499).overrides.get('n1')?.get('opacity')).toBe('a');
+      expect(sampleTimeline(tl, 500).overrides.get('n1')?.get('opacity')).toBe('b');
+      expect(sampleTimeline(tl, 999).overrides.get('n1')?.get('opacity')).toBe('b');
+      expect(sampleTimeline(tl, 1000).overrides.get('n1')?.get('opacity')).toBe('c');
     });
   });
 
@@ -402,7 +402,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      const result = sampleTimeline(tl, 500).overrides.get('n1')!.get('fill') as number[];
+      const result = sampleTimeline(tl, 500).overrides.get('n1')?.get('fill') as number[];
       expect(result[0]).toBe(127.5);
       expect(result[1]).toBe(127.5);
       expect(result[2]).toBe(127.5);
@@ -423,7 +423,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      const result = sampleTimeline(tl, 500).overrides.get('n1')!.get('transform') as number[];
+      const result = sampleTimeline(tl, 500).overrides.get('n1')?.get('transform') as number[];
       expect(result).toEqual([1, 0, 0, 1, 50, 100]);
     });
   });
@@ -453,7 +453,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      const result = sampleTimeline(tl, 500).overrides.get('n1')!.get('position') as number[];
+      const result = sampleTimeline(tl, 500).overrides.get('n1')?.get('position') as number[];
       expect(result[0]).toBe(50);
       expect(result[1]).toBe(75);
     });
@@ -482,7 +482,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      const result = sampleTimeline(tl, 0).overrides.get('n1')!.get('position') as number[];
+      const result = sampleTimeline(tl, 0).overrides.get('n1')?.get('position') as number[];
       expect(result[0]).toBe(10);
       expect(result[1]).toBe(20);
     });
@@ -512,7 +512,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      const result = sampleTimeline(tl, 1000).overrides.get('n1')!.get('position') as number[];
+      const result = sampleTimeline(tl, 1000).overrides.get('n1')?.get('position') as number[];
       expect(result[0]).toBe(100);
       expect(result[1]).toBe(200);
     });
@@ -533,7 +533,7 @@ describe('sampleTimeline', () => {
           },
         ],
       });
-      const result = sampleTimeline(tl, 500).overrides.get('n1')!.get('position') as number[];
+      const result = sampleTimeline(tl, 500).overrides.get('n1')?.get('position') as number[];
       expect(result[0]).toBe(50);
       expect(result[1]).toBe(100);
     });
@@ -561,6 +561,6 @@ describe('sampleTimelineAt (document integration)', () => {
     const d4 = addKeyframe(d3, tlId, trackId, { progress: 1, value: 0 });
 
     const result = sampleTimelineAt(d4, tlId, 500);
-    expect(result.overrides.get('n1')!.get('opacity')).toBe(0.5);
+    expect(result.overrides.get('n1')?.get('opacity')).toBe(0.5);
   });
 });

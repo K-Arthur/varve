@@ -1,5 +1,11 @@
 import type { Affine } from '@strata/engine';
-import { addNode, createDocument, makeGroupNode, makeImageNode, nextNodeId } from '@strata/scene';
+import {
+  addNode,
+  createDocument,
+  makeGroupNode,
+  makeImageShapeNode,
+  nextNodeId,
+} from '@strata/scene';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
 export function createPsdParser(): ImportParser {
@@ -77,7 +83,7 @@ function parsePsdData(data: Uint8Array, opts: ImportOptions, warnings: string[])
       const { id: layerId, doc: d3 } = nextNodeId(doc);
       doc = d3;
 
-      const imgNode = makeImageNode(layerId, {
+      const imgNode = makeImageShapeNode(layerId, {
         name: layerName,
         transform: [1, 0, 0, 1, 20, 20 + layerY] as Affine,
         src: '',

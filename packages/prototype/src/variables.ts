@@ -236,7 +236,7 @@ function evaluateArithmetic(
     // Number literal
     if (typeof token === 'number' || /^\d/.test(String(token))) {
       const num = Number(consume());
-      return isNaN(num) ? 0 : num;
+      return Number.isNaN(num) ? 0 : num;
     }
 
     // Variable reference (resolved to number)
@@ -245,7 +245,7 @@ function evaluateArithmetic(
 
   try {
     const result = parseExpr();
-    return isNaN(result) ? 0 : result;
+    return Number.isNaN(result) ? 0 : result;
   } catch {
     return resolved.filter((t) => typeof t === 'string').join(' ');
   }

@@ -1,6 +1,6 @@
-export const CURRENT_DOCUMENT_VERSION = '1.4';
+export const CURRENT_DOCUMENT_VERSION = '1.5';
 
-export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3', '1.4'];
+export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5'];
 
 export interface DocumentMigration {
   from: string;
@@ -115,6 +115,41 @@ const migrations: DocumentMigration[] = [
         activePageId,
         globalChildren: [],
       };
+    },
+  },
+  {
+    from: '1.4',
+    to: '1.5',
+    migrate: (raw) => {
+      const nodes = (raw.nodes as Record<string, Record<string, unknown>>) ?? {};
+      const migrated: Record<string, Record<string, unknown>> = {};
+      for (const [id, node] of Object.entries(nodes)) {
+        if (node.kind === 'image') {
+          const w = (node.w as number) ?? 100;
+          const h = (node.h as number) ?? 100;
+          const src = (node.src as string) ?? '';
+          const fit = (node.imageFit as string) ?? 'fill';
+          // Re-create as a shape node with image fill, preserving common fields
+          const { src: _, w: _w, h: _h, imageFit: _if, ...rest } = node;
+          migrated[id] = {
+            ...rest,
+            kind: 'shape',
+            shape: { kind: 'rect', x: 0, y: 0, w, h },
+            fills: [
+              {
+                type: 'image',
+                image: { src, fit, x: 0, y: 0, scale: 1 },
+                opacity: 1,
+                blendMode: 'normal',
+                visible: true,
+              },
+            ],
+          };
+        } else {
+          migrated[id] = node;
+        }
+      }
+      return { ...raw, formatVersion: '1.5', nodes: migrated };
     },
   },
 ];

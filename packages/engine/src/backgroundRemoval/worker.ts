@@ -5,14 +5,17 @@
  */
 
 import type { InferenceSession, Tensor } from 'onnxruntime-web';
+import { decontaminateMask, featherMaskArray } from './maskOps';
 import type { BackgroundRemovalResult } from './types';
 
 interface WorkerCommand {
   type: 'infer';
   imageData: ImageData;
   modelPath: string;
-  modelId: 'u2netp' | 'birefnet-general-lite';
+  modelId: 'u2netp' | 'birefnet-general-lite' | 'birefnet-general';
   reuseSession?: boolean;
+  feather?: number;
+  decontaminate?: boolean;
 }
 
 interface WorkerResponse {
@@ -45,14 +48,12 @@ async function getSession(modelPath: string): Promise<InferenceSession> {
 }
 
 self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
-  const { imageData, modelPath, modelId, reuseSession } = e.data;
+  const { imageData, modelPath, modelId, reuseSession, feather, decontaminate } = e.data;
 
   try {
     const hadSession = cachedSession !== null && cachedModelPath === modelPath;
     const session =
-      reuseSession && hadSession && cachedSession
-        ? cachedSession
-        : await getSession(modelPath);
+      reuseSession && hadSession && cachedSession ? cachedSession : await getSession(modelPath);
 
     if (!hadSession) {
       self.postMessage({ type: 'ready' } satisfies WorkerReady);
@@ -110,6 +111,29 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     const finalCtx = finalCanvas.getContext('2d')!;
     finalCtx.drawImage(maskCanvas, 0, 0, imageData.width, imageData.height);
 
+    if (decontaminate || (feather && feather > 0)) {
+      const upscaled = finalCtx.getImageData(0, 0, imageData.width, imageData.height);
+      let fullMask = new Uint8Array(imageData.width * imageData.height);
+      for (let i = 0; i < fullMask.length; i++) {
+        fullMask[i] = upscaled.data[i * 4] ?? 0;
+      }
+      if (decontaminate) {
+        fullMask = decontaminateMask(fullMask, imageData.width, imageData.height);
+      }
+      if (feather && feather > 0) {
+        fullMask = featherMaskArray(fullMask, imageData.width, imageData.height, feather);
+      }
+      const refined = finalCtx.createImageData(imageData.width, imageData.height);
+      for (let i = 0; i < fullMask.length; i++) {
+        const v = fullMask[i] ?? 0;
+        refined.data[i * 4] = v;
+        refined.data[i * 4 + 1] = v;
+        refined.data[i * 4 + 2] = v;
+        refined.data[i * 4 + 3] = 255;
+      }
+      finalCtx.putImageData(refined, 0, 0);
+    }
+
     const finalBlob = await finalCanvas.convertToBlob({ type: 'image/png' });
     const buffer = await finalBlob.arrayBuffer();
     const bytes = new Uint8Array(buffer);
@@ -124,7 +148,12 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
       result: {
         maskDataUrl,
         confidence: 0.85,
-        method: modelId === 'u2netp' ? 'quick' : 'ai-balanced',
+        method:
+          modelId === 'birefnet-general'
+            ? 'ai-quality'
+            : modelId === 'birefnet-general-lite'
+              ? 'ai-balanced'
+              : 'quick',
         processingTimeMs: 0,
         width: imageData.width,
         height: imageData.height,

@@ -43,7 +43,7 @@ export function ContextualHelpPanel({
   for (const article of Object.values(HELP_CONTENT)) {
     const cat = article.category;
     if (!articlesByCategory.has(cat)) articlesByCategory.set(cat, []);
-    articlesByCategory.get(cat)!.push(article);
+    articlesByCategory.get(cat)?.push(article);
   }
 
   const sortedCategories = CATEGORY_ORDER.filter((c) => articlesByCategory.has(c));
@@ -100,12 +100,11 @@ export function ContextualHelpPanel({
           state.searchResults.length > 0 ? (
             <ul
               className="contextual-help-panel__results"
-              role="listbox"
               aria-label="Search results"
               aria-live="polite"
             >
               {state.searchResults.map((article) => (
-                <li key={article.id} role="option" aria-selected={state.article?.id === article.id}>
+                <li key={article.id} aria-selected={state.article?.id === article.id}>
                   <button
                     type="button"
                     className="contextual-help-panel__result-item"
@@ -159,7 +158,7 @@ export function ContextualHelpPanel({
               <div key={category} className="contextual-help-panel__category">
                 <h4 className="contextual-help-panel__category-title">{category}</h4>
                 <ul className="contextual-help-panel__category-list">
-                  {articlesByCategory.get(category)!.map((article) => (
+                  {articlesByCategory.get(category)?.map((article) => (
                     <li key={article.id}>
                       <button
                         type="button"

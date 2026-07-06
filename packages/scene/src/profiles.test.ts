@@ -5,7 +5,7 @@ describe('BUNDLED_RGB_PROFILES', () => {
   it('includes sRGB', () => {
     const srgb = BUNDLED_RGB_PROFILES.find((p) => p.id === 'srgb');
     expect(srgb).toBeDefined();
-    expect(srgb!.name).toContain('sRGB');
+    expect(srgb?.name).toContain('sRGB');
   });
 
   it('includes Display P3', () => {
@@ -26,7 +26,7 @@ describe('BUNDLED_CMYK_PROFILES', () => {
   it('includes Fogra39', () => {
     const f39 = BUNDLED_CMYK_PROFILES.find((p) => p.id === 'fogra39');
     expect(f39).toBeDefined();
-    expect(f39!.name).toContain('Fogra39');
+    expect(f39?.name).toContain('Fogra39');
   });
 
   it('includes GRACoL 2006', () => {
@@ -47,13 +47,13 @@ describe('getProfileById', () => {
   it('finds sRGB profile', () => {
     const p = getProfileById('srgb');
     expect(p).toBeDefined();
-    expect(p!.id).toBe('srgb');
+    expect(p?.id).toBe('srgb');
   });
 
   it('finds Fogra39 profile', () => {
     const p = getProfileById('fogra39');
     expect(p).toBeDefined();
-    expect(p!.id).toBe('fogra39');
+    expect(p?.id).toBe('fogra39');
   });
 
   it('returns undefined for unknown profile', () => {

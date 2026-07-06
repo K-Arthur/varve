@@ -24,9 +24,11 @@ export {
   AVAILABLE_MODELS,
   cancelAllWorkerJobs,
   getModelLoader,
+  getModelLoaderReady,
   removeBackground,
   resetModelLoader,
   terminateWorkerPool,
+  workerModelIdForMethod,
 } from './backgroundRemoval';
 export {
   blend,

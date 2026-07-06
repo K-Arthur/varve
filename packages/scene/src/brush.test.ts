@@ -68,14 +68,14 @@ describe('smoothStrokePoints', () => {
   it('returns identity when factor is 0', () => {
     const points = [strokePoint(0, 0), strokePoint(10, 0), strokePoint(20, 0)];
     const smoothed = smoothStrokePoints(points, 0);
-    expect(smoothed[2]!.x).toBe(20);
+    expect(smoothed[2]?.x).toBe(20);
   });
 
   it('pulls points toward previous with high factor', () => {
     const points = [strokePoint(0, 0), strokePoint(10, 0), strokePoint(20, 0)];
     const smoothed = smoothStrokePoints(points, 0.9);
-    expect(smoothed[2]!.x).toBeLessThan(20);
-    expect(smoothed[2]!.x).toBeGreaterThan(0);
+    expect(smoothed[2]?.x).toBeLessThan(20);
+    expect(smoothed[2]?.x).toBeGreaterThan(0);
   });
 });
 
@@ -89,9 +89,9 @@ describe('generateDabs', () => {
     const preset = defaultBrushPreset('p3', 'Round');
     const dabs = generateDabs([strokePoint(5, 5)], preset);
     expect(dabs.length).toBe(1);
-    expect(dabs[0]!.x).toBe(5);
-    expect(dabs[0]!.y).toBe(5);
-    expect(dabs[0]!.radius).toBe(preset.radius);
+    expect(dabs[0]?.x).toBe(5);
+    expect(dabs[0]?.y).toBe(5);
+    expect(dabs[0]?.radius).toBe(preset.radius);
   });
 
   it('spaces dabs by spacing * diameter', () => {

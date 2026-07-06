@@ -8,8 +8,8 @@
  */
 
 import type { Document, SceneNode } from '@strata/scene';
-import { cssModulesTargetGaps } from './css-modules';
 import { cssTargetGaps } from './css';
+import { cssModulesTargetGaps } from './css-modules';
 import { flutterTargetGaps } from './flutter';
 import { svgTargetGaps } from './svg';
 import { swiftuiTargetGaps } from './swiftui';
@@ -51,10 +51,7 @@ const GAP_FNS: Record<CodeExportFormat, GapFn> = {
  * export format. Walks the full node map (not just root children) so nested
  * nodes inside frames and groups are also checked.
  */
-export function analyseDocument(
-  doc: Document,
-  format: CodeExportFormat,
-): TargetAnalysisResult {
+export function analyseDocument(doc: Document, format: CodeExportFormat): TargetAnalysisResult {
   const gapFn = GAP_FNS[format];
   const gaps: TargetGap[] = [];
 
@@ -75,11 +72,7 @@ export function analyseDocument(
  * Check a single node against a format and return its gaps.
  * Convenience wrapper for use in the Inspector panel.
  */
-export function analyseNode(
-  node: SceneNode,
-  doc: Document,
-  format: CodeExportFormat,
-): TargetGap[] {
+export function analyseNode(node: SceneNode, doc: Document, format: CodeExportFormat): TargetGap[] {
   return GAP_FNS[format](node, doc);
 }
 

@@ -4,7 +4,7 @@
  * Requires: dev server on http://localhost:1420
  */
 
-import { mkdir } from 'fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const OUT = '/tmp/strata-review';

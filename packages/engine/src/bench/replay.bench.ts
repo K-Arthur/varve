@@ -39,7 +39,8 @@ function canvasTarget(canvas: HTMLCanvasElement) {
     strokeRect: (x: number, y: number, w: number, h: number) => ctx.strokeRect(x, y, w, h),
     beginPath: () => ctx.beginPath(),
     rect: (x: number, y: number, w: number, h: number) => ctx.rect(x, y, w, h),
-    ellipse: (x: number, y: number, rx: number, ry: number) => ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2),
+    ellipse: (x: number, y: number, rx: number, ry: number) =>
+      ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2),
     arc: (x: number, y: number, r: number, s: number, e: number) => ctx.arc(x, y, r, s, e),
     moveTo: (x: number, y: number) => ctx.moveTo(x, y),
     lineTo: (x: number, y: number) => ctx.lineTo(x, y),
@@ -117,7 +118,10 @@ function canvasTarget(canvas: HTMLCanvasElement) {
   };
 }
 
-async function benchReplay(count: number, iterations = 5): Promise<{ replay: ReturnType<typeof summarize>; irBytes: number }> {
+async function benchReplay(
+  count: number,
+  iterations = 5,
+): Promise<{ replay: ReturnType<typeof summarize>; irBytes: number }> {
   const eng = await createEngine('stub');
   const nodes = makeRectNodes(count);
   const ir = await eng.buildIr({ nodes });

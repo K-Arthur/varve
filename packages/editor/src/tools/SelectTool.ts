@@ -114,10 +114,10 @@ export class SelectTool extends BaseTool {
       // ctx.selection is a closure snapshot captured before setSelection/toggleSelection;
       // build the effective post-call set from what we know the new state will be.
       const effectiveIds: string[] = e.shiftKey
-        ? [...ctx.selection, hit.nodeId]           // additive: prior + newly toggled
+        ? [...ctx.selection, hit.nodeId] // additive: prior + newly toggled
         : ctx.isSelected(hit.nodeId)
-          ? [...ctx.selection]                     // already selected: unchanged
-          : [hit.nodeId];                          // replaced: only the new node
+          ? [...ctx.selection] // already selected: unchanged
+          : [hit.nodeId]; // replaced: only the new node
       this.initialPositions.clear();
       for (const id of effectiveIds) {
         const worldMat = nodeWorldTransform(ctx.document, id);

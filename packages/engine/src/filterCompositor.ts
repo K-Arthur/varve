@@ -14,8 +14,8 @@
 
 import { applyCurve, buildCurveLUT } from './adjustment/curves';
 import { applyLevels } from './adjustment/levels';
-import { applySelectiveColor } from './adjustment/selectiveColor';
 import type { SelectiveColorParams } from './adjustment/selectiveColor';
+import { applySelectiveColor } from './adjustment/selectiveColor';
 import { mapBlendMode } from './compositeCanvas';
 import { filterToCss } from './filters';
 import {
@@ -204,9 +204,7 @@ function applySoftwareFilter(
     }
     case 'selectiveColor': {
       const params: SelectiveColorParams[] =
-        'params' in filter
-          ? ((filter as unknown as { params: SelectiveColorParams[] }).params)
-          : [];
+        'params' in filter ? (filter as unknown as { params: SelectiveColorParams[] }).params : [];
       const result = applySelectiveColor(imageData, params);
       ctx.putImageData(result, 0, 0);
       break;

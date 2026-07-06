@@ -2,8 +2,9 @@
  * Tests for filter IR conversion and Canvas2D CSS fallback.
  */
 import { describe, expect, it } from 'vitest';
-import type { Adjustment } from './filters';
+import type { Adjustment, HalftoneAdjustment } from './filters';
 import {
+  adjustmentDefaults,
   adjustmentsToFilters,
   adjustmentToFilter,
   applyFilterChain,
@@ -66,6 +67,46 @@ describe('adjustmentToFilter', () => {
     expect(filter.color).toEqual([255, 200, 0, 255]);
     expect(filter.density).toBe(60);
   });
+
+  it('converts halftone adjustment preserving all screening parameters', () => {
+    const adjustment = makeAdjustment('a5', 'halftone', {
+      pattern: 'line',
+      frequency: 65,
+      angle: 30,
+      dotShape: 'elliptical',
+      channel: 'cmyk',
+      method: 'fm',
+    });
+    const filter = narrow(adjustmentToFilter(adjustment), 'halftone');
+    expect(filter.pattern).toBe('line');
+    expect(filter.frequency).toBe(65);
+    expect(filter.angle).toBe(30);
+    expect(filter.dotShape).toBe('elliptical');
+    expect(filter.channel).toBe('cmyk');
+    expect(filter.method).toBe('fm');
+  });
+});
+
+describe('adjustmentDefaults', () => {
+  it('provides concrete halftone screening defaults (not undefined fields)', () => {
+    const defaults = adjustmentDefaults('halftone') as Partial<HalftoneAdjustment>;
+    expect(defaults.pattern).toBeDefined();
+    expect(typeof defaults.frequency).toBe('number');
+    expect(typeof defaults.angle).toBe('number');
+    expect(defaults.dotShape).toBeDefined();
+    expect(defaults.channel).toBeDefined();
+    expect(defaults.method).toBeDefined();
+  });
+
+  it('makeAdjustment produces a fully-populated HalftoneAdjustment', () => {
+    const adj = makeAdjustment('h1', 'halftone') as HalftoneAdjustment;
+    expect(adj.kind).toBe('halftone');
+    expect(adj.pattern).toBeDefined();
+    expect(adj.frequency).toBeGreaterThan(0);
+    expect(adj.dotShape).toBeDefined();
+    expect(adj.channel).toBeDefined();
+    expect(adj.method).toBeDefined();
+  });
 });
 
 describe('adjustmentsToFilters', () => {
@@ -77,7 +118,7 @@ describe('adjustmentsToFilters', () => {
     ];
     const filters = adjustmentsToFilters(adjustments);
     expect(filters.length).toBe(1);
-    expect(filters[0]!.kind).toBe('brightness');
+    expect(filters[0]?.kind).toBe('brightness');
   });
 
   it('returns empty array for no visible adjustments', () => {

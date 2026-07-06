@@ -21,10 +21,10 @@ describe('StateMachine', () => {
     const d1 = createStateMachine(doc, 'sm-1', 'My Machine');
     const sm = getStateMachine(d1, 'sm-1');
     expect(sm).toBeDefined();
-    expect(sm!.name).toBe('My Machine');
-    expect(sm!.states).toEqual([]);
-    expect(sm!.transitions).toEqual([]);
-    expect(sm!.inputs).toEqual([]);
+    expect(sm?.name).toBe('My Machine');
+    expect(sm?.states).toEqual([]);
+    expect(sm?.transitions).toEqual([]);
+    expect(sm?.inputs).toEqual([]);
   });
 
   it('getStateMachines returns empty object when none exist', () => {
@@ -39,9 +39,9 @@ describe('StateMachine', () => {
     expect(stateId).toBeTruthy();
     const sm = getStateMachine(d2, 'sm-1')!;
     expect(sm.states).toHaveLength(1);
-    expect(sm.states[0]!.name).toBe('Idle');
-    expect(sm.states[0]!.timelineId).toBe('tl-1');
-    expect(sm.states[0]!.isEntryState).toBe(true);
+    expect(sm.states[0]?.name).toBe('Idle');
+    expect(sm.states[0]?.timelineId).toBe('tl-1');
+    expect(sm.states[0]?.isEntryState).toBe(true);
   });
 
   it('adds multiple states and finds entry state', () => {
@@ -52,8 +52,8 @@ describe('StateMachine', () => {
     const { doc: d4 } = addSMState(d3, 'sm-1', 'Active', 'tl-3');
     const entry = findEntryState(d4, 'sm-1');
     expect(entry).toBeDefined();
-    expect(entry!.name).toBe('Idle');
-    expect(entry!.isEntryState).toBe(true);
+    expect(entry?.name).toBe('Idle');
+    expect(entry?.isEntryState).toBe(true);
   });
 
   it('findEntryState returns first state when no entry is marked', () => {
@@ -63,7 +63,7 @@ describe('StateMachine', () => {
     const { doc: d3 } = addSMState(d2, 'sm-1', 'B', 'tl-b');
     const entry = findEntryState(d3, 'sm-1');
     expect(entry).toBeDefined();
-    expect(entry!.name).toBe('A');
+    expect(entry?.name).toBe('A');
   });
 
   it('removes a state from a state machine', () => {
@@ -81,7 +81,7 @@ describe('StateMachine', () => {
     const { doc: d2, stateId: fromId } = addSMState(d1, 'sm-1', 'A', 'tl-a');
     const { doc: d3, stateId: toId } = addSMState(d2, 'sm-1', 'B', 'tl-b');
     const { doc: d4 } = addSMTransition(d3, 'sm-1', fromId, toId, 'onClick');
-    expect(getStateMachine(d4, 'sm-1')!.transitions).toHaveLength(1);
+    expect(getStateMachine(d4, 'sm-1')?.transitions).toHaveLength(1);
     const d5 = removeSMState(d4, 'sm-1', fromId);
     const sm = getStateMachine(d5, 'sm-1')!;
     expect(sm.states).toHaveLength(1);
@@ -97,9 +97,9 @@ describe('StateMachine', () => {
     expect(transitionId).toBeTruthy();
     const sm = getStateMachine(d4, 'sm-1')!;
     expect(sm.transitions).toHaveLength(1);
-    expect(sm.transitions[0]!.fromStateId).toBe(fromId);
-    expect(sm.transitions[0]!.toStateId).toBe(toId);
-    expect(sm.transitions[0]!.trigger).toBe('onClick');
+    expect(sm.transitions[0]?.fromStateId).toBe(fromId);
+    expect(sm.transitions[0]?.toStateId).toBe(toId);
+    expect(sm.transitions[0]?.trigger).toBe('onClick');
   });
 
   it('removes a transition', () => {
@@ -140,8 +140,8 @@ describe('StateMachine', () => {
     expect(inputId).toBeTruthy();
     const sm = getStateMachine(d2, 'sm-1')!;
     expect(sm.inputs).toHaveLength(1);
-    expect(sm.inputs[0]!.name).toBe('isHovered');
-    expect(sm.inputs[0]!.type).toBe('boolean');
+    expect(sm.inputs[0]?.name).toBe('isHovered');
+    expect(sm.inputs[0]?.type).toBe('boolean');
   });
 
   it('removes an input', () => {
@@ -186,7 +186,7 @@ describe('StateMachine', () => {
     const { doc: d3, stateId: entryId } = addSMState(d2, 'sm-1', 'B', 'tl-b', true);
     const { doc: d4 } = addSMState(d3, 'sm-1', 'C', 'tl-c');
     const entry = findEntryState(d4, 'sm-1');
-    expect(entry!.id).toBe(entryId);
-    expect(entry!.name).toBe('B');
+    expect(entry?.id).toBe(entryId);
+    expect(entry?.name).toBe('B');
   });
 });

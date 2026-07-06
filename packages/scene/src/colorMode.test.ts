@@ -186,7 +186,7 @@ describe('switchColorMode', () => {
     }
     const result = switchColorMode(doc, 'cmyk');
     const n = result.nodes.n1;
-    if (n && 'fills' in n && n.fills && n.fills[0]?.gradient) {
+    if (n && 'fills' in n && n.fills?.[0]?.gradient) {
       for (const stop of n.fills[0].gradient.stops) {
         expect(stop.color.space).toBe('cmyk');
       }

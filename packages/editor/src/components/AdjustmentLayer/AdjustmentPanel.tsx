@@ -62,7 +62,7 @@ export function AdjustmentPanel() {
   const { state, updateNode, setSelectedOpacity, setSelectedBlendMode } = useEditor();
   const selId = state.selection.length === 1 ? state.selection[0] : undefined;
   const selNode = selId ? state.document.nodes[selId] : undefined;
-  if (!selNode || selNode.kind !== 'adjustment') return null;
+  if (selNode?.kind !== 'adjustment') return null;
 
   const adjNode = selNode as AdjustmentLayerNode;
   const { adjustments, opacity, blendMode } = adjNode;
@@ -264,7 +264,7 @@ function AddAdjustmentMenu({
       const items = menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
       if (!items || items.length === 0) return;
 
-      const currentIndex = Array.from(items).findIndex((el) => el === document.activeElement);
+      const currentIndex = Array.from(items).indexOf(document.activeElement);
 
       switch (e.key) {
         case 'Escape':

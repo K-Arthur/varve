@@ -6,8 +6,9 @@
 
 import type { Affine } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode, TextNode } from '@strata/scene';
-import type { TargetGap } from './types';
+import { isImageShape } from '@strata/scene';
 import { affineToSvg, escapeXml, getChildren, rgba, shapeVerticesToPoints } from './shared';
+import type { TargetGap } from './types';
 
 export interface SvgExportOptions {
   /** Width of the SVG viewBox. Defaults to node width. */
@@ -259,7 +260,7 @@ export function exportNodeToSvg(
 export function svgTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
   const gaps: TargetGap[] = [];
 
-  if (node.kind === 'image') {
+  if (isImageShape(node)) {
     gaps.push({
       nodeId: node.id,
       nodeName: node.name,
@@ -280,9 +281,10 @@ export function svgTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[]
     });
   }
 
-  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
-    ? (node.effects ?? [])
-    : [];
+  const effects =
+    node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group'
+      ? (node.effects ?? [])
+      : [];
   if (effects.some((e) => e.type === 'backgroundBlur')) {
     gaps.push({
       nodeId: node.id,

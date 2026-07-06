@@ -1,7 +1,12 @@
 /**
  * Background removal worker pool — warm session reuse + cancellation.
  */
-import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerCommand } from './types';
+import type {
+  BackgroundRemovalOptions,
+  BackgroundRemovalResult,
+  WorkerCommand,
+  WorkerModelId,
+} from './types';
 
 interface PoolJob {
   id: number;
@@ -63,9 +68,9 @@ export function terminateWorkerPool(): void {
 
 export async function runPooledInference(
   imageData: ImageData,
-  _options: BackgroundRemovalOptions,
+  options: BackgroundRemovalOptions,
   modelPath: string,
-  modelId: 'u2netp' | 'birefnet-general-lite',
+  modelId: WorkerModelId,
   signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult> {
   const worker = getWorker();
@@ -101,6 +106,8 @@ export async function runPooledInference(
       modelPath,
       modelId,
       reuseSession: sessionReady,
+      feather: options.feather,
+      decontaminate: options.decontaminate,
     } satisfies WorkerCommand & { reuseSession?: boolean });
   });
 }

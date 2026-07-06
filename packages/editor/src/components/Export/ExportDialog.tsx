@@ -5,7 +5,8 @@
  * destination configuration, and cancellation support.
  */
 
-import type { ExportBatch, ExportJob, ExportPreset, ImageNode, SceneNode } from '@strata/scene';
+import type { ExportBatch, ExportJob, ExportPreset, SceneNode, ShapeNode } from '@strata/scene';
+import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
@@ -107,7 +108,7 @@ export function ExportDialog({
     const selectedJobs = jobs.filter((job) => selectedIds.has(`${job.nodeId}-${job.presetId}`));
 
     if (removeBgBeforeExport) {
-      const imageNodes = nodes.filter((n): n is ImageNode => n.kind === 'image');
+      const imageNodes = nodes.filter((n): n is ShapeNode => isImageShape(n));
       const pendingImages = imageNodes.filter((n) => !n.backgroundRemoval);
       if (pendingImages.length > 0) {
         setAnnounceMsg(`Removing background from ${pendingImages.length} image(s)...`);
@@ -116,15 +117,18 @@ export function ExportDialog({
         const cache = getImageCache();
         for (const imgNode of pendingImages) {
           try {
-            const img = await cache.load(imgNode.src);
+            const src = imageShapeSrc(imgNode);
+            const w = imageShapeW(imgNode);
+            const h = imageShapeH(imgNode);
+            const img = await cache.load(src);
             if (!img) continue;
             const c = document.createElement('canvas');
-            c.width = imgNode.w;
-            c.height = imgNode.h;
+            c.width = w;
+            c.height = h;
             const ctx = c.getContext('2d');
             if (!ctx) continue;
-            ctx.drawImage(img, 0, 0, imgNode.w, imgNode.h);
-            const imageData = ctx.getImageData(0, 0, imgNode.w, imgNode.h);
+            ctx.drawImage(img, 0, 0, w, h);
+            const imageData = ctx.getImageData(0, 0, w, h);
             const result = await removeBgFn(imageData, {
               method: 'quick',
               feather: 0.5,
@@ -274,7 +278,7 @@ export function ExportDialog({
             {removeBgBeforeExport &&
               (() => {
                 const imageCount = nodes.filter(
-                  (n): n is ImageNode => n.kind === 'image' && !n.backgroundRemoval,
+                  (n): n is ShapeNode => isImageShape(n) && !n.backgroundRemoval,
                 ).length;
                 return imageCount > 0 ? (
                   <p className="export-dialog__note">

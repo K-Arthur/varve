@@ -253,7 +253,7 @@ export function flattenTree(
       let nodeMatches = true;
       if (filtering) {
         if (hasSearchIndex) {
-          nodeMatches = matchedIds!.has(nid) && matchesAllExceptSearch(node, filterSpec);
+          nodeMatches = matchedIds?.has(nid) && matchesAllExceptSearch(node, filterSpec);
         } else {
           nodeMatches = nodeMatchesFilter(node, filterSpec);
         }
@@ -351,7 +351,8 @@ export function useFlatTree(
       if (
         !diff.structureChanged &&
         diff.changedNodeIds.length > 0 &&
-        prevDoc !== null && !propsAffectFilter(diff.changedNodeIds, prevDoc, doc, filterSpec)
+        prevDoc !== null &&
+        !propsAffectFilter(diff.changedNodeIds, prevDoc, doc, filterSpec)
       ) {
         const changedSet = new Set(diff.changedNodeIds);
         const prev = prevEntriesRef.current;

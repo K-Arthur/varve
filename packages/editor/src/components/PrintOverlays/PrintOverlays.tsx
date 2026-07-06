@@ -45,20 +45,20 @@ export function PrintOverlays({
 
   if (!hasBleed && !hasSafeArea && !hasSlug) return null;
 
-  const bleedL = hasBleed ? toPx(bleed!.left, pxPerUnit) : 0;
-  const bleedT = hasBleed ? toPx(bleed!.top, pxPerUnit) : 0;
-  const bleedR = hasBleed ? toPx(bleed!.right, pxPerUnit) : 0;
-  const bleedB = hasBleed ? toPx(bleed!.bottom, pxPerUnit) : 0;
+  const bleedL = hasBleed ? toPx(bleed?.left, pxPerUnit) : 0;
+  const bleedT = hasBleed ? toPx(bleed?.top, pxPerUnit) : 0;
+  const bleedR = hasBleed ? toPx(bleed?.right, pxPerUnit) : 0;
+  const bleedB = hasBleed ? toPx(bleed?.bottom, pxPerUnit) : 0;
 
-  const safeL = hasSafeArea ? toPx(safeArea!.left, pxPerUnit) : 0;
-  const safeT = hasSafeArea ? toPx(safeArea!.top, pxPerUnit) : 0;
-  const safeR = hasSafeArea ? toPx(safeArea!.right, pxPerUnit) : 0;
-  const safeB = hasSafeArea ? toPx(safeArea!.bottom, pxPerUnit) : 0;
+  const safeL = hasSafeArea ? toPx(safeArea?.left, pxPerUnit) : 0;
+  const safeT = hasSafeArea ? toPx(safeArea?.top, pxPerUnit) : 0;
+  const safeR = hasSafeArea ? toPx(safeArea?.right, pxPerUnit) : 0;
+  const safeB = hasSafeArea ? toPx(safeArea?.bottom, pxPerUnit) : 0;
 
-  const slugL = hasSlug ? toPx(slug!.left, pxPerUnit) : 0;
-  const slugT = hasSlug ? toPx(slug!.top, pxPerUnit) : 0;
-  const slugR = hasSlug ? toPx(slug!.right, pxPerUnit) : 0;
-  const slugB = hasSlug ? toPx(slug!.bottom, pxPerUnit) : 0;
+  const slugL = hasSlug ? toPx(slug?.left, pxPerUnit) : 0;
+  const slugT = hasSlug ? toPx(slug?.top, pxPerUnit) : 0;
+  const slugR = hasSlug ? toPx(slug?.right, pxPerUnit) : 0;
+  const slugB = hasSlug ? toPx(slug?.bottom, pxPerUnit) : 0;
 
   const trimMarkLen = TRIM_MARK_LENGTH_MM * pxPerUnit;
 

@@ -68,7 +68,7 @@ describe('TemplatesGallery', () => {
     );
     const counts = container.querySelectorAll('.templates-gallery__count');
     expect(counts.length).toBe(3);
-    expect(counts[0]!.textContent).toBe('1');
+    expect(counts[0]?.textContent).toBe('1');
   });
 
   it('filters templates by search query', () => {
@@ -95,9 +95,9 @@ describe('TemplatesGallery', () => {
     );
     const badges = container.querySelectorAll('.template-card__source');
     expect(badges.length).toBe(3);
-    expect(badges[0]!.textContent).toBe('Built-in');
-    expect(badges[1]!.textContent).toBe('User');
-    expect(badges[2]!.textContent).toBe('Workspace');
+    expect(badges[0]?.textContent).toBe('Built-in');
+    expect(badges[1]?.textContent).toBe('User');
+    expect(badges[2]?.textContent).toBe('Workspace');
   });
 
   it('displays usage count when > 0', () => {
@@ -106,8 +106,8 @@ describe('TemplatesGallery', () => {
     );
     const usageBadges = container.querySelectorAll('.template-card__usage');
     expect(usageBadges.length).toBe(2);
-    expect(usageBadges[0]!.textContent).toContain('42');
-    expect(usageBadges[1]!.textContent).toContain('12');
+    expect(usageBadges[0]?.textContent).toContain('42');
+    expect(usageBadges[1]?.textContent).toContain('12');
   });
 
   it('hides usage count when 0', () => {

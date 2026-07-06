@@ -48,7 +48,7 @@ export function buildSpatialIndex(doc: Document): SpatialIndex {
     const cells = rectCells(bounds);
     for (const key of cells) {
       if (!grid.has(key)) grid.set(key, new Set());
-      grid.get(key)!.add(id as NodeId);
+      grid.get(key)?.add(id as NodeId);
     }
   }
 

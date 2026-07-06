@@ -626,15 +626,29 @@ describe('replayIr', () => {
     expect(String(rec.props.font ?? '')).toContain('14px');
   });
 
-  it('renders an image primitive as a placeholder fillRect', () => {
+  it('renders a shape with image fill via the fill painting path', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
       fill: { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
-      primitive: { kind: 'image', w: 100, h: 80, src: 'data:image/png;base64,abc' },
+      fills: [
+        {
+          type: 'image',
+          src: 'data:image/png;base64,abc',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
     };
     const rec = recorder();
     replayIr(rec.target, [item]);
-    expect(rec.calls).toContain('fillRect(4)');
+    // Falls through to fillRect placeholder since drawImage unavailable on recorder
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
   });
 
   it('renders a rounded rect via roundRect + fill when cornerRadius is set', () => {
@@ -1067,53 +1081,6 @@ describe('replayIr', () => {
     const fillCalls = rec.calls.filter((c) => c.startsWith('fillText'));
     expect(fillCalls.length).toBe(2);
     expect(rec.calls.some((c) => c.includes('•'))).toBe(true);
-  });
-
-  it('image primitive calls drawImage when src is set and target supports it', () => {
-    const rec = recorder();
-    // Dynamically add drawImage to the recorder target
-    const tgt = rec.target as unknown as Record<string, unknown>;
-    let drawCalled = false;
-    tgt.drawImage = (_src: unknown, _dx: unknown, _dy: unknown, _dw: unknown, _dh: unknown) => {
-      drawCalled = true;
-    };
-    const item: RenderItem = {
-      transform: [1, 0, 0, 1, 10, 20] as const,
-      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
-      primitive: { kind: 'image' as const, w: 100, h: 80, src: 'test.png' },
-    };
-    replayIr(rec.target, [item]);
-    expect(drawCalled).toBe(true);
-  });
-
-  it('image primitive falls back to fillRect when drawImage unavailable', () => {
-    const rec = new Recorder();
-    const item: RenderItem = {
-      transform: [1, 0, 0, 1, 10, 20] as const,
-      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
-      primitive: { kind: 'image' as const, w: 100, h: 80, src: 'test.png' },
-    };
-    replayIr(rec, [item]);
-    // Recorder doesn't have drawImage, so falls back to fillRect
-    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
-  });
-
-  it('image primitive without src renders placeholder fillRect even with drawImage', () => {
-    const rec = recorder();
-    const tgt = rec.target as unknown as Record<string, unknown>;
-    let drawCalled = false;
-    tgt.drawImage = () => {
-      drawCalled = true;
-    };
-    const item: RenderItem = {
-      transform: [1, 0, 0, 1, 0, 0] as const,
-      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
-      primitive: { kind: 'image' as const, w: 50, h: 50, src: '' },
-    };
-    replayIr(rec.target, [item]);
-    // No src: falls back to fillRect; drawImage not called
-    expect(drawCalled).toBe(false);
-    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
   });
 
   it('traceOutline handles rect primitive via rect() call', () => {

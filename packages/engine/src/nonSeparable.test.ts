@@ -256,7 +256,7 @@ describe('rgbToLab / labToRgb', () => {
 
 describe('rgbToLch / lchToRgb', () => {
   it('gray has zero chroma', () => {
-    const [L, C, h] = rgbToLch(0.5, 0.5, 0.5);
+    const [L, C, _h] = rgbToLch(0.5, 0.5, 0.5);
     expect(C).toBeCloseTo(0, 1);
     expect(L).toBeGreaterThan(0);
   });
@@ -344,8 +344,8 @@ describe('blendLuminosityLch', () => {
   it('transfers lightness from source, preserves chroma and hue from backdrop', () => {
     const backdrop = [0.3, 0.6, 0.9] as const;
     const source = [0.1, 0.1, 0.1] as const;
-    const [, bC, bH] = rgbToLch(backdrop[0], backdrop[1], backdrop[2]);
-    const [sL] = rgbToLch(source[0], source[1], source[2]);
+    const [, _bC, bH] = rgbToLch(backdrop[0], backdrop[1], backdrop[2]);
+    const [_sL] = rgbToLch(source[0], source[1], source[2]);
     const [r, g, bb] = blendLuminosityLch(
       backdrop[0],
       backdrop[1],

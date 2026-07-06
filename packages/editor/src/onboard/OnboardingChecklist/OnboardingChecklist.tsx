@@ -98,11 +98,11 @@ export function OnboardingChecklist({
         />
       </div>
 
-      <ul className="onboarding-checklist__items" role="list">
+      <ul className="onboarding-checklist__items">
         {CHECKLIST_ITEMS.map((item) => {
           const checked = progress.includes(item.id);
           return (
-            <li key={item.id} className="onboarding-checklist__item" role="listitem">
+            <li key={item.id} className="onboarding-checklist__item">
               {checked ? (
                 <span className="onboarding-checklist__check-icon">
                   <Icon name="Check" size="1em" label="Done" />

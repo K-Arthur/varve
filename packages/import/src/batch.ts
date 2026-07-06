@@ -1,6 +1,6 @@
 import type { Affine } from '@strata/engine';
 import type { Document, SceneNode } from '@strata/scene';
-import { createDocument, nextNodeId } from '@strata/scene';
+import { createDocument, imageShapeH, imageShapeW, isImageShape, nextNodeId } from '@strata/scene';
 import { getParserForData, getParserForExtension } from './registry';
 import type { BatchFileResult } from './types';
 
@@ -169,8 +169,8 @@ function getNodeBounds(node: SceneNode): { w: number; h: number } {
     const fs = node.fontSize ?? 16;
     return { w: fs * 6, h: fs * 1.4 };
   }
-  if (node.kind === 'image') {
-    return { w: node.w, h: node.h };
+  if (isImageShape(node)) {
+    return { w: imageShapeW(node), h: imageShapeH(node) };
   }
   if (node.kind === 'frame') {
     return { w: node.w ?? 100, h: node.h ?? 100 };

@@ -130,7 +130,7 @@ export function analyzeSpacing(doc: Document, nodeIds: NodeId[]): SpacingAnalysi
   // Compute gaps between adjacent entries
   const gaps: number[] = [];
   for (let i = 0; i < entries.length - 1; i++) {
-    const gap = computeGap(entries[i]!.bounds, entries[i + 1]!.bounds);
+    const gap = computeGap(entries[i]?.bounds, entries[i + 1]?.bounds);
     gaps.push(gap);
   }
 

@@ -32,7 +32,7 @@ function simulateSelectSameLayerColor(doc: Document, selection: NodeId[]): NodeI
   const targetColor = firstNode.layerColor;
   const matches: NodeId[] = [];
   for (const n of Object.values(doc.nodes)) {
-    if (n && n.visible && !n.locked && n.id !== firstNode.id && n.layerColor === targetColor) {
+    if (n?.visible && !n.locked && n.id !== firstNode.id && n.layerColor === targetColor) {
       matches.push(n.id);
     }
   }

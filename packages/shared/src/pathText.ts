@@ -40,7 +40,7 @@ export function samplePathAtLength(
   distance: number,
 ): PathSample {
   if (points.length === 0) return { x: 0, y: 0, tangent: 0 };
-  if (points.length === 1) return { x: points[0]!.x, y: points[0]!.y, tangent: 0 };
+  if (points.length === 1) return { x: points[0]?.x, y: points[0]?.y, tangent: 0 };
 
   let accumulated = 0;
   for (let i = 1; i < points.length; i++) {

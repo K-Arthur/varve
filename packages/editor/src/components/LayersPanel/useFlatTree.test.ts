@@ -222,11 +222,11 @@ describe('flattenTree (incremental update)', () => {
     // Note: flattenTree walks in reverse paint order, so child1 (c1) lands at index 2
     const afterRename = flattenTree(renamed, expanded);
     expect(afterRename).toHaveLength(3);
-    expect(afterRename[0]!.depth).toBe(original[0]!.depth);
-    expect(afterRename[2]!.depth).toBe(original[2]!.depth);
-    expect(afterRename[0]!.parentId).toBe(original[0]!.parentId);
-    expect(afterRename[2]!.parentId).toBe(original[2]!.parentId);
-    expect(afterRename[2]!.node.name).toBe('Renamed Child');
+    expect(afterRename[0]?.depth).toBe(original[0]?.depth);
+    expect(afterRename[2]?.depth).toBe(original[2]?.depth);
+    expect(afterRename[0]?.parentId).toBe(original[0]?.parentId);
+    expect(afterRename[2]?.parentId).toBe(original[2]?.parentId);
+    expect(afterRename[2]?.node.name).toBe('Renamed Child');
   });
 
   it('has same content whether using incremental or full rebuild', () => {
@@ -250,12 +250,12 @@ describe('flattenTree (incremental update)', () => {
     // Full and incremental should produce same shape
     // Note: flattenTree reverses paint order, so shapeIds[50] (N50) lands at index 49
     expect(after).toHaveLength(before.length);
-    expect(after[49]!.node.name).toBe('SPECIAL_RENAME');
+    expect(after[49]?.node.name).toBe('SPECIAL_RENAME');
 
     // All other nodes unchanged
     for (let i = 0; i < before.length; i++) {
       if (i !== 49) {
-        expect(after[i]!.node.name).toBe(before[i]!.node.name);
+        expect(after[i]?.node.name).toBe(before[i]?.node.name);
       }
     }
   });

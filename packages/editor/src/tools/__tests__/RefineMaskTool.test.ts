@@ -33,11 +33,18 @@ function makeMockImageNode() {
   const dataUrl = canvas.toDataURL('image/png');
   return {
     id: 'img-1',
-    kind: 'image' as const,
+    kind: 'shape' as const,
     name: 'Test Image',
-    w: 50,
-    h: 50,
-    src: 'test-src',
+    shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    fills: [
+      {
+        type: 'image',
+        image: { src: 'test-src', fit: 'fill', x: 0, y: 0, scale: 1 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ],
     backgroundRemoval: {
       maskDataUrl: dataUrl,
       method: 'quick' as const,

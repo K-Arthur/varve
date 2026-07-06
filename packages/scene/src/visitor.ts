@@ -2,7 +2,6 @@ import type {
   AdjustmentNode,
   FrameNode,
   GroupNode,
-  ImageNode,
   PathNode,
   SceneNode,
   ShapeNode,
@@ -15,7 +14,6 @@ export type NodeVisitor<T> = {
   text: (node: TextNode) => T;
   group: (node: GroupNode) => T;
   frame: (node: FrameNode) => T;
-  image: (node: ImageNode) => T;
   adjustment: (node: AdjustmentNode) => T;
   path: (node: PathNode) => T;
 };
@@ -31,8 +29,6 @@ export function visitNode<T>(node: SceneNode, visitor: NodeVisitor<T>): T {
       return visitor.group(node as GroupNode);
     case 'frame':
       return visitor.frame(node as FrameNode);
-    case 'image':
-      return visitor.image(node as ImageNode);
     case 'adjustment':
       return visitor.adjustment(node as AdjustmentNode);
     case 'path':
@@ -45,7 +41,10 @@ export function visitNode<T>(node: SceneNode, visitor: NodeVisitor<T>): T {
 }
 
 /** Partial visitor — provide only the handlers you need. */
-export type PartialNodeVisitor<T> = Partial<NodeVisitor<T>>;
+export type PartialNodeVisitor<T> = Partial<NodeVisitor<T>> & {
+  /** @deprecated ImageNode no longer exists; use shape with image fill. */
+  image?: (node: ShapeNode) => never;
+};
 
 /** Visit with partial handler support + fallback. */
 export function visitNodePartial<T>(

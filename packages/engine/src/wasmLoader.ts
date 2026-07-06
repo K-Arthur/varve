@@ -63,6 +63,9 @@ export async function tryWasmEngine(stubEngine: () => Engine): Promise<Engine> {
   return createWasmEngineFromModule(mod);
 }
 
-export function wasmHitTestFallback(nodes: SceneNode[], world: readonly [number, number]): number | null {
+export function wasmHitTestFallback(
+  nodes: SceneNode[],
+  world: readonly [number, number],
+): number | null {
   return stubHitTest(nodes, world);
 }

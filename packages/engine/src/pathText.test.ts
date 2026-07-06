@@ -73,8 +73,8 @@ describe('placeGlyphsOnPath — circle fast path', () => {
     const glyphs = placeGlyphsOnPath('Hi', shape, { fontSize: 16 });
     expect(glyphs.length).toBe(2);
     // First glyph at offset+half-advance along circle
-    expect(glyphs[0]!.char).toBe('H');
-    expect(glyphs[1]!.char).toBe('i');
+    expect(glyphs[0]?.char).toBe('H');
+    expect(glyphs[1]?.char).toBe('i');
     // Each glyph has position and angle
     for (const g of glyphs) {
       expect(typeof g.x).toBe('number');
@@ -100,19 +100,19 @@ describe('placeGlyphsOnPath — line', () => {
     const glyphs = placeGlyphsOnPath('AB', shape, { fontSize: 16 });
     expect(glyphs.length).toBe(2);
     // Side offset pushes above the line by default
-    approx(glyphs[0]!.y, 16 * 0.3, 0.5);
-    approx(glyphs[1]!.y, 16 * 0.3, 0.5);
+    approx(glyphs[0]?.y, 16 * 0.3, 0.5);
+    approx(glyphs[1]?.y, 16 * 0.3, 0.5);
     // x increases
-    expect(glyphs[1]!.x).toBeGreaterThan(glyphs[0]!.x);
+    expect(glyphs[1]?.x).toBeGreaterThan(glyphs[0]?.x);
     // angle is 0 (horizontal right)
-    approx(glyphs[0]!.angle, 0);
+    approx(glyphs[0]?.angle, 0);
   });
 
   it('places text on a diagonal line', () => {
     const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 100], tolerance: 0 };
     const glyphs = placeGlyphsOnPath('X', shape, { fontSize: 16 });
     expect(glyphs.length).toBe(1);
-    approx(glyphs[0]!.angle, Math.PI / 4, 0.01);
+    approx(glyphs[0]?.angle, Math.PI / 4, 0.01);
   });
 });
 
@@ -129,7 +129,7 @@ describe('placeGlyphsOnPath — polygon', () => {
     const shape: Shape = { kind: 'polygon', cx: 0, cy: 0, radius: 50, sides: 3, rotation: 0 };
     const glyphs = placeGlyphsOnPath('X', shape, { fontSize: 16 });
     expect(glyphs.length).toBe(1);
-    expect(typeof glyphs[0]!.x).toBe('number');
+    expect(typeof glyphs[0]?.x).toBe('number');
   });
 });
 
@@ -160,7 +160,7 @@ describe('placeGlyphsOnPath — arrow', () => {
     };
     const glyphs = placeGlyphsOnPath('>', shape, { fontSize: 16 });
     expect(glyphs.length).toBe(1);
-    approx(glyphs[0]!.angle, 0);
+    approx(glyphs[0]?.angle, 0);
   });
 });
 
@@ -170,7 +170,7 @@ describe('placeGlyphsOnPath — offset and side', () => {
     const glyphs = placeGlyphsOnPath('A', shape, { fontSize: 16, offset: 0.5 });
     expect(glyphs.length).toBe(1);
     // Starts at 50 + advance/2 = 50 + 4.8 = 54.8
-    approx(glyphs[0]!.x, 54.8, 0.5);
+    approx(glyphs[0]?.x, 54.8, 0.5);
   });
 
   it('side bottom places glyph below the path', () => {
@@ -178,14 +178,14 @@ describe('placeGlyphsOnPath — offset and side', () => {
     const glyphs = placeGlyphsOnPath('A', shape, { fontSize: 16, side: 'bottom' });
     expect(glyphs.length).toBe(1);
     // bottom = negative Y offset in screen space
-    approx(glyphs[0]!.y, -16 * 0.3, 1);
+    approx(glyphs[0]?.y, -16 * 0.3, 1);
   });
 
   it('side top places glyph above the path', () => {
     const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
     const glyphs = placeGlyphsOnPath('A', shape, { fontSize: 16, side: 'top' });
     expect(glyphs.length).toBe(1);
-    approx(glyphs[0]!.y, 16 * 0.3, 1);
+    approx(glyphs[0]?.y, 16 * 0.3, 1);
   });
 });
 
@@ -249,7 +249,7 @@ describe('placeGlyphsOnPath — multi-glyph text', () => {
     const glyphs = placeGlyphsOnPath('Hello', shape, { fontSize: 20 });
     expect(glyphs.length).toBe(5);
     for (let i = 1; i < glyphs.length; i++) {
-      expect(glyphs[i]!.x).toBeGreaterThan(glyphs[i - 1]!.x);
+      expect(glyphs[i]?.x).toBeGreaterThan(glyphs[i - 1]?.x);
     }
   });
 

@@ -10,9 +10,10 @@ import type {
   SceneNode,
   VariableStore,
 } from '@strata/scene';
-import type { TargetGap } from './types';
+import { isImageShape } from '@strata/scene';
 import { colorToHex, computeNodePos, rgba } from './shared';
 import { resolveTokenName } from './tokens';
+import type { TargetGap } from './types';
 
 export interface CssExportOptions {
   /** CSS class prefix. Default: node-name. */
@@ -106,7 +107,7 @@ export function exportNodeToCss(
 export function cssTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
   const gaps: TargetGap[] = [];
 
-  if (node.kind === 'image') {
+  if (isImageShape(node)) {
     gaps.push({
       nodeId: node.id,
       nodeName: node.name,
@@ -137,9 +138,10 @@ export function cssTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[]
     });
   }
 
-  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
-    ? (node.effects ?? [])
-    : [];
+  const effects =
+    node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group'
+      ? (node.effects ?? [])
+      : [];
   if (effects.some((e) => e.type === 'backgroundBlur')) {
     gaps.push({
       nodeId: node.id,

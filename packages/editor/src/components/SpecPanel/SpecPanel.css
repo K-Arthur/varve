@@ -427,10 +427,10 @@
   font-size: var(--font-size-xs);
 }
 .spec-codegen__diff--added {
-  color: var(--color-feedback-success, #22c55e);
+  color: var(--color-feedback-success);
 }
 .spec-codegen__diff--removed {
-  color: var(--color-feedback-danger, #ef4444);
+  color: var(--color-feedback-danger);
 }
 
 /* ── Prism syntax tokens (maps to theme vars) ──────── */
@@ -460,26 +460,26 @@
 .spec-codegen__pre .token.char,
 .spec-codegen__pre .token.builtin,
 .spec-codegen__pre .token.inserted {
-  color: var(--color-feedback-success, #22c55e);
+  color: var(--color-feedback-success);
 }
 .spec-codegen__pre .token.operator,
 .spec-codegen__pre .token.entity,
 .spec-codegen__pre .token.url {
-  color: var(--color-interactive-default, #39d0c6);
+  color: var(--color-interactive-default);
 }
 .spec-codegen__pre .token.atrule,
 .spec-codegen__pre .token.attr-value,
 .spec-codegen__pre .token.keyword {
-  color: var(--color-interactive-pressed, #2ba8a0);
+  color: var(--color-interactive-active);
 }
 .spec-codegen__pre .token.function,
 .spec-codegen__pre .token.class-name {
-  color: var(--color-accent-teal, #39d0c6);
+  color: var(--color-accent-teal);
 }
 .spec-codegen__pre .token.regex,
 .spec-codegen__pre .token.important,
 .spec-codegen__pre .token.variable {
-  color: var(--color-feedback-warning, #eab308);
+  color: var(--color-feedback-warning);
 }
 
 /* ── High-contrast overrides ──────────────────────────── */

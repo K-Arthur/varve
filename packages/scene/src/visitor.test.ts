@@ -3,7 +3,7 @@ import {
   makeAdjustmentNode,
   makeFrameNode,
   makeGroupNode,
-  makeImageNode,
+  makeImageShapeNode,
   makeShapeNode,
   makeTextNode,
 } from './document';
@@ -15,7 +15,7 @@ describe('visitNode', () => {
   const text = makeTextNode('t1', 'Hello');
   const group = makeGroupNode('g1');
   const frame = makeFrameNode('f1');
-  const image = makeImageNode('i1', { src: 'https://example.com/img.png', w: 50, h: 50 });
+  const image = makeImageShapeNode('i1', { src: 'https://example.com/img.png', w: 50, h: 50 });
   const adj = makeAdjustmentNode('a1', 'curves', {
     channel: 'rgb',
     points: [
@@ -29,7 +29,6 @@ describe('visitNode', () => {
     { kind: 'text', node: text, expected: 'text' },
     { kind: 'group', node: group, expected: 'group' },
     { kind: 'frame', node: frame, expected: 'frame' },
-    { kind: 'image', node: image, expected: 'image' },
     { kind: 'adjustment', node: adj, expected: 'adjustment' },
   ] as const)('dispatches $kind to the correct handler', ({ node, expected }) => {
     const result: string = visitNode(node, {
@@ -37,7 +36,6 @@ describe('visitNode', () => {
       text: () => 'text',
       group: () => 'group',
       frame: () => 'frame',
-      image: () => 'image',
       adjustment: () => 'adjustment',
       path: () => 'path',
     });
@@ -51,11 +49,22 @@ describe('visitNode', () => {
       text: () => 'nope',
       group: () => 'nope',
       frame: () => 'nope',
-      image: () => 'nope',
       adjustment: () => 'nope',
       path: () => 'nope',
     });
     expect(result).toBe('s1');
+  });
+
+  it('dispatches a shape node with image fill to the shape handler', () => {
+    const result = visitNode(image, {
+      shape: () => 'shape',
+      text: () => 'nope',
+      group: () => 'nope',
+      frame: () => 'nope',
+      adjustment: () => 'nope',
+      path: () => 'nope',
+    });
+    expect(result).toBe('shape');
   });
 
   it('throws on unknown kind (exhaustive check)', () => {
@@ -66,7 +75,6 @@ describe('visitNode', () => {
         text: () => '',
         group: () => '',
         frame: () => '',
-        image: () => '',
         adjustment: () => '',
         path: () => '',
       }),
@@ -112,7 +120,7 @@ describe('isKind', () => {
     const shapes = nodes.filter((n) => isKind(n, 'shape'));
     expect(shapes).toHaveLength(1);
     if (shapes.length > 0) {
-      expect(shapes[0]!.kind).toBe('shape');
+      expect(shapes[0]?.kind).toBe('shape');
     }
   });
 });

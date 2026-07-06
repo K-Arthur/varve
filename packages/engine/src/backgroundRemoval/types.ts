@@ -34,11 +34,30 @@ export interface ModelMetadata {
   checksum: string;
 }
 
+/** ONNX model ids used by the Web Worker inference path. */
+export type WorkerModelId = 'u2netp' | 'birefnet-general-lite' | 'birefnet-general';
+
+/** Map a UI removal method to the ONNX model that should run it. */
+export function workerModelIdForMethod(method: RemovalMethod): WorkerModelId | null {
+  switch (method) {
+    case 'quick':
+      return null;
+    case 'ai-balanced':
+      return 'birefnet-general-lite';
+    case 'ai-quality':
+      return 'birefnet-general';
+  }
+}
+
 export interface WorkerCommand {
   type: 'infer';
   imageData: ImageData;
   modelPath: string;
-  modelId: 'u2netp' | 'birefnet-general-lite';
+  modelId: WorkerModelId;
+  /** Gaussian feather radius (px) applied to the upscaled mask before encoding. */
+  feather?: number;
+  /** Choke the semi-transparent edge halo to reduce background color spill. */
+  decontaminate?: boolean;
 }
 
 export const AVAILABLE_MODELS: ModelMetadata[] = [

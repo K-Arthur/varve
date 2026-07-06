@@ -531,7 +531,7 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
     // via offscreen canvas compositing on the fully rendered item.
     if (needsPostRenderFilters && item.filters && item.filters.length > 0) {
       const complexFilters = item.filters.filter(
-        (f) => f.blendMode !== 'normal' || (f.opacity ?? 1) < 1,
+        (f) => f.blendMode !== 'normal' || (f.opacity ?? 1) < 1 || !filterToCss(f),
       );
       if (complexFilters.length > 0) {
         const targetCanvas = target as unknown as CanvasRenderingContext2D;

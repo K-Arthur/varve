@@ -107,8 +107,8 @@ describe('announceToScreenReader', () => {
     announceToScreenReader('Navigated to Screen 2', 'polite');
     const announcer = document.getElementById('strata-prototype-announcer');
     expect(announcer).not.toBeNull();
-    expect(announcer!.getAttribute('aria-live')).toBe('polite');
-    expect(announcer!.getAttribute('role')).toBe('status');
+    expect(announcer?.getAttribute('aria-live')).toBe('polite');
+    expect(announcer?.getAttribute('role')).toBe('status');
   });
 
   it('reuses an existing announcer element', () => {
@@ -123,7 +123,7 @@ describe('announceToScreenReader', () => {
   it('sets assertive priority when specified', () => {
     announceToScreenReader('Alert!', 'assertive');
     const announcer = document.getElementById('strata-prototype-announcer');
-    expect(announcer!.getAttribute('aria-live')).toBe('assertive');
+    expect(announcer?.getAttribute('aria-live')).toBe('assertive');
   });
 
   it('is a no-op when document is undefined (SSR guard)', () => {

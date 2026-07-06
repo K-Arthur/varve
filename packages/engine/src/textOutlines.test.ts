@@ -50,7 +50,7 @@ describe('textToOutlines', () => {
       fontSize: 16,
       fontFamily: 'Noto Sans CJK',
     });
-    expect(cjk.glyphs[0]!.advance).toBeGreaterThan(latin.glyphs[0]!.advance);
+    expect(cjk.glyphs[0]?.advance).toBeGreaterThan(latin.glyphs[0]?.advance);
   });
 
   it('handles newline characters', () => {
@@ -66,7 +66,7 @@ describe('textToOutlines', () => {
       fontSize: 16,
       fontFamily: 'Inter',
     });
-    expect(result.glyphs[0]!.points).toHaveLength(4);
+    expect(result.glyphs[0]?.points).toHaveLength(4);
   });
 });
 

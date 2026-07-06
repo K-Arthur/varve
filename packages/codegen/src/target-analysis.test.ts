@@ -2,13 +2,7 @@
  * Tests for targetGaps() functions and target-analysis module.
  */
 
-import {
-  addNode,
-  createDocument,
-  makeImageNode,
-  makeShapeNode,
-  nextNodeId,
-} from '@strata/scene';
+import { addNode, createDocument, makeImageNode, makeShapeNode, nextNodeId } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { cssTargetGaps } from './css';
 import { cssModulesTargetGaps } from './css-modules';
@@ -88,7 +82,14 @@ function polygonNode() {
   let d = doc();
   const { id, doc: d2 } = nextNodeId(d);
   d = d2;
-  const node = makeShapeNode(id, { kind: 'polygon', cx: 50, cy: 50, radius: 50, sides: 5, rotation: 0 });
+  const node = makeShapeNode(id, {
+    kind: 'polygon',
+    cx: 50,
+    cy: 50,
+    radius: 50,
+    sides: 5,
+    rotation: 0,
+  });
   d = addNode(d, node);
   return { node, doc: d };
 }
@@ -255,7 +256,7 @@ describe('analyseNode', () => {
     const { node, doc: d } = imageNode();
     const gaps = analyseNode(node, d, 'flutter');
     expect(gaps.length).toBeGreaterThan(0);
-    expect(gaps[0]!.nodeId).toBe(node.id);
+    expect(gaps[0]?.nodeId).toBe(node.id);
   });
 });
 

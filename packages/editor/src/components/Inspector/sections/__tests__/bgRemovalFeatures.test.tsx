@@ -16,7 +16,17 @@ afterEach(cleanup);
 const mockedUseEditor = useEditor as unknown as ReturnType<typeof vi.fn>;
 
 vi.mock('@strata/engine', () => ({
-  getModelLoader: () => ({ getState: () => 'unavailable' }),
+  getModelLoaderReady: vi.fn().mockResolvedValue({
+    getState: () => 'unavailable',
+    isModelAvailable: vi.fn().mockResolvedValue(false),
+    subscribe: () => () => {},
+  }),
+  workerModelIdForMethod: (method: string) =>
+    method === 'ai-quality'
+      ? 'birefnet-general'
+      : method === 'ai-balanced'
+        ? 'birefnet-general-lite'
+        : null,
 }));
 
 vi.mock('../../../BackgroundRemoval/ModelDownloadDialog', () => ({
@@ -35,12 +45,18 @@ function makeImageNode(overrides: Record<string, unknown> = {}) {
   return {
     id: 'n1',
     name: 'Image 1',
-    kind: 'image' as const,
+    kind: 'shape' as const,
+    shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 },
     transform: [1, 0, 0, 1, 0, 0] as const,
-    src: 'data:image/png;base64,abc',
-    w: 200,
-    h: 160,
-    imageFit: 'fill' as const,
+    fills: [
+      {
+        type: 'image',
+        image: { src: 'data:image/png;base64,abc', fit: 'fill', x: 0, y: 0, scale: 1 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ],
     fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
     strokes: [],
     effects: [],
@@ -52,7 +68,7 @@ function makeImageNode(overrides: Record<string, unknown> = {}) {
     index: 0,
     order: 'a0',
     ...overrides,
-  } as import('@strata/scene').ImageNode;
+  } as import('@strata/scene').ShapeNode;
 }
 
 function createMockEditorContext(overrides: Record<string, unknown> = {}) {
