@@ -128,17 +128,48 @@ describe('RefineMaskTool', () => {
     expect(ctx.commitTransaction).toHaveBeenCalled();
   });
 
-  it('redo restores stroke', () => {
+  it('commitMask fires on drag end, not during pointer down', () => {
+    const tool = new RefineMaskTool();
+    const maskData = createWhiteMaskImageData();
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    const ctx = makeMinimalCtx();
+    const beforeAvg = averageMaskValue(maskData);
+
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1 } as any, ctx);
+    tool.onDragEnd(ctx);
+
+    expect(ctx.updateNode).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).toHaveBeenCalled();
+    expect(averageMaskValue(maskData)).toBeGreaterThanOrEqual(beforeAvg);
+  });
+
+  it('does not commit mask during drag move', () => {
     const tool = new RefineMaskTool();
     (tool as any).maskData = createWhiteMaskImageData();
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
+    tool.onPointerDown({ altKey: false, clientX: 10, clientY: 10, pointerId: 1 } as any, ctx);
+    (tool as any).drag = {
+      kind: 'dragging',
+      pointerId: 1,
+      startCanvas: { x: 10, y: 10 },
+      startWorld: { x: 10, y: 10 },
+      currentCanvas: { x: 30, y: 30 },
+      currentWorld: { x: 30, y: 30 },
+    };
+    tool.onDragMove(ctx);
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+  });
 
-    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1 } as any, ctx);
-    expect(ctx.beginTransaction).toHaveBeenCalled();
-
-    tool.onDragEnd(ctx);
-    expect(ctx.commitTransaction).toHaveBeenCalled();
+  it('adjusts brush size with bracket keys', () => {
+    const tool = new RefineMaskTool();
+    const ctx = makeMinimalCtx();
+    tool.onKeyDown({ key: ']' } as KeyboardEvent, ctx);
+    expect((tool as any).options.brushSize).toBe(24);
+    tool.onKeyDown({ key: '[', shiftKey: true } as KeyboardEvent, ctx);
+    expect((tool as any).options.hardness).toBeCloseTo(0.7, 5);
   });
 
   it('empty mask handled gracefully', () => {
@@ -180,7 +211,6 @@ describe('RefineMaskTool', () => {
     const maskData = createWhiteMaskImageData();
     maskData.data[0] = 200;
     (tool as any).maskData = maskData;
-    (tool as any).maskSnapshot = createWhiteMaskImageData();
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
 
@@ -188,7 +218,8 @@ describe('RefineMaskTool', () => {
     maskData.data[0] = 50;
     tool.onDragCancel(ctx);
 
-    expect(maskData.data[0]).toBe(255);
+    // onDragCancel clones maskSnapshot back into tool.maskData (not the stale local ref)
+    expect((tool as any).maskData.data[0]).toBe(200);
     expect(ctx.abortTransaction).toHaveBeenCalled();
   });
 });

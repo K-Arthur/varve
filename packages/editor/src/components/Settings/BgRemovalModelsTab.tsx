@@ -37,11 +37,16 @@ export function BgRemovalModelsTab() {
   const [loading, setLoading] = useState(true);
   const [downloadModelId, setDownloadModelId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [bundleStatus, setBundleStatus] = useState<'unknown' | 'verified' | 'corrupt' | 'skipped'>(
+    'unknown',
+  );
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const loader = await getModelLoaderReady();
+      const verify = await loader.verifyBundledModel('u2netp');
+      setBundleStatus(verify);
       const list = await loader.listInstalledModels();
       setRows(list);
     } finally {
@@ -77,6 +82,13 @@ export function BgRemovalModelsTab() {
         AI models run locally on your device. Downloads require explicit consent and are stored in{' '}
         {storageLabel()}. Quick mode works without any download.
       </p>
+
+      {bundleStatus === 'corrupt' && (
+        <p className="bg-models-list__bundle-warning" role="alert">
+          Bundled starter model (U^2-Net Light) failed integrity check. Reinstall the app or
+          download models manually below.
+        </p>
+      )}
 
       {loading && <p className="settings-section__hint">Loading model status...</p>}
 

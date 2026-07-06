@@ -33,7 +33,8 @@ function canvasTarget(canvas: HTMLCanvasElement) {
   return {
     save: () => ctx.save(),
     restore: () => ctx.restore(),
-    transform: (...a: number[]) => ctx.transform(a[0], a[1], a[2], a[3], a[4], a[5]),
+    transform: (a0: number, a1: number, a2: number, a3: number, a4: number, a5: number) =>
+      ctx.transform(a0, a1, a2, a3, a4, a5),
     clip: () => ctx.clip(),
     fillRect: (x: number, y: number, w: number, h: number) => ctx.fillRect(x, y, w, h),
     strokeRect: (x: number, y: number, w: number, h: number) => ctx.strokeRect(x, y, w, h),
@@ -51,8 +52,14 @@ function canvasTarget(canvas: HTMLCanvasElement) {
     closePath: () => ctx.closePath(),
     setLineDash: (d: number[]) => ctx.setLineDash(d),
     roundRect: (x: number, y: number, w: number, h: number, r: number) => {
-      if ('roundRect' in ctx) (ctx as CanvasRenderingContext2D).roundRect(x, y, w, h, r);
-      else ctx.rect(x, y, w, h);
+      const roundCtx = ctx as CanvasRenderingContext2D & {
+        roundRect?: (x: number, y: number, w: number, h: number, r: number) => void;
+      };
+      if (typeof roundCtx.roundRect === 'function') {
+        roundCtx.roundRect(x, y, w, h, r);
+      } else {
+        ctx.rect(x, y, w, h);
+      }
     },
     fillText: (t: string, x: number, y: number) => ctx.fillText(t, x, y),
     get fillStyle() {
@@ -108,6 +115,18 @@ function canvasTarget(canvas: HTMLCanvasElement) {
     },
     set textBaseline(v: CanvasTextBaseline) {
       ctx.textBaseline = v;
+    },
+    get textAlign() {
+      return ctx.textAlign;
+    },
+    set textAlign(v: CanvasTextAlign) {
+      ctx.textAlign = v;
+    },
+    get lineDashOffset() {
+      return ctx.lineDashOffset;
+    },
+    set lineDashOffset(v: number) {
+      ctx.lineDashOffset = v;
     },
     get filter() {
       return ctx.filter;

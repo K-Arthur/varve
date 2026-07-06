@@ -90,7 +90,7 @@ pub enum IpcShape {
         #[serde(default, rename = "openTypeFeatures")]
         open_type_features: Option<serde_json::Value>,
         #[serde(default, rename = "variableAxes")]
-        variable_axes: Option<serde_json::Value>,
+        variable_axes: Box<Option<serde_json::Value>>,
     },
 }
 
@@ -197,7 +197,7 @@ impl IpcShape {
                 text_case,
                 text_decoration,
                 open_type_features,
-                variable_axes,
+                variable_axes: *variable_axes,
             },
         }
     }

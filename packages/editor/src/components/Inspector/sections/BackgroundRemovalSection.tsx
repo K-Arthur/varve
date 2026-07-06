@@ -1,5 +1,5 @@
 import type { RemovalMethod } from '@strata/engine';
-import { getModelLoaderReady, workerModelIdForMethod } from '@strata/engine';
+import { DEFAULT_PREVIEW_MAX_DIMENSION, getModelLoaderReady, workerModelIdForMethod } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import { useCallback, useEffect, useState } from 'react';
@@ -35,6 +35,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const { brushSize, hardness } = state.refineMaskOptions ?? { brushSize: 20, hardness: 0.8 };
 
   const requiredModelId = workerModelIdForMethod(method);
+  const imageMaxDim =
+    node.shape?.kind === 'rect' ? Math.max(node.shape.w, node.shape.h) : 0;
+  const previewDownscaleActive =
+    method !== 'quick' && imageMaxDim > DEFAULT_PREVIEW_MAX_DIMENSION;
 
   const refreshModelStatus = useCallback(async () => {
     const loader = await getModelLoaderReady();
@@ -123,6 +127,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           but require a download.
         </span>
       </div>
+
+      {previewDownscaleActive && (
+        <p className="bg-removal__hint" aria-live="polite">
+          Processing at reduced resolution; full-resolution mask upscaled.
+        </p>
+      )}
 
       {method !== 'quick' && !aiAvailable && modelState !== 'downloading' && (
         <div className="bg-removal__actions">

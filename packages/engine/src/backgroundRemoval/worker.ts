@@ -13,6 +13,7 @@ import {
   resizeMaskNearestNeighbor,
   thresholdMask,
 } from './maskOps';
+import { downscaleImageData } from './previewDownscale';
 import type { BackgroundRemovalResult } from './types';
 
 interface WorkerCommand {
@@ -64,22 +65,6 @@ async function getSession(
   }
   cachedModelPath = modelPath;
   return { session: cachedSession, executionProvider: cachedExecutionProvider };
-}
-
-function downscaleImageData(imageData: ImageData, maxDim: number): ImageData {
-  const { width, height } = imageData;
-  if (width <= maxDim && height <= maxDim) return imageData;
-
-  const scale = maxDim / Math.max(width, height);
-  const targetW = Math.round(width * scale);
-  const targetH = Math.round(height * scale);
-
-  const canvas = new OffscreenCanvas(targetW, targetH);
-  const ctx = canvas.getContext('2d')!;
-  const srcCanvas = new OffscreenCanvas(width, height);
-  srcCanvas.getContext('2d')!.putImageData(imageData, 0, 0);
-  ctx.drawImage(srcCanvas, 0, 0, targetW, targetH);
-  return ctx.getImageData(0, 0, targetW, targetH);
 }
 
 self.onmessage = async (e: MessageEvent<WorkerCommand>) => {

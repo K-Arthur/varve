@@ -541,9 +541,19 @@ function ShellInner({
           nodes={editor.rootNodes()}
           timelines={editor.state.document.timelines}
           document={editor.state.document}
+          selectionIds={editor.state.selection}
           onExport={async () => {}}
           onExportMotion={(_format, fileName, content) => {
             const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          onSaveVideoFile={async (fileName, bytes, mimeType) => {
+            const blob = new Blob([bytes], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;

@@ -368,17 +368,20 @@ function sampleClosedSegmentChain(verts: Array<[number, number]>, dist: number):
   const n = verts.length;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    const segLen = pointDist2D(verts[i]!, verts[j]!);
+    const vi = verts[i]!;
+    const vj = verts[j]!;
+    const segLen = pointDist2D(vi, vj);
     if (dist <= accumulated + segLen || i === n - 1) {
-      const t = (dist - accumulated) / segLen;
-      const px = verts[i]?.[0] + t * (verts[j]?.[0] - verts[i]?.[0]);
-      const py = verts[i]?.[1] + t * (verts[j]?.[1] - verts[i]?.[1]);
-      const angle = Math.atan2(verts[j]?.[1] - verts[i]?.[1], verts[j]?.[0] - verts[i]?.[0]);
+      const t = segLen > 0 ? (dist - accumulated) / segLen : 0;
+      const px = vi[0] + t * (vj[0] - vi[0]);
+      const py = vi[1] + t * (vj[1] - vi[1]);
+      const angle = Math.atan2(vj[1] - vi[1], vj[0] - vi[0]);
       return { x: px, y: py, angle };
     }
     accumulated += segLen;
   }
-  return { x: verts[0]?.[0], y: verts[0]?.[1], angle: 0 };
+  const v0 = verts[0]!;
+  return { x: v0[0], y: v0[1], angle: 0 };
 }
 
 // ── Path (bezier segments) ─────────────────────────────────────────────
@@ -428,5 +431,6 @@ function samplePathPointsAtLength(pts: PathPoint[], closed: boolean, dist: numbe
     accumulated += segLen;
   }
 
-  return { x: segs[segs.length - 1]?.p3.x, y: segs[segs.length - 1]?.p3.y, angle: 0 };
+  const lastSeg = segs[segs.length - 1]!;
+  return { x: lastSeg.p3.x, y: lastSeg.p3.y, angle: 0 };
 }

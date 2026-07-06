@@ -16,7 +16,9 @@
     "test": "cd ../.. && vitest run packages/engine"
   },
   "dependencies": {
-    "@strata/shared": "workspace:*"
+    "@strata/shared": "workspace:*",
+    "mp4-muxer": "^5.2.2",
+    "webm-muxer": "^5.1.4"
   },
   "devDependencies": {
     "@tauri-apps/api": "^2.11.1",

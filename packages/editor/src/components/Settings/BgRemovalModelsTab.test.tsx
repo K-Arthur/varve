@@ -2,11 +2,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockListInstalledModels, mockDeleteModel, mockGetModelLoaderReady } = vi.hoisted(() => ({
-  mockListInstalledModels: vi.fn(),
-  mockDeleteModel: vi.fn(),
-  mockGetModelLoaderReady: vi.fn(),
-}));
+const { mockListInstalledModels, mockDeleteModel, mockGetModelLoaderReady, mockVerifyBundled } =
+  vi.hoisted(() => ({
+    mockListInstalledModels: vi.fn(),
+    mockDeleteModel: vi.fn(),
+    mockGetModelLoaderReady: vi.fn(),
+    mockVerifyBundled: vi.fn().mockResolvedValue('verified'),
+  }));
 
 vi.mock('@strata/engine', () => ({
   AVAILABLE_MODELS: [
@@ -59,6 +61,7 @@ function mockLoader(
   return {
     listInstalledModels: mockListInstalledModels.mockResolvedValue(rows),
     deleteModel: mockDeleteModel.mockResolvedValue(undefined),
+    verifyBundledModel: mockVerifyBundled,
     subscribe: vi.fn().mockReturnValue(() => {}),
   };
 }
@@ -179,5 +182,27 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
 
     expect(screen.getByTestId('download-dialog')).toBeInTheDocument();
     expect(screen.getByText(/downloading birefnet-general-lite/i)).toBeInTheDocument();
+  });
+
+  it('surfaces corrupt bundled model warning on first open', async () => {
+    mockVerifyBundled.mockResolvedValue('corrupt');
+    mockGetModelLoaderReady.mockResolvedValue(
+      mockLoader([
+        {
+          id: 'u2netp',
+          name: 'U^2-Net Light',
+          size: 4_700_000,
+          installed: true,
+          source: 'bundled',
+        },
+      ]),
+    );
+
+    render(<BgRemovalModelsTab />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/failed integrity check/i),
+    );
+    expect(mockVerifyBundled).toHaveBeenCalledWith('u2netp');
   });
 });

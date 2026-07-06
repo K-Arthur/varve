@@ -95,4 +95,19 @@ describe('ModelDownloadDialog — consent gate', () => {
     expect(mockDownloadModel).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('shows actionable copy when storage quota is exceeded', async () => {
+    mockDownloadModel.mockRejectedValue(
+      new Error('Storage quota exceeded. Free disk space or delete old models in Settings, Offline Models.'),
+    );
+    render(
+      <ModelDownloadDialog
+        modelId="birefnet-general-lite"
+        onClose={() => {}}
+        onComplete={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    expect(await screen.findByText(/Offline Models/i)).toBeInTheDocument();
+  });
 });

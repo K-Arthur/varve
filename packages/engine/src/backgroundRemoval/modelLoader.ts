@@ -1,5 +1,15 @@
 import { getManifestEntry, loadModelManifest, verifyModelChecksum } from './modelManifest';
-import { deleteModelBlob, hasModelBlob, loadModelBlob, saveModelBlob } from './modelStore';
+import {
+  deleteModelBlob,
+  deletePartialDownload,
+  hasModelBlob,
+  loadModelBlob,
+  loadPartialDownload,
+  ModelStorageQuotaError,
+  saveModelBlob,
+  savePartialDownload,
+  type PartialDownloadRecord,
+} from './modelStore';
 import type { ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';
 
@@ -203,6 +213,7 @@ class ModelLoader {
   async deleteModel(modelId: string): Promise<void> {
     if (isBrowserEnv()) {
       await deleteModelBlob(modelId);
+      await deletePartialDownload(modelId).catch(() => {});
     }
     if (this.currentModelId === modelId) {
       if (this.activeBlobUrl) {
@@ -245,10 +256,27 @@ class ModelLoader {
     this.notify();
     this.saveState();
 
+    let remoteUrl = '';
+    let partialChunks: Uint8Array[] = [];
+    let partialLoaded = 0;
+    let downloadChunks: Uint8Array[] = [];
+    let storedEtag: string | null = null;
+
     try {
       const sources = await this.resolveDownloadSources(modelId);
       const localPath = sources?.local ?? `/models/${modelId}.onnx`;
       const manifestEntry = await getManifestEntry(modelId);
+      remoteUrl = sources?.remote ?? model.remoteUrl;
+
+      const existingPartial =
+        isBrowserEnv() && remoteUrl ? await loadPartialDownload(modelId) : null;
+      if (existingPartial && existingPartial.meta.url === remoteUrl && existingPartial.bytes.length > 0) {
+        partialChunks = [existingPartial.bytes];
+        partialLoaded = existingPartial.bytes.length;
+      } else if (existingPartial) {
+        await deletePartialDownload(modelId);
+      }
+
       let response: Response | null = null;
       try {
         response = await fetch(localPath, { signal });
@@ -257,22 +285,55 @@ class ModelLoader {
         response = null;
       }
       if (!response?.ok) {
-        if (!sources?.remote) {
+        if (!remoteUrl) {
           throw new Error(`Model ${modelId} is not bundled; download explicitly from settings.`);
         }
-        response = await fetch(sources.remote, { signal });
+        const headers: Record<string, string> = {};
+        if (partialLoaded > 0) {
+          headers.Range = `bytes=${partialLoaded}-`;
+        }
+        response = await fetch(remoteUrl, { signal, headers });
       }
 
       if (!response.ok) {
         throw new Error(`Failed to download model: ${response.statusText}`);
       }
 
+      const responseEtag = response.headers.get('etag');
+      storedEtag = responseEtag ?? existingPartial?.meta.etag ?? null;
+      const isRangeResponse = response.status === 206;
+
+      if (isRangeResponse && partialLoaded > 0) {
+        if (
+          existingPartial?.meta.etag &&
+          responseEtag &&
+          existingPartial.meta.etag !== responseEtag
+        ) {
+          await deletePartialDownload(modelId);
+          partialChunks = [];
+          partialLoaded = 0;
+          response = await fetch(remoteUrl, { signal });
+          if (!response.ok) {
+            throw new Error(`Failed to download model: ${response.statusText}`);
+          }
+        }
+      } else if (partialLoaded > 0) {
+        await deletePartialDownload(modelId);
+        partialChunks = [];
+        partialLoaded = 0;
+      }
+
       const contentLength = response.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength, 10) : model.size;
-      let loaded = 0;
+      const contentRangeTotal = response.headers.get('content-range')?.split('/')[1];
+      const total = contentRangeTotal
+        ? parseInt(contentRangeTotal, 10)
+        : contentLength
+          ? partialLoaded + parseInt(contentLength, 10)
+          : model.size;
+      let loaded = partialLoaded;
 
       const reader = response.body?.getReader();
-      const chunks: Uint8Array[] = [];
+      downloadChunks = [...partialChunks];
 
       while (true) {
         if (signal?.aborted) {
@@ -281,21 +342,22 @@ class ModelLoader {
         }
         const { done, value } = await reader!.read();
         if (done) break;
-        chunks.push(value);
+        downloadChunks.push(value);
         loaded += value.length;
         onProgress?.(loaded, total);
       }
 
-      const totalBytes = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const totalBytes = downloadChunks.reduce((sum, chunk) => sum + chunk.length, 0);
       const bytes = new Uint8Array(totalBytes);
       let offset = 0;
-      for (const chunk of chunks) {
+      for (const chunk of downloadChunks) {
         bytes.set(chunk, offset);
         offset += chunk.length;
       }
       const buffer = bytes.buffer;
       const checksum = manifestEntry?.sha256 ?? null;
       if (!(await verifyModelChecksum(buffer, checksum))) {
+        await deletePartialDownload(modelId);
         throw new Error(`Model ${modelId} failed SHA-256 verification`);
       }
 
@@ -303,6 +365,7 @@ class ModelLoader {
 
       if (isBrowserEnv()) {
         await saveModelBlob(modelId, blob);
+        await deletePartialDownload(modelId);
       } else {
         throw new Error(
           'This environment cannot store AI models (IndexedDB unavailable). Use Quick mode, or run in a browser/desktop build with storage enabled.',
@@ -313,7 +376,39 @@ class ModelLoader {
       this.notify();
       this.saveState();
     } catch (error) {
-      this.state = signal?.aborted ? 'unavailable' : 'error';
+      const cancelled = signal?.aborted || (error as Error).message === 'Download cancelled';
+      if (!cancelled && isBrowserEnv() && remoteUrl && downloadChunks.length > 0) {
+        try {
+          const combined = new Uint8Array(
+            downloadChunks.reduce((sum, chunk) => sum + chunk.length, 0),
+          );
+          let off = 0;
+          for (const chunk of downloadChunks) {
+            combined.set(chunk, off);
+            off += chunk.length;
+          }
+          const record: PartialDownloadRecord = {
+            bytes: combined,
+            meta: {
+              url: remoteUrl,
+              etag: storedEtag,
+              loaded: combined.length,
+            },
+          };
+          await savePartialDownload(modelId, record);
+        } catch {
+          // Best-effort partial persistence; quota errors bubble below.
+        }
+      }
+      if (cancelled && isBrowserEnv()) {
+        await deletePartialDownload(modelId).catch(() => {});
+      }
+      if (error instanceof ModelStorageQuotaError) {
+        throw new ModelStorageQuotaError(
+          'Storage quota exceeded. Free disk space or delete old models in Settings, Offline Models.',
+        );
+      }
+      this.state = cancelled ? 'unavailable' : 'error';
       this.currentModelId = '';
       this.notify();
       this.saveState();

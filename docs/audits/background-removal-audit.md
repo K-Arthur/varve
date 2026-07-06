@@ -27,7 +27,30 @@ This session closed cross-platform gaps: **correct AI model routing**, **Indexed
 
 **Emerging:** on-device segmentation (BiRefNet, MODNet), WebGPU inference, matting networks for hair.
 
-**Over-engineered for Strata now:** cloud API dependency, trimap UI, multi-subject instance segmentation UI, HTTP Range resume for 380MB models (nice-to-have).
+**Over-engineered for Strata now:** cloud API dependency, trimap UI, multi-subject instance segmentation UI.
+
+**Completed 2026-07-06 (Phases A–D):** HTTP Range resume, storage-quota UX, bundled-model integrity on Settings open, BiRefNet rembg mirror URLs, `previewMaxDimension` default 2048px, RefineMask polish + inspector CSS, WebGPU EP documented as blocked on WebKitGTK.
+
+---
+
+## Session 39 verification (2026-07-06)
+
+| Gate | Result |
+|---|---|
+| Focused bg-removal suite | **145/145** pass (18 files) |
+| `@strata/engine` typecheck | **0 errors** |
+| `cargo clippy --workspace -D warnings` | **clean** |
+| `cargo test --workspace` | **166/166** pass |
+| Full `pnpm test` | **11 failures** in uncommitted motion-system WIP (3731 pass / 3743 total) |
+| Full `pnpm typecheck` 15/15 | **Blocked by motion WIP** (`styles.ts`, `motion.bench.test.ts`) |
+
+BiRefNet release checksum (before bundling):
+
+```bash
+node scripts/compute-model-checksum.mjs \
+  "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx" \
+  birefnet-general-lite
+```
 
 ---
 
@@ -85,10 +108,12 @@ replay.ts → destination-in compositing
 | No settings surface for model storage | P1 | **Fixed** (Offline Models tab) |
 | Silent AI→heuristic downgrade | P1 | **Fixed** (announce + store actual `result.method`) |
 | Bundled models in shipping build (`bundled: false` in manifest) | P2 | **Fixed** — `u2netp.onnx` bundled with SHA-256 CI check |
-| Hair/fur matting refinement | P2 | Deferred — `RefineMaskTool` wired in inspector; dedicated matting pass out of scope |
-| HTTP Range resume on interrupted download | P3 | Deferred |
-| SHA-256 in manifest (`null` today) | P2 | **Fixed** for `u2netp`; BiRefNet hashes documented via `scripts/compute-model-checksum.mjs` |
-| Select-and-Mask style trimap UI | P3 | Over-engineered for v1 |
+| Hair/fur matting refinement | P2 | **Phase E** — `RefineMaskTool` exists; dedicated matting pass in E.2 |
+| HTTP Range resume on interrupted download | P3 | **Fixed** (Session 39) |
+| SHA-256 in manifest (`null` today) | P2 | **Fixed** for `u2netp`; BiRefNet hashes via release script |
+| Select-and-Mask style trimap UI | P3 | **Phase E.4** — greenfield |
+| Direct-ONNX `previewMaxDimension` parity | P2 | **Phase E.0 stub** — worker has it; `removeBackgroundAI()` does not |
+| Native Rust `ai` Cargo feature | P2 | **Phase E.1** — `inference.rs` exists; ADR amendment required |
 | Per-model gating on direct-ONNX tier | P0 | **Fixed** — `isModelAvailable(workerModelIdForMethod)` |
 | Broken direct-ONNX path (hardcoded path, raw Float32Array) | P0 | **Fixed** — `getModelPath()`, `ort.Tensor`, shared maskOps |
 | Batch/Export silent AI downgrade | P0 | **Fixed** — gating + `result.method` persistence + aria-live |
@@ -128,7 +153,7 @@ replay.ts → destination-in compositing
 - Worker pool with session reuse (`workerPool.ts`)
 - Inference off main thread (Worker + OffscreenCanvas)
 - Heuristic: O(n) pixel ops — suitable for preview
-- Large images: full-res mask; preview downscale deferred
+- Large images: `previewMaxDimension` default 2048 (Worker + inspector hint); direct-ONNX path still full-res (Phase E.0)
 - Batch: sequential with error isolation (no abort-all on one failure)
 
 ---
@@ -193,8 +218,8 @@ Regression guards added this session:
 | P1 | Populate manifest SHA-256 checksums | 0.5d |
 | P1 | Per-method model availability in batch dialog | 1d |
 | P2 | Enable `strata-bgremove` `ai` feature for native ONNX on desktop | 3–5d |
-| P2 | WebGPU EP when WebKit ships it | 2d |
-| P2 | Interrupted download cleanup (delete partial blob) | 1d |
+| P2 | WebGPU EP when WebKit ships it | 2d — **blocked:** WebKitGTK has no WebGPU; WASM/WebGL only (ADR-0005 note) |
+| P2 | Interrupted download cleanup (delete partial blob) | **Done** — Range resume + partial IndexedDB store |
 | P3 | Dedicated hair refinement / matting pass | 1–2w |
 | P3 | Multi-subject instance picker | 2w+ |
 
@@ -202,9 +227,10 @@ Regression guards added this session:
 
 ## 12. Technical debt
 
-- BiRefNet manifest SHA-256 still null (remote-only; use `scripts/compute-model-checksum.mjs` at release time)
+- BiRefNet manifest SHA-256 still null (remote-only; use `scripts/compute-model-checksum.mjs` at release time — see Session 39 verification)
 - Rust `ai` feature formally deferred — Worker ONNX is the desktop AI path (ADR-0005 Option A)
-- Hair/fur matting and multi-subject segmentation explicitly out of scope for v1
+- WebGPU EP deferred until WebKitGTK exposes `navigator.gpu` on Linux Tauri webviews
+- Hair/fur matting and multi-subject segmentation — **Phase E** (`docs/plans/bg-removal-phase-e-prompt.md`)
 
 ---
 
@@ -218,5 +244,6 @@ No breaking schema changes. Existing documents with `backgroundRemoval` masks re
 
 - `docs/adr/0005-offline-model-bundling.md`
 - `docs/plans/bg-removal-deferred.md`
+- `docs/plans/bg-removal-phase-e-prompt.md` — Phase E agent prompt + stub inventory
 - BiRefNet / U²-Net model families (on-device segmentation)
 - Photoshop Select Subject + Select and Mask (Adobe, industry baseline)

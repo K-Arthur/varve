@@ -1,18 +1,31 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSave, mockLoad, mockHas, mockDelete } = vi.hoisted(() => ({
-  mockSave: vi.fn(),
-  mockLoad: vi.fn(),
-  mockHas: vi.fn(),
-  mockDelete: vi.fn(),
-}));
+const { mockSave, mockLoad, mockHas, mockDelete, mockSavePartial, mockLoadPartial, mockDeletePartial } =
+  vi.hoisted(() => ({
+    mockSave: vi.fn(),
+    mockLoad: vi.fn(),
+    mockHas: vi.fn(),
+    mockDelete: vi.fn(),
+    mockSavePartial: vi.fn(),
+    mockLoadPartial: vi.fn(),
+    mockDeletePartial: vi.fn(),
+  }));
 
 vi.mock('../modelStore', () => ({
   saveModelBlob: mockSave,
   loadModelBlob: mockLoad,
   hasModelBlob: mockHas,
   deleteModelBlob: mockDelete,
+  savePartialDownload: mockSavePartial,
+  loadPartialDownload: mockLoadPartial,
+  deletePartialDownload: mockDeletePartial,
+  ModelStorageQuotaError: class ModelStorageQuotaError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'ModelStorageQuotaError';
+    }
+  },
 }));
 
 function mockFetchResponse(opts: { ok: boolean; chunks?: Uint8Array[] }) {
@@ -39,6 +52,13 @@ function mockFetchResponse(opts: { ok: boolean; chunks?: Uint8Array[] }) {
 describe('ModelLoader', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
+    mockSave.mockReset().mockResolvedValue(undefined);
+    mockLoad.mockReset().mockResolvedValue(null);
+    mockHas.mockReset().mockResolvedValue(false);
+    mockDelete.mockReset().mockResolvedValue(undefined);
+    mockSavePartial.mockReset().mockResolvedValue(undefined);
+    mockLoadPartial.mockReset().mockResolvedValue(null);
+    mockDeletePartial.mockReset().mockResolvedValue(undefined);
     localStorage.clear();
     const { resetModelManifestCache } = await import('../modelManifest');
     resetModelManifestCache();
@@ -401,5 +421,73 @@ describe('ModelLoader', () => {
     await expect(download).rejects.toThrow(/cancelled/i);
     expect(loader.getState()).toBe('unavailable');
     expect(mockSave).not.toHaveBeenCalled();
+    expect(mockDeletePartial).toHaveBeenCalledWith('u2netp');
+  });
+
+  it('resumes interrupted download from partial bytes with Range header', async () => {
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+    const loader = await getModelLoaderReady();
+    const firstHalf = new Uint8Array([1, 2, 3, 4]);
+    const secondHalf = new Uint8Array([5, 6, 7, 8]);
+    mockLoadPartial.mockResolvedValue({
+      bytes: firstHalf,
+      meta: { url: 'https://example.com/u2netp.onnx', etag: 'etag-1', loaded: 4 },
+    });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const path = String(url);
+        if (path.includes('manifest.json')) {
+          return Promise.resolve({ ok: true, json: async () => ({ version: 1, models: [] }) });
+        }
+        if (path.startsWith('/models/')) {
+          return Promise.resolve({ ok: false, statusText: 'Not Found' });
+        }
+        if (init?.headers && (init.headers as Record<string, string>).Range) {
+          expect((init.headers as Record<string, string>).Range).toBe('bytes=4-');
+          return Promise.resolve({
+            ok: true,
+            status: 206,
+            statusText: 'Partial Content',
+            headers: {
+              get: (h: string) =>
+                h.toLowerCase() === 'content-range'
+                  ? 'bytes 4-7/8'
+                  : h.toLowerCase() === 'etag'
+                    ? 'etag-1'
+                    : null,
+            },
+            body: {
+              getReader: () => ({
+                read: async () => ({ done: false, value: secondHalf }),
+              }),
+            },
+          });
+        }
+        return Promise.resolve(mockFetchResponse({ ok: true, chunks: [firstHalf, secondHalf] }));
+      }),
+    );
+
+    await loader.downloadModel('u2netp');
+    expect(mockSave).toHaveBeenCalled();
+    expect(mockDeletePartial).toHaveBeenCalledWith('u2netp');
+    expect(loader.getState()).toBe('ready');
+  });
+
+  it('surfaces actionable message when storage quota is exceeded', async () => {
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    const { ModelStorageQuotaError } = await import('../modelStore');
+    resetModelLoader();
+    const loader = await getModelLoaderReady();
+    mockSave.mockRejectedValue(new ModelStorageQuotaError('QuotaExceededError'));
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(mockFetchResponse({ ok: true, chunks: [new Uint8Array(4)] })),
+    );
+
+    await expect(loader.downloadModel('u2netp')).rejects.toThrow(/Offline Models/i);
   });
 });

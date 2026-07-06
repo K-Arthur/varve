@@ -15,7 +15,7 @@
       "localPath": "/models/birefnet-general-lite.onnx",
       "sha256": null,
       "bundled": false,
-      "remoteUrl": "https://github.com/ZhengPeng7/BiRefNet/releases/download/v1.0/birefnet-general-lite.onnx"
+      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx"
     },
     {
       "id": "birefnet-general",
@@ -23,7 +23,7 @@
       "localPath": "/models/birefnet-general.onnx",
       "sha256": null,
       "bundled": false,
-      "remoteUrl": "https://github.com/ZhengPeng7/BiRefNet/releases/download/v1.0/birefnet-general.onnx"
+      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx"
     }
   ]
 }

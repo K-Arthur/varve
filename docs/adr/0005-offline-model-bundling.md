@@ -34,6 +34,10 @@ Worker ONNX (`onnxruntime-web` in the Tauri webview) is the **sole desktop AI pa
 
 Dispatch order (all platforms): Worker ONNX → Tauri heuristic IPC → direct onnxruntime-web → heuristic fallback.
 
+### WebGPU execution provider (deferred)
+
+Investigation (2026-07-06): `onnxruntime-web`'s WebGPU EP requires a browser with `navigator.gpu` (WebGPU). Linux Tauri builds use WebKitGTK 2.52, which **does not expose WebGPU** in the embedded webview today. The worker therefore uses **WebGL → WASM** fallback only (`worker.ts` `getSession`). Do not scaffold WebGPU EP until WebKitGTK ships WebGPU on Linux or the project adds an explicit Chromium-based webview option.
+
 ## Verification
 
 - `packages/engine/src/backgroundRemoval/workerPool.ts`

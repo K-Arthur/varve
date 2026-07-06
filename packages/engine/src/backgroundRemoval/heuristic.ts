@@ -116,19 +116,13 @@ export function kMeansMask(img: ImageData): Uint8Array {
     sampled.add(Math.floor(Math.random() * nPixels));
   }
   const sampleArr = [...sampled];
-  let c0 = {
-    r: flattened[sampleArr[0]!]?.r,
-    g: flattened[sampleArr[0]!]?.g,
-    b: flattened[sampleArr[0]!]?.b,
-  };
+  const sample0 = flattened[sampleArr[0]!] ?? { idx: 0, r: 0, g: 0, b: 0 };
+  let c0 = { r: sample0.r, g: sample0.g, b: sample0.b };
+  const sample1 = flattened[sampleArr[1]!];
   let c1 =
-    sampleArr.length < 2
+    sampleArr.length < 2 || !sample1
       ? { r: 255, g: 255, b: 255 }
-      : {
-          r: flattened[sampleArr[1]!]?.r,
-          g: flattened[sampleArr[1]!]?.g,
-          b: flattened[sampleArr[1]!]?.b,
-        };
+      : { r: sample1.r, g: sample1.g, b: sample1.b };
 
   const assignments = new Uint8Array(nPixels);
   for (let iter = 0; iter < 20; iter++) {
@@ -188,7 +182,9 @@ export function kMeansMask(img: ImageData): Uint8Array {
   const fgCluster = (edgeScore[0] ?? 0) >= (edgeScore[1] ?? 0) ? 0 : 1;
   const mask = new Uint8Array(width * height);
   for (let i = 0; i < nPixels; i++) {
-    mask[flattened[i]?.idx] = (assignments[i] ?? 0) === fgCluster ? 255 : 0;
+    const flat = flattened[i];
+    if (flat === undefined) continue;
+    mask[flat.idx] = (assignments[i] ?? 0) === fgCluster ? 255 : 0;
   }
   return mask;
 }

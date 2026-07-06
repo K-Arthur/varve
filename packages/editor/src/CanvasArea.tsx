@@ -105,7 +105,7 @@ type DocNode = SceneNode;
 
 let _showOriginalBgNodeId: string | null = null;
 
-function toEngineNode(n: DocNode): EngineNode {
+export function toEngineNode(n: DocNode): EngineNode {
   const base = {
     id: n.id,
     name: n.name,

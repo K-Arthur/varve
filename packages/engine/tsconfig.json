@@ -7,5 +7,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/motion.bench.test.ts"]
 }

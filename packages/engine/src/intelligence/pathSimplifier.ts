@@ -34,14 +34,15 @@ function rdpRecursive(
   let maxDistSq = 0;
   let maxIdx = first;
 
-  const ax = points[first]?.x;
-  const ay = points[first]?.y;
+  const pFirst = points[first]!;
+  const pLast = points[last]!;
 
   for (let i = first + 1; i < last; i++) {
+    const pi = points[i]!;
     const dSq = pointToSegmentDistSq(
-      [ax, ay],
-      [points[last]?.x, points[last]?.y],
-      [points[i]?.x, points[i]?.y],
+      [pFirst.x, pFirst.y],
+      [pLast.x, pLast.y],
+      [pi.x, pi.y],
     );
     if (dSq > maxDistSq) {
       maxDistSq = dSq;
@@ -81,8 +82,9 @@ export function simplifyPathRDP(
     let farthestIdx = 0;
     let maxDist = 0;
     for (let i = 0; i < points.length; i++) {
-      const dx = points[i]?.x - centroidX;
-      const dy = points[i]?.y - centroidY;
+      const pi = points[i]!;
+      const dx = pi.x - centroidX;
+      const dy = pi.y - centroidY;
       const d = dx * dx + dy * dy;
       if (d > maxDist) {
         maxDist = d;
@@ -118,8 +120,10 @@ export function fitCubicBezier(
   const t = new Array<number>(n);
   t[0] = 0;
   for (let i = 1; i < n; i++) {
-    const dx = points[i]?.x - points[i - 1]?.x;
-    const dy = points[i]?.y - points[i - 1]?.y;
+    const pi = points[i]!;
+    const pim1 = points[i - 1]!;
+    const dx = pi.x - pim1.x;
+    const dy = pi.y - pim1.y;
     t[i] = t[i - 1]! + Math.sqrt(dx * dx + dy * dy);
   }
   const totalLength = t[n - 1]!;
@@ -149,8 +153,9 @@ export function fitCubicBezier(
     a12 += b1 * b2;
     a22 += b2 * b2;
 
-    const rhsX = points[i]?.x - b0 * p0.x - b3 * p3.x;
-    const rhsY = points[i]?.y - b0 * p0.y - b3 * p3.y;
+    const pi = points[i]!;
+    const rhsX = pi.x - b0 * p0.x - b3 * p3.x;
+    const rhsY = pi.y - b0 * p0.y - b3 * p3.y;
 
     b1x += b1 * rhsX;
     b2x += b2 * rhsX;

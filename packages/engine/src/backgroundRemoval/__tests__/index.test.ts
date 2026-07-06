@@ -167,14 +167,14 @@ describe('removeBackground dispatch', () => {
     // did nothing an AI model actually does differently from quick mode.
     expect(mockRunPooledInference).toHaveBeenCalledWith(
       expect.anything(),
-      expect.anything(),
+      expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-balanced' }),
       expect.anything(),
       'birefnet-general-lite',
       undefined,
     );
   });
 
-  it('routes "ai-quality" to the birefnet-general (full) model in the worker, not the lite model', async () => {
+  it('passes default previewMaxDimension 2048 to worker for AI quality tier', async () => {
     vi.stubGlobal('Worker', class {});
     mockRunPooledInference.mockResolvedValue({
       maskDataUrl: 'data:image/png;base64,worker',
@@ -189,11 +189,11 @@ describe('removeBackground dispatch', () => {
     await removeBackground(makeImage(), { method: 'ai-quality' });
 
     // Regression: this previously silently downgraded "AI Best Quality" to
-    // the mid-tier `birefnet-general-lite` model, so the 380MB full model a
+    // the mid-tier `birefnet-general-lite` model, so the 928MB full model a
     // user explicitly downloaded for best quality was never actually used.
     expect(mockRunPooledInference).toHaveBeenCalledWith(
       expect.anything(),
-      expect.anything(),
+      expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-quality' }),
       expect.anything(),
       'birefnet-general',
       undefined,

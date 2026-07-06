@@ -65,6 +65,10 @@ export interface WorkerCommand {
   feather?: number;
   /** Choke the semi-transparent edge halo to reduce background color spill. */
   decontaminate?: boolean;
+  /** Downscale source before inference; mask is upscaled to original dimensions. */
+  previewMaxDimension?: number;
+  /** Reuse a warm ONNX session when switching models is not required. */
+  reuseSession?: boolean;
 }
 
 export const AVAILABLE_MODELS: ModelMetadata[] = [
@@ -80,21 +84,21 @@ export const AVAILABLE_MODELS: ModelMetadata[] = [
   {
     id: 'birefnet-general-lite',
     name: 'BiRefNet Lite',
-    description: '120 MB — high quality, handles complex edges',
-    size: 120_000_000,
+    description: '214 MB — high quality, handles complex edges',
+    size: 214_000_000,
     quality: 4.5,
     remoteUrl:
-      'https://github.com/ZhengPeng7/BiRefNet/releases/download/v1.0/birefnet-general-lite.onnx',
+      'https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx',
     checksum: '',
   },
   {
     id: 'birefnet-general',
     name: 'BiRefNet Full',
-    description: '380 MB — best quality, handles hair/fur/transparency',
-    size: 380_000_000,
+    description: '928 MB — best quality, handles hair/fur/transparency',
+    size: 928_000_000,
     quality: 5,
     remoteUrl:
-      'https://github.com/ZhengPeng7/BiRefNet/releases/download/v1.0/birefnet-general.onnx',
+      'https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx',
     checksum: '',
   },
 ];

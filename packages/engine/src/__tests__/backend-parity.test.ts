@@ -25,7 +25,7 @@ const TEXT_NODE: SceneNode = {
     y: 0,
     w: 80,
     h: 20,
-  } as SceneNode['shape'],
+  } as unknown as SceneNode['shape'],
 };
 
 const ADJUSTMENT_AS_FILTER: SceneNode = {
@@ -34,7 +34,9 @@ const ADJUSTMENT_AS_FILTER: SceneNode = {
   transform: [1, 0, 0, 1, 0, 0],
   shape: { kind: 'rect', x: 0, y: 0, w: 0, h: 0 },
   opacity: 0,
-  filters: [{ kind: 'exposure', exposure: 0.5 }],
+  filters: [
+    { kind: 'exposure', value: 0.5, offset: 0, gammaCorrection: 1, opacity: 1, blendMode: 'normal' },
+  ],
 };
 
 describe('backend IR parity (stub)', () => {
@@ -64,8 +66,8 @@ describe('backend IR parity (stub)', () => {
           shape: {
             kind: 'path',
             points: [
-              { x: 0, y: 0, corner: true },
-              { x: 100, y: 0, corner: true },
+              { x: 0, y: 0, handleIn: null, handleOut: null },
+              { x: 100, y: 0, handleIn: null, handleOut: null },
             ],
             closed: false,
             tolerance: 4,

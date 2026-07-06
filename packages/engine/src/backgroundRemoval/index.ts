@@ -24,6 +24,18 @@ export type {
   WorkerModelId,
 } from './types';
 export { AVAILABLE_MODELS, workerModelIdForMethod } from './types';
+export { ModelStorageQuotaError } from './modelStore';
+
+/** Default downscale cap for AI inference (mask is upscaled to source dimensions). */
+export const DEFAULT_PREVIEW_MAX_DIMENSION = 2048;
+
+function withPreviewDefaults(options: BackgroundRemovalOptions): BackgroundRemovalOptions {
+  if (options.method === 'quick') return options;
+  return {
+    ...options,
+    previewMaxDimension: options.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION,
+  };
+}
 
 function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI__' in window;
@@ -62,13 +74,15 @@ export async function removeBackground(
     throw new Error('Cannot remove background from a 0-byte image (width or height is zero)');
   }
 
-  if (options.method === 'quick') {
-    return removeBackgroundHeuristic(imageData, options);
+  const resolved = withPreviewDefaults(options);
+
+  if (resolved.method === 'quick') {
+    return removeBackgroundHeuristic(imageData, resolved);
   }
 
   if (typeof Worker !== 'undefined') {
     try {
-      return await runWorkerInference(imageData, options, signal);
+      return await runWorkerInference(imageData, resolved, signal);
     } catch {
       // Fall through to native/direct/heuristic below.
     }
@@ -76,13 +90,13 @@ export async function removeBackground(
 
   if (isTauri()) {
     try {
-      return await invokeTauriRemoveBackground(imageData, options);
+      return await invokeTauriRemoveBackground(imageData, resolved);
     } catch {
       // Fall through to direct/heuristic below.
     }
   }
 
-  const workerModelId = workerModelIdForMethod(options.method);
+  const workerModelId = workerModelIdForMethod(resolved.method);
   if (workerModelId) {
     const { getModelLoader } = await import('./modelLoader');
     const loader = getModelLoader();
@@ -90,14 +104,14 @@ export async function removeBackground(
 
     if (await loader.isModelAvailable(workerModelId)) {
       try {
-        return await removeBackgroundAI(imageData, options, workerModelId, signal);
+        return await removeBackgroundAI(imageData, resolved, workerModelId, signal);
       } catch {
         // Last-resort AI tier failed too — fall through to heuristic.
       }
     }
   }
 
-  return removeBackgroundHeuristic(imageData, options);
+  return removeBackgroundHeuristic(imageData, resolved);
 }
 
 async function runWorkerInference(

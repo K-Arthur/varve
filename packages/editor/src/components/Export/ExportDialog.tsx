@@ -17,10 +17,18 @@ import type {
   ShapeNode,
   Timeline,
 } from '@strata/scene';
-import { timelineToCSSKeyframes, timelineToLottieJSON } from '@strata/codegen';
 import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
-import { getModelLoaderReady, workerModelIdForMethod } from '@strata/engine';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { timelineToCSSKeyframes, timelineToLottieJSON } from '@strata/codegen';
+import {
+  checkVideoExportSupport,
+  computeVideoFrameCount,
+  exportTimelineToVideo,
+  getModelLoaderReady,
+  workerModelIdForMethod,
+} from '@strata/engine';
+import { prefersReducedMotion } from '@strata/prototype';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
@@ -37,6 +45,8 @@ export interface ExportDialogProps {
   onExport: (batch: ExportBatch) => Promise<void>;
   onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
   onExportMotion?: (format: 'css' | 'lottie', fileName: string, content: string) => void;
+  onSaveVideoFile?: (fileName: string, bytes: Uint8Array, mimeType: string) => Promise<void>;
+  selectionIds?: NodeId[];
   initialTemplate?: string;
 }
 
@@ -95,6 +105,8 @@ export function ExportDialog({
   onExport,
   onApplyBackgroundRemoval,
   onExportMotion,
+  onSaveVideoFile,
+  selectionIds = [],
   initialTemplate = '{name}{suffix}.{ext}',
 }: ExportDialogProps) {
   const [running, setRunning] = useState(false);
@@ -108,6 +120,10 @@ export function ExportDialog({
   const [bgMethod, setBgMethod] = useState<BackgroundRemovalMethod>('quick');
   const [aiAvailable, setAiAvailable] = useState(true);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [videoExporting, setVideoExporting] = useState(false);
+  const [videoProgress, setVideoProgress] = useState({ done: 0, total: 0 });
+  const [videoSupport] = useState(() => checkVideoExportSupport());
+  const videoAbortRef = useRef<AbortController | null>(null);
 
   const requiredModelId = workerModelIdForMethod(bgMethod);
 
@@ -190,7 +206,7 @@ export function ExportDialog({
             const h = imageShapeH(imgNode);
             const img = await cache.load(src);
             if (!img) continue;
-            const c = document.createElement('canvas');
+            const c = globalThis.document.createElement('canvas');
             c.width = w;
             c.height = h;
             const ctx = c.getContext('2d');
@@ -246,10 +262,89 @@ export function ExportDialog({
   ]);
 
   const handleCancel = useCallback(() => {
+    if (videoExporting) {
+      videoAbortRef.current?.abort();
+      setVideoExporting(false);
+      setVideoProgress({ done: 0, total: 0 });
+      setAnnounceMsg('Video export cancelled');
+      return;
+    }
     setRunning(false);
     setProgress({ done: 0, errors: 0 });
     setAnnounceMsg('Export cancelled');
-  }, []);
+  }, [videoExporting]);
+
+  const handleVideoExport = useCallback(
+    async (tl: Timeline, format: 'mp4' | 'webm') => {
+      if (!document || !onSaveVideoFile) return;
+      if (!videoSupport.supported) {
+        setAnnounceMsg(videoSupport.reason ?? 'Video export unavailable in this browser');
+        return;
+      }
+
+      const reducedMotion = prefersReducedMotion();
+      const width = document.canvasWidth ?? 1920;
+      const height = document.canvasHeight ?? 1080;
+      const fps = 30;
+      const totalFrames = computeVideoFrameCount(tl.duration, fps, reducedMotion);
+
+      videoAbortRef.current?.abort();
+      const controller = new AbortController();
+      videoAbortRef.current = controller;
+
+      setVideoExporting(true);
+      setVideoProgress({ done: 0, total: totalFrames });
+      setAnnounceMsg(`Exporting ${tl.name} as ${format.toUpperCase()}...`);
+
+      try {
+        const { renderFrame } = await createVideoFrameRenderer({
+          doc: document,
+          timeline: tl,
+          options: {
+            width,
+            height,
+            boundsMode: 'canvas',
+            selectionIds,
+            pageContentRoot: document.pages?.find((p) => p.id === document.activePageId)
+              ?.contentRoot,
+          },
+        });
+
+        const result = await exportTimelineToVideo(
+          { id: tl.id, duration: tl.duration },
+          {
+            width,
+            height,
+            fps,
+            codec: format === 'mp4' ? 'h264' : 'vp9',
+            reducedMotion,
+            signal: controller.signal,
+            onProgress: (done, total) => setVideoProgress({ done, total }),
+          },
+          renderFrame,
+        );
+
+        if (controller.signal.aborted) return;
+
+        if (!result.bytes) {
+          setAnnounceMsg(result.reason ?? 'Video export failed');
+          return;
+        }
+
+        const ext = result.mimeType?.includes('webm') ? 'webm' : 'mp4';
+        const mime = result.mimeType ?? (ext === 'webm' ? 'video/webm' : 'video/mp4');
+        await onSaveVideoFile(`${safeFilename(tl.name)}.${ext}`, result.bytes, mime);
+        setAnnounceMsg(`Video export complete: ${tl.name}.${ext}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setAnnounceMsg(`Video export failed: ${msg}`);
+      } finally {
+        setVideoExporting(false);
+        videoAbortRef.current = null;
+      }
+    },
+    [document, onSaveVideoFile, selectionIds, videoSupport],
+  );
 
   const handleToggleJob = useCallback((jobKey: string) => {
     setSelectedIds((prev) => {
@@ -401,41 +496,84 @@ export function ExportDialog({
               })()}
           </section>
 
-          {timelineList.length > 0 && onExportMotion && (
+          {timelineList.length > 0 && (onExportMotion || onSaveVideoFile) && (
             <section className="export-dialog__section" aria-label="Motion export">
               <h3 className="export-dialog__section-title">Motion Export</h3>
               <p className="export-dialog__note">
-                Export document timelines as CSS keyframes or Lottie JSON.
+                Export document timelines as CSS keyframes, Lottie JSON, or video (WebCodecs;
+                Chromium recommended).
               </p>
+              {!videoSupport.supported && onSaveVideoFile && (
+                <p className="export-dialog__note export-dialog__note--warn" role="status">
+                  Video export unavailable: {videoSupport.reason}
+                </p>
+              )}
               <div className="export-dialog__motion-actions">
                 {timelineList.map((tl) => (
                   <div key={tl.id} className="export-dialog__motion-row">
                     <span>{tl.name}</span>
-                    <button
-                      type="button"
-                      className="export-dialog__btn export-dialog__btn--secondary"
-                      onClick={() => {
-                        const css = timelineToCSSKeyframes(tl, nodeNames);
-                        onExportMotion('css', `${tl.name}.css`, css);
-                      }}
-                    >
-                      CSS
-                    </button>
-                    <button
-                      type="button"
-                      className="export-dialog__btn export-dialog__btn--secondary"
-                      onClick={() => {
-                        const json = document
-                          ? timelineToLottieJSON(tl, document)
-                          : timelineToLottieJSON(tl, { nodes: nodeNames } as Document);
-                        onExportMotion('lottie', `${tl.name}.json`, json);
-                      }}
-                    >
-                      Lottie
-                    </button>
+                    {onExportMotion && (
+                      <>
+                        <button
+                          type="button"
+                          className="export-dialog__btn export-dialog__btn--secondary"
+                          disabled={videoExporting || running}
+                          onClick={() => {
+                            const css = timelineToCSSKeyframes(tl, nodeNames);
+                            onExportMotion('css', `${tl.name}.css`, css);
+                          }}
+                        >
+                          CSS
+                        </button>
+                        <button
+                          type="button"
+                          className="export-dialog__btn export-dialog__btn--secondary"
+                          disabled={videoExporting || running}
+                          onClick={() => {
+                            const json = document
+                              ? timelineToLottieJSON(tl, document)
+                              : timelineToLottieJSON(tl, { nodes: nodeNames } as Document);
+                            onExportMotion('lottie', `${tl.name}.json`, json);
+                          }}
+                        >
+                          Lottie
+                        </button>
+                      </>
+                    )}
+                    {onSaveVideoFile && (
+                      <>
+                        <button
+                          type="button"
+                          className="export-dialog__btn export-dialog__btn--secondary"
+                          disabled={videoExporting || running || !videoSupport.supported}
+                          aria-label={`Export ${tl.name} as MP4`}
+                          onClick={() => void handleVideoExport(tl, 'mp4')}
+                        >
+                          MP4
+                        </button>
+                        <button
+                          type="button"
+                          className="export-dialog__btn export-dialog__btn--secondary"
+                          disabled={videoExporting || running || !videoSupport.supported}
+                          aria-label={`Export ${tl.name} as WebM`}
+                          onClick={() => void handleVideoExport(tl, 'webm')}
+                        >
+                          WebM
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
+              {videoExporting && (
+                <ExportProgressBar
+                  total={videoProgress.total}
+                  done={videoProgress.done}
+                  errors={0}
+                  running={videoExporting}
+                  onCancel={handleCancel}
+                />
+              )}
             </section>
           )}
 
@@ -458,7 +596,7 @@ export function ExportDialog({
             type="button"
             className="export-dialog__btn export-dialog__btn--secondary"
             onClick={onClose}
-            disabled={running}
+            disabled={running || videoExporting}
           >
             Close
           </button>
