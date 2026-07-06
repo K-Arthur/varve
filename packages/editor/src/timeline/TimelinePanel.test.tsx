@@ -217,4 +217,45 @@ describe('TimelinePanel', () => {
     expect(formatTime(123456)).toBe('02:03.456');
     expect(formatTime(-100)).toBe('00:00.000');
   });
+
+  it('save and apply preset controls call handlers', () => {
+    const onSavePreset = vi.fn();
+    const onApplyPreset = vi.fn();
+    const timelines: Record<string, Timeline> = {
+      'tl-1': makeTimeline('tl-1', 'Test', 5000),
+    };
+    render(
+      <TimelinePanel
+        {...defaultProps}
+        timelines={timelines}
+        activeTimelineId="tl-1"
+        motionPresets={{ p1: { id: 'p1', name: 'Fade In' } }}
+        onSavePreset={onSavePreset}
+        onApplyPreset={onApplyPreset}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Save timeline as motion preset'));
+    expect(onSavePreset).toHaveBeenCalledOnce();
+    fireEvent.change(screen.getByLabelText('Apply motion preset'), {
+      target: { value: 'p1' },
+    });
+    expect(onApplyPreset).toHaveBeenCalledWith('p1');
+  });
+
+  it('auto-keyframe toggle calls handler', () => {
+    const onToggleAutoKeyframe = vi.fn();
+    const timelines: Record<string, Timeline> = {
+      'tl-1': makeTimeline('tl-1', 'Test', 5000),
+    };
+    render(
+      <TimelinePanel
+        {...defaultProps}
+        timelines={timelines}
+        activeTimelineId="tl-1"
+        onToggleAutoKeyframe={onToggleAutoKeyframe}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Enable auto-keyframe'));
+    expect(onToggleAutoKeyframe).toHaveBeenCalledOnce();
+  });
 });

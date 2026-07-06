@@ -23,6 +23,8 @@ export interface MotionState {
   playbackSpeed: number;
   /** Whether to loop playback indefinitely. */
   loop: boolean;
+  /** When playing, property edits on selected nodes auto-insert keyframes. */
+  autoKeyframe: boolean;
 }
 
 export function createInitialMotionState(): MotionState {
@@ -34,6 +36,7 @@ export function createInitialMotionState(): MotionState {
     selectedKeyframeIds: [],
     playbackSpeed: 1,
     loop: false,
+    autoKeyframe: false,
   };
 }
 

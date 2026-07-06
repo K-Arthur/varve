@@ -11,6 +11,7 @@
 
 import type { Document, ManagedColor, NodeId, SceneNode } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
+import { computeDocExportHash } from './diff';
 
 /** A resolved spacing token with its value and usage count. */
 export interface SpecSpacing {
@@ -61,6 +62,16 @@ export interface SpecNodeDetail {
   fontSize?: number;
 }
 
+/** Summary of one document timeline for spec handoff. */
+export interface SpecTimeline {
+  id: string;
+  name: string;
+  durationMs: number;
+  trackCount: number;
+  keyframeCount: number;
+  markerCount: number;
+}
+
 /** The complete spec sheet for a document. */
 export interface SpecSheet {
   /** All spacing values used (aggregated). */
@@ -73,6 +84,10 @@ export interface SpecSheet {
   nodes: SpecNodeDetail[];
   /** Aggregate color palette. */
   palette: ManagedColor[];
+  /** Motion timelines summary. */
+  timelines: SpecTimeline[];
+  /** FNV export hash for change detection. */
+  exportHash: string;
 }
 
 function approxShapeSize(node: SceneNode): { w: number; h: number } {
@@ -196,12 +211,23 @@ export function buildSpec(doc: Document): SpecSheet {
 
   walk(doc.rootChildren, 0);
 
+  const timelines: SpecTimeline[] = Object.values(doc.timelines ?? {}).map((tl) => ({
+    id: tl.id,
+    name: tl.name,
+    durationMs: tl.duration,
+    trackCount: tl.tracks.length,
+    keyframeCount: tl.tracks.reduce((sum, tr) => sum + tr.keyframes.length, 0),
+    markerCount: tl.markers?.length ?? 0,
+  }));
+
   return {
     spacings: Array.from(spacings.values()).sort((a, b) => b.count - a.count),
     typeStyles: Array.from(typeStyles.values()).sort((a, b) => b.count - a.count),
     assets,
     nodes,
     palette: Array.from(paletteMap.values()),
+    timelines,
+    exportHash: computeDocExportHash(doc),
   };
 }
 
@@ -230,6 +256,17 @@ export function specToMarkdown(spec: SpecSheet): string {
     for (const c of spec.palette) {
       const [r, g, b, a] = managedColorToRgba(c);
       lines.push(`- rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(2)})`);
+    }
+    lines.push('');
+  }
+
+  if (spec.timelines.length > 0) {
+    lines.push('## Motion Timelines');
+    lines.push(`Export hash: \`${spec.exportHash}\``);
+    for (const tl of spec.timelines) {
+      lines.push(
+        `- **${tl.name}** (${tl.durationMs}ms): ${tl.trackCount} tracks, ${tl.keyframeCount} keyframes, ${tl.markerCount} markers`,
+      );
     }
     lines.push('');
   }

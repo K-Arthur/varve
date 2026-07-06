@@ -35,8 +35,19 @@ Strata's motion subsystem has a solid document-level foundation (`Document.timel
 **P5 — Advanced (types only, deferred implementation)**
 - `MotionExtension`, `NestedTimelineRef`, `AudioSyncTrack`, `CollaborativeKeyframeLock`
 
-Remaining gaps: full video muxer, SM inspector panel, auto-keyframe mode, rigging/IK solver.
+Remaining gaps: dirty IR rebuild benchmark, NestedTimelineRef sampler, SM inspector panel, full interactive export fidelity.
+
 See `docs/architecture/motion-system.md`.
+
+### Phase C — Timeline UX (2026-07-06)
+
+Completed:
+
+- Context wiring: `addTimelineMarker`, `removeTimelineMarker`, `renameTimelineMarker`, `createMotionPresetFromTimeline`, `applyMotionPreset`, `toggleAutoKeyframe`
+- TimelineRuler: double-click add marker, right-click rename/delete context menu
+- TimelinePanel: save/apply motion preset controls, auto-keyframe toggle in PlaybackControls
+- Auto-keyframe: inserts keyframes at playhead during playback on opacity edits (`motion/autoKeyframe.ts`)
+- Spec handoff: `buildSpec` / `specToMarkdown` timelines section + `MotionSpecSection` in SpecPanel
 
 ## 1. Current-State Audit
 
@@ -441,9 +452,12 @@ Implemented:
 - Timeline ruler marker rendering
 
 **Phase 4 — Export & performance**
-- `packages/editor/src/components/Export/ExportDialog.tsx` — CSS/Lottie motion export
-- `packages/engine/src/videoExport.ts` — export contract stub
+- `packages/editor/src/components/Export/ExportDialog.tsx` — CSS/Lottie/SVG/MP4/WebM motion export
+- `packages/engine/src/videoExport.ts` — WebCodecs + MP4/WebM mux via mp4-muxer/webm-muxer
+- `packages/editor/src/motion/videoExportBridge.ts` — IR-replay frame renderer
+- `packages/codegen/src/animation-interactive.ts` — interactions export stub
 - `packages/engine/src/motion.bench.test.ts` — sampler benchmark
+- `findKeyframeSegmentIndex()` in TimelineSampler for O(log n) lookup
 - `invalidateSamplerCache()` wired in context timeline CRUD
 
 **Phase 5 — Extension types**

@@ -412,6 +412,8 @@ function ShellInner({
               isPlaying={editor.state.motion.isPlaying}
               playbackSpeed={editor.state.motion.playbackSpeed}
               loop={editor.state.motion.loop}
+              autoKeyframe={editor.state.motion.autoKeyframe}
+              motionPresets={editor.state.document.motionPresets ?? {}}
               selectedTrackIds={editor.state.motion.selectedTrackIds}
               selectedKeyframeIndex={null}
               onPlay={() => editor.playTimeline()}
@@ -420,6 +422,43 @@ function ShellInner({
               onSeek={(time) => editor.seekTimeline(time)}
               onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
               onToggleLoop={() => editor.toggleLoop()}
+              onToggleAutoKeyframe={() => editor.toggleAutoKeyframe()}
+              onAddMarker={(timeMs) => {
+                const tlId = editor.state.motion.activeTimelineId;
+                if (!tlId) return;
+                const tl = editor.state.document.timelines?.[tlId];
+                if (!tl) return;
+                const count = (tl.markers?.length ?? 0) + 1;
+                const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
+                editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
+              }}
+              onRenameMarker={(markerId) => {
+                const tlId = editor.state.motion.activeTimelineId;
+                if (!tlId) return;
+                const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
+                  (m) => m.id === markerId,
+                );
+                const nextName = window.prompt('Marker name', marker?.name ?? '');
+                if (nextName?.trim()) {
+                  editor.renameTimelineMarker(tlId, markerId, nextName.trim());
+                }
+              }}
+              onDeleteMarker={(markerId) => {
+                const tlId = editor.state.motion.activeTimelineId;
+                if (tlId) editor.removeTimelineMarker(tlId, markerId);
+              }}
+              onSavePreset={() => {
+                const tlId = editor.state.motion.activeTimelineId;
+                if (!tlId) return;
+                const name = window.prompt('Preset name');
+                if (name?.trim()) {
+                  editor.createMotionPresetFromTimeline(tlId, name.trim());
+                }
+              }}
+              onApplyPreset={(presetId) => {
+                const tlId = editor.state.motion.activeTimelineId;
+                if (tlId) editor.applyMotionPreset(presetId, tlId);
+              }}
               onSelectTimeline={(id) => editor.setActiveTimeline(id)}
               onSelectTrack={() => {}}
               onClickKeyframe={(_trackId, progress) => {

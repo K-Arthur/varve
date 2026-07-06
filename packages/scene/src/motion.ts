@@ -367,6 +367,25 @@ export function removeTimelineMarker(
   };
 }
 
+/** Rename a timeline marker. No-op if not found. */
+export function renameTimelineMarker(
+  doc: Document,
+  timelineId: string,
+  markerId: string,
+  name: string,
+): Document {
+  const timeline = doc.timelines?.[timelineId];
+  if (!timeline) return doc;
+  const markers = (timeline.markers ?? []).map((m) => (m.id === markerId ? { ...m, name } : m));
+  return {
+    ...doc,
+    timelines: {
+      ...doc.timelines,
+      [timelineId]: { ...timeline, markers },
+    },
+  };
+}
+
 // ── Motion presets ───────────────────────────────────────────────────────────
 
 function presetId(): string {
@@ -401,4 +420,35 @@ export function removeMotionPreset(doc: Document, presetId: string): Document {
   const next = { ...doc.motionPresets };
   delete next[presetId];
   return { ...doc, motionPresets: next };
+}
+
+/** Copy tracks from a preset's source timeline onto the target timeline. */
+export function applyMotionPreset(
+  doc: Document,
+  presetId: string,
+  targetTimelineId: string,
+): Document {
+  const preset = doc.motionPresets?.[presetId];
+  if (!preset) return doc;
+  const sourceTimeline = doc.timelines?.[preset.timelineId];
+  const targetTimeline = doc.timelines?.[targetTimelineId];
+  if (!sourceTimeline || !targetTimeline) return doc;
+
+  const copiedTracks: AnimationTrack[] = sourceTimeline.tracks.map((track) => ({
+    ...track,
+    id: trackId(),
+    keyframes: track.keyframes.map((k) => ({ ...k })),
+  }));
+
+  return {
+    ...doc,
+    timelines: {
+      ...doc.timelines,
+      [targetTimelineId]: {
+        ...targetTimeline,
+        duration: Math.max(targetTimeline.duration, preset.duration),
+        tracks: [...targetTimeline.tracks, ...copiedTracks],
+      },
+    },
+  };
 }
