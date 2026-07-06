@@ -47,7 +47,11 @@ import {
 } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toCamera as editorToCamera, applyEditorCameraToCtx } from './canvas/cameraState';
+import { SubtreeIrCache } from './canvas/subtreeIrCache';
+import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
+import { DocumentGridOverlay } from './components/DocumentGridOverlay/DocumentGridOverlay';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
 import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
@@ -58,6 +62,7 @@ import { TextEditOverlay } from './components/TextEditOverlay';
 import { VariantBox } from './components/VariantBox/VariantBox';
 import { ZoomIndicator } from './components/ZoomIndicator';
 import { nodeWorldBoundsFn, useEditor } from './context';
+import { useCollabPresence } from './hooks/useCollabPresence';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { sceneNeedsStructuralCompositing } from './render/sceneCompositing';
 import {
@@ -92,12 +97,19 @@ import { PenTool } from './tools/PenTool';
 import { PolygonTool } from './tools/PolygonTool';
 import { RectangleTool } from './tools/RectangleTool';
 import { RefineMaskTool } from './tools/RefineMaskTool';
+import { TrimapEditTool } from './tools/TrimapEditTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
 import { SliceTool } from './tools/SliceTool';
 import { SpotHealTool } from './tools/SpotHealTool';
 import { StarTool } from './tools/StarTool';
-import { filterSnapTargets, type SnapGuide, snapPosition } from './tools/snapping';
+import {
+  createSnapSession,
+  filterSnapTargets,
+  type SnapGuide,
+  type SnapSession,
+  snapPosition,
+} from './tools/snapping';
 import { TextTool } from './tools/TextTool';
 import { ZoomTool } from './tools/ZoomTool';
 
@@ -281,6 +293,7 @@ function getToolManager(): ToolManager {
     toolManager.register('spotHeal', () => new SpotHealTool());
     toolManager.register('patch', () => new PatchTool());
     toolManager.register('refineMask', () => new RefineMaskTool());
+    toolManager.register('trimapEdit', () => new TrimapEditTool());
   }
   toolManager.setTool('select');
   return toolManager;
@@ -350,9 +363,11 @@ export function CanvasArea({
   const editorRef = useRef(editor);
   editorRef.current = editor;
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
+  const subtreeIrCacheRef = useRef(new SubtreeIrCache());
   const prevDrawDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
     invalidateTransformCache(transformCacheRef.current);
+    subtreeIrCacheRef.current.invalidate();
     docVersionRef.current += 1;
     prevDrawDocRef.current = state.document;
   }
@@ -380,6 +395,9 @@ export function CanvasArea({
   const dirtyRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
+  const snapSessionRef = useRef<SnapSession>(createSnapSession());
+
+  const collab = useCollabPresence(state.activeId, state.cursorPos, state.pan);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
   const [nodeEditSelectedAnchors, setNodeEditSelectedAnchors] = useState<ReadonlySet<number>>(
     new Set(),
@@ -483,6 +501,12 @@ export function CanvasArea({
     tool?.setOptions(state.refineMaskOptions);
   }, [state.refineMaskOptions, state.tool]);
 
+  useEffect(() => {
+    if (state.tool !== 'trimapEdit' || !tm.current) return;
+    const tool = tm.current.getTool<import('./tools/TrimapEditTool').TrimapEditTool>('trimapEdit');
+    tool?.setOptions(state.trimapEditOptions);
+  }, [state.trimapEditOptions, state.tool]);
+
   // Re-render the canvas whenever an async image finishes loading.
   useEffect(() => {
     const unsub = getImageCache().subscribeGlobal(() => {
@@ -558,17 +582,10 @@ export function CanvasArea({
       // See BaseTool.ts:66-67.
       canvasToWorld: (cx, cy) => {
         const rect = contentCanvasRef.current?.getBoundingClientRect();
-        return {
-          x: (cx - (rect?.left ?? 0) - s.pan.x) / s.zoom,
-          y: (cy - (rect?.top ?? 0) - s.pan.y) / s.zoom,
-        };
+        return e.canvasToWorld(cx - (rect?.left ?? 0), cy - (rect?.top ?? 0));
       },
-      worldToCanvas: (wx, wy) => {
-        return { x: wx * s.zoom + s.pan.x, y: wy * s.zoom + s.pan.y };
-      },
-      canvasDeltaToWorld: (dx, dy) => {
-        return { dx: dx / s.zoom, dy: dy / s.zoom };
-      },
+      worldToCanvas: (wx, wy) => e.worldToCanvas(wx, wy),
+      canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
 
       setPointerCapture: (pointerId) => {
         const el = contentCanvasRef.current;
@@ -597,7 +614,10 @@ export function CanvasArea({
       setTextEditTargetId,
 
       snapPosition: (bounds, _targets) => {
-        if (!s.snapEnabled) return { x: bounds.x, y: bounds.y, guides: [] };
+        if (!s.snapEnabled) {
+          snapSessionRef.current = createSnapSession();
+          return { x: bounds.x, y: bounds.y, guides: [] };
+        }
 
         // D-02: Spatial + hierarchical filtering of snap targets
         const doc = stateRef.current.document;
@@ -619,7 +639,6 @@ export function CanvasArea({
           draggedId,
         );
 
-        // D-04: Add page bounds and containing frame bounds as snap targets
         const pageBoundsTargets: Array<{ x: number; y: number; w: number; h: number }> = [];
         const activePageId = doc.activePageId;
         const pages = doc.pages;
@@ -634,8 +653,6 @@ export function CanvasArea({
             });
           }
         }
-        // Find containing frame via findContainingFrame (uses cursor position from ev)
-        // Since we don't have the cursor here, we try the first selected node's parent
         if (draggedId) {
           const parentId = parentIdx.get(draggedId);
           if (parentId) {
@@ -651,14 +668,49 @@ export function CanvasArea({
           }
         }
 
+        let layoutGridStep: number | undefined;
+        if (draggedId) {
+          const parentId = parentIdx.get(draggedId);
+          if (parentId) {
+            const parentNode = doc.nodes[parentId];
+            if (parentNode?.kind === 'frame' && parentNode.layoutStyle) {
+              const cols = parseGridTemplate(
+                parentNode.layoutStyle.gridTemplateColumns ?? '',
+                parentNode.w,
+              );
+              if (cols.length > 0) {
+                layoutGridStep =
+                  cols[0]! + (parentNode.layoutStyle.columnGap ?? parentNode.layoutStyle.gap ?? 0);
+              }
+            }
+          }
+        }
+
         const allTargets = [...filtered, ...pageBoundsTargets];
-        const result = snapPosition(bounds.x, bounds.y, bounds.w, bounds.h, allTargets, s.snapGrid);
+        const result = snapPosition(bounds.x, bounds.y, bounds.w, bounds.h, allTargets, s.snapGrid, undefined, {
+          zoom: s.zoom,
+          session: snapSessionRef.current,
+          layoutGridStep,
+        });
+        snapSessionRef.current = result.session;
         setSnapGuides(result.guides);
-        return result;
+        return { x: result.x, y: result.y, guides: result.guides };
       },
       isSnapExcluded: (id: string) => {
         const n = stateRef.current.document.nodes[id];
         return n?.snapExcluded === true;
+      },
+
+      getTrimapData: (nodeId) => e.getTrimapData(nodeId),
+      setTrimapPreview: (trimap, width, height) => {
+        const nodeId = s.selection[0];
+        if (nodeId) e.setTrimapData(nodeId, trimap, width, height);
+      },
+      commitTrimapEdit: (trimap) => {
+        const nodeId = s.selection[0];
+        if (!nodeId) return;
+        const entry = e.getTrimapData(nodeId);
+        if (entry) e.setTrimapData(nodeId, trimap, entry.width, entry.height);
       },
     };
   }
@@ -706,7 +758,10 @@ export function CanvasArea({
       const vp = { width: viewport.width, height: viewport.height };
       const VP_W = vp.width;
       const VP_H = vp.height;
-      const cam = { pan: s.pan, zoom: s.zoom };
+      const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+      const cam = editorToCamera(camState);
+      const applyCam = (targetCtx: CanvasRenderingContext2D) =>
+        applyEditorCameraToCtx(targetCtx, camState, dpr, vp);
       const hiddenByContainer = new Set<string>();
 
       for (const [id] of entries) {
@@ -810,9 +865,47 @@ export function CanvasArea({
           }
         }
       }
-      const ir = await eng.buildIr({ nodes: flatNodes });
 
       const docVersion = docVersionRef.current;
+      const canUseIrCache = s.canvasMode === 'full' && !s.motion.isPlaying;
+      let ir: Awaited<ReturnType<Engine['buildIr']>>;
+
+      if (canUseIrCache && nodeIds.length > 0) {
+        let allCached = true;
+        const cachedItems: Awaited<ReturnType<Engine['buildIr']>> = [];
+        for (let i = 0; i < nodeIds.length; i++) {
+          const nodeId = nodeIds[i]!;
+          const fn = flatNodes[i];
+          if (!fn) {
+            allCached = false;
+            break;
+          }
+          const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
+          const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
+          const cached = subtreeIrCacheRef.current.get(nodeId, hash);
+          if (cached) cachedItems.push(cached);
+          else {
+            allCached = false;
+            break;
+          }
+        }
+        if (allCached && cachedItems.length === nodeIds.length) {
+          ir = cachedItems;
+        } else {
+          ir = await eng.buildIr({ nodes: flatNodes });
+          for (let i = 0; i < nodeIds.length; i++) {
+            const nodeId = nodeIds[i];
+            const fn = flatNodes[i];
+            const item = ir[i];
+            if (!nodeId || !fn || !item) continue;
+            const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
+            const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
+            subtreeIrCacheRef.current.set(nodeId, hash, item);
+          }
+        }
+      } else {
+        ir = await eng.buildIr({ nodes: flatNodes });
+      }
       const needsStructural = sceneNeedsStructuralCompositing(doc);
 
       if (s.canvasMode === 'outline') {
@@ -865,6 +958,7 @@ export function CanvasArea({
 
       const dirtyRect = dirtyRectRef.current;
       const usePartialRedraw =
+        (s.cameraRotation ?? 0) === 0 &&
         dirtyRect &&
         dirtyRect.w > 0 &&
         dirtyRect.h > 0 &&
@@ -883,12 +977,12 @@ export function CanvasArea({
         ctx.beginPath();
         ctx.rect(dx, dy, dw, dh);
         ctx.clip();
-        ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+        applyCam(ctx);
       } else {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = boardColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+        applyCam(ctx);
       }
 
       dirtyRectRef.current = null;
@@ -915,27 +1009,13 @@ export function CanvasArea({
               targetCtx,
               {
                 draw: (maskCtx: CanvasRenderingContext2D) => {
-                  maskCtx.setTransform(
-                    dpr * s.zoom,
-                    0,
-                    0,
-                    dpr * s.zoom,
-                    dpr * s.pan.x,
-                    dpr * s.pan.y,
-                  );
+                  applyCam(maskCtx);
                   replaySubtreeToCtx(maskSrcId, maskCtx);
                 },
               },
               {
                 draw: (contentCtx: CanvasRenderingContext2D) => {
-                  contentCtx.setTransform(
-                    dpr * s.zoom,
-                    0,
-                    0,
-                    dpr * s.zoom,
-                    dpr * s.pan.x,
-                    dpr * s.pan.y,
-                  );
+                  applyCam(contentCtx);
                   for (const childId of (n as import('@strata/scene').ContainerNode).children) {
                     if (childId !== maskSrcId) replaySubtreeToCtx(childId, contentCtx);
                   }
@@ -955,7 +1035,8 @@ export function CanvasArea({
           );
           targetCtx.closePath();
           targetCtx.clip();
-          targetCtx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+          targetCtx.setTransform(1, 0, 0, 1, 0, 0);
+          applyCam(targetCtx);
           for (const childId of (n as import('@strata/scene').ContainerNode).children) {
             if (childId !== maskSrcId) replaySubtreeToCtx(childId, targetCtx);
           }
@@ -1075,7 +1156,8 @@ export function CanvasArea({
           wb &&
           wb.camera.zoom === s.zoom &&
           wb.camera.pan.x === s.pan.x &&
-          wb.camera.pan.y === s.pan.y;
+          wb.camera.pan.y === s.pan.y &&
+          (s.cameraRotation ?? 0) === 0;
         if (wb && wb.docVersion === docVersion && cameraMatches) {
           ctxNN.save();
           ctxNN.setTransform(1, 0, 0, 1, 0, 0);
@@ -1100,6 +1182,7 @@ export function CanvasArea({
     state.zoom,
     state.pan.x,
     state.pan.y,
+    state.cameraRotation,
     state.canvasMode,
     imageCacheStamp,
     state.motion.currentTime,
@@ -1131,6 +1214,8 @@ export function CanvasArea({
     const doc = s.document;
     const cache = transformCacheRef.current;
     const entries = walkNodes(doc);
+    const vp = { width: cssW, height: cssH };
+    const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
 
     const accentColor = getComputedStyle(document.documentElement)
       .getPropertyValue('--color-accent-primary')
@@ -1140,7 +1225,7 @@ export function CanvasArea({
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.setTransform(dpr * s.zoom, 0, 0, dpr * s.zoom, dpr * s.pan.x, dpr * s.pan.y);
+    applyEditorCameraToCtx(ctx, camState, dpr, vp);
 
     // ── Layout grid overlay for frames with gridTemplate ────────────────
     ctx.strokeStyle = accentColor.replace(')', ' / 0.25)');
@@ -1294,7 +1379,7 @@ export function CanvasArea({
         `${Math.round(sw / s.zoom)} x ${Math.round('h' in draft ? draft.h * s.zoom : (Math.abs(draft.y2 - draft.y1) * s.zoom) / s.zoom)}`;
       ctx.fillText(label, sx + sw + 4, sy + 14);
     }
-  }, [draft, state.zoom, state.pan.x, state.pan.y]);
+  }, [draft, state.zoom, state.pan.x, state.pan.y, state.cameraRotation]);
 
   // ── RAF scheduling ──────────────────────────────────────────────────────
 
@@ -1382,6 +1467,7 @@ export function CanvasArea({
       e.preventDefault();
     }
 
+    snapSessionRef.current = createSnapSession();
     const ctx = buildToolCtx(ne);
     tmInst.handlePointerDown(ne, ctx);
   }
@@ -1912,6 +1998,17 @@ export function CanvasArea({
     [onContextMenu],
   );
 
+  const activePage = state.document.pages?.find((p) => p.id === state.document.activePageId);
+  const artboardRect = activePage
+    ? { x: 0, y: 0, w: activePage.width, h: activePage.height }
+    : null;
+
+  const stubRemoteCursors = collab.users.slice(0, 2).map((u, i) => ({
+    userId: u.id,
+    x: 120 + i * 80,
+    y: 120 + i * 40,
+  }));
+
   return (
     <section
       ref={setCombinedRef}
@@ -1943,6 +2040,21 @@ export function CanvasArea({
           }}
         />
       )}
+      {state.gridOverlayMode !== 'none' && (
+        <DocumentGridOverlay
+          mode={state.gridOverlayMode}
+          zoom={state.zoom}
+          pan={state.pan}
+          cameraRotation={state.cameraRotation}
+          width={canvasSize.width}
+          height={canvasSize.height}
+        />
+      )}
+      <CollabCursorOverlay
+        users={collab.users}
+        cursors={stubRemoteCursors}
+        worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
+      />
       <canvas
         ref={contentCanvasRef}
         tabIndex={0}
@@ -1976,7 +2088,11 @@ export function CanvasArea({
       <Ruler
         zoom={state.zoom}
         pan={state.pan}
+        cameraRotation={state.cameraRotation}
         unitType={state.unitType}
+        rulerMode={state.rulerMode}
+        artboard={artboardRect}
+        pageRulerOrigin={activePage?.rulerOrigin}
         onAddGuide={(axis, position) => editor.addGuide(axis, position)}
       />
       <GuideOverlay

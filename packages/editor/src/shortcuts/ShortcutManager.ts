@@ -35,6 +35,38 @@ export const SHORTCUT_DEFS = {
   zoomOut: { binding: { key: '-', ctrl: true }, label: 'Zoom Out', category: 'View' },
   fitAll: { binding: { key: '1', shift: true }, label: 'Fit All', category: 'View' },
   fitSelection: { binding: { key: '2', shift: true }, label: 'Fit Selection', category: 'View' },
+  fitActivePage: { binding: { key: '3', shift: true }, label: 'Fit Active Page', category: 'View' },
+  fitActiveFrame: { binding: { key: '4', shift: true }, label: 'Fit Active Frame', category: 'View' },
+  resetViewRotation: {
+    binding: { key: 'r', shift: true },
+    label: 'Reset View Rotation',
+    category: 'View',
+  },
+  rotateViewCW: {
+    binding: { key: ']', alt: true },
+    label: 'Rotate View Clockwise',
+    category: 'View',
+  },
+  rotateViewCCW: {
+    binding: { key: '[', alt: true },
+    label: 'Rotate View Counter-clockwise',
+    category: 'View',
+  },
+  toggleRulerMode: {
+    binding: { key: ';', alt: true },
+    label: 'Toggle Ruler Mode',
+    category: 'View',
+  },
+  gridOverlayBaseline: {
+    binding: { key: 'b', alt: true, shift: true },
+    label: 'Baseline Grid Overlay',
+    category: 'View',
+  },
+  gridOverlayIsometric: {
+    binding: { key: 'i', alt: true, shift: true },
+    label: 'Isometric Grid Overlay',
+    category: 'View',
+  },
   zoom50: { binding: { key: '1' }, label: 'Zoom to 50%', category: 'View' },
   zoom75: { binding: { key: '2' }, label: 'Zoom to 75%', category: 'View' },
   zoom100: { binding: { key: '3' }, label: 'Zoom to 100%', category: 'View' },

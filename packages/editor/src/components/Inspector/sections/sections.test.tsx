@@ -37,8 +37,8 @@ describe('PositionSizeSection', () => {
   it('renders X, Y fields from transform', () => {
     const node = createRectNode('n1');
     renderWithProvider(<PositionSizeSection nodes={[node]} />);
-    expect(screen.getByLabelText('X (px)')).toBeTruthy();
-    expect(screen.getByLabelText('Y (px)')).toBeTruthy();
+    expect(screen.getByLabelText(/X.*\(px\)/)).toBeTruthy();
+    expect(screen.getByLabelText(/Y.*\(px\)/)).toBeTruthy();
     expect(screen.getByLabelText('W (px)')).toBeTruthy();
     expect(screen.getByLabelText('H (px)')).toBeTruthy();
   });
@@ -47,7 +47,7 @@ describe('PositionSizeSection', () => {
     const nodeA = createRectNode('n1', { transform: [1, 0, 0, 1, 10, 20] as const });
     const nodeB = createRectNode('n2', { transform: [1, 0, 0, 1, 30, 20] as const });
     renderWithProvider(<PositionSizeSection nodes={[nodeA, nodeB]} />);
-    const input = screen.getByLabelText('X (px)') as HTMLInputElement;
+    const input = screen.getByLabelText(/X.*\(px\)/) as HTMLInputElement;
     expect(input.getAttribute('aria-valuetext')).toBe('Mixed values');
   });
 

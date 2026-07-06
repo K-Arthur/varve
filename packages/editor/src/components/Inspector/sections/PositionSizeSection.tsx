@@ -14,6 +14,7 @@
  *
  * Research basis: Figma/Sketch position/size panel with aspect lock.
  */
+import { formatCoordForRuler } from '@strata/shared';
 import type { Shape } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { useCallback, useRef, useState } from 'react';
@@ -39,6 +40,35 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
     ? commonValue(nodes, (n) => shapeH((n as SceneNode & { shape: Shape }).shape))
     : null;
   const rotationRaw = commonValue(nodes, (n) => n.rotation ?? 0);
+
+  const activePage = editor.state.document.pages?.find(
+    (p) => p.id === editor.state.document.activePageId,
+  );
+  const artboard = activePage ? { x: 0, y: 0, w: activePage.width, h: activePage.height } : null;
+  const useArtboardCoords = editor.state.rulerMode === 'artboard' && artboard !== null;
+
+  const toDisplayX = (worldX: number) =>
+    useArtboardCoords
+      ? formatCoordForRuler(worldX, 'x', 'artboard', artboard, activePage?.rulerOrigin
+          ? [activePage.rulerOrigin.x, activePage.rulerOrigin.y]
+          : undefined)
+      : worldX;
+  const toDisplayY = (worldY: number) =>
+    useArtboardCoords
+      ? formatCoordForRuler(worldY, 'y', 'artboard', artboard, activePage?.rulerOrigin
+          ? [activePage.rulerOrigin.x, activePage.rulerOrigin.y]
+          : undefined)
+      : worldY;
+  const fromDisplayX = (displayX: number) => {
+    if (!useArtboardCoords || !artboard) return displayX;
+    const origin = activePage?.rulerOrigin;
+    return displayX + artboard.x + (origin?.x ?? 0);
+  };
+  const fromDisplayY = (displayY: number) => {
+    if (!useArtboardCoords || !artboard) return displayY;
+    const origin = activePage?.rulerOrigin;
+    return displayY + artboard.y + (origin?.y ?? 0);
+  };
 
   const aspectRatio = useCallback(() => {
     if (wRaw === null || hRaw === null || isMixed(wRaw) || isMixed(hRaw)) return null;
@@ -82,22 +112,25 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Position & Size">
+      {useArtboardCoords && (
+        <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
+      )}
       <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
         <NumberField
-          label="X"
+          label={useArtboardCoords ? 'X (AB)' : 'X'}
           unit="px"
-          value={isMixed(xRaw) ? 0 : xRaw}
+          value={isMixed(xRaw) ? 0 : toDisplayX(xRaw)}
           mixed={isMixed(xRaw)}
-          onChange={editor.setSelectedX}
+          onChange={(v) => editor.setSelectedX(fromDisplayX(v))}
           fieldName="x"
           onShiftClick={() => editor.setBindingField('x')}
         />
         <NumberField
-          label="Y"
+          label={useArtboardCoords ? 'Y (AB)' : 'Y'}
           unit="px"
-          value={isMixed(yRaw) ? 0 : yRaw}
+          value={isMixed(yRaw) ? 0 : toDisplayY(yRaw)}
           mixed={isMixed(yRaw)}
-          onChange={editor.setSelectedY}
+          onChange={(v) => editor.setSelectedY(fromDisplayY(v))}
           fieldName="y"
           onShiftClick={() => editor.setBindingField('y')}
         />

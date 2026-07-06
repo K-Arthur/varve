@@ -21,6 +21,10 @@ import {
   type Viewport,
   worldToScreen,
   worldToScreenAffine,
+  rotateAboutScreenPoint,
+  resetViewRotation,
+  computeFloatingOrigin,
+  stepZoom,
   zoomAboutPoint,
 } from './viewport';
 
@@ -32,8 +36,8 @@ function cam(panX = 0, panY = 0, zoom = 1): Camera {
 }
 
 describe('clampZoom', () => {
-  it('clamps below minimum', () => expect(clampZoom(0.05)).toBe(MIN_ZOOM));
-  it('clamps above maximum', () => expect(clampZoom(20)).toBe(MAX_ZOOM));
+  it('clamps below minimum', () => expect(clampZoom(0.0001)).toBe(MIN_ZOOM));
+  it('clamps above maximum', () => expect(clampZoom(100)).toBe(MAX_ZOOM));
   it('passes through in-range values', () => expect(clampZoom(1.5)).toBe(1.5));
 });
 
@@ -135,9 +139,11 @@ describe('isWorldRectInViewport', () => {
 
   it('works at different zoom levels', () => {
     const c = cam(200, 100, 2);
-    expect(isWorldRectInViewport(c, vp, { x: 500, y: 200, w: 50, h: 50 })).toBe(true);
-    expect(isWorldRectInViewport(c, vp, { x: 1000, y: 200, w: 50, h: 50 })).toBe(false);
-    expect(isWorldRectInViewport(c, vp, { x: -200, y: 200, w: 50, h: 50 })).toBe(false);
+    const origin = computeFloatingOrigin(c, vp);
+    const [cx, cy] = screenToWorld(c, vp.width / 2, vp.height / 2, vp, origin);
+    expect(isWorldRectInViewport(c, vp, { x: cx - 25, y: cy - 25, w: 50, h: 50 })).toBe(true);
+    expect(isWorldRectInViewport(c, vp, { x: 10000, y: 10000, w: 50, h: 50 })).toBe(false);
+    expect(isWorldRectInViewport(c, vp, { x: -10000, y: -10000, w: 50, h: 50 })).toBe(false);
   });
 
   it('handles tiny rect on viewport edge', () => {
@@ -237,6 +243,42 @@ describe('zoomAboutPoint', () => {
     const c = cam(0, 0, 1);
     const clamped = zoomAboutPoint(c, [0, 0], 100);
     expect(clamped.zoom).toBe(MAX_ZOOM);
+  });
+});
+
+describe('rotateAboutScreenPoint', () => {
+  it('updates rotation and keeps anchor fixed on screen', () => {
+    const c = cam(100, 50, 1);
+    const anchor: [number, number] = [960, 540];
+    const after = rotateAboutScreenPoint(c, anchor, Math.PI / 4, vp);
+    expect(after.rotation).toBeCloseTo(Math.PI / 4, 6);
+    const before = screenToWorld(c, anchor[0], anchor[1], vp);
+    const afterWorld = screenToWorld(after, anchor[0], anchor[1], vp);
+    expect(Math.abs(before[0] - afterWorld[0])).toBeLessThan(1e-3);
+    expect(Math.abs(before[1] - afterWorld[1])).toBeLessThan(1e-3);
+  });
+});
+
+describe('resetViewRotation', () => {
+  it('clears rotation', () => {
+    const c = { ...cam(), rotation: 0.5 };
+    expect(resetViewRotation(c, vp).rotation).toBe(0);
+  });
+});
+
+describe('computeFloatingOrigin', () => {
+  it('snaps origin to grid', () => {
+    const c = cam(-600, -400, 1);
+    const origin = computeFloatingOrigin(c, vp);
+    expect(origin[0] % 512).toBe(0);
+    expect(origin[1] % 512).toBe(0);
+  });
+});
+
+describe('stepZoom', () => {
+  it('steps in and out within bounds', () => {
+    expect(stepZoom(1, 'in')).toBeGreaterThan(1);
+    expect(stepZoom(1, 'out')).toBeLessThan(1);
   });
 });
 

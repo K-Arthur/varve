@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { filterSnapTargets, snapPosition, snapSize } from '../snapping';
+import { filterSnapTargets, snapPosition, snapSize, createSnapSession } from '../snapping';
 
-const THRESHOLD = 5;
+const THRESHOLD = 8;
 
 const box = (x: number, y: number, w: number, h: number) => ({ x, y, w, h });
 
@@ -308,5 +308,32 @@ describe('snapPosition — frame/page center (D-04)', () => {
     const result = snapPosition(250, 200, 100, 100, [frameBounds]);
     expect(result.guides.some((g) => g.axis === 'vertical' && g.type === 'center')).toBe(true);
     expect(result.guides.some((g) => g.axis === 'horizontal' && g.type === 'center')).toBe(true);
+  });
+});
+
+describe('snapPosition — sticky hysteresis', () => {
+  it('holds snap until release distance exceeded', () => {
+    const session = createSnapSession();
+    const first = snapPosition(3, 50, 100, 100, [box(0, 50, 100, 100)], undefined, undefined, {
+      zoom: 1,
+      session,
+    });
+    expect(first.x).toBe(0);
+    expect(first.session.stickyX).not.toBeNull();
+    const second = snapPosition(6, 50, 100, 100, [box(0, 50, 100, 100)], undefined, undefined, {
+      zoom: 1,
+      session: first.session,
+    });
+    expect(second.x).toBe(0);
+    const third = snapPosition(20, 50, 100, 100, [box(0, 50, 100, 100)], undefined, undefined, {
+      zoom: 1,
+      session: second.session,
+    });
+    expect(third.x).toBe(20);
+  });
+
+  it('allows placement near guide without snapping when outside threshold', () => {
+    const result = snapPosition(12, 50, 100, 100, [box(0, 50, 100, 100)]);
+    expect(result.x).toBe(12);
   });
 });
