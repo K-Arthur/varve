@@ -458,7 +458,33 @@ function paintImageFill(
     }
     const dx = bounds.x + (fill.x ?? 0) + (bw - dw) / 2;
     const dy = bounds.y + (fill.y ?? 0) + (bh - dh) / 2;
-    target.drawImage(img, dx, dy, dw, dh);
+
+    // Apply alpha mask via offscreen compositing (background removal on shape nodes)
+    if (fill.alphaMask && target.drawImage && typeof document !== 'undefined') {
+      const maskImg = getImageCache().getImage(fill.alphaMask);
+      if (maskImg) {
+        try {
+          const oc = document.createElement('canvas');
+          oc.width = bw;
+          oc.height = bh;
+          const octx = oc.getContext('2d');
+          if (octx) {
+            octx.drawImage(img, dx - bounds.x, dy - bounds.y, dw, dh);
+            octx.globalCompositeOperation = 'destination-in';
+            octx.drawImage(maskImg, 0, 0, bw, bh);
+            target.drawImage(oc, bounds.x, bounds.y, bw, bh);
+          } else {
+            target.drawImage(img, dx, dy, dw, dh);
+          }
+        } catch {
+          target.drawImage(img, dx, dy, dw, dh);
+        }
+      } else {
+        target.drawImage(img, dx, dy, dw, dh);
+      }
+    } else {
+      target.drawImage(img, dx, dy, dw, dh);
+    }
   } else {
     // Image still loading — draw a subtle placeholder so the node is visible
     const prev = target.fillStyle;

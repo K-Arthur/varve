@@ -286,6 +286,8 @@ export interface ShapeNode extends NodeBase {
   cornerRadius?: number | [number, number, number, number];
   /** Corner smoothing percentage (0-100), Sketch-style continuous corners. */
   cornerSmoothing?: number;
+  /** Background removal mask applied to this shape's image fill. */
+  backgroundRemoval?: BackgroundRemovalState;
 }
 
 export interface TextNode extends NodeBase {
