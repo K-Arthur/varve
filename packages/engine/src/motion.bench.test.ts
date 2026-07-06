@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import type { Timeline } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
 import { sampleTimeline } from '../../editor/src/timeline/TimelineSampler';
 
 function makeHeavyTimeline(trackCount: number, keyframesPerTrack: number): Timeline {

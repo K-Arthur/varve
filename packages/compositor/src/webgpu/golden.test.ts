@@ -39,11 +39,23 @@ function pixelDiff(a: Uint8ClampedArray, b: Uint8ClampedArray): number {
   let diff = 0;
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i += 4) {
-    diff +=
-      Math.abs(a[i]! - b[i]!) +
-      Math.abs(a[i + 1]! - b[i + 1]!) +
-      Math.abs(a[i + 2]! - b[i + 2]!) +
-      Math.abs(a[i + 3]! - b[i + 3]!);
+    const a0 = a[i];
+    if (a0 === undefined) break;
+    const a1 = a[i + 1];
+    if (a1 === undefined) break;
+    const a2 = a[i + 2];
+    if (a2 === undefined) break;
+    const a3 = a[i + 3];
+    if (a3 === undefined) break;
+    const b0 = b[i];
+    if (b0 === undefined) break;
+    const b1 = b[i + 1];
+    if (b1 === undefined) break;
+    const b2 = b[i + 2];
+    if (b2 === undefined) break;
+    const b3 = b[i + 3];
+    if (b3 === undefined) break;
+    diff += Math.abs(a0 - b0) + Math.abs(a1 - b1) + Math.abs(a2 - b2) + Math.abs(a3 - b3);
   }
   return diff / (n / 4);
 }

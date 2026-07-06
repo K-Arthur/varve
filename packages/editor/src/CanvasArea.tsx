@@ -47,10 +47,10 @@ import {
 } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toCamera as editorToCamera, applyEditorCameraToCtx } from './canvas/cameraState';
+import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
 import { SubtreeIrCache } from './canvas/subtreeIrCache';
-import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
+import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { DocumentGridOverlay } from './components/DocumentGridOverlay/DocumentGridOverlay';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
 import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
@@ -62,8 +62,8 @@ import { TextEditOverlay } from './components/TextEditOverlay';
 import { VariantBox } from './components/VariantBox/VariantBox';
 import { ZoomIndicator } from './components/ZoomIndicator';
 import { nodeWorldBoundsFn, useEditor } from './context';
-import { useCollabPresence } from './hooks/useCollabPresence';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
+import { useCollabPresence } from './hooks/useCollabPresence';
 import { sceneNeedsStructuralCompositing } from './render/sceneCompositing';
 import {
   createRenderWorkerHost,
@@ -97,7 +97,6 @@ import { PenTool } from './tools/PenTool';
 import { PolygonTool } from './tools/PolygonTool';
 import { RectangleTool } from './tools/RectangleTool';
 import { RefineMaskTool } from './tools/RefineMaskTool';
-import { TrimapEditTool } from './tools/TrimapEditTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
 import { SliceTool } from './tools/SliceTool';
@@ -111,6 +110,7 @@ import {
   snapPosition,
 } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
+import { TrimapEditTool } from './tools/TrimapEditTool';
 import { ZoomTool } from './tools/ZoomTool';
 
 type DocNode = SceneNode;

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { createDocument, makeShapeNode } from '@strata/scene';
 import type { Timeline } from '@strata/scene';
+import { createDocument, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { createVideoFrameRenderer, resolveVideoExportBounds } from './videoExportBridge';
 
@@ -27,11 +27,7 @@ describe('resolveVideoExportBounds', () => {
 describe('createVideoFrameRenderer', () => {
   it('calls sampler at requested times via renderFrame', async () => {
     const doc = createDocument();
-    const rect = makeShapeNode(
-      'n1',
-      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
-      { name: 'Rect' },
-    );
+    const rect = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Rect' });
     doc.nodes.n1 = rect;
     doc.rootChildren = ['n1'];
 

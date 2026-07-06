@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterSnapTargets, snapPosition, snapSize, createSnapSession } from '../snapping';
+import { createSnapSession, filterSnapTargets, snapPosition, snapSize } from '../snapping';
 
 const THRESHOLD = 8;
 

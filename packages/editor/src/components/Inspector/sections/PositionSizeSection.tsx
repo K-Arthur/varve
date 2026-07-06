@@ -14,9 +14,10 @@
  *
  * Research basis: Figma/Sketch position/size panel with aspect lock.
  */
-import { formatCoordForRuler } from '@strata/shared';
+
 import type { Shape } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
+import { formatCoordForRuler } from '@strata/shared';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';

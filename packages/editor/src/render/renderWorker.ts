@@ -1,7 +1,7 @@
 /**
  * Render worker entry — replays IR to OffscreenCanvas.
  */
-import { type RenderItem, replayIr, type ReplayTarget } from '@strata/engine';
+import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
 import type { WorkerCommand, WorkerResponse } from './workerHost';
 
 let canvas: OffscreenCanvas | null = null;
@@ -65,10 +65,9 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
 
 function post(response: WorkerResponse, transfer?: Transferable[]): void {
   if (transfer) {
-    (self as unknown as { postMessage(message: unknown, transfer: Transferable[]): void }).postMessage(
-      response,
-      transfer,
-    );
+    (
+      self as unknown as { postMessage(message: unknown, transfer: Transferable[]): void }
+    ).postMessage(response, transfer);
   } else {
     self.postMessage(response);
   }

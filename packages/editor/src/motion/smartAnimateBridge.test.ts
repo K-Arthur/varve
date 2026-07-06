@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { addNode, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
 import { computeSmartAnimateHotspotOverrides } from './smartAnimateBridge';
 
 describe('computeSmartAnimateHotspotOverrides', () => {

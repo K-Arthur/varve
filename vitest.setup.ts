@@ -20,7 +20,7 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     unobserve() {}
     disconnect() {}
   }
-  (globalThis as any).ResizeObserver = ResizeObserverStub as any;
+  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
 }
 
 /**
@@ -119,7 +119,7 @@ if (typeof ImageData === 'undefined') {
       } else {
         const arr = w as unknown as Uint8ClampedArray;
         this.data = arr;
-        this.width = h!;
+        this.width = h;
         this.height = (_settings as unknown as number) ?? 1;
       }
     }

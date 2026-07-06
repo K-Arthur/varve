@@ -11,8 +11,8 @@
  * propagate while slot content stays local.
  */
 
-import { addChild, type Document, isContainer } from './document';
 import { captureSyncBaseline } from './component-sync';
+import { addChild, type Document, isContainer } from './document';
 import type {
   ComponentDefinition,
   ComponentProperty,

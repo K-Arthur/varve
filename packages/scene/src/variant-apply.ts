@@ -3,9 +3,10 @@
  *
  * Property-to-layer matching uses layer name === property name (Figma convention).
  */
+
+import { resolveVariantProperties } from './component';
 import type { Document } from './document';
 import { isContainer } from './document';
-import { resolveVariantProperties } from './component';
 import type { ComponentDefinition, FrameNode, NodeId, SceneNode } from './types';
 
 /**

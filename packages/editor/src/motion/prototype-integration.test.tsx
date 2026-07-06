@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as prototypeA11y from '@strata/prototype';
 import {
   addInteraction,
   addNode,
@@ -12,11 +11,11 @@ import {
   makeFrameNode,
   makeShapeNode,
 } from '@strata/scene';
-import * as prototypeA11y from '@strata/prototype';
-import { act, renderHook } from '@testing-library/react';
-import { EditorProvider, useEditor } from '../context';
+import { act, cleanup, render, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ActivePrototypeTransition } from '../components/Prototype/usePrototypeTransition';
 import { usePrototypeTransition } from '../components/Prototype/usePrototypeTransition';
+import { EditorProvider, useEditor } from '../context';
 import { createRuntimeFromDocument, interactionsMapFromDocument } from './prototypeRuntime';
 
 afterEach(() => {
@@ -26,7 +25,7 @@ afterEach(() => {
 
 describe('prototypeRuntime', () => {
   it('loads interactions from document into runtime', () => {
-    let doc = createDocument();
+    const doc = createDocument();
     const { doc: next } = addInteraction(doc, 'n1', {
       name: 'Navigate',
       trigger: { kind: 'onClick' },
@@ -46,7 +45,7 @@ describe('prototypeRuntime', () => {
   });
 
   it('interactionsMapFromDocument preserves node buckets', () => {
-    let doc = createDocument();
+    const doc = createDocument();
     const { doc: next } = addInteraction(doc, 'n1', {
       name: 'A',
       trigger: { kind: 'onClick' },

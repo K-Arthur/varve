@@ -38,17 +38,17 @@ interface GPUTexture {
   createView(descriptor?: GPUTextureViewDescriptor): GPUTextureView;
 }
 
-interface GPUTextureView {}
+type GPUTextureView = Record<string, never>;
 
-interface GPUShaderModule {}
+type GPUShaderModule = Record<string, never>;
 
 interface GPURenderPipeline {
   getBindGroupLayout(index: number): GPUBindGroupLayout;
 }
 
-interface GPUBindGroupLayout {}
+type GPUBindGroupLayout = Record<string, never>;
 
-interface GPUBindGroup {}
+type GPUBindGroup = Record<string, never>;
 
 interface GPUBindGroupDescriptor {
   layout: GPUBindGroupLayout;
@@ -78,7 +78,7 @@ interface GPURenderPassEncoder {
   end(): void;
 }
 
-interface GPUCommandBuffer {}
+type GPUCommandBuffer = Record<string, never>;
 
 interface GPUQueue {
   submit(commandBuffers: GPUCommandBuffer[]): void;
@@ -95,7 +95,7 @@ interface GPURequestAdapterOptions {
   powerPreference?: 'low-power' | 'high-performance';
 }
 
-interface GPUDeviceDescriptor {}
+type GPUDeviceDescriptor = Record<string, never>;
 
 interface GPUBufferDescriptor {
   size: number;
@@ -114,7 +114,7 @@ interface GPURenderPipelineDescriptor {
   primitive?: GPUPrimitiveState;
 }
 
-interface GPUPipelineLayout {}
+type GPUPipelineLayout = Record<string, never>;
 
 interface GPUVertexState {
   module: GPUShaderModule;
@@ -152,7 +152,7 @@ interface GPUColorTargetState {
   blend?: GPUBlendState;
 }
 
-interface GPUBlendState {}
+type GPUBlendState = Record<string, never>;
 
 type GPUTextureFormat = 'bgra8unorm' | 'rgba8unorm';
 
@@ -180,9 +180,9 @@ interface GPUColor {
   a: number;
 }
 
-interface GPUCommandBufferDescriptor {}
+type GPUCommandBufferDescriptor = Record<string, never>;
 
-interface GPUTextureViewDescriptor {}
+type GPUTextureViewDescriptor = Record<string, never>;
 
 declare const GPUBufferUsage: {
   MAP_WRITE: number;

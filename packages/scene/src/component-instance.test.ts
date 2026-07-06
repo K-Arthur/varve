@@ -7,12 +7,12 @@ import {
   createDocument,
   type Document,
   detachInstance,
+  type FrameNode,
   instanceOverrides,
   makeFrameNode,
   nextNodeId,
   resetInstanceOverrides,
   swapInstance,
-  type FrameNode,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 

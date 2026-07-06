@@ -1,4 +1,4 @@
-import { createDocument, addInteraction, addNode, makeShapeNode } from '@strata/scene';
+import { addInteraction, addNode, createDocument, makeShapeNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { exportInteractiveAnimations } from './animation-interactive';
 
@@ -39,7 +39,7 @@ describe('exportInteractiveAnimations', () => {
   });
 
   it('skips disabled interactions', () => {
-    let doc = createDocument();
+    const doc = createDocument();
     const { doc: next } = addInteraction(doc, 'n1', {
       name: 'Disabled',
       trigger: { kind: 'onClick' },

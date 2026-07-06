@@ -4,8 +4,8 @@
 import {
   advanceSMTransition,
   createStateMachineRuntime,
-  getCurrentStateTimelineId,
   type Document,
+  getCurrentStateTimelineId,
   type SMRuntime,
 } from '@strata/scene';
 

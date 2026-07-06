@@ -15,17 +15,25 @@ export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/se
 export type {
   BackgroundRemovalOptions,
   BackgroundRemovalResult,
+  FinalizeMaskOptions,
+  FinalizeMaskResult,
+  HairMattingOptions,
   HeuristicMethod,
+  MaskComponent,
+  MaskComponentBBox,
   ModelMetadata,
   ModelState,
   RemovalMethod,
+  TrimapMattingOptions,
 } from './backgroundRemoval';
 export {
-  DEFAULT_PREVIEW_MAX_DIMENSION,
   AVAILABLE_MODELS,
   cancelAllWorkerJobs,
-  findConnectedComponents,
+  DEFAULT_PREVIEW_MAX_DIMENSION,
+  decodeMaskDataUrl,
   filterMaskByComponents,
+  finalizeMaskResult,
+  findConnectedComponents,
   getModelLoader,
   getModelLoaderReady,
   maskArrayToDataUrl,
@@ -35,20 +43,11 @@ export {
   removeBackground,
   resetModelLoader,
   solveTrimapMatting,
+  TRIMap,
   terminateWorkerPool,
   trimapFromMask,
-  TRIMap,
-  decodeMaskDataUrl,
-  finalizeMaskResult,
   workerModelIdForMethod,
 } from './backgroundRemoval';
-export type {
-  HairMattingOptions,
-  TrimapMattingOptions,
-  FinalizeMaskOptions,
-  FinalizeMaskResult,
-} from './backgroundRemoval';
-export type { MaskComponent, MaskComponentBBox } from './backgroundRemoval';
 export {
   blend,
   blendColorBurn,
@@ -71,7 +70,6 @@ export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
-export { createWasmEngineFromModule, loadWasmEngineModule, tryWasmEngine } from './wasmLoader';
 export type {
   Adjustment,
   AdjustmentBase,
@@ -177,18 +175,6 @@ export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './text
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
-export type {
-  VideoExportOptions,
-  VideoExportResult,
-  VideoExportSupport,
-  VideoFrameRenderer,
-  VideoTimelineRef,
-} from './videoExport';
-export {
-  checkVideoExportSupport,
-  computeVideoFrameCount,
-  exportTimelineToVideo,
-} from './videoExport';
 export { traceSceneNodeOutline } from './tracing';
 export type {
   Affine,
@@ -212,3 +198,16 @@ export type {
   StrokeCap,
   StrokeJoin,
 } from './types';
+export type {
+  VideoExportOptions,
+  VideoExportResult,
+  VideoExportSupport,
+  VideoFrameRenderer,
+  VideoTimelineRef,
+} from './videoExport';
+export {
+  checkVideoExportSupport,
+  computeVideoFrameCount,
+  exportTimelineToVideo,
+} from './videoExport';
+export { createWasmEngineFromModule, loadWasmEngineModule, tryWasmEngine } from './wasmLoader';

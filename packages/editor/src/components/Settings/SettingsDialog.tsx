@@ -4,8 +4,8 @@ import { Button, ColorPicker, Dialog, NumberInput, Select } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useState } from 'react';
 import { ShortcutPalette } from '../../shortcuts';
-import { ExportSettingsTab } from './ExportSettingsTab';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
+import { ExportSettingsTab } from './ExportSettingsTab';
 import { useSettings } from './SettingsContext';
 import type { SettingsSection, ThemeMode, UnitType } from './settings';
 

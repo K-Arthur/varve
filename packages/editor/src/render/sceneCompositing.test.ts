@@ -37,10 +37,7 @@ describe('sceneNeedsStructuralCompositing', () => {
 
   it('returns true for isolated groups with children', () => {
     let doc = createDocument('test');
-    doc = addNode(
-      doc,
-      makeGroupNode('g1', { name: 'Group', children: ['r1'], isolated: true }),
-    );
+    doc = addNode(doc, makeGroupNode('g1', { name: 'Group', children: ['r1'], isolated: true }));
     doc = addNode(
       doc,
       makeShapeNode(

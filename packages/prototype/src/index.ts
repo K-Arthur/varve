@@ -77,14 +77,14 @@ export {
   isElementVisible,
   setScrollPosition,
 } from './scrolling';
+export type { LayerMatch } from './smartAnimate';
+export { buildSmartAnimateValues, matchLayersByName } from './smartAnimate';
 export type { ScreenTransitionState, TransitionAnimation } from './transitions';
 // Transitions
 export {
   animateScreenTransition,
   createTransitionAnimation,
 } from './transitions';
-export { buildSmartAnimateValues, matchLayersByName } from './smartAnimate';
-export type { LayerMatch } from './smartAnimate';
 // Trigger system
 export { matchTrigger } from './triggers';
 // Types

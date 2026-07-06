@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from 'vitest';
-import { computeTransitionVisuals, type ActivePrototypeTransition } from './usePrototypeTransition';
+import { type ActivePrototypeTransition, computeTransitionVisuals } from './usePrototypeTransition';
 
 describe('computeTransitionVisuals', () => {
   it('interpolates dissolve opacity at midpoint', () => {

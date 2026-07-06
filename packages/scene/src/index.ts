@@ -8,7 +8,6 @@
 
 export * from './adjustments';
 export * from './bindings';
-export * from './variant-apply';
 export * from './boolean';
 export * from './brush';
 export * from './clone';
@@ -23,9 +22,9 @@ export * from './export-types';
 export * from './expr';
 export * from './fills';
 export * from './governance';
+export * from './intelligence';
 export * from './interaction-types';
 export * from './interactions';
-export * from './intelligence';
 export * from './library';
 export * from './masks';
 export * from './motion';
@@ -44,4 +43,5 @@ export * from './types';
 export * from './typography';
 export * from './typographyPreflight';
 export * from './variables';
+export * from './variant-apply';
 export * from './version';

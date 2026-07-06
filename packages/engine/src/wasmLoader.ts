@@ -32,9 +32,7 @@ export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
         await mod.default(fetch(wasmUrl).then((r) => r.arrayBuffer()));
         cachedModule = mod;
         return mod;
-      } catch {
-        continue;
-      }
+      } catch {}
     }
     return null;
   } catch {

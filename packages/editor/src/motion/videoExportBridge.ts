@@ -11,8 +11,8 @@ import {
   applyStyleOverrides,
   createEngine,
   type SceneNode as EngineNode,
-  replayIr,
   type ReplayTarget,
+  replayIr,
 } from '@strata/engine';
 import type { Document, NodeId, Timeline } from '@strata/scene';
 import {

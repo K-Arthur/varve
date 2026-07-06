@@ -1,4 +1,5 @@
 import { createKeyframe, makeTimelineObject } from '@strata/scene';
+import type { EasingDefinition } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import { timelineToCSSKeyframes } from './animation-css';
 
@@ -11,7 +12,9 @@ function makeSimpleTrack(
     id: `tr-${nodeId}-${property}`,
     nodeId,
     property,
-    keyframes: values.map((v) => createKeyframe(v.progress, v.value, v.easing as any)),
+    keyframes: values.map((v) =>
+      createKeyframe(v.progress, v.value, v.easing as EasingDefinition | undefined),
+    ),
   };
 }
 

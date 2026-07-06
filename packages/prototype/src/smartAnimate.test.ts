@@ -1,6 +1,6 @@
+import type { FrameNode, ShapeNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { buildSmartAnimateValues, matchLayersByName } from './smartAnimate';
-import type { FrameNode, ShapeNode } from '@strata/scene';
 
 function makeFrame(id: string, name: string, children: string[]): FrameNode {
   return {

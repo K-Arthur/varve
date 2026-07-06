@@ -51,30 +51,17 @@ import {
   addNode,
   addTimelineMarker as addTimelineMarkerDoc,
   addTrack,
-  applyMotionPreset as applyMotionPresetDoc,
-  createMotionPreset as createMotionPresetDoc,
-  createTimeline as createTimelineDoc,
-  createStateMachineRuntime,
-  getCurrentStateTimelineId,
-  getInteractionsForNode,
-  advanceSMTransition,
-  type SMRuntime,
-  removeTimeline as removeTimelineDoc,
-  removeTimelineMarker as removeTimelineMarkerDoc,
-  removeInteraction as removeInteractionDoc,
-  renameTimeline as renameTimelineDoc,
-  renameTimelineMarker as renameTimelineMarkerDoc,
-  removeTrack as removeTrackDoc,
-  updateTrack as updateTrackDoc,
-  setActiveTimeline as setActiveTimelineDoc,
-  triggerSMEvent,
-  updateInteraction as updateInteractionDoc,
   addVariableToDocument,
+  advanceSMTransition,
+  applyMotionPreset as applyMotionPresetDoc,
   arrangeNode as arrangeNodeDoc,
   type BleedConfig,
   clearGuides,
   createComponent,
   createDocument,
+  createMotionPreset as createMotionPresetDoc,
+  createStateMachineRuntime,
+  createTimeline as createTimelineDoc,
   createVariableStore,
   createVariant as createVariantDoc,
   type Document,
@@ -85,7 +72,9 @@ import {
   fillSlot as fillSlotDoc,
   type Guide,
   activePageNodes as getActivePageNodes,
+  getCurrentStateTimelineId,
   getInstanceStatus as getInstanceStatusDoc,
+  getInteractionsForNode,
   getNestedValue,
   groupNodes as groupNodesDoc,
   instantiate as instantiateComponent,
@@ -101,8 +90,14 @@ import {
   nextNodeId,
   pushMasterChanges as pushMasterChangesDoc,
   removeGuide as removeGuideDoc,
+  removeInteraction as removeInteractionDoc,
   removeNode,
+  removeTimeline as removeTimelineDoc,
+  removeTimelineMarker as removeTimelineMarkerDoc,
+  removeTrack as removeTrackDoc,
   renameNode,
+  renameTimeline as renameTimelineDoc,
+  renameTimelineMarker as renameTimelineMarkerDoc,
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
@@ -111,7 +106,9 @@ import {
   type SafeAreaConfig,
   type SceneNode,
   type SlugConfig,
+  type SMRuntime,
   serializeDocument,
+  setActiveTimeline as setActiveTimelineDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
@@ -119,7 +116,10 @@ import {
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
   toggleGuideLock as toggleGuideLockDoc,
+  triggerSMEvent,
   ungroupNode as ungroupNodeDoc,
+  updateInteraction as updateInteractionDoc,
+  updateTrack as updateTrackDoc,
   updateVariableInDocument,
   type Variable,
   type VariableValue,
@@ -137,14 +137,6 @@ import {
   zoomAboutPoint,
 } from '@strata/shared';
 import {
-  editorScreenToWorld,
-  editorWorldToScreen,
-  fitBoundsToState,
-  resetViewRotationState,
-  rotateViewAtScreen,
-  toCamera,
-} from './canvas/cameraState';
-import {
   createContext,
   type ReactNode,
   useCallback,
@@ -156,6 +148,14 @@ import {
 } from 'react';
 import { AutoSaveService } from './autoSaveService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
+import {
+  editorScreenToWorld,
+  editorWorldToScreen,
+  fitBoundsToState,
+  resetViewRotationState,
+  rotateViewAtScreen,
+  toCamera,
+} from './canvas/cameraState';
 import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
 import {
   bulkSetLayerColorDoc,
@@ -166,6 +166,7 @@ import {
   findSameLayerColorIds,
 } from './components/LayersPanel/layerBulkOperations';
 import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPublish';
+import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import { SelectionProvider, ViewportProvider } from './context/index';
 import type {
@@ -180,6 +181,11 @@ import { applyDropPosition } from './dropUtils';
 import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
+import { applyAutoKeyframes } from './motion/autoKeyframe';
+import { MotionFacade } from './motion/MotionFacade';
+import { createRuntimeFromDocument, interactionsMapFromDocument } from './motion/prototypeRuntime';
+import { computeSmartAnimateTransition } from './motion/smartAnimateBridge';
+import { getPrimaryStateMachineTimelineId } from './motion/stateMachineBridge';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import {
   getOrCreateParentCache,
@@ -196,14 +202,8 @@ import {
 } from './scene/transformCache';
 import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
-import { MotionFacade } from './motion/MotionFacade';
-import { applyAutoKeyframes } from './motion/autoKeyframe';
-import { createRuntimeFromDocument, interactionsMapFromDocument } from './motion/prototypeRuntime';
-import { getPrimaryStateMachineTimelineId } from './motion/stateMachineBridge';
-import { computeSmartAnimateTransition } from './motion/smartAnimateBridge';
-import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
-import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import { createInitialMotionState } from './state/motion-state';
+import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 
 // Re-export for backward compatibility
@@ -595,9 +595,7 @@ export interface EditorContextValue {
   applyTrimapMatting: () => Promise<void>;
   confirmSubjectPicker: (keepIds: number[]) => void;
   cancelSubjectPicker: () => void;
-  getTrimapData: (
-    nodeId: NodeId,
-  ) => { data: Uint8Array; width: number; height: number } | null;
+  getTrimapData: (nodeId: NodeId) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => void;
 
   /** Enter/exit prototype mode */

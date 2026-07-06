@@ -1,11 +1,10 @@
 /**
  * RAF-driven prototype screen transition (Smart Animate + standard transitions).
  */
-import { animateScreenTransition, prefersReducedMotion } from '@strata/prototype';
-import type { TransitionConfig } from '@strata/prototype';
-import { useEffect, useState } from 'react';
 
-import type { LayerMatch } from '@strata/prototype';
+import type { LayerMatch, TransitionConfig } from '@strata/prototype';
+import { animateScreenTransition, prefersReducedMotion } from '@strata/prototype';
+import { useEffect, useState } from 'react';
 
 export interface ActivePrototypeTransition {
   fromScreenId: string;

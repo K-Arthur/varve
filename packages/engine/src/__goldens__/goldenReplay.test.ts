@@ -4,7 +4,7 @@
  */
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { replayIr, type ReplayTarget } from '../replay';
+import { type ReplayTarget, replayIr } from '../replay';
 import type { RenderItem } from '../types';
 
 function simpleCanvas(w = 64, h = 64): HTMLCanvasElement {

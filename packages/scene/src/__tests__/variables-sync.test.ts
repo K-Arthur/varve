@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addVariableToDocument,
   addNode,
+  addVariableToDocument,
   createDocument,
   deleteVariableFromDocument,
   makeShapeNode,
