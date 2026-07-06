@@ -1,4 +1,5 @@
 import type { Affine } from '@strata/engine';
+import { multiplyAffine, rotateDeg } from '@strata/shared';
 import {
   addChild,
   addNode,
@@ -240,6 +241,128 @@ describe('nodeWorldBounds', () => {
   it('returns null for non-existent nodes', () => {
     const doc = createDocument();
     expect(nodeWorldBounds(doc, 'nope')).toBeNull();
+  });
+});
+
+describe('nodeWorldTransform — rotation composition', () => {
+  const EPS = 1e-6;
+
+  it('returns identity when rotation is 0 (no-op compose)', () => {
+    let doc = createDocument();
+    const rect = makeShapeNode(
+      'r1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      { name: 'NoRot', rotation: 0, transform: [1, 0, 0, 1, 100, 100] as Affine },
+    );
+    doc = addNode(doc, rect);
+    const t = nodeWorldTransform(doc, 'r1');
+    expect(t[0]).toBeCloseTo(1, EPS);
+    expect(t[1]).toBeCloseTo(0, EPS);
+    expect(t[2]).toBeCloseTo(0, EPS);
+    expect(t[3]).toBeCloseTo(1, EPS);
+    expect(t[4]).toBeCloseTo(100, EPS);
+    expect(t[5]).toBeCloseTo(100, EPS);
+  });
+
+  it('composes rotation into world transform', () => {
+    let doc = createDocument();
+    const rect = makeShapeNode(
+      'r1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      { name: 'Rot', rotation: 45, transform: [1, 0, 0, 1, 100, 100] as Affine },
+    );
+    doc = addNode(doc, rect);
+    const t = nodeWorldTransform(doc, 'r1');
+    const expected = multiplyAffine([1, 0, 0, 1, 100, 100] as Affine, rotateDeg(45));
+    expect(t[0]).toBeCloseTo(expected[0], EPS);
+    expect(t[1]).toBeCloseTo(expected[1], EPS);
+    expect(t[2]).toBeCloseTo(expected[2], EPS);
+    expect(t[3]).toBeCloseTo(expected[3], EPS);
+    expect(t[4]).toBeCloseTo(100, EPS);
+    expect(t[5]).toBeCloseTo(100, EPS);
+  });
+
+  it('composes rotation through transformCache', () => {
+    let doc = createDocument();
+    const rect = makeShapeNode(
+      'r1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      { name: 'RotCached', rotation: 30, transform: [1, 0, 0, 1, 50, 50] as Affine },
+    );
+    doc = addNode(doc, rect);
+    const cache = createTransformCache();
+    const t = getCachedWorldTransform(cache, doc, 'r1');
+    const expected = multiplyAffine([1, 0, 0, 1, 50, 50] as Affine, rotateDeg(30));
+    expect(t[0]).toBeCloseTo(expected[0], EPS);
+    expect(t[1]).toBeCloseTo(expected[1], EPS);
+    expect(t[4]).toBeCloseTo(50, EPS);
+    expect(t[5]).toBeCloseTo(50, EPS);
+  });
+
+  it('worldBounds reflects rotation (AABB is larger than local rect)', () => {
+    let doc = createDocument();
+    // A 100x80 rect rotated 45° has a larger AABB than (0,0,100,80)
+    const rect = makeShapeNode(
+      'r1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      { name: 'RotBounds', rotation: 45, transform: [1, 0, 0, 1, 0, 0] as Affine },
+    );
+    doc = addNode(doc, rect);
+    const b = nodeWorldBounds(doc, 'r1');
+    expect(b).not.toBeNull();
+    if (!b) return;
+    // A 100x80 rect rotated 45° — the diagonal = sqrt(100²+80²) ≈ 128.06
+    // AABB should be larger than 100x80
+    expect(b.w).toBeGreaterThan(100);
+    expect(b.h).toBeGreaterThan(80);
+    // It should be symmetric (centered at origin, width ≈ height)
+    expect(b.w).toBeCloseTo(b.h, 0);
+  });
+
+  it('rotation composes through nested parent chain', () => {
+    let doc = createDocument();
+    const frame = makeFrameNode('f1', {
+      name: 'ParentFrame',
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+    });
+    doc = addNode(doc, frame);
+    const child = makeShapeNode(
+      'r1',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Child', rotation: 90, transform: [1, 0, 0, 1, 20, 20] as Affine },
+    );
+    doc = addChild(doc, 'f1', child);
+    const t = nodeWorldTransform(doc, 'r1');
+    // World = parent(100,100) * child(20,20) * rotate(90°)
+    expect(t[4]).toBeCloseTo(120, 4);
+    expect(t[5]).toBeCloseTo(120, 4);
+    expect(t[0]).toBeCloseTo(0, 4);
+    expect(t[1]).toBeCloseTo(1, 4);
+    expect(t[2]).toBeCloseTo(-1, 4);
+    expect(t[3]).toBeCloseTo(0, 4);
+  });
+
+  it('parent rotation field composes into child world transform', () => {
+    let doc = createDocument();
+    const frame = makeFrameNode('f1', {
+      name: 'RotatedFrame',
+      rotation: 45,
+      transform: [1, 0, 0, 1, 0, 0] as Affine,
+    });
+    doc = addNode(doc, frame);
+    const child = makeShapeNode(
+      'r1',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Child', transform: [1, 0, 0, 1, 100, 0] as Affine },
+    );
+    doc = addChild(doc, 'f1', child);
+    const t = nodeWorldTransform(doc, 'r1');
+    // Child at (100,0) in frame space, frame rotated 45°:
+    // world x = 100*cos(45) ≈ 70.71, world y = 100*sin(45) ≈ 70.71
+    expect(t[4]).toBeCloseTo(70.71, 1);
+    expect(t[5]).toBeCloseTo(70.71, 1);
+    expect(t[0]).toBeCloseTo(Math.cos(Math.PI / 4), 3);
+    expect(t[1]).toBeCloseTo(Math.sin(Math.PI / 4), 3);
   });
 });
 

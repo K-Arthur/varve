@@ -18,6 +18,7 @@ import {
   identity,
   measureText,
   multiplyAffine,
+  rotateDeg,
 } from '@strata/shared';
 import type { ParentIndexCache } from './parentIndexCache';
 import type { TransformCache } from './transformCache';
@@ -54,7 +55,9 @@ export function nodeWorldTransform(
   if (!node) return identity;
 
   const nodeTransform = node.transform as Affine;
-  const chain: Affine[] = [nodeTransform];
+  const rot = node.rotation ?? 0;
+  const combined = rot !== 0 ? multiplyAffine(nodeTransform, rotateDeg(rot)) : nodeTransform;
+  const chain: Affine[] = [combined];
 
   const getParentFn = parentIndex
     ? (_d: Document, childId: NodeId) => parentIndex.get(childId) ?? null
@@ -65,7 +68,11 @@ export function nodeWorldTransform(
   while (parentId) {
     const parent = doc.nodes[parentId];
     if (!parent) break;
-    chain.push(parent.transform as Affine);
+    const parentRot = parent.rotation ?? 0;
+    const parentTransform = parent.transform as Affine;
+    chain.push(
+      parentRot !== 0 ? multiplyAffine(parentTransform, rotateDeg(parentRot)) : parentTransform,
+    );
     parentId = getParentFn(doc, parentId);
   }
 
@@ -166,7 +173,7 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
     });
     return { x: 0, y: 0, w: Math.max(measured.width, fs * 3), h: measured.height };
   }
-  if (node.kind === 'frame' || node.kind === 'image') {
+  if (node.kind === 'frame') {
     const w = 'w' in node ? (node.w ?? 100) : 100;
     const h = 'h' in node ? (node.h ?? 100) : 100;
     return { x: 0, y: 0, w, h };

@@ -11,7 +11,7 @@
  */
 
 import { managedColorToRgba } from '@strata/shared';
-import { mapBlendMode } from './compositeCanvas';
+import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss } from './filters';
 import { getImageCache } from './imageCache';
@@ -64,7 +64,13 @@ export interface ReplayTarget {
   lineDashOffset: number;
   setLineDash(segments: number[]): void;
   /** F6: draw an image. Matches the Canvas2D 3-arg and 5-arg overloads. */
-  drawImage?(image: CanvasImageSource | string, dx: number, dy: number, dw?: number, dh?: number): void;
+  drawImage?(
+    image: CanvasImageSource | string,
+    dx: number,
+    dy: number,
+    dw?: number,
+    dh?: number,
+  ): void;
   /** P2: create a linear gradient for gradient fills. */
   createLinearGradient?(x0: number, y0: number, x1: number, y1: number): ReplayGradient;
   /** P2: create a radial gradient for gradient fills. */
@@ -87,6 +93,10 @@ export interface ReplayTarget {
   createPattern?(image: CanvasImageSource | string, repetition: string): ReplayPattern | null;
   /** Canvas element reference for offscreen compositing (filter compositor, background blur). */
   canvas?: { width: number; height: number };
+  /** Reset the current transform matrix (Canvas2D setTransform). */
+  setTransform?(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  /** Read the current transform matrix (Canvas2D getTransform). */
+  getTransform?(): { a: number; b: number; c: number; d: number; e: number; f: number };
 }
 
 export interface ReplayPattern {
@@ -169,6 +179,217 @@ function rgba(
 
 const TAU = Math.PI * 2;
 
+type BackgroundBlurEffect = Extract<
+  NonNullable<RenderItem['effects']>[number],
+  { type: 'backgroundBlur' }
+>;
+type LayerBlurEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'layerBlur' }>;
+type InnerShadowEffect = Extract<
+  NonNullable<RenderItem['effects']>[number],
+  { type: 'innerShadow' }
+>;
+type InnerGlowEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'innerGlow' }>;
+
+/** Create an offscreen 2D buffer, falling back to HTMLCanvasElement when needed. */
+function createEffectBuffer(
+  w: number,
+  h: number,
+): {
+  canvas: HTMLCanvasElement | OffscreenCanvas;
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+} | null {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const oc = new OffscreenCanvas(w, h);
+    const ctx = oc.getContext('2d');
+    if (ctx) return { canvas: oc, ctx };
+  }
+  if (typeof document !== 'undefined') {
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
+    if (ctx) return { canvas: c, ctx };
+  }
+  return null;
+}
+
+/** Paint fills and strokes to `target` (shared by direct and layerBlur offscreen paths). */
+function paintFillsAndStrokes(
+  target: ReplayTarget,
+  item: RenderItem,
+  itemAlpha: number,
+  itemBlend: string,
+): void {
+  const fills = item.fills;
+  if (fills && fills.length > 0) {
+    const restoreBlend = target.globalCompositeOperation;
+    for (const fill of fills) {
+      if (!fill.visible) continue;
+      target.globalAlpha = itemAlpha * (fill.opacity ?? 1);
+      if (fill.blendMode && fill.blendMode !== 'normal') {
+        target.globalCompositeOperation = mapBlendMode(fill.blendMode);
+      } else if (itemBlend !== 'source-over') {
+        target.globalCompositeOperation = itemBlend;
+      } else {
+        target.globalCompositeOperation = restoreBlend;
+      }
+      paintFill(target, fill, item);
+    }
+  } else {
+    target.fillStyle = rgba(item.fill);
+    paintShapeFill(target, item);
+  }
+
+  if (item.strokes && item.strokes.length > 0) {
+    for (const stroke of item.strokes) {
+      if (!stroke.visible) continue;
+      paintStroke(target, stroke, item);
+    }
+  }
+}
+
+/**
+ * Capture the canvas backdrop behind an item, blur it, and composite clipped to the shape.
+ * Must run before the item's own fills are painted.
+ */
+function paintBackgroundBlur(
+  target: ReplayTarget,
+  item: RenderItem,
+  effect: BackgroundBlurEffect,
+): void {
+  const canvas = target.canvas as HTMLCanvasElement | OffscreenCanvas | undefined;
+  if (!canvas || !target.drawImage || typeof OffscreenCanvas === 'undefined') return;
+  if (!target.getTransform) return;
+
+  const bounds = primitiveBounds(item.primitive);
+  const pad = Math.ceil(effect.radius * 3);
+  const lx = bounds.x - pad;
+  const ly = bounds.y - pad;
+  const lw = bounds.w + pad * 2;
+  const lh = bounds.h + pad * 2;
+
+  const m = target.getTransform();
+  const mapPoint = (x: number, y: number): [number, number] => [
+    m.a * x + m.c * y + m.e,
+    m.b * x + m.d * y + m.f,
+  ];
+  const pts = [
+    mapPoint(lx, ly),
+    mapPoint(lx + lw, ly),
+    mapPoint(lx + lw, ly + lh),
+    mapPoint(lx, ly + lh),
+  ];
+  const minX = Math.floor(Math.min(...pts.map((p) => p[0])));
+  const minY = Math.floor(Math.min(...pts.map((p) => p[1])));
+  const maxX = Math.ceil(Math.max(...pts.map((p) => p[0])));
+  const maxY = Math.ceil(Math.max(...pts.map((p) => p[1])));
+  const sw = Math.max(1, maxX - minX);
+  const sh = Math.max(1, maxY - minY);
+
+  const cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
+  cc.captureSource(canvas, minX, minY, sw, sh, 0, 0);
+  cc.applyBlur(effect.radius);
+
+  target.save();
+  target.beginPath();
+  traceOutline(target, item.primitive);
+  if (target.clip) target.clip();
+  target.drawImage(cc.canvas as unknown as CanvasImageSource, lx, ly, lw, lh);
+  target.restore();
+}
+
+/**
+ * Inset shadow/glow via offscreen silhouette-difference + blur.
+ * Composites on top of existing content (source-over), clipped to shape.
+ */
+function paintInsetEffect(
+  target: ReplayTarget,
+  item: RenderItem,
+  effect: InnerShadowEffect | InnerGlowEffect,
+  mode: 'shadow' | 'glow',
+): void {
+  const bounds = primitiveBounds(item.primitive);
+  const blur = effect.blur + Math.max(0, effect.spread) / 2;
+  const offsetX = mode === 'shadow' && 'x' in effect ? effect.x : 0;
+  const offsetY = mode === 'shadow' && 'y' in effect ? effect.y : 0;
+  const pad = Math.ceil(blur * 3) + Math.max(Math.abs(offsetX), Math.abs(offsetY));
+  const ow = Math.ceil(bounds.w + pad * 2);
+  const oh = Math.ceil(bounds.h + pad * 2);
+
+  const buffer = createEffectBuffer(ow, oh);
+  if (!buffer) return;
+
+  const { canvas: offscreen, ctx } = buffer;
+
+  const offTarget = ctx as unknown as ReplayTarget;
+  ctx.translate(pad - bounds.x, pad - bounds.y);
+
+  // Full silhouette
+  offTarget.fillStyle = 'rgba(0,0,0,1)';
+  offTarget.beginPath();
+  traceOutline(offTarget, item.primitive);
+  offTarget.fill();
+
+  // Cut hole for directional shadow or symmetric glow ring
+  offTarget.globalCompositeOperation = 'destination-out';
+  offTarget.beginPath();
+  if (mode === 'shadow') {
+    offTarget.save();
+    offTarget.transform(1, 0, 0, 1, -offsetX, -offsetY);
+    traceOutline(offTarget, item.primitive);
+    offTarget.fill();
+    offTarget.restore();
+  } else {
+    const cx = bounds.x + bounds.w / 2;
+    const cy = bounds.y + bounds.h / 2;
+    const maxDim = Math.max(bounds.w, bounds.h, 1);
+    const shrink = Math.max(0.01, 1 - (blur + effect.spread) / maxDim);
+    offTarget.save();
+    offTarget.transform(1, 0, 0, 1, cx, cy);
+    offTarget.transform(shrink, 0, 0, shrink, 0, 0);
+    offTarget.transform(1, 0, 0, 1, -cx, -cy);
+    traceOutline(offTarget, item.primitive);
+    offTarget.fill();
+    offTarget.restore();
+  }
+
+  // Blur the ring
+  if (blur > 0) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = `blur(${blur}px)`;
+    ctx.drawImage(offscreen, 0, 0);
+    ctx.restore();
+  }
+
+  // Tint to effect color
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.fillStyle = rgba(effect.color);
+  ctx.globalAlpha = effect.opacity ?? 1;
+  ctx.fillRect(0, 0, ow, oh);
+  ctx.restore();
+
+  // Composite onto main target, clipped to shape
+  target.save();
+  target.beginPath();
+  traceOutline(target, item.primitive);
+  if (target.clip) target.clip();
+  target.globalAlpha = effect.opacity ?? 1;
+  target.globalCompositeOperation = 'source-over';
+  if (target.drawImage) {
+    target.drawImage(
+      offscreen as unknown as CanvasImageSource,
+      bounds.x - pad,
+      bounds.y - pad,
+      ow,
+      oh,
+    );
+  }
+  target.restore();
+}
+
 /** Replay `ir` into `target` (a 2D context). Clears nothing; caller manages. */
 export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void {
   for (const item of ir) {
@@ -221,41 +442,52 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
       }
     }
 
-    // ── Fills pass ────────────────────────────────────────────────
-    const fills = item.fills;
-    if (fills && fills.length > 0) {
-      const restoreBlend = target.globalCompositeOperation;
-      for (const fill of fills) {
-        if (!fill.visible) continue;
-        // Per-fill opacity multiplies with item alpha. Always set (resets between fills).
-        target.globalAlpha = itemAlpha * (fill.opacity ?? 1);
-        if (fill.blendMode && fill.blendMode !== 'normal') {
-          target.globalCompositeOperation = mapBlendMode(fill.blendMode);
-        } else if (itemBlend !== 'source-over') {
-          target.globalCompositeOperation = itemBlend;
-        } else {
-          target.globalCompositeOperation = restoreBlend;
+    const layerBlurEffect = item.effects?.find(
+      (e): e is LayerBlurEffect => e.visible && e.type === 'layerBlur',
+    );
+
+    // ── Background blur (before fills — captures true backdrop) ───
+    if (item.effects) {
+      for (const effect of item.effects) {
+        if (effect.visible && effect.type === 'backgroundBlur') {
+          paintBackgroundBlur(target, item, effect);
         }
-        paintFill(target, fill, item);
       }
-    } else {
-      // Legacy: single fill color
-      target.fillStyle = rgba(item.fill);
-      paintShapeFill(target, item);
     }
 
-    // ── Strokes pass ──────────────────────────────────────────────
-    if (item.strokes && item.strokes.length > 0) {
-      for (const stroke of item.strokes) {
-        if (!stroke.visible) continue;
-        paintStroke(target, stroke, item);
+    // ── Fills + strokes pass (offscreen when layerBlur present) ───
+    if (layerBlurEffect) {
+      const bounds = primitiveBounds(item.primitive);
+      const cc = new CompositeCanvas({
+        width: Math.max(1, bounds.w),
+        height: Math.max(1, bounds.h),
+        devicePixelRatio: 1,
+      });
+      cc.ctx.translate(-bounds.x, -bounds.y);
+      paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
+
+      target.save();
+      target.filter = `blur(${layerBlurEffect.radius}px)`;
+      target.globalAlpha = itemAlpha;
+      if (target.drawImage) {
+        target.drawImage(
+          cc.canvas as unknown as CanvasImageSource,
+          bounds.x,
+          bounds.y,
+          bounds.w,
+          bounds.h,
+        );
       }
+      target.restore();
+    } else {
+      paintFillsAndStrokes(target, item, itemAlpha, itemBlend);
     }
 
     // ── Effects pass (per-effect save/restore compositing) ────────
     if (item.effects && item.effects.length > 0) {
       for (const effect of item.effects) {
         if (!effect.visible) continue;
+        if (effect.type === 'layerBlur' || effect.type === 'backgroundBlur') continue;
         if (effect.type === 'dropShadow') {
           target.save();
           target.shadowColor = rgba(effect.color);
@@ -263,33 +495,16 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           target.shadowOffsetX = effect.x;
           target.shadowOffsetY = effect.y;
           target.globalAlpha = effect.opacity ?? 1;
-          if (effect.blendMode && effect.blendMode !== 'normal') {
-            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
-          }
-          paintShapeFill(target, item);
-          target.restore();
-        } else if (effect.type === 'innerShadow') {
-          target.save();
+          // Use destination-over so the shadow source fill goes behind
+          // the already-rendered item fill, preventing overdraw for image fills
+          target.globalCompositeOperation = 'destination-over';
+          target.fillStyle = rgba(effect.color);
           target.beginPath();
           traceOutline(target, item.primitive);
-          if (target.clip) target.clip();
-          target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-          target.shadowOffsetX = -effect.x;
-          target.shadowOffsetY = -effect.y;
-          target.globalAlpha = effect.opacity ?? 1;
-          if (effect.blendMode && effect.blendMode !== 'normal') {
-            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
-          }
-          target.fillStyle = rgba(effect.color);
-          const b = primitiveBounds(item.primitive);
-          target.fillRect(b.x - b.w * 2, b.y - b.h * 2, b.w * 5, b.h * 5);
+          target.fill();
           target.restore();
-        } else if (effect.type === 'layerBlur') {
-          target.save();
-          target.filter = `blur(${effect.radius}px)`;
-          paintShapeFill(target, item);
-          target.restore();
+        } else if (effect.type === 'innerShadow') {
+          paintInsetEffect(target, item, effect, 'shadow');
         } else if (effect.type === 'outerGlow') {
           // Outer glow: render a blurred colored shape behind the item (no offset)
           target.save();
@@ -298,55 +513,15 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
           target.shadowOffsetX = 0;
           target.shadowOffsetY = 0;
           target.globalAlpha = effect.opacity ?? 1;
-          if (effect.blendMode && effect.blendMode !== 'normal') {
-            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
-          }
-          paintShapeFill(target, item);
-          target.restore();
-        } else if (effect.type === 'innerGlow') {
-          // Inner glow: render a blurred colored shape clipped inside the item (no offset)
-          target.save();
+          // Use destination-over so the glow source fill goes behind existing content
+          target.globalCompositeOperation = 'destination-over';
+          target.fillStyle = rgba(effect.color);
           target.beginPath();
           traceOutline(target, item.primitive);
-          if (target.clip) target.clip();
-          target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-          target.shadowOffsetX = 0;
-          target.shadowOffsetY = 0;
-          target.globalAlpha = effect.opacity ?? 1;
-          if (effect.blendMode && effect.blendMode !== 'normal') {
-            target.globalCompositeOperation = mapBlendMode(effect.blendMode);
-          }
-          target.fillStyle = rgba(effect.color);
-          const b = primitiveBounds(item.primitive);
-          target.fillRect(b.x - b.w * 2, b.y - b.h * 2, b.w * 5, b.h * 5);
+          target.fill();
           target.restore();
-        } else if (effect.type === 'backgroundBlur') {
-          // Background blur: capture canvas backdrop behind the item, blur it,
-          // and composite it clipped to the item shape. Item fills/strokes
-          // render on top (handled in the fills pass below).
-          // Requires the canvas target to have a valid .canvas reference.
-          const canvas = target.canvas as HTMLCanvasElement | OffscreenCanvas | undefined;
-          if (canvas && typeof OffscreenCanvas !== 'undefined') {
-            // Capture backdrop
-            const backdrop = new OffscreenCanvas(canvas.width, canvas.height);
-            const bCtx = backdrop.getContext('2d');
-            if (bCtx) {
-              bCtx.drawImage(canvas as unknown as CanvasImageSource, 0, 0);
-              // Apply blur to backdrop
-              bCtx.filter = `blur(${effect.radius}px)`;
-              bCtx.drawImage(backdrop, 0, 0);
-              // Clip to item shape and composite blurred backdrop
-              target.save();
-              target.beginPath();
-              traceOutline(target, item.primitive);
-              if (target.clip) target.clip();
-              if (target.drawImage) target.drawImage(backdrop as unknown as CanvasImageSource, 0, 0);
-              target.restore();
-            }
-          }
-          // Store the blur radius so the fills pass can avoid double-blur
-          // (layerBlur after backgroundBlur applies to the composite)
+        } else if (effect.type === 'innerGlow') {
+          paintInsetEffect(target, item, effect, 'glow');
         }
       }
     }
@@ -414,7 +589,9 @@ function paintImageFill(
   // Kick off async loading for images not yet in cache. CanvasArea subscribes
   // to cache.subscribeGlobal() and will schedule a re-render on completion.
   if (!imgEntry || imgEntry.state === 'idle') {
-    cache.load(fill.src).catch(() => {/* errors recorded in cache entry */});
+    cache.load(fill.src).catch(() => {
+      /* errors recorded in cache entry */
+    });
   }
 
   if (!target.drawImage) {
@@ -438,8 +615,10 @@ function paintImageFill(
       dh = bh;
     } else if (fit === 'tile') {
       if (refW > 0 && refH > 0) {
-        const startX = bounds.x + (fill.x ?? 0) - Math.floor((bounds.x + (fill.x ?? 0)) / refW) * refW;
-        const startY = bounds.y + (fill.y ?? 0) - Math.floor((bounds.y + (fill.y ?? 0)) / refH) * refH;
+        const startX =
+          bounds.x + (fill.x ?? 0) - Math.floor((bounds.x + (fill.x ?? 0)) / refW) * refW;
+        const startY =
+          bounds.y + (fill.y ?? 0) - Math.floor((bounds.y + (fill.y ?? 0)) / refH) * refH;
         for (let ty = startY; ty < bounds.y + bh; ty += refH) {
           for (let tx = startX; tx < bounds.x + bw; tx += refW) {
             target.drawImage(img, tx, ty, refW, refH);
@@ -449,12 +628,22 @@ function paintImageFill(
       return;
     } else if (fit === 'fit') {
       // Scale refW/refH to fit within bounds, preserving aspect ratio.
-      if (aspect > boundsAspect) { dw = bw; dh = bw / aspect; }
-      else { dh = bh; dw = bh * aspect; }
+      if (aspect > boundsAspect) {
+        dw = bw;
+        dh = bw / aspect;
+      } else {
+        dh = bh;
+        dw = bh * aspect;
+      }
     } else {
       // fill: scale to cover bounds, preserving aspect ratio, centered.
-      if (aspect > boundsAspect) { dh = bh; dw = bh * aspect; }
-      else { dw = bw; dh = bw / aspect; }
+      if (aspect > boundsAspect) {
+        dh = bh;
+        dw = bh * aspect;
+      } else {
+        dw = bw;
+        dh = bw / aspect;
+      }
     }
     const dx = bounds.x + (fill.x ?? 0) + (bw - dw) / 2;
     const dy = bounds.y + (fill.y ?? 0) + (bh - dh) / 2;
@@ -609,9 +798,11 @@ function traceSquirclePath(
   smoothing: number,
 ): void {
   const maxR = Math.min(w, h) / 2;
-  const [tl, tr, br, bl] = (Array.isArray(cornerRadius) ? cornerRadius : [cornerRadius, cornerRadius, cornerRadius, cornerRadius]).map(
-    (v) => Math.min(v, maxR),
-  ) as [number, number, number, number];
+  const [tl, tr, br, bl] = (
+    Array.isArray(cornerRadius)
+      ? cornerRadius
+      : [cornerRadius, cornerRadius, cornerRadius, cornerRadius]
+  ).map((v) => Math.min(v, maxR)) as [number, number, number, number];
   const s = Math.max(0, Math.min(1, smoothing));
   // How far from the corner vertex the straight edge ends (> r when s > 0).
   const ext = (r: number) => Math.min(r * (1 + s * 0.55), maxR);
@@ -623,15 +814,36 @@ function traceSquirclePath(
   // Top edge →
   target.lineTo(x + w - ext(tr), y);
   // Top-right corner
-  target.bezierCurveTo(x + w - ext(tr) + hnd(tr), y, x + w, y + ext(tr) - hnd(tr), x + w, y + ext(tr));
+  target.bezierCurveTo(
+    x + w - ext(tr) + hnd(tr),
+    y,
+    x + w,
+    y + ext(tr) - hnd(tr),
+    x + w,
+    y + ext(tr),
+  );
   // Right edge ↓
   target.lineTo(x + w, y + h - ext(br));
   // Bottom-right corner
-  target.bezierCurveTo(x + w, y + h - ext(br) + hnd(br), x + w - ext(br) + hnd(br), y + h, x + w - ext(br), y + h);
+  target.bezierCurveTo(
+    x + w,
+    y + h - ext(br) + hnd(br),
+    x + w - ext(br) + hnd(br),
+    y + h,
+    x + w - ext(br),
+    y + h,
+  );
   // Bottom edge ←
   target.lineTo(x + ext(bl), y + h);
   // Bottom-left corner
-  target.bezierCurveTo(x + ext(bl) - hnd(bl), y + h, x, y + h - ext(bl) + hnd(bl), x, y + h - ext(bl));
+  target.bezierCurveTo(
+    x + ext(bl) - hnd(bl),
+    y + h,
+    x,
+    y + h - ext(bl) + hnd(bl),
+    x,
+    y + h - ext(bl),
+  );
   // Left edge ↑
   target.lineTo(x, y + ext(tl));
   // Top-left corner
@@ -713,37 +925,6 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
     }
     case 'path':
       paintPathFill(target, p);
-      break;
-    case 'image':
-      // Render the image via drawImage. The item transform positions the image,
-      // so local origin is (0,0). If drawImage is unavailable, draw a placeholder.
-      // When an alpha mask is present, composite with transparency via offscreen canvas.
-      if (p.alphaMask && target.drawImage) {
-        const maskImg = getImageCache().getImage(p.alphaMask);
-        const srcImg = getImageCache().getImage(p.src);
-        if (maskImg && srcImg && typeof document !== 'undefined') {
-          try {
-            const oc = document.createElement('canvas');
-            oc.width = p.w;
-            oc.height = p.h;
-            const octx = oc.getContext('2d');
-            if (octx) {
-              octx.drawImage(srcImg, 0, 0, p.w, p.h);
-              octx.globalCompositeOperation = 'destination-in';
-              octx.drawImage(maskImg, 0, 0, p.w, p.h);
-              target.drawImage(oc, 0, 0, p.w, p.h);
-              break;
-            }
-          } catch {
-            /* fall through to basic rendering */
-          }
-        }
-      }
-      if (target.drawImage && p.src) {
-        target.drawImage(p.src, 0, 0, p.w, p.h);
-      } else {
-        target.fillRect(0, 0, p.w, p.h);
-      }
       break;
     case 'text':
       paintText(target, p);
@@ -992,7 +1173,7 @@ function measureTextAdvance(target: ReplayTarget, char: string): number {
 
 function parseFontSize(font: string): number {
   const match = /(\d+(?:\.\d+)?)px/.exec(font);
-  return match && match[1] ? Number.parseFloat(match[1]) : 16;
+  return match?.[1] ? Number.parseFloat(match[1]) : 16;
 }
 
 /** Paint a closed/open path fill. */
@@ -1199,10 +1380,6 @@ function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
         if (p.closed) target.closePath();
       }
       break;
-    case 'image': {
-      target.rect(0, 0, p.w, p.h);
-      break;
-    }
     case 'text': {
       target.rect(p.x, p.y, p.w, p.h);
       break;
@@ -1243,8 +1420,6 @@ function primitiveBounds(p: RenderItem['primitive']): {
         w: p.outerRadius * 2,
         h: p.outerRadius * 2,
       };
-    case 'image':
-      return { x: 0, y: 0, w: p.w, h: p.h };
     case 'text':
       return { x: p.x, y: p.y, w: p.w, h: p.h };
     default:

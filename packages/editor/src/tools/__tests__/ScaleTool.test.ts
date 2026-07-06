@@ -1,6 +1,8 @@
 import type { Affine } from '@strata/engine';
+import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
 import { decomposeAffine, multiplyAffine, rotateDeg } from '@strata/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { nodeWorldBounds } from '../../scene/world';
 import { ScaleTool } from '../ScaleTool';
 
 describe('ScaleTool', () => {
@@ -686,6 +688,77 @@ describe('ScaleTool — multi-object relative position', () => {
   });
 });
 
+describe('ScaleTool — rotated node translation stability', () => {
+  it('does not drift when scaling a rotated node around its centroid', () => {
+    const rotDeg = 45;
+    const node = {
+      id: 'node1',
+      kind: 'shape' as const,
+      name: 'Rotated Rect',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: rotDeg,
+      fill: [57, 208, 198, 255] as [number, number, number, number],
+      strokes: [] as [],
+      effects: [] as [],
+      transform: [1, 0, 0, 1, 100, 100] as Affine,
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    };
+
+    const ctx = {
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(node),
+      // The 45° rotated 100x80 rect centered at (0,0) relative to origin (100,100)
+      // Local centroid of (0,0,100,80) is (50, 40)
+      // With node transform translate(100,100) * rotate(45°):
+      // centroidWorld = apply([cos45,sin45,-sin45,cos45,100,100], [50,40])
+      // = (100 + 50*0.707 - 40*0.707, 100 + 50*0.707 + 40*0.707)
+      // = (100 + 35.35 - 28.28, 100 + 35.35 + 28.28)
+      // = (107.07, 163.63)
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 57, y: 107, w: 106, h: 106 }),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    const tool = new ScaleTool();
+    // Start drag from centroid (107.07, 163.63)
+    tool.onPointerDown({ clientX: 107.07, clientY: 163.63, pointerId: 1 } as any, ctx);
+
+    // Drag to (200, 200): currentDist = sqrt(92.93²+36.37²) = sqrt(8636+1323) ≈ 99.8
+    // initialDist = 0 (drag started at centroid) → fallback to 1
+    (tool as any).drag.currentWorld = { x: 200, y: 200 };
+    (tool as any).onDragMove?.(ctx);
+
+    expect(ctx.updateNode).toHaveBeenCalled();
+    const updateFn = ctx.updateNode.mock.calls[0][1];
+    const updated = updateFn(node);
+    // Transform should have non-negative finite scale components (no distortion)
+    expect(updated.transform[0]).toBeGreaterThan(0);
+    expect(updated.transform[3]).toBeGreaterThan(0);
+    expect(updated.transform[0]).toBeLessThan(Infinity);
+    // The separate rotation field must be preserved (ScaleTool only modifies transform)
+    expect(updated.rotation).toBe(rotDeg);
+    // The transform matrix should remain a simple scale + translation
+    // (rotation is in the separate field, not baked into transform)
+    expect(updated.transform[1]).toBe(0);
+    expect(updated.transform[2]).toBe(0);
+  });
+});
+
 describe('ScaleTool — undo transaction lifecycle', () => {
   const makeNode = () => ({
     id: 'node1',
@@ -824,5 +897,61 @@ describe('ScaleTool — onDeactivate cleanup', () => {
     const ctx = makeCtx();
     tool.onDeactivate?.(ctx);
     expect(ctx.abortTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('ScaleTool — nested rotated parent', () => {
+  it('maps world offset through parent transform when scaling nested child', () => {
+    let doc = createDocument();
+    const frame = makeFrameNode('f1', {
+      name: 'RotatedFrame',
+      rotation: 45,
+      transform: [1, 0, 0, 1, 0, 0] as Affine,
+    });
+    doc = addNode(doc, frame);
+    const child = makeShapeNode(
+      'c1',
+      { kind: 'rect', x: 0, y: 0, w: 80, h: 60 },
+      { name: 'Child', transform: [1, 0, 0, 1, 50, 0] as Affine },
+    );
+    doc = addChild(doc, 'f1', child);
+
+    const node = doc.nodes.c1!;
+    const bbox = nodeWorldBounds(doc, 'c1');
+    expect(bbox).not.toBeNull();
+
+    const ctx = {
+      document: doc,
+      selection: ['c1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      nodeWorldBounds: vi.fn((n: typeof node) => nodeWorldBounds(doc, n.id)),
+      updateNode: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    const tool = new ScaleTool();
+    const cx = bbox!.x + bbox!.w / 2;
+    const cy = bbox!.y + bbox!.h / 2;
+    tool.onPointerDown({ clientX: cx, clientY: cy, pointerId: 1 } as any, ctx);
+    (tool as any).drag.currentWorld = { x: cx + 50, y: cy + 50 };
+    (tool as any).onDragMove?.(ctx);
+
+    expect(ctx.updateNode).toHaveBeenCalled();
+    const updateFn = ctx.updateNode.mock.calls[0][1];
+    const updated = updateFn(node);
+    expect(updated.transform[0]).toBeGreaterThan(1);
+    expect(updated.transform[3]).toBeGreaterThan(1);
+    expect(Number.isFinite(updated.transform[4])).toBe(true);
+    expect(Number.isFinite(updated.transform[5])).toBe(true);
   });
 });

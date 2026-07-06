@@ -65,10 +65,18 @@ export class CompositeCanvas {
       this.canvas.height = h;
     } else if (typeof OffscreenCanvas !== 'undefined') {
       this.canvas = new OffscreenCanvas(w, h);
-    } else {
+      const offCtx = this.canvas.getContext('2d');
+      if (!offCtx && typeof document !== 'undefined') {
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = w;
+        this.canvas.height = h;
+      }
+    } else if (typeof document !== 'undefined') {
       this.canvas = document.createElement('canvas');
       this.canvas.width = w;
       this.canvas.height = h;
+    } else {
+      throw new Error('CompositeCanvas: no canvas backend available');
     }
 
     const ctx = this.canvas.getContext('2d');
