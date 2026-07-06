@@ -52,6 +52,9 @@ import {
 import { getSharedRecoveryManager, type RecoverySession } from './recovery';
 import { StatusBar } from './StatusBar';
 import { TimelinePanel } from './timeline/TimelinePanel';
+import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
+import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
+import { useCollabPresence } from './hooks/useCollabPresence';
 import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
@@ -468,12 +471,19 @@ function ShellInner({
                 if (tlId) editor.applyMotionPreset(presetId, tlId);
               }}
               onSelectTimeline={(id) => editor.setActiveTimeline(id)}
+              onCreateTimeline={() => editor.createTimeline()}
               onSelectTrack={() => {}}
               onClickKeyframe={(_trackId, progress) => {
                 const tl = editor.state.motion.activeTimelineId
                   ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
                   : null;
                 if (tl) editor.seekTimeline(progress * tl.duration);
+              }}
+              onSetTrackNestedTimeline={(trackId, nestedTimelineId, startProgress) => {
+                const tlId = editor.state.motion.activeTimelineId;
+                if (tlId) {
+                  editor.setTrackNestedTimeline(tlId, trackId, nestedTimelineId, startProgress);
+                }
               }}
               getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
             />

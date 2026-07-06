@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { createTimelineInEditor, navigateToEditor } from './helpers';
 
 test.describe('Timeline playback', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.editor-shell');
+    await navigateToEditor(page);
   });
 
   test('timeline panel is visible in editor shell', async ({ page }) => {
@@ -24,5 +24,20 @@ test.describe('Timeline playback', () => {
     await expect(panel).not.toBeVisible();
     await page.keyboard.press('Control+Alt+t');
     await expect(panel).toBeVisible();
+  });
+
+  test('double-click ruler adds a marker', async ({ page }) => {
+    await createTimelineInEditor(page);
+    const ruler = page.locator('.timeline-ruler');
+    await expect(ruler).toBeVisible();
+    await ruler.dblclick({ position: { x: 100, y: 8 } });
+    await expect(page.locator('.timeline-ruler__marker')).toHaveCount(1);
+  });
+
+  test('create timeline button exposes timeline in selector', async ({ page }) => {
+    await createTimelineInEditor(page);
+    const selector = page.getByLabel('Select timeline');
+    await expect(selector).toHaveValue(/.+/);
+    await expect(selector.locator('option', { hasText: 'Timeline 1' })).toHaveCount(1);
   });
 });

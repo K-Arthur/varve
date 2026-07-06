@@ -49,6 +49,13 @@ export {
   rgbToCmyk,
   srgbToLinear,
 } from './colorConversion';
+export type { RulerMode } from './coordinates';
+export {
+  artboardToWorld,
+  formatCoordForRuler,
+  getArtboardRulerOrigin,
+  worldToArtboard,
+} from './coordinates';
 export { debounce, throttle } from './debounce';
 export type {
   CubicBezierEasingDef,
@@ -120,13 +127,6 @@ export {
   remToPx,
   UNIT_TO_PX,
 } from './units';
-export type { RulerMode } from './coordinates';
-export {
-  artboardToWorld,
-  formatCoordForRuler,
-  getArtboardRulerOrigin,
-  worldToArtboard,
-} from './coordinates';
 export type { Camera, Viewport } from './viewport';
 export {
   animateCamera,
@@ -140,9 +140,9 @@ export {
   computeFloatingOrigin,
   DEFAULT_REVEAL_MAX_ZOOM,
   DEFAULT_REVEAL_PADDING,
+  FLOATING_ORIGIN_GRID,
   fitBoundsCamera,
   fitZoom,
-  FLOATING_ORIGIN_GRID,
   isRectInView,
   isWorldRectInViewport,
   lerpCamera,

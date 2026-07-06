@@ -23,5 +23,6 @@ describe('Shell motion integration', () => {
       </EditorProvider>,
     );
     expect(screen.getByText('No timeline selected')).toBeTruthy();
+    expect(screen.getByTestId('timeline-create-empty')).toBeTruthy();
   });
 });
