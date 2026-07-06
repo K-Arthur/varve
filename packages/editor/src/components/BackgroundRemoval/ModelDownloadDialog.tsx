@@ -94,10 +94,10 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
                 with no download required.
               </p>
               <div className="model-download__actions">
-                <button className="button button--ghost" onClick={handleCancel}>
+                <button type="button" className="button button--ghost" onClick={handleCancel}>
                   Cancel
                 </button>
-                <button className="button button--primary" onClick={handleDownload}>
+                <button type="button" className="button button--primary" onClick={handleDownload}>
                   Download
                 </button>
               </div>
@@ -124,7 +124,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
           {status === 'error' && (
             <div className="model-download__error">
               <p>Download failed: {error}</p>
-              <button className="button button--primary" onClick={handleDownload}>
+              <button type="button" className="button button--primary" onClick={handleDownload}>
                 Retry
               </button>
             </div>
@@ -132,7 +132,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
 
           {status !== 'confirm' && (
             <div className="model-download__actions">
-              <button className="button button--ghost" onClick={handleCancel}>
+              <button type="button" className="button button--ghost" onClick={handleCancel}>
                 {status === 'done' ? 'Close' : 'Cancel'}
               </button>
             </div>

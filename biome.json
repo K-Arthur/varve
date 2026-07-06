@@ -38,7 +38,9 @@
         "useAriaPropsSupportedByRole": "warn",
         "useSemanticElements": "warn",
         "useKeyWithClickEvents": "warn",
-        "noStaticElementInteractions": "warn"
+        "noStaticElementInteractions": "warn",
+        "useButtonType": "warn",
+        "useFocusableInteractive": "warn"
       }
     }
   },

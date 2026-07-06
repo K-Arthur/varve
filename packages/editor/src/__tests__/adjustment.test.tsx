@@ -1,9 +1,23 @@
 // @vitest-environment jsdom
 
+import type { Adjustment } from '@strata/engine';
 import { makeAdjustment } from '@strata/scene';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { EditorContextValue } from '../context';
 import { EditorProvider, useEditor } from '../context';
+
+function firstSelectedId(ctx: EditorContextValue): string {
+  const id = ctx.state.selection[0];
+  if (!id) throw new Error('Expected a selected node');
+  return id;
+}
+
+function getNode(ctx: EditorContextValue, id: string) {
+  const n = ctx.state.document.nodes[id];
+  if (!n) throw new Error('Expected node to exist');
+  return n;
+}
 
 afterEach(() => {
   cleanup();
@@ -36,8 +50,8 @@ describe('adjustment layer', () => {
       expect(ctx.state.selection.length).toBe(1);
     });
 
-    const nodeId = getCtx().state.selection[0]!;
-    const node = getCtx().state.document.nodes[nodeId]!;
+    const nodeId = firstSelectedId(getCtx());
+    const node = getNode(getCtx(), nodeId);
     expect(node.kind).toBe('adjustment');
     expect(node.name).toMatch(/Adjustment/);
   });
@@ -54,13 +68,13 @@ describe('adjustment layer', () => {
       expect(ctx.state.selection.length).toBe(1);
     });
 
-    const nodeId = getCtx().state.selection[0]!;
-    const node = getCtx().state.document.nodes[nodeId]!;
+    const nodeId = firstSelectedId(getCtx());
+    const node = getNode(getCtx(), nodeId);
     expect(node.kind).toBe('adjustment');
     if (node.kind === 'adjustment') {
       expect(node.adjustments?.length).toBe(1);
       expect(node.adjustments?.[0]?.kind).toBe('brightness');
-      expect((node.adjustments?.[0] as any).value).toBe(20);
+      expect((node.adjustments?.[0] as Adjustment & { value: number }).value).toBe(20);
     }
   });
 
@@ -73,13 +87,13 @@ describe('adjustment layer', () => {
       expect(getCtx().state.selection.length).toBe(1);
     });
 
-    const nodeId = getCtx().state.selection[0]!;
+    const nodeId = firstSelectedId(getCtx());
 
     const adj = makeAdjustment('adj-1', 'contrast', { value: 30 });
     getCtx().addAdjustmentToLayer(nodeId, adj);
 
     await waitFor(() => {
-      const n = getCtx().state.document.nodes[nodeId]!;
+      const n = getNode(getCtx(), nodeId);
       expect(n.kind).toBe('adjustment');
       if (n.kind === 'adjustment') {
         expect(n.adjustments?.length).toBe(1);
@@ -99,12 +113,12 @@ describe('adjustment layer', () => {
       expect(ctx.state.selection.length).toBe(1);
     });
 
-    const nodeId = getCtx().state.selection[0]!;
+    const nodeId = firstSelectedId(getCtx());
 
     getCtx().removeAdjustmentFromLayer(nodeId, 'adj-remove');
 
     await waitFor(() => {
-      const n = getCtx().state.document.nodes[nodeId]!;
+      const n = getNode(getCtx(), nodeId);
       expect(n.kind).toBe('adjustment');
       if (n.kind === 'adjustment') {
         expect(n.adjustments?.length).toBe(0);
@@ -123,12 +137,12 @@ describe('adjustment layer', () => {
       expect(ctx.state.selection.length).toBe(1);
     });
 
-    const nodeId = getCtx().state.selection[0]!;
+    const nodeId = firstSelectedId(getCtx());
 
-    getCtx().updateAdjustmentInLayer(nodeId, 'adj-upd', { visible: false } as any);
+    getCtx().updateAdjustmentInLayer(nodeId, 'adj-upd', { visible: false } as Partial<Adjustment>);
 
     await waitFor(() => {
-      const n = getCtx().state.document.nodes[nodeId]!;
+      const n = getNode(getCtx(), nodeId);
       expect(n.kind).toBe('adjustment');
       if (n.kind === 'adjustment') {
         const updated = n.adjustments?.find((a: { id: string }) => a.id === 'adj-upd');
@@ -150,12 +164,12 @@ describe('adjustment layer', () => {
       expect(ctx.state.selection.length).toBe(1);
     });
 
-    const nodeId = getCtx().state.selection[0]!;
+    const nodeId = firstSelectedId(getCtx());
 
     getCtx().reorderAdjustmentInLayer(nodeId, 'adj-b', 0);
 
     await waitFor(() => {
-      const n = getCtx().state.document.nodes[nodeId]!;
+      const n = getNode(getCtx(), nodeId);
       expect(n.kind).toBe('adjustment');
       if (n.kind === 'adjustment') {
         expect(n.adjustments?.[0]?.id).toBe('adj-b');
@@ -174,7 +188,7 @@ describe('adjustment layer', () => {
       expect(ctx.state.selection.length).toBe(1);
     });
 
-    const nodeId = getCtx().state.selection[0]!;
+    const nodeId = firstSelectedId(getCtx());
 
     getCtx().setAdjustmentLayerOpacity(nodeId, 0.5);
 
@@ -193,7 +207,7 @@ describe('adjustment layer', () => {
       expect(ctx.state.selection.length).toBe(1);
     });
 
-    const nodeId = getCtx().state.selection[0]!;
+    const nodeId = firstSelectedId(getCtx());
 
     getCtx().setAdjustmentLayerBlendMode(nodeId, 'multiply');
 

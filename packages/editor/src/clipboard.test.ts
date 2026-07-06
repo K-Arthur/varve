@@ -32,7 +32,8 @@ function createFileList(files: File[]): FileList {
       return {
         next: (): IteratorResult<File> => {
           if (i >= files.length) return { done: true, value: undefined as unknown as File };
-          return { done: false, value: files[i++]! };
+          return { done: false, value: files[i] as File };
+          i++;
         },
       };
     },

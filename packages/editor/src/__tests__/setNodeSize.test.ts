@@ -12,9 +12,10 @@ type SceneNode = {
   blendMode: string;
   rotation: number;
   transform: [number, number, number, number, number, number];
-  fill: [number, number, number, number];
+  fill: number[];
   strokes: unknown[];
   effects: unknown[];
+  // biome-ignore lint/suspicious/noExplicitAny: test-helper type for all shape variants
   shape?: any;
   w?: number;
   h?: number;
@@ -103,16 +104,23 @@ function setNodeSize(node: SceneNode, w: number, h: number): SceneNode {
         ...node,
         shape: {
           ...s,
-          points: points.map((p: any) => ({
-            x: (p.x - minX) * sx3 + minX,
-            y: (p.y - minY) * sy3 + minY,
-            handleIn: p.handleIn
-              ? [(p.handleIn[0] - minX) * sx3 + minX, (p.handleIn[1] - minY) * sy3 + minY]
-              : null,
-            handleOut: p.handleOut
-              ? [(p.handleOut[0] - minX) * sx3 + minX, (p.handleOut[1] - minY) * sy3 + minY]
-              : null,
-          })),
+          points: points.map(
+            (p: {
+              x: number;
+              y: number;
+              handleIn?: [number, number];
+              handleOut?: [number, number];
+            }) => ({
+              x: (p.x - minX) * sx3 + minX,
+              y: (p.y - minY) * sy3 + minY,
+              handleIn: p.handleIn
+                ? [(p.handleIn[0] - minX) * sx3 + minX, (p.handleIn[1] - minY) * sy3 + minY]
+                : null,
+              handleOut: p.handleOut
+                ? [(p.handleOut[0] - minX) * sx3 + minX, (p.handleOut[1] - minY) * sy3 + minY]
+                : null,
+            }),
+          ),
         },
       };
     }

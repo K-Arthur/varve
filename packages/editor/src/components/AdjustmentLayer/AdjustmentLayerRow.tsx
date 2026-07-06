@@ -112,8 +112,15 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
       data-layer-type="adjustment"
       aria-selected={selected}
       className={rowClass}
+      tabIndex={0}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onSelect(node.id, e.shiftKey, e.ctrlKey || e.metaKey);
+          onFocus(idx);
+        }
+      }}
       style={{
         paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
         ...style,
