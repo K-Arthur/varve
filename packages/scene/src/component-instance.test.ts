@@ -2,6 +2,7 @@
  * Tests for component instance operations — swap, reset overrides, detect overrides.
  */
 import {
+  captureSyncBaseline,
   createComponent,
   createDocument,
   type Document,
@@ -11,6 +12,7 @@ import {
   nextNodeId,
   resetInstanceOverrides,
   swapInstance,
+  type FrameNode,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 
@@ -32,7 +34,12 @@ describe('component instance operations', () => {
     const instanceResult = nextNodeId(doc);
     doc = instanceResult.doc;
     const instanceId = instanceResult.id;
-    const instance = makeFrameNode(instanceId, { name: 'Instance', componentId });
+    const masterFrame = doc.nodes[masterId] as FrameNode;
+    const instance = makeFrameNode(instanceId, {
+      name: 'Instance',
+      componentId,
+      syncBaseline: captureSyncBaseline(masterFrame),
+    });
     doc = {
       ...doc,
       nodes: { ...doc.nodes, [instanceId]: instance },

@@ -15,10 +15,35 @@ import {
   makeFrameNode,
 } from '@strata/scene';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VariantBox } from './VariantBox';
 
+const variantBoxMocks = {
+  onSetVariant: vi.fn(),
+  onCreateVariant: vi.fn(),
+  onSetPropertyOverride: vi.fn(),
+  onClose: vi.fn(),
+};
+
 afterEach(cleanup);
+
+function variantBoxProps(
+  nodeId: NodeId,
+  document: Document,
+  overrides: Partial<React.ComponentProps<typeof VariantBox>> = {},
+) {
+  return {
+    nodeId,
+    document,
+    screenBounds: { x: 200, y: 100, w: 120, h: 40 } as const,
+    onSetVariant: variantBoxMocks.onSetVariant,
+    onCreateVariant: variantBoxMocks.onCreateVariant,
+    onSetPropertyOverride: variantBoxMocks.onSetPropertyOverride,
+    onClose: variantBoxMocks.onClose,
+    ...overrides,
+  };
+}
 
 function setupDocWithVariant(): {
   doc: Document;
@@ -69,15 +94,7 @@ function setupDocWithVariant(): {
 describe('VariantBox', () => {
   it('renders the active variant name', () => {
     const { doc, instanceId } = setupDocWithVariant();
-    render(
-      <VariantBox
-        nodeId={instanceId}
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
+    render(<VariantBox {...variantBoxProps(instanceId, doc)} />);
     expect(screen.getByText('Primary')).toBeInTheDocument();
   });
 
@@ -96,29 +113,13 @@ describe('VariantBox', () => {
     });
     doc = addNode(doc, instance);
 
-    render(
-      <VariantBox
-        nodeId="inst1"
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
+    render(<VariantBox {...variantBoxProps('inst1', doc)} />);
     expect(screen.getByText('No Variants')).toBeInTheDocument();
   });
 
   it('renders all variants as selectable options', () => {
     const { doc, instanceId } = setupDocWithVariant();
-    render(
-      <VariantBox
-        nodeId={instanceId}
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
+    render(<VariantBox {...variantBoxProps(instanceId, doc)} />);
     expect(screen.getByText('Primary')).toBeInTheDocument();
   });
 
@@ -126,7 +127,6 @@ describe('VariantBox', () => {
     const { doc, instanceId } = setupDocWithVariant();
     const onSetVariant = vi.fn();
 
-    // Add a second variant to allow switching
     let d = doc;
     const instance = d.nodes[instanceId];
     if (instance?.kind === 'frame' && instance.componentId) {
@@ -137,45 +137,20 @@ describe('VariantBox', () => {
       d = r.doc;
     }
 
-    render(
-      <VariantBox
-        nodeId={instanceId}
-        document={d}
-        onSetVariant={onSetVariant}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
-    // Click the secondary variant
+    render(<VariantBox {...variantBoxProps(instanceId, d, { onSetVariant })} />);
     fireEvent.click(screen.getByText('Secondary'));
     expect(onSetVariant).toHaveBeenCalledWith(instanceId, expect.any(String));
   });
 
   it('shows boolean property as toggle button', () => {
     const { doc, instanceId } = setupDocWithVariant();
-    render(
-      <VariantBox
-        nodeId={instanceId}
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
+    render(<VariantBox {...variantBoxProps(instanceId, doc)} />);
     expect(screen.getByLabelText('Disabled: false')).toBeInTheDocument();
   });
 
   it('shows text property as input', () => {
     const { doc, instanceId } = setupDocWithVariant();
-    render(
-      <VariantBox
-        nodeId={instanceId}
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
+    render(<VariantBox {...variantBoxProps(instanceId, doc)} />);
     const input = screen.getByLabelText('Label') as HTMLInputElement;
     expect(input).toBeInTheDocument();
     expect(input.value).toBe('Submit');
@@ -183,45 +158,47 @@ describe('VariantBox', () => {
 
   it('renders create variant button', () => {
     const { doc, instanceId } = setupDocWithVariant();
-    render(
-      <VariantBox
-        nodeId={instanceId}
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
+    render(<VariantBox {...variantBoxProps(instanceId, doc)} />);
     expect(screen.getByLabelText('Create variant')).toBeInTheDocument();
+  });
+
+  it('calls onCreateVariant when create form is confirmed', () => {
+    const { doc, instanceId } = setupDocWithVariant();
+    const onCreateVariant = vi.fn();
+    render(<VariantBox {...variantBoxProps(instanceId, doc, { onCreateVariant })} />);
+
+    fireEvent.click(screen.getByLabelText('Create variant'));
+    fireEvent.change(screen.getByLabelText('Variant name'), { target: { value: 'Large' } });
+    fireEvent.click(screen.getByText('Create'));
+
+    expect(onCreateVariant).toHaveBeenCalledWith(
+      expect.any(String),
+      'Large',
+      expect.objectContaining({ Label: 'Submit', Disabled: false }),
+      instanceId,
+    );
+  });
+
+  it('calls onSetPropertyOverride when editing a property outside create mode', () => {
+    const { doc, instanceId } = setupDocWithVariant();
+    const onSetPropertyOverride = vi.fn();
+    render(<VariantBox {...variantBoxProps(instanceId, doc, { onSetPropertyOverride })} />);
+
+    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Go' } });
+    expect(onSetPropertyOverride).toHaveBeenCalledWith(instanceId, 'Label', 'Go');
   });
 
   it('calls onClose when close button is clicked', () => {
     const { doc, instanceId } = setupDocWithVariant();
     const onClose = vi.fn();
-    render(
-      <VariantBox
-        nodeId={instanceId}
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={onClose}
-      />,
-    );
+    render(<VariantBox {...variantBoxProps(instanceId, doc, { onClose })} />);
     fireEvent.click(screen.getByLabelText('Close variant panel'));
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('positions near the screen bounds top-right', () => {
     const { doc, instanceId } = setupDocWithVariant();
-    const { container } = render(
-      <VariantBox
-        nodeId={instanceId}
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
+    const { container } = render(<VariantBox {...variantBoxProps(instanceId, doc)} />);
     const el = container.firstChild as HTMLElement;
     expect(el.style.left).toBe('328px');
     expect(el.style.top).toBe('100px');
@@ -246,15 +223,7 @@ describe('VariantBox', () => {
     });
     doc = addNode(doc, instance);
 
-    render(
-      <VariantBox
-        nodeId="inst1"
-        document={doc}
-        onSetVariant={vi.fn()}
-        screenBounds={{ x: 200, y: 100, w: 120, h: 40 }}
-        onClose={vi.fn()}
-      />,
-    );
+    render(<VariantBox {...variantBoxProps('inst1', doc)} />);
     expect(screen.getByText('Primary')).toBeInTheDocument();
   });
 });

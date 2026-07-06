@@ -26,6 +26,7 @@ import { Icon } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { docVariableStore } from '../../../docVariableStore';
 import { GradientEditor } from '../color/GradientEditor';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -214,7 +215,7 @@ export function FillSection({ nodes }: FillSectionProps) {
       </div>
       {editor.bindingField === 'fill' && (
         <BindingMenu
-          variableStore={editor.state.variableStore as import('@strata/scene').VariableStore}
+          variableStore={docVariableStore(editor.state.document)}
           targetType="color"
           onBind={(variableId, expression) => {
             editor.setSelectedBinding('fill', { variableId, expression });

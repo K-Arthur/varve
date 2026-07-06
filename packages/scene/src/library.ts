@@ -10,7 +10,8 @@
  */
 
 import type { Document } from './document';
-import type { ComponentDefinition, NodeId, Style } from './types';
+import { isContainer } from './document';
+import type { ComponentDefinition, NodeId, SceneNode, Style } from './types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,8 @@ export interface Library {
   components: ComponentDefinition[];
   /** Published styles (color, text, effect, layout). */
   styles: Style[];
+  /** Bundled node subtrees keyed by masterRootId. */
+  nodeBundles?: Record<NodeId, Record<NodeId, SceneNode>>;
   /** Timestamp of last publish. */
   publishedAt?: string;
 }
@@ -58,36 +61,110 @@ export function createLibrary(name: string, description = '', version = '0.1.0')
     version,
     components: [],
     styles: [],
+    nodeBundles: {},
     publishedAt: new Date().toISOString(),
   };
+}
+
+// ── Semver helpers ──────────────────────────────────────────────────────────
+
+function parseSemver(version: string): [number, number, number] {
+  const parts = version.split('.').map((p) => Number.parseInt(p, 10) || 0);
+  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+}
+
+export function compareSemver(a: string, b: string): number {
+  const [ma, mi, pa] = parseSemver(a);
+  const [mb, mj, pb] = parseSemver(b);
+  if (ma !== mb) return ma - mb;
+  if (mi !== mj) return mi - mj;
+  return pa - pb;
+}
+
+function bumpPatchVersion(version: string): string {
+  const [major, minor, patch] = parseSemver(version);
+  return `${major}.${minor}.${patch + 1}`;
+}
+
+function collectSubtree(doc: Document, rootId: NodeId): Record<NodeId, SceneNode> {
+  const result: Record<NodeId, SceneNode> = {};
+
+  function walk(id: NodeId) {
+    const node = doc.nodes[id];
+    if (!node) return;
+    result[id] = node;
+    if (isContainer(node)) {
+      for (const childId of node.children) {
+        walk(childId);
+      }
+    }
+  }
+
+  walk(rootId);
+  return result;
+}
+
+function remapSubtree(
+  subtree: Record<NodeId, SceneNode>,
+  doc: Document,
+): { nodes: Record<NodeId, SceneNode>; idMap: Map<NodeId, NodeId>; nextId: number } {
+  const idMap = new Map<NodeId, NodeId>();
+  let nextId = doc.nextId;
+  const nodes: Record<NodeId, SceneNode> = {};
+
+  for (const oldId of Object.keys(subtree)) {
+    const newId = `n${nextId++}`;
+    idMap.set(oldId, newId);
+  }
+
+  for (const [oldId, node] of Object.entries(subtree)) {
+    const newId = idMap.get(oldId);
+    if (!newId) continue;
+    let cloned: SceneNode = { ...node, id: newId };
+
+    if (isContainer(node)) {
+      cloned = {
+        ...cloned,
+        children: node.children
+          .map((cid) => idMap.get(cid))
+          .filter((cid): cid is NodeId => cid !== undefined),
+      } as SceneNode;
+    }
+
+    nodes[newId] = cloned;
+  }
+
+  return { nodes, idMap, nextId };
 }
 
 // ── Publishing ──────────────────────────────────────────────────────────────
 
 /**
  * Publish a component definition to a library.
- * Bundles the component's master node data for cross-document installation.
+ * Bundles the component's master node subtree for cross-document installation.
  */
 export function publishComponentToLibrary(
   library: Library,
   component: ComponentDefinition,
-  _doc: Document,
+  doc: Document,
 ): { library: Library } {
   const existingIndex = library.components.findIndex((c) => c.id === component.id);
-  const published: ComponentDefinition = {
-    ...component,
-    // Preserve the original component ID for instance tracking
-  };
+  const published: ComponentDefinition = { ...component };
+  const subtree = collectSubtree(doc, component.masterRootId);
 
   const components =
     existingIndex >= 0
       ? library.components.map((c, i) => (i === existingIndex ? published : c))
       : [...library.components, published];
 
+  const nodeBundles = { ...(library.nodeBundles ?? {}), [component.masterRootId]: subtree };
+
   return {
     library: {
       ...library,
       components,
+      nodeBundles,
+      version: bumpPatchVersion(library.version),
       publishedAt: new Date().toISOString(),
     },
   };
@@ -107,6 +184,7 @@ export function publishStyleToLibrary(library: Library, style: Style): { library
     library: {
       ...library,
       styles,
+      version: bumpPatchVersion(library.version),
       publishedAt: new Date().toISOString(),
     },
   };
@@ -116,44 +194,58 @@ export function publishStyleToLibrary(library: Library, style: Style): { library
 
 /**
  * Install a library's assets into a document.
- * Components and styles get merged into the document, preserving
- * their original IDs for referential integrity.
+ * Clones bundled node subtrees with ID remapping for referential integrity.
  */
 export function installLibrary(
   doc: Document,
   library: Library,
 ): { doc: Document; installedComponentIds: NodeId[] } {
   const installedComponentIds: NodeId[] = [];
+  let workingDoc = doc;
 
-  // Merge components
   const components = { ...doc.components };
+  const styles = { ...(doc.styles ?? {}) };
+  let allNewNodes: Record<NodeId, SceneNode> = {};
+
   for (const component of library.components) {
     components[component.id] = component;
     installedComponentIds.push(component.id);
+
+    const bundle = library.nodeBundles?.[component.masterRootId];
+    if (bundle) {
+      const { nodes, idMap, nextId } = remapSubtree(bundle, workingDoc);
+      allNewNodes = { ...allNewNodes, ...nodes };
+      workingDoc = { ...workingDoc, nextId };
+
+      const newMasterRootId = idMap.get(component.masterRootId);
+      if (newMasterRootId) {
+        components[component.id] = { ...component, masterRootId: newMasterRootId };
+      }
+    }
   }
 
-  // Merge styles
-  const styles = { ...(doc.styles ?? {}) };
   for (const style of library.styles) {
     styles[style.id] = style;
   }
 
-  // Track installed libraries
-  const installedLibraries = [
-    ...(doc.installedLibraries ?? []),
-    {
-      id: library.id,
-      name: library.name,
-      version: library.version,
-      installedAt: new Date().toISOString(),
-    },
-  ];
+  const existingIdx = (workingDoc.installedLibraries ?? []).findIndex((l) => l.id === library.id);
+  const installedRef = {
+    id: library.id,
+    name: library.name,
+    version: library.version,
+    installedAt: new Date().toISOString(),
+  };
+  const installedLibraries =
+    existingIdx >= 0
+      ? (workingDoc.installedLibraries ?? []).map((l, i) => (i === existingIdx ? installedRef : l))
+      : [...(workingDoc.installedLibraries ?? []), installedRef];
 
   return {
     doc: {
-      ...doc,
+      ...workingDoc,
       components,
       styles,
+      nodes: { ...workingDoc.nodes, ...allNewNodes },
       installedLibraries,
     },
     installedComponentIds,
@@ -172,25 +264,19 @@ export interface InstalledLibraryRef {
 
 // ── Query ───────────────────────────────────────────────────────────────────
 
-/**
- * List all components in a library.
- */
 export function listLibraryComponents(library: Library): ComponentDefinition[] {
   return library.components;
 }
 
-/**
- * List all styles in a library.
- */
 export function listLibraryStyles(library: Library): Style[] {
   return library.styles;
 }
 
 /**
- * Check if a library has updates compared to the installed version.
+ * Check if a library has updates compared to the installed version (semver).
  */
 export function hasLibraryUpdates(library: Library, installed: InstalledLibraryRef): boolean {
-  return library.version !== installed.version;
+  return compareSemver(library.version, installed.version) > 0;
 }
 
 /**

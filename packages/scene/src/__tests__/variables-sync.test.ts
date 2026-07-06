@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   addVariableToDocument,
+  addNode,
   createDocument,
   deleteVariableFromDocument,
+  makeShapeNode,
   setVariableModeOnDocument,
   updateVariableInDocument,
 } from '../document';
@@ -29,8 +31,8 @@ describe('mergeVariableStores', () => {
     source.activeMode = 'light';
 
     const merged = mergeVariableStores(base, source);
-    expect(merged.variables['v1']?.name).toBe('source-var');
-    expect(merged.variables['v1']?.valuesByMode.default).toBe(99);
+    expect(merged.variables.v1?.name).toBe('source-var');
+    expect(merged.variables.v1?.valuesByMode.default).toBe(99);
     expect(merged.activeMode).toBe('light');
   });
 
@@ -40,7 +42,7 @@ describe('mergeVariableStores', () => {
     source.variables = { v1: makeVar('v1', 'only-var') };
 
     const merged = mergeVariableStores(base, source);
-    expect(merged.variables['v1']?.name).toBe('only-var');
+    expect(merged.variables.v1?.name).toBe('only-var');
   });
 
   it('handles empty source', () => {
@@ -48,7 +50,7 @@ describe('mergeVariableStores', () => {
     base.variables = { v1: makeVar('v1', 'base-only') };
 
     const merged = mergeVariableStores(base, createVariableStore());
-    expect(merged.variables['v1']?.name).toBe('base-only');
+    expect(merged.variables.v1?.name).toBe('base-only');
   });
 
   it('preserves non-conflicting variables from both', () => {
@@ -60,8 +62,8 @@ describe('mergeVariableStores', () => {
 
     const merged = mergeVariableStores(base, source);
     expect(Object.keys(merged.variables).sort()).toEqual(['v1', 'v2']);
-    expect(merged.variables['v1']?.name).toBe('from-base');
-    expect(merged.variables['v2']?.name).toBe('from-source');
+    expect(merged.variables.v1?.name).toBe('from-base');
+    expect(merged.variables.v2?.name).toBe('from-source');
   });
 });
 
@@ -72,9 +74,9 @@ describe('Document variable operations', () => {
     const doc2 = addVariableToDocument(doc, v);
 
     expect(doc2).not.toBe(doc);
-    expect(doc2.variableStore?.variables['v1']?.name).toBe('my-var');
-    expect(doc2.variableStore?.variables['v1']?.valuesByMode.default).toBe(100);
-    expect(doc.variableStore?.variables['v1']).toBeUndefined();
+    expect(doc2.variableStore?.variables.v1?.name).toBe('my-var');
+    expect(doc2.variableStore?.variables.v1?.valuesByMode.default).toBe(100);
+    expect(doc.variableStore?.variables.v1).toBeUndefined();
   });
 
   it('updateVariableInDocument patches existing variable', () => {
@@ -86,20 +88,42 @@ describe('Document variable operations', () => {
       name: 'updated',
       valuesByMode: { default: 99 },
     });
-    expect(doc3.variableStore?.variables['v1']?.name).toBe('updated');
-    expect(doc3.variableStore?.variables['v1']?.valuesByMode.default).toBe(99);
-    expect(doc3.variableStore?.variables['v1']?.type).toBe('number');
+    expect(doc3.variableStore?.variables.v1?.name).toBe('updated');
+    expect(doc3.variableStore?.variables.v1?.valuesByMode.default).toBe(99);
+    expect(doc3.variableStore?.variables.v1?.type).toBe('number');
+  });
+
+  it('deleteVariableFromDocument removes bindings referencing the variable', () => {
+    let doc = createDocument('test');
+    const v = makeVar('v1', 'primary', 'color', { default: '#39d0c6' });
+    doc = addVariableToDocument(doc, v);
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    doc = addNode(doc, shape);
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        n1: {
+          ...doc.nodes.n1!,
+          bindings: { fill: { variableId: 'v1' } },
+        },
+      },
+    };
+
+    const doc3 = deleteVariableFromDocument(doc, 'v1');
+    expect(doc3.variableStore?.variables.v1).toBeUndefined();
+    expect(doc3.nodes.n1?.bindings?.fill).toBeUndefined();
   });
 
   it('deleteVariableFromDocument removes variable', () => {
     const doc = createDocument('test');
     const v = makeVar('v1', 'to-delete');
     const doc2 = addVariableToDocument(doc, v);
-    expect(doc2.variableStore?.variables['v1']).toBeDefined();
+    expect(doc2.variableStore?.variables.v1).toBeDefined();
 
     const doc3 = deleteVariableFromDocument(doc2, 'v1');
-    expect(doc3.variableStore?.variables['v1']).toBeUndefined();
-    expect(doc2.variableStore?.variables['v1']).toBeDefined();
+    expect(doc3.variableStore?.variables.v1).toBeUndefined();
+    expect(doc2.variableStore?.variables.v1).toBeDefined();
   });
 
   it('setVariableModeOnDocument updates active mode', () => {

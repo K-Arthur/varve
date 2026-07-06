@@ -5,19 +5,25 @@
  */
 
 import type { Document as SceneDocument, SceneNode, TextNode, VariableStore } from '@strata/scene';
-import type { TargetGap } from './types';
+import { isImageShape } from '@strata/scene';
 import { colorToHex, computeNodePos, getChildren } from './shared';
 import { resolveTokenName } from './tokens';
+import type { TargetGap } from './types';
 
 export interface FlutterExportOptions {
   variableStore?: VariableStore;
+}
+
+function tokenToFlutterColor(tokenName: string): string {
+  const field = tokenName.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^(\d)/, '_$1');
+  return `Theme.of(context).extension<StrataTokens>()!.${field}`;
 }
 
 function colorValue(node: SceneNode, opts?: FlutterExportOptions): string {
   const tokenName = opts?.variableStore
     ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
     : undefined;
-  if (tokenName) return `Theme.of(context).colorScheme.primary`;
+  if (tokenName) return tokenToFlutterColor(tokenName);
   const hex = colorToHex(node.fill);
   return `Color(0xFF${hex.slice(1)})`;
 }
@@ -94,7 +100,7 @@ export function exportNodeToFlutter(
 export function flutterTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
   const gaps: TargetGap[] = [];
 
-  if (node.kind === 'image') {
+  if (isImageShape(node)) {
     gaps.push({
       nodeId: node.id,
       nodeName: node.name,
@@ -125,9 +131,10 @@ export function flutterTargetGaps(node: SceneNode, _doc: SceneDocument): TargetG
     });
   }
 
-  const effects = (node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group')
-    ? (node.effects ?? [])
-    : [];
+  const effects =
+    node.kind === 'shape' || node.kind === 'text' || node.kind === 'frame' || node.kind === 'group'
+      ? (node.effects ?? [])
+      : [];
   if (effects.some((e) => e.type === 'backgroundBlur')) {
     gaps.push({
       nodeId: node.id,

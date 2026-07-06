@@ -6,7 +6,8 @@
  * stable shapes.
  */
 
-export * from './adjustments';
+export * from './bindings';
+export * from './variant-apply';
 export * from './boolean';
 export * from './brush';
 export * from './clone';

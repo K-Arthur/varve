@@ -67,7 +67,6 @@ export interface EditorState {
   sessions: SessionMeta[];
   activeId: string;
   dirty: boolean;
-  variableStore: VariableStore;
   cursorPos: { x: number; y: number } | null;
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
   pixelGridEnabled: boolean;
@@ -364,6 +363,12 @@ export interface EditorContextValue {
     componentId: NodeId,
     name: string,
     propertyValues: Record<string, string | boolean | NodeId>,
+    instanceId?: NodeId,
+  ) => void;
+  setPropertyOverride: (
+    instanceId: NodeId,
+    propName: string,
+    value: string | boolean | NodeId,
   ) => void;
   addComponentProperty: (
     componentId: NodeId,

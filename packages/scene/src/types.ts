@@ -425,6 +425,8 @@ export interface FrameNode extends NodeBase {
   variant?: string;
   /** Per-property overrides on top of the variant/base component. */
   propertyOverrides?: Record<string, string | boolean | NodeId>;
+  /** Last-synced property snapshot for override detection (component instances). */
+  syncBaseline?: import('./component-sync').SyncBaseline;
   /** F6: strokes on frame. */
   strokes: Stroke[];
   /** F6: effects on frame. */
@@ -444,24 +446,8 @@ export interface BackgroundRemovalState {
   decontaminate?: boolean;
 }
 
-export interface ImageNode extends NodeBase {
-  kind: 'image';
-  transform: Affine;
-  /** Image source URL (data URL, file path, or asset id). */
-  src: string;
-  /** Width of the image node in world-space px. */
-  w: number;
-  /** Height of the image node in world-space px. */
-  h: number;
-  /** How the image fills the bounds. */
-  imageFit?: ImageFit;
-  /** F6: strokes on image. */
-  strokes: Stroke[];
-  /** F6: effects on image. */
-  effects: Effect[];
-  /** Background removal mask applied to this image. */
-  backgroundRemoval?: BackgroundRemovalState;
-}
+/** @deprecated Use ShapeNode with imageFill(). ImageNode no longer exists as a distinct node kind. */
+export type ImageNode = ShapeNode;
 
 // ── Adjustment Layer Types (Phase 1) ─────────────────────────────────────────
 
@@ -535,7 +521,7 @@ export interface PathNode extends NodeBase {
   effects: Effect[];
 }
 
-export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode | AdjustmentNode | PathNode;
+export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | AdjustmentNode | PathNode;
 
 export type ContainerNode = GroupNode | FrameNode;
 

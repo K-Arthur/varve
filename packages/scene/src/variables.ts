@@ -304,11 +304,32 @@ export function updateVariable(
   return { ...store, variables: { ...store.variables, [id]: { ...existing, ...patch } } };
 }
 
+function removeVarFromGroups(groups: VariableGroup[], variableId: string): VariableGroup[] {
+  return groups.map((g) => ({
+    ...g,
+    variableIds: g.variableIds.filter((vid) => vid !== variableId),
+    groups: g.groups ? removeVarFromGroups(g.groups, variableId) : undefined,
+  }));
+}
+
 export function deleteVariable(store: VariableStore, id: string): VariableStore {
   if (!store.variables[id]) return store;
+
   const vars = { ...store.variables };
   delete vars[id];
-  return { ...store, variables: vars };
+
+  const collections = Object.fromEntries(
+    Object.entries(store.collections).map(([cid, col]) => [
+      cid,
+      {
+        ...col,
+        variableIds: col.variableIds.filter((vid) => vid !== id),
+        groups: col.groups ? removeVarFromGroups(col.groups, id) : undefined,
+      },
+    ]),
+  );
+
+  return { ...store, variables: vars, collections };
 }
 
 // ── Merge ────────────────────────────────────────────────────────────────────
@@ -333,32 +354,59 @@ export function mergeVariableStores(base: VariableStore, source: VariableStore):
  * Resolve a variable's value for the active mode.
  * Searches across all collections, or within a specific collection.
  */
-export function resolve(store: VariableStore, nameOrId: string): VariableValue {
+export function resolve(
+  store: VariableStore,
+  nameOrId: string,
+  resolving: Set<string> = new Set(),
+): VariableValue {
   const v =
     store.variables[nameOrId] ?? Object.values(store.variables).find((x) => x.name === nameOrId);
   if (!v) throw new Error(`unknown variable: ${nameOrId}`);
 
-  // Determine active mode — prefer collection-specific mode
-  let activeMode = store.activeMode;
-  for (const col of Object.values(store.collections)) {
-    if (col.variableIds.includes(v.id)) {
-      activeMode = col.activeMode;
-      break;
+  if (resolving.has(v.id)) {
+    throw new Error(`circular variable reference: ${nameOrId}`);
+  }
+  resolving.add(v.id);
+
+  try {
+    // Determine active mode — prefer collection-specific mode
+    let activeMode = store.activeMode;
+    for (const col of Object.values(store.collections)) {
+      if (col.variableIds.includes(v.id)) {
+        activeMode = col.activeMode;
+        break;
+      }
     }
+
+    const raw =
+      v.valuesByMode[activeMode] ??
+      v.valuesByMode.default ??
+      v.valuesByMode[store.modes[0] ?? 'default'];
+    if (raw === undefined) throw new Error(`no value for variable: ${nameOrId}`);
+
+    return resolveRawValue(store, raw, resolving);
+  } finally {
+    resolving.delete(v.id);
+  }
+}
+
+function resolveRawValue(
+  store: VariableStore,
+  raw: VariableValue,
+  resolving: Set<string>,
+): VariableValue {
+  if (typeof raw !== 'string' || !raw.includes('{')) {
+    return raw;
   }
 
-  const raw =
-    v.valuesByMode[activeMode] ??
-    v.valuesByMode.default ??
-    v.valuesByMode[store.modes[0] ?? 'default'];
-  if (raw === undefined) throw new Error(`no value for variable: ${nameOrId}`);
-
-  if (typeof raw === 'string' && raw.includes('{')) {
-    const aliases = collectAliases(store, raw);
-    return evaluate(raw, aliases);
+  const trimmed = raw.trim();
+  const pureAlias = /^\{([^}]+)\}$/.exec(trimmed);
+  if (pureAlias) {
+    return resolve(store, pureAlias[1]!, resolving);
   }
 
-  return raw;
+  const aliases = collectAliases(store, raw, resolving);
+  return evaluate(raw, aliases);
 }
 
 /**
@@ -383,12 +431,7 @@ export function resolveVariableInCollection(
     v.valuesByMode[collection.modes[0] ?? 'default'];
   if (raw === undefined) throw new Error(`no value for variable: ${nameOrId}`);
 
-  if (typeof raw === 'string' && raw.includes('{')) {
-    const aliases = collectAliases(store, raw);
-    return evaluate(raw, aliases);
-  }
-
-  return raw;
+  return resolveRawValue(store, raw, new Set());
 }
 
 export function resolveBinding(store: VariableStore, binding: PropertyBinding): VariableValue {
@@ -417,14 +460,16 @@ export function resolveBinding(store: VariableStore, binding: PropertyBinding): 
 
 // ── Private helpers ─────────────────────────────────────────────────────────
 
-function collectAliases(store: VariableStore, expr: string): Record<string, number> {
+function collectAliases(
+  store: VariableStore,
+  expr: string,
+  resolving: Set<string>,
+): Record<string, number> {
   const aliases: Record<string, number> = {};
-  const visited = new Set<string>();
 
   function walk(name: string) {
-    if (visited.has(name)) return;
-    visited.add(name);
-    const resolved = resolve(store, name);
+    if (aliases[name] !== undefined) return;
+    const resolved = resolve(store, name, resolving);
     if (typeof resolved !== 'number') {
       throw new Error(`Alias '${name}' must be numeric for math, got ${typeof resolved}`);
     }
