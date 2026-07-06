@@ -101,8 +101,7 @@ export function useShortcuts(
       case 'rotateViewCCW':
         return () => e.rotateViewBy(-Math.PI / 12);
       case 'toggleRulerMode':
-        return () =>
-          e.setRulerMode(e.state.rulerMode === 'artboard' ? 'global' : 'artboard');
+        return () => e.setRulerMode(e.state.rulerMode === 'artboard' ? 'global' : 'artboard');
       case 'gridOverlayBaseline':
         return () =>
           e.setGridOverlayMode(e.state.gridOverlayMode === 'baseline' ? 'none' : 'baseline');

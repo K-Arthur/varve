@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { type PresenceData, PresenceIndicator } from '../PresenceIndicator';
-import { globalPresenceStore } from '../presenceStore';
+import { globalPresenceStore, usePresence } from '../presenceStore';
 
 describe('PresenceIndicator component', () => {
   it('renders nothing when no presences', () => {
@@ -153,5 +153,54 @@ describe('presenceStore', () => {
   it('returns empty array for unknown node', () => {
     const presences = globalPresenceStore.getPresences('nonexistent');
     expect(presences).toEqual([]);
+  });
+});
+
+describe('usePresence hook', () => {
+  function Probe({ nodeId }: { nodeId: string }) {
+    const presences = usePresence(nodeId);
+    return <div data-testid="count">{presences.length}</div>;
+  }
+
+  it('returns current presences for a node and re-renders on store updates', () => {
+    render(<Probe nodeId="probe-node" />);
+    expect(screen.getByTestId('count').textContent).toBe('0');
+
+    act(() => {
+      globalPresenceStore.setPresence('probe-node', {
+        userId: 'p1',
+        label: 'Presence One',
+        color: '#123456',
+      });
+    });
+    expect(screen.getByTestId('count').textContent).toBe('1');
+
+    act(() => {
+      globalPresenceStore.removePresence('probe-node', 'p1');
+    });
+    expect(screen.getByTestId('count').textContent).toBe('0');
+  });
+
+  it('does not re-render a probe for an unrelated node when another node changes', () => {
+    render(<Probe nodeId="probe-node-isolated" />);
+    expect(screen.getByTestId('count').textContent).toBe('0');
+
+    act(() => {
+      globalPresenceStore.setPresence('some-other-node', {
+        userId: 'p2',
+        label: 'Presence Two',
+        color: '#654321',
+      });
+    });
+    // Still 0: this node has no presence of its own, even though the store
+    // notified globally (the coarse-subscription tradeoff is re-reading, not
+    // rendering the wrong data).
+    expect(screen.getByTestId('count').textContent).toBe('0');
+  });
+
+  it('returns a stable empty-array reference for nodes with no presence', () => {
+    expect(globalPresenceStore.getPresences('never-used-node')).toBe(
+      globalPresenceStore.getPresences('another-never-used-node'),
+    );
   });
 });

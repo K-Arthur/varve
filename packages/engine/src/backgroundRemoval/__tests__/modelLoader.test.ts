@@ -1,16 +1,23 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSave, mockLoad, mockHas, mockDelete, mockSavePartial, mockLoadPartial, mockDeletePartial } =
-  vi.hoisted(() => ({
-    mockSave: vi.fn(),
-    mockLoad: vi.fn(),
-    mockHas: vi.fn(),
-    mockDelete: vi.fn(),
-    mockSavePartial: vi.fn(),
-    mockLoadPartial: vi.fn(),
-    mockDeletePartial: vi.fn(),
-  }));
+const {
+  mockSave,
+  mockLoad,
+  mockHas,
+  mockDelete,
+  mockSavePartial,
+  mockLoadPartial,
+  mockDeletePartial,
+} = vi.hoisted(() => ({
+  mockSave: vi.fn(),
+  mockLoad: vi.fn(),
+  mockHas: vi.fn(),
+  mockDelete: vi.fn(),
+  mockSavePartial: vi.fn(),
+  mockLoadPartial: vi.fn(),
+  mockDeletePartial: vi.fn(),
+}));
 
 vi.mock('../modelStore', () => ({
   saveModelBlob: mockSave,

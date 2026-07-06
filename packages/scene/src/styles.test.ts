@@ -296,14 +296,11 @@ describe('Style System — Apply & Unlink', () => {
     };
     const { style, doc: d1 } = createColorStyle(doc, 'Teal', fill);
     doc = d1;
-    const shape = makeShapeNode('n1', {
-      kind: 'rect',
-      x: 0,
-      y: 0,
-      w: 100,
-      h: 100,
-      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
-    });
+    const shape = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      { fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+    );
     doc = addNode(doc, shape);
     doc = applyStyleToNode(doc, 'n1', style.id);
 

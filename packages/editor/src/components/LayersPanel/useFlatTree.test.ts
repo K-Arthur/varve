@@ -8,9 +8,10 @@ import {
   nextNodeId,
   renameNode,
 } from '@strata/scene';
+import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FILTER, type LayerFilterSpec } from './layerFilterTypes';
-import { computeDocumentDiff, flattenTree, setsEqual } from './useFlatTree';
+import { computeDocumentDiff, flattenTree, setsEqual, useFlatTree } from './useFlatTree';
 
 describe('setsEqual', () => {
   it('returns true for identical sets', () => {
@@ -287,6 +288,82 @@ describe('flattenTree (search index filtered)', () => {
 
     // Should only include nodes that are in matchedIds AND pass other filters
     expect(result.every((e) => matchedIds.has(e.node.id))).toBe(true);
+  });
+});
+
+describe('useFlatTree (hook caching)', () => {
+  function makeTwoShapeDoc(): Document {
+    let doc = createDocument('test', true);
+    const { id: a, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    doc = addNode(
+      doc,
+      makeShapeNode(a, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Alpha' }),
+    );
+    const { id: b, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addNode(
+      doc,
+      makeShapeNode(b, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Beta' }),
+    );
+    return doc;
+  }
+
+  it('re-filters when only filterSpec changes (doc and expanded held constant)', () => {
+    const doc = makeTwoShapeDoc();
+    const expanded = new Set<string>();
+
+    const { result, rerender } = renderHook(
+      ({ filterSpec }: { filterSpec: LayerFilterSpec }) => useFlatTree(doc, expanded, filterSpec),
+      { initialProps: { filterSpec: DEFAULT_FILTER } },
+    );
+    expect(result.current).toHaveLength(2);
+
+    rerender({ filterSpec: { ...DEFAULT_FILTER, kinds: ['text'] } });
+    expect(result.current).toHaveLength(0);
+
+    rerender({ filterSpec: DEFAULT_FILTER });
+    expect(result.current).toHaveLength(2);
+  });
+
+  it('re-flattens when only isolatedNodeId changes (doc and expanded held constant)', () => {
+    let doc = createDocument('test', true);
+    const { id: frame, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    doc = addNode(doc, makeFrameNode(frame, { name: 'Frame', w: 100, h: 100, children: [] }));
+
+    const { id: child, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addChild(
+      doc,
+      frame,
+      makeShapeNode(child, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Child' }),
+    );
+
+    const { id: outside, doc: d3 } = nextNodeId(doc);
+    doc = d3;
+    doc = addNode(
+      doc,
+      makeShapeNode(outside, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Outside' }),
+    );
+
+    const expanded = new Set<string>([frame]);
+
+    const { result, rerender } = renderHook(
+      ({ isolatedNodeId }: { isolatedNodeId?: string }) =>
+        useFlatTree(doc, expanded, DEFAULT_FILTER, undefined, undefined, isolatedNodeId),
+      { initialProps: { isolatedNodeId: undefined as string | undefined } },
+    );
+    // Not isolated: frame + child + outside, all visible at root.
+    expect(result.current.map((e) => e.node.id).sort()).toEqual([child, frame, outside].sort());
+
+    rerender({ isolatedNodeId: frame });
+    // Isolated to the frame: only the frame (as the synthetic root) + its child.
+    expect(result.current.map((e) => e.node.id).sort()).toEqual([child, frame].sort());
+    expect(result.current.find((e) => e.node.id === frame)?.depth).toBe(0);
+
+    rerender({ isolatedNodeId: undefined });
+    expect(result.current.map((e) => e.node.id).sort()).toEqual([child, frame, outside].sort());
   });
 });
 

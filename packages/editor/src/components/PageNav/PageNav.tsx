@@ -1,4 +1,14 @@
-import { addPage as addPageFn, duplicatePage, type Page, removePage } from '@strata/scene';
+import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  addPage as addPageFn,
+  duplicatePage,
+  type NodeId,
+  type Page,
+  removePage,
+  reorderPages,
+} from '@strata/scene';
 import { ContextMenu, type MenuEntry } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';
@@ -11,6 +21,70 @@ function pageThumbnailStyle(page: Page) {
   return { width: Math.max(40, Math.min(w, 90)), height: maxThumbH };
 }
 
+/**
+ * Compute the reordered list of page ids for a drag-and-drop move, or null
+ * when the drop is a no-op (dropped on itself, or either id isn't a known
+ * page — e.g. a stale drag event after pages changed mid-drag).
+ */
+export function computeReorderedPageIds(
+  pages: Page[],
+  activeId: NodeId,
+  overId: NodeId,
+): NodeId[] | null {
+  const oldIndex = pages.findIndex((p) => p.id === activeId);
+  const newIndex = pages.findIndex((p) => p.id === overId);
+  if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return null;
+
+  const ids = pages.map((p) => p.id);
+  const [moved] = ids.splice(oldIndex, 1);
+  ids.splice(newIndex, 0, moved as NodeId);
+  return ids;
+}
+
+function SortablePageTab({
+  page,
+  isActive,
+  onSelect,
+  onContextMenu,
+}: {
+  page: Page;
+  isActive: boolean;
+  onSelect: (id: NodeId) => void;
+  onContextMenu: (e: React.MouseEvent, id: NodeId) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: page.id,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    touchAction: 'none',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`page-nav__item${isActive ? ' page-nav__item--active' : ''}`}
+      aria-selected={isActive}
+      aria-label={`Page: ${page.name}`}
+      onClick={() => onSelect(page.id)}
+      onContextMenu={(e) => onContextMenu(e, page.id)}
+      {...attributes}
+      {...listeners}
+      role="tab"
+      tabIndex={isActive ? 0 : -1}
+    >
+      <div className="page-nav__thumbnail" style={pageThumbnailStyle(page)}>
+        <span className="page-nav__thumb-label">{page.name}</span>
+      </div>
+      <span className="page-nav__label">{page.name}</span>
+    </div>
+  );
+}
+
 export function PageNav() {
   const { state, updateDoc, setCurrentPageId } = useEditor();
   const pages = state.document.pages ?? [];
@@ -19,6 +93,12 @@ export function PageNav() {
   const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const [ctxPageId, setCtxPageId] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+  );
 
   const handleAddPage = useCallback(() => {
     const count = pages.length + 1;
@@ -31,6 +111,17 @@ export function PageNav() {
       setCurrentPageId(pageId);
     },
     [setCurrentPageId],
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+      const reordered = computeReorderedPageIds(pages, active.id as NodeId, over.id as NodeId);
+      if (!reordered) return;
+      updateDoc((doc) => reorderPages(doc, reordered));
+    },
+    [pages, updateDoc],
   );
 
   const handleContextMenu = useCallback((e: React.MouseEvent, pageId: string) => {
@@ -72,26 +163,19 @@ export function PageNav() {
 
   return (
     <div className="page-nav" ref={stripRef} role="tablist" aria-label="Page navigation">
-      {pages.map((page) => {
-        const isActive = page.id === currentId;
-        return (
-          <div
-            key={page.id}
-            className={`page-nav__item${isActive ? ' page-nav__item--active' : ''}`}
-            role="tab"
-            aria-selected={isActive}
-            aria-label={`Page: ${page.name}`}
-            tabIndex={isActive ? 0 : -1}
-            onClick={() => handleSelectPage(page.id)}
-            onContextMenu={(e) => handleContextMenu(e, page.id)}
-          >
-            <div className="page-nav__thumbnail" style={pageThumbnailStyle(page)}>
-              <span className="page-nav__thumb-label">{page.name}</span>
-            </div>
-            <span className="page-nav__label">{page.name}</span>
-          </div>
-        );
-      })}
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <SortableContext items={pages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
+          {pages.map((page) => (
+            <SortablePageTab
+              key={page.id}
+              page={page}
+              isActive={page.id === currentId}
+              onSelect={handleSelectPage}
+              onContextMenu={handleContextMenu}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
       <button
         type="button"
         className="page-nav__add-btn"

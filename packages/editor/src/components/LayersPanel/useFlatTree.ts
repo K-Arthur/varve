@@ -183,6 +183,9 @@ function propsAffectFilter(
  *   a linear name scan. Other filter dimensions still apply normally.
  * @param activePageId - When provided, only show content rooted at this page's
  *   content-root node (hides other pages' content from the tree).
+ * @param isolatedNodeId - When provided (and it resolves to a real node),
+ *   show only that node and its subtree — a "focus view" that takes
+ *   precedence over `activePageId`. Used by isolation/focus mode.
  * @returns Flat array of entries, each with node, depth, parentId
  */
 export function flattenTree(
@@ -191,6 +194,7 @@ export function flattenTree(
   filterSpec: LayerFilterSpec = DEFAULT_FILTER,
   matchedIds?: Set<NodeId>,
   activePageId?: NodeId,
+  isolatedNodeId?: NodeId,
 ): FlatEntry[] {
   const filtering = isFiltering(filterSpec);
   const hasSearchIndex = matchedIds !== undefined && filterSpec.search !== '';
@@ -271,6 +275,13 @@ export function flattenTree(
     return entries;
   }
 
+  // Isolation/focus view takes precedence over the active-page filter: show
+  // only the isolated node and its subtree, as a single top-level entry so
+  // it stays visible (and collapsible) at the top of the tree.
+  if (isolatedNodeId && doc.nodes[isolatedNodeId]) {
+    return walk(null, [isolatedNodeId], 0);
+  }
+
   // When a page content root is active, show that page's direct children as
   // top-level entries (transparent root). Also surface any nodes that sit
   // directly in rootChildren but aren't page content roots — these are
@@ -317,19 +328,34 @@ export function useFlatTree(
   filterSpec: LayerFilterSpec = DEFAULT_FILTER,
   matchedIds?: Set<NodeId>,
   activePageId?: NodeId,
+  isolatedNodeId?: NodeId,
 ): FlatEntry[] {
   const prevDocRef = useRef<Document | null>(null);
   const prevEntriesRef = useRef<FlatEntry[]>([]);
   const prevExpandedRef = useRef<Set<NodeId> | null>(null);
   const prevFilterSpecRef = useRef<LayerFilterSpec | undefined>(undefined);
   const prevMatchedIdsRef = useRef<Set<NodeId> | undefined>(undefined);
+  const prevActivePageIdRef = useRef<NodeId | undefined>(undefined);
+  const prevIsolatedNodeIdRef = useRef<NodeId | undefined>(undefined);
 
   return useMemo(() => {
     const prevDoc = prevDocRef.current;
     const prevExpanded = prevExpandedRef.current;
 
-    // Fast path: nothing relevant changed (same doc, expanded, filter, matchedIds)
-    if (prevDoc === doc && prevExpanded === expanded) {
+    // Fast path: nothing relevant changed. Must compare every input the
+    // output actually depends on — not just doc/expanded — otherwise a
+    // filter, search, page, or isolation change with doc/expanded held
+    // constant would silently return stale entries (previously the case:
+    // this check only compared doc/expanded, so toggling a filter chip
+    // without any document mutation in between didn't re-filter the tree).
+    if (
+      prevDoc === doc &&
+      prevExpanded === expanded &&
+      prevFilterSpecRef.current === filterSpec &&
+      prevMatchedIdsRef.current === matchedIds &&
+      prevActivePageIdRef.current === activePageId &&
+      prevIsolatedNodeIdRef.current === isolatedNodeId
+    ) {
       return prevEntriesRef.current;
     }
 
@@ -337,13 +363,24 @@ export function useFlatTree(
     if (prevDoc !== doc) {
       const diff = computeDocumentDiff(prevDoc, doc);
 
-      // Same nodes map (top-level properties changed, e.g., name, canvasWidth)
-      if (!diff.structureChanged && prevDoc !== null && prevDoc.nodes === doc.nodes) {
+      // Same nodes map (top-level properties changed, e.g., name, canvasWidth).
+      // Only safe to reuse cached entries as-is when the filter/search/page/
+      // isolation inputs are also unchanged from the cached run.
+      const otherInputsUnchanged =
+        prevFilterSpecRef.current === filterSpec &&
+        prevMatchedIdsRef.current === matchedIds &&
+        prevActivePageIdRef.current === activePageId &&
+        prevIsolatedNodeIdRef.current === isolatedNodeId;
+
+      if (
+        !diff.structureChanged &&
+        prevDoc !== null &&
+        prevDoc.nodes === doc.nodes &&
+        otherInputsUnchanged
+      ) {
         // No node changes at all — return cached entries
         prevDocRef.current = doc;
         prevExpandedRef.current = expanded;
-        prevFilterSpecRef.current = filterSpec;
-        prevMatchedIdsRef.current = matchedIds;
         return prevEntriesRef.current;
       }
 
@@ -352,6 +389,7 @@ export function useFlatTree(
         !diff.structureChanged &&
         diff.changedNodeIds.length > 0 &&
         prevDoc !== null &&
+        otherInputsUnchanged &&
         !propsAffectFilter(diff.changedNodeIds, prevDoc, doc, filterSpec)
       ) {
         const changedSet = new Set(diff.changedNodeIds);
@@ -366,16 +404,21 @@ export function useFlatTree(
         }
         prevDocRef.current = doc;
         prevExpandedRef.current = expanded;
-        prevFilterSpecRef.current = filterSpec;
-        prevMatchedIdsRef.current = matchedIds;
         prevEntriesRef.current = next;
         return next;
       }
     }
 
-    // Structural change or expanded/filter change: full rebuild
+    // Structural change, or filter/search/page/isolation change: full rebuild
     const start = performance.now();
-    const entries = flattenTree(doc, expanded, filterSpec, matchedIds, activePageId);
+    const entries = flattenTree(
+      doc,
+      expanded,
+      filterSpec,
+      matchedIds,
+      activePageId,
+      isolatedNodeId,
+    );
     const elapsed = performance.now() - start;
     if (process.env.NODE_ENV === 'development' && elapsed > 50) {
       console.warn(`[useFlatTree] flatten took ${elapsed.toFixed(1)}ms`);
@@ -385,7 +428,9 @@ export function useFlatTree(
     prevExpandedRef.current = expanded;
     prevFilterSpecRef.current = filterSpec;
     prevMatchedIdsRef.current = matchedIds;
+    prevActivePageIdRef.current = activePageId;
+    prevIsolatedNodeIdRef.current = isolatedNodeId;
     prevEntriesRef.current = entries;
     return entries;
-  }, [doc, expanded, filterSpec, matchedIds, activePageId]);
+  }, [doc, expanded, filterSpec, matchedIds, activePageId, isolatedNodeId]);
 }

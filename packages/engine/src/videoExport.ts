@@ -3,17 +3,10 @@
  *
  * Uses IR-replay via an injected frame renderer callback so this module
  * stays free of @strata/editor circular dependencies.
- *
- * Research basis: WebCodecs VideoEncoder, mp4-muxer / webm-muxer,
- * W3C Media Production API patterns.
  */
-
-import { ArrayBufferTarget, Muxer as Mp4Muxer } from 'mp4-muxer';
-import { Muxer as WebmMuxer } from 'webm-muxer';
 
 export interface VideoTimelineRef {
   id: string;
-  /** Duration in milliseconds. */
   duration: number;
 }
 
@@ -22,7 +15,6 @@ export interface VideoExportOptions {
   height: number;
   fps: number;
   codec?: 'h264' | 'vp9';
-  /** When true, export only the final frame (prefers-reduced-motion). */
   reducedMotion?: boolean;
   signal?: AbortSignal;
   onProgress?: (done: number, total: number) => void;
@@ -49,7 +41,6 @@ export type VideoFrameRenderer = (
 const H264_CODEC_CANDIDATES = ['avc1.42001E', 'avc1.4D401E', 'avc1.64001E'] as const;
 const VP9_CODEC = 'vp09.00.10.08';
 
-/** Compute the number of frames to encode. */
 export function computeVideoFrameCount(
   durationMs: number,
   fps: number,
@@ -60,7 +51,6 @@ export function computeVideoFrameCount(
   return Math.max(frames, 1);
 }
 
-/** Probe runtime support for WebCodecs video export. */
 export function checkVideoExportSupport(): VideoExportSupport {
   if (typeof globalThis.VideoEncoder === 'undefined') {
     return { supported: false, reason: 'VideoEncoder API unavailable' };
@@ -104,9 +94,10 @@ async function rgbaToVideoFrame(
           c.height = height;
           return c;
         })();
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D | null;
   if (!ctx) throw new Error('2D context unavailable for video frame conversion');
-  const clamped = new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, expected);
+  const clamped = new Uint8ClampedArray(expected);
+  clamped.set(rgba.subarray(0, expected));
   ctx.putImageData(new ImageData(clamped, width, height), 0, 0);
   return new VideoFrame(canvas as CanvasImageSource, {
     timestamp: timestampUs,
@@ -151,7 +142,7 @@ async function pickVp9Codec(width: number, height: number, fps: number): Promise
     bitrate: 2_000_000,
     framerate: fps,
   });
-  return result.supported;
+  return result.supported === true;
 }
 
 interface EncoderSession {
@@ -171,8 +162,9 @@ async function createEncoderSession(
   if (preferH264) {
     const h264 = await pickH264Codec(width, height, fps);
     if (h264) {
+      const { ArrayBufferTarget, Muxer } = await import('mp4-muxer');
       const target = new ArrayBufferTarget();
-      const muxer = new Mp4Muxer({
+      const muxer = new Muxer({
         target,
         video: { codec: 'avc', width, height },
         fastStart: 'in-memory',
@@ -209,6 +201,7 @@ async function createEncoderSession(
     return { error: 'No supported H.264 or VP9 encoder configuration' };
   }
 
+  const { ArrayBufferTarget, Muxer } = await import('webm-muxer');
   const chunks: EncodedVideoChunk[] = [];
   const encoder = new VideoEncoder({
     output: (chunk) => chunks.push(chunk),
@@ -225,7 +218,7 @@ async function createEncoderSession(
   });
 
   const webmTarget = new ArrayBufferTarget();
-  const webmMuxer = new WebmMuxer({
+  const webmMuxer = new Muxer({
     target: webmTarget,
     video: { codec: 'V_VP9', width, height, frameRate: fps },
   });
@@ -246,21 +239,13 @@ async function createEncoderSession(
   };
 }
 
-/**
- * Export a timeline to encoded video bytes via WebCodecs.
- * Returns null bytes when encoding is unavailable in the current environment.
- */
 export async function exportTimelineToVideo(
   timeline: VideoTimelineRef,
   options: VideoExportOptions,
   renderFrame: VideoFrameRenderer,
 ): Promise<VideoExportResult> {
   const support = checkVideoExportSupport();
-  const frameCount = computeVideoFrameCount(
-    timeline.duration,
-    options.fps,
-    options.reducedMotion,
-  );
+  const frameCount = computeVideoFrameCount(timeline.duration, options.fps, options.reducedMotion);
 
   if (!support.supported) {
     return {

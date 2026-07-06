@@ -173,8 +173,8 @@ describe('Page model hygiene', () => {
       const contentRootId = page.contentRoot;
 
       doc = addPage(doc);
-      const secondPageId = doc.pages?.[1]?.id;
-      const secondContentRootId = doc.pages?.[1]?.contentRoot;
+      const secondPageId = doc.pages?.[1]?.id!;
+      const secondContentRootId = doc.pages?.[1]?.contentRoot!;
 
       doc = removePage(doc, secondPageId);
       expect(doc.pages?.length).toBe(1);
@@ -185,7 +185,7 @@ describe('Page model hygiene', () => {
 
     it('removePage prevents removal of last page', () => {
       const doc = createDocument('test', false);
-      const pageId = doc.pages?.[0]?.id;
+      const pageId = doc.pages?.[0]?.id!;
       const result = removePage(doc, pageId);
       expect(result.pages?.length).toBe(1);
     });
@@ -193,7 +193,7 @@ describe('Page model hygiene', () => {
     it('setActivePage switches active page by Page.id', () => {
       let doc = createDocument('test', false);
       doc = addPage(doc);
-      const secondPageId = doc.pages?.[1]?.id;
+      const secondPageId = doc.pages?.[1]?.id!;
       const updated = setActivePage(doc, secondPageId);
       expect(updated.activePageId).toBe(secondPageId);
       expect(updated).not.toBe(doc);

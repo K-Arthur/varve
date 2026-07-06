@@ -768,6 +768,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             onViewModeChange={view.setView}
             sortKey={view.state.sort.key}
             sortDirection={view.state.sort.direction}
+            onSortKeyChange={view.setSortKey}
             onSortDirToggle={view.toggleSortDir}
             onNewFile={() => setNewFileOpen(true)}
             onOpenFromDisk={async () => {

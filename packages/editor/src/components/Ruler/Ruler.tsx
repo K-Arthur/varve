@@ -79,7 +79,8 @@ export function Ruler({
             : (pageRulerOrigin?.y ?? 0) + artboard.y
           : 0;
 
-      const startWorld = Math.floor((-offset / zoom - originOffset) / interval) * interval + originOffset;
+      const startWorld =
+        Math.floor((-offset / zoom - originOffset) / interval) * interval + originOffset;
       const endWorld = startWorld + size / zoom + interval * 2;
 
       ctx.strokeStyle = tickColor;

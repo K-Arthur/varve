@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-06
-- **Updated:** 2026-07-06 — cross-platform storage + native AI deferral
+- **Updated:** 2026-07-06 — Phase E: Option B native cache + dispatch policy
 
 ## Context
 
@@ -15,31 +15,48 @@ Background removal AI models were fetched from GitHub at runtime, breaking offli
 3. Remote download remains **explicit user action** (download in UI), not startup dependency.
 4. Worker pool reuses ONNX sessions; `terminateWorkerPool()` on document close.
 
-### Cross-platform model storage
+### Cross-platform model storage (Option B — Phase E)
 
-**IndexedDB (webview) is the single source of truth for AI model bytes on all platforms** — desktop Tauri and browser alike.
+**IndexedDB (webview) is the primary source of truth for AI model bytes on all shipped builds.**
 
 - User-downloaded models are stored as blobs in IndexedDB (`modelStore.ts`) and resolved to object URLs at inference time (`modelLoader.ts`).
-- Bundled assets ship under `apps/desktop/public/models/` and are served at `/models/{id}.onnx`; `ModelLoader` HEAD-checks availability before falling back to remote download.
-- Rust's `~/.local/share/strata/models/` path (`crates/strata-bgremove/src/model.rs`) is **read-only scaffolding** with no download/write implementation. It is formally deferred until/unless native `ai` inference ships.
+- Bundled assets ship under `apps/desktop/public/models/` and are served at `/models/{id}.onnx`.
 
-### Native Rust AI deferral (Option A)
+**Native `~/.local/share/strata/models/` is an optional second cache** when the `ai` Cargo feature is enabled:
 
-Worker ONNX (`onnxruntime-web` in the Tauri webview) is the **sole desktop AI path** for shipped builds:
+- Populated only via explicit user action (native download IPC or webview export bridge) — never automatic dual-storage on a single download.
+- Native inference reads from this path only; it does not access IndexedDB directly.
+- Without native bytes present, Tauri `remove_background` with `ai` feature falls back to heuristic (Worker ONNX in webview remains primary for AI).
 
-- The `ai` Cargo feature on `strata-bgremove` is opt-in and **not enabled** in CI or release workflows.
-- Without `ai`, Tauri `remove_background` IPC unconditionally routes to the heuristic engine (`Quick` only).
-- `ort` is pinned to `=2.0.0-rc.11` due to an upstream Linux-breaking regression in rc.12.
-- Enabling native AI later requires a three-piece project: Rust download/write, Tauri model IPC, and opt-in release feature — not flipping one Cargo flag.
+### Dispatch order (unchanged — Worker-first)
 
-Dispatch order (all platforms): Worker ONNX → Tauri heuristic IPC → direct onnxruntime-web → heuristic fallback.
+All platforms, shipped builds:
+
+1. **Worker ONNX** (`onnxruntime-web` in webview) — primary AI path
+2. **Tauri native IPC** — heuristic by default; native ONNX when `ai` feature + model on disk
+3. **Direct onnxruntime-web** (main thread) — last resort
+4. **Heuristic** — final fallback
+
+Native ONNX does **not** preempt Worker dispatch. It is an opt-in acceleration path for environments where Worker is unavailable or for perf experiments.
+
+### Native Rust AI (`ai` Cargo feature)
+
+- Opt-in only — **not enabled** in default CI/release workflows.
+- `ort` pinned to `=2.0.0-rc.11` (rc.12 breaks Linux x86_64 build).
+- Separate CI job: `cargo test -p strata-bgremove --features ai`
+- `preview_max_dimension` default 2048 — parity with TS worker/direct paths
+- Dynamic ONNX input/output names (no hardcoded `"input"`)
+- Real confidence from output tensor mean distance from 0.5
 
 ### WebGPU execution provider (deferred)
 
-Investigation (2026-07-06): `onnxruntime-web`'s WebGPU EP requires a browser with `navigator.gpu` (WebGPU). Linux Tauri builds use WebKitGTK 2.52, which **does not expose WebGPU** in the embedded webview today. The worker therefore uses **WebGL → WASM** fallback only (`worker.ts` `getSession`). Do not scaffold WebGPU EP until WebKitGTK ships WebGPU on Linux or the project adds an explicit Chromium-based webview option.
+Investigation (2026-07-06): `onnxruntime-web`'s WebGPU EP requires `navigator.gpu`. Linux Tauri (WebKitGTK 2.52) does not expose WebGPU. Worker uses **WebGL → WASM** fallback only. Revisit when WebKitGTK ships WebGPU.
 
 ## Verification
 
 - `packages/engine/src/backgroundRemoval/workerPool.ts`
-- `packages/engine/src/backgroundRemoval/__tests__/index.test.ts` — Worker-first + Tauri method coercion regression tests
+- `packages/engine/src/backgroundRemoval/__tests__/index.test.ts`
+- `packages/engine/src/backgroundRemoval/__tests__/directPreviewDownscale.test.ts`
+- `crates/strata-bgremove/src/model.rs` — metadata parity with manifest
+- `crates/strata-bgremove/src/inference.rs` — native ONNX parity
 - Manifest at `apps/desktop/public/models/manifest.json`

@@ -26,7 +26,9 @@ export function toCamera(state: EditorCameraState): Camera {
   };
 }
 
-export function cameraPatch(cam: Camera): Pick<EditorCameraState, 'zoom' | 'pan' | 'cameraRotation'> {
+export function cameraPatch(
+  cam: Camera,
+): Pick<EditorCameraState, 'zoom' | 'pan' | 'cameraRotation'> {
   return {
     zoom: cam.zoom,
     pan: cam.pan,

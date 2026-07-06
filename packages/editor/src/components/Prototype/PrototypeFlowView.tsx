@@ -1,26 +1,45 @@
 /**
  * PrototypeFlowView — BFS flow graph of frame screens and navigation connections.
  */
-import type { Document, NodeId } from '@strata/scene';
-import { getInteractionsForNode } from '@strata/scene';
+
 import { createFlowData, findEntryPoint, getOutgoingConnections } from '@strata/prototype';
+import type { Document, NodeId } from '@strata/scene';
+import { getInteractionsForNode, getParent } from '@strata/scene';
 import { useMemo } from 'react';
 
 export interface PrototypeFlowViewProps {
   document: Document;
   currentScreenId?: NodeId;
+  selectedInteractionId?: string | null;
   onSelectScreen?: (screenId: NodeId) => void;
+  onSelectInteraction?: (nodeId: NodeId, interactionId: string) => void;
+}
+
+function resolveScreenId(doc: Document, nodeId: NodeId): NodeId {
+  const node = doc.nodes[nodeId];
+  if (node?.kind === 'frame') return nodeId;
+  let current: NodeId | null = nodeId;
+  while (current) {
+    const parentId = getParent(doc, current);
+    if (!parentId) break;
+    const parent = doc.nodes[parentId];
+    if (parent?.kind === 'frame') return parentId;
+    current = parentId;
+  }
+  return nodeId;
 }
 
 function collectNavigateConnections(doc: Document): Array<{
   sourceNodeId: NodeId;
   targetNodeId: NodeId;
   interactionId: string;
+  interactionNodeId: NodeId;
 }> {
   const connections: Array<{
     sourceNodeId: NodeId;
     targetNodeId: NodeId;
     interactionId: string;
+    interactionNodeId: NodeId;
   }> = [];
   for (const node of Object.values(doc.nodes)) {
     const list = getInteractionsForNode(doc, node.id);
@@ -30,9 +49,10 @@ function collectNavigateConnections(doc: Document): Array<{
         const a = action as { kind?: string; targetId?: string };
         if (a.kind === 'navigateTo' && a.targetId) {
           connections.push({
-            sourceNodeId: node.id,
+            sourceNodeId: resolveScreenId(doc, node.id),
             targetNodeId: a.targetId,
             interactionId: ix.id,
+            interactionNodeId: node.id,
           });
         }
       }
@@ -44,7 +64,9 @@ function collectNavigateConnections(doc: Document): Array<{
 export function PrototypeFlowView({
   document,
   currentScreenId,
+  selectedInteractionId,
   onSelectScreen,
+  onSelectInteraction,
 }: PrototypeFlowViewProps) {
   const screens = useMemo(
     () =>
@@ -66,10 +88,10 @@ export function PrototypeFlowView({
         interactionId: c.interactionId,
       })),
     );
-    return flowData;
+    return { flowData, raw };
   }, [document, screens]);
 
-  const entry = useMemo(() => findEntryPoint(flow), [flow]);
+  const entry = useMemo(() => findEntryPoint(flow.flowData), [flow]);
 
   if (screens.length === 0) {
     return <p className="prototype-flow__empty">Add frames to build a prototype flow.</p>;
@@ -82,7 +104,7 @@ export function PrototypeFlowView({
       </p>
       <ul className="prototype-flow__list">
         {screens.map((screen) => {
-          const outgoing = getOutgoingConnections(flow, screen.id);
+          const outgoing = getOutgoingConnections(flow.flowData, screen.id);
           const isCurrent = screen.id === currentScreenId;
           return (
             <li key={screen.id} className="prototype-flow__item">
@@ -97,9 +119,23 @@ export function PrototypeFlowView({
                 <ul className="prototype-flow__edges">
                   {outgoing.map((conn) => {
                     const target = screens.find((s) => s.id === conn.targetNodeId);
+                    const isSelected = selectedInteractionId === conn.interactionId;
+                    const interactionNodeId =
+                      flow.raw.find((r) => r.interactionId === conn.interactionId)
+                        ?.interactionNodeId ?? conn.sourceNodeId;
                     return (
                       <li key={conn.id} className="prototype-flow__edge">
-                        → {target?.name ?? conn.targetNodeId}
+                        <button
+                          type="button"
+                          className={`prototype-flow__edge-btn${isSelected ? ' prototype-flow__edge-btn--selected' : ''}`}
+                          aria-pressed={isSelected}
+                          aria-label={`Edit interaction to ${target?.name ?? conn.targetNodeId}`}
+                          onClick={() =>
+                            onSelectInteraction?.(interactionNodeId, conn.interactionId)
+                          }
+                        >
+                          to {target?.name ?? conn.targetNodeId}
+                        </button>
                       </li>
                     );
                   })}

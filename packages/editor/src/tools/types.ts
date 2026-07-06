@@ -41,7 +41,8 @@ export type ToolId =
   | 'healBrush'
   | 'spotHeal'
   | 'patch'
-  | 'refineMask';
+  | 'refineMask'
+  | 'trimapEdit';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',
@@ -168,6 +169,11 @@ export interface ToolContext {
     guides: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
   };
   isSnapExcluded?: (id: string) => boolean;
+
+  /** Ephemeral trimap session (not persisted on Document). */
+  getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;
+  setTrimapPreview?: (trimap: Uint8Array, width: number, height: number) => void;
+  commitTrimapEdit?: (trimap: Uint8Array) => void;
 }
 
 export interface Tool {

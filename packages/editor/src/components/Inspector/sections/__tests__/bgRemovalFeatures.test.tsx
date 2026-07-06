@@ -22,6 +22,8 @@ const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } =
 }));
 
 vi.mock('@strata/engine', () => ({
+  DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
+  checkVideoExportSupport: () => ({ supported: false, reason: 'test' }),
   getModelLoaderReady: vi.fn().mockResolvedValue({
     getState: () => 'unavailable',
     isModelAvailable: mockExportIsModelAvailable,
@@ -113,6 +115,10 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
     setShowOriginalBg: vi.fn(),
     setTool: vi.fn(),
     setRefineMaskOptions: vi.fn(),
+    refineHairEdges: vi.fn(),
+    startTrimapEdit: vi.fn(),
+    applyTrimapMatting: vi.fn(),
+    setTrimapEditOptions: vi.fn(),
     ...overrides,
   };
 }
@@ -303,7 +309,7 @@ describe('ExportDialog - Remove background toggle', () => {
     canvasProto.getContext = vi.fn(() => ({
       drawImage: vi.fn(),
       getImageData: vi.fn(() => new ImageData(200, 160)),
-    })) as typeof canvasProto.getContext;
+    })) as unknown as typeof canvasProto.getContext;
   });
 
   it('renders remove background before export checkbox', async () => {
@@ -436,5 +442,53 @@ describe('BackgroundRemovalSection - Refine mask wiring', () => {
     render(<BackgroundRemovalSection nodes={[node]} />);
     expect(screen.getByLabelText('Brush size')).toBeTruthy();
     expect(screen.getByLabelText('Hardness')).toBeTruthy();
+  });
+});
+
+describe('BackgroundRemovalSection - Phase E actions', () => {
+  it('shows Refine edges (hair/fur) when background removal exists', () => {
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'quick',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    expect(screen.getByText('Refine edges (hair/fur)')).toBeTruthy();
+    expect(screen.getByText('Edit trimap')).toBeTruthy();
+  });
+
+  it('calls refineHairEdges when hair refine clicked', () => {
+    const refineHairEdges = vi.fn();
+    mockedUseEditor.mockReturnValue(createMockEditorContext({ refineHairEdges }));
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'quick',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Refine edges (hair/fur)'));
+    expect(refineHairEdges).toHaveBeenCalled();
+  });
+
+  it('calls startTrimapEdit when Edit trimap clicked', () => {
+    const startTrimapEdit = vi.fn();
+    mockedUseEditor.mockReturnValue(createMockEditorContext({ startTrimapEdit }));
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'quick',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Edit trimap'));
+    expect(startTrimapEdit).toHaveBeenCalled();
   });
 });

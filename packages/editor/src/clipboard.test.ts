@@ -54,7 +54,7 @@ function createDataTransferWithFiles(files: File[]): DataTransfer {
     types: [] as ReadonlyArray<string>,
     effectAllowed: 'none',
     dropEffect: 'none',
-  } as DataTransfer;
+  } as unknown as DataTransfer;
 }
 
 function createClipboardEventWithFiles(files: File[]): ClipboardEvent {

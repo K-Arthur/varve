@@ -132,8 +132,8 @@ export class CloneStampTool extends BaseTool {
       sourceX = this.sourceBase.x + offsetX;
       sourceY = this.sourceBase.y + offsetY;
     } else {
-      sourceX = this.sourcePoint?.x;
-      sourceY = this.sourcePoint?.y;
+      sourceX = this.sourcePoint?.x ?? 0;
+      sourceY = this.sourcePoint?.y ?? 0;
     }
 
     const canvasW = canvas.width;

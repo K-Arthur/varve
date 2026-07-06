@@ -35,7 +35,14 @@ const ADJUSTMENT_AS_FILTER: SceneNode = {
   shape: { kind: 'rect', x: 0, y: 0, w: 0, h: 0 },
   opacity: 0,
   filters: [
-    { kind: 'exposure', value: 0.5, offset: 0, gammaCorrection: 1, opacity: 1, blendMode: 'normal' },
+    {
+      kind: 'exposure',
+      value: 0.5,
+      offset: 0,
+      gammaCorrection: 1,
+      opacity: 1,
+      blendMode: 'normal',
+    },
   ],
 };
 

@@ -58,6 +58,20 @@ function renderRow(props?: Partial<React.ComponentProps<typeof LayersRow>>) {
   return render(<LayersRow {...defaultProps} />);
 }
 
+describe('LayersRow roving tabindex', () => {
+  it('gives the treeitem tabIndex=0 when focused', () => {
+    const { container } = renderRow({ focused: true });
+    const row = container.querySelector('[role="treeitem"]');
+    expect(row?.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('gives the treeitem tabIndex=-1 when not focused', () => {
+    const { container } = renderRow({ focused: false });
+    const row = container.querySelector('[role="treeitem"]');
+    expect(row?.getAttribute('tabindex')).toBe('-1');
+  });
+});
+
 describe('LayersRow blend mode / opacity badge', () => {
   it('renders no badge when blend mode is normal and opacity is 1', () => {
     const { container } = renderRow();

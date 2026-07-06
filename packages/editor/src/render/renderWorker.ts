@@ -1,7 +1,7 @@
 /**
  * Render worker entry — replays IR to OffscreenCanvas.
  */
-import { type RenderItem, replayIr } from '@strata/engine';
+import { type RenderItem, replayIr, type ReplayTarget } from '@strata/engine';
 import type { WorkerCommand, WorkerResponse } from './workerHost';
 
 let canvas: OffscreenCanvas | null = null;
@@ -42,7 +42,7 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     ctx.save();
     ctx.translate(msg.camera.pan.x, msg.camera.pan.y);
     ctx.scale(msg.camera.zoom, msg.camera.zoom);
-    replayIr(ctx, msg.ir as RenderItem[]);
+    replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[]);
     ctx.restore();
     if (msg.docVersion >= activeDocVersion) {
       const bitmap = canvas.transferToImageBitmap();
@@ -65,7 +65,10 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
 
 function post(response: WorkerResponse, transfer?: Transferable[]): void {
   if (transfer) {
-    self.postMessage(response, transfer);
+    (self as unknown as { postMessage(message: unknown, transfer: Transferable[]): void }).postMessage(
+      response,
+      transfer,
+    );
   } else {
     self.postMessage(response);
   }

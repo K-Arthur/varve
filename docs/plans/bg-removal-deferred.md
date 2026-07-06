@@ -10,9 +10,19 @@
 | **B** Download resilience | **Done** | Range resume, partial store, quota UX |
 | **C** RefineMask polish | **Done** | CSS, keyboard shortcuts, commit-on-drag tests |
 | **D** Inference perf | **Done** | `previewMaxDimension` default 2048; WebGPU deferred |
-| **E** Advanced features | **Not started** | See **`docs/plans/bg-removal-phase-e-prompt.md`** — agent prompt with stub inventory |
+| **E** Advanced features | **Done** | E.0–E.4 + E.1 native ONNX parity (Session 40) |
 
-Focused suite: **145/145** pass. See `docs/audits/background-removal-audit.md` Session 39 verification table.
+Focused suite: **163/163** pass (23 files). See `docs/audits/background-removal-audit.md` Session 40 verification table.
+
+### Phase E deliverables (Session 40)
+
+| Slice | Status | Key files |
+|---|---|---|
+| **E.0** Stub parity | **Done** | `index.ts` direct-ONNX `previewMaxDimension`; `model.rs` metadata sync |
+| **E.1** Native Rust AI | **Done** | ADR-0005 Option B; `inference.rs` dynamic IO, preview downscale, decontaminate, confidence |
+| **E.2** Hair matting | **Done** | `refineHairMatting.ts`, inspector "Refine edges (hair/fur)" |
+| **E.3** Multi-subject picker | **Done** | `findConnectedComponents`, `SubjectPickerOverlay`, `finalizeMaskResult` |
+| **E.4** Trimap editor | **Done** | `TrimapEditTool`, `solveTrimapMatting`, ephemeral trimap store |
 
 ---
 

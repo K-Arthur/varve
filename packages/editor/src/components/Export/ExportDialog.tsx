@@ -18,11 +18,14 @@ import type {
   Timeline,
 } from '@strata/scene';
 import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
-import { timelineToCSSKeyframes, timelineToLottieJSON } from '@strata/codegen';
+import {
+  timelineToCSSKeyframes,
+  timelineToLottieJSON,
+  timelineToSVGAnimations,
+} from '@strata/codegen';
 import {
   checkVideoExportSupport,
   computeVideoFrameCount,
-  exportTimelineToVideo,
   getModelLoaderReady,
   workerModelIdForMethod,
 } from '@strata/engine';
@@ -44,7 +47,7 @@ export interface ExportDialogProps {
   timelines?: Record<string, Timeline>;
   onExport: (batch: ExportBatch) => Promise<void>;
   onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
-  onExportMotion?: (format: 'css' | 'lottie', fileName: string, content: string) => void;
+  onExportMotion?: (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => void;
   onSaveVideoFile?: (fileName: string, bytes: Uint8Array, mimeType: string) => Promise<void>;
   selectionIds?: NodeId[];
   initialTemplate?: string;
@@ -310,6 +313,7 @@ export function ExportDialog({
           },
         });
 
+        const { exportTimelineToVideo } = await import('@strata/engine');
         const result = await exportTimelineToVideo(
           { id: tl.id, duration: tl.duration },
           {
@@ -483,7 +487,7 @@ export function ExportDialog({
             {removeBgBeforeExport &&
               (() => {
                 const imageCount = nodes.filter(
-                  (n): n is ShapeNode => isImageShape(n) && !n.backgroundRemoval,
+                  (n) => isImageShape(n) && !(n as ShapeNode).backgroundRemoval,
                 ).length;
                 return imageCount > 0 ? (
                   <p className="export-dialog__note">
@@ -532,11 +536,22 @@ export function ExportDialog({
                           onClick={() => {
                             const json = document
                               ? timelineToLottieJSON(tl, document)
-                              : timelineToLottieJSON(tl, { nodes: nodeNames } as Document);
+                              : timelineToLottieJSON(tl, { nodes: nodeNames } as unknown as Document);
                             onExportMotion('lottie', `${tl.name}.json`, json);
                           }}
                         >
                           Lottie
+                        </button>
+                        <button
+                          type="button"
+                          className="export-dialog__btn export-dialog__btn--secondary"
+                          disabled={videoExporting || running}
+                          onClick={() => {
+                            const svg = timelineToSVGAnimations(tl, nodeNames);
+                            onExportMotion('svg', `${tl.name}.svg`, svg);
+                          }}
+                        >
+                          SVG
                         </button>
                       </>
                     )}

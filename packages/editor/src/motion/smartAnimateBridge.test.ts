@@ -1,41 +1,57 @@
-import { createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { computeSmartAnimateTransition } from './smartAnimateBridge';
+import { addNode, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
+import { computeSmartAnimateHotspotOverrides } from './smartAnimateBridge';
 
-describe('computeSmartAnimateTransition', () => {
-  it('returns null when no matching layer names', () => {
-    const doc = createDocument('test');
-    const f1 = makeFrameNode('f1', { name: 'Screen A', w: 400, h: 800 });
-    const f2 = makeFrameNode('f2', { name: 'Screen B', w: 400, h: 800 });
-    const s1 = makeShapeNode('s1', { kind: 'rect', w: 100, h: 100 }, { name: 'Box A' });
-    const s2 = makeShapeNode('s2', { kind: 'rect', w: 100, h: 100 }, { name: 'Box B' });
-    doc.nodes[f1.id] = f1;
-    doc.nodes[f2.id] = f2;
-    doc.nodes[s1.id] = s1;
-    doc.nodes[s2.id] = s2;
-    f1.children = [s1.id];
-    f2.children = [s2.id];
-    doc.rootChildren = [f1.id, f2.id];
+describe('computeSmartAnimateHotspotOverrides', () => {
+  it('interpolates matched hotspot position between screens', () => {
+    let doc = createDocument('SA');
+    doc = addNode(doc, makeFrameNode('f1', { name: 'f1', order: 'a0', children: ['r1'] }));
+    doc = addNode(doc, makeFrameNode('f2', { name: 'f2', order: 'a1', children: ['r2'] }));
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'r1',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+        {
+          name: 'Button',
+          transform: [1, 0, 0, 1, 10, 20],
+        },
+      ),
+    );
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'r2',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+        {
+          name: 'Button',
+          transform: [1, 0, 0, 1, 110, 220],
+        },
+      ),
+    );
+    doc = { ...doc, rootChildren: ['f1', 'f2'] };
 
-    expect(computeSmartAnimateTransition(doc, f1.id, f2.id)).toBeNull();
-  });
+    const matches = [{ fromId: 'r1', toId: 'r2', name: 'Button' }];
+    const values = {
+      Button: {
+        opacity: { from: 1, to: 1 },
+        transform: { from: [1, 0, 0, 1, 10, 20], to: [1, 0, 0, 1, 110, 220] },
+      },
+    };
+    const getBounds = () => ({ x: 0, y: 0, w: 100, h: 50 });
 
-  it('computes values for matching layer names', () => {
-    const doc = createDocument('test');
-    const f1 = makeFrameNode('f1', { name: 'Screen A', w: 400, h: 800 });
-    const f2 = makeFrameNode('f2', { name: 'Screen B', w: 400, h: 800 });
-    const s1 = makeShapeNode('s1', { kind: 'rect', w: 100, h: 100 }, { name: 'Hero' });
-    const s2 = makeShapeNode('s2', { kind: 'rect', w: 120, h: 120 }, { name: 'Hero' });
-    doc.nodes[f1.id] = f1;
-    doc.nodes[f2.id] = f2;
-    doc.nodes[s1.id] = s1;
-    doc.nodes[s2.id] = s2;
-    f1.children = [s1.id];
-    f2.children = [s2.id];
-    doc.rootChildren = [f1.id, f2.id];
+    const mid = computeSmartAnimateHotspotOverrides(
+      doc,
+      matches,
+      values,
+      0.5,
+      { kind: 'linear' },
+      getBounds,
+    );
 
-    const result = computeSmartAnimateTransition(doc, f1.id, f2.id);
-    expect(result).not.toBeNull();
-    expect(result?.values.Hero).toBeDefined();
+    expect(mid.from.r1?.left).toBeGreaterThan(10);
+    expect(mid.from.r1?.left).toBeLessThan(110);
+    expect(mid.to.r2?.top).toBeGreaterThan(20);
+    expect(mid.to.r2?.top).toBeLessThan(220);
   });
 });

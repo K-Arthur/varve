@@ -74,6 +74,7 @@ export function buildVariantEffectiveNodes(
   const component = doc.components[instance.componentId];
   if (!component) return result;
 
+  const componentProperties = component.properties;
   const properties = resolveVariantPropertiesForNode(doc, instanceId);
 
   function walk(id: NodeId) {
@@ -83,7 +84,7 @@ export function buildVariantEffectiveNodes(
     let effective: SceneNode = node;
     const propValue = properties[node.name];
     if (propValue !== undefined) {
-      effective = applyPropertyToNode(node, node.name, propValue, component.properties);
+      effective = applyPropertyToNode(node, node.name, propValue, componentProperties);
     }
     result.set(id, effective);
 

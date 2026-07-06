@@ -18,8 +18,10 @@ export function FocusTrap({ children, active = true, initialFocus }: FocusTrapPr
     const container = containerRef.current;
     if (!container) return;
 
+    const root = container;
+
     function getFocusable(): HTMLElement[] {
-      return Array.from(container?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+      return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
         (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
       );
     }

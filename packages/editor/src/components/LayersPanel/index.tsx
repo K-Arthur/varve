@@ -52,6 +52,9 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     updateNode,
     syncInstance,
     revealSelection,
+    publishComponentToLibrary,
+    enterIsolation,
+    exitIsolation,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
@@ -195,6 +198,20 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [state.selection, syncInstance, closeMenu]);
 
+  const handlePublishToLibrary = useCallback(() => {
+    if (contextMenu) {
+      publishComponentToLibrary(contextMenu.id);
+      closeMenu();
+    }
+  }, [contextMenu, publishComponentToLibrary, closeMenu]);
+
+  const handleIsolate = useCallback(() => {
+    if (contextMenu) {
+      enterIsolation(contextMenu.id);
+      closeMenu();
+    }
+  }, [contextMenu, enterIsolation, closeMenu]);
+
   const handleCopy = useCallback(() => {
     copySelected();
     closeMenu();
@@ -306,6 +323,19 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     state.selection.length === 1 &&
     firstSel?.kind === 'frame' &&
     !!('componentId' in firstSel && (firstSel as { componentId?: string }).componentId);
+  const isComponentMasterSelected =
+    state.selection.length === 1 &&
+    firstSel?.kind === 'frame' &&
+    firstSelId != null &&
+    Object.values(state.document.components).some((c) => c.masterRootId === firstSelId);
+
+  const isolatedNode = state.isolatedNodeId ? state.document.nodes[state.isolatedNodeId] : null;
+  const contextMenuNode = contextMenu ? state.document.nodes[contextMenu.id] : undefined;
+  const canIsolateContextMenuNode =
+    contextMenu != null &&
+    contextMenuNode != null &&
+    isContainer(contextMenuNode) &&
+    contextMenu.id !== state.isolatedNodeId;
 
   return (
     <div className="editor-layers layers-panel">
@@ -321,6 +351,15 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           <Icon name={CHROME_ICONS.collapseAll} size="0.85em" />
         </button>
       </div>
+
+      {isolatedNode && (
+        <div className="layers-panel__isolation-breadcrumb" role="status">
+          <span className="layers-panel__isolation-label">Isolating: {isolatedNode.name}</span>
+          <button type="button" onClick={() => exitIsolation()} aria-label="Exit isolation">
+            Exit
+          </button>
+        </div>
+      )}
 
       <LayerFilterBar
         filter={filterSpec}
@@ -383,6 +422,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               disabled={!isInstanceSelected}
               onAction={handleSyncInstance}
             />
+            <ContextMenuItem
+              label="Publish to Library"
+              disabled={!isComponentMasterSelected}
+              onAction={handlePublishToLibrary}
+            />
             <hr className="layers-context-menu__separator" />
             <ContextMenuItem
               label="Bring to Front"
@@ -397,6 +441,9 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             <hr className="layers-context-menu__separator" />
             {contextMenu && isContainer(state.document.nodes[contextMenu.id] as SceneNode) && (
               <ContextMenuItem label="Collapse Others" onAction={handleCollapseOthers} />
+            )}
+            {canIsolateContextMenuNode && (
+              <ContextMenuItem label="Isolate" onAction={handleIsolate} />
             )}
             <ContextMenuItem label="Lock" onAction={() => handleLockFromMenu(true)} />
             <ContextMenuItem label="Hide" onAction={() => handleVisibilityFromMenu(false)} />

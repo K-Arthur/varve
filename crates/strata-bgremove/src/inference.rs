@@ -1,12 +1,15 @@
 //! ONNX model inference for AI-powered background removal.
 //!
 //! Uses the `ort` crate (ONNX Runtime Rust bindings) to run
-//! segmentation models on-device with optional GPU acceleration.
+//! segmentation models on-device. Opt-in via the `ai` Cargo feature.
 
 use image::DynamicImage;
 use ort::{Session, SessionBuilder, Value};
 
-use crate::{mask_to_base64, model, RemovalOptions, RemovalResult};
+use crate::{heuristic, mask_to_base64, model, RemovalOptions, RemovalResult};
+
+/// Default preview downscale cap (matches TS `DEFAULT_PREVIEW_MAX_DIMENSION`).
+const DEFAULT_PREVIEW_MAX_DIMENSION: u32 = 2048;
 
 /// Run AI background removal on an image using the specified model.
 pub fn remove_ai(
@@ -19,7 +22,7 @@ pub fn remove_ai(
     let model_path = model::model_path(model_id);
     if !model_path.exists() {
         return Err(format!(
-            "Model '{}' not found at {}. Please download it first.",
+            "Model '{}' not found at {}. Download via Settings or export from webview.",
             model_id,
             model_path.display()
         ));
@@ -31,22 +34,32 @@ pub fn remove_ai(
         .map_err(|e| format!("Failed to load model '{model_id}': {e}"))?;
 
     let (orig_w, orig_h) = img.dimensions();
+    let preview_max = opts
+        .preview_max_dimension
+        .unwrap_or(DEFAULT_PREVIEW_MAX_DIMENSION);
 
-    // Resize to model input size (1024x1024 for BiRefNet, 320x320 for u2netp)
+    let source = if orig_w > preview_max || orig_h > preview_max {
+        let scale = preview_max as f32 / orig_w.max(orig_h) as f32;
+        let tw = ((orig_w as f32 * scale).round() as u32).max(1);
+        let th = ((orig_h as f32 * scale).round() as u32).max(1);
+        img.resize_exact(tw, th, image::imageops::FilterType::Triangle)
+    } else {
+        img.clone()
+    };
+
     let input_size = if model_id == "u2netp" {
         320u32
     } else {
         1024u32
     };
-    let resized = img.resize_exact(
+    let resized = source.resize_exact(
         input_size,
         input_size,
-        image::imageops::FilterType::Lanczos3,
+        image::imageops::FilterType::Triangle,
     );
     let rgba = resized.to_rgba8();
     let pixels = rgba.into_raw();
 
-    // Convert RGBA to float32 tensor (NCHW format)
     let n = (input_size * input_size) as usize;
     let mut tensor_data = Vec::with_capacity(n * 3);
     for c in 0..3 {
@@ -65,11 +78,20 @@ pub fn remove_ai(
     )
     .map_err(|e| format!("Failed to create input tensor: {e}"))?;
 
+    let input_name = session
+        .inputs
+        .first()
+        .ok_or("No input found in model")?
+        .name
+        .clone();
+
     let outputs = session
-        .run(ort::inputs! { "input" => tensor }.map_err(|e| format!("Input binding error: {e}"))?)
+        .run(
+            ort::inputs! { input_name.as_str() => tensor }
+                .map_err(|e| format!("Input binding error: {e}"))?,
+        )
         .map_err(|e| format!("ONNX inference failed: {e}"))?;
 
-    // Get the output tensor (the mask)
     let output_name = session
         .outputs
         .first()
@@ -85,21 +107,29 @@ pub fn remove_ai(
         .try_extract_tensor::<f32>()
         .map_err(|e| format!("Failed to extract output tensor: {e}"))?;
 
-    // Convert sigmoid output to binary mask
     let mask_size = output_data.len();
     let mask_dim = (mask_size as f64).sqrt() as u32;
     let mut mask = vec![0u8; mask_size];
+    let mut confidence_sum = 0.0f32;
 
     for (i, &val) in output_data.iter().enumerate() {
         mask[i] = if val > 0.5 { 255 } else { 0 };
+        confidence_sum += (val - 0.5).abs();
+    }
+    let confidence = if mask_size > 0 {
+        ((confidence_sum / mask_size as f32) * 2.0).min(1.0)
+    } else {
+        0.0
+    };
+
+    let mut resized_mask = resize_mask(&mask, mask_dim, mask_dim, orig_w, orig_h);
+
+    if opts.decontaminate.unwrap_or(false) {
+        resized_mask = heuristic::apply_decontaminate(&resized_mask, orig_w, orig_h);
     }
 
-    // Upscale mask to original image dimensions
-    let resized_mask = resize_mask(&mask, mask_dim, mask_dim, orig_w, orig_h);
-
-    // Apply feather if requested
     let final_mask = if opts.feather_radius.unwrap_or(0.0) > 0.0 {
-        crate::heuristic::apply_feather(
+        heuristic::apply_feather(
             &resized_mask,
             orig_w,
             orig_h,
@@ -109,14 +139,19 @@ pub fn remove_ai(
         resized_mask
     };
 
-    let confidence = 0.85; // AI models generally have high confidence
+    let method = match model_id {
+        "birefnet-general" => "ai-quality",
+        "birefnet-general-lite" => "ai-balanced",
+        _ => model_id,
+    };
+
     let mask_base64 = mask_to_base64(&final_mask, orig_w, orig_h)?;
     let elapsed = start.elapsed();
 
     Ok(RemovalResult {
         mask_base64,
         confidence,
-        method: model_id.to_string(),
+        method: method.to_string(),
         processing_time_ms: elapsed.as_millis() as u64,
         width: orig_w,
         height: orig_h,

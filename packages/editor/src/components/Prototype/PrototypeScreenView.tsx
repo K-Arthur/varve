@@ -3,6 +3,7 @@
  */
 import type { Document, NodeId } from '@strata/scene';
 import { useCallback, useMemo, useRef } from 'react';
+import type { HotspotTransitionOverride } from '../../motion/smartAnimateBridge';
 
 export interface PrototypeScreenViewProps {
   document: Document;
@@ -11,6 +12,8 @@ export interface PrototypeScreenViewProps {
   onEvent: (event: { type: 'click'; nodeId: NodeId; screenId: string }) => void;
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId } | null;
   getNodeBounds: (nodeId: NodeId) => { x: number; y: number; w: number; h: number } | null;
+  /** Per-hotspot overrides during Smart Animate transitions. */
+  hotspotOverrides?: Record<NodeId, HotspotTransitionOverride>;
 }
 
 export function PrototypeScreenView({
@@ -20,6 +23,7 @@ export function PrototypeScreenView({
   onEvent,
   hitTestNode,
   getNodeBounds,
+  hotspotOverrides,
 }: PrototypeScreenViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const screen = document.nodes[screenId];
@@ -70,17 +74,26 @@ export function PrototypeScreenView({
       {Array.from(visibleIds).map((nodeId) => {
         const bounds = getNodeBounds(nodeId);
         const node = document.nodes[nodeId];
+        const override = hotspotOverrides?.[nodeId];
         if (!bounds || !node) return null;
+        const tx = node.transform?.[4] ?? 0;
+        const ty = node.transform?.[5] ?? 0;
+        const left = override?.left ?? tx + bounds.x;
+        const top = override?.top ?? ty + bounds.y;
+        const width = override?.width ?? bounds.w;
+        const height = override?.height ?? bounds.h;
+        const opacity = override?.opacity ?? node.opacity ?? 1;
         return (
           <button
             key={nodeId}
             type="button"
             className="prototype-screen-view__hotspot"
             style={{
-              left: bounds.x,
-              top: bounds.y,
-              width: bounds.w,
-              height: bounds.h,
+              left,
+              top,
+              width,
+              height,
+              opacity,
             }}
             aria-label={node.name}
             onPointerDown={(e) => {

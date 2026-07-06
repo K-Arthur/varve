@@ -13,6 +13,8 @@ import { isContainer, isImageShape, nodeHasStyle } from '@strata/scene';
 import type { IconName } from '@strata/ui';
 import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import type { PresenceData } from './PresenceIndicator';
+import { PresenceIndicator } from './PresenceIndicator';
 import { useThumbnail } from './useThumbnail';
 
 export interface LayersRowProps {
@@ -48,6 +50,12 @@ export interface LayersRowProps {
   keyframeCount?: number;
   /** Sync status for component instances. */
   syncStatus?: InstanceStatus;
+  /** Other users currently present on this node (collaborative editing). */
+  presences?: PresenceData[];
+  /** Owning document id — scopes the thumbnail cache so nodes with the same
+   * id in different open documents (ids are per-document counters starting
+   * at `n1`) never share a cached thumbnail. */
+  docId?: string;
 }
 
 const NODE_ICONS: Record<string, IconName> = {
@@ -111,6 +119,7 @@ export const LayersRow = memo(function LayersRow({
   hasMotion,
   keyframeCount,
   syncStatus,
+  presences,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -209,7 +218,6 @@ export const LayersRow = memo(function LayersRow({
   return (
     <>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard at tree level per APG tree view */}
-      {/* biome-ignore lint/a11y/useFocusableInteractive: treeitem managed by tree container focus */}
       <div
         role="treeitem"
         data-node-id={node.id}
@@ -218,6 +226,7 @@ export const LayersRow = memo(function LayersRow({
         aria-expanded={container ? expanded : undefined}
         aria-level={depth + 1}
         className={rowClass}
+        tabIndex={focused ? 0 : -1}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         style={{
@@ -378,6 +387,11 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Blend mode / opacity badge */}
         {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
+
+        {/* Collaborator presence */}
+        {presences && presences.length > 0 && !editing && (
+          <PresenceIndicator presences={presences} />
+        )}
 
         {/* Visibility toggle */}
         <button

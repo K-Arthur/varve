@@ -163,6 +163,30 @@ export function interpolateColor(
   to: string | number[],
   t: number,
 ): string | number[] {
+  if (t <= 0) {
+    return Array.isArray(from) ? [...from] : from;
+  }
+  if (t >= 1) {
+    return Array.isArray(to) ? [...to] : to;
+  }
+
+  // RGBA tuples: linear channel lerp (matches animation keyframe sampling).
+  if (
+    Array.isArray(from) &&
+    Array.isArray(to) &&
+    from.length >= 3 &&
+    to.length >= 3 &&
+    from.every((n) => typeof n === 'number') &&
+    to.every((n) => typeof n === 'number')
+  ) {
+    const len = Math.min(from.length, to.length);
+    return Array.from({ length: len }, (_, i) => {
+      const a = from[i] as number;
+      const b = to[i] as number;
+      return a + (b - a) * t;
+    });
+  }
+
   return interpolateColorOklch(from, to, t);
 }
 

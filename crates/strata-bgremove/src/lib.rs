@@ -43,6 +43,8 @@ pub struct RemovalOptions {
     pub click_x: Option<u32>,
     /// Click point for flood fill (y coordinate, 0-based).
     pub click_y: Option<u32>,
+    /// Downscale source before inference; mask upscaled to original dimensions.
+    pub preview_max_dimension: Option<u32>,
 }
 
 /// Result of a background removal operation.

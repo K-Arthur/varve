@@ -36,7 +36,11 @@ export const SHORTCUT_DEFS = {
   fitAll: { binding: { key: '1', shift: true }, label: 'Fit All', category: 'View' },
   fitSelection: { binding: { key: '2', shift: true }, label: 'Fit Selection', category: 'View' },
   fitActivePage: { binding: { key: '3', shift: true }, label: 'Fit Active Page', category: 'View' },
-  fitActiveFrame: { binding: { key: '4', shift: true }, label: 'Fit Active Frame', category: 'View' },
+  fitActiveFrame: {
+    binding: { key: '4', shift: true },
+    label: 'Fit Active Frame',
+    category: 'View',
+  },
   resetViewRotation: {
     binding: { key: 'r', shift: true },
     label: 'Reset View Rotation',

@@ -1,5 +1,5 @@
 import type { Document, NodeId, SceneNode } from '@strata/scene';
-import { getParent, isImageShape, shapeHeight, shapeWidth } from '@strata/scene';
+import { getParent, imageShapeH, imageShapeW, isImageShape, shapeHeight, shapeWidth } from '@strata/scene';
 
 export interface NamingSuggestion {
   name: string;
@@ -55,11 +55,9 @@ function truncateText(text: string, maxLen: number = 30): string {
 function getNodeWidth(node: SceneNode): number | null {
   switch (node.kind) {
     case 'shape':
+      if (isImageShape(node)) return imageShapeW(node);
       return shapeWidth(node.shape);
     case 'frame':
-      return node.w;
-    case 'image':
-      return node.w;
     default:
       return null;
   }
@@ -68,10 +66,9 @@ function getNodeWidth(node: SceneNode): number | null {
 function getNodeHeight(node: SceneNode): number | null {
   switch (node.kind) {
     case 'shape':
+      if (isImageShape(node)) return imageShapeH(node);
       return shapeHeight(node.shape);
     case 'frame':
-      return node.h;
-    case 'image':
       return node.h;
     default:
       return null;

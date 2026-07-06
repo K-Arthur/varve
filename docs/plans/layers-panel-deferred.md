@@ -1,263 +1,146 @@
-# Layers Panel — Deferred Implementation Plan
+# Layers Panel — Current State & Roadmap
 
-**Status: ALL PHASES COMPLETE (Session 11, 2026-06-29)**
+**Last updated: 2026-07-06 (Session — evidence-based fixes pass)**
 
-Everything below was implemented in Sessions 10–11. This document is kept for
-historical reference; no remaining work is tracked here.
+This doc previously claimed "ALL PHASES COMPLETE, no remaining work." That
+was inaccurate: a full audit found the Layers Panel already had a mature,
+mostly-working implementation, but with several real bugs (including one
+that made mouse drag-and-drop reordering silently non-functional) and a few
+built-but-never-wired features. This revision reflects what's actually true
+today and what's genuinely still open.
 
-## Dependencies already installed
+## What's real and already working
 
-```bash
-pnpm add @tanstack/react-virtual --filter @strata/editor
-pnpm add -D @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities --filter @strata/editor
-pnpm add -D -w playwright @axe-core/playwright @playwright/test
-```
+- **Scene model**: 6-kind node union (Shape/Text/Group/Frame/Adjustment/Path),
+  Pages as a separate top-level structure, a real component/instance system
+  with baseline-diff override detection + sync status, real fractional
+  indexing (`fractional-indexing` npm package) for future CRDT sync.
+- **Tree UI**: virtualized (`@tanstack/react-virtual`, dynamic row measurement),
+  `@dnd-kit`-backed reorder + reparent-into-container with auto-expand/
+  auto-scroll, APG `role=tree`/`treeitem` markup, multi-select (range/toggle/
+  all), type-ahead, inline rename with Tab-cycle, a 7-color label system,
+  name+kind+attribute filtering, AND-term search, bulk lock/hide/color-tag,
+  motion/keyframe indicators, real system-clipboard copy/cut/paste.
+- **Data-layer perf**: 10k-node benchmarks for flatten/search/spatial-index/
+  parent-lookup, all comfortably sub-250ms (`__benchmarks__/layers10k.bench.test.ts`).
 
-## Completed foundation (Phases 0–1)
+## Fixed this session
 
-| Area | Status | What was built |
-|---|---|---|
-| Tokens | Done | `tree-row`, `tree-row-hover`, `tree-row-selected`, `tree-row-focus`, `tree-indent-guide` in color.ts; all 51 pairs pass WCAG AA |
-| Shared ordering | Done | `packages/shared/src/ordering.ts` — array-index facade, `generateKeyBetween`, `midPoint` |
-| Scene model | Done | `GroupNode` in types.ts; `reparentNode`, `groupNodes`, `ungroupNode`, `detachInstance` in document.ts; 13 new tests |
-| Editor context | Done | Shared `aria-live` announcer, undo+selection fix, `groupSelected`, `ungroupSelected`, `detachSelected`, `reparentNode` context actions |
-| Layers panel directory | Done | `packages/editor/src/components/LayersPanel/` — `index.tsx`, `LayersTree.tsx`, `LayersRow.tsx`, `layers.css`, `useFlatTree.ts`, `useTreeFocus.ts`, `useTypeAhead.ts`, `useAutoName.ts` |
-| APG Tree semantics | Done | `role="tree"` with `aria-multiselectable`, `role="treeitem"` with `aria-selected`/`aria-expanded`/`aria-level`, roving tabindex |
-| Keyboard map | Done | ↑↓→← Home End Enter Space Shift+↑↓ Ctrl+A F2, type-ahead |
-| Multi-select | Done | Shift+Click range, Ctrl+Click toggle, Shift+Arrow extend, Ctrl+A all |
-| Row anatomy | Done | Disclosure triangle, type icon, auto-naming, visibility/lock toggles, inline rename (F2/dblclick), instance badge |
-| Search/filter | Done | `<input>` at top, name filter, match collapsing |
-| Context menu | Done | Rename, Delete, Lock, Hide, Copy/Cut/Paste stubs, Escape close |
+1. **Multi-select drag now moves the whole selection**, not just the row
+   under the pointer (matches Figma/Sketch/Illustrator). New pure functions
+   `resolveDragMoveIds`/`computeMultiMoveSteps` in `LayersTree.tsx`, unit
+   tested directly; wrapped in `beginTransaction`/`commitTransaction` for a
+   single undo step per multi-drag.
+2. **Critical fix: `rowRefs` was declared but never populated.**
+   `handleDragOver`'s drop-zone computation depended on
+   `rowRefs.current.get(overId)` for the row's bounding rect; since nothing
+   ever called `.set()` on that map, this always returned `undefined` and the
+   function exited immediately — `dropIndicator` never got set, and
+   `handleDragEnd`'s reparent logic (gated on a non-null `dropIndicator`)
+   never ran. **Mouse drag-and-drop reordering did not work in the shipped
+   app**, despite extensive supporting logic (auto-scroll, auto-expand, cycle
+   guards) built around it. Fixed by populating the map from
+   `SortableVirtualRow`'s wrapper ref callback.
+3. **Real roving tabindex.** Rows now get `tabIndex={focused ? 0 : -1}`
+   (previously hardcoded `-1` on every row with only the tree container
+   focusable); the container is `tabIndex={-1}`; a new effect moves actual
+   DOM focus to the newly-focused row when the user is already navigating
+   inside the tree. Confirmed via research (GitHub's own tree-view
+   engineering work) that roving tabindex is the more robust pattern versus
+   `aria-activedescendant`, particularly for VoiceOver.
+4. **`layerBulkOperations.test.ts` now tests real code.** The file tested
+   hand-copied local reimplementations of the bulk-select/lock/visibility/
+   color-tag logic, not the actual `context.tsx` implementations — a bug in
+   the real code would have passed this suite. Extracted the real logic into
+   `layerBulkOperations.ts` (pure functions), wired `context.tsx` to call it,
+   and rewrote the tests against the real exports.
+5. **Thumbnail LRU cache wired in.** `thumbnailCache.ts`'s `ThumbnailCache`
+   was fully built and unit-tested but never imported by `useThumbnail.ts` —
+   every row re-rendered its 28×28 canvas from scratch on every mount,
+   including every virtualizer scroll-in. Now backed by a shared
+   `sharedThumbnailCache` singleton; also fixes a related staleness bug
+   where a fill-color change without an id/kind change didn't invalidate the
+   thumbnail (the cache key now correctly encodes fill).
+6. **`getKeyframeCount` memoized per document.** Was called fresh per row on
+   every render, scanning every track in every timeline each time; now
+   precomputed once per document reference into a `Map`.
+7. **Search index patched incrementally**, not rebuilt from scratch on every
+   document mutation. This required also fixing a latent bug in
+   `useFlatTree.ts`'s hook: its "fast path" cache check only compared
+   `doc`/`expanded`, silently ignoring `filterSpec`/`matchedIds`/
+   `activePageId` — meaning toggling a filter chip or switching pages with
+   the document otherwise unchanged could return stale cached tree entries.
+   Both gaps fixed together and covered by regression tests
+   (`useFlatTree.test.ts`, `layerSearchIndex.test.ts`).
+8. **`PageStrip.tsx` (orphaned duplicate) deleted.** It lived in
+   `LayersPanel/`, had real thumbnails + drag-reorder, and was fully unit
+   tested — but was never mounted anywhere; the actual page switcher was a
+   separate, less-capable `PageNav.tsx`. Ported `PageStrip`'s drag-reorder
+   (via `@dnd-kit`, a new `computeReorderedPageIds` pure function) into the
+   live `PageNav.tsx` and deleted the orphan. Did **not** port `PageStrip`'s
+   "Rename page" menu item — it was a dead stub (called `onSetActivePage`
+   instead of an actual rename), so porting it would have reintroduced a bug
+   under the guise of a feature.
+9. **Presence indicators wired in** (`usePresence` hook in `presenceStore.ts`,
+   consumed by `LayersRow`/`LayersTree`). `PresenceIndicator`/`presenceStore`
+   were fully built and tested but never imported anywhere; this makes them
+   render if/when a real presence backend populates the store. No backend
+   exists yet (see below).
+10. **"Publish to Library" context-menu entry point.** `packages/scene/src/library.ts`
+    had a full versioned publish/install data model with zero UI. Added a
+    minimal, real entry point: right-click a component's master frame →
+    "Publish to Library" builds a `LibraryPackage` (via the existing
+    `publishComponentToLibrary`/`createLibraryPackage` functions) and copies
+    it to the clipboard as JSON. Deliberately not a full library-management
+    panel — see roadmap below.
+11. **Isolation/focus mode (panel-scoped).** Right-click a container →
+    "Isolate" shows only that subtree in the tree (via a new `isolatedNodeId`
+    editor-state field and a `flattenTree` parameter), with a breadcrumb
+    header and Escape-to-exit. Deliberately does **not** touch canvas-side
+    selection or rendering — see roadmap below.
 
----
+## Roadmap — explicitly deferred, with rationale
 
-## Phase 2 — DnD reorder + reparent [OK] COMPLETED (Session 10)
+- **Canvas-side isolation enforcement.** Today's isolation mode only filters
+  the *panel* tree; the canvas still lets you select/edit objects outside the
+  isolated subtree. Real enforcement means either restricting hit-testing in
+  `SelectTool.ts` or dimming non-subtree content in the render path
+  (`CanvasArea.tsx`/`sceneCompositing.ts`) — both are broader, higher-risk
+  surfaces than the Layers Panel and deserve their own co-designed pass
+  rather than a rushed partial guard bolted onto this one.
+- **Full Library management panel.** The publish entry point above proves
+  the data layer end-to-end, but there's no install/browse/version-update UI
+  yet (`installLibrary`, `hasLibraryUpdates`, `listLibraryComponents` are all
+  unused by any component). A real "Library" panel is a separate,
+  panel-sized feature.
+- **Real-time collaboration backend.** `presenceStore`/`PresenceIndicator`
+  are now wired into the rows, but there is still no networked presence
+  source (no CRDT/Yjs/websocket) populating the store — it's client-only
+  scaffolding for a future sync phase.
+- **Consuming `order` for actual paint order.** Every mutating op already
+  writes a `fractional-indexing` `order` string per node, but paint order is
+  still determined by array position (`children`/`rootChildren`), per
+  `document.ts`'s own comment that this is deferred to a Phase-2 CRDT sync
+  layer. Not touched here — it's sync-architecture scope, not a panel fix.
+- **Cross-page drag-and-drop in the tree.** `useFlatTree` only ever flattens
+  the *active* page's content, by design — dragging a layer directly from one
+  page to another isn't possible from the panel. Making multiple pages
+  simultaneously drop-targetable is a real UX question (should another
+  page's content be visible while you're on a different page?) that needs a
+  product decision, not a silent architecture change.
+- **Rust engine hierarchy mirror.** `strata-bridge`'s `SceneNode` only
+  represents flat shape primitives — it never sees groups, frames,
+  components, or pages as such; something upstream flattens the rich
+  `@strata/scene` `Document` before it reaches the native renderer. This
+  affects native-render/export fidelity for complex hierarchies, not the
+  Layers Panel UI itself; out of scope here.
 
-### Files to modify
+## Test strategy note
 
-| File | Changes |
-|---|---|
-| `packages/editor/src/components/LayersPanel/LayersTree.tsx` | Wrap in `<DndContext>`. Add `useSortable` + `useDroppable`. Render `DragOverlay`. Handle drop indicators. |
-| `packages/editor/src/components/LayersPanel/LayersRow.tsx` | Accept sortable props, apply drag styles (`layers-row--dragging`). |
-| `packages/editor/src/components/LayersPanel/layers.css` | Add `.layers-row--dragging`, `.layers-row--drop-before`, `.layers-row--drop-after`, `.layers-row--drop-into`. |
-
-### Implementation outline
-
-```tsx
-// LayersTree.tsx
-import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-
-function SortableRow({ id, ...props }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = { transform: CSS.Transform.toString(transform), transition };
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={isDragging ? 'layers-row--dragging' : ''}>
-      <LayersRow {...props} />
-    </div>
-  );
-}
-```
-
-### Drop indicators
-
-- Between rows: render a `<div>` at the drop position (before/after)
-- Into container: highlight the container row background
-- Use `onDragOver` to compute drop zone from `closestCenter` + mouse Y position
-- Auto-scroll: `onDragOver` checks `scrollTop` near edges (80px threshold), calls `virtualizer.scrollBy`
-- Auto-expand: `onDragOver` checks if hovering over collapsed container, starts a 600ms timer, then expands
-
-### Keyboard reorder (Ctrl+[ / Ctrl+])
-
-In `LayersTree`'s `handleKeyDown`:
-
-```tsx
-if ((e.ctrlKey || e.metaKey) && e.key === '[') {
-  // Move up among siblings
-  e.preventDefault();
-  const parentId = entries[focusIdx]?.parentId;
-  const siblingIds = getSiblingIds(state.document, parentId, focusIdx, entries);
-  const myIdx = siblingIds.indexOf(nodeId);
-  if (myIdx > 0) {
-    reparentNode(nodeId, parentId, myIdx - 1);
-    announce(`Moved ${node.name} above ${siblingIds[myIdx - 1]}`);
-  }
-}
-```
-
----
-
-## Phase 3 — Virtualization (already wired in LayersTree.tsx) [OK] COMPLETED (Session 11)
-
-@tanstack/react-virtual is already imported and configured in `LayersTree.tsx`. Verify it works at 5000+ nodes:
-
-```tsx
-// Performance test — add temporarily to LayersPanel
-for (let i = 0; i < 5000; i++) {
-  const { id, doc: d2 } = nextNodeId(doc);
-  doc = addNode(d2, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: `Shape ${i}` }));
-}
-```
-
-### Thumbnail optimization
-
-Create `useThumbnail.ts` in the LayersPanel directory:
-
-```tsx
-export function useThumbnail(nodeId: NodeId): string | null {
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  useEffect(() => {
-    const idle = requestIdleCallback(() => {
-      const canvas = new OffscreenCanvas(28, 28);
-      const ctx = canvas.getContext('2d');
-      // Render simplified shape to canvas
-      // Convert to data URL
-      setDataUrl(canvas.convertToBlob().then(b => URL.createObjectURL(b)));
-    });
-    return () => cancelIdleCallback(idle);
-  }, [nodeId]);
-  return dataUrl;
-}
-```
-
----
-
-## Phase 4 — Playwright E2E + axe-core [OK] COMPLETED (Session 11)
-
-### Setup
-
-```bash
-npx playwright install --with-deps chromium firefox webkit
-```
-
-### Test file: `tests/e2e/layers/layers.spec.ts`
-
-```typescript
-import { test, expect } from '@playwright/test';
-
-test.describe('Layers Panel', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:1420');
-  });
-
-  test('keyboard navigation follows APG tree pattern', async ({ page }) => {
-    const tree = page.getByRole('tree', { name: /layers/i });
-    await tree.focus();
-    await page.keyboard.press('ArrowDown');
-    // Assert focused row changed
-    await page.keyboard.press('ArrowRight');
-    // Assert expanded
-  });
-
-  test('drag reorder changes paint order', async ({ page }) => {
-    // Drag first row to third position
-    // Assert reorder
-  });
-
-  test('multi-select with shift+click', async ({ page }) => {
-    // Click first row, shift-click third
-    // Assert 3 selected
-  });
-
-  test('inline rename with F2', async ({ page }) => {
-    // Select row, press F2, type, Enter
-    // Assert name changed
-  });
-
-  test('search filter narrows rows', async ({ page }) => {
-    // Type in filter input
-    // Assert only matching rows visible
-  });
-
-  test('context menu keyboard accessible', async ({ page }) => {
-    // Shift+F10 or context menu key
-    // Assert menu visible, navigate with arrows, select with Enter
-  });
-});
-```
-
-### Axe-core test: `tests/e2e/layers/axe.spec.ts`
-
-```typescript
-import { test, expect } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
-
-test('layers panel has no axe violations', async ({ page }) => {
-  await page.goto('http://localhost:1420');
-  const results = await new AxeBuilder({ page }).include('.layers-panel').analyze();
-  expect(results.violations).toEqual([]);
-});
-```
-
-### package.json script
-
-```json
-"test:e2e": "playwright test"
-```
-
----
-
-## Other deferred items
-
-### 1. ImageNode + PathNode [OK] COMPLETED (Session 11 + Session 39)
-
-Engine IR supports both image and path primitives.
-
-| File | Changes |
-|---|---|
-| `packages/scene/src/types.ts` | `ImageNode` (`kind:'image'`), `PathNode` (`kind:'path'`, `points: PathPoint[]`, `closed: boolean`) — both top-level `SceneNode` union members |
-| `packages/scene/src/document.ts` | `makeImageNode()`, `makePathNode()` |
-| `packages/scene/src/visitor.ts` | `NodeVisitor<T>` and `visitNode` switch extended with `path` handler |
-| `packages/editor/src/components/LayersPanel/useAutoName.ts` | `image: 'Image'`, `path: 'Path'` in `TYPE_LABELS` |
-| `packages/editor/src/components/LayersPanel/LayersRow.tsx` | `nodeTypeIcon` handles `path` via `NODE_ICONS` |
-
-### 2. Real fractional indexing (CRDT-safe) [OK] COMPLETED (Session 11)
-
-Implementation uses `fractional-indexing` package. `order: string` on NodeBase.
-
-```bash
-pnpm add fractional-indexing --filter @strata/shared
-```
-
-Replace `shared/src/ordering.ts` body:
-
-```ts
-import { generateKeyBetween as genBetween } from 'fractional-indexing';
-export function generateKeyBetween(a: string | null, b: string | null): string {
-  return genBetween(a, b, '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');
-}
-```
-
-Add `order: string` field to `NodeBase`. Replace array-index ordering with order-key sorting in `rootChildren` and `FrameNode.children`.
-
-### 3. Copy/Cut/Paste (system clipboard) [OK] COMPLETED (Session 11)
-
-System clipboard with dual MIME (`application/vnd.strata+json` + `text/plain`).
-
-```ts
-// context.tsx actions
-copySelected: () => {
-  const json = JSON.stringify(selectedNodes());
-  navigator.clipboard.write([
-    new ClipboardItem({ 'application/vnd.strata+json': new Blob([json], { type: 'application/vnd.strata+json' }) })
-  ]);
-}
-```
-
-### 4. Full context menu (Group/Ungroup, Detach, Bring Forward, etc.) [OK] COMPLETED (Session 10-11)
-
-Add to `index.tsx` handle actions:
-
-```tsx
-<ContextMenuItem label="Group" shortcut="Ctrl+G" onAction={handleGroupSelected} />
-<ContextMenuItem label="Ungroup" onAction={handleUngroupSelected} disabled={!isGroupSelected} />
-<ContextMenuItem label="Detach Instance" onAction={handleDetachSelected} disabled={!isInstanceSelected} />
-<ContextMenuItem label="Bring to Front" shortcut="Ctrl+Shift+]" onAction={() => moveToFront(state.selection[0])} />
-<ContextMenuItem label="Send to Back" shortcut="Ctrl+Shift+[" onAction={() => moveToBack(state.selection[0])} />
-<ContextMenuItem label="Reveal on Canvas" onAction={handleRevealOnCanvas} />
-```
-
-### 5. Custom context menu portal (not position:fixed) [OK] COMPLETED (Session 10-11)
-
-Uses `createPortal` to render at `document.body` (previously `position: fixed` inside the panel).
+Every fix above followed TDD: a test was written (or an existing test was
+shown to pass against a hand-reimplemented stand-in rather than real code,
+per #4) before the corresponding fix landed. New/changed test files:
+`dragMove.test.ts`, `keyframeCounts.test.ts`, `libraryPublish.test.ts`,
+`useThumbnail.test.ts`, plus extensions to `useFlatTree.test.ts`,
+`layerSearchIndex.test.ts`, `layerBulkOperations.test.ts`, `LayersRow.test.tsx`,
+`__tests__/PresenceIndicator.test.tsx`, and `PageNav.test.tsx`.

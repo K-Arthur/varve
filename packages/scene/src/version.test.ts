@@ -236,7 +236,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.5');
+    expect(doc.formatVersion).toBe('1.6');
     expect(doc.documentUnit).toBe('px');
     expect(doc.dpi).toBe(0);
     expect(doc.pages).toBeDefined();
@@ -260,7 +260,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.5');
+    expect(doc.formatVersion).toBe('1.6');
     expect(doc.colorConfig).toEqual({ mode: 'cmyk' });
     expect(doc.bleed).toEqual({ top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' });
   });
@@ -282,7 +282,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.5');
+    expect(doc.formatVersion).toBe('1.6');
     expect(doc).toHaveProperty('timelines');
     expect(doc.timelines).toBeUndefined();
     expect(doc).toHaveProperty('activeTimelineId');
@@ -311,7 +311,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.5');
+    expect(doc.formatVersion).toBe('1.6');
     expect(doc.timelines).toBeDefined();
     expect((doc.timelines as Record<string, unknown>)['tl-1']).toBeDefined();
   });

@@ -39,11 +39,7 @@ function rdpRecursive(
 
   for (let i = first + 1; i < last; i++) {
     const pi = points[i]!;
-    const dSq = pointToSegmentDistSq(
-      [pFirst.x, pFirst.y],
-      [pLast.x, pLast.y],
-      [pi.x, pi.y],
-    );
+    const dSq = pointToSegmentDistSq([pFirst.x, pFirst.y], [pLast.x, pLast.y], [pi.x, pi.y]);
     if (dSq > maxDistSq) {
       maxDistSq = dSq;
       maxIdx = i;

@@ -24,13 +24,31 @@ export {
   DEFAULT_PREVIEW_MAX_DIMENSION,
   AVAILABLE_MODELS,
   cancelAllWorkerJobs,
+  findConnectedComponents,
+  filterMaskByComponents,
   getModelLoader,
   getModelLoaderReady,
+  maskArrayToDataUrl,
+  maskFromImageData,
+  maskToImageData,
+  refineHairMatting,
   removeBackground,
   resetModelLoader,
+  solveTrimapMatting,
   terminateWorkerPool,
+  trimapFromMask,
+  TRIMap,
+  decodeMaskDataUrl,
+  finalizeMaskResult,
   workerModelIdForMethod,
 } from './backgroundRemoval';
+export type {
+  HairMattingOptions,
+  TrimapMattingOptions,
+  FinalizeMaskOptions,
+  FinalizeMaskResult,
+} from './backgroundRemoval';
+export type { MaskComponent, MaskComponentBBox } from './backgroundRemoval';
 export {
   blend,
   blendColorBurn,

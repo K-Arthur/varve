@@ -67,7 +67,7 @@ const METHOD_OPTIONS: { value: BackgroundRemovalMethod; label: string; desc: str
 
 function nodeToFile(node: SceneNode): ProcessingFile | null {
   // Shape node with an image fill
-  if (isImageShape(node)) {
+  if (isImageShape(node) && node.kind === 'shape') {
     return {
       id: node.id,
       name: node.name,
@@ -217,6 +217,9 @@ export function BatchBgRemoveDialog({
         return 'error';
       }
 
+      const { finalizeMaskResult } = await import('@strata/engine');
+      const finalized = await finalizeMaskResult(result);
+
       if (method !== 'quick' && result.method === 'quick') {
         hadAiFallbackRef.current = true;
         setAnnounceMsg(
@@ -225,9 +228,9 @@ export function BatchBgRemoveDialog({
       }
 
       const state: BackgroundRemovalState = {
-        maskDataUrl: result.maskDataUrl,
-        method: result.method,
-        confidence: result.confidence,
+        maskDataUrl: finalized.maskDataUrl,
+        method: finalized.method,
+        confidence: finalized.confidence,
         appliedAt: Date.now(),
         feather: 2,
         decontaminate: true,

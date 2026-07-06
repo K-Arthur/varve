@@ -176,7 +176,7 @@ export function primaryColor(fills: Fill[]): ManagedColor | null {
 // ── Image shape utilities (replacement for the removed ImageNode) ─────────
 
 /** True if this shape node has at least one visible image fill with a src. */
-export function isImageShape(n: SceneNode): n is ShapeNode {
+export function isImageShape(n: SceneNode): boolean {
   return n.kind === 'shape' && !!n.fills?.some((f) => f.type === 'image' && !!f.image?.src);
 }
 

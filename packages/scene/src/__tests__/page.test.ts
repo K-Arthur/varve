@@ -86,8 +86,8 @@ describe('Page operations', () => {
     const firstPageId = firstPage(doc).id;
     const firstContentRootId = firstPage(doc).contentRoot;
     doc = addPage(doc);
-    const secondPageId = doc.pages?.[1]?.id;
-    const secondContentRootId = doc.pages?.[1]?.contentRoot;
+    const secondPageId = doc.pages?.[1]?.id!;
+    const secondContentRootId = doc.pages?.[1]?.contentRoot!;
 
     doc = removePage(doc, secondPageId);
     expect(doc.pages?.length).toBe(1);
@@ -137,7 +137,7 @@ describe('Page operations', () => {
     doc = addPage(doc);
     expect(doc.pages?.length).toBe(3);
 
-    const ids = doc.pages?.map((p) => p.id);
+    const ids = doc.pages!.map((p) => p.id);
     const reversed = [...ids].reverse();
     doc = reorderPages(doc, reversed);
     expect(doc.pages?.map((p) => p.id)).toEqual(reversed);
@@ -155,7 +155,7 @@ describe('Page operations', () => {
   it('reorderPages validates all page IDs are present (not a subset)', () => {
     let doc = createDocument();
     doc = addPage(doc);
-    const firstIdOnly = [doc.pages?.[0]?.id];
+    const firstIdOnly = [doc.pages![0]!.id];
     const result = reorderPages(doc, firstIdOnly);
     expect(result).toBe(doc);
   });
@@ -180,7 +180,7 @@ describe('Page operations', () => {
 
     // Content should be duplicated with new IDs
     const origContentRoot = doc.nodes[contentRootId];
-    const dupContentRoot = doc.nodes[doc.pages?.[1]?.contentRoot];
+    const dupContentRoot = doc.nodes[doc.pages![1]!.contentRoot];
     expect(dupContentRoot).toBeDefined();
     expect(dupContentRoot?.kind).toBe('group');
 
@@ -205,7 +205,7 @@ describe('Page operations', () => {
     doc = addChild(doc, contentRootId, shape);
 
     doc = duplicatePage(doc, originalId);
-    const dupContentRoot = doc.nodes[doc.pages?.[1]?.contentRoot];
+    const dupContentRoot = doc.nodes[doc.pages![1]!.contentRoot];
 
     // Structure check: both content roots exist and have children
     expect(contentRootId).not.toBe(doc.pages?.[1]?.contentRoot);
@@ -368,7 +368,7 @@ describe('Page operations', () => {
 
     it('activePageNodes returns global children + page children when activePageId is set', () => {
       let doc = createDocument();
-      const contentRootId = doc.pages?.[0]?.contentRoot;
+      const contentRootId = doc.pages![0]!.contentRoot;
       const globalId = 'global-1';
       doc = addGlobalChild(doc, globalId);
       const pageChildId = 'page-child-1';

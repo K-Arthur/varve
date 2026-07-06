@@ -52,6 +52,7 @@ import {
 import { getSharedRecoveryManager, type RecoverySession } from './recovery';
 import { StatusBar } from './StatusBar';
 import { TimelinePanel } from './timeline/TimelinePanel';
+import { createTutorialDocument } from './samples/tutorial-document';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
 import { useCollabPresence } from './hooks/useCollabPresence';
@@ -101,7 +102,7 @@ function ShellInner({
     setHelpOpen,
   } = useShortcuts(editor, onBackToHome, active);
 
-  const { presences: collabPresences } = useCollabPresence(
+  const { presences: collabPresences, users: collabUsers } = useCollabPresence(
     editor.state.activeId,
     editor.state.cursorPos,
     editor.state.pan,
@@ -377,6 +378,11 @@ function ShellInner({
           canvasContainerRef={canvasContainerRef}
           onContextMenu={handleCanvasContextMenu}
         />
+        <CollabCursorOverlay
+          users={collabUsers}
+          cursors={[]}
+          worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
+        />
         <TutorialBanner
           progress={tutorialProgress}
           onComplete={() => {
@@ -610,7 +616,7 @@ function ShellInner({
             URL.revokeObjectURL(url);
           }}
           onSaveVideoFile={async (fileName, bytes, mimeType) => {
-            const blob = new Blob([bytes], { type: mimeType });
+            const blob = new Blob([bytes.slice()], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;

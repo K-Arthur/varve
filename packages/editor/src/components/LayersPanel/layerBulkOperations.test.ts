@@ -8,84 +8,14 @@ import {
   nextNodeId,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-
-/** Verify selection logic: select visible+unlocked nodes matching first node's kind. */
-function simulateSelectSameType(doc: Document, selection: NodeId[]): NodeId[] {
-  if (selection.length === 0) return [];
-  const firstNode = doc.nodes[selection[0]!];
-  if (!firstNode) return [];
-  const targetKind = firstNode.kind;
-  const matches: NodeId[] = [];
-  for (const n of Object.values(doc.nodes)) {
-    if (n && n.kind === targetKind && n.visible && !n.locked && n.id !== firstNode.id) {
-      matches.push(n.id);
-    }
-  }
-  return [firstNode.id, ...matches];
-}
-
-/** Verify selection logic: select visible+unlocked nodes matching first node's layerColor. */
-function simulateSelectSameLayerColor(doc: Document, selection: NodeId[]): NodeId[] {
-  if (selection.length === 0) return [];
-  const firstNode = doc.nodes[selection[0]!];
-  if (!firstNode) return [];
-  const targetColor = firstNode.layerColor;
-  const matches: NodeId[] = [];
-  for (const n of Object.values(doc.nodes)) {
-    if (n?.visible && !n.locked && n.id !== firstNode.id && n.layerColor === targetColor) {
-      matches.push(n.id);
-    }
-  }
-  return [firstNode.id, ...matches];
-}
-
-/** Verify selection logic: select ALL nodes (including locked/hidden) matching first node's kind. */
-function simulateSelectAllOfType(doc: Document, selection: NodeId[]): NodeId[] {
-  if (selection.length === 0) return [];
-  const firstNode = doc.nodes[selection[0]!];
-  if (!firstNode) return [];
-  const targetKind = firstNode.kind;
-  const matches: NodeId[] = [];
-  for (const n of Object.values(doc.nodes)) {
-    if (n && n.kind === targetKind && n.id !== firstNode.id) {
-      matches.push(n.id);
-    }
-  }
-  return [firstNode.id, ...matches];
-}
-
-/** Verify bulk lock: set locked=true on all given ids. */
-function simulateBulkLock(doc: Document, ids: NodeId[]): Document {
-  const nodes = { ...doc.nodes };
-  for (const id of ids) {
-    const n = nodes[id];
-    if (!n) continue;
-    nodes[id] = { ...n, locked: true } as SceneNode;
-  }
-  return { ...doc, nodes };
-}
-
-/** Verify bulk hide: set visible=false on all given ids. */
-function simulateBulkHide(doc: Document, ids: NodeId[]): Document {
-  const nodes = { ...doc.nodes };
-  for (const id of ids) {
-    const n = nodes[id];
-    if (!n) continue;
-    nodes[id] = { ...n, visible: false } as SceneNode;
-  }
-  return { ...doc, nodes };
-}
-
-/** Verify bulk color tag: set layerColor on all given ids. */
-function simulateBulkColorTag(doc: Document, ids: NodeId[], color: LayerColor): Document {
-  const nodes = { ...doc.nodes };
-  for (const id of ids) {
-    const n = nodes[id];
-    if (!n) continue;
-    nodes[id] = { ...n, layerColor: color } as SceneNode;
-  }
-  return { ...doc, nodes };
-}
+import {
+  bulkSetLayerColorDoc,
+  bulkSetNodeLockedDoc,
+  bulkSetNodeVisibleDoc,
+  findAllOfKindIds,
+  findSameKindIds,
+  findSameLayerColorIds,
+} from './layerBulkOperations';
 
 function setupDoc(): {
   doc: Document;
@@ -145,70 +75,84 @@ function setupDoc(): {
   return { doc, rect1, rect2, text1, frame1, hiddenRect, lockedRect };
 }
 
-describe('selectAllWithSameType', () => {
-  it('selects nodes of the same kind (visible + unlocked only)', () => {
+function withLayerColor(doc: Document, ids: NodeId[], color: LayerColor): Document {
+  return bulkSetLayerColorDoc(doc, ids, color);
+}
+
+describe('findSameKindIds', () => {
+  it('selects nodes of the same kind (visible + unlocked only), including itself', () => {
     const { doc, rect1, rect2 } = setupDoc();
-    const result = simulateSelectSameType(doc, [rect1]);
+    const result = findSameKindIds(doc, [rect1]);
     expect(result).toContain(rect1);
     expect(result).toContain(rect2);
   });
 
   it('excludes hidden nodes', () => {
     const { doc, rect1, hiddenRect } = setupDoc();
-    const result = simulateSelectSameType(doc, [rect1]);
+    const result = findSameKindIds(doc, [rect1]);
     expect(result).not.toContain(hiddenRect);
   });
 
   it('excludes locked nodes', () => {
     const { doc, rect1, lockedRect } = setupDoc();
-    const result = simulateSelectSameType(doc, [rect1]);
+    const result = findSameKindIds(doc, [rect1]);
     expect(result).not.toContain(lockedRect);
   });
 
   it('does not select nodes of different kinds', () => {
     const { doc, rect1, text1, frame1 } = setupDoc();
-    const result = simulateSelectSameType(doc, [rect1]);
+    const result = findSameKindIds(doc, [rect1]);
     expect(result).not.toContain(text1);
     expect(result).not.toContain(frame1);
   });
+
+  it('returns empty array for an empty selection', () => {
+    const { doc } = setupDoc();
+    expect(findSameKindIds(doc, [])).toEqual([]);
+  });
 });
 
-describe('selectAllWithSameLayerColor', () => {
-  it('selects nodes with the same layerColor tag', () => {
-    let doc = setupDoc().doc;
-    const { rect1, rect2, text1 } = setupDoc();
-    doc = simulateBulkColorTag(doc, [rect1, rect2, text1], 'red');
+describe('findSameLayerColorIds', () => {
+  it('selects nodes with the same layerColor tag, including itself', () => {
+    const { doc, rect1, rect2, text1 } = setupDoc();
+    const tagged = withLayerColor(doc, [rect1, rect2, text1], 'red');
 
-    const result = simulateSelectSameLayerColor(doc, [rect1]);
+    const result = findSameLayerColorIds(tagged, [rect1]);
     expect(result).toContain(rect1);
     expect(result).toContain(rect2);
     expect(result).toContain(text1);
   });
 
-  it('excludes nodes with different layerColor', () => {
-    let doc = setupDoc().doc;
-    const { rect1, rect2 } = setupDoc();
-    doc = simulateBulkColorTag(doc, [rect1], 'red');
-    doc = simulateBulkColorTag(doc, [rect2], 'blue');
+  it('returns empty array when no other node shares the color (matches real no-op behavior)', () => {
+    const { doc, rect1, rect2 } = setupDoc();
+    let tagged = withLayerColor(doc, [rect1], 'red');
+    tagged = withLayerColor(tagged, [rect2], 'blue');
 
-    const result = simulateSelectSameLayerColor(doc, [rect1]);
-    expect(result).toContain(rect1);
-    expect(result).not.toContain(rect2);
+    // rect1 is uniquely 'red' — nothing else to select, so this is a no-op
+    // (the real context.tsx action gates on matches.length > 0 and does
+    // nothing at all in this case, rather than reselecting just rect1).
+    const result = findSameLayerColorIds(tagged, [rect1]);
+    expect(result).toEqual([]);
   });
 
-  it('returns only the first node when no other nodes share the color', () => {
+  it('matches other untagged (null-color) nodes too', () => {
     const { doc, rect1, rect2 } = setupDoc();
-    // rect1 has no layerColor (null), rect2 has no layerColor (null) — they match
-    const noColor = simulateSelectSameLayerColor(doc, [rect1]);
-    expect(noColor).toContain(rect1);
-    expect(noColor).toContain(rect2);
+    // rect1 and rect2 both have no layerColor (null) — they match each other.
+    const result = findSameLayerColorIds(doc, [rect1]);
+    expect(result).toContain(rect1);
+    expect(result).toContain(rect2);
+  });
+
+  it('returns empty array for an empty selection', () => {
+    const { doc } = setupDoc();
+    expect(findSameLayerColorIds(doc, [])).toEqual([]);
   });
 });
 
-describe('selectAllOfType', () => {
+describe('findAllOfKindIds', () => {
   it('selects ALL nodes of same kind including hidden and locked', () => {
     const { doc, rect1, rect2, hiddenRect, lockedRect } = setupDoc();
-    const result = simulateSelectAllOfType(doc, [rect1]);
+    const result = findAllOfKindIds(doc, [rect1]);
     expect(result).toContain(rect1);
     expect(result).toContain(rect2);
     expect(result).toContain(hiddenRect);
@@ -217,48 +161,53 @@ describe('selectAllOfType', () => {
 
   it('excludes nodes of different kinds', () => {
     const { doc, rect1, text1, frame1 } = setupDoc();
-    const result = simulateSelectAllOfType(doc, [rect1]);
+    const result = findAllOfKindIds(doc, [rect1]);
     expect(result).not.toContain(text1);
     expect(result).not.toContain(frame1);
   });
+
+  it('returns empty array for an empty selection', () => {
+    const { doc } = setupDoc();
+    expect(findAllOfKindIds(doc, [])).toEqual([]);
+  });
 });
 
-describe('bulkSetNodeLocked', () => {
+describe('bulkSetNodeLockedDoc', () => {
   it('locks all specified nodes', () => {
     const { doc, rect1, rect2 } = setupDoc();
-    const result = simulateBulkLock(doc, [rect1, rect2]);
+    const result = bulkSetNodeLockedDoc(doc, [rect1, rect2], true);
     expect((result.nodes[rect1] as SceneNode).locked).toBe(true);
     expect((result.nodes[rect2] as SceneNode).locked).toBe(true);
   });
 
   it('does not lock unspecified nodes', () => {
     const { doc, rect1, text1 } = setupDoc();
-    const result = simulateBulkLock(doc, [rect1]);
+    const result = bulkSetNodeLockedDoc(doc, [rect1], true);
     expect((result.nodes[rect1] as SceneNode).locked).toBe(true);
     expect((result.nodes[text1] as SceneNode).locked).toBe(false);
   });
 });
 
-describe('bulkSetNodeVisible', () => {
+describe('bulkSetNodeVisibleDoc', () => {
   it('hides all specified nodes', () => {
     const { doc, rect1, rect2 } = setupDoc();
-    const result = simulateBulkHide(doc, [rect1, rect2]);
+    const result = bulkSetNodeVisibleDoc(doc, [rect1, rect2], false);
     expect((result.nodes[rect1] as SceneNode).visible).toBe(false);
     expect((result.nodes[rect2] as SceneNode).visible).toBe(false);
   });
 
   it('does not hide unspecified nodes', () => {
     const { doc, rect1, text1 } = setupDoc();
-    const result = simulateBulkHide(doc, [rect1]);
+    const result = bulkSetNodeVisibleDoc(doc, [rect1], false);
     expect((result.nodes[rect1] as SceneNode).visible).toBe(false);
     expect((result.nodes[text1] as SceneNode).visible).toBe(true);
   });
 });
 
-describe('bulkSetLayerColor', () => {
+describe('bulkSetLayerColorDoc', () => {
   it('sets color tag on all specified nodes', () => {
     const { doc, rect1, rect2 } = setupDoc();
-    const result = simulateBulkColorTag(doc, [rect1, rect2], 'green');
+    const result = bulkSetLayerColorDoc(doc, [rect1, rect2], 'green');
     expect((result.nodes[rect1] as SceneNode).layerColor).toBe('green');
     expect((result.nodes[rect2] as SceneNode).layerColor).toBe('green');
   });

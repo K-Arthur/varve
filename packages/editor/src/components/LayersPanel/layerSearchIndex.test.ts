@@ -5,8 +5,10 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
+  renameNode,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
+import { updateSearchIndexIncremental } from './LayersTree';
 import { createSearchIndex, removeFromIndex, searchIndex, updateIndex } from './layerSearchIndex';
 
 describe('layerSearchIndex', () => {
@@ -294,5 +296,86 @@ describe('layerSearchIndex', () => {
 
     expect(index.nodeKinds.get(n1)).toBe('text');
     expect(searchIndex(index, 'heading')).toContain(n1);
+  });
+});
+
+describe('updateSearchIndexIncremental', () => {
+  it('produces the same search results as a full rebuild after a rename', () => {
+    let doc = createDocument();
+    const { id: n1, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addNode(
+      doc,
+      makeShapeNode(n1, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Header' }),
+    );
+    const { id: n2, doc: d3 } = nextNodeId(doc);
+    doc = d3;
+    doc = addNode(
+      doc,
+      makeShapeNode(n2, { kind: 'circle', cx: 0, cy: 0, r: 5 }, { name: 'Avatar' }),
+    );
+
+    const prevDoc = doc;
+    const prevIndex = createSearchIndex(prevDoc);
+    const renamedDoc = renameNode(doc, n1, 'Footer Banner');
+
+    const patched = updateSearchIndexIncremental(prevDoc, renamedDoc, prevIndex);
+    const rebuilt = createSearchIndex(renamedDoc);
+
+    for (const query of ['header', 'footer', 'banner', 'avatar', 'kind:shape']) {
+      expect(searchIndex(patched, query).sort()).toEqual(searchIndex(rebuilt, query).sort());
+    }
+    // The old name must no longer match after the patch.
+    expect(searchIndex(patched, 'header')).not.toContain(n1);
+    expect(searchIndex(patched, 'footer')).toContain(n1);
+  });
+
+  it('falls back to a full rebuild on structural changes (node added)', () => {
+    let doc = createDocument();
+    const { id: n1, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addNode(
+      doc,
+      makeShapeNode(n1, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Header' }),
+    );
+
+    const prevDoc = doc;
+    const prevIndex = createSearchIndex(prevDoc);
+
+    const { id: n2, doc: d3 } = nextNodeId(doc);
+    const nextDoc = addNode(
+      d3,
+      makeShapeNode(n2, { kind: 'circle', cx: 0, cy: 0, r: 5 }, { name: 'Avatar' }),
+    );
+
+    const patched = updateSearchIndexIncremental(prevDoc, nextDoc, prevIndex);
+    expect(searchIndex(patched, 'avatar')).toContain(n2);
+  });
+
+  it('returns a full rebuild when there is no previous index (first mount)', () => {
+    let doc = createDocument();
+    const { id: n1, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addNode(
+      doc,
+      makeShapeNode(n1, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Header' }),
+    );
+
+    const index = updateSearchIndexIncremental(null, doc, null);
+    expect(searchIndex(index, 'header')).toContain(n1);
+  });
+
+  it('returns the same reference when nothing changed', () => {
+    let doc = createDocument();
+    const { id: n1, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addNode(
+      doc,
+      makeShapeNode(n1, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Header' }),
+    );
+
+    const index = createSearchIndex(doc);
+    const result = updateSearchIndexIncremental(doc, doc, index);
+    expect(result).toBe(index);
   });
 });
