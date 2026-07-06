@@ -44,13 +44,6 @@ export interface HomeShellProps {
   onResumeEditing?: () => void;
 }
 
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
-}
-
 async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson: string) {
   try {
     const { renderThumbnail } = await import('@strata/engine');
@@ -137,7 +130,7 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
   useEffect(() => {
     setFolderId(null);
     setFolderBreadcrumb([]);
-  }, [view.state.activeProjectId]);
+  }, []);
 
   useEffect(() => {
     platform
@@ -469,11 +462,6 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
     [platform, onOpenFile],
   );
 
-  const handleImport = useCallback(async () => {
-    const result = await platform.openDocumentFromDisk();
-    if (result) onOpenFile(result.entry);
-  }, [platform, onOpenFile]);
-
   const handleBreadcrumbNavigate = useCallback(
     (id: string) => {
       if (view.workspaces.some((w) => w.id === id) || id === 'personal') {
@@ -601,63 +589,8 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           <AssetBrowser platform={platform} workspaceId={view.activeWorkspaceId ?? 'personal'} />
         );
       default: {
-        const heroSubtitle = state.filter.query
-          ? `${visibleFiles.length} result${visibleFiles.length !== 1 ? 's' : ''} for "${state.filter.query}"`
-          : state.section === 'recent'
-            ? 'Recent designs'
-            : state.section === 'drafts'
-              ? 'Draft designs'
-              : state.section === 'favorites'
-                ? 'Favorite designs'
-                : 'All designs';
         return (
           <>
-            <header className="strata-home__hero">
-              <p className="strata-home__hero-greeting">
-                {greeting()}
-                {state.section === 'all' ? '' : ', welcome back'}
-              </p>
-              <p className="strata-home__hero-subtitle">{heroSubtitle}</p>
-            </header>
-            {!state.filter.query && (state.section === 'all' || state.section === 'recent') && (
-              <div className="quick-start">
-                <button
-                  type="button"
-                  className="quick-start__card quick-start__card--primary"
-                  onClick={() => createFromPreset('Untitled')}
-                >
-                  <span className="quick-start__icon" aria-hidden>
-                    <Icon name="Plus" label={undefined} size="1.4rem" />
-                  </span>
-                  <span className="quick-start__text">
-                    <span className="quick-start__title">Blank canvas</span>
-                    <span className="quick-start__sub">Start designing right away</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="quick-start__card"
-                  onClick={() => view.setSection('templates')}
-                >
-                  <span className="quick-start__icon" aria-hidden>
-                    <Icon name="LayoutGrid" label={undefined} size="1.4rem" />
-                  </span>
-                  <span className="quick-start__text">
-                    <span className="quick-start__title">Templates</span>
-                    <span className="quick-start__sub">Start from a preset</span>
-                  </span>
-                </button>
-                <button type="button" className="quick-start__card" onClick={handleImport}>
-                  <span className="quick-start__icon" aria-hidden>
-                    <Icon name="Upload" label={undefined} size="1.4rem" />
-                  </span>
-                  <span className="quick-start__text">
-                    <span className="quick-start__title">Import</span>
-                    <span className="quick-start__sub">Open a file from disk</span>
-                  </span>
-                </button>
-              </div>
-            )}
             {visibleFiles.length === 0 && !state.filter.query ? (
               <EmptyStates section={state.section} onAction={() => setNewFileOpen(true)} />
             ) : visibleFiles.length === 0 ? (
@@ -732,9 +665,6 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
           />
         )}
         <div className={`strata-home__sidebar ${sidebarOpen ? 'strata-home__sidebar--open' : ''}`}>
-          <div className="sidebar-brand">
-            <img src="/icons/strata-wordmark.svg" alt="Strata" className="sidebar-brand__logo" />
-          </div>
           {onResumeEditing && (
             <button
               type="button"
@@ -822,6 +752,12 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
                 setActiveSavedSearchId(null);
               }
             }}
+            searchQuery={view.state.filter.query}
+            onSearchQueryChange={(q) => {
+              view.setFilter({ query: q });
+              setActiveSavedSearchId(null);
+            }}
+            searchResultCount={view.visibleFiles.length}
           />
         </div>
         <div className="strata-home__toolbar">
@@ -830,15 +766,8 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             onToggleSidebar={view.toggleSidebar}
             viewMode={view.state.view}
             onViewModeChange={view.setView}
-            query={view.state.filter.query}
-            onQueryChange={(q) => {
-              view.setFilter({ query: q });
-              setActiveSavedSearchId(null);
-            }}
-            resultCount={view.visibleFiles.length}
             sortKey={view.state.sort.key}
             sortDirection={view.state.sort.direction}
-            onSortKeyChange={view.setSortKey}
             onSortDirToggle={view.toggleSortDir}
             onNewFile={() => setNewFileOpen(true)}
             onOpenFromDisk={async () => {
@@ -868,10 +797,6 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellPr
             onClearFilters={() => {
               view.setFilter({ kinds: [], pinnedOnly: false, dateFrom: null, dateTo: null });
               setActiveSavedSearchId(null);
-            }}
-            onSaveSearch={() => {
-              setSaveSearchName(view.state.filter.query);
-              setSaveSearchDialogOpen(true);
             }}
           />
         </div>

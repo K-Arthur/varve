@@ -6,11 +6,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { HomeShell } from './HomeShell';
 
 describe('HomeShell', () => {
-  it('renders toolbar with New File and Open buttons', async () => {
+  it('renders toolbar with New and Open buttons', async () => {
     const platform = createMemoryPlatform();
     const { container } = render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
-    expect(container.textContent).toContain('New File');
-    expect(container.textContent).toContain('Open...');
+    expect(container.textContent).toContain('New');
+    expect(container.textContent).toContain('Open');
   });
 
   it('renders sidebar navigation', async () => {

@@ -1,5 +1,5 @@
 import type { FileKind, SortDirection, SortKey, ViewMode } from '@strata/platform';
-import { Button, Icon, SearchField, SegmentedControl, type SegmentedOption } from '@strata/ui';
+import { Button, Icon } from '@strata/ui';
 import { FilterDropdown } from './FilterDropdown';
 
 export interface HomeToolbarProps {
@@ -7,9 +7,6 @@ export interface HomeToolbarProps {
   onToggleSidebar: () => void;
   viewMode: ViewMode;
   onViewModeChange: (v: ViewMode) => void;
-  query: string;
-  onQueryChange: (q: string) => void;
-  resultCount: number;
   sortKey: SortKey;
   sortDirection: SortDirection;
   onSortKeyChange: (k: SortKey) => void;
@@ -26,34 +23,13 @@ export interface HomeToolbarProps {
   onDateFromChange: (date: number | null) => void;
   onDateToChange: (date: number | null) => void;
   onClearFilters: () => void;
-  onSaveSearch?: () => void;
 }
-
-const sortOptions: SegmentedOption<SortKey>[] = [
-  { value: 'opened', label: 'Opened' },
-  { value: 'updated', label: 'Modified' },
-  { value: 'name', label: 'Name' },
-  { value: 'created', label: 'Created' },
-  { value: 'size', label: 'Size' },
-];
-
-const viewOptions: SegmentedOption<ViewMode>[] = [
-  { value: 'grid', label: 'Grid', icon: 'LayoutGrid' },
-  { value: 'list', label: 'List', icon: 'List' },
-];
 
 export function HomeToolbar({
   sidebarCollapsed,
   onToggleSidebar,
   viewMode,
   onViewModeChange,
-  query,
-  onQueryChange,
-  resultCount,
-  sortKey,
-  sortDirection,
-  onSortKeyChange,
-  onSortDirToggle,
   onNewFile,
   onOpenFromDisk,
   onOpenImport,
@@ -66,7 +42,8 @@ export function HomeToolbar({
   onDateFromChange,
   onDateToChange,
   onClearFilters,
-  onSaveSearch,
+  sortDirection,
+  onSortDirToggle,
 }: HomeToolbarProps) {
   return (
     <>
@@ -80,24 +57,14 @@ export function HomeToolbar({
         </Button>
         <Button variant="primary" onClick={onNewFile}>
           <Icon name="Plus" label={undefined} />
-          New File
+          New
         </Button>
-        <Button variant="secondary" onClick={onOpenFromDisk}>
-          Open...
+        <Button variant="ghost" onClick={onOpenFromDisk}>
+          Open…
         </Button>
         {onOpenImport && (
-          <Button variant="secondary" onClick={onOpenImport}>
-            <Icon name="Upload" label={undefined} />
+          <Button variant="ghost" onClick={onOpenImport}>
             Import
-          </Button>
-        )}
-      </div>
-      <div className="strata-home__toolbar-center">
-        <SearchField value={query} onChange={onQueryChange} resultCount={resultCount} />
-        {query && onSaveSearch && (
-          <Button variant="ghost" onClick={onSaveSearch} aria-label="Save current search">
-            <Icon name="Save" label={undefined} size="0.85em" />
-            Save
           </Button>
         )}
       </div>
@@ -113,31 +80,30 @@ export function HomeToolbar({
           onDateToChange={onDateToChange}
           onClear={onClearFilters}
         />
-        <div className="search-sort-group">
-          <SegmentedControl<SortKey>
-            label="Sort by"
-            value={sortKey}
-            options={sortOptions}
-            onChange={onSortKeyChange}
+        <Button
+          variant="ghost"
+          onClick={onSortDirToggle}
+          aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+          title={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+        >
+          <Icon
+            name={sortDirection === 'asc' ? 'ChevronUp' : 'ChevronDown'}
+            label={undefined}
+            size="0.85em"
           />
-          <Button
-            variant="ghost"
-            onClick={onSortDirToggle}
-            aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-          >
-            <Icon
-              name={sortDirection === 'asc' ? 'ChevronUp' : 'ChevronDown'}
-              label={undefined}
-              size="0.85em"
-            />
-          </Button>
-        </div>
-        <SegmentedControl<ViewMode>
-          label="View"
-          value={viewMode}
-          options={viewOptions}
-          onChange={onViewModeChange}
-        />
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => onViewModeChange(viewMode === 'grid' ? 'list' : 'grid')}
+          aria-label={viewMode === 'grid' ? 'List view' : 'Grid view'}
+          title={viewMode === 'grid' ? 'List view' : 'Grid view'}
+        >
+          <Icon
+            name={viewMode === 'grid' ? 'List' : 'LayoutGrid'}
+            label={undefined}
+            size="0.85em"
+          />
+        </Button>
       </div>
     </>
   );
