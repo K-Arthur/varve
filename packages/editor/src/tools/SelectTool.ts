@@ -92,10 +92,9 @@ export class SelectTool extends BaseTool {
           this.isMoveGesture = true;
           ctx.beginTransaction();
           this.initialPositions.clear();
-          for (const id of ctx.selection) {
-            const worldMat = nodeWorldTransform(ctx.document, id);
-            this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
-          }
+          // ctx.selection is a stale snapshot; use the newly-selected id directly.
+          const worldMat = nodeWorldTransform(ctx.document, nextNode.nodeId);
+          this.initialPositions.set(nextNode.nodeId, { x: worldMat[4], y: worldMat[5] });
           return { consumed: true, captured: true };
         }
       }
@@ -112,8 +111,15 @@ export class SelectTool extends BaseTool {
       ctx.beginTransaction();
       // Store initial world-space origin for each selected node so onDragMove
       // can compute newLocalPos = parentInverse * (initWorldPos + totalDelta).
+      // ctx.selection is a closure snapshot captured before setSelection/toggleSelection;
+      // build the effective post-call set from what we know the new state will be.
+      const effectiveIds: string[] = e.shiftKey
+        ? [...ctx.selection, hit.nodeId]           // additive: prior + newly toggled
+        : ctx.isSelected(hit.nodeId)
+          ? [...ctx.selection]                     // already selected: unchanged
+          : [hit.nodeId];                          // replaced: only the new node
       this.initialPositions.clear();
-      for (const id of ctx.selection) {
+      for (const id of effectiveIds) {
         const worldMat = nodeWorldTransform(ctx.document, id);
         this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
       }

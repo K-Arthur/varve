@@ -1,14 +1,26 @@
 /**
  * Tests for image fill modes (fit, fill, stretch, tile) in replay.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { getImageCache, resetImageCache } from './imageCache';
 import { replayIr } from './replay';
 import type { FillIR, RenderItem } from './types';
+
+/** Create a lightweight mock image that serialises to its src string. */
+function mockImage(src: string, naturalWidth: number, naturalHeight: number): HTMLImageElement {
+  const img = {
+    src,
+    naturalWidth,
+    naturalHeight,
+    toString: () => src,
+  } as unknown as HTMLImageElement;
+  return img;
+}
 
 function makeRecorder(): {
   calls: string[];
   filter: string;
-  drawImage: (image: string, dx: number, dy: number, dw: number, dh: number) => void;
+  drawImage: (image: CanvasImageSource | string, dx: number, dy: number, dw: number, dh: number) => void;
   target: Parameters<typeof replayIr>[0];
 } {
   const calls: string[] = [];
@@ -21,7 +33,7 @@ function makeRecorder(): {
     set filter(v: string) {
       filter = v;
     },
-    drawImage: (image: string, dx: number, dy: number, dw: number, dh: number) => {
+    drawImage: (image: CanvasImageSource | string, dx: number, dy: number, dw: number, dh: number) => {
       calls.push(
         `drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`,
       );
@@ -45,12 +57,12 @@ function makeRecorder(): {
       closePath: () => calls.push('closePath'),
       fillText: () => calls.push('fillText'),
       font: '10px sans-serif',
-      textBaseline: 'alphabetic',
+      textBaseline: 'alphabetic' as CanvasTextBaseline,
       fillStyle: '',
       lineWidth: 1,
-      lineCap: 'butt',
-      lineJoin: 'miter',
-      textAlign: 'left',
+      lineCap: 'butt' as CanvasLineCap,
+      lineJoin: 'miter' as CanvasLineJoin,
+      textAlign: 'left' as CanvasTextAlign,
       strokeStyle: '',
       globalAlpha: 1,
       globalCompositeOperation: 'source-over',
@@ -62,7 +74,7 @@ function makeRecorder(): {
       },
       lineDashOffset: 0,
       setLineDash: () => calls.push('setLineDash'),
-      drawImage: (image: string, dx: number, dy: number, dw: number, dh: number) => {
+      drawImage: (image: CanvasImageSource | string, dx: number, dy: number, dw: number, dh: number) => {
         calls.push(
           `drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`,
         );
@@ -87,6 +99,24 @@ function rectItem(w: number, h: number, fill: FillIR): RenderItem {
     blendMode: 'normal',
   };
 }
+
+beforeEach(() => {
+  resetImageCache();
+  const cache = getImageCache();
+  // Pre-load mock images used across tests so paintImageFill takes the cached path.
+  cache.setLoaded('img1', mockImage('img1', 100, 50));
+  cache.setLoaded('img2', mockImage('img2', 200, 100));
+  cache.setLoaded('img3', mockImage('img3', 200, 100));
+  cache.setLoaded('img4', mockImage('img4', 200, 100));
+  cache.setLoaded('img5', mockImage('img5', 40, 40));
+  cache.setLoaded('img6', mockImage('img6', 50, 50));
+  cache.setLoaded('imgA', mockImage('imgA', 100, 100));
+  cache.setLoaded('imgB', mockImage('imgB', 100, 100));
+});
+
+afterEach(() => {
+  resetImageCache();
+});
 
 describe('image fill modes', () => {
   it('stretch fills the whole primitive bounds', () => {
@@ -168,7 +198,7 @@ describe('image fill modes', () => {
       ),
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
-    // 200x100 image fills 100x100 -> width 100, height 50, centered vertically? No, aspect 2:1, bounds 1:1 -> height = bounds.h = 100, width = 200
+    // 200x100 image fills 100x100 -> aspect 2:1, bounds 1:1 -> dh=100, dw=200, centered
     expect(draw[0]).toBe('drawImage img4 -50.0 0.0 200.0 100.0');
   });
 

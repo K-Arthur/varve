@@ -17,6 +17,7 @@ import {
   type Engine,
   type EngineColor,
   type SceneNode as EngineNode,
+  getImageCache,
   mapBlendMode,
   type ReplayTarget,
   renderAlphaMask,
@@ -287,6 +288,8 @@ export function CanvasArea({
   }
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
+  // Incremented by the image cache subscriber so drawContent re-runs after async image loads.
+  const [imageCacheStamp, setImageCacheStamp] = useState(0);
   const contentDrawRafRef = useRef<number | null>(null);
   const overlayDrawRafRef = useRef<number | null>(null);
 
@@ -362,6 +365,14 @@ export function CanvasArea({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.tool]);
+
+  // Re-render the canvas whenever an async image finishes loading.
+  useEffect(() => {
+    const unsub = getImageCache().subscribeGlobal(() => {
+      setImageCacheStamp((n) => n + 1);
+    });
+    return unsub;
+  }, []);
 
   // Auto-enter text edit mode after creating a text node via TextTool
   useEffect(() => {
@@ -902,7 +913,7 @@ export function CanvasArea({
         }
       }
     })();
-  }, [rootNodes, state.zoom, state.pan.x, state.pan.y, state.canvasMode]);
+  }, [rootNodes, state.zoom, state.pan.x, state.pan.y, state.canvasMode, imageCacheStamp]);
 
   // ── Overlay canvas draw: layout grid overlay, draft shapes ──────────────
 

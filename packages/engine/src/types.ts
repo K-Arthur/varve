@@ -335,6 +335,8 @@ export type Primitive =
       w: number;
       h: number;
       cornerRadius?: number | [number, number, number, number];
+      /** 0–1 squircle smoothing (0 = standard CSS, 1 = fully smooth iOS-style corners). */
+      cornerSmoothing?: number;
     }
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
   | { kind: 'circle'; cx: number; cy: number; r: number }

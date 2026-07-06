@@ -10,7 +10,6 @@
  * Research basis: ARIA Authoring Practices Guide — Tabs pattern
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
-import { StrataLogo } from '@strata/ui';
 import { useRef } from 'react';
 import { useEditor } from './context';
 
@@ -32,15 +31,13 @@ function PlusIcon() {
   );
 }
 
-const HOME_ID = '__home__';
-
-export function TabStrip({ onBackToHome }: { onBackToHome?: () => void }) {
+export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () => void }) {
   const { state, switchTab, closeTab, newTab } = useEditor();
   const { sessions, activeId } = state;
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   function getTabIds(): string[] {
-    return [HOME_ID, ...sessions.map((s) => s.id)];
+    return sessions.map((s) => s.id);
   }
 
   function focusById(id: string) {
@@ -70,13 +67,8 @@ export function TabStrip({ onBackToHome }: { onBackToHome?: () => void }) {
       if (prev) focusById(prev);
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      if (id === HOME_ID) {
-        onBackToHome?.();
-      } else {
-        switchTab(id);
-      }
+      switchTab(id);
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (id === HOME_ID) return;
       e.preventDefault();
       requestClose(id);
     }
@@ -85,31 +77,12 @@ export function TabStrip({ onBackToHome }: { onBackToHome?: () => void }) {
   function handleAuxClick(e: React.MouseEvent, id: string) {
     if (e.button === 1) {
       e.preventDefault();
-      if (id !== HOME_ID) requestClose(id);
+      requestClose(id);
     }
   }
 
   return (
     <div className="editor-tabs" role="tablist" aria-label="Open documents">
-      {/* Home tab */}
-      <div
-        key={HOME_ID}
-        ref={(el) => {
-          if (el) tabRefs.current.set(HOME_ID, el);
-          else tabRefs.current.delete(HOME_ID);
-        }}
-        role="tab"
-        aria-selected={false}
-        tabIndex={0}
-        className="editor-tabs__tab editor-tabs__tab--home"
-        onClick={() => onBackToHome?.()}
-        onKeyDown={(e) => handleTabKeyDown(e, HOME_ID)}
-        onAuxClick={(e) => handleAuxClick(e, HOME_ID)}
-        title="Home (Ctrl+Shift+H)"
-      >
-        <StrataLogo size={14} />
-        <span className="editor-tabs__name">Home</span>
-      </div>
       {sessions.map((sess) => {
         const isActive = sess.id === activeId;
         return (
