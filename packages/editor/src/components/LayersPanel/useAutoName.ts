@@ -18,6 +18,7 @@ const TYPE_LABELS: Record<string, string> = {
   group: 'Group',
   text: 'Text',
   pen: 'Path',
+  path: 'Path',
   image: 'Image',
   component: 'Component',
 };

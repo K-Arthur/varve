@@ -13,7 +13,7 @@
  * per-corner radius, and stacked-fill type enums. All new fields have safe
  * defaults so existing documents deserialize correctly.
  */
-import type { Adjustment, Affine, Shape } from '@strata/engine';
+import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 
@@ -520,7 +520,20 @@ export interface AdjustmentNode extends NodeBase {
   adjustments?: Adjustment[];
 }
 
-export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode | AdjustmentNode;
+// ── Vector Path Node ─────────────────────────────────────────────────────────
+
+export interface PathNode extends NodeBase {
+  kind: 'path';
+  /** Control points in node-local coordinates. */
+  points: PathPoint[];
+  /** Whether the last point connects back to the first. */
+  closed: boolean;
+  transform: Affine;
+  strokes: Stroke[];
+  effects: Effect[];
+}
+
+export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | ImageNode | AdjustmentNode | PathNode;
 
 export type ContainerNode = GroupNode | FrameNode;
 

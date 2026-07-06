@@ -34,6 +34,7 @@ import type {
   LayerColor,
   NodeId,
   Page,
+  PathNode,
   SceneNode,
   ShapeNode,
   Style,
@@ -486,6 +487,51 @@ export function makeImageNode(
     w: opts.w ?? 100,
     h: opts.h ?? 100,
     imageFit: opts.imageFit ?? 'fill',
+    strokes: opts.strokes ?? [],
+    effects: opts.effects ?? [],
+  };
+}
+
+export function makePathNode(
+  id: NodeId,
+  opts: Partial<
+    Pick<
+      PathNode,
+      | 'name'
+      | 'layerColor'
+      | 'transform'
+      | 'fill'
+      | 'visible'
+      | 'locked'
+      | 'opacity'
+      | 'blendMode'
+      | 'rotation'
+      | 'strokes'
+      | 'effects'
+      | 'order'
+      | 'points'
+      | 'closed'
+    >
+  > & {
+    index?: number;
+  } = {},
+): PathNode {
+  return {
+    id,
+    kind: 'path',
+    name: opts.name ?? 'Path',
+    index: opts.index ?? 0,
+    layerColor: opts.layerColor ?? null,
+    order: opts.order ?? 'a0',
+    visible: opts.visible ?? true,
+    locked: opts.locked ?? false,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    rotation: opts.rotation ?? 0,
+    transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
+    fill: opts.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 1 },
+    points: opts.points ?? [],
+    closed: opts.closed ?? false,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
   };
