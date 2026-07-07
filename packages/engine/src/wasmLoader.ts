@@ -19,11 +19,21 @@ export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
     const base = '/wasm';
     const candidates = [`${base}/strata_wasm_bg.wasm`, `${base}/strata_wasm_simd_bg.wasm`];
     for (const wasmUrl of candidates) {
+      let blobUrl: string | null = null;
       try {
         const response = await fetch(wasmUrl, { method: 'HEAD' });
         if (!response.ok) continue;
         const jsUrl = wasmUrl.replace('_bg.wasm', '.js').replace('_simd_bg.wasm', '_simd.js');
-        const mod = (await import(/* @vite-ignore */ jsUrl)) as {
+        // Vite's dev server refuses to serve /public assets through its
+        // module-transform pipeline — a direct `import(jsUrl)` throws
+        // "should not be imported from source code" and blocks the app
+        // behind its error overlay. Fetching the glue source and importing
+        // it from a blob: URL sidesteps that dev-only restriction (works
+        // identically in production, where there's no transform pipeline
+        // in the way to begin with).
+        const jsSource = await fetch(jsUrl).then((r) => r.text());
+        blobUrl = URL.createObjectURL(new Blob([jsSource], { type: 'text/javascript' }));
+        const mod = (await import(/* @vite-ignore */ blobUrl)) as {
           default: (input?: WebAssembly.Module | BufferSource) => Promise<void>;
           build_ir_json: (json: string) => string;
           hit_test_json: (json: string, x: number, y: number) => number;
@@ -32,7 +42,11 @@ export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
         await mod.default(fetch(wasmUrl).then((r) => r.arrayBuffer()));
         cachedModule = mod;
         return mod;
-      } catch {}
+      } catch {
+        // try the next candidate
+      } finally {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+      }
     }
     return null;
   } catch {

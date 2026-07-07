@@ -103,6 +103,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
         action: 'softProof',
       },
+      {
+        label: 'Timeline Panel',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleTimelinePanel.binding),
+        action: 'toggleTimelinePanel',
+      },
       { label: '---' },
       {
         label: 'Clear All Guides',
@@ -279,6 +284,7 @@ export function Menubar({
     arrangeSelected,
     setSnapEnabled,
     setSoftProofEnabled,
+    toggleTimelinePanel,
     setCanvasMode,
     setRulerMode,
     setGridOverlayMode,
@@ -444,6 +450,9 @@ export function Menubar({
           break;
         case 'softProof':
           setSoftProofEnabled(!state.softProofEnabled);
+          break;
+        case 'toggleTimelinePanel':
+          toggleTimelinePanel();
           break;
         case 'clearGuides':
           clearAllGuides();

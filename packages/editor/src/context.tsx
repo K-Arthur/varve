@@ -1049,7 +1049,10 @@ export function EditorProvider({
       softProofEnabled: false,
       leftPanelVisible: loadSettings().panel.leftPanelVisible,
       rightPanelVisible: loadSettings().panel.rightPanelVisible,
-      timelinePanelVisible: true,
+      // Hidden by default — motion/timeline editing is an opt-in workflow the
+      // user reaches via its own toggle, not something every document should
+      // open into.
+      timelinePanelVisible: false,
       motion: createInitialMotionState(),
       canvasMode: 'full',
       cameraRotation: 0,
