@@ -16,6 +16,7 @@ import { createPsdParser } from './psd';
 import { getParserForData, getParserForExtension, registerParser } from './registry';
 import { createSvgParser } from './svg';
 import type { ImportOptions } from './types';
+import { validateImport } from './validation';
 
 export type ImportSource = 'file-picker' | 'drop' | 'clipboard' | 'home' | 'asset-library' | 'api';
 
@@ -125,6 +126,33 @@ function warning(message: string): FidelityIssue {
   return { code: 'parser.warning', message, severity: 'warning' };
 }
 
+function featureCode(feature: string): string {
+  return `feature.${feature
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '')}`;
+}
+
+function unsupportedFeature(feature: string): UnsupportedFeature {
+  return {
+    code: featureCode(feature),
+    feature,
+    message: feature,
+  };
+}
+
+function dedupeWarnings(warnings: FidelityIssue[]): FidelityIssue[] {
+  const seen = new Set<string>();
+  const result: FidelityIssue[] = [];
+  for (const item of warnings) {
+    const key = `${item.code}:${item.path ?? ''}:${item.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+  return result;
+}
+
 async function importOne(
   input: ImportFileInput,
   options: ImportServiceOptions,
@@ -159,10 +187,14 @@ async function importOne(
   }
 
   try {
+    const validation = parser ? await validateImport(data, input.name) : null;
+    assertNotAborted(signal);
     const result = importFile(input.name, data, options);
     assertNotAborted(signal);
     const normalized = DocumentCodec.normalize(result.document);
-    const warnings = [
+    const unsupportedFeatures = validation?.unsupportedFeatures.map(unsupportedFeature) ?? [];
+    const warnings = dedupeWarnings([
+      ...(validation?.warnings.map(warning) ?? []),
       ...result.warnings.map(warning),
       ...normalized.warnings.map((w) => ({
         code: w.code,
@@ -170,12 +202,12 @@ async function importOne(
         severity: w.severity,
         path: w.path,
       })),
-    ];
+    ]);
     return {
       name: input.name,
       source: input.source,
       format: parser?.format ?? format,
-      status: result.nodeIds.length > 0 ? 'success' : 'partial',
+      status: result.nodeIds.length > 0 && unsupportedFeatures.length === 0 ? 'success' : 'partial',
       byteCount: byteCount(input),
       durationMs: performance.now() - started,
       nodeCount: result.nodeIds.length,
@@ -187,7 +219,7 @@ async function importOne(
         },
       ],
       warnings,
-      unsupportedFeatures: [],
+      unsupportedFeatures,
     };
   } catch (err) {
     return {

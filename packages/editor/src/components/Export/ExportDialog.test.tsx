@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExportDialog } from './ExportDialog';
+
+vi.mock('../../motion/videoExportBridge', () => ({
+  createVideoFrameRenderer: vi.fn(),
+}));
 
 afterEach(cleanup);
 
@@ -119,6 +123,31 @@ describe('ExportDialog', () => {
     expect(fileNameEl?.textContent).toContain('test');
   });
 
+  it('computes job dimensions from width presets and node bounds', () => {
+    const { container } = render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[
+          mockNode({
+            presets: [
+              {
+                id: 'p-width',
+                format: 'png' as const,
+                scale: { type: 'width' as const, pixels: 400 },
+                suffix: '400w',
+                enabled: true,
+              },
+            ],
+          }),
+        ]}
+        onExport={async () => {}}
+      />,
+    );
+
+    expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe('400x320');
+  });
+
   it('shows close button when not running', () => {
     render(
       <ExportDialog
@@ -129,5 +158,25 @@ describe('ExportDialog', () => {
       />,
     );
     expect(screen.getByText('Close')).toBeTruthy();
+  });
+
+  it('announces failed export reports without claiming completion', async () => {
+    const onExport = vi.fn(async () => ({
+      startedAt: 1,
+      completedAt: 2,
+      durationMs: 1,
+      totalJobs: 1,
+      successCount: 0,
+      failureCount: 1,
+      files: [],
+    }));
+    render(
+      <ExportDialog isOpen={true} onClose={() => {}} nodes={[mockNode()]} onExport={onExport} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+
+    await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
+    expect(screen.getByRole('status').textContent).toContain('Export failed: 1 of 1 files failed');
   });
 });

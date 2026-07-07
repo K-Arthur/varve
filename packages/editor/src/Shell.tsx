@@ -8,14 +8,15 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { createEngine, type Engine } from '@strata/engine';
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
-import type { NodeId } from '@strata/scene';
+import type { ExportBatch, ExportFormat, NodeId } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import { screenToWorld } from '@strata/shared';
 import type { MenuEntry } from '@strata/ui';
 import { ContextMenu, Icon } from '@strata/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
 import { captureClipboardEvent } from './clipboard';
@@ -40,6 +41,8 @@ import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { EditorProvider, useEditor } from './context';
 import type { DragNodeData } from './dnd-types';
+import { createExportSaveFile, saveExportBytes } from './exportSaveAdapter';
+import { ExportService } from './exportService';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { getActionTracker } from './intelligence/actionTracker';
 import { LayersPanel } from './LayersPanel';
@@ -78,6 +81,8 @@ export interface ShellProps {
   documentName?: string;
   /** File-open requests from the host app (home screen). */
   openFile?: OpenFileRequest | null;
+  /** Active persistence/native bridge shared with Home and autosave. */
+  platform?: Platform;
   /** False while the editor is hidden behind the home screen — suspends
    *  global keyboard shortcuts so Home doesn't trigger editor actions. */
   active?: boolean;
@@ -86,13 +91,19 @@ export interface ShellProps {
   platform?: Platform;
 }
 
+function isRasterExport(format: ExportFormat): boolean {
+  return format === 'png' || format === 'jpg' || format === 'webp';
+}
+
 function ShellInner({
   onBackToHome,
   openFile,
+  platform,
   active = true,
 }: {
   onBackToHome?: () => void;
   openFile?: OpenFileRequest | null;
+  platform?: Platform;
   active?: boolean;
 }) {
   const editor = useEditor();
@@ -113,10 +124,53 @@ function ShellInner({
   );
 
   const [canvasContextMenu, setCanvasContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const exportEngineRef = useRef<Promise<Engine> | null>(null);
+  const saveExportFile = useMemo(() => createExportSaveFile(platform), [platform]);
 
   const handleCanvasContextMenu = useCallback((pos: { x: number; y: number }) => {
     setCanvasContextMenu(pos);
   }, []);
+
+  const getExportEngine = useCallback(() => {
+    exportEngineRef.current ??= createEngine('auto');
+    return exportEngineRef.current;
+  }, []);
+
+  const handleExportBatch = useCallback(
+    async (batch: ExportBatch) => {
+      const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
+      const engine = needsEngine ? await getExportEngine() : null;
+      return await ExportService.run(batch, {
+        document: editor.state.document,
+        engine,
+        saveFile: saveExportFile,
+      });
+    },
+    [editor.state.document, getExportEngine, saveExportFile],
+  );
+
+  const handleExportMotion = useCallback(
+    (format: 'css' | 'lottie', fileName: string, content: string) => {
+      const mimeType = format === 'lottie' ? 'application/json' : 'text/css';
+      const extension = format === 'lottie' ? '.json' : '.css';
+      void saveExportBytes(
+        platform,
+        fileName,
+        new TextEncoder().encode(content),
+        mimeType,
+        extension,
+      );
+    },
+    [platform],
+  );
+
+  const handleSaveVideoFile = useCallback(
+    async (fileName: string, bytes: Uint8Array, mimeType: string) => {
+      const extension = fileName.toLowerCase().endsWith('.webm') ? '.webm' : '.mp4';
+      await saveExportBytes(platform, fileName, bytes, mimeType, extension);
+    },
+    [platform],
+  );
 
   // ── Lifecycle event handlers ─────────────────────────────────────────────
   const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
@@ -609,25 +663,9 @@ function ShellInner({
           timelines={editor.state.document.timelines}
           document={editor.state.document}
           selectionIds={editor.state.selection}
-          onExport={async () => {}}
-          onExportMotion={(_format, fileName, content) => {
-            const blob = new Blob([content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-          onSaveVideoFile={async (fileName, bytes, mimeType) => {
-            const blob = new Blob([bytes.slice()], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
+          onExport={handleExportBatch}
+          onExportMotion={handleExportMotion}
+          onSaveVideoFile={handleSaveVideoFile}
           onApplyBackgroundRemoval={(id, state) => {
             editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
           }}
@@ -879,8 +917,8 @@ export function Shell({
   documentJson,
   documentName,
   openFile,
-  active,
   platform,
+  active,
 }: ShellProps) {
   return (
     <EditorProvider
@@ -890,7 +928,12 @@ export function Shell({
       platform={platform}
     >
       <SettingsProvider>
-        <ShellInner onBackToHome={onBackToHome} openFile={openFile} active={active} />
+        <ShellInner
+          onBackToHome={onBackToHome}
+          openFile={openFile}
+          platform={platform}
+          active={active}
+        />
       </SettingsProvider>
     </EditorProvider>
   );
