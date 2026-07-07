@@ -590,7 +590,6 @@ function makeResult(points: PathPoint[], closed: boolean, first: ShapeNode, id: 
     id,
     name: 'Boolean Result',
     kind: 'shape',
-    index: first.index,
     order: first.order,
     visible: true,
     locked: false,

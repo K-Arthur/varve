@@ -232,8 +232,12 @@ export interface NodeBase {
   fill: ManagedColor;
   /** P2: stacked fills (solid/gradient/image). When present, takes precedence over `fill`. */
   fills?: Fill[];
-  /** Paint order among siblings (0 = bottom). Reorder via Document.move. */
-  index: number;
+  /**
+   * Paint order among siblings (0 = bottom). Reorder via Document.move.
+   * @deprecated Use `order` (fractional-indexing) instead. This field is set at
+   * creation time but never updated by reorder operations — it is vestigial.
+   */
+  index?: number;
   /** Fractional-indexing order key for CRDT-safe concurrent ordering. */
   order: string;
   visible: boolean;

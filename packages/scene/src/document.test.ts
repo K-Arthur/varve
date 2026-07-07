@@ -54,8 +54,8 @@ describe('Document (root-level ops)', () => {
     doc = addNode(doc, a.node);
     doc = addNode(doc, b.node);
     expect(doc.rootChildren).toEqual([cr, a.id, b.id]);
-    expect(getById(doc, a.id)?.index).toBe(1);
-    expect(getById(doc, b.id)?.index).toBe(2);
+    expect(getById(doc, a.id)?.order).toBeTruthy();
+    expect(getById(doc, b.id)?.order).toBeTruthy();
     expect(rootNodes(doc).map((n) => n.name)).toEqual(['Page 1 content', 'a', 'b']);
   });
 

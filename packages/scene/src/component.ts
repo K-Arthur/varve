@@ -152,7 +152,6 @@ export function instantiate(
     id: instanceId,
     kind: 'frame',
     name: `${componentDef.name} Instance`,
-    index: 0,
     order: 'a0',
     visible: true,
     locked: false,

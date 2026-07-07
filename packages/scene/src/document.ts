@@ -206,13 +206,12 @@ export function makeAdjustmentNode(
       | 'effects'
       | 'order'
     >
-  > & { index?: number } = {},
+  > = {},
 ): import('./types').AdjustmentNode {
   return {
     id,
     kind: 'adjustment',
     name: opts.name ?? adjustmentType.charAt(0).toUpperCase() + adjustmentType.slice(1),
-    index: opts.index ?? 0,
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
@@ -249,15 +248,12 @@ export function makeShapeNode(
       | 'cornerRadius'
       | 'order'
     >
-  > & {
-    index?: number;
-  } = {},
+  > = {},
 ): ShapeNode {
   return {
     id,
     kind: 'shape',
     name: opts.name ?? 'Shape',
-    index: opts.index ?? 0,
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
@@ -310,15 +306,12 @@ export function makeTextNode(
       | 'effects'
       | 'order'
     >
-  > & {
-    index?: number;
-  } = {},
+  > = {},
 ): TextNode {
   return {
     id,
     kind: 'text',
     name: opts.name ?? 'Text',
-    index: opts.index ?? 0,
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: true,
@@ -372,15 +365,12 @@ export function makeGroupNode(
       | 'isolated'
       | 'effects'
     >
-  > & {
-    index?: number;
-  } = {},
+  > = {},
 ): GroupNode {
   return {
     id,
     kind: 'group',
     name: opts.name ?? 'Group',
-    index: opts.index ?? 0,
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
@@ -423,15 +413,12 @@ export function makeFrameNode(
       | 'propertyOverrides'
       | 'syncBaseline'
     >
-  > & {
-    index?: number;
-  } = {},
+  > = {},
 ): FrameNode {
   return {
     id,
     kind: 'frame',
     name: opts.name ?? 'Frame',
-    index: opts.index ?? 0,
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
@@ -479,7 +466,6 @@ export function makeImageShapeNode(
       | 'cornerRadius'
     >
   > & {
-    index?: number;
     /** Image source URL (data URL, file path, or asset id). */
     src?: string;
     /** Width of the image area in world-space px. */
@@ -496,7 +482,6 @@ export function makeImageShapeNode(
     id,
     kind: 'shape',
     name: opts.name ?? 'Image',
-    index: opts.index ?? 0,
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
@@ -545,15 +530,12 @@ export function makePathNode(
       | 'points'
       | 'closed'
     >
-  > & {
-    index?: number;
-  } = {},
+  > = {},
 ): PathNode {
   return {
     id,
     kind: 'path',
     name: opts.name ?? 'Path',
-    index: opts.index ?? 0,
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,
@@ -659,7 +641,7 @@ export function insertNode(doc: Document, node: SceneNode, atIndex: number): Doc
   const prev = clamped > 0 ? doc.nodes[next[clamped - 1]!] : null;
   const succ = clamped < next.length - 1 ? doc.nodes[next[clamped + 1]!] : null;
   const order = generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
-  const nodes = { ...doc.nodes, [node.id]: { ...node, index: clamped, order } };
+  const nodes = { ...doc.nodes, [node.id]: { ...node, order } };
   return { ...doc, rootChildren: next, nodes };
 }
 
@@ -673,11 +655,10 @@ export function addChild(
   const parent = doc.nodes[parentId];
   if (!parent || !isContainer(parent)) return doc;
   const children = parent.children;
-  const childIndex = children.length;
   const lastChildId = children.length > 0 ? children[children.length - 1]! : null;
   const lastChild = lastChildId ? doc.nodes[lastChildId] : null;
   const order = generateKeyBetween(lastChild?.order ?? null, null);
-  const indexed = { ...child, index: childIndex, order };
+  const indexed = { ...child, order };
   const newChildren = [...children, child.id];
   const updated = { ...parent, children: newChildren } as SceneNode;
   if ('slots' in parent && slotId) {
@@ -685,7 +666,7 @@ export function addChild(
   } else if ('slots' in parent && slotId === undefined) {
     (updated as FrameNode).slots = parent.slots;
   }
-  return {
+  const result = {
     ...doc,
     nodes: {
       ...doc.nodes,
@@ -693,6 +674,8 @@ export function addChild(
       [child.id]: indexed,
     },
   };
+  devValidate(result);
+  return result;
 }
 
 /** Remove a node from the document (nested-aware). Recursively removes descendants. */
@@ -750,7 +733,9 @@ export function removeNode(doc: Document, id: NodeId): Document {
     delete nodes[nid];
   }
 
-  return { ...doc, rootChildren, nodes };
+  const result = { ...doc, rootChildren, nodes };
+  devValidate(result);
+  return result;
 }
 
 /** Move a root-level node to a new paint-order index. Also updates `order` field. */
@@ -958,7 +943,6 @@ export function reparentNode(
     nodes[newParentId] = { ...newParent, children } as SceneNode;
     nodes[id] = {
       ...node,
-      index: clamped,
       order: newOrder,
       transform: (localTransform ?? node.transform) as Affine,
     } as SceneNode;
@@ -968,13 +952,14 @@ export function reparentNode(
     const newOrder = generateOrder(rootChildren, clamped);
     nodes[id] = {
       ...node,
-      index: clamped,
       order: newOrder,
       transform: (localTransform ?? node.transform) as Affine,
     } as SceneNode;
   }
 
-  return { ...doc, rootChildren, nodes };
+  const result = { ...doc, rootChildren, nodes };
+  devValidate(result);
+  return result;
 }
 
 function isAncestor(doc: Document, parent: NodeId, child: NodeId): boolean {
@@ -1041,12 +1026,16 @@ export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): 
   }
 
   const groupInDoc = d.nodes[groupNode.id];
-  if (!groupInDoc) return d;
+  if (!groupInDoc) {
+    devValidate(d);
+    return d;
+  }
   d = {
     ...d,
     nodes: { ...d.nodes, [groupNode.id]: { ...groupInDoc, children } as GroupNode },
   };
 
+  devValidate(d);
   return d;
 }
 
@@ -1073,6 +1062,7 @@ export function ungroupNode(doc: Document, id: NodeId): Document {
   }
 
   d = removeNode(d, id);
+  devValidate(d);
   return d;
 }
 
@@ -1570,6 +1560,172 @@ export function addGlobalChild(doc: Document, nodeId: NodeId): Document {
 export function removeGlobalChild(doc: Document, nodeId: NodeId): Document {
   const current = doc.globalChildren ?? [];
   return { ...doc, globalChildren: current.filter((id) => id !== nodeId) };
+}
+
+// ── Document validation ──────────────────────────────────────────────────────
+
+export interface DocValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * Validate document tree integrity invariants.
+ *
+ * Checks:
+ * 1. Every node in `nodes` is reachable from `rootChildren` / `globalChildren`
+ * 2. Every child ID in a container's `children` exists in `nodes`
+ * 3. No duplicate child IDs across containers / root / global
+ * 4. No cycles (node is not its own ancestor)
+ * 5. All mask references point to existing nodes
+ * 6. All slot references point to existing nodes
+ * 7. Page contentRoot / backgrounds are reachable
+ */
+export function validateDocument(doc: Document): DocValidationResult {
+  const errors: string[] = [];
+
+  // ── 1. Reachability ─────────────────────────────────────────────────────
+  const reachable = new Set<NodeId>();
+  function markReachable(ids: NodeId[]) {
+    for (const nid of ids) {
+      if (reachable.has(nid)) continue;
+      const node = doc.nodes[nid];
+      if (!node) continue;
+      reachable.add(nid);
+      if (isContainer(node) && node.children.length > 0) {
+        markReachable(node.children);
+      }
+    }
+  }
+
+  const roots = [...doc.rootChildren, ...(doc.globalChildren ?? [])];
+  markReachable(roots);
+
+  for (const nid of Object.keys(doc.nodes)) {
+    if (!reachable.has(nid as NodeId)) {
+      errors.push(`Orphan node: ${nid} is not reachable from rootChildren or globalChildren`);
+    }
+  }
+
+  // ── 1b. Page integrity ──────────────────────────────────────────────────
+  if (doc.pages) {
+    for (const page of doc.pages) {
+      if (!reachable.has(page.contentRoot)) {
+        errors.push(`Page "${page.name}" contentRoot ${page.contentRoot} is not reachable`);
+      }
+      for (const bgId of page.backgrounds) {
+        if (!reachable.has(bgId)) {
+          errors.push(`Page "${page.name}" background ${bgId} is not reachable`);
+        }
+      }
+    }
+  }
+
+  // ── 2. Child references exist in nodes ──────────────────────────────────
+  for (const [nid, node] of Object.entries(doc.nodes)) {
+    if (isContainer(node)) {
+      for (const childId of node.children) {
+        if (!doc.nodes[childId]) {
+          errors.push(`Container ${nid} references non-existent child ${childId}`);
+        }
+      }
+    }
+  }
+
+  // ── 3. No duplicate child IDs ───────────────────────────────────────────
+  const childToParent = new Map<NodeId, NodeId[]>();
+  for (const [nid, node] of Object.entries(doc.nodes)) {
+    if (isContainer(node)) {
+      for (const childId of node.children) {
+        const existing = childToParent.get(childId) ?? [];
+        existing.push(nid as NodeId);
+        childToParent.set(childId, existing);
+      }
+    }
+  }
+  for (const [childId, parents] of childToParent) {
+    if (parents.length > 1) {
+      errors.push(
+        `Node ${childId} is a child of multiple containers: ${parents.join(', ')}`,
+      );
+    }
+  }
+
+  // Check rootChildren / globalChildren overlap
+  const rootSet = new Set(doc.rootChildren);
+  for (const gid of doc.globalChildren ?? []) {
+    if (rootSet.has(gid)) {
+      errors.push(`Node ${gid} appears in both rootChildren and globalChildren`);
+    }
+  }
+
+  // ── 4. No cycles ────────────────────────────────────────────────────────
+  const visited = new Set<NodeId>();
+  const inStack = new Set<NodeId>();
+  function detectCycle(nodeId: NodeId): boolean {
+    if (inStack.has(nodeId)) return true;
+    if (visited.has(nodeId)) return false;
+    const node = doc.nodes[nodeId];
+    if (!node || !isContainer(node)) return false;
+    visited.add(nodeId);
+    inStack.add(nodeId);
+    for (const childId of node.children) {
+      if (detectCycle(childId)) {
+        inStack.delete(nodeId);
+        return true;
+      }
+    }
+    inStack.delete(nodeId);
+    return false;
+  }
+  for (const nid of Object.keys(doc.nodes)) {
+    if (detectCycle(nid as NodeId)) {
+      errors.push(`Cycle detected in subtree containing node ${nid}`);
+      break;
+    }
+  }
+
+  // ── 5. Mask references ──────────────────────────────────────────────────
+  for (const [nid, node] of Object.entries(doc.nodes)) {
+    const n = node as SceneNode & { mask?: { sourceNodeId?: NodeId } };
+    if (n.mask?.sourceNodeId && !doc.nodes[n.mask.sourceNodeId]) {
+      errors.push(
+        `Node ${nid} has mask referencing non-existent node ${n.mask.sourceNodeId}`,
+      );
+    }
+  }
+
+  // ── 6. Slot references ──────────────────────────────────────────────────
+  for (const [nid, node] of Object.entries(doc.nodes)) {
+    if (node.kind === 'frame' || node.kind === 'group') {
+      const frame = node as FrameNode & { slots?: Record<string, NodeId> };
+      if (frame.slots) {
+        for (const [slotId, slotChildId] of Object.entries(frame.slots)) {
+          if (!doc.nodes[slotChildId as NodeId]) {
+            errors.push(
+              `Node ${nid} has slot "${slotId}" referencing non-existent node ${slotChildId}`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/** Development-mode validation guard. No-op in production builds. */
+function devValidate(doc: Document): void {
+  if (
+    typeof process !== 'undefined' &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    const result = validateDocument(doc);
+    if (!result.valid) {
+      // eslint-disable-next-line no-console
+      console.warn('[Strata] Document validation failed:', result.errors);
+    }
+  }
 }
 
 /** Get all nodes visible on the active page (page content + global children). */
