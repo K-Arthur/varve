@@ -14,6 +14,7 @@ import { importFile } from './import';
 import { createPdfParser } from './pdf';
 import { createPsdParser } from './psd';
 import { getParserForData, getParserForExtension, registerParser } from './registry';
+import { createSketchParser } from './sketch';
 import { createSvgParser } from './svg';
 import type { ImportOptions } from './types';
 import { validateImport } from './validation';
@@ -88,6 +89,7 @@ function ensureBuiltInsRegistered(): void {
   registerParser(createPsdParser());
   registerParser(createAiParser());
   registerParser(createEpsParser());
+  registerParser(createSketchParser());
   builtInsRegistered = true;
 }
 

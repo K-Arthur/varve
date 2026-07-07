@@ -1,5 +1,24 @@
+import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { ImportService } from './service';
+
+function sketchZip(): Uint8Array {
+  return zipSync({
+    'document.json': strToU8(JSON.stringify({ _class: 'document' })),
+    'pages/page.json': strToU8(
+      JSON.stringify({
+        _class: 'page',
+        layers: [
+          {
+            _class: 'rectangle',
+            name: 'Card',
+            frame: { x: 0, y: 0, width: 120, height: 80 },
+          },
+        ],
+      }),
+    ),
+  });
+}
 
 describe('ImportService', () => {
   it('returns a typed report for successful imports and unsupported files', async () => {
@@ -58,6 +77,21 @@ describe('ImportService', () => {
     );
     expect(report.warnings.map((w) => w.message)).toEqual(
       expect.arrayContaining(['SVG filters', 'SVG clip paths']),
+    );
+  });
+
+  it('imports Sketch archives through the unified partial-fidelity report path', async () => {
+    const bytes = sketchZip();
+
+    const report = await ImportService.importFiles([
+      { name: 'layout.sketch', bytes, size: bytes.byteLength, source: 'file-picker' },
+    ]);
+
+    expect(report.partialCount).toBe(1);
+    expect(report.files[0]?.format).toBe('sketch');
+    expect(report.files[0]?.nodeCount).toBe(1);
+    expect(report.files[0]?.unsupportedFeatures.map((f) => f.feature)).toEqual(
+      expect.arrayContaining(['Sketch symbols and overrides', 'Sketch shared styles']),
     );
   });
 });
