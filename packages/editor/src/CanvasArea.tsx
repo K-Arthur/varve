@@ -29,6 +29,7 @@ import {
 import { importFile } from '@strata/import';
 import type { NodeId, SceneNode } from '@strata/scene';
 import {
+  activePageNodes,
   applyBindingsToNode,
   buildAllVariantCaches,
   buildParentIndexMap,
@@ -748,7 +749,7 @@ export function CanvasArea({
           .trim();
       })();
 
-      const entries = walkNodes(doc);
+      const entries = walkNodes(doc, activePageNodes(doc));
       const cache = transformCacheRef.current;
       const viewport = canvas.getBoundingClientRect();
       const vp = { width: viewport.width, height: viewport.height };
@@ -1247,7 +1248,7 @@ export function CanvasArea({
     const s = stateRef.current;
     const doc = s.document;
     const cache = transformCacheRef.current;
-    const entries = walkNodes(doc);
+    const entries = walkNodes(doc, activePageNodes(doc));
     const vp = { width: cssW, height: cssH };
     const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
 
@@ -2302,7 +2303,7 @@ export function CanvasArea({
         doc={state.document}
         camera={{ zoom: state.zoom, pan: state.pan }}
         viewport={canvasSize}
-        walkNodes={walkNodes}
+        walkNodes={(d) => walkNodes(d, activePageNodes(d))}
         nodeWorldBounds={nodeWorldBounds}
         isWorldRectInViewport={isWorldRectInViewport}
       />

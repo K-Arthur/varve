@@ -21,6 +21,7 @@ import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
 import { LayersTree } from './LayersTree';
+import { computeActivePageLayerCount, countActivePageNodesMatching } from './layerCounts';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
@@ -67,19 +68,16 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   const parentCacheRef = useRef<ParentIndexCache | null>(null);
   parentCacheRef.current = getOrCreateParentCache(state.document, parentCacheRef.current);
 
-  // Compute match count for the filter bar
-  const totalCount = useMemo(
-    () => Object.keys(state.document.nodes).length,
-    [state.document.nodes],
-  );
+  // Compute match count for the filter bar — scoped to the active page only
+  // (document.nodes spans every page plus each page's own contentRoot group,
+  // neither of which the tree ever shows as a row).
+  const totalCount = useMemo(() => computeActivePageLayerCount(state.document), [state.document]);
   const matchCount = useMemo(() => {
     if (!isFiltering(filterSpec)) return totalCount;
-    let count = 0;
-    for (const node of Object.values(state.document.nodes)) {
-      if (nodeMatchesFilter(node as SceneNode, filterSpec)) count++;
-    }
-    return count;
-  }, [state.document.nodes, filterSpec, totalCount]);
+    return countActivePageNodesMatching(state.document, (node) =>
+      nodeMatchesFilter(node, filterSpec),
+    );
+  }, [state.document, filterSpec, totalCount]);
 
   useEffect(() => {
     if (!contextMenu) return;

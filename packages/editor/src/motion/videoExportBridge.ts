@@ -16,6 +16,7 @@ import {
 } from '@strata/engine';
 import type { Document, NodeId, Timeline } from '@strata/scene';
 import {
+  activePageNodes,
   applyBindingsToNode,
   buildAllVariantCaches,
   createVariableStore,
@@ -97,7 +98,10 @@ export function resolveVideoExportBounds(
 function flattenVisibleNodes(doc: Document): { ids: string[]; nodes: EngineNode[] } {
   const variantCaches = buildAllVariantCaches(doc);
   const variableStore = doc.variableStore ?? createVariableStore();
-  const entries = walkNodes(doc);
+  // Scoped to the active page — otherwise every page's shapes get baked
+  // into the same exported frame, overlapping the page actually being
+  // exported.
+  const entries = walkNodes(doc, activePageNodes(doc));
   const ids: string[] = [];
   const nodes: EngineNode[] = [];
 

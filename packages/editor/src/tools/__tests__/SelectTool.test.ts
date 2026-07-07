@@ -1,4 +1,4 @@
-import { createDocument, makeShapeNode } from '@strata/scene';
+import { createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectTool } from '../SelectTool';
 
@@ -60,17 +60,31 @@ function makeCtx(overrides?: Record<string, unknown>) {
   return ctx;
 }
 
+// A hand-picked contentRoot id, distinct from the `n0`/`n1`/`n2` test-shape
+// ids below — `createDocument()`'s own auto-generated contentRoot id would
+// otherwise collide with `n1` (both come from the same `n${count}` scheme),
+// silently replacing the contentRoot with a shape node.
+const TEST_CONTENT_ROOT_ID = 'test-content-root';
+
 function makeDocWithNodes(count: number) {
   const doc = createDocument('test');
+  const page = doc.pages![0]!;
   const nodes: Record<string, any> = {};
+  const childIds: string[] = [];
   for (let i = 0; i < count; i++) {
     const id = `n${i}`;
     nodes[id] = makeShapeNode(id, { kind: 'rect', x: i * 50, y: 0, w: 40, h: 40 });
+    childIds.push(id);
   }
+  nodes[TEST_CONTENT_ROOT_ID] = makeGroupNode(TEST_CONTENT_ROOT_ID, {
+    name: 'content',
+    children: childIds,
+  });
   return {
     ...doc,
-    nodes: { ...doc.nodes, ...nodes },
-    rootChildren: [...doc.rootChildren, ...Object.keys(nodes)],
+    pages: [{ ...page, contentRoot: TEST_CONTENT_ROOT_ID }],
+    rootChildren: [TEST_CONTENT_ROOT_ID],
+    nodes: nodes as typeof doc.nodes,
   };
 }
 
@@ -301,8 +315,8 @@ describe('SelectTool — depth-based click cycling', () => {
     doc.nodes.n0 = n0 as any;
     doc.nodes.n1 = n1 as any;
     doc.nodes.n2 = n2 as any;
-    // Paint order (last = topmost): n1 (bottom), n0 (middle), n2 (top)
-    doc.rootChildren = ['n1', 'n0', 'n2'];
+    // Paint order (last = topmost): n1 (bottom), n0 (middle), n2 (top).
+    (doc.nodes[TEST_CONTENT_ROOT_ID] as any).children = ['n1', 'n0', 'n2'];
 
     const ctx = makeCtx({
       document: doc,
@@ -353,9 +367,9 @@ describe('SelectTool — transparent fill click-through', () => {
     });
     const n0 = baseNode('n0', 'StrokeOnly', { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 });
     const n1 = baseNode('n1', 'HasFill', { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 });
-    const doc = createDocument('test');
+    const doc = makeDocWithNodes(0);
     doc.nodes = { ...doc.nodes, n0: n0 as any, n1: n1 as any };
-    doc.rootChildren = ['n1', 'n0'];
+    (doc.nodes[TEST_CONTENT_ROOT_ID] as any).children = ['n1', 'n0'];
 
     const setSelection = vi.fn();
     const ctx = makeCtx({
