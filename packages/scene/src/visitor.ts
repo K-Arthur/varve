@@ -52,8 +52,18 @@ export function visitNodePartial<T>(
   visitor: PartialNodeVisitor<T>,
   fallback: (node: SceneNode) => T,
 ): T {
-  const handler = visitor[node.kind as keyof NodeVisitor<T>];
-  if (handler) return handler(node as any);
+  switch (node.kind) {
+    case 'shape':
+      return visitor.shape ? visitor.shape(node) : fallback(node);
+    case 'text':
+      return visitor.text ? visitor.text(node) : fallback(node);
+    case 'frame':
+      return visitor.frame ? visitor.frame(node) : fallback(node);
+    case 'group':
+      return visitor.group ? visitor.group(node) : fallback(node);
+    case 'adjustment':
+      return visitor.adjustment ? visitor.adjustment(node) : fallback(node);
+  }
   return fallback(node);
 }
 

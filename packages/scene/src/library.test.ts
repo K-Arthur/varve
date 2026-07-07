@@ -92,7 +92,7 @@ describe('Library System', () => {
     const result = installLibrary(freshDoc, library);
     const installed = result.doc.components[component.id];
     expect(installed).toBeDefined();
-    expect(result.doc.nodes[installed!.masterRootId]?.name).toBe('Button');
+    expect(result.doc.nodes[(installed as typeof component).masterRootId]?.name).toBe('Button');
   });
 
   it('installs a library into a document', () => {

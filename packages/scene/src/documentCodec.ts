@@ -169,7 +169,9 @@ export const DocumentCodec = {
       return {
         ok: false,
         error: 'Document payload was not an object',
-        warnings: [warning('document.invalid-shape', 'Document payload was not an object', 'error')],
+        warnings: [
+          warning('document.invalid-shape', 'Document payload was not an object', 'error'),
+        ],
       };
     }
 

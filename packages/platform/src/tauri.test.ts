@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe('createTauriPlatform', () => {
   it('saves binary files as ArrayBuffer IPC payloads instead of number arrays', async () => {
-    const invoke = vi.fn(async (cmd: string) => {
+    const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
       if (cmd === 'plugin:dialog|save') return '/tmp/icon.svg';
       return null;
     });

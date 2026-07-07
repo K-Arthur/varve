@@ -61,9 +61,9 @@ describe('PrototypeFlowView', () => {
       ctx = useEditor();
       return (
         <PrototypeFlowView
-          document={ctx!.state.document}
-          selectedInteractionId={ctx!.selectedInteractionId}
-          onSelectInteraction={ctx!.selectPrototypeInteraction}
+          document={ctx?.state.document}
+          selectedInteractionId={ctx?.selectedInteractionId}
+          onSelectInteraction={ctx?.selectPrototypeInteraction}
         />
       );
     }

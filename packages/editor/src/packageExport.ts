@@ -8,8 +8,8 @@
 
 import { dataUrlToBytes } from '@strata/import';
 import {
-  DocumentCodec,
   type Document,
+  DocumentCodec,
   type Fill,
   type NodeId,
   type SceneNode,

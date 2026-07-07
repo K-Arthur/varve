@@ -5,6 +5,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   nextNodeId,
+  type Page,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { collectActivePageNodeIds, computeActivePageLayerCount } from './layerCounts';
@@ -30,7 +31,7 @@ describe('computeActivePageLayerCount', () => {
 
     // Add a second page and put two shapes on it.
     doc = addPage(doc, { name: 'Page 2' });
-    const page2 = doc.pages![1]!;
+    const page2 = doc.pages?.[1] as Page;
     const { id: rect2Id, doc: d2 } = nextNodeId(doc);
     doc = d2;
     doc = addChild(
@@ -47,7 +48,7 @@ describe('computeActivePageLayerCount', () => {
     );
 
     // Still viewing page 1 by default: only the 1 shape on page 1 counts.
-    expect(doc.activePageId).toBe(doc.pages![0]!.id);
+    expect(doc.activePageId).toBe(doc.pages?.[0]?.id);
     expect(computeActivePageLayerCount(doc)).toBe(1);
 
     // Switch to page 2: only its 2 shapes count, not page 1's.

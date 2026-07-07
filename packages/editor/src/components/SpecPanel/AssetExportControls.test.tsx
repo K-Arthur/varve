@@ -14,13 +14,15 @@ describe('AssetExportControls', () => {
         node={node}
         doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
         engine={undefined}
-        platform={{
-          kind: 'tauri',
-          saveBinaryFile: vi.fn(async (_name, bytes, mime, ext) => {
-            saved.push({ bytes, mime, ext });
-            return '/tmp/logo.svg';
-          }),
-        } as never}
+        platform={
+          {
+            kind: 'tauri',
+            saveBinaryFile: vi.fn(async (_name, bytes, mime, ext) => {
+              saved.push({ bytes, mime, ext });
+              return '/tmp/logo.svg';
+            }),
+          } as never
+        }
       />,
     );
 
@@ -28,7 +30,7 @@ describe('AssetExportControls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));
 
     await waitFor(() => expect(saved).toHaveLength(1));
-    const text = new TextDecoder().decode(saved[0]!.bytes);
+    const text = new TextDecoder().decode(saved[0]?.bytes);
     expect(saved[0]).toMatchObject({ mime: 'image/svg+xml', ext: '.svg' });
     expect(text).toContain('<svg');
     expect(text.startsWith('\uFFFDPNG')).toBe(false);

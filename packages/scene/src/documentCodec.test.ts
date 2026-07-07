@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addNode, createDocument, makeGroupNode, makeShapeNode } from './document';
-import { CURRENT_DOCUMENT_VERSION } from './version';
 import { DocumentCodec } from './documentCodec';
+import { CURRENT_DOCUMENT_VERSION } from './version';
 
 describe('DocumentCodec', () => {
   it('decodes, migrates, and validates serialized documents', () => {
@@ -57,10 +57,7 @@ describe('DocumentCodec', () => {
         children: ['s1'],
       }),
     );
-    doc = addNode(
-      doc,
-      makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
-    );
+    doc = addNode(doc, makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
 
     const closure = DocumentCodec.collectNodeClosure(doc, ['g1']);
 

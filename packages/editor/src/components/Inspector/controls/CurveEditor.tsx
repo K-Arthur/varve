@@ -325,7 +325,7 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
       </div>
       <svg
         ref={svgRef}
-        role="graphics-document"
+        role="img"
         width={WIDTH}
         height={HEIGHT}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
