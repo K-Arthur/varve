@@ -630,7 +630,7 @@ export function CanvasArea({
           bounds: { x: number; y: number; w: number; h: number };
         }> = [];
         for (const n of Object.values(doc.nodes)) {
-          const b = nodeWorldBoundsFn(n);
+          const b = nodeWorldBounds(doc, n.id) ?? nodeWorldBoundsFn(n);
           if (b) allBoundsWithIds.push({ nodeId: n.id, bounds: b });
         }
         const parentIdx = buildParentIndexMap(doc);
@@ -1233,7 +1233,7 @@ export function CanvasArea({
         // `frameRendered` handler below calls back into `drawContent` on
         // every reply, which — since nothing here invalidated `docVersion`
         // or the camera — would immediately re-post the SAME render request,
-        // forever: an unthrottled main-thread↔worker ping-pong that never
+        // forever: an unthrottled main-thread-to-worker ping-pong that never
         // settles. It's cheap to miss for tiny vector scenes, but for a
         // scene carrying a large embedded image (pasted image fill, full
         // base64 data URL in `nodes`/`ir`), each loop iteration structured-

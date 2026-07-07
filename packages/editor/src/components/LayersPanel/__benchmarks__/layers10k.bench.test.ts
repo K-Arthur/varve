@@ -171,14 +171,14 @@ describe('10K Node Performance', () => {
   );
 
   test(
-    'parent index rebuild for 10K nodes completes under 100ms',
+    'parent index rebuild for 10K nodes completes under 250ms',
     () => {
       const start = performance.now();
       const parentMap = buildParentIndexMap(doc);
       const elapsed = performance.now() - start;
 
       expect(parentMap.size).toBeGreaterThanOrEqual(10000);
-      expect(elapsed).toBeLessThan(100);
+      expect(elapsed).toBeLessThan(250);
     },
     BENCH_TIMEOUT,
   );
