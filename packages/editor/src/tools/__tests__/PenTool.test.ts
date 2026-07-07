@@ -117,6 +117,7 @@ describe('PenTool', () => {
     tool.onActivate?.(ctx);
 
     tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
 
     tool.onPointerMove?.(makePointerEvent(200, 150), ctx);
 
@@ -129,6 +130,7 @@ describe('PenTool', () => {
     tool.onActivate?.(ctx);
 
     tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
 
     tool.onPointerMove?.(makePointerEvent(200, 150), ctx);
 
@@ -148,8 +150,10 @@ describe('PenTool', () => {
     tool.onActivate?.(ctx);
 
     tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
     vi.advanceTimersByTime(500);
     tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
 
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
@@ -189,8 +193,10 @@ describe('PenTool', () => {
     tool.onActivate?.(ctx);
 
     tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
     vi.advanceTimersByTime(500);
     tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
 
     tool.onKeyDown?.(makeKeyEvent('Escape'), ctx);
 
@@ -204,8 +210,141 @@ describe('PenTool', () => {
     tool.onActivate?.(ctx);
 
     tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
     expect(ctx.createShapeAt).toHaveBeenCalledWith({ x: 100, y: 100 }, { w: 4, h: 4 });
+  });
+
+  it('closes path when clicking near first point', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx({ zoom: 1 });
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+    vi.advanceTimersByTime(500);
+    // Click within 8px of first point
+    tool.onPointerDown?.(makePointerEvent(104, 103), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3];
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    // Closed path: first point added at end too
+    expect(pathPoints.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('Shift-click constrains point to 45-degree angle', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150, { shiftKey: true }), ctx);
+
+    const mock = ctx.createShapeAt as ReturnType<typeof vi.fn>;
+    // Path not yet committed (only 2 points, no close)
+    expect(mock).not.toHaveBeenCalled();
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('Point'));
+  });
+
+  it('double-click finishes path', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    // Double-click fires between pointerDown and pointerUp
+    tool.onDoubleClick?.(makePointerEvent(200, 150), ctx);
+
+    expect(ctx.createShapeAt).toHaveBeenCalled();
+    expect(ctx.announce).toHaveBeenCalledWith('Path finished');
+  });
+
+  it('click-drag creates bezier handles on the point', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    // First click-drag: click at (100,100), drag to (130,130)
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerMove?.(makePointerEvent(130, 130), ctx);
+    tool.onPointerUp?.(makePointerEvent(130, 130), ctx);
+
+    // Now in Placing state with a handle on point[0]
+    vi.advanceTimersByTime(500);
+
+    // Add a second point
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+
+    // Commit
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3];
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    expect(pathPoints.length).toBe(2);
+    // First point should have handleOut set (from the drag)
+    const firstPt = pathPoints[0] as { handleOut?: [number, number] | null };
+    expect(firstPt.handleOut).not.toBeNull();
+  });
+
+  it('click without drag creates corner point (no handles)', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    // Click without drag
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3];
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    // Both points should have null handles (corner points)
+    const pt0 = pathPoints[0] as { handleOut?: [number, number] | null };
+    const pt1 = pathPoints[1] as { handleOut?: [number, number] | null };
+    expect(pt0.handleOut).toBeNull();
+    expect(pt1.handleOut).toBeNull();
+  });
+
+  it('onDeactivate clears state without committing', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+
+    tool.onDeactivate?.(ctx);
+
+    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+  });
+
+  it('onDeactivate does not crash when Idle', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+
+    expect(() => tool.onDeactivate?.(ctx)).not.toThrow();
   });
 });

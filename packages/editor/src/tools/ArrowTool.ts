@@ -30,20 +30,14 @@ export class ArrowTool extends BaseTool {
   override onDragEnd(ctx: ToolContext): void {
     ctx.setDraft(null);
     const line = this.computeDragLine(ctx);
-    const w = Math.abs(line.x2 - line.x1) || 4;
-    const h = Math.abs(line.y2 - line.y1) || 4;
-    const cx = Math.min(line.x1, line.x2) + w / 2;
-    const cy = Math.min(line.y1, line.y2) + h / 2;
-    const parentId = this.commitToParent({ x: cx, y: cy }, ctx);
+    const parentId = this.commitToParent({ x: line.x1, y: line.y1 }, ctx);
 
     if (this.isBelowThreshold(ctx)) {
       ctx.createShapeAt(this.drag.startWorld, undefined, parentId);
     } else {
-      ctx.createShapeAt(
-        { x: Math.min(line.x1, line.x2) + w / 2, y: Math.min(line.y1, line.y2) + h / 2 },
-        { w, h },
-        parentId,
-      );
+      const dx = line.x2 - line.x1;
+      const dy = line.y2 - line.y1;
+      ctx.createShapeAt({ x: line.x1, y: line.y1 }, { w: dx || 4, h: dy || 4 }, parentId);
     }
   }
 

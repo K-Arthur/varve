@@ -186,4 +186,65 @@ describe('PencilTool', () => {
     expect(ctx.createShapeAt).not.toHaveBeenCalled();
     expect(ctx.setDraft).toHaveBeenCalledWith(null);
   });
+
+  it('draft updates during RAF loop', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+
+    // Drive the RAF loop manually with pointer at a new position
+    tool.onPointerMove?.(makePointerEvent(200, 200), ctx);
+    rafCb?.(0);
+
+    // Draft should have been set with kind 'freehand'
+    expect(ctx.setDraft).toHaveBeenCalled();
+    const mock = (ctx.setDraft as ReturnType<typeof vi.fn>).mock;
+    const draftCalls = mock.calls.filter(
+      (c: unknown[]) => (c[0] as Record<string, unknown>)?.kind === 'freehand',
+    );
+    expect(draftCalls.length).toBeGreaterThan(0);
+  });
+
+  it('onPointerCancel cancels capture and resets', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerCancel?.(makePointerEvent(100, 100), ctx);
+
+    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+  });
+
+  it('creates path at correct start position', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    tool.onPointerDown?.(makePointerEvent(150, 200), ctx);
+
+    rafCb?.(0);
+    tool.onPointerMove?.(makePointerEvent(160, 210), ctx);
+    rafCb?.(0);
+    tool.onPointerMove?.(makePointerEvent(170, 220), ctx);
+    rafCb?.(0);
+
+    tool.onPointerUp?.(makePointerEvent(170, 220), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    // Position should be at drag start world
+    expect(callArgs?.[0]).toEqual({ x: 150, y: 200 });
+  });
+
+  it('ends capture on deactivate', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+
+    tool.onDeactivate?.({} as ToolContext);
+
+    // After deactivate, subsequent pointer moves should not cause errors
+    expect(() => tool.onPointerMove?.(makePointerEvent(200, 200), ctx)).not.toThrow();
+  });
 });

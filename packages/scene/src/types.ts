@@ -514,6 +514,8 @@ export interface AdjustmentNode extends NodeBase {
 
 // ── Vector Path Node ─────────────────────────────────────────────────────────
 
+/** @deprecated Use ShapeNode with kind:'path' shape instead. PathNode is
+ *  preserved for backward compatibility with serialized documents. */
 export interface PathNode extends NodeBase {
   kind: 'path';
   /** Control points in node-local coordinates. */

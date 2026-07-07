@@ -1501,26 +1501,47 @@ export function CanvasArea({
             ctx.fill();
           }
           break;
+        case 'freehand':
+          if (draft.points.length >= 2) {
+            ctx.beginPath();
+            ctx.moveTo(draft.points[0]!.x, draft.points[0]!.y);
+            for (let i = 1; i < draft.points.length; i++) {
+              ctx.lineTo(draft.points[i]!.x, draft.points[i]!.y);
+            }
+            ctx.stroke();
+          }
+          break;
       }
 
       ctx.setLineDash([]);
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const sx =
-        draft.kind === 'line' || draft.kind === 'arrow'
-          ? Math.min(draft.x1, draft.x2) * s.zoom + s.pan.x
-          : draft.x * s.zoom + s.pan.x;
-      const sy =
-        draft.kind === 'line' || draft.kind === 'arrow'
-          ? Math.min(draft.y1, draft.y2) * s.zoom + s.pan.y
-          : draft.y * s.zoom + s.pan.y;
-      const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
-      ctx.font = '11px system-ui';
-      ctx.fillStyle = accentColor;
-      const label =
-        draft.label ??
-        `${Math.round(sw / s.zoom)} x ${Math.round('h' in draft ? draft.h * s.zoom : (Math.abs(draft.y2 - draft.y1) * s.zoom) / s.zoom)}`;
-      ctx.fillText(label, sx + sw + 4, sy + 14);
+      if (draft.kind === 'freehand') {
+        const pt = draft.points[0];
+        if (pt) {
+          const sx = pt.x * s.zoom + s.pan.x;
+          const sy = pt.y * s.zoom + s.pan.y;
+          ctx.font = '11px system-ui';
+          ctx.fillStyle = accentColor;
+          ctx.fillText(draft.label ?? `${draft.points.length} pts`, sx + 4, sy + 14);
+        }
+      } else {
+        const sx =
+          draft.kind === 'line' || draft.kind === 'arrow'
+            ? Math.min(draft.x1, draft.x2) * s.zoom + s.pan.x
+            : draft.x * s.zoom + s.pan.x;
+        const sy =
+          draft.kind === 'line' || draft.kind === 'arrow'
+            ? Math.min(draft.y1, draft.y2) * s.zoom + s.pan.y
+            : draft.y * s.zoom + s.pan.y;
+        const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
+        ctx.font = '11px system-ui';
+        ctx.fillStyle = accentColor;
+        const label =
+          draft.label ??
+          `${Math.round(sw / s.zoom)} x ${Math.round('h' in draft ? draft.h * s.zoom : (Math.abs(draft.y2 - draft.y1) * s.zoom) / s.zoom)}`;
+        ctx.fillText(label, sx + sw + 4, sy + 14);
+      }
     }
   }, [draft, state.zoom, state.pan.x, state.pan.y, state.cameraRotation]);
 

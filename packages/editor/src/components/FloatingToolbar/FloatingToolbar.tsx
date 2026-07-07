@@ -58,6 +58,7 @@ const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
   line: 'L',
   arrow: 'A',
   pen: 'P',
+  pencil: 'Shift+P',
   text: 'T',
   scale: 'S',
   slice: 'K',

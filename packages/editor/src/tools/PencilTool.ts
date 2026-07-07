@@ -2,14 +2,16 @@
  * PencilTool — freehand path drawing.
  *
  * Captures pointer points at animation-frame rate, then on release applies
- * Ramer–Douglas–Peucker simplification and commits a path shape.
+ * Ramer-Douglas-Peucker simplification, Schneider Bezier curve fitting,
+ * and commits a path shape with proper handles.
  *
  * Research basis: Figma Pencil (shift+P), Illustrator Pencil (N).
+ *                 Schneider, P. Graphics Gems (1990).
  */
 
 import { BaseTool } from './BaseTool';
 import type { Point2D } from './fitting';
-import { simplifyPoints } from './fitting';
+import { fitPathToBeziers, simplifyPoints } from './fitting';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class PencilTool extends BaseTool {
@@ -23,19 +25,12 @@ export class PencilTool extends BaseTool {
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
-    ctx.setPointerCapture(e.pointerId);
+    const result = super.onPointerDown(e, ctx);
+    if (!result.consumed) return result;
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.captured = [{ x: world.x, y: world.y }];
-    this.drag = {
-      kind: 'dragging',
-      pointerId: e.pointerId,
-      startCanvas: { x: e.clientX, y: e.clientY },
-      startWorld: world,
-      currentCanvas: { x: e.clientX, y: e.clientY },
-      currentWorld: world,
-    };
     this.startCapture(ctx);
-    return { consumed: true, captured: true };
+    return result;
   }
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
@@ -44,23 +39,26 @@ export class PencilTool extends BaseTool {
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
   }
 
-  override onPointerUp(_e: PointerEvent, ctx: ToolContext): void {
+  override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
     this.stopCapture();
-    ctx.releasePointerCapture(_e.pointerId);
 
     if (this.captured.length < 2) {
       ctx.createShapeAt(this.drag.startWorld, { w: 4, h: 4 });
+      super.onPointerUp(e, ctx);
       this.reset();
       return;
     }
 
-    // Simplify then convert captured freehand points to PathPoint[]
-    const simplified = simplifyPoints(this.captured, 2);
-    const pathPoints = simplified.map((p: Point2D) => ({
+    // Simplify with zoom-aware epsilon (2 screen pixels → world units)
+    const SCREEN_PX_EPSILON = 2;
+    const epsilon = SCREEN_PX_EPSILON / ctx.zoom;
+    const simplified = simplifyPoints(this.captured, epsilon);
+    const fitted = fitPathToBeziers(simplified);
+    const pathPoints = fitted.map((p) => ({
       x: p.x,
       y: p.y,
-      handleIn: null as [number, number] | null,
-      handleOut: null as [number, number] | null,
+      handleIn: p.handleIn as [number, number] | null,
+      handleOut: p.handleOut as [number, number] | null,
     }));
 
     const parentId = this.commitToParent(
@@ -74,6 +72,7 @@ export class PencilTool extends BaseTool {
       parentId,
       pathPoints,
     );
+    super.onPointerUp(e, ctx);
     this.reset();
   }
 
@@ -102,19 +101,9 @@ export class PencilTool extends BaseTool {
         const dy = cur.y - last.y;
         if (dx * dx + dy * dy > 1) {
           this.captured.push({ x: cur.x, y: cur.y });
-          // Update draft as a rough bounding box
-          const xs = this.captured.map((p) => p.x);
-          const ys = this.captured.map((p) => p.y);
-          const minX = Math.min(...xs);
-          const minY = Math.min(...ys);
-          const maxX = Math.max(...xs);
-          const maxY = Math.max(...ys);
           ctx.setDraft({
-            kind: 'rect',
-            x: minX,
-            y: minY,
-            w: maxX - minX || 4,
-            h: maxY - minY || 4,
+            kind: 'freehand',
+            points: this.captured,
             label: `${this.captured.length} pts`,
           });
         }
