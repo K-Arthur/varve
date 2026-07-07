@@ -93,6 +93,14 @@ export async function validateImport(
         unsupportedFeatures.push('EPS clipping paths');
       }
     }
+  } else if (parser.format === 'sketch') {
+    estimatedNodeCount = estimateSketchLayerCount(data);
+    unsupportedFeatures.push(
+      'Sketch symbols and overrides',
+      'Sketch shared styles',
+      'Sketch constraints and resizing rules',
+      'Sketch advanced effects and blend modes',
+    );
   }
 
   // Check for empty or too-small data
@@ -166,6 +174,13 @@ function estimateEpsNodeCount(data: string | Uint8Array): number {
   const str = typeof data === 'string' ? data : new TextDecoder().decode(data);
   const cmdCount = (str.match(/(rectfill|rectstroke|lineto|moveto|curveto|show)\b/gi) || []).length;
   return Math.max(1, cmdCount);
+}
+
+function estimateSketchLayerCount(data: string | Uint8Array): number {
+  if (typeof data === 'string') return 0;
+  const text = new TextDecoder().decode(data);
+  const layerMatches = text.match(/"_class"\s*:/g) ?? [];
+  return Math.max(1, layerMatches.length);
 }
 
 function deduplicateWarnings(warnings: string[]): string[] {
