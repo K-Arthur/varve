@@ -1161,14 +1161,18 @@ function paintText(
   }
 }
 
+/** Module-level cached canvas context for measureText calls (created lazily). */
+let _measureCtx: CanvasRenderingContext2D | null = null;
+
 /** Measure the width of a single character in the current canvas font. Falls back to an estimate. */
 function measureTextAdvance(target: ReplayTarget, char: string): number {
   if (typeof document === 'undefined') return target.font ? parseFontSize(target.font) * 0.6 : 0;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return parseFontSize(target.font) * 0.6;
-  ctx.font = target.font;
-  return ctx.measureText(char).width;
+  if (!_measureCtx) {
+    _measureCtx = document.createElement('canvas').getContext('2d');
+  }
+  if (!_measureCtx) return parseFontSize(target.font) * 0.6;
+  _measureCtx.font = target.font;
+  return _measureCtx.measureText(char).width;
 }
 
 function parseFontSize(font: string): number {

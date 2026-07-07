@@ -4,7 +4,17 @@
  */
 import type { Document } from '@strata/scene';
 
+let _prevDoc: Document | null = null;
+let _prevResult = false;
+
 export function sceneNeedsStructuralCompositing(doc: Document): boolean {
+  if (_prevDoc === doc) return _prevResult;
+  _prevDoc = doc;
+  _prevResult = computeNeedsStructuralCompositing(doc);
+  return _prevResult;
+}
+
+function computeNeedsStructuralCompositing(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
     if ('mask' in node && node.mask?.visible) return true;

@@ -1227,7 +1227,8 @@ export function CanvasArea({
           wb.camera.pan.x === s.pan.x &&
           wb.camera.pan.y === s.pan.y &&
           (s.cameraRotation ?? 0) === 0;
-        const bitmapIsCurrent = Boolean(wb && wb.docVersion === docVersion && cameraMatches);
+        const docIsCurrent = Boolean(wb && wb.docVersion === docVersion);
+        const bitmapIsCurrent = docIsCurrent && cameraMatches;
         // Only ask the worker to re-render when the cached bitmap is stale
         // (doc or camera actually changed). Without this guard, the
         // `frameRendered` handler below calls back into `drawContent` on
@@ -1250,15 +1251,39 @@ export function CanvasArea({
             dpr,
           });
         }
-        if (bitmapIsCurrent && wb) {
+        if (wb) {
+          // Replay cached bitmap: identity when camera matches exactly,
+          // otherwise compensate for pan/zoom delta and floating-origin
+          // shift — smooth 60fps panning at "last rendered quality" while
+          // the worker delivers the fresh frame asynchronously.
           ctxNN.save();
           ctxNN.setTransform(1, 0, 0, 1, 0, 0);
-          compositorRef.current?.compositeRasterLayer(
-            'worker-frame',
-            wb.bitmap,
-            [1, 0, 0, 1, 0, 0],
-            'normal',
-          );
+          if (cameraMatches && docIsCurrent) {
+            compositorRef.current?.compositeRasterLayer(
+              'worker-frame',
+              wb.bitmap,
+              [1, 0, 0, 1, 0, 0],
+              'normal',
+            );
+          } else {
+            // Apply camera delta: maps old-bitmap pixel coordinates to
+            // their correct screen positions under the new camera.
+            const zoomNew = s.zoom;
+            const zoomOld = wb.camera.zoom;
+            const panNew = s.pan;
+            const panOld = wb.camera.pan;
+            const sRatio = zoomNew / zoomOld;
+            const ortOld = computeFloatingOrigin({ zoom: zoomOld, pan: panOld }, vp);
+            const ortNew = computeFloatingOrigin({ zoom: zoomNew, pan: panNew }, vp);
+            const dx = (panNew.x - panOld.x * sRatio + (ortOld[0] - ortNew[0]) * zoomNew) * dpr;
+            const dy = (panNew.y - panOld.y * sRatio + (ortOld[1] - ortNew[1]) * zoomNew) * dpr;
+            compositorRef.current?.compositeRasterLayer(
+              'worker-frame',
+              wb.bitmap,
+              [sRatio, 0, 0, sRatio, dx, dy],
+              'normal',
+            );
+          }
           ctxNN.restore();
         } else {
           compositorRef.current?.drawVectorItems(ir);
