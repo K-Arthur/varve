@@ -56,6 +56,7 @@ import {
   useDidYouKnow,
   useTutorialProgress,
 } from './onboard';
+import { buildPackageExport } from './packageExport';
 import { getSharedRecoveryManager, type RecoverySession } from './recovery';
 import { StatusBar } from './StatusBar';
 import { createTutorialDocument } from './samples/tutorial-document';
@@ -171,6 +172,11 @@ function ShellInner({
     },
     [platform],
   );
+
+  const handlePackageExport = useCallback(async () => {
+    const pkg = buildPackageExport(editor.state.document);
+    await saveExportBytes(platform, pkg.fileName, pkg.bytes, pkg.mimeType, '.zip');
+  }, [editor.state.document, platform]);
 
   // ── Lifecycle event handlers ─────────────────────────────────────────────
   const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
@@ -664,6 +670,7 @@ function ShellInner({
           document={editor.state.document}
           selectionIds={editor.state.selection}
           onExport={handleExportBatch}
+          onPackageExport={handlePackageExport}
           onExportMotion={handleExportMotion}
           onSaveVideoFile={handleSaveVideoFile}
           onApplyBackgroundRemoval={(id, state) => {

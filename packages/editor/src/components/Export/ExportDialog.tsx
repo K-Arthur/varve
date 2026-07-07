@@ -48,6 +48,7 @@ export interface ExportDialogProps {
   document?: Document;
   timelines?: Record<string, Timeline>;
   onExport: (batch: ExportBatch) => Promise<ExportReport | void>;
+  onPackageExport?: () => Promise<void>;
   onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
   onExportMotion?: (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => void;
   onSaveVideoFile?: (fileName: string, bytes: Uint8Array, mimeType: string) => Promise<void>;
@@ -176,6 +177,7 @@ export function ExportDialog({
   document,
   timelines = {},
   onExport,
+  onPackageExport,
   onApplyBackgroundRemoval,
   onExportMotion,
   onSaveVideoFile,
@@ -183,6 +185,7 @@ export function ExportDialog({
   initialTemplate = '{name}{suffix}.{ext}',
 }: ExportDialogProps) {
   const [running, setRunning] = useState(false);
+  const [packaging, setPackaging] = useState(false);
   const [progress, setProgress] = useState({ done: 0, errors: 0 });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [template, setTemplate] = useState(initialTemplate);
@@ -367,6 +370,21 @@ export function ExportDialog({
     setProgress({ done: 0, errors: 0 });
     setAnnounceMsg('Export cancelled');
   }, [videoExporting]);
+
+  const handlePackageExport = useCallback(async () => {
+    if (!onPackageExport) return;
+    setPackaging(true);
+    setAnnounceMsg('Packaging document...');
+    try {
+      await onPackageExport();
+      setAnnounceMsg('Package export complete');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setAnnounceMsg(`Package export failed: ${msg}`);
+    } finally {
+      setPackaging(false);
+    }
+  }, [onPackageExport]);
 
   const handleVideoExport = useCallback(
     async (tl: Timeline, format: 'mp4' | 'webm') => {
@@ -702,15 +720,25 @@ export function ExportDialog({
             type="button"
             className="export-dialog__btn export-dialog__btn--secondary"
             onClick={onClose}
-            disabled={running || videoExporting}
+            disabled={running || videoExporting || packaging}
           >
             Close
           </button>
+          {onPackageExport && (
+            <button
+              type="button"
+              className="export-dialog__btn export-dialog__btn--secondary"
+              onClick={handlePackageExport}
+              disabled={running || videoExporting || packaging}
+            >
+              {packaging ? 'Packaging...' : 'Package'}
+            </button>
+          )}
           <button
             type="button"
             className="export-dialog__btn export-dialog__btn--primary"
             onClick={handleExport}
-            disabled={running || selectedIds.size === 0}
+            disabled={running || packaging || selectedIds.size === 0}
           >
             {running ? 'Exporting\u2026' : `Export (${selectedIds.size})`}
           </button>

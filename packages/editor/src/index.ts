@@ -5,3 +5,5 @@ export type { OpenFileRequest, ShellProps } from './Shell';
 export { Shell } from './Shell';
 export { formatShortcut, SHORTCUT_DEFS, useShortcuts } from './shortcuts';
 export { TabStrip } from './TabStrip';
+export type { PackageExportResult, PackageManifest } from './packageExport';
+export { buildPackageExport } from './packageExport';
