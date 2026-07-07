@@ -70,16 +70,14 @@ let _activeHooks: TransactionHooks = noopTransactionHooks;
 
 // ── Stub Tauri-facing functions ──────────────────────────────────
 
-const STUB_COLLAB_USERS: CollabUser[] = [
-  { id: 'user-1', name: 'Alice', color: '#39d0c6' },
-  { id: 'user-2', name: 'Bob', color: '#e06c75' },
-  { id: 'user-3', name: 'Charlie', color: '#61afef' },
-];
-
-/** Stub: return hardcoded collab users. Will be replaced with Tauri IPC. */
+/**
+ * No real collaboration backend exists yet (no Tauri IPC, no CRDT sync) —
+ * returning fake collaborators here would show invented people ("Alice",
+ * "Bob") as live cursors/presence indicators in every single-user session.
+ * Returns empty until this is wired to a real backend.
+ */
 export async function getCollabUsers(_documentId: string): Promise<CollabUser[]> {
-  await new Promise((r) => setTimeout(r, 100));
-  return STUB_COLLAB_USERS;
+  return [];
 }
 
 /** Stub: no-op cursor update. Will be replaced with Tauri IPC. */
