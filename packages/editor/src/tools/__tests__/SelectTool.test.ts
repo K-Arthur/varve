@@ -1,4 +1,4 @@
-import { createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
+import { createDocument, makeGroupNode, makeShapeNode, type Page } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectTool } from '../SelectTool';
 
@@ -68,7 +68,7 @@ const TEST_CONTENT_ROOT_ID = 'test-content-root';
 
 function makeDocWithNodes(count: number) {
   const doc = createDocument('test');
-  const page = doc.pages![0]!;
+  const page = doc.pages?.[0] as Page;
   const nodes: Record<string, any> = {};
   const childIds: string[] = [];
   for (let i = 0; i < count; i++) {

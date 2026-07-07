@@ -52,7 +52,7 @@ export interface ExportRunContext {
     bytes: Uint8Array,
     mimeType: string,
     job: ExportJob,
-  ) => Promise<string | null | void>;
+  ) => Promise<string | null | undefined>;
 }
 
 interface RenderedExport {

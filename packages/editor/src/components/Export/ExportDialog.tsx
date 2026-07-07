@@ -32,8 +32,8 @@ import type {
 } from '@strata/scene';
 import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import type { ExportReport } from '../../exportService';
+import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';

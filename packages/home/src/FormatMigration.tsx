@@ -40,8 +40,8 @@ export function FormatMigration({ open, onClose, results, onViewReport }: Format
                 {warnCount} file{warnCount !== 1 ? 's' : ''} with unsupported features
               </p>
               <ul className="format-migration__warn-list">
-                {[...new Set(allWarnings)].slice(0, 8).map((w, i) => (
-                  <li key={i} className="format-migration__warn-item">
+                {[...new Set(allWarnings)].slice(0, 8).map((w) => (
+                  <li key={w} className="format-migration__warn-item">
                     {w}
                   </li>
                 ))}
@@ -71,9 +71,9 @@ export function FormatMigration({ open, onClose, results, onViewReport }: Format
 
             {expanded && (
               <ul className="format-migration__list">
-                {results.map((r, i) => (
+                {results.map((r) => (
                   <li
-                    key={i}
+                    key={r.name}
                     className={`format-migration__file${!r.success ? ' format-migration__file--fail' : ''}${r.warnings.length > 0 ? ' format-migration__file--warn' : ''}`}
                   >
                     <span className="format-migration__file-icon">
@@ -100,8 +100,8 @@ export function FormatMigration({ open, onClose, results, onViewReport }: Format
                     )}
                     {r.details && r.details.length > 0 && (
                       <ul className="format-migration__file-details">
-                        {r.details.map((d, j) => (
-                          <li key={j}>{d}</li>
+                        {r.details.map((d) => (
+                          <li key={d}>{d}</li>
                         ))}
                       </ul>
                     )}

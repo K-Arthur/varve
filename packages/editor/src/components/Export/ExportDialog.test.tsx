@@ -177,7 +177,11 @@ describe('ExportDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
 
     await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
-    expect(screen.getByRole('status').textContent).toContain('Export failed: 1 of 1 files failed');
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toContain(
+        'Export failed: 1 of 1 files failed',
+      ),
+    );
   });
 
   it('runs package export as a separate action', async () => {
@@ -195,6 +199,8 @@ describe('ExportDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Package' }));
 
     await waitFor(() => expect(onPackageExport).toHaveBeenCalledOnce());
-    expect(screen.getByRole('status').textContent).toContain('Package export complete');
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toContain('Package export complete'),
+    );
   });
 });

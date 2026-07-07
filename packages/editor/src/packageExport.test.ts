@@ -1,12 +1,12 @@
-import { strFromU8, unzipSync } from 'fflate';
 import {
   createDocument,
-  makeShapeNode,
-  makeTextNode,
   type Document,
   type Fill,
+  makeShapeNode,
+  makeTextNode,
   type ShapeNode,
 } from '@strata/scene';
+import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { buildPackageExport, type PackageManifest } from './packageExport';
 

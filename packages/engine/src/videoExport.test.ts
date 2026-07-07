@@ -95,12 +95,10 @@ describe('exportTimelineToVideo frame timing (mock encoder)', () => {
       encode = vi.fn();
       flush = vi.fn(async () => {});
       close = vi.fn();
-      constructor(_config: { output: () => void; error: (e: Error) => void }) {}
     }
 
     class MockVideoFrame {
       close() {}
-      constructor(_source: unknown, _opts: unknown) {}
     }
 
     vi.stubGlobal('VideoEncoder', MockVideoEncoder);
@@ -117,12 +115,7 @@ describe('exportTimelineToVideo frame timing (mock encoder)', () => {
         }
       },
     );
-    vi.stubGlobal(
-      'ImageData',
-      class ImageData {
-        constructor(_data: Uint8ClampedArray, _w: number, _h: number) {}
-      },
-    );
+    vi.stubGlobal('ImageData', class ImageData {});
 
     const result = await exportTimelineToVideo(
       { id: 'tl1', duration: 1000 },
@@ -149,7 +142,6 @@ describe('exportTimelineToVideo frame timing (mock encoder)', () => {
       encode = vi.fn();
       flush = vi.fn(async () => {});
       close = vi.fn();
-      constructor(_config: { output: () => void; error: (e: Error) => void }) {}
     }
 
     vi.stubGlobal('VideoEncoder', MockVideoEncoder);
@@ -167,12 +159,7 @@ describe('exportTimelineToVideo frame timing (mock encoder)', () => {
         }
       },
     );
-    vi.stubGlobal(
-      'ImageData',
-      class ImageData {
-        constructor(_data: Uint8ClampedArray, _w: number, _h: number) {}
-      },
-    );
+    vi.stubGlobal('ImageData', class ImageData {});
 
     await exportTimelineToVideo(
       { id: 'tl1', duration: 2000 },

@@ -940,8 +940,8 @@ describe('ScaleTool — nested rotated parent', () => {
     } as any;
 
     const tool = new ScaleTool();
-    const cx = bbox!.x + bbox!.w / 2;
-    const cy = bbox!.y + bbox!.h / 2;
+    const cx = (bbox?.x ?? 0) + (bbox?.w ?? 0) / 2;
+    const cy = (bbox?.y ?? 0) + (bbox?.h ?? 0) / 2;
     tool.onPointerDown({ clientX: cx, clientY: cy, pointerId: 1 } as any, ctx);
     (tool as any).drag.currentWorld = { x: cx + 50, y: cy + 50 };
     (tool as any).onDragMove?.(ctx);

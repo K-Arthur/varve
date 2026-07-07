@@ -82,8 +82,6 @@ export interface ShellProps {
   documentName?: string;
   /** File-open requests from the host app (home screen). */
   openFile?: OpenFileRequest | null;
-  /** Active persistence/native bridge shared with Home and autosave. */
-  platform?: Platform;
   /** False while the editor is hidden behind the home screen — suspends
    *  global keyboard shortcuts so Home doesn't trigger editor actions. */
   active?: boolean;
@@ -151,9 +149,10 @@ function ShellInner({
   );
 
   const handleExportMotion = useCallback(
-    (format: 'css' | 'lottie', fileName: string, content: string) => {
-      const mimeType = format === 'lottie' ? 'application/json' : 'text/css';
-      const extension = format === 'lottie' ? '.json' : '.css';
+    (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => {
+      const mimeType =
+        format === 'lottie' ? 'application/json' : format === 'svg' ? 'image/svg+xml' : 'text/css';
+      const extension = format === 'lottie' ? '.json' : format === 'svg' ? '.svg' : '.css';
       void saveExportBytes(
         platform,
         fileName,

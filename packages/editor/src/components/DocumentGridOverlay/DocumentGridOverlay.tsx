@@ -76,6 +76,7 @@ export function DocumentGridOverlay({
     <svg
       className="document-grid-overlay"
       aria-hidden
+      role="presentation"
       width={width}
       height={height}
       style={{ width, height }}
