@@ -54,6 +54,27 @@ Rust `hit_test` IPC exists but is **not called** from `CanvasArea`. Engine `hitT
 | Browser dev | TS stub or wasm-pack | Same compositor router |
 | Tests | TS stub | Mock `ReplayTarget` or OffscreenCanvas goldens |
 
+## Performance Optimizations (Session 43)
+
+### Camera-only fast path
+When the worker has a cached bitmap whose `docVersion` matches the current document, pan/zoom applies a compensation transform to the cached bitmap instead of rebuilding the full scene. This gives smooth 60fps camera movement at "last rendered quality."
+
+The compensation transform accounts for:
+- Pan delta (panned + floating-origin shift)
+- Zoom ratio (`zoomNew / zoomOld`)
+- DPR scaling
+
+The worker asynchronously delivers a fresh render; once available, the next frame replaces the compensated bitmap.
+
+### sceneCompositing cache
+`sceneNeedsStructuralCompositing()` caches its result per document reference. Without caching, it scans every node on every frame to decide worker vs. main-thread path.
+
+### measureTextAdvance canvas reuse
+The per-character letter-spacing measurement now uses a module-level cached `CanvasRenderingContext2D` instead of allocating a new `<canvas>` per character.
+
+### Worker floating-origin parity
+The OffscreenCanvas render worker now applies `computeFloatingOrigin()` in its camera transform, matching the main thread's `applyCameraTransform()`.
+
 ## Known Gaps
 
 - WebKitGTK (Linux Tauri) has no WebGPU; Canvas2D is the production path on CachyOS/Wayland.
