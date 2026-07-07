@@ -470,6 +470,21 @@ export function createTauriPlatform(): Platform {
       }
     },
 
+    async getAppSetting(key) {
+      try {
+        return (await core().invoke('app_get_setting', { key })) as string | null;
+      } catch {
+        return null;
+      }
+    },
+    async setAppSetting(key, value) {
+      try {
+        await core().invoke('app_set_setting', { key, value });
+      } catch {
+        // IPC failure — non-fatal.
+      }
+    },
+
     async openDocumentFromDisk() {
       const c = core();
       const picked = (await c.invoke('plugin:dialog|open', {

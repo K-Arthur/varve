@@ -539,6 +539,20 @@ fn home_set_view_state(store: tauri::State<'_, strata_sync::DocumentStore>, valu
     store.set_view_state("home", &value).map_err(|e| e.to_string())
 }
 
+// Generic small app settings (e.g. onboarding-complete) — persisted in the
+// same native SQLite store as documents, rather than WebView localStorage,
+// which is not guaranteed to survive between separate app launches on every
+// platform/WebView engine.
+#[tauri::command]
+fn app_get_setting(store: tauri::State<'_, strata_sync::DocumentStore>, key: String) -> Result<Option<String>, String> {
+    store.get_view_state(&format!("app-setting:{key}")).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn app_set_setting(store: tauri::State<'_, strata_sync::DocumentStore>, key: String, value: String) -> Result<(), String> {
+    store.set_view_state(&format!("app-setting:{key}"), &value).map_err(|e| e.to_string())
+}
+
 // ── Thumbnails ──────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -728,6 +742,8 @@ pub fn run() {
             home_set_project_pinned,
             home_get_view_state,
             home_set_view_state,
+            app_get_setting,
+            app_set_setting,
             home_get_thumbnail,
             home_put_thumbnail,
             home_evict_thumbnails,

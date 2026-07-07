@@ -871,6 +871,15 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       await db.put(STORE_KV, { key: KV_VIEW_STATE, value: next });
     },
 
+    // ─── App settings ───────────────────────────────────────────────────────
+    async getAppSetting(key: string) {
+      const row = await db.get(STORE_KV, `app-setting_${key}`);
+      return (row?.value as string | undefined) ?? null;
+    },
+    async setAppSetting(key: string, value: string) {
+      await db.put(STORE_KV, { key: `app-setting_${key}`, value });
+    },
+
     // ─── Native Dialogs ───────────────────────────────────────────────────────
     async openDocumentFromDisk() {
       const w = getWindow();

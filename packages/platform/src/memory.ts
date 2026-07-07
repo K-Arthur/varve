@@ -64,6 +64,7 @@ interface MemoryState {
   projectWorkspaceIds: Map<string, string>;
   /** Cached content search index per file id to avoid re-indexing. */
   contentIndexCache: Map<string, Map<string, ContentSearchMatch>>;
+  appSettings: Map<string, string>;
 }
 
 function freshState(): MemoryState {
@@ -92,6 +93,7 @@ function freshState(): MemoryState {
     assetFolderIds: new Map(),
     projectWorkspaceIds: new Map(),
     contentIndexCache: new Map(),
+    appSettings: new Map(),
   };
 }
 
@@ -294,6 +296,13 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     },
     async setViewState(next) {
       state.view = { ...next, sort: { ...next.sort }, filter: { ...next.filter } };
+    },
+
+    async getAppSetting(key) {
+      return state.appSettings.get(key) ?? null;
+    },
+    async setAppSetting(key, value) {
+      state.appSettings.set(key, value);
     },
 
     // ─── Phase 1: Drafts ─────────────────────────────────────────────────

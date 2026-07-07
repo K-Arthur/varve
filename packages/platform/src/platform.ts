@@ -173,6 +173,13 @@ export interface Platform {
   getViewState(): Promise<HomeViewState>;
   setViewState(state: HomeViewState): Promise<void>;
 
+  // ─── App settings (small persisted flags, e.g. onboarding-complete) ──────
+  // Backed by native storage (SQLite on desktop, IndexedDB on web) rather
+  // than raw localStorage, which is not guaranteed to survive between
+  // separate app launches in every WebView implementation.
+  getAppSetting(key: string): Promise<string | null>;
+  setAppSetting(key: string, value: string): Promise<void>;
+
   // ─── Native dialogs / OS integration ─────────────────────────────────────
   openDocumentFromDisk(): Promise<OpenFileResult | null>;
   importDocumentFromDisk(
