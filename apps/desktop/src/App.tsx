@@ -71,6 +71,7 @@ export function App() {
             onBackToHome={handleBackToHome}
             openFile={openRequest}
             active={view === 'editor'}
+            platform={platform}
           />
         </div>
       )}

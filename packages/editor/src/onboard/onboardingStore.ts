@@ -1,4 +1,7 @@
+import type { Platform } from '@strata/platform';
+
 const STORAGE_KEY = 'strata:onboarding';
+const APP_SETTING_KEY = 'onboarding';
 const CURRENT_VERSION = 1;
 
 export interface OnboardingStore {
@@ -34,6 +37,37 @@ export function loadOnboardingState(): OnboardingStore {
 
 export function saveOnboardingState(state: OnboardingStore): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+/**
+ * Read onboarding state from native platform storage (SQLite on desktop,
+ * IndexedDB on web) rather than raw localStorage, which is not guaranteed to
+ * survive between separate app launches on every WebView engine (observed
+ * on Linux/WebKitGTK: the welcome dialog reappearing every launch despite
+ * `saveOnboardingState` succeeding within the session). Returns null if
+ * nothing has been persisted yet or the read fails.
+ */
+export async function loadOnboardingStateFromPlatform(
+  platform: Platform,
+): Promise<OnboardingStore | null> {
+  try {
+    const raw = await platform.getAppSetting(APP_SETTING_KEY);
+    if (!raw) return null;
+    return { ...DEFAULT_STATE, ...JSON.parse(raw) };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveOnboardingStateToPlatform(
+  platform: Platform,
+  state: OnboardingStore,
+): Promise<void> {
+  try {
+    await platform.setAppSetting(APP_SETTING_KEY, JSON.stringify(state));
+  } catch {
+    // IPC/storage failure — localStorage still holds a same-session copy.
+  }
 }
 
 export function resetOnboarding(): void {

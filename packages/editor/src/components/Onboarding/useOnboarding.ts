@@ -1,9 +1,12 @@
+import type { Platform } from '@strata/platform';
 import { useCallback, useEffect, useState } from 'react';
 import {
   dismissTip as dismissTipStore,
   loadOnboardingState,
+  loadOnboardingStateFromPlatform,
   markOnboardingComplete,
   saveOnboardingState,
+  saveOnboardingStateToPlatform,
 } from '../../onboard/onboardingStore';
 import { TOUR_STEPS } from './tourSteps';
 
@@ -23,7 +26,7 @@ export interface OnboardingActions {
   dismissTip: (tipId: string) => void;
 }
 
-export function useOnboarding(): OnboardingState & OnboardingActions {
+export function useOnboarding(platform?: Platform): OnboardingState & OnboardingActions {
   const [state, setState] = useState<OnboardingState>(() => {
     const saved = loadOnboardingState();
     return {
@@ -33,12 +36,31 @@ export function useOnboarding(): OnboardingState & OnboardingActions {
     };
   });
 
+  // localStorage is read synchronously above for a fast first paint, but on
+  // desktop it isn't guaranteed to survive between separate app launches
+  // (see the comment on loadOnboardingStateFromPlatform). Correct the
+  // optimistic localStorage-derived guess against native platform storage
+  // once it resolves, so a returning user doesn't see the welcome dialog
+  // again just because the WebView's localStorage was reset.
+  useEffect(() => {
+    if (!platform) return;
+    let cancelled = false;
+    loadOnboardingStateFromPlatform(platform).then((saved) => {
+      if (cancelled || !saved?.onboardingComplete) return;
+      setState({ active: false, stepIndex: -1, showWelcome: false });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [platform]);
+
   const complete = useCallback(() => {
     const saved = loadOnboardingState();
     const updated = markOnboardingComplete(saved);
     saveOnboardingState(updated);
+    if (platform) saveOnboardingStateToPlatform(platform, updated);
     setState({ active: false, stepIndex: -1, showWelcome: false });
-  }, []);
+  }, [platform]);
 
   const startTour = useCallback(() => {
     setState({ active: true, stepIndex: 0, showWelcome: false });

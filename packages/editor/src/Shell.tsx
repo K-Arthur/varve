@@ -9,6 +9,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { HelpBrowser } from '@strata/help';
+import type { Platform } from '@strata/platform';
 import type { NodeId } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import { screenToWorld } from '@strata/shared';
@@ -80,6 +81,9 @@ export interface ShellProps {
   /** False while the editor is hidden behind the home screen — suspends
    *  global keyboard shortcuts so Home doesn't trigger editor actions. */
   active?: boolean;
+  /** The platform facade (Tauri/web/memory) — used for native-storage-backed
+   *  persistence (e.g. onboarding-complete) rather than raw localStorage. */
+  platform?: Platform;
 }
 
 function ShellInner({
@@ -253,7 +257,7 @@ function ShellInner({
 
   const tutorialProgress = useTutorialProgress(editor.state.document);
 
-  const onboarding = useOnboarding();
+  const onboarding = useOnboarding(editor.platform);
 
   // ── Did You Know? contextual tips ───────────────────────
   const {
@@ -870,12 +874,20 @@ function ShellInner({
   );
 }
 
-export function Shell({ onBackToHome, documentJson, documentName, openFile, active }: ShellProps) {
+export function Shell({
+  onBackToHome,
+  documentJson,
+  documentName,
+  openFile,
+  active,
+  platform,
+}: ShellProps) {
   return (
     <EditorProvider
       onBackToHome={onBackToHome}
       initialDocumentJson={documentJson}
       initialDocumentName={documentName}
+      platform={platform}
     >
       <SettingsProvider>
         <ShellInner onBackToHome={onBackToHome} openFile={openFile} active={active} />
