@@ -2733,12 +2733,25 @@ export function EditorProvider({
         const result = buildComponentLibraryPackage(state.document, nodeId);
         if (!result) return false;
         const json = JSON.stringify(result.pkg, null, 2);
+        const componentName = result.component.name;
         if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-          navigator.clipboard.writeText(json).catch(() => {});
+          navigator.clipboard
+            .writeText(json)
+            .then(() => {
+              announcerRef.current?.announce(
+                `Published "${componentName}" to library — package copied to clipboard`,
+              );
+            })
+            .catch(() => {
+              announcerRef.current?.announce(
+                `Published "${componentName}" to library, but copying to clipboard failed`,
+              );
+            });
+        } else {
+          announcerRef.current?.announce(
+            `Published "${componentName}" to library, but the clipboard isn't available`,
+          );
         }
-        announcerRef.current?.announce(
-          `Published "${result.component.name}" to library — package copied to clipboard`,
-        );
         return true;
       },
 

@@ -365,6 +365,32 @@ describe('useFlatTree (hook caching)', () => {
     rerender({ isolatedNodeId: undefined });
     expect(result.current.map((e) => e.node.id).sort()).toEqual([child, frame, outside].sort());
   });
+
+  it('keeps the isolated root visible even when an active filter matches nothing inside it', () => {
+    let doc = createDocument('test', true);
+    const { id: frame, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    doc = addNode(doc, makeFrameNode(frame, { name: 'Frame', w: 100, h: 100, children: [] }));
+
+    const { id: child, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addChild(
+      doc,
+      frame,
+      makeShapeNode(child, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Child' }),
+    );
+
+    const expanded = new Set<string>([frame]);
+    const filter: LayerFilterSpec = { ...DEFAULT_FILTER, search: 'zzz-no-match' };
+
+    // Neither the isolated frame's own name nor its child matches the filter.
+    const entries = flattenTree(doc, expanded, filter, new Set(), undefined, frame);
+
+    // The isolated root must still render (pinned) so the breadcrumb has
+    // something to anchor to and the user isn't left with a totally blank,
+    // dead-end tree — only the non-matching child is filtered out.
+    expect(entries.map((e) => e.node.id)).toEqual([frame]);
+  });
 });
 
 describe('benchmark — 10K nodes', () => {

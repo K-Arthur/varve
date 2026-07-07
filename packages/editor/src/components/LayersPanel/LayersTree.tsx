@@ -434,12 +434,17 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   // this tree* (an element within treeRef currently holds focus). Guarded so
   // mounting the panel, or focusIdx changing because selection changed from
   // the canvas, never steals focus from elsewhere in the app.
+  const focusedNodeId = entries[focusIdx]?.node.id;
   useEffect(() => {
     if (!treeRef.current?.contains(document.activeElement)) return;
-    const focusedEntry = entries[focusIdx];
-    if (!focusedEntry) return;
-    rowRefs.current.get(focusedEntry.node.id)?.focus();
-  }, [focusIdx, entries]);
+    if (!focusedNodeId) return;
+    rowRefs.current.get(focusedNodeId)?.focus();
+    // Depends on the focused id itself, not the whole `entries` array —
+    // useFlatTree's property-only fast path allocates a new `entries`
+    // reference on any single-node edit (rename, recolor, ...) even when the
+    // node at focusIdx hasn't changed, which would otherwise re-run this on
+    // every unrelated edit instead of only on real focus movement.
+  }, [focusIdx, focusedNodeId]);
 
   // Parent index cache for O(1) getParent lookups
   const parentCacheRef = useRef<ParentIndexCache | null>(null);
@@ -1401,6 +1406,7 @@ function SortableVirtualRow({
         keyframeCount={keyframeCount}
         syncStatus={syncStatus}
         presences={presences}
+        docId={editorState.document.id}
         onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
       />
     </div>
