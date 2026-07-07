@@ -27,7 +27,7 @@ import {
   traceSceneNodeOutline,
 } from '@strata/engine';
 import { importFile } from '@strata/import';
-import type { NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@strata/scene';
 import {
   activePageNodes,
   applyBindingsToNode,
@@ -319,6 +319,23 @@ function parseGridTemplate(template: string, totalSize: number): number[] {
   }
   const frPx = frCount > 0 ? Math.max(0, (totalSize - pxUsed) / frCount) : 0;
   return sizes.map((s) => (s === 'fr' ? frPx : s));
+}
+
+/** Build a flat list of all selectable nodes in DFS paint order. */
+function getAllSelectableNodes(doc: Document): SceneNode[] {
+  const result: SceneNode[] = [];
+  function walk(ids: NodeId[]) {
+    for (const id of ids) {
+      const n = doc.nodes[id];
+      if (!n) continue;
+      result.push(n);
+      if (isContainer(n) && n.children.length > 0) {
+        walk(n.children);
+      }
+    }
+  }
+  walk(doc.rootChildren);
+  return result;
 }
 
 export function CanvasArea({
@@ -1861,7 +1878,7 @@ export function CanvasArea({
       // Global keyboard handlers that are NOT tool-specific
       const s = stateRef.current;
       const eRef = editorRef.current;
-      const nodes = rootNodes();
+      const nodes = getAllSelectableNodes(s.document);
       const selArr = s.selection;
       const firstSel = selArr[0] ?? null;
       const idx = firstSel ? nodes.findIndex((n) => n.id === firstSel) : -1;

@@ -32,7 +32,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     state,
     setSelection,
     removeSelected,
-    renameSelected,
     setNodeLocked,
     setNodeVisible,
     setLayerColor,
@@ -108,14 +107,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const handleRenameFromMenu = useCallback(() => {
     if (contextMenu) {
-      const n = state.document.nodes[contextMenu.id];
-      if (n) {
-        const name = prompt('Rename layer', n.name);
-        if (name) renameSelected(name);
-      }
+      dndRef?.current?.startRename(contextMenu.id);
       closeMenu();
     }
-  }, [contextMenu, state.document, renameSelected, closeMenu]);
+  }, [contextMenu, dndRef, closeMenu]);
 
   const handleDeleteFromMenu = useCallback(() => {
     if (state.selection.length > 0) removeSelected();

@@ -341,6 +341,7 @@ export interface LayersDnDHandle {
   dropIndicator: { nodeId: NodeId; zone: 'before' | 'after' | 'into' } | null;
   collapseAll: () => void;
   collapseOthers: (containerId: NodeId) => void;
+  startRename: (id: NodeId) => void;
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
@@ -1093,6 +1094,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       dropIndicator,
       collapseAll: handleCollapseAll,
       collapseOthers: handleCollapseOthers,
+      startRename: setRenamingId,
     }),
     [
       handleDragStart,
@@ -1103,6 +1105,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       dropIndicator,
       handleCollapseAll,
       handleCollapseOthers,
+      setRenamingId,
     ],
   );
 
