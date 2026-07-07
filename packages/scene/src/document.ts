@@ -1645,9 +1645,7 @@ export function validateDocument(doc: Document): DocValidationResult {
   }
   for (const [childId, parents] of childToParent) {
     if (parents.length > 1) {
-      errors.push(
-        `Node ${childId} is a child of multiple containers: ${parents.join(', ')}`,
-      );
+      errors.push(`Node ${childId} is a child of multiple containers: ${parents.join(', ')}`);
     }
   }
 
@@ -1689,9 +1687,7 @@ export function validateDocument(doc: Document): DocValidationResult {
   for (const [nid, node] of Object.entries(doc.nodes)) {
     const n = node as SceneNode & { mask?: { sourceNodeId?: NodeId } };
     if (n.mask?.sourceNodeId && !doc.nodes[n.mask.sourceNodeId]) {
-      errors.push(
-        `Node ${nid} has mask referencing non-existent node ${n.mask.sourceNodeId}`,
-      );
+      errors.push(`Node ${nid} has mask referencing non-existent node ${n.mask.sourceNodeId}`);
     }
   }
 
@@ -1716,10 +1712,7 @@ export function validateDocument(doc: Document): DocValidationResult {
 
 /** Development-mode validation guard. No-op in production builds. */
 function devValidate(doc: Document): void {
-  if (
-    typeof process !== 'undefined' &&
-    process.env.NODE_ENV !== 'production'
-  ) {
+  if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
     const result = validateDocument(doc);
     if (!result.valid) {
       // eslint-disable-next-line no-console
