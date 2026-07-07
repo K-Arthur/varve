@@ -185,6 +185,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.14.4
         version: 3.14.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0
