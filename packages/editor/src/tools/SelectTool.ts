@@ -256,11 +256,12 @@ export class SelectTool extends BaseTool {
       }
       // After move, re-parent if inside a frame
       const sel = ctx.selection;
-      if (sel.length === 1) {
-        const selId = sel[0];
-        if (!selId) throw new Error('selection id not found');
-        const node = ctx.getNode(selId);
-        if (node) {
+      if (sel.length >= 1) {
+        ctx.beginTransaction();
+        for (const selId of sel) {
+          if (!selId) continue;
+          const node = ctx.getNode(selId);
+          if (!node || node.locked || !node.visible) continue;
           // Use world-space center (accounts for parent transforms) for reparent.
           const worldBounds = nodeWorldBounds(ctx.document, selId);
           let centerX = node.transform[4];
@@ -282,6 +283,7 @@ export class SelectTool extends BaseTool {
             }
           }
         }
+        ctx.commitTransaction();
       }
     }
     this.marqueeActive = false;

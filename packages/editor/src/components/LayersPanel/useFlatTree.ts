@@ -110,10 +110,8 @@ export function computeDocumentDiff(prevDoc: Document | null, doc: Document): Do
 
   return {
     structureChanged:
-      changedNodeIds.length === 0 &&
-      Object.keys(prevDoc.nodes).length === Object.keys(doc.nodes).length
-        ? false
-        : false,
+      changedNodeIds.length > 0 ||
+      Object.keys(prevDoc.nodes).length !== Object.keys(doc.nodes).length,
     changedNodeIds,
   };
 }

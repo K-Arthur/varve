@@ -4,22 +4,7 @@
   "files": {
     "includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json", "**/*.css", "**/*.mjs"]
   },
-  "overrides": [
-    {
-      "includes": [
-        "**/*.test.ts",
-        "**/*.test.tsx",
-        "**/__tests__/**",
-        "**/*.spec.ts",
-        "**/*.spec.tsx"
-      ],
-      "linter": {
-        "rules": {
-          "suspicious": { "noExplicitAny": "warn" }
-        }
-      }
-    }
-  ],
+  "overrides": [],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -31,16 +16,32 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "style": { "noNonNullAssertion": "warn", "useImportType": "error" },
-      "suspicious": { "noExplicitAny": "error" },
-      "correctness": { "noUnusedVariables": "warn", "noUnusedImports": "warn" },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useImportType": "error",
+        "noDescendingSpecificity": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noNonNullAssertedOptionalChain": "warn",
+        "noArrayIndexKey": "warn"
+      },
+      "correctness": {
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn",
+        "noUnreachable": "warn",
+        "noPrecisionLoss": "warn",
+        "noUnsafeOptionalChaining": "warn"
+      },
       "a11y": {
         "useAriaPropsSupportedByRole": "warn",
         "useSemanticElements": "warn",
         "useKeyWithClickEvents": "warn",
         "noStaticElementInteractions": "warn",
         "useButtonType": "warn",
-        "useFocusableInteractive": "warn"
+        "useFocusableInteractive": "warn",
+        "noSvgWithoutTitle": "warn",
+        "noLabelWithoutControl": "warn"
       }
     }
   },

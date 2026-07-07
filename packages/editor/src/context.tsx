@@ -889,7 +889,11 @@ function applyFrameLayout(doc: Document, parentId: string | null | undefined): D
   return { ...doc, nodes };
 }
 
-/** Compute world-space bounding box for any node type. */
+/**
+ * Compute world-space bounding box for any node type.
+ * Retained as a fallback only — prefers canonical `nodeWorldBounds(doc, id)`
+ * which composes the full ancestor transform chain.
+ */
 export function nodeWorldBoundsFn(
   n: SceneNode,
 ): { x: number; y: number; w: number; h: number } | null {
@@ -944,22 +948,27 @@ export function findContainingFrameInDoc(
     const n = entry.node;
     if (n.locked || n.visible === false) continue;
     if (n.kind !== 'frame' && n.kind !== 'group') continue;
-    const tx = n.transform[4] ?? 0;
-    const ty = n.transform[5] ?? 0;
-    let bbox: { x: number; y: number; w: number; h: number };
     if (n.kind === 'frame') {
-      bbox = { x: tx, y: ty, w: n.w, h: n.h };
+      // Inverse-transform the world point into the frame's local space so
+      // containment is correct for rotated/scaled frames (not just AABB).
+      const frameWorld = nodeWorldTransform(doc, nid);
+      const frameLocal = invertAffine(frameWorld);
+      const localPt = applyAffine(frameLocal, [world.x, world.y]);
+      if (localPt[0] >= 0 && localPt[0] <= n.w && localPt[1] >= 0 && localPt[1] <= n.h) {
+        if (entry.depth > deepestDepth) {
+          deepest = nid;
+          deepestDepth = entry.depth;
+        }
+      }
     } else {
       // Compute group bounds from children's world-space bounds.
       const groupBounds = groupWorldBounds(doc, nid);
       if (!groupBounds || groupBounds.w <= 0 || groupBounds.h <= 0) continue;
-      bbox = groupBounds;
-    }
-    const wPt: [number, number] = [world.x, world.y];
-    if (rectContains(bbox, wPt)) {
-      if (entry.depth > deepestDepth) {
-        deepest = nid;
-        deepestDepth = entry.depth;
+      if (rectContains(groupBounds, [world.x, world.y])) {
+        if (entry.depth > deepestDepth) {
+          deepest = nid;
+          deepestDepth = entry.depth;
+        }
       }
     }
   }
@@ -1637,7 +1646,16 @@ export function EditorProvider({
           const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
           let newDoc: Document;
           if (effectiveParentId) {
-            newDoc = addChild(d2, effectiveParentId, node);
+            // Convert world→local: the node's transform must be in the
+            // parent's coordinate space so that composing parent · child
+            // yields the original world position. Without this, a text node
+            // placed inside a translated frame jumps by the frame's offset.
+            const pWorld = nodeWorldTransform(d2, effectiveParentId);
+            const pInv = invertAffine(pWorld);
+            const localPos = applyAffine(pInv, [world.x, world.y]);
+            const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
+            const localNode = { ...node, transform: localTransform } as SceneNode;
+            newDoc = addChild(d2, effectiveParentId, localNode);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
             // No containing frame: add to the current page's content root so
@@ -3328,7 +3346,7 @@ export function EditorProvider({
         const sel = state.selection[0];
         if (!sel) return;
         const node = state.document.nodes[sel];
-        if (!node || node.kind !== 'frame') return;
+        if (node?.kind !== 'frame') return;
         const bounds = nodeWorldBounds(state.document, sel);
         if (!bounds) return;
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
