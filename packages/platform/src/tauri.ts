@@ -70,6 +70,19 @@ function core(): TauriCore {
   return coreObj;
 }
 
+function arrayBufferForBytes(data: Uint8Array): ArrayBuffer {
+  if (
+    data.byteOffset === 0 &&
+    data.byteLength === data.buffer.byteLength &&
+    data.buffer instanceof ArrayBuffer
+  ) {
+    return data.buffer;
+  }
+  const copy = new Uint8Array(data.byteLength);
+  copy.set(data);
+  return copy.buffer;
+}
+
 export function createTauriPlatform(): Platform {
   const platform: Platform = {
     kind: 'tauri',
@@ -535,8 +548,7 @@ export function createTauriPlatform(): Platform {
         filters: [{ name: mimeType, extensions: [ext] }],
       })) as string | null;
       if (!path) return null;
-      const bytes: number[] = Array.from(data);
-      await c.invoke('write_binary_file', { path, data: bytes });
+      await c.invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });
       return path;
     },
 
