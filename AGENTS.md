@@ -1737,3 +1737,57 @@ Complete investigation and remediation of frame parenting, canvas rendering, and
 | `packages/editor/src/InspectorPanel.tsx` | DELETED (dead code) |
 | `packages/engine/src/replay.ts` | Cached measureTextAdvance canvas context |
 | `biome.json` | Relaxed pre-existing rule severities; removed stale overrides
+
+## Session 44 — Pen, Pencil, Line & Arrow Tool Overhaul (2026-07-07)
+
+Complete overhaul of the Line, Arrow, Pen, and Pencil tools with Bezier curve support,
+shortcuts, and improved draft rendering.
+
+### Critical Bug Fixes
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| **Line/Arrow rendered at wrong position** | Node transform centered at bounding-box midpoint, but `from:[0,0]` relative to that center | Position node at drag start point with signed deltas (x2-x1, y2-y1). From world pos = actual drag start, to world pos = actual drag end. |
+| **Line/Arrow lose drag direction** | `buildShapeWithSize` used `Math.abs()` for w/h | Fixed by using signed deltas as size (supersedes abs issue). |
+| **PenTool Bezier handles never created** | `onPointerDown` always created points with `handleIn:null, handleOut:null` | Implemented `Dragging` state: after placing point, drag to set handles. Handles computed as cursor−point with 1/3 length, symmetric mirror. |
+| **PencilTool produced only corner points** | RDP simplification mapped to PathPoint[] with null handles | Implemented Schneider least-squares cubic Bezier fitting. Corner detection via angle threshold (30 degrees). Recursive split on fitting error > 2.5px. |
+
+### Feature Additions
+
+| Feature | Details |
+|---------|---------|
+| **PenTool Bezier handles** | Click-drag to create symmetric handles. Drag > 3px → smooth point. Drag < 3px → corner point. Shift-click constraint preserved. |
+| **PencilTool Bezier fitting** | Schneider algorithm (Graphics Gems 1990): chord-length parameterization, least-squares p1/p2 solve, corner detection, recursive error-based split. |
+| **Freehand draft rendering** | New `DraftShape.kind:'freehand'` with points array. PencilTool renders actual stroke polyline instead of bounding box. CanvasArea.drawOverlay renders polyline. |
+| **Arrow shortcut (A key)** | Registered in `SHORTCUT_DEFS` (`toolArrow`) and `useShortcuts` handler. |
+| **Pencil shortcut (Shift+P)** | Registered in `SHORTCUT_DEFS` (`toolPencil`) and `useShortcuts` handler. FloatingToolbar `TOOL_SHORTCUTS` updated. |
+
+### Architecture Improvements
+
+| Area | Change |
+|------|--------|
+| **BaseTool.onDragStart** | Wired — called on first threshold cross with `dragStartFired` flag. Reset on pointerUp. |
+| **DragState.kind='committed'** | Removed — dead code, never set. |
+| **PencilTool** | Delegates to `super.onPointerDown`/`super.onPointerUp` instead of duplicating drag init. Removed manual `this.drag` assignment. |
+| **Zoom-aware epsilon** | PencilTool RDP epsilon: `2 / ctx.zoom` (screen pixels to world units). |
+| **PathNode** | Marked `@deprecated` in scene/types.ts. Use ShapeNode with shape.kind:'path'. |
+
+### New Tests
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `LineTool.test.ts` (NEW) | 9 | Drag, shift-constrain, below-threshold, cancel, position correctness |
+| `ArrowTool.test.ts` (NEW) | 7 | Drag, shift-constrain, below-threshold, cancel |
+| `PenTool.test.ts` (+7) | 14 total | Close-path, shift-constrain, double-click, Bezier handles, corner points, deactivate, idle-deactivate |
+| `PencilTool.test.ts` (+4) | 9 total | Freehand draft, pointer cancel, start position, deactivate |
+
+### Verification
+
+| Gate | Status |
+|------|--------|
+| Tool tests | 200/200 pass (20 files) |
+| Rust workspace tests | 166/166 pass |
+| Typecheck (editor, scene) | 0 errors |
+| Lint (modified source files) | 0 errors |
+| Format | Clean |
+| CachyOS | Verified |
