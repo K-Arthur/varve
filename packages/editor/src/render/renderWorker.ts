@@ -2,6 +2,7 @@
  * Render worker entry — replays IR to OffscreenCanvas.
  */
 import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
+import { computeFloatingOrigin } from '@strata/shared';
 import type { WorkerCommand, WorkerResponse } from './workerHost';
 
 let canvas: OffscreenCanvas | null = null;
@@ -37,11 +38,13 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       });
       return;
     }
+    const origin = computeFloatingOrigin(msg.camera, msg.viewport);
     ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
     ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
     ctx.save();
     ctx.translate(msg.camera.pan.x, msg.camera.pan.y);
     ctx.scale(msg.camera.zoom, msg.camera.zoom);
+    ctx.translate(-origin[0], -origin[1]);
     replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[]);
     ctx.restore();
     if (msg.docVersion >= activeDocVersion) {

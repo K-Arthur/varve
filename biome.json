@@ -41,7 +41,8 @@
         "useButtonType": "warn",
         "useFocusableInteractive": "warn",
         "noSvgWithoutTitle": "warn",
-        "noLabelWithoutControl": "warn"
+        "noLabelWithoutControl": "warn",
+        "noRedundantRoles": "warn"
       }
     }
   },

@@ -42,9 +42,7 @@ describe('Text node parenting tests', () => {
     });
 
     // Verify the frame is at the expected world position
-    const frame = Object.values(getCtx().state.document.nodes).find(
-      (n) => n.kind === 'frame',
-    );
+    const frame = Object.values(getCtx().state.document.nodes).find((n) => n.kind === 'frame');
     expect(frame).toBeDefined();
     if (!frame || frame.kind !== 'frame') throw new Error('frame not found');
     expect(frame.transform).toEqual([1, 0, 0, 1, 100, 100]);
@@ -59,9 +57,7 @@ describe('Text node parenting tests', () => {
     });
 
     // Find the text node
-    const textNode = Object.values(getCtx().state.document.nodes).find(
-      (n) => n.kind === 'text',
-    );
+    const textNode = Object.values(getCtx().state.document.nodes).find((n) => n.kind === 'text');
     expect(textNode).toBeDefined();
     if (!textNode) throw new Error('text node not found');
 
@@ -117,9 +113,7 @@ describe('Text node parenting tests', () => {
     });
 
     // Find the text node
-    const textNode = Object.values(getCtx().state.document.nodes).find(
-      (n) => n.kind === 'text',
-    );
+    const textNode = Object.values(getCtx().state.document.nodes).find((n) => n.kind === 'text');
     expect(textNode).toBeDefined();
     if (!textNode) throw new Error('text node not found');
 
@@ -127,9 +121,7 @@ describe('Text node parenting tests', () => {
     expect(textNode.transform).toEqual([1, 0, 0, 1, 400, 400]);
 
     // Text should NOT be a child of the frame
-    const frame = Object.values(getCtx().state.document.nodes).find(
-      (n) => n.kind === 'frame',
-    );
+    const frame = Object.values(getCtx().state.document.nodes).find((n) => n.kind === 'frame');
     expect(frame).toBeDefined();
     if (!frame || frame.kind !== 'frame') throw new Error('frame not found');
     expect(frame.children).not.toContain(textNode.id);
