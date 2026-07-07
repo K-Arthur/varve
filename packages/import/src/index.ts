@@ -18,6 +18,7 @@ export type {
 export { ImportService } from './service';
 export { createPdfParser } from './pdf';
 export { createPsdParser } from './psd';
+export { createSketchParser } from './sketch';
 export {
   getParser,
   getParserForData,
@@ -39,6 +40,7 @@ import { createPdfParser } from './pdf';
 import { createPsdParser } from './psd';
 // Auto-register all built-in parsers
 import { registerParser } from './registry';
+import { createSketchParser } from './sketch';
 import { createSvgParser } from './svg';
 
 registerParser(createSvgParser());
@@ -46,3 +48,4 @@ registerParser(createPdfParser());
 registerParser(createPsdParser());
 registerParser(createAiParser());
 registerParser(createEpsParser());
+registerParser(createSketchParser());
