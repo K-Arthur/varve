@@ -1,7 +1,7 @@
 /**
  * BaseTool — abstract foundation for all drawing/gesture tools.
  *
- * Provides a reusable gesture state machine (idle → dragging → committed),
+ * Provides a reusable gesture state machine (idle → dragging).
  * pointer capture lifecycle, drag threshold, constrain/from-centre modifiers,
  * and helpers for draft rendering and snap-to-parent.
  *
@@ -20,7 +20,7 @@ import type {
 } from './types';
 
 export interface DragState {
-  kind: 'idle' | 'dragging' | 'committed';
+  kind: 'idle' | 'dragging';
   pointerId: number;
   startCanvas: { x: number; y: number };
   startWorld: { x: number; y: number };
@@ -41,6 +41,8 @@ export abstract class BaseTool implements Tool {
     currentCanvas: { x: 0, y: 0 },
     currentWorld: { x: 0, y: 0 },
   };
+
+  private dragStartFired = false;
 
   abstract cursor(state: ToolCursorState): CursorSpec;
 
@@ -86,12 +88,17 @@ export abstract class BaseTool implements Tool {
     const dx = Math.abs(canvas.x - this.drag.startCanvas.x);
     const dy = Math.abs(canvas.y - this.drag.startCanvas.y);
     if (dx > DRAG_THRESHOLD_CSS_PX || dy > DRAG_THRESHOLD_CSS_PX) {
+      if (!this.dragStartFired) {
+        this.dragStartFired = true;
+        this.onDragStart?.(ctx);
+      }
       this.onDragMove?.(ctx);
     }
   }
 
   onPointerUp(e: PointerEvent, ctx: ToolContext): void {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    this.dragStartFired = false;
     ctx.releasePointerCapture(e.pointerId);
     this.onDragEnd?.(ctx);
     this.drag = this.freshDrag();

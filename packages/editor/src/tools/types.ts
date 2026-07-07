@@ -87,7 +87,8 @@ export type DraftShape =
   | { kind: 'star'; x: number; y: number; w: number; h: number; points: number; label?: string }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; label?: string }
   | { kind: 'arrow'; x1: number; y1: number; x2: number; y2: number; label?: string }
-  | { kind: 'frame'; x: number; y: number; w: number; h: number; label?: string };
+  | { kind: 'frame'; x: number; y: number; w: number; h: number; label?: string }
+  | { kind: 'freehand'; points: { x: number; y: number }[]; label?: string };
 
 export interface ToolContext {
   document: Document;

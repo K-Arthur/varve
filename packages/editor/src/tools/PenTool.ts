@@ -1,5 +1,5 @@
 /**
- * PenTool — cubic Bézier path creation.
+ * PenTool — cubic Bezier path creation.
  *
  * Click → corner point. Click-drag → smooth point with symmetric handles.
  * Alt-drag a handle → break symmetry. Click first point → close path.
@@ -8,11 +8,7 @@
  * Live rubber-band preview of next segment.
  *
  * Research basis: Figma Pen (P), Illustrator Pen (P), Penpot Pen.
- *                 de Casteljau's algorithm, cubic Bézier math.
- *
- * Note: Full path shape + rendering integration requires a new `path` shape
- * variant. This implementation provides the point-placement state machine;
- * path commit is a stub that creates a placeholder shape for now.
+ *                 de Casteljau's algorithm, cubic Bezier math.
  */
 
 import { BaseTool } from './BaseTool';
@@ -27,9 +23,11 @@ interface PenPoint {
 
 enum PenState {
   Idle,
-  Placing, // placing points in a new path
-  Editing, // editing existing path (stub)
+  Placing, // between points, waiting for next click
+  Dragging, // currently dragging from last placed point to create handles
 }
+
+const HANDLE_DRAG_THRESHOLD = 3; // CSS pixels before handles appear
 
 export class PenTool extends BaseTool {
   id = 'pen' as const;
@@ -37,6 +35,7 @@ export class PenTool extends BaseTool {
   private penState: PenState = PenState.Idle;
   private points: PenPoint[] = [];
   private lastPointTime = 0;
+  private dragStartCanvas: { x: number; y: number } | null = null;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
@@ -45,11 +44,14 @@ export class PenTool extends BaseTool {
   override onActivate(_ctx: ToolContext): void {
     this.penState = PenState.Idle;
     this.points = [];
+    this.dragStartCanvas = null;
   }
 
-  override onDeactivate(_ctx: ToolContext): void {
+  override onDeactivate(ctx: ToolContext): void {
     this.penState = PenState.Idle;
     this.points = [];
+    this.dragStartCanvas = null;
+    ctx.setDraft(null);
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
@@ -58,51 +60,52 @@ export class PenTool extends BaseTool {
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
 
     if (this.penState === PenState.Idle) {
-      // Start new path
-      this.penState = PenState.Placing;
+      this.penState = PenState.Dragging;
       this.points = [{ x: world.x, y: world.y, handleIn: null, handleOut: null }];
+      this.dragStartCanvas = { x: canvas.x, y: canvas.y };
       ctx.announce('Path started');
       return { consumed: true };
     }
 
     if (this.penState === PenState.Placing) {
-      // Check for close (click on first point)
       const first = this.points[0];
       if (!first) throw new Error('first point not found');
       const dist = Math.sqrt((world.x - first.x) ** 2 + (world.y - first.y) ** 2);
       if (dist < 8 / ctx.zoom) {
-        // Close path
         this.commitPath(ctx, true);
         ctx.announce('Path closed');
         return { consumed: true };
       }
 
-      // Add new point
       const prev = this.points[this.points.length - 1];
       if (!prev) throw new Error('previous point not found');
       const now = Date.now();
       if (now - this.lastPointTime < 300 && this.points.length > 1) {
-        // Rapid double-click → finish path
         this.commitPath(ctx, false);
         ctx.announce('Path finished');
         return { consumed: true };
       }
       this.lastPointTime = now;
 
+      let newPoint: PenPoint;
       if (e.shiftKey) {
-        // Constrain to 45° from previous
         const dx = world.x - prev.x;
         const dy = world.y - prev.y;
         const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
         const len = Math.sqrt(dx * dx + dy * dy);
-        const snapped = {
+        newPoint = {
           x: prev.x + len * Math.cos(angle),
           y: prev.y + len * Math.sin(angle),
+          handleIn: null,
+          handleOut: null,
         };
-        this.points.push({ x: snapped.x, y: snapped.y, handleIn: null, handleOut: null });
       } else {
-        this.points.push({ x: world.x, y: world.y, handleIn: null, handleOut: null });
+        newPoint = { x: world.x, y: world.y, handleIn: null, handleOut: null };
       }
+
+      this.points.push(newPoint);
+      this.penState = PenState.Dragging;
+      this.dragStartCanvas = { x: canvas.x, y: canvas.y };
       ctx.announce(`Point ${this.points.length}`);
       return { consumed: true };
     }
@@ -111,36 +114,84 @@ export class PenTool extends BaseTool {
   }
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
-    if (this.penState !== PenState.Placing || this.points.length === 0) return;
+    if (this.penState === PenState.Dragging && this.dragStartCanvas) {
+      const lastIdx = this.points.length - 1;
+      if (lastIdx < 0) return;
+      const pt = this.points[lastIdx];
+      if (!pt) return;
 
-    const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    const last = this.points[this.points.length - 1];
-    if (!last) throw new Error('last point not found');
+      const world = ctx.canvasToWorld(e.clientX, e.clientY);
+      const dragDx = e.clientX - this.dragStartCanvas.x;
+      const dragDy = e.clientY - this.dragStartCanvas.y;
+      const dragDist = Math.sqrt(dragDx * dragDx + dragDy * dragDy);
 
-    // Rubber-band preview as draft line from last point to cursor
-    ctx.setDraft({
-      kind: 'line',
-      x1: last.x,
-      y1: last.y,
-      x2: world.x,
-      y2: world.y,
-      label: `to (${Math.round(world.x)}, ${Math.round(world.y)})`,
-    });
+      if (dragDist >= HANDLE_DRAG_THRESHOLD) {
+        const handleDx = world.x - pt.x;
+        const handleDy = world.y - pt.y;
+        const handleLen = Math.sqrt(handleDx * handleDx + handleDy * handleDy);
+        const outLen = handleLen / 3;
+
+        if (handleLen > 0) {
+          const nx = handleDx / handleLen;
+          const ny = handleDy / handleLen;
+          pt.handleOut = { x: nx * outLen, y: ny * outLen };
+          pt.handleIn = { x: -nx * outLen, y: -ny * outLen };
+        }
+      } else {
+        pt.handleIn = null;
+        pt.handleOut = null;
+      }
+
+      ctx.setDraft({
+        kind: 'line',
+        x1: pt.x + (pt.handleOut?.x ?? 0),
+        y1: pt.y + (pt.handleOut?.y ?? 0),
+        x2: world.x,
+        y2: world.y,
+        label: 'drag to set handles',
+      });
+      return;
+    }
+
+    if (this.penState === PenState.Placing && this.points.length > 0) {
+      const world = ctx.canvasToWorld(e.clientX, e.clientY);
+      const last = this.points[this.points.length - 1];
+      if (!last) return;
+
+      ctx.setDraft({
+        kind: 'line',
+        x1: last.x,
+        y1: last.y,
+        x2: world.x,
+        y2: world.y,
+        label: `to (${Math.round(world.x)}, ${Math.round(world.y)})`,
+      });
+    }
+  }
+
+  override onPointerUp(_e: PointerEvent, _ctx: ToolContext): void {
+    if (this.penState === PenState.Dragging) {
+      this.penState = PenState.Placing;
+      this.dragStartCanvas = null;
+    }
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
-    if (this.penState === PenState.Placing) {
+    if (this.penState === PenState.Placing || this.penState === PenState.Dragging) {
       if (e.key === 'Escape') {
+        this.dragStartCanvas = null;
         if (this.points.length > 1) {
           this.commitPath(ctx, false);
         } else {
           this.penState = PenState.Idle;
           this.points = [];
+          ctx.setDraft(null);
         }
         ctx.announce('Path cancelled');
         return true;
       }
       if (e.key === 'Enter') {
+        this.dragStartCanvas = null;
         this.commitPath(ctx, false);
         ctx.announce('Path finished');
         return true;
@@ -150,7 +201,8 @@ export class PenTool extends BaseTool {
   }
 
   override onDoubleClick(_e: PointerEvent, ctx: ToolContext): void {
-    if (this.penState === PenState.Placing) {
+    if (this.penState === PenState.Placing || this.penState === PenState.Dragging) {
+      this.dragStartCanvas = null;
       this.commitPath(ctx, false);
       ctx.announce('Path finished');
     }
@@ -165,14 +217,12 @@ export class PenTool extends BaseTool {
     } else if (this.points.length >= 2 || closed) {
       const first = this.points[0];
       if (!first) throw new Error('first point not found');
-      // Convert PenPoint[] to PathPoint[]
       const pathPoints = this.points.map((p) => ({
         x: p.x,
         y: p.y,
         handleIn: p.handleIn ? ([p.handleIn.x, p.handleIn.y] as [number, number]) : null,
         handleOut: p.handleOut ? ([p.handleOut.x, p.handleOut.y] as [number, number]) : null,
       }));
-      // If closed, add copy of first point as last
       if (closed && pathPoints.length > 0) {
         const firstPt = pathPoints[0]!;
         pathPoints.push({
@@ -186,5 +236,6 @@ export class PenTool extends BaseTool {
     }
     this.penState = PenState.Idle;
     this.points = [];
+    this.dragStartCanvas = null;
   }
 }

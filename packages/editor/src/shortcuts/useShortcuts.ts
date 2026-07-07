@@ -207,8 +207,12 @@ export function useShortcuts(
         return () => e.setTool('ellipse' as ToolId);
       case 'toolLine':
         return () => e.setTool('line' as ToolId);
+      case 'toolArrow':
+        return () => e.setTool('arrow' as ToolId);
       case 'toolPen':
         return () => e.setTool('pen' as ToolId);
+      case 'toolPencil':
+        return () => e.setTool('pencil' as ToolId);
       case 'toolText':
         return () => e.setTool('text' as ToolId);
       case 'toolHand':
