@@ -234,7 +234,7 @@ function insertImportedSubtree(
 
 export interface EditorContextValue {
   state: EditorState;
-  /** The platform facade (Tauri/web/memory) — undefined if none was provided. */
+  /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
   setTool: (t: ToolId) => void;
   setZoom: (z: number) => void;
@@ -3198,22 +3198,22 @@ export function EditorProvider({
               return applyDropPosition(clonedRoot, options.position);
             }
             return (() => {
-                const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
-                const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
-                const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
-                const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
-                return {
-                  ...clonedRoot,
-                  transform: [
-                    node.transform[0],
-                    node.transform[1],
-                    node.transform[2],
-                    node.transform[3],
-                    (node.transform[4] ?? 0) + offsetX,
-                    (node.transform[5] ?? 0) + offsetY,
-                  ] as Affine,
-                } as SceneNode;
-              })();
+              const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
+              const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
+              const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
+              const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
+              return {
+                ...clonedRoot,
+                transform: [
+                  node.transform[0],
+                  node.transform[1],
+                  node.transform[2],
+                  node.transform[3],
+                  (node.transform[4] ?? 0) + offsetX,
+                  (node.transform[5] ?? 0) + offsetY,
+                ] as Affine,
+              } as SceneNode;
+            })();
           });
           if (!inserted) return s;
           return { ...s, document: inserted.doc, selection: [inserted.rootId] };
@@ -3233,22 +3233,22 @@ export function EditorProvider({
                 return applyDropPosition(clonedRoot, position);
               }
               return (() => {
-                  const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
-                  const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
-                  const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
-                  const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
-                  return {
-                    ...clonedRoot,
-                    transform: [
-                      node.transform[0],
-                      node.transform[1],
-                      node.transform[2],
-                      node.transform[3],
-                      (node.transform[4] ?? 0) + offsetX,
-                      (node.transform[5] ?? 0) + offsetY,
-                    ] as Affine,
-                  } as SceneNode;
-                })();
+                const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
+                const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
+                const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
+                const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
+                return {
+                  ...clonedRoot,
+                  transform: [
+                    node.transform[0],
+                    node.transform[1],
+                    node.transform[2],
+                    node.transform[3],
+                    (node.transform[4] ?? 0) + offsetX,
+                    (node.transform[5] ?? 0) + offsetY,
+                  ] as Affine,
+                } as SceneNode;
+              })();
             });
             if (!inserted) continue;
             doc = inserted.doc;
