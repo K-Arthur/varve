@@ -20,7 +20,7 @@ import {
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
-import { LayersTree } from './LayersTree';
+import { LayersTree, resolveRootLevelSiblings } from './LayersTree';
 import { computeActivePageLayerCount, countActivePageNodesMatching } from './layerCounts';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
@@ -157,8 +157,8 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       const parentId = getParentFast(state.document, id, parentCacheRef.current);
       const siblings = parentId
         ? ((state.document.nodes[parentId] as ContainerNode | undefined)?.children ??
-          state.document.rootChildren)
-        : state.document.rootChildren;
+          resolveRootLevelSiblings(state.document))
+        : resolveRootLevelSiblings(state.document);
       reparentNode(id, parentId, siblings.length - 1);
       announce('Moved to front');
     }

@@ -41,9 +41,11 @@ import {
 } from '@strata/scene';
 import {
   clampZoom,
+  computeFloatingOrigin,
   fitBoundsCamera,
   isWorldRectInViewport,
   screenToWorld,
+  worldToScreen,
   zoomAboutPoint,
 } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
@@ -365,6 +367,20 @@ export function CanvasArea({
   const [imageCacheStamp, setImageCacheStamp] = useState(0);
   const contentDrawRafRef = useRef<number | null>(null);
   const overlayDrawRafRef = useRef<number | null>(null);
+  // Concurrency guard for drawContent's async body: `drawContent`'s identity
+  // (and thus the RAF-scheduling effect below) changes on every document
+  // mutation, camera move, etc., but cancelling a *scheduled* animation frame
+  // cannot stop a *previous* invocation that's already mid-await on
+  // `eng.buildIr()` (a real Tauri IPC round-trip on desktop). Without this
+  // guard, bursts of triggers (an image finishing decode right after a doc
+  // mutation, continuous pan/zoom) each start their own overlapping native
+  // IR build — cheap for small scenes, but for a scene holding a large
+  // embedded image (multi-MB base64 payload serialized to/from JSON on every
+  // call) overlapping builds can stack up and pin the IPC/JSON-serialization
+  // work indefinitely. Coalesce bursts into "one more pass after the current
+  // one finishes" instead of firing concurrently.
+  const drawInFlightRef = useRef(false);
+  const drawPendingRef = useRef(false);
 
   /** Size a canvas element to match its CSS dimensions at the given DPR. */
   function sizeCanvas(canvas: HTMLCanvasElement, cssW: number, cssH: number, dpr: number): void {
@@ -732,6 +748,15 @@ export function CanvasArea({
     const eng = engineRef.current;
     if (!eng) return;
 
+    if (drawInFlightRef.current) {
+      // A previous draw is still awaiting eng.buildIr()/painting. Don't start
+      // an overlapping one — remember to run once more when it finishes so
+      // the latest state still gets painted.
+      drawPendingRef.current = true;
+      return;
+    }
+    drawInFlightRef.current = true;
+
     (async () => {
       if (!ctx) return;
       const ctxNN = ctx;
@@ -800,15 +825,33 @@ export function CanvasArea({
           }
         }
         if (dirtyWorld) {
-          const sx = dirtyWorld.x * s.zoom + s.pan.x - 40;
-          const sy = dirtyWorld.y * s.zoom + s.pan.y - 40;
-          const sw = dirtyWorld.w * s.zoom + 80;
-          const sh = dirtyWorld.h * s.zoom + 80;
+          // Must match the transform applyCam/applyEditorCameraToCtx actually
+          // paints with (floating origin + rotation) — naive world*zoom+pan
+          // drifts from the real paint position once the floating origin is
+          // non-zero, clipping newly-added nodes out of the redraw entirely.
+          const origin = computeFloatingOrigin(cam, vp);
+          const corners: Array<[number, number]> = [
+            [dirtyWorld.x, dirtyWorld.y],
+            [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y],
+            [dirtyWorld.x, dirtyWorld.y + dirtyWorld.h],
+            [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y + dirtyWorld.h],
+          ];
+          let minSx = Infinity;
+          let minSy = Infinity;
+          let maxSx = -Infinity;
+          let maxSy = -Infinity;
+          for (const [wx, wy] of corners) {
+            const [px, py] = worldToScreen(cam, wx, wy, vp, origin);
+            minSx = Math.min(minSx, px);
+            minSy = Math.min(minSy, py);
+            maxSx = Math.max(maxSx, px);
+            maxSy = Math.max(maxSy, py);
+          }
           dirtyRectRef.current = {
-            x: Math.max(0, sx),
-            y: Math.max(0, sy),
-            w: Math.min(VP_W, sw),
-            h: Math.min(VP_H, sh),
+            x: Math.max(0, minSx - 40),
+            y: Math.max(0, minSy - 40),
+            w: Math.min(VP_W, maxSx - minSx + 80),
+            h: Math.min(VP_H, maxSy - minSy + 80),
           };
         }
       }
@@ -1177,15 +1220,6 @@ export function CanvasArea({
           }
         }
       } else if (renderWorkerRef.current) {
-        renderWorkerRef.current.post({
-          type: 'render',
-          nodes: flatNodes,
-          ir,
-          camera: { zoom: s.zoom, pan: s.pan },
-          viewport: { width: VP_W, height: VP_H },
-          docVersion,
-          dpr,
-        });
         const wb = workerBitmapRef.current;
         const cameraMatches =
           wb &&
@@ -1193,7 +1227,30 @@ export function CanvasArea({
           wb.camera.pan.x === s.pan.x &&
           wb.camera.pan.y === s.pan.y &&
           (s.cameraRotation ?? 0) === 0;
-        if (wb && wb.docVersion === docVersion && cameraMatches) {
+        const bitmapIsCurrent = Boolean(wb && wb.docVersion === docVersion && cameraMatches);
+        // Only ask the worker to re-render when the cached bitmap is stale
+        // (doc or camera actually changed). Without this guard, the
+        // `frameRendered` handler below calls back into `drawContent` on
+        // every reply, which — since nothing here invalidated `docVersion`
+        // or the camera — would immediately re-post the SAME render request,
+        // forever: an unthrottled main-thread↔worker ping-pong that never
+        // settles. It's cheap to miss for tiny vector scenes, but for a
+        // scene carrying a large embedded image (pasted image fill, full
+        // base64 data URL in `nodes`/`ir`), each loop iteration structured-
+        // clones that multi-MB payload across the worker boundary, pinning
+        // a CPU core indefinitely and starving the main thread.
+        if (!bitmapIsCurrent) {
+          renderWorkerRef.current.post({
+            type: 'render',
+            nodes: flatNodes,
+            ir,
+            camera: { zoom: s.zoom, pan: s.pan },
+            viewport: { width: VP_W, height: VP_H },
+            docVersion,
+            dpr,
+          });
+        }
+        if (bitmapIsCurrent && wb) {
           ctxNN.save();
           ctxNN.setTransform(1, 0, 0, 1, 0, 0);
           compositorRef.current?.compositeRasterLayer(
@@ -1211,7 +1268,16 @@ export function CanvasArea({
       }
 
       compositorRef.current?.endFrame();
-    })();
+    })().finally(() => {
+      drawInFlightRef.current = false;
+      if (drawPendingRef.current) {
+        drawPendingRef.current = false;
+        // A trigger arrived while this draw was in flight — run once more
+        // (on the next frame) to reflect the latest state, instead of
+        // starting an overlapping build immediately.
+        requestAnimationFrame(() => drawContent());
+      }
+    });
   }, [
     rootNodes,
     state.zoom,
