@@ -326,8 +326,8 @@ function interpolateSegment(
 /** O(log n) segment lookup for tracks with many keyframes. Returns segment start index or -1. */
 export function findKeyframeSegmentIndex(sorted: AnimationKeyframe[], progress: number): number {
   if (sorted.length < 2) return -1;
-  if (progress <= sorted[0]!.progress) return 0;
-  if (progress >= sorted[sorted.length - 1]!.progress) return sorted.length - 2;
+  if (progress <= (sorted[0]?.progress ?? 0)) return 0;
+  if (progress >= (sorted[sorted.length - 1]?.progress ?? 1)) return sorted.length - 2;
 
   let lo = 0;
   let hi = sorted.length - 2;

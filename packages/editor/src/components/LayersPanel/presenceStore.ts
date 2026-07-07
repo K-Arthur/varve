@@ -26,10 +26,7 @@ class PresenceStore {
     // shallow prop comparison, so mutating the existing array in place would
     // silently fail to re-render a row when a second (or later) presence
     // update lands on a node that already has one.
-    const next =
-      idx >= 0
-        ? existing.map((p, i) => (i === idx ? data : p))
-        : [...existing, data];
+    const next = idx >= 0 ? existing.map((p, i) => (i === idx ? data : p)) : [...existing, data];
     this.presences.set(nodeId, next);
     this.notify();
   }

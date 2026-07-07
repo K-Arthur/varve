@@ -53,7 +53,7 @@ function createClipboardEventWithFiles(files: File[]): ClipboardEvent {
       getAsFile: () => file,
     })) as unknown as DataTransferItemList,
     getData: () => '',
-  } as DataTransfer;
+  } as unknown as DataTransfer;
 
   return { type: 'paste', clipboardData: dt } as ClipboardEvent;
 }

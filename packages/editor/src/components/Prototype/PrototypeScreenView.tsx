@@ -54,7 +54,7 @@ export function PrototypeScreenView({
     [hitTestNode, onEvent, screenId],
   );
 
-  if (!screen || screen.kind !== 'frame') {
+  if (screen?.kind !== 'frame') {
     return <div className="prototype-screen-view__empty">Screen not found</div>;
   }
 

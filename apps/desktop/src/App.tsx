@@ -72,7 +72,6 @@ export function App() {
             openFile={openRequest}
             platform={platform}
             active={view === 'editor'}
-            platform={platform}
           />
         </div>
       )}

@@ -5,6 +5,16 @@ export { bytesToDataUrl, dataUrlToBytes, detectImageMime, getImageDimensions } f
 export { createEpsParser } from './eps';
 export { getBitmapInfo, importImageAsFill } from './image';
 export { importFile, importImageFile, importSvgString } from './import';
+export { createPdfParser } from './pdf';
+export { createPsdParser } from './psd';
+export {
+  getParser,
+  getParserForData,
+  getParserForExtension,
+  listSupportedFormats,
+  registerParser,
+  resetRegistry,
+} from './registry';
 export type {
   FidelityIssue,
   ImportArtifact,
@@ -16,17 +26,7 @@ export type {
   UnsupportedFeature,
 } from './service';
 export { ImportService } from './service';
-export { createPdfParser } from './pdf';
-export { createPsdParser } from './psd';
 export { createSketchParser } from './sketch';
-export {
-  getParser,
-  getParserForData,
-  getParserForExtension,
-  listSupportedFormats,
-  registerParser,
-  resetRegistry,
-} from './registry';
 export { createSvgParser, parseSvg } from './svg';
 export type { BatchFileResult, ImportOptions, ImportParser, ImportResult } from './types';
 export type { ImportValidation } from './validation';

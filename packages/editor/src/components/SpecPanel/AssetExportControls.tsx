@@ -120,12 +120,7 @@ export function AssetExportControls({
         const ext = format === 'image/png' ? 'png' : format === 'image/jpeg' ? 'jpg' : 'webp';
         if (isTauri && platform) {
           const bytes = await blobToBytes(blob);
-          await platform.saveBinaryFile(
-            buildFilename(node.name, ext),
-            bytes,
-            blob.type,
-            `.${ext}`,
-          );
+          await platform.saveBinaryFile(buildFilename(node.name, ext), bytes, blob.type, `.${ext}`);
           setMessage(`Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x`);
         } else {
           downloadBlob(blob, buildFilename(node.name, ext));

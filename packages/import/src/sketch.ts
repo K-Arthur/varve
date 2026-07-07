@@ -1,11 +1,11 @@
 import type { Affine } from '@strata/engine';
 import {
   createDocument,
+  type Document,
+  type ManagedColor,
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
-  type Document,
-  type ManagedColor,
   type NodeId,
   type SceneNode,
 } from '@strata/scene';

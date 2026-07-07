@@ -108,7 +108,6 @@ import {
   type SceneNode,
   type SlugConfig,
   type SMRuntime,
-  serializeDocument,
   setActiveTimeline as setActiveTimelineDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
@@ -3355,7 +3354,7 @@ export function EditorProvider({
         const sel = state.selection[0];
         if (!sel) return;
         const node = state.document.nodes[sel];
-        if (!node || node.kind !== 'frame') return;
+        if (node?.kind !== 'frame') return;
         const bounds = nodeWorldBounds(state.document, sel);
         if (!bounds) return;
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');

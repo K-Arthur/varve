@@ -245,7 +245,7 @@ describe('Document (nested child ops)', () => {
     doc = addChild(doc, frameId, second);
     const child2 = getById(doc, secondId);
     expect(child2?.order).toBeTruthy();
-    expect(child2?.order! > firstOrder!).toBe(true);
+    expect((child2?.order ?? '') > (firstOrder ?? '')).toBe(true);
   });
 
   it('addChild with slotId fills the slot', () => {

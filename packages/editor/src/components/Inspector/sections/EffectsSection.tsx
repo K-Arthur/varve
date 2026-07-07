@@ -634,9 +634,9 @@ function GlowParams({
         />
       </div>
       <div className="insp-field">
-        <label className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
+        <span className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
           Opacity
-        </label>
+        </span>
         <NumberField
           label=""
           value={isMixed(opacityRaw) ? 0 : opacityRaw}
@@ -653,11 +653,12 @@ function GlowParams({
         />
       </div>
       <div className="insp-field">
-        <label className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
+        <span className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
           Blend
-        </label>
+        </span>
         <select
           className="insp-select"
+          aria-label="Blend"
           value={isMixed(blendRaw) ? '' : blendRaw}
           onChange={(e) => {
             const v = e.target.value as BlendMode;

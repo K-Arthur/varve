@@ -1,6 +1,6 @@
-import { createDocument, makeShapeNode, type ExportBatch, type ExportJob } from '@strata/scene';
+import { createDocument, type ExportBatch, type ExportJob, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
-import { ExportService, rasterScaleForJob, type ExportRunContext } from './exportService';
+import { type ExportRunContext, ExportService, rasterScaleForJob } from './exportService';
 
 function svgBatch(nodeId = 'n1'): ExportBatch {
   return {
