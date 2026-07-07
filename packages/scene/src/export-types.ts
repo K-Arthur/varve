@@ -92,6 +92,8 @@ export interface ExportJob {
   nodeName: string;
   format: ExportFormat;
   fileName: string;
+  /** Preset scale used to compute raster output. Kept on the job for workers. */
+  scale?: ExportScale;
   dimensions: { w: number; h: number };
   estimatedSize: number;
   status: 'pending' | 'running' | 'done' | 'error';

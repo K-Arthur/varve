@@ -24,6 +24,7 @@ import type {
   ExportBatch,
   ExportJob,
   ExportPreset,
+  ExportScale,
   NodeId,
   SceneNode,
   ShapeNode,
@@ -32,6 +33,7 @@ import type {
 import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
+import type { ExportReport } from '../../exportService';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
@@ -45,7 +47,7 @@ export interface ExportDialogProps {
   nodes: SceneNode[];
   document?: Document;
   timelines?: Record<string, Timeline>;
-  onExport: (batch: ExportBatch) => Promise<void>;
+  onExport: (batch: ExportBatch) => Promise<ExportReport | void>;
   onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
   onExportMotion?: (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => void;
   onSaveVideoFile?: (fileName: string, bytes: Uint8Array, mimeType: string) => Promise<void>;
@@ -61,6 +63,73 @@ const BG_METHOD_OPTIONS: { value: BackgroundRemovalMethod; label: string }[] = [
 
 function safeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'export';
+}
+
+function nodeBaseDimensions(node: SceneNode): { w: number; h: number } {
+  if (node.kind === 'frame') {
+    return { w: Math.max(1, node.w), h: Math.max(1, node.h) };
+  }
+  if (node.kind === 'text') {
+    return {
+      w: Math.max(1, node.text.length * node.fontSize * 0.6),
+      h: Math.max(1, node.fontSize * 1.4),
+    };
+  }
+  if (node.kind !== 'shape') return { w: 200, h: 160 };
+  if (node.fills?.some((f) => f.type === 'image' && !!f.image?.src)) {
+    return { w: Math.max(1, imageShapeW(node)), h: Math.max(1, imageShapeH(node)) };
+  }
+
+  switch (node.shape.kind) {
+    case 'rect':
+      return { w: Math.max(1, node.shape.w), h: Math.max(1, node.shape.h) };
+    case 'ellipse':
+      return { w: Math.max(1, node.shape.rx * 2), h: Math.max(1, node.shape.ry * 2) };
+    case 'circle': {
+      const d = Math.max(1, node.shape.r * 2);
+      return { w: d, h: d };
+    }
+    case 'line':
+    case 'arrow':
+      return {
+        w: Math.max(1, Math.abs(node.shape.to[0] - node.shape.from[0]) + node.shape.tolerance * 2),
+        h: Math.max(1, Math.abs(node.shape.to[1] - node.shape.from[1]) + node.shape.tolerance * 2),
+      };
+    case 'polygon':
+      return { w: Math.max(1, node.shape.radius * 2), h: Math.max(1, node.shape.radius * 2) };
+    case 'star':
+      return {
+        w: Math.max(1, node.shape.outerRadius * 2),
+        h: Math.max(1, node.shape.outerRadius * 2),
+      };
+    case 'path': {
+      if (node.shape.points.length === 0) return { w: 100, h: 100 };
+      const xs = node.shape.points.map((p) => p.x);
+      const ys = node.shape.points.map((p) => p.y);
+      return {
+        w: Math.max(1, Math.max(...xs) - Math.min(...xs)),
+        h: Math.max(1, Math.max(...ys) - Math.min(...ys)),
+      };
+    }
+    default:
+      return { w: 100, h: 100 };
+  }
+}
+
+function scaledDimensions(
+  base: { w: number; h: number },
+  scale: ExportScale,
+): { w: number; h: number } {
+  const factor =
+    scale.type === 'factor'
+      ? scale.value
+      : scale.type === 'width'
+        ? scale.pixels / base.w
+        : scale.pixels / base.h;
+  return {
+    w: Math.max(1, Math.round(base.w * factor)),
+    h: Math.max(1, Math.round(base.h * factor)),
+  };
 }
 
 function buildJobs(nodes: SceneNode[]): ExportJob[] {
@@ -83,14 +152,15 @@ function buildJobs(nodes: SceneNode[]): ExportJob[] {
                 : preset.format;
       const suffix = preset.suffix ? `-${preset.suffix}` : '';
       const fileName = `${safeName}${suffix}.${ext}`;
-      const scale = preset.scale.type === 'factor' ? preset.scale.value : 1;
+      const dimensions = scaledDimensions(nodeBaseDimensions(node), preset.scale);
       jobs.push({
         presetId: preset.id,
         nodeId: node.id,
         nodeName: node.name,
         format: preset.format,
         fileName,
-        dimensions: { w: Math.round(100 * scale), h: Math.round(80 * scale) },
+        scale: preset.scale,
+        dimensions,
         estimatedSize: 1024 * 50,
         status: 'pending',
       });
@@ -247,9 +317,30 @@ export function ExportDialog({
       filenameTemplate: template,
       folderRule,
     };
-    await onExport(batch);
-    setRunning(false);
-    setAnnounceMsg(`Export complete: ${selectedJobs.length} files exported`);
+    try {
+      const report = await onExport(batch);
+      if (report) {
+        setProgress({ done: report.successCount, errors: report.failureCount });
+        if (report.failureCount > 0) {
+          setAnnounceMsg(
+            report.successCount > 0
+              ? `Export partially complete: ${report.successCount} exported, ${report.failureCount} failed`
+              : `Export failed: ${report.failureCount} of ${report.totalJobs} files failed`,
+          );
+        } else {
+          setAnnounceMsg(`Export complete: ${report.successCount} files exported`);
+        }
+      } else {
+        setProgress({ done: selectedJobs.length, errors: 0 });
+        setAnnounceMsg(`Export complete: ${selectedJobs.length} files exported`);
+      }
+    } catch (err) {
+      setProgress({ done: 0, errors: selectedJobs.length });
+      const msg = err instanceof Error ? err.message : String(err);
+      setAnnounceMsg(`Export failed: ${msg}`);
+    } finally {
+      setRunning(false);
+    }
   }, [
     jobs,
     selectedIds,
@@ -534,11 +625,9 @@ export function ExportDialog({
                           className="export-dialog__btn export-dialog__btn--secondary"
                           disabled={videoExporting || running}
                           onClick={() => {
-                            const json = document
-                              ? timelineToLottieJSON(tl, document)
-                              : timelineToLottieJSON(tl, {
-                                  nodes: nodeNames,
-                                } as unknown as Document);
+                            const lottieDocument =
+                              document ?? ({ nodes: nodeNames } as unknown as Document);
+                            const json = timelineToLottieJSON(tl, lottieDocument);
                             onExportMotion('lottie', `${tl.name}.json`, json);
                           }}
                         >

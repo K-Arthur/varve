@@ -3,8 +3,7 @@ import { ImportService } from './service';
 
 describe('ImportService', () => {
   it('returns a typed report for successful imports and unsupported files', async () => {
-    const svg =
-      '<svg width="10" height="12"><rect x="0" y="0" width="10" height="12" /></svg>';
+    const svg = '<svg width="10" height="12"><rect x="0" y="0" width="10" height="12" /></svg>';
 
     const report = await ImportService.importFiles([
       { name: 'mark.svg', text: svg, size: svg.length, source: 'file-picker' },
@@ -41,5 +40,24 @@ describe('ImportService', () => {
         controller.signal,
       ),
     ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('reports validator-detected unsupported SVG features as partial fidelity', async () => {
+    const svg =
+      '<svg width="10" height="10"><defs><filter id="blur"/></defs><clipPath id="c"/></svg>';
+
+    const report = await ImportService.importFiles([
+      { name: 'effects.svg', text: svg, size: svg.length, source: 'drop' },
+    ]);
+
+    expect(report.successCount).toBe(0);
+    expect(report.partialCount).toBe(1);
+    expect(report.files[0]?.status).toBe('partial');
+    expect(report.files[0]?.unsupportedFeatures.map((f) => f.feature)).toEqual(
+      expect.arrayContaining(['SVG filters', 'SVG clip paths']),
+    );
+    expect(report.warnings.map((w) => w.message)).toEqual(
+      expect.arrayContaining(['SVG filters', 'SVG clip paths']),
+    );
   });
 });

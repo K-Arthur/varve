@@ -42,7 +42,7 @@ import './inspector.css';
 type Tab = 'properties' | 'export' | 'spec' | 'audit';
 
 export function PropertiesPanel() {
-  const { selectedNodes, state } = useEditor();
+  const { selectedNodes, state, platform } = useEditor();
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
   const [tab, setTab] = useState<Tab>('properties');
@@ -54,6 +54,7 @@ export function PropertiesPanel() {
           nodes={selNodes}
           doc={state.document}
           variableStore={docVariableStore(state.document)}
+          platform={platform}
         />
       </section>
     );
@@ -91,7 +92,11 @@ export function PropertiesPanel() {
         <div className="insp-panel">
           {selNodes.length > 0 ? (
             <>
-              <AssetExportControls node={selNodes[0] as SceneNode} doc={state.document} />
+              <AssetExportControls
+                node={selNodes[0] as SceneNode}
+                doc={state.document}
+                platform={platform}
+              />
               <CodeGenView
                 node={selNodes[0] as SceneNode}
                 doc={state.document}
@@ -110,6 +115,7 @@ export function PropertiesPanel() {
           nodes={selNodes}
           doc={state.document}
           variableStore={docVariableStore(state.document)}
+          platform={platform}
         />
       )}
       {tab === 'audit' && <IntelligencePanel />}
