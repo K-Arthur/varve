@@ -344,7 +344,9 @@ function ShellInner({
             lastPointerPos.current.x - rect.left,
             lastPointerPos.current.y - rect.top,
           );
-          editor.reparentNode(nodeId, null, editor.state.document.rootChildren.length);
+          // Append to the end of the active page's top level (reparentNode
+          // clamps toIndex to the target list's actual length).
+          editor.reparentNode(nodeId, null, Number.MAX_SAFE_INTEGER);
           editor.setNodePosition(nodeId, wx, wy);
           editor.setSelection(nodeId);
           editor.announce('Moved layer to canvas');

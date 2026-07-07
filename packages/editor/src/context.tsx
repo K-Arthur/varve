@@ -2908,19 +2908,29 @@ export function EditorProvider({
           if (!node) return doc;
           const oldParentId = getParentFast(doc, id, parentCacheRef.current);
           const oldWorld = nodeWorldTransform(doc, id);
+          // A null newParentId means "move to the active page's top level."
+          // doc.rootChildren holds each page's contentRoot group id, not page
+          // content, so splicing directly into it (like createShapeAt used to)
+          // orphans the node from activePageNodes and makes it vanish from the
+          // canvas while still showing in the Layers panel. Resolve to the
+          // active page's contentRoot instead, mirroring createShapeAt.
+          const activePage = doc.pages?.find((p) => p.id === doc.activePageId);
+          const contentRootId = activePage?.contentRoot;
+          const effectiveParentId =
+            newParentId ?? (contentRootId && doc.nodes[contentRootId] ? contentRootId : null);
           let newDoc: Document;
-          if (newParentId) {
+          if (effectiveParentId) {
             // Convert old world pos → new parent's local space.
-            const pWorld = nodeWorldTransform(doc, newParentId);
+            const pWorld = nodeWorldTransform(doc, effectiveParentId);
             const pInv = invertAffine(pWorld);
             const newLocal = multiplyAffine(pInv, oldWorld);
-            newDoc = reparentNodeDoc(doc, id, newParentId, toIndex, newLocal);
+            newDoc = reparentNodeDoc(doc, id, effectiveParentId, toIndex, newLocal);
           } else {
             // Move to root: local = world (root has identity transform).
             newDoc = reparentNodeDoc(doc, id, null, toIndex, oldWorld);
           }
           if (oldParentId) newDoc = applyFrameLayout(newDoc, oldParentId);
-          if (newParentId) newDoc = applyFrameLayout(newDoc, newParentId);
+          if (effectiveParentId) newDoc = applyFrameLayout(newDoc, effectiveParentId);
           return newDoc;
         });
       },

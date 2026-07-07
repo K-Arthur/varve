@@ -45,9 +45,12 @@ export function useShortcuts(
       case 'cut':
         return () => e.cutSelected();
       case 'paste':
-        // Paste is handled by a native ClipboardEvent listener in Shell.
-        // The keyboard shortcut is only kept for menu display (SHORTCUT_DEFS).
-        return () => {}; // no-op — native event handler does the work
+        // Only reached when triggered via the action registry (command
+        // palette / QuickActionsBar), which has no native ClipboardEvent to
+        // rely on. The real Ctrl/Cmd+V keydown path never calls this handler
+        // — it lets the browser's native 'paste' event fire instead (see the
+        // keydown handler below), which Shell's listener consumes directly.
+        return () => e.paste();
       case 'duplicate':
         return () => e.duplicateSelected();
       case 'flipH':
@@ -280,6 +283,12 @@ export function useShortcuts(
       for (const [id, _def] of Object.entries(SHORTCUT_DEFS)) {
         const binding = getEffectiveBinding(id);
         if (!binding?.key || !bindingMatchesEvent(e, binding)) continue;
+        if (id === 'paste') {
+          // Don't preventDefault: paste is handled by the browser's native
+          // 'paste' ClipboardEvent (see Shell), which only fires if the
+          // default Ctrl/Cmd+V action is allowed to proceed.
+          return;
+        }
         e.preventDefault();
         getHandler(id)?.();
         return;

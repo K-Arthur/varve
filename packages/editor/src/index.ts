@@ -1,3 +1,4 @@
+export { ErrorBoundary } from './components/ErrorBoundary';
 export type { EditorContextValue, EditorState, SessionMeta, ToolId } from './context';
 export { EditorProvider, useEditor } from './context';
 export { SelectionOverlay } from './SelectionOverlay';

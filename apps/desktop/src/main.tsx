@@ -5,6 +5,7 @@ import '@strata/home/home.css';
 import '@fontsource-variable/geist/index.css';
 import '@fontsource-variable/ibm-plex-sans/index.css';
 
+import { ErrorBoundary } from '@strata/editor';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
@@ -21,6 +22,8 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

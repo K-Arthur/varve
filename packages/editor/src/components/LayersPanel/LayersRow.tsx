@@ -238,6 +238,12 @@ export const LayersRow = memo(function LayersRow({
           paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
           ...style,
         }}
+        // Draggable from anywhere on the row (Figma/Illustrator/Photoshop
+        // convention), not just the small grip handle — but not while renaming,
+        // so dragging to select text in the rename input isn't hijacked as a
+        // reorder/reparent gesture. dragAttributes (ARIA role/description)
+        // stays scoped to the labeled handle button below for a11y.
+        {...(!editing ? dragListeners : undefined)}
       >
         {/* Drag handle */}
         <button

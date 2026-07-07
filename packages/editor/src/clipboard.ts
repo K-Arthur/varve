@@ -78,6 +78,10 @@ export async function readClipboard(): Promise<ClipboardData | null> {
  */
 export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
   const result: UnifiedClipboardResult = { strataData: null, importItems: [] };
+  // A single logical image is often exposed under more than one ClipboardItem
+  // or MIME type (seen in practice on Linux/Wayland clipboard proxies) —
+  // dedupe by name so one paste doesn't produce duplicate nodes.
+  const seenNames = new Set<string>();
   try {
     const items = await navigator.clipboard.read();
     for (const item of items) {
@@ -90,17 +94,22 @@ export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
             result.strataData = parsed;
           }
         } else if (type.startsWith('image/') && type !== 'image/svg+xml') {
+          const name = `clipboard.${type.split('/')[1] ?? 'png'}`;
+          if (seenNames.has(name)) continue;
+          seenNames.add(name);
           const blob = await item.getType(type);
           const buffer = await blob.arrayBuffer();
           result.importItems.push({
             data: new Uint8Array(buffer),
             mimeType: type,
-            name: `clipboard.${type.split('/')[1] ?? 'png'}`,
+            name,
           });
         } else if (type === 'image/svg+xml' || type === 'text/svg+xml' || type === 'text/plain') {
+          if (seenNames.has('clipboard.svg')) continue;
           const blob = await item.getType(type);
           const text = await blob.text();
           if (text.trim().startsWith('<svg') || text.trim().startsWith('<?xml')) {
+            seenNames.add('clipboard.svg');
             result.importItems.push({
               data: text,
               mimeType: 'image/svg+xml',

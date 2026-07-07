@@ -299,6 +299,19 @@ export function computeDropZone(
   return relativeY < 0.5 ? 'before' : 'after';
 }
 
+/**
+ * The sibling list for "top level of the active page" — NOT doc.rootChildren,
+ * which holds each page's contentRoot group id, not page content. Must match
+ * what reparentNode resolves a null parentId to, or drop/reorder indices are
+ * computed against the wrong list.
+ */
+export function resolveRootLevelSiblings(doc: Document): NodeId[] {
+  const activePage = doc.pages?.find((p) => p.id === doc.activePageId);
+  const contentRootId = activePage?.contentRoot;
+  const contentRoot = contentRootId ? doc.nodes[contentRootId] : undefined;
+  return contentRoot && isContainer(contentRoot) ? contentRoot.children : doc.rootChildren;
+}
+
 export function expandToDepth1(
   doc: Document,
   containerId: NodeId,
@@ -779,8 +792,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         const parentId = focusEntry.parentId;
         const doc = state.document;
         const siblings = parentId
-          ? ((doc.nodes[parentId] as ContainerNode | undefined)?.children ?? doc.rootChildren)
-          : doc.rootChildren;
+          ? ((doc.nodes[parentId] as ContainerNode | undefined)?.children ??
+            resolveRootLevelSiblings(doc))
+          : resolveRootLevelSiblings(doc);
         const myIdx = siblings.indexOf(focusEntry.node.id);
         if (myIdx < 0) return;
         const delta = e.key === '[' ? -1 : 1;
@@ -1031,8 +1045,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       const overEntry = entries.find((e) => e.node.id === overId);
       const targetParentId = overEntry?.parentId ?? null;
       const targetSiblings = targetParentId
-        ? ((doc.nodes[targetParentId] as ContainerNode | undefined)?.children ?? doc.rootChildren)
-        : doc.rootChildren;
+        ? ((doc.nodes[targetParentId] as ContainerNode | undefined)?.children ??
+          resolveRootLevelSiblings(doc))
+        : resolveRootLevelSiblings(doc);
 
       let overIdx = targetSiblings.indexOf(overId);
       if (overIdx < 0) overIdx = targetSiblings.length;
