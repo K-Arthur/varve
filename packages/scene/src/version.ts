@@ -287,7 +287,6 @@ function migrateRawToPages(raw: Record<string, unknown>): Record<string, unknown
     id: contentRootId,
     kind: 'group',
     name: 'Page 1 content',
-    index: 0,
     order: 'a0',
     visible: true,
     locked: false,
