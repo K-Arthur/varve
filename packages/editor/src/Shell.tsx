@@ -11,7 +11,7 @@ import {
 import { createEngine, type Engine } from '@strata/engine';
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
-import type { ExportBatch, ExportFormat, NodeId } from '@strata/scene';
+import type { Document, ExportBatch, ExportFormat, NodeId, SceneNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import { screenToWorld } from '@strata/shared';
 import type { MenuEntry } from '@strata/ui';
@@ -607,7 +607,7 @@ function ShellInner({
           ref={fileRef}
           id="file-open-input"
           type="file"
-          accept=".json"
+          accept=".strata,.json"
           style={{ display: 'none' }}
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -625,36 +625,45 @@ function ShellInner({
         <input
           id="file-import-input"
           type="file"
-          accept=".svg,.png,.jpg,.jpeg,.webp,.gif"
+          accept=".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch"
           multiple
           style={{ display: 'none' }}
           onChange={async (e) => {
             const files = Array.from(e.target.files ?? []);
             if (files.length === 0) return;
-            for (const file of files) {
-              const ext = file.name.split('.').pop()?.toLowerCase();
-              if (ext === 'svg') {
-                const text = await file.text();
-                const { importFile } = await import('@strata/import');
-                const result = importFile(file.name, text, { center: true, embedImages: true });
-                for (const id of result.nodeIds) {
-                  const node = result.document.nodes[id];
-                  if (node) editor.importNode(node, result.document);
-                }
-              } else if (ext && ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
-                const buf = await file.arrayBuffer();
-                const { importFile } = await import('@strata/import');
-                const result = importFile(file.name, new Uint8Array(buf), {
-                  center: true,
-                  embedImages: true,
-                });
-                for (const id of result.nodeIds) {
-                  const node = result.document.nodes[id];
-                  if (node) editor.importNode(node, result.document);
+            try {
+              const { ImportService } = await import('@strata/import');
+              const report = await ImportService.importFiles(
+                await Promise.all(
+                  files.map(async (file) => ({
+                    name: file.name,
+                    source: 'file-picker' as const,
+                    size: file.size,
+                    bytes: new Uint8Array(await file.arrayBuffer()),
+                  })),
+                ),
+                { center: true, embedImages: true },
+              );
+              const parsedItems: { node: SceneNode; sourceDoc: Document }[] = [];
+              for (const fileReport of report.files) {
+                for (const artifact of fileReport.artifacts) {
+                  for (const id of artifact.nodeIds) {
+                    const node = artifact.document.nodes[id];
+                    if (node) parsedItems.push({ node, sourceDoc: artifact.document });
+                  }
                 }
               }
+              if (parsedItems.length > 0) editor.batchImportNodes(parsedItems);
+              editor.announce(
+                `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
+              );
+            } catch (err) {
+              editor.announce(
+                err instanceof Error ? `Import failed: ${err.message}` : 'Import failed',
+              );
+            } finally {
+              e.target.value = '';
             }
-            e.target.value = '';
           }}
         />
 
