@@ -51,11 +51,11 @@ export class ThumbnailCache {
   }
 
   /**
-   * Remove entries for a specific node ID (any document).
+   * Remove entries for a specific node ID.
    */
   invalidate(nodeId: string): void {
     for (const [key] of this.cache) {
-      if (key.includes(`:${nodeId}:`)) {
+      if (key.startsWith(`${nodeId}:`)) {
         this.cache.delete(key);
       }
     }
@@ -85,26 +85,36 @@ export class ThumbnailCache {
   }
 }
 
+function stableHash(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return hash;
+}
+
 /**
  * Compute a cache key for a scene node thumbnail.
  * The key incorporates node identity and visual properties so that changes
- * to appearance invalidate the cache entry, and — critically — `docId`, since
- * node ids are per-document sequential counters starting at `n1`: two
- * different open documents routinely have colliding ids (every new document's
- * first node is `n1`), and this cache is a module-level singleton shared for
- * the process lifetime, so without `docId` switching tabs could serve a
- * different document's stale thumbnail for a coincidentally-matching id.
+ * to appearance invalidate the cache entry:
+ * - `docId`, since node ids are per-document sequential counters starting at
+ *   `n1` — two different open documents routinely have colliding ids (every
+ *   new document's first node is `n1`), and this cache is a module-level
+ *   singleton shared for the process lifetime, so without `docId` switching
+ *   tabs could serve a different document's stale thumbnail for a
+ *   coincidentally-matching id.
+ * - `shape`, since `renderNodeToCanvas` draws shape-specific geometry (ellipse
+ *   rx/ry, path points, line tolerance) for ShapeNodes — hashing only `fill`
+ *   would leave a stale thumbnail after a resize/reshape that didn't also
+ *   touch the fill.
  */
 export function thumbnailCacheKey(
-  node: { id: string; kind: string; fill?: unknown },
+  node: { id: string; kind: string; fill?: unknown; shape?: unknown },
   docId?: string,
 ): string {
-  const fillStr = node.fill ? JSON.stringify(node.fill) : 'none';
-  let fillHash = 0;
-  for (let i = 0; i < fillStr.length; i++) {
-    const char = fillStr.charCodeAt(i);
-    fillHash = (fillHash << 5) - fillHash + char;
-    fillHash |= 0;
-  }
-  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}`;
+  const fillHash = stableHash(node.fill ? JSON.stringify(node.fill) : 'none');
+  const shapeHash = stableHash(node.shape ? JSON.stringify(node.shape) : 'none');
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}`;
 }

@@ -22,12 +22,15 @@ class PresenceStore {
   setPresence(nodeId: NodeId, data: PresenceData): void {
     const existing = this.presences.get(nodeId) ?? [];
     const idx = existing.findIndex((p) => p.userId === data.userId);
-    if (idx >= 0) {
-      existing[idx] = data;
-    } else {
-      existing.push(data);
-    }
-    this.presences.set(nodeId, existing);
+    // Always produce a new array — React.memo'd consumers (LayersRow) do a
+    // shallow prop comparison, so mutating the existing array in place would
+    // silently fail to re-render a row when a second (or later) presence
+    // update lands on a node that already has one.
+    const next =
+      idx >= 0
+        ? existing.map((p, i) => (i === idx ? data : p))
+        : [...existing, data];
+    this.presences.set(nodeId, next);
     this.notify();
   }
 

@@ -323,11 +323,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     state.selection.length === 1 &&
     firstSel?.kind === 'frame' &&
     !!('componentId' in firstSel && (firstSel as { componentId?: string }).componentId);
-  const isComponentMasterSelected =
-    state.selection.length === 1 &&
-    firstSel?.kind === 'frame' &&
-    firstSelId != null &&
-    Object.values(state.document.components).some((c) => c.masterRootId === firstSelId);
 
   const isolatedNode = state.isolatedNodeId ? state.document.nodes[state.isolatedNodeId] : null;
   const contextMenuNode = contextMenu ? state.document.nodes[contextMenu.id] : undefined;
@@ -336,6 +331,14 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     contextMenuNode != null &&
     isContainer(contextMenuNode) &&
     contextMenu.id !== state.isolatedNodeId;
+  // Gated on the right-clicked node, not state.selection — a right-click on
+  // a node that's already part of an existing multi-selection doesn't change
+  // the selection, so gating this on selection.length === 1 would wrongly
+  // disable the action for a valid target sitting inside a multi-select.
+  const isComponentMasterSelected =
+    contextMenu != null &&
+    contextMenuNode?.kind === 'frame' &&
+    Object.values(state.document.components).some((c) => c.masterRootId === contextMenu.id);
 
   return (
     <div className="editor-layers layers-panel">

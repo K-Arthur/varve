@@ -242,7 +242,12 @@ export function flattenTree(
     return true;
   }
 
-  function walk(parentId: NodeId | null, ids: NodeId[], depth: number): FlatEntry[] {
+  function walk(
+    parentId: NodeId | null,
+    ids: NodeId[],
+    depth: number,
+    pinnedId?: NodeId,
+  ): FlatEntry[] {
     const entries: FlatEntry[] = [];
     for (let i = ids.length - 1; i >= 0; i--) {
       const nid = ids[i];
@@ -254,8 +259,14 @@ export function flattenTree(
       const hasChildren = isContainer(node) && node.children.length > 0 && expanded.has(nid);
       const childEntries = hasChildren ? walk(nid, node.children, depth + 1) : [];
 
+      // The isolation-mode root is pinned: it's the anchor/breadcrumb target
+      // for the whole view, so it stays visible even when it doesn't itself
+      // match an active filter/search — only its descendants get filtered
+      // normally. Without this, isolating a node then filtering to something
+      // that matches nothing inside it would blank the tree entirely,
+      // including the isolated node's own row.
       let nodeMatches = true;
-      if (filtering) {
+      if (filtering && nid !== pinnedId) {
         if (hasSearchIndex) {
           nodeMatches = matchedIds?.has(nid) && matchesAllExceptSearch(node, filterSpec);
         } else {
@@ -279,7 +290,7 @@ export function flattenTree(
   // only the isolated node and its subtree, as a single top-level entry so
   // it stays visible (and collapsible) at the top of the tree.
   if (isolatedNodeId && doc.nodes[isolatedNodeId]) {
-    return walk(null, [isolatedNodeId], 0);
+    return walk(null, [isolatedNodeId], 0, isolatedNodeId);
   }
 
   // When a page content root is active, show that page's direct children as

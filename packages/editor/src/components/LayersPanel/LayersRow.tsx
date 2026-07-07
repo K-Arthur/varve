@@ -120,6 +120,7 @@ export const LayersRow = memo(function LayersRow({
   keyframeCount,
   syncStatus,
   presences,
+  docId,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -127,7 +128,7 @@ export const LayersRow = memo(function LayersRow({
   const isGroup = node.kind === 'group';
   const isContainerNode = isContainer(node);
   const typeIcon = nodeTypeIcon(node);
-  const thumbnailDataUrl = useThumbnail(node);
+  const thumbnailDataUrl = useThumbnail(node, docId);
   const showThumbnail = (node.kind === 'frame' || isImageShape(node)) && thumbnailDataUrl != null;
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
@@ -174,6 +175,10 @@ export const LayersRow = memo(function LayersRow({
 
   const handleRenameKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Stop these from bubbling to the tree container's own onKeyDown —
+      // without it, e.g. Escape-to-cancel-rename also fires the tree's
+      // Escape-to-exit-isolation handler in the same keypress.
+      e.stopPropagation();
       if (e.key === 'Enter') {
         e.preventDefault();
         commitRename();

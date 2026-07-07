@@ -99,6 +99,71 @@ today and what's genuinely still open.
     header and Escape-to-exit. Deliberately does **not** touch canvas-side
     selection or rendering — see roadmap below.
 
+## Fixed in a follow-up multi-agent code review pass
+
+An `xhigh`-effort, 10-angle automated review of the diff above (before commit)
+surfaced several real bugs the manual pass missed, all fixed:
+
+- **Cross-document thumbnail cache collisions.** Node ids are per-document
+  sequential counters starting at `n1`, so two open documents/tabs routinely
+  have colliding ids; the shared `sharedThumbnailCache` singleton had no
+  document-scoping, so switching tabs could show a different document's stale
+  thumbnail. Fixed by threading `docId` into `thumbnailCacheKey` end-to-end
+  (it was added to the key function but never actually passed from
+  `LayersRow`/`useThumbnail` on the first pass — caught by a second reviewer
+  agent tracing the call chain).
+- **Thumbnail cache key ignored geometry.** Only `fill` was hashed; resizing
+  an ellipse or reshaping a path without touching its fill left a stale
+  cached thumbnail indefinitely (previously masked by every mount doing a
+  full re-render). Now hashes `shape` too.
+- **`presenceStore.setPresence` mutated its array in place**, which — now
+  that `presences` is wired into the `React.memo`-wrapped `LayersRow` — could
+  silently skip a re-render when a second collaborator's presence landed on
+  an already-present node. Now always produces a new array.
+- **Canceling an inline rename while isolated also exited isolation mode**:
+  the rename `<input>`'s Escape handler didn't stop propagation, so the
+  keydown bubbled to the tree's own Escape-exits-isolation handler. Fixed
+  with `stopPropagation()`.
+- **"Publish to Library" was gated on `state.selection` instead of the
+  right-clicked node**, so right-clicking a valid component master that
+  happened to be part of an existing multi-selection incorrectly disabled
+  the action. Now gated on `contextMenu.id`.
+- **Clipboard write failures were reported as success** ("package copied to
+  clipboard" even when `navigator.clipboard.writeText` rejected or wasn't
+  available). Now the announcement reflects the actual outcome.
+- **Isolating a node while a filter/search matched nothing inside it blanked
+  the entire tree**, including the isolated node's own row — contradicting
+  isolation's whole purpose of staying anchored. The isolated root is now
+  pinned (always shown) regardless of filter match; only its descendants are
+  still filtered normally.
+- **Roving-tabindex focus effect re-ran on every unrelated document edit**
+  (rename/recolor/etc. elsewhere in the tree), not just on real focus
+  movement, because it depended on the whole `entries` array reference
+  rather than the specific focused node id.
+
+**Noted but not fixed this pass** (real, lower-severity, or requiring larger
+follow-up work):
+- Long keyboard jumps (Home/End on very large documents) can leave real DOM
+  focus one row behind the visual highlight, since the virtualizer mounts
+  the target row asynchronously and the focus-follow effect has no retry.
+- The search-index incremental-update machinery runs its diff+patch on every
+  document edit regardless of whether search is active, and duplicates an
+  `O(n)` `computeDocumentDiff` scan `useFlatTree` already does separately —
+  a real inefficiency, but restructuring either hook to share one diff
+  result is a bigger change than fits this pass.
+- `usePresence`'s "re-render on any change anywhere" design, combined with
+  `SortableVirtualRow` not being memoized, means one collaborator's presence
+  update re-renders every visible row — moot until a real collaboration
+  backend exists to trigger it at all.
+- `layerBulkOperations.ts`'s three `find*Ids` functions (and its three
+  `bulk*Doc` setters) are near-identical copies differing only in predicate/
+  field; a generic `findMatchingIds`/`bulkSetNodeFieldDoc` would remove the
+  duplication.
+- `useFlatTree`'s "did anything relevant change" fast-path check is
+  duplicated across two call sites and six separate refs — structurally the
+  same shape as the bug this pass just fixed, so the next new filter
+  dimension could just as easily reintroduce it.
+
 ## Roadmap — explicitly deferred, with rationale
 
 - **Canvas-side isolation enforcement.** Today's isolation mode only filters
@@ -144,3 +209,4 @@ per #4) before the corresponding fix landed. New/changed test files:
 `useThumbnail.test.ts`, plus extensions to `useFlatTree.test.ts`,
 `layerSearchIndex.test.ts`, `layerBulkOperations.test.ts`, `LayersRow.test.tsx`,
 `__tests__/PresenceIndicator.test.tsx`, and `PageNav.test.tsx`.
+Q
