@@ -14,7 +14,7 @@
  */
 
 import { applyAffine, invertAffine, rectContains } from '@strata/engine';
-import { getParent, walkNodes } from '@strata/scene';
+import { activePageNodes, getParent, walkNodes } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
@@ -208,8 +208,10 @@ export class SelectTool extends BaseTool {
       const rect = this.computeDragRect(ctx);
       // A3: Alt key → fully-contained marquee mode
       const useContainment = ctx.altKey;
-      // Iterate ALL nodes (including nested) via walkNodes
-      const entries = walkNodes(ctx.document);
+      // Iterate the active page's nodes (including nested) via walkNodes.
+      // Scoped so marquee-select can't pick up shapes from other pages that
+      // happen to occupy the same on-screen coordinates.
+      const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
       // Sort by paint order (last sibling = topmost), not by depth.
       // walkNodes returns DFS ancestors-first; reverse so later siblings win.
       const ordered = [...entries.values()].reverse();
@@ -405,7 +407,8 @@ export class SelectTool extends BaseTool {
     ctx: ToolContext,
   ): Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> {
     const results: Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> = [];
-    const entries = walkNodes(ctx.document);
+    // Scoped to the active page — see the marquee-select comment above.
+    const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
     // Reverse for paint order (later siblings on top)
     for (const entry of [...entries.values()].reverse()) {
       if (!entry) continue;

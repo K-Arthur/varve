@@ -212,6 +212,8 @@ export type { CanvasMode, EditorState, SessionMeta, ToolId };
 
 export interface EditorContextValue {
   state: EditorState;
+  /** The platform facade (Tauri/web/memory) — undefined if none was provided. */
+  platform: Platform | undefined;
   setTool: (t: ToolId) => void;
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
@@ -934,7 +936,10 @@ export function findContainingFrameInDoc(
   let deepest: NodeId | null = null;
   let deepestDepth = -1;
 
-  const entries = walkNodes(doc);
+  // Scoped to the active page: an unscoped walk here would let a newly
+  // drawn shape silently auto-parent into a frame that belongs to a
+  // different (invisible) page, making the shape vanish from the canvas.
+  const entries = walkNodes(doc, getActivePageNodes(doc));
   for (const [nid, entry] of entries) {
     const n = entry.node;
     if (n.locked || n.visible === false) continue;
@@ -1312,6 +1317,7 @@ export function EditorProvider({
   const value = useMemo<EditorContextValue>(
     () => ({
       state,
+      platform,
       updateDoc,
       setTool: (t) => {
         toolRef.current = t;
@@ -1754,10 +1760,12 @@ export function EditorProvider({
         spatialIndexRef.current = spatialIndex;
         const candidates = queryPoint(spatialIndex, world.x, world.y);
 
-        // Walk all nodes in paint order (DFS) and reverse so that
-        // children are tested before parents and later siblings before
-        // earlier ones — the correct topmost-first hit order.
-        const entries = walkNodes(state.document);
+        // Walk the active page's nodes in paint order (DFS) and reverse so
+        // that children are tested before parents and later siblings before
+        // earlier ones — the correct topmost-first hit order. Scoped to the
+        // active page so a click can't hit a node on a different page that
+        // happens to occupy the same on-screen coordinates.
+        const entries = walkNodes(state.document, getActivePageNodes(state.document));
         const ordered = [...entries.values()].reverse();
         for (const entry of ordered) {
           const n = entry.node;

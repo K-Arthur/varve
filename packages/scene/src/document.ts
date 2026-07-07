@@ -570,8 +570,17 @@ export function makePathNode(
   };
 }
 
-/** Walk all nodes in paint order (DFS), yielding each with its parent info. */
-export function walkNodes(doc: Document): Map<NodeId, NodeEntry> {
+/**
+ * Walk nodes in paint order (DFS), yielding each with its parent info.
+ *
+ * `startIds` defaults to `doc.rootChildren`, which spans every page's
+ * contentRoot in the document (each page's shapes are appended there by
+ * `addPage`) — the right choice for whole-document operations (e.g.
+ * "fit all pages"), but wrong for anything that renders or hit-tests what's
+ * currently on screen. Callers scoped to the active page should pass
+ * `activePageNodes(doc)` instead.
+ */
+export function walkNodes(doc: Document, startIds?: NodeId[]): Map<NodeId, NodeEntry> {
   const entries = new Map<NodeId, NodeEntry>();
   function walk(parentId: NodeId | null, ids: NodeId[], depth: number) {
     for (const nid of ids) {
@@ -583,7 +592,7 @@ export function walkNodes(doc: Document): Map<NodeId, NodeEntry> {
       }
     }
   }
-  walk(null, doc.rootChildren, 0);
+  walk(null, startIds ?? doc.rootChildren, 0);
   return entries;
 }
 

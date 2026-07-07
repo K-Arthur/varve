@@ -205,11 +205,11 @@ describe('EditorContext', () => {
   });
 
   it('hitTestNode returns nested child before parent frame', async () => {
-    const { createDocument, makeFrameNode, makeShapeNode, addNode, addChild } = await import(
+    const { createDocument, makeFrameNode, makeShapeNode, addChild } = await import(
       '@strata/scene'
     );
 
-    // Create a doc with: root → frame → rectChild
+    // Create a doc with: page content root → frame → rectChild
     let doc = createDocument('hit-test');
     const frame = makeFrameNode('f1', {
       name: 'Frame',
@@ -217,7 +217,9 @@ describe('EditorContext', () => {
       h: 200,
       transform: [1, 0, 0, 1, 0, 0],
     });
-    doc = addNode(doc, frame);
+    // Nested under the page's contentRoot, matching how createShapeAt
+    // actually places new nodes — hitTestNode is scoped to the active page.
+    doc = addChild(doc, doc.pages![0]!.contentRoot, frame);
     const rect = makeShapeNode(
       'r1',
       { kind: 'rect', x: 50, y: 50, w: 100, h: 100 },
@@ -249,13 +251,14 @@ describe('EditorContext', () => {
   });
 
   it('hitTestNode returns parent frame when clicking frame area without children', async () => {
-    const { createDocument, makeFrameNode, makeShapeNode, addNode, addChild } = await import(
+    const { createDocument, makeFrameNode, makeShapeNode, addChild } = await import(
       '@strata/scene'
     );
 
     let doc = createDocument('hit-test');
     const frame = makeFrameNode('f1', { name: 'Frame', w: 200, h: 200 });
-    doc = addNode(doc, frame);
+    // Nested under the page's contentRoot — see the comment above.
+    doc = addChild(doc, doc.pages![0]!.contentRoot, frame);
     const rect = makeShapeNode(
       'r1',
       { kind: 'rect', x: 150, y: 150, w: 30, h: 30 },
