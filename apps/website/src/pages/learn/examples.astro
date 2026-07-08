@@ -1,0 +1,147 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Examples - Strata Learn">
+  <div class="container-custom">
+    <div class="learn-page">
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a> / Examples
+      </nav>
+
+      <h1>Examples</h1>
+      <p class="learn-intro">
+        Example files and projects to learn from.
+      </p>
+
+      <div class="examples-status">
+        <div class="status-card">
+          <h3>Examples Coming Soon</h3>
+          <p>Example files are being developed. In the meantime, explore Strata by creating your own designs.</p>
+          <p>Want to contribute example files? See the <a href="/contribute">contribution guidelines</a>.</p>
+        </div>
+      </div>
+
+      <div class="planned-examples">
+        <h2>Planned Examples</h2>
+        <ul>
+          <li>UI Kit - Common UI components and patterns</li>
+          <li>Icon Set - Example icon designs</li>
+          <li>Mobile App - Mobile app screen designs</li>
+          <li>Website - Website layout examples</li>
+          <li>Branding - Logo and brand identity examples</li>
+          <li>Animation - Motion and animation examples</li>
+        </ul>
+      </div>
+
+      <div class="learn-cta">
+        <h2>Want to contribute?</h2>
+        <p>Share your example files with the community. See the <a href="/contribute">contribution guidelines</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .learn-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .learn-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .learn-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .examples-status {
+    margin-bottom: 3rem;
+  }
+  
+  .status-card {
+    background: var(--color-sandstone-50);
+    border: 1px solid var(--color-sandstone-400);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    text-align: center;
+  }
+  
+  .status-card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .status-card p {
+    color: var(--color-neutral-600);
+    margin-bottom: 0.75rem;
+  }
+  
+  .status-card a {
+    color: var(--color-teal-600);
+  }
+  
+  .planned-examples {
+    margin-bottom: 3rem;
+  }
+  
+  .planned-examples h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .planned-examples ul {
+    list-style: none;
+  }
+  
+  .planned-examples li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .planned-examples li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .learn-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .learn-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .learn-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

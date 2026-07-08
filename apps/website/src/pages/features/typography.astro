@@ -1,0 +1,200 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Typography - Strata Features">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb">
+        <a href="/features">Features</a> / Typography
+      </nav>
+
+      <h1>Typography</h1>
+      <p class="feature-intro">
+        Text engine with rich text types, variable fonts, OpenType features, and multi-line layout.
+      </p>
+
+      <section class="feature-section">
+        <h2>What It Is</h2>
+        <p>
+          Strata's typography system has a strong type foundation with rich text, character/paragraph styles, variable fonts, OpenType features, and text chains. The data model supports advanced typography features, though the rendering layer is still being strengthened.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Key Capabilities</h2>
+        <ul>
+          <li><strong>Rich text data model:</strong> TextNode with richText, variableAxes, openTypeFeatures</li>
+          <li><strong>Character styles:</strong> Font family, size, weight, line height, letter spacing</li>
+          <li><strong>Paragraph styles:</strong> Alignment, vertical align, text direction, text wrap</li>
+          <li><strong>Variable fonts:</strong> VariableFontSettings type declared (rendering in progress)</li>
+          <li><strong>OpenType features:</strong> Feature tag support declared (rendering in progress)</li>
+          <li><strong>Text chains:</strong> Path text settings declared (rendering in progress)</li>
+          <li><strong>Typography inspector:</strong> F6 panel for text property editing</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Technical Depth</h2>
+        <p>
+          The typography system has a comprehensive type foundation in packages/scene/src/types.ts with TextNode supporting richText, variableAxes, openTypeFeatures, pathId, and pathTextSettings. The FontRegistry provides CSS-quoting and availability fixes. The engine IR has been extended for rich text, and Canvas2D replay rendering supports multi-line and rich text.
+        </p>
+        <p>
+          SVG export includes multi-line and rich text support. Typography preflight has been strengthened with 14 tests covering font availability, CSS generation, and text measurement.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Limitations</h2>
+        <div class="limitations">
+          <p><strong>Current limitations:</strong></p>
+          <ul>
+            <li>Rich text, variable fonts, and OpenType features are declared but not fully rendered</li>
+            <li>No inline text editor or text selection/caret</li>
+            <li>No real text shaping (complex scripts, CJK, RTL, bidi not supported)</li>
+            <li>Text flow chain rendering not implemented</li>
+            <li>Document-wide typography styles not implemented</li>
+            <li>Missing-glyph detection not implemented</li>
+            <li>Quality bugs: invalid CSS from FontRegistry, incorrect letter-spacing/ellipsis overflow</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Status</h2>
+        <div class="status-badge in-development">
+          <span class="badge-text">In Development</span>
+          <p>Strong type foundation with partial rendering. Typography execution layer is being strengthened.</p>
+        </div>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Ready to design with type?</h2>
+        <a href="/download" class="btn-primary">Download Strata</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .feature-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-intro {
+    font-size: 1.25rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section {
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .feature-section ul {
+    list-style: none;
+  }
+  
+  .feature-section li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .feature-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .feature-section strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .limitations {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .limitations p {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .status-badge {
+    background: var(--color-sandstone-50);
+    border: 1px solid var(--color-sandstone-400);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .status-badge.in-development {
+    background: var(--color-sandstone-50);
+    border-color: var(--color-sandstone-400);
+  }
+  
+  .badge-text {
+    display: inline-block;
+    background: var(--color-sandstone-400);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  
+  .status-badge p {
+    color: var(--color-neutral-700);
+    margin: 0;
+  }
+  
+  .feature-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .feature-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>

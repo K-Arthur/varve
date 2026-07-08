@@ -1,0 +1,225 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Troubleshooting - Strata Support">
+  <div class="container-custom">
+    <div class="support-page">
+      <nav class="breadcrumb">
+        <a href="/support">Support</a> / Troubleshooting
+      </nav>
+
+      <h1>Troubleshooting</h1>
+      <p class="support-intro">
+        Common issues and solutions for Strata.
+      </p>
+
+      <div class="troubleshooting-section">
+        <h2>Installation Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>AppImage won't run on Linux</h3>
+          <p><strong>Solution:</strong> Make the AppImage executable:</p>
+          <code class="code-block">chmod +x Strata-*.AppImage</code>
+          <p>Then run it directly:</p>
+          <code class="code-block">./Strata-*.AppImage</code>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Missing dependencies on Linux</h3>
+          <p><strong>Solution:</strong> Install required dependencies:</p>
+          <code class="code-block">sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 librsvg2-2</code>
+          <p>For Arch/CachyOS:</p>
+          <code class="code-block">sudo pacman -S webkit2gtk gtk3 librsvg</code>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>macOS says "app is damaged" on launch</h3>
+          <p><strong>Solution:</strong> This is a macOS security gate for unsigned apps. Right-click the app and select "Open", then click "Open" in the dialog. This only needs to be done once.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Performance Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Strata is slow or laggy</h3>
+          <p><strong>Solution:</strong></p>
+          <ul>
+            <li>Check if you have many objects on canvas (viewport culling helps, but extreme counts may slow down)</li>
+            <li>Ensure your GPU drivers are up to date</li>
+            <li>Close other applications to free memory</li>
+            <li>Check if you're running on Wayland (primary dev environment) vs X11</li>
+          </ul>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Canvas rendering is slow</h3>
+          <p><strong>Solution:</strong> Strata uses IR-replay for 86fps rendering. If you're experiencing slow rendering, check if you're using the WASM backend (web) vs native backend (desktop). Native Rust engine is significantly faster.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Feature Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Rich text not rendering correctly</h3>
+          <p><strong>Solution:</strong> Rich text, variable fonts, and OpenType features are declared in types but rendering is still in development. Use basic text styling (font family, size, weight) for now. See the <a href="/features/typography">Typography</a> page for current status.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Collaboration features not working</h3>
+          <p><strong>Solution:</strong> Collaboration features are UI scaffolding only with no transport or wire protocol. Real-time collaboration is planned for future development.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Print export not showing bleed</h3>
+          <p><strong>Solution:</strong> Bleed is an export-time parameter and is not visualized on canvas. Canvas bleed/trim visualization is planned for future development.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Crashes and Errors</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Strata crashes on startup</h3>
+          <p><strong>Solution:</strong></p>
+          <ul>
+            <li>Check system requirements (4GB RAM minimum, 8GB recommended)</li>
+            <li>Ensure you're using a supported OS version</li>
+            <li>Check if other applications are using excessive memory</li>
+            <li>Report the issue with your OS, version, and crash logs</li>
+          </ul>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Specific tool crashes</h3>
+          <p><strong>Solution:</strong> Report the issue with steps to reproduce, your OS, and Strata version. Include any error messages or crash logs if available.</p>
+        </div>
+      </div>
+
+      <div class="troubleshoot-cta">
+        <h2>Still need help?</h2>
+        <p>If your issue isn't covered here, <a href="/support/report-issue">report an issue</a> or ask in <a href="https://github.com/strata/strata/discussions">GitHub Discussions</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .support-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .support-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .troubleshooting-section {
+    margin-bottom: 3rem;
+  }
+  
+  .troubleshooting-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .troubleshoot-item {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .troubleshoot-item h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .troubleshoot-item p {
+    color: var(--color-neutral-600);
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+  }
+  
+  .troubleshoot-item ul {
+    list-style: none;
+    margin-bottom: 0.75rem;
+  }
+  
+  .troubleshoot-item li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .troubleshoot-item li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .troubleshoot-item strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .troubleshoot-item a {
+    color: var(--color-teal-600);
+  }
+  
+  .code-block {
+    display: block;
+    background: var(--color-neutral-900);
+    color: var(--color-neutral-100);
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+    margin: 0.75rem 0;
+    overflow-x: auto;
+  }
+  
+  .troubleshoot-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .troubleshoot-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .troubleshoot-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

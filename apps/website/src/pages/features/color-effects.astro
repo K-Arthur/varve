@@ -1,0 +1,200 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Color & Effects - Strata Features">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb">
+        <a href="/features">Features</a> / Color & Effects
+      </nav>
+
+      <h1>Color & Effects</h1>
+      <p class="feature-intro">
+        Color management with CMYK support, blend modes, effects (shadows, blur, glow), and image adjustments.
+      </p>
+
+      <section class="feature-section">
+        <h2>What It Is</h2>
+        <p>
+          Strata provides comprehensive color management with support for RGB, CMYK, and grayscale color spaces. The system includes blend modes, layer effects (drop shadow, inner shadow, layer blur, background blur, outer glow), and image adjustments (levels, curves, histogram). Color management supports ICC profiles and rendering intents for print production.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Key Capabilities</h2>
+        <ul>
+          <li><strong>Color spaces:</strong> RGB, CMYK, grayscale with 8-bit RGBA storage</li>
+          <li><strong>Blend modes:</strong> 18 CSS blend modes (normal, multiply, screen, overlay, etc.)</li>
+          <li><strong>Effects:</strong> Drop shadow, inner shadow, layer blur, background blur, outer glow</li>
+          <li><strong>Image adjustments:</strong> Levels, curves, histogram, auto levels</li>
+          <li><strong>Color management:</strong> ICC profiles, rendering intents (perceptual, relative, saturation, absolute)</li>
+          <li><strong>Print production:</strong> Bleed config, safe area, slug, swatches, spot colors</li>
+          <li><strong>Background removal:</strong> AI-based background removal (models in /public/models/)</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Technical Depth</h2>
+        <p>
+          Color management is implemented in packages/scene/src/colorManagement.ts with ColorMode, ColorSpace, RenderingIntent, ColorProfileRef, and ManagedColor types (Rgb/Cmyk/Gray/Spot). The print production system includes BleedConfig, SafeAreaConfig, SlugConfig, and printPreflight engine for PDF/X-1a/X-4 export with crop/registration marks and color bars.
+        </p>
+        <p>
+          The effects system in packages/scene/src/types.ts defines Effect types for dropShadow, innerShadow, layerBlur, backgroundBlur, and outerGlow. Image adjustments in packages/engine/src/index.ts provide histogram, autoLevelsParams, and background removal options.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Limitations</h2>
+        <div class="limitations">
+          <p><strong>Current limitations:</strong></p>
+          <ul>
+            <li>Color is always 8-bit RGBA (no 16-bit, float, or CMYK storage at document level)</li>
+            <li>NewFileDialog collects unit/colorMode/bleed but doesn't persist to Document interface</li>
+            <li>Bleed is export-time parameter, not visualized on canvas</li>
+            <li>Measurement units are fragmented (internal storage always in pixels, no DPI awareness)</li>
+            <li>Print preflight is missing (engine exists but not integrated)</li>
+            <li>Export pipeline integration with lcms2 is deferred (Phase 5-6)</li>
+            <li>Canvas bleed/trim visualization not implemented</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Status</h2>
+        <div class="status-badge partial">
+          <span class="badge-text">Partial Implementation</span>
+          <p>Strong type foundation with Phase 1-4 implemented. Phase 5-6 (export pipeline, canvas visualization, NewFileDialog wiring) deferred.</p>
+        </div>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Ready to create with color?</h2>
+        <a href="/download" class="btn-primary">Download Strata</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .feature-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-intro {
+    font-size: 1.25rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section {
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .feature-section ul {
+    list-style: none;
+  }
+  
+  .feature-section li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .feature-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .feature-section strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .limitations {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .limitations p {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .status-badge {
+    background: var(--color-terracotta-50);
+    border: 1px solid var(--color-terracotta-400);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .status-badge.partial {
+    background: var(--color-terracotta-50);
+    border-color: var(--color-terracotta-400);
+  }
+  
+  .badge-text {
+    display: inline-block;
+    background: var(--color-terracotta-400);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  
+  .status-badge p {
+    color: var(--color-neutral-700);
+    margin: 0;
+  }
+  
+  .feature-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .feature-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>
