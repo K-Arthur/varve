@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { Icon } from '../icons/Icon';
+import { FloatingPortal } from './FloatingPortal';
 
 // ============================================================
 // Types
@@ -488,18 +489,21 @@ function MenuInternal({
 // ============================================================
 
 export function Menu({ items, triggerRef, open, onClose, label }: MenuProps) {
+  if (!open) return null;
+
   return (
-    <MenuInternal
-      items={items}
-      open={open}
-      onClose={onClose}
-      closeAll={onClose}
-      label={label}
-      level={0}
-      triggerRef={triggerRef}
-      menuClassName="strata-menu"
-      menuStyle={!open ? { display: 'none' } : undefined}
-    />
+    <FloatingPortal anchorRef={triggerRef} open={open} onClose={onClose} placement="bottom-start">
+      <MenuInternal
+        items={items}
+        open={open}
+        onClose={onClose}
+        closeAll={onClose}
+        label={label}
+        level={0}
+        triggerRef={triggerRef}
+        menuClassName="strata-menu strata-menu--portaled"
+      />
+    </FloatingPortal>
   );
 }
 

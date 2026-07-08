@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { Icon } from '../icons/Icon';
+import { FloatingPortal } from './FloatingPortal';
 
 export interface SelectOption {
   value: string;
@@ -43,6 +44,7 @@ export function Select({
   const [filterText, setFilterText] = useState('');
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const announcerId = useId();
@@ -58,17 +60,6 @@ export function Select({
     const lower = filterText.toLowerCase();
     return options.filter((o) => o.label.toLowerCase().includes(lower));
   }, [options, filterText, shouldShowSearch]);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleOutside(e: PointerEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    window.addEventListener('pointerdown', handleOutside);
-    return () => window.removeEventListener('pointerdown', handleOutside);
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -257,6 +248,7 @@ export function Select({
   return (
     <div ref={containerRef} className="strata-select">
       <div
+        ref={triggerRef}
         role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -277,7 +269,14 @@ export function Select({
         <Icon name="ChevronDown" className="strata-select__chevron" />
       </div>
 
-      {open && (
+      <FloatingPortal
+        anchorRef={triggerRef}
+        open={open}
+        onClose={closeListbox}
+        matchAnchorWidth
+        maxHeight={256}
+        placement="bottom-start"
+      >
         <div
           ref={listboxRef}
           id={listboxId}
@@ -329,7 +328,7 @@ export function Select({
             })
           )}
         </div>
-      )}
+      </FloatingPortal>
 
       <div
         id={announcerId}

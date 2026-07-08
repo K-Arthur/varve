@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRef, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -15,7 +15,7 @@ import {
 } from './Menu';
 
 afterEach(() => {
-  document.body.innerHTML = '';
+  cleanup();
 });
 
 // ---------------------------------------------------------------------------
@@ -149,29 +149,34 @@ function TestMenuWithRadios({ open, onClose }: { open: boolean; onClose: () => v
 
 describe('Menu', () => {
   it('renders items when open', () => {
-    const { container } = render(<TestMenu open onClose={vi.fn()} />);
-    const items = container.querySelectorAll('[role="menuitem"]');
+    render(<TestMenu open onClose={vi.fn()} />);
+    const items = document.body.querySelectorAll('[role="menuitem"]');
     expect(items.length).toBe(2);
   });
 
+  it('portals menu to document.body when open', () => {
+    render(<TestMenu open onClose={vi.fn()} />);
+    const menu = document.body.querySelector('[role="menu"]');
+    expect(menu).toBeTruthy();
+    expect(menu?.parentElement?.parentElement).toBe(document.body);
+  });
+
   it('does not render items when closed', () => {
-    const { container } = render(<TestMenu open={false} onClose={vi.fn()} />);
-    const menuEl = container.querySelector('[role="menu"]');
-    expect(menuEl).toBeTruthy();
-    expect((menuEl as HTMLElement | null)?.style.display).toBe('none');
+    render(<TestMenu open={false} onClose={vi.fn()} />);
+    expect(document.body.querySelector('[role="menu"]')).toBeNull();
   });
 
   it('shows ellipsis for dialog items', () => {
-    const { container } = render(<TestMenu open onClose={vi.fn()} />);
-    const ellipses = container.querySelectorAll('.strata-menu__ellipsis');
+    render(<TestMenu open onClose={vi.fn()} />);
+    const ellipses = document.body.querySelectorAll('.strata-menu__ellipsis');
     expect(ellipses.length).toBe(1);
   });
 
   it('calls onAction and onClose on item click', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    const { container } = render(<TestMenu open onClose={onClose} />);
-    const btn = container.querySelector('[role="menuitem"]') as HTMLElement;
+    render(<TestMenu open onClose={onClose} />);
+    const btn = document.body.querySelector('[role="menuitem"]') as HTMLElement;
     await user.click(btn);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -228,9 +233,9 @@ describe('Menu submenus', () => {
   it('opens submenu on ArrowRight and shows submenu items', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    const { container } = render(<TestMenuWithSubmenus open onClose={onClose} />);
+    render(<TestMenuWithSubmenus open onClose={onClose} />);
 
-    const items = container.querySelectorAll('[role="menuitem"]');
+    const items = document.body.querySelectorAll('[role="menuitem"]');
     expect(items.length).toBe(3);
 
     {
@@ -241,7 +246,7 @@ describe('Menu submenus', () => {
     // Focus "Open Recent" (index 1) — the submenu item
     await user.keyboard('{ArrowRight}');
 
-    const menus = container.querySelectorAll('[role="menu"]');
+    const menus = document.body.querySelectorAll('[role="menu"]');
     expect(menus.length).toBe(2);
 
     const submenuItems = menus[1]?.querySelectorAll('[role="menuitem"]');
@@ -252,44 +257,44 @@ describe('Menu submenus', () => {
   it('closes submenu on ArrowLeft', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    const { container } = render(<TestMenuWithSubmenus open onClose={onClose} />);
+    render(<TestMenuWithSubmenus open onClose={onClose} />);
 
-    const items = container.querySelectorAll('[role="menuitem"]');
+    const items = document.body.querySelectorAll('[role="menuitem"]');
     {
       const el = items[0] as HTMLElement | undefined;
       if (el) el.focus();
     }
     await user.keyboard('{ArrowDown}');
     await user.keyboard('{ArrowRight}');
-    expect(container.querySelectorAll('[role="menu"]').length).toBe(2);
+    expect(document.body.querySelectorAll('[role="menu"]').length).toBe(2);
 
     await user.keyboard('{ArrowLeft}');
-    expect(container.querySelectorAll('[role="menu"]').length).toBe(1);
+    expect(document.body.querySelectorAll('[role="menu"]').length).toBe(1);
   });
 
   it('closes submenu on Escape', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    const { container } = render(<TestMenuWithSubmenus open onClose={onClose} />);
+    render(<TestMenuWithSubmenus open onClose={onClose} />);
 
-    const items = container.querySelectorAll('[role="menuitem"]');
+    const items = document.body.querySelectorAll('[role="menuitem"]');
     {
       const el = items[0] as HTMLElement | undefined;
       if (el) el.focus();
     }
     await user.keyboard('{ArrowDown}');
     await user.keyboard('{ArrowRight}');
-    expect(container.querySelectorAll('[role="menu"]').length).toBe(2);
+    expect(document.body.querySelectorAll('[role="menu"]').length).toBe(2);
 
     await user.keyboard('{Escape}');
-    expect(container.querySelectorAll('[role="menu"]').length).toBe(1);
+    expect(document.body.querySelectorAll('[role="menu"]').length).toBe(1);
   });
 
   it('submenu item has aria-haspopup and aria-expanded after opening', async () => {
     const user = userEvent.setup();
-    const { container } = render(<TestMenuWithSubmenus open onClose={vi.fn()} />);
+    render(<TestMenuWithSubmenus open onClose={vi.fn()} />);
 
-    const items = container.querySelectorAll('[role="menuitem"]');
+    const items = document.body.querySelectorAll('[role="menuitem"]');
     {
       const el = items[0] as HTMLElement | undefined;
       if (el) el.focus();
@@ -306,9 +311,9 @@ describe('Menu submenus', () => {
   it('calls item action in submenu and closes through closeAll', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    const { container } = render(<TestMenuWithSubmenus open onClose={onClose} />);
+    render(<TestMenuWithSubmenus open onClose={onClose} />);
 
-    const items = container.querySelectorAll('[role="menuitem"]');
+    const items = document.body.querySelectorAll('[role="menuitem"]');
     {
       const el = items[0] as HTMLElement | undefined;
       if (el) el.focus();
@@ -316,7 +321,7 @@ describe('Menu submenus', () => {
     await user.keyboard('{ArrowDown}');
     await user.keyboard('{ArrowRight}');
 
-    const submenuItems = container
+    const submenuItems = document.body
       .querySelectorAll('[role="menu"]')[1]
       ?.querySelectorAll('[role="menuitem"]');
     const targetItem = submenuItems?.[0];
@@ -340,8 +345,8 @@ describe('Menu checkbox items', () => {
 
   it('toggles aria-checked on click', async () => {
     const user = userEvent.setup();
-    const { container } = render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
-    const cb = container.querySelector('[role="menuitemcheckbox"]') as HTMLElement;
+    render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
+    const cb = document.body.querySelector('[role="menuitemcheckbox"]') as HTMLElement;
     await user.click(cb);
     expect(cb).toHaveAttribute('aria-checked', 'true');
   });
@@ -349,8 +354,8 @@ describe('Menu checkbox items', () => {
   it('does not close menu when toggling checkbox', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    const { container } = render(<TestMenuWithCheckbox open onClose={onClose} checked={false} />);
-    const cb = container.querySelector('[role="menuitemcheckbox"]') as HTMLElement;
+    render(<TestMenuWithCheckbox open onClose={onClose} checked={false} />);
+    const cb = document.body.querySelector('[role="menuitemcheckbox"]') as HTMLElement;
     await user.click(cb);
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -414,23 +419,23 @@ describe('Menu radio items', () => {
 describe('Menu type-ahead', () => {
   it('focuses item matching typed characters', async () => {
     const user = userEvent.setup();
-    const { container } = render(<TestMenu open onClose={vi.fn()} />);
-    const menu = container.querySelector('[role="menu"]') as HTMLElement;
+    render(<TestMenu open onClose={vi.fn()} />);
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
     menu.focus();
     // Type 'O' to match "Open"
     await user.keyboard('o');
-    const items = container.querySelectorAll('[role="menuitem"]');
+    const items = document.body.querySelectorAll('[role="menuitem"]');
     expect(items[0]).toHaveAttribute('tabIndex', '0');
   });
 
   it('focuses different item on subsequent typing', async () => {
     const user = userEvent.setup();
-    const { container } = render(<TestMenu open onClose={vi.fn()} />);
-    const menu = container.querySelector('[role="menu"]') as HTMLElement;
+    render(<TestMenu open onClose={vi.fn()} />);
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
     menu.focus();
     // 'd' should match "Delete"
     await user.keyboard('d');
-    const items = container.querySelectorAll('[role="menuitem"]');
+    const items = document.body.querySelectorAll('[role="menuitem"]');
     expect(items[1]).toHaveAttribute('tabIndex', '0');
   });
 });
