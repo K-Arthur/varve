@@ -38,9 +38,6 @@ describe('workerPool', () => {
       '/models/u2netp.onnx',
       'u2netp',
     );
-    // Nothing ever answers the mock worker in this test — resolve the
-    // dangling promise deterministically via the pool's own 60s timeout
-    // instead of leaving a real timer alive past the test.
     pending.catch(() => {});
 
     expect(mockWorker.postMessage).toHaveBeenCalledWith(
@@ -53,7 +50,9 @@ describe('workerPool', () => {
       }),
     );
 
-    await vi.runAllTimersAsync();
+    // First inference before the Worker has ever reported 'ready' uses a
+    // short 10 s init timeout so a hung Worker import fails fast.
+    await vi.advanceTimersByTimeAsync(10_000);
     await expect(pending).rejects.toThrow('timed out');
     vi.useRealTimers();
   });
