@@ -165,7 +165,7 @@ describe('BatchBgRemoveDialog', () => {
     expect(screen.getByText('AI Quality')).toBeTruthy();
     const radios = screen.getAllByRole('radio');
     expect(radios).toHaveLength(3);
-    expect(radios[1]).toBeChecked();
+    expect(radios[0]).toBeChecked();
   });
 
   it('start button processes files', async () => {
@@ -342,6 +342,7 @@ describe('BatchBgRemoveDialog', () => {
   it('blocks start when AI method selected but model unavailable', async () => {
     mockIsModelAvailable.mockResolvedValue(false);
     renderDialog([imageNode('i1')]);
+    fireEvent.click(screen.getAllByRole('radio')[1]!);
     await vi.waitFor(() => {
       expect(findStartBtn()).toHaveProperty('disabled', true);
     });
@@ -361,6 +362,8 @@ describe('BatchBgRemoveDialog', () => {
     });
 
     const { onNodeUpdate } = renderDialog([imageNode('i1')]);
+    fireEvent.click(screen.getAllByRole('radio')[1]!);
+    await vi.waitFor(() => expect(findStartBtn()).not.toBeDisabled());
     fireEvent.click(findStartBtn());
     expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
     expect(onNodeUpdate).toHaveBeenCalledWith('i1', expect.objectContaining({ method: 'quick' }));
@@ -379,6 +382,8 @@ describe('BatchBgRemoveDialog', () => {
     });
 
     renderDialog([imageNode('i1')]);
+    fireEvent.click(screen.getAllByRole('radio')[1]!);
+    await vi.waitFor(() => expect(findStartBtn()).not.toBeDisabled());
     fireEvent.click(findStartBtn());
     expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
     const liveRegion = document.querySelector('[role="status"]');
