@@ -1886,3 +1886,19 @@ model but never traced the worker render path.
   can't read images there. Ctrl+V works (Shell captures the native paste event).
   A full fix needs a Tauri clipboard-manager integration, which cannot be built or
   verified in this environment — not shipped rather than ship unverified native code.
+
+## Session 46 — Background removal pipeline hardening (2026-07-08)
+
+Root-cause fixes for 7 issues that made background removal unreliable:
+
+| Fix | What | Key files |
+|---|---|---|
+| **Bundled model trust** | `getModelPath` skipped HEAD fetch for `bundled: true` entries; Vite dev 404 no longer breaks u2netp availability | `modelLoader.ts` |
+| **Model mapping** | `ai-balanced` → `u2netp` (was broken: pointed to unbundled 214MB model) | `types.ts` |
+| **Worker init timeout** | First Worker job now times out in 10s (was 60s) so a hung `onnxruntime-web` import falls back fast | `workerPool.ts` |
+| **WASM path config** | `ort.env.wasm.wasmPaths = '/ort-wasm/'` set in Worker + direct path; WASM files copied via postinstall | `worker.ts`, `index.ts`, `scripts/copy-onnx-wasm.mjs` |
+| **Batch reprocess** | Removed skip for stale `backgroundRemoval` state — all selected images process | `BatchBgRemoveDialog.tsx` |
+| **Download model ID** | Batch dialog + inspector use `requiredModelId` instead of hardcoded switch | `BatchBgRemoveDialog.tsx`, `BackgroundRemovalSection.tsx` |
+| **Postinstall** | `scripts/copy-onnx-wasm.mjs` copies WASM files to `apps/desktop/public/ort-wasm/` | `package.json`, `.gitignore` |
+
+**Verification:** 111 bg-removal tests pass (was 110). Engine typecheck clean. Emoji/token audits pass.
