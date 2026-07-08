@@ -14,24 +14,61 @@ import Layout from '../../layouts/Layout.astro';
         Example files and projects to learn from.
       </p>
 
-      <div class="examples-status">
-        <div class="status-card">
-          <h3>Examples Coming Soon</h3>
-          <p>Example files are being developed. In the meantime, explore Strata by creating your own designs.</p>
-          <p>Want to contribute example files? See the <a href="/contribute">contribution guidelines</a>.</p>
+      <div class="examples-grid">
+        <div class="example-card">
+          <h3>UI Component Library</h3>
+          <p>
+            A collection of common UI components built with Strata. Includes buttons, cards, inputs, and navigation elements ready to use in your designs.
+          </p>
+          <div class="example-meta">
+            <span class="example-type">Components</span>
+            <span class="example-status">Planned</span>
+          </div>
         </div>
-      </div>
 
-      <div class="planned-examples">
-        <h2>Planned Examples</h2>
-        <ul>
-          <li>UI Kit - Common UI components and patterns</li>
-          <li>Icon Set - Example icon designs</li>
-          <li>Mobile App - Mobile app screen designs</li>
-          <li>Website - Website layout examples</li>
-          <li>Branding - Logo and brand identity examples</li>
-          <li>Animation - Motion and animation examples</li>
-        </ul>
+        <div class="example-card">
+          <h3>Mobile App Mockups</h3>
+          <p>
+            Example mobile app designs showcasing Strata's vector tools and layout capabilities. Includes iOS and Android frame templates.
+          </p>
+          <div class="example-meta">
+            <span class="example-type">Templates</span>
+            <span class="example-status">Planned</span>
+          </div>
+        </div>
+
+        <div class="example-card">
+          <h3>Icon Set</h3>
+          <p>
+            A comprehensive icon set created entirely in Strata. Demonstrates precision vector work and export to SVG format.
+          </p>
+          <div class="example-meta">
+            <span class="example-type">Icons</span>
+            <span class="example-status">Planned</span>
+          </div>
+        </div>
+
+        <div class="example-card">
+          <h3>Brand Identity System</h3>
+          <p>
+            Complete brand identity example including logo variations, color palette, typography system, and brand guidelines document.
+          </p>
+          <div class="example-meta">
+            <span class="example-type">Branding</span>
+            <span class="example-status">Planned</span>
+          </div>
+        </div>
+
+        <div class="example-card">
+          <h3>Animation Showcase</h3>
+          <p>
+            Interactive animations and motion design examples. Demonstrates timeline animation, Smart Animate, and export to CSS/Lottie.
+          </p>
+          <div class="example-meta">
+            <span class="example-type">Motion</span>
+            <span class="example-status">Planned</span>
+          </div>
+        </div>
       </div>
 
       <div class="learn-cta">
@@ -71,61 +108,56 @@ import Layout from '../../layouts/Layout.astro';
     margin-bottom: 3rem;
   }
   
-  .examples-status {
+  .examples-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
     margin-bottom: 3rem;
   }
   
-  .status-card {
-    background: var(--color-sandstone-50);
-    border: 1px solid var(--color-sandstone-400);
+  .example-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
     border-radius: 0.75rem;
     padding: 2rem;
-    text-align: center;
+    transition: all 0.2s;
   }
   
-  .status-card h3 {
+  .example-card:hover {
+    border-color: var(--color-teal-400);
+    transform: translateY(-2px);
+  }
+  
+  .example-card h3 {
     font-size: 1.25rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     color: var(--color-neutral-900);
   }
   
-  .status-card p {
+  .example-card p {
     color: var(--color-neutral-600);
-    margin-bottom: 0.75rem;
-  }
-  
-  .status-card a {
-    color: var(--color-teal-600);
-  }
-  
-  .planned-examples {
-    margin-bottom: 3rem;
-  }
-  
-  .planned-examples h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
+    line-height: 1.6;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
   }
   
-  .planned-examples ul {
-    list-style: none;
+  .example-meta {
+    display: flex;
+    gap: 0.5rem;
   }
   
-  .planned-examples li {
-    margin-bottom: 0.75rem;
-    padding-left: 1.5rem;
-    position: relative;
+  .example-type,
+  .example-status {
+    font-size: 0.875rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    background: var(--color-neutral-100);
     color: var(--color-neutral-600);
   }
   
-  .planned-examples li::before {
-    content: "•";
-    position: absolute;
-    left: 0;
-    color: var(--color-teal-400);
+  .example-status {
+    background: var(--color-sandstone-100);
+    color: var(--color-sandstone-700);
   }
   
   .learn-cta {

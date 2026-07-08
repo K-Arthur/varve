@@ -14,25 +14,66 @@ import Layout from '../../layouts/Layout.astro';
         Step-by-step tutorials to help you get started with Strata.
       </p>
 
-      <div class="tutorial-status">
-        <div class="status-card">
-          <h3>Tutorials Coming Soon</h3>
-          <p>Tutorials are being developed. In the meantime, check the <a href="/docs">documentation</a> for getting started guides.</p>
-          <p>Want to help write tutorials? See the <a href="/contribute">contribution guidelines</a>.</p>
+      <div class="tutorials-grid">
+        <div class="tutorial-card">
+          <h3>Getting Started with Strata</h3>
+          <p>
+            Learn the basics of Strata's interface, tools, and workflow. This tutorial covers installation, first launch, and creating your first design.
+          </p>
+          <div class="tutorial-meta">
+            <span class="tutorial-level">Beginner</span>
+            <span class="tutorial-time">15 minutes</span>
+          </div>
+          <a href="/docs/getting-started" class="btn-secondary">Start Tutorial</a>
         </div>
-      </div>
 
-      <div class="planned-tutorials">
-        <h2>Planned Tutorials</h2>
-        <ul>
-          <li>Your First Design - Create a simple UI layout</li>
-          <li>Vector Design - Working with shapes and paths</li>
-          <li>Typography - Using text and typography features</li>
-          <li>Color & Effects - Using blend modes and effects</li>
-          <li>Motion - Creating animations with the timeline</li>
-          <li>Prototyping - Creating interactive prototypes</li>
-          <li>Export - Exporting to code and PDF</li>
-        </ul>
+        <div class="tutorial-card">
+          <h3>Vector Design Basics</h3>
+          <p>
+            Master shape primitives, path editing, and boolean operations. Learn how to create precise vector graphics using Strata's geometry tools.
+          </p>
+          <div class="tutorial-meta">
+            <span class="tutorial-level">Beginner</span>
+            <span class="tutorial-time">20 minutes</span>
+          </div>
+          <a href="/features/vector-tools" class="btn-secondary">Learn More</a>
+        </div>
+
+        <div class="tutorial-card">
+          <h3>Typography and Text</h3>
+          <p>
+            Work with text elements, font families, and typography controls. Learn about text properties, alignment, and text-on-path capabilities.
+          </p>
+          <div class="tutorial-meta">
+            <span class="tutorial-level">Intermediate</span>
+            <span class="tutorial-time">25 minutes</span>
+          </div>
+          <a href="/features/typography" class="btn-secondary">Learn More</a>
+        </div>
+
+        <div class="tutorial-card">
+          <h3>Motion and Prototyping</h3>
+          <p>
+            Create timeline-based animations and prototype interactions. Learn about Smart Animate, easing curves, and export to CSS/Lottie.
+          </p>
+          <div class="tutorial-meta">
+            <span class="tutorial-level">Advanced</span>
+            <span class="tutorial-time">30 minutes</span>
+          </div>
+          <a href="/features/motion" class="btn-secondary">Learn More</a>
+        </div>
+
+        <div class="tutorial-card">
+          <h3>Export and Code Generation</h3>
+          <p>
+            Export your designs to various formats including SVG, React/Tailwind, Flutter, and SwiftUI. Learn about export settings and code generation options.
+          </p>
+          <div class="tutorial-meta">
+            <span class="tutorial-level">Intermediate</span>
+            <span class="tutorial-time">20 minutes</span>
+          </div>
+          <a href="/features/export" class="btn-secondary">Learn More</a>
+        </div>
       </div>
 
       <div class="learn-cta">
@@ -72,61 +113,52 @@ import Layout from '../../layouts/Layout.astro';
     margin-bottom: 3rem;
   }
   
-  .tutorial-status {
+  .tutorials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
     margin-bottom: 3rem;
   }
   
-  .status-card {
-    background: var(--color-sandstone-50);
-    border: 1px solid var(--color-sandstone-400);
+  .tutorial-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
     border-radius: 0.75rem;
     padding: 2rem;
-    text-align: center;
+    transition: all 0.2s;
   }
   
-  .status-card h3 {
+  .tutorial-card:hover {
+    border-color: var(--color-teal-400);
+    transform: translateY(-2px);
+  }
+  
+  .tutorial-card h3 {
     font-size: 1.25rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     color: var(--color-neutral-900);
   }
   
-  .status-card p {
+  .tutorial-card p {
     color: var(--color-neutral-600);
-    margin-bottom: 0.75rem;
-  }
-  
-  .status-card a {
-    color: var(--color-teal-600);
-  }
-  
-  .planned-tutorials {
-    margin-bottom: 3rem;
-  }
-  
-  .planned-tutorials h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
+    line-height: 1.6;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
   }
   
-  .planned-tutorials ul {
-    list-style: none;
+  .tutorial-meta {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
   }
   
-  .planned-tutorials li {
-    margin-bottom: 0.75rem;
-    padding-left: 1.5rem;
-    position: relative;
+  .tutorial-level,
+  .tutorial-time {
+    font-size: 0.875rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    background: var(--color-neutral-100);
     color: var(--color-neutral-600);
-  }
-  
-  .planned-tutorials li::before {
-    content: "•";
-    position: absolute;
-    left: 0;
-    color: var(--color-teal-400);
   }
   
   .learn-cta {

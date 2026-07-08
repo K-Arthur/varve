@@ -1,9 +1,9 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- Strata logo: three parallelogram strata planes with consistent tilt -->
-  <!-- Layer 1 (surface) -->
+  <!-- Layer 1 (surface) - teal -->
   <path d="M5,6.5 H21 L23.5,12.5 H7.5 Z" fill="#39D0C6"/>
-  <!-- Layer 2 (mid) -->
-  <path d="M7.5,13.5 H23.5 L26,19.5 H10 Z" fill="#2dd4bf"/>
-  <!-- Layer 3 (deep) -->
-  <path d="M10,20.5 H26 L28.5,26.5 H12.5 Z" fill="#14b8a6"/>
+  <!-- Layer 2 (mid) - sandstone -->
+  <path d="M7.5,13.5 H23.5 L26,19.5 H10 Z" fill="#E28C3C"/>
+  <!-- Layer 3 (deep) - terracotta -->
+  <path d="M10,20.5 H26 L28.5,26.5 H12.5 Z" fill="#C54B3A"/>
 </svg>
