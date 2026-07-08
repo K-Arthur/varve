@@ -14,7 +14,7 @@
  */
 
 import { applyAffine, invertAffine, rectContains } from '@strata/engine';
-import { activePageNodes, getParent, walkNodes } from '@strata/scene';
+import { activePageNodes, getParent, isInIsolatedSubtree, walkNodes } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
@@ -220,6 +220,8 @@ export class SelectTool extends BaseTool {
         if (!entry) continue;
         const node = entry.node;
         if (node.locked || !node.visible) continue;
+        // Filter by isolation mode
+        if (ctx.isolatedNodeId !== undefined && !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)) continue;
         const bbox = ctx.nodeWorldBounds(node);
         if (bbox) {
           if (useContainment) {
@@ -453,6 +455,12 @@ export class SelectTool extends BaseTool {
   ): { nodeId: string; node: import('@strata/scene').SceneNode } | null {
     const hit = ctx.hitTest(world);
     if (!hit) return null;
+
+    // Filter hit-test result by isolation mode
+    if (ctx.isolatedNodeId !== undefined && !isInIsolatedSubtree(hit.nodeId, ctx.isolatedNodeId, ctx.document)) {
+      return null;
+    }
+
     // Check if the hit node has transparent or no fill
     const node = ctx.getNode(hit.nodeId);
     if (node && isTransparentOrEmptyFill(node)) {
@@ -484,6 +492,8 @@ export class SelectTool extends BaseTool {
     for (const entry of [...entries.values()].reverse()) {
       if (!entry) continue;
       if (entry.node.locked || !entry.node.visible) continue;
+      // Filter by isolation mode
+      if (ctx.isolatedNodeId !== undefined && !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)) continue;
       const bbox = ctx.nodeWorldBounds(entry.node);
       if (bbox && rectContains(bbox, [world.x, world.y])) {
         results.push({ nodeId: entry.nodeId, node: entry.node });
