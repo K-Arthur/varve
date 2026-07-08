@@ -2,7 +2,8 @@
 
 **Started:** 2026-07-08  
 **Target:** Neo-Bento grid + Linear-esque precision (dark/light)  
-**Branch:** master (working tree)
+**Branch:** master  
+**Status:** Complete
 
 ## Cascade Review Status
 
@@ -12,50 +13,44 @@
 | P2 Cross-challenge | Done | gpu-layer vs portal conflict resolved → portal + remove shell gpu-layer |
 | P3 Conflict resolution | Done | Prioritize P0 clipping before aesthetic P1 |
 | P4 TDD + headless | Done | Select/Menu portal tests added |
+| P5 Full gate | Done | format-check + lint + test + token/emoji audits |
 
-## P0 Findings (fix first)
+## P0 Findings (all fixed)
 
-1. **Menubar dropdown clipping** — `position:absolute` inside `overflow:hidden` shell (`Menubar.tsx`, `editor.css:103`)
-2. **gpu-layer breaks fixed overlays** — `Shell.tsx` + `global.css` transform/contain creates containing block
-3. **ShortcutPalette inline + hardcoded rgba** — invalid `--color-accent`, no tokens
-4. **Menu/Select absolute in overflow panels** — need portal primitive
+1. **Menubar dropdown clipping** — portaled via `FloatingPortal`
+2. **gpu-layer breaks fixed overlays** — moved to canvas only
+3. **ShortcutPalette inline + hardcoded rgba** — tokenized CSS + portal
+4. **Menu/Select absolute in overflow panels** — portaled via `FloatingPortal`
 
-## P1 Findings (this session)
+## P1 Findings (all fixed)
 
-- Dual surface systems (`--color-surface-*` vs `--elevation-surface-*`)
-- `.file-card` overrides `.bento-cell`
-- Menubar/GradientEditor unstyled inline
-- HC theme missing elevation overrides
+- Dual surface systems → `--color-surface-*` aliases `--elevation-surface-*`
+- `.file-card` overrides `.bento-cell` → layout-only, bento chrome
+- GradientEditor unstyled inline → `inspector.css` classes
+- HC theme missing elevation overrides → `HC_ELEVATION` in token generator
+- BindingMenu fixed positioning → portaled combobox
 
 ## Implementation Log
 
-| Item | Status | Commit |
-|------|--------|--------|
-| memory.md init | Done | — |
-| FloatingPortal (`FloatingPortal`) | Done | 802d717 |
-| Menubar portal menus + CSS | Done | 37e59e4 |
-| gpu-layer moved to canvas | Done | 37e59e4 |
-| ShortcutPalette CSS + portal | Done | 37e59e4 |
-| Popover/Tooltip z-index tokens | Done | 37e59e4 |
-| Dialog scrim token | Done | 37e59e4 |
-| Headless overlay tests (8) | Done | 802d717 |
-
-| Select listbox portal | Done | 1997a32 |
-| Menu component portal | Done | 1997a32 |
-| Home file-card bento fix | Done | 1997a32 |
-| FloatingPortal matchAnchorWidth | Done | 1997a32 |
-| Surface token unification | Done | — |
-| HC theme elevation overrides | Done | — |
-| GradientEditor CSS extraction | Done | — |
-| BindingMenu portal + combobox | Done | — |
-
-## P1 Remaining (next session)
-
-- (none — slice 3 complete; next: Menubar/GradientEditor inline cleanup audit, full gate run)
+| Item | Commit |
+|------|--------|
+| FloatingPortal + ShortcutPalette.css + memory doc | 802d717 |
+| Menubar portal, gpu-layer, token z-index/scrim | 37e59e4 |
+| Select/Menu portals + home bento file-card | 1997a32 |
+| Surface tokens, BindingMenu portal, GradientEditor CSS | d7696b4 |
+| Menubar zoom CSS cleanup + memory finalization | (this commit) |
 
 ## Verification Gates
 
-- [x] FloatingPortal + Menubar tests (8/8)
+- [x] FloatingPortal + Menubar tests
 - [x] Select/Menu/FloatingPortal tests (45/45)
-- [x] `pnpm audit:tokens` (96/96)
-- [ ] `pnpm audit:emoji`
+- [x] `pnpm audit:tokens` (96/96 WCAG-AA)
+- [x] `pnpm audit:emoji` (990 files clean)
+- [x] `just gate` (format-check + lint + test + audits)
+
+## Architecture Established
+
+- All dropdowns/overlays use **`FloatingPortal` → `document.body`** with `position: fixed` + Floating UI
+- **`gpu-layer` only on canvas**, not editor shell
+- Use **`--elevation-*`**, **`--border-micro`**, **`--z-overlay`** tokens — no hardcoded rgba/z-index 9999
+- **`--color-surface-*`** are aliases to **`--elevation-surface-*`** (single elevation system)

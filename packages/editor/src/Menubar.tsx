@@ -529,7 +529,6 @@ export function Menubar({
     ],
   );
 
-
   const handleZoomInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const v = parseFloat(e.target.value);
@@ -789,7 +788,7 @@ export function Menubar({
         <IconButton icon={CHROME_ICONS.undo} label="Undo" size="sm" onClick={undo} />
         <IconButton icon={CHROME_ICONS.redo} label="Redo" size="sm" onClick={redo} />
         <div className="editor-menubar__zoom">
-          <span aria-hidden style={{ color: 'var(--color-text-muted)' }}>
+          <span aria-hidden className="editor-menubar__zoom-divider">
             |
           </span>
           <label htmlFor="menubar-zoom" className="sr-only">
@@ -807,7 +806,7 @@ export function Menubar({
             onKeyDown={handleZoomKey}
             aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
           />
-          <span style={{ color: 'var(--color-text-muted)' }}>%</span>
+          <span className="editor-menubar__zoom-unit">%</span>
         </div>
       </div>
     </div>
