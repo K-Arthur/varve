@@ -397,6 +397,8 @@ export function CanvasArea({
   stateRef.current = state;
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  // Track held keyboard modifier keys for bypass/reparent control during drag.
+  const heldKeysRef = useRef(new Set<string>());
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const subtreeIrCacheRef = useRef(new SubtreeIrCache());
   const prevDrawDocRef = useRef(state.document);

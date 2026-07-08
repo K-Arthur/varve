@@ -254,36 +254,50 @@ export class SelectTool extends BaseTool {
       if (this.isMoveGesture) {
         ctx.commitTransaction();
       }
-      // After move, re-parent if inside a frame
-      const sel = ctx.selection;
-      if (sel.length >= 1) {
-        ctx.beginTransaction();
-        for (const selId of sel) {
-          if (!selId) continue;
-          const node = ctx.getNode(selId);
-          if (!node || node.locked || !node.visible) continue;
-          // Use world-space center (accounts for parent transforms) for reparent.
-          const worldBounds = nodeWorldBounds(ctx.document, selId);
-          let centerX = node.transform[4];
-          let centerY = node.transform[5];
-          if (worldBounds) {
-            centerX = worldBounds.x + worldBounds.w / 2;
-            centerY = worldBounds.y + worldBounds.h / 2;
-          }
-          const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
-          if (frameId) {
-            const currentParent = getParent(ctx.document, selId);
-            if (currentParent !== frameId) {
-              ctx.reparentNode(selId, frameId, childrenCount(ctx.document, frameId));
+      // After move, re-parent if inside a frame.
+      // Hold Ctrl to bypass auto-reparent (Space is used for Hand tool spring).
+      if (!ctx.ctrlKey) {
+        const sel = ctx.selection;
+        if (sel.length >= 1) {
+          ctx.beginTransaction();
+          for (const selId of sel) {
+            if (!selId) continue;
+            const node = ctx.getNode(selId);
+            if (!node || node.locked || !node.visible) continue;
+            // Use world-space center (accounts for parent transforms) for reparent.
+            const worldBounds = nodeWorldBounds(ctx.document, selId);
+            let centerX = node.transform[4];
+            let centerY = node.transform[5];
+            if (worldBounds) {
+              centerX = worldBounds.x + worldBounds.w / 2;
+              centerY = worldBounds.y + worldBounds.h / 2;
             }
-          } else {
-            const currentParent = getParent(ctx.document, selId);
-            if (currentParent !== null) {
-              ctx.reparentNode(selId, null, ctx.rootNodes().length);
+            const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
+            if (frameId) {
+              const currentParent = getParent(ctx.document, selId);
+              if (currentParent !== frameId) {
+                // Size heuristic: only reparent if the node is not larger
+                // than the target frame (matching Figma/Sketch behaviour).
+                const frameNode = ctx.getNode(frameId);
+                if (frameNode && frameNode.kind === 'frame') {
+                  const fb = nodeWorldBounds(ctx.document, frameId);
+                  if (fb && worldBounds) {
+                    const nodeArea = worldBounds.w * worldBounds.h;
+                    const frameArea = fb.w * fb.h;
+                    if (nodeArea > frameArea * 1.1) continue;
+                  }
+                }
+                ctx.reparentNode(selId, frameId, childrenCount(ctx.document, frameId));
+              }
+            } else {
+              const currentParent = getParent(ctx.document, selId);
+              if (currentParent !== null) {
+                ctx.reparentNode(selId, null, ctx.rootNodes().length);
+              }
             }
           }
+          ctx.commitTransaction();
         }
-        ctx.commitTransaction();
       }
     }
     this.marqueeActive = false;
@@ -348,6 +362,8 @@ export class SelectTool extends BaseTool {
       }
       ctx.commitTransaction();
       // Auto-reparent after nudge (matching drag-end behavior).
+      // Hold Ctrl to bypass (Space is used for Hand tool spring).
+      if (!ctx.ctrlKey) {
       // Collect all pending reparent ops first so we only start a
       // transaction when actual work is needed.
       const reparentOps: Array<{
@@ -369,6 +385,16 @@ export class SelectTool extends BaseTool {
         const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
         const currentParent = getParent(ctx.document, selId);
         if (frameId && currentParent !== frameId) {
+          // Size heuristic: only reparent if node is not larger than target frame
+          const frameNode = ctx.getNode(frameId);
+          if (frameNode && frameNode.kind === 'frame') {
+            const fb = nodeWorldBounds(ctx.document, frameId);
+            if (fb && worldBounds) {
+              const nodeArea = worldBounds.w * worldBounds.h;
+              const frameArea = fb.w * fb.h;
+              if (nodeArea > frameArea * 1.1) continue;
+            }
+          }
           reparentOps.push({
             id: selId,
             parentId: frameId,
@@ -389,6 +415,7 @@ export class SelectTool extends BaseTool {
         }
         ctx.commitTransaction();
       }
+      } // !ctx.ctrlKey
       ctx.announceOperation('Nudge', `${step}px`);
       return true;
     }

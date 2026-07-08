@@ -20,10 +20,36 @@ export class ImageCache {
   private pending = new Map<string, Promise<HTMLImageElement>>();
   private listeners = new Map<string, Set<() => void>>();
   private globalListeners = new Set<() => void>();
+  private maxEntries: number;
+  /** Tracks access order for LRU eviction: key → lastAccessTimestamp. */
+  private accessTimes = new Map<string, number>();
+
+  constructor(maxEntries = 200) {
+    this.maxEntries = maxEntries;
+  }
 
   /** Total number of entries in the cache. */
   get size(): number {
     return this.cache.size;
+  }
+
+  /** Evict least-recently-accessed entries when over limit. */
+  private evictIfNeeded(): void {
+    if (this.cache.size <= this.maxEntries) return;
+    const sorted = [...this.accessTimes.entries()]
+      .filter(([k]) => this.cache.has(k))
+      .sort((a, b) => a[1] - b[1]);
+    const remove = sorted.slice(0, this.cache.size - this.maxEntries);
+    for (const [url] of remove) {
+      this.cache.delete(url);
+      this.accessTimes.delete(url);
+      this.listeners.delete(url);
+    }
+  }
+
+  /** Touch URL as recently used. */
+  private touch(url: string): void {
+    this.accessTimes.set(url, performance.now());
   }
 
   /** Number of entries currently loading. */
@@ -44,13 +70,19 @@ export class ImageCache {
 
   /** Get a cached image entry, or undefined if not cached. */
   get(url: string): ImageCacheEntry | undefined {
-    return this.cache.get(url);
+    const entry = this.cache.get(url);
+    if (entry) this.touch(url);
+    return entry;
   }
 
   /** Get the loaded HTMLImageElement, or null if not yet loaded. */
   getImage(url: string): HTMLImageElement | null {
     const entry = this.cache.get(url);
-    return entry?.state === 'loaded' ? (entry.image ?? null) : null;
+    if (entry?.state === 'loaded') {
+      this.touch(url);
+      return entry.image ?? null;
+    }
+    return null;
   }
 
   /**
@@ -76,14 +108,18 @@ export class ImageCache {
       const img = new Image();
       img.onload = () => {
         this.cache.set(url, { state: 'loaded', image: img });
+        this.evictIfNeeded();
         this.pending.delete(url);
+        this.touch(url);
         this.notifyListeners(url);
         resolve(img);
       };
       img.onerror = () => {
         const error = new Error(`Failed to load image: ${url}`);
         this.cache.set(url, { state: 'error', image: null, error });
+        this.evictIfNeeded();
         this.pending.delete(url);
+        this.touch(url);
         this.notifyListeners(url);
         reject(error);
       };
@@ -92,6 +128,7 @@ export class ImageCache {
     });
 
     this.pending.set(url, promise);
+    this.touch(url);
     return promise;
   }
 
@@ -176,7 +213,9 @@ export class ImageCache {
    */
   setLoaded(url: string, image: HTMLImageElement): void {
     this.cache.set(url, { state: 'loaded', image });
+    this.evictIfNeeded();
     this.pending.delete(url);
+    this.touch(url);
     this.notifyListeners(url);
   }
 

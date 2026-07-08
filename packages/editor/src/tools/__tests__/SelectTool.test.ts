@@ -556,4 +556,23 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(2);
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(2);
   });
+
+  it('nudge with Ctrl held bypasses auto-reparent', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({
+        id: 'n1',
+        transform: [1, 0, 0, 1, 100, 100],
+        visible: true,
+        locked: false,
+      }),
+      findContainingFrame: vi.fn().mockReturnValue('frame1'),
+      ctrlKey: true,
+    });
+    tool.onKeyDown({ key: 'ArrowRight', ctrlKey: true } as any, ctx);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.reparentNode).not.toHaveBeenCalled();
+    expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
+  });
 });
