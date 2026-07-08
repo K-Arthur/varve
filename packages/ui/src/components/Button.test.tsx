@@ -35,7 +35,7 @@ describe('Button', () => {
   it('shows spinner and aria-busy when loading', () => {
     render(<Button loading>Processing</Button>);
     const btn = screen.getByRole('button');
-    expect(btn.querySelector('.strata-btn__spinner')).toBeTruthy();
+    expect(btn.querySelector('.inline-activity')).toBeTruthy();
     expect(btn).toHaveAttribute('aria-busy', 'true');
   });
 
