@@ -430,7 +430,7 @@ function ShellInner({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="editor-shell gpu-layer" style={gridStyle}>
+      <div className="editor-shell" style={gridStyle}>
         <Menubar
           onBackToHome={onBackToHome}
           onOpenSettings={() => setSettingsOpen(true)}

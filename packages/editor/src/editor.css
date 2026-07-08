@@ -182,6 +182,90 @@
   outline-offset: -2px;
 }
 
+.editor-menubar__left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.editor-menubar__menu {
+  min-width: 12rem;
+  padding: var(--space-1);
+  background: var(--elevation-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-shadow-overlay);
+  font-family: var(--font-body);
+}
+
+.editor-menubar__menu-sep {
+  margin: var(--space-1) 0;
+  border: none;
+  border-top: var(--border-micro);
+}
+
+.editor-menubar__menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-primary);
+  cursor: default;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.editor-menubar__menu-item:hover,
+.editor-menubar__menu-item:focus-visible {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.editor-menubar__menu-item--active,
+.editor-menubar__menu-item--active:hover {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+
+.editor-menubar__menu-item:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.editor-menubar__menu-label {
+  flex: 1;
+}
+
+.editor-menubar__menu-shortcut {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.editor-menubar__menu-item--active .editor-menubar__menu-shortcut {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.editor-menubar__doc-name-text {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+  display: block;
+  text-align: center;
+}
+
 /* Tab strip (A8) — compact file tabs à la VS Code / Figma */
 .editor-tabs {
   grid-area: tabs;
