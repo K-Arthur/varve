@@ -11,7 +11,7 @@
 | P1 Independent review | Done | Design + A11Y sub-agents |
 | P2 Cross-challenge | Done | gpu-layer vs portal conflict resolved → portal + remove shell gpu-layer |
 | P3 Conflict resolution | Done | Prioritize P0 clipping before aesthetic P1 |
-| P4 TDD + headless | In progress | |
+| P4 TDD + headless | Done | Select/Menu portal tests added |
 
 ## P0 Findings (fix first)
 
@@ -32,21 +32,24 @@
 | Item | Status | Commit |
 |------|--------|--------|
 | memory.md init | Done | — |
-| OverlayPortal (`FloatingPortal`) | Done | pending |
-| Menubar portal menus + CSS | Done | pending |
-| gpu-layer moved to canvas | Done | pending |
-| ShortcutPalette CSS + portal | Done | pending |
-| Popover/Tooltip z-index tokens | Done | pending |
-| Dialog scrim token | Done | pending |
-| Headless overlay tests (8) | Done | pending |
+| FloatingPortal (`FloatingPortal`) | Done | 802d717 |
+| Menubar portal menus + CSS | Done | 37e59e4 |
+| gpu-layer moved to canvas | Done | 37e59e4 |
+| ShortcutPalette CSS + portal | Done | 37e59e4 |
+| Popover/Tooltip z-index tokens | Done | 37e59e4 |
+| Dialog scrim token | Done | 37e59e4 |
+| Headless overlay tests (8) | Done | 802d717 |
+
+| Select listbox portal | Done | — |
+| Menu component portal | Done | — |
+| Home file-card bento fix | Done | — |
+| FloatingPortal matchAnchorWidth | Done | — |
 
 ## P1 Remaining (next session)
 
 - Unify `--color-surface-*` / `--elevation-surface-*`
 - HC theme elevation overrides
-- `.bento-grid` on home + file-card fix
 - GradientEditor CSS extraction
-- Select listbox portal
 - BindingMenu combobox pattern
 
 ## Verification Gates

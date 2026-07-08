@@ -60,6 +60,14 @@ describe('Select', () => {
     expect(screen.getAllByRole('option').length).toBe(fruitOptions.length);
   });
 
+  it('portals listbox to document.body when open', async () => {
+    const user = userEvent.setup();
+    render(<SelectFixture />);
+    await user.click(screen.getByRole('combobox'));
+    const listbox = screen.getByRole('listbox');
+    expect(listbox.parentElement?.parentElement).toBe(document.body);
+  });
+
   it('closes on Escape', async () => {
     const user = userEvent.setup();
     render(<SelectFixture />);
