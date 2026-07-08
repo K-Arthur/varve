@@ -213,7 +213,12 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
             aria-label="Search commands"
             disabled={!!remappingId}
           />
-          <button type="button" className="shortcut-palette__btn" onClick={handleExport} title="Export keymap">
+          <button
+            type="button"
+            className="shortcut-palette__btn"
+            onClick={handleExport}
+            title="Export keymap"
+          >
             <Icon name={CHROME_ICONS.download} />
           </button>
           <button
