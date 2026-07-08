@@ -279,24 +279,77 @@ async function nativeEngine(): Promise<Engine> {
 }
 
 /**
+ * Wrap a native/wasm engine so a `buildIr`/`hitTest` failure degrades to the
+ * pure-TS stub instead of aborting the frame.
+ *
+ * The Rust deserializer (strata-bridge `IpcSceneNode`) is strict: every node
+ * must carry a valid `shape`, and text needs `shape: { kind: 'text', … }`. A
+ * single malformed node makes `build_ir_json` throw `missing field \`shape\``,
+ * which rejects the whole batch and leaves the canvas blank for *every* node —
+ * a catastrophic, whole-scene failure from one bad record. The stub is the
+ * reference implementation and never throws, so falling back to it keeps the
+ * scene painting while surfacing the contract violation via a single warning.
+ */
+export function withStubFallback(primary: Engine): Engine {
+  if (primary.backend === 'stub') return primary;
+  const stub = stubEngine();
+  // Contract failures (missing/invalid `shape`, colour objects where Rust wants
+  // `[u8; 4]`, …) are deterministic, not transient. Once `buildIr` throws, keep
+  // using the stub so we don't burn a JSON round-trip through the failing
+  // backend on every subsequent frame (circuit breaker).
+  let buildIrBroken = false;
+  const warnOnce = (err: unknown): void => {
+    console.warn(
+      `[strata-engine] ${primary.backend} buildIr failed; falling back to the stub renderer ` +
+        'for the rest of this session. A node reached the engine with a shape/colour that the ' +
+        'native deserializer rejects.',
+      err,
+    );
+  };
+  return {
+    backend: primary.backend,
+    async buildIr(scene) {
+      if (buildIrBroken) return stub.buildIr(scene);
+      try {
+        return await primary.buildIr(scene);
+      } catch (err) {
+        buildIrBroken = true;
+        warnOnce(err);
+        return stub.buildIr(scene);
+      }
+    },
+    async hitTest(scene, world) {
+      try {
+        return await primary.hitTest(scene, world);
+      } catch {
+        return stub.hitTest(scene, world);
+      }
+    },
+  };
+}
+
+/**
  * Create an engine. `auto` (default) prefers native (Tauri), then wasm, then
  * stub. Desktop callers should pass `'native'` and assert it resolved.
+ *
+ * Native/wasm engines are wrapped with a stub fallback so a strict-deserializer
+ * failure never blanks the canvas (see `withStubFallback`).
  */
 export async function createEngine(preferred: Backend | 'auto' = 'auto'): Promise<Engine> {
   if (preferred === 'native') {
-    return nativeEngine();
+    return withStubFallback(await nativeEngine());
   }
   if (preferred === 'auto' && (globalThis as TauriGlobal).__TAURI__) {
-    return nativeEngine();
+    return withStubFallback(await nativeEngine());
   }
   if (preferred === 'wasm') {
     const { tryWasmEngine } = await import('./wasmLoader');
-    return tryWasmEngine(stubEngine);
+    return withStubFallback(await tryWasmEngine(stubEngine));
   }
   if (preferred === 'auto' && !(globalThis as TauriGlobal).__TAURI__) {
     const { tryWasmEngine } = await import('./wasmLoader');
     const eng = await tryWasmEngine(stubEngine);
-    if (eng.backend === 'wasm') return eng;
+    if (eng.backend === 'wasm') return withStubFallback(eng);
   }
   return stubEngine();
 }

@@ -26,7 +26,7 @@ import {
   replayIr,
   traceSceneNodeOutline,
 } from '@strata/engine';
-import { type ImportFileInput, ImportService, importFile } from '@strata/import';
+import { type ImportFileInput, ImportService } from '@strata/import';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import {
   activePageNodes,
@@ -148,9 +148,38 @@ export function toEngineNode(n: DocNode): EngineNode {
     const text = n.text ?? '';
     const estW = Math.max(text.length * fontSize * 0.55, fontSize * 3);
     const estH = fontSize * 1.4;
+    // Text MUST carry a `shape: { kind: 'text', … }` with every required field
+    // populated. The native/wasm engine deserializes each node into Rust's
+    // strict `IpcSceneNode`, where `shape` is mandatory and `IpcShape::Text`
+    // requires text/fontSize/fontFamily/fontWeight/fontStyle/textAlign/x/y/w/h.
+    // Emitting only the top-level `kind: 'text'` fields (no `shape`) made
+    // `build_ir_json` throw `missing field \`shape\``, which rejected the whole
+    // buildIr batch and blanked the entire canvas — not just the text node.
+    // The pure-TS stub keys off `kind === 'text'`, so the redundant top-level
+    // fields stay for it; Rust ignores unknown fields.
+    const textShape = {
+      kind: 'text' as const,
+      text,
+      fontSize,
+      fontFamily: n.fontFamily ?? 'sans-serif',
+      fontWeight: n.fontWeight ?? 400,
+      fontStyle: n.fontStyle ?? 'normal',
+      textAlign: n.textAlign ?? 'left',
+      x: 0,
+      y: 0,
+      w: estW,
+      h: estH,
+      letterSpacing: n.letterSpacing,
+      lineHeight: n.lineHeight,
+      textCase: n.textCase,
+      textDecoration: n.textDecoration,
+    };
     return {
       ...base,
       kind: 'text',
+      // Cast: the engine `Shape` union is the vector-primitive set and has no
+      // `text` member, but the wire contract (and the Rust IpcShape) does.
+      shape: textShape as unknown as EngineNode['shape'],
       text: n.text,
       fontSize: n.fontSize,
       fontFamily: n.fontFamily,
