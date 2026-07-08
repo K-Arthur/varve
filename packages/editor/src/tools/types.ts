@@ -103,6 +103,8 @@ export interface ToolContext {
   pointerPressure: number;
   snapEnabled: boolean;
   snapGrid: number;
+  /** Isolation/focus view: when set, only nodes in this subtree are selectable. */
+  isolatedNodeId?: import('@strata/scene').NodeId | null;
 
   createShapeAt: (
     world: { x: number; y: number },
