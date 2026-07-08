@@ -11,6 +11,7 @@ import {
   getParent,
   groupNodes,
   insertNode,
+  isInIsolatedSubtree,
   isContainer,
   makeFrameNode,
   makeGroupNode,
@@ -843,6 +844,77 @@ describe('Document print production fields', () => {
         doc = setLayerColor(doc, id, c);
         expect(doc.nodes[id]?.layerColor).toBe(c);
       }
+    });
+  });
+
+  describe('isInIsolatedSubtree', () => {
+    it('returns true when no isolation is active', () => {
+      let doc = createDocument();
+      const a = shape(doc, 'a');
+      doc = a.doc;
+      doc = addNode(doc, a.node);
+      expect(isInIsolatedSubtree(a.id, null, doc)).toBe(true);
+    });
+
+    it('returns true for the isolated root itself', () => {
+      let doc = createDocument();
+      const frame = makeFrameNode('frame1', { name: 'Frame', w: 100, h: 100 });
+      doc = addNode(doc, frame);
+      expect(isInIsolatedSubtree('frame1', 'frame1', doc)).toBe(true);
+    });
+
+    it('returns true for direct children of isolated root', () => {
+      let doc = createDocument();
+      const frame = makeFrameNode('frame1', { name: 'Frame', w: 100, h: 100 });
+      doc = addNode(doc, frame);
+      const child = shape(doc, 'child');
+      doc = child.doc;
+      doc = addChild(doc, 'frame1', child.node);
+      expect(isInIsolatedSubtree(child.id, 'frame1', doc)).toBe(true);
+    });
+
+    it('returns true for nested descendants of isolated root', () => {
+      let doc = createDocument();
+      const frame = makeFrameNode('frame1', { name: 'Frame', w: 100, h: 100 });
+      doc = addNode(doc, frame);
+      const group = makeGroupNode('group1', { name: 'Group', children: [] });
+      doc = addChild(doc, 'frame1', group);
+      const child = shape(doc, 'child');
+      doc = child.doc;
+      doc = addChild(doc, 'group1', child.node);
+      expect(isInIsolatedSubtree(child.id, 'frame1', doc)).toBe(true);
+    });
+
+    it('returns false for nodes outside isolated subtree', () => {
+      let doc = createDocument();
+      const frame = makeFrameNode('frame1', { name: 'Frame', w: 100, h: 100 });
+      doc = addNode(doc, frame);
+      const outside = shape(doc, 'outside');
+      doc = outside.doc;
+      doc = addNode(doc, outside.node);
+      expect(isInIsolatedSubtree(outside.id, 'frame1', doc)).toBe(false);
+    });
+
+    it('returns false for siblings of isolated root', () => {
+      let doc = createDocument();
+      const frame = makeFrameNode('frame1', { name: 'Frame', w: 100, h: 100 });
+      doc = addNode(doc, frame);
+      const sibling = shape(doc, 'sibling');
+      doc = sibling.doc;
+      doc = addNode(doc, sibling.node);
+      expect(isInIsolatedSubtree(sibling.id, 'frame1', doc)).toBe(false);
+    });
+
+    it('returns false for nodes in a different subtree', () => {
+      let doc = createDocument();
+      const frame1 = makeFrameNode('frame1', { name: 'Frame1', w: 100, h: 100 });
+      doc = addNode(doc, frame1);
+      const frame2 = makeFrameNode('frame2', { name: 'Frame2', w: 100, h: 100 });
+      doc = addNode(doc, frame2);
+      const child = shape(doc, 'child');
+      doc = child.doc;
+      doc = addChild(doc, 'frame2', child.node);
+      expect(isInIsolatedSubtree(child.id, 'frame1', doc)).toBe(false);
     });
   });
 });

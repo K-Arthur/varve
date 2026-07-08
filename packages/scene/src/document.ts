@@ -613,6 +613,37 @@ export function isContainer(node: SceneNode): node is ContainerNode {
   return node.kind === 'frame' || node.kind === 'group';
 }
 
+/**
+ * Check if a node is within the isolated subtree.
+ *
+ * Walks up the ancestor chain from the candidate node to see if it eventually
+ * reaches the isolated root. Returns true if the candidate is the isolated root
+ * itself or any of its descendants.
+ *
+ * @param candidateId - The node to check
+ * @param isolatedNodeId - The root of the isolated subtree
+ * @param doc - The document
+ * @returns true if candidate is in the isolated subtree
+ */
+export function isInIsolatedSubtree(
+  candidateId: NodeId,
+  isolatedNodeId: NodeId | null,
+  doc: Document,
+): boolean {
+  if (!isolatedNodeId) return true; // No isolation active
+  if (candidateId === isolatedNodeId) return true; // Is the isolated root itself
+
+  // Walk up the ancestor chain
+  let currentId: NodeId | null = candidateId;
+  const visited = new Set<NodeId>();
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    if (currentId === isolatedNodeId) return true;
+    currentId = getParent(doc, currentId);
+  }
+  return false;
+}
+
 /** Get the children array of a container node, or null if not a container. */
 export function getChildren(doc: Document, id: NodeId): NodeId[] | null {
   const node = doc.nodes[id];
