@@ -8,4 +8,4 @@ packages:
 allowBuilds:
   esbuild: true
   protobufjs: true
-  sharp: set this to true or false
+  sharp: false
