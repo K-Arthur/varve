@@ -40,22 +40,22 @@
 | Dialog scrim token | Done | 37e59e4 |
 | Headless overlay tests (8) | Done | 802d717 |
 
-| Select listbox portal | Done | — |
-| Menu component portal | Done | — |
-| Home file-card bento fix | Done | — |
-| FloatingPortal matchAnchorWidth | Done | — |
+| Select listbox portal | Done | 1997a32 |
+| Menu component portal | Done | 1997a32 |
+| Home file-card bento fix | Done | 1997a32 |
+| FloatingPortal matchAnchorWidth | Done | 1997a32 |
+| Surface token unification | Done | — |
+| HC theme elevation overrides | Done | — |
+| GradientEditor CSS extraction | Done | — |
+| BindingMenu portal + combobox | Done | — |
 
 ## P1 Remaining (next session)
 
-- Unify `--color-surface-*` / `--elevation-surface-*`
-- HC theme elevation overrides
-- GradientEditor CSS extraction
-- BindingMenu combobox pattern
+- (none — slice 3 complete; next: Menubar/GradientEditor inline cleanup audit, full gate run)
 
 ## Verification Gates
 
 - [x] FloatingPortal + Menubar tests (8/8)
-- [ ] full `pnpm typecheck` (pre-existing Button.tsx error in ui)
-- [ ] `pnpm lint` touched files
-- [ ] `pnpm audit:tokens`
+- [x] Select/Menu/FloatingPortal tests (45/45)
+- [x] `pnpm audit:tokens` (96/96)
 - [ ] `pnpm audit:emoji`

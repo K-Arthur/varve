@@ -1223,3 +1223,275 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
 }
+
+/* ─── BindingMenu (variable binding combobox) ─────────── */
+.binding-menu {
+  width: 14rem;
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  background: var(--elevation-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-shadow-overlay);
+}
+.binding-menu__input {
+  width: 100%;
+  height: 28px;
+  font-size: var(--font-size-xs);
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.binding-menu__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+.binding-menu__list {
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.binding-menu__item {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-1);
+}
+.binding-menu__item--highlighted {
+  background: var(--color-interactive-subtle);
+}
+.binding-menu__item-name {
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.binding-menu__item-value {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  flex-shrink: 0;
+}
+.binding-menu__empty {
+  color: var(--color-text-muted);
+  margin: 0;
+  padding: var(--space-1) 0;
+}
+.binding-menu__expression {
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-1);
+}
+
+/* ─── GradientEditor ──────────────────────────────────── */
+.gradient-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.gradient-editor__select {
+  flex: 1;
+  height: var(--space-5);
+  font-size: var(--font-size-xs);
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+}
+.gradient-editor__bar {
+  position: relative;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  cursor: copy;
+  user-select: none;
+}
+.gradient-editor__stop {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  cursor: grab;
+  padding: 0;
+  z-index: 1;
+}
+.gradient-editor__stop--selected {
+  border: 2px solid var(--color-interactive-default);
+}
+.gradient-editor__stop--idle {
+  border: 2px solid var(--elevation-surface-overlay);
+}
+.gradient-editor__stop-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.gradient-editor__unit {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.gradient-editor__position-input {
+  width: 60px;
+}
+.gradient-editor__remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.gradient-editor__remove-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ─── BindingMenu (variable binding combobox) ─────────── */
+.binding-menu {
+  width: 14rem;
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  background: var(--elevation-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-shadow-overlay);
+}
+.binding-menu__input {
+  width: 100%;
+  height: 28px;
+  font-size: var(--font-size-xs);
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.binding-menu__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+.binding-menu__list {
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.binding-menu__item {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-1);
+}
+.binding-menu__item--highlighted {
+  background: var(--color-interactive-subtle);
+}
+.binding-menu__item-name {
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.binding-menu__item-value {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  flex-shrink: 0;
+}
+.binding-menu__empty {
+  color: var(--color-text-muted);
+  margin: 0;
+  padding: var(--space-1) 0;
+}
+.binding-menu__expression {
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-1);
+}
+
+/* ─── GradientEditor ──────────────────────────────────── */
+.gradient-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.gradient-editor__select {
+  flex: 1;
+  height: var(--space-5);
+  font-size: var(--font-size-xs);
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+}
+.gradient-editor__bar {
+  position: relative;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  cursor: copy;
+  user-select: none;
+}
+.gradient-editor__stop {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  cursor: grab;
+  padding: 0;
+  z-index: 1;
+}
+.gradient-editor__stop--selected {
+  border: 2px solid var(--color-interactive-default);
+}
+.gradient-editor__stop--idle {
+  border: 2px solid var(--elevation-surface-overlay);
+}
+.gradient-editor__stop-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.gradient-editor__unit {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.gradient-editor__position-input {
+  width: 60px;
+}
+.gradient-editor__remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.gradient-editor__remove-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
