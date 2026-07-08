@@ -14,7 +14,16 @@
 | **Download model ID** | Batch dialog and inspector hardcoded downloadModelId as method switch | Now uses `requiredModelId` (the actual model ID the method maps to) |
 | **Postinstall script** | WASM files must be copied from node_modules to public/ for the Worker to find them | `scripts/copy-onnx-wasm.mjs` runs on `pnpm install`; `ort-wasm/` in .gitignore |
 
-**Verification:** 111 bg-removal tests pass (was 110, +1 modelLoader bundled trust test). Engine typecheck clean.
+**Verification:** 154/154 focused tests pass (Session 47). Engine typecheck clean.
+
+## Session 47 — Strategy-pattern provider chain (2026-07-08)
+
+| Change | What |
+|---|---|
+| **Provider extraction** | `providers/{workerProvider,tauriProvider,directOnnxProvider,dispatch}.ts` — Strategy pattern for ONNX/Tauri/heuristic backends |
+| **Constant move** | `DEFAULT_PREVIEW_MAX_DIMENSION` → `types.ts` (breaks circular import) |
+| **Memory file** | `BACKGROUND_REMOVAL_MEMORY.md` — live execution state tracker |
+| **Test fix** | `directAi.telemetry.test.ts` mocks `maskToDataUrl` after heuristic re-export |
 
 ## Phases A–D completion (Session 39, 2026-07-06)
 

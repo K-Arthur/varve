@@ -118,9 +118,6 @@ describe('removeBackground dispatch', () => {
       height: 4,
     });
 
-    // jsdom's canvas has no real 2D context, and jsdom's `Blob` polyfill in
-    // this Node version lacks `arrayBuffer()`; stub just enough of the DOM
-    // surface `invokeTauriRemoveBackground` touches.
     const fakeCtx = { putImageData: vi.fn(), getImageData: vi.fn() };
     const fakeBlob = { arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as Blob;
     vi.spyOn(document, 'createElement').mockReturnValue({
@@ -134,21 +131,15 @@ describe('removeBackground dispatch', () => {
     const result = await removeBackground(makeImage(), { method: 'ai-quality' });
 
     expect(mockInvoke).toHaveBeenCalledTimes(1);
-    // The critical regression this guards: the native bridge must translate
-    // the Rust wire format (maskBase64, snake_case-free) into the TS
-    // `BackgroundRemovalResult` contract (maskDataUrl as a real data URL).
     expect(result.maskDataUrl).toBe('data:image/png;base64,abc123');
     expect(result.confidence).toBe(0.6);
     expect(result.processingTimeMs).toBe(5);
-    // Native only ran the heuristic (no `ai` feature compiled in) — the
-    // reported method must honestly reflect that, not the AI method the
-    // caller originally requested.
     expect(result.method).toBe('quick');
 
     vi.restoreAllMocks();
   });
 
-  it('routes "ai-balanced" to the birefnet-general-lite model in the worker, not u2netp', async () => {
+  it('routes "ai-balanced" to the bundled u2netp model in the worker', async () => {
     vi.stubGlobal('Worker', class {});
     mockRunPooledInference.mockResolvedValue({
       maskDataUrl: 'data:image/png;base64,worker',
@@ -162,9 +153,6 @@ describe('removeBackground dispatch', () => {
     const { removeBackground } = await import('../index');
     await removeBackground(makeImage(), { method: 'ai-balanced' });
 
-    // `ai-balanced` uses the bundled `u2netp` model (4.5 MB, zero-download)
-    // so it works out of the box. `ai-quality` requires an explicit 928 MB
-    // download of `birefnet-general`.
     expect(mockRunPooledInference).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-balanced' }),
@@ -188,9 +176,6 @@ describe('removeBackground dispatch', () => {
     const { removeBackground } = await import('../index');
     await removeBackground(makeImage(), { method: 'ai-quality' });
 
-    // Regression: this previously silently downgraded "AI Best Quality" to
-    // the mid-tier `birefnet-general-lite` model, so the 928MB full model a
-    // user explicitly downloaded for best quality was never actually used.
     expect(mockRunPooledInference).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-quality' }),
@@ -208,7 +193,7 @@ describe('removeBackground dispatch', () => {
     expect(mockHeuristic).toHaveBeenCalledTimes(1);
   });
 
-  it('falls through to the heuristic — not a hard failure — when the direct AI path throws', async () => {
+  it('falls through to the heuristic when the direct AI path throws', async () => {
     vi.stubGlobal('Worker', undefined);
     mockGetModelLoader.mockReturnValue({
       getState: () => 'ready',
@@ -267,5 +252,16 @@ describe('removeBackground dispatch', () => {
 
     expect(result.method).toBe('quick');
     vi.restoreAllMocks();
+  });
+});
+
+describe('AI_PROVIDER_CHAIN strategy', () => {
+  it('exports worker, tauri, and direct-onnx providers in order', async () => {
+    const { AI_PROVIDER_CHAIN } = await import('../index');
+    expect(AI_PROVIDER_CHAIN.map((p) => p.id)).toEqual([
+      'worker-onnx',
+      'tauri-native',
+      'direct-onnx',
+    ]);
   });
 });

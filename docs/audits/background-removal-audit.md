@@ -33,6 +33,20 @@ This session closed cross-platform gaps: **correct AI model routing**, **Indexed
 
 ---
 
+## Session 47 verification (2026-07-08) — Strategy-pattern refactor
+
+| Gate | Result |
+|---|---|
+| Focused bg-removal suite | **154/154** pass (20 files) |
+| `@strata/engine` typecheck | **0 errors** |
+| `cargo test -p strata-bgremove` | **8/8** pass |
+
+Session 47 extracted the inference dispatch chain into Strategy-pattern providers:
+`worker-onnx` → `tauri-native` → `direct-onnx` → heuristic fallback.
+See `packages/engine/src/backgroundRemoval/providers/` and `BACKGROUND_REMOVAL_MEMORY.md`.
+
+---
+
 ## Session 40 verification (2026-07-06) — Phase E complete
 
 | Gate | Result |
