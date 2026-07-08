@@ -391,7 +391,26 @@ function paintInsetEffect(
 }
 
 /** Replay `ir` into `target` (a 2D context). Clears nothing; caller manages. */
-export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void {
+/**
+ * Module-level image lookup for the current replayIr call.
+ * Set before calling internal paint functions, used by paintImageFill.
+ * This avoids threading a parameter through 7 levels of function calls.
+ */
+let imageLookupForCurrentReplay: ((src: string) => CanvasImageSource | undefined) | null = null;
+
+/**
+ * Replay a list of render items to the given canvas target.
+ * @param imageLookup Optional callback for resolving image source URLs to
+ *   CanvasImageSource (used by render workers that receive ImageBitmaps
+ *   via Structured Clone and cannot use `new Image()`).
+ */
+export function replayIr(
+  target: ReplayTarget,
+  ir: readonly RenderItem[],
+  imageLookup?: (src: string) => CanvasImageSource | undefined,
+): void {
+  imageLookupForCurrentReplay = imageLookup ?? null;
+  try {
   for (const item of ir) {
     target.save();
 
@@ -555,6 +574,9 @@ export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void 
 
     target.restore();
   }
+  } finally {
+    imageLookupForCurrentReplay = null;
+  }
 }
 
 /** Paint a single fill (solid, gradient, image, or pattern) over the primitive shape. */
@@ -581,6 +603,21 @@ function paintImageFill(
   const bounds = primitiveBounds(item.primitive);
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
+
+  // Render worker path: use pre-decoded ImageBitmap from Structured Clone.
+  // This avoids the `new Image()` constructor which doesn't exist in Workers.
+  if (imageLookupForCurrentReplay) {
+    const img = imageLookupForCurrentReplay(fill.src);
+    if (img && target.drawImage) {
+      target.drawImage(img, bounds.x, bounds.y, bw, bh);
+    } else {
+      const prev = target.fillStyle;
+      target.fillStyle = '#e8eaed';
+      target.fillRect(bounds.x, bounds.y, bw, bh);
+      target.fillStyle = prev;
+    }
+    return;
+  }
 
   const cache = getImageCache();
   const imgEntry = cache.get(fill.src);

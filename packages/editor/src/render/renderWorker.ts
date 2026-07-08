@@ -1,5 +1,6 @@
 /**
  * Render worker entry — replays IR to OffscreenCanvas.
+ * Supports pre-decoded ImageBitmaps via Structured Clone for image fills.
  */
 import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
 import { computeFloatingOrigin } from '@strata/shared';
@@ -8,6 +9,8 @@ import type { WorkerCommand, WorkerResponse } from './workerHost';
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;
 let activeDocVersion = 0;
+/** Image fill bitmaps keyed by src URL, received via Structured Clone. */
+let imageMap: Record<string, ImageBitmap> = {};
 
 self.onmessage = (e: MessageEvent<WorkerCommand>) => {
   const msg = e.data;
@@ -38,6 +41,8 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       });
       return;
     }
+    // Update image map from Structured Clone transport
+    if (msg.images) imageMap = msg.images;
     const origin = computeFloatingOrigin(msg.camera, msg.viewport);
     ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
     ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
@@ -45,7 +50,7 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     ctx.translate(msg.camera.pan.x, msg.camera.pan.y);
     ctx.scale(msg.camera.zoom, msg.camera.zoom);
     ctx.translate(-origin[0], -origin[1]);
-    replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[]);
+    replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[], (src) => imageMap[src]);
     ctx.restore();
     if (msg.docVersion >= activeDocVersion) {
       const bitmap = canvas.transferToImageBitmap();
