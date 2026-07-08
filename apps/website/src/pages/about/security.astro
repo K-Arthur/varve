@@ -1,0 +1,195 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Security — Strata">
+  <div class="container-custom">
+    <div class="security-page">
+      <h1>Security</h1>
+
+      <section class="security-section">
+        <h2>Reporting Vulnerabilities</h2>
+        <p>
+          If you discover a security vulnerability in Strata, please report it privately through the <a href="https://github.com/strata/strata/security/advisories" target="_blank" rel="noopener noreferrer">GitHub Security Advisory</a> system. This allows us to address the issue before it is publicly disclosed.
+        </p>
+        <p>
+          We aim to acknowledge receipt of vulnerability reports within <strong>48 hours</strong> and provide an initial assessment of severity and expected timeline for a fix. We follow coordinated disclosure practices and request that reporters allow reasonable time for a fix to be developed and released before public disclosure.
+        </p>
+      </section>
+
+      <section class="security-section">
+        <h2>Website Security</h2>
+        <p>
+          The Strata website enforces the following security measures:
+        </p>
+        <ul>
+          <li><strong>HTTPS enforced</strong> — all connections use TLS encryption</li>
+          <li><strong>Content Security Policy</strong> configured to restrict resource loading and mitigate XSS attacks</li>
+          <li><strong>Dependency audits</strong> via Dependabot for automated vulnerability detection</li>
+          <li><strong>Static site hosting</strong> — no server-side execution, reducing attack surface</li>
+        </ul>
+      </section>
+
+      <section class="security-section">
+        <h2>Download Integrity</h2>
+        <p>
+          Currently, Strata builds are <strong>not code-signed</strong>. This is a known limitation that will be addressed as the project matures. For stable releases, we plan to provide:
+        </p>
+        <ul>
+          <li>SHA256 checksums for all build artifacts</li>
+          <li>Cryptographic signing of release binaries</li>
+          <li>Reproducible build verification instructions</li>
+        </ul>
+        <p>
+          Until code signing is implemented, we recommend verifying downloads by building from source or checking the GitHub release page for checksum information. Always download Strata from the official GitHub releases page, not from third-party mirrors.
+        </p>
+      </section>
+
+      <section class="security-section">
+        <h2>Dependency Management</h2>
+        <p>
+          Strata takes dependency security seriously. The project uses multiple layers of automated dependency auditing:
+        </p>
+        <ul>
+          <li><strong>npm audit</strong> — scans JavaScript dependencies for known vulnerabilities</li>
+          <li><strong>cargo audit</strong> — scans Rust crates (both workspace and Tauri backend) for known vulnerabilities</li>
+          <li><strong>Dependabot</strong> — automated pull requests for dependency updates with vulnerability information</li>
+        </ul>
+        <p>
+          All dependencies are reviewed before update. Breaking changes are evaluated for impact and tested before merging. The project maintains a minimal dependency footprint where possible.
+        </p>
+      </section>
+
+      <section class="security-section">
+        <h2>Code Review</h2>
+        <p>
+          All pull requests to Strata must pass review before merge. The review process includes:
+        </p>
+        <ul>
+          <li>Code quality and correctness review by maintainers</li>
+          <li>Automated test suite execution (all tests must pass)</li>
+          <li>Type checking (TypeScript strict mode, Rust type safety)</li>
+          <li>Linting (Biome for JavaScript, Clippy for Rust)</li>
+          <li>Security-sensitive changes receive additional scrutiny</li>
+        </ul>
+      </section>
+
+      <section class="security-section">
+        <h2>Supply Chain</h2>
+        <p>
+          Strata implements several supply chain security measures:
+        </p>
+        <ul>
+          <li><strong>Lockfiles committed</strong> — both <code>pnpm-lock.yaml</code> and <code>Cargo.lock</code> are committed to the repository, ensuring deterministic dependency resolution</li>
+          <li><strong>Dependency versions pinned</strong> — exact versions specified to prevent unexpected updates</li>
+          <li><strong>CI verification</strong> — continuous integration validates dependency integrity and runs security audits on every pull request</li>
+        </ul>
+      </section>
+
+      <section class="security-section">
+        <h2>Data Security</h2>
+        <p>
+          As a local-first application, Strata's security model is straightforward:
+        </p>
+        <ul>
+          <li><strong>All design data stays on your machine</strong> — no cloud storage, no remote servers</li>
+          <li><strong>No telemetry</strong> — the application does not phone home or transmit usage data</li>
+          <li><strong>No user accounts</strong> — no authentication system to compromise</li>
+          <li><strong>Local storage only</strong> — data persisted via SQLite (desktop) or IndexedDB (web)</li>
+          <li><strong>No cloud transmission</strong> without explicit user action (e.g., filing a GitHub issue)</li>
+        </ul>
+      </section>
+
+      <div class="security-cta">
+        <a href="https://github.com/strata/strata/security/advisories" class="btn-primary" target="_blank" rel="noopener noreferrer">
+          Report a Vulnerability
+        </a>
+        <a href="/about" class="btn-secondary">
+          Back to About
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .security-page {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+
+  .security-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 2rem;
+    color: var(--color-neutral-900);
+  }
+
+  .security-section {
+    margin-bottom: 3rem;
+  }
+
+  .security-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+
+  .security-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  .security-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+
+  .security-section li {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+
+  .security-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+    font-weight: bold;
+  }
+
+  .security-section strong {
+    color: var(--color-neutral-900);
+  }
+
+  .security-section a {
+    color: var(--color-teal-600);
+  }
+
+  .security-section a:hover {
+    color: var(--color-teal-700);
+  }
+
+  .security-cta {
+    display: flex;
+    gap: 1rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+
+  @media (max-width: 768px) {
+    .security-page h1 {
+      font-size: 2rem;
+    }
+
+    .security-cta {
+      flex-direction: column;
+    }
+  }
+</style>

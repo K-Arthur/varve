@@ -1,0 +1,220 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Export & Code Generation — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Tools / Export & Code Generation
+      </nav>
+
+      <h1>Export & Code Generation</h1>
+      <p class="docs-intro">
+        Strata offers multiple export paths for your designs: raster and vector image formats, print-ready PDFs, and production-grade code generation for React, Tailwind, Flutter, and SwiftUI.
+      </p>
+
+      <section class="docs-section">
+        <h2>Export Dialog</h2>
+        <p>
+          Press <code>Ctrl+E</code> or go to File &gt; Export to open the Export Dialog. This batch processing interface lets you export multiple nodes in one operation:
+        </p>
+        <ul>
+          <li><strong>Batch Job List</strong> — Add export jobs for any node or page</li>
+          <li><strong>Export Progress Bar</strong> — Visual progress with cancel support</li>
+          <li><strong>Destination Picker</strong> — Choose target folder</li>
+          <li><strong>Sequential processing</strong> — Jobs process one at a time for reliability</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Image Export</h2>
+
+        <h3>PNG</h3>
+        <p>
+          Raster export with configurable scale (1x, 2x, 3x). Uses the canvas rendering pipeline to produce pixel-perfect output at any resolution. Ideal for web assets, app icons, and social media graphics.
+        </p>
+
+        <h3>SVG</h3>
+        <p>
+          Vector export via <code>exportDocumentToSvg()</code> and <code>exportDocumentToSvgAdvanced()</code>. The SVG output preserves:
+        </p>
+        <ul>
+          <li>Shape geometry (rect, circle, ellipse, line, polygon, path)</li>
+          <li>Text elements with font family and styling</li>
+          <li>Gradient and solid fills</li>
+          <li>Stroke properties (dash, cap, join, weight)</li>
+          <li>Transform matrices (position, rotation, scale)</li>
+        </ul>
+        <p>
+          SVG export supports optional <code>boundsOverride</code> for focused sub-region export and multi-page document support.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>PDF Export</h2>
+        <p>
+          Strata's PDF export is powered by the Rust <code>strata-print</code> crate, which uses <code>lopdf</code> for direct PDF content stream generation. PDF export features:
+        </p>
+        <ul>
+          <li><strong>Standard PDF</strong> — Path operators for all primitive types (rect, circle, ellipse, line, polygon, star, arrow, bezier paths)</li>
+          <li><strong>PDF/X-1a</strong> — Print-ready PDF with CMYK color, crop marks, registration marks, and color bars</li>
+          <li><strong>PDF/X-4</strong> — Modern PDF/X with transparency and color management support</li>
+          <li><strong>Font outlining</strong> — Text converted to vector paths using ab_glyph for reliable rendering (optional)</li>
+          <li><strong>ICC profile embedding</strong> — Bundled sRGB, Adobe RGB, Fogra39, GRACoL, and SWOP profiles</li>
+          <li><strong>Color bars and registration marks</strong> — Print production marks with 5-crosshair registration targets</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Code Generation</h2>
+        <p>
+          Strata can generate production-ready code from your designs. All generated code is standalone and doesn't require any Strata runtime.
+        </p>
+
+        <h3>React + Tailwind CSS</h3>
+        <p>
+          Generate a React component using Tailwind CSS utility classes. The output uses semantic class names, responsive layout, and preserves all styling from your design. Each frame becomes a styled container, shapes become divs with proper styling, and text elements become HTML with typography classes.
+        </p>
+
+        <h3>CSS Modules</h3>
+        <p>
+          Standard CSS output with BEM-inspired class naming and modular style sheets. Includes all color values as CSS custom properties where token bindings are detected.
+        </p>
+
+        <h3>Flutter</h3>
+        <p>
+          Generate a Flutter widget tree using Container, Positioned, Text, and Stack widgets. Frames with flex layout become Row/Column widgets. Frames with absolute positioning use Stack + Positioned. The output uses proper Flutter idioms (EdgeInsets, BorderRadius, Colors, TextStyle) and respects token bindings.
+        </p>
+
+        <h3>SwiftUI</h3>
+        <p>
+          Generate SwiftUI views using ZStack, HStack, VStack, Text, and Rectangle/ Circle shapes. Frames become containers with the appropriate stack type. Dimensions use CGFloat, colors use Color, and typography uses Font/Text styling. Token bindings generate Color and Font references.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Spec Export</h2>
+        <p>
+          The Spec Panel provides developer handoff information:
+        </p>
+        <ul>
+          <li><strong>Measurement readouts</strong> — Position, dimensions, rotation, corner radius for selected node</li>
+          <li><strong>Style specifications</strong> — Complete fill, stroke, effect, and typography properties in a structured format</li>
+          <li><strong>Diff-on-change</strong> — When you modify the design, the spec panel highlights changed values with +/- badges</li>
+          <li><strong>Syntax highlighting</strong> — Code block display with PrismJS-based highlighting for 6 languages</li>
+          <li><strong>File save</strong> — Save spec output as a file via the Tauri <code>save_file_bytes</code> bridge</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export Settings</h2>
+        <p>
+          Configure default export preferences in Settings:
+        </p>
+        <ul>
+          <li><strong>Default format</strong> — Preferred export format (PNG, SVG, PDF)</li>
+          <li><strong>Scale</strong> — Default output scale (1x, 2x, 3x)</li>
+          <li><strong>ICC profile</strong> — Default color profile for PDF export</li>
+          <li><strong>Bleed</strong> — Default bleed width for print documents</li>
+          <li><strong>Outline text</strong> — Whether to convert text to paths by default</li>
+          <li><strong>Naming template</strong> — Output file naming pattern</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href="/docs/file-formats">File Formats</a> for detailed format specifications, or <a href="/docs/settings">Settings</a> for export configuration.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

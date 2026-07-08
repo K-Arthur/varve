@@ -1,0 +1,234 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="File Formats — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / File Formats
+      </nav>
+
+      <h1>File Formats</h1>
+      <p class="docs-intro">
+        Strata supports a wide range of file formats for import and export. The native .strata format preserves the full document model including layers, effects, variables, and prototypes.
+      </p>
+
+      <section class="docs-section">
+        <h2>Native Format: .strata</h2>
+        <p>
+          The Strata native file format (<code>.strata</code>) is a JSON-based document that stores the complete design state. Each file contains:
+        </p>
+        <ul>
+          <li><strong>Format version</strong> — Semver string for forward compatibility with document migration (<code>migrateDocument()</code> supports version upgrades)</li>
+          <li><strong>Document metadata</strong> — Name, creation date, last modified date</li>
+          <li><strong>Pages</strong> — Array of Page objects with dimensions, bleed, safe area, and content root</li>
+          <li><strong>Node tree</strong> — Recursive tree of scene nodes (shape, text, frame, group, image, adjustment)</li>
+          <li><strong>Styles</strong> — Reusable color, text, effect, and layout style definitions</li>
+          <li><strong>Variable store</strong> — Variable collections with modes and groups</li>
+          <li><strong>Component definitions</strong> — Reusable components with slots and property definitions</li>
+          <li><strong>Installed libraries</strong> — References to shared library packages</li>
+          <li><strong>Prototype data</strong> — Interactions, triggers, actions, and flow graph</li>
+          <li><strong>Color mode</strong> — RGB, CMYK, or Grayscale with profile metadata</li>
+        </ul>
+        <p>
+          The .strata format is versioned. When opening an older file, Strata automatically migrates it to the current format version. The <code>Document.variableStore</code> field is the sole source of truth for all variable data.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Import Formats</h2>
+        <p>
+          Strata can import designs from a variety of formats through the <strong>File &gt; Import</strong> dialog (<code>Ctrl+I</code>). The import pipeline validates each file, estimates node count, detects unsupported features, and provides a preview before import.
+        </p>
+
+        <h3>SVG</h3>
+        <p>
+          Full SVG import via recursive descent parser. Supports:
+        </p>
+        <ul>
+          <li>Primitive shapes: <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;polyline&gt;</code></li>
+          <li><code>&lt;path&gt;</code> with M, L, C, S, Q, T, A, Z commands</li>
+          <li><code>&lt;g&gt;</code> groups with transforms</li>
+          <li><code>&lt;text&gt;</code> elements</li>
+          <li><code>&lt;image&gt;</code> embedded images</li>
+          <li><code>&lt;use&gt;</code> and <code>&lt;defs&gt;</code> references</li>
+          <li>Transform attributes (matrix, translate, rotate, scale, skew)</li>
+          <li>Fill, stroke, opacity, and style attributes</li>
+        </ul>
+
+        <h3>PDF</h3>
+        <p>
+          PDF import via pdf.js with <code>%PDF-</code> header detection. Extracts:
+        </p>
+        <ul>
+          <li>Text content from BT...ET blocks</li>
+          <li>Rectangle path operators</li>
+          <li>Multi-page conversion (each page becomes a Strata frame)</li>
+        </ul>
+
+        <h3>PSD (Photoshop)</h3>
+        <p>
+          PSD import via <code>@webtoon/psd</code> with <code>8BPS</code> header detection. Supports:
+        </p>
+        <ul>
+          <li>Layer tree extraction (groups, text layers, image layers)</li>
+          <li>Text layer content and styling</li>
+          <li>Image layer pixel data</li>
+        </ul>
+
+        <h3>AI (Adobe Illustrator)</h3>
+        <p>
+          Adobe Illustrator files use a PDF wrapper with embedded SVG content. The importer:
+        </p>
+        <ul>
+          <li>Detects the PDF wrapper via header</li>
+          <li>Extracts embedded SVG content where available</li>
+          <li>Falls back to EPS header parsing for legacy files</li>
+          <li>Reports fidelity warnings for AI-specific features</li>
+        </ul>
+
+        <h3>EPS</h3>
+        <p>
+          Encapsulated PostScript import with:
+        </p>
+        <ul>
+          <li>BoundingBox extraction</li>
+          <li>Basic rectangle and text conversion</li>
+          <li>Unsupported feature warnings</li>
+        </ul>
+
+        <h3>Raster Images</h3>
+        <p>
+          Direct import of PNG, JPG, WebP, and GIF files. Images are loaded into the ImageCache and can be used as image fills on shapes or imported as ImageNodes.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export Formats</h2>
+        <p>
+          See the full <a href="/docs/tools/export">Export & Code Generation</a> guide for complete details. Quick summary:
+        </p>
+        <ul>
+          <li><strong>PNG</strong> — Configurable scale (1x-3x)</li>
+          <li><strong>SVG</strong> — Full vector preservation</li>
+          <li><strong>PDF, PDF/X-1a, PDF/X-4</strong> — Print-ready with CMYK, marks, profiles</li>
+          <li><strong>CSS @keyframes</strong> — Animation as CSS keyframes</li>
+          <li><strong>SVG animate</strong> — Animation as SMIL SVG</li>
+          <li><strong>Lottie</strong> — Animation as Lottie JSON</li>
+          <li><strong>React + Tailwind</strong> — React component with Tailwind classes</li>
+          <li><strong>CSS Modules</strong> — Modular CSS with BEM naming</li>
+          <li><strong>Flutter</strong> — Flutter widget tree (Container, Text, Stack, Row/Column)</li>
+          <li><strong>SwiftUI</strong> — SwiftUI views (ZStack, HStack, VStack)</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Drag and Drop Import</h2>
+        <p>
+          You can also import files by dragging them directly onto the canvas:
+        </p>
+        <ul>
+          <li>Drag SVG, PNG, JPG, WebP, or GIF files from your file manager</li>
+          <li>Files are placed at the drop position with proper world-coordinate conversion</li>
+          <li>Multiple files are tiled with spacing</li>
+          <li>Batch import processes files sequentially with progress indication</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href="/docs/tools/export">Export & Code Generation</a> for detailed export instructions.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

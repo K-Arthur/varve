@@ -1,0 +1,241 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Rendering Pipeline — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Rendering Pipeline
+      </nav>
+
+      <h1>Rendering Pipeline</h1>
+      <p class="docs-intro">
+        Strata's rendering pipeline converts a scene graph into pixels on screen through a compact Intermediate Representation (IR). This approach delivers 86 fps on Canvas2D for 600 shapes by separating computation from drawing.
+      </p>
+
+      <section class="docs-section">
+        <h2>Architecture Decision: IR-Replay</h2>
+        <p>
+          The core rendering decision (ADR-0001) is that the Rust engine computes the scene and emits a compact IR, while the webview replays it to Canvas2D or WebGPU. This is the opposite of a "pixel-push" architecture where the engine sends pixel data directly.
+        </p>
+        <p>
+          The rationale was validated empirically on Wayland: the IR-replay approach achieves 86 fps versus 8.5 fps for a pixel-push approach. The IR is approximately 42 KB per frame for a scene with 600 shapes, making it efficient to serialize across the IPC boundary.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Pipeline Stages</h2>
+        <p>
+          The rendering pipeline has four main stages:
+        </p>
+
+        <h3>1. Scene Graph</h3>
+        <p>
+          The document is a tree of scene nodes (ShapeNode, TextNode, FrameNode, GroupNode, ImageNode, AdjustmentNode). Each node stores its local transform, fills, strokes, effects, and other properties. The editor maintains this as an immutable data structure — any change produces a new document tree.
+        </p>
+
+        <h3>2. IR Generation (buildRenderIr)</h3>
+        <p>
+          The engine walks the scene graph and produces a flat array of <strong>RenderItem</strong> objects. Each RenderItem contains:
+        </p>
+        <ul>
+          <li>World-space affine transform (composed from ancestor chain)</li>
+          <li>Primitive geometry (rect, ellipse, circle, line, arrow, polygon, star, path, text)</li>
+          <li>Fill stack (solid colors, gradients, image fills — each with opacity and blend mode)</li>
+          <li>Stroke stack (weight, color, dash, cap, join)</li>
+          <li>Effect list (drop shadows, inner shadows, blurs, glows — each with independent blend mode)</li>
+          <li>Opacity and blend mode</li>
+          <li>Corner radius (for rect primitives)</li>
+        </ul>
+        <p>
+          This IR is the stable seam between the native engine and the webview (ADR-0001). It is serialized to JSON for IPC and deserialized on the webview side.
+        </p>
+
+        <h3>3. Frame / Group Compositing</h3>
+        <p>
+          Before individual items are replayed, the <code>CanvasArea</code> performs a recursive DFS <code>replaySubtree()</code> that handles containers:
+        </p>
+        <ul>
+          <li><strong>Frames</strong> — Paint background fill, save canvas state, clip to the frame's world-space polygon, recurse into children, restore state</li>
+          <li><strong>Groups</strong> — Transparent pass-through unless the group has a non-passThrough blend mode or opacity &lt; 1, in which case children render to an offscreen CompositeCanvas and composite with the group's blend mode</li>
+          <li><strong>Adjustment Nodes</strong> — Render children, then apply the adjustment (curves, levels, selective color) to the rendered result</li>
+        </ul>
+
+        <h3>4. Replay (replayIr)</h3>
+        <p>
+          The replay engine draws each RenderItem using Canvas2D calls. This is where the 86fps performance comes from — the replay is deterministic, stateless, and maps directly to canvas API calls:
+        </p>
+        <ul>
+          <li>Apply transform via <code>setTransform()</code></li>
+          <li>Set opacity via <code>globalAlpha</code></li>
+          <li>Draw fills (solid: <code>fillRect</code>, <code>arc</code>, <code>roundRect</code>; gradient: <code>createLinearGradient</code>, <code>createRadialGradient</code>, <code>createConicGradient</code>; image: <code>drawImage</code>)</li>
+          <li>Draw strokes with full dash/cap/join/weight styling</li>
+          <li>Render effects (shadows via <code>shadowColor</code>/<code>shadowBlur</code>/<code>shadowOffsetX/Y</code>; blurs via <code>filter</code>)</li>
+          <li>Render text via <code>fillText</code> with <code>font</code> and <code>textBaseline</code></li>
+          <li>Render path text with per-glyph transform</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Viewport Culling</h2>
+        <p>
+          The canvas supports viewport culling to skip off-screen nodes during both IR build and replay. The culling system:
+        </p>
+        <ul>
+          <li>Checks <code>isWorldRectInViewport(bounds, viewportRect)</code> — uses intersection (not full containment) so partially visible nodes still render</li>
+          <li>Pre-builds a parent index map (<code>buildParentIndexMap(doc)</code>) for O(1) parent lookups during the world transform computation</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Floating Origin</h2>
+        <p>
+          To maintain numerical precision at large coordinates or extreme zoom levels, Strata uses a <strong>floating origin</strong> camera system:
+        </p>
+        <ul>
+          <li>The camera tracks a world-space origin point</li>
+          <li>All canvas drawing is offset by the camera origin, keeping coordinates in a reasonable numeric range</li>
+          <li>The <code>applyCameraTransform</code> helper translates and scales the canvas context</li>
+          <li>Units are in pixels with configurable display units (px, pt, mm, cm, in, pc)</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Worker Render Path</h2>
+        <p>
+          For non-structural scenes (no masks, no clipping frames with children, no special groups), Strata can offload replay to an <strong>OffscreenCanvas</strong> in a Web Worker:
+        </p>
+        <ul>
+          <li>The document is serialized and sent to the worker</li>
+          <li>The worker builds the IR and replays it to an OffscreenCanvas</li>
+          <li>The resulting bitmap is transferred back to the main thread</li>
+          <li>A <strong>sceneHasImageFills</strong> gate keeps image-containing scenes on the main thread (workers can't decode images)</li>
+        </ul>
+        <p>
+          The render worker includes a <strong>camera fast path</strong>: when the worker bitmap's docVersion matches, the main thread replays the cached bitmap with a compensation transform for the camera delta, achieving smooth 60 fps pan/zoom without a full scene rebuild.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Subtree IR Cache</h2>
+        <p>
+          To avoid rebuilding IR for unchanged subtrees, Strata maintains a <strong>SubtreeIrCache</strong>:
+        </p>
+        <ul>
+          <li>Cache keys are based on content hashes (encoding shape kind, fill, strokes, effects, filters, opacity, blend mode, rotation, corner radius, text properties)</li>
+          <li>Cached IR items are reused when the node's content hasn't changed</li>
+          <li>The cache is invalidated on structural changes (node add/remove/reparent)</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Effects and Compositing</h2>
+        <p>
+          The effects engine uses a single-pass approach with per-effect save/restore isolation:
+        </p>
+        <ul>
+          <li>Each shadow/glow/blur effect renders independently with its own save/restore scope</li>
+          <li>Per-effect blend mode and opacity are applied during compositing</li>
+          <li>Inner shadows use clip + blur technique (not canvas shadow API, which doesn't support inner shadows)</li>
+          <li>Multiple blurs use the maximum radius rather than compositing independently</li>
+          <li>The filter compositor handles non-CSS filters (exposure, sharpen, temperature, tint, color balance, channel mixer, photo filter, vibrance) via offscreen canvas pixel manipulation</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href="/docs/architecture">Architecture Overview</a> for the broader system architecture, or <a href="/docs/tools/color">Color & Effects</a> for user-facing effect controls.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

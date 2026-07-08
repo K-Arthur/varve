@@ -15,7 +15,7 @@
     margin: 0 auto;
     padding: 0 1.5rem;
   }
-  
+
   .btn-primary {
     display: inline-flex;
     align-items: center;
@@ -29,12 +29,12 @@
     border: none;
     cursor: pointer;
   }
-  
+
   .btn-primary:hover {
     background: var(--color-teal-700);
     transform: translateY(-1px);
   }
-  
+
   .btn-secondary {
     display: inline-flex;
     align-items: center;
@@ -48,7 +48,7 @@
     border: 2px solid var(--color-neutral-200);
     cursor: pointer;
   }
-  
+
   .btn-secondary:hover {
     border-color: var(--color-teal-400);
     color: var(--color-teal-600);
