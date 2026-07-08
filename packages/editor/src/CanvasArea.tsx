@@ -174,6 +174,12 @@ export function toEngineNode(n: DocNode): EngineNode {
       lineHeight: n.lineHeight,
       textCase: n.textCase,
       textDecoration: n.textDecoration,
+      paragraphIndent: n.paragraphIndent,
+      firstLineIndent: n.firstLineIndent,
+      tabStops: n.tabStops,
+      tabSize: n.tabSize,
+      textMode: n.textMode ?? 'point',
+      pathTextSettings: n.pathTextSettings,
     };
     return {
       ...base,
@@ -191,10 +197,16 @@ export function toEngineNode(n: DocNode): EngineNode {
       letterSpacing: n.letterSpacing,
       lineHeight: n.lineHeight,
       paragraphSpacing: n.paragraphSpacing,
+      paragraphIndent: n.paragraphIndent,
+      firstLineIndent: n.firstLineIndent,
       textCase: n.textCase,
       textDecoration: n.textDecoration,
       textOverflow: n.textOverflow,
       listStyle: n.listStyle,
+      textMode: n.textMode,
+      pathTextSettings: n.pathTextSettings,
+      tabStops: n.tabStops,
+      tabSize: n.tabSize,
       w: estW,
       h: estH,
     };
@@ -958,7 +970,17 @@ export function CanvasArea({
         const worldBounds = getCachedWorldBounds(cache, doc, id);
         if (worldBounds && !isWorldRectInViewport(cam, vp, worldBounds)) continue;
         nodeIds.push(id);
-        flatNodes.push({ ...toEngineNode(n), transform: world });
+        const engineNode = toEngineNode(n);
+        // Resolve path shape for text-on-path rendering
+        if (engineNode.pathTextSettings?.pathNodeId && engineNode.shape?.kind === 'text') {
+          const pathNode = doc.nodes[engineNode.pathTextSettings.pathNodeId] as
+            | import('@strata/scene').ShapeNode
+            | undefined;
+          if (pathNode?.shape) {
+            (engineNode.shape as Record<string, unknown>).pathShape = pathNode.shape;
+          }
+        }
+        flatNodes.push({ ...engineNode, transform: world });
       }
 
       const resolvedStyles = resolveAllStyles(doc);
