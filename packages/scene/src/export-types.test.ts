@@ -67,11 +67,13 @@ describe('ExportJob', () => {
       nodeName: 'Rect',
       format: 'png',
       fileName: 'Rect@2x.png',
+      scale: { type: 'factor', value: 2 },
       dimensions: { w: 100, h: 100 },
       estimatedSize: 5000,
       status: 'pending',
     };
     expect(job.status).toBe('pending');
+    expect(job.scale).toEqual({ type: 'factor', value: 2 });
     const running: ExportJob = { ...job, status: 'running' };
     expect(running.status).toBe('running');
     const done: ExportJob = { ...job, status: 'done', result: new Uint8Array([1, 2, 3]) };

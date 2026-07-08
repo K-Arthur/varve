@@ -761,10 +761,10 @@ describe('effects rendering', () => {
       ...recorder().target,
       canvas: mockCanvas,
       getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
-      drawImage: (...args: unknown[]) => {
+      drawImage: (..._args: unknown[]) => {
         callOrder.push('drawImage');
       },
-      fillRect: (...args: unknown[]) => {
+      fillRect: (..._args: unknown[]) => {
         callOrder.push('fillRect');
       },
     };

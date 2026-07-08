@@ -284,7 +284,7 @@ class ModelLoader {
       let response: Response | null = null;
       try {
         response = await fetch(localPath, { signal });
-      } catch (err) {
+      } catch (_err) {
         if (signal?.aborted) throw new Error('Download cancelled');
         response = null;
       }
@@ -344,7 +344,8 @@ class ModelLoader {
           await reader?.cancel();
           throw new Error('Download cancelled');
         }
-        const { done, value } = await reader!.read();
+        if (!reader) throw new Error('Download stream unavailable');
+        const { done, value } = await reader.read();
         if (done) break;
         downloadChunks.push(value);
         loaded += value.length;

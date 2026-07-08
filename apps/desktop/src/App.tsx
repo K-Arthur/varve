@@ -70,8 +70,8 @@ export function App() {
           <Shell
             onBackToHome={handleBackToHome}
             openFile={openRequest}
-            active={view === 'editor'}
             platform={platform}
+            active={view === 'editor'}
           />
         </div>
       )}

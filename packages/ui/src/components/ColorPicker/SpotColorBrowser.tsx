@@ -38,7 +38,7 @@ export function SpotColorBrowser({ onSelect }: SpotColorBrowserProps) {
   return (
     <div className="spot-color-browser">
       <div className="insp-field">
-        <label className="insp-field__label">Search</label>
+        <span className="insp-field__label">Search</span>
         <div className="insp-field__control">
           <input
             type="text"

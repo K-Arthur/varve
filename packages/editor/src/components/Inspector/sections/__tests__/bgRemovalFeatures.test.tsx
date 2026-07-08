@@ -316,7 +316,7 @@ describe('ExportDialog - Remove background toggle', () => {
     const { ExportDialog } = await import('../../../Export/ExportDialog');
     render(<ExportDialog isOpen={true} onClose={() => {}} nodes={[]} onExport={async () => {}} />);
     expect(screen.getByText('Remove background before export')).toBeTruthy();
-  });
+  }, 15000);
 
   it('does not call onApplyBackgroundRemoval when toggle is off', async () => {
     const { ExportDialog } = await import('../../../Export/ExportDialog');

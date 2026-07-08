@@ -8,14 +8,15 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { createEngine, type Engine } from '@strata/engine';
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
-import type { NodeId } from '@strata/scene';
+import type { Document, ExportBatch, ExportFormat, NodeId, SceneNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import { screenToWorld } from '@strata/shared';
 import type { MenuEntry } from '@strata/ui';
 import { ContextMenu, Icon } from '@strata/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
 import { captureClipboardEvent } from './clipboard';
@@ -40,6 +41,8 @@ import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { EditorProvider, useEditor } from './context';
 import type { DragNodeData } from './dnd-types';
+import { createExportSaveFile, saveExportBytes } from './exportSaveAdapter';
+import { ExportService } from './exportService';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { getActionTracker } from './intelligence/actionTracker';
 import { LayersPanel } from './LayersPanel';
@@ -53,6 +56,7 @@ import {
   useDidYouKnow,
   useTutorialProgress,
 } from './onboard';
+import { buildPackageExport } from './packageExport';
 import { getSharedRecoveryManager, type RecoverySession } from './recovery';
 import { StatusBar } from './StatusBar';
 import { createTutorialDocument } from './samples/tutorial-document';
@@ -86,13 +90,19 @@ export interface ShellProps {
   platform?: Platform;
 }
 
+function isRasterExport(format: ExportFormat): boolean {
+  return format === 'png' || format === 'jpg' || format === 'webp';
+}
+
 function ShellInner({
   onBackToHome,
   openFile,
+  platform,
   active = true,
 }: {
   onBackToHome?: () => void;
   openFile?: OpenFileRequest | null;
+  platform?: Platform;
   active?: boolean;
 }) {
   const editor = useEditor();
@@ -113,10 +123,59 @@ function ShellInner({
   );
 
   const [canvasContextMenu, setCanvasContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const exportEngineRef = useRef<Promise<Engine> | null>(null);
+  const saveExportFile = useMemo(() => createExportSaveFile(platform), [platform]);
 
   const handleCanvasContextMenu = useCallback((pos: { x: number; y: number }) => {
     setCanvasContextMenu(pos);
   }, []);
+
+  const getExportEngine = useCallback(() => {
+    exportEngineRef.current ??= createEngine('auto');
+    return exportEngineRef.current;
+  }, []);
+
+  const handleExportBatch = useCallback(
+    async (batch: ExportBatch) => {
+      const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
+      const engine = needsEngine ? await getExportEngine() : null;
+      return await ExportService.run(batch, {
+        document: editor.state.document,
+        engine,
+        saveFile: saveExportFile,
+      });
+    },
+    [editor.state.document, getExportEngine, saveExportFile],
+  );
+
+  const handleExportMotion = useCallback(
+    (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => {
+      const mimeType =
+        format === 'lottie' ? 'application/json' : format === 'svg' ? 'image/svg+xml' : 'text/css';
+      const extension = format === 'lottie' ? '.json' : format === 'svg' ? '.svg' : '.css';
+      void saveExportBytes(
+        platform,
+        fileName,
+        new TextEncoder().encode(content),
+        mimeType,
+        extension,
+      );
+    },
+    [platform],
+  );
+
+  const handleSaveVideoFile = useCallback(
+    async (fileName: string, bytes: Uint8Array, mimeType: string) => {
+      const extension = fileName.toLowerCase().endsWith('.webm') ? '.webm' : '.mp4';
+      await saveExportBytes(platform, fileName, bytes, mimeType, extension);
+    },
+    [platform],
+  );
+
+  const handlePackageExport = useCallback(async () => {
+    const pkg = buildPackageExport(editor.state.document);
+    await saveExportBytes(platform, pkg.fileName, pkg.bytes, pkg.mimeType, '.zip');
+  }, [editor.state.document, platform]);
 
   // ── Lifecycle event handlers ─────────────────────────────────────────────
   const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
@@ -549,7 +608,7 @@ function ShellInner({
           ref={fileRef}
           id="file-open-input"
           type="file"
-          accept=".json"
+          accept=".strata,.json"
           style={{ display: 'none' }}
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -567,36 +626,45 @@ function ShellInner({
         <input
           id="file-import-input"
           type="file"
-          accept=".svg,.png,.jpg,.jpeg,.webp,.gif"
+          accept=".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch"
           multiple
           style={{ display: 'none' }}
           onChange={async (e) => {
             const files = Array.from(e.target.files ?? []);
             if (files.length === 0) return;
-            for (const file of files) {
-              const ext = file.name.split('.').pop()?.toLowerCase();
-              if (ext === 'svg') {
-                const text = await file.text();
-                const { importFile } = await import('@strata/import');
-                const result = importFile(file.name, text, { center: true, embedImages: true });
-                for (const id of result.nodeIds) {
-                  const node = result.document.nodes[id];
-                  if (node) editor.importNode(node, result.document);
-                }
-              } else if (ext && ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
-                const buf = await file.arrayBuffer();
-                const { importFile } = await import('@strata/import');
-                const result = importFile(file.name, new Uint8Array(buf), {
-                  center: true,
-                  embedImages: true,
-                });
-                for (const id of result.nodeIds) {
-                  const node = result.document.nodes[id];
-                  if (node) editor.importNode(node, result.document);
+            try {
+              const { ImportService } = await import('@strata/import');
+              const report = await ImportService.importFiles(
+                await Promise.all(
+                  files.map(async (file) => ({
+                    name: file.name,
+                    source: 'file-picker' as const,
+                    size: file.size,
+                    bytes: new Uint8Array(await file.arrayBuffer()),
+                  })),
+                ),
+                { center: true, embedImages: true },
+              );
+              const parsedItems: { node: SceneNode; sourceDoc: Document }[] = [];
+              for (const fileReport of report.files) {
+                for (const artifact of fileReport.artifacts) {
+                  for (const id of artifact.nodeIds) {
+                    const node = artifact.document.nodes[id];
+                    if (node) parsedItems.push({ node, sourceDoc: artifact.document });
+                  }
                 }
               }
+              if (parsedItems.length > 0) editor.batchImportNodes(parsedItems);
+              editor.announce(
+                `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
+              );
+            } catch (err) {
+              editor.announce(
+                err instanceof Error ? `Import failed: ${err.message}` : 'Import failed',
+              );
+            } finally {
+              e.target.value = '';
             }
-            e.target.value = '';
           }}
         />
 
@@ -611,25 +679,10 @@ function ShellInner({
           timelines={editor.state.document.timelines}
           document={editor.state.document}
           selectionIds={editor.state.selection}
-          onExport={async () => {}}
-          onExportMotion={(_format, fileName, content) => {
-            const blob = new Blob([content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-          onSaveVideoFile={async (fileName, bytes, mimeType) => {
-            const blob = new Blob([bytes.slice()], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
+          onExport={handleExportBatch}
+          onPackageExport={handlePackageExport}
+          onExportMotion={handleExportMotion}
+          onSaveVideoFile={handleSaveVideoFile}
           onApplyBackgroundRemoval={(id, state) => {
             editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
           }}
@@ -881,8 +934,8 @@ export function Shell({
   documentJson,
   documentName,
   openFile,
-  active,
   platform,
+  active,
 }: ShellProps) {
   return (
     <EditorProvider
@@ -892,7 +945,12 @@ export function Shell({
       platform={platform}
     >
       <SettingsProvider>
-        <ShellInner onBackToHome={onBackToHome} openFile={openFile} active={active} />
+        <ShellInner
+          onBackToHome={onBackToHome}
+          openFile={openFile}
+          platform={platform}
+          active={active}
+        />
       </SettingsProvider>
     </EditorProvider>
   );

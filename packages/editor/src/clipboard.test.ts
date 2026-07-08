@@ -32,8 +32,9 @@ function createFileList(files: File[]): FileList {
       return {
         next: (): IteratorResult<File> => {
           if (i >= files.length) return { done: true, value: undefined as unknown as File };
-          return { done: false, value: files[i] as File };
+          const file = files[i] as File;
           i++;
+          return { done: false, value: file };
         },
       };
     },
@@ -79,9 +80,9 @@ describe('readFromClipboardEvent', () => {
 
     const result = await readFromClipboardEvent(event);
     expect(result.importItems).toHaveLength(1);
-    expect(result.importItems[0]!.mimeType).toBe('image/png');
-    expect(result.importItems[0]!.name).toBe('image.png');
-    const data = result.importItems[0]!.data as Uint8Array;
+    expect(result.importItems[0]?.mimeType).toBe('image/png');
+    expect(result.importItems[0]?.name).toBe('image.png');
+    const data = result.importItems[0]?.data as Uint8Array;
     expect(new Uint8Array(data)).toEqual(pngBytes);
   });
 
@@ -94,7 +95,7 @@ describe('readFromClipboardEvent', () => {
     const result = await readFromClipboardEvent(event);
     const svgItem = result.importItems.find((i) => i.mimeType === 'image/svg+xml');
     expect(svgItem).toBeDefined();
-    expect(svgItem!.data).toBe(svgContent);
+    expect(svgItem?.data).toBe(svgContent);
   });
 
   it('returns empty when clipboardData is null', async () => {
@@ -141,7 +142,7 @@ describe('readFromClipboardEvent', () => {
 
     const result = await readFromClipboardEvent(event);
     expect(result.strataData).not.toBeNull();
-    expect(result.strataData!.nodes).toHaveLength(1);
-    expect(result.strataData!.nodes[0]!.id).toBe('n1');
+    expect(result.strataData?.nodes).toHaveLength(1);
+    expect(result.strataData?.nodes[0]?.id).toBe('n1');
   });
 });

@@ -102,8 +102,11 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
             <p className="share-dialog__empty">No one else has access yet.</p>
           ) : (
             <ul className="share-dialog__list">
-              {permissions.map((perm, idx) => (
-                <li key={idx} className="share-dialog__person">
+              {permissions.map((perm) => (
+                <li
+                  key={`${perm.email ?? 'unknown'}-${perm.role}`}
+                  className="share-dialog__person"
+                >
                   <div className="share-dialog__person-avatar">
                     {(perm.email ?? '?').charAt(0).toUpperCase()}
                   </div>

@@ -5,11 +5,11 @@
  * to the W3C DTCG-compliant JSON format for interoperability with
  * Figma Tokens, Token Studio, Style Dictionary, and Supernova.
  *
- * Output: a DTCG JSON object with `$type`, `$value`, `$description` fields
- * organized in a CTI (Category/Type/Item) hierarchy.
+ * Output: a DTCG JSON object with `$type`, structured `$value`, and
+ * `$description` fields organized in a CTI (Category/Type/Item) hierarchy.
  *
  * Research basis:
- *   - DTCG W3C Candidate Recommendation (Dec 2024)
+ *   - DTCG 2025.10 Design Tokens Format and Color module
  *   - Style Dictionary 4.x format
  *   - Figma Tokens Studio v2 format
  *
@@ -24,9 +24,15 @@ import type { Oklch } from './contrast';
 
 export interface DTCGToken {
   $type: 'color';
-  $value: string;
+  $value: DTCGColorValue;
   $description?: string;
   $extensions?: Record<string, unknown>;
+}
+
+export interface DTCGColorValue {
+  colorSpace: 'oklch';
+  components: [number, number, number];
+  alpha?: number;
 }
 
 export interface DTCGGroup {
@@ -44,6 +50,14 @@ export interface DTCGDocument {
  */
 function oklchToString(c: Oklch): string {
   return `oklch(${c.L.toFixed(4)} ${c.C.toFixed(4)} ${c.H.toFixed(2)})`;
+}
+
+function oklchToDtcg(c: Oklch): DTCGColorValue {
+  return {
+    colorSpace: 'oklch',
+    components: [Number(c.L.toFixed(4)), Number(c.C.toFixed(4)), Number(c.H.toFixed(2))],
+    alpha: 1,
+  };
 }
 
 /**
@@ -110,10 +124,11 @@ export function buildDTCGExport(themes?: Theme[]): Record<string, DTCGGroup> {
       const leafName = path[path.length - 1]!;
       current[leafName] = {
         $type: 'color',
-        $value: oklchToString(oklchVal as Oklch),
+        $value: oklchToDtcg(oklchVal as Oklch),
         $extensions: {
           'strata-token': tokenName,
           'strata-theme': theme,
+          'strata-css-color': oklchToString(oklchVal as Oklch),
         },
       } satisfies DTCGToken;
     }
@@ -157,7 +172,7 @@ export function dtcgFlatExport(): DTCGTokenEntry[] {
         theme,
         path: tokenToPath(tokenName as SemanticToken),
         $type: 'color',
-        $value: oklchToString(oklchVal as Oklch),
+        $value: oklchToDtcg(oklchVal as Oklch),
       });
     }
   }
@@ -170,7 +185,7 @@ export interface DTCGTokenEntry {
   theme: Theme;
   path: string[];
   $type: 'color';
-  $value: string;
+  $value: DTCGColorValue;
 }
 
 // ── Figma Tokens Studio v2 format export ────────────────────────────────────

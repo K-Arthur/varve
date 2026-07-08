@@ -17,16 +17,19 @@ describe('DTCG Export — Structure', () => {
     const app = surface.app as Record<string, unknown>;
     expect(app).toHaveProperty('$type', 'color');
     expect(app).toHaveProperty('$value');
-    expect(typeof (app as { $value: string }).$value).toBe('string');
+    expect(typeof (app as { $value: unknown }).$value).toBe('object');
   });
 
-  it('uses OKLCH color format', () => {
+  it('uses DTCG 2025.10 structured OKLCH color values', () => {
     const result = buildDTCGExport(['light']);
     const light = result['theme-light']!;
     const color = light.color as Record<string, unknown>;
     const surface = color.surface as Record<string, unknown>;
     const app = surface.app as Record<string, unknown>;
-    expect((app as { $value: string }).$value).toMatch(/^oklch\(/);
+    expect((app as { $value: { colorSpace: string; components: number[] } }).$value).toMatchObject({
+      colorSpace: 'oklch',
+      components: expect.arrayContaining([expect.any(Number)]),
+    });
   });
 
   it('includes strata-token extension', () => {
