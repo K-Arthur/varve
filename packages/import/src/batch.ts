@@ -97,12 +97,35 @@ export function batchImport(
         const cloneSource = { ...importResult.document, nextId: doc.nextId };
         const cloned = deepCloneSubtree(cloneSource, nid);
         if (Object.keys(cloned.nodes).length === 0) continue;
-        doc = {
-          ...doc,
-          nextId: cloned.nextId,
-          rootChildren: [...doc.rootChildren, cloned.rootId],
-          nodes: { ...doc.nodes, ...cloned.nodes },
-        };
+        // For paged documents, add to the active page's contentRoot so the
+        // node is visible to the page-scoped renderer. Adding to rootChildren
+        // bypasses the page system and the node is never traversed.
+        const activePage = doc.pages?.find((p) => p.id === doc.activePageId);
+        const contentRootId = activePage?.contentRoot;
+        if (contentRootId && doc.nodes[contentRootId]) {
+          const cr = doc.nodes[contentRootId] as { children?: string[] };
+          const crChildren = cr.children ?? [];
+          doc = {
+            ...doc,
+            nextId: cloned.nextId,
+            rootChildren: doc.rootChildren,
+            nodes: {
+              ...doc.nodes,
+              ...cloned.nodes,
+              [contentRootId]: {
+                ...doc.nodes[contentRootId],
+                children: [...crChildren, cloned.rootId],
+              } as typeof doc.nodes[string],
+            },
+          };
+        } else {
+          doc = {
+            ...doc,
+            nextId: cloned.nextId,
+            rootChildren: [...doc.rootChildren, cloned.rootId],
+            nodes: { ...doc.nodes, ...cloned.nodes },
+          };
+        }
         for (const [oldId, newId] of cloned.idMap) idMap.set(oldId, newId);
         nodeIds.push(cloned.rootId);
       }
