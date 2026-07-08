@@ -285,7 +285,7 @@
   box-shadow: var(--shadow-lg);
 }
 .strata-dialog::backdrop {
-  background: oklch(0 0 0 / 0.4);
+  background: var(--elevation-scrim);
 }
 .strata-dialog__header {
   display: flex;

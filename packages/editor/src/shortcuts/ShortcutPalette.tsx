@@ -1,5 +1,6 @@
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   captureKeyCombo,
   clearAllOverrides,
@@ -13,6 +14,7 @@ import {
   setOverride,
 } from './ShortcutManager';
 import type { ShortcutDef } from './types';
+import './ShortcutPalette.css';
 
 interface ShortcutPaletteProps {
   open: boolean;
@@ -186,129 +188,37 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
   if (!open) return null;
 
   const hasOverrides = Object.keys(getOverrides()).length > 0;
-
-  const rowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    width: '100%',
-    padding: 'var(--space-1) var(--space-2)',
-    border: 'none',
-    borderRadius: 0,
-    background: 'none',
-    color: 'var(--color-text-primary)',
-    font: 'inherit',
-    fontSize: 'var(--font-size-sm)',
-    textAlign: 'left',
-    cursor: 'pointer',
-    gap: 'var(--space-1)',
-  };
-
-  const comboStyle: React.CSSProperties = {
-    fontSize: 'var(--font-size-xs)',
-    color: 'var(--color-text-muted)',
-    background: 'var(--color-surface-sunken)',
-    padding: '1px 6px',
-    borderRadius: 'var(--radius-sm)',
-    fontFamily: 'var(--font-mono, monospace)',
-    whiteSpace: 'nowrap',
-  };
-
-  const btnStyle: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 22,
-    height: 22,
-    border: 'none',
-    borderRadius: 'var(--radius-sm)',
-    background: 'none',
-    color: 'var(--color-text-muted)',
-    cursor: 'pointer',
-    padding: 0,
-    flexShrink: 0,
-  };
-
-  const sectionHeaderStyle: React.CSSProperties = {
-    padding: 'var(--space-1) var(--space-2)',
-    fontSize: 'var(--font-size-xs)',
-    fontWeight: 600,
-    color: 'var(--color-text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    background: 'var(--color-surface-sunken)',
-    borderBottom: '1px solid var(--color-border-subtle)',
-  };
-
   const groupEntries = Object.entries(filtered);
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-label="Command palette"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        display: 'flex',
-        justifyContent: 'center',
-        paddingTop: '10vh',
-        background: 'rgba(0,0,0,0.3)',
-      }}
+      className="shortcut-palette"
       onClick={(e) => {
         if (e.target === e.currentTarget && !remappingId) onClose();
       }}
       onKeyDown={handleKey}
       ref={paletteRef}
     >
-      <div
-        style={{
-          width: 420,
-          maxHeight: 400,
-          background: 'var(--color-surface-raised)',
-          border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-md)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* ── Top bar: Search + actions ── */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-1)',
-            padding: 'var(--space-1)',
-            borderBottom: '1px solid var(--color-border-subtle)',
-            background: 'var(--color-surface-sunken)',
-          }}
-        >
+      <div className="shortcut-palette__panel">
+        <div className="shortcut-palette__toolbar">
           <input
             ref={inputRef}
             type="text"
+            className="shortcut-palette__search"
             placeholder="Search commands\u2026"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search commands"
             disabled={!!remappingId}
-            style={{
-              flex: 1,
-              padding: 'var(--space-1) var(--space-2)',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--color-text-primary)',
-              font: 'inherit',
-              fontSize: 'var(--font-size-sm)',
-              outline: 'none',
-            }}
           />
-          <button type="button" style={btnStyle} onClick={handleExport} title="Export keymap">
+          <button type="button" className="shortcut-palette__btn" onClick={handleExport} title="Export keymap">
             <Icon name={CHROME_ICONS.download} />
           </button>
           <button
             type="button"
-            style={btnStyle}
+            className="shortcut-palette__btn"
             onClick={() => fileRef.current?.click()}
             title="Import keymap"
           >
@@ -317,73 +227,37 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
           {hasOverrides && (
             <button
               type="button"
-              style={btnStyle}
+              className="shortcut-palette__btn"
               onClick={handleResetAll}
               title="Reset all to defaults"
             >
               <Icon name={CHROME_ICONS.rotateCcw} />
             </button>
           )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json"
-            style={{ display: 'none' }}
-            onChange={handleImport}
-          />
+          <input ref={fileRef} type="file" accept=".json" hidden onChange={handleImport} />
         </div>
 
-        {/* ── Toast ── */}
         {toast && (
-          <div
-            style={{
-              padding: 'var(--space-1) var(--space-2)',
-              fontSize: 'var(--font-size-xs)',
-              color: 'var(--color-text-primary)',
-              background: 'var(--color-accent-subtle, var(--color-interactive-default))',
-              borderBottom: '1px solid var(--color-border-subtle)',
-            }}
-            role="status"
-            aria-live="polite"
-          >
+          <div className="shortcut-palette__toast" role="status" aria-live="polite">
             {toast}
           </div>
         )}
 
-        {/* ── Remap capture indicator ── */}
         {remappingId && (
-          <div
-            style={{
-              padding: 'var(--space-1) var(--space-2)',
-              fontSize: 'var(--font-size-sm)',
-              color: 'var(--color-accent)',
-              background: 'var(--color-accent-subtle, var(--color-interactive-default))',
-              borderBottom: '1px solid var(--color-border-subtle)',
-            }}
-          >
+          <div className="shortcut-palette__remap-hint">
             Press new shortcut for &quot;
             {SHORTCUT_DEFS[remappingId as keyof typeof SHORTCUT_DEFS]?.label ?? remappingId}&quot;
             (Esc to cancel)
           </div>
         )}
 
-        {/* ── Shortcut list ── */}
-        <div style={{ overflowY: 'auto', flex: 1 }}>
+        <div className="shortcut-palette__list">
           {groupEntries.length === 0 && (
-            <div
-              style={{
-                padding: 'var(--space-3)',
-                color: 'var(--color-text-muted)',
-                fontSize: 'var(--font-size-sm)',
-                textAlign: 'center',
-              }}
-            >
-              No commands match
-            </div>
+            <div className="shortcut-palette__empty">No commands match</div>
           )}
           {groupEntries.map(([group, items]) => (
             <div key={group}>
-              <div style={sectionHeaderStyle}>{group}</div>
+              <div className="shortcut-palette__group-header">{group}</div>
               {items.map(({ id, def }) => {
                 const isRemapping = remappingId === id;
                 const binding = getEffectiveBinding(id);
@@ -394,20 +268,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
                     role="option"
                     aria-selected={false}
                     tabIndex={0}
-                    style={{
-                      ...rowStyle,
-                      background: isRemapping
-                        ? 'var(--color-accent-subtle, var(--color-interactive-default))'
-                        : undefined,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isRemapping)
-                        (e.currentTarget as HTMLElement).style.background =
-                          'var(--color-interactive-default)';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isRemapping) (e.currentTarget as HTMLElement).style.background = 'none';
-                    }}
+                    className={`shortcut-palette__row${isRemapping ? ' shortcut-palette__row--remapping' : ''}`}
                     onClick={() => handleRowClick(id)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -416,27 +277,19 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
                       }
                     }}
                   >
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {def.label}
-                    </span>
+                    <span className="shortcut-palette__row-label">{def.label}</span>
                     {isRemapping ? (
-                      <span
-                        style={{
-                          ...comboStyle,
-                          color: 'var(--color-accent)',
-                          background: 'transparent',
-                        }}
-                      >
+                      <span className="shortcut-palette__combo shortcut-palette__combo--active">
                         Press key\u2026
                       </span>
                     ) : (
-                      <span style={comboStyle}>
+                      <span className="shortcut-palette__combo">
                         {binding?.key ? formatShortcut(binding) : '\u2014'}
                       </span>
                     )}
                     <button
                       type="button"
-                      style={btnStyle}
+                      className="shortcut-palette__btn"
                       onClick={(e) => handleRemapClick(id, e)}
                       title="Remap shortcut"
                       disabled={isRemapping}
@@ -445,7 +298,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
                     </button>
                     <button
                       type="button"
-                      style={btnStyle}
+                      className="shortcut-palette__btn"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleResetOne(id);
@@ -462,6 +315,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

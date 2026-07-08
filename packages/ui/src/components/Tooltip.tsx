@@ -138,7 +138,7 @@ export function Tooltip({
             position: 'fixed',
             left: posStyle?.left ?? 0,
             top: posStyle?.top ?? 0,
-            zIndex: 9999,
+            zIndex: 'var(--z-tooltip)' as unknown as number,
             pointerEvents: 'none',
             maxWidth,
           }}

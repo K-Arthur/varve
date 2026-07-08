@@ -32,6 +32,8 @@ export type { AlertDialogProps, DialogProps } from './Dialog';
 export { AlertDialog, Dialog } from './Dialog';
 export type { EmptyStateProps } from './EmptyState';
 export { EmptyState } from './EmptyState';
+export type { FloatingPortalProps } from './FloatingPortal';
+export { FloatingPortal } from './FloatingPortal';
 export type { IconButtonProps } from './IconButton';
 export { IconButton } from './IconButton';
 export type {
