@@ -266,7 +266,7 @@
 
 ## Files Created/Modified
 
-**New Files:**
+**New Files (Committed - 4ab098d):**
 - `docs/plans/website-product-truth-matrix.md` - Phase A deliverable
 - `docs/plans/website-research-findings.md` - Phase B deliverable
 - `docs/plans/website-strategy.md` - Phase C deliverable
@@ -284,6 +284,8 @@
 - `apps/website/src/pages/docs.astro` - Documentation hub
 - `apps/website/src/pages/support.astro` - Support hub
 - `apps/website/src/pages/contribute.astro` - Contribution hub
+- `pnpm-lock.yaml` - Updated with website dependencies
+- `pnpm-workspace.yaml` - Updated with apps/website
 
 **Next Files to Create:**
 - Feature chapter pages (7 pages in `/features/`)
@@ -360,5 +362,5 @@
 ---
 
 **Last Updated:** 2026-07-08  
-**Last Action:** Created basic page structure (homepage, download, product, about, docs, support, contribute)  
+**Last Action:** Committed and pushed Phase A-C work to origin/master (commit 4ab098d)  
 **Current Phase:** D (Foundations) - 65% complete
