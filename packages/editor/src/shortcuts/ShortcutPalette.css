@@ -1,0 +1,156 @@
+/* Shortcut palette — Neo-Bento command overlay (token-styled) */
+
+.shortcut-palette {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  justify-content: center;
+  padding-top: 10vh;
+  background: var(--elevation-scrim);
+  font-family: var(--font-body);
+}
+
+.shortcut-palette__panel {
+  width: 26.25rem;
+  max-height: 25rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--elevation-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-shadow-overlay);
+}
+
+.shortcut-palette__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-bottom: var(--border-micro);
+  background: var(--elevation-surface-sunken);
+}
+
+.shortcut-palette__search {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+
+.shortcut-palette__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.shortcut-palette__btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.shortcut-palette__toast,
+.shortcut-palette__remap-hint {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  background: var(--color-accent-subtle);
+  border-bottom: var(--border-micro);
+}
+
+.shortcut-palette__remap-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent-primary);
+}
+
+.shortcut-palette__list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.shortcut-palette__empty {
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.shortcut-palette__group-header {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide, 0.04em);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: var(--elevation-surface-sunken);
+  border-bottom: var(--border-micro);
+}
+
+.shortcut-palette__row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  gap: var(--space-1);
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.shortcut-palette__row:hover,
+.shortcut-palette__row:focus-visible {
+  background: var(--color-surface-hover);
+  outline: none;
+}
+
+.shortcut-palette__row--remapping {
+  background: var(--color-accent-subtle);
+}
+
+.shortcut-palette__row-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shortcut-palette__combo {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--elevation-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-1);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.shortcut-palette__combo--active {
+  color: var(--color-accent-primary);
+  background: transparent;
+  border-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shortcut-palette__row {
+    transition: none;
+  }
+}
