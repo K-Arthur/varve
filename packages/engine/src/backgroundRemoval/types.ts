@@ -1,3 +1,6 @@
+/** Default downscale cap for AI inference (mask is upscaled to source dimensions). */
+export const DEFAULT_PREVIEW_MAX_DIMENSION = 2048;
+
 export type RemovalMethod = 'quick' | 'ai-balanced' | 'ai-quality';
 
 export type ModelState = 'unavailable' | 'downloading' | 'ready' | 'error';
