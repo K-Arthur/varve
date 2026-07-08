@@ -397,8 +397,6 @@ export function CanvasArea({
   stateRef.current = state;
   const editorRef = useRef(editor);
   editorRef.current = editor;
-  // Track held keyboard modifier keys for bypass/reparent control during drag.
-  const heldKeysRef = useRef(new Set<string>());
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const subtreeIrCacheRef = useRef(new SubtreeIrCache());
   const prevDrawDocRef = useRef(state.document);
@@ -1451,6 +1449,47 @@ export function CanvasArea({
         ctx.lineTo(wx2, wy2);
         ctx.stroke();
         yPos += gapY;
+      }
+    }
+
+    // ── Frame drag-over highlight ──────────────────────────────────────
+    // Highlight the frame under the draft shape's center during drag.
+    if (draft) {
+      const cx = 'x1' in draft
+        ? (draft.x1 + draft.x2) / 2
+        : 'x' in draft ? draft.x + (draft.w ?? 0) / 2 : 0;
+      const cy = 'y1' in draft
+        ? (draft.y1 + draft.y2) / 2
+        : 'y' in draft ? draft.y + (draft.h ?? 0) / 2 : 0;
+      const highlightFrameId = editorRef.current.findContainingFrame({ x: cx, y: cy });
+      if (highlightFrameId) {
+        const frameNode = doc.nodes[highlightFrameId];
+        if (frameNode && frameNode.kind === 'frame') {
+          const frameWorld = getCachedWorldTransform(cache, doc, highlightFrameId);
+          const fw = frameNode.w;
+          const fh = frameNode.h;
+          if (frameWorld) {
+            const [a, b, c, d, e2, f2] = frameWorld;
+            ctx.save();
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 2 / s.zoom;
+            ctx.setLineDash([6 / s.zoom, 4 / s.zoom]);
+            ctx.beginPath();
+            const corners = [
+              [0, 0], [fw, 0], [fw, fh], [0, fh],
+            ] as const;
+            for (let i = 0; i < corners.length; i++) {
+              const [lx, ly] = corners[i]!;
+              const wx = a * lx + c * ly + e2;
+              const wy = b * lx + d * ly + f2;
+              if (i === 0) ctx.moveTo(wx, wy);
+              else ctx.lineTo(wx, wy);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
       }
     }
 
