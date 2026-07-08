@@ -18,5 +18,8 @@
   "dependencies": {
     "@strata/engine": "workspace:*",
     "@strata/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@webgpu/types": "^0.1.71"
   }
 }
