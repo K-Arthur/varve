@@ -88,6 +88,59 @@
 
 ## Phase D: Foundations ✅ COMPLETED
 
+## Phase E: Core Product Experience ✅ COMPLETED
+
+**Date:** 2026-07-08  
+**Status:** Complete
+
+**Completed:**
+- ✅ Homepage with hero, features preview, story section, download CTA
+- ✅ Product overview page with audience grid
+- ✅ About page with solo-developer story
+- ✅ All core pages use honest language based on Product Truth Matrix
+- ✅ Logo updated to use correct Strata branding (three parallelogram strata planes)
+
+**Remaining:**
+- None
+
+---
+
+## Phase F: Download System ✅ COMPLETED
+
+**Date:** 2026-07-08  
+**Status:** Complete
+
+**Completed:**
+- ✅ Download page with platform tabs (Linux, macOS, Windows)
+- ✅ Platform-specific package options (AppImage, deb, rpm, dmg, msi)
+- ✅ System requirements for each platform
+- ✅ Release information section
+- ✅ Download integrity notice (checksums to be added with stable release)
+- ✅ Source link to GitHub
+
+**Remaining:**
+- None (checksums will be added with first stable release)
+
+---
+
+## Phase G: Ecosystem ✅ COMPLETED
+
+**Date:** 2026-07-08  
+**Status:** Complete
+
+**Completed:**
+- ✅ Documentation hub with sections (Getting Started, Tools & Features, Reference, Technical)
+- ✅ Documentation sub-pages: getting-started, keyboard-shortcuts
+- ✅ Support hub with self-service resources, community support, bug reporting
+- ✅ Support sub-pages: faq, troubleshooting, known-issues, report-issue
+- ✅ Contribute page with contribution types, getting started, AGPL
+- ✅ Support-project page with GitHub Sponsors tiers
+- ✅ Releases page with current version info
+- ✅ Learn section: tutorials, examples, community hub
+
+**Remaining:**
+- None
+
 **Date:** 2026-07-08  
 **Status:** Complete
 
@@ -365,5 +418,5 @@
 ---
 
 **Last Updated:** 2026-07-08  
-**Last Action:** Added favicon and OG image placeholders, marked Phase D complete  
-**Current Phase:** D (Foundations) - 100% complete
+**Last Action:** Updated logo to correct Strata branding, marked phases E-G complete  
+**Current Phase:** H (Hardening) - In Progress
