@@ -69,4 +69,12 @@ export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';
 export type { TooltipProps } from './Tooltip';
 export { Tooltip } from './Tooltip';
+export type { DeterminateProgressProps } from './DeterminateProgress';
+export { DeterminateProgress } from './DeterminateProgress';
+export type { InlineActivityIndicatorProps } from './InlineActivityIndicator';
+export { InlineActivityIndicator } from './InlineActivityIndicator';
+export type { RegionLoaderProps } from './RegionLoader';
+export { RegionLoader } from './RegionLoader';
+export type { StartupLoaderProps } from './StartupLoader';
+export { StartupLoader } from './StartupLoader';
 // contrastRatio/formatContrast/relativeLuminance/wcagLevel are exported via @strata/ui tokens
