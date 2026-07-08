@@ -691,7 +691,8 @@
   }
 
   .editor__layers-panel,
-  .editor__inspector-panel {
+  .editor__inspector-panel,
+  .editor__library-panel {
     position: fixed;
     top: 0;
     z-index: var(--z-overlay);
@@ -707,8 +708,15 @@
     right: 0;
     transform: translateX(100%);
   }
+  .editor__library-panel {
+    width: 300px;
+    right: 0;
+    transform: translateX(100%);
+    z-index: calc(var(--z-overlay) + 1);
+  }
   .editor__layers-panel[data-visible],
-  .editor__inspector-panel[data-visible] {
+  .editor__inspector-panel[data-visible],
+  .editor__library-panel[data-visible] {
     transform: translateX(0);
   }
 
@@ -756,6 +764,9 @@
 }
 .editor__fab--inspector {
   right: var(--space-3);
+}
+.editor__fab--library {
+  right: calc(var(--space-3) + 52px);
 }
 
 /* ── Container queries for panels ── */

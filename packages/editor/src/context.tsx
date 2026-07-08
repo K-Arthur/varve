@@ -80,6 +80,7 @@ import {
   getInteractionsForNode,
   getNestedValue,
   groupNodes as groupNodesDoc,
+  installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isContainer,
   makeAdjustmentNode,
@@ -233,7 +234,10 @@ function insertImportedSubtree(
   if (contentRootId && targetDoc.nodes[contentRootId]) {
     const contentRoot = targetDoc.nodes[contentRootId] as ContainerNode;
     const children = contentRoot.children ?? [];
-    const updatedContentRoot = { ...contentRoot, children: [...children, cloned.rootId] } as ContainerNode;
+    const updatedContentRoot = {
+      ...contentRoot,
+      children: [...children, cloned.rootId],
+    } as ContainerNode;
     return {
       rootId: cloned.rootId,
       doc: {
@@ -488,6 +492,10 @@ export interface EditorContextValue {
    * No-ops (and returns false) when `nodeId` isn't a component master.
    */
   publishComponentToLibrary: (nodeId: NodeId) => boolean;
+  /** Install a library from a library package into the document. */
+  installLibrary: (library: import('@strata/scene').Library) => void;
+  /** Uninstall a library by ID from the document. */
+  uninstallLibrary: (libraryId: string) => void;
   /** Enter isolation/focus view scoped to a single container's subtree. */
   enterIsolation: (nodeId: NodeId) => void;
   /** Exit isolation/focus view, returning to the normal tree. */
@@ -2870,6 +2878,24 @@ export function EditorProvider({
           );
         }
         return true;
+      },
+
+      installLibrary: (library) => {
+        updateDoc((doc) => {
+          const result = installLibraryDoc(doc, library);
+          announcerRef.current?.announce(`Installed library "${library.name}"`);
+          return result.doc;
+        });
+      },
+
+      uninstallLibrary: (libraryId) => {
+        updateDoc((doc) => {
+          const installedLibraries = (doc.installedLibraries ?? []).filter(
+            (l) => l.id !== libraryId,
+          );
+          announcerRef.current?.announce(`Uninstalled library`);
+          return { ...doc, installedLibraries };
+        });
       },
 
       enterIsolation: (nodeId) => {
