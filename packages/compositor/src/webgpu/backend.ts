@@ -1,6 +1,7 @@
 /**
  * WebGPU compositor backend — solid fills for rect/circle/line with Canvas2D fallback.
  * Lines are tessellated as thin quads; circles get a dedicated discard shader.
+ * Uses explicit pipeline layouts and a vertex buffer ring pool.
  */
 import type { RenderItem } from '@strata/engine';
 import { Canvas2DBackend } from '../canvas2d/backend';
@@ -33,9 +34,7 @@ function isGpuPrimitive(item: RenderItem): boolean {
   return k === 'rect' || k === 'circle' || k === 'line';
 }
 
-function buildVertices(
-  items: RenderItem[],
-): GpuVertex[] {
+function buildVertices(items: RenderItem[]): GpuVertex[] {
   const vertices: GpuVertex[] = [];
   for (const item of items) {
     const c = fillToRgba(item.fill);
@@ -87,6 +86,12 @@ function buildVertices(
   return vertices;
 }
 
+/** Return the smallest power of 2 >= n, clamped to 256 minimum. */
+function roundUpPow2(n: number): number {
+  if (n <= 256) return 256;
+  return 1 << (32 - Math.clz32(n - 1));
+}
+
 export class WebGPUBackend {
   readonly id = 'webgpu' as const;
   private fallback: Canvas2DBackend | null = null;
@@ -101,6 +106,8 @@ export class WebGPUBackend {
   private circleUniformBuffer: GPUBuffer | null = null;
   private cameraBindGroup: GPUBindGroup | null = null;
   private circleBindGroup: GPUBindGroup | null = null;
+  private vertexPool: Map<number, GPUBuffer> = new Map();
+  private bundleCache: Map<string, GPURenderBundle> = new Map();
   private currentFrame: CompositorFrame | null = null;
   private canvas: HTMLCanvasElement | null = null;
 
@@ -139,8 +146,40 @@ export class WebGPUBackend {
         ],
       };
 
+      // Explicit bind group layouts
+      const solidBindGroupLayout = device.createBindGroupLayout({
+        entries: [{
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: { type: 'uniform' },
+        }],
+      });
+
+      const circleBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX,
+            buffer: { type: 'uniform' },
+          },
+          {
+            binding: 1,
+            visibility: GPUShaderStage.FRAGMENT,
+            buffer: { type: 'uniform' },
+          },
+        ],
+      });
+
+      const solidPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [solidBindGroupLayout],
+      });
+
+      const circlePipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [circleBindGroupLayout],
+      });
+
       const solidPipeline = device.createRenderPipeline({
-        layout: 'auto',
+        layout: solidPipelineLayout,
         vertex: { module: solidModule, entryPoint: 'vs_main', buffers: [vertexBufferLayout] },
         fragment: {
           module: solidModule,
@@ -151,7 +190,7 @@ export class WebGPUBackend {
       });
 
       const circlePipeline = device.createRenderPipeline({
-        layout: 'auto',
+        layout: circlePipelineLayout,
         vertex: { module: circleModule, entryPoint: 'vs_main', buffers: [vertexBufferLayout] },
         fragment: {
           module: circleModule,
@@ -170,13 +209,13 @@ export class WebGPUBackend {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
 
-      // Create reusable bind groups
+      // Reusable bind groups from explicit layouts
       const cameraBindGroup = device.createBindGroup({
-        layout: solidPipeline.getBindGroupLayout(0),
+        layout: solidBindGroupLayout,
         entries: [{ binding: 0, resource: { buffer: cameraBuffer } }],
       });
-      const circleBindGroup = device.createBindGroup({
-        layout: circlePipeline.getBindGroupLayout(0),
+      const circleBg = device.createBindGroup({
+        layout: circleBindGroupLayout,
         entries: [
           { binding: 0, resource: { buffer: cameraBuffer } },
           { binding: 1, resource: { buffer: circleUniformBuffer } },
@@ -190,7 +229,7 @@ export class WebGPUBackend {
       this.cameraBuffer = cameraBuffer;
       this.circleUniformBuffer = circleUniformBuffer;
       this.cameraBindGroup = cameraBindGroup;
-      this.circleBindGroup = circleBindGroup;
+      this.circleBindGroup = circleBg;
       this.gpuReady = true;
       this.watchDeviceLost(device);
     } catch {
@@ -261,6 +300,9 @@ export class WebGPUBackend {
     this.circleUniformBuffer = null;
     this.cameraBindGroup = null;
     this.circleBindGroup = null;
+    for (const buf of this.vertexPool.values()) buf.destroy();
+    this.vertexPool.clear();
+    this.bundleCache.clear();
     this.gpuReady = false;
     this.fallback?.destroy();
     this.fallback = null;
@@ -275,8 +317,37 @@ export class WebGPUBackend {
     void device.lost.then(async () => {
       this.gpuReady = false;
       this.device = null;
+      for (const buf of this.vertexPool.values()) buf.destroy();
+      this.vertexPool.clear();
+      this.bundleCache.clear();
       if (this.deviceLostHandler) await this.deviceLostHandler();
     });
+  }
+
+  private getOrCreateVertexBuffer(device: GPUDevice, byteSize: number): GPUBuffer {
+    const rounded = roundUpPow2(byteSize);
+    let buf = this.vertexPool.get(rounded);
+    if (!buf) {
+      buf = device.createBuffer({
+        size: rounded,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      });
+      this.vertexPool.set(rounded, buf);
+    }
+    return buf;
+  }
+
+  private hashVertices(data: Float32Array): string {
+    let h = 0x811c9dc5 >>> 0;
+    const len = Math.min(data.length, 64);
+    const arr = Array.from(data);
+    for (let i = 0; i < len; i++) {
+      const v = arr[i];
+      if (v === undefined) break;
+      h ^= Math.abs(v * 0x9e3779b9 | 0) >>> 0;
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(16);
   }
 
   private drawGpuItems(items: RenderItem[], frame: CompositorFrame): void {
@@ -304,69 +375,93 @@ export class WebGPUBackend {
     const textureView = context.getCurrentTexture().createView();
     const encoder = device.createCommandEncoder();
 
-    // Write circle uniforms for each circle item, then dispatch
-    if (circleItems.length > 0 && circlePipeline && circleUniformBuffer && circleBindGroup) {
-      const circleVerts = buildVertices(circleItems);
-      if (circleVerts.length > 0) {
-        // Compute screen-space center + radius for the first circle item
-        const prim = circleItems[0].primitive;
-        if (prim.kind === 'circle') {
-          const t = circleItems[0].transform;
-          const screenCx = (t[0] * prim.cx + t[2] * prim.cy + t[4]) * camera.zoom + camera.pan.x;
-          const screenCy = (t[1] * prim.cx + t[3] * prim.cy + t[5]) * camera.zoom + camera.pan.y;
-          const screenR = prim.r * camera.zoom;
-          device.queue.writeBuffer(circleUniformBuffer, 0, new Float32Array([screenCx, screenCy, screenR, 0]));
-        }
-        const data = flattenVertices(circleVerts);
-        const vBuf = this.createAndUploadVertexBuffer(device, data);
-        this.drawWithPipeline(encoder, textureView, circlePipeline, circleBindGroup, vBuf, circleVerts.length);
-        vBuf.destroy();
-      }
-    }
-
-    if (solidItems.length > 0 && solidPipeline && cameraBindGroup) {
+    // Solid items (rect + line)
+    if (solidItems.length > 0) {
       const solidVerts = buildVertices(solidItems);
       if (solidVerts.length > 0) {
         const data = flattenVertices(solidVerts);
-        const vBuf = this.createAndUploadVertexBuffer(device, data);
-        this.drawWithPipeline(encoder, textureView, solidPipeline, cameraBindGroup, vBuf, solidVerts.length);
-        vBuf.destroy();
+        const hash = this.hashVertices(data);
+        let bundle = this.bundleCache.get(hash);
+        if (!bundle) {
+          const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
+          const bufData = data.buffer.slice(0, data.byteLength);
+          device.queue.writeBuffer(vBuf, 0, bufData);
+          const bundleEncoder = device.createRenderBundleEncoder({
+            colorFormats: [this.format],
+          });
+          bundleEncoder.setPipeline(solidPipeline);
+          bundleEncoder.setBindGroup(0, cameraBindGroup);
+          bundleEncoder.setVertexBuffer(0, vBuf);
+          bundleEncoder.draw(solidVerts.length);
+          bundle = bundleEncoder.finish();
+          this.bundleCache.set(hash, bundle);
+          if (this.bundleCache.size > 32) {
+            const key = this.bundleCache.keys().next().value;
+            if (key) this.bundleCache.delete(key);
+          }
+        }
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [{
+            view: textureView,
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+            loadOp: 'load',
+            storeOp: 'store',
+          }],
+        });
+        pass.executeBundles([bundle]);
+        pass.end();
+      }
+    }
+
+    // Circle items
+    if (circleItems.length > 0) {
+      const circleVerts = buildVertices(circleItems);
+      if (circleVerts.length > 0) {
+        const firstCircle = circleItems[0]!;
+        const prim = firstCircle.primitive;
+        if (prim.kind === 'circle') {
+          const t = firstCircle.transform;
+          const screenCx = (t[0] * prim.cx + t[2] * prim.cy + t[4]) * camera.zoom + camera.pan.x;
+          const screenCy = (t[1] * prim.cx + t[3] * prim.cy + t[5]) * camera.zoom + camera.pan.y;
+          const screenR = prim.r * camera.zoom;
+          const circleData = new Float32Array([screenCx, screenCy, screenR, 0]);
+          device.queue.writeBuffer(circleUniformBuffer, 0, circleData.buffer as ArrayBuffer);
+        }
+        const data = flattenVertices(circleVerts);
+        const hash = this.hashVertices(data);
+        let bundle = this.bundleCache.get(`circle:${hash}`);
+        if (!bundle) {
+          const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
+          const bufData = data.buffer.slice(0, data.byteLength);
+          device.queue.writeBuffer(vBuf, 0, bufData);
+          const bundleEncoder = device.createRenderBundleEncoder({
+            colorFormats: [this.format],
+          });
+          bundleEncoder.setPipeline(circlePipeline);
+          bundleEncoder.setBindGroup(0, circleBindGroup);
+          bundleEncoder.setVertexBuffer(0, vBuf);
+          bundleEncoder.draw(circleVerts.length);
+          bundle = bundleEncoder.finish();
+          this.bundleCache.set(`circle:${hash}`, bundle);
+          if (this.bundleCache.size > 32) {
+            const key = this.bundleCache.keys().next().value;
+            if (key) this.bundleCache.delete(key);
+          }
+        }
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [{
+            view: textureView,
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+            loadOp: 'load',
+            storeOp: 'store',
+          }],
+        });
+        pass.executeBundles([bundle]);
+        pass.end();
       }
     }
 
     device.queue.submit([encoder.finish()]);
-  }
-
-  private createAndUploadVertexBuffer(device: GPUDevice, data: Float32Array): GPUBuffer {
-    const buf = device.createBuffer({
-      size: data.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(buf, 0, data);
-    return buf;
-  }
-
-  private drawWithPipeline(
-    encoder: GPUCommandEncoder,
-    textureView: GPUTextureView,
-    pipeline: GPURenderPipeline,
-    bindGroup: GPUBindGroup,
-    vertexBuffer: GPUBuffer,
-    vertexCount: number,
-  ): void {
-    const pass = encoder.beginRenderPass({
-      colorAttachments: [{
-        view: textureView,
-        clearValue: { r: 0, g: 0, b: 0, a: 0 },
-        loadOp: 'load',
-        storeOp: 'store',
-      }],
-    });
-    pass.setPipeline(pipeline);
-    pass.setBindGroup(0, bindGroup);
-    pass.setVertexBuffer(0, vertexBuffer);
-    pass.draw(vertexCount);
-    pass.end();
   }
 }
 
