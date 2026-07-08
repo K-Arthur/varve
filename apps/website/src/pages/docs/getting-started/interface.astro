@@ -1,0 +1,236 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Interface Overview — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / <a href="/docs/getting-started">Getting Started</a> / Interface Overview
+      </nav>
+
+      <h1>Interface Overview</h1>
+      <p class="docs-intro">
+        Strata's editor is organized into distinct zones that together form a powerful, efficient design workspace. Each panel serves a specific purpose and can be toggled or resized to suit your workflow.
+      </p>
+
+      <section class="docs-section">
+        <h2>Shell Layout</h2>
+        <p>
+          The Strata editor uses a CSS Grid layout called the <strong>Shell</strong>. From top to bottom, left to right, the zones are:
+        </p>
+        <ul>
+          <li><strong>Menubar</strong> — the top bar with File, Edit, View, Object, and other menus</li>
+          <li><strong>Toolbar</strong> — the vertical strip on the left with all drawing and selection tools</li>
+          <li><strong>Canvas</strong> — the central workspace where you create and edit your design</li>
+          <li><strong>Layers Panel</strong> — the right sidebar showing your document's layer hierarchy</li>
+          <li><strong>Inspector Panel</strong> — the right sidebar below layers for editing properties of the selected node</li>
+          <li><strong>Status Bar</strong> — the bottom strip showing zoom level, canvas info, and toggle controls</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Menubar</h2>
+        <p>
+          The menubar provides access to all of Strata's operations through familiar dropdown menus:
+        </p>
+        <ul>
+          <li><strong>File</strong> — New document, Open, Save (Ctrl+S), Save As (Ctrl+Shift+S), Import (Ctrl+I), Export (Ctrl+E)</li>
+          <li><strong>Edit</strong> — Undo (Ctrl+Z), Redo (Ctrl+Shift+Z), Cut (Ctrl+X), Copy (Ctrl+C), Paste (Ctrl+V), Duplicate (Ctrl+D)</li>
+          <li><strong>View</strong> — Zoom controls, toggle snap, toggle pixel grid, toggle panels, canvas mode switching</li>
+          <li><strong>Object</strong> — Group (Ctrl+G), Ungroup (Ctrl+Shift+G), Arrange (bring forward/send backward), Lock, boolean operations</li>
+          <li><strong>Tools</strong> — Quick access to all drawing and editing tools</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Toolbar</h2>
+        <p>
+          The toolbar on the left side of the editor contains all of Strata's tools. Each tool has a keyboard shortcut for quick switching:
+        </p>
+        <ul>
+          <li><code>V</code> — Select tool (move, resize, rotate)</li>
+          <li><code>R</code> — Rectangle tool</li>
+          <li><code>E</code> — Ellipse tool</li>
+          <li><code>L</code> — Line tool</li>
+          <li><code>A</code> — Arrow tool</li>
+          <li><code>P</code> — Pen tool (bezier paths)</li>
+          <li><code>Shift+P</code> — Pencil tool (freehand drawing)</li>
+          <li><code>T</code> — Text tool</li>
+          <li><code>H</code> — Hand tool (pan canvas)</li>
+          <li><code>Z</code> — Zoom tool</li>
+        </ul>
+        <p>See the <a href="/docs/keyboard-shortcuts">full keyboard shortcuts reference</a> and <a href="/docs/tools/vector">Vector Tools</a> for detailed usage.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Canvas</h2>
+        <p>
+          The canvas is your primary workspace. It supports standard design tool interactions:
+        </p>
+        <ul>
+          <li><strong>Zoom</strong> — Mouse wheel to zoom in/out, anchored at cursor position. Ctrl+0 to fit, Ctrl+1 for 100%</li>
+          <li><strong>Pan</strong> — Hold Space and drag, or middle-click drag to pan the canvas</li>
+          <li><strong>View rotation</strong> — Available through View menu or status bar controls</li>
+          <li><strong>Grid overlay</strong> — Toggle pixel grid and layout grid overlays from View menu or status bar</li>
+          <li><strong>Snap</strong> — Smart snapping to edges, centers, and grid lines. Toggle with <code>,</code> key or View menu</li>
+        </ul>
+        <p>
+          The canvas uses a <strong>floating origin</strong> system that maintains numerical precision even at extreme zoom levels or when working with very large documents.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Layers Panel</h2>
+        <p>
+          The layers panel (right sidebar, top) displays your document as a hierarchical tree of nodes. Key features:
+        </p>
+        <ul>
+          <li><strong>Tree view</strong> — Expandable/collapsible hierarchy showing parent-child relationships</li>
+          <li><strong>Multi-select</strong> — Ctrl+click for disjoint selection, Shift+click for range selection</li>
+          <li><strong>Drag and drop</strong> — Reorder and reparent nodes by dragging between tree entries</li>
+          <li><strong>Filter/search</strong> — Type-ahead filtering to quickly find layers by name</li>
+          <li><strong>Inline rename</strong> — Double-click or press F2 to rename any layer</li>
+          <li><strong>Context menu</strong> — Right-click for group, duplicate, delete, arrange, and copy/paste operations</li>
+          <li><strong>Visibility and lock toggles</strong> — Eye icon to hide/show, lock icon to prevent editing</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Inspector Panel</h2>
+        <p>
+          The inspector panel (right sidebar, bottom) shows detailed properties for the selected node. It is organized into tabs:
+        </p>
+        <ul>
+          <li><strong>Properties</strong> — Position, size, rotation, corner radius, flip. Adapts to the selected node type</li>
+          <li><strong>Export</strong> — Per-node export presets and options</li>
+          <li><strong>Spec</strong> — Measurement and specification readouts for developer handoff</li>
+          <li><strong>Intelligence</strong> — Design audit, spacing harmonization, and auto-naming tools</li>
+        </ul>
+        <p>
+          The inspector includes specialized sections that appear based on selection context: fill editor, stroke settings, effects (shadows, blurs, glows), typography controls, frame presets, and more.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Status Bar</h2>
+        <p>
+          The status bar at the bottom of the editor provides at-a-glance information and quick toggles:
+        </p>
+        <ul>
+          <li>Zoom percentage with unit selector (px, pt, mm, cm, in, pc)</li>
+          <li>Pixel grid toggle</li>
+          <li>Snap toggle</li>
+          <li>Fit selection to viewport button</li>
+          <li>Canvas mode indicator (Full / Outline / Preview)</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Canvas Modes</h2>
+        <p>
+          Strata supports three canvas display modes, accessible from the View menu or status bar:
+        </p>
+        <ul>
+          <li><strong>Full</strong> — All fills, effects, and overlays rendered (default)</li>
+          <li><strong>Outline</strong> — Fills and effects stripped, uniform stroke-only display for focusing on structure</li>
+          <li><strong>Preview</strong> — All overlays hidden for a clean preview of the final design</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Next Steps</h2>
+        <p>Continue with the <a href="/docs/getting-started/first-project">Your First Project</a> tutorial to put this knowledge into practice.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

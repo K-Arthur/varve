@@ -1,0 +1,254 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Typography — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Tools / Typography
+      </nav>
+
+      <h1>Typography</h1>
+      <p class="docs-intro">
+        Strata's text system provides professional typography controls with support for variable fonts, OpenType features, multi-line text, text on path, and CJK line breaking. The text engine renders via Canvas2D for pixel-perfect display.
+      </p>
+
+      <section class="docs-section">
+        <h2>Creating Text</h2>
+        <p>
+          Press <code>T</code> to select the Text tool. Click anywhere on the canvas to create a text node at that position. Start typing immediately — the text appears on canvas as you type. Press <code>Escape</code> or click elsewhere to finish editing.
+        </p>
+        <p>
+          Strata automatically sizes the text box based on your content using <code>measureText()</code> from the canvas API. The box expands as you type, or you can create a fixed-width text area by clicking and dragging to define a bounding box.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Editing Text</h2>
+        <p>
+          There are two ways to edit existing text:
+        </p>
+        <ul>
+          <li><strong>Double-click</strong> the text node with the Select tool to enter inline editing. A positioned <code>&lt;textarea&gt;</code> overlay appears at the text's location on canvas, supporting IME input, RTL text, and keyboard navigation.</li>
+          <li><strong>Edit in Inspector</strong> — Select a text node and find the text content field in the Typography section of the Inspector. This is useful for longer text passages.</li>
+        </ul>
+        <p>
+          Press <code>Escape</code> or click away to exit edit mode.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Text Properties</h2>
+        <p>
+          The Typography section in the Inspector provides controls for every text property:
+        </p>
+
+        <h3>Font Selection</h3>
+        <p>
+          Strata's Font Registry manages font loading and fallback chains. You can use:
+        </p>
+        <ul>
+          <li><strong>System fonts</strong> — Fonts installed on your operating system</li>
+          <li><strong>Bundled fonts</strong> — Open-source fonts included with Strata via @fontsource packages</li>
+          <li><strong>Google Fonts</strong> — Load any Google Font by URL via <code>FontFace</code> API</li>
+        </ul>
+        <p>
+          The font family selector shows available fonts with their CSS fallback chain. Missing fonts trigger a visible warning in the Typography section.
+        </p>
+
+        <h3>Size and Weight</h3>
+        <ul>
+          <li><strong>Font Size</strong> — Numeric input with drag-to-scrub</li>
+          <li><strong>Font Weight</strong> — Numeric value (100-900) or named weight selector (Thin through Black)</li>
+          <li><strong>Font Style</strong> — Normal, Italic, or Oblique</li>
+        </ul>
+
+        <h3>Alignment and Spacing</h3>
+        <ul>
+          <li><strong>Text Align</strong> — Left, Center, Right, Justify</li>
+          <li><strong>Text Align Vertical</strong> — Top, Middle, Bottom</li>
+          <li><strong>Line Height</strong> — Multiplier (e.g., 1.5) or absolute value</li>
+          <li><strong>Letter Spacing</strong> — Per-glyph spacing in pixels</li>
+          <li><strong>Paragraph Spacing</strong> — Additional space between paragraphs</li>
+        </ul>
+
+        <h3>Case and Decoration</h3>
+        <ul>
+          <li><strong>Text Case</strong> — Uppercase, Lowercase, Capitalize (Title Case), or Normal</li>
+          <li><strong>Text Decoration</strong> — Underline, Line-through, or None</li>
+          <li><strong>Text Overflow</strong> — Clip (hide overflow) or Ellipsis (show "...")</li>
+        </ul>
+
+        <h3>Lists</h3>
+        <p>
+          Text nodes can render as lists with <strong>List Style</strong> options: Disc, Decimal, Circle, or Square. Strata handles list item numbering and bullet rendering automatically.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>OpenType Features</h2>
+        <p>
+          For fonts that support them, Strata exposes OpenType feature toggles in a collapsible section:
+        </p>
+        <ul>
+          <li><code>liga</code> — Standard ligatures</li>
+          <li><code>kern</code> — Kerning</li>
+          <li><code>salt</code> — Stylistic alternates</li>
+          <li><code>ss01</code> through <code>ss20</code> — Stylistic sets</li>
+          <li>And other common features (calt, dlig, frac, sups, subs, onum, lnum, pnum, tnum, zero)</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Variable Fonts</h2>
+        <p>
+          Strata supports variable fonts with full axis control. When a variable font is selected, the Typography section shows a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes are determined by the font's <code>fvar</code> table.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Text on Path</h2>
+        <p>
+          Text can be placed along any vector path. This feature uses adaptive Simpson integration to compute accurate arc-length parameters for cubic bezier curves. To use text on path:
+        </p>
+        <ol>
+          <li>Create a path using the Pen or Pencil tool</li>
+          <li>Create a text node</li>
+          <li>In the Typography section, select the path node as the <strong>Path Shape</strong> reference</li>
+          <li>The text renders along the path with per-glyph positioning and rotation</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Text Measurement</h2>
+        <p>
+          Strata uses real canvas <code>measureText()</code> for accurate text metrics, falling back to content-length estimation only in non-DOM environments. The measurement system powers:
+        </p>
+        <ul>
+          <li>Auto-sizing text boxes</li>
+          <li>Multi-line text wrapping with line height and paragraph spacing</li>
+          <li>Ellipsis overflow detection</li>
+          <li>Vertical alignment calculations</li>
+          <li>CJK line breaking via <code>Intl.Segmenter</code> for word-boundary-aware wrapping</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href="/docs/tools/color">Color & Effects</a> for styling text with fills and effects, or <a href="/docs/tools/export">Export</a> for generating code with typography preserved.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul, .docs-section ol {
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  .docs-section ol li {
+    counter-increment: item;
+    padding-left: 2.5rem;
+  }
+  .docs-section ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

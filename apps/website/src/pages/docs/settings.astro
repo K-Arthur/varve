@@ -1,0 +1,209 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Settings & Preferences — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Settings & Preferences
+      </nav>
+
+      <h1>Settings & Preferences</h1>
+      <p class="docs-intro">
+        Strata's settings panel allows you to customize the editor behavior, appearance, export defaults, and auto-save configuration. Settings are persisted to localStorage and sync across sessions.
+      </p>
+
+      <section class="docs-section">
+        <h2>Opening Settings</h2>
+        <p>
+          Access settings from the menubar: <strong>File &gt; Settings</strong> (or press the keyboard shortcut if configured). The settings dialog has two tabs:
+        </p>
+        <ul>
+          <li><strong>Appearance</strong> — Theme, grid, and snap preferences</li>
+          <li><strong>Export</strong> — Default export format, scale, ICC profile, bleed, and text outlining</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Appearance Settings</h2>
+
+        <h3>Theme</h3>
+        <p>
+          Strata ships with three complete themes, each audited for WCAG AA contrast compliance (96/96 token pairs verified):
+        </p>
+        <ul>
+          <li><strong>Light</strong> — Clean white-based interface with teal accent</li>
+          <li><strong>Dark</strong> — Dark background with lighter-on-dark hierarchy (front-lit: higher surfaces are brighter)</li>
+          <li><strong>High Contrast</strong> — Maximum contrast mode for accessibility, with distinctive colors per layer type (e.g., purple for image layers)</li>
+        </ul>
+        <p>
+          All themes use OKLCH color space for perceptually uniform color ramps. The 12-step neutral and teal ramps ensure consistent contrast across every surface and text combination.
+        </p>
+
+        <h3>Canvas Grid</h3>
+        <ul>
+          <li><strong>Pixel Grid</strong> — Toggle the pixel-level grid overlay on the canvas</li>
+          <li><strong>Layout Grid</strong> — Toggle layout grid overlay for alignment reference</li>
+        </ul>
+
+        <h3>Snap</h3>
+        <ul>
+          <li><strong>Snap to Grid</strong> — Snap objects to the grid lines and intersections</li>
+          <li><strong>Snap to Objects</strong> — Snap to edges and centers of other objects (smart snapping)</li>
+          <li><strong>Snap threshold</strong> — Distance in pixels within which snapping activates</li>
+        </ul>
+
+        <h3>Canvas Mode</h3>
+        <p>
+          The default canvas mode on startup: Full (all fills and effects), Outline (structure-only), or Preview (clean display).
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export Settings</h2>
+
+        <h3>Default Format</h3>
+        <p>
+          Choose the default export format: PNG, SVG, or PDF. This preselected option appears first in the Export dialog.
+        </p>
+
+        <h3>Scale</h3>
+        <p>
+          Default raster export scale: 1x, 2x, or 3x. Higher scales produce larger images suitable for Retina/HiDPI displays.
+        </p>
+
+        <h3>PDF Export Defaults</h3>
+        <ul>
+          <li><strong>ICC Profile</strong> — Default color profile for PDF output (sRGB, Adobe RGB, Fogra39, GRACoL, SWOP)</li>
+          <li><strong>Bleed</strong> — Default bleed width in mm for print documents</li>
+          <li><strong>Outline Text</strong> — Whether to convert text to vector paths by default in PDF output</li>
+          <li><strong>Rendering Intent</strong> — Perceptual, Relative Colorimetric, Absolute Colorimetric, or Saturation</li>
+          <li><strong>Color Profile</strong> — Document color space for PDF (RGB or CMYK)</li>
+        </ul>
+
+        <h3>Naming</h3>
+        <p>
+          Configure the output file naming template. Use variables like <code>&lcub;name&rcub;</code>, <code>&lcub;format&rcub;</code>, <code>&lcub;scale&rcub;</code> to create consistent naming patterns.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Auto-Save Configuration</h2>
+        <p>
+          Strata includes a robust auto-save system that protects your work:
+        </p>
+        <ul>
+          <li><strong>Interval</strong> — How often auto-save runs (default: 5 minutes, configurable 1-30 minutes)</li>
+          <li><strong>Save on visibility change</strong> — Auto-saves when you switch tabs or minimize the window</li>
+          <li><strong>Save on page hide</strong> — Last-chance save before the page unloads</li>
+          <li><strong>Recovery points</strong> — Automatic recovery snapshots created periodically, kept for up to 7 days</li>
+        </ul>
+        <p>
+          The auto-save service uses an idle-driven architecture: it debounces rapid edits and only saves when the document has actually changed. A concurrency guard prevents overlapping save operations, and retry with exponential backoff handles transient failures gracefully. The service state machine transitions between idle, saving, and error states.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Resetting Settings</h2>
+        <p>
+          If you need to start fresh, the settings dialog includes a "Reset to Defaults" button. This restores all settings to their factory defaults without affecting your documents.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href="/docs/file-formats">File Formats</a> for export format details, or <a href="/docs/getting-started/interface">Interface Overview</a> for editor layout.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

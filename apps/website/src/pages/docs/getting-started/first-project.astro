@@ -1,0 +1,284 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Your First Project — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / <a href="/docs/getting-started">Getting Started</a> / Your First Project
+      </nav>
+
+      <h1>Your First Project</h1>
+      <p class="docs-intro">
+        Follow along to create your first design in Strata. This step-by-step tutorial covers creating a document, adding shapes, editing properties, working with layers, and exporting your work.
+      </p>
+
+      <section class="docs-section">
+        <h2>1. Create a New Document</h2>
+        <p>
+          Launch Strata and you'll see the home screen. Click <strong>"New Document"</strong> to open the New File dialog.
+        </p>
+        <p>
+          Strata gives you two paths:
+        </p>
+        <ul>
+          <li><strong>Blank canvas</strong> — Start from scratch with a custom width and height</li>
+          <li><strong>Print presets</strong> — Choose A4, A3, or Letter with optional CMYK color mode and bleed</li>
+        </ul>
+        <p>
+          For this tutorial, choose a custom blank canvas at 800 &times; 600 pixels. Name it "My First Design" and click Create.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>2. Add Shapes</h2>
+        <p>
+          With your document open, you'll see the editor interface. Let's add some shapes:
+        </p>
+        <ol>
+          <li>
+            <strong>Rectangle:</strong> Press <code>R</code> to select the Rectangle tool. Click and drag on the canvas to draw a rectangle. Release when you're happy with the size.
+          </li>
+          <li>
+            <strong>Ellipse:</strong> Press <code>E</code> to switch to the Ellipse tool. Click and drag to draw a circle or ellipse.
+          </li>
+          <li>
+            <strong>Text:</strong> Press <code>T</code> for the Text tool. Click on the canvas and start typing. Press Escape when done.
+          </li>
+        </ol>
+        <p>
+          At this point, your document should have three nodes visible in the Layers Panel on the right.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>3. Select and Move</h2>
+        <p>
+          Press <code>V</code> to return to the Select tool:
+        </p>
+        <ul>
+          <li><strong>Click</strong> on a shape to select it. You'll see blue selection handles appear.</li>
+          <li><strong>Drag</strong> the shape to move it around the canvas.</li>
+          <li><strong>Drag handles</strong> at corners and edges to resize the shape.</li>
+          <li><strong>Drag outside</strong> a corner handle to rotate.</li>
+          <li><strong>Shift+click</strong> to add to your selection, or drag a marquee around multiple shapes.</li>
+          <li>Use <strong>arrow keys</strong> to nudge selected shapes by 1 pixel (Shift+arrow for 10 pixels).</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>4. Edit Properties</h2>
+        <p>
+          With a shape selected, look at the Inspector Panel on the right side. Here you can edit:
+        </p>
+        <ul>
+          <li><strong>Position & Size</strong> — Numeric fields for x, y, width, height, and rotation. Type values or drag to scrub.</li>
+          <li><strong>Fill</strong> — Click the fill swatch to open the color picker. Choose a solid color, gradient, or image fill.</li>
+          <li><strong>Stroke</strong> — Add a border with configurable weight, color, dash pattern, cap style, and join style.</li>
+          <li><strong>Effects</strong> — Add drop shadows, inner shadows, layer blur, background blur, or glow effects.</li>
+          <li><strong>Corner Radius</strong> — For rectangles, set uniform or per-corner rounding.</li>
+        </ul>
+        <p>
+          Try giving your rectangle a teal fill and your ellipse a sandstone fill. Add a subtle drop shadow to the rectangle via the Effects section.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>5. Work with Layers</h2>
+        <p>
+          The Layers Panel shows all three shapes in a list. Layers are painted from bottom to top:
+        </p>
+        <ul>
+          <li><strong>Reorder:</strong> Drag a layer up or down to change its stacking order.</li>
+          <li><strong>Rename:</strong> Double-click a layer name and type a new name.</li>
+          <li><strong>Group:</strong> Select multiple layers, press <code>Ctrl+G</code> to group them. The group can be moved and transformed as a unit.</li>
+          <li><strong>Duplicate:</strong> Select a layer and press <code>Ctrl+D</code> to duplicate it.</li>
+        </ul>
+        <p>
+          Group the rectangle and ellipse together. Notice how the group appears as a container in the layer tree — you can expand it to see its children.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>6. Use Frame Presets</h2>
+        <p>
+          Frames are containers that clip their content. Press <code>F</code> to select the Frame tool and draw a frame around your design. With the frame selected, the Inspector shows a <strong>Frame Presets</strong> section where you can choose from common device sizes:
+        </p>
+        <ul>
+          <li>Phone (iPhone, Android common sizes)</li>
+          <li>Tablet (iPad)</li>
+          <li>Desktop (laptop, desktop monitor)</li>
+          <li>Social media cover and post sizes</li>
+          <li>Presentation sizes (16:9, 4:3)</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>7. Export</h2>
+        <p>
+          When you're ready to share your design, Strata offers multiple export options:
+        </p>
+        <ol>
+          <li>Press <code>Ctrl+E</code> or go to <strong>File &gt; Export</strong> to open the Export dialog.</li>
+          <li>Select a format:
+            <ul>
+              <li><strong>PNG</strong> — Raster image with configurable scale (1x, 2x, 3x)</li>
+              <li><strong>SVG</strong> — Vector format, editable in other tools</li>
+              <li><strong>PDF</strong> — Print-ready document</li>
+            </ul>
+          </li>
+          <li>Choose a destination and click Export.</li>
+        </ol>
+        <p>
+          You can also generate code directly from your design. See <a href="/docs/tools/export">Export & Code Generation</a> for details on React, Tailwind, Flutter, and SwiftUI output.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>8. Save Your Work</h2>
+        <p>
+          Strata's native format is <code>.strata</code>, a JSON-based document format that preserves all your design data including layers, effects, variables, and interactions.
+        </p>
+        <ul>
+          <li>Press <code>Ctrl+S</code> to save. The first time, you'll be prompted to choose a location.</li>
+          <li>Strata also auto-saves your work periodically (configurable in <a href="/docs/settings">Settings</a>).</li>
+          <li>Recovery points are created automatically, so you can restore from a previous state if needed.</li>
+        </ul>
+      </section>
+
+      <div class="docs-tip">
+        <h3>Tip: Undo and Redo</h3>
+        <p>
+          Made a mistake? <code>Ctrl+Z</code> undoes the last action. <code>Ctrl+Shift+Z</code> redoes it. Strata supports unlimited undo within a session.
+        </p>
+      </div>
+
+      <div class="docs-cta">
+        <h2>You're Ready!</h2>
+        <p>You've completed your first project. Explore the <a href="/docs/tools/vector">Vector Tools</a> guide to learn more about what Strata can do.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul, .docs-section ol {
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  .docs-section ol > li {
+    counter-increment: item;
+    padding-left: 2.5rem;
+  }
+  .docs-section ol > li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-tip {
+    background: var(--color-teal-50);
+    border: 1px solid var(--color-teal-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .docs-tip h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--color-teal-800);
+  }
+  .docs-tip p {
+    color: var(--color-teal-700);
+    line-height: 1.7;
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

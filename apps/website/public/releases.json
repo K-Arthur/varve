@@ -1,0 +1,100 @@
+{
+  "latest": {
+    "version": "0.0.0",
+    "releaseDate": "2026-07-08",
+    "description": "Pre-release development build. Core features functional: canvas rendering, vector tools, text engine, motion & prototyping, code generation, effects system.",
+    "isPrerelease": true,
+    "githubUrl": "https://github.com/strata/strata",
+    "releasesUrl": "https://github.com/strata/strata/releases",
+    "discussionsUrl": "https://github.com/strata/strata/discussions"
+  },
+  "platforms": {
+    "linux": {
+      "x86_64": {
+        "appimage": {
+          "url": "https://github.com/strata/strata/releases",
+          "size": "~200 MB",
+          "format": "AppImage",
+          "recommended": true
+        },
+        "deb": {
+          "url": "https://github.com/strata/strata/releases",
+          "size": "~180 MB",
+          "format": "deb"
+        },
+        "rpm": {
+          "url": "https://github.com/strata/strata/releases",
+          "size": "~180 MB",
+          "format": "rpm"
+        },
+        "aur": {
+          "command": "yay -S strata-desktop-bin",
+          "format": "AUR"
+        }
+      }
+    },
+    "macos": {
+      "universal": {
+        "dmg": {
+          "url": "https://github.com/strata/strata/releases",
+          "size": "~250 MB",
+          "format": "dmg",
+          "recommended": true
+        }
+      }
+    },
+    "windows": {
+      "x86_64": {
+        "msi": {
+          "url": "https://github.com/strata/strata/releases",
+          "size": "~220 MB",
+          "format": "msi",
+          "recommended": true
+        },
+        "nsis": {
+          "url": "https://github.com/strata/strata/releases",
+          "size": "~220 MB",
+          "format": "exe"
+        }
+      }
+    }
+  },
+  "systemRequirements": {
+    "linux": {
+      "os": ["CachyOS", "Arch Linux", "Ubuntu 22.04+", "Fedora", "RHEL"],
+      "cpu": "x86_64",
+      "ram": { "minimum": "4 GB", "recommended": "8 GB" },
+      "dependencies": [
+        "libwebkit2gtk-4.1-0",
+        "libgtk-3-0",
+        "libglib2.0-0",
+        "libsoup-3.0-0",
+        "librsvg2-2",
+        "libssl3",
+        "libgdk-pixbuf-2.0-0",
+        "libcairo2",
+        "libpango-1.0-0",
+        "libfontconfig1"
+      ],
+      "display": "Wayland or X11"
+    },
+    "macos": {
+      "os": "macOS 13 Ventura or later",
+      "cpu": "Intel or Apple Silicon",
+      "ram": { "minimum": "4 GB", "recommended": "8 GB" },
+      "storage": "500 MB"
+    },
+    "windows": {
+      "os": "Windows 10 or Windows 11",
+      "cpu": "x86_64",
+      "ram": { "minimum": "4 GB", "recommended": "8 GB" },
+      "storage": "500 MB"
+    }
+  },
+  "integrity": {
+    "checksums": false,
+    "codeSigning": false,
+    "notarization": false,
+    "note": "SHA256 checksums and code signing are planned for stable releases. For now, verify downloads by checking the source repository."
+  }
+}

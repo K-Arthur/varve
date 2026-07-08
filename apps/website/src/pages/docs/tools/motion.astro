@@ -1,0 +1,281 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Motion & Prototyping — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Tools / Motion & Prototyping
+      </nav>
+
+      <h1>Motion & Prototyping</h1>
+      <p class="docs-intro">
+        Strata includes a complete motion design and prototyping system. Create animations with keyframes and timelines, build interactive prototypes with triggers and actions, and export to CSS, SVG, or Lottie formats.
+      </p>
+
+      <section class="docs-section">
+        <h2>Timeline Panel</h2>
+        <p>
+          Press <code>Ctrl+Alt+T</code> to toggle the Timeline Panel. This panel is your central hub for all animation work. It consists of:
+        </p>
+        <ul>
+          <li><strong>Playback Controls</strong> — Play, pause, stop, and loop buttons with time display</li>
+          <li><strong>Timeline Ruler</strong> — Time axis with configurable zoom and scrubber head for frame-by-frame navigation</li>
+          <li><strong>Track Rows</strong> — One track per animated property, showing keyframes as diamonds on the timeline</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Keyframes and Animation Tracks</h2>
+        <p>
+          Animation in Strata is built on keyframes organized into tracks:
+        </p>
+        <ul>
+          <li><strong>Animation Track</strong> — A sequence of keyframes for a single property of a node (e.g., position, rotation, opacity)</li>
+          <li><strong>Keyframe</strong> — A snapshot of a property value at a specific point in time. Keyframes can be moved, added, and deleted on the timeline.</li>
+          <li><strong>Target reference</strong> — Each track references a target node and property path using dot notation (e.g., <code>transform.x</code>)</li>
+        </ul>
+        <p>
+          To create an animation:
+        </p>
+        <ol>
+          <li>Select a node on the canvas</li>
+          <li>In the Timeline Panel, click the "+" button to add a new track</li>
+          <li>Choose the property you want to animate (position, size, rotation, opacity, color, etc.)</li>
+          <li>Move the scrubber to a new time position</li>
+          <li>Change the property value on the canvas or in the Inspector — a keyframe is automatically created</li>
+          <li>Repeat to build up your animation</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Interpolation</h2>
+        <p>
+          Strata interpolates between keyframes using a type-safe interpolation engine that handles:
+        </p>
+        <ul>
+          <li><strong>Numeric values</strong> — Linear interpolation for position, size, rotation, opacity</li>
+          <li><strong>Colors</strong> — Interpolation in Oklab color space for perceptually uniform color transitions</li>
+          <li><strong>Arrays and objects</strong> — Recursive interpolation for complex property types</li>
+          <li><strong>Affine transforms</strong> — Decomposed interpolation for smooth transforms</li>
+          <li><strong>Path morphing</strong> — Interpolation between path shapes for shape morphing animations</li>
+        </ul>
+        <p>
+          Each keyframe has an <strong>easing function</strong> that controls the acceleration curve between keyframes. Strata supports:
+        </p>
+        <ul>
+          <li>CSS named easings (linear, ease, ease-in, ease-out, ease-in-out)</li>
+          <li>Cubic bezier curves (custom easing via control points)</li>
+          <li>Spring physics (mass-spring-damper model for natural motion)</li>
+          <li>CSS steps() function for stepped animations</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Smart Animate</h2>
+        <p>
+          Smart Animate automatically generates animations between different states of a node group. When the same node exists in two different frames with modified properties, Strata can animate the transition — interpolating position, size, rotation, color, and other animatable properties automatically.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Prototype Interactions</h2>
+        <p>
+          Strata's prototype system lets you define how screens connect and respond to user input:
+        </p>
+        <h3>Triggers</h3>
+        <p>
+          14 trigger types define what initiates an action:
+        </p>
+        <ul>
+          <li><strong>On Click / On Tap</strong> — Mouse click or touch tap</li>
+          <li><strong>On Hover</strong> — Mouse enter/exit</li>
+          <li><strong>On Drag</strong> — Drag gesture</li>
+          <li><strong>On Key Press</strong> — Keyboard input</li>
+          <li><strong>On Timer</strong> — Time-delayed trigger</li>
+          <li><strong>On Scroll</strong> — Scroll position change</li>
+          <li><strong>On Load</strong> — Screen load</li>
+          <li>And more (gesture, voice, gamepad, variable change, state machine events)</li>
+        </ul>
+
+        <h3>Actions</h3>
+        <p>
+          13 action types define what happens when a trigger fires:
+        </p>
+        <ul>
+          <li><strong>Navigate</strong> — Go to another screen (with transition)</li>
+          <li><strong>Overlay</strong> — Show or hide an overlay</li>
+          <li><strong>Animate</strong> — Start a timeline animation</li>
+          <li><strong>Toggle Variable</strong> — Set a variable value</li>
+          <li><strong>Link</strong> — Open an external URL</li>
+          <li><strong>Sound</strong> — Play audio</li>
+          <li><strong>Video</strong> — Control video playback</li>
+          <li>And more (set state, payload, custom events)</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Screen Transitions</h2>
+        <p>
+          When navigating between screens, Strata supports six transition types:
+        </p>
+        <ul>
+          <li><strong>Dissolve</strong> — Cross-fade between screens</li>
+          <li><strong>Slide</strong> — Slide in from left, right, top, or bottom</li>
+          <li><strong>Push</strong> — Push the current screen off as the new one slides in</li>
+          <li><strong>Move In</strong> — New screen slides over the current</li>
+          <li><strong>Move Out</strong> — Current screen slides away to reveal the new screen below</li>
+          <li><strong>Instant</strong> — No transition (immediate switch)</li>
+        </ul>
+        <p>
+          Each transition has configurable duration and easing. For accessibility, Strata respects <code>prefers-reduced-motion</code> and clamps durations to meet WCAG timing requirements.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Presentation Mode</h2>
+        <p>
+          Press the <strong>Present</strong> button in the menubar or Status Bar to enter fullscreen presentation mode. In this mode:
+        </p>
+        <ul>
+          <li>Navigate through prototype screens using click/tap or keyboard</li>
+          <li>Device frame overlay shows phone, tablet, or desktop bezels</li>
+          <li>Animations play in real time</li>
+          <li>Press Escape to exit</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Animation Export</h2>
+        <p>
+          Animations can be exported in three formats:
+        </p>
+        <ul>
+          <li><strong>CSS @keyframes</strong> — Standard CSS keyframe animation, compatible with any web project</li>
+          <li><strong>SVG animate</strong> — SMIL-based SVG animation embedded in SVG files</li>
+          <li><strong>Lottie JSON</strong> — Lottie format for use with Lottie-web, Lottie-iOS, and Lottie-Android</li>
+        </ul>
+        <p>
+          See <a href="/docs/tools/export">Export & Code Generation</a> for detailed export instructions.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See the <a href="/docs/tools/export">Export</a> documentation for animation export details.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul, .docs-section ol {
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  .docs-section ol li {
+    counter-increment: item;
+    padding-left: 2.5rem;
+  }
+  .docs-section ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

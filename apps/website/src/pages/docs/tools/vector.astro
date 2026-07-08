@@ -1,0 +1,261 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Vector Tools — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Tools / Vector Tools
+      </nav>
+
+      <h1>Vector Tools</h1>
+      <p class="docs-intro">
+        Strata provides a comprehensive set of vector drawing tools for creating everything from simple geometric shapes to complex bezier paths. All shape types share a unified property system for fills, strokes, and effects.
+      </p>
+
+      <section class="docs-section">
+        <h2>Basic Shape Tools</h2>
+
+        <h3>Rectangle <code>R</code></h3>
+        <p>
+          The Rectangle tool creates rectangular shapes. Click and drag on the canvas to define the rectangle's bounds. Hold <code>Shift</code> while dragging to constrain to a perfect square. After creation, you can adjust corner radius in the Inspector — set uniform rounding or control each corner independently.
+        </p>
+
+        <h3>Ellipse <code>E</code></h3>
+        <p>
+          Creates ellipses and circles. Drag to define the bounding box, or hold <code>Shift</code> to constrain to a perfect circle. Ellipses support all fill types (solid, gradient, image), strokes, and effects.
+        </p>
+
+        <h3>Line <code>L</code></h3>
+        <p>
+          Draws straight lines. Click and drag from the start point to the end point. Lines support stroke styling (weight, color, dash pattern, cap style) but not fills.
+        </p>
+
+        <h3>Arrow <code>A</code></h3>
+        <p>
+          Like the Line tool but with an arrowhead at the end point. The arrowhead scales proportionally with stroke weight. Both line and arrowhead share the same stroke styling.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Pen Tool <code>P</code></h2>
+        <p>
+          The Pen tool creates bezier paths — the foundation of precise vector illustration. It works by placing anchor points and adjusting cubic bezier control handles:
+        </p>
+        <ul>
+          <li><strong>Click</strong> to place a corner point (straight line segment)</li>
+          <li><strong>Click and drag</strong> to place a smooth point with symmetric bezier handles</li>
+          <li><strong>Hold Shift</strong> to constrain the new segment to 45-degree increments</li>
+          <li><strong>Double-click</strong> or click the first point to close the path</li>
+          <li><strong>Press Escape</strong> to complete an open path</li>
+        </ul>
+        <p>
+          After creation, switch to the <strong>Node Edit tool</strong> (double-click the path with the Select tool) to edit individual anchors and handles. In node edit mode:
+        </p>
+        <ul>
+          <li><strong>Drag</strong> an anchor point to move it</li>
+          <li><strong>Drag</strong> a bezier handle to adjust curvature</li>
+          <li><strong>Backspace</strong> to delete the selected anchor (minimum 2 points)</li>
+          <li><strong>C</strong> to toggle between corner and smooth handle types</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Pencil Tool <code>Shift+P</code></h2>
+        <p>
+          The Pencil tool enables freehand drawing. Click and drag to draw a path that follows your cursor. Behind the scenes, Strata applies two stages of refinement:
+        </p>
+        <ol>
+          <li><strong>Ramer-Douglas-Peucker simplification</strong> — Reduces collinear points while preserving shape</li>
+          <li><strong>Schneider least-squares cubic bezier fitting</strong> — Converts the simplified polyline into smooth bezier curves with automatic corner detection</li>
+        </ol>
+        <p>
+          The result is a clean, editable path with far fewer points than the raw input. You can further refine it using the Node Edit tool.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Polygon and Star Tools</h2>
+        <p>
+          The Polygon tool creates regular polygons (3 to many sides). The Star tool creates star shapes with configurable points and inner radius. Both are accessed through the shape tool group in the toolbar. After creation, you can adjust the number of sides or points in the Inspector.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Frame Tool <code>F</code></h2>
+        <p>
+          Frames are containers that clip their content. They're analogous to artboards in other design tools. Frames can contain other nodes as children and support:
+        </p>
+        <ul>
+          <li><strong>Automatic clipping</strong> — Content outside the frame bounds is hidden</li>
+          <li><strong>Frame presets</strong> — Apply device screen sizes (phone, tablet, desktop) from the Inspector</li>
+          <li><strong>Flex layout</strong> — Enable auto-layout to distribute children using CSS Flexbox rules</li>
+          <li><strong>Grid layout</strong> — Enable CSS Grid for complex responsive layouts</li>
+          <li><strong>Clip content toggle</strong> — Choose whether children are clipped to the frame boundary</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Boolean Operations</h2>
+        <p>
+          Strata supports four boolean operations for combining paths and shapes. These are accessible from the Object menu (<code>Ctrl+Alt+U</code> for Union, <code>Ctrl+Alt+S</code> for Subtract, <code>Ctrl+Alt+I</code> for Intersect, <code>Ctrl+Alt+X</code> for Exclude) or from the floating toolbar's boolean flyout when multiple shapes are selected:
+        </p>
+        <ul>
+          <li><strong>Union</strong> — Combines shapes into a single shape using the union of their areas</li>
+          <li><strong>Subtract</strong> — Removes the top shape's area from the bottom shape</li>
+          <li><strong>Intersect</strong> — Keeps only the overlapping area</li>
+          <li><strong>Exclude</strong> — Keeps non-overlapping areas (XOR)</li>
+        </ul>
+        <p>
+          Boolean operations use polygon-based Greiner-Hormann clipping for accurate results, operating on actual path geometry through adaptive bezier sampling.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Selection and Manipulation</h2>
+        <p>
+          The Select tool (<code>V</code>) is your primary tool for manipulating nodes:
+        </p>
+        <ul>
+          <li><strong>Move</strong> — Drag selected node(s) to reposition</li>
+          <li><strong>Resize</strong> — Drag corner or edge handles</li>
+          <li><strong>Rotate</strong> — Drag outside a corner handle</li>
+          <li><strong>Nudge</strong> — Arrow keys for 1px, Shift+arrow for 10px</li>
+          <li><strong>Multi-select</strong> — Shift+click or marquee drag</li>
+          <li><strong>Auto-reparent</strong> — Dragging a node into a container's bounds automatically reparents it</li>
+          <li><strong>Ctrl-bypass</strong> — Hold Ctrl during drag to suppress auto-reparenting</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Arrange Operations</h2>
+        <p>
+          Control the stacking order of nodes with the Arrange menu or keyboard shortcuts:
+        </p>
+        <ul>
+          <li><strong>Bring to Front</strong> — <code>Ctrl+Shift+]</code></li>
+          <li><strong>Bring Forward</strong> — <code>Ctrl+]</code></li>
+          <li><strong>Send Backward</strong> — <code>Ctrl+[</code></li>
+          <li><strong>Send to Back</strong> — <code>Ctrl+Shift+[</code></li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>Learn about <a href="/docs/tools/color">fills, strokes, and effects</a> or <a href="/docs/tools/typography">text and typography</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul, .docs-section ol {
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  .docs-section ol li {
+    counter-increment: item;
+    padding-left: 2.5rem;
+  }
+  .docs-section ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

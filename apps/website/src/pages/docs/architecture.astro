@@ -1,0 +1,244 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Architecture Overview — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Architecture Overview
+      </nav>
+
+      <h1>Architecture Overview</h1>
+      <p class="docs-intro">
+        Strata is a local-first, cross-platform design suite with a native Rust engine powering the rendering pipeline. Desktop builds use Tauri 2, while the web version uses WebAssembly behind the same facade. This document describes the high-level architecture and data flow.
+      </p>
+
+      <section class="docs-section">
+        <h2>Philosophy: Local-First by Default</h2>
+        <p>
+          Strata is designed to work fully offline with no cloud dependency. Your designs never leave your machine unless you explicitly export them. This is a core architectural commitment:
+        </p>
+        <ul>
+          <li>All computation happens locally (native Rust engine or WASM in the browser)</li>
+          <li>Documents are saved as local files (.strata format)</li>
+          <li>No telemetry, no cloud sync (optional collaboration is planned but opt-in)</li>
+          <li>Full functionality with no internet connection</li>
+          <li>Your data is yours — no lock-in, no subscription</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Technology Stack</h2>
+        <p>
+          Strata uses a layered architecture with clear boundaries:
+        </p>
+        <ul>
+          <li><strong>Frontend:</strong> TypeScript + React 19, running in a Tauri 2 WebView (desktop) or directly in the browser (web)</li>
+          <li><strong>Backend Engine:</strong> Rust crate <code>strata-engine</code>, compiled as native binary on desktop or as WASM for web</li>
+          <li><strong>Desktop Shell:</strong> Tauri 2 with GTK/WebKitGTK on Linux, native frameworks on macOS/Windows</li>
+          <li><strong>Image Decoding:</strong> Rust via <code>image</code> crate on desktop, browser APIs on web</li>
+          <li><strong>Persistence:</strong> SQLite via <code>strata-sync</code> crate for document storage, localStorage/IndexedDB for settings</li>
+          <li><strong>Print:</strong> Rust <code>strata-print</code> crate using <code>lopdf</code> for direct PDF generation</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Monorepo Structure</h2>
+        <p>
+          The project is organized as a monorepo with two top-level directories:
+        </p>
+
+        <h3>Rust Crates (<code>crates/</code>)</h3>
+        <ul>
+          <li><code>strata-core</code> — Geometry primitives (Point, Rect, Affine), Shape enum with hit-testing, SceneNode types</li>
+          <li><code>strata-engine</code> — <code>build_render_ir()</code> that converts a scene into a compact render IR (Intermediate Representation)</li>
+          <li><code>strata-layout</code> — Taffy-backed flex/grid layout engine (stub, pure-TS version active in editor)</li>
+          <li><code>strata-sync</code> — SQLite-based DocumentStore for save/load/list operations</li>
+          <li><code>strata-print</code> — PDF generation with lopdf: path operators, font outlining, ICC profiles, crop marks, CMYK conversion</li>
+          <li><code>strata-trace</code> — Auto-trace (Potrace-class contour tracing, RDP simplification) for bitmap-to-vector</li>
+          <li><code>strata-bridge</code> — Shared IPC types for Tauri command serialization between Rust and TypeScript</li>
+          <li><code>strata-wasm</code> — WASM build target for in-browser engine execution</li>
+        </ul>
+
+        <h3>TypeScript Packages (<code>packages/</code>)</h3>
+        <ul>
+          <li><code>@strata/engine</code> — Engine facade with createEngine(backend): stub/native/wasm. IR types, replayIr(canvas, ir), geometry helpers</li>
+          <li><code>@strata/scene</code> — Immutable Document model with add/insert/remove/move/rename/reparent ops, all node types</li>
+          <li><code>@strata/editor</code> — Full editor application: Shell, Canvas, Layers Panel, Inspector, tools, shortcuts, context</li>
+          <li><code>@strata/ui</code> — Design tokens (OKLCH color ramps, 3 themes, WCAG-AA), Icon system (typed Lucide), components (Button, Toolbar, NumberInput)</li>
+          <li><code>@strata/shared</code> — Shared utilities: affine math, viewport/camera, easing functions, text measurement, ordering (fractional-indexing)</li>
+          <li><code>@strata/codegen</code> — Code export: SVG, React/Tailwind, Flutter, SwiftUI, CSS Modules, animation formats</li>
+          <li><code>@strata/prototype</code> — Prototype engine: interactions, animation, transitions, runtime, navigation, variables</li>
+          <li><code>@strata/import</code> — Import parsers for SVG, PDF, PSD, AI, EPS, raster images</li>
+          <li><code>@strata/platform</code> — Platform abstraction interface (save/load/search files) with Tauri, web, and memory implementations</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Data Flow</h2>
+        <p>
+          The editor follows a unidirectional data flow:
+        </p>
+        <ol>
+          <li><strong>User interaction</strong> triggers a tool or context action</li>
+          <li><strong>Document mutation</strong> — The action calls an immutable Document operation (e.g., <code>addNode</code>, <code>setProperty</code>) producing a new Document</li>
+          <li><strong>State update</strong> — The new Document is set via <code>setState</code>, triggering a React re-render</li>
+          <li><strong>IR generation</strong> — CanvasArea walks the document tree, computes world transforms, and calls <code>buildIr()</code> to produce a flat array of RenderItems</li>
+          <li><strong>Replay</strong> — <code>replayIr(canvas, ir)</code> draws each RenderItem using Canvas2D calls</li>
+          <li><strong>Overlays</strong> — Selection handles, snap guides, ruler guides, grid, and other overlays render on top</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Engine Facade</h2>
+        <p>
+          The engine facade (<code>createEngine(backend)</code>) abstracts the rendering backend:
+        </p>
+        <ul>
+          <li><strong><code>'stub'</code></strong> — Pure TypeScript IR builder, runs in all environments, used for testing</li>
+          <li><strong><code>'native'</code></strong> — Calls Rust via Tauri IPC (<code>build_render_ir</code> Tauri command), available on desktop</li>
+          <li><strong><code>'wasm'</code></strong> — Calls WASM-compiled Rust engine, available in browser via <code>strata_wasm_bg.wasm</code></li>
+        </ul>
+        <p>
+          The facade includes <code>withStubFallback</code> — a one-shot circuit breaker that gracefully degrades to the stub engine if the native/WASM backend throws a deserialization error. This ensures a single malformed node never blanks the entire canvas.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>IPC Bridge (Tauri)</h2>
+        <p>
+          On desktop, Tauri commands connect the TypeScript frontend to the Rust backend:
+        </p>
+        <ul>
+          <li><code>build_render_ir</code> — Scene nodes &rarr; RenderItems</li>
+          <li><code>hit_test</code> — World point &rarr; node hit detection</li>
+          <li><code>sync_save</code> / <code>sync_load</code> — SQLite document persistence</li>
+          <li><code>save_file_bytes</code> — Binary file export</li>
+          <li><code>export_node_pdf</code> — PDF generation with options</li>
+          <li><code>export_pdfx1a</code> / <code>export_pdfx4</code> — Print-ready PDF export</li>
+          <li><code>outline_text</code> — Text-to-path font outlining</li>
+        </ul>
+        <p>
+          The <code>strata-bridge</code> crate defines <code>IpcSceneNode</code>, <code>IpcShape</code>, and <code>IpcRenderItem</code> types with serde serialization for the JSON IPC channel.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See the <a href="/docs/rendering">Rendering Pipeline</a> page for a deep dive into the rendering system.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul, .docs-section ol {
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  .docs-section ol li {
+    counter-increment: item;
+    padding-left: 2.5rem;
+  }
+  .docs-section ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>
