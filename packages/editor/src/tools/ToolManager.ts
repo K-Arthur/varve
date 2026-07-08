@@ -69,10 +69,16 @@ export class ToolManager {
   setTool(id: ToolId, ctx?: ToolContext): void {
     if (id === this.activeId) return;
     const prev = this.activeTool;
-    prev.onDeactivate?.(ctx ?? ({} as ToolContext));
     this.activeId = id;
     const next = this.activeTool;
-    next.onActivate?.(ctx ?? ({} as ToolContext));
+    if (ctx) {
+      prev.onDeactivate?.(ctx);
+      next.onActivate?.(ctx);
+    } else {
+      // When called without context (e.g. during initialization), we do not
+      // call lifecycle hooks — they require a valid context to avoid crashes
+      // (e.g. SelectTool.onDeactivate calls abortTransaction on ctx).
+    }
     this.cursorState = 'idle';
   }
 
@@ -190,10 +196,6 @@ export class ToolManager {
 
   handleKeyDown(e: KeyboardEvent, base: ToolContext): boolean {
     const ctx = this.buildContext(e, base);
-    ctx.shiftKey = this._shiftKey;
-    ctx.altKey = this._altKey;
-    ctx.ctrlKey = this._ctrlKey;
-    ctx.metaKey = this._metaKey;
 
     const consumed = this.activeTool.onKeyDown?.(e, ctx) ?? false;
     if (consumed) return true;
