@@ -763,6 +763,10 @@
 .editor-menubar__zoom-input:focus {
   border-bottom-color: var(--color-interactive-default);
 }
+.editor-menubar__zoom-divider,
+.editor-menubar__zoom-unit {
+  color: inherit;
+}
 
 [data-theme="high-contrast"] .editor-menubar {
   border-bottom: 1px solid var(--color-border-subtle);
