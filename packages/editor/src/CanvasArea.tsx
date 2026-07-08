@@ -1316,12 +1316,6 @@ export function CanvasArea({
       // worker-rendered frame silently drops every image. Keep image scenes on
       // the main-thread `drawVectorItems` path below.
       const hasImageFills = sceneHasImageFills(doc);
-      console.log('[DRAW] needsStructural:', needsStructural, 'hasImageFills:', hasImageFills, 'flatNodes:', flatNodes.length, 'entries:', entries.size);
-      if (flatNodes.length <= 3) {
-        for (const fn of flatNodes) {
-          console.log('[DRAW]   node:', fn.id, 'shape:', JSON.stringify(fn.shape), 'fills:', fn.fills?.length, 'transform:', fn.transform);
-        }
-      }
 
       if (needsStructural) {
         for (const [id, entry] of entries) {

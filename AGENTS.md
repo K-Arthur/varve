@@ -85,6 +85,7 @@ git log --oneline -3
 | Export deferred | `docs/plans/export-system-deferred.md` |
 | Home/Workspace System | `docs/plans/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/session-04-packaging.md` |
+| Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit.md` |
 
 ## Packaging (Phase 0.11 — Done, Session 4)
 - `apps/desktop/src-tauri/tauri.conf.json` — full bundle metadata (AppImage/deb/rpm/dmg/msi)
