@@ -37,3 +37,5 @@ export type { VersionHistoryProps } from './VersionHistory';
 export { VersionHistory } from './VersionHistory';
 export type { WorkspaceSwitcherProps } from './WorkspaceSwitcher';
 export { WorkspaceSwitcher } from './WorkspaceSwitcher';
+export type { AppReadiness, ReadinessStatus } from './useAppReadiness';
+export { useAppReadiness } from './useAppReadiness';
