@@ -1,0 +1,37 @@
+.region-loader-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100px;
+}
+
+.region-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  background: color-mix(in oklch, var(--color-surface-app), transparent 20%);
+  z-index: 10;
+  animation: strata-fade-in var(--loader-fade-in, 0.2s) ease-out;
+}
+
+.region-loader__text {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.region-loader__content {
+  width: 100%;
+  height: 100%;
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+
+.region-loader__content--loading {
+  opacity: 0.4;
+  pointer-events: none;
+  filter: blur(1px);
+}
