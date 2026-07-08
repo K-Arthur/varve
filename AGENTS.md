@@ -86,6 +86,7 @@ git log --oneline -3
 | Home/Workspace System | `docs/plans/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/session-04-packaging.md` |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit.md` |
+| Marketing Website | `apps/website/` - Astro-based public website with product pages, docs, support, and contribution information |
 
 ## Packaging (Phase 0.11 — Done, Session 4)
 - `apps/desktop/src-tauri/tauri.conf.json` — full bundle metadata (AppImage/deb/rpm/dmg/msi)

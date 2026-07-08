@@ -59,6 +59,13 @@ const {
           <li><a href="/support">Support</a></li>
           <li><a href="/contribute">Contribute</a></li>
         </ul>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
       </nav>
     </header>
     
@@ -116,6 +123,17 @@ const {
         <p>Built independently by one designer-developer</p>
       </div>
     </footer>
+    
+    <script>
+      const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
+      const navLinks = document.querySelector('.nav-links');
+      
+      if (mobileMenuToggle && navLinks) {
+        mobileMenuToggle.addEventListener('click', () => {
+          navLinks.classList.toggle('active');
+        });
+      }
+    </script>
   </body>
 </html>
 
@@ -216,6 +234,39 @@ const {
   
   .nav-links a:hover {
     color: var(--color-teal-600);
+  }
+  
+  .mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    color: var(--color-neutral-700);
+  }
+  
+  @media (max-width: 768px) {
+    .nav-links {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      flex-direction: column;
+      padding: 1rem;
+      gap: 1rem;
+      border-bottom: 1px solid var(--color-neutral-200);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    .nav-links.active {
+      display: flex;
+    }
+    
+    .mobile-menu-toggle {
+      display: block;
+    }
   }
   
   .site-main {
