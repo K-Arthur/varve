@@ -1,0 +1,244 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Getting Started - Strata Documentation">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Getting Started
+      </nav>
+
+      <h1>Getting Started</h1>
+      <p class="docs-intro">
+        Installation and first steps with Strata.
+      </p>
+
+      <section class="docs-section">
+        <h2>Installation</h2>
+        <p>Download Strata for your platform from the <a href="/download">download page</a>.</p>
+        
+        <h3>Linux</h3>
+        <ul>
+          <li><strong>AppImage (Recommended):</strong> Download the AppImage, make it executable, and run it:</li>
+        </ul>
+        <code class="code-block">chmod +x Strata-*.AppImage && ./Strata-*.AppImage</code>
+        <ul>
+          <li><strong>deb:</strong> Install via package manager: <code>sudo dpkg -i strata_*.deb</code></li>
+          <li><strong>rpm:</strong> Install via package manager: <code>sudo rpm -i strata-*.rpm</code></li>
+          <li><strong>AUR:</strong> Install via yay or paru: <code>yay -S strata-desktop</code></li>
+        </ul>
+
+        <h3>macOS</h3>
+        <p>Download the Universal dmg and drag Strata to your Applications folder. Requires macOS 13 Ventura or later.</p>
+
+        <h3>Windows</h3>
+        <p>Download the MSI installer and run it. Requires Windows 10 or Windows 11.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>First Launch</h2>
+        <p>When you first launch Strata, you'll see the home screen with options to:</p>
+        <ul>
+          <li>Create a new document</li>
+          <li>Open an existing document</li>
+          <li>View recent documents</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Creating Your First Document</h2>
+        <ol>
+          <li>Click "New Document" on the home screen</li>
+          <li>Choose a preset or enter custom dimensions</li>
+          <li>Name your document</li>
+          <li>Click "Create"</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Basic Workflow</h2>
+        <ul>
+          <li><strong>Tools:</strong> Select tools from the toolbar (left side)</li>
+          <li><strong>Canvas:</strong> Use mouse wheel to zoom, middle-click to pan</li>
+          <li><strong>Layers:</strong> View and manage layers in the layers panel (right side)</li>
+          <li><strong>Properties:</strong> Edit properties in the inspector panel (F6)</li>
+          <li><strong>Export:</strong> Export via File > Export or the export panel</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Keyboard Shortcuts</h2>
+        <p>Common shortcuts:</p>
+        <ul>
+          <li><code>V</code> - Select tool</li>
+          <li><code>R</code> - Rectangle tool</li>
+          <li><code>E</code> - Ellipse tool</li>
+          <li><code>T</code> - Text tool</li>
+          <li><code>F6</code> - Toggle inspector</li>
+          <li><code>Ctrl+Z</code> - Undo</li>
+          <li><code>Ctrl+Shift+Z</code> - Redo</li>
+        </ul>
+        <p>See the <a href="/docs/keyboard-shortcuts">full keyboard shortcuts reference</a>.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Next Steps</h2>
+        <ul>
+          <li><a href="/docs/getting-started/interface">Interface Overview</a> - Learn about the Strata interface</li>
+          <li><a href="/docs/getting-started/first-project">Your First Project</a> - Tutorial for your first design</li>
+          <li><a href="/features">Features</a> - Deep dives into Strata's capabilities</li>
+          <li><a href="/support">Support</a> - Get help if you're stuck</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Need help?</h2>
+        <p>Check the <a href="/support/faq">FAQ</a> or ask in <a href="https://github.com/strata/strata/discussions">GitHub Discussions</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .docs-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .docs-section ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  
+  .docs-section ol li {
+    counter-increment: item;
+    margin-bottom: 0.75rem;
+    padding-left: 2.5rem;
+    position: relative;
+  }
+  
+  .docs-section ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  
+  .code-block {
+    display: block;
+    background: var(--color-neutral-900);
+    color: var(--color-neutral-100);
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+  }
+  
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

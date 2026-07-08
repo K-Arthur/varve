@@ -1,0 +1,200 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Export & Code Generation - Strata Features">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb">
+        <a href="/features">Features</a> / Export & Code Generation
+      </nav>
+
+      <h1>Export & Code Generation</h1>
+      <p class="feature-intro">
+        Export to SVG, React/Tailwind, React/CSS-Modules, Flutter, and SwiftUI. PDF export with CMYK support.
+      </p>
+
+      <section class="feature-section">
+        <h2>What It Is</h2>
+        <p>
+          Strata's code generation system exports scene documents to multiple formats including SVG, React with Tailwind CSS, React with CSS Modules, Flutter, and SwiftUI. The print production system supports PDF export with CMYK, bleed, crop marks, and color bars for professional print workflows.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Key Capabilities</h2>
+        <ul>
+          <li><strong>SVG export:</strong> Full SVG export with shapes, paths, text, and transforms</li>
+          <li><strong>React/Tailwind:</strong> Export to React components with Tailwind CSS utility classes</li>
+          <li><strong>React/CSS-Modules:</strong> Export to React components with CSS Modules</li>
+          <li><strong>Flutter:</strong> Export to Flutter/Dart code</li>
+          <li><strong>SwiftUI:</strong> Export to SwiftUI code</li>
+          <li><strong>PDF export:</strong> PDF/X-1a and PDF/X-4 support with CMYK, bleed, crop marks, color bars</li>
+          <li><strong>Print production:</strong> Bleed config, safe area, slug, swatches, spot colors</li>
+          <li><strong>Export settings:</strong> Per-node export settings for different output formats</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Technical Depth</h2>
+        <p>
+          Code generation is implemented in packages/codegen/src/index.ts with functions for SVG export (exportDocumentToSvg, nodeToSvg), React/Tailwind JSX export (exportDocumentToReact), and utility functions for color conversion (rgba), affine transformations (affineToSvg), XML escaping (escapeXml), and shape vertex conversion (shapeVerticesToPoints).
+        </p>
+        <p>
+          PDF export is implemented in strata-print (Rust) with lopdf-based export_pdf supporting rect, circle, ellipse, line, polygon, and star path operators. The print production system includes color management with ICC profiles and rendering intents for PDF/X compliance.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Limitations</h2>
+        <div class="limitations">
+          <p><strong>Current limitations:</strong></p>
+          <ul>
+            <li>Export pipeline integration with lcms2 is deferred (Phase 5-6)</li>
+            <li>High-DPI export not implemented</li>
+            <li>Multi-page model not implemented</li>
+            <li>Facing pages not implemented</li>
+            <li>Canvas bleed/trim visualization not implemented</li>
+            <li>NewFileDialog wiring to persist color/bleed settings not complete</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Status</h2>
+        <div class="status-badge built">
+          <span class="badge-text">Built</span>
+          <p>Code generation and PDF export functional. Phase 5-6 (lcms2 integration, high-DPI, multi-page, canvas visualization) deferred.</p>
+        </div>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Ready to export?</h2>
+        <a href="/download" class="btn-primary">Download Strata</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .feature-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-intro {
+    font-size: 1.25rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section {
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .feature-section ul {
+    list-style: none;
+  }
+  
+  .feature-section li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .feature-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .feature-section strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .limitations {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .limitations p {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .status-badge {
+    background: var(--color-teal-50);
+    border: 1px solid var(--color-teal-400);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .status-badge.built {
+    background: var(--color-teal-50);
+    border-color: var(--color-teal-400);
+  }
+  
+  .badge-text {
+    display: inline-block;
+    background: var(--color-teal-600);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  
+  .status-badge p {
+    color: var(--color-neutral-700);
+    margin: 0;
+  }
+  
+  .feature-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .feature-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>

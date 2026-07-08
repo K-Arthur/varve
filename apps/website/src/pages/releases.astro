@@ -1,0 +1,228 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Releases - Strata">
+  <div class="container-custom">
+    <div class="releases-page">
+      <h1>Releases</h1>
+      <p class="releases-intro">
+        Current release and version history for Strata.
+      </p>
+
+      <div class="current-release">
+        <div class="release-header">
+          <h2>Current Release</h2>
+          <span class="version-badge">0.0.0</span>
+        </div>
+        <p class="release-date">Released: 2026-07-08</p>
+        
+        <div class="release-notes">
+          <h3>Release Notes</h3>
+          <p>This is the initial development release of Strata. The project is in active development with major features being implemented.</p>
+          
+          <h4>Phase A-C Complete</h4>
+          <ul>
+            <li>Product Truth Matrix documenting actual capabilities</li>
+            <li>Research findings on competitor websites and funding models</li>
+            <li>Comprehensive strategy for website and product positioning</li>
+            <li>Astro-based marketing website with core pages</li>
+          </ul>
+          
+          <h4>Core Systems Built</h4>
+          <ul>
+            <li>Canvas & Rendering: IR-replay architecture, 86fps rendering</li>
+            <li>Vector Tools: Shape primitives, path editing, layers, groups</li>
+            <li>Motion: Timeline animation, Smart Animate, export to CSS/Lottie/MP4/WebM</li>
+            <li>Export: SVG, React/Tailwind, Flutter, SwiftUI, PDF export</li>
+            <li>Color Management: RGB/CMYK/grayscale, blend modes, effects</li>
+          </ul>
+          
+          <h4>Known Limitations</h4>
+          <ul>
+            <li>Typography: Rich text and variable fonts declared but not fully rendered</li>
+            <li>Collaboration: UI scaffolding only, no transport</li>
+            <li>Print: Bleed not visualized on canvas, DPI awareness missing</li>
+            <li>Canvas: No view rotation, narrow zoom range</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="previous-releases">
+        <h2>Previous Releases</h2>
+        <p>No previous releases. This is the initial development version.</p>
+      </div>
+
+      <div class="release-info">
+        <h2>Release Information</h2>
+        <ul>
+          <li><strong>Version:</strong> 0.0.0 (development)</li>
+          <li><strong>License:</strong> AGPL-3.0-or-later</li>
+          <li><strong>Source:</strong> <a href="https://github.com/strata/strata">GitHub</a></li>
+          <li><strong>Downloads:</strong> <a href="/download">Download page</a></li>
+        </ul>
+      </div>
+
+      <div class="release-cta">
+        <h2>Download Current Release</h2>
+        <a href="/download" class="btn-primary">Download Strata 0.0.0</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .releases-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .releases-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .releases-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .current-release {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-bottom: 3rem;
+  }
+  
+  .release-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .release-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--color-neutral-900);
+  }
+  
+  .version-badge {
+    background: var(--color-teal-600);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  
+  .release-date {
+    color: var(--color-neutral-600);
+    margin-bottom: 1.5rem;
+  }
+  
+  .release-notes h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .release-notes h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .release-notes ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  
+  .release-notes li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .release-notes li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .release-notes p {
+    color: var(--color-neutral-600);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+  
+  .previous-releases {
+    margin-bottom: 3rem;
+  }
+  
+  .previous-releases h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .previous-releases p {
+    color: var(--color-neutral-600);
+  }
+  
+  .release-info {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 3rem;
+  }
+  
+  .release-info h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .release-info ul {
+    list-style: none;
+  }
+  
+  .release-info li {
+    margin-bottom: 0.5rem;
+    color: var(--color-neutral-700);
+  }
+  
+  .release-info strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .release-info a {
+    color: var(--color-teal-600);
+  }
+  
+  .release-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .release-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>

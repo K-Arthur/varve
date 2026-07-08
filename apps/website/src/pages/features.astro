@@ -1,0 +1,196 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Features - Strata">
+  <div class="container-custom">
+    <div class="features-page">
+      <h1>Features</h1>
+      <p class="features-intro">
+        Deep dives into Strata's capabilities, with honest communication about what's built and what's in development.
+      </p>
+
+      <div class="features-grid">
+        <a href="/features/canvas" class="feature-card">
+          <h2>Canvas & Rendering</h2>
+          <p>86fps IR-replay rendering, infinite canvas, precision tools</p>
+          <span class="status built">Built</span>
+        </a>
+
+        <a href="/features/vector-tools" class="feature-card">
+          <h2>Vector Tools</h2>
+          <p>Shapes, paths, boolean operations, transformation tools</p>
+          <span class="status built">Built</span>
+        </a>
+
+        <a href="/features/typography" class="feature-card">
+          <h2>Typography</h2>
+          <p>Rich text, variable fonts, OpenType features, multi-line layout</p>
+          <span class="status in-development">In Development</span>
+        </a>
+
+        <a href="/features/color-effects" class="feature-card">
+          <h2>Color & Effects</h2>
+          <p>CMYK support, blend modes, effects, image adjustments</p>
+          <span class="status partial">Partial</span>
+        </a>
+
+        <a href="/features/motion" class="feature-card">
+          <h2>Motion & Prototyping</h2>
+          <p>Timeline animation, Smart Animate, prototype interactions</p>
+          <span class="status built">Built</span>
+        </a>
+
+        <a href="/features/export" class="feature-card">
+          <h2>Export & Code Generation</h2>
+          <p>SVG, React/Tailwind, Flutter, SwiftUI, PDF export</p>
+          <span class="status built">Built</span>
+        </a>
+      </div>
+
+      <div class="status-legend">
+        <h3>Status Legend</h3>
+        <div class="legend-items">
+          <div class="legend-item">
+            <span class="legend-status built"></span>
+            <span>Built - Fully functional and tested</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-status partial"></span>
+            <span>Partial - Strong foundation, some features deferred</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-status in-development"></span>
+            <span>In Development - Types declared, rendering in progress</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .features-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .features-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .features-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+  
+  .feature-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: block;
+  }
+  
+  .feature-card:hover {
+    border-color: var(--color-teal-400);
+    transform: translateY(-2px);
+  }
+  
+  .feature-card h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-card p {
+    color: var(--color-neutral-600);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+  
+  .status {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+  }
+  
+  .status.built {
+    background: var(--color-teal-600);
+    color: white;
+  }
+  
+  .status.partial {
+    background: var(--color-terracotta-400);
+    color: white;
+  }
+  
+  .status.in-development {
+    background: var(--color-sandstone-400);
+    color: white;
+  }
+  
+  .status-legend {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .status-legend h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .legend-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-neutral-700);
+  }
+  
+  .legend-status {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+  }
+  
+  .legend-status.built {
+    background: var(--color-teal-600);
+  }
+  
+  .legend-status.partial {
+    background: var(--color-terracotta-400);
+  }
+  
+  .legend-status.in-development {
+    background: var(--color-sandstone-400);
+  }
+</style>

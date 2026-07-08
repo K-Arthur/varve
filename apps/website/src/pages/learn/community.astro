@@ -1,0 +1,140 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Community - Strata Learn">
+  <div class="container-custom">
+    <div class="learn-page">
+      <nav class="breadcrumb">
+        <a href="/learn">Learn</a> / Community
+      </nav>
+
+      <h1>Community</h1>
+      <p class="learn-intro">
+        Connect with the Strata community and learn from others.
+      </p>
+
+      <section class="community-section">
+        <h2>GitHub</h2>
+        <ul>
+          <li><a href="https://github.com/strata/strata">Repository</a> - Source code and issues</li>
+          <li><a href="https://github.com/strata/strata/discussions">Discussions</a> - Ask questions and share ideas</li>
+          <li><a href="https://github.com/strata/strata/issues">Issues</a> - Report bugs and request features</li>
+        </ul>
+      </section>
+
+      <section class="community-section">
+        <h2>Contribution</h2>
+        <p>Strata is built by the community. You can contribute in many ways:</p>
+        <ul>
+          <li><strong>Code:</strong> Fix bugs, add features, improve performance</li>
+          <li><strong>Documentation:</strong> Improve docs, write tutorials, translate</li>
+          <li><strong>Testing:</strong> Test on different platforms, report bugs</li>
+          <li><strong>Design:</strong> Create UI mockups, icons, website improvements</li>
+        </ul>
+        <a href="/contribute" class="btn-secondary">Learn How to Contribute</a>
+      </section>
+
+      <section class="community-section">
+        <h2>Support</h2>
+        <p>Support the project financially or through non-financial contributions:</p>
+        <ul>
+          <li><a href="/support-project">Financial Support</a> - GitHub Sponsors</li>
+          <li><a href="/contribute">Non-Financial Contribution</a> - Code, docs, testing, design</li>
+        </ul>
+      </section>
+
+      <div class="learn-cta">
+        <h2>Join the community</h2>
+        <a href="https://github.com/strata/strata/discussions" class="btn-primary">Join GitHub Discussions</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .learn-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .learn-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .learn-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .community-section {
+    margin-bottom: 3rem;
+  }
+  
+  .community-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .community-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .community-section ul {
+    list-style: none;
+    margin-bottom: 1.5rem;
+  }
+  
+  .community-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .community-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .community-section strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .community-section a {
+    color: var(--color-teal-600);
+  }
+  
+  .learn-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .learn-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>

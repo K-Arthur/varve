@@ -1,0 +1,292 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Support the Project - Strata">
+  <div class="container-custom">
+    <div class="support-project-page">
+      <h1>Support the Project</h1>
+      <p class="support-intro">
+        Strata is built by one developer. Your support enables continued development, platform support, and stability improvements.
+      </p>
+
+      <section class="support-section">
+        <h2>Why Support Matters</h2>
+        <p>
+          As a solo-developer project, Strata relies on community support to continue development. Financial support enables specific features, platform support, and stability work that might otherwise be deferred.
+        </p>
+        <p>
+          Non-financial contributions—testing, documentation, design, translations—are equally valuable and enable the project to grow in ways that money cannot.
+        </p>
+      </section>
+
+      <section class="support-section">
+        <h2>What Support Enables</h2>
+        <div class="support-grid">
+          <div class="support-item">
+            <h3>Platform Support</h3>
+            <p>Linux ARM support, Windows ARM support, expanded Linux distribution testing</p>
+          </div>
+          <div class="support-item">
+            <h3>Feature Development</h3>
+            <p>Advanced typography rendering, real-time collaboration, state machine inspector</p>
+          </div>
+          <div class="support-item">
+            <h3>Stability Work</h3>
+            <p>Bug fixes, performance optimization, accessibility improvements</p>
+          </div>
+          <div class="support-item">
+            <h3>Infrastructure</h3>
+            <p>CI/CD improvements, automated testing, code signing, checksums</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="support-section">
+        <h2>Sponsorship Tiers</h2>
+        <p>Support Strata through GitHub Sponsors:</p>
+
+        <div class="tier-grid">
+          <div class="tier-card">
+            <h3>Bronze</h3>
+            <p class="tier-price">$5-10/month</p>
+            <ul>
+              <li>Name on supporters page</li>
+              <li>Discord/badge (if implemented)</li>
+              <li>Early access to release notes</li>
+            </ul>
+            <a href="https://github.com/sponsors/strata" class="btn-secondary">Sponsor</a>
+          </div>
+
+          <div class="tier-card">
+            <h3>Silver</h3>
+            <p class="tier-price">$25-50/month</p>
+            <ul>
+              <li>All Bronze benefits</li>
+              <li>Logo on supporters page</li>
+              <li>Priority bug consideration</li>
+              <li>Monthly development update email</li>
+            </ul>
+            <a href="https://github.com/sponsors/strata" class="btn-secondary">Sponsor</a>
+          </div>
+
+          <div class="tier-card featured">
+            <h3>Gold</h3>
+            <p class="tier-price">$100-500/month</p>
+            <ul>
+              <li>All Silver benefits</li>
+              <li>Featured supporter spotlight</li>
+              <li>Input on roadmap priorities</li>
+              <li>Direct communication channel</li>
+            </ul>
+            <a href="https://github.com/sponsors/strata" class="btn-primary">Sponsor</a>
+          </div>
+
+          <div class="tier-card">
+            <h3>Corporate</h3>
+            <p class="tier-price">$500+/month</p>
+            <ul>
+              <li>All Gold benefits</li>
+              <li>Company logo on homepage</li>
+              <li>Priority feature consideration</li>
+              <li>SLA for critical bugs</li>
+              <li>Custom integration support</li>
+            </ul>
+            <a href="https://github.com/sponsors/strata" class="btn-secondary">Sponsor</a>
+          </div>
+        </div>
+
+        <p class="one-time-note">One-time support is also welcome and appreciated.</p>
+      </section>
+
+      <section class="support-section">
+        <h2>Non-Financial Contribution</h2>
+        <p>
+          You don't need to contribute financially to help Strata. Non-financial contributions are equally valuable:
+        </p>
+        <ul>
+          <li><strong>Testing:</strong> Test on different platforms and report bugs</li>
+          <li><strong>Documentation:</strong> Improve docs, write tutorials, translate content</li>
+          <li><strong>Design:</strong> Create UI mockups, icons, website improvements</li>
+          <li><strong>Code:</strong> Fix bugs, add features, improve performance</li>
+        </ul>
+        <a href="/contribute" class="btn-secondary">Learn How to Contribute</a>
+      </section>
+
+      <section class="support-section">
+        <h2>Transparency</h2>
+        <p>
+          Support funds are used transparently for development work. Major supporters are acknowledged on the website (with permission). If you have questions about how funds are used, please ask in GitHub Discussions.
+        </p>
+      </section>
+
+      <div class="support-cta">
+        <h2>Ready to support?</h2>
+        <a href="https://github.com/sponsors/strata" class="btn-primary">Become a Sponsor on GitHub</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .support-project-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .support-project-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .support-section {
+    margin-bottom: 3rem;
+  }
+  
+  .support-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .support-section ul {
+    list-style: none;
+  }
+  
+  .support-section li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .support-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .support-section strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .support-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .support-item {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .support-item h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-item p {
+    font-size: 0.9375rem;
+    margin: 0;
+  }
+  
+  .tier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .tier-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .tier-card.featured {
+    border-color: var(--color-teal-400);
+    background: linear-gradient(135deg, var(--color-teal-50) 0%, white 100%);
+  }
+  
+  .tier-card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .tier-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-teal-600);
+    margin-bottom: 1rem;
+  }
+  
+  .tier-card ul {
+    list-style: none;
+    flex-grow: 1;
+    margin-bottom: 1.5rem;
+  }
+  
+  .tier-card li {
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+    padding-left: 1.25rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .tier-card li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+    font-weight: bold;
+  }
+  
+  .one-time-note {
+    text-align: center;
+    color: var(--color-neutral-600);
+    font-size: 0.875rem;
+    margin-top: 1rem;
+  }
+  
+  .support-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .support-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>

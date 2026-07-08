@@ -1,0 +1,214 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Known Issues - Strata Support">
+  <div class="container-custom">
+    <div class="support-page">
+      <nav class="breadcrumb">
+        <a href="/support">Support</a> / Known Issues
+      </nav>
+
+      <h1>Known Issues</h1>
+      <p class="support-intro">
+        Current limitations and known issues in Strata. These are tracked and will be addressed in future releases.
+      </p>
+
+      <div class="known-issues-section">
+        <h2>Typography</h2>
+        
+        <div class="issue-item">
+          <h3>Rich text not fully rendered</h3>
+          <p><strong>Status:</strong> In Development</p>
+          <p>Rich text, variable fonts, and OpenType features are declared in types but rendering is still in progress. Use basic text styling for now.</p>
+          <p><strong>Workaround:</strong> Use font family, size, weight, and basic styling. Avoid rich text, variable axes, and OpenType features until rendering is complete.</p>
+        </div>
+
+        <div class="issue-item">
+          <h3>No inline text editor</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>Text editing requires selecting the text node and using the inspector panel. There is no inline text selection or caret.</p>
+          <p><strong>Workaround:</strong> Use the F6 inspector panel to edit text properties.</p>
+        </div>
+
+        <div class="issue-item">
+          <h3>No text shaping for complex scripts</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>Complex scripts (CJK, RTL, bidi) are not supported. Text shaping is not implemented.</p>
+          <p><strong>Workaround:</strong> Use Latin scripts for now. Complex script support is planned for future development.</p>
+        </div>
+      </div>
+
+      <div class="known-issues-section">
+        <h2>Color & Print</h2>
+        
+        <div class="issue-item">
+          <h3>Bleed not visualized on canvas</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>Bleed is an export-time parameter and is not visualized on canvas. You cannot see bleed margins while designing.</p>
+          <p><strong>Workaround:</strong> Use guides to manually mark bleed areas. Canvas visualization is planned for future development.</p>
+        </div>
+
+        <div class="issue-item">
+          <h3>NewFileDialog settings not persisted</h3>
+          <p><strong>Status:</strong> Partial</p>
+          <p>The NewFileDialog collects unit, colorMode, and bleed settings, but these are not persisted to the Document interface. The Document remains pixel-only.</p>
+          <p><strong>Workaround:</strong> Document is currently pixel-only. Unit and color settings will be wired in future development.</p>
+        </div>
+
+        <div class="issue-item">
+          <h3>No DPI awareness</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>Internal storage is always in pixels with no DPI awareness. Physical units (pt, mm, cm, in) are converted but not DPI-aware.</p>
+          <p><strong>Workaround:</strong> Work in pixels for now. DPI awareness is planned for future development.</p>
+        </div>
+      </div>
+
+      <div class="known-issues-section">
+        <h2>Canvas & Tools</h2>
+        
+        <div class="issue-item">
+          <h3>No view rotation</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>The canvas cannot be rotated. Only zoom and pan are supported.</p>
+          <p><strong>Workaround:</strong> Use zoom and pan for navigation. View rotation is planned for future development.</p>
+        </div>
+
+        <div class="issue-item">
+          <h3>Narrow zoom range</h3>
+          <p><strong>Status:</strong> Limitation</p>
+          <p>Zoom range is narrower than professional tools. May not support extreme zoom levels.</p>
+          <p><strong>Workaround:</strong> Use available zoom range. Expanded zoom range is planned for future development.</p>
+        </div>
+
+        <div class="issue-item">
+          <h3>No artboard-local coordinate space</h3>
+          <p><strong>Status:</strong> Limitation</p>
+          <p>Canvas uses global coordinates. There is no artboard-local coordinate space.</p>
+          <p><strong>Workaround:</strong> Work with global canvas coordinates. Artboard-local space is planned for future development.</p>
+        </div>
+      </div>
+
+      <div class="known-issues-section">
+        <h2>Collaboration</h2>
+        
+        <div class="issue-item">
+          <h3>Collaboration is UI scaffolding only</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>Collaboration features (PresenceIndicator, CollabCursorOverlay) are UI scaffolding with no transport or wire protocol. Real-time collaboration does not work.</p>
+          <p><strong>Workaround:</strong> Use version control (git) for collaboration. Real-time collaboration is planned for future development.</p>
+        </div>
+      </div>
+
+      <div class="known-issues-section">
+        <h2>Motion</h2>
+        
+        <div class="issue-item">
+          <h3>No state machine inspector</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>State machine inspector for complex prototype flows is not implemented.</p>
+          <p><strong>Workaround:</strong> Use timeline-based animation for now. State machine inspector is planned for future development.</p>
+        </div>
+
+        <div class="issue-item">
+          <h3>No rigging or IK</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>Rigging and inverse kinematics (IK) are not implemented. Types are defined but rendering is deferred.</p>
+          <p><strong>Workaround:</strong> Use manual keyframing for animation. Rigging and IK are planned for future development.</p>
+        </div>
+      </div>
+
+      <div class="known-issues-cta">
+        <h2>Want to help fix these issues?</h2>
+        <p>See the <a href="/contribute">contribution guidelines</a> to help implement these features.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .support-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .support-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .known-issues-section {
+    margin-bottom: 3rem;
+  }
+  
+  .known-issues-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .issue-item {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .issue-item h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .issue-item p {
+    color: var(--color-neutral-600);
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+  }
+  
+  .issue-item strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .issue-item a {
+    color: var(--color-teal-600);
+  }
+  
+  .known-issues-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .known-issues-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .known-issues-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>
