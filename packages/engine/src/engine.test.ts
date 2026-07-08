@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { createEngine } from './engine';
+import { describe, expect, it, vi } from 'vitest';
+import { createEngine, type Engine, withStubFallback } from './engine';
 import type { Scene } from './types';
 
 const scene: Scene = {
@@ -638,3 +638,67 @@ describe('createEngine (stub)', () => {
     expect(ir[0]?.fills).toEqual([]);
   });
 });
+
+describe('withStubFallback resilience', () => {
+  // Guards against the class of bug where a strict native/wasm deserializer
+  // (Rust `IpcSceneNode`) rejects one node and the rejected Promise aborts the
+  // whole frame, blanking the canvas. A native/wasm engine must degrade to the
+  // pure-TS stub instead of throwing.
+  function throwingEngine(backend: 'native' | 'wasm'): Engine {
+    return {
+      backend,
+      buildIr: vi.fn(async () => {
+        throw new Error('deserialize engine nodes: missing field `shape`');
+      }),
+      hitTest: vi.fn(async () => {
+        throw new Error('boom');
+      }),
+    };
+  }
+
+  it('buildIr falls back to the stub instead of throwing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const eng = withStubFallback(throwingEngine('wasm'));
+    const ir = await eng.buildIr(scene);
+    // Stub produces one render item per node — proof the frame still paints.
+    expect(ir).toHaveLength(scene.nodes.length);
+    expect(ir[0]?.primitive).toEqual({ kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('latches to the stub after the first failure (circuit breaker) and warns once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const primary = throwingEngine('native');
+    const eng = withStubFallback(primary);
+    await eng.buildIr(scene);
+    await eng.buildIr(scene);
+    await eng.buildIr(scene);
+    // Primary is tried once, then the breaker keeps it off the hot path.
+    expect(primary.buildIr).toHaveBeenCalledTimes(1);
+    // A single warning per session, not one per frame.
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('hitTest falls back to the stub without throwing', async () => {
+    const eng = withStubFallback(throwingEngine('wasm'));
+    // Point inside node 1's 10x10 rect at origin → topmost index resolves.
+    const idx = await eng.hitTest(scene, [1, 1]);
+    expect(idx).not.toBeNull();
+  });
+
+  it('does not wrap a stub engine (no double fallback)', () => {
+    const stub = createStubForTest();
+    expect(withStubFallback(stub)).toBe(stub);
+  });
+});
+
+// A minimal stub-backed engine to assert the no-wrap fast path.
+function createStubForTest(): Engine {
+  return {
+    backend: 'stub',
+    buildIr: async () => [],
+    hitTest: async () => null,
+  };
+}

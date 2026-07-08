@@ -405,7 +405,7 @@ describe('benchmark — 10K nodes', () => {
       nodes[id] = makeShapeNode(
         id,
         { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-        { name: `Node ${i}`, index: i, order: `a${i.toString().padStart(5, '0')}` },
+        { name: `Node ${i}`, order: `a${i.toString().padStart(5, '0')}` },
       );
     }
 
