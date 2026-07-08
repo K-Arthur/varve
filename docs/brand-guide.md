@@ -6,6 +6,22 @@
 
 The mark shows **three parallelogram strata planes** all tilted in the same direction, each cascading 8 px to the right of the one above it. The consistent tilt reads as unified geological layering (not a list or alignment guide); the rightward cascade reads as depth and directionality — layers exposed progressively as you dig. The combined silhouette is a staircase, not a rectangle, making it immediately distinct at every size.
 
+**Brand Colors:**
+- Layer 1 (top): #39D0C6 (teal)
+- Layer 2 (middle): #E28C3C (sandstone/orange)
+- Layer 3 (bottom): #C54B3A (terracotta/red)
+
+These three distinct colors represent the geological strata concept - each layer has its own identity while being part of a unified whole.
+
+**Color Palette:**
+- Teal: #39D0C6 (primary accent)
+- Sandstone: #E28C3C (secondary accent)
+- Terracotta: #C54B3A (tertiary accent)
+- Neutral dark: #10151F (text, dark backgrounds)
+- Neutral light: #f5f7fa (light backgrounds)
+
+All three brand colors pass 3:1 contrast on both light (#f5f7fa) and dark (#10151F) backgrounds.
+
 ---
 
 ## 2. Critique of Previous Mark
