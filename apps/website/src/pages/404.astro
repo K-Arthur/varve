@@ -1,0 +1,50 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Page Not Found - Strata">
+  <div class="container-custom">
+    <div class="error-page">
+      <h1>404</h1>
+      <h2>Page Not Found</h2>
+      <p>The page you're looking for doesn't exist or has been moved.</p>
+      <div class="error-actions">
+        <a href="/" class="btn-primary">Go Home</a>
+        <a href="/docs" class="btn-secondary">View Documentation</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .error-page {
+    text-align: center;
+    padding: 6rem 0;
+  }
+  
+  .error-page h1 {
+    font-size: 6rem;
+    font-weight: 800;
+    color: var(--color-teal-600);
+    margin-bottom: 1rem;
+  }
+  
+  .error-page h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-neutral-900);
+    margin-bottom: 1rem;
+  }
+  
+  .error-page p {
+    color: var(--color-neutral-600);
+    font-size: 1.125rem;
+    margin-bottom: 2rem;
+  }
+  
+  .error-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+  }
+</style>
