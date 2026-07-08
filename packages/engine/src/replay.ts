@@ -391,169 +391,193 @@ function paintInsetEffect(
 }
 
 /** Replay `ir` into `target` (a 2D context). Clears nothing; caller manages. */
-export function replayIr(target: ReplayTarget, ir: readonly RenderItem[]): void {
-  for (const item of ir) {
-    target.save();
+/**
+ * Module-level image lookup for the current replayIr call.
+ * Set before calling internal paint functions, used by paintImageFill.
+ * This avoids threading a parameter through 7 levels of function calls.
+ */
+let imageLookupForCurrentReplay: ((src: string) => CanvasImageSource | undefined) | null = null;
 
-    // Apply item-level transform
-    target.transform(
-      item.transform[0],
-      item.transform[1],
-      item.transform[2],
-      item.transform[3],
-      item.transform[4],
-      item.transform[5],
-    );
-
-    // ── Item-level opacity and blend ─────────────────────────────
-    const itemAlpha = item.opacity ?? 1;
-    if (itemAlpha < 1) {
-      target.globalAlpha = itemAlpha;
-    }
-    const itemBlend =
-      item.blendMode && item.blendMode !== 'normal' ? mapBlendMode(item.blendMode) : 'source-over';
-    if (itemBlend !== 'source-over') {
-      target.globalCompositeOperation = itemBlend;
-    }
-
-    // ── Filters pass (nondestructive adjustments) ──────────────────
-    // CSS-compatible filters with opacity=1 and blendMode=normal are applied
-    // via ctx.filter for GPU-accelerated rendering of fills + strokes.
-    // Non-CSS filters and filters requiring per-filter opacity/blendMode
-    // are handled after rendering via offscreen canvas compositing.
-    // Determine if any filter requires post-render offscreen compositing:
-    // - Filters with non-normal blend mode
-    // - Filters with opacity < 1
-    // - Filters without a CSS equivalent (curves, levels, selectiveColor, etc.)
-    const needsPostRenderFilters = item.filters?.some(
-      (f) => !f.blendMode || f.blendMode !== 'normal' || (f.opacity ?? 1) < 1 || !filterToCss(f),
-    );
-    if (item.filters && item.filters.length > 0) {
-      if (needsPostRenderFilters) {
-        // Simple CSS filters are applied before fills for GPU rendering.
-        // Complex filters are deferred to post-render compositing.
-        const simpleFilters = item.filters.filter(
-          (f) => f.blendMode === 'normal' && (f.opacity ?? 1) >= 1,
-        );
-        const simpleCss = filterChainToCss(simpleFilters);
-        if (simpleCss) target.filter = simpleCss;
-      } else {
-        applyFilterChain(target, item.filters);
-      }
-    }
-
-    const layerBlurEffect = item.effects?.find(
-      (e): e is LayerBlurEffect => e.visible && e.type === 'layerBlur',
-    );
-
-    // ── Background blur (before fills — captures true backdrop) ───
-    if (item.effects) {
-      for (const effect of item.effects) {
-        if (effect.visible && effect.type === 'backgroundBlur') {
-          paintBackgroundBlur(target, item, effect);
-        }
-      }
-    }
-
-    // ── Fills + strokes pass (offscreen when layerBlur present) ───
-    if (layerBlurEffect) {
-      const bounds = primitiveBounds(item.primitive);
-      const cc = new CompositeCanvas({
-        width: Math.max(1, bounds.w),
-        height: Math.max(1, bounds.h),
-        devicePixelRatio: 1,
-      });
-      cc.ctx.translate(-bounds.x, -bounds.y);
-      paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
-
+/**
+ * Replay a list of render items to the given canvas target.
+ * @param imageLookup Optional callback for resolving image source URLs to
+ *   CanvasImageSource (used by render workers that receive ImageBitmaps
+ *   via Structured Clone and cannot use `new Image()`).
+ */
+export function replayIr(
+  target: ReplayTarget,
+  ir: readonly RenderItem[],
+  imageLookup?: (src: string) => CanvasImageSource | undefined,
+): void {
+  imageLookupForCurrentReplay = imageLookup ?? null;
+  try {
+    for (const item of ir) {
       target.save();
-      target.filter = `blur(${layerBlurEffect.radius}px)`;
-      target.globalAlpha = itemAlpha;
-      if (target.drawImage) {
-        target.drawImage(
-          cc.canvas as unknown as CanvasImageSource,
-          bounds.x,
-          bounds.y,
-          bounds.w,
-          bounds.h,
-        );
-      }
-      target.restore();
-    } else {
-      paintFillsAndStrokes(target, item, itemAlpha, itemBlend);
-    }
 
-    // ── Effects pass (per-effect save/restore compositing) ────────
-    if (item.effects && item.effects.length > 0) {
-      for (const effect of item.effects) {
-        if (!effect.visible) continue;
-        if (effect.type === 'layerBlur' || effect.type === 'backgroundBlur') continue;
-        if (effect.type === 'dropShadow') {
-          target.save();
-          target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-          target.shadowOffsetX = effect.x;
-          target.shadowOffsetY = effect.y;
-          target.globalAlpha = effect.opacity ?? 1;
-          // Use destination-over so the shadow source fill goes behind
-          // the already-rendered item fill, preventing overdraw for image fills
-          target.globalCompositeOperation = 'destination-over';
-          target.fillStyle = rgba(effect.color);
-          target.beginPath();
-          traceOutline(target, item.primitive);
-          target.fill();
-          target.restore();
-        } else if (effect.type === 'innerShadow') {
-          paintInsetEffect(target, item, effect, 'shadow');
-        } else if (effect.type === 'outerGlow') {
-          // Outer glow: render a blurred colored shape behind the item (no offset)
-          target.save();
-          target.shadowColor = rgba(effect.color);
-          target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-          target.shadowOffsetX = 0;
-          target.shadowOffsetY = 0;
-          target.globalAlpha = effect.opacity ?? 1;
-          // Use destination-over so the glow source fill goes behind existing content
-          target.globalCompositeOperation = 'destination-over';
-          target.fillStyle = rgba(effect.color);
-          target.beginPath();
-          traceOutline(target, item.primitive);
-          target.fill();
-          target.restore();
-        } else if (effect.type === 'innerGlow') {
-          paintInsetEffect(target, item, effect, 'glow');
+      // Apply item-level transform
+      target.transform(
+        item.transform[0],
+        item.transform[1],
+        item.transform[2],
+        item.transform[3],
+        item.transform[4],
+        item.transform[5],
+      );
+
+      // ── Item-level opacity and blend ─────────────────────────────
+      const itemAlpha = item.opacity ?? 1;
+      if (itemAlpha < 1) {
+        target.globalAlpha = itemAlpha;
+      }
+      const itemBlend =
+        item.blendMode && item.blendMode !== 'normal'
+          ? mapBlendMode(item.blendMode)
+          : 'source-over';
+      if (itemBlend !== 'source-over') {
+        target.globalCompositeOperation = itemBlend;
+      }
+
+      // ── Filters pass (nondestructive adjustments) ──────────────────
+      // CSS-compatible filters with opacity=1 and blendMode=normal are applied
+      // via ctx.filter for GPU-accelerated rendering of fills + strokes.
+      // Non-CSS filters and filters requiring per-filter opacity/blendMode
+      // are handled after rendering via offscreen canvas compositing.
+      // Determine if any filter requires post-render offscreen compositing:
+      // - Filters with non-normal blend mode
+      // - Filters with opacity < 1
+      // - Filters without a CSS equivalent (curves, levels, selectiveColor, etc.)
+      const needsPostRenderFilters = item.filters?.some(
+        (f) => !f.blendMode || f.blendMode !== 'normal' || (f.opacity ?? 1) < 1 || !filterToCss(f),
+      );
+      if (item.filters && item.filters.length > 0) {
+        if (needsPostRenderFilters) {
+          // Simple CSS filters are applied before fills for GPU rendering.
+          // Complex filters are deferred to post-render compositing.
+          const simpleFilters = item.filters.filter(
+            (f) => f.blendMode === 'normal' && (f.opacity ?? 1) >= 1,
+          );
+          const simpleCss = filterChainToCss(simpleFilters);
+          if (simpleCss) target.filter = simpleCss;
+        } else {
+          applyFilterChain(target, item.filters);
         }
       }
-    }
 
-    // ── Post-render filter compositing ────────────────────────────
-    // Apply complex filters (non-CSS, or requiring per-filter opacity/blend)
-    // via offscreen canvas compositing on the fully rendered item.
-    if (needsPostRenderFilters && item.filters && item.filters.length > 0) {
-      const complexFilters = item.filters.filter(
-        (f) => f.blendMode !== 'normal' || (f.opacity ?? 1) < 1 || !filterToCss(f),
+      const layerBlurEffect = item.effects?.find(
+        (e): e is LayerBlurEffect => e.visible && e.type === 'layerBlur',
       );
-      if (complexFilters.length > 0) {
-        const targetCanvas = target as unknown as CanvasRenderingContext2D;
-        applyFilterWithCompositing(
-          targetCanvas,
-          complexFilters,
-          targetCanvas.canvas?.width ?? 100,
-          targetCanvas.canvas?.height ?? 100,
-        );
+
+      // ── Background blur (before fills — captures true backdrop) ───
+      if (item.effects) {
+        for (const effect of item.effects) {
+          if (effect.visible && effect.type === 'backgroundBlur') {
+            paintBackgroundBlur(target, item, effect);
+          }
+        }
       }
+
+      // ── Fills + strokes pass (offscreen when layerBlur present) ───
+      if (layerBlurEffect) {
+        const bounds = primitiveBounds(item.primitive);
+        const cc = new CompositeCanvas({
+          width: Math.max(1, bounds.w),
+          height: Math.max(1, bounds.h),
+          devicePixelRatio: 1,
+        });
+        cc.ctx.translate(-bounds.x, -bounds.y);
+        paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
+
+        target.save();
+        target.filter = `blur(${layerBlurEffect.radius}px)`;
+        target.globalAlpha = itemAlpha;
+        if (target.drawImage) {
+          target.drawImage(
+            cc.canvas as unknown as CanvasImageSource,
+            bounds.x,
+            bounds.y,
+            bounds.w,
+            bounds.h,
+          );
+        }
+        target.restore();
+      } else {
+        paintFillsAndStrokes(target, item, itemAlpha, itemBlend);
+      }
+
+      // ── Effects pass (per-effect save/restore compositing) ────────
+      if (item.effects && item.effects.length > 0) {
+        for (const effect of item.effects) {
+          if (!effect.visible) continue;
+          if (effect.type === 'layerBlur' || effect.type === 'backgroundBlur') continue;
+          if (effect.type === 'dropShadow') {
+            target.save();
+            target.shadowColor = rgba(effect.color);
+            target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
+            target.shadowOffsetX = effect.x;
+            target.shadowOffsetY = effect.y;
+            target.globalAlpha = effect.opacity ?? 1;
+            // Use destination-over so the shadow source fill goes behind
+            // the already-rendered item fill, preventing overdraw for image fills
+            target.globalCompositeOperation = 'destination-over';
+            target.fillStyle = rgba(effect.color);
+            target.beginPath();
+            traceOutline(target, item.primitive);
+            target.fill();
+            target.restore();
+          } else if (effect.type === 'innerShadow') {
+            paintInsetEffect(target, item, effect, 'shadow');
+          } else if (effect.type === 'outerGlow') {
+            // Outer glow: render a blurred colored shape behind the item (no offset)
+            target.save();
+            target.shadowColor = rgba(effect.color);
+            target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
+            target.shadowOffsetX = 0;
+            target.shadowOffsetY = 0;
+            target.globalAlpha = effect.opacity ?? 1;
+            // Use destination-over so the glow source fill goes behind existing content
+            target.globalCompositeOperation = 'destination-over';
+            target.fillStyle = rgba(effect.color);
+            target.beginPath();
+            traceOutline(target, item.primitive);
+            target.fill();
+            target.restore();
+          } else if (effect.type === 'innerGlow') {
+            paintInsetEffect(target, item, effect, 'glow');
+          }
+        }
+      }
+
+      // ── Post-render filter compositing ────────────────────────────
+      // Apply complex filters (non-CSS, or requiring per-filter opacity/blend)
+      // via offscreen canvas compositing on the fully rendered item.
+      if (needsPostRenderFilters && item.filters && item.filters.length > 0) {
+        const complexFilters = item.filters.filter(
+          (f) => f.blendMode !== 'normal' || (f.opacity ?? 1) < 1 || !filterToCss(f),
+        );
+        if (complexFilters.length > 0) {
+          const targetCanvas = target as unknown as CanvasRenderingContext2D;
+          applyFilterWithCompositing(
+            targetCanvas,
+            complexFilters,
+            targetCanvas.canvas?.width ?? 100,
+            targetCanvas.canvas?.height ?? 100,
+          );
+        }
+      }
+
+      // Reset per-item state (shadow, filter, etc.)
+      target.shadowColor = 'transparent';
+      target.shadowBlur = 0;
+      target.shadowOffsetX = 0;
+      target.shadowOffsetY = 0;
+      target.filter = 'none';
+      target.globalAlpha = 1;
+      target.globalCompositeOperation = 'source-over';
+
+      target.restore();
     }
-
-    // Reset per-item state (shadow, filter, etc.)
-    target.shadowColor = 'transparent';
-    target.shadowBlur = 0;
-    target.shadowOffsetX = 0;
-    target.shadowOffsetY = 0;
-    target.filter = 'none';
-    target.globalAlpha = 1;
-    target.globalCompositeOperation = 'source-over';
-
-    target.restore();
+  } finally {
+    imageLookupForCurrentReplay = null;
   }
 }
 
@@ -581,6 +605,21 @@ function paintImageFill(
   const bounds = primitiveBounds(item.primitive);
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
+
+  // Render worker path: use pre-decoded ImageBitmap from Structured Clone.
+  // This avoids the `new Image()` constructor which doesn't exist in Workers.
+  if (imageLookupForCurrentReplay) {
+    const img = imageLookupForCurrentReplay(fill.src);
+    if (img && target.drawImage) {
+      target.drawImage(img, bounds.x, bounds.y, bw, bh);
+    } else {
+      const prev = target.fillStyle;
+      target.fillStyle = '#e8eaed';
+      target.fillRect(bounds.x, bounds.y, bw, bh);
+      target.fillStyle = prev;
+    }
+    return;
+  }
 
   const cache = getImageCache();
   const imgEntry = cache.get(fill.src);

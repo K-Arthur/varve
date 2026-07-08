@@ -27,7 +27,7 @@ export function StartupLoader({ error, onRetry, ready }: StartupLoaderProps) {
   if (ready && !exiting) return null;
 
   return (
-    <div 
+    <div
       className={`startup-loader ${exiting ? 'startup-loader--exiting' : ''} ${error ? 'startup-loader--error' : ''}`}
       role="status"
       aria-live="polite"
@@ -36,12 +36,29 @@ export function StartupLoader({ error, onRetry, ready }: StartupLoaderProps) {
       <div className="startup-loader__content">
         <div className="startup-loader__logo-container">
           {/* Chromatic aberration effect via 3 stacked layers (RGB offset) */}
-          <StrataLogo className="startup-loader__logo startup-loader__logo--red" symbolic size={80} />
-          <StrataLogo className="startup-loader__logo startup-loader__logo--green" symbolic size={80} />
-          <StrataLogo className="startup-loader__logo startup-loader__logo--blue" symbolic size={80} />
-          <StrataLogo className="startup-loader__logo startup-loader__logo--white" symbolic size={80} label="Strata" />
+          <StrataLogo
+            className="startup-loader__logo startup-loader__logo--red"
+            symbolic
+            size={80}
+          />
+          <StrataLogo
+            className="startup-loader__logo startup-loader__logo--green"
+            symbolic
+            size={80}
+          />
+          <StrataLogo
+            className="startup-loader__logo startup-loader__logo--blue"
+            symbolic
+            size={80}
+          />
+          <StrataLogo
+            className="startup-loader__logo startup-loader__logo--white"
+            symbolic
+            size={80}
+            label="Strata"
+          />
         </div>
-        
+
         {error && (
           <div className="startup-loader__error" role="alert">
             <p className="startup-loader__error-msg">{error}</p>

@@ -115,7 +115,7 @@ export function batchImport(
               [contentRootId]: {
                 ...doc.nodes[contentRootId],
                 children: [...crChildren, cloned.rootId],
-              } as typeof doc.nodes[string],
+              } as (typeof doc.nodes)[string],
             },
           };
         } else {
