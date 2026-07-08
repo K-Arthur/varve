@@ -103,7 +103,7 @@ export function BatchBgRemoveDialog({
   onNodeUpdate,
 }: BatchBgRemoveDialogProps) {
   const [stage, setStage] = useState<BgStage>('select');
-  const [method, setMethod] = useState<BackgroundRemovalMethod>('ai-balanced');
+  const [method, setMethod] = useState<BackgroundRemovalMethod>('quick');
   const [files, setFiles] = useState<ProcessingFile[]>([]);
   const [progress, setProgress] = useState(0);
   const cancelledRef = useRef(false);
@@ -133,7 +133,7 @@ export function BatchBgRemoveDialog({
   useEffect(() => {
     if (open) {
       setStage('select');
-      setMethod('ai-balanced');
+      setMethod('quick');
       setFiles(imageNodes.map(nodeToFile).filter((f): f is ProcessingFile => f !== null));
       setProgress(0);
       cancelledRef.current = false;
