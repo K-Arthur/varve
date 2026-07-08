@@ -62,7 +62,14 @@ export function ContextualHelpPanel({
           onClick={onClose}
           aria-label="Close help"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden
+            role="presentation"
+          >
             <path
               d="M4 4l8 8M12 4l-8 8"
               stroke="currentColor"
@@ -76,6 +83,8 @@ export function ContextualHelpPanel({
       <div className="contextual-help-panel__search">
         <svg
           className="contextual-help-panel__search-icon"
+          aria-hidden
+          role="presentation"
           width="14"
           height="14"
           viewBox="0 0 14 14"

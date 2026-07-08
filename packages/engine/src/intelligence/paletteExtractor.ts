@@ -236,7 +236,7 @@ function splitBinsByAxis(
   let cum = 0;
   let splitAt = 0;
   for (let i = 0; i < sorted.length; i++) {
-    cum += sorted[i]!.count;
+    cum += sorted[i]?.count ?? 0;
     if (cum >= half) {
       splitAt = i + 1;
       break;

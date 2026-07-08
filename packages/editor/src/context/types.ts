@@ -1,4 +1,5 @@
 import type { Adjustment, BlendMode, PathPoint } from '@strata/engine';
+import type { Platform } from '@strata/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@strata/prototype';
 import type {
   BackgroundRemovalMethod,
@@ -127,6 +128,7 @@ export interface EditorState {
 
 export interface EditorContextValue {
   state: EditorState;
+  platform?: Platform;
   // Tool
   setTool: (t: ToolId) => void;
   // Viewport

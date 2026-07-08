@@ -16,7 +16,7 @@ describe('CurveEditor', () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByRole('graphics-document', { name: /curve editor/i })).toBeTruthy();
+    expect(screen.getByRole('img', { name: /curve editor/i })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /rgb/i })).toBeTruthy();
   });
 

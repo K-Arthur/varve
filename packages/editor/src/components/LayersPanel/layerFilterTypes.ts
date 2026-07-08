@@ -1,7 +1,8 @@
-import type { BlendMode, LayerColor, SceneNode } from '@strata/scene';
+import type { BlendMode, FrameNode, LayerColor, SceneNode } from '@strata/scene';
+import { isContainer } from '@strata/scene';
 
 /** Filter by node kind (e.g., 'shape', 'text', 'frame', etc.) */
-export type NodeKindFilter = SceneNode['kind'][];
+export type NodeKindFilter = Array<SceneNode['kind'] | 'component'>;
 
 /** Filter by attribute state */
 export interface AttributeFilter {
@@ -38,6 +39,18 @@ export const DEFAULT_FILTER: LayerFilterSpec = {
   blendModes: [],
 };
 
+function isComponentFrame(node: SceneNode): node is FrameNode {
+  return node.kind === 'frame' && node.componentId != null;
+}
+
+function hasEffects(node: SceneNode): boolean {
+  return (node.effects?.length ?? 0) > 0;
+}
+
+function hasMask(node: SceneNode): boolean {
+  return (node as SceneNode & { mask?: unknown }).mask != null;
+}
+
 /** Returns true when at least one filter dimension is active. */
 export function isFiltering(spec: LayerFilterSpec): boolean {
   return (
@@ -56,37 +69,33 @@ export function nodeMatchesFilter(node: SceneNode, filter: LayerFilterSpec): boo
   }
 
   if (filter.kinds.length > 0) {
-    const effectiveKind =
-      node.kind === 'frame' && 'componentId' in node && (node as any).componentId != null
-        ? 'component'
-        : node.kind;
-    if (!filter.kinds.includes(effectiveKind as any) && !filter.kinds.includes(node.kind))
-      return false;
+    const effectiveKind: SceneNode['kind'] | 'component' = isComponentFrame(node)
+      ? 'component'
+      : node.kind;
+    if (!filter.kinds.includes(effectiveKind) && !filter.kinds.includes(node.kind)) return false;
   }
 
   const attr = filter.attributes;
   if (attr.locked !== undefined && node.locked !== attr.locked) return false;
   if (attr.visible !== undefined && node.visible !== attr.visible) return false;
   if (attr.hasChildren !== undefined) {
-    const hasCh = 'children' in node && (node as any).children?.length > 0;
+    const hasCh = isContainer(node) && node.children.length > 0;
     if (hasCh !== attr.hasChildren) return false;
   }
   if (attr.isComponent !== undefined) {
-    const isComp =
-      node.kind === 'frame' && 'componentId' in node && (node as any).componentId != null;
+    const isComp = isComponentFrame(node);
     if (isComp !== attr.isComponent) return false;
   }
   if (attr.isInstance !== undefined) {
-    const isInst =
-      node.kind === 'frame' && 'componentId' in node && (node as any).componentId != null;
+    const isInst = isComponentFrame(node);
     if (isInst !== attr.isInstance) return false;
   }
   if (attr.hasEffects !== undefined) {
-    const hasFx = 'effects' in node && (node as any).effects?.length > 0;
+    const hasFx = hasEffects(node);
     if (hasFx !== attr.hasEffects) return false;
   }
   if (attr.isMasked !== undefined) {
-    const isMasked = 'mask' in node && (node as any).mask != null;
+    const isMasked = hasMask(node);
     if (isMasked !== attr.isMasked) return false;
   }
   if (attr.layerColor !== undefined) {

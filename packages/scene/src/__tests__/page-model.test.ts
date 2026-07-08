@@ -11,7 +11,7 @@ import {
   removePage,
   setActivePage,
 } from '../document';
-import type { GroupNode } from '../types';
+import type { GroupNode, Page } from '../types';
 
 describe('Page model hygiene', () => {
   describe('createDocument flat parameter', () => {
@@ -34,7 +34,7 @@ describe('Page model hygiene', () => {
       const doc = createDocument();
       expect(doc.pages).toBeDefined();
       expect(doc.pages?.length).toBe(1);
-      const page = doc.pages?.[0]!;
+      const page = doc.pages?.[0] as Page;
       expect(page.name).toBe('Page 1');
       expect(page.contentRoot).toBeDefined();
     });
@@ -43,14 +43,14 @@ describe('Page model hygiene', () => {
   describe('activePageId points to Page.id', () => {
     it('activePageId is the Page.id, not the contentRoot GroupNode id', () => {
       const doc = createDocument('test', false);
-      const page = doc.pages?.[0]!;
+      const page = doc.pages?.[0] as Page;
       expect(doc.activePageId).toBe(page.id);
       expect(doc.activePageId).not.toBe(page.contentRoot);
     });
 
     it('activePageNodes resolves via Page.id correctly', () => {
       let doc = createDocument('test', false);
-      const page = doc.pages?.[0]!;
+      const page = doc.pages?.[0] as Page;
       const contentRootId = page.contentRoot;
 
       const globalId = 'global-1';
@@ -87,7 +87,7 @@ describe('Page model hygiene', () => {
 
     it('activePageNodes returns globals + page content for page-based', () => {
       let doc = createDocument('test', false);
-      const page = doc.pages?.[0]!;
+      const page = doc.pages?.[0] as Page;
       const contentRootId = page.contentRoot;
 
       const globalId = 'global-1';
@@ -121,7 +121,7 @@ describe('Page model hygiene', () => {
       const migrated = migrateToPages(doc);
       expect(migrated.pages).toBeDefined();
       expect(migrated.pages?.length).toBe(1);
-      const page = migrated.pages?.[0]!;
+      const page = migrated.pages?.[0] as Page;
       // activePageId should be the Page.id, not the contentRoot
       expect(migrated.activePageId).toBe(page.id);
       expect(migrated.rootChildren).toEqual([page.contentRoot]);
@@ -144,7 +144,7 @@ describe('Page model hygiene', () => {
       const firstPageId = doc.pages?.[0]?.id;
       doc = addPage(doc);
       expect(doc.pages?.length).toBe(2);
-      const secondPage = doc.pages?.[1]!;
+      const secondPage = doc.pages?.[1] as Page;
       expect(secondPage.id).toBeDefined();
       expect(secondPage.id).not.toBe(firstPageId);
       expect(secondPage.contentRoot).toBeDefined();
@@ -153,9 +153,9 @@ describe('Page model hygiene', () => {
 
     it('removePage works with new activePageId scheme', () => {
       let doc = createDocument('test', false);
-      const pageOne = doc.pages?.[0]!;
+      const pageOne = doc.pages?.[0] as Page;
       doc = addPage(doc);
-      const pageTwo = doc.pages?.[1]!;
+      const pageTwo = doc.pages?.[1] as Page;
       // activePageId should still be pageOne.id
       expect(doc.activePageId).toBe(pageOne.id);
 
@@ -169,12 +169,13 @@ describe('Page model hygiene', () => {
 
     it('removePage removes content root node from nodes', () => {
       let doc = createDocument('test', false);
-      const page = doc.pages?.[0]!;
+      const page = doc.pages?.[0] as Page;
       const contentRootId = page.contentRoot;
 
       doc = addPage(doc);
-      const secondPageId = doc.pages?.[1]?.id!;
-      const secondContentRootId = doc.pages?.[1]?.contentRoot!;
+      const secondPage = doc.pages?.[1] as Page;
+      const secondPageId = secondPage.id;
+      const secondContentRootId = secondPage.contentRoot;
 
       doc = removePage(doc, secondPageId);
       expect(doc.pages?.length).toBe(1);
@@ -185,7 +186,7 @@ describe('Page model hygiene', () => {
 
     it('removePage prevents removal of last page', () => {
       const doc = createDocument('test', false);
-      const pageId = doc.pages?.[0]?.id!;
+      const pageId = (doc.pages?.[0] as Page).id;
       const result = removePage(doc, pageId);
       expect(result.pages?.length).toBe(1);
     });
@@ -193,7 +194,7 @@ describe('Page model hygiene', () => {
     it('setActivePage switches active page by Page.id', () => {
       let doc = createDocument('test', false);
       doc = addPage(doc);
-      const secondPageId = doc.pages?.[1]?.id!;
+      const secondPageId = (doc.pages?.[1] as Page).id;
       const updated = setActivePage(doc, secondPageId);
       expect(updated.activePageId).toBe(secondPageId);
       expect(updated).not.toBe(doc);

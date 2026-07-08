@@ -18,7 +18,7 @@ import {
 import type { GroupNode, Page } from '../types';
 
 function firstPage(doc: ReturnType<typeof createDocument>): Page {
-  return doc.pages?.[0]!;
+  return doc.pages?.[0] as Page;
 }
 
 describe('Page operations', () => {
@@ -74,7 +74,7 @@ describe('Page operations', () => {
   it('addPage adds contentRoot and background nodes correctly', () => {
     let doc = createDocument();
     doc = addPage(doc);
-    const newPage = doc.pages?.[1]!;
+    const newPage = doc.pages?.[1] as Page;
     const contentRoot = doc.nodes[newPage.contentRoot];
     expect(contentRoot).toBeDefined();
     expect(contentRoot?.kind).toBe('group');
@@ -86,8 +86,9 @@ describe('Page operations', () => {
     const firstPageId = firstPage(doc).id;
     const firstContentRootId = firstPage(doc).contentRoot;
     doc = addPage(doc);
-    const secondPageId = doc.pages?.[1]?.id!;
-    const secondContentRootId = doc.pages?.[1]?.contentRoot!;
+    const secondPage = doc.pages?.[1] as Page;
+    const secondPageId = secondPage.id;
+    const secondContentRootId = secondPage.contentRoot;
 
     doc = removePage(doc, secondPageId);
     expect(doc.pages?.length).toBe(1);
@@ -137,7 +138,7 @@ describe('Page operations', () => {
     doc = addPage(doc);
     expect(doc.pages?.length).toBe(3);
 
-    const ids = doc.pages!.map((p) => p.id);
+    const ids = (doc.pages ?? []).map((p) => p.id);
     const reversed = [...ids].reverse();
     doc = reorderPages(doc, reversed);
     expect(doc.pages?.map((p) => p.id)).toEqual(reversed);
@@ -155,7 +156,7 @@ describe('Page operations', () => {
   it('reorderPages validates all page IDs are present (not a subset)', () => {
     let doc = createDocument();
     doc = addPage(doc);
-    const firstIdOnly = [doc.pages![0]!.id];
+    const firstIdOnly = [(doc.pages?.[0] as Page).id];
     const result = reorderPages(doc, firstIdOnly);
     expect(result).toBe(doc);
   });
@@ -180,7 +181,8 @@ describe('Page operations', () => {
 
     // Content should be duplicated with new IDs
     const origContentRoot = doc.nodes[contentRootId];
-    const dupContentRoot = doc.nodes[doc.pages![1]!.contentRoot];
+    const duplicatePageRootId = (doc.pages?.[1] as Page).contentRoot;
+    const dupContentRoot = doc.nodes[duplicatePageRootId];
     expect(dupContentRoot).toBeDefined();
     expect(dupContentRoot?.kind).toBe('group');
 
@@ -205,7 +207,8 @@ describe('Page operations', () => {
     doc = addChild(doc, contentRootId, shape);
 
     doc = duplicatePage(doc, originalId);
-    const dupContentRoot = doc.nodes[doc.pages![1]!.contentRoot];
+    const duplicatePageRootId = (doc.pages?.[1] as Page).contentRoot;
+    const dupContentRoot = doc.nodes[duplicatePageRootId];
 
     // Structure check: both content roots exist and have children
     expect(contentRootId).not.toBe(doc.pages?.[1]?.contentRoot);
@@ -259,7 +262,7 @@ describe('Page operations', () => {
     expect(doc.pages).toBeDefined();
     expect(doc.pages?.length).toBe(1);
     // The rootChildren should now be the contentRoot
-    const page = doc.pages?.[0]!;
+    const page = doc.pages?.[0] as Page;
     expect(doc.rootChildren).toEqual([page.contentRoot]);
     // The contentRoot should contain the old rootChildren as children
     const contentRoot = doc.nodes[page.contentRoot] as { children: string[] } | undefined;
@@ -368,7 +371,7 @@ describe('Page operations', () => {
 
     it('activePageNodes returns global children + page children when activePageId is set', () => {
       let doc = createDocument();
-      const contentRootId = doc.pages![0]!.contentRoot;
+      const contentRootId = (doc.pages?.[0] as Page).contentRoot;
       const globalId = 'global-1';
       doc = addGlobalChild(doc, globalId);
       const pageChildId = 'page-child-1';

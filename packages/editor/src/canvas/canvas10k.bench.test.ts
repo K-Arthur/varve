@@ -1,7 +1,7 @@
 /**
  * Canvas draw-path performance benchmarks — viewport culling + IR build at scale.
  */
-import { createDocument, makeShapeNode } from '@strata/scene';
+import { buildParentIndexMap, createDocument, makeShapeNode } from '@strata/scene';
 import { isWorldRectInViewport } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import { nodeWorldBounds } from '../scene/world';
@@ -9,6 +9,8 @@ import { nodeWorldBounds } from '../scene/world';
 describe('canvas 10k bench', () => {
   it('viewport cull 10k nodes under 500ms', () => {
     let doc = createDocument('bench', true);
+    const nodes = { ...doc.nodes };
+    const rootChildren = [...doc.rootChildren];
     const ids: string[] = [];
     for (let i = 0; i < 10_000; i++) {
       const col = i % 200;
@@ -22,21 +24,20 @@ describe('canvas 10k bench', () => {
           transform: [1, 0, 0, 1, col * 100, row * 100],
         },
       );
-      doc = {
-        ...doc,
-        nodes: { ...doc.nodes, [id]: node },
-        rootChildren: [...doc.rootChildren, id],
-      };
+      nodes[id] = node;
+      rootChildren.push(id);
       ids.push(id);
     }
+    doc = { ...doc, nodes, rootChildren };
 
     const cam = { pan: { x: 0, y: 0 }, zoom: 1, rotation: 0 };
     const vp = { width: 1200, height: 800 };
+    const parentIndex = buildParentIndexMap(doc);
 
     const t0 = performance.now();
     let visible = 0;
     for (const id of ids) {
-      const b = nodeWorldBounds(doc, id);
+      const b = nodeWorldBounds(doc, id, parentIndex);
       if (b && isWorldRectInViewport(cam, vp, b)) visible++;
     }
     const elapsed = performance.now() - t0;

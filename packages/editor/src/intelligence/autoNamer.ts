@@ -64,7 +64,6 @@ function getNodeWidth(node: SceneNode): number | null {
     case 'shape':
       if (isImageShape(node)) return imageShapeW(node);
       return shapeWidth(node.shape);
-    case 'frame':
     default:
       return null;
   }

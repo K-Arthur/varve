@@ -101,7 +101,9 @@ describe('Prototype Runtime', () => {
       expect(results).toHaveLength(1);
 
       // Apply the navigate result
-      applyActionResult(runtime, results[0]?.actionResults[0]!);
+      const actionResult = results[0]?.actionResults[0];
+      expect(actionResult).toBeDefined();
+      applyActionResult(runtime, actionResult as NonNullable<typeof actionResult>);
       expect(runtime.state.currentScreenId).toBe('screen-2');
     });
 

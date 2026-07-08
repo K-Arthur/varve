@@ -219,7 +219,7 @@ describe('EditorContext', () => {
     });
     // Nested under the page's contentRoot, matching how createShapeAt
     // actually places new nodes — hitTestNode is scoped to the active page.
-    doc = addChild(doc, doc.pages![0]!.contentRoot, frame);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, frame);
     const rect = makeShapeNode(
       'r1',
       { kind: 'rect', x: 50, y: 50, w: 100, h: 100 },
@@ -258,7 +258,7 @@ describe('EditorContext', () => {
     let doc = createDocument('hit-test');
     const frame = makeFrameNode('f1', { name: 'Frame', w: 200, h: 200 });
     // Nested under the page's contentRoot — see the comment above.
-    doc = addChild(doc, doc.pages![0]!.contentRoot, frame);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, frame);
     const rect = makeShapeNode(
       'r1',
       { kind: 'rect', x: 150, y: 150, w: 30, h: 30 },
@@ -365,7 +365,7 @@ describe('EditorContext', () => {
         expect(ctx?.state.selection[0]).not.toBe('f1');
       });
 
-      const newId = ctx?.state.selection[0]!;
+      const newId = ctx?.state.selection[0] as string;
 
       const newFrame = ctx?.state.document.nodes[newId] as SceneNode & { children: string[] };
       expect(newFrame).toBeDefined();
@@ -479,7 +479,7 @@ describe('EditorContext', () => {
         expect(ctx?.state.selection[0]).not.toBe('g1');
       });
 
-      const newId = ctx?.state.selection[0]!;
+      const newId = ctx?.state.selection[0] as string;
       const newGroup = ctx?.state.document.nodes[newId] as SceneNode & { children: string[] };
       expect(newGroup.name).toBe('Group copy');
       expect(newGroup.children).toHaveLength(1);
