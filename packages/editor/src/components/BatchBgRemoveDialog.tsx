@@ -258,11 +258,7 @@ export function BatchBgRemoveDialog({
     abortRef.current = new AbortController();
     hadAiFallbackRef.current = false;
 
-    const filtered = files.map((f) => {
-      const node = nodes.find((n) => n.id === f.id);
-      if ((node as ShapeNode).backgroundRemoval) return { ...f, status: 'skipped' as const };
-      return f;
-    });
+    const filtered = files.map((f) => ({ ...f, status: 'queued' as const }));
 
     setFiles(filtered);
     setStage('processing');
@@ -310,7 +306,7 @@ export function BatchBgRemoveDialog({
     }
   }, [files, nodes, runFile, updateFileStatus, method, aiAvailable]);
 
-  const downloadModelId = method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
+  const downloadModelId = requiredModelId;
 
   const handleRetry = useCallback(
     async (id: NodeId) => {

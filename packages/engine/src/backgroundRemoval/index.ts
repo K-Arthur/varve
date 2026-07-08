@@ -181,6 +181,14 @@ async function invokeTauriRemoveBackground(
   };
 }
 
+function configureOrtWasm(ort: typeof import('onnxruntime-web')): void {
+  try {
+    ort.env.wasm.wasmPaths = '/ort-wasm/';
+  } catch {
+    // Older ort builds may not expose env; ignore.
+  }
+}
+
 async function createOrtSession(
   ort: typeof import('onnxruntime-web'),
   modelPath: string,
@@ -188,6 +196,7 @@ async function createOrtSession(
   session: import('onnxruntime-web').InferenceSession;
   executionProvider: 'webgl' | 'wasm';
 }> {
+  configureOrtWasm(ort);
   try {
     const session = await ort.InferenceSession.create(modelPath, {
       executionProviders: ['webgl', 'wasm'],

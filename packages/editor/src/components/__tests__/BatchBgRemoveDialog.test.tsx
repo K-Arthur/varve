@@ -389,4 +389,21 @@ describe('BatchBgRemoveDialog', () => {
     const liveRegion = document.querySelector('[role="status"]');
     expect(liveRegion?.textContent).toMatch(/quick heuristic/i);
   });
+
+  it('reprocesses nodes even when they already have a backgroundRemoval state', async () => {
+    setupSuccessMocks();
+    const { onNodeUpdate } = renderDialog([
+      imageNode('i1', {
+        backgroundRemoval: {
+          maskDataUrl: 'data:image/png;base64,existing',
+          method: 'quick',
+          confidence: 0.9,
+          appliedAt: 1,
+        },
+      }),
+    ]);
+    fireEvent.click(findStartBtn());
+    expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
+    expect(onNodeUpdate).toHaveBeenCalled();
+  });
 });

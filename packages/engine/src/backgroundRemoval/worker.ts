@@ -45,6 +45,17 @@ let cachedSession: InferenceSession | null = null;
 let cachedModelPath: string | null = null;
 let cachedExecutionProvider: 'webgl' | 'wasm' = 'wasm';
 
+async function configureOrtWasm(ort: typeof import('onnxruntime-web')): Promise<void> {
+  // In a module Worker the relative script URL is not reliable; publish the
+  // WASM artifacts under /ort-wasm/ (copied from node_modules by the
+  // copy-onnx-wasm postinstall script) and point ONNX Runtime at them.
+  try {
+    ort.env.wasm.wasmPaths = '/ort-wasm/';
+  } catch {
+    // Older ort builds may not expose env; ignore.
+  }
+}
+
 async function getSession(
   modelPath: string,
 ): Promise<{ session: InferenceSession; executionProvider: 'webgl' | 'wasm' }> {
@@ -52,6 +63,7 @@ async function getSession(
     return { session: cachedSession, executionProvider: cachedExecutionProvider };
   }
   const ort = await import('onnxruntime-web');
+  await configureOrtWasm(ort);
   try {
     cachedSession = await ort.InferenceSession.create(modelPath, {
       executionProviders: ['webgl', 'wasm'],

@@ -322,6 +322,42 @@ describe('ModelLoader', () => {
     await expect(loader.getModelPath('birefnet-general-lite')).resolves.toBeNull();
   });
 
+  it('getModelPath trusts the manifest for bundled models and skips HEAD fetch', async () => {
+    const { getModelLoader, resetModelLoader } = await import('../modelLoader');
+    const { resetModelManifestCache } = await import('../modelManifest');
+    resetModelLoader();
+    resetModelManifestCache();
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('manifest.json')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            version: 1,
+            models: [
+              {
+                id: 'u2netp',
+                filename: 'u2netp.onnx',
+                localPath: '/models/u2netp.onnx',
+                sha256: null,
+                bundled: true,
+                remoteUrl: 'https://example.com/u2netp.onnx',
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const loader = getModelLoader();
+
+    // bundled=true in the manifest means the file ships with the app; we
+    // should not rely on a HEAD fetch that can 404 in Vite dev.
+    await expect(loader.getModelPath('u2netp')).resolves.toBe('/models/u2netp.onnx');
+    expect(fetchMock).toHaveBeenCalledWith('/models/manifest.json');
+    expect(fetchMock).not.toHaveBeenCalledWith('/models/u2netp.onnx', expect.anything());
+  });
+
   it('resolveDownloadSources returns manifest local-first then remote for a known model', async () => {
     const { getModelLoader, resetModelLoader } = await import('../modelLoader');
     const { resetModelManifestCache } = await import('../modelManifest');

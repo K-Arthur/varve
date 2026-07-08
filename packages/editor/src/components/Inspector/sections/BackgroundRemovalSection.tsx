@@ -125,7 +125,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     void applyTrimapMatting();
   };
 
-  const downloadModelId = method === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite';
+  const downloadModelId = requiredModelId;
 
   return (
     <DisclosureSection title="Background Removal">

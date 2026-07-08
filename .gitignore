@@ -43,3 +43,6 @@ npm-debug.log*
 # --- Test artifacts ---
 test-results/
 playwright-report/
+
+# --- Generated ONNX Runtime Web WASM artifacts ---
+apps/desktop/public/ort-wasm/
