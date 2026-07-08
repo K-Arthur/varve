@@ -1,0 +1,149 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Documentation - Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <h1>Documentation</h1>
+      <p class="docs-intro">
+        Learn how to use Strata with comprehensive documentation covering getting started, workflows, and technical details.
+      </p>
+
+      <div class="docs-grid">
+        <div class="docs-card">
+          <h2>Getting Started</h2>
+          <p>Installation, first steps, and basic workflows</p>
+          <ul>
+            <li><a href="/docs/getting-started">Installation Guide</a></li>
+            <li><a href="/docs/getting-started/interface">Interface Overview</a></li>
+            <li><a href="/docs/getting-started/first-project">Your First Project</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-card">
+          <h2>Tools & Features</h2>
+          <p>Comprehensive guide to all tools and capabilities</p>
+          <ul>
+            <li><a href="/docs/tools/vector">Vector Tools</a></li>
+            <li><a href="/docs/tools/typography">Typography</a></li>
+            <li><a href="/docs/tools/color">Color & Effects</a></li>
+            <li><a href="/docs/tools/motion">Motion & Prototyping</a></li>
+            <li><a href="/docs/tools/export">Export & Code Generation</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-card">
+          <h2>Reference</h2>
+          <p>Quick reference for keyboard shortcuts and settings</p>
+          <ul>
+            <li><a href="/docs/keyboard-shortcuts">Keyboard Shortcuts</a></li>
+            <li><a href="/docs/settings">Settings & Preferences</a></li>
+            <li><a href="/docs/file-formats">File Formats</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-card">
+          <h2>Technical</h2>
+          <p>Architecture and technical documentation</p>
+          <ul>
+            <li><a href="/docs/architecture">Architecture Overview</a></li>
+            <li><a href="/docs/rendering">Rendering Pipeline</a></li>
+            <li><a href="https://github.com/strata/strata/blob/main/AGENTS.md">Development Guide (AGENTS.md)</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="docs-note">
+        <h3>Documentation Status</h3>
+        <p>
+          Documentation is being actively developed. For the most up-to-date information, see the 
+          <a href="https://github.com/strata/strata">GitHub repository</a> and 
+          <a href="https://github.com/strata/strata/discussions">GitHub Discussions</a>.
+        </p>
+        <p>
+          Want to help improve documentation? See the 
+          <a href="/contribute">contribution guidelines</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+  
+  .docs-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .docs-card h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .docs-card p {
+    color: var(--color-neutral-600);
+    margin-bottom: 1rem;
+    font-size: 0.9375rem;
+  }
+  
+  .docs-card ul {
+    list-style: none;
+  }
+  
+  .docs-card li {
+    margin-bottom: 0.5rem;
+  }
+  
+  .docs-card a {
+    color: var(--color-teal-600);
+    font-size: 0.9375rem;
+  }
+  
+  .docs-note {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .docs-note h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+  
+  .docs-note p {
+    color: var(--color-neutral-600);
+    margin-bottom: 0.75rem;
+  }
+</style>

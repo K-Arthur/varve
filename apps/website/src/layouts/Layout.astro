@@ -1,0 +1,281 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+}
+
+const { 
+  title, 
+  description = "Local-first, cross-platform design suite with native Rust performance. No cloud lock-in. No subscription.",
+  image = "/og-image.png"
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={Astro.url} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image} />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+    
+    <title>{title} | Strata</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="site-nav">
+        <a href="/" class="site-logo">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- Strata logo placeholder - will replace with actual logo -->
+            <rect width="32" height="32" rx="4" fill="#39D0C6"/>
+          </svg>
+          <span>Strata</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/product">Product</a></li>
+          <li><a href="/features">Features</a></li>
+          <li><a href="/download">Download</a></li>
+          <li><a href="/docs">Docs</a></li>
+          <li><a href="/support">Support</a></li>
+          <li><a href="/contribute">Contribute</a></li>
+        </ul>
+      </nav>
+    </header>
+    
+    <main class="site-main">
+      <slot />
+    </main>
+    
+    <footer class="site-footer">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h3>Product</h3>
+          <ul>
+            <li><a href="/product">Overview</a></li>
+            <li><a href="/features">Features</a></li>
+            <li><a href="/download">Download</a></li>
+            <li><a href="/releases">Releases</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Learn</h3>
+          <ul>
+            <li><a href="/docs">Documentation</a></li>
+            <li><a href="/learn/tutorials">Tutorials</a></li>
+            <li><a href="/learn/examples">Examples</a></li>
+            <li><a href="/learn/community">Community</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Support</h3>
+          <ul>
+            <li><a href="/support/faq">FAQ</a></li>
+            <li><a href="/support/troubleshooting">Troubleshooting</a></li>
+            <li><a href="/support/report-issue">Report Issue</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Project</h3>
+          <ul>
+            <li><a href="/contribute">Contribute</a></li>
+            <li><a href="/support-project">Support Project</a></li>
+            <li><a href="/about">About</a></li>
+            <li><a href="/about/license">License (AGPL)</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Connect</h3>
+          <ul>
+            <li><a href="https://github.com/strata/strata">GitHub</a></li>
+            <li><a href="https://github.com/strata/strata/discussions">Discussions</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024-2026 Strata Contributors — AGPL-3.0-or-later</p>
+        <p>Built independently by one designer-developer</p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --color-teal-50: #f0fdfc;
+    --color-teal-100: #ccfbf1;
+    --color-teal-200: #99f6e4;
+    --color-teal-300: #5eead4;
+    --color-teal-400: #39d0c6;
+    --color-teal-500: #2dd4bf;
+    --color-teal-600: #14b8a6;
+    --color-teal-700: #0d9488;
+    --color-teal-800: #0f766e;
+    --color-teal-900: #115e59;
+    
+    --color-sandstone-400: #e28c3c;
+    --color-terracotta-400: #c54b3a;
+    
+    --color-neutral-50: #fafafa;
+    --color-neutral-100: #f5f5f5;
+    --color-neutral-200: #e5e5e5;
+    --color-neutral-300: #d4d4d4;
+    --color-neutral-400: #a3a3a3;
+    --color-neutral-500: #737373;
+    --color-neutral-600: #525252;
+    --color-neutral-700: #404040;
+    --color-neutral-800: #262626;
+    --color-neutral-900: #171717;
+    
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-neutral-900);
+    background: var(--color-neutral-50);
+    line-height: 1.6;
+  }
+  
+  a {
+    color: var(--color-teal-600);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  
+  a:hover {
+    color: var(--color-teal-700);
+  }
+  
+  .site-header {
+    background: white;
+    border-bottom: 1px solid var(--color-neutral-200);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  
+  .site-nav {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .site-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 1.25rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .site-logo svg {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .nav-links {
+    display: flex;
+    list-style: none;
+    gap: 2rem;
+  }
+  
+  .nav-links a {
+    color: var(--color-neutral-600);
+    font-weight: 500;
+  }
+  
+  .nav-links a:hover {
+    color: var(--color-teal-600);
+  }
+  
+  .site-main {
+    min-height: calc(100vh - 400px);
+  }
+  
+  .site-footer {
+    background: var(--color-neutral-900);
+    color: var(--color-neutral-100);
+    padding: 3rem 1.5rem 2rem;
+  }
+  
+  .footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+  }
+  
+  .footer-section h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+    color: var(--color-teal-400);
+  }
+  
+  .footer-section ul {
+    list-style: none;
+  }
+  
+  .footer-section li {
+    margin-bottom: 0.5rem;
+  }
+  
+  .footer-section a {
+    color: var(--color-neutral-300);
+    font-size: 0.9375rem;
+  }
+  
+  .footer-section a:hover {
+    color: var(--color-teal-400);
+  }
+  
+  .footer-bottom {
+    max-width: 1200px;
+    margin: 2rem auto 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-neutral-700);
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--color-neutral-400);
+  }
+  
+  @media (max-width: 768px) {
+    .nav-links {
+      display: none;
+    }
+    
+    .footer-content {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

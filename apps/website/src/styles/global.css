@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles that extend Tailwind */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .container-custom {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+  
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .btn-primary:hover {
+    background: var(--color-teal-700);
+    transform: translateY(-1px);
+  }
+  
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: white;
+    color: var(--color-neutral-900);
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    border: 2px solid var(--color-neutral-200);
+    cursor: pointer;
+  }
+  
+  .btn-secondary:hover {
+    border-color: var(--color-teal-400);
+    color: var(--color-teal-600);
+  }
+}

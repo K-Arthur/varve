@@ -1,0 +1,164 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Product Overview - Strata">
+  <div class="container-custom">
+    <div class="product-page">
+      <h1>What is Strata?</h1>
+      <p class="product-intro">
+        Strata is a local-first, cross-platform design suite with a native Rust engine on desktop and WASM fallback on web. Built independently by one designer-developer, Strata combines professional features with honest development and transparent limitations.
+      </p>
+
+      <section class="product-section">
+        <h2>Local-First by Design</h2>
+        <p>
+          Your designs belong on your machine, not in our cloud. Strata stores all data locally with no account required and no cloud sync. You own your files, you control your data, and you can collaborate when you choose to (future feature).
+        </p>
+      </section>
+
+      <section class="product-section">
+        <h2>Cross-Platform Native Performance</h2>
+        <p>
+          Strata runs natively on Linux, macOS, and Windows with a Rust engine that delivers 86fps canvas2D rendering via IR-replay architecture. The same facade works on desktop (native) and web (WASM) with zero compromise in functionality.
+        </p>
+      </section>
+
+      <section class="product-section">
+        <h2>Technical Depth</h2>
+        <p>
+          Built with serious engineering: IR-replay rendering separates scene computation from display, viewport culling and dirty-rect redraw optimize performance at scale, and spatial indexing enables fast hit testing. The architecture is documented, tested, and extensible.
+        </p>
+      </section>
+
+      <section class="product-section">
+        <h2>Honest Development</h2>
+        <p>
+          Strata is built by one developer, not a VC-funded startup. This means transparent development, clear communication about limitations, and community input on priorities. No marketing fluff, no hidden agendas, just focused tools for designers.
+        </p>
+      </section>
+
+      <section class="product-section">
+        <h2>No Subscription</h2>
+        <p>
+          Download Strata once and own your tools forever. No monthly payments, no feature lockouts, no cloud subscription required. AGPL-3.0-or-later licensed, source available, community-owned.
+        </p>
+      </section>
+
+      <section class="product-section">
+        <h2>Who is Strata For?</h2>
+        <div class="audience-grid">
+          <div class="audience-card">
+            <h3>Independent Designers</h3>
+            <p>Value performance, offline workflows, no cloud lock-in, cross-platform flexibility</p>
+          </div>
+          <div class="audience-card">
+            <h3>Linux Designers</h3>
+            <p>Need first-class Linux support (CachyOS, Arch, Ubuntu, Fedora) with native packages</p>
+          </div>
+          <div class="audience-card">
+            <h3>Privacy-Conscious Designers</h3>
+            <p>Avoid cloud-based tools, want local data control, concerned about surveillance capitalism</p>
+          </div>
+          <div class="audience-card">
+            <h3>Technical Designers</h3>
+            <p>Value technical architecture, performance, code quality, and extensibility</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="product-cta">
+        <h2>Ready to try Strata?</h2>
+        <a href="/download" class="btn-primary">Download for Your Platform</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .product-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .product-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .product-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 3rem;
+  }
+  
+  .product-section {
+    margin-bottom: 3rem;
+  }
+  
+  .product-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .product-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+  }
+  
+  .audience-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .audience-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .audience-card h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .audience-card p {
+    color: var(--color-neutral-600);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+  
+  .product-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .product-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  @media (max-width: 768px) {
+    .product-page h1 {
+      font-size: 2rem;
+    }
+    
+    .product-intro {
+      font-size: 1rem;
+    }
+  }
+</style>

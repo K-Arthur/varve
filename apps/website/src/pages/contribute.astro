@@ -1,0 +1,246 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Contribute - Strata">
+  <div class="container-custom">
+    <div class="contribute-page">
+      <h1>Contribute to Strata</h1>
+      <p class="contribute-intro">
+        Strata is built by the community. Whether you contribute code, documentation, testing, or design, your help is valued and appreciated.
+      </p>
+
+      <section class="contribute-section">
+        <h2>Ways to Contribute</h2>
+        
+        <div class="contribute-cards">
+          <div class="contribute-card">
+            <h3>Code Contributions</h3>
+            <p>Fix bugs, add features, improve performance</p>
+            <ul>
+              <li>Read the <a href="/contribute/guidelines">contribution guidelines</a></li>
+              <li>Set up development environment (see <a href="https://github.com/strata/strata/blob/main/AGENTS.md">AGENTS.md</a>)</li>
+              <li>Check for "good first issue" labels on GitHub</li>
+              <li>Submit pull requests with tests</li>
+            </ul>
+          </div>
+
+          <div class="contribute-card">
+            <h3>Documentation</h3>
+            <p>Improve docs, write tutorials, translate content</p>
+            <ul>
+              <li>Fix typos or clarify confusing sections</li>
+              <li>Write tutorials for specific workflows</li>
+              <li>Add examples and screenshots</li>
+              <li>Translate documentation to other languages</li>
+            </ul>
+          </div>
+
+          <div class="contribute-card">
+            <h3>Testing</h3>
+            <p>Test on different platforms and report bugs</p>
+            <ul>
+              <li>Test on specific Linux distributions</li>
+              <li>Test on different macOS versions</li>
+              <li>Test accessibility with screen readers</li>
+              <li>Verify bug fixes and report regressions</li>
+            </ul>
+          </div>
+
+          <div class="contribute-card">
+            <h3>Design</h3>
+            <p>Create UI mockups, icons, website improvements</p>
+            <ul>
+              <li>Design new feature interfaces</li>
+              <li>Create icon designs</li>
+              <li>Improve website UX</li>
+              <li>Design marketing materials</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="contribute-section">
+        <h2>Getting Started</h2>
+        <ol>
+          <li>Read the <a href="/contribute/guidelines">contribution guidelines</a> and code of conduct</li>
+          <li>Set up your development environment following <a href="https://github.com/strata/strata/blob/main/AGENTS.md">AGENTS.md</a></li>
+          <li>Check existing issues for "good first issue" labels</li>
+          <li>Fork the repository and create a feature branch</li>
+          <li>Make your changes and add tests</li>
+          <li>Submit a pull request with a clear description</li>
+        </ol>
+      </section>
+
+      <section class="contribute-section">
+        <h2>AGPL Licensing</h2>
+        <p>
+          All contributions to Strata must be licensed under AGPL-3.0-or-later. By contributing, you grant a license for your code to be included in the project under the same license. You retain copyright to your contributions.
+        </p>
+        <p>
+          This copyleft license ensures that derivative works remain free and open. If you have questions about AGPL implications for your contribution, please ask in a discussion or issue before submitting.
+        </p>
+      </section>
+
+      <section class="contribute-section">
+        <h2>Recognition</h2>
+        <p>
+          Contributors are recognized in the following ways:
+        </p>
+        <ul>
+          <li>GitHub contributor list (automatic)</li>
+          <li>Release notes acknowledgment (with permission)</li>
+          <li>Contributors section on the About page</li>
+        </ul>
+      </section>
+
+      <div class="contribute-cta">
+        <h2>Ready to contribute?</h2>
+        <a href="https://github.com/strata/strata/issues" class="btn-primary">Find an Issue to Work On</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .contribute-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .contribute-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .contribute-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .contribute-section {
+    margin-bottom: 3rem;
+  }
+  
+  .contribute-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .contribute-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .contribute-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .contribute-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .contribute-card h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .contribute-card p {
+    font-size: 0.9375rem;
+    margin-bottom: 1rem;
+  }
+  
+  .contribute-card ul {
+    list-style: none;
+  }
+  
+  .contribute-card li {
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+    padding-left: 1.25rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .contribute-card li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .contribute-section ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  
+  .contribute-section ol li {
+    counter-increment: item;
+    margin-bottom: 0.75rem;
+    padding-left: 2.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .contribute-section ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .contribute-section ul {
+    list-style: none;
+  }
+  
+  .contribute-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .contribute-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .contribute-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .contribute-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>
