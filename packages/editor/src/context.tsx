@@ -35,6 +35,7 @@ import {
 } from '@strata/prototype';
 import type {
   AdjustmentNode,
+  ContainerNode,
   ExportPreset,
   InstanceStatus,
   ManagedColor,
@@ -223,6 +224,34 @@ function insertImportedSubtree(
   if (!root || Object.keys(cloned.nodes).length === 0) return null;
 
   const nodes = { ...cloned.nodes, [cloned.rootId]: adjustRoot(root) };
+
+  // For paged documents, add to the active page's contentRoot so the node
+  // is visible to the page-scoped renderer (activePageNodes). Adding to
+  // rootChildren bypasses the page system and the node is never traversed.
+  const activePage = targetDoc.pages?.find((p) => p.id === targetDoc.activePageId);
+  const contentRootId = activePage?.contentRoot;
+  console.log('[INSERT] insertImportedSubtree:', cloned.rootId, 'activePageId:', targetDoc.activePageId, 'contentRootId:', contentRootId, 'hasContentRoot:', !!(contentRootId && targetDoc.nodes[contentRootId]));
+  if (contentRootId && targetDoc.nodes[contentRootId]) {
+    const contentRoot = targetDoc.nodes[contentRootId] as ContainerNode;
+    const children = contentRoot.children ?? [];
+    const updatedContentRoot = { ...contentRoot, children: [...children, cloned.rootId] } as ContainerNode;
+    console.log('[INSERT]   -> added to contentRoot, children count:', updatedContentRoot.children.length);
+    return {
+      rootId: cloned.rootId,
+      doc: {
+        ...targetDoc,
+        nextId: cloned.nextId,
+        rootChildren: targetDoc.rootChildren,
+        nodes: {
+          ...targetDoc.nodes,
+          ...nodes,
+          [contentRootId]: updatedContentRoot,
+        },
+      },
+    };
+  }
+
+  console.log('[INSERT]   -> fallback to rootChildren');
   return {
     rootId: cloned.rootId,
     doc: {
@@ -1962,10 +1991,26 @@ export function EditorProvider({
             const [newId, d2] = cloneNodeDeep(id, d);
             d = d2;
 
-            // Add to root children if it's a root node
+            // Add to same parent. For paged docs, "root" (parentId === null)
+            // means the node sits under the active page's contentRoot — not
+            // doc.rootChildren, which holds page group IDs.
             const parentId = getParentFast(s.document, id, parentCacheRef.current);
             if (parentId === null) {
-              d = { ...d, rootChildren: [...d.rootChildren, newId] };
+              const activePage = d.pages?.find((p) => p.id === d.activePageId);
+              const contentRootId = activePage?.contentRoot;
+              if (contentRootId && d.nodes[contentRootId]) {
+                const cr = d.nodes[contentRootId] as ContainerNode;
+                const crChildren = cr.children ?? [];
+                d = {
+                  ...d,
+                  nodes: {
+                    ...d.nodes,
+                    [contentRootId]: { ...cr, children: [...crChildren, newId] } as SceneNode,
+                  },
+                };
+              } else {
+                d = { ...d, rootChildren: [...d.rootChildren, newId] };
+              }
             } else {
               const parent = d.nodes[parentId];
               if (parent && 'children' in parent) {
