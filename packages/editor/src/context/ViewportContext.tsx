@@ -179,7 +179,17 @@ export function ViewportProvider({
       const vp = opts?.viewport ?? { width: window.innerWidth, height: window.innerHeight };
       const padding = opts?.padding ?? 40;
 
-      if (opts?.fit) {
+      if (opts?.nodeId) {
+        const n = s.document.nodes[opts.nodeId];
+        if (!n) return;
+        const b = nodeWorldBoundsInner(n);
+        if (!b) return;
+        const target = opts?.fit
+          ? fitBoundsCamera(b, vp, padding)
+          : revealBoundsCamera(s, vp, b, padding);
+        smoothZoomTo(target.zoom, opts?.fit ? 300 : 250);
+        smoothPanTo(target.pan, opts?.fit ? 300 : 250);
+      } else if (opts?.fit) {
         let minX = Infinity,
           minY = Infinity,
           maxX = -Infinity,
@@ -202,14 +212,6 @@ export function ViewportProvider({
         );
         smoothZoomTo(target.zoom, 300);
         smoothPanTo(target.pan, 300);
-      } else if (opts?.nodeId) {
-        const n = s.document.nodes[opts.nodeId];
-        if (!n) return;
-        const b = nodeWorldBoundsInner(n);
-        if (!b) return;
-        const target = revealBoundsCamera(s, vp, b, padding);
-        smoothZoomTo(target.zoom, 250);
-        smoothPanTo(target.pan, 250);
       } else {
         const sel = s.selection;
         if (sel.length === 0) return;
