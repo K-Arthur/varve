@@ -26,7 +26,7 @@ import {
   replayIr,
   traceSceneNodeOutline,
 } from '@strata/engine';
-import { importFile, type ImportFileInput, ImportService } from '@strata/import';
+import { type ImportFileInput, ImportService, importFile } from '@strata/import';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import {
   activePageNodes,
@@ -985,7 +985,11 @@ export function CanvasArea({
           if (!isAnimated) {
             const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
             const hash = SubtreeIrCache.nodeHash(
-              nodeId, fn.transform, docVersion, styleKey, cacheContentParts(fn),
+              nodeId,
+              fn.transform,
+              docVersion,
+              styleKey,
+              cacheContentParts(fn),
             );
             const cached = subtreeIrCacheRef.current.get(nodeId, hash);
             if (cached) {
@@ -1009,7 +1013,11 @@ export function CanvasArea({
             if (!animatedNodeIds.has(nodeId)) {
               const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
               const hash = SubtreeIrCache.nodeHash(
-                nodeId, fn.transform, docVersion, styleKey, cacheContentParts(fn),
+                nodeId,
+                fn.transform,
+                docVersion,
+                styleKey,
+                cacheContentParts(fn),
               );
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
@@ -1025,7 +1033,11 @@ export function CanvasArea({
             if (nodeId && fn && item && !animatedNodeIds.has(nodeId)) {
               const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
               const hash = SubtreeIrCache.nodeHash(
-                nodeId, fn.transform, docVersion, styleKey, cacheContentParts(fn),
+                nodeId,
+                fn.transform,
+                docVersion,
+                styleKey,
+                cacheContentParts(fn),
               );
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
@@ -1455,12 +1467,10 @@ export function CanvasArea({
     // ── Frame drag-over highlight ──────────────────────────────────────
     // Highlight the frame under the draft shape's center during drag.
     if (draft) {
-      const cx = 'x1' in draft
-        ? (draft.x1 + draft.x2) / 2
-        : 'x' in draft ? draft.x + (draft.w ?? 0) / 2 : 0;
-      const cy = 'y1' in draft
-        ? (draft.y1 + draft.y2) / 2
-        : 'y' in draft ? draft.y + (draft.h ?? 0) / 2 : 0;
+      const cx =
+        'x1' in draft ? (draft.x1 + draft.x2) / 2 : 'x' in draft ? draft.x + (draft.w ?? 0) / 2 : 0;
+      const cy =
+        'y1' in draft ? (draft.y1 + draft.y2) / 2 : 'y' in draft ? draft.y + (draft.h ?? 0) / 2 : 0;
       const highlightFrameId = editorRef.current.findContainingFrame({ x: cx, y: cy });
       if (highlightFrameId) {
         const frameNode = doc.nodes[highlightFrameId];
@@ -1476,7 +1486,10 @@ export function CanvasArea({
             ctx.setLineDash([6 / s.zoom, 4 / s.zoom]);
             ctx.beginPath();
             const corners = [
-              [0, 0], [fw, 0], [fw, fh], [0, fh],
+              [0, 0],
+              [fw, 0],
+              [fw, fh],
+              [0, fh],
             ] as const;
             for (let i = 0; i < corners.length; i++) {
               const [lx, ly] = corners[i]!;
