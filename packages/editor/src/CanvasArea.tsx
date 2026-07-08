@@ -196,6 +196,34 @@ export function toEngineNode(n: DocNode): EngineNode {
   return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
 }
 
+/** Lightweight content string for SubtreeIrCache hash — encodes the EngineNode
+ * fields that affect IR output. This makes the cache invalidate on content
+ * changes even if docVersion fails to increment (defence-in-depth).
+ * The string is compact but distinct per unique content state. */
+function cacheContentParts(en: EngineNode): string[] {
+  const parts: string[] = [];
+  const shape = en.shape;
+  if (shape) {
+    parts.push(shape.kind);
+    if ('w' in shape) parts.push(String((shape as { w: number }).w));
+    if ('h' in shape) parts.push(String((shape as { h: number }).h));
+    if ('x' in shape) parts.push(String((shape as { x: number }).x));
+    if ('y' in shape) parts.push(String((shape as { y: number }).y));
+  }
+  if (en.fill) parts.push(JSON.stringify(en.fill));
+  if (en.fills && en.fills.length > 0) parts.push(String(en.fills.length));
+  if (en.strokes && en.strokes.length > 0) parts.push(String(en.strokes.length));
+  if (en.effects && en.effects.length > 0) parts.push(String(en.effects.length));
+  if (en.filters && en.filters.length > 0) parts.push(String(en.filters.length));
+  if (en.opacity !== undefined) parts.push(String(en.opacity));
+  if (en.blendMode) parts.push(en.blendMode);
+  if (en.rotation) parts.push(String(en.rotation));
+  if (en.cornerRadius) parts.push(String(en.cornerRadius));
+  if (en.text) parts.push(String(en.text.length));
+  if (en.src) parts.push(en.src);
+  return parts;
+}
+
 /**
  * Parse a property path into segments. Supports dot notation and bracket
  * array indices, e.g. `opacity`, `transform[4]`, `fills[0].color`.
@@ -956,7 +984,9 @@ export function CanvasArea({
           const isAnimated = animatedNodeIds.has(nodeId);
           if (!isAnimated) {
             const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-            const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
+            const hash = SubtreeIrCache.nodeHash(
+              nodeId, fn.transform, docVersion, styleKey, cacheContentParts(fn),
+            );
             const cached = subtreeIrCacheRef.current.get(nodeId, hash);
             if (cached) {
               irSlots[i] = cached;
@@ -978,7 +1008,9 @@ export function CanvasArea({
             if (!nodeId || !fn || !item) continue;
             if (!animatedNodeIds.has(nodeId)) {
               const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-              const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
+              const hash = SubtreeIrCache.nodeHash(
+                nodeId, fn.transform, docVersion, styleKey, cacheContentParts(fn),
+              );
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
           }
@@ -992,7 +1024,9 @@ export function CanvasArea({
             if (item) irSlots[slot] = item;
             if (nodeId && fn && item && !animatedNodeIds.has(nodeId)) {
               const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-              const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, docVersion, styleKey);
+              const hash = SubtreeIrCache.nodeHash(
+                nodeId, fn.transform, docVersion, styleKey, cacheContentParts(fn),
+              );
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
           }

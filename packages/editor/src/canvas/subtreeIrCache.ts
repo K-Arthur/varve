@@ -18,15 +18,22 @@ export class SubtreeIrCache {
     this.maxEntries = maxEntries;
   }
 
-  /** FNV-1a hash of node fields relevant to IR generation. */
+  /** FNV-1a hash of node fields relevant to IR generation.
+   *
+   * Includes node content fields (shape kind, fill, strokes, opacity, blend
+   * mode, rotation, corner radius) alongside docVersion, styleKey and
+   * transform so that content changes invalidate the cache even if
+   * docVersion fails to increment (defence-in-depth). */
   static nodeHash(
     nodeId: string,
     transform: readonly number[],
     docVersion: number,
     styleKey: string,
+    contentParts?: readonly string[],
   ): string {
     let h = 2166136261;
     const parts = [nodeId, String(docVersion), styleKey, ...transform.map(String)];
+    if (contentParts) parts.push(...contentParts);
     for (const p of parts) {
       for (let i = 0; i < p.length; i++) {
         h ^= p.charCodeAt(i);

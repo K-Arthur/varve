@@ -86,6 +86,7 @@ import {
   makeTextNode,
   migrateDocumentJson,
   moveGuide as moveGuideDoc,
+  validateDocument,
   moveNode,
   nextNodeId,
   pushMasterChanges as pushMasterChangesDoc,
@@ -2694,6 +2695,12 @@ export function EditorProvider({
           const migrated = migrateDocumentJson(json);
           if (!migrated) throw new Error('Migration failed');
           const doc = migrated as unknown as Document;
+          const result = validateDocument(doc);
+          if (!result.valid) {
+            if (typeof console !== 'undefined') {
+              console.warn('[Strata] loadDocument: validation warnings:', result.errors);
+            }
+          }
           undoStackRef.current = [];
           redoStackRef.current = [];
           undoSelStackRef.current = [];
@@ -3588,6 +3595,12 @@ export function EditorProvider({
             doc = (migrated as unknown as Document) ?? createDocument(name || 'Untitled');
           } else {
             doc = createDocument(name || 'Untitled');
+          }
+          const result = validateDocument(doc);
+          if (!result.valid) {
+            if (typeof console !== 'undefined') {
+              console.warn('[Strata] openFile: validation warnings:', result.errors);
+            }
           }
         } catch {
           doc = createDocument(name || 'Untitled');
