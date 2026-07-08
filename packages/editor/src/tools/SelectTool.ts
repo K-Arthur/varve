@@ -221,7 +221,11 @@ export class SelectTool extends BaseTool {
         const node = entry.node;
         if (node.locked || !node.visible) continue;
         // Filter by isolation mode
-        if (ctx.isolatedNodeId !== undefined && !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)) continue;
+        if (
+          ctx.isolatedNodeId !== undefined &&
+          !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
+        )
+          continue;
         const bbox = ctx.nodeWorldBounds(node);
         if (bbox) {
           if (useContainment) {
@@ -457,7 +461,10 @@ export class SelectTool extends BaseTool {
     if (!hit) return null;
 
     // Filter hit-test result by isolation mode
-    if (ctx.isolatedNodeId !== undefined && !isInIsolatedSubtree(hit.nodeId, ctx.isolatedNodeId, ctx.document)) {
+    if (
+      ctx.isolatedNodeId !== undefined &&
+      !isInIsolatedSubtree(hit.nodeId, ctx.isolatedNodeId, ctx.document)
+    ) {
       return null;
     }
 
@@ -493,7 +500,11 @@ export class SelectTool extends BaseTool {
       if (!entry) continue;
       if (entry.node.locked || !entry.node.visible) continue;
       // Filter by isolation mode
-      if (ctx.isolatedNodeId !== undefined && !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)) continue;
+      if (
+        ctx.isolatedNodeId !== undefined &&
+        !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
+      )
+        continue;
       const bbox = ctx.nodeWorldBounds(entry.node);
       if (bbox && rectContains(bbox, [world.x, world.y])) {
         results.push({ nodeId: entry.nodeId, node: entry.node });

@@ -13,6 +13,8 @@ export type WorkerCommand =
       viewport: Viewport;
       docVersion: number;
       dpr: number;
+      /** Pre-decoded ImageBitmaps keyed by image src URL (Structured Clone transport). */
+      images?: Record<string, ImageBitmap>;
     }
   | { type: 'hitTest'; worldX: number; worldY: number; docVersion: number }
   | { type: 'resize'; width: number; height: number; dpr: number }
