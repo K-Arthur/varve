@@ -93,11 +93,21 @@ export async function runPooledInference(
       return;
     }
 
+    // If the Worker has never finished a session init, give it a short
+    // window to load onnxruntime-web and the model. Real inference gets the
+    // full 60 s. This prevents a hung Worker import from blocking the UI
+    // for a minute before falling back.
+    const timeoutMs = sessionReady ? 60_000 : 10_000;
     const timeout = setTimeout(() => {
       const idx = pending.findIndex((j) => j.reject === wrappedReject);
       if (idx >= 0) pending.splice(idx, 1);
+      if (!sessionReady) {
+        sharedWorker?.terminate();
+        sharedWorker = null;
+        sessionReady = false;
+      }
       reject(new Error('Worker inference timed out'));
-    }, 60_000);
+    }, timeoutMs);
 
     const wrappedResolve = (r: BackgroundRemovalResult) => {
       clearTimeout(timeout);

@@ -80,6 +80,13 @@ class ModelLoader {
   async getModelPath(modelId: string): Promise<string | null> {
     const entry = await getManifestEntry(modelId);
     const bundled = entry?.localPath ?? `/models/${modelId}.onnx`;
+
+    // Bundled models are shipped with the app; trust the manifest and avoid
+    // a HEAD fetch that can fail or hang in Vite dev / custom server setups.
+    if (entry?.bundled) {
+      return bundled;
+    }
+
     try {
       if (typeof fetch !== 'undefined') {
         const head = await fetch(bundled, { method: 'HEAD' });
