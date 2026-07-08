@@ -28,7 +28,7 @@ vi.mock('@strata/engine', () => ({
   }),
   workerModelIdForMethod: (method: string) =>
     method === 'ai-balanced'
-      ? 'birefnet-general-lite'
+      ? 'u2netp'
       : method === 'ai-quality'
         ? 'birefnet-general'
         : null,
