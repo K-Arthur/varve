@@ -41,16 +41,15 @@ export type WorkerModelId = 'u2netp' | 'birefnet-general-lite' | 'birefnet-gener
 
 /** Map a UI removal method to the ONNX model that should run it.
  *
- * `u2netp` is intentionally NOT mapped here — it is a bundled zero-download
- * starter asset for a possible future 4th tier, never silently substituted
- * for birefnet-general(-lite) (that would be a silent downgrade bug).
+ * `'ai-balanced'` uses the bundled `u2netp` (4.5 MB, zero-download) so it
+ * works out of the box. `'ai-quality'` requires an explicit 928 MB download.
  */
 export function workerModelIdForMethod(method: RemovalMethod): WorkerModelId | null {
   switch (method) {
     case 'quick':
       return null;
     case 'ai-balanced':
-      return 'birefnet-general-lite';
+      return 'u2netp';
     case 'ai-quality':
       return 'birefnet-general';
   }

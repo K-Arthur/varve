@@ -162,14 +162,14 @@ describe('removeBackground dispatch', () => {
     const { removeBackground } = await import('../index');
     await removeBackground(makeImage(), { method: 'ai-balanced' });
 
-    // Regression: this previously silently ran the free heuristic-tier
-    // `u2netp` model for "AI Balanced", meaning the middle quality tier
-    // did nothing an AI model actually does differently from quick mode.
+    // `ai-balanced` uses the bundled `u2netp` model (4.5 MB, zero-download)
+    // so it works out of the box. `ai-quality` requires an explicit 928 MB
+    // download of `birefnet-general`.
     expect(mockRunPooledInference).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-balanced' }),
       expect.anything(),
-      'birefnet-general-lite',
+      'u2netp',
       undefined,
     );
   });
