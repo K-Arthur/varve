@@ -1,0 +1,335 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Contribution Guidelines - Strata">
+  <div class="container-custom">
+    <div class="guidelines-page">
+      <h1>Contribution Guidelines</h1>
+      <p class="guidelines-intro">
+        Thank you for considering contributing to Strata. These guidelines help ensure a smooth, collaborative process
+        for everyone involved — whether you're fixing a bug, writing documentation, or designing a new feature.
+      </p>
+
+      <section class="guidelines-section">
+        <h2>Code of Conduct</h2>
+        <p>
+          Strata is committed to providing a welcoming, inclusive, and harassment-free experience for everyone.
+          All participants — contributors, maintainers, and community members — are expected to:
+        </p>
+        <ul>
+          <li><strong>Be respectful</strong> of differing viewpoints, experience levels, and backgrounds</li>
+          <li><strong>Be inclusive</strong> — use welcoming language, avoid exclusionary jokes or comments</li>
+          <li><strong>Be constructive</strong> — focus on what is best for the project and the community</li>
+          <li><strong>Show empathy</strong> towards other community members, especially when giving feedback</li>
+        </ul>
+        <p>
+          Harassment, trolling, personal attacks, and other disrespectful behavior will not be tolerated.
+          If you experience or witness unacceptable behavior, please report it by opening a
+          <a href="https://github.com/strata/strata/issues">GitHub issue</a> or reaching out directly.
+        </p>
+      </section>
+
+      <section class="guidelines-section">
+        <h2>Getting Started</h2>
+        <p>
+          Before making your first contribution, set up your development environment. Strata requires:
+        </p>
+        <ul>
+          <li><strong>Rust toolchain</strong> — rustc 1.96+ / cargo 1.96+, available at <code>~/.cargo/bin</code></li>
+          <li><strong>pnpm 11.9+</strong> — with <code>PNPM_HOME</code> configured and on your PATH</li>
+          <li><strong>Node 26+</strong> with npm 11.16+</li>
+          <li><strong>WASM target</strong> installed for wasm32-unknown-unknown</li>
+          <li><strong>System dependencies</strong> — WebKitGTK 2.52+, GTK 3.24+, librsvg, openssl, fontconfig, fuse2</li>
+        </ul>
+        <p>
+          Read <a href="https://github.com/strata/strata/blob/main/AGENTS.md">AGENTS.md</a> for the complete
+          environment setup guide, including toolchain verification, environment variables, and platform-specific notes.
+          Run <code>just check-env</code> after setup to verify your toolchain is correct.
+        </p>
+      </section>
+
+      <section class="guidelines-section">
+        <h2>Finding Work</h2>
+        <p>
+          Not sure where to start? There are several ways to find work that fits your skills:
+        </p>
+        <ul>
+          <li><strong>Good first issues</strong> — tagged with the <code>good first issue</code> label on GitHub, these are small, well-scoped tasks ideal for new contributors</li>
+          <li><strong>Help wanted</strong> — issues labeled <code>help wanted</code> indicate the maintainer would appreciate community assistance</li>
+          <li><strong>Discussion threads</strong> — the <a href="https://github.com/strata/strata/discussions">GitHub Discussions</a> board has ideas, feature requests, and architecture conversations seeking input</li>
+          <li><strong>Documentation gaps</strong> — if you find something confusing or undocumented, improving it is always welcome</li>
+        </ul>
+        <p>
+          If you're interested in working on an issue, comment on it first to avoid duplicate work. The maintainer
+          will assign it to you. For new features or significant changes, please open a discussion before writing code
+          to ensure alignment with the project direction.
+        </p>
+      </section>
+
+      <section class="guidelines-section">
+        <h2>Making Changes</h2>
+        <p>Follow this workflow for all contributions:</p>
+        <ol>
+          <li><strong>Create a branch</strong> — fork the repository and create a feature branch from <code>master</code>. Use a descriptive name like <code>fix/text-alignment</code> or <code>feat/gradient-picker</code></li>
+          <li><strong>Write tests first</strong> — Strata follows Test-Driven Development. Write failing tests before implementing your change. This applies to both Rust (<code>cargo test</code>) and TypeScript (<code>pnpm test</code>) code</li>
+          <li><strong>Follow existing patterns</strong> — read the surrounding code to understand conventions. Match the code style, use existing libraries and utilities, and follow the project's architectural patterns</li>
+          <li><strong>Keep changes focused</strong> — each pull request should address a single concern. If you find yourself fixing multiple unrelated issues, split them into separate PRs</li>
+          <li><strong>Run <code>just gate</code> before committing</strong> — this runs the full quality gate: format check, lint, tests, token audit, and emoji audit. All must pass for code to be accepted</li>
+        </ol>
+      </section>
+
+      <section class="guidelines-section">
+        <h2>Pull Request Process</h2>
+        <ul>
+          <li><strong>Open against master</strong> — all pull requests should target the <code>master</code> branch</li>
+          <li><strong>Keep changes focused</strong> — a single PR should address one issue or feature. Smaller PRs are reviewed faster</li>
+          <li><strong>Write a clear description</strong> — explain what the change does, why it's needed, and how it was tested. Include screenshots or recordings for UI changes</li>
+          <li><strong>Reference related issues</strong> — use GitHub keywords like <code>Closes #123</code> or <code>Related to #456</code> in the description</li>
+          <li><strong>Be patient with review</strong> — Strata is developed by a solo developer. Review times may vary depending on availability. If you haven't received feedback in a week, feel free to politely bump the PR</li>
+          <li><strong>Respond to feedback</strong> — when changes are requested, address them promptly. If you disagree with a suggestion, explain your reasoning</li>
+        </ul>
+      </section>
+
+      <section class="guidelines-section">
+        <h2>Testing Requirements</h2>
+        <p>All contributions must pass the following checks before they can be merged:</p>
+        <ul>
+          <li><strong><code>pnpm test</code></strong> — all TypeScript/JavaScript tests across all packages must pass</li>
+          <li><strong><code>cargo test --workspace</code></strong> — all Rust workspace tests must pass (75+ tests across strata-core, strata-engine, strata-layout, strata-print, strata-sync, strata-trace)</li>
+          <li><strong><code>cargo test</code> (Tauri)</strong> — desktop-specific tests (currently 7+) must pass</li>
+          <li><strong><code>pnpm typecheck</code></strong> — TypeScript type-checking must produce zero errors across all 15 packages</li>
+          <li><strong><code>pnpm lint</code></strong> — Biome must report zero errors on new and modified files</li>
+          <li><strong><code>pnpm audit:tokens</code></strong> — all 93+ WCAG-AA token pairs across all 3 themes must pass</li>
+          <li><strong><code>pnpm audit:emoji</code></strong> — zero emoji violations (emojis are not permitted anywhere in the codebase)</li>
+          <li><strong><code>pnpm format</code></strong> — code formatting must be consistent with the project style</li>
+        </ul>
+        <p>
+          These quality gates are not optional. Each catches a different class of error. If you're unsure how to
+          resolve a failing check, ask in the PR or in GitHub Discussions.
+        </p>
+      </section>
+
+      <section class="guidelines-section">
+        <h2>Commit Messages</h2>
+        <p>
+          Strata follows the <a href="https://www.conventionalcommits.org/">Conventional Commits</a> format.
+          This produces clear, structured commit history and enables automated changelog generation.
+        </p>
+        <pre><code>feat: add gradient fill support
+fix: correct text alignment in multiline paragraphs
+docs: update API reference for export module
+refactor: extract color math to shared utility
+test: add 12 coverage tests for curve editor
+chore: update dependencies to latest versions</code></pre>
+        <p>Common types include:</p>
+        <ul>
+          <li><strong><code>feat:</code></strong> — a new feature or capability</li>
+          <li><strong><code>fix:</code></strong> — a bug fix</li>
+          <li><strong><code>docs:</code></strong> — documentation changes only</li>
+          <li><strong><code>refactor:</code></strong> — code restructuring without functional change</li>
+          <li><strong><code>test:</code></strong> — adding or updating tests</li>
+          <li><strong><code>chore:</code></strong> — build process, dependencies, tooling</li>
+          <li><strong><code>style:</code></strong> — formatting, whitespace, missing semicolons</li>
+          <li><strong><code>perf:</code></strong> — performance improvements</li>
+        </ul>
+        <p>
+          Keep the first line under 72 characters. Add a blank line then a detailed body for complex changes.
+        </p>
+      </section>
+
+      <section class="guidelines-section">
+        <h2>AGPL Licensing</h2>
+        <p>
+          All contributions to Strata are accepted under the
+          <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU Affero General Public License v3.0 or later</a>.
+          By contributing, you agree that your work will be distributed under this license.
+        </p>
+        <p>
+          <strong>You retain copyright</strong> to your contributions. The AGPL license grants the project the right
+          to distribute your code, but you remain the copyright holder and may reuse your contributions elsewhere
+          under different terms.
+        </p>
+        <p>
+          This copyleft license ensures that all derivative works of Strata — including network-interactive services
+          that use the software — remain free and open source. If you have questions about AGPL implications for
+          your use case, please ask in a
+          <a href="https://github.com/strata/strata/discussions">discussion thread</a> before contributing.
+        </p>
+      </section>
+
+      <section class="guidelines-section">
+        <h2>Non-Code Contributions</h2>
+        <p>
+          Code is only one way to contribute. Non-code contributions are equally valued and welcomed:
+        </p>
+        <ul>
+          <li><strong>Testing</strong> — test Strata on different platforms, file detailed bug reports with reproduction steps, verify fixes for regressions</li>
+          <li><strong>Documentation</strong> — improve existing docs, write tutorials, fix typos, add examples and screenshots</li>
+          <li><strong>Design</strong> — create UI mockups, design icons, improve the website, design marketing materials</li>
+          <li><strong>Accessibility review</strong> — audit the application for accessibility issues, test with screen readers, suggest improvements</li>
+          <li><strong>Translations</strong> — translate documentation, the website, or in-app text into other languages</li>
+          <li><strong>Community support</strong> — answer questions in GitHub Discussions, help other contributors, triage issues</li>
+        </ul>
+        <p>
+          No contribution is too small. A typo fix, a clearer error message, or a well-written bug report all make
+          the project better for everyone.
+        </p>
+      </section>
+
+      <div class="guidelines-cta">
+        <h2>Ready to contribute?</h2>
+        <a href="https://github.com/strata/strata/issues" class="btn-primary">Browse Open Issues</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .guidelines-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+
+  .guidelines-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+
+  .guidelines-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+    line-height: 1.8;
+  }
+
+  .guidelines-section {
+    margin-bottom: 3rem;
+  }
+
+  .guidelines-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+
+  .guidelines-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  .guidelines-section strong {
+    color: var(--color-neutral-900);
+  }
+
+  .guidelines-section code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.875em;
+    background: var(--color-neutral-100);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    color: var(--color-teal-700);
+  }
+
+  .guidelines-section pre {
+    background: var(--color-neutral-900);
+    color: var(--color-neutral-100);
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+  }
+
+  .guidelines-section pre code {
+    background: none;
+    padding: 0;
+    color: var(--color-neutral-100);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  .guidelines-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+
+  .guidelines-section ul li {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+
+  .guidelines-section ul li::before {
+    content: "\2022";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+    font-weight: bold;
+  }
+
+  .guidelines-section ol {
+    list-style: none;
+    counter-reset: item;
+    margin-bottom: 1rem;
+  }
+
+  .guidelines-section ol li {
+    counter-increment: item;
+    margin-bottom: 0.75rem;
+    padding-left: 2.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+  }
+
+  .guidelines-section ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    top: 0.15rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-teal-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .guidelines-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+
+  .guidelines-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+
+  @media (max-width: 768px) {
+    .guidelines-page h1 {
+      font-size: 2rem;
+    }
+
+    .guidelines-section h2 {
+      font-size: 1.25rem;
+    }
+
+    .guidelines-section pre {
+      padding: 0.75rem 1rem;
+    }
+  }
+</style>

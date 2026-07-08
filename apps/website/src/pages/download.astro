@@ -10,6 +10,15 @@ import Layout from '../layouts/Layout.astro';
         Free forever. AGPL-3.0-or-later licensed. Your designs stay on your machine.
       </p>
 
+      <div class="prerelease-notice">
+        <strong>Pre-release notice:</strong> Strata is in active development (v0.0.0). First public release is coming soon.
+        In the meantime, you can <a href="https://github.com/strata/strata" target="_blank" rel="noopener noreferrer">build from source</a>,
+        <a href="https://github.com/strata/strata/releases" target="_blank" rel="noopener noreferrer">watch for releases on GitHub</a>, or
+        <a href="https://github.com/strata/strata/discussions" target="_blank" rel="noopener noreferrer">join the discussion</a>.
+      </div>
+
+      <div id="detection-banner" class="detection-banner" style="display:none;"></div>
+
       <div class="platform-selector">
         <button class="platform-tab active" data-platform="linux">Linux</button>
         <button class="platform-tab" data-platform="macos">macOS</button>
@@ -29,7 +38,7 @@ import Layout from '../layouts/Layout.astro';
               <span class="badge recommended">Recommended</span>
             </div>
             <p>Universal package for any x86_64 Linux distribution</p>
-            <a href="#" class="btn-primary">Download AppImage</a>
+            <a href="https://github.com/strata/strata/releases" target="_blank" rel="noopener noreferrer" class="btn-primary">Get it on GitHub</a>
             <p class="download-meta">Size: ~200MB • Version: 0.0.0</p>
           </div>
 
@@ -38,7 +47,7 @@ import Layout from '../layouts/Layout.astro';
               <h3>deb Package</h3>
             </div>
             <p>For Debian 11+ and Ubuntu 22.04+</p>
-            <a href="#" class="btn-secondary">Download deb</a>
+            <a href="https://github.com/strata/strata/releases" target="_blank" rel="noopener noreferrer" class="btn-secondary">Get it on GitHub</a>
             <p class="download-meta">Size: ~180MB</p>
           </div>
 
@@ -47,7 +56,7 @@ import Layout from '../layouts/Layout.astro';
               <h3>rpm Package</h3>
             </div>
             <p>For Fedora and RHEL-based distributions</p>
-            <a href="#" class="btn-secondary">Download rpm</a>
+            <a href="https://github.com/strata/strata/releases" target="_blank" rel="noopener noreferrer" class="btn-secondary">Get it on GitHub</a>
             <p class="download-meta">Size: ~180MB</p>
           </div>
 
@@ -85,7 +94,7 @@ import Layout from '../layouts/Layout.astro';
               <span class="badge recommended">Recommended</span>
             </div>
             <p>Works on Intel and Apple Silicon (M1/M2/M3)</p>
-            <a href="#" class="btn-primary">Download dmg</a>
+            <a href="https://github.com/strata/strata/releases" target="_blank" rel="noopener noreferrer" class="btn-primary">Get it on GitHub</a>
             <p class="download-meta">Size: ~250MB • Version: 0.0.0</p>
           </div>
         </div>
@@ -114,7 +123,7 @@ import Layout from '../layouts/Layout.astro';
               <span class="badge recommended">Recommended</span>
             </div>
             <p>Standard Windows installer for most users</p>
-            <a href="#" class="btn-primary">Download MSI</a>
+            <a href="https://github.com/strata/strata/releases" target="_blank" rel="noopener noreferrer" class="btn-primary">Get it on GitHub</a>
             <p class="download-meta">Size: ~220MB • Version: 0.0.0</p>
           </div>
 
@@ -123,7 +132,7 @@ import Layout from '../layouts/Layout.astro';
               <h3>NSIS Installer</h3>
             </div>
             <p>Alternative installer format</p>
-            <a href="#" class="btn-secondary">Download NSIS</a>
+            <a href="https://github.com/strata/strata/releases" target="_blank" rel="noopener noreferrer" class="btn-secondary">Get it on GitHub</a>
             <p class="download-meta">Size: ~220MB</p>
           </div>
         </div>
@@ -342,25 +351,102 @@ import Layout from '../layouts/Layout.astro';
   .integrity-notice p {
     color: var(--color-neutral-600);
   }
+
+    .prerelease-notice {
+    background: var(--color-terracotta-50);
+    border: 1px solid var(--color-terracotta-200, #fecaca);
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    font-size: 0.9375rem;
+    color: var(--color-neutral-700);
+    line-height: 1.6;
+  }
+
+  .prerelease-notice a {
+    color: var(--color-teal-600);
+    text-decoration: underline;
+  }
+
+  .detection-banner {
+    background: var(--color-teal-50);
+    border: 1px solid var(--color-teal-200);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9375rem;
+    color: var(--color-neutral-700);
+  }
+
+  .detection-banner a {
+    color: var(--color-teal-600);
+    text-decoration: underline;
+  }
 </style>
 
 <script>
+  const RELEASES_URL = 'https://github.com/strata/strata/releases';
+
+  const PLATFORM_NAMES = {
+    linux: 'Linux',
+    macos: 'macOS',
+    windows: 'Windows',
+    unknown: 'your platform',
+  };
+
+  function detectPlatform() {
+    const ua = navigator.userAgent;
+    if (ua.includes('Linux') && !ua.includes('Mac')) return 'linux';
+    if (ua.includes('Mac')) return 'macos';
+    if (ua.includes('Windows')) return 'windows';
+    return 'unknown';
+  }
+
+  function setActivePlatform(platform: string) {
+    const tab = document.querySelector('.platform-tab[data-platform="' + platform + '"]');
+    if (tab instanceof HTMLElement) tab.click();
+  }
+
+  function showDetectionBanner(platform: string) {
+    const banner = document.getElementById('detection-banner');
+    if (!banner) return;
+    if (platform === 'unknown') return;
+    banner.style.display = 'block';
+    banner.innerHTML = 'We detected you&rsquo;re on <strong>' + PLATFORM_NAMES[platform as keyof typeof PLATFORM_NAMES] + '</strong>. The recommended download is shown below. <a href="#choose-platform" style="margin-left:0.5rem;">Choose another platform</a>.';
+  }
+
+  function updateDownloadLinks() {
+    const links = document.querySelectorAll('.download-option a');
+    links.forEach(function(link) {
+      if (link instanceof HTMLAnchorElement && !link.href.startsWith('https://github.com')) {
+        link.href = RELEASES_URL;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      }
+    });
+  }
+
   const platformTabs = document.querySelectorAll('.platform-tab');
   const platformSections = document.querySelectorAll('.platform-section');
 
-  platformTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const platform = (tab as HTMLElement).dataset.platform;
-      
-      platformTabs.forEach(t => t.classList.remove('active'));
+  platformTabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      const platform = tab.getAttribute('data-platform');
+      platformTabs.forEach(function(t) { t.classList.remove('active'); });
       tab.classList.add('active');
-      
-      platformSections.forEach(section => {
+      platformSections.forEach(function(section) {
         section.classList.remove('active');
-        if (section.id === `platform-${platform}`) {
+        if (section.id === 'platform-' + platform) {
           section.classList.add('active');
         }
       });
     });
   });
+
+  const detected = detectPlatform();
+  if (detected !== 'unknown') {
+    setActivePlatform(detected);
+    showDetectionBanner(detected);
+  }
+  updateDownloadLinks();
 </script>

@@ -1,0 +1,231 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Color & Effects — Strata">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb">
+        <a href="/docs">Documentation</a> / Tools / Color & Effects
+      </nav>
+
+      <h1>Color & Effects</h1>
+      <p class="docs-intro">
+        Strata provides a professional fill system with support for solid colors, gradients, and image fills, plus a comprehensive effects engine for shadows, blurs, and glows. The color system uses <strong>ManagedColor</strong> as its canonical type, supporting RGB, CMYK, Grayscale, and Spot color modes.
+      </p>
+
+      <section class="docs-section">
+        <h2>Color Model</h2>
+        <p>
+          All colors in Strata are represented as <strong>ManagedColor</strong>, a discriminated union that supports four color modes:
+        </p>
+        <ul>
+          <li><strong>RGB</strong> — Standard sRGB color with 8-bit channels (0-255)</li>
+          <li><strong>CMYK</strong> — Cyan, Magenta, Yellow, Key (black) percentages for print production</li>
+          <li><strong>Grayscale</strong> — Single channel grayscale</li>
+          <li><strong>Spot</strong> — Named spot color (e.g., Pantone) for specialized print output</li>
+        </ul>
+        <p>
+          The ColorPicker supports all four modes with a tabbed interface. You can switch between RGB, CMYK, Grayscale, and Spot color selection at any time. A <strong>Gamut Warning</strong> indicator alerts you when a color falls outside the printable CMYK gamut.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Color Conversion</h2>
+        <p>
+          Strata includes a full analytical color conversion pipeline (no ICC files needed for basic operations):
+        </p>
+        <ul>
+          <li>sRGB &harr; Linear RGB &harr; XYZ &harr; CIELAB &harr; Oklab &harr; CMYK</li>
+          <li>Perceptual color difference (&Delta;EOK) for quality assessment</li>
+          <li>Gamut mapping via binary-search chroma reduction</li>
+        </ul>
+        <p>
+          For print production, Strata also supports ICC-profile-aware conversion with bundled profiles for common RGB and CMYK standards (sRGB, Adobe RGB, Fogra39, GRACoL, SWOP).
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Fill System</h2>
+        <p>
+          Every shape supports a stack of fills rendered from top to bottom. Each fill has its own opacity and blend mode:
+        </p>
+        <h3>Solid Fill</h3>
+        <p>
+          A single color fill. Select a color from the color picker, then adjust opacity with the alpha slider.
+        </p>
+        <h3>Gradient Fill</h3>
+        <p>
+          Strata supports four gradient types:
+        </p>
+        <ul>
+          <li><strong>Linear</strong> — Color transitions along a line with configurable angle (0-360&deg;)</li>
+          <li><strong>Radial</strong> — Color transitions outward from a center point</li>
+          <li><strong>Angular</strong> — Color transitions around a center point (conic gradient)</li>
+          <li><strong>Diamond</strong> — Color transitions outward in a diamond pattern</li>
+        </ul>
+        <p>
+          Each gradient has a transform matrix for precise positioning (Figma-style gradient handles). Add and remove color stops, adjust their positions, and choose between smooth and stepped interpolation.
+        </p>
+        <h3>Image Fill</h3>
+        <p>
+          Fill a shape with a raster image. Strata's ImageCache handles async loading with LRU eviction (max 200 entries). The fill respects the shape's bounds and can be scaled via the <code>imageFit</code> property (cover, contain, fill).
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Strokes</h2>
+        <p>
+          Each shape can have multiple strokes, each with independent styling:
+        </p>
+        <ul>
+          <li><strong>Weight</strong> — Stroke thickness in pixels</li>
+          <li><strong>Color</strong> — Supports all ManagedColor types</li>
+          <li><strong>Dash pattern</strong> — Array of dash/gap lengths (e.g., <code>[4, 2]</code> for dashed lines)</li>
+          <li><strong>Cap style</strong> — Butt, Round, or Square</li>
+          <li><strong>Join style</strong> — Miter, Round, or Bevel</li>
+          <li><strong>Miter limit</strong> — Maximum miter length before bevel is used</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Effects</h2>
+        <p>
+          Strata's effects engine supports multiple effects per node, each with independent blend mode and opacity:
+        </p>
+        <ul>
+          <li><strong>Drop Shadow</strong> — Offset shadow with configurable blur, spread, and color. Renders using the canvas shadow API with proper per-effect blend mode isolation.</li>
+          <li><strong>Inner Shadow</strong> — Shadow inset within the shape bounds. Uses clip + blur technique for accurate rendering.</li>
+          <li><strong>Layer Blur</strong> — Blurs the entire layer content with configurable radius.</li>
+          <li><strong>Background Blur</strong> — Blurs the content behind the layer (requires offscreen canvas compositing).</li>
+          <li><strong>Outer Glow</strong> — No-offset shadow effect that creates a glow around the shape.</li>
+          <li><strong>Inner Glow</strong> — No-offset shadow inset within the shape.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Blend Modes</h2>
+        <p>
+          Strata supports 18 blend modes, applied per-fill and per-effect:
+        </p>
+        <ul>
+          <li><strong>Normal</strong> — Standard alpha compositing</li>
+          <li><strong>Multiply, Screen, Overlay, Darken, Lighten</strong> — Standard layer blending</li>
+          <li><strong>Color Dodge, Color Burn, Hard Light, Soft Light</strong> — Advanced blending</li>
+          <li><strong>Difference, Exclusion</strong> — Difference-based blending</li>
+          <li><strong>Hue, Saturation, Color, Luminosity</strong> — Non-separable W3C L*C*h blend modes</li>
+          <li><strong>Pass Through</strong> — Group blend mode that passes children through unblended</li>
+          <li><strong>Plus Darker, Plus Lighter</strong> — Additive and subtractive blending</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Color Swatches</h2>
+        <p>
+          Save frequently used colors as swatches for quick access. Swatches are stored in the document and persist across sessions. You can add, remove, update, and apply swatches through the Inspector's color picker.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Color Mode Switching</h2>
+        <p>
+          Documents can be switched between RGB, CMYK, and Grayscale color modes. When switching, Strata converts all document colors using analytical conversion math. This is useful for preparing designs for both screen and print output.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href="/docs/tools/vector">Vector Tools</a> for shape creation, or <a href="/docs/file-formats">File Formats</a> for color mode considerations in export.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  .docs-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+    border-bottom: 2px solid var(--color-teal-100);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  .docs-section code {
+    background: var(--color-neutral-200);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--color-teal-600);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  .docs-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>
