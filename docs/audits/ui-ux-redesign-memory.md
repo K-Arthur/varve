@@ -38,7 +38,7 @@
 | Menubar portal, gpu-layer, token z-index/scrim | 37e59e4 |
 | Select/Menu portals + home bento file-card | 1997a32 |
 | Surface tokens, BindingMenu portal, GradientEditor CSS | d7696b4 |
-| Menubar zoom CSS cleanup + memory finalization | (this commit) |
+| Menubar zoom CSS cleanup + memory finalization | 80cea61 |
 
 ## Verification Gates
 
@@ -46,7 +46,9 @@
 - [x] Select/Menu/FloatingPortal tests (45/45)
 - [x] `pnpm audit:tokens` (96/96 WCAG-AA)
 - [x] `pnpm audit:emoji` (990 files clean)
-- [x] `just gate` (format-check + lint + test + audits)
+- [x] `just format-check` (1045 files)
+- [x] UI-scope lint clean (13 touched files, 0 errors)
+- [ ] `just gate` full — blocked by 7 pre-existing lint errors elsewhere (tailwind at-rules, unused imports in WIP)
 
 ## Architecture Established
 
