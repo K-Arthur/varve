@@ -364,57 +364,57 @@ export class SelectTool extends BaseTool {
       // Auto-reparent after nudge (matching drag-end behavior).
       // Hold Ctrl to bypass (Space is used for Hand tool spring).
       if (!ctx.ctrlKey) {
-      // Collect all pending reparent ops first so we only start a
-      // transaction when actual work is needed.
-      const reparentOps: Array<{
-        id: string;
-        parentId: string | null;
-        index: number;
-      }> = [];
-      for (const selId of sel) {
-        if (!selId) continue;
-        const node = ctx.getNode(selId);
-        if (!node || node.locked || !node.visible) continue;
-        const worldBounds = nodeWorldBounds(ctx.document, selId);
-        let centerX = node.transform[4];
-        let centerY = node.transform[5];
-        if (worldBounds) {
-          centerX = worldBounds.x + worldBounds.w / 2;
-          centerY = worldBounds.y + worldBounds.h / 2;
-        }
-        const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
-        const currentParent = getParent(ctx.document, selId);
-        if (frameId && currentParent !== frameId) {
-          // Size heuristic: only reparent if node is not larger than target frame
-          const frameNode = ctx.getNode(frameId);
-          if (frameNode && frameNode.kind === 'frame') {
-            const fb = nodeWorldBounds(ctx.document, frameId);
-            if (fb && worldBounds) {
-              const nodeArea = worldBounds.w * worldBounds.h;
-              const frameArea = fb.w * fb.h;
-              if (nodeArea > frameArea * 1.1) continue;
-            }
+        // Collect all pending reparent ops first so we only start a
+        // transaction when actual work is needed.
+        const reparentOps: Array<{
+          id: string;
+          parentId: string | null;
+          index: number;
+        }> = [];
+        for (const selId of sel) {
+          if (!selId) continue;
+          const node = ctx.getNode(selId);
+          if (!node || node.locked || !node.visible) continue;
+          const worldBounds = nodeWorldBounds(ctx.document, selId);
+          let centerX = node.transform[4];
+          let centerY = node.transform[5];
+          if (worldBounds) {
+            centerX = worldBounds.x + worldBounds.w / 2;
+            centerY = worldBounds.y + worldBounds.h / 2;
           }
-          reparentOps.push({
-            id: selId,
-            parentId: frameId,
-            index: childrenCount(ctx.document, frameId),
-          });
-        } else if (!frameId && currentParent !== null) {
-          reparentOps.push({
-            id: selId,
-            parentId: null,
-            index: ctx.rootNodes().length,
-          });
+          const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
+          const currentParent = getParent(ctx.document, selId);
+          if (frameId && currentParent !== frameId) {
+            // Size heuristic: only reparent if node is not larger than target frame
+            const frameNode = ctx.getNode(frameId);
+            if (frameNode && frameNode.kind === 'frame') {
+              const fb = nodeWorldBounds(ctx.document, frameId);
+              if (fb && worldBounds) {
+                const nodeArea = worldBounds.w * worldBounds.h;
+                const frameArea = fb.w * fb.h;
+                if (nodeArea > frameArea * 1.1) continue;
+              }
+            }
+            reparentOps.push({
+              id: selId,
+              parentId: frameId,
+              index: childrenCount(ctx.document, frameId),
+            });
+          } else if (!frameId && currentParent !== null) {
+            reparentOps.push({
+              id: selId,
+              parentId: null,
+              index: ctx.rootNodes().length,
+            });
+          }
         }
-      }
-      if (reparentOps.length > 0) {
-        ctx.beginTransaction();
-        for (const op of reparentOps) {
-          ctx.reparentNode(op.id, op.parentId, op.index);
+        if (reparentOps.length > 0) {
+          ctx.beginTransaction();
+          for (const op of reparentOps) {
+            ctx.reparentNode(op.id, op.parentId, op.index);
+          }
+          ctx.commitTransaction();
         }
-        ctx.commitTransaction();
-      }
       } // !ctx.ctrlKey
       ctx.announceOperation('Nudge', `${step}px`);
       return true;

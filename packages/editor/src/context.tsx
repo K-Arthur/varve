@@ -87,7 +87,6 @@ import {
   makeShapeNode,
   makeTextNode,
   moveGuide as moveGuideDoc,
-  validateDocument,
   moveNode,
   nextNodeId,
   pushMasterChanges as pushMasterChangesDoc,
@@ -124,6 +123,7 @@ import {
   updateVariableInDocument,
   type Variable,
   type VariableValue,
+  validateDocument,
   walkNodes,
 } from '@strata/scene';
 import {
