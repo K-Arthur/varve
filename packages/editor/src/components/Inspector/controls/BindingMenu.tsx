@@ -1,5 +1,5 @@
 /**
- * BindingMenu — popover for selecting a variable to bind to a property.
+ * BindingMenu — portaled combobox for selecting a variable to bind to a property.
  *
  * Shows available variables filtered by type, with a search input.
  * Supports entering a math expression to transform the resolved value.
@@ -7,10 +7,11 @@
  * Watches the editor context's `bindingField` — when it matches `targetField`,
  * the menu auto-opens (entry point for keyboard shortcut and shift+click).
  *
- * Research basis: Figma variable binding dropdown; APG Listbox + Dialog.
+ * Research basis: Figma variable binding dropdown; APG Combobox + Listbox.
  */
 import type { VariableStore, VariableValue } from '@strata/scene';
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { FloatingPortal } from '@strata/ui';
+import { useCallback, useContext, useEffect, useId, useMemo, useState } from 'react';
 import { EditorCtx } from '../../../context';
 
 interface BindingMenuProps {
@@ -25,47 +26,6 @@ interface BindingMenuProps {
    */
   targetField?: string;
 }
-
-const POPOVER_STYLE: React.CSSProperties = {
-  position: 'fixed',
-  zIndex: 'var(--z-overlay, 1000)',
-  background: 'var(--color-surface-overlay)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-md)',
-  boxShadow: 'var(--shadow-lg)',
-  width: 220,
-  padding: 'var(--space-2)',
-  fontSize: 'var(--font-size-xs)',
-};
-
-const INPUT_STYLE: React.CSSProperties = {
-  width: '100%',
-  height: 28,
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-  marginBottom: 'var(--space-1)',
-};
-
-const LIST_STYLE: React.CSSProperties = {
-  margin: 0,
-  padding: 0,
-  maxHeight: 180,
-  overflowY: 'auto',
-};
-
-const ITEM_STYLE: React.CSSProperties = {
-  padding: '4px 6px',
-  borderRadius: 'var(--radius-sm)',
-  cursor: 'pointer',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 4,
-};
 
 function formatValue(v: VariableValue): string {
   if (typeof v === 'number') return String(v);
@@ -85,25 +45,21 @@ export function BindingMenu({
   const [query, setQuery] = useState('');
   const [expression, setExpression] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const listRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+  const comboboxId = useId();
 
-  const variables = Object.values(variableStore.variables).filter((v) => {
-    if (targetType && v.type !== targetType) return false;
-    if (query && !v.name.toLowerCase().includes(query.toLowerCase())) return false;
-    return true;
-  });
+  const variables = useMemo(
+    () =>
+      Object.values(variableStore.variables).filter((v) => {
+        if (targetType && v.type !== targetType) return false;
+        if (query && !v.name.toLowerCase().includes(query.toLowerCase())) return false;
+        return true;
+      }),
+    [variableStore.variables, targetType, query],
+  );
 
   const ctx = useContext(EditorCtx);
-  const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
-  useEffect(() => {
-    const el = triggerRef.current;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      setPosition({ top: rect.bottom + 4, left: rect.left });
-    }
-  }, [triggerRef]);
 
-  // When context bindingField changes to something other than our field, close.
   useEffect(() => {
     if (targetField && ctx?.bindingField && ctx.bindingField !== targetField) {
       onClose();
@@ -126,6 +82,9 @@ export function BindingMenu({
     [onBind, onClose, expression],
   );
 
+  const highlightedId =
+    variables.length > 0 ? `${listboxId}-option-${selectedIdx}` : undefined;
+
   const handleListKey = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
@@ -143,87 +102,72 @@ export function BindingMenu({
   );
 
   return (
-    <div
-      role="dialog"
-      aria-label="Bind variable"
-      style={{ ...POPOVER_STYLE, top: position.top, left: position.left }}
-      onKeyDown={handleListKey}
+    <FloatingPortal
+      anchorRef={triggerRef}
+      open
+      onClose={onClose}
+      placement="bottom-start"
+      maxHeight={320}
     >
-      <input
-        type="text"
-        placeholder="Search variables..."
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setSelectedIdx(0);
-        }}
-        style={INPUT_STYLE}
-        aria-label="Search variables"
-      />
-      {variables.length > 0 && (
-        <div ref={listRef} role="listbox" aria-label="Available variables" style={LIST_STYLE}>
-          {variables.map((v, i) => (
-            <div
-              key={v.id}
-              role="option"
-              aria-selected={selectedIdx === i}
-              style={{
-                ...ITEM_STYLE,
-                background: selectedIdx === i ? 'var(--color-interactive-subtle)' : 'transparent',
-              }}
-              onClick={() => handleSelect(v.id)}
-              onMouseEnter={() => setSelectedIdx(i)}
-              tabIndex={-1}
-            >
-              <span
-                style={{
-                  fontWeight: 'var(--font-weight-medium)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {v.name}
-              </span>
-              <span
-                style={{
-                  color: 'var(--color-text-muted)',
-                  fontSize: 10,
-                  flexShrink: 0,
-                }}
-              >
-                {(() => {
-                  const val: VariableValue | undefined =
-                    v.valuesByMode[variableStore.activeMode] ??
-                    v.valuesByMode.default ??
-                    (variableStore.modes[0] ? v.valuesByMode[variableStore.modes[0]] : undefined);
-                  return val !== undefined ? formatValue(val) : '';
-                })()}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      {variables.length === 0 && (
-        <p style={{ color: 'var(--color-text-muted)', margin: 0, padding: '4px 0' }}>
-          {query ? 'No matching variables' : 'No variables defined'}
-        </p>
-      )}
-      <div
-        style={{
-          marginTop: 'var(--space-1)',
-          borderTop: '1px solid var(--color-border-subtle)',
-          paddingTop: 'var(--space-1)',
-        }}
-      >
+      <div className="binding-menu" role="presentation" onKeyDown={handleListKey}>
         <input
+          id={comboboxId}
           type="text"
-          placeholder="Expression e.g. {var} * 2 (optional)"
-          value={expression}
-          onChange={(e) => setExpression(e.target.value)}
-          style={INPUT_STYLE}
-          aria-label="Binding expression"
+          role="combobox"
+          aria-expanded={variables.length > 0}
+          aria-controls={listboxId}
+          aria-activedescendant={highlightedId}
+          aria-autocomplete="list"
+          placeholder="Search variables..."
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setSelectedIdx(0);
+          }}
+          className="binding-menu__input"
+          aria-label="Search variables"
         />
+        {variables.length > 0 ? (
+          <div id={listboxId} role="listbox" aria-label="Available variables" className="binding-menu__list">
+            {variables.map((v, i) => (
+              <div
+                key={v.id}
+                id={`${listboxId}-option-${i}`}
+                role="option"
+                aria-selected={selectedIdx === i}
+                className={`binding-menu__item${selectedIdx === i ? ' binding-menu__item--highlighted' : ''}`}
+                onClick={() => handleSelect(v.id)}
+                onMouseEnter={() => setSelectedIdx(i)}
+              >
+                <span className="binding-menu__item-name">{v.name}</span>
+                <span className="binding-menu__item-value">
+                  {(() => {
+                    const val: VariableValue | undefined =
+                      v.valuesByMode[variableStore.activeMode] ??
+                      v.valuesByMode.default ??
+                      (variableStore.modes[0] ? v.valuesByMode[variableStore.modes[0]] : undefined);
+                    return val !== undefined ? formatValue(val) : '';
+                  })()}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="binding-menu__empty">
+            {query ? 'No matching variables' : 'No variables defined'}
+          </p>
+        )}
+        <div className="binding-menu__expression">
+          <input
+            type="text"
+            placeholder="Expression e.g. {var} * 2 (optional)"
+            value={expression}
+            onChange={(e) => setExpression(e.target.value)}
+            className="binding-menu__input"
+            aria-label="Binding expression"
+          />
+        </div>
       </div>
-    </div>
+    </FloatingPortal>
   );
 }

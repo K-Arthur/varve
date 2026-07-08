@@ -26,19 +26,6 @@ const GRADIENT_TYPES: { value: GradientType; label: string }[] = [
   { value: 'diamond', label: 'Diamond' },
 ];
 
-const SELECT_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: 'var(--space-5)',
-  fontSize: 'var(--font-size-xs)',
-  background: 'var(--color-surface-sunken)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0 var(--space-2)',
-};
-
-const STOP_BAR_H = 24;
-
 function stopColorCss(c: ManagedColor): string {
   const [r, g, b, a] = managedColorToRgba(c);
   return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
@@ -57,7 +44,6 @@ function gradientCss(g: GradientFill): string {
   if (g.type === 'angular') {
     return `conic-gradient(from ${g.rotation ?? 0}deg, ${stops})`;
   }
-  // diamond — approximate with radial for preview
   return `radial-gradient(circle, ${stops})`;
 }
 
@@ -157,14 +143,14 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
   const currentStop = gradient.stops[selectedStop];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+    <div className="gradient-editor">
       <div className="insp-field">
         <span className="insp-field__label">Type</span>
         <div className="insp-field__control">
           <select
             aria-label="Gradient type"
             value={gradient.type}
-            style={SELECT_STYLE}
+            className="gradient-editor__select"
             onChange={(e) => onChange({ ...gradient, type: e.target.value as GradientType })}
           >
             {GRADIENT_TYPES.map((t) => (
@@ -186,15 +172,8 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
         aria-valuetext={`${Math.round((currentStop?.position ?? 0) * 100)}%`}
         tabIndex={0}
         onPointerDown={handleBarPointerDown}
-        style={{
-          position: 'relative',
-          height: STOP_BAR_H,
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--color-border-subtle)',
-          background: gradientCss(gradient),
-          cursor: 'copy',
-          userSelect: 'none',
-        }}
+        className="gradient-editor__bar"
+        style={{ background: gradientCss(gradient) }}
       >
         {gradient.stops.map((stop, i) => (
           <button
@@ -222,29 +201,17 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
                 removeStop(i);
               }
             }}
+            className={`gradient-editor__stop${selectedStop === i ? ' gradient-editor__stop--selected' : ' gradient-editor__stop--idle'}`}
             style={{
-              position: 'absolute',
-              top: '50%',
               left: `${stop.position * 100}%`,
-              transform: 'translate(-50%, -50%)',
-              width: 14,
-              height: 14,
-              borderRadius: '50%',
-              border:
-                selectedStop === i
-                  ? '2px solid var(--color-interactive-default)'
-                  : '2px solid var(--color-surface-overlay)',
               background: stopColorCss(stop.color),
-              cursor: 'grab',
-              padding: 0,
-              zIndex: 1,
             }}
           />
         ))}
       </div>
 
       {currentStop && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <div className="gradient-editor__stop-controls">
           <div className="insp-field">
             <span className="insp-field__label">Position</span>
             <div className="insp-field__control">
@@ -260,32 +227,15 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
                     position: Math.max(0, Math.min(1, Number(e.target.value) / 100)),
                   })
                 }
-                className="insp-num__input"
-                style={{ width: 60 }}
+                className="insp-num__input gradient-editor__position-input"
               />
-              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                %
-              </span>
+              <span className="gradient-editor__unit">%</span>
               <button
                 type="button"
                 aria-label={`Remove stop ${selectedStop + 1}`}
                 onClick={() => removeStop(selectedStop)}
                 disabled={gradient.stops.length <= 2}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 24,
-                  height: 24,
-                  background: 'transparent',
-                  border: '1px solid var(--color-border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--color-text-muted)',
-                  cursor: gradient.stops.length <= 2 ? 'not-allowed' : 'pointer',
-                  padding: 0,
-                  flexShrink: 0,
-                  opacity: gradient.stops.length <= 2 ? 0.5 : 1,
-                }}
+                className="gradient-editor__remove-btn"
               >
                 <Icon name="Trash2" label={undefined} size="0.85em" />
               </button>
@@ -310,12 +260,9 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
               value={gradient.rotation ?? 0}
               aria-label="Gradient rotation"
               onChange={(e) => onChange({ ...gradient, rotation: Number(e.target.value) })}
-              className="insp-num__input"
-              style={{ width: 60 }}
+              className="insp-num__input gradient-editor__position-input"
             />
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-              deg
-            </span>
+            <span className="gradient-editor__unit">deg</span>
           </div>
         </div>
       )}
