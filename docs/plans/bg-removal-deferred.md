@@ -2,6 +2,20 @@
 
 **Base commit:** Current HEAD | **Branch:** master
 
+## Session 46 — Production hardening (2026-07-08)
+
+| Fix | What was wrong | What changed |
+|---|---|---|
+| **Bundled model trust** | `getModelPath` did a `HEAD /models/u2netp.onnx` fetch that returned 404 in Vite dev, making the bundled 4.5 MB model appear unavailable | Metadata `bundled: true` in the manifest now skips the HEAD fetch — returns the path directly |
+| **Model mapping** | `workerModelIdForMethod('ai-balanced')` returned `birefnet-general-lite` (214 MB, not bundled) instead of `u2netp` (4.5 MB, bundled) | `ai-balanced` → `u2netp`; `ai-quality` still requires explicit download |
+| **Worker init hang** | `import('onnxruntime-web')` in the Web Worker hung indefinitely, blocking the UI until the 60s timeout | Session init timeout shortened to 10s; hung Workers are terminated and fall through to heuristic |
+| **WASM path** | onnxruntime-web couldn't find its WASM binary in Vite Workers | `ort.env.wasm.wasmPaths = '/ort-wasm/'` configured; WASM files copied from node_modules via postinstall script |
+| **Batch reprocess** | Stale `backgroundRemoval` state caused "Already processed" skip, making re-runs impossible | Skip removed — all selected images are processed; stale masks are replaced |
+| **Download model ID** | Batch dialog and inspector hardcoded downloadModelId as method switch | Now uses `requiredModelId` (the actual model ID the method maps to) |
+| **Postinstall script** | WASM files must be copied from node_modules to public/ for the Worker to find them | `scripts/copy-onnx-wasm.mjs` runs on `pnpm install`; `ort-wasm/` in .gitignore |
+
+**Verification:** 111 bg-removal tests pass (was 110, +1 modelLoader bundled trust test). Engine typecheck clean.
+
 ## Phases A–D completion (Session 39, 2026-07-06)
 
 | Phase | Status | Notes |
