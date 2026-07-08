@@ -3,7 +3,8 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "composite": false
+    "composite": false,
+    "types": ["@webgpu/types"]
   },
   "include": ["src"]
 }
