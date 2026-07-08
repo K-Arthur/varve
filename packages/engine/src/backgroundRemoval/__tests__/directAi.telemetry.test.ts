@@ -9,6 +9,7 @@ const { mockGetModelLoader, mockHeuristic, mockCreate } = vi.hoisted(() => ({
 
 vi.mock('../heuristic', () => ({
   removeBackgroundHeuristic: mockHeuristic,
+  maskToDataUrl: vi.fn(() => 'data:image/png;base64,direct'),
 }));
 vi.mock('../workerPool', () => ({
   runPooledInference: vi.fn(),
