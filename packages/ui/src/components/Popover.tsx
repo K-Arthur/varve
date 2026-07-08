@@ -184,7 +184,7 @@ export function Popover({
           left: posStyle?.left ?? 0,
           top: posStyle?.top ?? 0,
           margin: 0,
-          zIndex: 9999,
+          zIndex: 'var(--z-overlay)' as unknown as number,
         }}
       >
         {popover}

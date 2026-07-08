@@ -1,5 +1,5 @@
 import { exportDocumentToSvg } from '@strata/codegen';
-import { CHROME_ICONS, IconButton, StrataLogo } from '@strata/ui';
+import { CHROME_ICONS, FloatingPortal, IconButton, StrataLogo } from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -301,6 +301,7 @@ export function Menubar({
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
   const menuRef = useRef<HTMLDivElement>(null);
+  const dropdownMenuRef = useRef<HTMLDivElement>(null);
   const topLevelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
@@ -323,27 +324,21 @@ export function Menubar({
     }
   }, [editingName]);
 
-  // Focus the active menu item when dropdown opens or index changes
   useEffect(() => {
     if (openMenu) {
-      const menu = menuRef.current?.querySelector<HTMLDivElement>('[role="menu"]');
+      const menu = dropdownMenuRef.current;
       if (!menu) return;
       const items = menu.querySelectorAll<HTMLButtonElement>(
         '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]',
       );
-      const el = items[activeItemIndex];
-      if (el) {
-        el.focus();
-        el.style.background = 'var(--color-interactive-default)';
-      }
-      return () => {
-        // Reset hover styles on cleanup
-        items.forEach((btn) => {
-          btn.style.background = '';
-        });
-      };
+      items[activeItemIndex]?.focus();
     }
   }, [openMenu, activeItemIndex]);
+
+  const openMenuIndex = openMenu ? MENUS.findIndex((m) => m.id === openMenu) : -1;
+  const openMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
+  openMenuAnchorRef.current =
+    openMenuIndex >= 0 ? (topLevelRefs.current[openMenuIndex] ?? null) : null;
 
   const startNameEdit = useCallback(() => {
     setNameDraft(state.document.name || '');
@@ -534,8 +529,6 @@ export function Menubar({
     ],
   );
 
-  const isActiveTheme = (item: MenuItem) =>
-    item.action?.startsWith('theme:') && currentTheme === item.action.slice(6);
 
   const handleZoomInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -665,11 +658,9 @@ export function Menubar({
       role="menubar"
       aria-label="Application"
       ref={menuRef}
-      onMouseLeave={() => setOpenMenu(null)}
       onKeyDown={handleMenuKeyDown}
     >
-      {/* ── Left: Home button + Menu buttons ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+      <div className="editor-menubar__left">
         <button
           type="button"
           className="editor-menubar__home"
@@ -680,119 +671,83 @@ export function Menubar({
           <StrataLogo size={16} />
         </button>
         {MENUS.map((menu, i) => (
-          <div key={menu.id} style={{ position: 'relative' }}>
-            <button
-              ref={(el) => {
-                topLevelRefs.current[i] = el;
-              }}
-              role="menuitem"
-              className="editor-menubar__item"
-              aria-haspopup="true"
-              aria-expanded={openMenu === menu.id}
-              tabIndex={focusedIndex === i ? 0 : -1}
-              type="button"
-              onClick={() => {
-                setOpenMenu(openMenu === menu.id ? null : menu.id);
-                setFocusedIndex(i);
-                setActiveItemIndex(0);
-              }}
-              onMouseEnter={() => openMenu && setOpenMenu(menu.id)}
-            >
-              {menu.id}
-            </button>
-            {openMenu === menu.id && (
-              <div
-                role="menu"
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  zIndex: 100,
-                  background: 'var(--elevation-surface-overlay)',
-                  border: 'var(--border-micro)',
-                  borderRadius: 'var(--radius-sm)',
-                  minWidth: 180,
-                  padding: 'var(--space-1)',
-                  boxShadow: 'var(--elevation-shadow-overlay)',
-                }}
-              >
-                {menu.items.map((item) => {
-                  if (item.label === '---') {
-                    return (
-                      <hr
-                        key="sep"
-                        tabIndex={-1}
-                        style={{
-                          margin: 'var(--space-1) 0',
-                          border: 'none',
-                          borderTop: '1px solid var(--color-border-subtle)',
-                        }}
-                      />
-                    );
-                  }
-                  return (
-                    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio role per ARIA spec
-                    <button
-                      key={item.label}
-                      role={itemRole(item)}
-                      type="button"
-                      aria-checked={
-                        item.action?.startsWith('theme:')
-                          ? currentTheme === item.action.slice(6)
-                          : item.action === 'canvasModeOutline'
-                            ? state.canvasMode === 'outline'
-                            : item.action === 'canvasModePreview'
-                              ? state.canvasMode === 'preview'
-                              : undefined
-                      }
-                      disabled={!item.action}
-                      onClick={() => handleAction(item.action ?? '')}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLElement).style.background =
-                          'var(--color-interactive-hover)';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.background = isActiveTheme(item)
-                          ? 'var(--color-interactive-default)'
-                          : '';
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--space-3)',
-                        width: '100%',
-                        padding: 'var(--space-1) var(--space-2)',
-                        border: 'none',
-                        borderRadius: 'var(--radius-sm)',
-                        background: isActiveTheme(item) ? 'var(--color-interactive-default)' : '',
-                        color: item.action
-                          ? 'var(--color-text-primary)'
-                          : 'var(--color-text-muted)',
-                        cursor: 'default',
-                        font: 'inherit',
-                        fontSize: 'var(--font-size-sm)',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <span style={{ flex: 1 }}>{item.label}</span>
-                      {item.shortcut && (
-                        <span
-                          style={{
-                            fontSize: 'var(--font-size-xs)',
-                            color: 'var(--color-text-muted)',
-                          }}
-                        >
-                          {item.shortcut}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <button
+            key={menu.id}
+            ref={(el) => {
+              topLevelRefs.current[i] = el;
+            }}
+            role="menuitem"
+            className="editor-menubar__item"
+            aria-haspopup="true"
+            aria-expanded={openMenu === menu.id}
+            tabIndex={focusedIndex === i ? 0 : -1}
+            type="button"
+            onClick={() => {
+              setOpenMenu(openMenu === menu.id ? null : menu.id);
+              setFocusedIndex(i);
+              setActiveItemIndex(0);
+            }}
+            onMouseEnter={() => openMenu && setOpenMenu(menu.id)}
+          >
+            {menu.id}
+          </button>
         ))}
       </div>
+
+      {openMenu && openMenuIndex >= 0 && (
+        <FloatingPortal
+          anchorRef={openMenuAnchorRef}
+          open
+          onClose={() => {
+            setOpenMenu(null);
+            setActiveItemIndex(0);
+          }}
+          className="editor-menubar__menu"
+        >
+          <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
+            {MENUS[openMenuIndex]?.items.map((item, itemIdx) => {
+              if (item.label === '---') {
+                return (
+                  <hr key={`sep-${itemIdx}`} className="editor-menubar__menu-sep" tabIndex={-1} />
+                );
+              }
+              const isActive =
+                item.action?.startsWith('theme:') && currentTheme === item.action.slice(6);
+              const isChecked =
+                item.action === 'canvasModeOutline'
+                  ? state.canvasMode === 'outline'
+                  : item.action === 'canvasModePreview'
+                    ? state.canvasMode === 'preview'
+                    : undefined;
+              return (
+                // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio role per ARIA spec
+                <button
+                  key={item.label}
+                  role={itemRole(item)}
+                  type="button"
+                  aria-checked={
+                    item.action?.startsWith('theme:')
+                      ? currentTheme === item.action.slice(6)
+                      : item.action === 'canvasModeOutline'
+                        ? state.canvasMode === 'outline'
+                        : item.action === 'canvasModePreview'
+                          ? state.canvasMode === 'preview'
+                          : undefined
+                  }
+                  disabled={!item.action}
+                  className={`editor-menubar__menu-item${isActive || isChecked ? ' editor-menubar__menu-item--active' : ''}`}
+                  onClick={() => handleAction(item.action ?? '')}
+                >
+                  <span className="editor-menubar__menu-label">{item.label}</span>
+                  {item.shortcut && (
+                    <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </FloatingPortal>
+      )}
 
       {/* ── Center: Document name (absolutely centered in menubar) ── */}
       <div className="editor-menubar__doc-name">
@@ -814,6 +769,7 @@ export function Menubar({
           <span
             role="button"
             tabIndex={0}
+            className="editor-menubar__doc-name-text"
             onClick={startNameEdit}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -822,18 +778,6 @@ export function Menubar({
               }
             }}
             title="Click to rename"
-            style={{
-              cursor: 'pointer',
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 'var(--font-weight-medium)',
-              color: 'var(--color-text-primary)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: '220px',
-              display: 'block',
-              textAlign: 'center',
-            }}
           >
             {state.document.name || 'Untitled'}
           </span>
