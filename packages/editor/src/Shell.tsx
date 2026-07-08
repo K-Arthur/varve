@@ -28,6 +28,7 @@ import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
+import { LibraryPanel } from './components/LibraryPanel/LibraryPanel';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
@@ -304,6 +305,7 @@ function ShellInner({
   const fileRef = useRef<HTMLInputElement>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
+  const [libraryVisible, setLibraryVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchBgRemoveOpen, setBatchBgRemoveOpen] = useState(false);
   const { shellStyle, widths, setWidth } = usePanelWidths();
@@ -485,6 +487,15 @@ function ShellInner({
             onResize={(w) => setWidth('inspector', w)}
           />
         </div>
+        {libraryVisible && (
+          <div className="editor__library-panel">
+            <LibraryPanel
+              doc={editor.state.document}
+              onInstallLibrary={editor.installLibrary}
+              onUninstallLibrary={editor.uninstallLibrary}
+            />
+          </div>
+        )}
         {editor.state.timelinePanelVisible && (
           <div className="editor__timeline-panel">
             <TimelinePanel
@@ -579,14 +590,24 @@ function ShellInner({
         >
           <Icon name="Settings" />
         </button>
+        {/* FAB for library (responsive) */}
+        <button
+          type="button"
+          className="editor__fab editor__fab--library"
+          onClick={() => setLibraryVisible((v) => !v)}
+          aria-label={libraryVisible ? 'Hide library panel' : 'Show library panel'}
+        >
+          <Icon name="Library" />
+        </button>
         {/* Backdrop for overlays */}
-        {(layersVisible || inspectorVisible) && (
+        {(layersVisible || inspectorVisible || libraryVisible) && (
           // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
           <div
             className="editor__panel-backdrop"
             onClick={() => {
               setLayersVisible(false);
               setInspectorVisible(false);
+              setLibraryVisible(false);
             }}
             onKeyDown={() => {}}
             role="presentation"
