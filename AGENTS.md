@@ -1791,3 +1791,54 @@ shortcuts, and improved draft rendering.
 | Lint (modified source files) | 0 errors |
 | Format | Clean |
 | CachyOS | Verified |
+
+## Session 44 — Comprehensive Canvas & Hierarchy Remediation (2026-07-07)
+
+Complete investigation and remediation of 7 systems covering canvas rendering, scene
+hierarchy, frame parenting, layer handling, and frontend exposure.
+
+### Phase 1 — Critical Bug Fixes
+
+| # | Fix | Files | Tests |
+|---|---|---|---|
+| **1.1** | Keyboard nudge auto-reparent: arrow key moves now trigger findContainingFrame/reparentNode matching drag-end behavior. Separate undo transaction for reparent vs move. | `SelectTool.ts` | 3 TDD (nudge-into-frame, nudge-outside, transaction counts) |
+| **1.2** | Image node rendering — VERIFIED NOT A BUG: images handled as ShapeNode with image fills via makeImageShapeNode/v1.4→v1.5 migration | — | — |
+| **1.3** | Fix worldToCanvas formula: corrected from `(world - pan) * zoom` to `world * zoom + pan` | `ViewportContext.tsx` | — |
+| **1.4** | Fix group containment in findContainingFrameInDoc: replaced AABB-based rectContains with inverse-transform point test against each child's transformed local bounds | `context.tsx` | Existing frame-parenting tests |
+| **1.5** | SubtreeIrCache content-aware hash: added cacheContentParts helper encoding shape kind, fill, strokes, effects, filters, opacity, blendMode, rotation, cornerRadius, text length, image src into FNV-1a hash | `subtreeIrCache.ts`, `CanvasArea.tsx` | Existing engine tests |
+| **1.6** | validateDocument in production: added validateDocument() calls in loadDocument() and openFile() paths; console.warns on validation failure | `context.tsx` | — |
+
+### Phase 2 — Architecture Improvements
+
+| # | Feature | Details |
+|---|---|---|
+| **2.1** | Ctrl-bypass for reparenting | Hold Ctrl during drag-end or keyboard nudge to suppress auto-reparent (Space used for Hand tool spring). 1 TDD test. |
+| **2.2** | Size-based reparenting heuristic | Objects >1.1× frame area excluded from auto-reparent (Figma/Sketch behaviour). Applied in drag-end and nudge paths. |
+| **2.3** | ImageCache LRU eviction | Max 200-entry limit with access-time-based LRU tracking; evicts oldest on overflow. |
+| **2.4** | TileCache dead code cleanup | Removed misleading touch() call from Canvas2D compositor backend; immediate-mode canvas always replays. |
+| **2.5** | Camera fast path for main-thread | Deferred (complex, depends on worker path architecture) |
+
+### Phase 3 — UX Enhancements
+
+| # | Feature | Details |
+|---|---|---|
+| **3.1** | Frame drag-over highlight | Overlay canvas highlights containing frame with dashed accent border during drag. Uses findContainingFrame + transform cache. |
+
+### Semantics Documented
+- **Keyboard nudge**: follows drag reparenting rules (center-point, size heuristic, Ctrl bypass)
+- **Ctrl-bypass**: hold Ctrl during drag release or arrow key press to prevent auto-reparent
+- **Size heuristic**: objects larger than target frame's area × 1.1 stay in current parent
+- **Group containment**: uses inverse-transform + child-local-bounds check (was AABB-only)
+- **Cache defence-in-depth**: SubtreeIrCache now hashes actual node content, not just docVersion
+
+### Verification (Session 44 baseline)
+- Scene: 654/654 pass (43 files)
+- Engine: 675/675 pass (53 files)
+- Shared: 329/329 pass (12 files)
+- SelectTool: 26/26 pass (3 new keyboard nudge reparent + 1 Ctrl-bypass tests)
+- LineTool: 9/9 pass (uncommitted)
+- ArrowTool: 7/7 pass (uncommitted)
+- Pipe/Common: frame-parenting 4/4, text-node-parenting 2/2
+- Rust workspace: 166/166 pass
+- Typecheck: 0 new errors (4 pre-existing: fflate dep, deprecated index field, unused importFile)
+- frame-parenting.test.tsx blocked by pre-existing fflate dependency issue (not related to changes)
