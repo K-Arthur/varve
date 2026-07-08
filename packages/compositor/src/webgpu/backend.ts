@@ -6,10 +6,6 @@ import { Canvas2DBackend } from '../canvas2d/backend';
 import type { CompositorFrame } from '../types';
 import { CIRCLE_VERTEX_WGSL, SOLID_FRAGMENT_WGSL } from './shaders';
 
-interface GpuNavigator extends Navigator {
-  gpu?: GPU;
-}
-
 type BeginOpts = { applyCamera?: boolean; clear?: boolean };
 
 interface GpuVertex {
@@ -136,7 +132,7 @@ export class WebGPUBackend {
     this.fallback = new Canvas2DBackend();
     await this.fallback.init(canvas);
     try {
-      const gpu = (navigator as GpuNavigator).gpu;
+      const gpu = navigator.gpu;
       if (!gpu) return;
       const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
       if (!adapter) return;
