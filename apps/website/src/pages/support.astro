@@ -1,0 +1,147 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Support - Strata">
+  <div class="container-custom">
+    <div class="support-page">
+      <h1>Support</h1>
+      <p class="support-intro">
+        Get help with Strata through documentation, community forums, and issue tracking.
+      </p>
+
+      <div class="support-sections">
+        <section class="support-section">
+          <h2>Self-Service Resources</h2>
+          <p>Find answers quickly through documentation and FAQs</p>
+          <ul>
+            <li><a href="/docs">Documentation</a> - Comprehensive guides and tutorials</li>
+            <li><a href="/support/faq">FAQ</a> - Frequently asked questions</li>
+            <li><a href="/support/troubleshooting">Troubleshooting</a> - Common issues and solutions</li>
+            <li><a href="/support/known-issues">Known Issues</a> - Current limitations and workarounds</li>
+          </ul>
+        </section>
+
+        <section class="support-section">
+          <h2>Community Support</h2>
+          <p>Get help from the community through GitHub Discussions</p>
+          <ul>
+            <li><a href="https://github.com/strata/strata/discussions">GitHub Discussions</a> - Ask questions, share workflows</li>
+            <li><a href="https://github.com/strata/strata/issues">GitHub Issues</a> - Report bugs, request features</li>
+          </ul>
+          <p class="support-note">
+            Community support is provided by volunteers. Response times vary from 24-72 hours.
+          </p>
+        </section>
+
+        <section class="support-section">
+          <h2>Report a Bug</h2>
+          <p>Help improve Strata by reporting issues with detailed information</p>
+          <a href="/support/report-issue" class="btn-primary">Report an Issue</a>
+        </section>
+
+        <section class="support-section">
+          <h2>Response Time Expectations</h2>
+          <p>
+            As a solo-developer project, I review issues within 1 week. Critical bugs are prioritized. 
+            Feature requests are added to the roadmap for consideration with no guaranteed timeline.
+            For faster responses, community forums are recommended.
+          </p>
+        </section>
+      </div>
+
+      <div class="support-cta">
+        <h2>Still need help?</h2>
+        <p>
+          Check the <a href="/docs">documentation</a> or search 
+          <a href="https://github.com/strata/strata/discussions">GitHub Discussions</a> for similar issues.
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .support-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .support-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .support-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin-bottom: 3rem;
+  }
+  
+  .support-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-section p {
+    color: var(--color-neutral-600);
+    margin-bottom: 1rem;
+  }
+  
+  .support-section ul {
+    list-style: none;
+  }
+  
+  .support-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+  
+  .support-section li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .support-note {
+    background: var(--color-neutral-100);
+    border-radius: 0.375rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: var(--color-neutral-700);
+    margin-top: 1rem;
+  }
+  
+  .support-cta {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    text-align: center;
+  }
+  
+  .support-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>

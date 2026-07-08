@@ -1,0 +1,133 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="About Strata - Solo-Developer Story">
+  <div class="container-custom">
+    <div class="about-page">
+      <h1>About Strata</h1>
+
+      <section class="about-section">
+        <h2>Built Independently</h2>
+        <p>
+          Strata is built by one designer-developer committed to creating a serious design application without VC pressure, feature creep, or corporate compromise. This independence means transparent development, honest communication about limitations, and decisions made for users rather than shareholders.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>The Vision</h2>
+        <p>
+          Design tools shouldn't require cloud subscriptions, data lock-in, or compromise on privacy. Strata is built on the belief that local-first architecture, native performance, and honest licensing can coexist with professional features and modern workflows.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>Development Philosophy</h2>
+        <ul>
+          <li><strong>Technical depth over marketing fluff:</strong> Features are built when they work, not when they sound good in marketing copy</li>
+          <li><strong>Honest limitations:</strong> What's not implemented is clearly labeled as "in development" or "types only"</li>
+          <li><strong>Transparent roadmap:</strong> Public planning documents, open development process, community input on priorities</li>
+          <li><strong>Quality gates:</strong> All changes must pass format, lint, typecheck, test, token audit, and emoji audit gates</li>
+          <li><strong>Documentation-first:</strong> Architecture decisions, audits, and plans are documented as they're made</li>
+        </ul>
+      </section>
+
+      <section class="about-section">
+        <h2>AGPL Licensing</h2>
+        <p>
+          Strata is licensed under AGPL-3.0-or-later, a copyleft license that ensures derivative works remain free. This is different from permissive licenses like MIT or BSD—it requires that if you distribute a modified version of Strata, you must also share your source code under the same license.
+        </p>
+        <p>
+          This license was chosen intentionally: it aligns with the project's values of transparency, community ownership, and preventing proprietary forks without contribution back.
+        </p>
+        <a href="/about/license" class="btn-secondary">Read the full license</a>
+      </section>
+
+      <section class="about-section">
+        <h2>Support the Project</h2>
+        <p>
+          As a solo-developer project, Strata relies on community support to continue development. Financial support enables specific features, platform support, and stability work. Non-financial contributions—testing, documentation, design, translations—are equally valuable.
+        </p>
+        <a href="/support-project" class="btn-primary">Support the Project</a>
+      </section>
+
+      <section class="about-section">
+        <h2>Privacy Policy</h2>
+        <p>
+          Strata does not collect telemetry, track users, or require cloud accounts. All data stays on your machine. The website uses privacy-focused analytics (Plausible) that do not use cookies or track individuals.
+        </p>
+        <a href="/about/privacy" class="btn-secondary">Read the privacy policy</a>
+      </section>
+
+      <section class="about-section">
+        <h2>Security Policy</h2>
+        <p>
+          Security vulnerabilities can be reported privately via GitHub Security Advisory or email. Response time is typically within 48 hours for critical issues. The project follows coordinated disclosure practices.
+        </p>
+        <a href="/about/security" class="btn-secondary">Read the security policy</a>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .about-page {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .about-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 2rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .about-section {
+    margin-bottom: 3rem;
+  }
+  
+  .about-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .about-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .about-section ul {
+    list-style: none;
+  }
+  
+  .about-section li {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+  
+  .about-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+    font-weight: bold;
+  }
+  
+  .about-section strong {
+    color: var(--color-neutral-900);
+  }
+  
+  @media (max-width: 768px) {
+    .about-page h1 {
+      font-size: 2rem;
+    }
+  }
+</style>
