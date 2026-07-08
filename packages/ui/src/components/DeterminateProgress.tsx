@@ -40,9 +40,13 @@ export function DeterminateProgress({
   const progressLabel = statusText ?? `${percentage}%`;
 
   return (
-    <div className={`det-progress det-progress--${size} ${className}`} role="group" aria-label={label ?? 'Progress'}>
+    <div
+      className={`det-progress det-progress--${size} ${className}`}
+      role="group"
+      aria-label={label ?? 'Progress'}
+    >
       {label && <div className="det-progress__label">{label}</div>}
-      
+
       <div className="det-progress__track-row">
         <div
           className="det-progress__track"
@@ -52,16 +56,13 @@ export function DeterminateProgress({
           aria-valuemax={max}
           aria-label={label}
         >
-          <div 
-            className="det-progress__fill" 
-            style={{ width: `${Math.min(percentage, 100)}%` }} 
-          />
+          <div className="det-progress__fill" style={{ width: `${Math.min(percentage, 100)}%` }} />
         </div>
-        
+
         {onCancel && running && (
-          <button 
-            type="button" 
-            className="det-progress__cancel" 
+          <button
+            type="button"
+            className="det-progress__cancel"
             onClick={onCancel}
             aria-label="Cancel operation"
           >

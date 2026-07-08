@@ -6,7 +6,12 @@
 import type { RenderItem } from '@strata/engine';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import type { CompositorFrame } from '../types';
-import { CIRCLE_FRAGMENT_WGSL, CIRCLE_VERTEX_WGSL, SOLID_FRAGMENT_WGSL, SOLID_VERTEX_WGSL } from './shaders';
+import {
+  CIRCLE_FRAGMENT_WGSL,
+  CIRCLE_VERTEX_WGSL,
+  SOLID_FRAGMENT_WGSL,
+  SOLID_VERTEX_WGSL,
+} from './shaders';
 
 type BeginOpts = { applyCamera?: boolean; clear?: boolean };
 
@@ -63,8 +68,18 @@ function buildVertices(items: RenderItem[]): GpuVertex[] {
         const a1 = (2 * Math.PI * (i + 1)) / segs;
         vertices.push(
           { localPos: [cx, cy], color: col, transform, transform2 },
-          { localPos: [cx + r * Math.cos(a0), cy + r * Math.sin(a0)], color: col, transform, transform2 },
-          { localPos: [cx + r * Math.cos(a1), cy + r * Math.sin(a1)], color: col, transform, transform2 },
+          {
+            localPos: [cx + r * Math.cos(a0), cy + r * Math.sin(a0)],
+            color: col,
+            transform,
+            transform2,
+          },
+          {
+            localPos: [cx + r * Math.cos(a1), cy + r * Math.sin(a1)],
+            color: col,
+            transform,
+            transform2,
+          },
         );
       }
     } else if (prim.kind === 'line') {
@@ -148,11 +163,13 @@ export class WebGPUBackend {
 
       // Explicit bind group layouts
       const solidBindGroupLayout = device.createBindGroupLayout({
-        entries: [{
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: { type: 'uniform' },
-        }],
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX,
+            buffer: { type: 'uniform' },
+          },
+        ],
       });
 
       const circleBindGroupLayout = device.createBindGroupLayout({
@@ -258,10 +275,15 @@ export class WebGPUBackend {
     const gpuItems = items.filter(isGpuPrimitive);
     const fallbackItems = items.filter((i) => !isGpuPrimitive(i));
     if (
-      this.gpuReady && this.device && this.context &&
-      this.solidPipeline && this.circlePipeline &&
-      this.cameraBuffer && this.circleUniformBuffer &&
-      this.cameraBindGroup && this.circleBindGroup
+      this.gpuReady &&
+      this.device &&
+      this.context &&
+      this.solidPipeline &&
+      this.circlePipeline &&
+      this.cameraBuffer &&
+      this.circleUniformBuffer &&
+      this.cameraBindGroup &&
+      this.circleBindGroup
     ) {
       const frame = this.currentFrame;
       if (frame && gpuItems.length > 0) {
@@ -344,7 +366,7 @@ export class WebGPUBackend {
     for (let i = 0; i < len; i++) {
       const v = arr[i];
       if (v === undefined) break;
-      h ^= Math.abs(v * 0x9e3779b9 | 0) >>> 0;
+      h ^= Math.abs((v * 0x9e3779b9) | 0) >>> 0;
       h = Math.imul(h, 0x01000193) >>> 0;
     }
     return h.toString(16);
@@ -359,8 +381,17 @@ export class WebGPUBackend {
     const circleUniformBuffer = this.circleUniformBuffer;
     const cameraBindGroup = this.cameraBindGroup;
     const circleBindGroup = this.circleBindGroup;
-    if (!device || !context || !solidPipeline || !circlePipeline ||
-        !cameraBuffer || !circleUniformBuffer || !cameraBindGroup || !circleBindGroup) return;
+    if (
+      !device ||
+      !context ||
+      !solidPipeline ||
+      !circlePipeline ||
+      !cameraBuffer ||
+      !circleUniformBuffer ||
+      !cameraBindGroup ||
+      !circleBindGroup
+    )
+      return;
 
     const solidItems = items.filter((i) => i.primitive.kind !== 'circle');
     const circleItems = items.filter((i) => i.primitive.kind === 'circle');
@@ -368,7 +399,11 @@ export class WebGPUBackend {
     const camera = frame.camera;
     const viewport = frame.viewport;
     const cam = new Float32Array([
-      camera.pan.x, camera.pan.y, camera.zoom, viewport.width, viewport.height,
+      camera.pan.x,
+      camera.pan.y,
+      camera.zoom,
+      viewport.width,
+      viewport.height,
     ]);
     device.queue.writeBuffer(cameraBuffer, 0, cam);
 
@@ -401,12 +436,14 @@ export class WebGPUBackend {
           }
         }
         const pass = encoder.beginRenderPass({
-          colorAttachments: [{
-            view: textureView,
-            clearValue: { r: 0, g: 0, b: 0, a: 0 },
-            loadOp: 'load',
-            storeOp: 'store',
-          }],
+          colorAttachments: [
+            {
+              view: textureView,
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+              loadOp: 'load',
+              storeOp: 'store',
+            },
+          ],
         });
         pass.executeBundles([bundle]);
         pass.end();
@@ -449,12 +486,14 @@ export class WebGPUBackend {
           }
         }
         const pass = encoder.beginRenderPass({
-          colorAttachments: [{
-            view: textureView,
-            clearValue: { r: 0, g: 0, b: 0, a: 0 },
-            loadOp: 'load',
-            storeOp: 'store',
-          }],
+          colorAttachments: [
+            {
+              view: textureView,
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+              loadOp: 'load',
+              storeOp: 'store',
+            },
+          ],
         });
         pass.executeBundles([bundle]);
         pass.end();
