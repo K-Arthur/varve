@@ -183,6 +183,10 @@ importers:
       '@strata/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
+      '@webgpu/types':
+        specifier: ^0.1.71
+        version: 0.1.71
 
   packages/editor:
     dependencies:
@@ -2579,6 +2583,9 @@ packages:
 
   '@webcontainer/env@1.1.1':
     resolution: {integrity: sha512-6aN99yL695Hi9SuIk1oC88l9o0gmxL1nGWWQ/kNy81HigJ0FoaoTXpytCj6ItzgyCEwA9kF1wixsTuv5cjsgng==}
+
+  '@webgpu/types@0.1.71':
+    resolution: {integrity: sha512-mMy8/ODcKhab808co15eW+yN+HgXoQxRQHTiBV9Mrvl1r0ufnid7YOcI+gi4eUWSWl9ezD6TW2KXccrL8HCh2A==}
 
   '@webtoon/psd@0.4.0':
     resolution: {integrity: sha512-ztriE8oFOamRrV9opBURDy+JMiyhur2//vOXsC5CgdnYCB0L1Lnaag4NzP8N+NFCj7uNz9JRYtPmAbQMSDLIsQ==}
@@ -6616,6 +6623,8 @@ snapshots:
   '@vscode/l10n@0.0.18': {}
 
   '@webcontainer/env@1.1.1': {}
+
+  '@webgpu/types@0.1.71': {}
 
   '@webtoon/psd@0.4.0': {}
 
