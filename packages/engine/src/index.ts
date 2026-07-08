@@ -210,4 +210,9 @@ export {
   computeVideoFrameCount,
   exportTimelineToVideo,
 } from './videoExport';
-export { createWasmEngineFromModule, loadWasmEngineModule, tryWasmEngine } from './wasmLoader';
+export {
+  createWasmEngineFromModule,
+  loadWasmEngineModule,
+  prewarmWasmEngine,
+  tryWasmEngine,
+} from './wasmLoader';

@@ -29,7 +29,9 @@ export function useAppReadiness(isLoaded: boolean, timeoutMs = 15000): AppReadin
 
     const timer = setTimeout(() => {
       setStatus('failed');
-      setError('Application took too long to initialize. Please check your connection and try again.');
+      setError(
+        'Application took too long to initialize. Please check your connection and try again.',
+      );
     }, timeoutMs);
 
     return () => clearTimeout(timer);
