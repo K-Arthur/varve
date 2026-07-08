@@ -230,12 +230,10 @@ function insertImportedSubtree(
   // rootChildren bypasses the page system and the node is never traversed.
   const activePage = targetDoc.pages?.find((p) => p.id === targetDoc.activePageId);
   const contentRootId = activePage?.contentRoot;
-  console.log('[INSERT] insertImportedSubtree:', cloned.rootId, 'activePageId:', targetDoc.activePageId, 'contentRootId:', contentRootId, 'hasContentRoot:', !!(contentRootId && targetDoc.nodes[contentRootId]));
   if (contentRootId && targetDoc.nodes[contentRootId]) {
     const contentRoot = targetDoc.nodes[contentRootId] as ContainerNode;
     const children = contentRoot.children ?? [];
     const updatedContentRoot = { ...contentRoot, children: [...children, cloned.rootId] } as ContainerNode;
-    console.log('[INSERT]   -> added to contentRoot, children count:', updatedContentRoot.children.length);
     return {
       rootId: cloned.rootId,
       doc: {
@@ -251,7 +249,6 @@ function insertImportedSubtree(
     };
   }
 
-  console.log('[INSERT]   -> fallback to rootChildren');
   return {
     rootId: cloned.rootId,
     doc: {
