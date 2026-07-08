@@ -77,7 +77,14 @@ export class SelectTool extends BaseTool {
 
     if (hit) {
       const docNode = ctx.document.nodes[hit.nodeId];
-      if (docNode?.locked) return { consumed: true };
+      if (docNode?.locked) {
+        // Clicking a locked node: don't start a move gesture or transaction
+        this.marqueeActive = false;
+        this.isMoveGesture = false;
+        this.initialPositions.clear();
+        this.hasDuplicated = false;
+        return { consumed: true };
+      }
 
       // B1: Depth-based cycling — if clicking an already-selected single node,
       // cycle to the next overlapping node below
@@ -104,7 +111,8 @@ export class SelectTool extends BaseTool {
       } else if (!ctx.isSelected(hit.nodeId)) {
         ctx.setSelection(hit.nodeId);
       }
-      ctx.announceSelection([hit.node]);
+      const effectiveNodes = ctx.selection.map((id) => ctx.getNode(id)).filter(Boolean);
+      ctx.announceSelection(effectiveNodes as import('@strata/scene').SceneNode[]);
       this.marqueeActive = false;
       this.isMoveGesture = true;
       // Begin transaction for move gesture (undo coherence)
@@ -114,7 +122,9 @@ export class SelectTool extends BaseTool {
       // ctx.selection is a closure snapshot captured before setSelection/toggleSelection;
       // build the effective post-call set from what we know the new state will be.
       const effectiveIds: string[] = e.shiftKey
-        ? [...ctx.selection, hit.nodeId] // additive: prior + newly toggled
+        ? ctx.isSelected(hit.nodeId)
+          ? ctx.selection.filter((id) => id !== hit.nodeId) // toggle off: removed
+          : [...ctx.selection, hit.nodeId] // toggle on: added
         : ctx.isSelected(hit.nodeId)
           ? [...ctx.selection] // already selected: unchanged
           : [hit.nodeId]; // replaced: only the new node
@@ -243,17 +253,22 @@ export class SelectTool extends BaseTool {
         }
       }
       if (selectedIds.length > 0) {
-        // Shift: add to existing selection, otherwise replace
+        // Shift: additive only (never removes nodes from existing selection).
+        // Non-Shift: replace selection entirely.
         if (!ctx.shiftKey) {
           ctx.setSelection(null);
         }
         for (const id of selectedIds) {
-          ctx.toggleSelection(id, true);
+          // Only add new nodes; never remove existing ones during shift+marquee.
+          // Standard design tool convention (Figma, Illustrator, Sketch).
+          if (!ctx.isSelected(id)) {
+            ctx.toggleSelection(id, true);
+          }
         }
-        const selectedNodes = selectedIds
+        const marqueeSelectedNodes = selectedIds
           .map((id) => ctx.getNode(id))
           .filter((n): n is import('@strata/scene').SceneNode => Boolean(n));
-        ctx.announceSelection(selectedNodes);
+        ctx.announceSelection(marqueeSelectedNodes);
       }
     } else {
       // Commit transaction for move gesture
@@ -266,6 +281,9 @@ export class SelectTool extends BaseTool {
         const sel = ctx.selection;
         if (sel.length >= 1) {
           ctx.beginTransaction();
+          // Track insertion index per parent so batch inserts into the same
+          // target frame use incrementing indices (Fix 4).
+          const insertIndexByParent = new Map<string | null, number>();
           for (const selId of sel) {
             if (!selId) continue;
             const node = ctx.getNode(selId);
@@ -293,12 +311,18 @@ export class SelectTool extends BaseTool {
                     if (nodeArea > frameArea * 1.1) continue;
                   }
                 }
-                ctx.reparentNode(selId, frameId, childrenCount(ctx.document, frameId));
+                const baseIndex = childrenCount(ctx.document, frameId);
+                const localIndex = insertIndexByParent.get(frameId) ?? 0;
+                ctx.reparentNode(selId, frameId, baseIndex + localIndex);
+                insertIndexByParent.set(frameId, localIndex + 1);
               }
             } else {
               const currentParent = getParent(ctx.document, selId);
               if (currentParent !== null) {
-                ctx.reparentNode(selId, null, ctx.rootNodes().length);
+                const baseIndex = ctx.rootNodes().length;
+                const localIndex = insertIndexByParent.get(null) ?? 0;
+                ctx.reparentNode(selId, null, baseIndex + localIndex);
+                insertIndexByParent.set(null, localIndex + 1);
               }
             }
           }
@@ -325,29 +349,12 @@ export class SelectTool extends BaseTool {
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
-    // B4: Tab/Shift+Tab cycles through visible unlocked nodes
+    // Tab cycling is handled at the CanvasArea level (DFS paint order).
+    // SelectTool does not consume Tab — lets it fall through to the global handler.
+    // Research basis: Figma uses sibling-level Tab cycling, but we use DFS
+    // (all selectable nodes in paint order) for simplicity and discoverability.
     if (e.key === 'Tab') {
-      const nodes = ctx.rootNodes().filter((n) => n.visible && !n.locked);
-      if (nodes.length === 0) return true;
-      const firstId = nodes[0]?.id ?? null;
-      if (ctx.selection.length === 0) {
-        ctx.setSelection(firstId);
-        if (firstId) ctx.announceSelection([nodes[0]!]);
-      } else {
-        const currentIndex = nodes.findIndex((n) => ctx.selection.includes(n.id));
-        if (currentIndex === -1) {
-          ctx.setSelection(firstId);
-          if (firstId) ctx.announceSelection([nodes[0]!]);
-        } else {
-          const nextIndex = e.shiftKey
-            ? (currentIndex - 1 + nodes.length) % nodes.length
-            : (currentIndex + 1) % nodes.length;
-          const nextId = nodes[nextIndex]?.id ?? null;
-          ctx.setSelection(nextId);
-          if (nextId) ctx.announceSelection([nodes[nextIndex]!]);
-        }
-      }
-      return true;
+      return false;
     }
 
     if (e.key.startsWith('Arrow')) {

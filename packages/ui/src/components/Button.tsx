@@ -65,7 +65,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       onClick={handleClick}
       {...rest}
     >
-      {loading && <InlineActivityIndicator size="sm" />}
+      {loading && <InlineActivityIndicator size={16} />}
       <span className="strata-btn__content">
         {confirming && confirmLabel ? (
           <>

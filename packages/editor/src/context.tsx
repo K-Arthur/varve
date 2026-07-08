@@ -55,6 +55,7 @@ import {
   addTrack,
   addVariableToDocument,
   advanceSMTransition,
+  appendFrameToChain as appendFrameToChainDoc,
   applyMotionPreset as applyMotionPresetDoc,
   arrangeNode as arrangeNodeDoc,
   type BleedConfig,
@@ -63,12 +64,14 @@ import {
   createDocument,
   createMotionPreset as createMotionPresetDoc,
   createStateMachineRuntime,
+  createTextChain as createTextChainDoc,
   createTimeline as createTimelineDoc,
   createVariableStore,
   createVariant as createVariantDoc,
   type Document,
   DocumentCodec,
   deepCloneSubtree,
+  deleteTextChain as deleteTextChainDoc,
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
@@ -92,6 +95,7 @@ import {
   moveNode,
   nextNodeId,
   pushMasterChanges as pushMasterChangesDoc,
+  removeFrameFromChain,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
   removeNode,
@@ -435,6 +439,14 @@ export interface EditorContextValue {
   beginTransaction: () => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
+  /** Typography: Create a text chain for linked text frames. */
+  createTextChain: (name: string, frameIds: NodeId[]) => void;
+  /** Typography: Delete a text chain. */
+  deleteTextChain: (chainId: string) => void;
+  /** Typography: Append a frame to an existing text chain. */
+  appendFrameToChain: (chainId: string, frameId: NodeId) => void;
+  /** Typography: Remove a frame from a text chain. */
+  removeFrameFromChain: (chainId: string, frameId: NodeId) => void;
   /** Undo last document mutation. */
   undo: () => void;
   /** Redo last undone mutation. */
@@ -1397,6 +1409,38 @@ export function EditorProvider({
     }
   }, [patch]);
 
+  // Typography: Text chain operations
+  const createTextChain = useCallback(
+    (name: string, frameIds: NodeId[]) => {
+      updateDoc((doc) => {
+        const { doc: updatedDoc } = createTextChainDoc(doc, name, frameIds);
+        return updatedDoc;
+      });
+    },
+    [updateDoc],
+  );
+
+  const deleteTextChain = useCallback(
+    (chainId: string) => {
+      updateDoc((doc) => deleteTextChainDoc(doc, chainId));
+    },
+    [updateDoc],
+  );
+
+  const appendFrameToChain = useCallback(
+    (chainId: string, frameId: NodeId) => {
+      updateDoc((doc) => appendFrameToChainDoc(doc, chainId, frameId));
+    },
+    [updateDoc],
+  );
+
+  const removeFrameFromChain = useCallback(
+    (chainId: string, frameId: NodeId) => {
+      updateDoc((doc) => removeFrameFromChainDoc(doc, chainId, frameId));
+    },
+    [updateDoc],
+  );
+
   const value = useMemo<EditorContextValue>(
     () => ({
       state,
@@ -1984,11 +2028,16 @@ export function EditorProvider({
         }
 
         setState((s) => {
-          // Push undo snapshot (same pattern as updateDoc)
-          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-          undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-          redoStackRef.current = [];
-          redoSelStackRef.current = [];
+          // Push undo snapshot only when not inside a transaction.
+          // When inside a transaction (e.g. alt-drag), the transaction handles
+          // undo on commitTransaction. Pushing here would inject a spurious
+          // undo entry mid-transaction (Fix C1).
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
 
           let d = s.document;
           const newIds: string[] = [];
@@ -2144,10 +2193,10 @@ export function EditorProvider({
         updateNodeProp(id, (n) => ({
           ...n,
           transform: [
-            n.transform[0],
-            n.transform[1],
-            n.transform[2],
-            n.transform[3],
+            n.transform?.[0] ?? 1,
+            n.transform?.[1] ?? 0,
+            n.transform?.[2] ?? 0,
+            n.transform?.[3] ?? 1,
             x,
             y,
           ] as Affine,
@@ -2165,7 +2214,8 @@ export function EditorProvider({
             case 'ellipse':
               return { ...n, shape: { ...s, rx: w / 2, ry: h / 2, cx: w / 2, cy: h / 2 } };
             case 'circle':
-              return { ...n, shape: { ...s, r: w / 2, cx: w / 2, cy: w / 2 } };
+              // Circle must stay circular: use max dimension so it doesn't warp
+              return { ...n, shape: { ...s, r: Math.max(w, h) / 2, cx: w / 2, cy: h / 2 } };
             case 'line': {
               const oldW = Math.abs(s.to[0] - s.from[0]) || 1;
               const oldH = Math.abs(s.to[1] - s.from[1]) || 1;
@@ -4685,6 +4735,10 @@ export function EditorProvider({
       beginTransaction,
       commitTransaction,
       abortTransaction,
+      createTextChain,
+      deleteTextChain,
+      appendFrameToChain,
+      removeFrameFromChain,
       bindingField,
       setBindingField,
       focusedField,
@@ -4726,6 +4780,10 @@ export function EditorProvider({
       beginTransaction: value.beginTransaction,
       commitTransaction: value.commitTransaction,
       abortTransaction: value.abortTransaction,
+      createTextChain: value.createTextChain,
+      deleteTextChain: value.deleteTextChain,
+      appendFrameToChain: value.appendFrameToChain,
+      removeFrameFromChain: value.removeFrameFromChain,
       undo: value.undo,
       redo: value.redo,
       newDocument: value.newDocument,
