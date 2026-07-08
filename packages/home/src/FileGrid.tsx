@@ -25,7 +25,7 @@ export interface FileGridProps {
 
 const COL_WIDTH = 14 * 16 + 24; // 14rem + padding
 const CARD_HEIGHT = 220;
-const GAP = 12;
+const GAP = 16;
 
 export function FileGrid({
   files,

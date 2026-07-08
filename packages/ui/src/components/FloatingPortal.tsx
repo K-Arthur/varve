@@ -36,6 +36,8 @@ export interface FloatingPortalProps {
   placement?: Placement;
   /** Max height before scroll (px). Defaults to 480. */
   maxHeight?: number;
+  /** Match floating layer width to the anchor element. */
+  matchAnchorWidth?: boolean;
   /** Called when user clicks outside the floating layer. */
   onClose?: () => void;
   /** Optional id for aria-controls wiring. */
@@ -49,6 +51,7 @@ export function FloatingPortal({
   className,
   placement = 'bottom-start',
   maxHeight = 480,
+  matchAnchorWidth = false,
   onClose,
   id,
 }: FloatingPortalProps) {
@@ -64,6 +67,16 @@ export function FloatingPortal({
     const floating = floatingRef.current;
     if (!open || !anchor || !floating) return;
 
+    // Show immediately at anchor rect; refine when computePosition resolves.
+    const anchorRect = anchor.getBoundingClientRect();
+    setPosStyle({
+      position: 'fixed',
+      left: anchorRect.left,
+      top: anchorRect.bottom + 4,
+      zIndex: 'var(--z-overlay)',
+      visibility: 'visible',
+    });
+
     const update = () => {
       computePosition(anchor, floating, {
         placement,
@@ -73,8 +86,9 @@ export function FloatingPortal({
           shift({ padding: 8 }),
           size({
             padding: 8,
-            apply({ availableHeight, elements }) {
+            apply({ availableHeight, rects, elements }) {
               Object.assign(elements.floating.style, {
+                ...(matchAnchorWidth ? { width: `${rects.reference.width}px` } : {}),
                 maxHeight: `${Math.min(availableHeight, maxHeight)}px`,
                 overflowY: 'auto',
               });
@@ -105,7 +119,7 @@ export function FloatingPortal({
 
     update();
     return autoUpdate(anchor, floating, update);
-  }, [open, anchorRef, placement, maxHeight]);
+  }, [open, anchorRef, placement, maxHeight, matchAnchorWidth]);
 
   useEffect(() => {
     if (!open || !onClose) return;

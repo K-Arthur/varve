@@ -442,36 +442,31 @@
 
 /* Home card grid */
 .home-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: var(--space-3);
+  --bento-gap: var(--space-4);
+  position: relative;
 }
 .home-list {
   display: flex;
   flex-direction: column;
 }
 
-/* File card — application-style file browser card */
+/* File card — layout on bento-cell surface chrome */
 .file-card {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   cursor: pointer;
   outline-offset: 2px;
   position: relative;
-  background: var(--elevation-surface-default);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
   transition:
     box-shadow var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
 }
-.file-card:hover {
-  box-shadow: var(--shadow-sm);
+.file-card.bento-cell:hover {
+  box-shadow: var(--elevation-shadow-overlay);
   border-color: var(--color-border-strong);
 }
-.file-card:active {
-  box-shadow: none;
+.file-card.bento-cell:active {
+  box-shadow: var(--elevation-shadow-raised);
 }
 .file-card:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);

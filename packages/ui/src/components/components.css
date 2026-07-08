@@ -328,6 +328,11 @@
   margin-top: var(--space-4);
 }
 
+.strata-menu--portaled {
+  position: relative;
+  z-index: auto;
+}
+
 .strata-menu {
   position: absolute;
   z-index: var(--z-overlay);
@@ -532,19 +537,13 @@
 }
 
 .strata-select__listbox {
-  position: absolute;
-  z-index: var(--z-overlay);
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: var(--space-1);
   min-width: 12rem;
+  width: 100%;
   padding: var(--space-1) 0;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-raised);
+  border: var(--border-micro);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  max-height: 16rem;
+  box-shadow: var(--elevation-shadow-overlay);
   overflow-y: auto;
 }
 
