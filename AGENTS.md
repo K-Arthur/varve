@@ -1842,3 +1842,45 @@ hierarchy, frame parenting, layer handling, and frontend exposure.
 - Rust workspace: 166/166 pass
 - Typecheck: 0 new errors (4 pre-existing: fflate dep, deprecated index field, unused importFile)
 - frame-parenting.test.tsx blocked by pre-existing fflate dependency issue (not related to changes)
+
+## Session 45 — Canvas render pipeline: text/shape/image/typography repair (2026-07-08)
+
+Root-cause repair of a **whole-scene blank canvas** and **silently-dropped images**,
+both reproduced live with Playwright against the dev server (not just unit tests).
+Session 44's "image rendering VERIFIED NOT A BUG" was wrong — it checked the data
+model but never traced the worker render path.
+
+### Root causes (evidence-based, reproduced)
+
+| # | Symptom | True root cause | Fix | Commit |
+|---|---|---|---|---|
+| **1** | Canvas blank for text/shapes/images/arrows/lines whenever a text node exists | `CanvasArea.toEngineNode` emitted text with a top-level `kind:'text'` and **no `shape`**. The native + wasm engines deserialize every node into Rust `strata-bridge::IpcSceneNode`, where `shape` is required (text = `IpcShape::Text`). `build_ir_json` threw ``missing field `shape` `` → the whole `buildIr` batch rejected → the async draw IIFE aborted → nothing painted. Only the pure-TS stub tolerated it. | `toEngineNode` now emits `shape:{kind:'text',…}` with every Rust-required field. Engine facade wraps native/wasm with `withStubFallback` (one-shot warn + circuit breaker) so a single bad node can never blank the frame again. Surfaced a 2nd latent wasm gap (colours as `{space,r,g,b,a}` objects vs Rust `[u8;4]`) now caught by the fallback. | `0f4c111` |
+| **2** | Property edits (rename/colour) forced full layers re-flatten | `computeDocumentDiff` set `structureChanged` whenever `changedNodeIds.length>0`, conflating property changes with structural changes (3 failing pre-existing tests). | Property-only diffs return `structureChanged:false` (all structural cases already return early). | `0f4c111` |
+| **3** | Images present in Layers but never painted on canvas | The OffscreenCanvas **render worker** replays IR via `replayIr`→`paintImageFill`→`new Image()` — a constructor that **does not exist in a Web Worker** — against the main-thread `ImageCache` it also can't see. Every worker-rendered frame silently drops image fills (error swallowed by `cache.load().catch()`). The worker path runs for **non-structural** scenes (no mask / clipping-frame-with-children / special group) — e.g. a bare image or image + empty frame, exactly the reported case. Structural scenes render on the main thread, so images "worked sometimes". | `sceneHasImageFills(doc)` keeps any image-bearing scene on the main-thread renderer (which owns the ImageCache). Proven before/after: worker path paints **0** image px, main-thread path paints the image. | `6dc5151` |
+| **4** | Typography panel controls overlapped into an unusable smear | The section wrapped ~15 stacked controls in one `<div class="insp-field">` — but `.insp-field` is a **horizontal** flex row and nested `.insp-field` get `flex:1 1 0`, squishing every control side-by-side. Same latent bug in Fill (2+ fills). | New `.insp-field-group` vertical-column wrapper (still the binding-menu anchor). Verified: 16 Typography rows, 0 overlaps. | `3d29607` |
+
+### Render pipeline invariant established
+- **Every engine node must carry a valid `shape`** (text included). The strict Rust
+  deserializer is the source of truth; the TS stub is the resilient fallback.
+- **Image fills require the main-thread renderer.** The OffscreenCanvas worker
+  cannot decode images; `sceneHasImageFills` gates it.
+- Engine facade degrades native/wasm → stub on any deserializer failure, so a
+  malformed node degrades gracefully instead of blanking the scene.
+
+### Verification
+- Engine: 679/679 pass (53 files) · Editor: 1385/1385 pass (157 files)
+- Typecheck: **15/15 packages clean** (also fixed 2 pre-existing errors: unused
+  `importFile` import, deprecated `index` field in `useFlatTree.test`)
+- New tests: `toEngineNode.test.ts` (text shape contract), `engine.test.ts`
+  (withStubFallback resilience + circuit breaker), `sceneCompositing.test.ts`
+  (`sceneHasImageFills`), `useFlatTree.test.ts` (property-vs-structural diff)
+- Live Playwright repro on the browser dev server: text/star/shapes paint;
+  colour change updates canvas; images render on main-thread path (before/after
+  0→288 magenta px); Typography rows stack.
+
+### Known limitation (honest)
+- **Right-click (context-menu) paste of an external image on Wayland/WebKitGTK**
+  still fails: the menu path has no `ClipboardEvent` and `navigator.clipboard.read()`
+  can't read images there. Ctrl+V works (Shell captures the native paste event).
+  A full fix needs a Tauri clipboard-manager integration, which cannot be built or
+  verified in this environment — not shipped rather than ship unverified native code.

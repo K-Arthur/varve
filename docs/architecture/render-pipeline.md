@@ -54,6 +54,29 @@ Rust `hit_test` IPC exists but is **not called** from `CanvasArea`. Engine `hitT
 | Browser dev | TS stub or wasm-pack | Same compositor router |
 | Tests | TS stub | Mock `ReplayTarget` or OffscreenCanvas goldens |
 
+## Render invariants (Session 45)
+
+Two invariants are load-bearing; violating either blanks part or all of the scene.
+
+1. **Every engine node must carry a valid `shape`.** Native + wasm deserialize
+   each node into Rust `strata-bridge::IpcSceneNode`, where `shape` is required
+   and internally tagged by `kind` (text = `IpcShape::Text{…}`). `CanvasArea.toEngineNode`
+   must emit `shape:{kind:'text',…}` for text — a top-level `kind:'text'` with no
+   `shape` makes `build_ir_json` throw ``missing field `shape` `` and rejects the
+   **entire** `buildIr` batch, aborting the frame. The strict Rust deserializer is
+   the source of truth; `withStubFallback` (in `@strata/engine`) degrades native/wasm
+   to the pure-TS stub on any deserializer failure (one warning + circuit breaker)
+   so one malformed node can never blank the whole scene.
+
+2. **Image fills require the main-thread renderer.** The OffscreenCanvas render
+   worker replays IR with `replayIr`→`paintImageFill`→`new Image()`, which does not
+   exist in a Web Worker global scope, against the main-thread `ImageCache` it also
+   cannot see — so a worker-rendered frame silently drops every image (the failure
+   is swallowed by `cache.load().catch()`). `sceneHasImageFills(doc)` (in
+   `render/sceneCompositing.ts`) keeps any image-bearing scene on the main-thread
+   `drawVectorItems` path. The worker path only runs for non-structural scenes, so
+   image bugs looked intermittent (structural scenes render on the main thread).
+
 ## Performance Optimizations (Session 43)
 
 ### Camera-only fast path
@@ -79,4 +102,4 @@ The OffscreenCanvas render worker now applies `computeFloatingOrigin()` in its c
 
 - WebKitGTK (Linux Tauri) has no WebGPU; Canvas2D is the production path on CachyOS/Wayland.
 - Leaf IR replay routes through `@strata/compositor.drawVectorItems`; mask/frame-clip/group-flatten structural logic remains in `CanvasArea.replaySubtreeToCtx`.
-- Render worker offloads flat scenes via `ImageBitmap` + `compositeRasterLayer`; structural scenes stay on main-thread replay. Full `transferControlToOffscreen` deferred.
+- Render worker offloads flat, **image-free** scenes via `ImageBitmap` + `compositeRasterLayer`; structural scenes and any scene with image fills stay on main-thread replay (see Render invariant 2). Full `transferControlToOffscreen` deferred.
