@@ -120,10 +120,14 @@ export function computeDocumentDiff(prevDoc: Document | null, doc: Document): Do
     changedNodeIds.push(key);
   }
 
+  // Every genuinely structural difference (rootChildren ref, key count, an
+  // added/removed node, or a changed `children` array) has already returned
+  // early with `structureChanged: true`. Reaching here means only per-node
+  // *properties* changed — a rename, a fill/colour edit, a transform nudge.
+  // Those must report `structureChanged: false` so consumers can take the
+  // cheap property-update path instead of a full re-flatten/recomposite.
   return {
-    structureChanged:
-      changedNodeIds.length > 0 ||
-      Object.keys(prevDoc.nodes).length !== Object.keys(doc.nodes).length,
+    structureChanged: false,
     changedNodeIds,
   };
 }
