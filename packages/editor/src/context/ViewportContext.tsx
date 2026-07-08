@@ -158,10 +158,11 @@ export function ViewportProvider({
 
   const worldToCanvas = useCallback(
     (wx: number, wy: number) => {
-      const cam = { pan: state.pan, zoom: state.zoom };
+      // Canonical transform: screen = world * zoom + pan
+      // (see viewport.ts worldToScreen for the authoritative implementation)
       return {
-        x: (wx - cam.pan.x) * cam.zoom,
-        y: (wy - cam.pan.y) * cam.zoom,
+        x: wx * state.zoom + state.pan.x,
+        y: wy * state.zoom + state.pan.y,
       };
     },
     [state.pan, state.zoom],

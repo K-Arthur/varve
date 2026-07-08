@@ -133,6 +133,7 @@ import {
   screenDeltaToWorld,
   screenToWorld,
   stepZoom,
+  transformRect,
   type Viewport,
   zoomAboutPoint,
 } from '@strata/shared';
@@ -201,7 +202,7 @@ import {
   invalidateAll as invalidateTransformCache,
   type TransformCache,
 } from './scene/transformCache';
-import { groupWorldBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import { createInitialMotionState } from './state/motion-state';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
@@ -961,13 +962,32 @@ export function findContainingFrameInDoc(
         }
       }
     } else {
-      // Compute group bounds from children's world-space bounds.
-      const groupBounds = groupWorldBounds(doc, nid);
-      if (!groupBounds || groupBounds.w <= 0 || groupBounds.h <= 0) continue;
-      if (rectContains(groupBounds, [world.x, world.y])) {
-        if (entry.depth > deepestDepth) {
-          deepest = nid;
-          deepestDepth = entry.depth;
+      // Inverse-transform the world point into group-local space and
+      // check each child's local bounds (transformed by the child's own
+      // transform). This avoids false positives from AABB-only checks
+      // on rotated/scaled groups (matching the frame logic above).
+      const groupWorld = nodeWorldTransform(doc, nid);
+      const groupInv = invertAffine(groupWorld);
+      const localPt = applyAffine(groupInv, [world.x, world.y]);
+      const groupNode = doc.nodes[nid] as import('@strata/scene').GroupNode;
+      if (!groupNode?.children) continue;
+      for (const childId of groupNode.children) {
+        const child = doc.nodes[childId];
+        if (!child) continue;
+        const childLocal = nodeLocalBounds(child);
+        if (!childLocal) continue;
+        // Transform child's own local bounds by its transform to get
+        // bounds in group-space, then check if the local point is inside
+        const childBoundsInGroup = transformRect(
+          (child.transform ?? [1, 0, 0, 1, 0, 0]) as import('@strata/shared').Affine,
+          childLocal,
+        );
+        if (rectContains(childBoundsInGroup, [localPt[0], localPt[1]])) {
+          if (entry.depth > deepestDepth) {
+            deepest = nid;
+            deepestDepth = entry.depth;
+          }
+          break;
         }
       }
     }

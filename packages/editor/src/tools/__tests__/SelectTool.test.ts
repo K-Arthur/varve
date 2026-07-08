@@ -502,3 +502,58 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
   });
 });
+
+describe('SelectTool — keyboard nudge auto-reparent', () => {
+  it('nudge into frame triggers reparentNode with frame as new parent', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({
+        id: 'n1',
+        transform: [1, 0, 0, 1, 100, 100],
+        visible: true,
+        locked: false,
+      }),
+      findContainingFrame: vi.fn().mockReturnValue('frame1'),
+    });
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.reparentNode).toHaveBeenCalledWith('n1', 'frame1', 0);
+    expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
+  });
+
+  it('nudge outside frame does not reparent', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({
+        id: 'n1',
+        transform: [1, 0, 0, 1, 100, 100],
+        visible: true,
+        locked: false,
+      }),
+      findContainingFrame: vi.fn().mockReturnValue(null),
+    });
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.reparentNode).not.toHaveBeenCalled();
+    expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
+  });
+
+  it('nudge triggers beginTransaction twice (move + reparent) when reparenting', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({
+        id: 'n1',
+        transform: [1, 0, 0, 1, 100, 100],
+        visible: true,
+        locked: false,
+      }),
+      findContainingFrame: vi.fn().mockReturnValue('frame1'),
+    });
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(2);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(2);
+  });
+});
