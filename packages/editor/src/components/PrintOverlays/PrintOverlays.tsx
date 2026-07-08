@@ -65,6 +65,8 @@ export function PrintOverlays({
   return (
     <svg
       className="print-overlays"
+      aria-hidden
+      role="presentation"
       style={{
         position: 'absolute',
         top: 0,

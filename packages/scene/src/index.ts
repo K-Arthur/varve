@@ -18,6 +18,7 @@ export * from './component-sync';
 export * from './constraints';
 export * from './document';
 export { setBackgroundRemoval } from './document';
+export * from './documentCodec';
 export * from './export-types';
 export * from './expr';
 export * from './fills';

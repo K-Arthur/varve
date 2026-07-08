@@ -75,7 +75,7 @@ describe('direct AI previewMaxDimension parity', () => {
       syncFromStorage: vi.fn().mockResolvedValue(undefined),
       isModelAvailable: vi.fn().mockResolvedValue(true),
     });
-    mockDownscale.mockReset().mockImplementation((img: ImageData) => {
+    mockDownscale.mockReset().mockImplementation((_img: ImageData) => {
       return new ImageData(new Uint8ClampedArray(2048 * 2048 * 4), 2048, 2048);
     });
     mockCreate.mockReset();

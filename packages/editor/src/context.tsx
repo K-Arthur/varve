@@ -22,7 +22,7 @@ import {
   rectContains,
   shapeContains,
 } from '@strata/engine';
-import { importFile } from '@strata/import';
+import { type ImportFileInput, ImportService } from '@strata/import';
 import { makeFileEntry, type Platform } from '@strata/platform';
 import {
   PrototypeDebugConsole,
@@ -34,6 +34,7 @@ import {
   setVariable as protoSetVar,
 } from '@strata/prototype';
 import type {
+  AdjustmentNode,
   ExportPreset,
   InstanceStatus,
   ManagedColor,
@@ -65,6 +66,7 @@ import {
   createVariableStore,
   createVariant as createVariantDoc,
   type Document,
+  DocumentCodec,
   deepCloneSubtree,
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   detachInstance as detachInstanceDoc,
@@ -84,7 +86,6 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
-  migrateDocumentJson,
   moveGuide as moveGuideDoc,
   validateDocument,
   moveNode,
@@ -108,7 +109,6 @@ import {
   type SceneNode,
   type SlugConfig,
   type SMRuntime,
-  serializeDocument,
   setActiveTimeline as setActiveTimelineDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
@@ -212,9 +212,31 @@ import type { DraftShape } from './tools/types';
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
 
+function insertImportedSubtree(
+  targetDoc: Document,
+  sourceDoc: Document,
+  rootId: NodeId,
+  adjustRoot: (node: SceneNode) => SceneNode,
+): { doc: Document; rootId: NodeId } | null {
+  const cloned = deepCloneSubtree({ ...sourceDoc, nextId: targetDoc.nextId }, rootId);
+  const root = cloned.nodes[cloned.rootId];
+  if (!root || Object.keys(cloned.nodes).length === 0) return null;
+
+  const nodes = { ...cloned.nodes, [cloned.rootId]: adjustRoot(root) };
+  return {
+    rootId: cloned.rootId,
+    doc: {
+      ...targetDoc,
+      nextId: cloned.nextId,
+      rootChildren: [...targetDoc.rootChildren, cloned.rootId],
+      nodes: { ...targetDoc.nodes, ...nodes },
+    },
+  };
+}
+
 export interface EditorContextValue {
   state: EditorState;
-  /** The platform facade (Tauri/web/memory) — undefined if none was provided. */
+  /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
   setTool: (t: ToolId) => void;
   setZoom: (z: number) => void;
@@ -1011,7 +1033,7 @@ async function saveAsImpl(
   try {
     const s = stateRef.current;
     const meta = s.sessions.find((sess) => sess.id === s.activeId);
-    const json = serializeDocument(s.document);
+    const json = DocumentCodec.encode(s.document);
     const filePath = await platform.saveDocumentToDisk(meta?.name ?? 'Untitled', json);
     if (filePath) {
       await recoveryRef.current?.deleteSession(s.activeId);
@@ -1051,13 +1073,10 @@ export function EditorProvider({
     let doc = createDocument(initialDocumentName ?? 'Untitled');
     let name = initialDocumentName ?? 'Untitled';
     if (initialDocumentJson) {
-      try {
-        const migrated = migrateDocumentJson(initialDocumentJson);
-        doc =
-          (migrated as unknown as Document) ?? createDocument(initialDocumentName ?? 'Untitled');
+      const decoded = DocumentCodec.decode(initialDocumentJson);
+      if (decoded.ok) {
+        doc = decoded.document;
         name = initialDocumentName ?? doc.name ?? 'Untitled';
-      } catch {
-        /* invalid JSON — use blank document */
       }
     }
     return {
@@ -2648,7 +2667,7 @@ export function EditorProvider({
       },
 
       serializeDocument: () => {
-        return serializeDocument(state.document);
+        return DocumentCodec.encode(state.document);
       },
 
       save: async () => {
@@ -2660,7 +2679,7 @@ export function EditorProvider({
         try {
           const s = stateRef.current;
           const meta = s.sessions.find((sess) => sess.id === s.activeId);
-          const json = serializeDocument(s.document);
+          const json = DocumentCodec.encode(s.document);
           if (meta?.fileId) {
             const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
             await platform.upsertFile(fe, json);
@@ -2692,9 +2711,9 @@ export function EditorProvider({
 
       loadDocument: (json, meta) => {
         try {
-          const migrated = migrateDocumentJson(json);
-          if (!migrated) throw new Error('Migration failed');
-          const doc = migrated as unknown as Document;
+          const decoded = DocumentCodec.decode(json);
+          if (!decoded.ok) throw new Error(decoded.error);
+          const doc = decoded.document;
           const result = validateDocument(doc);
           if (!result.valid) {
             if (typeof console !== 'undefined') {
@@ -3074,7 +3093,7 @@ export function EditorProvider({
       addAdjustmentToLayer: (nodeId, adjustment) => {
         updateNodeProp(nodeId, (n) => {
           if (n.kind !== 'adjustment') return n;
-          const existing = (n as any).adjustments ?? [];
+          const existing = (n as AdjustmentNode).adjustments ?? [];
           return { ...n, adjustments: [...existing, adjustment] } as SceneNode;
         });
       },
@@ -3082,7 +3101,7 @@ export function EditorProvider({
       removeAdjustmentFromLayer: (nodeId, adjustmentId) => {
         updateNodeProp(nodeId, (n) => {
           if (n.kind !== 'adjustment') return n;
-          const existing = (n as any).adjustments ?? [];
+          const existing = (n as AdjustmentNode).adjustments ?? [];
           return {
             ...n,
             adjustments: existing.filter((a: Adjustment) => a.id !== adjustmentId),
@@ -3093,7 +3112,7 @@ export function EditorProvider({
       updateAdjustmentInLayer: (nodeId, adjustmentId, patch) => {
         updateNodeProp(nodeId, (n) => {
           if (n.kind !== 'adjustment') return n;
-          const existing = (n as any).adjustments ?? [];
+          const existing = (n as AdjustmentNode).adjustments ?? [];
           return {
             ...n,
             adjustments: existing.map((a: Adjustment) =>
@@ -3106,11 +3125,12 @@ export function EditorProvider({
       reorderAdjustmentInLayer: (nodeId, adjustmentId, newIndex) => {
         updateNodeProp(nodeId, (n) => {
           if (n.kind !== 'adjustment') return n;
-          const existing = [...((n as any).adjustments ?? [])];
+          const existing = [...((n as AdjustmentNode).adjustments ?? [])];
           const idx = existing.findIndex((a: Adjustment) => a.id === adjustmentId);
           if (idx < 0) return n;
           const [item] = existing.splice(idx, 1);
-          existing.splice(Math.max(0, Math.min(newIndex, existing.length)), 0, item!);
+          if (!item) return n;
+          existing.splice(Math.max(0, Math.min(newIndex, existing.length)), 0, item);
           return { ...n, adjustments: existing } as SceneNode;
         });
       },
@@ -3160,14 +3180,36 @@ export function EditorProvider({
         const unified = await readClipboardUnifiedWithFallback();
         const strataData = unified.strataData;
 
-        const importResults: { nodeIds: NodeId[]; document: Document }[] = [];
-        for (const item of unified.importItems) {
-          const result = importFile(item.name, item.data, {
-            center: true,
-            embedImages: true,
-          });
-          importResults.push(result);
-        }
+        const importInputs = unified.importItems.map((item): ImportFileInput => {
+          if (typeof item.data === 'string') {
+            return {
+              name: item.name,
+              source: 'clipboard',
+              size: new TextEncoder().encode(item.data).byteLength,
+              text: item.data,
+            };
+          }
+          return {
+            name: item.name,
+            source: 'clipboard',
+            size: item.data.byteLength,
+            bytes: item.data,
+          };
+        });
+        const importReport =
+          importInputs.length > 0
+            ? await ImportService.importFiles(importInputs, {
+                center: true,
+                embedImages: true,
+              })
+            : null;
+        const importResults =
+          importReport?.files.flatMap((fileReport) =>
+            fileReport.artifacts.map((artifact) => ({
+              nodeIds: artifact.nodeIds as NodeId[],
+              document: artifact.document,
+            })),
+          ) ?? [];
 
         if (!strataData && importResults.length === 0) return;
 
@@ -3205,13 +3247,10 @@ export function EditorProvider({
 
           for (const result of importResults) {
             for (const id of result.nodeIds) {
-              const node = result.document.nodes[id];
-              if (node) {
-                const { id: newId, doc: d2 } = nextNodeId(doc);
-                doc = d2;
-                doc = addNode(doc, { ...node, id: newId } as SceneNode);
-                newIds.push(newId);
-              }
+              const inserted = insertImportedSubtree(doc, result.document, id, (node) => node);
+              if (!inserted) continue;
+              doc = inserted.doc;
+              newIds.push(inserted.rootId);
             }
           }
 
@@ -3221,7 +3260,10 @@ export function EditorProvider({
 
         const totalCount = (strataData?.nodes.length ?? 0) + importResults.length;
         if (totalCount > 0) {
-          announcerRef.current?.announce(`Pasted ${totalCount} layer${totalCount > 1 ? 's' : ''}`);
+          const failed = importReport?.failureCount ?? 0;
+          announcerRef.current?.announce(
+            `Pasted ${totalCount} layer${totalCount > 1 ? 's' : ''}${failed > 0 ? `; ${failed} failed` : ''}`,
+          );
         }
       },
 
@@ -3229,34 +3271,30 @@ export function EditorProvider({
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
-          let doc = s.document;
-          const { id, doc: d2 } = nextNodeId(doc);
-          doc = d2;
-          const imported = options?.position
-            ? ({
-                ...applyDropPosition({ ...node, id } as SceneNode, options.position),
-                id,
-              } as SceneNode)
-            : (() => {
-                const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
-                const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
-                const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
-                const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
-                return {
-                  ...node,
-                  id,
-                  transform: [
-                    node.transform[0],
-                    node.transform[1],
-                    node.transform[2],
-                    node.transform[3],
-                    (node.transform[4] ?? 0) + offsetX,
-                    (node.transform[5] ?? 0) + offsetY,
-                  ] as Affine,
-                } as SceneNode;
-              })();
-          doc = addNode(doc, imported);
-          return { ...s, document: doc, selection: [id] };
+          const inserted = insertImportedSubtree(s.document, sourceDoc, node.id, (clonedRoot) => {
+            if (options?.position) {
+              return applyDropPosition(clonedRoot, options.position);
+            }
+            return (() => {
+              const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
+              const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
+              const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
+              const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
+              return {
+                ...clonedRoot,
+                transform: [
+                  node.transform[0],
+                  node.transform[1],
+                  node.transform[2],
+                  node.transform[3],
+                  (node.transform[4] ?? 0) + offsetX,
+                  (node.transform[5] ?? 0) + offsetY,
+                ] as Affine,
+              } as SceneNode;
+            })();
+          });
+          if (!inserted) return s;
+          return { ...s, document: inserted.doc, selection: [inserted.rootId] };
         });
         announcerRef.current?.announce('Imported layer');
       },
@@ -3268,33 +3306,31 @@ export function EditorProvider({
           let doc = s.document;
           const newIds: NodeId[] = [];
           for (const { node, sourceDoc, position } of items) {
-            const { id, doc: d2 } = nextNodeId(doc);
-            doc = d2;
-            const imported = position
-              ? ({
-                  ...applyDropPosition({ ...node, id } as SceneNode, position),
-                  id,
-                } as SceneNode)
-              : (() => {
-                  const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
-                  const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
-                  const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
-                  const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
-                  return {
-                    ...node,
-                    id,
-                    transform: [
-                      node.transform[0],
-                      node.transform[1],
-                      node.transform[2],
-                      node.transform[3],
-                      (node.transform[4] ?? 0) + offsetX,
-                      (node.transform[5] ?? 0) + offsetY,
-                    ] as Affine,
-                  } as SceneNode;
-                })();
-            doc = addNode(doc, imported);
-            newIds.push(id);
+            const inserted = insertImportedSubtree(doc, sourceDoc, node.id, (clonedRoot) => {
+              if (position) {
+                return applyDropPosition(clonedRoot, position);
+              }
+              return (() => {
+                const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
+                const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
+                const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
+                const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
+                return {
+                  ...clonedRoot,
+                  transform: [
+                    node.transform[0],
+                    node.transform[1],
+                    node.transform[2],
+                    node.transform[3],
+                    (node.transform[4] ?? 0) + offsetX,
+                    (node.transform[5] ?? 0) + offsetY,
+                  ] as Affine,
+                } as SceneNode;
+              })();
+            });
+            if (!inserted) continue;
+            doc = inserted.doc;
+            newIds.push(inserted.rootId);
           }
           return { ...s, document: doc, selection: newIds };
         });
@@ -3591,8 +3627,8 @@ export function EditorProvider({
         let doc: Document;
         try {
           if (json) {
-            const migrated = migrateDocumentJson(json);
-            doc = (migrated as unknown as Document) ?? createDocument(name || 'Untitled');
+            const decoded = DocumentCodec.decode(json);
+            doc = decoded.ok ? decoded.document : createDocument(name || 'Untitled');
           } else {
             doc = createDocument(name || 'Untitled');
           }

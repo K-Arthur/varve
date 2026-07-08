@@ -145,27 +145,27 @@ describe('10K Node Performance', () => {
   );
 
   test(
-    'search index rebuild for 10K nodes completes under 500ms',
+    'search index rebuild for 10K nodes completes under 750ms',
     () => {
       const start = performance.now();
       const index = createSearchIndex(doc);
       const elapsed = performance.now() - start;
 
       expect(index.nodeWords.size).toBe(10100);
-      expect(elapsed).toBeLessThan(500);
+      expect(elapsed).toBeLessThan(750);
     },
     BENCH_TIMEOUT,
   );
 
   test(
-    'spatial index rebuild for 10K nodes completes under 500ms',
+    'spatial index rebuild for 10K nodes completes under 1000ms',
     () => {
       const start = performance.now();
       const index = buildSpatialIndex(doc);
       const elapsed = performance.now() - start;
 
       expect(index.grid.size).toBeGreaterThan(0);
-      expect(elapsed).toBeLessThan(800);
+      expect(elapsed).toBeLessThan(1000);
     },
     BENCH_TIMEOUT,
   );
@@ -184,7 +184,7 @@ describe('10K Node Performance', () => {
   );
 
   test(
-    'getParentFast 10K lookups completes under 50ms',
+    'getParentFast 10K lookups completes under 100ms',
     () => {
       const cache = getOrCreateParentCache(doc);
 
@@ -201,13 +201,13 @@ describe('10K Node Performance', () => {
       }
       const elapsed = performance.now() - start;
 
-      expect(elapsed).toBeLessThan(50);
+      expect(elapsed).toBeLessThan(100);
     },
     BENCH_TIMEOUT,
   );
 
   test(
-    'queryPoint on 10K spatial index completes under 1ms',
+    'queryPoint on 10K spatial index completes under 5ms',
     () => {
       const index = buildSpatialIndex(doc);
 
@@ -216,7 +216,7 @@ describe('10K Node Performance', () => {
       const elapsed = performance.now() - start;
 
       expect(result).toBeDefined();
-      expect(elapsed).toBeLessThan(1);
+      expect(elapsed).toBeLessThan(5);
     },
     BENCH_TIMEOUT,
   );

@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@strata/ai": "workspace:*",
-    "@strata/compositor": "workspace:*",
     "@strata/codegen": "workspace:*",
     "@strata/collab": "workspace:*",
+    "@strata/compositor": "workspace:*",
     "@strata/engine": "workspace:*",
     "@strata/help": "workspace:*",
     "@strata/import": "workspace:*",
@@ -31,6 +31,7 @@
     "@strata/shared": "workspace:*",
     "@strata/ui": "workspace:*",
     "@tanstack/react-virtual": "^3.14.4",
+    "fflate": "^0.8.3",
     "prismjs": "^1.30.0"
   },
   "devDependencies": {

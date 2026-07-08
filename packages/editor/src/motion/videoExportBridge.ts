@@ -187,7 +187,10 @@ export async function createVideoFrameRenderer(config: VideoExportBridgeConfig) 
 
   const renderFrame = async (timeMs: number, _frameIndex: number): Promise<Uint8Array> => {
     sampledTimes.push(timeMs);
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d') as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null;
     if (!ctx) throw new Error('2D context unavailable');
 
     const { ids, nodes } = flattenVisibleNodes(doc);

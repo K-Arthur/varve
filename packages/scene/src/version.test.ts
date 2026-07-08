@@ -221,7 +221,7 @@ describe('Detailed Migration', () => {
     expect(result?.document.customField).toBe('value');
   });
 
-  it('migrates v1.0 to v1.5 adding print production defaults', () => {
+  it('migrates v1.0 to current version adding print production defaults', () => {
     const raw = {
       id: 'd1',
       name: 'v1doc',
@@ -236,7 +236,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.6');
+    expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(doc.documentUnit).toBe('px');
     expect(doc.dpi).toBe(0);
     expect(doc.pages).toBeDefined();
@@ -245,7 +245,7 @@ describe('Detailed Migration', () => {
     expect(doc.globalChildren).toEqual([]);
   });
 
-  it('migrates v1.0 to v1.5 preserving existing colorConfig', () => {
+  it('migrates v1.0 to current version preserving existing colorConfig', () => {
     const raw = {
       id: 'd1',
       name: 'cmyk-doc',
@@ -260,12 +260,12 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.6');
+    expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(doc.colorConfig).toEqual({ mode: 'cmyk' });
     expect(doc.bleed).toEqual({ top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' });
   });
 
-  it('migrates v1.1 to v1.5 adding motion/animation fields', () => {
+  it('migrates v1.1 to current version adding motion/animation fields', () => {
     const raw = {
       id: 'd1',
       name: 'pre-motion',
@@ -282,14 +282,14 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.6');
+    expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(doc).toHaveProperty('timelines');
     expect(doc.timelines).toBeUndefined();
     expect(doc).toHaveProperty('activeTimelineId');
     expect(doc.activeTimelineId).toBeUndefined();
   });
 
-  it('preserves existing timelines during 1.1→1.5 migration', () => {
+  it('preserves existing timelines during 1.1→current migration', () => {
     const raw = {
       id: 'd1',
       name: 'with-motion',
@@ -311,7 +311,7 @@ describe('Detailed Migration', () => {
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
     const doc = result!;
-    expect(doc.formatVersion).toBe('1.6');
+    expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(doc.timelines).toBeDefined();
     expect((doc.timelines as Record<string, unknown>)['tl-1']).toBeDefined();
   });

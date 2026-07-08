@@ -26,7 +26,7 @@ import {
   replayIr,
   traceSceneNodeOutline,
 } from '@strata/engine';
-import { importFile } from '@strata/import';
+import { importFile, type ImportFileInput, ImportService } from '@strata/import';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import {
   activePageNodes,
@@ -2189,21 +2189,39 @@ export function CanvasArea({
       sourceDoc: import('@strata/scene').Document;
       position?: { x: number; y: number };
     }[] = [];
-    for (const [i, file] of files.entries()) {
-      const result = importFile(file.name, file.data, {
-        center: !dropWorld,
-        embedImages: true,
-      });
-      for (const id of result.nodeIds) {
-        const node = result.document.nodes[id];
-        if (node) {
+    const importInputs = files.map((file): ImportFileInput => {
+      if (typeof file.data === 'string') {
+        return {
+          name: file.name,
+          source: 'drop',
+          size: new TextEncoder().encode(file.data).byteLength,
+          text: file.data,
+        };
+      }
+      return {
+        name: file.name,
+        source: 'drop',
+        size: file.data.byteLength,
+        bytes: file.data,
+      };
+    });
+    const report = await ImportService.importFiles(importInputs, {
+      center: !dropWorld,
+      embedImages: true,
+    });
+
+    for (const [i, fileReport] of report.files.entries()) {
+      for (const artifact of fileReport.artifacts) {
+        for (const id of artifact.nodeIds) {
+          const node = artifact.document.nodes[id];
+          if (!node) continue;
           const positionedNode = dropWorld
             ? applyDropPosition(node, {
                 x: dropWorld[0] + i * 40,
                 y: dropWorld[1] + i * 40,
               })
             : node;
-          parsedItems.push({ node: positionedNode, sourceDoc: result.document });
+          parsedItems.push({ node: positionedNode, sourceDoc: artifact.document });
         }
       }
     }
@@ -2212,6 +2230,9 @@ export function CanvasArea({
     if (parsedItems.length > 0) {
       reader.batchImportNodes(parsedItems);
     }
+    reader.announce(
+      `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
+    );
   }, []);
 
   const gridSize = Math.max(4, 24 * state.zoom);

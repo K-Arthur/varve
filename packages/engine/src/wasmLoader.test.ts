@@ -18,7 +18,7 @@ describe('wasmLoader', () => {
       build_ir_json: (json: string) => {
         const nodes = JSON.parse(json) as unknown[];
         return JSON.stringify(
-          nodes.map((_, i) => ({
+          nodes.map((_, _i) => ({
             transform: [1, 0, 0, 1, 0, 0],
             fill: [57, 208, 198, 255],
             primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },

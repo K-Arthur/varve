@@ -70,7 +70,7 @@ describe('RecoveryManager', () => {
     const sessions = await manager.listSessions();
     expect(sessions).toHaveLength(1);
     expect(sessions[0]).toBeDefined();
-    const restored = await manager.restoreSession(sessions[0]!.id);
+    const restored = await manager.restoreSession(sessions[0]?.id as string);
     expect(restored).not.toBeNull();
     expect(restored?.tabName).toBe('My Tab');
     expect(restored?.fileId).toBe('file-1');
@@ -84,7 +84,7 @@ describe('RecoveryManager', () => {
     const sessions1 = await manager.listSessions();
     expect(sessions1).toHaveLength(1);
     expect(sessions1[0]).toBeDefined();
-    await manager.deleteSession(sessions1[0]!.id);
+    await manager.deleteSession(sessions1[0]?.id as string);
     const sessions2 = await manager.listSessions();
     expect(sessions2).toHaveLength(0);
   });

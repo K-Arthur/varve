@@ -69,7 +69,7 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
         <span className="batch-job-row__name">{job.fileName}</span>
         <span className="batch-job-row__format">{job.format}</span>
         <span className="batch-job-row__dims">
-          {job.dimensions.w}\u00D7{job.dimensions.h}
+          {job.dimensions.w}x{job.dimensions.h}
         </span>
         <span className="batch-job-row__size">{formatSize(job.estimatedSize)}</span>
         <span

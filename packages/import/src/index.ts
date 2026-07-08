@@ -15,6 +15,18 @@ export {
   registerParser,
   resetRegistry,
 } from './registry';
+export type {
+  FidelityIssue,
+  ImportArtifact,
+  ImportFileInput,
+  ImportFileReport,
+  ImportReport,
+  ImportServiceOptions,
+  ImportSource,
+  UnsupportedFeature,
+} from './service';
+export { ImportService } from './service';
+export { createSketchParser } from './sketch';
 export { createSvgParser, parseSvg } from './svg';
 export type { BatchFileResult, ImportOptions, ImportParser, ImportResult } from './types';
 export type { ImportValidation } from './validation';
@@ -28,6 +40,7 @@ import { createPdfParser } from './pdf';
 import { createPsdParser } from './psd';
 // Auto-register all built-in parsers
 import { registerParser } from './registry';
+import { createSketchParser } from './sketch';
 import { createSvgParser } from './svg';
 
 registerParser(createSvgParser());
@@ -35,3 +48,4 @@ registerParser(createPdfParser());
 registerParser(createPsdParser());
 registerParser(createAiParser());
 registerParser(createEpsParser());
+registerParser(createSketchParser());

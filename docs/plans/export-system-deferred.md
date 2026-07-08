@@ -1,5 +1,18 @@
 # Export System — Deferred Items Implementation Plan
 
+Status update, 2026-07-07: the import/export compatibility push implemented
+the shared `DocumentCodec`, `ImportService`, `ExportService`, SVG byte fix,
+package export ZIP, platform binary IPC fix, Sketch ZIP import, DTCG structured
+token export, and editor file-picker/canvas/clipboard service wiring. The
+canonical audit, roadmap, and verification report now live at
+`docs/audits/import-export-compatibility-audit.md`. This plan remains useful for
+the still-open print-engine workstream: font outlining, full PDF/X output
+intents, ICC-backed CMYK, and native print IPC expansion.
+
+Final verification update, 2026-07-07: the compatibility branch passed
+`pnpm format`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm audit:emoji`,
+and `pnpm audit:tokens` after the audit report was updated.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use subagent-driven-development (recommended) or executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Complete the remaining 7 export system items: code emitters, font outlining, CMYK PDF/X, Tauri IPC wiring, export dialog, and settings persistence.

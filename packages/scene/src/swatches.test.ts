@@ -37,7 +37,7 @@ describe('swatches', () => {
       let doc = createDocument();
       doc = addSwatch(doc, 'Red', red);
       doc = addSwatch(doc, 'Blue', blue);
-      const id = doc.swatches?.[0]?.id!;
+      const id = doc.swatches?.[0]?.id as string;
       const result = removeSwatch(doc, id);
       expect(result.swatches?.length).toBe(1);
       expect(result.swatches?.[0]?.name).toBe('Blue');
@@ -54,7 +54,7 @@ describe('swatches', () => {
     it('updates a swatch color', () => {
       let doc = createDocument();
       doc = addSwatch(doc, 'Red', red);
-      const id = doc.swatches?.[0]?.id!;
+      const id = doc.swatches?.[0]?.id as string;
       const result = updateSwatch(doc, id, blue);
       expect(result.swatches?.[0]?.color).toEqual(blue);
       expect(result.swatches?.[0]?.name).toBe('Red');
@@ -79,7 +79,7 @@ describe('swatches', () => {
         rootChildren: [...doc.rootChildren, nid],
       };
       doc = addSwatch(doc, 'Red', red);
-      const swatchId = doc.swatches?.[0]?.id!;
+      const swatchId = doc.swatches?.[0]?.id as string;
       const result = applySwatchToNode(doc, nid, swatchId);
       expect(result.nodes[nid]?.fill).toEqual(red);
     });
@@ -101,7 +101,7 @@ describe('swatches', () => {
     it('returns unchanged for unknown node id', () => {
       let doc = createDocument();
       doc = addSwatch(doc, 'Red', red);
-      const result = applySwatchToNode(doc, 'nonexistent', doc.swatches?.[0]?.id!);
+      const result = applySwatchToNode(doc, 'nonexistent', doc.swatches?.[0]?.id as string);
       expect(result).toBe(doc);
     });
   });

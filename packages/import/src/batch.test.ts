@@ -1,5 +1,5 @@
 import type { Affine } from '@strata/engine';
-import { createDocument, makeShapeNode } from '@strata/scene';
+import { createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { batchImport } from './batch';
 import { registerParser, resetRegistry } from './registry';
@@ -205,5 +205,38 @@ describe('batchImport', () => {
     registerParser(warnParser);
     const result = batchImport([{ name: 'a.warns', data: 'data' }]);
     expect(result.results[0]?.warnings).toContain('Test warning');
+  });
+
+  it('deep-clones imported container subtrees and remaps child ids', () => {
+    resetRegistry();
+    const groupedParser: ImportParser = {
+      format: 'grouped',
+      supportedExtensions: () => ['grouped'],
+      canParse: () => true,
+      parse: () => {
+        const child = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+        const group = makeGroupNode('g1', { children: ['s1'] });
+        return {
+          document: {
+            ...createDocument('Grouped', true),
+            rootChildren: ['g1'],
+            nodes: { g1: group, s1: child },
+            nextId: 2,
+          },
+          nodeIds: ['g1'],
+          warnings: [],
+        };
+      },
+    };
+    registerParser(groupedParser);
+
+    const result = batchImport([{ name: 'layers.grouped', data: 'data' }]);
+
+    const importedGroup = result.document.nodes[result.nodeIds[0]!];
+    expect(importedGroup?.kind).toBe('group');
+    if (importedGroup?.kind !== 'group') return;
+    expect(importedGroup.children).toHaveLength(1);
+    expect(importedGroup.children[0]).not.toBe('s1');
+    expect(result.document.nodes[importedGroup.children[0]!]).toBeDefined();
   });
 });

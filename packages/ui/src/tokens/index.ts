@@ -9,6 +9,7 @@ import type { Theme } from './color';
 
 export * from './color';
 export * from './contrast';
+export * from './dtcg';
 
 /** Apply a theme by setting [data-theme] on the document root.
  * Light is the default when no attribute is present. */
