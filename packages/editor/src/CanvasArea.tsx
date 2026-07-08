@@ -67,7 +67,7 @@ import { ZoomIndicator } from './components/ZoomIndicator';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
-import { sceneNeedsStructuralCompositing } from './render/sceneCompositing';
+import { sceneHasImageFills, sceneNeedsStructuralCompositing } from './render/sceneCompositing';
 import {
   createRenderWorkerHost,
   isStaleResponse,
@@ -1305,13 +1305,20 @@ export function CanvasArea({
         replaySubtreeToCtx(nodeId, ctxNN);
       }
 
+      // Image fills can only be decoded on the main thread (see
+      // `sceneHasImageFills`): the OffscreenCanvas worker has no `Image`
+      // constructor and no access to the main-thread ImageCache, so a
+      // worker-rendered frame silently drops every image. Keep image scenes on
+      // the main-thread `drawVectorItems` path below.
+      const hasImageFills = sceneHasImageFills(doc);
+
       if (needsStructural) {
         for (const [id, entry] of entries) {
           if (entry.parentId === null) {
             replaySubtree(id);
           }
         }
-      } else if (renderWorkerRef.current) {
+      } else if (renderWorkerRef.current && !hasImageFills) {
         const wb = workerBitmapRef.current;
         const cameraMatches =
           wb &&
