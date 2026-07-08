@@ -249,7 +249,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
 
   return (
     <DisclosureSection title="Typography">
-      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
+      <div ref={bindingTriggerRef} className="insp-field-group">
         {textContent !== null && (
           <FieldRow label="Content">
             <textarea

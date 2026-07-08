@@ -329,6 +329,19 @@
   min-width: 0;
 }
 
+/* A vertical group of stacked field rows that also serves as the relative
+ * anchor for a popover (e.g. the binding menu). Distinct from `.insp-field`,
+ * which is a single horizontal label+control row — wrapping many rows in
+ * `.insp-field` collapses them into one overflowing row (they overlap). Use
+ * this for section bodies that hold multiple rows under one positioned ref. */
+.insp-field-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 /* Nested field pairs (X/Y, W/H sharing one row): WebKit resolves the nested
  * flex items' automatic minimum size against the text input's intrinsic width
  * (~176px), so a two-field row overflows the card. Force zero-basis equal

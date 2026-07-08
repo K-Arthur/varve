@@ -173,7 +173,7 @@ export function FillSection({ nodes }: FillSectionProps) {
   return (
     <DisclosureSection title="Fill">
       {fills.length === 0 && <div className="insp-empty-message">No fill</div>}
-      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
+      <div ref={bindingTriggerRef} className="insp-field-group">
         {fills.map((fill, i) => (
           <FillRow
             key={i}
