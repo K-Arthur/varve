@@ -1,0 +1,366 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Download Strata - Linux, macOS, Windows">
+  <div class="container-custom">
+    <div class="download-page">
+      <h1>Download Strata</h1>
+      <p class="download-intro">
+        Free forever. AGPL-3.0-or-later licensed. Your designs stay on your machine.
+      </p>
+
+      <div class="platform-selector">
+        <button class="platform-tab active" data-platform="linux">Linux</button>
+        <button class="platform-tab" data-platform="macos">macOS</button>
+        <button class="platform-tab" data-platform="windows">Windows</button>
+      </div>
+
+      <div class="platform-section active" id="platform-linux">
+        <h2>Linux</h2>
+        <p class="platform-note">
+          Officially tested on: CachyOS, Arch Linux, Ubuntu 22.04+, Fedora
+        </p>
+        
+        <div class="download-options">
+          <div class="download-option recommended">
+            <div class="option-header">
+              <h3>AppImage</h3>
+              <span class="badge recommended">Recommended</span>
+            </div>
+            <p>Universal package for any x86_64 Linux distribution</p>
+            <a href="#" class="btn-primary">Download AppImage</a>
+            <p class="download-meta">Size: ~200MB • Version: 0.0.0</p>
+          </div>
+
+          <div class="download-option">
+            <div class="option-header">
+              <h3>deb Package</h3>
+            </div>
+            <p>For Debian 11+ and Ubuntu 22.04+</p>
+            <a href="#" class="btn-secondary">Download deb</a>
+            <p class="download-meta">Size: ~180MB</p>
+          </div>
+
+          <div class="download-option">
+            <div class="option-header">
+              <h3>rpm Package</h3>
+            </div>
+            <p>For Fedora and RHEL-based distributions</p>
+            <a href="#" class="btn-secondary">Download rpm</a>
+            <p class="download-meta">Size: ~180MB</p>
+          </div>
+
+          <div class="download-option">
+            <div class="option-header">
+              <h3>AUR</h3>
+            </div>
+            <p>For Arch Linux and CachyOS</p>
+            <code class="code-block">yay -S strata-desktop</code>
+            <p class="download-meta">Or: paru -S strata-desktop</p>
+          </div>
+        </div>
+
+        <div class="system-requirements">
+          <h3>System Requirements</h3>
+          <ul>
+            <li><strong>OS:</strong> CachyOS, Arch Linux, Ubuntu 22.04+, Fedora, RHEL</li>
+            <li><strong>CPU:</strong> x86_64</li>
+            <li><strong>RAM:</strong> 4GB minimum, 8GB recommended</li>
+            <li><strong>Dependencies:</strong> libwebkit2gtk-4.1-0, libgtk-3-0, librsvg2-2</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="platform-section" id="platform-macos">
+        <h2>macOS</h2>
+        <p class="platform-note">
+          Universal binary for Intel and Apple Silicon
+        </p>
+        
+        <div class="download-options">
+          <div class="download-option recommended">
+            <div class="option-header">
+              <h3>Universal dmg</h3>
+              <span class="badge recommended">Recommended</span>
+            </div>
+            <p>Works on Intel and Apple Silicon (M1/M2/M3)</p>
+            <a href="#" class="btn-primary">Download dmg</a>
+            <p class="download-meta">Size: ~250MB • Version: 0.0.0</p>
+          </div>
+        </div>
+
+        <div class="system-requirements">
+          <h3>System Requirements</h3>
+          <ul>
+            <li><strong>OS:</strong> macOS 13 Ventura or later</li>
+            <li><strong>CPU:</strong> Intel or Apple Silicon</li>
+            <li><strong>RAM:</strong> 4GB minimum, 8GB recommended</li>
+            <li><strong>Storage:</strong> 500MB for application</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="platform-section" id="platform-windows">
+        <h2>Windows</h2>
+        <p class="platform-note">
+          For Windows 10 and Windows 11
+        </p>
+        
+        <div class="download-options">
+          <div class="download-option recommended">
+            <div class="option-header">
+              <h3>MSI Installer</h3>
+              <span class="badge recommended">Recommended</span>
+            </div>
+            <p>Standard Windows installer for most users</p>
+            <a href="#" class="btn-primary">Download MSI</a>
+            <p class="download-meta">Size: ~220MB • Version: 0.0.0</p>
+          </div>
+
+          <div class="download-option">
+            <div class="option-header">
+              <h3>NSIS Installer</h3>
+            </div>
+            <p>Alternative installer format</p>
+            <a href="#" class="btn-secondary">Download NSIS</a>
+            <p class="download-meta">Size: ~220MB</p>
+          </div>
+        </div>
+
+        <div class="system-requirements">
+          <h3>System Requirements</h3>
+          <ul>
+            <li><strong>OS:</strong> Windows 10 or Windows 11</li>
+            <li><strong>CPU:</strong> x86_64</li>
+            <li><strong>RAM:</strong> 4GB minimum, 8GB recommended</li>
+            <li><strong>Storage:</strong> 500MB for application</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="release-info">
+        <h3>Current Release</h3>
+        <p><strong>Version:</strong> 0.0.0</p>
+        <p><strong>Release Date:</strong> 2026-07-08</p>
+        <p><strong>Release Notes:</strong> <a href="/releases">View release notes</a></p>
+      </div>
+
+      <div class="integrity-notice">
+        <h3>Download Integrity</h3>
+        <p>
+          SHA256 checksums will be available for all downloads to verify integrity. 
+          Currently, packages are not code-signed. This will be addressed in future releases.
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .download-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .download-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .download-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .platform-selector {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--color-neutral-200);
+  }
+  
+  .platform-tab {
+    padding: 1rem 2rem;
+    background: none;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-neutral-600);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  
+  .platform-tab:hover {
+    color: var(--color-teal-600);
+  }
+  
+  .platform-tab.active {
+    color: var(--color-teal-600);
+    border-bottom-color: var(--color-teal-600);
+  }
+  
+  .platform-section {
+    display: none;
+  }
+  
+  .platform-section.active {
+    display: block;
+  }
+  
+  .platform-section h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .platform-note {
+    color: var(--color-neutral-600);
+    margin-bottom: 2rem;
+  }
+  
+  .download-options {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .download-option {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .download-option.recommended {
+    border-color: var(--color-teal-400);
+    background: linear-gradient(135deg, var(--color-teal-50) 0%, white 100%);
+  }
+  
+  .option-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .option-header h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+  }
+  
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+  
+  .badge.recommended {
+    background: var(--color-teal-600);
+    color: white;
+  }
+  
+  .download-option p {
+    color: var(--color-neutral-600);
+    margin-bottom: 1rem;
+  }
+  
+  .download-meta {
+    font-size: 0.875rem;
+    color: var(--color-neutral-500);
+    margin-top: 0.75rem;
+  }
+  
+  .code-block {
+    display: block;
+    background: var(--color-neutral-900);
+    color: var(--color-neutral-100);
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+    margin: 1rem 0;
+  }
+  
+  .system-requirements {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .system-requirements h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  
+  .system-requirements ul {
+    list-style: none;
+  }
+  
+  .system-requirements li {
+    margin-bottom: 0.5rem;
+    color: var(--color-neutral-700);
+  }
+  
+  .system-requirements strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .release-info,
+  .integrity-notice {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .release-info h3,
+  .integrity-notice h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  
+  .release-info p {
+    color: var(--color-neutral-600);
+    margin-bottom: 0.5rem;
+  }
+  
+  .integrity-notice p {
+    color: var(--color-neutral-600);
+  }
+</style>
+
+<script>
+  const platformTabs = document.querySelectorAll('.platform-tab');
+  const platformSections = document.querySelectorAll('.platform-section');
+
+  platformTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const platform = (tab as HTMLElement).dataset.platform;
+      
+      platformTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      platformSections.forEach(section => {
+        section.classList.remove('active');
+        if (section.id === `platform-${platform}`) {
+          section.classList.add('active');
+        }
+      });
+    });
+  });
+</script>
