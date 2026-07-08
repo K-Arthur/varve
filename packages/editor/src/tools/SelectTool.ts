@@ -347,6 +347,48 @@ export class SelectTool extends BaseTool {
         ctx.setNodePosition(id, t[4] + dx * a + dy * c, t[5] + dx * b + dy * d);
       }
       ctx.commitTransaction();
+      // Auto-reparent after nudge (matching drag-end behavior).
+      // Collect all pending reparent ops first so we only start a
+      // transaction when actual work is needed.
+      const reparentOps: Array<{
+        id: string;
+        parentId: string | null;
+        index: number;
+      }> = [];
+      for (const selId of sel) {
+        if (!selId) continue;
+        const node = ctx.getNode(selId);
+        if (!node || node.locked || !node.visible) continue;
+        const worldBounds = nodeWorldBounds(ctx.document, selId);
+        let centerX = node.transform[4];
+        let centerY = node.transform[5];
+        if (worldBounds) {
+          centerX = worldBounds.x + worldBounds.w / 2;
+          centerY = worldBounds.y + worldBounds.h / 2;
+        }
+        const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
+        const currentParent = getParent(ctx.document, selId);
+        if (frameId && currentParent !== frameId) {
+          reparentOps.push({
+            id: selId,
+            parentId: frameId,
+            index: childrenCount(ctx.document, frameId),
+          });
+        } else if (!frameId && currentParent !== null) {
+          reparentOps.push({
+            id: selId,
+            parentId: null,
+            index: ctx.rootNodes().length,
+          });
+        }
+      }
+      if (reparentOps.length > 0) {
+        ctx.beginTransaction();
+        for (const op of reparentOps) {
+          ctx.reparentNode(op.id, op.parentId, op.index);
+        }
+        ctx.commitTransaction();
+      }
       ctx.announceOperation('Nudge', `${step}px`);
       return true;
     }
