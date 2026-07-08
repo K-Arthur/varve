@@ -1,17 +1,13 @@
 /**
- * Canvas2D compositor backend — wraps replayIr + tile cache.
+ * Canvas2D compositor backend — wraps replayIr.
  */
 import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
 import type { CompositorBackend, CompositorFrame } from '../types';
-import { TileCache } from './tileCache';
 
 export class Canvas2DBackend implements CompositorBackend {
   readonly id = 'canvas2d' as const;
   private ctx: CanvasRenderingContext2D | null = null;
   private dpr = 1;
-  private readonly tileCache = new TileCache();
-  private currentFrame: CompositorFrame | null = null;
-
   async init(canvas: HTMLCanvasElement): Promise<void> {
     this.dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext('2d');
@@ -20,7 +16,6 @@ export class Canvas2DBackend implements CompositorBackend {
   }
 
   beginFrame(frame: CompositorFrame, opts?: { applyCamera?: boolean; clear?: boolean }): void {
-    this.currentFrame = frame;
     if (!this.ctx) return;
     const { viewport } = frame;
     const shouldClear = opts?.clear !== false;
@@ -36,13 +31,9 @@ export class Canvas2DBackend implements CompositorBackend {
 
   drawVectorItems(items: RenderItem[]): void {
     if (!this.ctx || items.length === 0) return;
-    const bucket = TileCache.cameraBucket(this.currentFrame?.camera.zoom ?? 1);
-    const hash = `${items.length}:${items[0]?.transform.join(',') ?? ''}`;
-    const key = TileCache.tileKey(hash, bucket);
     // Always replay: immediate-mode canvas is cleared each frame; skipping draws
     // without a persistent backing store would blank the canvas on cache hits.
     replayIr(this.ctx as unknown as ReplayTarget, items);
-    this.tileCache.touch(key);
   }
 
   compositeRasterLayer(
@@ -67,16 +58,14 @@ export class Canvas2DBackend implements CompositorBackend {
 
   endFrame(): void {
     this.ctx?.restore();
-    this.currentFrame = null;
   }
 
   destroy(): void {
     this.ctx = null;
-    this.tileCache.invalidate();
   }
 
-  invalidateTiles(prefix?: string): void {
-    this.tileCache.invalidate(prefix);
+  invalidateTiles(_prefix?: string): void {
+    // Immediate-mode canvas; no persistent tiles to invalidate.
   }
 
   private applyCamera(frame: CompositorFrame): void {
