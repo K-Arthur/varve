@@ -1,0 +1,114 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Learn - Strata">
+  <div class="container-custom">
+    <div class="learn-page">
+      <h1>Learn</h1>
+      <p class="learn-intro">
+        Tutorials, examples, and community resources to help you master Strata.
+      </p>
+
+      <div class="learn-grid">
+        <a href="/learn/tutorials" class="learn-card">
+          <h2>Tutorials</h2>
+          <p>Step-by-step tutorials to get started with Strata</p>
+        </a>
+
+        <a href="/learn/examples" class="learn-card">
+          <h2>Examples</h2>
+          <p>Example files and projects to learn from</p>
+        </a>
+
+        <a href="/learn/community" class="learn-card">
+          <h2>Community</h2>
+          <p>Connect with the Strata community</p>
+        </a>
+      </div>
+
+      <div class="learn-status">
+        <h3>Learning Resources Status</h3>
+        <p>Tutorials and examples are being developed. In the meantime, check the <a href="/docs">documentation</a> for getting started guides.</p>
+        <p>Want to help create learning resources? See the <a href="/contribute">contribution guidelines</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .learn-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .learn-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .learn-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .learn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+  
+  .learn-card {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: block;
+  }
+  
+  .learn-card:hover {
+    border-color: var(--color-teal-400);
+    transform: translateY(-2px);
+  }
+  
+  .learn-card h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .learn-card p {
+    color: var(--color-neutral-600);
+    line-height: 1.6;
+  }
+  
+  .learn-status {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .learn-status h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .learn-status p {
+    color: var(--color-neutral-600);
+    margin-bottom: 0.75rem;
+  }
+  
+  .learn-status a {
+    color: var(--color-teal-600);
+  }
+</style>

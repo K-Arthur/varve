@@ -1,0 +1,159 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Vector Tools - Strata Features">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb">
+        <a href="/features">Features</a> / Vector Tools
+      </nav>
+
+      <h1>Vector Tools</h1>
+      <p class="feature-intro">
+        Complete vector design tools with shapes, paths, boolean operations, and precision editing.
+      </p>
+
+      <section class="feature-section">
+        <h2>What It Is</h2>
+        <p>
+          Strata provides a comprehensive set of vector design tools including shape primitives (rectangles, ellipses, circles, lines), path editing, boolean operations, and transformation tools. All vector operations are backed by the kurbo geometry library for precision and performance.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Key Capabilities</h2>
+        <ul>
+          <li><strong>Shape primitives:</strong> Rectangle, ellipse, circle, line with precise controls</li>
+          <li><strong>Path editing:</strong> Bezier curves, point manipulation, smooth/sharp corners</li>
+          <li><strong>Boolean operations:</strong> Union, subtract, intersect, exclude (in development)</li>
+          <li><strong>Transformation:</strong> Move, rotate, scale with affine transforms</li>
+          <li><strong>Layers:</strong> Layer organization with color tags, visibility, locking</li>
+          <li><strong>Groups:</strong> Group and ungroup objects for organization</li>
+          <li><strong>Frames:</strong> Spatial containers with auto-layout (Taffy-backed, in development)</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Technical Depth</h2>
+        <p>
+          The vector system is built on kurbo, a Rust geometry library providing Point, Rect, Affine, Circle, Ellipse, Line, and Path types. The ShapeNode enum encapsulates all shape types with point-containment testing for hit detection. The scene graph uses fractional-indexing for CRDT-safe concurrent ordering.
+        </p>
+        <p>
+          Geometry operations include point-to-segment distance squared calculations, rect_contains for bounding box tests, and hit_test with inverse-transform world-to-local coordinate conversion (topmost wins).
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Limitations</h2>
+        <div class="limitations">
+          <p><strong>Current limitations:</strong></p>
+          <ul>
+            <li>Boolean operations are declared in types but not fully implemented</li>
+            <li>Auto-layout (Taffy integration) is in stub phase</li>
+            <li>Path editing UI needs refinement</li>
+            <li>No pen tool or freehand drawing yet</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Ready to design?</h2>
+        <a href="/download" class="btn-primary">Download Strata</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .feature-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-intro {
+    font-size: 1.25rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section {
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .feature-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .feature-section ul {
+    list-style: none;
+  }
+  
+  .feature-section li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .feature-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .feature-section strong {
+    color: var(--color-neutral-900);
+  }
+  
+  .limitations {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .limitations p {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .feature-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .feature-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>

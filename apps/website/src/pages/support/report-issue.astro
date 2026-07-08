@@ -1,0 +1,210 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Report an Issue - Strata Support">
+  <div class="container-custom">
+    <div class="support-page">
+      <nav class="breadcrumb">
+        <a href="/support">Support</a> / Report Issue
+      </nav>
+
+      <h1>Report an Issue</h1>
+      <p class="support-intro">
+        Help improve Strata by reporting bugs with detailed information.
+      </p>
+
+      <div class="report-section">
+        <h2>Before Reporting</h2>
+        <ul>
+          <li>Check the <a href="/support/faq">FAQ</a> for common questions</li>
+          <li>Check <a href="/support/troubleshooting">Troubleshooting</a> for known issues</li>
+          <li>Check <a href="/support/known-issues">Known Issues</a> to see if your issue is already tracked</li>
+          <li>Search <a href="https://github.com/strata/strata/issues">GitHub Issues</a> for similar reports</li>
+        </ul>
+      </div>
+
+      <div class="report-section">
+        <h2>Bug Report Template</h2>
+        <p>When reporting a bug, please include the following information:</p>
+
+        <div class="template-block">
+          <h3>Bug Report</h3>
+          <pre><code>**Strata Version:** [from Help > About]
+**Operating System:** [e.g., CachyOS Linux, Ubuntu 22.04, macOS 14, Windows 11]
+**Architecture:** [e.g., x86_64, ARM64]
+**Package:** [e.g., AppImage, deb, dmg, msi]
+
+**Description:**
+[Brief description of the bug]
+
+**Steps to Reproduce:**
+1. [Step 1]
+2. [Step 2]
+3. [Step 3]
+
+**Expected Behavior:**
+[What should happen]
+
+**Actual Behavior:**
+[What actually happens]
+
+**Logs/Screenshots:**
+[Attach relevant logs or screenshots, mask personal data]</code></pre>
+        </div>
+      </div>
+
+      <div class="report-section">
+        <h2>Feature Request Template</h2>
+        <p>When requesting a feature, please include the following information:</p>
+
+        <div class="template-block">
+          <h3>Feature Request</h3>
+          <pre><code>**Problem Statement:**
+[What problem are you trying to solve?]
+
+**Proposed Solution:**
+[What feature would solve this?]
+
+**Alternatives Considered:**
+[What alternatives have you considered?]
+
+**Additional Context:**
+[Links to related issues, screenshots, examples]</code></pre>
+        </div>
+      </div>
+
+      <div class="report-section">
+        <h2>Where to Report</h2>
+        <p>Report issues on GitHub:</p>
+        <ul>
+          <li><a href="https://github.com/strata/strata/issues">GitHub Issues</a> - For bugs and feature requests</li>
+          <li><a href="https://github.com/strata/strata/discussions">GitHub Discussions</a> - For questions and general discussion</li>
+        </ul>
+      </div>
+
+      <div class="report-section">
+        <h2>Security Issues</h2>
+        <p>For security vulnerabilities, please report privately:</p>
+        <ul>
+          <li><a href="https://github.com/strata/strata/security/advisories">GitHub Security Advisory</a> - Private vulnerability reporting</li>
+          <li>Email: security@strata.design (if configured)</li>
+        </ul>
+        <p>Response time for security issues is typically within 48 hours for critical vulnerabilities.</p>
+      </div>
+
+      <div class="report-cta">
+        <h2>Ready to report?</h2>
+        <a href="https://github.com/strata/strata/issues/new" class="btn-primary">Open an Issue on GitHub</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .support-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .support-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .support-intro {
+    font-size: 1.125rem;
+    color: var(--color-neutral-600);
+    margin-bottom: 3rem;
+  }
+  
+  .report-section {
+    margin-bottom: 3rem;
+  }
+  
+  .report-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .report-section p {
+    color: var(--color-neutral-600);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+  
+  .report-section ul {
+    list-style: none;
+  }
+  
+  .report-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--color-neutral-600);
+  }
+  
+  .report-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--color-teal-400);
+  }
+  
+  .report-section a {
+    color: var(--color-teal-600);
+  }
+  
+  .template-block {
+    background: var(--color-neutral-100);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+  
+  .template-block h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .template-block pre {
+    background: var(--color-neutral-900);
+    color: var(--color-neutral-100);
+    padding: 1rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+  }
+  
+  .template-block code {
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  
+  .report-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .report-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+</style>

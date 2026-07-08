@@ -1,0 +1,168 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="FAQ - Strata Support">
+  <div class="container-custom">
+    <div class="support-page">
+      <nav class="breadcrumb">
+        <a href="/support">Support</a> / FAQ
+      </nav>
+
+      <h1>Frequently Asked Questions</h1>
+
+      <div class="faq-section">
+        <h2>General</h2>
+        
+        <div class="faq-item">
+          <h3>Is Strata free?</h3>
+          <p>Yes, Strata is free forever under the AGPL-3.0-or-later license. There are no subscriptions, no feature lockouts, and no cloud requirements. Download once and own your tools forever.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>What platforms does Strata support?</h3>
+          <p>Strata supports Linux (x86_64), macOS Universal (Intel + Apple Silicon, 13+), and Windows 10/11 (x86_64). Linux packages include AppImage, deb, rpm, and AUR.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>What does AGPL license mean?</h3>
+          <p>AGPL-3.0-or-later is a copyleft license. If you distribute a modified version of Strata, you must share your source code under the same license. This ensures derivative works remain free and open. See the <a href="/about/license">license page</a> for details.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Is Strata open source?</h3>
+          <p>Yes, Strata is open source under the AGPL-3.0-or-later license. The source code is available on <a href="https://github.com/strata/strata">GitHub</a>. AGPL is a copyleft license, which is different from permissive licenses like MIT or BSD.</p>
+        </div>
+      </div>
+
+      <div class="faq-section">
+        <h2>Features & Capabilities</h2>
+        
+        <div class="faq-item">
+          <h3>Does Strata have real-time collaboration?</h3>
+          <p>Not yet. Collaboration features are currently UI scaffolding only with no transport or wire protocol. This is planned for future development.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Can I use Strata for professional print work?</h3>
+          <p>Strata has strong type foundations for print production (CMYK, bleed, crop marks, color bars) and PDF export with PDF/X-1a/X-4 support. However, some features like canvas bleed visualization and high-DPI export are still in development. See the <a href="/features/color-effects">Color & Effects</a> page for current status.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Does Strata support ARM processors?</h3>
+          <p>Strata supports Apple Silicon (ARM) on macOS via Universal binaries. Linux ARM and Windows ARM are not currently supported.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>What export formats does Strata support?</h3>
+          <p>Strata exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support. See the <a href="/features/export">Export & Code Generation</a> page for details.</p>
+        </div>
+      </div>
+
+      <div class="faq-section">
+        <h2>Development & Community</h2>
+        
+        <div class="faq-item">
+          <h3>Who develops Strata?</h3>
+          <p>Strata is built by one designer-developer independently. See the <a href="/about">About page</a> for the full story.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>How can I contribute?</h3>
+          <p>You can contribute code, documentation, testing, design, or translations. See the <a href="/contribute">contribution guidelines</a> for details. Non-financial contributions are equally valuable to financial support.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>How can I support the project financially?</h3>
+          <p>Strata accepts financial support via GitHub Sponsors. See the <a href="/support-project">Support Project</a> page for sponsorship tiers and what support enables.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>What's the response time for support?</h3>
+          <p>As a solo-developer project, I review issues within 1 week. Critical bugs are prioritized. For faster responses, community forums (GitHub Discussions) are recommended.</p>
+        </div>
+      </div>
+
+      <div class="faq-cta">
+        <h2>Still have questions?</h2>
+        <p>Check the <a href="/docs">documentation</a> or ask in <a href="https://github.com/strata/strata/discussions">GitHub Discussions</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .support-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--color-neutral-600);
+  }
+  
+  .support-page h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 3rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .faq-section {
+    margin-bottom: 3rem;
+  }
+  
+  .faq-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .faq-item {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .faq-item h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .faq-item p {
+    color: var(--color-neutral-600);
+    line-height: 1.6;
+  }
+  
+  .faq-item a {
+    color: var(--color-teal-600);
+  }
+  
+  .faq-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-neutral-200);
+  }
+  
+  .faq-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-neutral-900);
+  }
+  
+  .faq-cta p {
+    color: var(--color-neutral-600);
+  }
+</style>
