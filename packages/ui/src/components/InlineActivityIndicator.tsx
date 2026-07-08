@@ -13,10 +13,10 @@ export interface InlineActivityIndicatorProps {
  * Compact, non-dominant activity indicator for local/short operations.
  * Replaces or appends to content in buttons, rows, or small panels.
  */
-export function InlineActivityIndicator({ 
-  label = 'Loading...', 
+export function InlineActivityIndicator({
+  label = 'Loading...',
   size = 16,
-  className = '' 
+  className = '',
 }: InlineActivityIndicatorProps) {
   return (
     <svg

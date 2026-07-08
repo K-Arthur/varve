@@ -42,17 +42,16 @@ export function RegionLoader({
   }, [loading, delay]);
 
   return (
-    <div 
-      className={`region-loader-container ${className}`}
-      aria-busy={loading}
-    >
+    <div className={`region-loader-container ${className}`} aria-busy={loading}>
       {shouldShow && loading && (
         <div className="region-loader" role="status">
           <InlineActivityIndicator size={24} label={label} />
           {label && <span className="region-loader__text">{label}</span>}
         </div>
       )}
-      <div className={`region-loader__content ${loading && shouldShow ? 'region-loader__content--loading' : ''}`}>
+      <div
+        className={`region-loader__content ${loading && shouldShow ? 'region-loader__content--loading' : ''}`}
+      >
         {children}
       </div>
     </div>

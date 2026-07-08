@@ -27,9 +27,7 @@ const publicDest = join(repoRoot, 'apps', 'desktop', 'public', 'ort-wasm');
 
 mkdirSync(publicDest, { recursive: true });
 
-const files = readdirSync(onnxWebDir).filter(
-  (f) => f.endsWith('.wasm') || f.endsWith('.mjs'),
-);
+const files = readdirSync(onnxWebDir).filter((f) => f.endsWith('.wasm') || f.endsWith('.mjs'));
 
 for (const file of files) {
   copyFileSync(join(onnxWebDir, file), join(publicDest, file));

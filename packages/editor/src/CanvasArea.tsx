@@ -509,7 +509,9 @@ export function CanvasArea({
   }, []);
 
   // Pre-warm WASM engine during idle so first document load is instant
-  useEffect(() => { prewarmWasmEngine(); }, []);
+  useEffect(() => {
+    prewarmWasmEngine();
+  }, []);
 
   useEffect(() => {
     const canvas = contentCanvasRef.current;

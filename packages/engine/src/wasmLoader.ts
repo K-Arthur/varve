@@ -20,9 +20,13 @@ export function prewarmWasmEngine(): void {
   prewarmStarted = true;
   // Use requestIdleCallback if available, otherwise setTimeout
   if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(() => { void loadWasmEngineModule(); });
+    requestIdleCallback(() => {
+      void loadWasmEngineModule();
+    });
   } else {
-    setTimeout(() => { void loadWasmEngineModule(); }, 500);
+    setTimeout(() => {
+      void loadWasmEngineModule();
+    }, 500);
   }
 }
 
