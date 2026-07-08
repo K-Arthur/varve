@@ -21,6 +21,7 @@ import {
   type SceneNode as EngineNode,
   getImageCache,
   mapBlendMode,
+  prewarmWasmEngine,
   type ReplayTarget,
   renderAlphaMask,
   replayIr,
@@ -506,6 +507,9 @@ export function CanvasArea({
       engineRef.current = eng;
     });
   }, []);
+
+  // Pre-warm WASM engine during idle so first document load is instant
+  useEffect(() => { prewarmWasmEngine(); }, []);
 
   useEffect(() => {
     const canvas = contentCanvasRef.current;

@@ -12,6 +12,19 @@ export interface WasmEngineModule {
 }
 
 let cachedModule: WasmEngineModule | null = null;
+let prewarmStarted = false;
+
+/** Warm the WASM engine during idle time so it's ready when first needed. */
+export function prewarmWasmEngine(): void {
+  if (prewarmStarted) return;
+  prewarmStarted = true;
+  // Use requestIdleCallback if available, otherwise setTimeout
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(() => { void loadWasmEngineModule(); });
+  } else {
+    setTimeout(() => { void loadWasmEngineModule(); }, 500);
+  }
+}
 
 export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
   if (cachedModule) return cachedModule;
