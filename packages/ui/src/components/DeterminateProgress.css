@@ -1,0 +1,72 @@
+.det-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.det-progress__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.det-progress__track-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.det-progress__track {
+  flex: 1;
+  height: 6px;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.det-progress--sm .det-progress__track {
+  height: 4px;
+}
+
+.det-progress__fill {
+  height: 100%;
+  background: var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-base) var(--ease-standard);
+}
+
+.det-progress__cancel {
+  background: none;
+  border: none;
+  color: var(--color-accent-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+
+.det-progress__cancel:hover {
+  background: var(--color-surface-sunken);
+}
+
+.det-progress__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.det-progress__errors {
+  color: var(--color-feedback-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .det-progress__fill {
+    transition: none;
+  }
+}

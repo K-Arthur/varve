@@ -1,0 +1,12 @@
+.inline-activity {
+  animation: strata-spin var(--loader-spin-duration, 0.8s) linear infinite;
+  color: var(--loader-primary, var(--color-interactive-default));
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inline-activity {
+    animation-duration: 2s; /* Slower, less distracting */
+    opacity: 0.6;
+  }
+}
