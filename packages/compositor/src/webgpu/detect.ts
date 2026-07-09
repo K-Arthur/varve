@@ -1,3 +1,5 @@
+/// <reference types="@webgpu/types" />
+
 /**
  * WebGPU capability detection with fallback adapter reporting.
  */

@@ -1,3 +1,5 @@
+/// <reference path="../webgpu-types.d.ts" />
+
 /**
  * GPU compute shader accelerator for background removal operations.
  *
@@ -65,7 +67,11 @@ export class GpuAccelerator {
       this.device = device;
       this.pipelines.clear();
 
-      const adapterInfo = await adapter.requestAdapterInfo();
+      const adapterInfo = await (
+        adapter as unknown as {
+          requestAdapterInfo(): Promise<{ description?: string; vendor?: string }>;
+        }
+      ).requestAdapterInfo();
       const maxTextureDim = device.limits.maxTextureDimension2D;
 
       this._capabilities = {

@@ -67,7 +67,7 @@ interface GPUBindGroup {
   readonly layout?: GPUBindGroupLayout;
 }
 
-interface GPUBindGroupLayout {}
+type GPUBindGroupLayout = {};
 
 interface GPUComputePipeline {
   getBindGroupLayout(index: number): GPUBindGroupLayout;
@@ -142,7 +142,7 @@ interface GPURenderPassEncoder {
   end(): void;
 }
 
-interface GPUComputePassDescriptor {}
+type GPUComputePassDescriptor = {};
 
 interface GPURenderPassDescriptor {
   colorAttachments: Iterable<GPURenderPassColorAttachment>;
@@ -161,7 +161,7 @@ type GPULoadOp = 'load' | 'clear';
 type GPUStoreOp = 'store' | 'discard';
 type GPUColor = { r: number; g: number; b: number; a: number };
 
-interface GPUCommandBuffer {}
+type GPUCommandBuffer = {};
 
 interface GPUQueue {
   submit(commandBuffers: Iterable<GPUCommandBuffer>): void;
@@ -190,7 +190,7 @@ interface GPUTexture {
   destroy(): void;
 }
 
-interface GPUTextureView {}
+type GPUTextureView = {};
 
 interface GPUTextureViewDescriptor {
   format?: GPUTextureFormat;
@@ -318,7 +318,7 @@ type GPUCompareFunction =
   | 'greater-equal'
   | 'always';
 
-interface GPUSampler {}
+type GPUSampler = {};
 
 interface GPUCanvasContext {
   configure(descriptor: GPUCanvasConfiguration): void;
@@ -470,7 +470,7 @@ interface GPUMultisampleState {
   alphaToCoverageEnabled?: boolean;
 }
 
-interface GPUPipelineLayout {}
+type GPUPipelineLayout = {};
 
 interface GPUPipelineLayoutDescriptor {
   bindGroupLayouts: Iterable<GPUBindGroupLayout>;
@@ -499,7 +499,7 @@ interface GPURenderBundleEncoderDescriptor {
   label?: string;
 }
 
-interface GPURenderBundle {}
+type GPURenderBundle = {};
 
 interface GPUTextureCopyView {
   texture: GPUTexture;

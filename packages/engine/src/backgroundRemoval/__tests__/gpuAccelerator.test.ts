@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GpuAccelerator, gpuFeatherMask, getGpuCapabilities } from '../gpuAccelerator';
+import { GpuAccelerator, getGpuCapabilities, gpuFeatherMask } from '../gpuAccelerator';
 import { featherMaskArray, resizeMaskNearestNeighbor, thresholdMask } from '../maskOps';
 
 describe('GpuAccelerator', () => {

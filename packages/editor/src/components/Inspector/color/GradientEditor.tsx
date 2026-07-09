@@ -123,8 +123,8 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
           const toRgb = {
             space: 'rgb' as const,
             ...(() => {
-              const [r, g, b, alpha] = managedColorToRgba(b.color);
-              return { r, g, b, a: alpha };
+              const [r, g, blue, alpha] = managedColorToRgba(b.color);
+              return { r, g, b: blue, a: alpha };
             })(),
           };
           color = interpolateManagedColor(

@@ -13,7 +13,10 @@ export class Canvas2DBackend implements CompositorBackend {
   private dpr = 1;
   async init(canvas: CanvasSurface): Promise<void> {
     this.dpr = window.devicePixelRatio || 1;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d') as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null;
     if (!ctx) throw new Error('Canvas2D context unavailable');
     this.ctx = ctx;
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { encodeClickPrompts, encodeBoxPrompt, applyPrompts } from '../promptEncoder';
-import type { ClickPoint, BoundingBox, SegmentationPrompt } from '../promptEncoder';
+import type { BoundingBox, ClickPoint, SegmentationPrompt } from '../promptEncoder';
+import { applyPrompts, encodeBoxPrompt, encodeClickPrompts } from '../promptEncoder';
 
 /**
  * Helper: fill a single-channel mask by painting rectangles.

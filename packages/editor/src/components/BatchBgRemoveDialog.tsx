@@ -18,7 +18,6 @@ import type {
   BackgroundRemovalState,
   NodeId,
   SceneNode,
-  ShapeNode,
 } from '@strata/scene';
 import {
   imageShapeH,
@@ -258,7 +257,7 @@ export function BatchBgRemoveDialog({
     abortRef.current = new AbortController();
     hadAiFallbackRef.current = false;
 
-    const filtered = files.map((f) => ({ ...f, status: 'queued' as const }));
+    const filtered = files.map((f) => ({ ...f, status: 'queued' as FileStatus }));
 
     setFiles(filtered);
     setStage('processing');
@@ -272,7 +271,7 @@ export function BatchBgRemoveDialog({
     for (let i = 0; i < filtered.length; i++) {
       if (cancelledRef.current) break;
 
-      const f = filtered[i]!;
+      const f = filtered[i]! as ProcessingFile;
       if (f.status === 'skipped') {
         skipped++;
         setProgress(i + 1);
@@ -595,7 +594,7 @@ export function BatchBgRemoveDialog({
 
           {showDownloadDialog && (
             <ModelDownloadDialog
-              modelId={downloadModelId}
+              modelId={downloadModelId ?? ''}
               onClose={() => setShowDownloadDialog(false)}
               onComplete={() => {
                 setShowDownloadDialog(false);
