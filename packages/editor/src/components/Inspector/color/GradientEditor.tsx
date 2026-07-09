@@ -8,8 +8,14 @@
  * positioning; Pointer Events for drag (cross-platform, Linux-first).
  */
 
-import type { GradientFill, GradientStop, GradientType, ManagedColor } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import type {
+  GradientFill,
+  GradientStop,
+  GradientTilingMode,
+  GradientType,
+  ManagedColor,
+} from '@strata/scene';
+import { expandGradientStops, interpolateManagedColor, managedColorToRgba } from '@strata/shared';
 import { Icon } from '@strata/ui';
 import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';
@@ -19,11 +25,24 @@ export interface GradientEditorProps {
   onChange: (gradient: GradientFill) => void;
 }
 
+const INTERPOLATION_SPACES = [
+  { value: 'oklab', label: 'OKLab' },
+  { value: 'oklch', label: 'OKLch' },
+  { value: 'hsl', label: 'HSL' },
+  { value: 'srgb', label: 'sRGB' },
+] as const;
+
 const GRADIENT_TYPES: { value: GradientType; label: string }[] = [
   { value: 'linear', label: 'Linear' },
   { value: 'radial', label: 'Radial' },
   { value: 'angular', label: 'Angular' },
   { value: 'diamond', label: 'Diamond' },
+];
+
+const TILING_MODES: { value: GradientTilingMode; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'repeat', label: 'Repeat' },
+  { value: 'reflect', label: 'Reflect' },
 ];
 
 function stopColorCss(c: ManagedColor): string {
@@ -32,19 +51,35 @@ function stopColorCss(c: ManagedColor): string {
 }
 
 function gradientCss(g: GradientFill): string {
-  const stops = g.stops
-    .map((s) => `${stopColorCss(s.color)} ${(s.position * 100).toFixed(1)}%`)
+  const space = g.interpolationSpace ?? 'oklab';
+  const inputs = g.stops.map((st) => {
+    const [r, gv, b, a] = managedColorToRgba(st.color);
+    return {
+      position: st.position,
+      color: { space: 'rgb' as const, r, g: gv, b, a },
+      midpoint: st.midpoint,
+    };
+  });
+  const expanded =
+    space === 'srgb'
+      ? inputs.map((i) => ({ position: i.position, color: i.color }))
+      : expandGradientStops(inputs, space, 12);
+  const stopCss = expanded
+    .map((s) => {
+      const [r, gv, b, a] = managedColorToRgba(s.color);
+      return `rgba(${r},${gv},${b},${(a / 255).toFixed(2)}) ${(s.position * 100).toFixed(1)}%`;
+    })
     .join(', ');
   if (g.type === 'linear') {
-    return `linear-gradient(${g.rotation ?? 90}deg, ${stops})`;
+    return `linear-gradient(${g.rotation ?? 90}deg, ${stopCss})`;
   }
   if (g.type === 'radial') {
-    return `radial-gradient(circle, ${stops})`;
+    return `radial-gradient(circle, ${stopCss})`;
   }
   if (g.type === 'angular') {
-    return `conic-gradient(from ${g.rotation ?? 0}deg, ${stops})`;
+    return `conic-gradient(from ${g.rotation ?? 0}deg, ${stopCss})`;
   }
-  return `radial-gradient(circle, ${stops})`;
+  return `radial-gradient(circle, ${stopCss})`;
 }
 
 export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
@@ -69,17 +104,35 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
         const a = sorted[i] as GradientStop;
         const b = sorted[i + 1] as GradientStop;
         if (position >= a.position && position <= b.position) {
-          const t =
-            b.position === a.position ? 0 : (position - a.position) / (b.position - a.position);
-          const [ar, ag, ab, aa] = managedColorToRgba(a.color);
-          const [br, bg, bb, ba] = managedColorToRgba(b.color);
-          color = {
-            space: 'rgb',
-            r: Math.round(ar + (br - ar) * t),
-            g: Math.round(ag + (bg - ag) * t),
-            b: Math.round(ab + (bb - ab) * t),
-            a: Math.round(aa + (ba - aa) * t),
+          const span = b.position - a.position;
+          const linearT = span === 0 ? 0 : (position - a.position) / span;
+          const midpoint = a.midpoint ?? 0.5;
+          const blendT =
+            midpoint === 0.5
+              ? linearT
+              : linearT <= midpoint
+                ? 0.5 * (linearT / midpoint)
+                : 0.5 + 0.5 * ((linearT - midpoint) / (1 - midpoint));
+          const fromRgb = {
+            space: 'rgb' as const,
+            ...(() => {
+              const [r, g, b, alpha] = managedColorToRgba(a.color);
+              return { r, g, b, a: alpha };
+            })(),
           };
+          const toRgb = {
+            space: 'rgb' as const,
+            ...(() => {
+              const [r, g, b, alpha] = managedColorToRgba(b.color);
+              return { r, g, b, a: alpha };
+            })(),
+          };
+          color = interpolateManagedColor(
+            fromRgb,
+            toRgb,
+            blendT,
+            gradient.interpolationSpace ?? 'oklab',
+          );
           break;
         }
       }
@@ -156,6 +209,52 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
             {GRADIENT_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="insp-field">
+        <span className="insp-field__label">Interpolation</span>
+        <div className="insp-field__control">
+          <select
+            aria-label="Gradient interpolation space"
+            value={gradient.interpolationSpace ?? 'oklab'}
+            className="gradient-editor__select"
+            onChange={(e) =>
+              onChange({
+                ...gradient,
+                interpolationSpace: e.target.value as GradientFill['interpolationSpace'],
+              })
+            }
+          >
+            {INTERPOLATION_SPACES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="insp-field">
+        <span className="insp-field__label">Tiling</span>
+        <div className="insp-field__control">
+          <select
+            aria-label="Gradient tiling mode"
+            value={gradient.tilingMode ?? 'none'}
+            className="gradient-editor__select"
+            onChange={(e) =>
+              onChange({
+                ...gradient,
+                tilingMode: e.target.value as GradientTilingMode,
+              })
+            }
+          >
+            {TILING_MODES.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
               </option>
             ))}
           </select>
@@ -239,6 +338,24 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
               >
                 <Icon name="Trash2" label={undefined} size="0.85em" />
               </button>
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Midpoint</span>
+            <div className="insp-field__control">
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={currentStop.midpoint ?? 0.5}
+                aria-label={`Stop ${selectedStop + 1} midpoint`}
+                onChange={(e) => updateStop(selectedStop, { midpoint: Number(e.target.value) })}
+                className="gradient-editor__slider"
+              />
+              <span className="gradient-editor__unit">
+                {Math.round((currentStop.midpoint ?? 0.5) * 100)}%
+              </span>
             </div>
           </div>
           <ColorPicker
