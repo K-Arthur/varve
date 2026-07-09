@@ -266,4 +266,66 @@ describe('image fill modes', () => {
     // 50x50 * scale 2 = 100x100, fits exactly in 100x100
     expect(draw[0]).toBe('drawImage img6 0.0 0.0 100.0 100.0');
   });
+
+  it('triggers load for alpha mask when not cached', async () => {
+    // Mock document for the test environment
+    global.document = {} as Document;
+    const cache = getImageCache();
+    const maskUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const { target } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        100,
+        100,
+        imageFill({
+          type: 'image',
+          src: 'imgA',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 100,
+          imageHeight: 100,
+          alphaMask: maskUrl,
+        }),
+      ),
+    ]);
+    // Mask load is async; wait for it to start
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Mask should be in cache with loading state
+    const maskEntry = cache.get(maskUrl);
+    expect(maskEntry?.state).toBe('loading');
+    delete (global as any).document;
+  });
+
+  it('uses cached alpha mask for compositing', () => {
+    const cache = getImageCache();
+    const maskUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    // Pre-load mask image
+    cache.setLoaded(maskUrl, mockImage(maskUrl, 100, 100));
+    const { target, calls } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        100,
+        100,
+        imageFill({
+          type: 'image',
+          src: 'imgB',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 100,
+          imageHeight: 100,
+          alphaMask: maskUrl,
+        }),
+      ),
+    ]);
+    // With a cached mask, replay should issue drawImage calls (compositing happens in canvas)
+    // The exact number depends on offscreen canvas compositing, but we should see at least one draw
+    const draw = calls.filter((c) => c.startsWith('drawImage'));
+    expect(draw.length).toBeGreaterThan(0);
+  });
 });

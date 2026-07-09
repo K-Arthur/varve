@@ -236,17 +236,7 @@ export function FileList({
         style={{ height: '100%', overflow: 'auto' }}
       >
         {/* biome-ignore lint/a11y/useSemanticElements: ARIA row role required for virtualized list */}
-        <div
-          role="row"
-          aria-rowindex={0}
-          className="file-row"
-          tabIndex={-1}
-          style={{
-            cursor: 'default',
-            fontWeight: 'var(--font-weight-semibold)',
-            borderBottom: '2px solid var(--color-border-strong)',
-          }}
-        >
+        <div role="row" aria-rowindex={0} className="file-row file-row--header" tabIndex={-1}>
           <div />
           {columns.map((col) => (
             <>
@@ -263,15 +253,7 @@ export function FileList({
                     : 'none'
                 }
                 tabIndex={-1}
-                className="file-row__name"
-                style={{
-                  cursor: 'pointer',
-                  background: 'none',
-                  border: 'none',
-                  textAlign: 'left',
-                  font: 'inherit',
-                  color: 'inherit',
-                }}
+                className="file-row__sort-btn"
                 onClick={() => onSort(col.key)}
               >
                 {col.label}

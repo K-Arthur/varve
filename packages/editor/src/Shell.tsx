@@ -37,6 +37,7 @@ import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandl
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { RecoveryDialog } from './components/RecoveryDialog';
+import { SelectionInfoBar } from './components/SelectionInfoBar';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
@@ -571,6 +572,7 @@ function ShellInner({
             />
           </div>
         )}
+        <SelectionInfoBar />
         <StatusBar />
         {/* FAB for layers (responsive) */}
         <button

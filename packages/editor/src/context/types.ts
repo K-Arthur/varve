@@ -176,6 +176,8 @@ export interface EditorContextValue {
   selectAllWithSameFill: () => void;
   selectAllWithSameLayerColor: () => void;
   selectAllOfType: () => void;
+  selectPreviousSelection: () => void;
+  selectNextSelection: () => void;
   // Document CRUD
   createShapeAt: (
     world: { x: number; y: number },

@@ -697,6 +697,17 @@ function paintImageFill(
     // Apply alpha mask via offscreen compositing (background removal on shape nodes)
     if (fill.alphaMask && target.drawImage && typeof document !== 'undefined') {
       const maskImg = getImageCache().getImage(fill.alphaMask);
+      // Trigger async load for mask if not yet cached (mirrors base image load pattern)
+      if (!maskImg) {
+        const maskEntry = getImageCache().get(fill.alphaMask);
+        if (!maskEntry || maskEntry.state === 'idle') {
+          getImageCache()
+            .load(fill.alphaMask)
+            .catch(() => {
+              /* errors recorded in cache entry */
+            });
+        }
+      }
       if (maskImg) {
         try {
           const oc = document.createElement('canvas');
