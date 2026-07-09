@@ -101,6 +101,25 @@ export class ImageCache {
     const pending = this.pending.get(url);
     if (pending) return pending;
 
+    // Evict oldest entries if at capacity (LRU via accessTimes)
+    while (this.cache.size >= this.maxEntries) {
+      let oldestKey: string | undefined;
+      let oldestTime = Infinity;
+      for (const [key, time] of this.accessTimes) {
+        if (this.cache.has(key) && time < oldestTime) {
+          oldestTime = time;
+          oldestKey = key;
+        }
+      }
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+        this.accessTimes.delete(oldestKey);
+        this.listeners.delete(oldestKey);
+      } else {
+        break;
+      }
+    }
+
     // Mark as loading
     this.cache.set(url, { state: 'loading', image: null });
 
