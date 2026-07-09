@@ -285,17 +285,24 @@ export interface SceneNode {
 }
 
 /** P2: Fill type for the engine (mirrors @strata/scene Fill). */
+export type GradientInterpolationSpace = 'srgb' | 'oklab' | 'oklch' | 'hsl';
+
+export type GradientTilingMode = 'none' | 'repeat' | 'reflect';
+
 export interface EngineGradientStop {
   position: number;
   color: EngineColor;
+  midpoint?: number;
 }
 
 export interface EngineGradientFill {
   type: 'linear' | 'radial' | 'angular' | 'diamond';
   stops: EngineGradientStop[];
   rotation?: number;
+  interpolationSpace?: GradientInterpolationSpace;
   /** Full 2x3 fill transform matrix. When set, overrides rotation. */
   transform?: Affine;
+  tilingMode?: GradientTilingMode;
 }
 
 export interface EngineImageFillData {
@@ -373,6 +380,8 @@ export type Primitive =
       letterSpacing: number;
       lineHeight: number;
       paragraphSpacing: number;
+      paragraphIndent?: number;
+      firstLineIndent?: number;
       textCase: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
       textDecoration: 'none' | 'underline' | 'line-through';
       textOverflow: 'clip' | 'ellipsis' | 'visible';
@@ -389,6 +398,15 @@ export type Primitive =
       pathTextSettings?: PathTextSettings;
       /** Resolved shape for path text (when textMode === 'path'). */
       pathShape?: Shape;
+      /** Tab stop definitions. */
+      tabStops?: Array<{
+        position: number;
+        alignment: 'left' | 'center' | 'right' | 'decimal';
+        alignmentChar?: string;
+        leader?: string;
+      }>;
+      /** Default tab width (in px, default 8 spaces). */
+      tabSize?: number;
     };
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */
@@ -516,9 +534,11 @@ export type FillIR =
   | {
       type: 'gradient';
       gradientType: 'linear' | 'radial' | 'angular' | 'diamond';
-      stops: { position: number; color: EngineColor }[];
+      stops: { position: number; color: EngineColor; midpoint?: number }[];
       rotation: number;
+      interpolationSpace?: GradientInterpolationSpace;
       transform?: Affine;
+      tilingMode?: GradientTilingMode;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;

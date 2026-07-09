@@ -186,6 +186,7 @@ export type {
   EngineFill,
   FillIR,
   FilterIR,
+  GradientTilingMode,
   PathPoint,
   Point,
   Primitive,
