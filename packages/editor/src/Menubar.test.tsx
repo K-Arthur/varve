@@ -83,6 +83,10 @@ vi.mock('./shortcuts', () => ({
     sendBack: { binding: { key: '[', ctrl: true, shift: true }, label: 'Back' },
     zoomReset: { binding: { key: '0', ctrl: true }, label: 'Zoom 100' },
     toolInspect: { binding: { key: 'i', ctrl: true, shift: true }, label: 'Inspect' },
+    colorBlindnessNone: { binding: { key: '0', ctrl: true, alt: true }, label: 'Color Blindness: None' },
+    colorBlindnessProtanopia: { binding: { key: 'p', ctrl: true, alt: true }, label: 'Color Blindness: Protanopia' },
+    colorBlindnessDeuteranopia: { binding: { key: 'd', ctrl: true, alt: true }, label: 'Color Blindness: Deuteranopia' },
+    colorBlindnessTritanopia: { binding: { key: 't', ctrl: true, alt: true }, label: 'Color Blindness: Tritanopia' },
   },
 }));
 
