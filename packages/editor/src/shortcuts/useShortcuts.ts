@@ -261,6 +261,14 @@ export function useShortcuts(
             e.setCanvasMode('full');
           }
         };
+      case 'colorBlindnessNone':
+        return () => e.setColorBlindnessView('none');
+      case 'colorBlindnessProtanopia':
+        return () => e.setColorBlindnessView('protanopia');
+      case 'colorBlindnessDeuteranopia':
+        return () => e.setColorBlindnessView('deuteranopia');
+      case 'colorBlindnessTritanopia':
+        return () => e.setColorBlindnessView('tritanopia');
       case 'openHelp':
         return () => setHelpOpen((p) => !p);
       default:
