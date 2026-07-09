@@ -133,6 +133,7 @@ export interface ToolContext {
   announceSelection: (selected: SceneNode[]) => void;
   announceOperation: (op: string, result: string) => void;
   setDraft: (draft: DraftShape | null) => void;
+  setDropTargetFrame: (id: NodeId | null) => void;
   rootNodes: () => SceneNode[];
   getNode: (id: NodeId) => SceneNode | undefined;
 

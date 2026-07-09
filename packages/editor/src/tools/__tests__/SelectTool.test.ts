@@ -43,6 +43,7 @@ function makeCtx(overrides?: Record<string, unknown>) {
     setPointerCapture: vi.fn(),
     releasePointerCapture: vi.fn(),
     findContainingFrame: vi.fn().mockReturnValue(null),
+    setDropTargetFrame: vi.fn(),
     nodeWorldBounds: vi.fn().mockReturnValue({ x: 0, y: 0, w: 100, h: 100 }),
     engine: null,
     hitTest: vi.fn().mockReturnValue(null),
@@ -662,5 +663,60 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
       // This is tested implicitly by the implementation
       expect(ctx.setDraft).toHaveBeenCalledWith(null);
     });
+  });
+});
+
+describe('SelectTool — drop target frame highlighting', () => {
+  it('calls setDropTargetFrame with the containing frame on drag move', () => {
+    const tool = new SelectTool();
+    const findContainingFrame = vi.fn().mockReturnValue('frame1');
+    const setDropTargetFrame = vi.fn();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      findContainingFrame,
+      setDropTargetFrame,
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 0, y: 0, w: 100, h: 100 }),
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 0, 0] }),
+    });
+
+    (tool as any).drag = { startCanvas: { x: 0, y: 0 }, currentCanvas: { x: 10, y: 10 } };
+    (tool as any).initialPositions = new Map([['n1', { x: 0, y: 0 }]]);
+    (tool as any).onDragMove?.(ctx);
+
+    expect(findContainingFrame).toHaveBeenCalledWith({ x: 50, y: 50 });
+    expect(setDropTargetFrame).toHaveBeenCalledWith('frame1');
+  });
+
+  it('calls setDropTargetFrame with null when no containing frame is found', () => {
+    const tool = new SelectTool();
+    const findContainingFrame = vi.fn().mockReturnValue(null);
+    const setDropTargetFrame = vi.fn();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      findContainingFrame,
+      setDropTargetFrame,
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 0, y: 0, w: 100, h: 100 }),
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 0, 0] }),
+    });
+
+    (tool as any).drag = { startCanvas: { x: 0, y: 0 }, currentCanvas: { x: 10, y: 10 } };
+    (tool as any).initialPositions = new Map([['n1', { x: 0, y: 0 }]]);
+    (tool as any).onDragMove?.(ctx);
+
+    expect(setDropTargetFrame).toHaveBeenCalledWith(null);
+  });
+
+  it('clears drop target frame on drag end', () => {
+    const tool = new SelectTool();
+    const setDropTargetFrame = vi.fn();
+    const ctx = makeCtx({
+      selection: [],
+      setDropTargetFrame,
+    });
+
+    (tool as any).marqueeActive = false;
+    (tool as any).onDragEnd?.(ctx);
+
+    expect(setDropTargetFrame).toHaveBeenCalledWith(null);
   });
 });
