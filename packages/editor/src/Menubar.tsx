@@ -170,6 +170,27 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       },
       { label: '---' },
       {
+        label: '\u2616 Color Blindness: None',
+        action: 'colorBlindnessNone',
+        shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessNone.binding),
+      },
+      {
+        label: '\u2616 Protanopia (red)',
+        action: 'colorBlindnessProtanopia',
+        shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessProtanopia.binding),
+      },
+      {
+        label: '\u2616 Deuteranopia (green)',
+        action: 'colorBlindnessDeuteranopia',
+        shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessDeuteranopia.binding),
+      },
+      {
+        label: '\u2616 Tritanopia (blue)',
+        action: 'colorBlindnessTritanopia',
+        shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessTritanopia.binding),
+      },
+      { label: '---' },
+      {
         label: 'Home',
         shortcut: formatShortcut(SHORTCUT_DEFS.home.binding),
         action: 'home',
@@ -250,6 +271,7 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
 function itemRole(item: MenuItem): string {
   if (item.action?.startsWith('theme:')) return 'menuitemradio';
   if (item.action?.startsWith('canvasMode')) return 'menuitemcheckbox';
+  if (item.action?.startsWith('colorBlindness')) return 'menuitemradio';
   return 'menuitem';
 }
 
@@ -288,6 +310,7 @@ export function Menubar({
     setCanvasMode,
     setRulerMode,
     setGridOverlayMode,
+    setColorBlindnessView,
     fitActivePage,
     fitActiveFrame,
     resetViewRotation,
@@ -500,6 +523,18 @@ export function Menubar({
         case 'gridOverlayIsometric':
           setGridOverlayMode(state.gridOverlayMode === 'isometric' ? 'none' : 'isometric');
           break;
+        case 'colorBlindnessNone':
+          setColorBlindnessView('none');
+          break;
+        case 'colorBlindnessProtanopia':
+          setColorBlindnessView('protanopia');
+          break;
+        case 'colorBlindnessDeuteranopia':
+          setColorBlindnessView('deuteranopia');
+          break;
+        case 'colorBlindnessTritanopia':
+          setColorBlindnessView('tritanopia');
+          break;
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
@@ -526,6 +561,7 @@ export function Menubar({
       onBatchBgRemove,
       save,
       saveAs,
+      setColorBlindnessView,
     ],
   );
 
@@ -712,12 +748,17 @@ export function Menubar({
               }
               const isActive =
                 item.action?.startsWith('theme:') && currentTheme === item.action.slice(6);
+              const colorBlindType = item.action?.startsWith('colorBlindness')
+                ? item.action.slice('colorBlindness'.length).toLowerCase()
+                : null;
               const isChecked =
                 item.action === 'canvasModeOutline'
                   ? state.canvasMode === 'outline'
                   : item.action === 'canvasModePreview'
                     ? state.canvasMode === 'preview'
-                    : undefined;
+                    : colorBlindType !== null
+                      ? state.colorBlindnessView === colorBlindType
+                      : undefined;
               return (
                 // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio role per ARIA spec
                 <button
@@ -731,7 +772,9 @@ export function Menubar({
                         ? state.canvasMode === 'outline'
                         : item.action === 'canvasModePreview'
                           ? state.canvasMode === 'preview'
-                          : undefined
+                          : colorBlindType !== null
+                            ? state.colorBlindnessView === colorBlindType
+                            : undefined
                   }
                   disabled={!item.action}
                   className={`editor-menubar__menu-item${isActive || isChecked ? ' editor-menubar__menu-item--active' : ''}`}
