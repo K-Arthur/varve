@@ -159,19 +159,31 @@ export type Effect =
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
 
+/** Color space for gradient stop interpolation (default: oklab). */
+export type GradientInterpolationSpace = 'srgb' | 'oklab' | 'oklch' | 'hsl';
+
+/** How a gradient extends beyond its defined stop range. */
+export type GradientTilingMode = 'none' | 'repeat' | 'reflect';
+
 export interface GradientStop {
   position: number;
   color: ManagedColor;
+  /** Bias for 50% blend point toward the next stop (0-1, default 0.5). */
+  midpoint?: number;
 }
 
 export interface GradientFill {
   type: GradientType;
   stops: GradientStop[];
   rotation?: number;
+  /** Perceptually uniform interpolation space for stop blending. Default: oklab. */
+  interpolationSpace?: GradientInterpolationSpace;
   /** Full 2x3 fill transform matrix. When set, overrides rotation.
    *  Maps fill-internal [0,0]×[1,1] space to the node's local space.
    *  Backward-compat: rotation field auto-applies as rotate transform. */
   transform?: import('@strata/engine').Affine;
+  /** How the gradient tiles beyond its [0,1] stop range (default: none). */
+  tilingMode?: GradientTilingMode;
 }
 
 /** How an image fill is sized relative to the node bounds. */

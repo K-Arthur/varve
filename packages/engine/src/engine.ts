@@ -197,8 +197,11 @@ function stubEngine(): Engine {
                   stops: f.gradient.stops.map((s) => ({
                     position: s.position,
                     color: s.color,
+                    ...(s.midpoint !== undefined ? { midpoint: s.midpoint } : {}),
                   })),
                   rotation: f.gradient.rotation ?? 0,
+                  interpolationSpace: f.gradient.interpolationSpace ?? 'oklab',
+                  tilingMode: f.gradient.tilingMode ?? undefined,
                   opacity: f.opacity,
                   blendMode: f.blendMode,
                   visible: f.visible,

@@ -21,14 +21,92 @@ pub struct NodeId(pub u64);
 
 // ── F6: Stroke, Effect, BlendMode types ─────────────────────────────────────
 
-pub type BlendMode = String; // "normal", "multiply", "screen", etc.
+/// Mirrors the TS `BlendMode` discriminated union of 19 string literals.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BlendMode {
+    PassThrough,
+    Normal,
+    Multiply,
+    Screen,
+    Overlay,
+    Darken,
+    Lighten,
+    ColorDodge,
+    ColorBurn,
+    HardLight,
+    SoftLight,
+    Difference,
+    Exclusion,
+    Hue,
+    Saturation,
+    Color,
+    Luminosity,
+    PlusDarker,
+    PlusLighter,
+}
+
+/// CMYK fallback for spot colours (mirrors TS `{ c: number; m: number; y: number; k: number }`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CmykFallback {
+    pub c: f64,
+    pub m: f64,
+    pub y: f64,
+    pub k: f64,
+}
+
+/// Mirrors the TS `EngineColor` discriminated union tagged by `"space"`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "space")]
+pub enum EngineColor {
+    #[serde(rename = "rgb")]
+    Rgb {
+        r: f64,
+        g: f64,
+        b: f64,
+        a: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        profile: Option<String>,
+    },
+    #[serde(rename = "cmyk")]
+    Cmyk {
+        c: f64,
+        m: f64,
+        y: f64,
+        k: f64,
+        a: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        profile: Option<String>,
+    },
+    #[serde(rename = "gray")]
+    Gray {
+        v: f64,
+        a: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        profile: Option<String>,
+    },
+    #[serde(rename = "spot")]
+    Spot {
+        name: String,
+        tint: f64,
+        a: f64,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "processFallback"
+        )]
+        process_fallback: Option<CmykFallback>,
+    },
+}
 
 // ── Gradient / Fill types (mirrors @strata/engine types.ts) ──────────────────
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GradientStop {
     pub position: f64,
-    pub color: [u8; 4],
+    pub color: EngineColor,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub midpoint: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -40,6 +118,8 @@ pub struct GradientFill {
     pub rotation: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transform: Option<[f64; 6]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tiling_mode: Option<String>, // "none", "repeat", "reflect"
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -47,7 +127,7 @@ pub struct GradientFill {
 pub enum FillIR {
     #[serde(rename = "solid")]
     Solid {
-        color: [u8; 4],
+        color: EngineColor,
         opacity: f64,
         #[serde(rename = "blendMode")]
         blend_mode: BlendMode,
@@ -61,6 +141,8 @@ pub enum FillIR {
         rotation: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         transform: Option<[f64; 6]>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tiling_mode: Option<String>, // "none", "repeat", "reflect"
         opacity: f64,
         #[serde(rename = "blendMode")]
         blend_mode: BlendMode,
@@ -94,7 +176,7 @@ pub enum FillIR {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Stroke {
-    pub color: [u8; 4],
+    pub color: EngineColor,
     pub weight: f64,
     pub align: String, // "inside", "center", "outside"
     pub dash_pattern: Vec<f64>,
@@ -108,7 +190,13 @@ pub struct Stroke {
 impl Default for Stroke {
     fn default() -> Self {
         Self {
-            color: [0, 0, 0, 255],
+            color: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             weight: 1.0,
             align: "center".into(),
             dash_pattern: Vec::new(),
@@ -130,7 +218,7 @@ pub enum Effect {
         y: f64,
         blur: f64,
         spread: f64,
-        color: [u8; 4],
+        color: EngineColor,
         opacity: f64,
         blend_mode: BlendMode,
         visible: bool,
@@ -141,7 +229,7 @@ pub enum Effect {
         y: f64,
         blur: f64,
         spread: f64,
-        color: [u8; 4],
+        color: EngineColor,
         opacity: f64,
         blend_mode: BlendMode,
         visible: bool,
@@ -154,7 +242,7 @@ pub enum Effect {
     OuterGlow {
         blur: f64,
         spread: f64,
-        color: [u8; 4],
+        color: EngineColor,
         opacity: f64,
         blend_mode: BlendMode,
         visible: bool,
@@ -163,7 +251,7 @@ pub enum Effect {
     InnerGlow {
         blur: f64,
         spread: f64,
-        color: [u8; 4],
+        color: EngineColor,
         opacity: f64,
         blend_mode: BlendMode,
         visible: bool,
@@ -178,8 +266,8 @@ pub struct SceneNode {
     pub name: String,
     pub transform: Affine,
     pub shape: Shape,
-    /// RGBA fill, 0-255 per channel.
-    pub fill: [u8; 4],
+    /// Engine color fill (tagged union matching TS `EngineColor`).
+    pub fill: EngineColor,
     /// Child node IDs in paint order (frame nodes only).
     #[serde(default)]
     pub children: Vec<NodeId>,
@@ -215,7 +303,7 @@ fn default_opacity() -> f64 {
     1.0
 }
 fn default_blend_mode() -> BlendMode {
-    "normal".into()
+    BlendMode::Normal
 }
 
 /// Find the topmost node (highest paint-order index) whose shape contains the
@@ -295,12 +383,18 @@ mod tests {
             name: format!("node-{id}"),
             transform: Affine::translate(translate),
             shape,
-            fill: [57, 208, 198, 255],
+            fill: EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -341,12 +435,18 @@ mod tests {
             name: "scaled".into(),
             transform: Affine::scale(2.0),
             shape: Shape::Rect(Rect::new(0.0, 0.0, 5.0, 5.0)),
-            fill: [57, 208, 198, 255],
+            fill: EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
