@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Worker for Node.js test environment
 class MockWorker {
   onmessage: ((e: MessageEvent) => void) | null = null;
   onerror: ((e: ErrorEvent) => void) | null = null;
   private _listeners: Record<string, Array<(...args: any[]) => void>> = {};
+  private _lastMessage: { imageData?: { width: number; height: number } } | null = null;
 
   constructor(_url: string | URL, _opts?: WorkerOptions) {
     // Simulate ready after construction
@@ -13,8 +14,25 @@ class MockWorker {
     }, 0);
   }
 
-  postMessage(_msg: any) {
-    // No-op in mock
+  postMessage(msg: any) {
+    this._lastMessage = msg as { imageData?: { width: number; height: number } };
+    // Defer the "inference" completion so tests can queue more jobs
+    // before any worker completes.
+    setTimeout(() => {
+      if (this._lastMessage) {
+        this._dispatch({
+          type: 'result',
+          result: {
+            maskDataUrl: 'data:image/png;base64,test',
+            confidence: 0.95,
+            method: 'ai-balanced',
+            processingTimeMs: 100,
+            width: this._lastMessage.imageData?.width ?? 0,
+            height: this._lastMessage.imageData?.height ?? 0,
+          },
+        });
+      }
+    }, 0);
   }
 
   addEventListener(type: string, fn: (...args: any[]) => void) {
@@ -40,6 +58,10 @@ class MockWorker {
 }
 
 let origWorker: typeof Worker;
+
+function makeImageData(w = 10, h = 10): ImageData {
+  return new ImageData(w, h);
+}
 
 describe('workerPool', () => {
   let workerPool: typeof import('./workerPool');
@@ -130,6 +152,66 @@ describe('workerPool', () => {
 
       expect(pending.length).toBe(0);
       expect(mockReject).toHaveBeenCalledWith(new Error('cancelled'));
+    });
+  });
+
+  describe('concurrent dispatch', () => {
+    it('dispatches multiple queued jobs and resolves each to its own caller', async () => {
+      const pool = workerPool.__getPool();
+      const jobCount = pool.length + 2;
+      const promises: Promise<unknown>[] = [];
+
+      for (let i = 0; i < jobCount; i++) {
+        promises.push(
+          workerPool.runPooledInference(
+            makeImageData(10 + i, 10 + i),
+            { method: 'ai-balanced' },
+            '/models/u2netp.onnx',
+            'u2netp',
+          ),
+        );
+      }
+
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(100);
+
+      const results = await Promise.all(promises);
+      expect(results.length).toBe(jobCount);
+      for (let i = 0; i < jobCount; i++) {
+        const result = results[i] as { width: number; height: number };
+        expect(result.width).toBe(10 + i);
+        expect(result.height).toBe(10 + i);
+      }
+
+      for (const pw of pool) {
+        expect(pw.busy).toBe(false);
+      }
+    });
+
+    it('does not reassign an in-flight job to a second worker', async () => {
+      const pool = workerPool.__getPool();
+      const p1 = workerPool.runPooledInference(
+        makeImageData(10, 10),
+        { method: 'ai-balanced' },
+        '/models/u2netp.onnx',
+        'u2netp',
+      );
+      const p2 = workerPool.runPooledInference(
+        makeImageData(20, 20),
+        { method: 'ai-balanced' },
+        '/models/u2netp.onnx',
+        'u2netp',
+      );
+
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(100);
+
+      const [r1, r2] = await Promise.all([p1, p2]);
+      expect((r1 as { width: number }).width).toBe(10);
+      expect((r2 as { width: number }).width).toBe(20);
+      for (const pw of pool) {
+        expect(pw.busy).toBe(false);
+      }
     });
   });
 });

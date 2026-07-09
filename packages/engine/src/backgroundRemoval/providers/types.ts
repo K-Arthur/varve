@@ -7,7 +7,7 @@ import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types
 export interface RemovalProvider {
   readonly id: string;
   /** Whether this provider can run in the current environment for the given options. */
-  isAvailable(options: BackgroundRemovalOptions): boolean | Promise<boolean>;
+  isAvailable(options: BackgroundRemovalOptions, signal?: AbortSignal): boolean | Promise<boolean>;
   remove(
     imageData: ImageData,
     options: BackgroundRemovalOptions,

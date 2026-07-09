@@ -21,21 +21,83 @@ export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
   cloudRemovalProvider,
 ];
 
+/** Hard ceiling for any single provider attempt (including model loading). */
+const PROVIDER_TIMEOUT = 125_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('cancelled'));
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      reject(new Error('Provider timed out'));
+    }, timeoutMs);
+
+    const cleanup = () => clearTimeout(timeout);
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+
+    signal?.addEventListener(
+      'abort',
+      () => {
+        cleanup();
+        reject(new Error('cancelled'));
+      },
+      { once: true },
+    );
+  });
+}
+
 export async function dispatchBackgroundRemoval(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
   signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult> {
+  if (signal?.aborted) {
+    throw new Error('cancelled');
+  }
+
   if (options.method === 'quick') {
     return removeBackgroundHeuristic(imageData, options);
   }
 
   for (const provider of AI_PROVIDER_CHAIN) {
-    const available = await provider.isAvailable(options);
-    if (!available) continue;
+    if (signal?.aborted) {
+      throw new Error('cancelled');
+    }
+
+    let available: boolean;
     try {
-      return await provider.remove(imageData, options, signal);
-    } catch {
+      available = await withTimeout(
+        Promise.resolve(provider.isAvailable(options, signal)),
+        PROVIDER_TIMEOUT,
+        signal,
+      );
+    } catch (e) {
+      if ((e as Error).message === 'cancelled') throw e;
+      // Timed-out/failed availability check: treat as unavailable and continue.
+      continue;
+    }
+    if (!available) continue;
+
+    try {
+      return await withTimeout(
+        provider.remove(imageData, options, signal),
+        PROVIDER_TIMEOUT,
+        signal,
+      );
+    } catch (e) {
+      if ((e as Error).message === 'cancelled') throw e;
       // Fall through to the next provider in the chain.
     }
   }

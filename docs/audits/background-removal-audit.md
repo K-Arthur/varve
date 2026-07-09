@@ -33,6 +33,20 @@ This session closed cross-platform gaps: **correct AI model routing**, **Indexed
 
 ---
 
+## Session 48 verification (2026-07-09) — async timeout / cancel hardening
+
+| Gate | Result |
+|---|---|
+| Full `pnpm test` | **4282/4282** pass |
+| Full `pnpm typecheck` | **15/15** packages pass |
+| Full `pnpm lint` | **0 errors** (404 warnings, pre-existing) |
+| `pnpm audit:emoji` | **0** violations |
+| `pnpm audit:tokens` | **96/96** WCAG-AA pass |
+
+Session 48 closed the remaining async-state gaps: `fetchWithTimeout` now races `fetch` against an explicit timeout so it always rejects on timeout/abort; `AbortSignal` threads through `modelManifest`, `modelLoader`, `workerPool`, and providers; `workerPool` processQueue no longer picks assigned jobs; `dispatchBackgroundRemoval` has a top-level watchdog; `BackgroundRemovalSection` has cancel/progress/error UI; regression tests cover timeout, cancel, concurrency, and OOM. Tests and verification gates pass. See `BACKGROUND_REMOVAL_MEMORY.md` for details.
+
+---
+
 ## Session 47 verification (2026-07-08) — Strategy-pattern refactor
 
 | Gate | Result |

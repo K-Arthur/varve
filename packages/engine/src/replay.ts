@@ -1053,9 +1053,6 @@ function paintTiledGradientFill(
     }
   }
 
-  const tileW = Math.max(1, Math.ceil(Math.abs(dx) * 2));
-  const tileH = Math.max(1, Math.ceil(Math.abs(dy) * 2));
-
   if (fill.gradientType === 'angular') {
     target.fillStyle = createGradientStyle(target, fill, item);
     paintShapeFill(target, item);

@@ -15,13 +15,23 @@ import type {
   WorkerModelId,
 } from './types';
 
+/** Sentinel indicating a job is queued but not yet assigned to a worker. */
+const UNASSIGNED = -1;
+
 interface PoolJob {
   id: number;
   resolve: (r: BackgroundRemovalResult) => void;
   reject: (e: Error) => void;
   abort: AbortController;
   timeout: ReturnType<typeof setTimeout>;
+  /** Index of the worker this job is dispatched to; -1 while queued. */
   workerIndex: number;
+  imageData: ImageData;
+  modelPath: string;
+  modelId: WorkerModelId;
+  feather?: number;
+  decontaminate?: boolean;
+  previewMaxDimension?: number;
 }
 
 interface PoolWorker {
@@ -73,7 +83,7 @@ function getPool(): PoolWorker[] {
   return initPool();
 }
 
-function findLeastLoadedWorker(): PoolWorker | null {
+function findIdleWorker(): PoolWorker | null {
   const workers = getPool();
   let best: PoolWorker | null = null;
   let minJobs = Infinity;
@@ -91,8 +101,18 @@ function onWorkerMessage(e: MessageEvent, pw: PoolWorker): void {
     pw.ready = true;
     return;
   }
-  const jobIdx = pending.findIndex((j) => j.workerIndex === getPool().indexOf(pw));
-  if (jobIdx < 0) return;
+
+  const workerIndex = getPool().indexOf(pw);
+  const jobIdx = pending.findIndex((j) => j.workerIndex === workerIndex);
+  if (jobIdx < 0) {
+    // Defensive: a message arrived for a job that already timed out or was
+    // cancelled. Release the worker so it doesn't become permanently busy.
+    pw.busy = false;
+    pw.jobCount = Math.max(0, pw.jobCount - 1);
+    processQueue();
+    return;
+  }
+
   const [job] = pending.splice(jobIdx, 1);
   if (!job) return;
   clearTimeout(job.timeout);
@@ -108,7 +128,8 @@ function onWorkerMessage(e: MessageEvent, pw: PoolWorker): void {
 }
 
 function onWorkerError(e: ErrorEvent, pw: PoolWorker): void {
-  const jobIdx = pending.findIndex((j) => j.workerIndex === getPool().indexOf(pw));
+  const workerIndex = getPool().indexOf(pw);
+  const jobIdx = pending.findIndex((j) => j.workerIndex === workerIndex);
   if (jobIdx >= 0) {
     const [job] = pending.splice(jobIdx, 1);
     if (job) {
@@ -118,9 +139,9 @@ function onWorkerError(e: ErrorEvent, pw: PoolWorker): void {
   }
   pw.ready = false;
   pw.busy = false;
+  pw.jobCount = Math.max(0, pw.jobCount - 1);
   // Replace the dead worker
-  const idx = getPool().indexOf(pw);
-  if (idx >= 0) {
+  if (workerIndex >= 0) {
     pw.worker.terminate();
     const newWorker = createWorker()!;
     newWorker.addEventListener('message', (msg: MessageEvent) => onWorkerMessage(msg, pw));
@@ -130,34 +151,36 @@ function onWorkerError(e: ErrorEvent, pw: PoolWorker): void {
   processQueue();
 }
 
+function dispatchJobToWorker(job: PoolJob, worker: PoolWorker, workerIndex: number): void {
+  job.workerIndex = workerIndex;
+  worker.busy = true;
+  worker.jobCount++;
+  worker.worker.postMessage({
+    type: 'infer',
+    imageData: job.imageData,
+    modelPath: job.modelPath,
+    modelId: job.modelId,
+    reuseSession: worker.ready,
+    feather: job.feather,
+    decontaminate: job.decontaminate,
+    previewMaxDimension: job.previewMaxDimension,
+  } satisfies WorkerCommand & { reuseSession?: boolean });
+}
+
 function processQueue(): void {
   while (pending.length > 0) {
-    const next = findLeastLoadedWorker();
+    const next = findIdleWorker();
     if (!next) break;
-    const jobIdx = pending.findIndex((j) => !j.workerIndex && j.workerIndex === undefined);
-    const job = jobIdx >= 0 ? pending[jobIdx] : pending[0];
+
+    const jobIdx = pending.findIndex((j) => j.workerIndex === UNASSIGNED);
+    if (jobIdx < 0) break;
+
+    const [job] = pending.splice(jobIdx, 1);
     if (!job) break;
-    const actualIdx = pending.indexOf(job);
-    if (actualIdx >= 0) {
-      pending.splice(actualIdx, 1);
-    }
-    next.busy = true;
-    next.jobCount++;
+
     const workerIndex = getPool().indexOf(next);
-    const updatedJob: PoolJob = { ...job, workerIndex };
-    const msgIdx = pending.findIndex((j) => j.id === job.id);
-    if (msgIdx >= 0) pending.splice(msgIdx, 1);
-    pending.push(updatedJob);
-    next.worker.postMessage({
-      type: 'infer',
-      imageData: (job as any)._imageData,
-      modelPath: (job as any)._modelPath,
-      modelId: (job as any)._modelId,
-      reuseSession: next.ready,
-      feather: (job as any)._feather,
-      decontaminate: (job as any)._decontaminate,
-      previewMaxDimension: (job as any)._previewMaxDimension,
-    } satisfies WorkerCommand & { reuseSession?: boolean });
+    pending.push(job);
+    dispatchJobToWorker(job, next, workerIndex);
   }
 }
 
@@ -171,6 +194,7 @@ export function cancelAllWorkerJobs(): void {
   const workers = getPool();
   for (const pw of workers) {
     pw.busy = false;
+    pw.jobCount = 0;
   }
 }
 
@@ -200,11 +224,19 @@ export async function runPooledInference(
       return;
     }
 
-    // Find the least-loaded ready worker first; failing that, any idle worker
-    let target = findLeastLoadedWorker();
+    const jobBase: Omit<PoolJob, 'id' | 'resolve' | 'reject' | 'timeout' | 'workerIndex'> = {
+      abort,
+      imageData,
+      modelPath,
+      modelId,
+      feather: options.feather,
+      decontaminate: options.decontaminate,
+      previewMaxDimension: options.previewMaxDimension,
+    };
+
+    // Find an idle worker; if none, queue the job.
+    const target = findIdleWorker();
     if (!target) {
-      // All busy — queue the job; will be dispatched when a worker frees up
-      // (processQueue is called from onWorkerMessage / onWorkerError)
       const timeoutMs = 120_000;
       const timeout = setTimeout(() => {
         const idx = pending.findIndex((j) => j.reject === wrappedReject);
@@ -222,19 +254,13 @@ export async function runPooledInference(
       };
 
       const job: PoolJob = {
+        ...jobBase,
         id: nextJobId++,
         resolve: wrappedResolve,
         reject: wrappedReject,
-        abort,
         timeout,
-        workerIndex: -1,
+        workerIndex: UNASSIGNED,
       };
-      (job as any)._imageData = imageData;
-      (job as any)._modelPath = modelPath;
-      (job as any)._modelId = modelId;
-      (job as any)._feather = options.feather;
-      (job as any)._decontaminate = options.decontaminate;
-      (job as any)._previewMaxDimension = options.previewMaxDimension;
 
       pending.push(job);
 
@@ -249,8 +275,6 @@ export async function runPooledInference(
       return;
     }
 
-    target.busy = true;
-    target.jobCount++;
     const workerIndex = getPool().indexOf(target);
 
     // Determine timeout: cold start (first inference on this worker) vs warm
@@ -258,19 +282,19 @@ export async function runPooledInference(
     const timeout = setTimeout(() => {
       const idx = pending.findIndex((j) => j.reject === wrappedReject);
       if (idx >= 0) pending.splice(idx, 1);
-      target!.busy = false;
-      target!.jobCount = Math.max(0, target!.jobCount - 1);
-      if (!target!.ready) {
+      target.busy = false;
+      target.jobCount = Math.max(0, target.jobCount - 1);
+      if (!target.ready) {
         // Cold start timeout — replace the hung worker
-        const idx2 = getPool().indexOf(target!);
-        if (idx2 >= 0) {
-          target!.worker.terminate();
+        const workerIdx = getPool().indexOf(target);
+        if (workerIdx >= 0) {
+          target.worker.terminate();
           const newWorker = createWorker()!;
           newWorker.addEventListener('message', (msg: MessageEvent) =>
-            onWorkerMessage(msg, target!),
+            onWorkerMessage(msg, target),
           );
-          newWorker.addEventListener('error', (err: ErrorEvent) => onWorkerError(err, target!));
-          target!.worker = newWorker;
+          newWorker.addEventListener('error', (err: ErrorEvent) => onWorkerError(err, target));
+          target.worker = newWorker;
         }
       }
       reject(new Error('Worker inference timed out'));
@@ -286,10 +310,10 @@ export async function runPooledInference(
     };
 
     const job: PoolJob = {
+      ...jobBase,
       id: nextJobId++,
       resolve: wrappedResolve,
       reject: wrappedReject,
-      abort,
       timeout,
       workerIndex,
     };
@@ -299,23 +323,14 @@ export async function runPooledInference(
       const idx = pending.indexOf(job);
       if (idx >= 0) pending.splice(idx, 1);
       clearTimeout(timeout);
-      target!.busy = false;
-      target!.jobCount = Math.max(0, target!.jobCount - 1);
+      target.busy = false;
+      target.jobCount = Math.max(0, target.jobCount - 1);
       reject(new Error('cancelled'));
     };
     signal?.addEventListener('abort', onAbort, { once: true });
     abort.signal.addEventListener('abort', onAbort, { once: true });
 
-    target.worker.postMessage({
-      type: 'infer',
-      imageData,
-      modelPath,
-      modelId,
-      reuseSession: target.ready,
-      feather: options.feather,
-      decontaminate: options.decontaminate,
-      previewMaxDimension: options.previewMaxDimension,
-    } satisfies WorkerCommand & { reuseSession?: boolean });
+    dispatchJobToWorker(job, target, workerIndex);
   });
 }
 
@@ -330,4 +345,4 @@ export function __getIdealWorkerCount(): number {
   return getIdealWorkerCount();
 }
 
-export type { PoolWorker, PoolJob };
+export type { PoolJob, PoolWorker };

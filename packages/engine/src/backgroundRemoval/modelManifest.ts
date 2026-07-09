@@ -16,26 +16,47 @@ export interface ModelManifest {
 }
 
 let cachedManifest: ModelManifest | null = null;
+let manifestPromise: Promise<ModelManifest | null> | null = null;
 
-export async function loadModelManifest(): Promise<ModelManifest | null> {
+const MANIFEST_FETCH_TIMEOUT = 5_000;
+
+export async function loadModelManifest(signal?: AbortSignal): Promise<ModelManifest | null> {
   if (cachedManifest) return cachedManifest;
-  try {
-    if (typeof fetch === 'undefined') return null;
-    const res = await fetch('/models/manifest.json');
-    if (!res.ok) return null;
-    cachedManifest = (await res.json()) as ModelManifest;
-    return cachedManifest;
-  } catch {
-    return null;
-  }
+  if (manifestPromise) return manifestPromise;
+
+  const { fetchWithTimeout } = await import('./fetchWithTimeout');
+
+  manifestPromise = (async () => {
+    try {
+      if (typeof fetch === 'undefined') return null;
+      const res = await fetchWithTimeout(
+        '/models/manifest.json',
+        { signal },
+        MANIFEST_FETCH_TIMEOUT,
+      );
+      if (!res.ok) return null;
+      cachedManifest = (await res.json()) as ModelManifest;
+      return cachedManifest;
+    } catch {
+      return null;
+    } finally {
+      manifestPromise = null;
+    }
+  })();
+
+  return manifestPromise;
 }
 
 export function resetModelManifestCache(): void {
   cachedManifest = null;
+  manifestPromise = null;
 }
 
-export async function getManifestEntry(modelId: string): Promise<ModelManifestEntry | null> {
-  const manifest = await loadModelManifest();
+export async function getManifestEntry(
+  modelId: string,
+  signal?: AbortSignal,
+): Promise<ModelManifestEntry | null> {
+  const manifest = await loadModelManifest(signal);
   return manifest?.models.find((m) => m.id === modelId) ?? null;
 }
 
