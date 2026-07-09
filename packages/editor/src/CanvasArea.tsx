@@ -53,11 +53,13 @@ import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
 import { SubtreeIrCache } from './canvas/subtreeIrCache';
+import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './components/AlignmentOverlay';
 import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ColorBlindnessOverlay } from './components/ColorBlindnessOverlay';
 import { DocumentGridOverlay } from './components/DocumentGridOverlay/DocumentGridOverlay';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
+import { GradientHandleOverlay } from './components/GradientHandleOverlay';
 import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
 import { Ruler } from './components/Ruler/Ruler';
@@ -80,10 +82,8 @@ import {
   isStaleResponse,
   type RenderWorkerHost,
 } from './render/workerHost';
-import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './components/AlignmentOverlay';
-import { GradientHandleOverlay } from './components/GradientHandleOverlay';
 import { SelectionOverlay } from './SelectionOverlay';
-import { loadSettings } from './settings';
+import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
@@ -92,6 +92,7 @@ import {
   type TransformCache,
 } from './scene/transformCache';
 import { nodeWorldBounds } from './scene/world';
+import { loadSettings } from './settings';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
 import { ArrowTool } from './tools/ArrowTool';
@@ -183,10 +184,6 @@ export function toEngineNode(n: DocNode): EngineNode {
       lineHeight: n.lineHeight,
       textCase: n.textCase,
       textDecoration: n.textDecoration,
-      paragraphIndent: n.paragraphIndent,
-      firstLineIndent: n.firstLineIndent,
-      tabStops: n.tabStops,
-      tabSize: n.tabSize,
       textMode: n.textMode ?? 'point',
       pathTextSettings: n.pathTextSettings,
     };
@@ -206,16 +203,12 @@ export function toEngineNode(n: DocNode): EngineNode {
       letterSpacing: n.letterSpacing,
       lineHeight: n.lineHeight,
       paragraphSpacing: n.paragraphSpacing,
-      paragraphIndent: n.paragraphIndent,
-      firstLineIndent: n.firstLineIndent,
       textCase: n.textCase,
       textDecoration: n.textDecoration,
       textOverflow: n.textOverflow,
       listStyle: n.listStyle,
       textMode: n.textMode,
       pathTextSettings: n.pathTextSettings,
-      tabStops: n.tabStops,
-      tabSize: n.tabSize,
       w: estW,
       h: estH,
     };
@@ -450,15 +443,19 @@ export function CanvasArea({
   editorRef.current = editor;
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const subtreeIrCacheRef = useRef(new SubtreeIrCache());
+  // Frame/group spatial index, cached by fingerprint for fast drag containment.
+  const frameIndexRef = useRef<FrameSpatialIndex | null>(null);
   const prevDrawDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
     invalidateTransformCache(transformCacheRef.current);
     subtreeIrCacheRef.current.invalidate();
     docVersionRef.current += 1;
+    frameIndexRef.current = getOrCreateFrameSpatialIndex(state.document, frameIndexRef.current);
     prevDrawDocRef.current = state.document;
   }
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
+  const [dropTargetFrameId, setDropTargetFrameId] = useState<NodeId | null>(null);
   // Incremented by the image cache subscriber so drawContent re-runs after async image loads.
   const [imageCacheStamp, setImageCacheStamp] = useState(0);
   const contentDrawRafRef = useRef<number | null>(null);
@@ -718,7 +715,8 @@ export function CanvasArea({
         }
       },
 
-      findContainingFrame: (world) => e.findContainingFrame(world),
+      findContainingFrame: (world) => e.findContainingFrame(world, frameIndexRef.current),
+      setDropTargetFrame: setDropTargetFrameId,
       nodeWorldBounds: (n) => nodeWorldBounds(s.document, n.id) ?? nodeWorldBoundsFn(n),
 
       engine: eng,
@@ -993,7 +991,10 @@ export function CanvasArea({
         nodeIds.push(id);
         const engineNode = toEngineNode(n);
         // Resolve path shape for text-on-path rendering
-        if (engineNode.pathTextSettings?.pathNodeId && engineNode.shape?.kind === 'text') {
+        if (
+          engineNode.pathTextSettings?.pathNodeId &&
+          (engineNode as { shape?: { kind: string } }).shape?.kind === 'text'
+        ) {
           const pathNode = doc.nodes[engineNode.pathTextSettings.pathNodeId] as
             | import('@strata/scene').ShapeNode
             | undefined;
@@ -1512,6 +1513,53 @@ export function CanvasArea({
 
     applyEditorCameraToCtx(ctx, camState, dpr, vp);
 
+    // ── Drop target container highlight for drag operations ───────────────
+    if (dropTargetFrameId) {
+      const containerNode = doc.nodes[dropTargetFrameId];
+      if (containerNode && (containerNode.kind === 'frame' || containerNode.kind === 'group')) {
+        const containerWorld = getCachedWorldTransform(cache, doc, dropTargetFrameId);
+        const cw = containerNode.kind === 'frame' ? containerNode.w : 0;
+        const ch = containerNode.kind === 'frame' ? containerNode.h : 0;
+        if (containerWorld && containerNode.kind === 'frame') {
+          const [a, b, c, d, e2, f2] = containerWorld;
+          ctx.save();
+          ctx.strokeStyle = accentColor;
+          ctx.lineWidth = 2 / s.zoom;
+          ctx.setLineDash([6 / s.zoom, 4 / s.zoom]);
+          ctx.beginPath();
+          const corners = [
+            [0, 0],
+            [cw, 0],
+            [cw, ch],
+            [0, ch],
+          ] as const;
+          for (let i = 0; i < corners.length; i++) {
+            const [lx, ly] = corners[i]!;
+            const wx = a * lx + c * ly + e2;
+            const wy = b * lx + d * ly + f2;
+            if (i === 0) ctx.moveTo(wx, wy);
+            else ctx.lineTo(wx, wy);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+        } else if (containerNode.kind === 'group') {
+          // Groups don't have explicit w/h; draw a dashed outline around
+          // the union of their children's world bounds.
+          const groupBounds = getCachedWorldBounds(cache, doc, dropTargetFrameId);
+          if (groupBounds) {
+            const { x, y, w, h } = groupBounds;
+            ctx.save();
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 2 / s.zoom;
+            ctx.setLineDash([6 / s.zoom, 4 / s.zoom]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.restore();
+          }
+        }
+      }
+    }
+
     // ── Layout grid overlay for frames with gridTemplate ────────────────
     ctx.strokeStyle = accentColor.replace(')', ' / 0.25)');
     ctx.lineWidth = 1 / s.zoom;
@@ -1727,7 +1775,7 @@ export function CanvasArea({
         ctx.fillText(label, sx + sw + 4, sy + 14);
       }
     }
-  }, [draft, state.zoom, state.pan.x, state.pan.y, state.cameraRotation]);
+  }, [draft, dropTargetFrameId, state.zoom, state.pan.x, state.pan.y, state.cameraRotation]);
 
   // ── RAF scheduling ──────────────────────────────────────────────────────
 

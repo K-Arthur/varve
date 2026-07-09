@@ -170,6 +170,30 @@ export class SelectTool extends BaseTool {
         if (b) allBounds.push({ id: n.id, b });
       }
       const selectedIds = new Set(sel);
+
+      // Calculate selection center for drop target frame detection
+      let selCenterX = 0;
+      let selCenterY = 0;
+      let selCount = 0;
+      for (const id of sel) {
+        const node = ctx.getNode(id);
+        if (!node) continue;
+        const bounds = ctx.nodeWorldBounds(node);
+        if (bounds) {
+          selCenterX += bounds.x + bounds.w / 2;
+          selCenterY += bounds.y + bounds.h / 2;
+          selCount++;
+        }
+      }
+
+      // Find drop target frame based on selection center
+      if (selCount > 0) {
+        selCenterX /= selCount;
+        selCenterY /= selCount;
+        const dropTarget = ctx.findContainingFrame({ x: selCenterX, y: selCenterY });
+        ctx.setDropTargetFrame(dropTarget);
+      }
+
       for (const id of sel) {
         const node = ctx.getNode(id);
         if (!node) continue;
@@ -213,6 +237,7 @@ export class SelectTool extends BaseTool {
   }
 
   override onDragEnd(ctx: ToolContext): void {
+    ctx.setDropTargetFrame(null);
     if (this.marqueeActive) {
       ctx.setDraft(null);
       const rect = this.computeDragRect(ctx);

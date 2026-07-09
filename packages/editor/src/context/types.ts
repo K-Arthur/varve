@@ -15,6 +15,7 @@ import type {
   VariableValue,
 } from '@strata/scene';
 import type { DocumentUnit, Viewport } from '@strata/shared';
+import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
 
@@ -192,7 +193,10 @@ export interface EditorContextValue {
     text?: string,
   ) => void;
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
-  findContainingFrame: (world: { x: number; y: number }) => NodeId | null;
+  findContainingFrame: (
+    world: { x: number; y: number },
+    frameIndex?: FrameSpatialIndex | null,
+  ) => NodeId | null;
   nodeWorldBounds: (n: SceneNode) => { x: number; y: number; w: number; h: number } | null;
   getWorldTransform: (id: NodeId) => import('@strata/shared').Affine;
   getWorldBounds: (id: NodeId) => import('@strata/shared').Rect | null;
@@ -380,6 +384,7 @@ export interface EditorContextValue {
     feather: number,
     decontaminate: boolean,
   ) => Promise<void>;
+  cancelBackgroundRemoval: () => void;
   setShowOriginalBg: (nodeId: NodeId | null) => void;
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
   setTrimapEditOptions: (

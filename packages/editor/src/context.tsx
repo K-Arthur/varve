@@ -59,6 +59,7 @@ import {
   applyMotionPreset as applyMotionPresetDoc,
   arrangeNode as arrangeNodeDoc,
   type BleedConfig,
+  buildParentIndexMap,
   clearGuides,
   createComponent,
   createDocument,
@@ -95,7 +96,7 @@ import {
   moveNode,
   nextNodeId,
   pushMasterChanges as pushMasterChangesDoc,
-  removeFrameFromChain,
+  removeFrameFromChain as removeFrameFromChainDoc,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
   removeNode,
@@ -195,6 +196,7 @@ import type {
   ToolId,
 } from './context/types';
 import { applyDropPosition } from './dropUtils';
+import { useSelectionHistory } from './hooks/useSelectionHistory';
 import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
@@ -209,7 +211,13 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from './scene/parentIndexCache';
-import { getOrCreateSpatialIndex, queryPoint, type SpatialIndex } from './scene/spatialIndex';
+import {
+  type FrameSpatialIndex,
+  getOrCreateFrameSpatialIndex,
+  getOrCreateSpatialIndex,
+  queryPoint,
+  type SpatialIndex,
+} from './scene/spatialIndex';
 import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
@@ -316,6 +324,14 @@ export interface EditorContextValue {
   selectAllWithSameType: () => void;
   /** Select all visible unlocked shape nodes matching the first selected node's fill. */
   selectAllWithSameFill: () => void;
+  /** Select all visible unlocked nodes sharing the first selected node's layer color. */
+  selectAllWithSameLayerColor: () => void;
+  /** Select all visible unlocked nodes of the same kind as the first selected node. */
+  selectAllOfType: () => void;
+  /** Navigate back in selection history. */
+  selectPreviousSelection: () => void;
+  /** Navigate forward in selection history. */
+  selectNextSelection: () => void;
   /** Create a shape/frame node from the current tool at the given world-space point. */
   createShapeAt: (
     world: { x: number; y: number },
@@ -337,7 +353,10 @@ export interface EditorContextValue {
    */
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
   /** Find the deepest frame/group containing a world point (spatial containment). */
-  findContainingFrame: (world: { x: number; y: number }) => NodeId | null;
+  findContainingFrame: (
+    world: { x: number; y: number },
+    frameIndex?: FrameSpatialIndex | null,
+  ) => NodeId | null;
   /** Compute world-space bounding box for a node. */
   nodeWorldBounds: (n: SceneNode) => { x: number; y: number; w: number; h: number } | null;
   /** Cached world transform — uses TransformCache for O(1) repeated lookups. */
@@ -548,10 +567,6 @@ export interface EditorContextValue {
   bulkSetNodeVisible: (ids: NodeId[], visible: boolean) => void;
   /** Batch: set a layer color tag on multiple nodes in one undo step. */
   bulkSetLayerColor: (ids: NodeId[], color: import('@strata/scene').LayerColor) => void;
-  /** Select all visible unlocked nodes with the same layerColor tag as the first selected node. */
-  selectAllWithSameLayerColor: () => void;
-  /** Select all nodes (including locked/hidden) with the same kind as the first selected node. */
-  selectAllOfType: () => void;
   /** B2: set or update the layout style on a frame node. */
   setNodeLayout: (id: NodeId, layout: import('@strata/scene').LayoutStyle | undefined) => void;
   /** B1: resolve a variable to its current value (throws on missing/cycle). */
@@ -677,6 +692,8 @@ export interface EditorContextValue {
     feather: number,
     decontaminate: boolean,
   ) => Promise<void>;
+  /** Cancel an in-progress background removal job. */
+  cancelBackgroundRemoval: () => void;
   /** Toggle preview of original image (without background removal mask). */
   setShowOriginalBg: (nodeId: import('@strata/scene').NodeId | null) => void;
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
@@ -1030,6 +1047,7 @@ export function nodeWorldBoundsFn(
 export function findContainingFrameInDoc(
   doc: Document,
   world: { x: number; y: number },
+  frameIndex?: FrameSpatialIndex | null,
 ): NodeId | null {
   let deepest: NodeId | null = null;
   let deepestDepth = -1;
@@ -1038,10 +1056,23 @@ export function findContainingFrameInDoc(
   // drawn shape silently auto-parent into a frame that belongs to a
   // different (invisible) page, making the shape vanish from the canvas.
   const entries = walkNodes(doc, getActivePageNodes(doc));
+
+  // If a frame index is provided, use it to filter candidates first
+  const candidates = frameIndex
+    ? (() => {
+        const cellKey = `${Math.floor(world.x / 64)},${Math.floor(world.y / 64)}`;
+        return frameIndex.grid.get(cellKey) ?? new Set();
+      })()
+    : null;
+
   for (const [nid, entry] of entries) {
     const n = entry.node;
     if (n.locked || n.visible === false) continue;
     if (n.kind !== 'frame' && n.kind !== 'group') continue;
+
+    // Skip if frame index is provided and this node isn't in the candidate set
+    if (candidates && !candidates.has(nid)) continue;
+
     if (n.kind === 'frame') {
       // Inverse-transform the world point into the frame's local space so
       // containment is correct for rotated/scaled frames (not just AABB).
@@ -1201,6 +1232,7 @@ export function EditorProvider({
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const prevDocRef = useRef(state.document);
   const spatialIndexRef = useRef<SpatialIndex | null>(null);
+  const frameSpatialIndexRef = useRef<FrameSpatialIndex | null>(null);
   if (state.document !== prevDocRef.current) {
     invalidateTransformCache(transformCacheRef.current);
     prevDocRef.current = state.document;
@@ -1219,6 +1251,8 @@ export function EditorProvider({
   if (!announcerRef.current) {
     announcerRef.current = new CanvasAnnouncer();
   }
+  /** Selection history for back/forward navigation. */
+  const selectionHistory = useSelectionHistory();
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
   const txSnapshotRef = useRef<Document | null>(null);
@@ -1621,18 +1655,27 @@ export function EditorProvider({
       },
 
       // F1: single-select replaces the whole set
-      setSelection: (id) => patch({ selection: id ? [id] : [] }),
+      setSelection: (id) => {
+        const newSelection = id ? [id] : [];
+        selectionHistory.push(newSelection);
+        patch({ selection: newSelection });
+      },
 
       // F1: additive = shift+click behaviour
       toggleSelection: (id, additive = false) => {
         setState((s) => {
           if (additive) {
             const already = s.selection.includes(id);
+            const newSelection = already
+              ? s.selection.filter((x) => x !== id)
+              : [...s.selection, id];
+            selectionHistory.push(newSelection);
             return {
               ...s,
-              selection: already ? s.selection.filter((x) => x !== id) : [...s.selection, id],
+              selection: newSelection,
             };
           }
+          selectionHistory.push([id]);
           return { ...s, selection: [id] };
         });
       },
@@ -1718,6 +1761,7 @@ export function EditorProvider({
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
 
           let node: SceneNode;
+          let isFrame = false;
           if (activeTool === 'frame' || activeTool === 'slice') {
             node = makeFrameNode(id, {
               name: autoName,
@@ -1727,6 +1771,7 @@ export function EditorProvider({
               w: size?.w ?? 375,
               h: size?.h ?? 812,
             });
+            isFrame = true;
           } else if (pathPoints && pathPoints.length > 0) {
             // Path tools (pen/pencil) pass point data directly
             const shape: Shape = {
@@ -1766,6 +1811,47 @@ export function EditorProvider({
               newDoc = addChild(d2, contentRootId, node);
             } else {
               newDoc = addNode(d2, node);
+            }
+          }
+
+          // Frame capture-on-draw: if we just created a frame, capture any
+          // fully-contained sibling nodes into it
+          if (isFrame) {
+            const frameNode = newDoc.nodes[id] as import('@strata/scene').FrameNode;
+            const frameBounds = { x: world.x, y: world.y, w: frameNode.w, h: frameNode.h };
+            const parentIndex = buildParentIndexMap(newDoc);
+
+            // Find siblings (nodes with same parent as the new frame)
+            const frameParent = parentIndex.get(id);
+            const siblings: NodeId[] = [];
+            for (const [nodeId, parentId] of parentIndex.entries()) {
+              if (parentId === frameParent && nodeId !== id) {
+                siblings.push(nodeId);
+              }
+            }
+
+            // Capture fully-contained siblings
+            for (const siblingId of siblings) {
+              const siblingBounds = nodeWorldBounds(newDoc, siblingId, parentIndex);
+              if (!siblingBounds) continue;
+
+              // Check full containment (sibling must be entirely inside frame)
+              if (
+                siblingBounds.x >= frameBounds.x &&
+                siblingBounds.y >= frameBounds.y &&
+                siblingBounds.x + siblingBounds.w <= frameBounds.x + frameBounds.w &&
+                siblingBounds.y + siblingBounds.h <= frameBounds.y + frameBounds.h
+              ) {
+                // Reparent sibling into the new frame with transform preservation
+                const siblingNode = newDoc.nodes[siblingId];
+                if (siblingNode && !siblingNode.locked) {
+                  const frameWorld = nodeWorldTransform(newDoc, id);
+                  const frameInv = invertAffine(frameWorld);
+                  const siblingWorld = nodeWorldTransform(newDoc, siblingId);
+                  const newLocal = multiplyAffine(frameInv, siblingWorld);
+                  newDoc = reparentNodeDoc(newDoc, siblingId, id, -1, newLocal);
+                }
+              }
             }
           }
 
@@ -1867,8 +1953,12 @@ export function EditorProvider({
         });
       },
 
-      findContainingFrame: (world) => {
-        return findContainingFrameInDoc(state.document, world);
+      findContainingFrame: (world, providedFrameIndex) => {
+        const frameIndex =
+          providedFrameIndex ??
+          getOrCreateFrameSpatialIndex(state.document, frameSpatialIndexRef.current);
+        frameSpatialIndexRef.current = frameIndex;
+        return findContainingFrameInDoc(state.document, world, frameIndex);
       },
 
       nodeWorldBounds: (n) => nodeWorldBounds(state.document, n.id) ?? nodeWorldBoundsFn(n),
@@ -1999,6 +2089,11 @@ export function EditorProvider({
 
       setDraft: (_draft) => {
         // setDraft is injected by CanvasArea; this stub ensures the context
+        // value structure is always valid. CanvasArea overrides it.
+      },
+
+      setDropTargetFrame: (_id: NodeId | null) => {
+        // setDropTargetFrame is injected by CanvasArea; this stub ensures the context
         // value structure is always valid. CanvasArea overrides it.
       },
 
@@ -2965,6 +3060,12 @@ export function EditorProvider({
       commitTransaction,
       abortTransaction,
 
+      // Text chain operations
+      createTextChain,
+      deleteTextChain,
+      appendFrameToChain,
+      removeFrameFromChain,
+
       undo: () => {
         const prev = undoStackRef.current.pop();
         const prevSel = undoSelStackRef.current.pop();
@@ -3311,6 +3412,22 @@ export function EditorProvider({
           const kind = state.document.nodes[ids[0]!]?.kind;
           patch({ selection: ids });
           announcerRef.current?.announce(`Selected ${ids.length} ${kind} nodes`);
+        }
+      },
+
+      selectPreviousSelection: () => {
+        const prev = selectionHistory.selectPrevious();
+        if (prev) {
+          patch({ selection: prev });
+          announcerRef.current?.announce('Selection history back');
+        }
+      },
+
+      selectNextSelection: () => {
+        const next = selectionHistory.selectNext();
+        if (next) {
+          patch({ selection: next });
+          announcerRef.current?.announce('Selection history forward');
         }
       },
 
@@ -4256,14 +4373,23 @@ export function EditorProvider({
           );
           announcerRef.current?.announce('Background removed');
         } catch (e) {
-          if (bgRemovalAbortRef.current?.signal.aborted) return;
+          if (bgRemovalAbortRef.current?.signal.aborted) {
+            throw new Error('cancelled');
+          }
           announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
+          throw e;
         } finally {
           if (processingBgNodeRef.current === processingNodeId) {
             bgRemovalAbortRef.current = null;
             processingBgNodeRef.current = null;
           }
         }
+      },
+
+      cancelBackgroundRemoval: () => {
+        bgRemovalAbortRef.current?.abort();
+        bgRemovalAbortRef.current = null;
+        processingBgNodeRef.current = null;
       },
 
       removeBackgroundWithOptions: async (method, feather, decontaminate) => {
@@ -4355,8 +4481,11 @@ export function EditorProvider({
           );
           announcerRef.current?.announce('Background removed');
         } catch (e) {
-          if (bgRemovalAbortRef.current?.signal.aborted) return;
+          if (bgRemovalAbortRef.current?.signal.aborted) {
+            throw new Error('cancelled');
+          }
           announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
+          throw e;
         } finally {
           if (processingBgNodeRef.current === processingNodeId) {
             bgRemovalAbortRef.current = null;
