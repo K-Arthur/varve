@@ -19,7 +19,7 @@ pub use outline::{
 
 use ab_glyph::Font as AbGlyphFont;
 use lopdf::{dictionary, Document, Object, Stream};
-use strata_core::{Effect, FillIR, SceneNode, Shape};
+use strata_core::{Effect, EngineColor, FillIR, SceneNode, Shape};
 
 use crate::profiles::PrintProfile;
 
@@ -61,15 +61,59 @@ impl Default for PdfOptions {
     }
 }
 
-fn color_to_rgb_string(fill: &[u8; 4]) -> String {
-    let r = fill[0] as f32 / 255.0;
-    let g = fill[1] as f32 / 255.0;
-    let b = fill[2] as f32 / 255.0;
-    format!("{r:.3} {g:.3} {b:.3} rg")
+fn engine_color_rgba(color: &EngineColor) -> (u8, u8, u8, u8) {
+    match color {
+        EngineColor::Rgb { r, g, b, a, .. } => (*r as u8, *g as u8, *b as u8, *a as u8),
+        EngineColor::Cmyk {
+            c, m, y, k, a, ..
+        } => {
+            let rc = 1.0 - (c / 255.0);
+            let rm = 1.0 - (m / 255.0);
+            let ry = 1.0 - (y / 255.0);
+            let rk = 1.0 - (k / 255.0);
+            (
+                (255.0 * rc * rk) as u8,
+                (255.0 * rm * rk) as u8,
+                (255.0 * ry * rk) as u8,
+                *a as u8,
+            )
+        }
+        EngineColor::Gray { v, a, .. } => (*v as u8, *v as u8, *v as u8, *a as u8),
+        EngineColor::Spot {
+            process_fallback,
+            tint,
+            a,
+            ..
+        } => {
+            if let Some(fb) = process_fallback {
+                let rc = 1.0 - (fb.c / 255.0);
+                let rm = 1.0 - (fb.m / 255.0);
+                let ry = 1.0 - (fb.y / 255.0);
+                let rk = 1.0 - (fb.k / 255.0);
+                (
+                    (255.0 * rc * rk) as u8,
+                    (255.0 * rm * rk) as u8,
+                    (255.0 * ry * rk) as u8,
+                    ((*a * tint / 100.0) as u8),
+                )
+            } else {
+                (0, 0, 0, *a as u8)
+            }
+        }
+    }
 }
 
-fn color_to_cmyk_string(fill: &[u8; 4]) -> String {
-    let (c, m, y, k) = crate::cmyk::rgb_to_cmyk(fill[0], fill[1], fill[2]);
+fn color_to_rgb_string(fill: &EngineColor) -> String {
+    let (r, g, b, _) = engine_color_rgba(fill);
+    let rf = r as f32 / 255.0;
+    let gf = g as f32 / 255.0;
+    let bf = b as f32 / 255.0;
+    format!("{rf:.3} {gf:.3} {bf:.3} rg")
+}
+
+fn color_to_cmyk_string(fill: &EngineColor) -> String {
+    let (r, g, b, _) = engine_color_rgba(fill);
+    let (c, m, y, k) = crate::cmyk::rgb_to_cmyk(r, g, b);
     format!(
         "{:.3} {:.3} {:.3} {:.3} k",
         c as f32 / 255.0,
@@ -79,15 +123,17 @@ fn color_to_cmyk_string(fill: &[u8; 4]) -> String {
     )
 }
 
-fn color_to_stroke_rgb_string(fill: &[u8; 4]) -> String {
-    let r = fill[0] as f32 / 255.0;
-    let g = fill[1] as f32 / 255.0;
-    let b = fill[2] as f32 / 255.0;
-    format!("{r:.3} {g:.3} {b:.3} RG")
+fn color_to_stroke_rgb_string(fill: &EngineColor) -> String {
+    let (r, g, b, _) = engine_color_rgba(fill);
+    let rf = r as f32 / 255.0;
+    let gf = g as f32 / 255.0;
+    let bf = b as f32 / 255.0;
+    format!("{rf:.3} {gf:.3} {bf:.3} RG")
 }
 
-fn color_to_stroke_cmyk_string(fill: &[u8; 4]) -> String {
-    let (c, m, y, k) = crate::cmyk::rgb_to_cmyk(fill[0], fill[1], fill[2]);
+fn color_to_stroke_cmyk_string(fill: &EngineColor) -> String {
+    let (r, g, b, _) = engine_color_rgba(fill);
+    let (c, m, y, k) = crate::cmyk::rgb_to_cmyk(r, g, b);
     format!(
         "{:.3} {:.3} {:.3} {:.3} K",
         c as f32 / 255.0,
@@ -538,16 +584,40 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool) -> String {
                     color_to_rgb_string(&stop.color)
                 }
             } else if use_cmyk {
-                color_to_cmyk_string(&[0, 0, 0, 255])
+                color_to_cmyk_string(&EngineColor::Rgb {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 255.0,
+                    profile: None,
+                })
             } else {
-                color_to_rgb_string(&[0, 0, 0, 255])
+                color_to_rgb_string(&EngineColor::Rgb {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 255.0,
+                    profile: None,
+                })
             }
         }
         FillIR::Image { .. } | FillIR::Pattern { .. } => {
             if use_cmyk {
-                color_to_cmyk_string(&[0, 0, 0, 255])
+                color_to_cmyk_string(&EngineColor::Rgb {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 255.0,
+                    profile: None,
+                })
             } else {
-                color_to_rgb_string(&[0, 0, 0, 255])
+                color_to_rgb_string(&EngineColor::Rgb {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 255.0,
+                    profile: None,
+                })
             }
         }
     }
@@ -819,7 +889,9 @@ fn get_ascender(opts: &PdfOptions, font_size: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use strata_core::{Affine, Circle, FillIR, GradientStop, Point, Rect, Stroke};
+    use strata_core::{
+        Affine, BlendMode, Circle, EngineColor, FillIR, GradientStop, Point, Rect, Stroke,
+    };
 
     // ── Helpers ────────────────────────────────────────────────────────
 
@@ -829,12 +901,18 @@ mod tests {
             name: format!("r{id}"),
             transform: Affine::translate((x, y)),
             shape: Shape::Rect(Rect::new(0.0, 0.0, w, h)),
-            fill: [57, 208, 198, 255],
+            fill: EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -867,12 +945,18 @@ mod tests {
                 open_type_features: None,
                 variable_axes: None,
             },
-            fill: [0, 0, 0, 255],
+            fill: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -898,9 +982,15 @@ mod tests {
 
     fn solid_fill(r: u8, g: u8, b: u8, a: u8, visible: bool) -> FillIR {
         FillIR::Solid {
-            color: [r, g, b, a],
+            color: EngineColor::Rgb {
+                r: r as f64,
+                g: g as f64,
+                b: b as f64,
+                a: a as f64,
+                profile: None,
+            },
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             visible,
         }
     }
@@ -911,17 +1001,32 @@ mod tests {
             stops: vec![
                 GradientStop {
                     position: 0.0,
-                    color: [255, 0, 0, 255],
+                    color: EngineColor::Rgb {
+                        r: 255.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 255.0,
+                        profile: None,
+                    },
+                    midpoint: None,
                 },
                 GradientStop {
                     position: 1.0,
-                    color: [0, 0, 255, 255],
+                    color: EngineColor::Rgb {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 255.0,
+                        a: 255.0,
+                        profile: None,
+                    },
+                    midpoint: None,
                 },
             ],
             rotation: 0.0,
             transform: None,
+            tiling_mode: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             visible,
         }
     }
@@ -944,12 +1049,18 @@ mod tests {
             name: "c".into(),
             transform: Affine::translate((50.0, 50.0)),
             shape: Shape::Circle(Circle::new(Point::new(0.0, 0.0), 30.0)),
-            fill: [255, 0, 0, 255],
+            fill: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -986,12 +1097,18 @@ mod tests {
                 closed: false,
                 tolerance: 1.0,
             },
-            fill: [0, 0, 0, 255],
+            fill: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -1019,12 +1136,18 @@ mod tests {
                 closed: false,
                 tolerance: 1.0,
             },
-            fill: [0, 0, 0, 255],
+            fill: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -1090,9 +1213,15 @@ mod tests {
     fn render_fills_opacity() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![FillIR::Solid {
-            color: [255, 0, 0, 255],
+            color: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             opacity: 0.5,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             visible: true,
         }]);
         let result = render_fills(&node, 100.0, false);
@@ -1134,12 +1263,18 @@ mod tests {
             name: "s".into(),
             transform: Affine::translate((0.0, 0.0)),
             shape: Shape::Rect(Rect::new(0.0, 0.0, 100.0, 100.0)),
-            fill: [0, 0, 0, 255],
+            fill: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: vec![stroke],
             effects: Vec::new(),
@@ -1235,9 +1370,15 @@ mod tests {
             y: 5.0,
             blur: 2.0,
             spread: 0.0,
-            color: [0, 0, 0, 255],
+            color: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             opacity: 0.5,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             visible: true,
         }];
         let result = render_effects(&node, 100.0, false);
@@ -1288,9 +1429,15 @@ mod tests {
             y: 2.0,
             blur: 1.0,
             spread: 0.0,
-            color: [0, 0, 0, 255],
+            color: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             opacity: 0.5,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             visible: true,
         }];
         let result = render_effects(&node, 100.0, false);
@@ -1388,12 +1535,18 @@ mod tests {
             name: "circle".into(),
             transform: Affine::translate((100.0, 100.0)),
             shape: Shape::Circle(Circle::new(Point::new(0.0, 0.0), 50.0)),
-            fill: [255, 0, 0, 255],
+            fill: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -1438,9 +1591,15 @@ mod tests {
             y: 5.0,
             blur: 2.0,
             spread: 0.0,
-            color: [0, 0, 0, 255],
+            color: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             opacity: 0.5,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             visible: true,
         }];
         let bytes = export_pdf(&[node], &PdfOptions::default()).expect("effects pdf");
@@ -1576,12 +1735,18 @@ mod tests {
                 open_type_features: None,
                 variable_axes: None,
             },
-            fill: [255, 0, 0, 255],
+            fill: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),

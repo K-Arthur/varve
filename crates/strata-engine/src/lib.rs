@@ -13,7 +13,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
-use strata_core::{FillIR, PathPoint, SceneNode, Shape};
+use strata_core::{BlendMode, EngineColor, FillIR, PathPoint, SceneNode, Shape};
 
 /// One drawable record in the render IR. The webview replays these in order.
 ///
@@ -23,14 +23,14 @@ use strata_core::{FillIR, PathPoint, SceneNode, Shape};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RenderItem {
     pub transform: [f64; 6],
-    /// RGBA fill, 0-255 per channel.
-    pub fill: [u8; 4],
+    /// Engine color fill (tagged union matching TS `EngineColor`).
+    pub fill: EngineColor,
     pub primitive: Primitive,
     // ── F6: appearance (serde(default) for backward compat with old IR) ─────
     #[serde(default = "default_opacity")]
     pub opacity: f64,
     #[serde(default = "default_blend_mode")]
-    pub blend_mode: String,
+    pub blend_mode: BlendMode,
     #[serde(default)]
     pub strokes: Vec<strata_core::Stroke>,
     #[serde(default)]
@@ -46,8 +46,8 @@ pub struct RenderItem {
 fn default_opacity() -> f64 {
     1.0
 }
-fn default_blend_mode() -> String {
-    "normal".into()
+fn default_blend_mode() -> BlendMode {
+    BlendMode::Normal
 }
 
 /// Geometry primitive in a node's LOCAL space (pre-transform).
@@ -160,7 +160,7 @@ pub fn build_render_ir(nodes: &[SceneNode]) -> Vec<RenderItem> {
         .iter()
         .map(|n| RenderItem {
             transform: n.transform.as_coeffs(),
-            fill: n.fill,
+            fill: n.fill.clone(),
             primitive: primitive_of(&n.shape, n.corner_radius.as_ref()),
             opacity: n.opacity,
             blend_mode: n.blend_mode.clone(),
@@ -182,7 +182,7 @@ pub fn build_render_ir_flat(
         .iter()
         .map(|(_, node, _)| RenderItem {
             transform: node.transform.as_coeffs(),
-            fill: node.fill,
+            fill: node.fill.clone(),
             primitive: primitive_of(&node.shape, node.corner_radius.as_ref()),
             opacity: node.opacity,
             blend_mode: node.blend_mode.clone(),
@@ -308,7 +308,7 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use strata_core::{Affine, Circle, Point, Rect};
+    use strata_core::{Affine, BlendMode, Circle, EngineColor, Point, Rect};
 
     fn rect_node(id: u64, x: f64, y: f64, w: f64, h: f64) -> SceneNode {
         SceneNode {
@@ -316,12 +316,18 @@ mod tests {
             name: format!("r{id}"),
             transform: Affine::translate((x, y)),
             shape: Shape::Rect(Rect::new(0.0, 0.0, w, h)),
-            fill: [57, 208, 198, 255],
+            fill: EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -339,7 +345,16 @@ mod tests {
         ];
         let ir = build_render_ir(&scene);
         assert_eq!(ir.len(), 2);
-        assert_eq!(ir[0].fill, [57, 208, 198, 255]);
+        assert_eq!(
+            ir[0].fill,
+            EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None
+            }
+        );
         assert!(matches!(
             ir[0].primitive,
             Primitive::Rect {
@@ -363,18 +378,27 @@ mod tests {
     fn build_render_ir_flat_nested_frames() {
         use strata_core::walk_nodes;
 
+        let rgb = |r: f64, g: f64, b: f64, a: f64| -> EngineColor {
+            EngineColor::Rgb {
+                r,
+                g,
+                b,
+                a,
+                profile: None,
+            }
+        };
         let scene = vec![
             SceneNode {
                 id: strata_core::NodeId(1),
                 name: "frame".into(),
                 transform: Affine::translate((0.0, 0.0)),
                 shape: Shape::Rect(Rect::new(0.0, 0.0, 100.0, 100.0)),
-                fill: [200, 200, 200, 255],
+                fill: rgb(200.0, 200.0, 200.0, 255.0),
                 children: vec![strata_core::NodeId(2), strata_core::NodeId(3)],
                 component_id: None,
                 slots: None,
                 opacity: 1.0,
-                blend_mode: "normal".into(),
+                blend_mode: BlendMode::Normal,
                 rotation: 0.0,
                 strokes: Vec::new(),
                 effects: Vec::new(),
@@ -387,12 +411,12 @@ mod tests {
                 name: "child-circle".into(),
                 transform: Affine::translate((5.0, 5.0)),
                 shape: Shape::Circle(Circle::new(Point::ZERO, 5.0)),
-                fill: [255, 0, 0, 255],
+                fill: rgb(255.0, 0.0, 0.0, 255.0),
                 children: Vec::new(),
                 component_id: None,
                 slots: None,
                 opacity: 1.0,
-                blend_mode: "normal".into(),
+                blend_mode: BlendMode::Normal,
                 rotation: 0.0,
                 strokes: Vec::new(),
                 effects: Vec::new(),
@@ -405,12 +429,12 @@ mod tests {
                 name: "r3".into(),
                 transform: Affine::translate((100.0, 100.0)),
                 shape: Shape::Rect(Rect::new(0.0, 0.0, 20.0, 20.0)),
-                fill: [0, 255, 0, 255],
+                fill: rgb(0.0, 255.0, 0.0, 255.0),
                 children: Vec::new(),
                 component_id: None,
                 slots: None,
                 opacity: 1.0,
-                blend_mode: "normal".into(),
+                blend_mode: BlendMode::Normal,
                 rotation: 0.0,
                 strokes: Vec::new(),
                 effects: Vec::new(),
@@ -423,12 +447,12 @@ mod tests {
                 name: "r4".into(),
                 transform: Affine::translate((50.0, 50.0)),
                 shape: Shape::Rect(Rect::new(0.0, 0.0, 50.0, 50.0)),
-                fill: [57, 208, 198, 255],
+                fill: rgb(57.0, 208.0, 198.0, 255.0),
                 children: Vec::new(),
                 component_id: None,
                 slots: None,
                 opacity: 1.0,
-                blend_mode: "normal".into(),
+                blend_mode: BlendMode::Normal,
                 rotation: 0.0,
                 strokes: Vec::new(),
                 effects: Vec::new(),
@@ -464,10 +488,28 @@ mod tests {
                 ..
             }
         ));
-        assert_eq!(ir[0].fill, [200, 200, 200, 255]);
+        assert_eq!(
+            ir[0].fill,
+            EngineColor::Rgb {
+                r: 200.0,
+                g: 200.0,
+                b: 200.0,
+                a: 255.0,
+                profile: None
+            }
+        );
 
         assert!(matches!(ir[1].primitive, Primitive::Circle { r: 5.0, .. }));
-        assert_eq!(ir[1].fill, [255, 0, 0, 255]);
+        assert_eq!(
+            ir[1].fill,
+            EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None
+            }
+        );
 
         assert!(matches!(
             ir[2].primitive,
@@ -477,7 +519,16 @@ mod tests {
                 ..
             }
         ));
-        assert_eq!(ir[2].fill, [0, 255, 0, 255]);
+        assert_eq!(
+            ir[2].fill,
+            EngineColor::Rgb {
+                r: 0.0,
+                g: 255.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None
+            }
+        );
 
         assert!(matches!(
             ir[3].primitive,
@@ -487,7 +538,16 @@ mod tests {
                 ..
             }
         ));
-        assert_eq!(ir[3].fill, [57, 208, 198, 255]);
+        assert_eq!(
+            ir[3].fill,
+            EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None
+            }
+        );
     }
 
     #[test]
@@ -497,12 +557,18 @@ mod tests {
             name: "c".into(),
             transform: Affine::translate((40.0, 40.0)),
             shape: Shape::Circle(Circle::new(Point::ZERO, 8.0)),
-            fill: [255, 0, 0, 255],
+            fill: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
             children: Vec::new(),
             component_id: None,
             slots: None,
             opacity: 1.0,
-            blend_mode: "normal".into(),
+            blend_mode: BlendMode::Normal,
             rotation: 0.0,
             strokes: Vec::new(),
             effects: Vec::new(),
@@ -512,7 +578,16 @@ mod tests {
         };
         let ir = build_render_ir(&[node]);
         assert!(matches!(ir[0].primitive, Primitive::Circle { r: 8.0, .. }));
-        assert_eq!(ir[0].fill, [255, 0, 0, 255]);
+        assert_eq!(
+            ir[0].fill,
+            EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None
+            }
+        );
         assert_eq!(
             ir[0].primitive,
             Primitive::Circle {

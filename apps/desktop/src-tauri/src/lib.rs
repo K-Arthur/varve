@@ -771,6 +771,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use strata_core::{BlendMode, EngineColor};
 
     fn ts_wire_json() -> serde_json::Value {
         serde_json::json!([
@@ -833,7 +834,16 @@ mod tests {
 
         // Rect: origin, teal
         assert_eq!(ir[0].transform, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
-        assert_eq!(ir[0].fill, [57, 208, 198, 255]);
+        assert_eq!(
+            ir[0].fill,
+            EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None
+            }
+        );
         assert_eq!(
             ir[0].primitive,
             strata_engine::Primitive::Rect {
@@ -847,7 +857,16 @@ mod tests {
 
         // Circle: translated (50,50), red
         assert_eq!(ir[1].transform, [1.0, 0.0, 0.0, 1.0, 50.0, 50.0]);
-        assert_eq!(ir[1].fill, [255, 0, 0, 255]);
+        assert_eq!(
+            ir[1].fill,
+            EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None
+            }
+        );
         assert_eq!(
             ir[1].primitive,
             strata_engine::Primitive::Circle {
@@ -882,7 +901,16 @@ mod tests {
 
         // Text: translated (25,25), text primitive
         assert_eq!(ir[4].transform, [1.0, 0.0, 0.0, 1.0, 25.0, 25.0]);
-        assert_eq!(ir[4].fill, [16, 21, 31, 255]);
+        assert_eq!(
+            ir[4].fill,
+            EngineColor::Rgb {
+                r: 16.0,
+                g: 21.0,
+                b: 31.0,
+                a: 255.0,
+                profile: None
+            }
+        );
         assert!(matches!(
             ir[4].primitive,
             strata_engine::Primitive::Text { text: _, .. }
@@ -908,7 +936,7 @@ mod tests {
             "fill": { "space": "rgb", "r": 57, "g": 208, "b": 198, "a": 255 },
             "fills": [{
                 "type": "solid",
-                "color": [57, 208, 198, 255],
+                "color": {"space": "rgb", "r": 57.0, "g": 208.0, "b": 198.0, "a": 255.0},
                 "opacity": 1.0,
                 "blendMode": "normal",
                 "visible": true
@@ -920,7 +948,16 @@ mod tests {
         assert!(scene[0].fills.is_some());
         assert!(scene[0].filters.is_some());
         assert!(scene[0].corner_radius.is_some());
-        assert_eq!(scene[0].fill, [57, 208, 198, 255]);
+        assert_eq!(
+            scene[0].fill,
+            EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None
+            }
+        );
 
         let ir = strata_engine::build_render_ir(&scene);
         assert!(ir[0].fills.is_some());
@@ -997,10 +1034,14 @@ mod tests {
         let to = line_prim.get("to").unwrap();
         assert!(to.is_array(), "line.to should be a JSON array, got {to}");
 
-        // Verify fill is an array of 4 numbers
+        // Verify fill is an EngineColor object tagged by "space"
         let fill = first.get("fill").unwrap();
-        assert!(fill.is_array(), "fill should be a JSON array");
-        assert_eq!(fill.as_array().unwrap().len(), 4);
+        assert!(fill.is_object(), "fill should be a JSON object (EngineColor)");
+        assert_eq!(
+            fill.get("space").and_then(|v| v.as_str()),
+            Some("rgb"),
+            "fill should have space='rgb'"
+        );
     }
 
     // ── New command integration tests ─────────────────────────────────────

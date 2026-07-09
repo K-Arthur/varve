@@ -3,8 +3,10 @@
 //! Shared by Tauri IPC and wasm-pack bindings.
 
 use serde::Deserialize;
+use serde_json::Value;
 use strata_core::{
-    Affine, Circle, Effect, FillIR, Line, PathPoint, Point, Rect, SceneNode, Shape, Stroke,
+    Affine, BlendMode, Circle, Effect, EngineColor, FillIR, Line, PathPoint, Point, Rect,
+    SceneNode, Shape, Stroke,
 };
 
 #[derive(Debug, Deserialize)]
@@ -218,12 +220,12 @@ pub struct IpcSceneNode {
     #[serde(with = "affine_serde")]
     pub transform: Affine,
     pub shape: IpcShape,
-    #[serde(default = "default_fill_rgba", deserialize_with = "deserialize_fill")]
-    pub fill: [u8; 4],
+    #[serde(default = "default_fill", deserialize_with = "deserialize_engine_color")]
+    pub fill: EngineColor,
     #[serde(default = "default_opacity")]
     pub opacity: f64,
     #[serde(default = "default_blend")]
-    pub blend_mode: String,
+    pub blend_mode: BlendMode,
     #[serde(default)]
     pub rotation: f64,
     #[serde(default)]
@@ -241,11 +243,17 @@ pub struct IpcSceneNode {
 fn default_opacity() -> f64 {
     1.0
 }
-fn default_blend() -> String {
-    "normal".into()
+fn default_blend() -> BlendMode {
+    BlendMode::Normal
 }
-fn default_fill_rgba() -> [u8; 4] {
-    [0, 0, 0, 255]
+fn default_fill() -> EngineColor {
+    EngineColor::Rgb {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 255.0,
+        profile: None,
+    }
 }
 
 mod affine_serde {
@@ -261,29 +269,32 @@ mod affine_serde {
     }
 }
 
-fn deserialize_fill<'de, D>(d: D) -> Result<[u8; 4], D::Error>
+fn deserialize_engine_color<'de, D>(d: D) -> Result<EngineColor, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let v = serde_json::Value::deserialize(d)?;
-    Ok(parse_fill_rgba(&v))
-}
-
-pub fn parse_fill_rgba(v: &serde_json::Value) -> [u8; 4] {
+    let v = Value::deserialize(d)?;
+    // New format: tagged union { "space": "rgb"|"cmyk"|"gray"|"spot", … }
+    if let Ok(color) = serde_json::from_value::<EngineColor>(v.clone()) {
+        return Ok(color);
+    }
+    // Backward compat: old [r, g, b, a] array → EngineRgbColor
     if let Ok(arr) = serde_json::from_value::<[u8; 4]>(v.clone()) {
-        return arr;
+        return Ok(EngineColor::Rgb {
+            r: arr[0] as f64,
+            g: arr[1] as f64,
+            b: arr[2] as f64,
+            a: arr[3] as f64,
+            profile: None,
+        });
     }
-    if let Some(obj) = v.as_object() {
-        if obj.get("space").and_then(|s| s.as_str()) == Some("rgb") {
-            return [
-                obj.get("r").and_then(|n| n.as_u64()).unwrap_or(0) as u8,
-                obj.get("g").and_then(|n| n.as_u64()).unwrap_or(0) as u8,
-                obj.get("b").and_then(|n| n.as_u64()).unwrap_or(0) as u8,
-                obj.get("a").and_then(|n| n.as_u64()).unwrap_or(255) as u8,
-            ];
-        }
-    }
-    [0, 0, 0, 255]
+    Ok(EngineColor::Rgb {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 255.0,
+        profile: None,
+    })
 }
 
 /// Convert wire-format nodes (from TS engine) into native scene nodes.
@@ -327,9 +338,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_rgb_fill_object() {
-        let v = serde_json::json!({"space": "rgb", "r": 57, "g": 208, "b": 198, "a": 255});
-        assert_eq!(parse_fill_rgba(&v), [57, 208, 198, 255]);
+    fn parse_engine_color_new_format() {
+        let v = serde_json::json!({"space": "rgb", "r": 57.0, "g": 208.0, "b": 198.0, "a": 255.0});
+        let color: EngineColor = serde_json::from_value(v).expect("engine color");
+        assert_eq!(
+            color,
+            EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None
+            }
+        );
+    }
+
+    #[test]
+    fn parse_engine_color_backward_compat_array() {
+        // The custom deserializer handles array→EngineColor fallback
+        // through IpcSceneNode deserialization.
+        let json = serde_json::json!([{
+            "id": "n0",
+            "name": "test",
+            "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            "shape": { "kind": "rect", "x": 0, "y": 0, "w": 10, "h": 10 },
+            "fill": [57, 208, 198, 255]
+        }]);
+        let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
+        let scene = convert_engine_nodes(nodes);
+        assert_eq!(scene.len(), 1);
+        assert_eq!(
+            scene[0].fill,
+            EngineColor::Rgb {
+                r: 57.0,
+                g: 208.0,
+                b: 198.0,
+                a: 255.0,
+                profile: None
+            }
+        );
     }
 
     #[test]
@@ -351,7 +398,7 @@ mod tests {
                 "w": 80.0,
                 "h": 20.0
             },
-            "fill": {"space": "rgb", "r": 0, "g": 0, "b": 0, "a": 255}
+            "fill": {"space": "rgb", "r": 0.0, "g": 0.0, "b": 0.0, "a": 255.0}
         }]);
         let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize text node");
         let scene = convert_engine_nodes(nodes);

@@ -45,7 +45,11 @@ export function clipColor(r: number, g: number, b: number): [number, number, num
     }
   }
   // Clamp floating-point rounding errors (preserves luminance at EPS scale)
-  return [cr < 0 ? 0 : cr, cg < 0 ? 0 : cg, cb < 0 ? 0 : cb];
+  return [
+    Math.min(1, Math.max(0, cr)),
+    Math.min(1, Math.max(0, cg)),
+    Math.min(1, Math.max(0, cb)),
+  ];
 }
 
 /** Set luminance of a color to a target value (W3C SetLum). */
@@ -308,8 +312,11 @@ export function blendLuminosityLch(
 
 export type NonSeparableMode = 'hue' | 'saturation' | 'color' | 'luminosity';
 
+export type NonSeparableMethod = 'w3c' | 'lch';
+
 /**
- * Dispatch non-separable blend mode by name (W3C implementation).
+ * Dispatch non-separable blend mode by name.
+ * Defaults to W3C implementation; pass method='lch' for L*C*h* perceptual space.
  */
 export function blendNonSeparable(
   br: number,
@@ -319,7 +326,22 @@ export function blendNonSeparable(
   sg: number,
   sb: number,
   mode: NonSeparableMode | string,
+  method: NonSeparableMethod = 'w3c',
 ): [number, number, number] {
+  if (method === 'lch') {
+    switch (mode) {
+      case 'hue':
+        return blendHueLch(br, bg, bb, sr, sg, sb);
+      case 'saturation':
+        return blendSaturationLch(br, bg, bb, sr, sg, sb);
+      case 'color':
+        return blendColorLch(br, bg, bb, sr, sg, sb);
+      case 'luminosity':
+        return blendLuminosityLch(br, bg, bb, sr, sg, sb);
+      default:
+        return [sr, sg, sb];
+    }
+  }
   switch (mode) {
     case 'hue':
       return blendHueW3C(br, bg, bb, sr, sg, sb);

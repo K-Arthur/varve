@@ -203,8 +203,35 @@ function applySoftwareFilter(
       break;
     }
     case 'selectiveColor': {
-      const params: SelectiveColorParams[] =
-        'params' in filter ? (filter as unknown as { params: SelectiveColorParams[] }).params : [];
+      const scFilter = filter as {
+        colorRange: string;
+        cyan: number;
+        magenta: number;
+        yellow: number;
+        black: number;
+        relative: boolean;
+      };
+      const colorMap: Record<string, SelectiveColorTarget> = {
+        reds: 'red',
+        yellows: 'yellow',
+        greens: 'green',
+        cyans: 'cyan',
+        blues: 'blue',
+        magentas: 'magenta',
+        whites: 'white',
+        neutrals: 'neutral',
+        blacks: 'black',
+      };
+      const params: SelectiveColorParams[] = [
+        {
+          color: colorMap[scFilter.colorRange] ?? 'neutral',
+          cyan: scFilter.cyan ?? 0,
+          magenta: scFilter.magenta ?? 0,
+          yellow: scFilter.yellow ?? 0,
+          black: scFilter.black ?? 0,
+          method: scFilter.relative ? 'relative' : 'absolute',
+        },
+      ];
       const result = applySelectiveColor(imageData, params);
       ctx.putImageData(result, 0, 0);
       break;
@@ -234,50 +261,87 @@ function applySoftwareFilter(
       break;
     }
     case 'colorBalance': {
-      const cf = filter as unknown as {
-        shadows?: [number, number, number];
-        midtones?: [number, number, number];
-        highlights?: [number, number, number];
-        preserveLuminosity?: boolean;
+      const cf = filter as {
+        shadows: { cyanRed: number; magentaGreen: number; yellowBlue: number };
+        midtones: { cyanRed: number; magentaGreen: number; yellowBlue: number };
+        highlights: { cyanRed: number; magentaGreen: number; yellowBlue: number };
+        preserveLuminosity: boolean;
       };
+      const triplet = (t: {
+        cyanRed: number;
+        magentaGreen: number;
+        yellowBlue: number;
+      }): [number, number, number] => [t.cyanRed, t.magentaGreen, t.yellowBlue];
       applyColorBalance(
         imageData,
-        cf.shadows ?? [0, 0, 0],
-        cf.midtones ?? [0, 0, 0],
-        cf.highlights ?? [0, 0, 0],
-        cf.preserveLuminosity ?? true,
+        triplet(cf.shadows),
+        triplet(cf.midtones),
+        triplet(cf.highlights),
+        cf.preserveLuminosity,
       );
       ctx.putImageData(imageData, 0, 0);
       break;
     }
     case 'channelMixer': {
-      const cmf = filter as unknown as {
-        red?: [number, number, number];
-        green?: [number, number, number];
-        blue?: [number, number, number];
-        constant?: [number, number, number];
-        monochrome?: boolean;
+      // FilterIR has single-output-channel format; engine expects all 3 at once.
+      // Convert: outputChannel + redPercent/greenPercent/bluePercent define the
+      // mix for one output channel; other channels pass through unchanged.
+      const cmf = filter as {
+        outputChannel: string;
+        redPercent: number;
+        greenPercent: number;
+        bluePercent: number;
+        constant: number;
+        monochrome: boolean;
       };
-      applyChannelMixer(
-        imageData,
-        cmf.red ?? [100, 0, 0],
-        cmf.green ?? [0, 100, 0],
-        cmf.blue ?? [0, 0, 100],
-        cmf.constant ?? [0, 0, 0],
-        cmf.monochrome ?? false,
-      );
+      const rPct = cmf.redPercent ?? 100;
+      const gPct = cmf.greenPercent ?? 0;
+      const bPct = cmf.bluePercent ?? 0;
+      const cnst = cmf.constant ?? 0;
+      let red: [number, number, number];
+      let green: [number, number, number];
+      let blue: [number, number, number];
+      let constant: [number, number, number];
+      switch (cmf.outputChannel) {
+        case 'red':
+          red = [rPct, gPct, bPct];
+          green = [0, 100, 0];
+          blue = [0, 0, 100];
+          constant = [cnst, 0, 0];
+          break;
+        case 'green':
+          red = [100, 0, 0];
+          green = [rPct, gPct, bPct];
+          blue = [0, 0, 100];
+          constant = [0, cnst, 0];
+          break;
+        case 'blue':
+          red = [100, 0, 0];
+          green = [0, 100, 0];
+          blue = [rPct, gPct, bPct];
+          constant = [0, 0, cnst];
+          break;
+        default:
+          red = [100, 0, 0];
+          green = [0, 100, 0];
+          blue = [0, 0, 100];
+          constant = [0, 0, 0];
+      }
+      applyChannelMixer(imageData, red, green, blue, constant, cmf.monochrome ?? false);
       ctx.putImageData(imageData, 0, 0);
       break;
     }
     case 'photoFilter': {
-      const pf = filter as unknown as {
-        color: { r: number; g: number; b: number; a: number };
+      // FilterIR stores color as [r,g,b,a] tuple; engine expects {r,g,b,a} object.
+      const pf = filter as {
+        color: readonly [number, number, number, number];
         density: number;
         preserveLuminosity: boolean;
       };
+      const colorTuple = pf.color ?? [255, 165, 0, 255];
       applyPhotoFilter(
         imageData,
-        pf.color ?? { r: 255, g: 165, b: 0, a: 255 },
+        { r: colorTuple[0], g: colorTuple[1], b: colorTuple[2], a: colorTuple[3] },
         pf.density ?? 25,
         pf.preserveLuminosity ?? true,
       );

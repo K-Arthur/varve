@@ -16,7 +16,7 @@
  */
 
 export type HalftonePattern = 'dot' | 'line' | 'cross' | 'circle';
-export type HalftoneDotShape = 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
+export type HalftoneDotShape = 'round' | 'elliptical' | 'square' | 'diamond' | 'line' | 'cross' | 'circle';
 export type HalftoneChannel = 'k' | 'c' | 'm' | 'y' | 'cmyk';
 export type HalftoneMethod = 'am' | 'fm';
 
@@ -106,6 +106,26 @@ export function generateAMMatrix(size: number, dotShape: HalftoneDotShape): Uint
           // Line screen: threshold along one axis only
           dist = Math.abs(dy);
           break;
+        case 'cross': {
+          // Cross-shaped dot: extends further along x and y axes (+ shape)
+          // Off-axis (diagonal) areas get higher thresholds so the cross
+          // arms grow before the corners fill in.
+          const adx = Math.abs(dx);
+          const ady = Math.abs(dy);
+          const axisDist = Math.min(adx, ady);
+          const radialDist = Math.sqrt(adx * adx + ady * ady);
+          dist = radialDist + axisDist * 0.5;
+          break;
+        }
+        case 'circle': {
+          // Circle / bullseye dot: concentric ring (Fresnel-like) pattern.
+          // The threshold alternates with radial distance, creating
+          // concentric rings instead of a single growing dot cluster.
+          const rad = Math.sqrt(dx * dx + dy * dy);
+          const ringPhase = Math.sin(rad * Math.PI * 6);
+          dist = rad + ringPhase * 0.3;
+          break;
+        }
         default:
           dist = Math.sqrt(dx * dx + dy * dy);
       }
