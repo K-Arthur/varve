@@ -1,6 +1,6 @@
 # Render Pipeline Architecture
 
-**Updated:** 2026-07-06
+**Updated:** 2026-07-08
 
 ## Overview
 
@@ -68,14 +68,23 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    to the pure-TS stub on any deserializer failure (one warning + circuit breaker)
    so one malformed node can never blank the whole scene.
 
-2. **Image fills require the main-thread renderer.** The OffscreenCanvas render
-   worker replays IR with `replayIr`→`paintImageFill`→`new Image()`, which does not
-   exist in a Web Worker global scope, against the main-thread `ImageCache` it also
-   cannot see — so a worker-rendered frame silently drops every image (the failure
-   is swallowed by `cache.load().catch()`). `sceneHasImageFills(doc)` (in
-   `render/sceneCompositing.ts`) keeps any image-bearing scene on the main-thread
-   `drawVectorItems` path. The worker path only runs for non-structural scenes, so
-   image bugs looked intermittent (structural scenes render on the main thread).
+2. **Image fills use Structured Clone transport when loaded.** The render worker
+   cannot construct `Image` or access main-thread `ImageCache`. `collectImageBitmaps`
+   pre-decodes on the main thread; `sceneCanUseWorkerRenderer` gates the worker path
+   until every image src is loaded. Until then, main-thread replay applies.
+
+## WebGPU Compositor (2026-07-08)
+
+| Feature | Implementation |
+|---|---|
+| Init order | WebGPU context acquired before any 2D context on main canvas |
+| Fallback | OffscreenCanvas 2D for non-GPU primitives; alpha-blitted onto WebGPU surface |
+| Primitives | rect, circle, line (tessellated quad) on GPU; text/path/effects on 2D overlay |
+| Pipeline | Explicit bind group layouts; shared camera uniform; per-circle discard shader |
+| Perf | Vertex buffer pool (power-of-2); render bundle cache for static solid geometry |
+| Device loss | `watchDeviceLost` clears pools; router swaps to Canvas2DBackend |
+| Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
+| Diagnostics | Status bar via `CompositorDiagnostics` (backend id, pool/bundle counts) |
 
 ## Performance Optimizations (Session 43)
 

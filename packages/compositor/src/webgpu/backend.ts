@@ -5,8 +5,10 @@
  */
 import type { RenderItem } from '@strata/engine';
 import { Canvas2DBackend } from '../canvas2d/backend';
-import type { CompositorFrame } from '../types';
+import type { CompositorDiagnostics, CompositorFrame } from '../types';
 import {
+  BLIT_FRAGMENT_WGSL,
+  BLIT_VERTEX_WGSL,
   CIRCLE_FRAGMENT_WGSL,
   CIRCLE_VERTEX_WGSL,
   SOLID_FRAGMENT_WGSL,
@@ -32,11 +34,6 @@ function fillToRgba(fill: RenderItem['fill']): [number, number, number, number] 
     return [fill[0] / 255, fill[1] / 255, fill[2] / 255, fill[3] / 255];
   }
   return [0, 0, 0, 1];
-}
-
-function isGpuPrimitive(item: RenderItem): boolean {
-  const k = item.primitive.kind;
-  return k === 'rect' || k === 'circle' || k === 'line';
 }
 
 function buildVertices(items: RenderItem[]): GpuVertex[] {
@@ -101,6 +98,17 @@ function buildVertices(items: RenderItem[]): GpuVertex[] {
   return vertices;
 }
 
+function isGpuPrimitive(item: RenderItem): boolean {
+  const k = item.primitive.kind;
+  return k === 'rect' || k === 'circle' || k === 'line';
+}
+
+/** Test helper: line tessellation produces 6 vertices (2 triangles). */
+export function lineTessellationVertexCount(item: RenderItem): number {
+  if (item.primitive.kind !== 'line') return 0;
+  return buildVertices([item]).length;
+}
+
 /** Return the smallest power of 2 >= n, clamped to 256 minimum. */
 function roundUpPow2(n: number): number {
   if (n <= 256) return 256;
@@ -110,36 +118,52 @@ function roundUpPow2(n: number): number {
 export class WebGPUBackend {
   readonly id = 'webgpu' as const;
   private fallback: Canvas2DBackend | null = null;
+  /** Offscreen 2D surface for non-GPU primitives when WebGPU owns the main canvas. */
+  private fallbackSurface: OffscreenCanvas | null = null;
   private deviceLostHandler: (() => Promise<void>) | null = null;
   private gpuReady = false;
+  private adapterIsFallback = false;
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
   private format: GPUTextureFormat = 'rgba8unorm';
   private solidPipeline: GPURenderPipeline | null = null;
   private circlePipeline: GPURenderPipeline | null = null;
+  private blitPipeline: GPURenderPipeline | null = null;
   private cameraBuffer: GPUBuffer | null = null;
   private circleUniformBuffer: GPUBuffer | null = null;
+  private blitUniformBuffer: GPUBuffer | null = null;
   private cameraBindGroup: GPUBindGroup | null = null;
   private circleBindGroup: GPUBindGroup | null = null;
+  private blitBindGroupLayout: GPUBindGroupLayout | null = null;
+  private blitSampler: GPUSampler | null = null;
   private vertexPool: Map<number, GPUBuffer> = new Map();
   private bundleCache: Map<string, GPURenderBundle> = new Map();
   private currentFrame: CompositorFrame | null = null;
   private canvas: HTMLCanvasElement | null = null;
+  private lastFrameVertexBytes = 0;
+  private needsFallbackComposite = false;
+  private frameCleared = false;
+  private gpuDrawnThisFrame = false;
 
   async init(canvas: HTMLCanvasElement): Promise<void> {
     this.canvas = canvas;
     this.fallback = new Canvas2DBackend();
-    await this.fallback.init(canvas);
+
+    // Acquire WebGPU context BEFORE any 2D context on the main canvas.
     try {
       const gpu = navigator.gpu;
-      if (!gpu) return;
+      if (!gpu) throw new Error('WebGPU unavailable');
       const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
-      if (!adapter) return;
+      if (!adapter) throw new Error('No WebGPU adapter');
+      this.adapterIsFallback =
+        (adapter as GPUAdapter & { info?: { device?: string } }).info?.device
+          ?.toLowerCase()
+          .includes('swift') ?? false;
       const device = await adapter.requestDevice();
       const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
       if (!context) {
         device.destroy();
-        return;
+        throw new Error('WebGPU canvas context unavailable');
       }
       this.format = gpu.getPreferredCanvasFormat();
       context.configure({ device, format: this.format, alphaMode: 'premultiplied' });
@@ -149,6 +173,9 @@ export class WebGPUBackend {
       });
       const circleModule = device.createShaderModule({
         code: `${CIRCLE_VERTEX_WGSL}\n${CIRCLE_FRAGMENT_WGSL}`,
+      });
+      const blitModule = device.createShaderModule({
+        code: `${BLIT_VERTEX_WGSL}\n${BLIT_FRAGMENT_WGSL}`,
       });
 
       const vertexBufferLayout: GPUVertexBufferLayout = {
@@ -161,7 +188,6 @@ export class WebGPUBackend {
         ],
       };
 
-      // Explicit bind group layouts
       const solidBindGroupLayout = device.createBindGroupLayout({
         entries: [
           {
@@ -187,12 +213,28 @@ export class WebGPUBackend {
         ],
       });
 
+      const blitBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX,
+            buffer: { type: 'uniform' },
+          },
+          { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+          { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+        ],
+      });
+
       const solidPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts: [solidBindGroupLayout],
       });
 
       const circlePipelineLayout = device.createPipelineLayout({
         bindGroupLayouts: [circleBindGroupLayout],
+      });
+
+      const blitPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [blitBindGroupLayout],
       });
 
       const solidPipeline = device.createRenderPipeline({
@@ -217,6 +259,25 @@ export class WebGPUBackend {
         primitive: { topology: 'triangle-list' },
       });
 
+      const blitPipeline = device.createRenderPipeline({
+        layout: blitPipelineLayout,
+        vertex: { module: blitModule, entryPoint: 'vs_main' },
+        fragment: {
+          module: blitModule,
+          entryPoint: 'fs_main',
+          targets: [
+            {
+              format: this.format,
+              blend: {
+                color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              },
+            },
+          ],
+        },
+        primitive: { topology: 'triangle-list' },
+      });
+
       const cameraBuffer = device.createBuffer({
         size: 32,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -225,8 +286,11 @@ export class WebGPUBackend {
         size: 16,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
+      const blitUniformBuffer = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
 
-      // Reusable bind groups from explicit layouts
       const cameraBindGroup = device.createBindGroup({
         layout: solidBindGroupLayout,
         entries: [{ binding: 0, resource: { buffer: cameraBuffer } }],
@@ -238,35 +302,61 @@ export class WebGPUBackend {
           { binding: 1, resource: { buffer: circleUniformBuffer } },
         ],
       });
+      const blitSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
 
       this.device = device;
       this.context = context;
       this.solidPipeline = solidPipeline;
       this.circlePipeline = circlePipeline;
+      this.blitPipeline = blitPipeline;
       this.cameraBuffer = cameraBuffer;
       this.circleUniformBuffer = circleUniformBuffer;
+      this.blitUniformBuffer = blitUniformBuffer;
       this.cameraBindGroup = cameraBindGroup;
       this.circleBindGroup = circleBg;
+      this.blitBindGroupLayout = blitBindGroupLayout;
+      this.blitSampler = blitSampler;
       this.gpuReady = true;
       this.watchDeviceLost(device);
     } catch {
       this.gpuReady = false;
     }
+
+    if (this.gpuReady) {
+      const dpr = window.devicePixelRatio || 1;
+      this.fallbackSurface = new OffscreenCanvas(
+        Math.max(1, Math.floor((canvas.width || 1) * dpr)),
+        Math.max(1, Math.floor((canvas.height || 1) * dpr)),
+      );
+      await this.fallback.init(this.fallbackSurface);
+    } else {
+      await this.fallback.init(canvas);
+    }
   }
 
   beginFrame(frame: CompositorFrame, opts?: BeginOpts): void {
     this.currentFrame = frame;
+    this.needsFallbackComposite = false;
+    this.frameCleared = false;
+    this.gpuDrawnThisFrame = false;
     if (!this.gpuReady) {
       this.fallback?.beginFrame(frame, opts);
       return;
     }
-    if (opts?.clear !== false && this.canvas) {
-      const { viewport } = frame;
-      const dpr = window.devicePixelRatio || 1;
-      if (this.canvas.width !== viewport.width * dpr) {
-        this.canvas.width = viewport.width * dpr;
-        this.canvas.height = viewport.height * dpr;
-      }
+    const { viewport } = frame;
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.floor(viewport.width * dpr));
+    const h = Math.max(1, Math.floor(viewport.height * dpr));
+    if (this.canvas && (this.canvas.width !== w || this.canvas.height !== h)) {
+      this.canvas.width = w;
+      this.canvas.height = h;
+    }
+    if (
+      this.fallbackSurface &&
+      (this.fallbackSurface.width !== w || this.fallbackSurface.height !== h)
+    ) {
+      this.fallbackSurface.width = w;
+      this.fallbackSurface.height = h;
     }
   }
 
@@ -288,13 +378,20 @@ export class WebGPUBackend {
       const frame = this.currentFrame;
       if (frame && gpuItems.length > 0) {
         this.drawGpuItems(gpuItems, frame);
+        this.gpuDrawnThisFrame = true;
+      }
+      if (fallbackItems.length > 0 && this.fallback) {
+        this.fallback.beginFrame(frame ?? this.currentFrame!, {
+          applyCamera: true,
+          clear: true,
+        });
+        this.fallback.drawVectorItems(fallbackItems);
+        this.fallback.endFrame();
+        this.needsFallbackComposite = true;
       }
     } else {
       this.fallback?.drawVectorItems(items);
       return;
-    }
-    if (fallbackItems.length > 0) {
-      this.fallback?.drawVectorItems(fallbackItems);
     }
   }
 
@@ -308,8 +405,24 @@ export class WebGPUBackend {
   }
 
   endFrame(): void {
+    if (this.gpuReady && this.needsFallbackComposite) {
+      this.compositeFallbackOverlay();
+    }
     this.currentFrame = null;
-    this.fallback?.endFrame();
+    if (!this.gpuReady) {
+      this.fallback?.endFrame();
+    }
+  }
+
+  getDiagnostics(): CompositorDiagnostics {
+    return {
+      backendId: 'webgpu',
+      gpuActive: this.gpuReady,
+      vertexPoolEntries: this.vertexPool.size,
+      bundleCacheEntries: this.bundleCache.size,
+      lastFrameVertexBytes: this.lastFrameVertexBytes,
+      adapterIsFallback: this.adapterIsFallback,
+    };
   }
 
   destroy(): void {
@@ -318,16 +431,21 @@ export class WebGPUBackend {
     this.context = null;
     this.solidPipeline = null;
     this.circlePipeline = null;
+    this.blitPipeline = null;
     this.cameraBuffer = null;
     this.circleUniformBuffer = null;
+    this.blitUniformBuffer = null;
     this.cameraBindGroup = null;
     this.circleBindGroup = null;
+    this.blitBindGroupLayout = null;
+    this.blitSampler = null;
     for (const buf of this.vertexPool.values()) buf.destroy();
     this.vertexPool.clear();
     this.bundleCache.clear();
     this.gpuReady = false;
     this.fallback?.destroy();
     this.fallback = null;
+    this.fallbackSurface = null;
     this.canvas = null;
   }
 
@@ -361,15 +479,87 @@ export class WebGPUBackend {
 
   private hashVertices(data: Float32Array): string {
     let h = 0x811c9dc5 >>> 0;
-    const len = Math.min(data.length, 64);
-    const arr = Array.from(data);
-    for (let i = 0; i < len; i++) {
-      const v = arr[i];
+    h ^= data.length >>> 0;
+    h = Math.imul(h, 0x01000193) >>> 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = data[i];
       if (v === undefined) break;
       h ^= Math.abs((v * 0x9e3779b9) | 0) >>> 0;
       h = Math.imul(h, 0x01000193) >>> 0;
     }
-    return h.toString(16);
+    return `${data.length}:${data.byteLength}:${h.toString(16)}`;
+  }
+
+  /** Test accessor for vertex pool reuse assertions. */
+  getOrCreateVertexBufferForTest(byteSize: number): GPUBuffer | null {
+    if (!this.device) return null;
+    return this.getOrCreateVertexBuffer(this.device, byteSize);
+  }
+
+  private compositeFallbackOverlay(): void {
+    const device = this.device;
+    const context = this.context;
+    const blitPipeline = this.blitPipeline;
+    const blitBindGroupLayout = this.blitBindGroupLayout;
+    const blitSampler = this.blitSampler;
+    const blitUniformBuffer = this.blitUniformBuffer;
+    const surface = this.fallbackSurface;
+    const frame = this.currentFrame;
+    if (
+      !device ||
+      !context ||
+      !blitPipeline ||
+      !blitBindGroupLayout ||
+      !blitSampler ||
+      !blitUniformBuffer ||
+      !surface ||
+      !frame
+    ) {
+      return;
+    }
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.floor(frame.viewport.width * dpr));
+    const h = Math.max(1, Math.floor(frame.viewport.height * dpr));
+    const overlayTexture = device.createTexture({
+      size: [w, h, 1],
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    device.queue.copyExternalImageToTexture(
+      { source: surface },
+      { texture: overlayTexture },
+      { width: w, height: h },
+    );
+    const blitUniform = new Float32Array([frame.viewport.width, frame.viewport.height, 0, 0]);
+    device.queue.writeBuffer(blitUniformBuffer, 0, blitUniform);
+    const bindGroup = device.createBindGroup({
+      layout: blitBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: blitUniformBuffer } },
+        { binding: 1, resource: blitSampler },
+        { binding: 2, resource: overlayTexture.createView() },
+      ],
+    });
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: context.getCurrentTexture().createView(),
+          clearValue: { r: 0, g: 0, b: 0, a: 0 },
+          loadOp: this.gpuDrawnThisFrame ? 'load' : 'clear',
+          storeOp: 'store',
+        },
+      ],
+    });
+    pass.setPipeline(blitPipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.draw(3);
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+    overlayTexture.destroy();
   }
 
   private drawGpuItems(items: RenderItem[], frame: CompositorFrame): void {
@@ -409,18 +599,19 @@ export class WebGPUBackend {
 
     const textureView = context.getCurrentTexture().createView();
     const encoder = device.createCommandEncoder();
+    let firstPass = !this.frameCleared;
 
-    // Solid items (rect + line)
+    // Solid items (rect + line) — render bundles with fresh vertex upload each frame
     if (solidItems.length > 0) {
       const solidVerts = buildVertices(solidItems);
       if (solidVerts.length > 0) {
         const data = flattenVertices(solidVerts);
+        this.lastFrameVertexBytes = data.byteLength;
         const hash = this.hashVertices(data);
+        const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
+        device.queue.writeBuffer(vBuf, 0, data.buffer.slice(0, data.byteLength));
         let bundle = this.bundleCache.get(hash);
         if (!bundle) {
-          const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
-          const bufData = data.buffer.slice(0, data.byteLength);
-          device.queue.writeBuffer(vBuf, 0, bufData);
           const bundleEncoder = device.createRenderBundleEncoder({
             colorFormats: [this.format],
           });
@@ -440,64 +631,51 @@ export class WebGPUBackend {
             {
               view: textureView,
               clearValue: { r: 0, g: 0, b: 0, a: 0 },
-              loadOp: 'load',
+              loadOp: firstPass ? 'clear' : 'load',
               storeOp: 'store',
             },
           ],
         });
+        firstPass = false;
+        this.frameCleared = true;
         pass.executeBundles([bundle]);
         pass.end();
       }
     }
 
-    // Circle items
-    if (circleItems.length > 0) {
-      const circleVerts = buildVertices(circleItems);
-      if (circleVerts.length > 0) {
-        const firstCircle = circleItems[0]!;
-        const prim = firstCircle.primitive;
-        if (prim.kind === 'circle') {
-          const t = firstCircle.transform;
-          const screenCx = (t[0] * prim.cx + t[2] * prim.cy + t[4]) * camera.zoom + camera.pan.x;
-          const screenCy = (t[1] * prim.cx + t[3] * prim.cy + t[5]) * camera.zoom + camera.pan.y;
-          const screenR = prim.r * camera.zoom;
-          const circleData = new Float32Array([screenCx, screenCy, screenR, 0]);
-          device.queue.writeBuffer(circleUniformBuffer, 0, circleData.buffer as ArrayBuffer);
-        }
-        const data = flattenVertices(circleVerts);
-        const hash = this.hashVertices(data);
-        let bundle = this.bundleCache.get(`circle:${hash}`);
-        if (!bundle) {
-          const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
-          const bufData = data.buffer.slice(0, data.byteLength);
-          device.queue.writeBuffer(vBuf, 0, bufData);
-          const bundleEncoder = device.createRenderBundleEncoder({
-            colorFormats: [this.format],
-          });
-          bundleEncoder.setPipeline(circlePipeline);
-          bundleEncoder.setBindGroup(0, circleBindGroup);
-          bundleEncoder.setVertexBuffer(0, vBuf);
-          bundleEncoder.draw(circleVerts.length);
-          bundle = bundleEncoder.finish();
-          this.bundleCache.set(`circle:${hash}`, bundle);
-          if (this.bundleCache.size > 32) {
-            const key = this.bundleCache.keys().next().value;
-            if (key) this.bundleCache.delete(key);
-          }
-        }
-        const pass = encoder.beginRenderPass({
-          colorAttachments: [
-            {
-              view: textureView,
-              clearValue: { r: 0, g: 0, b: 0, a: 0 },
-              loadOp: 'load',
-              storeOp: 'store',
-            },
-          ],
-        });
-        pass.executeBundles([bundle]);
-        pass.end();
-      }
+    // Circle items — per-circle draw (uniform varies per primitive; no bundle cache)
+    for (const circleItem of circleItems) {
+      const circleVerts = buildVertices([circleItem]);
+      if (circleVerts.length === 0) continue;
+      const prim = circleItem.primitive;
+      if (prim.kind !== 'circle') continue;
+      const t = circleItem.transform;
+      const screenCx = (t[0] * prim.cx + t[2] * prim.cy + t[4]) * camera.zoom + camera.pan.x;
+      const screenCy = (t[1] * prim.cx + t[3] * prim.cy + t[5]) * camera.zoom + camera.pan.y;
+      const screenR = prim.r * camera.zoom;
+      const circleData = new Float32Array([screenCx, screenCy, screenR, 0]);
+      device.queue.writeBuffer(circleUniformBuffer, 0, circleData.buffer as ArrayBuffer);
+      const data = flattenVertices(circleVerts);
+      this.lastFrameVertexBytes += data.byteLength;
+      const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
+      device.queue.writeBuffer(vBuf, 0, data.buffer.slice(0, data.byteLength));
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: textureView,
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+            loadOp: firstPass ? 'clear' : 'load',
+            storeOp: 'store',
+          },
+        ],
+      });
+      firstPass = false;
+      this.frameCleared = true;
+      pass.setPipeline(circlePipeline);
+      pass.setBindGroup(0, circleBindGroup);
+      pass.setVertexBuffer(0, vBuf);
+      pass.draw(circleVerts.length);
+      pass.end();
     }
 
     device.queue.submit([encoder.finish()]);

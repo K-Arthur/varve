@@ -1,6 +1,6 @@
-import { runPooledInference } from '../workerPool';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
 import { workerModelIdForMethod } from '../types';
+import { runPooledInference } from '../workerPool';
 import type { RemovalProvider } from './types';
 
 export const workerRemovalProvider: RemovalProvider = {

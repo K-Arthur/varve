@@ -64,10 +64,10 @@ describe('meshTriangles', () => {
       cols: 1,
       rows: 1,
       vertices: [
-        { x: 0, y: 0 },    // [0] TL
-        { x: 100, y: 0 },   // [1] TR
-        { x: 0, y: 100 },   // [2] BL
-        { x: 80, y: 80 },   // [3] BR displaced inward
+        { x: 0, y: 0 }, // [0] TL
+        { x: 100, y: 0 }, // [1] TR
+        { x: 0, y: 100 }, // [2] BL
+        { x: 80, y: 80 }, // [3] BR displaced inward
       ],
     };
     const tris = meshTriangles(mesh, 100, 100);
@@ -111,7 +111,9 @@ describe('warpMesh', () => {
     // With no deformation, the result should closely match the source
     let diffCount = 0;
     for (let i = 0; i < src.data.length; i++) {
-      if (Math.abs(src.data[i] - result.data[i]) > 2) diffCount++;
+      const sv = src.data[i];
+      const rv = result.data[i];
+      if (sv !== undefined && rv !== undefined && Math.abs(sv - rv) > 2) diffCount++;
     }
     // Allow some edge pixel differences due to bilinear sampling at boundaries
     expect(diffCount).toBeLessThan(20);

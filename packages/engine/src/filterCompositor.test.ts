@@ -160,7 +160,7 @@ describe('filter compositing', () => {
         drawImage: () => {},
         filter: 'none',
       } as unknown as OffscreenCanvasRenderingContext2D;
-    };
+    } as any;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [
@@ -196,7 +196,7 @@ describe('filter compositing', () => {
         drawImage: () => {},
         filter: 'none',
       } as unknown as OffscreenCanvasRenderingContext2D;
-    };
+    } as any;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [
@@ -227,7 +227,7 @@ describe('filter compositing', () => {
         drawImage: () => {},
         filter: 'none',
       } as unknown as OffscreenCanvasRenderingContext2D;
-    };
+    } as any;
 
     const { target } = mockTarget();
     // Red channel output: 80% red + 10% green + 0% blue + constant 5
@@ -261,7 +261,7 @@ describe('filter compositing', () => {
         drawImage: () => {},
         filter: 'none',
       } as unknown as OffscreenCanvasRenderingContext2D;
-    };
+    } as any;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [

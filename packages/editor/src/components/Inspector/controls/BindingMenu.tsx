@@ -82,8 +82,7 @@ export function BindingMenu({
     [onBind, onClose, expression],
   );
 
-  const highlightedId =
-    variables.length > 0 ? `${listboxId}-option-${selectedIdx}` : undefined;
+  const highlightedId = variables.length > 0 ? `${listboxId}-option-${selectedIdx}` : undefined;
 
   const handleListKey = useCallback(
     (e: React.KeyboardEvent) => {
@@ -128,7 +127,12 @@ export function BindingMenu({
           aria-label="Search variables"
         />
         {variables.length > 0 ? (
-          <div id={listboxId} role="listbox" aria-label="Available variables" className="binding-menu__list">
+          <div
+            id={listboxId}
+            role="listbox"
+            aria-label="Available variables"
+            className="binding-menu__list"
+          >
             {variables.map((v, i) => (
               <div
                 key={v.id}

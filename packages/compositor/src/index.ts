@@ -5,6 +5,7 @@ export type {
   CompositorBackend,
   CompositorBackendId,
   CompositorCapabilities,
+  CompositorDiagnostics,
   CompositorFrame,
   CompositorOptions,
 } from './types';

@@ -256,12 +256,13 @@ describe('removeBackground dispatch', () => {
 });
 
 describe('AI_PROVIDER_CHAIN strategy', () => {
-  it('exports worker, tauri, and direct-onnx providers in order', async () => {
+  it('exports providers in order: worker → tauri → direct-onnx → cloud → heuristic', async () => {
     const { AI_PROVIDER_CHAIN } = await import('../index');
     expect(AI_PROVIDER_CHAIN.map((p) => p.id)).toEqual([
       'worker-onnx',
       'tauri-native',
       'direct-onnx',
+      'cloud',
     ]);
   });
 });

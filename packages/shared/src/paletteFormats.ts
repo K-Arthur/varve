@@ -1,0 +1,309 @@
+/**
+ * Palette file format parsers and exporters.
+ *
+ * Supports GIMP Palette (.gpl) text format. ASE/ACO binary formats deferred
+ * to a dedicated binary parser module due to block structure complexity.
+ *
+ * Research basis: GIMP palette spec, Adobe Swatch Exchange (ASE) spec v1.0.
+ */
+
+export interface GplColorEntry {
+  r: number;
+  g: number;
+  b: number;
+  name?: string;
+}
+
+export interface GplPalette {
+  name: string;
+  columns: number;
+  colors: GplColorEntry[];
+}
+
+/**
+ * Parse a GIMP .gpl palette file (UTF-8 text).
+ */
+export function parseGplPalette(source: string): GplPalette {
+  const lines = source.replace(/\r\n/g, '\n').split('\n');
+  if (!lines[0]?.startsWith('GIMP Palette')) {
+    throw new Error('Invalid GPL palette: missing "GIMP Palette" header');
+  }
+
+  let name = 'Untitled';
+  let columns = 4;
+  const colors: GplColorEntry[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i]?.trim() ?? '';
+    if (line.length === 0) continue;
+    if (line.startsWith('#')) continue;
+    if (line.startsWith('Name:')) {
+      name = line.slice(5).trim();
+      continue;
+    }
+    if (line.startsWith('Columns:')) {
+      columns = Number.parseInt(line.slice(8).trim(), 10) || 4;
+      continue;
+    }
+
+    const parts = line.split(/\s+/);
+    if (parts.length < 3) continue;
+    const r = Number.parseInt(parts[0] ?? '0', 10);
+    const g = Number.parseInt(parts[1] ?? '0', 10);
+    const b = Number.parseInt(parts[2] ?? '0', 10);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) continue;
+    const namePart = parts.slice(3).join(' ').trim();
+    colors.push({ r, g, b, ...(namePart ? { name: namePart } : {}) });
+  }
+
+  return { name, columns, colors };
+}
+
+/**
+ * Export colors to GIMP .gpl palette format.
+ */
+export function exportGplPalette(name: string, colors: GplColorEntry[]): string {
+  const lines = ['GIMP Palette', `Name: ${name}`, 'Columns: 4', '#'];
+  for (const c of colors) {
+    const r = Math.max(0, Math.min(255, Math.round(c.r)));
+    const g = Math.max(0, Math.min(255, Math.round(c.g)));
+    const b = Math.max(0, Math.min(255, Math.round(c.b)));
+    const label = c.name ?? '';
+    lines.push(`${r}\t${g}\t${b}\t${label}`);
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+// ── ASE (Adobe Swatch Exchange) ──────────────────────────────────────────────
+
+/** A single color entry parsed from an ASE file. */
+export interface AseColorEntry {
+  name?: string;
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** A complete ASE palette with optional named groups. */
+export interface AsePalette {
+  name: string;
+  groups: { name: string; colors: AseColorEntry[] }[];
+  colors: AseColorEntry[];
+}
+
+/**
+ * Read a Pascal string (u16 BE length + UTF-16 BE chars) from a DataView.
+ * Returns empty string if length is 0 or data is out of bounds.
+ */
+function readPascalString(view: DataView, offset: number): string {
+  if (offset + 2 > view.byteLength) return '';
+  const len = view.getUint16(offset, false);
+  if (len === 0) return '';
+  const charOffset = offset + 2;
+  const byteLen = len * 2;
+  if (charOffset + byteLen > view.byteLength) return '';
+  const chars: number[] = [];
+  for (let i = 0; i < byteLen; i += 2) {
+    chars.push(view.getUint16(charOffset + i, false));
+  }
+  return String.fromCharCode(...chars);
+}
+
+/**
+ * Parse an Adobe Swatch Exchange (.ase) binary file.
+ *
+ * Supported color modes: RGB, CMYK, LAB, Gray.
+ * Non-RGB modes are converted to RGB analytically.
+ */
+export function parseAsePalette(buffer: ArrayBuffer): AsePalette {
+  const view = new DataView(buffer);
+
+  if (view.byteLength < 12) {
+    throw new Error('Invalid ASE: buffer too small');
+  }
+
+  const magic = String.fromCharCode(
+    view.getUint8(0),
+    view.getUint8(1),
+    view.getUint8(2),
+    view.getUint8(3),
+  );
+  if (magic !== 'ASEF') {
+    throw new Error('Invalid ASE: missing ASEF magic');
+  }
+
+  const version = view.getUint16(4, false);
+  if (version !== 1) {
+    throw new Error(`Invalid ASE: unsupported version ${version}`);
+  }
+
+  const result: AsePalette = { name: '', groups: [], colors: [] };
+  let offset = 10;
+  let currentGroup: { name: string; colors: AseColorEntry[] } | null = null;
+
+  while (offset + 6 <= view.byteLength) {
+    const blockType = view.getUint16(offset, false);
+    const blockLength = view.getUint32(offset + 2, false);
+    offset += 6;
+
+    if (blockLength < 6) break;
+    const dataEnd = offset + (blockLength - 6);
+    if (dataEnd > view.byteLength) break;
+
+    if (blockType === 1) {
+      // Group start
+      const name = readPascalString(view, offset);
+      currentGroup = { name, colors: [] };
+      result.groups.push(currentGroup);
+    } else if (blockType === 2) {
+      // Color entry
+      const name = readPascalString(view, offset);
+      const nameLen = offset + 2 <= view.byteLength ? view.getUint16(offset, false) : 0;
+      let colorOffset = offset + 2 + nameLen * 2;
+
+      if (colorOffset + 20 > view.byteLength) {
+        offset = dataEnd;
+        continue;
+      }
+
+      const mode = String.fromCharCode(
+        view.getUint8(colorOffset),
+        view.getUint8(colorOffset + 1),
+        view.getUint8(colorOffset + 2),
+        view.getUint8(colorOffset + 3),
+      );
+      colorOffset += 4;
+
+      let r = 0;
+      let g = 0;
+      let b = 0;
+
+      if (mode === 'RGB ') {
+        const rv = view.getFloat32(colorOffset, false);
+        const gv = view.getFloat32(colorOffset + 4, false);
+        const bv = view.getFloat32(colorOffset + 8, false);
+        r = Math.max(0, Math.min(255, Math.round(rv * 255)));
+        g = Math.max(0, Math.min(255, Math.round(gv * 255)));
+        b = Math.max(0, Math.min(255, Math.round(bv * 255)));
+      } else if (mode === 'CMYK') {
+        const cv = view.getFloat32(colorOffset, false);
+        const mv = view.getFloat32(colorOffset + 4, false);
+        const yv = view.getFloat32(colorOffset + 8, false);
+        const kv = view.getFloat32(colorOffset + 12, false);
+        // Analytical CMYK → RGB
+        const rr = 1 - Math.min(1, Math.max(0, cv)) - Math.min(1, Math.max(0, kv));
+        const gg = 1 - Math.min(1, Math.max(0, mv)) - Math.min(1, Math.max(0, kv));
+        const bb = 1 - Math.min(1, Math.max(0, yv)) - Math.min(1, Math.max(0, kv));
+        r = Math.max(0, Math.min(255, Math.round(rr * 255)));
+        g = Math.max(0, Math.min(255, Math.round(gg * 255)));
+        b = Math.max(0, Math.min(255, Math.round(bb * 255)));
+      } else if (mode === 'Gray') {
+        const vv = view.getFloat32(colorOffset, false);
+        r = Math.max(0, Math.min(255, Math.round(vv * 255)));
+        g = r;
+        b = r;
+      } else if (mode === 'LAB ') {
+        const lv = view.getFloat32(colorOffset, false);
+        const av = view.getFloat32(colorOffset + 4, false);
+        const bv = view.getFloat32(colorOffset + 8, false);
+        // Approximate LAB → sRGB (D50 reference white)
+        // This is a simplified conversion sufficient for palette display
+        const fy = (lv + 16) / 116;
+        const fx = av / 500 + fy;
+        const fz = fy - bv / 200;
+        const x = 0.9642 * (fx ** 3 > 0.008856 ? fx ** 3 : (fx - 16 / 116) / 7.787);
+        const y = 1.0 * (fy ** 3 > 0.008856 ? fy ** 3 : (fy - 16 / 116) / 7.787);
+        const z = 0.8249 * (fz ** 3 > 0.008856 ? fz ** 3 : (fz - 16 / 116) / 7.787);
+        // XYZ → linear sRGB (D50→D65 adaptation + sRGB matrix approx)
+        const rl = 3.1339 * x - 1.617 * y - 0.4906 * z;
+        const gl = -0.9785 * x + 1.916 * y + 0.0334 * z;
+        const bl = 0.072 * x - 0.229 * y + 1.4056 * z;
+        const clamp = (v: number) => Math.max(0, Math.min(1, v));
+        r = Math.round(clamp(rl) * 255);
+        g = Math.round(clamp(gl) * 255);
+        b = Math.round(clamp(bl) * 255);
+      }
+
+      const entry: AseColorEntry = { r, g, b, ...(name ? { name } : {}) };
+      if (currentGroup) {
+        currentGroup.colors.push(entry);
+      } else {
+        result.colors.push(entry);
+      }
+    }
+
+    offset = dataEnd;
+  }
+
+  return result;
+}
+
+/** Parsed swatch from Adobe Color (.aco) — ASCII name + RGB only. */
+export interface AcoColorEntry {
+  r: number;
+  g: number;
+  b: number;
+  name?: string;
+}
+
+/**
+ * Parse Adobe Color Swatch (.aco) binary format (version 1, RGB entries only).
+ * Supports the common 2-byte version header + color entries.
+ */
+export function parseAcoPalette(buffer: ArrayBuffer): AcoColorEntry[] {
+  const view = new DataView(buffer);
+  if (view.byteLength < 4) return [];
+
+  const version = view.getUint16(0, false);
+  if (version !== 1 && version !== 2) return [];
+
+  const colors: AcoColorEntry[] = [];
+  let offset = 2;
+
+  while (offset + 10 <= view.byteLength) {
+    const colorSpace = view.getUint16(offset, false);
+    offset += 2;
+    if (colorSpace === 0) {
+      // RGB: 4 x int16 (0-65535)
+      const rv = view.getUint16(offset, false);
+      const gv = view.getUint16(offset + 2, false);
+      const bv = view.getUint16(offset + 4, false);
+      offset += 8; // skip 2 padding bytes
+      colors.push({
+        r: Math.round((rv / 65535) * 255),
+        g: Math.round((gv / 65535) * 255),
+        b: Math.round((bv / 65535) * 255),
+      });
+    } else {
+      offset += 8;
+    }
+
+    // Version 2 has Pascal string name after each color
+    if (version === 2 && offset + 2 <= view.byteLength) {
+      const nameLen = view.getUint16(offset, false);
+      offset += 2 + nameLen * 2;
+    }
+  }
+
+  return colors;
+}
+
+/**
+ * Export RGB colors to Adobe Color (.aco) version 1 binary.
+ */
+export function exportAcoPalette(colors: AcoColorEntry[]): ArrayBuffer {
+  const buf = new ArrayBuffer(2 + colors.length * 10);
+  const view = new DataView(buf);
+  view.setUint16(0, 1, false);
+  let offset = 2;
+  for (const c of colors) {
+    view.setUint16(offset, 0, false); // RGB color space
+    offset += 2;
+    view.setUint16(offset, Math.round((c.r / 255) * 65535), false);
+    view.setUint16(offset + 2, Math.round((c.g / 255) * 65535), false);
+    view.setUint16(offset + 4, Math.round((c.b / 255) * 65535), false);
+    view.setUint16(offset + 6, 0, false); // padding
+    offset += 8;
+  }
+  return buf;
+}

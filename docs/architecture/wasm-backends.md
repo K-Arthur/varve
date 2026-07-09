@@ -1,6 +1,6 @@
 # WASM Backend Architecture
 
-**Updated:** 2026-07-06
+**Updated:** 2026-07-08
 
 ## Purpose
 
@@ -24,11 +24,12 @@ Desktop keeps the **native wedge** (ADR-0001): document state in unbounded nativ
 
 | Artifact | Flags | Use when |
 |---|---|---|
-| `strata_engine_bg.wasm` | baseline | Tauri, constrained environments |
-| `strata_engine_simd.wasm` | `+simd128` | SIMD-capable browsers |
-| `strata_engine_threads.wasm` | `+atomics,+bulk-memory` | Web with COOP/COEP only |
+| `strata_wasm_simd_bg.wasm` | `+simd128`, wasm-opt -O3 | **Preferred** — SIMD-capable browsers |
+| `strata_wasm_bg.wasm` | baseline, wasm-opt -O3 | Fallback when SIMD artifact absent |
+| `strata_engine_threads.wasm` | `+atomics,+bulk-memory` | Web with COOP/COEP only (deferred) |
 
-Runtime selection via `wasm-feature-detect` (or manual probes): load the best supported variant.
+Runtime selection: `loadWasmEngineModule()` tries SIMD variant first (HEAD probe),
+then baseline. `prewarmWasmEngine()` instantiates during idle via `requestIdleCallback`.
 
 ## API Boundary
 

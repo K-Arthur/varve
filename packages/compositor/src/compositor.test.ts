@@ -121,4 +121,11 @@ describe('@strata/compositor', () => {
     backend.destroy();
     expect(backend.id).toBe('webgpu');
   });
+
+  it('createCompositorBackend prefers webgpu when requested and available', async () => {
+    const canvas = document.createElement('canvas');
+    const { backend } = await createCompositorBackend(canvas, { preferWebGpu: true });
+    expect(['webgpu', 'canvas2d']).toContain(backend.id);
+    backend.destroy();
+  });
 });

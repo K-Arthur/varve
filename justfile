@@ -35,6 +35,7 @@ wasm-build-simd:
     rustup target add wasm32-unknown-unknown
     cd crates/strata-wasm && RUSTFLAGS="-C target-feature=+simd128" \
       wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name strata_wasm_simd
+    which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/strata_wasm_simd_bg.wasm apps/desktop/public/wasm/strata_wasm_simd_bg.wasm || echo "wasm-opt not on PATH — skipping SIMD optimization"
 
 wasm-build-all: wasm-build wasm-build-simd
 

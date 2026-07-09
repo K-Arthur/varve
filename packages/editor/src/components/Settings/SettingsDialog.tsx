@@ -4,6 +4,7 @@ import { Button, ColorPicker, Dialog, NumberInput, Select } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useState } from 'react';
 import { ShortcutPalette } from '../../shortcuts';
+import { loadSettings, updateSettings } from '../../settings';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
 import { useSettings } from './SettingsContext';
@@ -158,6 +159,7 @@ function Divider() {
 
 function GeneralSection() {
   const { settings, updateSection } = useSettings();
+  const [preferWebGpu, setPreferWebGpu] = useState(() => loadSettings().render.preferWebGpu);
 
   return (
     <div className="settings-section">
@@ -194,6 +196,26 @@ function GeneralSection() {
           label="Autosave interval"
         />
       </FieldRow>
+      <Divider />
+      <h3 className="settings-section__title">Render performance</h3>
+      <FieldRow label="WebGPU compositor">
+        <label className="settings-checkbox-row">
+          <input
+            type="checkbox"
+            checked={preferWebGpu}
+            onChange={(e) => {
+              const next = e.target.checked;
+              setPreferWebGpu(next);
+              updateSettings({ render: { preferWebGpu: next } });
+            }}
+          />
+          <span>Prefer WebGPU when available</span>
+        </label>
+      </FieldRow>
+      <p className="settings-hint">
+        Reload the document tab after changing. Falls back to Canvas2D on device loss or unsupported
+        primitives. Status bar shows active backend.
+      </p>
     </div>
   );
 }

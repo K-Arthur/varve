@@ -1,5 +1,10 @@
 import { Icon } from '@strata/ui';
+import { useSyncExternalStore } from 'react';
 import { useEditor } from './context';
+import {
+  getCompositorDiagnosticsSnapshot,
+  subscribeCompositorDiagnostics,
+} from './render/compositorDiagnosticsStore';
 
 export function StatusBar() {
   const {
@@ -20,6 +25,11 @@ export function StatusBar() {
     rootNodes,
     clearAllGuides,
   } = useEditor();
+  const compositorDiag = useSyncExternalStore(
+    subscribeCompositorDiagnostics,
+    getCompositorDiagnosticsSnapshot,
+    () => null,
+  );
   const sel = selectedNodes();
 
   function handleZoomInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -37,6 +47,15 @@ export function StatusBar() {
   return (
     <div className="editor-status">
       <span>{state.tool}</span>
+      {compositorDiag && (
+        <span
+          className="editor-status__info"
+          title={`GPU ${compositorDiag.gpuActive ? 'active' : 'fallback'} · pool ${compositorDiag.vertexPoolEntries} · bundles ${compositorDiag.bundleCacheEntries}`}
+        >
+          {compositorDiag.backendId}
+          {compositorDiag.gpuActive ? '' : ' (cpu)'}
+        </span>
+      )}
       {state.cursorPos && (
         <span>
           X: {Math.round(state.cursorPos.x)} Y: {Math.round(state.cursorPos.y)}

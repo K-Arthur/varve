@@ -2,13 +2,16 @@
  * Canvas2D compositor backend — wraps replayIr.
  */
 import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
-import type { CompositorBackend, CompositorFrame } from '../types';
+import type { CompositorBackend, CompositorDiagnostics, CompositorFrame } from '../types';
+
+/** Canvas surface accepted by the 2D backend (main canvas or offscreen overlay). */
+export type CanvasSurface = HTMLCanvasElement | OffscreenCanvas;
 
 export class Canvas2DBackend implements CompositorBackend {
   readonly id = 'canvas2d' as const;
-  private ctx: CanvasRenderingContext2D | null = null;
+  private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
   private dpr = 1;
-  async init(canvas: HTMLCanvasElement): Promise<void> {
+  async init(canvas: CanvasSurface): Promise<void> {
     this.dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas2D context unavailable');
@@ -62,6 +65,17 @@ export class Canvas2DBackend implements CompositorBackend {
 
   destroy(): void {
     this.ctx = null;
+  }
+
+  getDiagnostics(): CompositorDiagnostics {
+    return {
+      backendId: 'canvas2d' as const,
+      gpuActive: false,
+      vertexPoolEntries: 0,
+      bundleCacheEntries: 0,
+      lastFrameVertexBytes: 0,
+      adapterIsFallback: false,
+    };
   }
 
   invalidateTiles(_prefix?: string): void {
