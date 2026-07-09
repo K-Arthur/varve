@@ -10,8 +10,11 @@ import {
 import type { Affine } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  buildFrameSpatialIndex,
   buildSpatialIndex,
   cellKey,
+  computeFrameFingerprint,
+  getOrCreateFrameSpatialIndex,
   getOrCreateSpatialIndex,
   invalidateSpatialIndex,
   queryPoint,
@@ -241,5 +244,102 @@ describe('getOrCreateSpatialIndex', () => {
 describe('invalidateSpatialIndex', () => {
   it('returns null', () => {
     expect(invalidateSpatialIndex()).toBe(null);
+  });
+});
+
+describe('computeFrameFingerprint', () => {
+  it('changes when a frame moves', () => {
+    let doc = buildDoc();
+    const fp1 = computeFrameFingerprint(doc);
+
+    // Move frame n3 to a different position
+    const frame = { ...doc.nodes['n3'], transform: [1, 0, 0, 1, 100, 300] as Affine };
+    doc = { ...doc, nodes: { ...doc.nodes, n3: frame as (typeof doc.nodes)['n3'] } };
+
+    const fp2 = computeFrameFingerprint(doc);
+    expect(fp2).not.toBe(fp1);
+  });
+
+  it('stays the same when a non-container shape moves', () => {
+    let doc = buildDoc();
+    const fp1 = computeFrameFingerprint(doc);
+
+    // Move rect n1 without affecting any frame/group
+    const rect = { ...doc.nodes['n1'], transform: [1, 0, 0, 1, 150, 150] as Affine };
+    doc = { ...doc, nodes: { ...doc.nodes, n1: rect as (typeof doc.nodes)['n1'] } };
+
+    const fp2 = computeFrameFingerprint(doc);
+    expect(fp2).toBe(fp1);
+  });
+
+  it('changes when a group is added', () => {
+    let doc = buildDoc();
+    const fp1 = computeFrameFingerprint(doc);
+
+    const group = makeGroupNode('g1', { name: 'Group' });
+    doc = addNode(doc, group);
+
+    const fp2 = computeFrameFingerprint(doc);
+    expect(fp2).not.toBe(fp1);
+  });
+});
+
+describe('buildFrameSpatialIndex', () => {
+  it('only indexes frames and groups, not shapes', () => {
+    const doc = buildDoc();
+    const index = buildFrameSpatialIndex(doc);
+
+    const allIds = new Set<NodeId>();
+    for (const ids of index.grid.values()) {
+      for (const id of ids) allIds.add(id);
+    }
+
+    expect(allIds.has('n3')).toBe(true); // frame
+    expect(allIds.has('n1')).toBe(false); // shape
+    expect(allIds.has('n2')).toBe(false); // shape
+    expect(allIds.has('n4')).toBe(false); // shape inside frame
+  });
+
+  it('includes fingerprint in returned index', () => {
+    const doc = buildDoc();
+    const index = buildFrameSpatialIndex(doc);
+    expect(index.fingerprint).toBe(computeFrameFingerprint(doc));
+  });
+
+  it('returns candidates for a point inside a frame', () => {
+    const doc = buildDoc();
+    const index = buildFrameSpatialIndex(doc);
+    // Point inside FrameC at (50, 350)
+    const candidates = queryPoint(index, 50, 350);
+    expect(candidates.has('n3')).toBe(true);
+  });
+});
+
+describe('getOrCreateFrameSpatialIndex', () => {
+  it('reuses index when fingerprint matches', () => {
+    const doc = buildDoc();
+    const index = buildFrameSpatialIndex(doc);
+    const reused = getOrCreateFrameSpatialIndex(doc, index);
+    expect(reused).toBe(index);
+  });
+
+  it('rebuilds when a frame moves', () => {
+    let doc = buildDoc();
+    const index = buildFrameSpatialIndex(doc);
+
+    // Move frame n3
+    const frame = { ...doc.nodes['n3'], transform: [1, 0, 0, 1, 500, 500] as Affine };
+    doc = { ...doc, nodes: { ...doc.nodes, n3: frame as (typeof doc.nodes)['n3'] } };
+
+    const rebuilt = getOrCreateFrameSpatialIndex(doc, index);
+    expect(rebuilt).not.toBe(index);
+    expect(rebuilt.fingerprint).not.toBe(index.fingerprint);
+  });
+
+  it('rebuilds when existing is null', () => {
+    const doc = buildDoc();
+    const index = getOrCreateFrameSpatialIndex(doc, null);
+    expect(index.fingerprint).toBe(computeFrameFingerprint(doc));
+    expect(index.grid.size).toBeGreaterThan(0);
   });
 });
