@@ -235,6 +235,26 @@ export const SHORTCUT_DEFS = {
     label: 'Help Browser',
     category: 'View',
   },
+  colorBlindnessNone: {
+    binding: { key: '0', ctrl: true, alt: true },
+    label: 'Color Blindness: None',
+    category: 'View',
+  },
+  colorBlindnessProtanopia: {
+    binding: { key: 'p', ctrl: true, alt: true },
+    label: 'Color Blindness: Protanopia',
+    category: 'View',
+  },
+  colorBlindnessDeuteranopia: {
+    binding: { key: 'd', ctrl: true, alt: true },
+    label: 'Color Blindness: Deuteranopia',
+    category: 'View',
+  },
+  colorBlindnessTritanopia: {
+    binding: { key: 't', ctrl: true, alt: true },
+    label: 'Color Blindness: Tritanopia',
+    category: 'View',
+  },
 } satisfies Record<string, ShortcutDef>;
 
 // ── Persistence ────────────────────────────────────────────────────────
