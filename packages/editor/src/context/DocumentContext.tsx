@@ -58,6 +58,13 @@ export interface DocumentContextValue {
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
+  distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
+  setKeyObject: (nodeId: string | null) => void;
+  keyObjectId: string | null;
+  alignToPage: boolean;
+  setAlignToPage: (value: boolean) => void;
+  tidySelected: (maxCols?: number) => void;
+  obbAlignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   beginTransaction: () => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
