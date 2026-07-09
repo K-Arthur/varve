@@ -55,6 +55,7 @@ import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cam
 import { SubtreeIrCache } from './canvas/subtreeIrCache';
 import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
+import { ColorBlindnessOverlay } from './components/ColorBlindnessOverlay';
 import { DocumentGridOverlay } from './components/DocumentGridOverlay/DocumentGridOverlay';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
 import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
@@ -68,13 +69,21 @@ import { ZoomIndicator } from './components/ZoomIndicator';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
-import { sceneHasImageFills, sceneNeedsStructuralCompositing } from './render/sceneCompositing';
+import { collectImageBitmaps } from './render/collectImageBitmaps';
+import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
+import {
+  sceneCanUseWorkerRenderer,
+  sceneNeedsStructuralCompositing,
+} from './render/sceneCompositing';
 import {
   createRenderWorkerHost,
   isStaleResponse,
   type RenderWorkerHost,
 } from './render/workerHost';
+import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './components/AlignmentOverlay';
+import { GradientHandleOverlay } from './components/GradientHandleOverlay';
 import { SelectionOverlay } from './SelectionOverlay';
+import { loadSettings } from './settings';
 import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
@@ -529,9 +538,21 @@ export function CanvasArea({
     const canvas = contentCanvasRef.current;
     if (!canvas) return;
     let backend: CompositorBackend | null = null;
-    void createCompositorBackend(canvas).then(({ backend: b }) => {
+    void createCompositorBackend(canvas, {
+      preferWebGpu: loadSettings().render.preferWebGpu,
+    }).then(({ backend: b }) => {
       backend = b;
       compositorRef.current = b;
+      setCompositorDiagnostics(
+        b.getDiagnostics?.() ?? {
+          backendId: b.id,
+          gpuActive: b.id === 'webgpu',
+          vertexPoolEntries: 0,
+          bundleCacheEntries: 0,
+          lastFrameVertexBytes: 0,
+          adapterIsFallback: false,
+        },
+      );
     });
     return () => {
       backend?.destroy();
@@ -1338,12 +1359,9 @@ export function CanvasArea({
         replaySubtreeToCtx(nodeId, ctxNN);
       }
 
-      // Image fills can only be decoded on the main thread (see
-      // `sceneHasImageFills`): the OffscreenCanvas worker has no `Image`
-      // constructor and no access to the main-thread ImageCache, so a
-      // worker-rendered frame silently drops every image. Keep image scenes on
-      // the main-thread `drawVectorItems` path below.
-      const hasImageFills = sceneHasImageFills(doc);
+      // Worker path when structural compositing is not required and every
+      // image fill src is loaded (ImageBitmap Structured Clone transport).
+      const workerReady = sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src));
 
       if (needsStructural) {
         for (const [id, entry] of entries) {
@@ -1351,7 +1369,7 @@ export function CanvasArea({
             replaySubtree(id);
           }
         }
-      } else if (renderWorkerRef.current && !hasImageFills) {
+      } else if (renderWorkerRef.current && workerReady) {
         const wb = workerBitmapRef.current;
         const cameraMatches =
           wb &&
@@ -1373,14 +1391,21 @@ export function CanvasArea({
         // clones that multi-MB payload across the worker boundary, pinning
         // a CPU core indefinitely and starving the main thread.
         if (!bitmapIsCurrent) {
-          renderWorkerRef.current.post({
-            type: 'render',
-            nodes: flatNodes,
-            ir,
-            camera: { zoom: s.zoom, pan: s.pan },
-            viewport: { width: VP_W, height: VP_H },
-            docVersion,
-            dpr,
+          void collectImageBitmaps(ir).then((collected) => {
+            if (!collected || !renderWorkerRef.current) return;
+            renderWorkerRef.current.post(
+              {
+                type: 'render',
+                nodes: flatNodes,
+                ir,
+                camera: { zoom: s.zoom, pan: s.pan },
+                viewport: { width: VP_W, height: VP_H },
+                docVersion,
+                dpr,
+                images: collected.images,
+              },
+              collected.transfer,
+            );
           });
         }
         if (wb) {
@@ -1425,6 +1450,8 @@ export function CanvasArea({
       }
 
       compositorRef.current?.endFrame();
+      const diag = compositorRef.current?.getDiagnostics?.();
+      if (diag) setCompositorDiagnostics(diag);
     })().finally(() => {
       drawInFlightRef.current = false;
       if (drawPendingRef.current) {
@@ -2392,6 +2419,12 @@ export function CanvasArea({
           height={canvasSize.height}
         />
       )}
+      {state.colorBlindnessView !== 'none' && (
+        <ColorBlindnessOverlay
+          type={state.colorBlindnessView}
+          sourceCanvas={contentCanvasRef.current}
+        />
+      )}
       <CollabCursorOverlay
         users={collab.users}
         cursors={stubRemoteCursors}
@@ -2446,6 +2479,28 @@ export function CanvasArea({
         onToggleLock={(id) => editor.toggleGuideLock(id)}
       />
       <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />
+      <AlignmentGuideOverlay />
+      {state.selection.length >= 2 && <AlignmentHandleOverlay />}
+      {state.selection.length >= 1 && (
+        <GradientHandleOverlay
+          zoom={state.zoom}
+          pan={state.pan}
+          selectedIds={state.selection}
+          doc={state.document}
+          getWorldTransform={editor.getWorldTransform}
+          onUpdateGradient={(nodeId, fillIndex, gradient) => {
+            const node = state.document.nodes[nodeId];
+            if (!node) return;
+            const nodeAny = node as unknown as Record<string, unknown>;
+            const current: import('@strata/scene').Fill[] = Array.isArray(nodeAny.fills) ? nodeAny.fills as import('@strata/scene').Fill[] : [];
+            const next = [...current];
+            if (fillIndex >= 0 && fillIndex < next.length) {
+              next[fillIndex] = { ...next[fillIndex], gradient } as import('@strata/scene').Fill;
+              editor.updateSelectedFillAt(fillIndex, next[fillIndex] as import('@strata/scene').Fill);
+            }
+          }}
+        />
+      )}
       {state.tool === 'nodeEdit' &&
         nodeEditTargetId &&
         (() => {

@@ -1,0 +1,77 @@
+.alignment-handle-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.alignment-handle__bar {
+  stroke: var(--color-accent-primary);
+  stroke-width: 2;
+  fill: none;
+}
+
+.alignment-handle__bar:hover,
+.alignment-handle__bar--active {
+  stroke-width: 3;
+}
+
+.alignment-handle__dot {
+  fill: var(--color-accent-primary);
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.alignment-handle__dot--vertical {
+  cursor: ew-resize;
+}
+
+.alignment-handle__dot--horizontal {
+  cursor: ns-resize;
+}
+
+.alignment-handle__dot:hover {
+  r: 6;
+}
+
+.alignment-handle__label {
+  fill: var(--color-text-secondary);
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  pointer-events: none;
+}
+
+.alignment-guide-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.alignment-guide__line {
+  stroke: var(--color-accent-primary);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+}
+
+.alignment-guide__line--fade {
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
+}
+
+.alignment-guide__label {
+  fill: var(--color-accent-primary);
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  opacity: 0.6;
+}
+
+.alignment-guide__label--fade {
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
+}

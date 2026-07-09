@@ -3,6 +3,25 @@
  * and UI. Runs in Rust-wasm bindings, web workers, and React components alike.
  */
 
+export type {
+  AlignAxis,
+  AlignmentTarget,
+  BBox,
+  DistributeAxis,
+  OBB,
+  TidyLayoutResult,
+} from './align';
+export {
+  alignBBox,
+  bboxUnion,
+  computeAlignmentTarget,
+  computeDistribution,
+  computeTidyLayout,
+  distributeToPosition,
+  obbAlignmentTarget,
+  obbToAABB,
+  orientedBBox,
+} from './align';
 export type { Affine, Point, Rect } from './affine';
 export {
   applyAffine,
@@ -49,6 +68,34 @@ export {
   rgbToCmyk,
   srgbToLinear,
 } from './colorConversion';
+export type { ColorBlindnessType } from './colorBlindness';
+export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
+export type {
+  GradientInterpolationSpace,
+  GradientStopInput,
+  InterpolateOptions,
+} from './colorInterpolation';
+export {
+  applyMidpointBias,
+  expandGradientStops,
+  interpolateManagedColor,
+  sampleGradientColor,
+} from './colorInterpolation';
+export type {
+  AcoColorEntry,
+  AseColorEntry,
+  AsePalette,
+  GplColorEntry,
+  GplPalette,
+} from './paletteFormats';
+export {
+  exportAcoPalette,
+  exportGplPalette,
+  parseAcoPalette,
+  parseAsePalette,
+  parseGplPalette,
+} from './paletteFormats';
+export { cssStringToManagedColor, managedColorToCssString } from './cssColorParser';
 export type { RulerMode } from './coordinates';
 export {
   artboardToWorld,

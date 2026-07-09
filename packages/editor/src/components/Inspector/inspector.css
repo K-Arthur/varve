@@ -645,6 +645,58 @@
   text-align: right;
 }
 
+.insp-badge {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent-primary);
+  margin-left: 2px;
+}
+
+.insp-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 4px;
+  background: var(--elevation-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-shadow-overlay);
+  padding: var(--space-1);
+  z-index: 100;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.insp-dropdown__item {
+  display: block;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.insp-dropdown__item:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+.insp-dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
 .insp-empty-message {
   padding: var(--space-2) 0;
   font-size: var(--font-size-xs);
