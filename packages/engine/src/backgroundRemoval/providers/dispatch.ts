@@ -2,10 +2,12 @@
  * Orchestrates background removal via an ordered provider chain (Strategy pattern).
  *
  * Quick mode bypasses AI providers entirely. AI modes try Worker ONNX first
- * (all platforms), then Tauri native IPC, then main-thread ONNX, then heuristic.
+ * (all platforms), then Tauri native IPC, then main-thread ONNX, then cloud API
+ * fallback, then heuristic (always available).
  */
 import { removeBackgroundHeuristic } from '../heuristic';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
+import { cloudRemovalProvider } from './cloudProvider';
 import { directOnnxRemovalProvider } from './directOnnxProvider';
 import { tauriRemovalProvider } from './tauriProvider';
 import type { RemovalProvider } from './types';
@@ -16,6 +18,7 @@ export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
   workerRemovalProvider,
   tauriRemovalProvider,
   directOnnxRemovalProvider,
+  cloudRemovalProvider,
 ];
 
 export async function dispatchBackgroundRemoval(

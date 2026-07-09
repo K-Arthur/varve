@@ -10,6 +10,7 @@ import {
   plainTextToRichText,
   resolveCharacterFormat,
   resolveParagraphFormat,
+  resolveStyleChain,
   richTextToPlainText,
   type TextRun,
 } from './typography';
@@ -178,5 +179,68 @@ describe('resolveParagraphFormat', () => {
     };
     const resolved = resolveParagraphFormat(para, styles, {});
     expect(resolved.textAlign).toBe('right');
+  });
+});
+
+describe('resolveStyleChain', () => {
+  it('returns single-element chain for style with no parent', () => {
+    const styles = {
+      s1: { id: 's1', type: 'character' as const, name: 'Base', format: {} as CharacterFormat },
+    };
+    const chain = resolveStyleChain('s1', styles);
+    expect(chain).toHaveLength(1);
+    expect(chain[0]?.id).toBe('s1');
+  });
+
+  it('follows parentId chain', () => {
+    const styles: Record<string, ParagraphStyle> = {
+      s3: {
+        id: 's3',
+        type: 'paragraph',
+        name: 'Child',
+        format: { textAlign: 'right' },
+        parentId: 's2',
+      },
+      s2: { id: 's2', type: 'paragraph', name: 'Mid', format: { lineHeight: 2 }, parentId: 's1' },
+      s1: { id: 's1', type: 'paragraph', name: 'Root', format: { textAlign: 'left' } },
+    };
+    const chain = resolveStyleChain('s3', styles);
+    expect(chain).toHaveLength(3);
+    expect(chain[0]?.id).toBe('s1');
+    expect(chain[1]?.id).toBe('s2');
+    expect(chain[2]?.id).toBe('s3');
+  });
+
+  it('detects circular references and returns empty chain', () => {
+    const styles: Record<string, ParagraphStyle> = {
+      s1: { id: 's1', type: 'paragraph', name: 'A', format: {}, parentId: 's2' },
+      s2: { id: 's2', type: 'paragraph', name: 'B', format: {}, parentId: 's1' },
+    };
+    const chain = resolveStyleChain('s1', styles);
+    expect(chain).toHaveLength(0);
+  });
+
+  it('merges formats along the chain: root → child', () => {
+    const run = { text: 'test', characterStyleId: 's3' };
+    const styles: Record<string, CharacterStyle> = {
+      s3: {
+        id: 's3',
+        type: 'character',
+        name: 'Child',
+        format: { fontSize: 24, fontWeight: 700 },
+        parentId: 's1',
+      },
+      s1: {
+        id: 's1',
+        type: 'character',
+        name: 'Root',
+        format: { fontFamily: 'Georgia', fontSize: 16 },
+      },
+    };
+    const resolved = resolveCharacterFormat(run, styles, {});
+    // Chain: s1 → s3. Root sets fontFamily=Georgia, fontSize=16. Child overrides fontSize=24, adds fontWeight=700.
+    expect(resolved.fontFamily).toBe('Georgia');
+    expect(resolved.fontSize).toBe(24);
+    expect(resolved.fontWeight).toBe(700);
   });
 });

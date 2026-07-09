@@ -23,26 +23,16 @@ function mul3x3Vec(m: Mat3, v: readonly [number, number, number]): [number, numb
 }
 
 /** sRGB → LMS (Hunt-Pointer-Estevez adapted, Machado 2009). */
-const RGB_TO_LMS: Mat3 = [
-  0.4002, 0.7075, -0.0807, -0.228, 1.15, 0.0612, 0.0, 0.0, 0.9182,
-];
+const RGB_TO_LMS: Mat3 = [0.4002, 0.7075, -0.0807, -0.228, 1.15, 0.0612, 0.0, 0.0, 0.9182];
 
 /** LMS → sRGB (inverse). */
-const LMS_TO_RGB: Mat3 = [
-  1.968, -1.285, 0.317, 0.391, 0.688, -0.079, 0.0, 0.0, 1.079,
-];
+const LMS_TO_RGB: Mat3 = [1.968, -1.285, 0.317, 0.391, 0.688, -0.079, 0.0, 0.0, 1.079];
 
 /** Simulation matrices in LMS space (Machado 2009, severity=1). */
 const SIMULATION: Record<ColorBlindnessType, Mat3> = {
-  protanopia: [
-    0.0, 1.05118294, -0.05116099, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
-  ],
-  deuteranopia: [
-    1.0, 0.0, 0.0, 0.945708, 0.0, 0.054992, 0.0, 0.0, 1.0,
-  ],
-  tritanopia: [
-    1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.867447, 1.867447, 0.0,
-  ],
+  protanopia: [0.0, 1.05118294, -0.05116099, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+  deuteranopia: [1.0, 0.0, 0.0, 0.945708, 0.0, 0.054992, 0.0, 0.0, 1.0],
+  tritanopia: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.867447, 1.867447, 0.0],
 };
 
 function clamp255(v: number): number {

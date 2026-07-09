@@ -71,3 +71,40 @@ fn fs_main(
   return color;
 }
 `;
+
+/** Fullscreen triangle blit for compositing offscreen Canvas2D overlay onto WebGPU. */
+export const BLIT_VERTEX_WGSL = /* wgsl */ `
+struct BlitUniform {
+  viewportW: f32,
+  viewportH: f32,
+  _pad0: f32,
+  _pad1: f32,
+};
+
+@group(0) @binding(0) var<uniform> blit: BlitUniform;
+
+struct VertexOutput {
+  @builtin(position) position: vec4f,
+  @location(0) uv: vec2f,
+};
+
+@vertex
+fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
+  var out: VertexOutput;
+  let x = f32((vi << 1u) & 2u);
+  let y = f32(vi & 2u);
+  out.position = vec4f(x * 2.0 - 1.0, 1.0 - y * 2.0, 0.0, 1.0);
+  out.uv = vec2f(x, y);
+  return out;
+}
+`;
+
+export const BLIT_FRAGMENT_WGSL = /* wgsl */ `
+@group(0) @binding(1) var samp: sampler;
+@group(0) @binding(2) var tex: texture_2d<f32>;
+
+@fragment
+fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
+  return textureSample(tex, samp, uv);
+}
+`;

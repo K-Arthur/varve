@@ -1,8 +1,11 @@
 import type { Platform, VersionEntry } from '@strata/platform';
 import { createMemoryPlatform } from '@strata/platform';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VersionHistory } from './VersionHistory';
+
+/** Fixed reference time: 2026-07-08T12:00:00Z — ensures deterministic date grouping. */
+const REF_NOW = 1720440000000;
 
 function makeVersion(id: string, overrides?: Partial<VersionEntry>): VersionEntry {
   return {
@@ -11,7 +14,7 @@ function makeVersion(id: string, overrides?: Partial<VersionEntry>): VersionEntr
     name: undefined,
     description: undefined,
     documentHash: 'hash',
-    timestamp: Date.now(),
+    timestamp: REF_NOW,
     kind: 'auto',
     ...overrides,
   };
@@ -20,6 +23,14 @@ function makeVersion(id: string, overrides?: Partial<VersionEntry>): VersionEntr
 describe('VersionHistory', () => {
   const basePlatform = createMemoryPlatform() as unknown as Platform;
 
+  beforeEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(REF_NOW);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('renders version timeline', async () => {
     const platform: Platform = {
       ...basePlatform,
@@ -27,11 +38,11 @@ describe('VersionHistory', () => {
         makeVersion('v1', {
           kind: 'named',
           name: 'First draft',
-          timestamp: Date.now() - 3600000,
+          timestamp: REF_NOW - 3600000,
         }),
         makeVersion('v2', {
           kind: 'auto',
-          timestamp: Date.now() - 1800000,
+          timestamp: REF_NOW - 1800000,
         }),
       ]),
     };
@@ -58,15 +69,15 @@ describe('VersionHistory', () => {
       listVersions: vi.fn().mockResolvedValue([
         makeVersion('v1', {
           kind: 'auto',
-          timestamp: Date.now() - 7200000,
+          timestamp: REF_NOW - 7200000,
         }),
         makeVersion('v2', {
           kind: 'auto',
-          timestamp: Date.now() - 3600000,
+          timestamp: REF_NOW - 3600000,
         }),
         makeVersion('v3', {
           kind: 'auto',
-          timestamp: Date.now() - 90000000,
+          timestamp: REF_NOW - 90000000,
         }),
       ]),
     };
@@ -77,6 +88,7 @@ describe('VersionHistory', () => {
     await waitFor(() => {
       expect(screen.getByText('Today')).toBeTruthy();
     });
+    expect(screen.getByText('Yesterday')).toBeTruthy();
   });
 
   it('named versions shown with name', async () => {
@@ -86,7 +98,7 @@ describe('VersionHistory', () => {
         makeVersion('v1', {
           kind: 'named',
           name: 'Client review',
-          timestamp: Date.now(),
+          timestamp: REF_NOW,
         }),
       ]),
     };
@@ -106,7 +118,7 @@ describe('VersionHistory', () => {
         makeVersion('v1', {
           kind: 'named',
           name: 'Final',
-          timestamp: Date.now(),
+          timestamp: REF_NOW,
         }),
       ]),
     };
@@ -141,7 +153,7 @@ describe('VersionHistory', () => {
     const saveVersion = vi.fn().mockResolvedValue(
       makeVersion('new-v', {
         kind: 'checkpoint',
-        timestamp: Date.now(),
+        timestamp: REF_NOW,
       }),
     );
     const platform: Platform = {
@@ -196,7 +208,7 @@ describe('VersionHistory', () => {
         makeVersion('v1', {
           kind: 'named',
           name: 'Snapshot A',
-          timestamp: Date.now(),
+          timestamp: REF_NOW,
         }),
       ]),
     };
@@ -223,7 +235,7 @@ describe('VersionHistory', () => {
         makeVersion('v1', {
           kind: 'named',
           name: 'Final',
-          timestamp: Date.now(),
+          timestamp: REF_NOW,
         }),
       ]),
     };

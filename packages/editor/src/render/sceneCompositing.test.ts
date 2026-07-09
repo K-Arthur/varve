@@ -8,7 +8,11 @@ import {
   solidFill,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { sceneHasImageFills, sceneNeedsStructuralCompositing } from './sceneCompositing';
+import {
+  sceneCanUseWorkerRenderer,
+  sceneHasImageFills,
+  sceneNeedsStructuralCompositing,
+} from './sceneCompositing';
 
 describe('sceneNeedsStructuralCompositing', () => {
   it('returns false for flat shapes only', () => {
@@ -96,5 +100,28 @@ describe('sceneHasImageFills', () => {
     const hidden = { ...imageFill('data:image/png;base64,AAAA'), visible: false };
     doc = addNode(doc, shapeWithFills('img1', [hidden]));
     expect(sceneHasImageFills(doc)).toBe(false);
+  });
+});
+
+describe('sceneCanUseWorkerRenderer', () => {
+  function shapeWithFills(id: string, fills: unknown[]) {
+    const node = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 120, h: 120 }, { name: id });
+    return { ...node, fills } as typeof node;
+  }
+
+  it('allows worker for scenes without image fills', () => {
+    let doc = createDocument('test');
+    doc = addNode(
+      doc,
+      shapeWithFills('r1', [solidFill({ space: 'rgb', r: 1, g: 2, b: 3, a: 255 })]),
+    );
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
+  });
+
+  it('blocks worker until image src is loaded', () => {
+    let doc = createDocument('test');
+    doc = addNode(doc, shapeWithFills('img1', [imageFill('test.png')]));
+    expect(sceneCanUseWorkerRenderer(doc, () => false)).toBe(false);
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
   });
 });

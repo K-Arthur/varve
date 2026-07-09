@@ -133,6 +133,122 @@ describe('runPrintPreflight', () => {
     const oversizeIssue = result.issues.find((i) => i.category === 'oversize');
     expect(oversizeIssue).toBeUndefined();
   });
+
+  it('reports font error when text node uses missing font', () => {
+    const doc = makePrintDoc({
+      nodes: {
+        t1: {
+          id: 't1',
+          kind: 'text',
+          name: 'Missing Font Text',
+          fontFamily: 'NonExistentFont',
+          fontSize: 12,
+          text: 'Hello',
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          transform: [1, 0, 0, 1, 0, 0] as const,
+        } as import('./types').TextNode,
+      },
+    });
+    const result = runPrintPreflight(doc, {
+      checkFonts: true,
+      availableFonts: new Set(['Inter', 'Arial']),
+    });
+    const fontIssue = result.issues.find((i) => i.category === 'font' && i.severity === 'error');
+    expect(fontIssue).toBeDefined();
+    expect(fontIssue?.message).toContain('NonExistentFont');
+    expect(result.ready).toBe(false);
+  });
+
+  it('reports no font error when all fonts are available', () => {
+    const doc = makePrintDoc({
+      nodes: {
+        t1: {
+          id: 't1',
+          kind: 'text',
+          name: 'Available Font Text',
+          fontFamily: 'Inter',
+          fontSize: 12,
+          text: 'Hello',
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          transform: [1, 0, 0, 1, 0, 0] as const,
+        } as import('./types').TextNode,
+      },
+    });
+    const result = runPrintPreflight(doc, {
+      checkFonts: true,
+      availableFonts: new Set(['Inter', 'Arial']),
+    });
+    const fontIssue = result.issues.find((i) => i.category === 'font');
+    expect(fontIssue).toBeUndefined();
+  });
+
+  it('reports font error for rich text run with missing font', () => {
+    const doc = makePrintDoc({
+      nodes: {
+        t1: {
+          id: 't1',
+          kind: 'text',
+          name: 'Rich Missing Font',
+          fontFamily: 'Inter',
+          fontSize: 12,
+          text: 'Hello',
+          richText: {
+            paragraphs: [
+              {
+                runs: [{ text: 'Hello', format: { fontFamily: 'MissingFont' } }],
+              },
+            ],
+          },
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          transform: [1, 0, 0, 1, 0, 0] as const,
+        } as import('./types').TextNode,
+      },
+    });
+    const result = runPrintPreflight(doc, {
+      checkFonts: true,
+      availableFonts: new Set(['Inter']),
+    });
+    const fontIssue = result.issues.find((i) => i.category === 'font' && i.severity === 'error');
+    expect(fontIssue).toBeDefined();
+    expect(fontIssue?.message).toContain('MissingFont');
+  });
+
+  it('reports broken-chain error for text chain referencing missing frame', () => {
+    const doc = makePrintDoc({
+      textChains: {
+        chain1: {
+          id: 'chain1',
+          name: 'Test Chain',
+          frameIds: ['missing-frame'],
+        },
+      },
+    });
+    const result = runPrintPreflight(doc, {
+      checkFonts: true,
+    });
+    const chainIssue = result.issues.find(
+      (i) => i.category === 'font' && i.message.includes('missing frame'),
+    );
+    expect(chainIssue).toBeDefined();
+  });
 });
 
 describe('isPrintReady', () => {

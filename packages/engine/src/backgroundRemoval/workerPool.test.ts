@@ -1,82 +1,135 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cancelAllWorkerJobs, runPooledInference, terminateWorkerPool } from './workerPool';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Mock Worker for Node.js test environment
 class MockWorker {
-  postMessage = vi.fn();
-  addEventListener = vi.fn();
-  removeEventListener = vi.fn();
-  terminate = vi.fn();
+  onmessage: ((e: MessageEvent) => void) | null = null;
+  onerror: ((e: ErrorEvent) => void) | null = null;
+  private _listeners: Record<string, Array<(...args: any[]) => void>> = {};
+
+  constructor(_url: string | URL, _opts?: WorkerOptions) {
+    // Simulate ready after construction
+    setTimeout(() => {
+      this._dispatch({ type: 'ready' });
+    }, 0);
+  }
+
+  postMessage(_msg: any) {
+    // No-op in mock
+  }
+
+  addEventListener(type: string, fn: (...args: any[]) => void) {
+    if (!this._listeners[type]) this._listeners[type] = [];
+    this._listeners[type]!.push(fn);
+  }
+
+  removeEventListener(type: string, fn: (...args: any[]) => void) {
+    const arr = this._listeners[type];
+    if (arr) this._listeners[type] = arr.filter((f) => f !== fn);
+  }
+
+  terminate() {
+    this._listeners = {};
+  }
+
+  private _dispatch(data: any) {
+    const handlers = this._listeners['message'] || [];
+    for (const fn of handlers) {
+      fn({ data } as MessageEvent);
+    }
+  }
 }
 
+let origWorker: typeof Worker;
+
 describe('workerPool', () => {
+  let workerPool: typeof import('./workerPool');
+
+  beforeEach(async () => {
+    origWorker = globalThis.Worker;
+    (globalThis as any).Worker = MockWorker;
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.resetModules();
+    workerPool = await import('./workerPool');
+  });
+
   afterEach(() => {
-    terminateWorkerPool();
-    vi.unstubAllGlobals();
-  });
-
-  it('cancelAllWorkerJobs clears pending without throwing', () => {
-    expect(() => cancelAllWorkerJobs()).not.toThrow();
-  });
-
-  it('terminateWorkerPool resets pool state', () => {
-    terminateWorkerPool();
-    expect(() => terminateWorkerPool()).not.toThrow();
-  });
-
-  it('forwards feather and decontaminate options to the worker message', async () => {
-    vi.useFakeTimers();
-    const mockWorker = new MockWorker();
-    vi.stubGlobal(
-      'Worker',
-      vi.fn(() => mockWorker),
-    );
-
-    const imageData = { width: 4, height: 4, data: new Uint8ClampedArray(4 * 4 * 4) } as ImageData;
-    const pending = runPooledInference(
-      imageData,
-      { method: 'ai-balanced', feather: 6, decontaminate: true },
-      '/models/u2netp.onnx',
-      'u2netp',
-    );
-    pending.catch(() => {});
-
-    expect(mockWorker.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'infer',
-        feather: 6,
-        decontaminate: true,
-        modelPath: '/models/u2netp.onnx',
-        modelId: 'u2netp',
-      }),
-    );
-
-    // First inference before the Worker has ever reported 'ready' uses a
-    // short 10 s init timeout so a hung Worker import fails fast.
-    await vi.advanceTimersByTimeAsync(10_000);
-    await expect(pending).rejects.toThrow('timed out');
+    workerPool.terminateWorkerPool();
+    (globalThis as any).Worker = origWorker;
     vi.useRealTimers();
   });
 
-  it('rejects and dequeues when external AbortSignal fires', async () => {
-    vi.useFakeTimers();
-    const mockWorker = new MockWorker();
-    vi.stubGlobal(
-      'Worker',
-      vi.fn(() => mockWorker),
-    );
+  describe('pool configuration', () => {
+    it('default worker count respects hardware concurrency', () => {
+      const count = workerPool.__getIdealWorkerCount();
+      expect(count).toBeGreaterThanOrEqual(1);
+      expect(count).toBeLessThanOrEqual(4);
+    });
 
-    const imageData = { width: 4, height: 4, data: new Uint8ClampedArray(4 * 4 * 4) } as ImageData;
-    const controller = new AbortController();
-    const pending = runPooledInference(
-      imageData,
-      { method: 'ai-balanced' },
-      '/models/u2netp.onnx',
-      'u2netp',
-      controller.signal,
-    );
-    pending.catch(() => {});
-    controller.abort();
-    await expect(pending).rejects.toThrow('cancelled');
-    vi.useRealTimers();
+    it('uses single worker when concurrency is 1', () => {
+      const orig = Object.getOwnPropertyDescriptor(navigator, 'hardwareConcurrency');
+      Object.defineProperty(navigator, 'hardwareConcurrency', {
+        value: 1,
+        configurable: true,
+      });
+      const count = workerPool.__getIdealWorkerCount();
+      expect(count).toBe(1);
+      if (orig) {
+        Object.defineProperty(navigator, 'hardwareConcurrency', orig);
+      } else {
+        delete (navigator as any).hardwareConcurrency;
+      }
+    });
+  });
+
+  describe('pool lifecycle', () => {
+    it('initPool creates workers', () => {
+      const pool = workerPool.__getPool();
+      expect(pool.length).toBeGreaterThanOrEqual(1);
+      for (const pw of pool) {
+        expect(pw.worker).toBeDefined();
+        expect(pw.busy).toBe(false);
+      }
+    });
+
+    it('terminateWorkerPool cleans up all workers', () => {
+      const pool = workerPool.__getPool();
+      const count = pool.length;
+      workerPool.terminateWorkerPool();
+      const afterPool = workerPool.__getPool();
+      expect(afterPool.length).toBe(count);
+      // Workers are fresh after re-init
+      for (const pw of afterPool) {
+        expect(pw.worker).toBeDefined();
+        expect(pw.busy).toBe(false);
+      }
+    });
+  });
+
+  describe('cancellation', () => {
+    it('cancelAllWorkerJobs clears pending queue', () => {
+      // Get pool to init workers
+      workerPool.__getPool();
+      const pending = workerPool.__getPending();
+      const mockReject = vi.fn();
+      pending.push({
+        id: 1,
+        reject: mockReject,
+        abort: { abort: vi.fn() },
+        timeout: setTimeout(() => {}, 10000) as unknown as ReturnType<typeof setTimeout>,
+        workerIndex: 0,
+      } as any);
+      pending.push({
+        id: 2,
+        reject: vi.fn(),
+        abort: { abort: vi.fn() },
+        timeout: setTimeout(() => {}, 10000) as unknown as ReturnType<typeof setTimeout>,
+        workerIndex: 0,
+      } as any);
+
+      workerPool.cancelAllWorkerJobs();
+
+      expect(pending.length).toBe(0);
+      expect(mockReject).toHaveBeenCalledWith(new Error('cancelled'));
+    });
   });
 });

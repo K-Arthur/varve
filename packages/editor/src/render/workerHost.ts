@@ -26,7 +26,7 @@ export type WorkerResponse =
   | { type: 'error'; message: string; docVersion?: number };
 
 export interface RenderWorkerHost {
-  post(command: WorkerCommand): void;
+  post(command: WorkerCommand, transfer?: Transferable[]): void;
   terminate(): void;
 }
 
@@ -39,8 +39,12 @@ export function createRenderWorkerHost(
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => onResponse(e.data);
     worker.onerror = () => onResponse({ type: 'error', message: 'render worker error' });
     return {
-      post(command) {
-        worker.postMessage(command);
+      post(command, transfer) {
+        if (transfer?.length) {
+          worker.postMessage(command, transfer);
+        } else {
+          worker.postMessage(command);
+        }
       },
       terminate() {
         worker.terminate();

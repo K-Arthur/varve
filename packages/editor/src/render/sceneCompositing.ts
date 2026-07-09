@@ -59,12 +59,9 @@ let _prevImgResult = false;
 /**
  * Does the scene contain any raster image fill?
  *
- * Image fills MUST be painted on the main thread: the OffscreenCanvas render
- * worker replays IR with `replayIr`, whose `paintImageFill` decodes sources via
- * `new Image()` — a constructor that does not exist in a Web Worker global
- * scope — against the main-thread `ImageCache` singleton, which the worker also
- * cannot see. So a worker-rendered frame silently drops every image. Callers use
- * this to keep image scenes on the main-thread renderer (which owns the cache).
+ * Image fills use Structured Clone ImageBitmap transport once ImageCache
+ * has loaded every src (`sceneCanUseWorkerRenderer`). Until then, callers
+ * keep the main-thread renderer.
  *
  * Memoised on the document reference like `sceneNeedsStructuralCompositing`.
  */
@@ -85,4 +82,37 @@ function computeHasImageFills(doc: Document): boolean {
     }
   }
   return false;
+}
+
+/** Image src URLs on visible image fills in the document. */
+export function imageFillSrcsInDocument(doc: Document): string[] {
+  const srcs = new Set<string>();
+  for (const node of Object.values(doc.nodes)) {
+    if (!node) continue;
+    const fills = (
+      node as { fills?: Array<{ type?: string; visible?: boolean; image?: { src?: string } }> }
+    ).fills;
+    if (!fills) continue;
+    for (const fill of fills) {
+      if (fill?.type === 'image' && fill.visible !== false && fill.image?.src) {
+        srcs.add(fill.image.src);
+      }
+    }
+  }
+  return [...srcs];
+}
+
+/**
+ * True when the render worker can replay this scene — including image fills
+ * once every src is loaded in ImageCache (Structured Clone ImageBitmap transport).
+ */
+export function sceneCanUseWorkerRenderer(
+  doc: Document,
+  isImageLoaded: (src: string) => boolean,
+): boolean {
+  if (!sceneHasImageFills(doc)) return true;
+  for (const src of imageFillSrcsInDocument(doc)) {
+    if (!isImageLoaded(src)) return false;
+  }
+  return true;
 }

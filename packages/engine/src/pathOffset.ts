@@ -30,10 +30,7 @@ function dot(ax: number, ay: number, bx: number, by: number): number {
 
 // ── Point helpers ───────────────────────────────────────────────────────────
 
-function ptSub(
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-): [number, number] {
+function ptSub(a: { x: number; y: number }, b: { x: number; y: number }): [number, number] {
   return [a.x - b.x, a.y - b.y];
 }
 
@@ -65,7 +62,8 @@ export function offsetPath(
 
   // Step 1: Compute each edge's outward normal and offset line
   const n = closed ? points.length : points.length - 1;
-  const offsetLines: { ax: number; ay: number; bx: number; by: number; nx: number; ny: number }[] = [];
+  const offsetLines: { ax: number; ay: number; bx: number; by: number; nx: number; ny: number }[] =
+    [];
 
   for (let i = 0; i < n; i++) {
     const a = points[i]!;
@@ -107,8 +105,14 @@ export function offsetPath(
     // Intersect prev's line (from endpoint to startpoint, reversed direction)
     // with curr's line (from startpoint to endpoint).
     const int = lineIntersection(
-      prev.bx, prev.by, prev.ax, prev.ay,
-      curr.ax, curr.ay, curr.bx, curr.by,
+      prev.bx,
+      prev.by,
+      prev.ax,
+      prev.ay,
+      curr.ax,
+      curr.ay,
+      curr.bx,
+      curr.by,
     );
 
     if (int && joinStyle !== 'bevel') {
@@ -192,10 +196,20 @@ export function expandStroke(
       const dx = i === 0 ? neighbor.x - curr.x : curr.x - neighbor.x;
       const dy = i === 0 ? neighbor.y - curr.y : curr.y - neighbor.y;
       if (vecLen(dx, dy) > 1e-12) {
-    // Outward normal for screen coords (y+ down): rotate (dx,dy) CW → (dy,-dx)
-    const [nx, ny] = normalize(dy, -dx);
-        leftPoints.push({ x: curr.x + nx * hw, y: curr.y + ny * hw, handleIn: curr.handleIn, handleOut: curr.handleOut });
-        rightPoints.push({ x: curr.x - nx * hw, y: curr.y - ny * hw, handleIn: curr.handleIn, handleOut: curr.handleOut });
+        // Outward normal for screen coords (y+ down): rotate (dx,dy) CW → (dy,-dx)
+        const [nx, ny] = normalize(dy, -dx);
+        leftPoints.push({
+          x: curr.x + nx * hw,
+          y: curr.y + ny * hw,
+          handleIn: curr.handleIn,
+          handleOut: curr.handleOut,
+        });
+        rightPoints.push({
+          x: curr.x - nx * hw,
+          y: curr.y - ny * hw,
+          handleIn: curr.handleIn,
+          handleOut: curr.handleOut,
+        });
       }
     } else if (points.length >= 2) {
       // Interior vertex: average entering and leaving left normals
@@ -209,10 +223,20 @@ export function expandStroke(
       const [nx2, ny2] = normalize(-dy2, dx2);
       const len1 = vecLen(nx1, ny1);
       const len2 = vecLen(nx2, ny2);
-      const nx = len1 > 0 && len2 > 0 ? (nx1 + nx2) / 2 : (len1 > 0 ? nx1 : nx2);
-      const ny = len1 > 0 && len2 > 0 ? (ny1 + ny2) / 2 : (len1 > 0 ? ny1 : ny2);
-      leftPoints.push({ x: curr.x + nx * hw, y: curr.y + ny * hw, handleIn: curr.handleIn, handleOut: curr.handleOut });
-      rightPoints.push({ x: curr.x - nx * hw, y: curr.y - ny * hw, handleIn: curr.handleIn, handleOut: curr.handleOut });
+      const nx = len1 > 0 && len2 > 0 ? (nx1 + nx2) / 2 : len1 > 0 ? nx1 : nx2;
+      const ny = len1 > 0 && len2 > 0 ? (ny1 + ny2) / 2 : len1 > 0 ? ny1 : ny2;
+      leftPoints.push({
+        x: curr.x + nx * hw,
+        y: curr.y + ny * hw,
+        handleIn: curr.handleIn,
+        handleOut: curr.handleOut,
+      });
+      rightPoints.push({
+        x: curr.x - nx * hw,
+        y: curr.y - ny * hw,
+        handleIn: curr.handleIn,
+        handleOut: curr.handleOut,
+      });
     }
   }
 
@@ -251,7 +275,7 @@ export function expandStroke(
     const capSteps = 6;
     for (let s = 0; s < capSteps; s++) {
       const t = (s + 1) / (capSteps + 1);
-      const angle = -t * Math.PI / 2 + Math.PI / 2;
+      const angle = (-t * Math.PI) / 2 + Math.PI / 2;
       const rx = (firstL.x - firstR.x) / 2;
       const ry = (firstL.y - firstR.y) / 2;
       startCap.push({
@@ -275,11 +299,7 @@ export function expandStroke(
  * @param radius - Corner radius (0 = no rounding)
  * @returns Path with rounded corners
  */
-export function roundCorners(
-  points: PathPoint[],
-  closed: boolean,
-  radius: number,
-): PathPoint[] {
+export function roundCorners(points: PathPoint[], closed: boolean, radius: number): PathPoint[] {
   if (points.length < 3 || radius <= 0) return points.map(clonePoint);
 
   const result: PathPoint[] = [];
@@ -367,8 +387,14 @@ function clonePoint(p: PathPoint): PathPoint {
  * Returns [x, y] of intersection, or null if parallel.
  */
 function lineIntersection(
-  ax: number, ay: number, bx: number, by: number,
-  cx: number, cy: number, dx: number, dy: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
+  dx: number,
+  dy: number,
 ): [number, number] | null {
   const denom = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
   if (Math.abs(denom) < 1e-12) return null;
@@ -390,9 +416,7 @@ function sampleBezierSegment(
   const c1 = a.handleOut
     ? { x: a.x + a.handleOut[0], y: a.y + a.handleOut[1] }
     : { x: a.x, y: a.y };
-  const c2 = b.handleIn
-    ? { x: b.x + b.handleIn[0], y: b.y + b.handleIn[1] }
-    : { x: b.x, y: b.y };
+  const c2 = b.handleIn ? { x: b.x + b.handleIn[0], y: b.y + b.handleIn[1] } : { x: b.x, y: b.y };
 
   for (let s = 0; s <= steps; s++) {
     const t = s / steps;
