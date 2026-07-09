@@ -98,6 +98,8 @@ export function MinimapPanel() {
   const editor = useEditor();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDragging = useRef(false);
+  const { selectedNodes } = useEditor();
+  const sel = selectedNodes();
 
   const resolveCssVar = useCallback((name: string, fallback: string): string => {
     if (typeof document === 'undefined') return fallback;
@@ -119,13 +121,13 @@ export function MinimapPanel() {
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    const nodeBounds: { x: number; y: number; w: number; h: number }[] = [];
+    const nodeBounds: { x: number; y: number; w: number; h: number; id: string }[] = [];
 
     for (const node of rootNodes) {
       const local = getNodeLocalBounds(node);
       const worldTf = nodeWorldTransform(doc, node.id);
       const worldBounds = transformRect(worldTf, local);
-      nodeBounds.push(worldBounds);
+      nodeBounds.push({ ...worldBounds, id: node.id });
       minX = Math.min(minX, worldBounds.x);
       minY = Math.min(minY, worldBounds.y);
       maxX = Math.max(maxX, worldBounds.x + worldBounds.w);
@@ -177,6 +179,23 @@ export function MinimapPanel() {
       ctx.fillRect(x, y, w, h);
     }
 
+    // Draw selection highlight
+    if (sel.length > 0) {
+      const selectedIds = new Set(sel.map((n) => n.id));
+      const selectionColor = resolveCssVar('--color-interactive-default', '#39d0c6');
+      ctx.strokeStyle = selectionColor;
+      ctx.lineWidth = 2;
+      for (const b of nodeBounds) {
+        if (selectedIds.has(b.id)) {
+          const x = offsetX + (b.x - minX + PADDING) * scale;
+          const y = offsetY + (b.y - minY + PADDING) * scale;
+          const w = Math.max(b.w * scale, 1);
+          const h = Math.max(b.h * scale, 1);
+          ctx.strokeRect(x, y, w, h);
+        }
+      }
+    }
+
     const vpWorldLeft = -pan.x / zoom;
     const vpWorldTop = -pan.y / zoom;
 
@@ -194,7 +213,7 @@ export function MinimapPanel() {
     ctx.lineWidth = 1;
     ctx.fillRect(vx, vy, vw, vh);
     ctx.strokeRect(vx, vy, vw, vh);
-  }, [editor.state.document, editor.state.zoom, editor.state.pan, resolveCssVar]);
+  }, [editor.state.document, editor.state.zoom, editor.state.pan, resolveCssVar, sel]);
 
   useEffect(() => {
     draw();

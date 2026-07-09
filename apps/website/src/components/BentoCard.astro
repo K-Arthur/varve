@@ -1,0 +1,11 @@
+---
+interface Props {
+  span?: number;
+}
+
+const { span = 1 } = Astro.props;
+---
+
+<div class="bento-cell" style={`--bento-span: ${span}`}>
+  <slot />
+</div>

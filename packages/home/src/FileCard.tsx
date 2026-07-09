@@ -167,17 +167,7 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
             onKeyDown={handleRenameKeyDown}
             onBlur={handleRenameBlur}
             className="file-card__rename-input"
-            style={{
-              width: '100%',
-              background: 'var(--color-surface-raised)',
-              border: '1px solid var(--color-interactive-default)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '2px 4px',
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 'var(--font-weight-medium)',
-              color: 'var(--color-text-primary)',
-              outline: 'none',
-            }}
+            style={{ width: '100%' }}
           />
         ) : (
           <span className="file-card__name" title={entry.name}>

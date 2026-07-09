@@ -192,7 +192,6 @@
   --bp-lg: 1024px;
   --bp-xl: 1280px;
   --bp-2xl: 1536px;
-
 }
 
 [data-theme="dark"] {
@@ -275,7 +274,6 @@
   /* Micro-borders (dark mode — more visible). */
   --border-micro: 1px solid oklch(1 0 0 / 0.08);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
-
 }
 
 [data-theme="high-contrast"] {
@@ -358,7 +356,6 @@
   /* Micro-borders (HC — thicker, full-contrast edges). */
   --border-micro: 2px solid oklch(1 0 0);
   --border-micro-accent: 2px solid oklch(0.95 0.2 188);
-
 }
 
 /* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
@@ -443,7 +440,6 @@
     /* Micro-borders (dark mode — more visible). */
     --border-micro: 1px solid oklch(1 0 0 / 0.08);
     --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
-
   }
 }
 

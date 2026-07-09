@@ -1,0 +1,96 @@
+/**
+ * SelectionInfoBar — CSS for selection feedback strip.
+ */
+
+.selection-info-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  min-height: 28px;
+}
+
+.selection-info-bar__empty,
+.selection-info-bar__single,
+.selection-info-bar__multi {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.selection-info-bar__page-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.selection-info-bar__separator {
+  color: var(--color-border-subtle);
+}
+
+.selection-info-bar__layer-count {
+  color: var(--color-text-tertiary);
+}
+
+.selection-info-bar__name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.selection-info-bar__type {
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.selection-info-bar__dimensions,
+.selection-info-bar__position,
+.selection-info-bar__rotation {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-tertiary);
+}
+
+.selection-info-bar__breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.selection-info-bar__breadcrumb {
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease;
+}
+
+.selection-info-bar__breadcrumb:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.selection-info-bar__breadcrumb:disabled {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  cursor: default;
+}
+
+.selection-info-bar__count {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.selection-info-bar__shared-type {
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.selection-info-bar__type-list {
+  color: var(--color-text-secondary);
+}

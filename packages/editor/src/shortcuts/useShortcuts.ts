@@ -134,6 +134,10 @@ export function useShortcuts(
           }
           e.announceSelection(nodes);
         };
+      case 'selectionHistoryBack':
+        return () => e.selectPreviousSelection();
+      case 'selectionHistoryForward':
+        return () => e.selectNextSelection();
       case 'tabNew':
         return () => e.newTab();
       case 'tabClose':
