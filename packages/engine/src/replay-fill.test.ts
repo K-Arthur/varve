@@ -125,6 +125,11 @@ function recorder(): RecorderProxy {
       gradients[id] = g;
       return g;
     },
+
+    createPattern(_image: CanvasImageSource, repetition: string): CanvasPattern | null {
+      calls.push(`createPattern(${repetition})`);
+      return {} as CanvasPattern;
+    },
   };
 
   Object.entries(tracked).forEach(([k, desc]) => {
@@ -329,6 +334,127 @@ describe('gradient fill rendering', () => {
     };
     replayIr(rec.target, [item]);
     expect(rec.calls.some((c) => c.startsWith('createLinearGradient('))).toBe(false);
+  });
+
+  it('gradient tilingMode=repeat uses createPattern with repeat', () => {
+    // Provide a working OffscreenCanvas for this test
+    const OrigOC = globalThis.OffscreenCanvas;
+    globalThis.OffscreenCanvas = class MockOC {
+      width: number;
+      height: number;
+      constructor(w: number, h: number) { this.width = w; this.height = h; }
+      getContext() {
+        return {
+          createLinearGradient: () => ({ addColorStop: () => {} }),
+          fillStyle: '',
+          fillRect: () => {},
+          drawImage: () => {},
+          save: () => {},
+          restore: () => {},
+          scale: () => {},
+          translate: () => {},
+        } as unknown as OffscreenCanvasRenderingContext2D;
+      }
+      convertToBlob() { return Promise.resolve(new Blob()); }
+    } as unknown as typeof OffscreenCanvas;
+
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          tilingMode: 'repeat',
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    expect(rec.calls.some((c) => c.startsWith('createPattern(repeat)'))).toBe(true);
+    globalThis.OffscreenCanvas = OrigOC;
+  });
+
+  it('gradient tilingMode=reflect uses createPattern with repeat', () => {
+    const OrigOC = globalThis.OffscreenCanvas;
+    globalThis.OffscreenCanvas = class MockOC {
+      width: number;
+      height: number;
+      constructor(w: number, h: number) { this.width = w; this.height = h; }
+      getContext() {
+        return {
+          createLinearGradient: () => ({ addColorStop: () => {} }),
+          fillStyle: '',
+          fillRect: () => {},
+          drawImage: () => {},
+          save: () => {},
+          restore: () => {},
+          scale: () => {},
+          translate: () => {},
+        } as unknown as OffscreenCanvasRenderingContext2D;
+      }
+      convertToBlob() { return Promise.resolve(new Blob()); }
+    } as unknown as typeof OffscreenCanvas;
+
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          tilingMode: 'reflect',
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    expect(rec.calls.some((c) => c.startsWith('createPattern(repeat)'))).toBe(true);
+    globalThis.OffscreenCanvas = OrigOC;
+  });
+
+  it('gradient with tilingMode undefined uses standard gradient (no createPattern)', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    expect(rec.calls.some((c) => c.startsWith('createPattern'))).toBe(false);
+    expect(rec.calls.some((c) => c.startsWith('createLinearGradient('))).toBe(true);
   });
 });
 
