@@ -1,5 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Button from '../components/Button.astro';
+import BentoGrid from '../components/BentoGrid.astro';
+import BentoCard from '../components/BentoCard.astro';
 ---
 
 <Layout title="Strata - Local-first, cross-platform design suite">
@@ -13,12 +16,12 @@ import Layout from '../layouts/Layout.astro';
           Native Rust performance. No cloud lock-in. No subscription.
         </p>
         <div class="hero-ctas">
-          <a href="/download" class="btn-primary">
+          <Button href="/download" variant="primary">
             Download for Your Platform
-          </a>
-          <a href="/product" class="btn-secondary">
+          </Button>
+          <Button href="/product" variant="secondary">
             Learn More
-          </a>
+          </Button>
         </div>
         <p class="hero-platforms">
           Linux • macOS • Windows
@@ -30,24 +33,24 @@ import Layout from '../layouts/Layout.astro';
   <section class="features-preview">
     <div class="container-custom">
       <h2 class="section-title">Built for serious design work</h2>
-      <div class="features-grid">
-        <div class="feature-card">
+      <BentoGrid cols={2}>
+        <BentoCard>
           <h3>Canvas & Rendering</h3>
           <p>86fps IR-replay rendering, infinite canvas, precision tools with native Rust performance</p>
-        </div>
-        <div class="feature-card">
+        </BentoCard>
+        <BentoCard>
           <h3>Motion & Prototyping</h3>
           <p>Timeline-based animation, Smart Animate, prototype interactions with code export</p>
-        </div>
-        <div class="feature-card">
+        </BentoCard>
+        <BentoCard>
           <h3>Export & Code Generation</h3>
           <p>SVG, React/Tailwind, Flutter, SwiftUI — export your designs to production code</p>
-        </div>
-        <div class="feature-card">
+        </BentoCard>
+        <BentoCard>
           <h3>Vector & Typography</h3>
           <p>Complete vector tools, text engine, color management with CMYK support</p>
-        </div>
-      </div>
+        </BentoCard>
+      </BentoGrid>
     </div>
   </section>
 
@@ -58,7 +61,7 @@ import Layout from '../layouts/Layout.astro';
         <p class="story-text">
           Strata is built by one designer-developer, committed to transparent development, honest limitations, and community input. No VC pressure, no feature creep, just focused tools for designers.
         </p>
-        <a href="/about" class="btn-secondary">Read the story</a>
+        <Button href="/about" variant="secondary">Read the story</Button>
       </div>
     </div>
   </section>
@@ -67,35 +70,35 @@ import Layout from '../layouts/Layout.astro';
     <div class="container-custom">
       <h2 class="section-title">Download Strata</h2>
       <p class="download-subtitle">Free forever. AGPL-3.0-or-later licensed. Your designs stay on your machine.</p>
-      <a href="/download" class="btn-primary">Download Now</a>
+      <Button href="/download" variant="primary">Download Now</Button>
     </div>
   </section>
 </Layout>
 
 <style>
   .hero {
-    background: linear-gradient(135deg, var(--color-teal-50) 0%, white 100%);
+    background: linear-gradient(135deg, var(--color-surface-sunken) 0%, var(--color-surface-app) 100%);
     padding: 6rem 0;
-    border-bottom: 1px solid var(--color-neutral-200);
+    border-bottom: 1px solid var(--color-border-subtle);
   }
-  
+
   .hero-content {
     text-align: center;
     max-width: 800px;
     margin: 0 auto;
   }
-  
+
   .hero-title {
     font-size: 3rem;
     font-weight: 800;
     line-height: 1.1;
     margin-bottom: 1.5rem;
-    color: var(--color-neutral-900);
+    color: var(--color-text-primary);
   }
-  
+
   .hero-subtitle {
     font-size: 1.25rem;
-    color: var(--color-neutral-600);
+    color: var(--color-text-secondary);
     margin-bottom: 2rem;
   }
   
@@ -122,83 +125,40 @@ import Layout from '../layouts/Layout.astro';
     font-weight: 700;
     text-align: center;
     margin-bottom: 3rem;
-    color: var(--color-neutral-900);
+    color: var(--color-text-primary);
   }
-  
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
-  }
-  
-  .feature-card {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
-    border-radius: 0.75rem;
-    padding: 2rem;
-    transition: all 0.2s;
-  }
-  
-  .feature-card:hover {
-    border-color: var(--color-teal-400);
-    transform: translateY(-2px);
-  }
-  
-  .feature-card h3 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--color-neutral-900);
-  }
-  
-  .feature-card p {
-    color: var(--color-neutral-600);
-    line-height: 1.6;
-  }
-  
+
   .story-section {
-    background: var(--color-neutral-900);
-    color: white;
+    background: var(--color-surface-sunken);
+    color: var(--color-text-primary);
     padding: 5rem 0;
   }
-  
+
   .story-section .section-title {
-    color: white;
+    color: var(--color-text-primary);
   }
-  
+
   .story-content {
     max-width: 700px;
     margin: 0 auto;
     text-align: center;
   }
-  
+
   .story-text {
     font-size: 1.125rem;
     line-height: 1.8;
     margin-bottom: 2rem;
-    color: var(--color-neutral-200);
+    color: var(--color-text-secondary);
   }
-  
-  .story-section .btn-secondary {
-    background: transparent;
-    border-color: var(--color-teal-400);
-    color: var(--color-teal-400);
-  }
-  
-  .story-section .btn-secondary:hover {
-    background: var(--color-teal-600);
-    border-color: var(--color-teal-600);
-    color: white;
-  }
-  
+
   .download-preview {
     padding: 5rem 0;
     text-align: center;
   }
-  
+
   .download-subtitle {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--color-text-secondary);
     margin-bottom: 2rem;
   }
   

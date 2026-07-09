@@ -1,0 +1,185 @@
+/* VariablePanel — CSS classes for the variables+math engine panel */
+
+.variable-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.variable-panel__title {
+  margin: 0;
+}
+
+.variable-panel__controls {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.variable-panel__mode-select {
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+
+.variable-panel__add-btn {
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.variable-panel__empty-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.variable-panel__table {
+  width: 100%;
+  font-size: var(--font-size-xs);
+  border-collapse: collapse;
+}
+
+.variable-panel__table-header {
+  color: var(--color-text-muted);
+}
+
+.variable-panel__table-header th {
+  text-align: left;
+  font-weight: normal;
+  padding-bottom: 4px;
+}
+
+.variable-panel__table-header th--name {
+  text-align: left;
+}
+
+.variable-panel__table-header th--value {
+  text-align: left;
+}
+
+.variable-panel__table-header th--resolved {
+  text-align: left;
+}
+
+.variable-panel__table-header th--actions {
+  width: 20px;
+}
+
+.variable-panel__table-row {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.variable-panel__table-cell {
+  padding: 3px 0;
+  vertical-align: middle;
+}
+
+.variable-panel__table-cell--name {
+  padding: 3px 0;
+  vertical-align: middle;
+}
+
+.variable-panel__table-cell--value {
+  padding: 3px 4px;
+  vertical-align: middle;
+}
+
+.variable-panel__table-cell--resolved {
+  padding: 3px 0;
+  vertical-align: middle;
+  color: var(--color-text-muted);
+}
+
+.variable-panel__table-cell--actions {
+  padding: 3px 0;
+  text-align: right;
+  vertical-align: middle;
+}
+
+.variable-panel__value-btn {
+  all: unset;
+  cursor: text;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.variable-panel__edit-input {
+  width: 100%;
+  font-size: inherit;
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-interactive-default);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+
+.variable-panel__delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  padding: 1px 2px;
+}
+
+.variable-panel__add-form {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  align-items: center;
+}
+
+.variable-panel__add-input {
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+}
+
+.variable-panel__add-select {
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+}
+
+.variable-panel__add-value-input {
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  width: 64px;
+}
+
+.variable-panel__add-submit-btn {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-xs);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  cursor: pointer;
+}

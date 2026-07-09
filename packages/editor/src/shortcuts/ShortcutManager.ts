@@ -78,6 +78,16 @@ export const SHORTCUT_DEFS = {
   zoom200: { binding: { key: '5' }, label: 'Zoom to 200%', category: 'View' },
   zoom400: { binding: { key: '6' }, label: 'Zoom to 400%', category: 'View' },
   selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
+  selectionHistoryBack: {
+    binding: { key: 'ArrowLeft', alt: true },
+    label: 'Selection History Back',
+    category: 'Edit',
+  },
+  selectionHistoryForward: {
+    binding: { key: 'ArrowRight', alt: true },
+    label: 'Selection History Forward',
+    category: 'Edit',
+  },
   group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
   ungroup: { binding: { key: 'g', ctrl: true, shift: true }, label: 'Ungroup', category: 'Object' },
   bringFront: {

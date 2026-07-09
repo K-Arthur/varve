@@ -1,3 +1,6 @@
+/* Import Strata design tokens */
+@import "@strata/ui/src/tokens/tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -21,8 +24,8 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1.5rem;
-    background: var(--color-teal-600);
-    color: white;
+    background: var(--color-accent-primary);
+    color: var(--color-text-on-accent);
     font-weight: 600;
     border-radius: 0.5rem;
     transition: all 0.2s;
@@ -31,7 +34,7 @@
   }
 
   .btn-primary:hover {
-    background: var(--color-teal-700);
+    background: var(--color-accent-hover);
     transform: translateY(-1px);
   }
 
@@ -40,17 +43,51 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1.5rem;
-    background: white;
-    color: var(--color-neutral-900);
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
     font-weight: 600;
     border-radius: 0.5rem;
     transition: all 0.2s;
-    border: 2px solid var(--color-neutral-200);
+    border: 2px solid var(--color-border-subtle);
     cursor: pointer;
   }
 
   .btn-secondary:hover {
-    border-color: var(--color-teal-400);
-    color: var(--color-teal-600);
+    border-color: var(--color-accent-primary);
+    color: var(--color-accent-primary);
+  }
+
+  /* Bento grid components */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--bento-cols, 3), 1fr);
+    gap: var(--space-4);
+  }
+
+  .bento-cell {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-6);
+    grid-column: span var(--bento-span, 1);
+  }
+
+  /* Skip link for accessibility */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-accent-primary);
+    color: var(--color-text-on-accent);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    z-index: 9999;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .skip-link:focus {
+    top: 0.5rem;
   }
 }

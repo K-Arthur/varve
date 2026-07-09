@@ -1,0 +1,11 @@
+---
+interface Props {
+  cols?: number;
+}
+
+const { cols = 3 } = Astro.props;
+---
+
+<div class="bento-grid" style={`--bento-cols: ${cols}`}>
+  <slot />
+</div>

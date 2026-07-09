@@ -707,6 +707,23 @@
   box-shadow: 0 0 0 2px var(--color-interactive-focus-ring);
 }
 
+/* File list header row */
+.file-row--header {
+  cursor: default;
+  font-weight: var(--font-weight-semibold);
+  border-bottom: 2px solid var(--color-border-strong);
+}
+
+/* File list sort button */
+.file-row__sort-btn {
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
 /* ─── New file dialog ─────────────────────────────────── */
 .new-file__tabs {
   display: flex;
