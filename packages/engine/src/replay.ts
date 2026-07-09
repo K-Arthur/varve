@@ -10,7 +10,7 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 
-import { managedColorToRgba } from '@strata/shared';
+import { expandGradientStops, managedColorToRgba } from '@strata/shared';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss } from './filters';
@@ -49,12 +49,12 @@ export interface ReplayTarget {
   fillText(text: string, x: number, y: number): void;
   font: string;
   textBaseline: CanvasTextBaseline;
-  fillStyle: string;
+  fillStyle: string | CanvasGradient | CanvasPattern;
   lineWidth: number;
   lineCap: CanvasLineCap;
   textAlign: CanvasTextAlign;
   lineJoin: CanvasLineJoin;
-  strokeStyle: string;
+  strokeStyle: string | CanvasGradient | CanvasPattern;
   /** F6: opacity for the item layer. */
   globalAlpha: number;
   /** F6: blend mode compositing. */
@@ -84,6 +84,8 @@ export interface ReplayTarget {
   ): ReplayGradient;
   /** P2: create a conic gradient for angular gradient fills. */
   createConicGradient?(angle: number, cx: number, cy: number): ReplayGradient;
+  /** P2: create a pattern from a canvas/image for tiling fills. */
+  createPattern?(image: CanvasImageSource, repetition: string): CanvasPattern | null;
   /** P2: for shadow effects (replay clips shadow pass). */
   shadowColor?: string;
   shadowBlur?: number;
@@ -587,8 +589,13 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
     target.fillStyle = rgba(fill.color);
     paintShapeFill(target, item);
   } else if (fill.type === 'gradient') {
-    target.fillStyle = createGradientStyle(target, fill, item);
-    paintShapeFill(target, item);
+    const tilingMode = fill.tilingMode;
+    if (tilingMode && tilingMode !== 'none') {
+      paintTiledGradientFill(target, fill, item, tilingMode as 'repeat' | 'reflect');
+    } else {
+      target.fillStyle = createGradientStyle(target, fill, item);
+      paintShapeFill(target, item);
+    }
   } else if (fill.type === 'image') {
     paintImageFill(target, fill, item);
   } else if (fill.type === 'pattern') {
@@ -754,12 +761,34 @@ function paintPatternFill(
   }
 }
 
-/** Create a gradient fillStyle string from a FillIR gradient. */
+/** Expand gradient stops for canvas API using perceptually uniform interpolation. */
+function expandGradientStopsForFill(
+  fill: Extract<FillIR, { type: 'gradient' }>,
+): { position: number; color: EngineColor }[] {
+  const space = fill.interpolationSpace ?? 'oklab';
+  if (space === 'srgb') {
+    return fill.stops.map((s) => ({ position: s.position, color: s.color }));
+  }
+  const inputs = fill.stops.map((s) => {
+    const [r, g, b, a] = managedColorToRgba(s.color);
+    return {
+      position: s.position,
+      color: { space: 'rgb' as const, r, g, b, a },
+      ...(s.midpoint !== undefined ? { midpoint: s.midpoint } : {}),
+    };
+  });
+  return expandGradientStops(inputs, space, 16).map((s) => ({
+    position: s.position,
+    color: s.color as EngineColor,
+  }));
+}
+
+/** Create a gradient fillStyle from a FillIR gradient. */
 function createGradientStyle(
   target: ReplayTarget,
   fill: Extract<FillIR, { type: 'gradient' }>,
   item: RenderItem,
-): string {
+): CanvasGradient | string {
   const stops = fill.stops;
   if (stops.length === 0) return 'rgba(0,0,0,0)';
 
@@ -785,34 +814,38 @@ function createGradientStyle(
 
   if (fill.gradientType === 'radial' && target.createRadialGradient) {
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
-    for (const s of stops) {
+    const expanded = expandGradientStopsForFill(fill);
+    for (const s of expanded) {
       grad.addColorStop(s.position, rgba(s.color));
     }
-    return grad as unknown as string;
+    return grad;
   }
 
   if (fill.gradientType === 'angular' && target.createConicGradient) {
     const grad = target.createConicGradient(rot, cx, cy);
-    for (const s of stops) {
+    const expanded = expandGradientStopsForFill(fill);
+    for (const s of expanded) {
       grad.addColorStop(s.position, rgba(s.color));
     }
-    return grad as unknown as string;
+    return grad;
   }
 
   if (fill.gradientType === 'diamond' && target.createRadialGradient) {
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
-    for (const s of stops) {
+    const expanded = expandGradientStopsForFill(fill);
+    for (const s of expanded) {
       grad.addColorStop(s.position, rgba(s.color));
     }
-    return grad as unknown as string;
+    return grad;
   }
 
   if (target.createLinearGradient) {
     const grad = target.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
-    for (const s of stops) {
+    const expanded = expandGradientStopsForFill(fill);
+    for (const s of expanded) {
       grad.addColorStop(s.position, rgba(s.color));
     }
-    return grad as unknown as string;
+    return grad;
   }
 
   return rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
@@ -888,6 +921,188 @@ function traceSquirclePath(
   // Top-left corner
   target.bezierCurveTo(x, y + ext(tl) - hnd(tl), x + ext(tl) - hnd(tl), y, x + ext(tl), y);
   target.closePath();
+}
+
+/** Paint a tiled (repeat/reflect) gradient fill using an offscreen canvas pattern. */
+function paintTiledGradientFill(
+  target: ReplayTarget,
+  fill: Extract<FillIR, { type: 'gradient' }>,
+  item: RenderItem,
+  tilingMode: 'repeat' | 'reflect',
+): void {
+  const bounds = primitiveBounds(item.primitive);
+  if (bounds.w <= 0 || bounds.h <= 0) return;
+  let rot = (fill.rotation * Math.PI) / 180;
+  let cx = (bounds.x + bounds.w) / 2;
+  let cy = (bounds.y + bounds.h) / 2;
+  const halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
+  if (fill.transform) {
+    const t = fill.transform;
+    const du = t[0] * halfDiag;
+    const dv = t[1] * halfDiag;
+    cx = bounds.x + t[4];
+    cy = bounds.y + t[5];
+    rot = Math.atan2(dv, du);
+  }
+  const dx = Math.cos(rot) * halfDiag;
+  const dy = Math.sin(rot) * halfDiag;
+
+  // Build expanded stops (perceptual interpolation)
+  const expanded = expandGradientStopsForFill(fill);
+
+  // Determine tile canvas size
+  // For linear: tile is along gradient direction
+  // For radial: tile is a square of 2*halfDiag
+
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(Math.max(1, Math.ceil(bounds.w)), Math.max(1, Math.ceil(bounds.h)))
+      : null;
+
+  if (!canvas) {
+    // Fallback: render gradient without tiling
+    target.fillStyle = createGradientStyle(target, fill, item);
+    paintShapeFill(target, item);
+    return;
+  }
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    target.fillStyle = createGradientStyle(target, fill, item);
+    paintShapeFill(target, item);
+    return;
+  }
+
+  if (fill.gradientType === 'radial' || fill.gradientType === 'diamond') {
+    const tileSize = Math.ceil(halfDiag * 2);
+    const tileCanvas =
+      typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(Math.max(1, tileSize), Math.max(1, tileSize))
+        : null;
+    if (!tileCanvas) {
+      target.fillStyle = createGradientStyle(target, fill, item);
+      paintShapeFill(target, item);
+      return;
+    }
+    const tileCtx = tileCanvas.getContext('2d');
+    if (!tileCtx) {
+      target.fillStyle = createGradientStyle(target, fill, item);
+      paintShapeFill(target, item);
+      return;
+    }
+    const grad = tileCtx.createRadialGradient(
+      tileSize / 2,
+      tileSize / 2,
+      0,
+      tileSize / 2,
+      tileSize / 2,
+      tileSize / 2,
+    );
+    for (const s of expanded) {
+      grad.addColorStop(s.position, rgba(s.color));
+    }
+    tileCtx.fillStyle = grad;
+    tileCtx.fillRect(0, 0, tileSize, tileSize);
+    if (tilingMode === 'reflect') {
+      // Mirror the tile horizontally for reflect
+      const doubleCanvas =
+        typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(tileSize * 2, tileSize) : null;
+      if (doubleCanvas) {
+        const dCtx = doubleCanvas.getContext('2d');
+        if (dCtx) {
+          // Draw forward tile
+          dCtx.drawImage(tileCanvas, 0, 0);
+          // Draw mirrored tile
+          dCtx.save();
+          dCtx.translate(tileSize * 2, 0);
+          dCtx.scale(-1, 1);
+          dCtx.drawImage(tileCanvas, 0, 0);
+          dCtx.restore();
+          if (target.createPattern) {
+            const pattern = target.createPattern(
+              doubleCanvas as unknown as CanvasImageSource,
+              'repeat',
+            );
+            if (pattern) {
+              target.fillStyle = pattern;
+              paintShapeFill(target, item);
+              return;
+            }
+          }
+        }
+      }
+    }
+    if (target.createPattern) {
+      const pattern = target.createPattern(tileCanvas as unknown as CanvasImageSource, 'repeat');
+      if (pattern) {
+        target.fillStyle = pattern;
+        paintShapeFill(target, item);
+        return;
+      }
+    }
+  }
+
+  const tileW = Math.max(1, Math.ceil(Math.abs(dx) * 2));
+  const tileH = Math.max(1, Math.ceil(Math.abs(dy) * 2));
+
+  if (fill.gradientType === 'angular') {
+    target.fillStyle = createGradientStyle(target, fill, item);
+    paintShapeFill(target, item);
+    return;
+  }
+
+  // Paint the gradient across the canvas
+  const grad = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
+  for (const s of expanded) {
+    grad.addColorStop(s.position, rgba(s.color));
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, bounds.w, bounds.h);
+
+  if (tilingMode === 'reflect') {
+    // Mirror tiles horizontally
+    const finalCanvas =
+      typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(
+            Math.max(1, Math.ceil(bounds.w * 2)),
+            Math.max(1, Math.ceil(bounds.h)),
+          )
+        : null;
+    if (finalCanvas) {
+      const fCtx = finalCanvas.getContext('2d');
+      if (fCtx) {
+        fCtx.drawImage(canvas, 0, 0);
+        fCtx.save();
+        fCtx.translate(bounds.w * 2, 0);
+        fCtx.scale(-1, 1);
+        fCtx.drawImage(canvas, 0, 0);
+        fCtx.restore();
+        if (target.createPattern) {
+          const pattern = target.createPattern(
+            finalCanvas as unknown as CanvasImageSource,
+            'repeat',
+          );
+          if (pattern) {
+            target.fillStyle = pattern;
+            paintShapeFill(target, item);
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  if (target.createPattern) {
+    const pattern = target.createPattern(canvas as unknown as CanvasImageSource, 'repeat');
+    if (pattern) {
+      target.fillStyle = pattern;
+    } else {
+      target.fillStyle = createGradientStyle(target, fill, item);
+    }
+  } else {
+    target.fillStyle = createGradientStyle(target, fill, item);
+  }
+  paintShapeFill(target, item);
 }
 
 /** Paint the primitive shape fill (without fillStyle). */
@@ -1017,8 +1232,22 @@ function paintRichText(
   for (const line of positioned.lines) {
     const lineWidth = line.runs.reduce((sum, r) => sum + r.width, 0);
     let xOffset = 0;
-    if (p.textAlign === 'center') xOffset = (p.w - lineWidth) / 2;
-    else if (p.textAlign === 'right') xOffset = p.w - lineWidth;
+    let wordSpacingAdjust = 0;
+    if (p.textAlign === 'center') {
+      xOffset = (p.w - lineWidth) / 2;
+    } else if (p.textAlign === 'right') {
+      xOffset = p.w - lineWidth;
+    } else if (p.textAlign === 'justify') {
+      // Justify: count inter-word gaps and distribute remaining space
+      let totalGaps = 0;
+      for (const run of line.runs) {
+        const spaces = (run.text.match(/\s/g) || []).length;
+        totalGaps += spaces;
+      }
+      if (totalGaps > 0 && lineWidth < p.w) {
+        wordSpacingAdjust = (p.w - lineWidth) / totalGaps;
+      }
+    }
 
     for (const run of line.runs) {
       target.font = run.font;
@@ -1026,7 +1255,22 @@ function paintRichText(
       if (runFormat.color && runFormat.color[3] > 0) {
         target.fillStyle = rgba(runFormat.color);
       }
-      target.fillText(run.text, p.x + run.x + xOffset, p.y + run.y + yOffset);
+      if (wordSpacingAdjust > 0 && /\s/.test(run.text)) {
+        // Distribute extra space between words within this run
+        const parts = run.text.split(/(\s+)/);
+        let runX = p.x + run.x + xOffset;
+        for (const part of parts) {
+          if (part === '') continue;
+          if (/^\s+$/.test(part)) {
+            runX += measureTextAdvance(target, part) + wordSpacingAdjust;
+          } else {
+            target.fillText(part, runX, p.y + run.y + yOffset);
+            runX += measureTextAdvance(target, part);
+          }
+        }
+      } else {
+        target.fillText(run.text, p.x + run.x + xOffset, p.y + run.y + yOffset);
+      }
 
       if (
         run.format.textDecoration === 'underline' ||
@@ -1118,8 +1362,62 @@ function paintText(
   // Apply text case transform
   const displayText = applyTextCase(p.text, p.textCase);
 
-  // Split into lines
-  const rawLines = displayText.split('\n');
+  // Expand tabs using tab stops or default tab width
+  function expandTabs(text: string, xStart: number): string {
+    if (!text.includes('\t')) return text;
+    const stops = p.tabStops;
+    if (stops && stops.length > 0) {
+      // Tab stops: advance to next stop position
+      const slines: string[] = [];
+      const parts = text.split('\t');
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i] ?? '';
+        if (i === 0) {
+          slines.push(part);
+          continue;
+        }
+        // Compute current x position based on accumulated content width
+        let currentX = xStart;
+        for (const prev of slines) {
+          currentX += measureTextAdvance(target, prev);
+        }
+        // Find the next tab stop > currentX
+        let nextStop = currentX + measureTextAdvance(target, ' ') * 8;
+        for (const stop of stops) {
+          if (stop.position > currentX + xStart) {
+            nextStop = stop.position - xStart;
+            break;
+          }
+        }
+        const spaceWidth = measureTextAdvance(target, ' ');
+        const spacesNeeded = Math.max(1, Math.ceil((nextStop - currentX) / spaceWidth));
+        slines.push(' '.repeat(spacesNeeded) + part);
+      }
+      return slines.join('');
+    }
+    // Default tab width: 8 spaces
+    const tabWidth = (p.tabSize ?? 8) * measureTextAdvance(target, ' ');
+    const lines: string[] = [];
+    const parts = text.split('\t');
+    for (let i = 0; i < parts.length; i++) {
+      if (i === 0) {
+        lines.push(parts[i] ?? '');
+        continue;
+      }
+      let currentX = xStart;
+      for (const prev of lines) {
+        currentX += measureTextAdvance(target, prev);
+      }
+      const tabStop = Math.ceil((currentX - xStart + 1) / tabWidth) * tabWidth + xStart;
+      const spaceWidth = measureTextAdvance(target, ' ');
+      const spacesNeeded = Math.max(1, Math.ceil((tabStop - currentX) / spaceWidth));
+      lines.push(' '.repeat(spacesNeeded) + (parts[i] ?? ''));
+    }
+    return lines.join('');
+  }
+
+  // Split into lines and expand tabs
+  const rawLines = displayText.split('\n').map((l) => expandTabs(l, p.x));
 
   // Build list prefix for each line
   const lines: string[] = [];
@@ -1168,21 +1466,61 @@ function paintText(
     }
 
     // Calculate x origin based on text alignment within the box
-    const xOrigin =
-      p.textAlign === 'center' ? p.x + p.w / 2 : p.textAlign === 'right' ? p.x + p.w : p.x;
-
-    // Draw text with letter spacing if needed
-    if (ls !== 0 && displayLine.length > 1) {
-      // Letter spacing: draw each character individually, using the real glyph width when possible.
-      let cursorX = xOrigin;
-      for (let ci = 0; ci < displayLine.length; ci++) {
-        const char = displayLine[ci] ?? '';
-        target.fillText(char, cursorX, y);
-        // Measure the actual glyph advance so spacing is correct for non-monospace fonts.
-        cursorX += measureTextAdvance(target, char) + ls;
+    let xOrigin: number;
+    let extraWordSpacing = 0;
+    if (p.textAlign === 'center') {
+      xOrigin = p.x + p.w / 2;
+    } else if (p.textAlign === 'right') {
+      xOrigin = p.x + p.w;
+    } else if (p.textAlign === 'justify') {
+      xOrigin = p.x;
+      // Justify: distribute extra space between words
+      if (displayLine.length > 0) {
+        target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+        const totalTextWidth =
+          measureTextAdvance(target, displayLine.replace(/\s/g, '')) +
+          (displayLine.split(/\s+/).length - 1) * measureTextAdvance(target, ' ');
+        const gaps = (displayLine.match(/\s/g) || []).length;
+        if (gaps > 0 && totalTextWidth < p.w) {
+          extraWordSpacing = (p.w - totalTextWidth) / gaps;
+        }
       }
     } else {
-      target.fillText(displayLine, xOrigin, y);
+      xOrigin = p.x;
+    }
+
+    // Apply first-line indent (first line only)
+    const isFirstLine = vl === visibleLines[0];
+    const lineIndent = isFirstLine && p.firstLineIndent ? p.firstLineIndent : 0;
+
+    // Draw text with letter spacing if needed
+    const drawOriginX = xOrigin + lineIndent;
+    if ((ls !== 0 || extraWordSpacing > 0) && displayLine.length > 1) {
+      // Per-character or per-word rendering for custom spacing
+      const words = displayLine.split(/(\s+)/);
+      let cursorX = drawOriginX;
+      for (const word of words) {
+        if (word === '') continue;
+        const isSpace = /^\s+$/.test(word);
+        if (isSpace) {
+          // Draw spaces as advance only
+          cursorX += measureTextAdvance(target, word) + extraWordSpacing;
+          continue;
+        }
+        if (ls !== 0 && word.length > 1) {
+          // Letter spacing per character
+          for (let ci = 0; ci < word.length; ci++) {
+            const char = word[ci] ?? '';
+            target.fillText(char, cursorX, y);
+            cursorX += measureTextAdvance(target, char) + ls;
+          }
+        } else {
+          target.fillText(word, cursorX, y);
+          cursorX += measureTextAdvance(target, word);
+        }
+      }
+    } else {
+      target.fillText(displayLine, drawOriginX, y);
     }
 
     // Text decoration: underline
