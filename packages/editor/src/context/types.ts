@@ -124,6 +124,9 @@ export interface EditorState {
   refineMaskOptions: { brushSize: number; hardness: number };
   trimapEditOptions: { brushSize: number; hardness: number; penMode: TrimapPenMode };
   subjectPickerSession: SubjectPickerSession | null;
+  keyObjectId: string | null;
+  alignToPage: boolean;
+  colorBlindnessView: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
 }
 
 export interface EditorContextValue {
@@ -223,6 +226,13 @@ export interface EditorContextValue {
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
+  distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
+  setKeyObject: (nodeId: string | null) => void;
+  keyObjectId: string | null;
+  alignToPage: boolean;
+  setAlignToPage: (value: boolean) => void;
+  tidySelected: (maxCols?: number) => void;
+  obbAlignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   setSelectedMinWidth: (value: number) => void;
   setSelectedMaxWidth: (value: number) => void;
   setSelectedMinHeight: (value: number) => void;
@@ -452,6 +462,9 @@ export interface EditorContextValue {
   setActivePage: (pageId: NodeId) => void;
   setCurrentPageId: (id: string | null) => void;
   activePageNodes: () => NodeId[];
+
+  // Color blindness simulation
+  setColorBlindnessView: (type: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia') => void;
 
   // Analytics
   recordAction: (actionId: string) => void;
