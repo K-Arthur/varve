@@ -36,10 +36,16 @@ export interface AppearanceSettingsStore {
   reduceMotion: boolean;
 }
 
+export interface RenderSettingsStore {
+  /** Prefer WebGPU compositor when adapter available (Canvas2D fallback on loss). */
+  preferWebGpu: boolean;
+}
+
 export interface EditorSettings {
   export: ExportSettingsStore;
   appearance: AppearanceSettingsStore;
   panel: PanelSettingsStore;
+  render: RenderSettingsStore;
 }
 
 const STORAGE_KEY = 'strata-editor-settings';
@@ -69,10 +75,15 @@ export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
   rightPanelWidth: null,
 };
 
+export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {
+  preferWebGpu: false,
+};
+
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   export: { ...DEFAULT_EXPORT_SETTINGS },
   appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
   panel: { ...DEFAULT_PANEL_SETTINGS },
+  render: { ...DEFAULT_RENDER_SETTINGS },
 };
 
 function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undefined): T {
@@ -93,6 +104,7 @@ export function loadSettings(): EditorSettings {
         export: { ...DEFAULT_EXPORT_SETTINGS },
         appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
         panel: { ...DEFAULT_PANEL_SETTINGS },
+        render: { ...DEFAULT_RENDER_SETTINGS },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
@@ -102,12 +114,14 @@ export function loadSettings(): EditorSettings {
         parsed.appearance as Partial<AppearanceSettingsStore>,
       ),
       panel: mergePartial(DEFAULT_PANEL_SETTINGS, parsed.panel as Partial<PanelSettingsStore>),
+      render: mergePartial(DEFAULT_RENDER_SETTINGS, parsed.render as Partial<RenderSettingsStore>),
     };
   } catch {
     return {
       export: { ...DEFAULT_EXPORT_SETTINGS },
       appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
       panel: { ...DEFAULT_PANEL_SETTINGS },
+      render: { ...DEFAULT_RENDER_SETTINGS },
     };
   }
 }
@@ -120,6 +134,7 @@ export interface EditorSettingsPatch {
   export?: Partial<ExportSettingsStore>;
   appearance?: Partial<AppearanceSettingsStore>;
   panel?: Partial<PanelSettingsStore>;
+  render?: Partial<RenderSettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
@@ -128,6 +143,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     export: { ...current.export, ...patch.export },
     appearance: { ...current.appearance, ...patch.appearance },
     panel: { ...current.panel, ...patch.panel },
+    render: { ...current.render, ...patch.render },
   };
   saveSettings(next);
   return next;
@@ -138,6 +154,7 @@ export function resetSettings(): EditorSettings {
     export: { ...DEFAULT_EXPORT_SETTINGS },
     appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
     panel: { ...DEFAULT_PANEL_SETTINGS },
+    render: { ...DEFAULT_RENDER_SETTINGS },
   };
   saveSettings(defaults);
   return defaults;

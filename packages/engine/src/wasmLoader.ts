@@ -34,7 +34,7 @@ export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
   if (cachedModule) return cachedModule;
   try {
     const base = '/wasm';
-    const candidates = [`${base}/strata_wasm_bg.wasm`, `${base}/strata_wasm_simd_bg.wasm`];
+    const candidates = [`${base}/strata_wasm_simd_bg.wasm`, `${base}/strata_wasm_bg.wasm`];
     for (const wasmUrl of candidates) {
       let blobUrl: string | null = null;
       try {

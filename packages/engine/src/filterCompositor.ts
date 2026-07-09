@@ -14,7 +14,7 @@
 
 import { applyCurve, buildCurveLUT } from './adjustment/curves';
 import { applyLevels } from './adjustment/levels';
-import type { SelectiveColorParams } from './adjustment/selectiveColor';
+import type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 import { applySelectiveColor } from './adjustment/selectiveColor';
 import { mapBlendMode } from './compositeCanvas';
 import { filterToCss } from './filters';

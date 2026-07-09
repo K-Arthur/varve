@@ -138,6 +138,17 @@ export interface CharacterFormat {
   language?: string;
 }
 
+// ── Tab Stops ────────────────────────────────────────────────────────────────
+
+export type TabStopAlignment = 'left' | 'center' | 'right' | 'decimal';
+
+export interface TabStop {
+  position: number;
+  alignment: TabStopAlignment;
+  alignmentChar?: string;
+  leader?: string;
+}
+
 // ── Paragraph Formatting ────────────────────────────────────────────────────
 
 export interface ParagraphFormat {
@@ -167,6 +178,8 @@ export interface ParagraphFormat {
   columnGap?: number;
   columnRuleWidth?: number;
   columnRuleColor?: readonly [number, number, number, number];
+  tabStops?: TabStop[];
+  tabSize?: number;
 }
 
 // ── Rich Text Runs ──────────────────────────────────────────────────────────
@@ -282,6 +295,55 @@ export function mergeParagraphFormat(
   return result;
 }
 
+const STYLE_CHAIN_MAX_DEPTH = 50;
+
+/**
+ * Resolve a style chain by following `parentId`/`basedOn` references.
+ * Returns the ordered chain from root (most ancestral) to leaf (the requested style).
+ * Detects cycles by tracking visited IDs.
+ */
+/**
+ * Result of walking a style chain. `chain` is the ordered list of styles
+ * (root → leaf). When `cyclical` is true, the chain should be discarded.
+ */
+interface ChainResult<T> {
+  chain: T[];
+  cyclical: boolean;
+}
+
+export function resolveStyleChain<T extends { id: NodeId; parentId?: NodeId }>(
+  styleId: NodeId,
+  styles: Record<NodeId, T>,
+  depth = 0,
+  visited = new Set<NodeId>(),
+): T[] {
+  const result = resolveStyleChainInternal(styleId, styles, depth, visited);
+  return result.cyclical ? [] : result.chain;
+}
+
+function resolveStyleChainInternal<T extends { id: NodeId; parentId?: NodeId }>(
+  styleId: NodeId,
+  styles: Record<NodeId, T>,
+  depth = 0,
+  visited = new Set<NodeId>(),
+): ChainResult<T> {
+  if (depth > STYLE_CHAIN_MAX_DEPTH) return { chain: [], cyclical: false };
+  if (visited.has(styleId)) return { chain: [], cyclical: true };
+  visited.add(styleId);
+  const style = styles[styleId];
+  if (!style) return { chain: [], cyclical: false };
+  if (style.parentId) {
+    const parentResult = resolveStyleChainInternal(style.parentId, styles, depth + 1, visited);
+    if (parentResult.cyclical) return { chain: [], cyclical: true };
+    return { chain: [...parentResult.chain, style], cyclical: false };
+  }
+  return { chain: [style], cyclical: false };
+}
+
+/**
+ * Resolve a character format by walking the style inheritance chain.
+ * Merges from the most ancestral style through intermediates to local overrides.
+ */
 export function resolveCharacterFormat(
   run: TextRun,
   characterStyles: Record<NodeId, CharacterStyle>,
@@ -289,13 +351,21 @@ export function resolveCharacterFormat(
 ): CharacterFormat {
   let resolved: CharacterFormat = paragraphDefault ?? {};
   if (run.characterStyleId) {
-    const style = characterStyles[run.characterStyleId];
-    if (style) resolved = mergeCharacterFormat(resolved, style.format);
+    const chain = resolveStyleChain(run.characterStyleId, characterStyles);
+    for (const link of chain) {
+      resolved = mergeCharacterFormat(resolved, link.format);
+    }
   }
   if (run.format) resolved = mergeCharacterFormat(resolved, run.format);
   return resolved;
 }
 
+/**
+ * Resolve a paragraph format by walking the style inheritance chain.
+ * Merges from the most ancestral style through intermediates, then applies
+ * character-level format overrides from the paragraph style's characterFormat,
+ * then local overrides.
+ */
 export function resolveParagraphFormat(
   para: Paragraph,
   paragraphStyles: Record<NodeId, ParagraphStyle>,
@@ -303,8 +373,17 @@ export function resolveParagraphFormat(
 ): ParagraphFormat {
   let resolved: ParagraphFormat = documentDefault ?? {};
   if (para.paragraphStyleId) {
-    const style = paragraphStyles[para.paragraphStyleId];
-    if (style) resolved = mergeParagraphFormat(resolved, style.format);
+    const chain = resolveStyleChain(para.paragraphStyleId, paragraphStyles);
+    for (const link of chain) {
+      resolved = mergeParagraphFormat(resolved, link.format);
+      if (link.characterFormat) {
+        // Apply paragraph style's character-level overrides
+        resolved = mergeParagraphFormat(
+          resolved,
+          link.characterFormat as unknown as ParagraphFormat,
+        );
+      }
+    }
   }
   if (para.format) resolved = mergeParagraphFormat(resolved, para.format);
   return resolved;

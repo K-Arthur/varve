@@ -409,8 +409,9 @@ describe('SelectTool — keyboard selection cycle (Tab)', () => {
     });
 
     const result = tool.onKeyDown({ key: 'Tab' } as any, ctx);
-    expect(result).toBe(true);
-    expect(ctx.setSelection).toHaveBeenCalledWith('n1');
+    // SelectTool no longer consumes Tab — handled at CanvasArea level (DFS paint order)
+    expect(result).toBe(false);
+    expect(ctx.setSelection).not.toHaveBeenCalled();
   });
 
   it('Shift+Tab cycles to previous node in paint order', () => {
@@ -431,8 +432,8 @@ describe('SelectTool — keyboard selection cycle (Tab)', () => {
     });
 
     const result = tool.onKeyDown({ key: 'Tab', shiftKey: true } as any, ctx);
-    expect(result).toBe(true);
-    expect(ctx.setSelection).toHaveBeenCalledWith('n0');
+    expect(result).toBe(false);
+    expect(ctx.setSelection).not.toHaveBeenCalled();
   });
 
   it('Tab with nothing selected selects first visible node', () => {
@@ -446,11 +447,11 @@ describe('SelectTool — keyboard selection cycle (Tab)', () => {
     });
 
     const result = tool.onKeyDown({ key: 'Tab' } as any, ctx);
-    expect(result).toBe(true);
-    expect(ctx.setSelection).toHaveBeenCalledWith('n0');
+    expect(result).toBe(false);
+    expect(ctx.setSelection).not.toHaveBeenCalled();
   });
 
-  it('Tab skips hidden nodes', () => {
+  it('Tab skips hidden nodes (handled at CanvasArea)', () => {
     const tool = new SelectTool();
     const ctx = makeCtx({
       selection: ['n0'],
@@ -465,8 +466,9 @@ describe('SelectTool — keyboard selection cycle (Tab)', () => {
       ]),
     });
 
-    tool.onKeyDown({ key: 'Tab' } as any, ctx);
-    expect(ctx.setSelection).toHaveBeenCalledWith('n2');
+    const result = tool.onKeyDown({ key: 'Tab' } as any, ctx);
+    expect(result).toBe(false);
+    expect(ctx.setSelection).not.toHaveBeenCalled();
   });
 });
 

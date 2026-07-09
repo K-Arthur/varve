@@ -45,11 +45,7 @@ export function clipColor(r: number, g: number, b: number): [number, number, num
     }
   }
   // Clamp floating-point rounding errors (preserves luminance at EPS scale)
-  return [
-    Math.min(1, Math.max(0, cr)),
-    Math.min(1, Math.max(0, cg)),
-    Math.min(1, Math.max(0, cb)),
-  ];
+  return [Math.min(1, Math.max(0, cr)), Math.min(1, Math.max(0, cg)), Math.min(1, Math.max(0, cb))];
 }
 
 /** Set luminance of a color to a target value (W3C SetLum). */

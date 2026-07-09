@@ -2492,11 +2492,16 @@ export function CanvasArea({
             const node = state.document.nodes[nodeId];
             if (!node) return;
             const nodeAny = node as unknown as Record<string, unknown>;
-            const current: import('@strata/scene').Fill[] = Array.isArray(nodeAny.fills) ? nodeAny.fills as import('@strata/scene').Fill[] : [];
+            const current: import('@strata/scene').Fill[] = Array.isArray(nodeAny.fills)
+              ? (nodeAny.fills as import('@strata/scene').Fill[])
+              : [];
             const next = [...current];
             if (fillIndex >= 0 && fillIndex < next.length) {
               next[fillIndex] = { ...next[fillIndex], gradient } as import('@strata/scene').Fill;
-              editor.updateSelectedFillAt(fillIndex, next[fillIndex] as import('@strata/scene').Fill);
+              editor.updateSelectedFillAt(
+                fillIndex,
+                next[fillIndex] as import('@strata/scene').Fill,
+              );
             }
           }}
         />

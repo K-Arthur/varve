@@ -59,6 +59,10 @@ export interface PrintPreflightOptions {
   checkSafeArea?: boolean;
   /** Maximum page dimensions in mm (for oversize detection). */
   maxPageMm?: { width: number; height: number };
+  /** Whether to check for font availability and text overflow. */
+  checkFonts?: boolean;
+  /** Set of available font families (used for font checks). */
+  availableFonts?: Set<string>;
 }
 
 // ── Default Options ─────────────────────────────────────────────────────────
@@ -185,6 +189,28 @@ export function runPrintPreflight(
     if (isImageShape(node)) {
       checkImageNode(node as ShapeNode, doc, opts, issues);
     }
+    if (opts.checkFonts && node.kind === 'text') {
+      checkTextNodeForPrint(node, opts, issues);
+    }
+  }
+
+  // ── Text chain checks ─────────────────────────────────────────────────
+  const chains = doc.textChains;
+  if (opts.checkFonts && chains) {
+    for (const entry of Object.entries(chains)) {
+      const chain = entry[1];
+      if (!chain) continue;
+      for (const frameId of chain.frameIds) {
+        if (!doc.nodes[frameId]) {
+          issues.push({
+            severity: 'error',
+            category: 'font',
+            message: `Text chain references missing frame ${frameId}`,
+            nodeId: frameId,
+          });
+        }
+      }
+    }
   }
 
   const errorCount = issues.filter((i) => i.severity === 'error').length;
@@ -209,6 +235,43 @@ function convertBleedToMm(value: number, unit: import('@strata/shared').Document
 function convertToMm(value: number, unit: import('@strata/shared').DocumentUnit): number {
   const px = physicalToPx(value, unit);
   return px / (96 / 25.4);
+}
+
+function checkTextNodeForPrint(
+  node: import('./types').TextNode,
+  opts: { availableFonts?: Set<string> },
+  issues: PrintPreflightIssue[],
+): void {
+  const fontFamily = node.fontFamily ?? 'sans-serif';
+  if (opts.availableFonts && opts.availableFonts.size > 0 && !opts.availableFonts.has(fontFamily)) {
+    issues.push({
+      severity: 'error',
+      category: 'font',
+      message: `Font "${fontFamily}" is not available. Text may render incorrectly in print output.`,
+      nodeId: node.id,
+    });
+  }
+  // Check rich text run fonts
+  if (node.richText) {
+    for (const para of node.richText.paragraphs) {
+      for (const run of para.runs) {
+        const runFont = run.format?.fontFamily;
+        if (
+          runFont &&
+          opts.availableFonts &&
+          opts.availableFonts.size > 0 &&
+          !opts.availableFonts.has(runFont)
+        ) {
+          issues.push({
+            severity: 'error',
+            category: 'font',
+            message: `Font "${runFont}" used in rich text run is not available.`,
+            nodeId: node.id,
+          });
+        }
+      }
+    }
+  }
 }
 
 function checkImageNode(

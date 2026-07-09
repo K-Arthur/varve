@@ -191,13 +191,17 @@ function sampleBilinear(
   const idx01 = (y1 * w + x0) * 4;
   const idx11 = (y1 * w + x1) * 4;
 
-  const r = (1 - fy) * ((1 - fx) * data[idx00]! + fx * data[idx10]!) +
+  const r =
+    (1 - fy) * ((1 - fx) * data[idx00]! + fx * data[idx10]!) +
     fy * ((1 - fx) * data[idx01]! + fx * data[idx11]!);
-  const g = (1 - fy) * ((1 - fx) * data[idx00 + 1]! + fx * data[idx10 + 1]!) +
+  const g =
+    (1 - fy) * ((1 - fx) * data[idx00 + 1]! + fx * data[idx10 + 1]!) +
     fy * ((1 - fx) * data[idx01 + 1]! + fx * data[idx11 + 1]!);
-  const bvalue = (1 - fy) * ((1 - fx) * data[idx00 + 2]! + fx * data[idx10 + 2]!) +
+  const bvalue =
+    (1 - fy) * ((1 - fx) * data[idx00 + 2]! + fx * data[idx10 + 2]!) +
     fy * ((1 - fx) * data[idx01 + 2]! + fx * data[idx11 + 2]!);
-  const a = (1 - fy) * ((1 - fx) * data[idx00 + 3]! + fx * data[idx10 + 3]!) +
+  const a =
+    (1 - fy) * ((1 - fx) * data[idx00 + 3]! + fx * data[idx10 + 3]!) +
     fy * ((1 - fx) * data[idx01 + 3]! + fx * data[idx11 + 3]!);
 
   return [Math.round(r), Math.round(g), Math.round(bvalue), Math.round(a)];

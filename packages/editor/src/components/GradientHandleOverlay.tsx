@@ -42,11 +42,19 @@ function getGradientHandles(
     const node = doc.nodes[id];
     if (!node) continue;
     const nodeAny = node as unknown as Record<string, unknown>;
-    const fills: Fill[] = ('fills' in nodeAny && Array.isArray(nodeAny.fills) ? nodeAny.fills as Fill[] : []);
-    const nodeTransform: Affine = getWorldTransform(id) ?? ('transform' in nodeAny ? nodeAny.transform as Affine : [1, 0, 0, 1, 0, 0]);
+    const fills: Fill[] =
+      'fills' in nodeAny && Array.isArray(nodeAny.fills) ? (nodeAny.fills as Fill[]) : [];
+    const nodeTransform: Affine =
+      getWorldTransform(id) ??
+      ('transform' in nodeAny ? (nodeAny.transform as Affine) : [1, 0, 0, 1, 0, 0]);
     let bounds = { x: 0, y: 0, w: 100, h: 100 };
     if (typeof nodeAny.w === 'number' && typeof nodeAny.h === 'number') {
-      bounds = { x: (nodeAny.x as number) ?? 0, y: (nodeAny.y as number) ?? 0, w: nodeAny.w as number, h: nodeAny.h as number };
+      bounds = {
+        x: (nodeAny.x as number) ?? 0,
+        y: (nodeAny.y as number) ?? 0,
+        w: nodeAny.w as number,
+        h: nodeAny.h as number,
+      };
     }
     for (let fi = 0; fi < fills.length; fi++) {
       const fill = fills[fi];
@@ -87,8 +95,23 @@ function getGradientHandles(
   return handles;
 }
 
-function stopColorHex(color: { space: string; r?: number; g?: number; b?: number; a?: number; c?: number; m?: number; y?: number; k?: number }): string {
-  if (color.space === 'rgb' && color.r !== undefined && color.g !== undefined && color.b !== undefined) {
+function stopColorHex(color: {
+  space: string;
+  r?: number;
+  g?: number;
+  b?: number;
+  a?: number;
+  c?: number;
+  m?: number;
+  y?: number;
+  k?: number;
+}): string {
+  if (
+    color.space === 'rgb' &&
+    color.r !== undefined &&
+    color.g !== undefined &&
+    color.b !== undefined
+  ) {
     return `#${color.r.toString(16).padStart(2, '0')}${color.g.toString(16).padStart(2, '0')}${color.b.toString(16).padStart(2, '0')}`;
   }
   return '#888';

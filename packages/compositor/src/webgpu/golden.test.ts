@@ -3,7 +3,7 @@
 import type { RenderItem } from '@strata/engine';
 import { describe, expect, it } from 'vitest';
 import { Canvas2DBackend } from '../canvas2d/backend';
-import { WebGPUBackend } from './backend';
+import { WebGPUBackend, lineTessellationVertexCount } from './backend';
 
 const FIXTURE_ITEMS: RenderItem[] = [
   {
@@ -67,6 +67,19 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     viewport: { width: 128, height: 128 },
     docVersion: 1,
   };
+
+  it('line primitive tessellates to 6 vertices (2 triangles)', () => {
+    const LINE_ITEM: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 30, g: 30, b: 200, a: 255 },
+      primitive: { kind: 'line', from: [5, 5], to: [90, 90], tolerance: 4 },
+      opacity: 1,
+      blendMode: 'normal',
+      strokes: [],
+      effects: [],
+    };
+    expect(lineTessellationVertexCount(LINE_ITEM)).toBe(6);
+  });
 
   it('fallback path matches Canvas2D for rect+circle+line', async () => {
     const canvasRef = document.createElement('canvas');

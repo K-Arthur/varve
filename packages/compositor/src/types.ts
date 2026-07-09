@@ -26,6 +26,16 @@ export interface CompositorBeginFrameOptions {
   clear?: boolean;
 }
 
+/** Runtime diagnostics exposed to the editor status bar (non-blocking reads). */
+export interface CompositorDiagnostics {
+  backendId: CompositorBackendId;
+  gpuActive: boolean;
+  vertexPoolEntries: number;
+  bundleCacheEntries: number;
+  lastFrameVertexBytes: number;
+  adapterIsFallback: boolean;
+}
+
 export interface CompositorBackend {
   readonly id: CompositorBackendId;
   init(canvas: HTMLCanvasElement): Promise<void>;
@@ -35,6 +45,8 @@ export interface CompositorBackend {
   endFrame(): void;
   destroy(): void;
   onDeviceLost?: () => Promise<void>;
+  /** Optional perf snapshot; backends without GPU metrics omit this. */
+  getDiagnostics?(): CompositorDiagnostics;
 }
 
 export interface CompositorOptions {

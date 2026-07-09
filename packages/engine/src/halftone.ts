@@ -16,7 +16,14 @@
  */
 
 export type HalftonePattern = 'dot' | 'line' | 'cross' | 'circle';
-export type HalftoneDotShape = 'round' | 'elliptical' | 'square' | 'diamond' | 'line' | 'cross' | 'circle';
+export type HalftoneDotShape =
+  | 'round'
+  | 'elliptical'
+  | 'square'
+  | 'diamond'
+  | 'line'
+  | 'cross'
+  | 'circle';
 export type HalftoneChannel = 'k' | 'c' | 'm' | 'y' | 'cmyk';
 export type HalftoneMethod = 'am' | 'fm';
 

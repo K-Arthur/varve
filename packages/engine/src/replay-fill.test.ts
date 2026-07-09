@@ -342,7 +342,10 @@ describe('gradient fill rendering', () => {
     globalThis.OffscreenCanvas = class MockOC {
       width: number;
       height: number;
-      constructor(w: number, h: number) { this.width = w; this.height = h; }
+      constructor(w: number, h: number) {
+        this.width = w;
+        this.height = h;
+      }
       getContext() {
         return {
           createLinearGradient: () => ({ addColorStop: () => {} }),
@@ -355,7 +358,9 @@ describe('gradient fill rendering', () => {
           translate: () => {},
         } as unknown as OffscreenCanvasRenderingContext2D;
       }
-      convertToBlob() { return Promise.resolve(new Blob()); }
+      convertToBlob() {
+        return Promise.resolve(new Blob());
+      }
     } as unknown as typeof OffscreenCanvas;
 
     const rec = recorder();
@@ -389,7 +394,10 @@ describe('gradient fill rendering', () => {
     globalThis.OffscreenCanvas = class MockOC {
       width: number;
       height: number;
-      constructor(w: number, h: number) { this.width = w; this.height = h; }
+      constructor(w: number, h: number) {
+        this.width = w;
+        this.height = h;
+      }
       getContext() {
         return {
           createLinearGradient: () => ({ addColorStop: () => {} }),
@@ -402,7 +410,9 @@ describe('gradient fill rendering', () => {
           translate: () => {},
         } as unknown as OffscreenCanvasRenderingContext2D;
       }
-      convertToBlob() { return Promise.resolve(new Blob()); }
+      convertToBlob() {
+        return Promise.resolve(new Blob());
+      }
     } as unknown as typeof OffscreenCanvas;
 
     const rec = recorder();

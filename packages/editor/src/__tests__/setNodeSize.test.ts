@@ -33,7 +33,8 @@ function setNodeSize(node: SceneNode, w: number, h: number): SceneNode {
     case 'ellipse':
       return { ...node, shape: { ...s, rx: w / 2, ry: h / 2 } };
     case 'circle':
-      return { ...node, shape: { ...s, r: w / 2 } };
+      // Circle must stay circular: use max dimension
+      return { ...node, shape: { ...s, r: Math.max(w, h) / 2 } };
     case 'line': {
       const oldW = Math.abs(s.to[0] - s.from[0]) || 1;
       const oldH = Math.abs(s.to[1] - s.from[1]) || 1;
@@ -152,6 +153,51 @@ describe('setNodeSize', () => {
     expect(result).not.toBe(node);
     expect(result.shape?.w).toBe(200);
     expect(result.shape?.h).toBe(160);
+  });
+
+  it('resizes circle shape to square bounding box', () => {
+    const node: SceneNode = {
+      id: '1',
+      kind: 'shape',
+      name: 'Circle',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
+      shape: { kind: 'circle', cx: 50, cy: 40, r: 50 },
+    };
+    const result = setNodeSize(node, 200, 200);
+    expect(result.shape?.r).toBe(100);
+  });
+
+  it('resizes circle to non-square uses max dimension for radius', () => {
+    const node: SceneNode = {
+      id: '1',
+      kind: 'shape',
+      name: 'Circle',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: [0, 0, 0, 255],
+      strokes: [],
+      effects: [],
+      shape: { kind: 'circle', cx: 50, cy: 40, r: 50 },
+    };
+    // When bounding box is non-square (200×300), use max(200,300)/2 = 150
+    const result = setNodeSize(node, 200, 300);
+    expect(result.shape?.r).toBe(150);
   });
 
   it('resizes ellipse shape', () => {

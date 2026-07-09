@@ -394,3 +394,18 @@ export function analogousHarmony(color: ManagedColor): HarmonyPalette {
 export function splitComplementaryHarmony(color: ManagedColor): HarmonyPalette {
   return rotateHueHarmony('Split Complementary', color, [(5 * Math.PI) / 6, (7 * Math.PI) / 6]);
 }
+
+/**
+ * Generate a monochromatic harmony palette (same hue, varying lightness).
+ */
+export function monochromaticHarmony(color: ManagedColor): HarmonyPalette {
+  const [r, g, b, a] = managedColorToRgba(color);
+  const linear: [number, number, number] = [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)];
+  const [L, C, H] = oklabToOkLch(linearSrgbToOklab(linear));
+  const offsets = [0, -0.15, 0.15, -0.3, 0.3];
+  const colors = offsets.map((dL) => {
+    const newL = Math.max(0.05, Math.min(0.95, L + dL));
+    return oklchToManagedColor([newL, C * (1 - Math.abs(dL) * 0.5), H], a);
+  });
+  return { name: 'Monochromatic', colors };
+}
