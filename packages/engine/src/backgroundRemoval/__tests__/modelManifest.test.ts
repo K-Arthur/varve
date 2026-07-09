@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getManifestEntry,
   loadModelManifest,
@@ -8,7 +8,12 @@ import {
 } from '../modelManifest';
 
 describe('modelManifest', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     resetModelManifestCache();
     vi.unstubAllGlobals();
   });
@@ -53,5 +58,35 @@ describe('modelManifest', () => {
   it('loadModelManifest returns null on fetch failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
     expect(await loadModelManifest()).toBeNull();
+  });
+
+  it('loadModelManifest returns null when the request times out', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise(() => {
+            // never resolves
+          }),
+      ),
+    );
+    const promise = loadModelManifest();
+    await vi.advanceTimersByTimeAsync(6_000);
+    await expect(promise).resolves.toBeNull();
+  });
+
+  it('getManifestEntry aborts manifest fetch when the caller signal is aborted', async () => {
+    const fetchMock = vi.fn(
+      () =>
+        new Promise(() => {
+          // never resolves
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const promise = getManifestEntry('u2netp', controller.signal);
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort();
+    await expect(promise).resolves.toBeNull();
   });
 });

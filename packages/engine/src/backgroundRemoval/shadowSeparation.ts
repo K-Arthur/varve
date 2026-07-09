@@ -15,7 +15,7 @@
  * Estimation"; classic shadow matting for compositing.
  */
 
-import { featherMaskArray, findConnectedComponents, filterMaskByComponents } from './maskOps';
+import { featherMaskArray, filterMaskByComponents, findConnectedComponents } from './maskOps';
 
 export interface ShadowSeparationOptions {
   /** Luminance threshold for shadow detection (0-255, default 30). */

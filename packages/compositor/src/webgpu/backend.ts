@@ -1,3 +1,5 @@
+/// <reference types="@webgpu/types" />
+
 /**
  * WebGPU compositor backend — solid fills for rect/circle/line with Canvas2D fallback.
  * Lines are tessellated as thin quads; circles get a dedicated discard shader.
@@ -609,7 +611,7 @@ export class WebGPUBackend {
         this.lastFrameVertexBytes = data.byteLength;
         const hash = this.hashVertices(data);
         const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
-        device.queue.writeBuffer(vBuf, 0, data.buffer.slice(0, data.byteLength));
+        device.queue.writeBuffer(vBuf, 0, data.buffer.slice(0, data.byteLength) as ArrayBuffer);
         let bundle = this.bundleCache.get(hash);
         if (!bundle) {
           const bundleEncoder = device.createRenderBundleEncoder({
@@ -658,7 +660,7 @@ export class WebGPUBackend {
       const data = flattenVertices(circleVerts);
       this.lastFrameVertexBytes += data.byteLength;
       const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
-      device.queue.writeBuffer(vBuf, 0, data.buffer.slice(0, data.byteLength));
+      device.queue.writeBuffer(vBuf, 0, data.buffer.slice(0, data.byteLength) as ArrayBuffer);
       const pass = encoder.beginRenderPass({
         colorAttachments: [
           {

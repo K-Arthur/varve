@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from './fetchWithTimeout';
 import { getManifestEntry, verifyModelChecksum } from './modelManifest';
 import {
   deleteModelBlob,
@@ -12,6 +13,11 @@ import {
 } from './modelStore';
 import type { ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';
+
+/** How long a probe HEAD request for a model path is allowed to take. */
+const MODEL_PATH_PROBE_TIMEOUT = 5_000;
+/** How long a full model-file download is allowed to take. */
+const MODEL_DOWNLOAD_TIMEOUT = 300_000;
 
 const STATE_KEY = 'strata-bg-model-state';
 
@@ -77,8 +83,8 @@ class ModelLoader {
     }
   }
 
-  async getModelPath(modelId: string): Promise<string | null> {
-    const entry = await getManifestEntry(modelId);
+  async getModelPath(modelId: string, signal?: AbortSignal): Promise<string | null> {
+    const entry = await getManifestEntry(modelId, signal);
     const bundled = entry?.localPath ?? `/models/${modelId}.onnx`;
 
     // Bundled models are shipped with the app; trust the manifest and avoid
@@ -89,7 +95,11 @@ class ModelLoader {
 
     try {
       if (typeof fetch !== 'undefined') {
-        const head = await fetch(bundled, { method: 'HEAD' });
+        const head = await fetchWithTimeout(
+          bundled,
+          { method: 'HEAD', signal },
+          MODEL_PATH_PROBE_TIMEOUT,
+        );
         if (head.ok) return bundled;
       }
     } catch {
@@ -130,8 +140,8 @@ class ModelLoader {
   }
 
   /** Whether a model is reachable (bundled asset or IndexedDB blob). */
-  async isModelAvailable(modelId: string): Promise<boolean> {
-    const path = await this.getModelPath(modelId);
+  async isModelAvailable(modelId: string, signal?: AbortSignal): Promise<boolean> {
+    const path = await this.getModelPath(modelId, signal);
     return path !== null;
   }
 
@@ -139,11 +149,11 @@ class ModelLoader {
    * Reconcile in-memory state with persisted storage on startup.
    * IndexedDB holds the actual model bytes; localStorage only tracks metadata.
    */
-  async syncFromStorage(): Promise<void> {
+  async syncFromStorage(signal?: AbortSignal): Promise<void> {
     if (this.state === 'downloading') return;
 
     if (this.currentModelId && this.state === 'ready') {
-      const stillThere = await this.isModelAvailable(this.currentModelId);
+      const stillThere = await this.isModelAvailable(this.currentModelId, signal);
       if (!stillThere) {
         this.state = 'unavailable';
         this.currentModelId = '';
@@ -154,7 +164,7 @@ class ModelLoader {
     }
 
     for (const model of AVAILABLE_MODELS) {
-      if (await this.isModelAvailable(model.id)) {
+      if (await this.isModelAvailable(model.id, signal)) {
         this.state = 'ready';
         this.currentModelId = model.id;
         this.saveState();
@@ -165,7 +175,7 @@ class ModelLoader {
   }
 
   /** List models with install status and approximate storage use (IndexedDB blobs only). */
-  async listInstalledModels(): Promise<
+  async listInstalledModels(signal?: AbortSignal): Promise<
     Array<{
       id: string;
       name: string;
@@ -174,7 +184,7 @@ class ModelLoader {
       source: 'bundled' | 'downloaded' | 'none';
     }>
   > {
-    await this.syncFromStorage();
+    await this.syncFromStorage(signal);
     const result: Array<{
       id: string;
       name: string;
@@ -189,9 +199,13 @@ class ModelLoader {
 
       try {
         if (typeof fetch !== 'undefined') {
-          const entry = await getManifestEntry(model.id);
+          const entry = await getManifestEntry(model.id, signal);
           const bundled = entry?.localPath ?? `/models/${model.id}.onnx`;
-          const head = await fetch(bundled, { method: 'HEAD' });
+          const head = await fetchWithTimeout(
+            bundled,
+            { method: 'HEAD', signal },
+            MODEL_PATH_PROBE_TIMEOUT,
+          );
           if (head.ok) {
             installed = true;
             source = 'bundled';
@@ -237,8 +251,9 @@ class ModelLoader {
   /** Resolve download URL: manifest bundled path first; remote only via explicit download. */
   async resolveDownloadSources(
     modelId: string,
+    signal?: AbortSignal,
   ): Promise<{ local: string; remote: string; bundled: boolean } | null> {
-    const entry = await getManifestEntry(modelId);
+    const entry = await getManifestEntry(modelId, signal);
     const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
     if (!model && !entry) return null;
     return {
@@ -270,9 +285,9 @@ class ModelLoader {
     let storedEtag: string | null = null;
 
     try {
-      const sources = await this.resolveDownloadSources(modelId);
+      const sources = await this.resolveDownloadSources(modelId, signal);
       const localPath = sources?.local ?? `/models/${modelId}.onnx`;
-      const manifestEntry = await getManifestEntry(modelId);
+      const manifestEntry = await getManifestEntry(modelId, signal);
       remoteUrl = sources?.remote ?? model.remoteUrl;
 
       const existingPartial =
@@ -290,7 +305,7 @@ class ModelLoader {
 
       let response: Response | null = null;
       try {
-        response = await fetch(localPath, { signal });
+        response = await fetchWithTimeout(localPath, { signal }, MODEL_DOWNLOAD_TIMEOUT);
       } catch (_err) {
         if (signal?.aborted) throw new Error('Download cancelled');
         response = null;
@@ -303,7 +318,7 @@ class ModelLoader {
         if (partialLoaded > 0) {
           headers.Range = `bytes=${partialLoaded}-`;
         }
-        response = await fetch(remoteUrl, { signal, headers });
+        response = await fetchWithTimeout(remoteUrl, { signal, headers }, MODEL_DOWNLOAD_TIMEOUT);
       }
 
       if (!response.ok) {
@@ -323,7 +338,7 @@ class ModelLoader {
           await deletePartialDownload(modelId);
           partialChunks = [];
           partialLoaded = 0;
-          response = await fetch(remoteUrl, { signal });
+          response = await fetchWithTimeout(remoteUrl, { signal }, MODEL_DOWNLOAD_TIMEOUT);
           if (!response.ok) {
             throw new Error(`Failed to download model: ${response.statusText}`);
           }
@@ -429,13 +444,16 @@ class ModelLoader {
   }
 
   /** Verify a bundled model's bytes against the manifest SHA-256. */
-  async verifyBundledModel(modelId: string): Promise<'verified' | 'corrupt' | 'skipped'> {
-    const entry = await getManifestEntry(modelId);
+  async verifyBundledModel(
+    modelId: string,
+    signal?: AbortSignal,
+  ): Promise<'verified' | 'corrupt' | 'skipped'> {
+    const entry = await getManifestEntry(modelId, signal);
     if (!entry?.bundled || !entry.sha256) return 'skipped';
 
     const bundled = entry.localPath ?? `/models/${modelId}.onnx`;
     try {
-      const response = await fetch(bundled);
+      const response = await fetchWithTimeout(bundled, { signal }, MODEL_PATH_PROBE_TIMEOUT);
       if (!response.ok) return 'corrupt';
       const buffer = await response.arrayBuffer();
       const ok = await verifyModelChecksum(buffer, entry.sha256);
@@ -473,10 +491,10 @@ class ModelLoader {
 let instance: ModelLoader | null = null;
 let syncPromise: Promise<void> | null = null;
 
-export function getModelLoader(): ModelLoader {
+export function getModelLoader(signal?: AbortSignal): ModelLoader {
   if (!instance) {
     instance = new ModelLoader();
-    syncPromise = instance.syncFromStorage().catch(() => {
+    syncPromise = instance.syncFromStorage(signal).catch(() => {
       // Non-fatal: UI will treat models as unavailable until next sync.
     });
   }
@@ -484,8 +502,8 @@ export function getModelLoader(): ModelLoader {
 }
 
 /** Returns the singleton loader after the first storage sync completes. */
-export async function getModelLoaderReady(): Promise<ModelLoader> {
-  const loader = getModelLoader();
+export async function getModelLoaderReady(signal?: AbortSignal): Promise<ModelLoader> {
+  const loader = getModelLoader(signal);
   if (syncPromise) await syncPromise;
   return loader;
 }

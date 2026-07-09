@@ -198,9 +198,9 @@ describe('ModelLoader', () => {
   });
 
   it('clearModel deletes the stored blob, revokes the object URL, and resets state', async () => {
-    const { getModelLoader, resetModelLoader } = await import('../modelLoader');
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
     resetModelLoader();
-    const loader = getModelLoader();
+    const loader = await getModelLoaderReady();
 
     vi.stubGlobal(
       'fetch',
@@ -323,11 +323,11 @@ describe('ModelLoader', () => {
   });
 
   it('getModelPath trusts the manifest for bundled models and skips HEAD fetch', async () => {
-    const { getModelLoader, resetModelLoader } = await import('../modelLoader');
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
     const { resetModelManifestCache } = await import('../modelManifest');
     resetModelLoader();
     resetModelManifestCache();
-    const fetchMock = vi.fn().mockImplementation((url: string) => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes('manifest.json')) {
         return Promise.resolve({
           ok: true,
@@ -349,12 +349,15 @@ describe('ModelLoader', () => {
       return Promise.resolve({ ok: false });
     });
     vi.stubGlobal('fetch', fetchMock);
-    const loader = getModelLoader();
+    const loader = await getModelLoaderReady();
 
     // bundled=true in the manifest means the file ships with the app; we
     // should not rely on a HEAD fetch that can 404 in Vite dev.
     await expect(loader.getModelPath('u2netp')).resolves.toBe('/models/u2netp.onnx');
-    expect(fetchMock).toHaveBeenCalledWith('/models/manifest.json');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/models/manifest.json',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(fetchMock).not.toHaveBeenCalledWith('/models/u2netp.onnx', expect.anything());
   });
 
@@ -532,5 +535,66 @@ describe('ModelLoader', () => {
     );
 
     await expect(loader.downloadModel('u2netp')).rejects.toThrow(/Offline Models/i);
+  });
+
+  it('getModelPath returns null when the HEAD probe times out', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { getModelLoader, resetModelLoader } = await import('../modelLoader');
+    const { resetModelManifestCache } = await import('../modelManifest');
+    resetModelLoader();
+    resetModelManifestCache();
+
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('manifest.json')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            version: 1,
+            models: [
+              {
+                id: 'birefnet-general-lite',
+                filename: 'birefnet-general-lite.onnx',
+                localPath: '/models/birefnet-general-lite.onnx',
+                sha256: null,
+                bundled: false,
+                remoteUrl: 'https://example.com/birefnet-general-lite.onnx',
+              },
+            ],
+          }),
+        });
+      }
+      return new Promise(() => {
+        // never resolves
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const loader = getModelLoader();
+    const promise = loader.getModelPath('birefnet-general-lite');
+    await vi.advanceTimersByTimeAsync(6_000);
+    await expect(promise).resolves.toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('downloadModel times out and aborts a hanging fetch', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { getModelLoader, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+    const loader = getModelLoader();
+    const fetchMock = vi.fn((_url: string) => {
+      if (String(_url).includes('manifest.json')) {
+        return Promise.resolve({ ok: true, json: async () => ({ version: 1, models: [] }) });
+      }
+      return new Promise(() => {
+        // never resolves
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promise = loader.downloadModel('u2netp');
+    const assertion = expect(promise).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(650_000);
+    await assertion;
+    vi.useRealTimers();
   });
 });

@@ -18,7 +18,12 @@ function isTauri(): boolean {
 async function invokeTauriRemoveBackground(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
+  signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult> {
+  if (signal?.aborted) {
+    throw new Error('cancelled');
+  }
+
   const canvas = document.createElement('canvas');
   canvas.width = imageData.width;
   canvas.height = imageData.height;
@@ -26,6 +31,10 @@ async function invokeTauriRemoveBackground(
   ctx.putImageData(imageData, 0, 0);
   const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
   const bytes = new Uint8Array(await blob.arrayBuffer());
+
+  if (signal?.aborted) {
+    throw new Error('cancelled');
+  }
 
   const { invoke } = await import('@tauri-apps/api/core');
   const raw = await invoke<TauriBgRemoveResponse>('remove_background', {
@@ -56,11 +65,11 @@ async function invokeTauriRemoveBackground(
 export const tauriRemovalProvider: RemovalProvider = {
   id: 'tauri-native',
 
-  isAvailable(_options: BackgroundRemovalOptions): boolean {
+  isAvailable(_options: BackgroundRemovalOptions, _signal?: AbortSignal): boolean {
     return isTauri();
   },
 
-  remove(imageData, options, _signal) {
-    return invokeTauriRemoveBackground(imageData, options);
+  remove(imageData, options, signal) {
+    return invokeTauriRemoveBackground(imageData, options, signal);
   },
 };

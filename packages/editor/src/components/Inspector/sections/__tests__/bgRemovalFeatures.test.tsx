@@ -110,6 +110,7 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
     state: mockState,
     removeBackground: vi.fn().mockResolvedValue(undefined),
     removeBackgroundWithOptions: vi.fn().mockResolvedValue(undefined),
+    cancelBackgroundRemoval: vi.fn(),
     updateNode: vi.fn(),
     announce: vi.fn(),
     setShowOriginalBg: vi.fn(),

@@ -134,7 +134,7 @@ function parsePercent(raw: string): number {
 }
 
 /** Parse a float number (for oklch/oklab channels). */
-function parseFloat(raw: string): number {
+function parseCssFloat(raw: string): number {
   const v = Number.parseFloat(raw.trim());
   return Number.isNaN(v) ? 0 : v;
 }
@@ -305,9 +305,9 @@ export function cssStringToManagedColor(css: string): CssRgbColor | null {
   if (oklchMatch) {
     const parts = splitArgs(oklchMatch[1]!);
     if (parts.length < 3) return null;
-    const l = parseFloat(parts[0]!);
-    const c = parseFloat(parts[1]!);
-    const h = parseFloat(parts[2]!);
+    const l = parseCssFloat(parts[0]!);
+    const c = parseCssFloat(parts[1]!);
+    const h = parseCssFloat(parts[2]!);
     const a = parts[3] !== undefined ? parseAlphaChannel(parts[3]) : 255;
     const [r, g, b] = oklchToSrgb(l, c, h);
     return { space: 'rgb', r, g, b, a };
@@ -318,9 +318,9 @@ export function cssStringToManagedColor(css: string): CssRgbColor | null {
   if (oklabMatch) {
     const parts = splitArgs(oklabMatch[1]!);
     if (parts.length < 3) return null;
-    const l = parseFloat(parts[0]!);
-    const a = parseFloat(parts[1]!);
-    const b = parseFloat(parts[2]!);
+    const l = parseCssFloat(parts[0]!);
+    const a = parseCssFloat(parts[1]!);
+    const b = parseCssFloat(parts[2]!);
     const alpha = parts[3] !== undefined ? parseAlphaChannel(parts[3]) : 255;
     const [r, g, bv] = oklabToSrgb(l, a, b);
     return { space: 'rgb', r, g, b: bv, a: alpha };

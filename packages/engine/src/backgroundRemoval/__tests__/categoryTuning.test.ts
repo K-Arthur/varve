@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { CategoryProfile, ImageCategoryFeatures } from '../categoryTuning';
 import {
   extractCategoryFeatures,
   findBestCategoryMatch,
   updateCategoryProfile,
 } from '../categoryTuning';
-import type { CategoryProfile, ImageCategoryFeatures } from '../categoryTuning';
 
 function makeSolidImage(
   w: number,

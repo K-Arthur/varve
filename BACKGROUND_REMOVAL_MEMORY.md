@@ -92,6 +92,17 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
 - Added `AI_PROVIDER_CHAIN` export + strategy order test
 - Fixed `directAi.telemetry.test.ts` mock for `maskToDataUrl` re-export
 
+### Session 48 changes (this turn)
+
+- Hardened `fetchWithTimeout` to race `fetch` against an explicit timeout so it always rejects on timeout/abort without leaking unhandled rejections.
+- Added `AbortSignal` propagation through `modelManifest`, `modelLoader`, `workerPool`, and providers.
+- Fixed `modelManifest`/`modelLoader` timeout and cancellation tests using fake timers.
+- Fixed `workerPool` processQueue job-selection bug (unassigned jobs + busy worker clearing).
+- Added `cancelBackgroundRemoval` and progress/error UI to `BackgroundRemovalSection`.
+- Added a top-level watchdog timeout in `dispatchBackgroundRemoval`.
+- Hardened `directOnnxProvider` and `tauriRemovalProvider` timeouts/cancellation.
+- Added regression tests for timeout, cancel, concurrency, and OOM.
+
 ---
 
 ## Phase 4 — Verification (2026-07-08)
@@ -101,8 +112,11 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
 | Focused bg-removal suite | **154/154 pass** (20 files) |
 | `@strata/engine` typecheck | **0 errors** |
 | `cargo test -p strata-bgremove` | **8/8 pass** |
-| Full `pnpm typecheck` | Pre-existing `@strata/ui` Button.tsx error (unrelated) |
-| Full `pnpm test` | Not run this session (motion WIP failures known) |
+| Full `pnpm typecheck` | **15/15 pass** |
+| Full `pnpm test` | **4282/4282 pass** |
+| Full `pnpm lint` | **0 errors**, 404 warnings (pre-existing) |
+| `pnpm audit:emoji` | **0 violations** |
+| `pnpm audit:tokens` | **96/96 WCAG-AA pass** |
 
 ### Test inventory
 

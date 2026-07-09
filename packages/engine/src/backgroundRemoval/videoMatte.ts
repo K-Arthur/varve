@@ -16,8 +16,8 @@
  *   3. A temporal median window smooths boundary jitter across frames.
  */
 
-import { computeBlockFlow, warpMask } from './opticalFlow';
 import { decontaminateMask, featherMaskArray } from './maskOps';
+import { computeBlockFlow, warpMask } from './opticalFlow';
 
 export interface VideoFrame {
   index: number;

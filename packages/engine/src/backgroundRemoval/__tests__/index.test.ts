@@ -253,6 +253,46 @@ describe('removeBackground dispatch', () => {
     expect(result.method).toBe('quick');
     vi.restoreAllMocks();
   });
+
+  it('rejects immediately when the caller signal is already aborted', async () => {
+    const { removeBackground } = await import('../index');
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      removeBackground(makeImage(), { method: 'ai-balanced' }, controller.signal),
+    ).rejects.toThrow('cancelled');
+  });
+
+  it('rejects when the caller signal is aborted mid-dispatch', async () => {
+    vi.stubGlobal('Worker', class {});
+    mockRunPooledInference.mockImplementation(() => new Promise(() => {}));
+
+    const { removeBackground } = await import('../index');
+    const controller = new AbortController();
+    const promise = removeBackground(makeImage(), { method: 'ai-balanced' }, controller.signal);
+    controller.abort();
+    await expect(promise).rejects.toThrow('cancelled');
+  });
+
+  it('times out a hung provider and falls through to the heuristic', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.stubGlobal('Worker', undefined);
+    mockGetModelLoader.mockReturnValue({
+      getState: () => 'ready',
+      getModelPath: vi.fn().mockImplementation(() => new Promise(() => {})),
+      syncFromStorage: vi.fn().mockImplementation(() => new Promise(() => {})),
+      isModelAvailable: vi.fn().mockImplementation(() => new Promise(() => {})),
+    });
+
+    const { removeBackground } = await import('../index');
+    const promise = removeBackground(makeImage(), { method: 'ai-balanced' });
+    await vi.advanceTimersByTimeAsync(150_000);
+    const result = await promise;
+
+    expect(result).toEqual(HEURISTIC_RESULT);
+    expect(mockHeuristic).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
 });
 
 describe('AI_PROVIDER_CHAIN strategy', () => {

@@ -51,10 +51,14 @@ describe('LibraryPanel', () => {
     const mockClipboardReadText = vi
       .fn()
       .mockResolvedValue(JSON.stringify({ library: createLibrary('New Library') }));
-    global.navigator.clipboard = {
-      readText: mockClipboardReadText,
-      writeText: vi.fn(),
-    } as unknown as Clipboard;
+    Object.defineProperty(global.navigator, 'clipboard', {
+      value: {
+        readText: mockClipboardReadText,
+        writeText: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
 
     render(
       <LibraryPanel

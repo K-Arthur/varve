@@ -1,11 +1,11 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import type { CategoryProfile } from '../categoryTuning';
 import {
-  loadTuningProfiles,
-  saveTuningProfile,
   deleteTuningProfile,
   getTuningStats,
+  loadTuningProfiles,
+  saveTuningProfile,
 } from '../tuningStore';
-import type { CategoryProfile } from '../categoryTuning';
 
 beforeEach(() => {
   localStorage.clear();

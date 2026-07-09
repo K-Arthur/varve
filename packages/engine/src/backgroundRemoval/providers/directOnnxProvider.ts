@@ -66,9 +66,10 @@ async function removeBackgroundDirectOnnx(
 
   const start = performance.now();
 
-  const loader = (await import('../modelLoader')).getModelLoader();
-  await loader.syncFromStorage();
-  const modelPath = (await loader.getModelPath(modelId)) ?? `/models/${modelId}.onnx`;
+  const { getModelLoader } = await import('../modelLoader');
+  const loader = getModelLoader(signal);
+  await loader.syncFromStorage(signal);
+  const modelPath = (await loader.getModelPath(modelId, signal)) ?? `/models/${modelId}.onnx`;
 
   let ort: typeof import('onnxruntime-web');
   try {
@@ -131,12 +132,13 @@ async function removeBackgroundDirectOnnx(
 export const directOnnxRemovalProvider: RemovalProvider = {
   id: 'direct-onnx',
 
-  async isAvailable(options: BackgroundRemovalOptions): Promise<boolean> {
+  async isAvailable(options: BackgroundRemovalOptions, signal?: AbortSignal): Promise<boolean> {
     const workerModelId = workerModelIdForMethod(options.method);
     if (!workerModelId) return false;
-    const loader = (await import('../modelLoader')).getModelLoader();
-    await loader.syncFromStorage();
-    return loader.isModelAvailable(workerModelId);
+    const { getModelLoader } = await import('../modelLoader');
+    const loader = getModelLoader(signal);
+    await loader.syncFromStorage(signal);
+    return loader.isModelAvailable(workerModelId, signal);
   },
 
   async remove(imageData, options, signal) {

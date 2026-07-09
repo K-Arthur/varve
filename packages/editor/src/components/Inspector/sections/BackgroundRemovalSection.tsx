@@ -6,15 +6,33 @@ import {
 } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
+
+function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
+  const message = e instanceof Error ? e.message : String(e);
+  if (message === 'cancelled' || message === 'AbortError' || message.includes('aborted')) {
+    return 'Cancelled';
+  }
+  if (message.includes('timed out')) {
+    return 'Timed out while waiting for the AI model. Switch to Quick mode or try again.';
+  }
+  if (message.includes('too large') || message.includes('Image too large')) {
+    return 'Image too large for this AI model.';
+  }
+  if (message.includes('Model') || message.includes('model')) {
+    return `Model failed to load: ${defaultMessage}`;
+  }
+  return defaultMessage;
+}
 
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const {
     state,
     removeBackgroundWithOptions,
+    cancelBackgroundRemoval,
     updateNode,
     announce,
     setShowOriginalBg,
@@ -31,6 +49,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const bg = node.backgroundRemoval;
   const [method, setMethod] = useState<RemovalMethod>(bg?.method ?? 'quick');
   const [pending, setPending] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const elapsedRef = useRef<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [feather, setFeather] = useState(bg?.feather ?? 0.5);
   const [decontaminate, setDecontaminate] = useState(bg?.decontaminate ?? true);
@@ -73,18 +94,50 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     return () => unsub?.();
   }, [refreshModelStatus]);
 
+  useEffect(() => {
+    if (pending) {
+      setElapsedMs(0);
+      const start = Date.now();
+      elapsedRef.current = window.setInterval(() => {
+        setElapsedMs(Date.now() - start);
+      }, 250);
+    } else if (elapsedRef.current !== null) {
+      clearInterval(elapsedRef.current);
+      elapsedRef.current = null;
+    }
+    return () => {
+      if (elapsedRef.current !== null) {
+        clearInterval(elapsedRef.current);
+        elapsedRef.current = null;
+      }
+    };
+  }, [pending]);
+
   const handleApply = async () => {
     if (method !== 'quick' && !aiAvailable) {
       announce('Download the AI model first, or switch to Quick mode.');
       setShowDownloadDialog(true);
       return;
     }
+    setError(null);
     setPending(true);
     try {
       await removeBackgroundWithOptions(method, feather, decontaminate);
+    } catch (e) {
+      const message = normalizeErrorMessage(e, 'Background removal failed');
+      setError(message);
+      if (message !== 'Cancelled') {
+        announce(message);
+      }
     } finally {
       setPending(false);
     }
+  };
+
+  const handleCancel = () => {
+    cancelBackgroundRemoval();
+    setPending(false);
+    setError('Cancelled');
   };
 
   const handleReset = () => {
@@ -231,20 +284,29 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       </label>
 
       <div className="bg-removal__actions">
-        <button
-          className="button--primary"
-          onClick={handleApply}
-          disabled={pending}
-          aria-label={
-            pending
-              ? 'Processing background removal'
-              : bg
-                ? 'Re-apply background removal'
-                : 'Remove background from image'
-          }
-        >
-          {pending ? 'Processing...' : bg ? 'Re-apply' : 'Remove Background'}
-        </button>
+        {pending ? (
+          <>
+            <span className="bg-removal__progress" aria-live="polite">
+              Processing… {Math.round(elapsedMs / 1000)}s
+            </span>
+            <button
+              type="button"
+              className="button--ghost"
+              onClick={handleCancel}
+              aria-label="Cancel background removal"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button
+            className="button--primary"
+            onClick={handleApply}
+            aria-label={bg ? 'Re-apply background removal' : 'Remove background from image'}
+          >
+            {bg ? 'Re-apply' : 'Remove Background'}
+          </button>
+        )}
         {bg && (
           <button
             className="button--ghost"
@@ -290,6 +352,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           </button>
         )}
       </div>
+
+      {error && error !== 'Cancelled' && (
+        <div className="bg-removal__error" role="alert">
+          {error}
+        </div>
+      )}
 
       {refiningMask && bg && (
         <div className="bg-removal__refine-controls">
@@ -362,7 +430,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       )}
       {showDownloadDialog && (
         <ModelDownloadDialog
-          modelId={downloadModelId}
+          modelId={downloadModelId ?? ''}
           onClose={() => setShowDownloadDialog(false)}
           onComplete={() => {
             setShowDownloadDialog(false);

@@ -19,9 +19,11 @@ export const workerRemovalProvider: RemovalProvider = {
     if (!workerModelId) {
       throw new Error(`No worker model for method: ${options.method}`);
     }
-    const loader = (await import('../modelLoader')).getModelLoader();
-    await loader.syncFromStorage();
-    const path = (await loader.getModelPath(workerModelId)) ?? `/models/${workerModelId}.onnx`;
+    const { getModelLoader } = await import('../modelLoader');
+    const loader = getModelLoader(signal);
+    await loader.syncFromStorage(signal);
+    const path =
+      (await loader.getModelPath(workerModelId, signal)) ?? `/models/${workerModelId}.onnx`;
     return runPooledInference(imageData, options, path, workerModelId, signal);
   },
 };
