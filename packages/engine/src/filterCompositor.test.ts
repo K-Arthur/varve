@@ -147,6 +147,138 @@ describe('filter compositing', () => {
     expect(target.filter).toContain('brightness');
   });
 
+  it('applies selectiveColor filter via software bridge', () => {
+    // Patch OffscreenCanvas to exercise software filter path
+    const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
+    const putImageDataCalls: Array<{ x: number; y: number }> = [];
+    globalThis.OffscreenCanvas.prototype.getContext = function () {
+      return {
+        getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
+        putImageData: (_data: ImageData, x: number, y: number) => {
+          putImageDataCalls.push({ x, y });
+        },
+        drawImage: () => {},
+        filter: 'none',
+      } as unknown as OffscreenCanvasRenderingContext2D;
+    };
+
+    const { target } = mockTarget();
+    const filters: FilterIR[] = [
+      {
+        kind: 'selectiveColor',
+        colorRange: 'reds',
+        cyan: 20,
+        magenta: 0,
+        yellow: 0,
+        black: 0,
+        relative: true,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    applyFilterWithCompositing(target, filters, 10, 10);
+
+    // Should have called putImageData (software filter path)
+    expect(putImageDataCalls.length).toBeGreaterThanOrEqual(1);
+
+    globalThis.OffscreenCanvas.prototype.getContext = origGetContext;
+  });
+
+  it('applies colorBalance filter via software bridge', () => {
+    const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
+    const putImageDataCalls: Array<{ x: number; y: number }> = [];
+    globalThis.OffscreenCanvas.prototype.getContext = function () {
+      return {
+        getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
+        putImageData: (_data: ImageData, x: number, y: number) => {
+          putImageDataCalls.push({ x, y });
+        },
+        drawImage: () => {},
+        filter: 'none',
+      } as unknown as OffscreenCanvasRenderingContext2D;
+    };
+
+    const { target } = mockTarget();
+    const filters: FilterIR[] = [
+      {
+        kind: 'colorBalance',
+        shadows: { cyanRed: -10, magentaGreen: 0, yellowBlue: 10 },
+        midtones: { cyanRed: 0, magentaGreen: 5, yellowBlue: 0 },
+        highlights: { cyanRed: 10, magentaGreen: 0, yellowBlue: -10 },
+        preserveLuminosity: true,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    applyFilterWithCompositing(target, filters, 10, 10);
+    expect(putImageDataCalls.length).toBeGreaterThanOrEqual(1);
+    globalThis.OffscreenCanvas.prototype.getContext = origGetContext;
+  });
+
+  it('applies channelMixer filter via software bridge', () => {
+    const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
+    const putImageDataCalls: Array<{ x: number; y: number }> = [];
+    globalThis.OffscreenCanvas.prototype.getContext = function () {
+      return {
+        getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
+        putImageData: (_data: ImageData, x: number, y: number) => {
+          putImageDataCalls.push({ x, y });
+        },
+        drawImage: () => {},
+        filter: 'none',
+      } as unknown as OffscreenCanvasRenderingContext2D;
+    };
+
+    const { target } = mockTarget();
+    // Red channel output: 80% red + 10% green + 0% blue + constant 5
+    const filters: FilterIR[] = [
+      {
+        kind: 'channelMixer',
+        outputChannel: 'red',
+        redPercent: 80,
+        greenPercent: 10,
+        bluePercent: 0,
+        constant: 5,
+        monochrome: false,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    applyFilterWithCompositing(target, filters, 10, 10);
+    expect(putImageDataCalls.length).toBeGreaterThanOrEqual(1);
+    globalThis.OffscreenCanvas.prototype.getContext = origGetContext;
+  });
+
+  it('applies photoFilter filter via software bridge', () => {
+    const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
+    const putImageDataCalls: Array<{ x: number; y: number }> = [];
+    globalThis.OffscreenCanvas.prototype.getContext = function () {
+      return {
+        getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
+        putImageData: (_data: ImageData, x: number, y: number) => {
+          putImageDataCalls.push({ x, y });
+        },
+        drawImage: () => {},
+        filter: 'none',
+      } as unknown as OffscreenCanvasRenderingContext2D;
+    };
+
+    const { target } = mockTarget();
+    const filters: FilterIR[] = [
+      {
+        kind: 'photoFilter',
+        color: [255, 100, 50, 255],
+        density: 50,
+        preserveLuminosity: true,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    applyFilterWithCompositing(target, filters, 10, 10);
+    expect(putImageDataCalls.length).toBeGreaterThanOrEqual(1);
+    globalThis.OffscreenCanvas.prototype.getContext = origGetContext;
+  });
+
   it('is no-op for empty filter array', () => {
     const { target, calls } = mockTarget();
     applyFilterWithCompositing(target, [], 100, 100);
