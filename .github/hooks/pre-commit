@@ -1,0 +1,18 @@
+#!/bin/sh
+# Strata pre-commit hook.
+# Installed by scripts/install-git-hooks.mjs (triggered from package.json prepare).
+
+set -e
+
+# Do not run inside CI.
+if [ -n "$CI" ]; then
+  exit 0
+fi
+
+# Fast staged-file checks.
+echo "Running pre-commit checks..."
+
+pnpm exec biome check --staged --no-errors-on-unmatched
+pnpm audit:emoji
+
+echo "Pre-commit checks passed."

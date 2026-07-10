@@ -20,4 +20,8 @@ pnpm --filter @strata/ui storybook
 - **@strata/codegen** — SVG/React/Flutter/SwiftUI code export
 - **@strata/platform** — Platform abstraction (Tauri/web/memory)
 
+## CI/CD & local debugging
+
+The `justfile` exposes `act-list`, `act-run`, `act-dry`, `ci-debug`, and `install-git-hooks`. Pre-commit/pre-push hooks are installed automatically by `pnpm install`. For a full guide on the hardened pipelines, automated failure reports, and local `act` runner parity, see `docs/CI_CD_RESILIENCE.md`.
+
 See AGENTS.md for detailed development guide.

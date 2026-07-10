@@ -5,6 +5,7 @@ on:
     branches: [main, master, feat/*]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,6 +14,7 @@ concurrency:
 jobs:
   build:
     name: Build (${{ matrix.os }})
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -23,12 +25,13 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 11
+          version: 11.9.0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 26
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -44,9 +47,19 @@ jobs:
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf
 
+      - name: Install macOS Rust targets
+        if: runner.os == 'macOS'
+        run: |
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Install Windows Rust target
+        if: runner.os == 'Windows'
+        run: rustup target add x86_64-pc-windows-msvc
+
       - uses: Swatinem/rust-cache@v2
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
         run: pnpm typecheck
@@ -81,6 +94,18 @@ jobs:
       - name: Tauri build
         run: pnpm tauri build --ci
         working-directory: apps/desktop
+
+      - name: Automated failure debug
+        if: failure()
+        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
+
+      - name: Upload debug report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strata-debug-${{ matrix.os }}-${{ github.run_id }}
+          path: ci-debug-report.md
+          if-no-files-found: ignore
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
