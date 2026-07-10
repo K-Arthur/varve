@@ -10,6 +10,7 @@
   },
   "scripts": {
     "postinstall": "node scripts/copy-onnx-wasm.mjs",
+    "prepare": "node scripts/install-git-hooks.mjs",
     "build": "pnpm -r --filter \"./packages/*\" build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,7 +23,9 @@
     "audit:emoji": "node scripts/audit-emoji.mjs",
     "audit:a11y": "echo 'axe-core runs in Playwright E2E'",
     "audit:perf": "node scripts/audit-perf.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "ci:debug": "node scripts/ci-debug.mjs",
+    "ci:local": "bash scripts/ci-local-run.sh"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

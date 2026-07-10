@@ -1,0 +1,54 @@
+name: CI Debug Report
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - Build + Package
+      - Publish
+      - Website Deploy
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: write
+  checks: read
+
+jobs:
+  debug-report:
+    name: Debug Report
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate debug report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/ci-debug.mjs \
+            --run-id ${{ github.event.workflow_run.id }} \
+            --repo ${{ github.repository }} \
+            --output ci-debug-report.md
+
+      - name: Upload debug report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-debug-report-${{ github.event.workflow_run.id }}
+          path: ci-debug-report.md
+          if-no-files-found: ignore
