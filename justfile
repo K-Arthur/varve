@@ -79,6 +79,22 @@ generate-icons:
 gate: format-check lint test gates
     @echo "Cascade Review gate passed."
 
+# --- CI/CD local tooling ---
+install-git-hooks:
+    node scripts/install-git-hooks.mjs
+
+act-list:
+    bash scripts/ci-local-run.sh list
+
+act-run JOB="js" ARGS="":
+    bash scripts/ci-local-run.sh run {{JOB}} {{ARGS}}
+
+act-dry WORKFLOW=".github/workflows/build.yml":
+    bash scripts/ci-local-run.sh dry-run {{WORKFLOW}}
+
+ci-debug RUN_ID="":
+    node scripts/ci-debug.mjs --run-id "{{RUN_ID}}"
+
 # --- Packaging ---
 
 # Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
