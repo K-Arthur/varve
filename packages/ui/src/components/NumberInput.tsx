@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 
 export interface NumberInputProps {
   value: number;
@@ -12,19 +12,23 @@ export interface NumberInputProps {
   id?: string;
 }
 
-export function NumberInput({
-  value,
-  step = 1,
-  shiftStep = 10,
-  altStep = 0.1,
-  min = -99999,
-  max = 99999,
-  label,
-  onChange,
-  id,
-}: NumberInputProps) {
+export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(function NumberInput(
+  {
+    value,
+    step = 1,
+    shiftStep = 10,
+    altStep = 0.1,
+    min = -99999,
+    max = 99999,
+    label,
+    onChange,
+    id,
+  },
+  ref,
+) {
   const [dirty, setDirty] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => inputRef.current!, [inputRef]);
   const dragRef = useRef<{
     startX: number;
     startValue: number;
@@ -124,4 +128,4 @@ export function NumberInput({
       aria-label={label}
     />
   );
-}
+});

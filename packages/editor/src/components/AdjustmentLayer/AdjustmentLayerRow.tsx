@@ -157,7 +157,7 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
         <span
           className="layers-row__name"
           style={{
-            fontSize: '10px',
+            fontSize: 'var(--font-size-2xs)',
             opacity: 0.6,
             overflow: 'hidden',
             textOverflow: 'ellipsis',

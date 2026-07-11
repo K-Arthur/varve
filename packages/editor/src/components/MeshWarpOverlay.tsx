@@ -204,7 +204,11 @@ export function MeshWarpOverlay({
             cx={s.x}
             cy={s.y}
             r={handleRadius}
-            fill={dragging && dragRef.current?.vertexIndex === vi ? 'var(--color-accent-primary)' : 'var(--color-surface-overlay)'}
+            fill={
+              dragging && dragRef.current?.vertexIndex === vi
+                ? 'var(--color-accent-primary)'
+                : 'var(--color-surface-overlay)'
+            }
             stroke={accentColor}
             strokeWidth={lineWidth}
             style={{ cursor: dragging ? 'grabbing' : 'grab' }}

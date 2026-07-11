@@ -1,0 +1,106 @@
+.content-skeleton {
+  --skeleton-bg: var(--skeleton-bg-color, var(--color-surface-raised, #e0e0e0));
+  --skeleton-shimmer: var(--skeleton-shimmer-color, var(--color-surface-overlay, #f0f0f0));
+  --skeleton-radius: var(--radius-sm, 4px);
+  position: relative;
+  overflow: hidden;
+}
+
+.content-skeleton__shimmer {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-bg) 25%,
+    var(--skeleton-shimmer) 50%,
+    var(--skeleton-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite ease-in-out;
+  border-radius: var(--skeleton-radius);
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content-skeleton__shimmer {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* List variant */
+.content-skeleton--list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.content-skeleton__row {
+  height: 20px;
+  border-radius: var(--skeleton-radius);
+}
+
+.content-skeleton__row:last-child {
+  width: 60%;
+}
+
+/* Grid variant */
+.content-skeleton--grid {
+  display: grid;
+  grid-template-columns: repeat(var(--skeleton-columns, 4), 1fr);
+  gap: var(--space-3, 12px);
+}
+
+.content-skeleton__cell {
+  aspect-ratio: 1;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+}
+
+/* Card variant */
+.content-skeleton--card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface-default, transparent);
+}
+
+.content-skeleton__card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 4px);
+  overflow: hidden;
+}
+
+.content-skeleton__card-title {
+  height: 16px;
+  width: 70%;
+  border-radius: var(--skeleton-radius);
+  overflow: hidden;
+}
+
+.content-skeleton__card-desc {
+  height: 12px;
+  width: 90%;
+  border-radius: var(--skeleton-radius);
+  overflow: hidden;
+}
+
+/* Inline variant */
+.content-skeleton--inline {
+  display: inline-block;
+  height: 1em;
+  vertical-align: middle;
+  border-radius: var(--skeleton-radius);
+  overflow: hidden;
+}

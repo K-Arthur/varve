@@ -13,41 +13,37 @@ export function App() {
   const [openRequest, setOpenRequest] = useState<OpenFileRequest | null>(null);
   const [homeReady, setHomeReady] = useState(false);
 
-  const {
-    showLoader,
-    bootError,
-    onRetry,
-    capabilities,
-    onHomeReady,
-    onEditorReady,
-    onBootError,
-  } = useStartup({
-    onBootComplete: () => {
-      performance.measure('strata-startup', 'app_mount');
-    },
-  });
+  const { showLoader, bootError, onRetry, capabilities, onHomeReady, onEditorReady, onBootError } =
+    useStartup({
+      onBootComplete: () => {
+        performance.measure('strata-startup', 'app_mount');
+      },
+    });
 
   const handleHomeReady = useCallback(() => {
     setHomeReady(true);
     onHomeReady();
   }, [onHomeReady]);
 
-  const handleOpenFile = useCallback((entry: FileEntry) => {
-    platform
-      .readFile(entry.id)
-      .catch(() => null)
-      .then((json) => {
-        setOpenRequest((prev) => ({
-          id: entry.id,
-          name: entry.name,
-          json: json ?? null,
-          seq: (prev?.seq ?? 0) + 1,
-        }));
-        setEditorMounted(true);
-        setView('editor');
-        onEditorReady();
-      });
-  }, [onEditorReady]);
+  const handleOpenFile = useCallback(
+    (entry: FileEntry) => {
+      platform
+        .readFile(entry.id)
+        .catch(() => null)
+        .then((json) => {
+          setOpenRequest((prev) => ({
+            id: entry.id,
+            name: entry.name,
+            json: json ?? null,
+            seq: (prev?.seq ?? 0) + 1,
+          }));
+          setEditorMounted(true);
+          setView('editor');
+          onEditorReady();
+        });
+    },
+    [onEditorReady],
+  );
 
   const handleBackToHome = useCallback(() => {
     setView('home');

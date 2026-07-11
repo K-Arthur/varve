@@ -537,29 +537,29 @@ function ShellInner({
                   const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
                   editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
                 }}
-              onRenameMarker={async (markerId) => {
-                const tlId = editor.state.motion.activeTimelineId;
-                if (!tlId) return;
-                const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
-                  (m) => m.id === markerId,
-                );
-                const nextName = await promptDialog('Marker name', marker?.name ?? '');
-                if (nextName?.trim()) {
-                  editor.renameTimelineMarker(tlId, markerId, nextName.trim());
-                }
-              }}
+                onRenameMarker={async (markerId) => {
+                  const tlId = editor.state.motion.activeTimelineId;
+                  if (!tlId) return;
+                  const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
+                    (m) => m.id === markerId,
+                  );
+                  const nextName = await promptDialog('Marker name', marker?.name ?? '');
+                  if (nextName?.trim()) {
+                    editor.renameTimelineMarker(tlId, markerId, nextName.trim());
+                  }
+                }}
                 onDeleteMarker={(markerId) => {
                   const tlId = editor.state.motion.activeTimelineId;
                   if (tlId) editor.removeTimelineMarker(tlId, markerId);
                 }}
-              onSavePreset={async () => {
-                const tlId = editor.state.motion.activeTimelineId;
-                if (!tlId) return;
-                const name = await promptDialog('Preset name');
-                if (name?.trim()) {
-                  editor.createMotionPresetFromTimeline(tlId, name.trim());
-                }
-              }}
+                onSavePreset={async () => {
+                  const tlId = editor.state.motion.activeTimelineId;
+                  if (!tlId) return;
+                  const name = await promptDialog('Preset name');
+                  if (name?.trim()) {
+                    editor.createMotionPresetFromTimeline(tlId, name.trim());
+                  }
+                }}
                 onApplyPreset={(presetId) => {
                   const tlId = editor.state.motion.activeTimelineId;
                   if (tlId) editor.applyMotionPreset(presetId, tlId);
@@ -953,7 +953,7 @@ function ShellInner({
               background: 'var(--color-surface-raised)',
               borderRadius: '4px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              fontSize: '13px',
+              fontSize: 'var(--font-size-sm)',
             }}
           >
             {activeDragNode.name}

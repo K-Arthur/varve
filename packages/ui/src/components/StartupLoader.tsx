@@ -21,7 +21,14 @@ export interface StartupLoaderProps {
  * Branded startup loader for Strata.
  * Renders the symbolic Strata logo in white with a CSS/SVG chromatic aberration effect.
  */
-export function StartupLoader({ error, onRetry, ready, simplified, onExited, exitDuration }: StartupLoaderProps) {
+export function StartupLoader({
+  error,
+  onRetry,
+  ready,
+  simplified,
+  onExited,
+  exitDuration,
+}: StartupLoaderProps) {
   const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
