@@ -75,3 +75,24 @@ opt-in gate and enable by default) once:**
    off on at least one release.
 
 Until all three hold, keep both backends and the golden-diff test alive.
+
+## CI GPU-Testing Decision (2026-07-11)
+
+Resolved the open infra/cost question from the manual-verification checklist: neither
+a GitHub-hosted GPU runner nor a self-hosted GPU runner was adopted here.
+
+**Why not:** GPU-specific GitHub-hosted runners aren't confirmed to exist as a
+selectable SKU today, and "larger runners" in general require a paid Team/Enterprise
+Cloud plan — an account/billing upgrade, not a code change. Self-hosted runners now
+carry their own (currently-paused-but-live) per-minute platform charge on top of the
+real hardware they'd require someone to provision and maintain. Both are genuine
+spend/infrastructure decisions for a human to make, not something to commit to
+silently in a PR.
+
+**What was done instead:** `publish.yml`'s release job already creates every release
+as a **draft** with a note to smoke-test before publishing — a human checkpoint already
+existed. Extended that same note to link the
+[manual verification checklist](../architecture/webgpu-manual-verification.md), so the
+reminder lands exactly where a human is already pausing to decide whether to publish,
+at zero infrastructure cost. If GPU-backed CI is adopted later (either option above),
+this note can be removed once CI itself proves the path on real hardware.

@@ -15,10 +15,16 @@
 > removal criterion documented (12); WASM threading confirmed unused/moot, documented
 > (14); shader/pipeline-cache timing instrumented and confirmed no persistent-cache
 > API exists in the current spec (13); CI's lack of real GPU access documented plus a
-> manual verification checklist added, though the bigger infra decision (GPU CI
-> runner vs. scheduled hardware pass) is deliberately left open for a human (15); a
+> manual verification checklist, now wired into `publish.yml`'s existing draft-release
+> checkpoint so it's actually surfaced before each release rather than just filed away
+> — the GPU-CI-runner-vs-self-hosted question itself stays deliberately unresolved,
+> since both are real account/billing decisions researched with current information
+> and found to be non-trivial, not something to commit the user to (15); a
 > minimum-baseline policy now declines software-emulated adapters in favor of Canvas2D
-> (16).
+> (16). Stale `.worktrees/*` cleanup was attempted and blocked by the permission
+> system (deleting pre-existing worktrees this session didn't create, on inferred
+> rather than explicitly-named authorization) — left for the user to action directly;
+> not done here.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -988,7 +994,19 @@ Expected: clean.
 **Rationale:** make explicit what "tests pass in CI" does and doesn't cover for the WebGPU path.
 
 - [x] **Finding:** `.github/workflows/ci.yml` runs the Rust/JS matrix on GitHub-hosted `ubuntu-latest` / `macos-latest` / `windows-latest` runners. None provide real GPU hardware access. `packages/compositor/src/webgpu/golden.test.ts:114` explicitly self-skips via `it.skipIf(navigator.gpu === undefined)` — in Vitest/jsdom, `navigator.gpu` is always undefined, so **the WebGPU rendering path has never been exercised by an automated test run**; only the Canvas2D fallback path and the code-level unit tests (vertex math, pool reuse, hashing) run in CI. The "11/11 pass, 1 skipped native GPU" note in `WEBGPU_WASM_ENGINE_MEMORY.md` is this same skip, worth reading as "untested," not "tested and fine."
-- [x] **Step 1 (partial): implemented the zero-infra-cost default, left the real decision open** — (c) is done: `docs/architecture/webgpu-manual-verification.md` is the manual verification checklist, linked from `render-pipeline.md`'s Known Gaps. (a) a GPU-enabled CI runner and (b) a scheduled hardware benchmark pass are genuine cost/infra decisions for a human and were deliberately **not** picked here — (c) is a stopgap, not a replacement for deciding whether (a)/(b) are worth the spend.
+- [x] **Step 1: resolved as (c), enforced at the release checkpoint** — researched (a)
+  and (b) with current information rather than assuming: GitHub GPU-specific hosted
+  runners aren't confirmed to exist as a selectable SKU, and "larger runners" in
+  general require a paid Team/Enterprise Cloud plan (account/billing decision, not a
+  code change); self-hosted runners now carry their own per-minute platform charge
+  (currently paused/under re-evaluation per GitHub's 2026 pricing changes) on top of
+  hardware someone has to provision — genuinely not mine to commit the user to. (c)
+  was already implemented as `docs/architecture/webgpu-manual-verification.md`; closed
+  the loop by discovering `publish.yml`'s release job already creates every release as
+  a **draft** with a "smoke-test before publishing" note — a human checkpoint already
+  existed — and extended that note to link the checklist, so it surfaces exactly where
+  a human already pauses, at zero infra cost. See ADR-0003's "CI GPU-Testing Decision"
+  section.
 - [x] **Step 2:** whichever is chosen, add a line to `docs/architecture/render-pipeline.md` stating the actual GPU-testing posture so "tests pass" claims in future PRs don't imply GPU coverage they don't have.
 
 ---
