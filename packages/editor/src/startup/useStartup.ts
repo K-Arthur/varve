@@ -64,7 +64,8 @@ export function useStartup(opts: UseStartupOptions): UseStartupResult {
     }
   }, [showBrandedLoader, isWarmRestart, bootManager]);
 
-  const showLoader = showBrandedLoader && (bootState === 'init' || bootState === 'error') && !isWarmRestart;
+  const showLoader =
+    showBrandedLoader && (bootState === 'init' || bootState === 'error') && !isWarmRestart;
   const startupTime = startupTimer.elapsed();
 
   return {

@@ -81,4 +81,6 @@ export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';
 export type { TooltipProps } from './Tooltip';
 export { Tooltip } from './Tooltip';
+export type { ContentSkeletonProps } from './ContentSkeleton';
+export { ContentSkeleton } from './ContentSkeleton';
 // contrastRatio/formatContrast/relativeLuminance/wcagLevel are exported via @strata/ui tokens

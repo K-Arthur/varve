@@ -9,7 +9,7 @@ import {
 } from '@strata/platform';
 import { createDocument, serializeDocument } from '@strata/scene';
 import { generateKeyBetween } from '@strata/shared';
-import { Dialog, Icon } from '@strata/ui';
+import { ContentSkeleton, Dialog, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
 import { AssetBrowser } from './AssetBrowser';
@@ -493,8 +493,13 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing, onReady }: Ho
   const renderContent = () => {
     if (view.loading) {
       return (
-        <div className="strata-empty">
-          <div className="strata-empty__headline">Loading...</div>
+        <div className="strata-home">
+          <div className="strata-home__sidebar">
+            <ContentSkeleton variant="list" rows={5} label="Loading navigation" />
+          </div>
+          <div className="strata-home__content">
+            <ContentSkeleton variant="grid" columns={4} rows={2} label="Loading projects" />
+          </div>
         </div>
       );
     }

@@ -50,8 +50,12 @@ describe('useStartup', () => {
   it('calls onBootComplete callback when editor_ready', () => {
     const onBootComplete = vi.fn();
     const { result } = renderHook(() => useStartup({ onBootComplete }));
-    act(() => { result.current.onHomeReady(); });
-    act(() => { result.current.onEditorReady(); });
+    act(() => {
+      result.current.onHomeReady();
+    });
+    act(() => {
+      result.current.onEditorReady();
+    });
     expect(onBootComplete).toHaveBeenCalledOnce();
   });
 
