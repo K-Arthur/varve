@@ -189,6 +189,8 @@ export function FillSection({ nodes }: FillSectionProps) {
             onPickerToggle={() => setOpenPickerFor((p) => (p === i ? null : i))}
             canMoveUp={i > 0}
             canMoveDown={i < fills.length - 1}
+            onEditStart={beginTransaction}
+            onEditEnd={commitTransaction}
           />
         ))}
       </div>
@@ -242,6 +244,8 @@ interface FillRowProps {
   onPickerToggle: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
 }
 
 function FillRow({
@@ -257,6 +261,8 @@ function FillRow({
   onPickerToggle,
   canMoveUp,
   canMoveDown,
+  onEditStart,
+  onEditEnd,
 }: FillRowProps) {
   const label = index === 0 ? 'Fill' : `Fill ${index + 1}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -410,6 +416,8 @@ function FillRow({
         <GradientEditor
           gradient={fill.gradient}
           onChange={(g: GradientFill) => patch({ gradient: g })}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
         />
       )}
 

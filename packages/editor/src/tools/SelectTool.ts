@@ -15,7 +15,13 @@
 
 import { applyAffine, invertAffine, rectContains } from '@strata/engine';
 import { activePageNodes, getParent, isInIsolatedSubtree, walkNodes } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import {
+  cubicBezierClosestPoint,
+  managedColorToRgba,
+  pathPointToBezier,
+  pointToSegmentDistSq,
+  tryInvertAffine,
+} from '@strata/shared';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -527,6 +533,8 @@ export class SelectTool extends BaseTool {
     const results: Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> = [];
     // Scoped to the active page — see the marquee-select comment above.
     const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
+    // Screen-pixel threshold for path hit-testing (world units at current zoom).
+    const pathThresh = 6 / Math.max(0.001, ctx.zoom);
     // Reverse for paint order (later siblings on top)
     for (const entry of [...entries.values()].reverse()) {
       if (!entry) continue;
@@ -538,7 +546,15 @@ export class SelectTool extends BaseTool {
       )
         continue;
       const bbox = ctx.nodeWorldBounds(entry.node);
-      if (bbox && rectContains(bbox, [world.x, world.y])) {
+      if (!bbox) continue;
+      // F: Path ray-cast — use segment distance test instead of bbox alone
+      if (entry.node.kind === 'shape' && entry.node.shape?.kind === 'path') {
+        if (isPointNearPath(world, entry.node, entry.nodeId, ctx.document, pathThresh)) {
+          results.push({ nodeId: entry.nodeId, node: entry.node });
+        }
+        continue;
+      }
+      if (rectContains(bbox, [world.x, world.y])) {
         results.push({ nodeId: entry.nodeId, node: entry.node });
       }
     }
@@ -596,6 +612,41 @@ function rectsIntersect(
   b: { x: number; y: number; w: number; h: number },
 ): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/** F: Check if a world-space point is near any segment of a path node. */
+function isPointNearPath(
+  world: { x: number; y: number },
+  node: import('@strata/scene').SceneNode,
+  nodeId: string,
+  doc: import('@strata/scene').Document,
+  threshold: number,
+): boolean {
+  if (node.kind !== 'shape' || node.shape.kind !== 'path') return false;
+  const points = node.shape.points;
+  if (!points || points.length < 2) return false;
+
+  const worldMat = nodeWorldTransform(doc, nodeId);
+  const invMat = tryInvertAffine(worldMat);
+  if (!invMat) return false;
+
+  const localPt = applyAffine(invMat, [world.x, world.y]);
+
+  for (let i = 0; i < points.length; i++) {
+    const from = points[i]!;
+    const to = points[(i + 1) % points.length]!;
+
+    // Check bezier segment if handles exist
+    if (from.handleOut || to.handleIn) {
+      const bez = pathPointToBezier(from, to);
+      const closest = cubicBezierClosestPoint(bez, { x: localPt[0], y: localPt[1] });
+      if (closest.dist <= threshold * threshold) return true;
+    } else {
+      const distSq = pointToSegmentDistSq([from.x, from.y], [to.x, to.y], [localPt[0], localPt[1]]);
+      if (distSq <= threshold * threshold) return true;
+    }
+  }
+  return false;
 }
 
 function childrenCount(

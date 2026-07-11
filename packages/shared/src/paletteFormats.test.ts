@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type AseColorEntry,
   exportAcoPalette,
+  exportAsePalette,
   exportGplPalette,
   type GplColorEntry,
   parseAcoPalette,
@@ -216,6 +218,50 @@ describe('parseAsePalette', () => {
   });
 });
 
+describe('exportAsePalette', () => {
+  it('round-trips colors through export and parse', () => {
+    const colors: AseColorEntry[] = [
+      { r: 255, g: 0, b: 0, name: 'Red' },
+      { r: 0, g: 255, b: 0, name: 'Green' },
+      { r: 0, g: 0, b: 255, name: 'Blue' },
+      { r: 128, g: 128, b: 128 },
+    ];
+    const buf = exportAsePalette('Test', colors);
+    const parsed = parseAsePalette(buf);
+    expect(parsed.colors).toHaveLength(4);
+    expect(parsed.colors[0]).toMatchObject({ r: 255, g: 0, b: 0, name: 'Red' });
+    expect(parsed.colors[1]).toMatchObject({ r: 0, g: 255, b: 0, name: 'Green' });
+    expect(parsed.colors[2]).toMatchObject({ r: 0, g: 0, b: 255, name: 'Blue' });
+    expect(parsed.colors[3]).toMatchObject({ r: 128, g: 128, b: 128 });
+  });
+
+  it('writes ASEF magic bytes in header', () => {
+    const buf = exportAsePalette('Test', [{ r: 255, g: 0, b: 0 }]);
+    const bytes = new Uint8Array(buf);
+    expect(String.fromCharCode(bytes[0]!, bytes[1]!, bytes[2]!, bytes[3]!)).toBe('ASEF');
+  });
+
+  it('writes correct block count', () => {
+    const colors: AseColorEntry[] = [
+      { r: 255, g: 0, b: 0 },
+      { r: 0, g: 255, b: 0 },
+      { r: 0, g: 0, b: 255 },
+    ];
+    const buf = exportAsePalette('Test', colors);
+    const view = new DataView(buf);
+    const count = view.getUint32(6, false);
+    expect(count).toBe(3);
+  });
+
+  it('exports empty palette without crashing', () => {
+    const buf = exportAsePalette('Empty', []);
+    const view = new DataView(buf);
+    expect(view.getUint32(6, false)).toBe(0);
+    const parsed = parseAsePalette(buf);
+    expect(parsed.colors).toHaveLength(0);
+  });
+});
+
 describe('parseAcoPalette', () => {
   it('parses ACO version 1 RGB entries', () => {
     const colors = [
@@ -227,5 +273,32 @@ describe('parseAcoPalette', () => {
     expect(parsed).toHaveLength(2);
     expect(parsed[0]?.r).toBeCloseTo(255, 0);
     expect(parsed[1]?.g).toBeCloseTo(255, 0);
+  });
+
+  it('handles truncated buffer without crashing', () => {
+    const buf = new Uint8Array([0x00, 0x01, 0x00]).buffer;
+    expect(() => parseAcoPalette(buf)).not.toThrow();
+    const result = parseAcoPalette(buf);
+    expect(result).toHaveLength(0);
+  });
+
+  it('handles invalid color space gracefully', () => {
+    const buf = new ArrayBuffer(12);
+    const view = new DataView(buf);
+    view.setUint16(0, 1, false);
+    view.setUint16(2, 99, false);
+    const result = parseAcoPalette(buf);
+    expect(result).toHaveLength(0);
+  });
+
+  it('handles version 2 gracefully', () => {
+    const colors = [{ r: 255, g: 0, b: 0 }];
+    const v1buf = exportAcoPalette(colors);
+    const v2buf = new Uint8Array(v1buf);
+    v2buf[0] = 0;
+    v2buf[1] = 2;
+    expect(() => parseAcoPalette(v2buf.buffer)).not.toThrow();
+    const result = parseAcoPalette(v2buf.buffer);
+    expect(result).toHaveLength(1);
   });
 });

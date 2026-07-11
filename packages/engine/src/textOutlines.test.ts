@@ -1,10 +1,33 @@
-/**
- * Tests for text-to-outlines conversion utility.
- */
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 import { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 
-describe('textToOutlines', () => {
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const wawoff2: { decompress: (data: Uint8Array) => Promise<Uint8Array> } = require('wawoff2');
+
+const PROJECT_ROOT = process.cwd();
+const GEIST_PATH = join(
+  PROJECT_ROOT,
+  'node_modules',
+  '.pnpm',
+  '@fontsource-variable+geist@5.2.9',
+  'node_modules',
+  '@fontsource-variable',
+  'geist',
+  'files',
+  'geist-latin-wght-normal.woff2',
+);
+
+async function loadFontData(): Promise<ArrayBuffer> {
+  const woff2 = readFileSync(GEIST_PATH);
+  const decompressed = await wawoff2.decompress(new Uint8Array(woff2));
+  const copy = new Uint8Array(decompressed.length);
+  copy.set(decompressed);
+  return copy.buffer;
+}
+
+describe('textToOutlines — placeholder path (no fontData)', () => {
   it('converts simple text to glyph outlines', () => {
     const result = textToOutlines('Hello', {
       fontSize: 16,
@@ -15,7 +38,6 @@ describe('textToOutlines', () => {
     expect(result.glyphs).toHaveLength(5);
     expect(result.isPlaceholder).toBe(true);
     expect(result.bounds.w).toBeGreaterThan(0);
-    expect(result.bounds.h).toBeGreaterThan(0);
   });
 
   it('handles empty text', () => {
@@ -25,6 +47,14 @@ describe('textToOutlines', () => {
     });
     expect(result.glyphs).toHaveLength(0);
     expect(result.bounds.w).toBe(0);
+  });
+
+  it('handles newline characters', () => {
+    const result = textToOutlines('A\nB', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+    });
+    expect(result.glyphs).toHaveLength(2);
   });
 
   it('respects letterSpacing', () => {
@@ -40,33 +70,114 @@ describe('textToOutlines', () => {
     });
     expect(withSpacing.bounds.w).toBeGreaterThan(noSpacing.bounds.w);
   });
+});
 
-  it('handles CJK characters with wider advance', () => {
-    const latin = textToOutlines('A', {
-      fontSize: 16,
-      fontFamily: 'Noto Sans CJK',
+describe('textToOutlines — opentype.js path (with fontData)', () => {
+  it('produces real glyph outlines with bezier handles', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('O', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
     });
-    const cjk = textToOutlines('\u4e2d', {
-      fontSize: 16,
-      fontFamily: 'Noto Sans CJK',
-    });
-    expect(cjk.glyphs[0]?.advance ?? 0).toBeGreaterThan(latin.glyphs[0]?.advance ?? 0);
+    expect(result.isPlaceholder).toBe(false);
+    expect(result.glyphs).toHaveLength(1);
+    const glyph = result.glyphs[0]!;
+    expect(glyph.char).toBe('O');
+    expect(glyph.points.length).toBeGreaterThan(4);
+    expect(glyph.advance).toBeGreaterThan(0);
+
+    const hasHandles = glyph.points.some((p) => p.handleIn !== null || p.handleOut !== null);
+    expect(hasHandles).toBe(true);
   });
 
-  it('handles newline characters', () => {
-    const result = textToOutlines('A\nB', {
-      fontSize: 16,
-      fontFamily: 'Inter',
+  it('positions multiple glyphs with correct advance', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('AB', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
     });
     expect(result.glyphs).toHaveLength(2);
+    const aGlyph = result.glyphs[0]!;
+    const bGlyph = result.glyphs[1]!;
+    expect(aGlyph.advance).toBeGreaterThan(0);
+    expect(bGlyph.advance).toBeGreaterThan(0);
+    expect(bGlyph.bounds.x).toBeGreaterThan(aGlyph.bounds.x);
+    const spacing = bGlyph.bounds.x - aGlyph.advance;
+    expect(Math.abs(spacing)).toBeLessThan(aGlyph.advance * 0.5);
   });
 
-  it('produces 4 path points per glyph (rectangle placeholder)', () => {
-    const result = textToOutlines('X', {
-      fontSize: 16,
-      fontFamily: 'Inter',
+  it('scales outlines to match fontSize', async () => {
+    const fontData = await loadFontData();
+    const small = textToOutlines('A', {
+      fontSize: 50,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
     });
-    expect(result.glyphs[0]?.points).toHaveLength(4);
+    const large = textToOutlines('A', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
+    });
+    const smallGlyph = small.glyphs[0]!;
+    const largeGlyph = large.glyphs[0]!;
+    expect(largeGlyph.bounds.w).toBeGreaterThan(0);
+    expect(smallGlyph.bounds.w).toBeGreaterThan(0);
+    const ratio = largeGlyph.bounds.w / smallGlyph.bounds.w;
+    expect(ratio).toBeGreaterThan(1.5);
+    expect(ratio).toBeLessThan(2.5);
+  });
+
+  it('produces valid SVG path with C commands for bezier curves', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('O', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
+    });
+    const svgPath = glyphOutlineToSvgPath(result.glyphs[0]!);
+    expect(svgPath).toMatch(/^M /);
+    expect(svgPath).toMatch(/ Z$/);
+    expect(svgPath).toContain(' C ');
+  });
+
+  it('handles space characters correctly', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('A B', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
+    });
+    expect(result.glyphs).toHaveLength(3);
+    const spaceGlyph = result.glyphs[1]!;
+    expect(spaceGlyph.char).toBe(' ');
+    expect(spaceGlyph.advance).toBeGreaterThan(0);
+    expect(spaceGlyph.points).toHaveLength(0);
+  });
+
+  it('handles empty text gracefully', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
+    });
+    expect(result.glyphs).toHaveLength(0);
   });
 });
 
@@ -84,8 +195,9 @@ describe('glyphOutlineToSvgPath', () => {
     expect(path).toContain(' L ');
   });
 
-  it('returns empty string for zero points', () => {
-    const result = textToOutlines('A', { fontSize: 16, fontFamily: 'Inter' });
+  it('returns empty string for zero points', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('A', { fontSize: 16, fontFamily: 'Geist', fontData });
     const glyph = result.glyphs[0]!;
     const emptyGlyph = { ...glyph, points: [] };
     expect(glyphOutlineToSvgPath(emptyGlyph)).toBe('');

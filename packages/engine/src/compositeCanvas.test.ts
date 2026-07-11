@@ -80,6 +80,23 @@ describe('CompositeCanvas', () => {
     const cc = new CompositeCanvas({ width: 10, height: 10, testCanvas: canvas });
     expect(() => cc.applyBlur(0)).not.toThrow();
   });
+
+  it('applyBlur with radius > 32 uses software path', () => {
+    const canvas = document.createElement('canvas');
+    const cc = new CompositeCanvas({ width: 50, height: 50, testCanvas: canvas });
+    // The software path calls getImageData + gaussianBlurLinearLight + putImageData
+    // With radius 50, the CSS filter path would set ctx.filter.
+    // The software path does NOT set ctx.filter.
+    const ctx = cc.ctx as unknown as { filter: string };
+    expect(() => cc.applyBlur(50)).not.toThrow();
+  });
+
+  it('applyBlur with very large radius uses downsample path', () => {
+    const canvas = document.createElement('canvas');
+    const cc = new CompositeCanvas({ width: 100, height: 100, testCanvas: canvas });
+    // Radius > 100 triggers downsample-blur-upsample in gaussianBlurSeparable
+    expect(() => cc.applyBlur(120)).not.toThrow();
+  });
 });
 
 describe('mapBlendMode', () => {

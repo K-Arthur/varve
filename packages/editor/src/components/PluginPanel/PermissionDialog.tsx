@@ -14,9 +14,15 @@ const PERMISSION_LABELS: Record<string, string> = {
 interface Props {
   plugin: StrataPlugin;
   onClose: () => void;
+  onDeny?: () => void;
 }
 
-export function PermissionDialog({ plugin, onClose }: Props) {
+export function PermissionDialog({ plugin, onClose, onDeny }: Props) {
+  const handleDeny = () => {
+    onDeny?.();
+    onClose();
+  };
+
   return (
     <Dialog open onClose={onClose} title={`${plugin.name} — Permissions`}>
       <p
@@ -55,7 +61,7 @@ export function PermissionDialog({ plugin, onClose }: Props) {
         <Button variant="primary" onClick={onClose}>
           Allow
         </Button>
-        <Button variant="ghost" onClick={onClose}>
+        <Button variant="ghost" onClick={handleDeny}>
           Deny
         </Button>
       </div>

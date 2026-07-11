@@ -313,6 +313,41 @@ describe('snapPosition — frame/page center (D-04)', () => {
   });
 });
 
+describe('snapPosition — priority (C)', () => {
+  it('grid snap overrides edge snap when both within threshold', () => {
+    // Target at x=4 (edge diff=4 < 5), grid=10 snaps to x=0 (diff=0)
+    const result = snapPosition(2, 50, 100, 100, [box(4, 50, 100, 100)], 10);
+    // Grid wins: x=0 (snaps to x%10=0), not x=4 (edge snap to target)
+    expect(result.x).toBe(0);
+    expect(result.guides.some((g) => g.type === 'edge')).toBe(true);
+  });
+
+  it('edge snap overrides center snap within threshold', () => {
+    // Target at x=5, w=100 (center=55). Subject: w=100.
+    // Subject x=2: left=2, center=52. Target left=5, center=55.
+    // Left-edge diff=3, center diff=3. Edge wins (higher priority).
+    const result = snapPosition(2, 50, 100, 100, [box(5, 50, 100, 100)]);
+    expect(result.x).toBe(5); // edge snap, not center (which would be x=7 to align centers)
+    const guide = result.guides.find((g) => g.axis === 'vertical');
+    expect(guide?.type).toBe('edge');
+  });
+
+  it('edge snap overrides midpoint snap when both in range', () => {
+    // Subject w=100 spans across targets. Target A: x=45,w=100 (right=145).
+    // Target B: x=155,w=100 (center=205). Midpoint=(95+205)/2=150.
+    // Subject: x=52,w=100 → center=102, right=152.
+    // Edge right(152) vs A right(145): diff=7 < 8 OK.
+    // Midpoint: |102-150|=48 > 8. Not in range.
+    // Need different setup. Subject x=147,w=4, center=149. Right=151.
+    // Edge right(151) vs B left(155): diff=4 < 8 OK.
+    // Midpoint of A(45+50=95) and B(155+50=205): (95+205)/2=150.
+    // Center diff=|149-150|=1 < 8 OK. Both in range! Edge(80) > midpoint(50). Edge wins.
+    const result = snapPosition(147, 50, 4, 100, [box(45, 50, 100, 100), box(155, 50, 100, 100)]);
+    const guide = result.guides.find((g) => g.axis === 'vertical');
+    expect(guide?.type).toBe('edge');
+  });
+});
+
 describe('snapPosition — sticky hysteresis', () => {
   it('holds snap until release distance exceeded', () => {
     const session = createSnapSession();

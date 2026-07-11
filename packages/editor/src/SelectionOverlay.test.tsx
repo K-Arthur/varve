@@ -504,4 +504,37 @@ describe('SelectionOverlay — touch targets', () => {
       expect(r * 2).toBeGreaterThanOrEqual(16);
     }
   });
+
+  // G: Handle collapse for tiny objects
+  it('collapses to 0 handles for a very small box (< 14px screen)', () => {
+    const container = renderOverlay([
+      makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }),
+    ]);
+    // No handle rects (just the 1 bbox rect)
+    const rects = container.querySelectorAll('svg > rect');
+    expect(rects.length).toBe(1);
+  });
+
+  it('collapses to N/S handles for a narrow box', () => {
+    const container = renderOverlay(
+      [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 100 })],
+      {},
+      { x: 0, y: 0 },
+      1,
+    );
+    // 1 bbox + 2 handles × (1 hit + 1 visual) = 1 + 4 = 5. No E/W handles.
+    const rects = container.querySelectorAll('svg > rect');
+    expect(rects.length).toBe(5);
+  });
+
+  it('collapses to W/E handles for a flat box', () => {
+    const container = renderOverlay(
+      [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 4 })],
+      {},
+      { x: 0, y: 0 },
+      1,
+    );
+    const rects = container.querySelectorAll('svg > rect');
+    expect(rects.length).toBe(5);
+  });
 });

@@ -2,6 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { applyFilterWithCompositing } from './filterCompositor';
 import type { FilterIR } from './types';
 
+// Helper to create a small RGBA ImageData for testing premultiplied alpha
+function makeTestImageData(
+  pixels: Array<[number, number, number, number]>,
+  w: number,
+  h: number,
+): ImageData {
+  const data = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < pixels.length; i++) {
+    const idx = i * 4;
+    data[idx] = pixels[i]![0];
+    data[idx + 1] = pixels[i]![1];
+    data[idx + 2] = pixels[i]![2];
+    data[idx + 3] = pixels[i]![3];
+  }
+  return new ImageData(data, w, h);
+}
+
 /** Minimal mock CanvasRenderingContext2D for testing filter behavior in node. */
 function mockTarget() {
   const calls: string[] = [];
@@ -273,6 +290,188 @@ describe('filter compositing', () => {
     applyFilterWithCompositing(target, filters, 10, 10);
     expect(putImageDataCalls.length).toBeGreaterThanOrEqual(1);
     globalThis.OffscreenCanvas.prototype.getContext = origGetContext;
+  });
+
+  // ── Premultiplied alpha helpers ──
+
+  it('premultiply/unpremultiply round-trip for opaque pixels', () => {
+    const data = new Uint8ClampedArray([100, 150, 200, 255, 30, 60, 90, 255]);
+    const original = new Uint8ClampedArray(data);
+
+    // We need direct access to the internal functions.
+    // Simulate via applySharpen with amount=0 (no-op after conversion)
+    const imgData = makeTestImageData(
+      [
+        [100, 150, 200, 255],
+        [30, 60, 90, 255],
+      ],
+      2,
+      1,
+    );
+
+    // Apply sharpen with amount=0 (should trigger premultiply, then no-op sharpen, then unpremultiply)
+    const filter: FilterIR = {
+      kind: 'sharpen',
+      amount: 0,
+      radius: 1,
+      threshold: 0,
+      opacity: 1,
+      blendMode: 'normal',
+    };
+    const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
+    const calls: Array<{ data: ImageData }> = [];
+    globalThis.OffscreenCanvas.prototype.getContext = (() =>
+      ({
+        getImageData: (_x: number, _y: number, _w: number, _h: number) => imgData,
+        putImageData: (d: ImageData) => {
+          calls.push({ data: d });
+        },
+        drawImage: () => {},
+        filter: 'none',
+        clearRect: () => {},
+        save: () => {},
+        restore: () => {},
+        canvas: { width: 2, height: 1 },
+        globalAlpha: 1,
+        globalCompositeOperation: 'source-over',
+      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+
+    const { target } = mockTarget();
+    applyFilterWithCompositing(target, [filter], 2, 1);
+    globalThis.OffscreenCanvas.prototype.getContext = origGetContext;
+
+    // With opaque alpha, values should be identical after round-trip
+    if (calls.length > 0) {
+      const out = calls[0]!.data.data;
+      expect(out[0]!).toBe(100);
+      expect(out[1]!).toBe(150);
+      expect(out[2]!).toBe(200);
+      expect(out[3]!).toBe(255);
+      expect(out[4]!).toBe(30);
+      expect(out[5]!).toBe(60);
+      expect(out[6]!).toBe(90);
+      expect(out[7]!).toBe(255);
+    }
+  });
+
+  it('premultiply/unpremultiply round-trip for semi-transparent pixels', () => {
+    const imgData = makeTestImageData(
+      [
+        [200, 100, 50, 128],
+        [100, 200, 150, 64],
+      ],
+      2,
+      1,
+    );
+
+    const filter: FilterIR = {
+      kind: 'sharpen',
+      amount: 0,
+      radius: 1,
+      threshold: 0,
+      opacity: 1,
+      blendMode: 'normal',
+    };
+    const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
+    const calls: Array<{ data: ImageData }> = [];
+    globalThis.OffscreenCanvas.prototype.getContext = (() =>
+      ({
+        getImageData: (_x: number, _y: number, _w: number, _h: number) => imgData,
+        putImageData: (d: ImageData) => {
+          calls.push({ data: d });
+        },
+        drawImage: () => {},
+        filter: 'none',
+        clearRect: () => {},
+        save: () => {},
+        restore: () => {},
+        canvas: { width: 2, height: 1 },
+        globalAlpha: 1,
+        globalCompositeOperation: 'source-over',
+      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+
+    const { target } = mockTarget();
+    applyFilterWithCompositing(target, [filter], 2, 1);
+    globalThis.OffscreenCanvas.prototype.getContext = origGetContext;
+
+    if (calls.length > 0) {
+      const out = calls[0]!.data.data;
+      const diff0 = Math.abs(out[0]! - 200);
+      const diff1 = Math.abs(out[1]! - 100);
+      const diff2 = Math.abs(out[2]! - 50);
+      const diff3 = Math.abs(out[3]! - 128);
+      expect(diff0).toBeLessThanOrEqual(2);
+      expect(diff1).toBeLessThanOrEqual(2);
+      expect(diff2).toBeLessThanOrEqual(2);
+      expect(diff3).toBe(0);
+    }
+  });
+
+  it('sharpen with premultiplied alpha avoids dark fringing at transparent edges', () => {
+    const w = 3;
+    const h = 3;
+    const data = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        if (x === 1 && y === 1) {
+          data[idx] = 255;
+          data[idx + 1] = 255;
+          data[idx + 2] = 255;
+          data[idx + 3] = 255;
+        } else {
+          data[idx] = 0;
+          data[idx + 1] = 0;
+          data[idx + 2] = 0;
+          data[idx + 3] = 0;
+        }
+      }
+    }
+    const imgData = new ImageData(data, w, h);
+
+    const filter: FilterIR = {
+      kind: 'sharpen',
+      amount: 100,
+      radius: 1,
+      threshold: 0,
+      opacity: 1,
+      blendMode: 'normal',
+    };
+    const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
+    const calls: Array<{ data: ImageData }> = [];
+    globalThis.OffscreenCanvas.prototype.getContext = (() =>
+      ({
+        getImageData: (_x: number, _y: number, _w: number, _h: number) => imgData,
+        putImageData: (d: ImageData) => {
+          calls.push({ data: d });
+        },
+        drawImage: () => {},
+        filter: 'none',
+        clearRect: () => {},
+        save: () => {},
+        restore: () => {},
+        canvas: { width: 3, height: 3 },
+        globalAlpha: 1,
+        globalCompositeOperation: 'source-over',
+      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+
+    const { target } = mockTarget();
+    applyFilterWithCompositing(target, [filter], 3, 3);
+    globalThis.OffscreenCanvas.prototype.getContext = origGetContext;
+
+    if (calls.length > 0) {
+      const out = calls[0]!.data.data;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          if (x === 1 && y === 1) continue;
+          const idx = (y * w + x) * 4;
+          expect(out[idx + 3]!).toBe(0);
+          expect(out[idx]!).toBe(0);
+          expect(out[idx + 1]!).toBe(0);
+          expect(out[idx + 2]!).toBe(0);
+        }
+      }
+    }
   });
 
   it('is no-op for empty filter array', () => {

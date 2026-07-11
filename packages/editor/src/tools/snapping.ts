@@ -117,6 +117,25 @@ function tryStickyAxis(
   };
 }
 
+const SNAP_PRIORITY: Record<string, number> = {
+  grid: 100,
+  edge: 80,
+  center: 70,
+  midpoint: 50,
+  spacing: 30,
+  layoutGrid: 20,
+};
+
+/** Compete a new snap candidate; returns true if it wins (higher priority or same priority + closer). */
+function compete(
+  candidatePrio: number,
+  candidateDiff: number,
+  bestPrio: number,
+  bestDiff: number,
+): boolean {
+  return candidatePrio > bestPrio || (candidatePrio === bestPrio && candidateDiff < bestDiff);
+}
+
 export function snapPosition(
   x: number,
   y: number,
@@ -146,60 +165,82 @@ export function snapPosition(
   const cy = y + h / 2;
   const edges = { left: x, right: x + w, centerX: cx, top: y, bottom: y + h, centerY: cy };
 
+  let bestXDiff = Infinity;
+  let bestXSnap = x;
+  let bestXGuide: SnapGuide | null = null;
+  let bestXPriority = -1;
+  let bestYDiff = Infinity;
+  let bestYSnap = y;
+  let bestYGuide: SnapGuide | null = null;
+  let bestYPriority = -1;
+
+  // C1: Grid snap (highest priority)
   if (grid && grid > 0) {
-    const snappedGridX = Math.round(x / grid) * grid;
-    const snappedGridY = Math.round(y / grid) * grid;
-    if (Math.abs(snappedGridX - x) < thresh) {
-      snappedX = snappedGridX;
-      guides.push({
-        axis: 'vertical',
-        position: snappedGridX,
-        label: `${snappedGridX}px`,
-        type: 'edge',
-      });
+    const gx = Math.round(x / grid) * grid;
+    const gy = Math.round(y / grid) * grid;
+    const dx = Math.abs(gx - x);
+    const dy = Math.abs(gy - y);
+    const prio = SNAP_PRIORITY.grid;
+    if (dx < thresh && compete(prio, dx, bestXPriority, bestXDiff)) {
+      bestXDiff = dx;
+      bestXSnap = gx;
+      bestXGuide = { axis: 'vertical', position: gx, label: `${gx}px`, type: 'edge' };
+      bestXPriority = prio;
     }
-    if (Math.abs(snappedGridY - y) < thresh) {
-      snappedY = snappedGridY;
-      guides.push({
-        axis: 'horizontal',
-        position: snappedGridY,
-        label: `${snappedGridY}px`,
-        type: 'edge',
-      });
+    if (dy < thresh && compete(prio, dy, bestYPriority, bestYDiff)) {
+      bestYDiff = dy;
+      bestYSnap = gy;
+      bestYGuide = { axis: 'horizontal', position: gy, label: `${gy}px`, type: 'edge' };
+      bestYPriority = prio;
     }
   }
 
+  // C2: Layout grid snap
   if (options.layoutGridStep && options.layoutGridStep > 0) {
     const step = options.layoutGridStep;
-    const gridX = Math.round(x / step) * step;
-    const gridY = Math.round(y / step) * step;
-    if (Math.abs(gridX - x) < thresh) snappedX = gridX;
-    if (Math.abs(gridY - y) < thresh) snappedY = gridY;
+    const lx = Math.round(x / step) * step;
+    const ly = Math.round(y / step) * step;
+    const dx = Math.abs(lx - x);
+    const dy = Math.abs(ly - y);
+    const prio = SNAP_PRIORITY.layoutGrid;
+    if (dx < thresh && compete(prio, dx, bestXPriority, bestXDiff)) {
+      bestXDiff = dx;
+      bestXSnap = lx;
+      bestXGuide = { axis: 'vertical', position: lx, type: 'edge' };
+      bestXPriority = prio;
+    }
+    if (dy < thresh && compete(prio, dy, bestYPriority, bestYDiff)) {
+      bestYDiff = dy;
+      bestYSnap = ly;
+      bestYGuide = { axis: 'horizontal', position: ly, type: 'edge' };
+      bestYPriority = prio;
+    }
   }
 
+  // C3: Mid-point between two objects
   for (let i = 0; i < activeBounds.length; i++) {
     const a = activeBounds[i]!;
     for (let j = i + 1; j < activeBounds.length; j++) {
       const b = activeBounds[j]!;
       const midX = (a.x + a.w / 2 + b.x + b.w / 2) / 2;
       const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
-      if (Math.abs(cx - midX) < thresh) {
-        snappedX = x - (cx - midX);
-        guides.push({ axis: 'vertical', position: midX, type: 'midpoint', label: 'mid' });
+      const dmx = Math.abs(cx - midX);
+      const dmy = Math.abs(cy - midY);
+      const prio = SNAP_PRIORITY.midpoint;
+      if (dmx < thresh && compete(prio, dmx, bestXPriority, bestXDiff)) {
+        bestXDiff = dmx;
+        bestXSnap = x - (cx - midX);
+        bestXGuide = { axis: 'vertical', position: midX, type: 'midpoint', label: 'mid' };
+        bestXPriority = prio;
       }
-      if (Math.abs(cy - midY) < thresh) {
-        snappedY = y - (cy - midY);
-        guides.push({ axis: 'horizontal', position: midY, type: 'midpoint', label: 'mid' });
+      if (dmy < thresh && compete(prio, dmy, bestYPriority, bestYDiff)) {
+        bestYDiff = dmy;
+        bestYSnap = y - (cy - midY);
+        bestYGuide = { axis: 'horizontal', position: midY, type: 'midpoint', label: 'mid' };
+        bestYPriority = prio;
       }
     }
   }
-
-  let bestXDiff = Infinity;
-  let bestXSnap = snappedX;
-  let bestXGuide: SnapGuide | null = null;
-  let bestYDiff = Infinity;
-  let bestYSnap = snappedY;
-  let bestYGuide: SnapGuide | null = null;
 
   for (const b of activeBounds) {
     const bCX = b.x + b.w / 2;
@@ -215,29 +256,35 @@ export function snapPosition(
 
     for (const key of ['left', 'centerX', 'right'] as const) {
       const diff = edges[key] - bEdges[key];
-      if (Math.abs(diff) < thresh && Math.abs(diff) < bestXDiff) {
-        bestXDiff = Math.abs(diff);
+      const absDiff = Math.abs(diff);
+      const prio = key === 'centerX' ? SNAP_PRIORITY.center : SNAP_PRIORITY.edge;
+      if (absDiff < thresh && compete(prio, absDiff, bestXPriority, bestXDiff)) {
+        bestXDiff = absDiff;
         bestXSnap = x - diff;
         bestXGuide = {
           axis: 'vertical',
           position: bEdges[key],
-          distance: Math.abs(diff),
+          distance: absDiff,
           type: key === 'centerX' ? 'center' : 'edge',
         };
+        bestXPriority = prio;
       }
     }
 
     for (const key of ['top', 'centerY', 'bottom'] as const) {
       const diff = edges[key] - bEdges[key];
-      if (Math.abs(diff) < thresh && Math.abs(diff) < bestYDiff) {
-        bestYDiff = Math.abs(diff);
+      const absDiff = Math.abs(diff);
+      const prio = key === 'centerY' ? SNAP_PRIORITY.center : SNAP_PRIORITY.edge;
+      if (absDiff < thresh && compete(prio, absDiff, bestYPriority, bestYDiff)) {
+        bestYDiff = absDiff;
         bestYSnap = y - diff;
         bestYGuide = {
           axis: 'horizontal',
           position: bEdges[key],
-          distance: Math.abs(diff),
+          distance: absDiff,
           type: key === 'centerY' ? 'center' : 'edge',
         };
+        bestYPriority = prio;
       }
     }
   }
@@ -296,6 +343,7 @@ export function snapPosition(
     else session = { ...session, stickyY: null };
   }
 
+  // C4: Spacing distribution (lowest priority)
   const xGaps: { mid: number; gap: number }[] = [];
   const yGaps: { mid: number; gap: number }[] = [];
   for (const a of otherBounds) {
@@ -315,7 +363,9 @@ export function snapPosition(
     const best = xGaps.reduce((a, b) =>
       Math.abs(a.gap - (a.mid - cx)) < Math.abs(b.gap - (b.mid - cx)) ? a : b,
     );
-    if (Math.abs(cx - best.mid) < thresh * 3) {
+    const dmx = Math.abs(cx - best.mid);
+    const prio = SNAP_PRIORITY.spacing;
+    if (dmx < thresh * 3 && compete(prio, dmx, bestXPriority, bestXDiff)) {
       snappedX = x - (cx - best.mid);
       guides.push({
         axis: 'vertical',
@@ -329,7 +379,9 @@ export function snapPosition(
     const best = yGaps.reduce((a, b) =>
       Math.abs(a.gap - (a.mid - cy)) < Math.abs(b.gap - (b.mid - cy)) ? a : b,
     );
-    if (Math.abs(cy - best.mid) < thresh * 3) {
+    const dmy = Math.abs(cy - best.mid);
+    const prio = SNAP_PRIORITY.spacing;
+    if (dmy < thresh * 3 && compete(prio, dmy, bestYPriority, bestYDiff)) {
       snappedY = y - (cy - best.mid);
       guides.push({
         axis: 'horizontal',
@@ -386,45 +438,69 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   let snappedW = box.w;
   let snappedH = box.h;
 
-  // Snap position (center)
-  if (otherBounds.length > 0) {
-    let bestXDiff = Infinity;
-    let bestYDiff = Infinity;
+  let bestXDiff = Infinity;
+  let bestXPriority = -1;
+  let bestYDiff = Infinity;
+  let bestYPriority = -1;
 
+  // Snap position (center) — priority: center
+  if (otherBounds.length > 0) {
     for (const b of otherBounds) {
       const bCx = b.x + b.w / 2;
       const bCy = b.y + b.h / 2;
 
-      const xDiff = box.cx - bCx;
-      const yDiff = box.cy - bCy;
+      const xDiff = Math.abs(box.cx - bCx);
+      const yDiff = Math.abs(box.cy - bCy);
 
-      if (Math.abs(xDiff) < thresh && Math.abs(xDiff) < bestXDiff) {
-        bestXDiff = Math.abs(xDiff);
+      if (xDiff < thresh && compete(SNAP_PRIORITY.center, xDiff, bestXPriority, bestXDiff)) {
+        bestXDiff = xDiff;
+        bestXPriority = SNAP_PRIORITY.center;
         snappedCx = bCx;
       }
 
-      if (Math.abs(yDiff) < thresh && Math.abs(yDiff) < bestYDiff) {
-        bestYDiff = Math.abs(yDiff);
+      if (yDiff < thresh && compete(SNAP_PRIORITY.center, yDiff, bestYPriority, bestYDiff)) {
+        bestYDiff = yDiff;
+        bestYPriority = SNAP_PRIORITY.center;
         snappedCy = bCy;
       }
     }
   }
 
-  // Snap to grid
+  // Snap to grid (higher priority than center)
   if (grid && grid > 0) {
     const gridCx = Math.round(box.cx / grid) * grid;
     const gridCy = Math.round(box.cy / grid) * grid;
-    if (Math.abs(gridCx - box.cx) < thresh) snappedCx = gridCx;
-    if (Math.abs(gridCy - box.cy) < thresh) snappedCy = gridCy;
+    const dx = Math.abs(gridCx - box.cx);
+    const dy = Math.abs(gridCy - box.cy);
+    if (dx < thresh && compete(SNAP_PRIORITY.grid, dx, bestXPriority, bestXDiff)) {
+      bestXDiff = dx;
+      bestXPriority = SNAP_PRIORITY.grid;
+      snappedCx = gridCx;
+    }
+    if (dy < thresh && compete(SNAP_PRIORITY.grid, dy, bestYPriority, bestYDiff)) {
+      bestYDiff = dy;
+      bestYPriority = SNAP_PRIORITY.grid;
+      snappedCy = gridCy;
+    }
   }
 
   // Snap to layout grid
   if (layoutGridStep && layoutGridStep > 0) {
     const step = layoutGridStep;
-    const gridCx = Math.round(box.cx / step) * step;
-    const gridCy = Math.round(box.cy / step) * step;
-    if (Math.abs(gridCx - box.cx) < thresh) snappedCx = gridCx;
-    if (Math.abs(gridCy - box.cy) < thresh) snappedCy = gridCy;
+    const lx = Math.round(box.cx / step) * step;
+    const ly = Math.round(box.cy / step) * step;
+    const dx = Math.abs(lx - box.cx);
+    const dy = Math.abs(ly - box.cy);
+    if (dx < thresh && compete(SNAP_PRIORITY.layoutGrid, dx, bestXPriority, bestXDiff)) {
+      bestXDiff = dx;
+      bestXPriority = SNAP_PRIORITY.layoutGrid;
+      snappedCx = lx;
+    }
+    if (dy < thresh && compete(SNAP_PRIORITY.layoutGrid, dy, bestYPriority, bestYDiff)) {
+      bestYDiff = dy;
+      bestYPriority = SNAP_PRIORITY.layoutGrid;
+      snappedCy = ly;
+    }
   }
 
   // Snap size

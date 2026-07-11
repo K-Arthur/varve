@@ -1,5 +1,5 @@
 import { exportDocumentToSvg } from '@strata/codegen';
-import { CHROME_ICONS, FloatingPortal, IconButton, StrataLogo } from '@strata/ui';
+import { AlertDialog, CHROME_ICONS, FloatingPortal, IconButton, StrataLogo } from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -329,6 +329,7 @@ export function Menubar({
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [editingName, setEditingName] = useState(false);
+  const [confirmNewDoc, setConfirmNewDoc] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -384,7 +385,7 @@ export function Menubar({
       setOpenMenu(null);
       switch (action) {
         case 'new':
-          if (confirm('Create a new document? Unsaved changes will be lost.')) newDocument();
+          setConfirmNewDoc(true);
           break;
         case 'save':
           save();
@@ -852,6 +853,19 @@ export function Menubar({
           <span className="editor-menubar__zoom-unit">%</span>
         </div>
       </div>
+
+      <AlertDialog
+        open={confirmNewDoc}
+        onClose={() => setConfirmNewDoc(false)}
+        onConfirm={() => {
+          setConfirmNewDoc(false);
+          newDocument();
+        }}
+        title="New Document"
+        description="Create a new document? Unsaved changes will be lost."
+        confirmLabel="Create"
+        variant="danger"
+      />
     </div>
   );
 }

@@ -10,13 +10,19 @@
  *
  * Handles intersections at polygon vertices (alpha near 0/1) by recording
  * them on the existing vertex rather than inserting a duplicate.
+ *
+ * Hardened with pre-processing (cleanPolygon) and self-intersection
+ * detection + resolution at the clipPolygons entry point.
  */
 import type { PathPoint } from '@strata/engine';
 import type { Fill, ShapeNode } from './types';
 
 export type BooleanOpKind = 'union' | 'subtract' | 'intersect' | 'exclude';
 
-type Point2D = { x: number; y: number };
+export type Point2D = { x: number; y: number };
+
+const CLOSE_EPS = 1e-10;
+const CLIP_EPS = 0.5;
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────
 
@@ -509,13 +515,182 @@ function assembleContour(runs: Run[]): Point2D[] | null {
   return best;
 }
 
+// ── Polygon pre-processing ────────────────────────────────────────────────────
+
+/**
+ * Clean a polygon for boolean operations:
+ *  1. Remove explicit closing vertex (last ≈ first)
+ *  2. Remove consecutive duplicate points
+ *  3. Remove collinear points (cross product ≤ epsilon)
+ *  4. Return empty array if fewer than 3 points remain
+ */
+export function cleanPolygon(poly: Point2D[], epsilon = CLIP_EPS): Point2D[] {
+  if (poly.length < 2) return [];
+
+  const n = poly.length;
+
+  // 1. Remove explicit closing vertex
+  const first = poly[0]!;
+  const last = poly[n - 1]!;
+  const hasClose =
+    n >= 3 && Math.abs(last.x - first.x) <= epsilon && Math.abs(last.y - first.y) <= epsilon;
+  const limit = hasClose ? n - 1 : n;
+
+  // 2. Remove consecutive duplicates
+  const deduped: Point2D[] = [];
+  for (let i = 0; i < limit; i++) {
+    const curr = poly[i]!;
+    if (deduped.length === 0) {
+      deduped.push(curr);
+    } else {
+      const prev = deduped[deduped.length - 1]!;
+      if (Math.abs(curr.x - prev.x) > epsilon || Math.abs(curr.y - prev.y) > epsilon) {
+        deduped.push(curr);
+      }
+    }
+  }
+  if (deduped.length < 3) return [];
+
+  // 3. Remove collinear points
+  const cleaned: Point2D[] = [deduped[0]!];
+  for (let i = 1; i < deduped.length - 1; i++) {
+    const prev = cleaned[cleaned.length - 1]!;
+    const curr = deduped[i]!;
+    const next = deduped[i + 1]!;
+    const cross = Math.abs(
+      (curr.x - prev.x) * (next.y - curr.y) - (curr.y - prev.y) * (next.x - curr.x),
+    );
+    if (cross > epsilon) {
+      cleaned.push(curr);
+    }
+  }
+  const lastP = deduped[deduped.length - 1]!;
+  cleaned.push(lastP);
+
+  if (cleaned.length < 3) return [];
+  return cleaned;
+}
+
+// ── Self-intersection detection ───────────────────────────────────────────────
+
+/**
+ * Check whether a polygon self-intersects (any pair of non-adjacent edges
+ * cross). Returns false for degenerate (<3 vertices) polygons.
+ */
+export function hasSelfIntersections(poly: Point2D[]): boolean {
+  const n = poly.length;
+  if (n < 3) return false;
+
+  // Detect explicit closing vertex
+  const hasClose =
+    n >= 3 &&
+    Math.abs(poly[n - 1]!.x - poly[0]!.x) < CLOSE_EPS &&
+    Math.abs(poly[n - 1]!.y - poly[0]!.y) < CLOSE_EPS;
+  const m = hasClose ? n - 1 : n;
+  if (m < 3) return false;
+
+  for (let i = 0; i < m; i++) {
+    const a1 = poly[i]!;
+    const a2 = poly[(i + 1) % m]!;
+    for (let j = i + 2; j < m; j++) {
+      if (i === 0 && j === m - 1) continue;
+      if ((i + 1) % m === j || (j + 1) % m === i) continue;
+      const b1 = poly[j]!;
+      const b2 = poly[(j + 1) % m]!;
+      if (segmentIntersection(a1, a2, b1, b2)) return true;
+    }
+  }
+  return false;
+}
+
+// ── Self-intersection resolution ──────────────────────────────────────────────
+
+/**
+ * Split a self-intersecting polygon into an array of non-self-intersecting
+ * sub-polygons. Uses the first detected intersection to bisect, then recurses
+ * on each half.
+ */
+export function resolveSelfIntersections(poly: Point2D[]): Point2D[][] {
+  const n = poly.length;
+  if (n < 3) return [poly];
+
+  const hasClose =
+    n >= 3 &&
+    Math.abs(poly[n - 1]!.x - poly[0]!.x) < CLOSE_EPS &&
+    Math.abs(poly[n - 1]!.y - poly[0]!.y) < CLOSE_EPS;
+  const m = hasClose ? n - 1 : n;
+  if (m < 3) return [poly];
+
+  for (let i = 0; i < m; i++) {
+    const a1 = poly[i]!;
+    const a2 = poly[(i + 1) % m]!;
+    for (let j = i + 2; j < m; j++) {
+      if (i === 0 && j === m - 1) continue;
+      if ((i + 1) % m === j || (j + 1) % m === i) continue;
+      const b1 = poly[j]!;
+      const b2 = poly[(j + 1) % m]!;
+      const seg = segmentIntersection(a1, a2, b1, b2);
+      if (seg) {
+        const X = seg.point;
+        // Build sub-polygons by walking the perimeter
+        // Poly A: V[i+1] … V[j] + X (loop back)
+        const polyA: Point2D[] = [X];
+        for (let k = i + 1; k <= j; k++) {
+          polyA.push(poly[k % m]!);
+        }
+        polyA.push(X);
+
+        // Poly B: V[j+1] … V[i] + X (wrap-around)
+        const polyB: Point2D[] = [X];
+        for (let k = j + 1; k < m + i + 1; k++) {
+          polyB.push(poly[k % m]!);
+        }
+        polyB.push(X);
+
+        const result: Point2D[][] = [];
+        for (const sub of [polyA, polyB]) {
+          const resolved = resolveSelfIntersections(sub);
+          for (const r of resolved) {
+            if (r.length >= 3) result.push(r);
+          }
+        }
+        return result;
+      }
+    }
+  }
+  return [poly];
+}
+
 function clipPolygons(
   subject: Point2D[],
   clip: Point2D[],
   operation: 'intersect' | 'union' | 'subtract',
 ): Point2D[] | null {
-  const sub = ensureCCW(subject);
-  const clp = ensureCCW(clip);
+  // Pre-process: clean both polygons
+  const cleanedSub = cleanPolygon(subject);
+  const cleanedClip = cleanPolygon(clip);
+  if (cleanedSub.length < 3 || cleanedClip.length < 3) return null;
+
+  // Resolve self-intersections — process each sub-polygon independently
+  if (hasSelfIntersections(cleanedSub)) {
+    const parts = resolveSelfIntersections(cleanedSub);
+    for (const part of parts) {
+      const result = clipPolygons(part, cleanedClip, operation);
+      if (result) return result;
+    }
+    return null;
+  }
+  if (hasSelfIntersections(cleanedClip)) {
+    const parts = resolveSelfIntersections(cleanedClip);
+    for (const part of parts) {
+      const result = clipPolygons(cleanedSub, part, operation);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  const sub = ensureCCW(cleanedSub);
+  const clp = ensureCCW(cleanedClip);
   const xs = findIntersections(sub, clp);
 
   if (xs.length === 0) {

@@ -1,6 +1,6 @@
 # Render Pipeline Architecture
 
-**Updated:** 2026-07-08
+**Updated:** 2026-07-10
 
 ## Overview
 
@@ -28,6 +28,9 @@ Document (@strata/scene)
 | IR build (Rust) | `crates/strata-engine/src/lib.rs` | `build_render_ir` |
 | IPC bridge | `apps/desktop/src-tauri/src/lib.rs` | `build_render_ir`, `hit_test` Tauri commands |
 | Replay | `packages/engine/src/replay.ts` | Canvas2D immediate-mode paint |
+| Blur | `packages/engine/src/blur.ts` | Separable Gaussian/box blur kernels, linear-light conversion, downsample-blur-upsample |
+| Filter compositor | `packages/engine/src/filterCompositor.ts` | Offscreen compositing for non-CSS filters with per-filter opacity/blend |
+| Halftone | `packages/engine/src/halftone.ts` | AM (clustered-dot) + FM (Floyd-Steinberg + Bayer) screening |
 | Compositor | `packages/compositor/src/` | Backend router, tile cache, WebGPU scaffold |
 
 ## Hit Testing (Duplicate Paths)
@@ -86,6 +89,48 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
 | Diagnostics | Status bar via `CompositorDiagnostics` (backend id, pool/bundle counts) |
 
+## Blur Architecture (Session 47)
+
+Blur effects use a **hybrid CSS/software strategy** with a dedicated separable convolution module at `packages/engine/src/blur.ts`.
+
+### Kernel functions
+
+| Function | Space | Used by |
+|---|---|---|
+| `gaussianBlurSeparable(data, radius)` | sRGB gamma, premultiplied alpha | Layer blur path in `replay.ts` |
+| `gaussianBlurLinearLight(data, radius)` | Linear-light (sRGB→linear→blur→sRGB), premultiplied alpha | `CompositeCanvas.applyBlur` for compositing operations |
+| `boxBlurSeparable(data, radius)` | sRGB gamma, premultiplied alpha, O(n) sliding-window | Optimized uniform blur variant |
+
+### Premultiplied alpha
+
+All separable kernels convert to premultiplied alpha before convolution and convert back after (`premultiply()`/`unpremultiply()`). This eliminates dark-fringing artifacts at transparent edges that occur when blurring straight-alpha pixels.
+
+### Downsample-blur-upsample (radius > 100px)
+
+For radii > 100px, the image is downsampled by up to 4×, blurred at the reduced radius (`radius/factor`), then upsampled back via `ctx.drawImage` (bilinear). This avoids O(r) convolution cost at extreme radii where the blur is wide enough that a lower-resolution kernel is visually indistinguishable.
+
+### Hybrid dispatch in `CompositeCanvas.applyBlur()`
+
+| Radius | Strategy | Hardware |
+|---|---|---|
+| ≤ 32px | CSS `filter: blur(radius)px` | GPU (CSS filter, single-pass, full 2D convolution) |
+| > 32px | Software `gaussianBlurLinearLight` | CPU (separable 2-pass, lower asymptotic cost at large radii) |
+
+The layer-blur path in `replay.ts` follows the same hybrid strategy: radius > 32px routes to `gaussianBlurSeparable` software path, ≤ 32px uses the CSS filter path.
+
+### Backdrop blur LRU cache (Phase G)
+
+A module-level `backdropCache` Map in `replay.ts` caches blurred backdrop captures:
+
+- **Max entries:** 20 (`BACKDROP_CACHE_MAX`)
+- **TTL:** 500ms (`BACKDROP_CACHE_TTL`)
+- **Cache key:** `{lx,ly,lw,lh}` (world bounds) + canvas transform JSON + item transform JSON + blur radius
+- **Sweep:** Called at the start of each `replayIr()` via `sweepBackdropCache()`
+- **Eviction:** LRU (oldest-access entry evicted when full)
+- **Testability:** Exported `__clearBackdropCache()` and `__getBackdropCacheSize()`
+
+Only backdrop blur is cached. Drop shadow, inner shadow, layer blur, outer glow, and inner glow recompute every frame.
+
 ## Performance Optimizations (Session 43)
 
 ### Camera-only fast path
@@ -110,5 +155,7 @@ The OffscreenCanvas render worker now applies `computeFloatingOrigin()` in its c
 ## Known Gaps
 
 - WebKitGTK (Linux Tauri) has no WebGPU; Canvas2D is the production path on CachyOS/Wayland.
-- Leaf IR replay routes through `@strata/compositor.drawVectorItems`; mask/frame-clip/group-flatten structural logic remains in `CanvasArea.replaySubtreeToCtx`.
+- Leaf IR replay routes through `@strata/compositor.drawVectorItems`; mask/frame-clip/group-flatten structural logic remains in `CanvasArea.replaySubtreeToCtx`. Blur compositing uses the separable blur module in `@strata/engine`, not the compositor.
 - Render worker offloads flat, **image-free** scenes via `ImageBitmap` + `compositeRasterLayer`; structural scenes and any scene with image fills stay on main-thread replay (see Render invariant 2). Full `transferControlToOffscreen` deferred.
+- Blur effects are CPU-only for radius > 32px (separable software path). The CSS GPU path is used only for radius ≤ 32px. No WebGPU blur path exists — the WebGPU compositor routes solely on primitive kind and never inspects `item.effects` to dispatch blur.
+- Only backdrop blur has a dedicated LRU cache. Drop shadow, inner shadow, layer blur, outer glow, and inner glow recompute every frame.

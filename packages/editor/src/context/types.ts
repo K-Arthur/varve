@@ -14,7 +14,7 @@ import type {
   SceneNode,
   VariableValue,
 } from '@strata/scene';
-import type { DocumentUnit, Viewport } from '@strata/shared';
+import type { DistributeMode, DocumentUnit, Viewport } from '@strata/shared';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
@@ -233,6 +233,7 @@ export interface EditorContextValue {
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
+  distributeWithMode: (axis: 'horizontal' | 'vertical', mode: DistributeMode) => void;
   setKeyObject: (nodeId: string | null) => void;
   keyObjectId: string | null;
   alignToPage: boolean;
@@ -324,6 +325,12 @@ export interface EditorContextValue {
   announce: (msg: string) => void;
   announceSelection: (selected: SceneNode[]) => void;
   announceOperation: (op: string, result: string) => void;
+  /** Show a visual toast notification (also announced via aria-live). */
+  showToast: (opts: {
+    message: string;
+    type?: 'info' | 'success' | 'warning' | 'error';
+    duration?: number;
+  }) => void;
 
   // Adjustment layers
   createAdjustmentLayer: (initialAdjustments?: Adjustment[]) => void;

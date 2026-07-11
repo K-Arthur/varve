@@ -169,11 +169,43 @@ describe('resizeSelectionBox', () => {
     approx(next.cy, 0);
   });
 
-  it('clamps width to minSize when dragged past zero', () => {
+  it('flips width when east handle dragged past left edge', () => {
     const box: SelectionBox = { cx: 0, cy: 0, w: 10, h: 10, rotation: 0 };
     const next = resizeSelectionBox(box, 'e', [-100, 0], { minSize: 2 });
-    expect(next.w).toBe(2);
-    expect(next.h).toBe(10);
+    // East handle crosses center: new right edge = old right + dx = 5 + (-100) = -95
+    // Left edge stays at -5. Center becomes (-5 + -95)/2 = -50. Width = 90
+    approx(next.w, 90, 1);
+    approx(next.cx, -50, 1);
+    approx(next.h, 10);
+  });
+
+  it('flips height when south handle dragged past top edge', () => {
+    const box: SelectionBox = { cx: 0, cy: 0, w: 10, h: 10, rotation: 0 };
+    const next = resizeSelectionBox(box, 's', [0, -100]);
+    approx(next.h, 90, 1);
+    approx(next.cy, -50, 1);
+    approx(next.w, 10);
+  });
+
+  it('flips X with proportional edge handle', () => {
+    const box: SelectionBox = { cx: 0, cy: 0, w: 20, h: 10, rotation: 0 };
+    const next = resizeSelectionBox(box, 'e', [-100, 0], { proportional: true });
+    // rawW = 20 + (-100) = -80, flip to 80, newH = 10 * 80/20 = 40
+    // newCx = 0 + (1 * (-80 - 20)) / 2 = -50
+    approx(next.w, 80, 1);
+    approx(next.h, 40, 1);
+    approx(next.cx, -50, 1);
+  });
+
+  it('flips Y with north handle', () => {
+    const box: SelectionBox = { cx: 0, cy: 0, w: 10, h: 10, rotation: 0 };
+    const next = resizeSelectionBox(box, 'n', [0, 100]);
+    // Drag north handle down past center: ny = 0+50+100...
+    // n: sx=0,sy=-1. newH = 10 + 1*(-1)*100 = -90. rawH=-90, flip to 90.
+    // newH = 90, newCy = 0 + (-1 * (-90 - 10)) / 2 = 0 + 100/2 = 50
+    approx(next.h, 90, 1);
+    approx(next.cy, 50, 1);
+    approx(next.w, 10);
   });
 });
 

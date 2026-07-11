@@ -6,3 +6,5 @@ export {
   computeGridLayout,
   parseGridTracks,
 } from './computeGridLayout';
+export type { CycleCheckResult, LayoutCycleVerdict } from './cycleDetection';
+export { checkLayoutCycle } from './cycleDetection';

@@ -110,6 +110,85 @@ function readPascalString(view: DataView, offset: number): string {
 }
 
 /**
+ * Write a Pascal string (u16 BE length + UTF-16 BE chars).
+ */
+function writePascalString(s: string): Uint8Array {
+  const chars: number[] = [];
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    chars.push((code >> 8) & 0xff, code & 0xff);
+  }
+  const buf = new Uint8Array(2 + chars.length);
+  buf[0] = (s.length >> 8) & 0xff;
+  buf[1] = s.length & 0xff;
+  buf.set(chars, 2);
+  return buf;
+}
+
+/**
+ * Export colors to Adobe Swatch Exchange (.ase) binary format.
+ *
+ * Each color is written as an RGB color entry block.
+ * The resulting buffer can be round-tripped through parseAsePalette().
+ */
+export function exportAsePalette(_name: string, entries: AseColorEntry[]): ArrayBuffer {
+  const blockData: { type: number; data: Uint8Array }[] = [];
+
+  for (const entry of entries) {
+    const nameBytes = writePascalString(entry.name ?? '');
+    const modeBytes = new Uint8Array([0x52, 0x47, 0x42, 0x20]); // "RGB "
+    const values = new Uint8Array(16);
+    const dv = new DataView(values.buffer);
+    dv.setFloat32(0, Math.max(0, Math.min(1, entry.r / 255)), false);
+    dv.setFloat32(4, Math.max(0, Math.min(1, entry.g / 255)), false);
+    dv.setFloat32(8, Math.max(0, Math.min(1, entry.b / 255)), false);
+    dv.setFloat32(12, 0, false);
+    // 2-byte padding to ensure even block size
+    const padding = new Uint8Array(2);
+
+    const combined = new Uint8Array(nameBytes.length + 4 + 16 + 2);
+    combined.set(nameBytes, 0);
+    combined.set(modeBytes, nameBytes.length);
+    combined.set(values, nameBytes.length + 4);
+    combined.set(padding, nameBytes.length + 4 + 16);
+
+    blockData.push({ type: 2, data: combined });
+  }
+
+  // Header: 10 bytes; each block: 6-byte header + data
+  let totalLen = 10;
+  for (const block of blockData) {
+    totalLen += 6 + block.data.length;
+  }
+  // parseAsePalette requires at least 12 bytes
+  if (totalLen < 12) totalLen = 12;
+
+  const buf = new ArrayBuffer(totalLen);
+  const view = new DataView(buf);
+  const bufArray = new Uint8Array(buf);
+
+  // Write header
+  view.setUint8(0, 0x41); // A
+  view.setUint8(1, 0x53); // S
+  view.setUint8(2, 0x45); // E
+  view.setUint8(3, 0x46); // F
+  view.setUint16(4, 1, false); // version = 1
+  view.setUint32(6, entries.length, false); // block count
+
+  let offset = 10;
+  for (const block of blockData) {
+    const blockLen = 6 + block.data.length;
+    view.setUint16(offset, block.type, false);
+    view.setUint32(offset + 2, blockLen, false);
+    offset += 6;
+    bufArray.set(block.data, offset);
+    offset += block.data.length;
+  }
+
+  return buf;
+}
+
+/**
  * Parse an Adobe Swatch Exchange (.ase) binary file.
  *
  * Supported color modes: RGB, CMYK, LAB, Gray.
@@ -261,27 +340,36 @@ export function parseAcoPalette(buffer: ArrayBuffer): AcoColorEntry[] {
   let offset = 2;
 
   while (offset + 10 <= view.byteLength) {
-    const colorSpace = view.getUint16(offset, false);
-    offset += 2;
-    if (colorSpace === 0) {
-      // RGB: 4 x int16 (0-65535)
-      const rv = view.getUint16(offset, false);
-      const gv = view.getUint16(offset + 2, false);
-      const bv = view.getUint16(offset + 4, false);
-      offset += 8; // skip 2 padding bytes
-      colors.push({
-        r: Math.round((rv / 65535) * 255),
-        g: Math.round((gv / 65535) * 255),
-        b: Math.round((bv / 65535) * 255),
-      });
-    } else {
-      offset += 8;
-    }
+    try {
+      const colorSpace = view.getUint16(offset, false);
+      // Validate color space: 0=RGB, 1=HSB, 2=CMYK, 7=Lab, 8=Gray
+      if (![0, 1, 2, 7, 8].includes(colorSpace)) {
+        offset += 10;
+        continue;
+      }
+      offset += 2;
+      if (colorSpace === 0) {
+        // RGB: 4 x int16 (0-65535)
+        const rv = view.getUint16(offset, false);
+        const gv = view.getUint16(offset + 2, false);
+        const bv = view.getUint16(offset + 4, false);
+        offset += 8; // skip 2 padding bytes
+        colors.push({
+          r: Math.round((rv / 65535) * 255),
+          g: Math.round((gv / 65535) * 255),
+          b: Math.round((bv / 65535) * 255),
+        });
+      } else {
+        offset += 8;
+      }
 
-    // Version 2 has Pascal string name after each color
-    if (version === 2 && offset + 2 <= view.byteLength) {
-      const nameLen = view.getUint16(offset, false);
-      offset += 2 + nameLen * 2;
+      // Version 2 has Pascal string name after each color
+      if (version === 2 && offset + 2 <= view.byteLength) {
+        const nameLen = view.getUint16(offset, false);
+        offset += 2 + nameLen * 2;
+      }
+    } catch {
+      break;
     }
   }
 
