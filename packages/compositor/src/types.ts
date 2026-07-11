@@ -34,6 +34,8 @@ export interface CompositorDiagnostics {
   bundleCacheEntries: number;
   lastFrameVertexBytes: number;
   adapterIsFallback: boolean;
+  /** Shader module + pipeline compilation time during init, in ms. Not tracked by Canvas2DBackend. */
+  pipelineInitMs?: number;
 }
 
 export interface CompositorBackend {
