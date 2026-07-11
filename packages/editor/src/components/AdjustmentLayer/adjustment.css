@@ -264,7 +264,7 @@
   text-align: right;
 }
 
-.adj-editor__number:focus {
+.adj-editor__number:focus-visible {
   outline: none;
   border-color: var(--color-accent-primary);
 }
@@ -278,7 +278,7 @@
   font-size: var(--font-size-xs);
 }
 
-.adj-editor__select:focus {
+.adj-editor__select:focus-visible {
   outline: none;
   border-color: var(--color-accent-primary);
 }

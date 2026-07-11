@@ -143,7 +143,7 @@
   font-size: var(--font-size-sm);
 }
 
-.variant-box__input:focus {
+.variant-box__input:focus-visible {
   outline: none;
   border-color: var(--color-border-focus);
 }
@@ -260,7 +260,7 @@
   width: 100px;
 }
 
-.variant-box__text-input:focus {
+.variant-box__text-input:focus-visible {
   outline: none;
   border-color: var(--color-border-focus);
 }

@@ -286,15 +286,22 @@ export function useShortcuts(
       // The canvas keydown handler (zoom presets, tool keys, Space-pan) calls
       // preventDefault on keys it consumes — don't double-handle them here.
       if (e.defaultPrevented) return;
-      const tag = (e.target as HTMLElement).tagName?.toLowerCase();
+      const target = e.target as HTMLElement;
+      const tag = target.tagName?.toLowerCase();
       if (
         tag === 'input' ||
         tag === 'textarea' ||
         tag === 'select' ||
-        (e.target as HTMLElement).isContentEditable
+        target.isContentEditable ||
+        // Custom focusable ARIA widgets — skip global shortcuts while the user
+        // is interacting with a combobox, listbox, spinbutton, textbox, slider,
+        // or tree (arrow keys inside these should not trigger editor commands).
+        target.closest?.(
+          '[role="combobox"],[role="listbox"],[role="spinbutton"],[role="textbox"],[role="slider"],[role="tree"]',
+        )
       )
         return;
-      if ((e.target as HTMLElement).closest?.('[data-shortcut-ignore]')) return;
+      if (target.closest?.('[data-shortcut-ignore]')) return;
 
       for (const [id, _def] of Object.entries(SHORTCUT_DEFS)) {
         const binding = getEffectiveBinding(id);

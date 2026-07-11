@@ -10,7 +10,7 @@ import {
 import { createDocument, serializeDocument } from '@strata/scene';
 import { generateKeyBetween } from '@strata/shared';
 import { Dialog, Icon } from '@strata/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
 import { AssetBrowser } from './AssetBrowser';
 import { BatchActions } from './BatchActions';
@@ -42,6 +42,8 @@ export interface HomeShellProps {
   /** When an editor session is alive behind the home screen, lets the user
    *  jump back to it without reopening a file. */
   onResumeEditing?: () => void;
+  /** Called once the home screen has finished loading its initial data. */
+  onReady?: () => void;
 }
 
 async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson: string) {
@@ -63,8 +65,16 @@ async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson:
   }
 }
 
-export function HomeShell({ platform, onOpenFile, onResumeEditing }: HomeShellProps) {
+export function HomeShell({ platform, onOpenFile, onResumeEditing, onReady }: HomeShellProps) {
   const view = useHomeView(platform);
+  const readyFired = useRef(false);
+
+  useEffect(() => {
+    if (!view.loading && !readyFired.current) {
+      readyFired.current = true;
+      onReady?.();
+    }
+  }, [view.loading, onReady]);
   const actions = useFileActions(platform, view.refresh);
   const thumbnails = useThumbnailLoader(platform);
 

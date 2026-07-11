@@ -47,8 +47,8 @@ export function FocusTrap({ children, active = true, initialFocus }: FocusTrapPr
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    container.addEventListener('keydown', handleKeyDown);
+    return () => container.removeEventListener('keydown', handleKeyDown);
   }, [active]);
 
   useEffect(() => {

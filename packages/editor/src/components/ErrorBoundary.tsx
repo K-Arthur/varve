@@ -4,18 +4,22 @@ export interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error) => void;
+  /** If true, shows expandable error details with copy-to-clipboard. */
+  showDetails?: boolean;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
   key: number;
+  detailsOpen: boolean;
+  copied: boolean;
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null, key: 0 };
+    this.state = { hasError: false, error: null, key: 0, detailsOpen: false, copied: false };
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
@@ -31,11 +35,21 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     this.setState((prev) => ({ hasError: false, error: null, key: prev.key + 1 }));
   };
 
+  private handleCopyError = () => {
+    if (!this.state.error) return;
+    const text = `${this.state.error.message}\n${this.state.error.stack ?? ''}`;
+    navigator.clipboard.writeText(text).then(() => {
+      this.setState({ copied: true });
+      setTimeout(() => this.setState({ copied: false }), 2000);
+    });
+  };
+
   override render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
+      const { error, detailsOpen, copied } = this.state;
       return (
         <div className="error-boundary" role="alert">
           <svg
@@ -57,11 +71,34 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </svg>
           <h3 className="error-boundary__title">Something went wrong</h3>
           <p className="error-boundary__message">
-            {this.state.error?.message ?? 'An unexpected error occurred'}
+            {error?.message ?? 'An unexpected error occurred'}
           </p>
-          <button type="button" onClick={this.handleReload} className="error-boundary__action">
-            Reload
-          </button>
+          <div className="error-boundary__actions">
+            <button type="button" onClick={this.handleReload} className="error-boundary__action">
+              Reload
+            </button>
+            {this.props.showDetails && error && (
+              <button
+                type="button"
+                onClick={this.handleCopyError}
+                className="error-boundary__action error-boundary__action--secondary"
+              >
+                {copied ? 'Error copied' : 'Copy error'}
+              </button>
+            )}
+          </div>
+          {this.props.showDetails && error && (
+            <details
+              className="error-boundary__details"
+              open={detailsOpen}
+              onToggle={(e) => this.setState({ detailsOpen: (e.target as HTMLDetailsElement).open })}
+            >
+              <summary className="error-boundary__summary">Error details</summary>
+              <pre className="error-boundary__stack">
+                {error.stack ?? error.message}
+              </pre>
+            </details>
+          )}
         </div>
       );
     }
