@@ -88,6 +88,30 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
 | Device loss | `watchDeviceLost` clears pools; router swaps to Canvas2DBackend |
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
 | Diagnostics | Status bar via `CompositorDiagnostics` (backend id, pool/bundle counts) |
+| Minimum baseline | Software-emulated adapters (e.g. SwiftShader) are declined before `requestDevice()`; Canvas2D is used instead — see ADR-0003 |
+
+### Rollback & Incident Response
+
+- **Known caveat:** flipping `settings.render.preferWebGpu` requires an app/tab reload to re-init the compositor — it is not a hot-swap mid-session. Don't expect a live toggle to change the active backend without a reload.
+- **Incident order:** (1) flip `preferWebGpu` off (fast — no deploy needed for a user who already has the setting; a forced default change still needs a release), (2) only if the fallback itself doesn't resolve the issue, bisect and revert specific WebGPU/WASM commits — this implies the bug is in shared cleanup code (e.g. `destroy()`, vertex pool teardown) that runs regardless of which backend is active, since the fallback alone didn't help.
+- **Removal criterion:** see ADR-0003.
+
+### Shader/Pipeline Compilation Cost (2026-07-11)
+
+`WebGPUBackend.init()` now times shader-module + pipeline creation separately from
+WASM init, exposed as `CompositorDiagnostics.pipelineInitMs`. This was previously
+unmeasured — only WASM init latency had a metric.
+
+**Persistent cross-launch caching is not available to this backend today, confirmed
+against the current spec (not assumed from prior knowledge):** the W3C WebGPU spec
+gives user agents an internal, implementation-defined compilation cache, but exposes
+no application-facing API to serialize/reload compiled pipeline state across launches.
+Native (non-browser) `wgpu` has a `PipelineCache` type that supports exactly this, but
+that surface isn't reachable through `navigator.gpu` — it would only become relevant if
+this project moved to a native-wgpu-based renderer (the "Native wgpu overlay" option
+ADR-0003 defers). Re-check this if that architecture ever changes; the browser-facing
+spec could also gain this capability later and should be re-checked periodically rather
+than assumed still-absent indefinitely.
 
 ## Blur Architecture (Session 47)
 
@@ -179,6 +203,7 @@ Concrete budgets for hierarchy operations, measured at 10K-node scale:
 
 ## Known Gaps
 
+- **CI never exercises the real WebGPU rendering path (2026-07-11).** `.github/workflows/ci.yml`'s `rust`/`js` matrix runs on GitHub-hosted `ubuntu-latest`/`macos-latest`/`windows-latest` — none provide real GPU hardware. `packages/compositor/src/webgpu/golden.test.ts`'s `native WebGPU path renders without error` test self-skips via `it.skipIf(navigator.gpu === undefined)`, which is always true in Vitest/jsdom. The `e2e` job runs real Chromium via Playwright, but GitHub-hosted runners give headless Chromium no GPU passthrough either — at best it falls back to a software rasterizer (the same class of adapter Task 16 / ADR-0003 now declines at the app level), so even E2E doesn't validate the hardware-accelerated path. "Tests pass" and "E2E passes" should not be read as "the WebGPU path works on real hardware." See `docs/architecture/webgpu-manual-verification.md` for the manual check to run before relying on this path in a release. Resolving this properly (a GPU-enabled CI runner) is an infra/cost decision, not made here.
 - WebKitGTK (Linux Tauri) has no WebGPU; Canvas2D is the production path on CachyOS/Wayland.
 - Leaf IR replay routes through `@strata/compositor.drawVectorItems`; mask/frame-clip/group-flatten structural logic remains in `CanvasArea.replaySubtreeToCtx`. Blur compositing uses the separable blur module in `@strata/engine`, not the compositor.
 - Render worker offloads flat, **image-free** scenes via `ImageBitmap` + `compositeRasterLayer`; structural scenes and any scene with image fills stay on main-thread replay (see Render invariant 2). Full `transferControlToOffscreen` deferred.

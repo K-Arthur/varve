@@ -143,6 +143,7 @@ export class WebGPUBackend {
   private currentFrame: CompositorFrame | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private lastFrameVertexBytes = 0;
+  private pipelineInitMs = 0;
   private needsFallbackComposite = false;
   private frameCleared = false;
   private gpuDrawnThisFrame = false;
@@ -161,6 +162,15 @@ export class WebGPUBackend {
         (adapter as GPUAdapter & { info?: { device?: string } }).info?.device
           ?.toLowerCase()
           .includes('swift') ?? false;
+      if (this.adapterIsFallback) {
+        // Minimum supported baseline (ADR-0003): a software-emulated adapter
+        // (e.g. SwiftShader) is not a real GPU. The hand-tuned Canvas2D path
+        // outperforms software-rendered WebGPU, so decline it here rather than
+        // silently accepting degraded-but-technically-functional GPU mode.
+        // `adapterIsFallback` stays true (set above) so diagnostics can still
+        // distinguish "declined software adapter" from "no WebGPU at all".
+        throw new Error('WebGPU adapter is software-emulated; declining in favor of Canvas2D');
+      }
       const device = await adapter.requestDevice();
       const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
       if (!context) {
@@ -169,6 +179,14 @@ export class WebGPUBackend {
       }
       this.format = gpu.getPreferredCanvasFormat();
       context.configure({ device, format: this.format, alphaMode: 'premultiplied' });
+
+      // Measured separately from WASM init latency (see docs/architecture/render-pipeline.md) —
+      // shader/pipeline compilation is frequently the larger, more variable contributor to
+      // first-frame latency. No persistent cross-launch cache exists for this: the WebGPU
+      // spec has no application-facing pipeline-cache API (only an opaque, implementation-
+      // internal browser cache); that's a native-wgpu-only capability this browser-facing
+      // backend can't reach. See ADR-0003.
+      const pipelineInitStart = performance.now();
 
       const solidModule = device.createShaderModule({
         code: `${SOLID_VERTEX_WGSL}\n${SOLID_FRAGMENT_WGSL}`,
@@ -279,6 +297,8 @@ export class WebGPUBackend {
         },
         primitive: { topology: 'triangle-list' },
       });
+
+      this.pipelineInitMs = performance.now() - pipelineInitStart;
 
       const cameraBuffer = device.createBuffer({
         size: 32,
@@ -424,6 +444,7 @@ export class WebGPUBackend {
       bundleCacheEntries: this.bundleCache.size,
       lastFrameVertexBytes: this.lastFrameVertexBytes,
       adapterIsFallback: this.adapterIsFallback,
+      pipelineInitMs: this.pipelineInitMs,
     };
   }
 

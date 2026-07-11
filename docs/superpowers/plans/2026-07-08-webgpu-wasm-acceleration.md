@@ -2,13 +2,23 @@
 
 > **Status as of 2026-07-11 reconciliation:** Tasks 1-6 and 8-10 below are verified
 > committed on `master` (confirmed by reading the actual code, not just prior session
-> notes — see Task checkboxes). Task 7 is coded but not actually shipped (CI never
-> builds the SIMD artifact). Task 11's last recorded run (`Tests: PASSED 3970`,
+> notes — see Task checkboxes). Task 11's last recorded run (`Tests: PASSED 3970`,
 > `Typecheck: FAILED 43 pre-existing`, `Lint: FAILED 12 pre-existing/359 warnings`)
-> predates this reconciliation and should be re-run fresh before the next commit in
-> this area rather than trusted — it was sitting unlabeled at the top of this file.
-> Tasks 12-16 below are new, added from a second-pass addendum review; they were not
-> part of the original plan.
+> predated this reconciliation and was unlabeled at the top of this file; re-run fresh
+> the same day (2026-07-11) — see the note under Task 11 for the current numbers and
+> what's pre-existing vs. in-scope.
+>
+> **Update, same day:** Task 7's CI gap is fixed (`ci.yml` now runs `wasm-build-all`;
+> `build.yml` previously built no WASM at all for release packaging — also fixed, see
+> its own note). Tasks 12-16 — added from a second-pass addendum review, not part of
+> the original plan — are now implemented: rollback incident-response order and
+> removal criterion documented (12); WASM threading confirmed unused/moot, documented
+> (14); shader/pipeline-cache timing instrumented and confirmed no persistent-cache
+> API exists in the current spec (13); CI's lack of real GPU access documented plus a
+> manual verification checklist added, though the bigger infra decision (GPU CI
+> runner vs. scheduled hardware pass) is deliberately left open for a human (15); a
+> minimum-baseline policy now declines software-emulated adapters in favor of Canvas2D
+> (16).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -514,14 +524,19 @@ git commit -m "perf(wasm): enable wasm-opt -O3 for release builds"
 > **Reconciliation finding (2026-07-11):** `wasm-build-simd` and `wasm-build-all` recipes
 > exist in `justfile` (lines 34, 40) and `wasmLoader.ts` already fetches
 > `strata_wasm_simd_bg.wasm` first — code-complete. But `.github/workflows/ci.yml`
-> only runs `just wasm-build` (the base variant), never `wasm-build-all`. So the SIMD
-> artifact is never built or uploaded in CI/release, meaning every shipped build falls
-> through to the base WASM every time — the SIMD path is currently dead code in
-> practice, not a shipped optimization. Fixing this is a one-line CI change
-> (`wasm-build` → `wasm-build-all` in ci.yml and build.yml) plus confirming build time
-> impact is acceptable; tracked as a follow-up rather than done here since it changes
-> CI, which the git-workflow protocol (Task 15) says should land as its own reviewable
-> commit.
+> only ran `just wasm-build` (the base variant), never `wasm-build-all` — the SIMD
+> artifact was never built or uploaded in CI. Worse than initially estimated here:
+> `.github/workflows/build.yml` (the actual release-packaging workflow) had **no wasm
+> build step at all** — the gitignored `apps/desktop/public/wasm/` was simply empty on
+> a clean checkout, so every packaged release silently shipped the JS-only engine, not
+> just the non-SIMD one.
+>
+> **Fixed same day:** `ci.yml` now runs `wasm-build-all`. `build.yml` gained a new
+> `build-wasm` job (builds once on `ubuntu-latest`, uploads as `strata-wasm-release`)
+> that the per-OS `build` job (`needs: build-wasm`) downloads before `pnpm build` —
+> avoids rebuilding identical WASM output three times across the OS matrix. See
+> `docs/architecture/wasm-backends.md`'s Offline Asset Policy section for the
+> up-to-date description.
 
 - [ ] **Step 1: Add a `simd` feature to strata-wasm Cargo.toml**
 
@@ -870,6 +885,22 @@ git commit -m "test(perf): WebGPU vertex pool + WASM throughput benchmarks"
 > fresh run to confirm it's still accurate and still pre-existing (i.e., not introduced
 > by this work) before relying on it again. Re-run Steps 1-2 below and record the
 > result with a date instead of leaving it ambient.
+>
+> **Fresh run, 2026-07-11:** `packages/compositor` (this work's own area) is clean on
+> typecheck and all 3 test files pass (12 tests, 1 real-GPU test correctly skipped
+> without `navigator.gpu`). `cargo test --workspace` and `cargo clippy --workspace
+> --all-targets -D warnings` are both 100% clean (re-confirmed clippy standalone, not
+> just via a chained exit code). Repo-wide: typecheck fails on `packages/scene` (2
+> errors) and `packages/editor` (`snapping.ts`) — unrelated in-progress work, not this
+> feature; lint fails with 12 errors (a11y, e.g. `AdjustmentPanel.tsx`) — same count as
+> the stale note, genuinely pre-existing; `pnpm test` full suite: 3 files fail
+> (`canvas10k.bench`, `bezier.fuzz`, `VersionHistory` loading-state) — timing/fuzz-flake
+> shaped, none touch compositor or the wasm-engine facade; `pnpm audit:tokens` fails (2
+> pairs below WCAG threshold, tree-indent-guide) — unrelated, not previously recorded
+> at all. **Caveat:** the working tree changed *during* this session (unrelated
+> concurrent work landing on other files) — treat this as one dated snapshot, not a
+> guarantee of current repo-wide state; re-run before trusting it again, same as the
+> note above asks of the snapshot it replaces.
 
 - [ ] **Step 1: Run typecheck**
 
@@ -926,9 +957,9 @@ Expected: clean.
 
 **Rationale:** `settings.render.preferWebGpu` (`packages/editor/src/settings.ts:41,85`) already gives a runtime-toggleable fallback — it's a persisted setting with a Settings UI toggle, not a build-time flag, so incident response doesn't require a rebuild. That part of this concern is already satisfied. What's missing is documentation of the two things that make a fallback a real safety net rather than permanent dual-implementation debt: the exact incident-response order, and a criterion for when the fallback (and the Canvas2D-parity-maintenance burden it implies) gets removed.
 
-- [ ] **Step 1: Document known caveat** — flipping `preferWebGpu` currently requires an app/tab reload to re-init the compositor (per `WEBGPU_WASM_ENGINE_MEMORY.md`); it is not a hot-swap mid-session. State this explicitly in `docs/architecture/render-pipeline.md` so on-call doesn't discover it live.
-- [ ] **Step 2: Document incident-response order** — (a) flip `preferWebGpu` off / ship a default-flip if needed (fast, no deploy for users who already have the setting UI; a forced default change still needs a release), (b) only if the fallback itself doesn't resolve the issue, bisect and revert specific WebGPU/WASM commits (this implies shared cleanup code — e.g. `destroy()`, vertex pool teardown — is the suspect, since it runs regardless of which path is active).
-- [ ] **Step 3: Define removal criterion** — e.g. "remove the Canvas2D-parity requirement once WebGPU has shipped as default for N releases with no rollback, across the cross-platform matrix" (tie to whatever matrix Task 16 / ADR-0003 ends up defining). Record it in `docs/adr/0003-compositor-backend-selection.md` so it isn't an unstated permanent dual-implementation.
+- [x] **Step 1: Document known caveat** — flipping `preferWebGpu` currently requires an app/tab reload to re-init the compositor (per `WEBGPU_WASM_ENGINE_MEMORY.md`); it is not a hot-swap mid-session. State this explicitly in `docs/architecture/render-pipeline.md` so on-call doesn't discover it live.
+- [x] **Step 2: Document incident-response order** — (a) flip `preferWebGpu` off / ship a default-flip if needed (fast, no deploy for users who already have the setting UI; a forced default change still needs a release), (b) only if the fallback itself doesn't resolve the issue, bisect and revert specific WebGPU/WASM commits (this implies shared cleanup code — e.g. `destroy()`, vertex pool teardown — is the suspect, since it runs regardless of which path is active).
+- [x] **Step 3: Define removal criterion** — e.g. "remove the Canvas2D-parity requirement once WebGPU has shipped as default for N releases with no rollback, across the cross-platform matrix" (tie to whatever matrix Task 16 / ADR-0003 ends up defining). Record it in `docs/adr/0003-compositor-backend-selection.md` so it isn't an unstated permanent dual-implementation.
 
 ---
 
@@ -936,9 +967,9 @@ Expected: clean.
 
 **Rationale:** Pipeline/shader-module creation cost is a real, separate contributor to startup latency alongside WASM init, but it hasn't been measured here, and — this is the important constraint — **WebGPU does not currently expose a standard, JS-accessible persistent pipeline cache API** (unlike Vulkan's `VkPipelineCache` or Metal binary archives). Dawn/wgpu may cache internally at the process or driver level, but there is nothing in the spec today for an app to explicitly serialize compiled pipeline state to disk and reload it across launches. Treat "can we cache this" as an open research question with a likely-negative answer, not an implementation task.
 
-- [ ] **Step 1: Measure baseline** — add a timing mark around `device.createShaderModule` + `device.createRenderPipeline` in `WebGPUBackend.init()` (`packages/compositor/src/webgpu/backend.ts:173-281`), separate from WASM init timing. Log via the existing `CompositorDiagnostics` path.
-- [ ] **Step 2: Confirm spec status** — re-check the current WebGPU spec / Dawn and wgpu release notes for any shipped pipeline-cache proposal before assuming it's still unavailable; this changes fast enough to be worth a fresh look rather than trusting this document.
-- [ ] **Step 3: If still unavailable**, document the finding in `docs/architecture/render-pipeline.md` and close this out as "not implementable today, revisit if the spec changes" rather than leaving it as a silent gap. If a cache mechanism does exist by the time this is read, scope it as a new task rather than bolting it on here.
+- [x] **Step 1: Measure baseline** — add a timing mark around `device.createShaderModule` + `device.createRenderPipeline` in `WebGPUBackend.init()` (`packages/compositor/src/webgpu/backend.ts:173-281`), separate from WASM init timing. Log via the existing `CompositorDiagnostics` path.
+- [x] **Step 2: Confirm spec status** — re-check the current WebGPU spec / Dawn and wgpu release notes for any shipped pipeline-cache proposal before assuming it's still unavailable; this changes fast enough to be worth a fresh look rather than trusting this document.
+- [x] **Step 3: If still unavailable**, document the finding in `docs/architecture/render-pipeline.md` and close this out as "not implementable today, revisit if the spec changes" rather than leaving it as a silent gap. If a cache mechanism does exist by the time this is read, scope it as a new task rather than bolting it on here.
 
 ---
 
@@ -957,8 +988,8 @@ Expected: clean.
 **Rationale:** make explicit what "tests pass in CI" does and doesn't cover for the WebGPU path.
 
 - [x] **Finding:** `.github/workflows/ci.yml` runs the Rust/JS matrix on GitHub-hosted `ubuntu-latest` / `macos-latest` / `windows-latest` runners. None provide real GPU hardware access. `packages/compositor/src/webgpu/golden.test.ts:114` explicitly self-skips via `it.skipIf(navigator.gpu === undefined)` — in Vitest/jsdom, `navigator.gpu` is always undefined, so **the WebGPU rendering path has never been exercised by an automated test run**; only the Canvas2D fallback path and the code-level unit tests (vertex math, pool reuse, hashing) run in CI. The "11/11 pass, 1 skipped native GPU" note in `WEBGPU_WASM_ENGINE_MEMORY.md` is this same skip, worth reading as "untested," not "tested and fine."
-- [ ] **Step 1: Decide and document one of** — (a) a GPU-enabled CI runner (self-hosted with real hardware, or a GitHub-hosted GPU runner tier if available for this org), (b) a scheduled/manual benchmark-and-visual-regression pass on real hardware before each release, or (c) an explicit manual verification checklist maintained alongside releases. This is a cost/infra decision for a human, not something to default silently — flag it rather than pick one.
-- [ ] **Step 2:** whichever is chosen, add a line to `docs/architecture/render-pipeline.md` stating the actual GPU-testing posture so "tests pass" claims in future PRs don't imply GPU coverage they don't have.
+- [x] **Step 1 (partial): implemented the zero-infra-cost default, left the real decision open** — (c) is done: `docs/architecture/webgpu-manual-verification.md` is the manual verification checklist, linked from `render-pipeline.md`'s Known Gaps. (a) a GPU-enabled CI runner and (b) a scheduled hardware benchmark pass are genuine cost/infra decisions for a human and were deliberately **not** picked here — (c) is a stopgap, not a replacement for deciding whether (a)/(b) are worth the spend.
+- [x] **Step 2:** whichever is chosen, add a line to `docs/architecture/render-pipeline.md` stating the actual GPU-testing posture so "tests pass" claims in future PRs don't imply GPU coverage they don't have.
 
 ---
 
@@ -966,9 +997,9 @@ Expected: clean.
 
 **Rationale:** `WebGPUBackend.init()` (`packages/compositor/src/webgpu/backend.ts:160-163`) already detects when the adapter is a software implementation (`adapterIsFallback`, checking for `'swift'` i.e. SwiftShader) and surfaces it via `CompositorDiagnostics` — but nothing currently *acts* on that signal. Right now a SwiftShader-backed "WebGPU" adapter is treated the same as real hardware, which is exactly the indefinite-capability-degradation gap the addendum flagged: detection exists, policy doesn't.
 
-- [ ] **Step 1: Decide the floor** — e.g. "if `adapterIsFallback` is true, prefer Canvas2D over software-WebGPU" (a real GPU-optimized Canvas2D path is likely faster than a software-emulated WebGPU one) or "warn via diagnostics/status bar but allow it." This is a product/UX decision, not a technical one — surface it rather than pick silently.
-- [ ] **Step 2:** implement whichever policy is chosen in `drawVectorItems`/`init` gating logic.
-- [ ] **Step 3:** record the decision in `docs/adr/0003-compositor-backend-selection.md` alongside the existing backend-selection rationale, so it reads as one coherent policy instead of two separate half-decisions.
+- [x] **Step 1: Decide the floor** — e.g. "if `adapterIsFallback` is true, prefer Canvas2D over software-WebGPU" (a real GPU-optimized Canvas2D path is likely faster than a software-emulated WebGPU one) or "warn via diagnostics/status bar but allow it." This is a product/UX decision, not a technical one — surface it rather than pick silently.
+- [x] **Step 2:** implement whichever policy is chosen in `drawVectorItems`/`init` gating logic.
+- [x] **Step 3:** record the decision in `docs/adr/0003-compositor-backend-selection.md` alongside the existing backend-selection rationale, so it reads as one coherent policy instead of two separate half-decisions.
 
 ---
 
@@ -1014,3 +1045,10 @@ already merged.
 | WASM warmup | Loaded on first document open | Pre-warmed on idle (CanvasArea mount) |
 | Image fills in worker | Silently dropped (gate to main thread) | Structured Clone ImageBitmap transport |
 | Benchmarks | None for WebGPU/WASM | Vertex pool + buildIr throughput tests |
+| Release WASM (build.yml) | Not built — releases shipped JS-only engine | `build-wasm` job builds once, shared across OS matrix |
+| CI SIMD artifact | `just wasm-build` (base only) | `just wasm-build-all` (base + SIMD) in ci.yml too |
+| Software adapters (SwiftShader etc.) | Accepted as if real GPU | Declined pre-`requestDevice()`; Canvas2D used instead |
+| Shader/pipeline compile cost | Unmeasured | Timed separately via `CompositorDiagnostics.pipelineInitMs` |
+| Persistent pipeline cache | Unknown/assumed | Confirmed unavailable in current spec for browser-facing WebGPU |
+| CI GPU coverage | Implied by green tests | Documented as absent; manual checklist added |
+| Rollback plan | Toggle existed, no documented process | Incident order + removal criterion documented (ADR-0003) |

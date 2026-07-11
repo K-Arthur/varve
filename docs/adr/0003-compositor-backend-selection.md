@@ -26,8 +26,52 @@ IR-replay remains the stable seam; compositor consumes `RenderItem[]`.
 ## Verification
 
 - `packages/compositor/src/compositor.test.ts` — Canvas2D camera/clear/cache regression
-- `packages/compositor/src/webgpu/golden.test.ts` — WebGPU vs Canvas2D tolerance diff (skips without `navigator.gpu`)
+- `packages/compositor/src/webgpu/golden.test.ts` — WebGPU vs Canvas2D tolerance diff (skips without `navigator.gpu`); also covers the software-adapter-decline test below
 - `packages/editor/src/CanvasArea.render.test.tsx` — single compositor frame pass per draw
 - Golden replay hashes in `packages/engine/src/__goldens__/`
 
 WebGPUBackend acquires a real `GPUDevice` when `navigator.gpu` is available; unsupported primitives and device loss fall back to the embedded Canvas2D backend.
+
+## Minimum Supported Baseline (2026-07-11)
+
+`WebGPUBackend.init()` inspects the adapter's `info.device` string before requesting
+a `GPUDevice`. If it identifies a software rasterizer (currently: contains `"swift"`,
+matching SwiftShader — the software implementation most CI/headless Chromium
+environments fall back to when no real GPU is present), it declines the adapter and
+uses Canvas2D instead, without ever calling `requestDevice()`.
+
+**Rationale:** a software-emulated "WebGPU" adapter is not a real GPU — it's a CPU
+rasterizer behind the WebGPU API surface. The hand-tuned Canvas2D path
+(`packages/compositor/src/canvas2d/`) is expected to outperform a software-rendered
+WebGPU pipeline in practice, so accepting the software adapter would be strictly
+worse than declining it, not just unproven.
+
+`adapterIsFallback` in `CompositorDiagnostics` stays `true` even though the adapter
+was declined (not used) — this distinguishes "software adapter detected and declined"
+from "no WebGPU support at all" for diagnostics/status-bar purposes
+(`packages/editor/src/StatusBar.tsx`).
+
+This is a detection heuristic (a substring match on a vendor-supplied string), not a
+guarantee — if a future software renderer doesn't self-identify with "swift", it will
+be accepted as if it were real hardware. Revisit if evidence emerges of another
+software backend slipping through.
+
+## Fallback Removal Criterion
+
+`preferWebGpu` defaults to `false` and Canvas2D remains the universal fallback. This
+dual-implementation is intentional while WebGPU is unproven, but it is not meant to be
+permanent — maintaining golden-diff parity between two rendering backends indefinitely
+is its own maintenance cost.
+
+**Remove the Canvas2D-parity requirement (i.e., make WebGPU the sole path, or drop the
+opt-in gate and enable by default) once:**
+1. WebGPU has shipped as the default for at least one full release cycle with no
+   rollback triggered, **and**
+2. it has been validated on the cross-platform matrix this project targets (Linux
+   WebKitGTK stays Canvas2D regardless per the table above; macOS 26+ and Windows
+   WebView2 are the relevant WebGPU targets), **and**
+3. a real-GPU verification pass (not just CI, which cannot exercise the GPU path —
+   see the CI GPU-testing note in `docs/architecture/render-pipeline.md`) has signed
+   off on at least one release.
+
+Until all three hold, keep both backends and the golden-diff test alive.

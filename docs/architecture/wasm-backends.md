@@ -28,6 +28,15 @@ Desktop keeps the **native wedge** (ADR-0001): document state in unbounded nativ
 | `strata_wasm_bg.wasm` | baseline, wasm-opt -O3 | Fallback when SIMD artifact absent |
 | `strata_engine_threads.wasm` | `+atomics,+bulk-memory` | Web with COOP/COEP only (deferred) |
 
+**Threading reality check (2026-07-11):** nothing in this repo uses `SharedArrayBuffer`,
+`rayon`, or `wasm-bindgen-rayon` today — the `simd128` variant above is single-threaded
+lane parallelism and needs neither shared memory nor cross-origin isolation. Tauri's
+`apps/desktop/src-tauri/tauri.conf.json` currently sets `"csp": null` (no COOP/COEP
+equivalent configured), which is fine while nothing requests threading — but whoever
+picks up `strata_engine_threads.wasm` needs to verify Tauri's webview shell actually
+satisfies `SharedArrayBuffer` availability before relying on it; the COOP/COEP mental
+model is browser-tab-shaped and doesn't necessarily map 1:1 onto a Tauri webview.
+
 Runtime selection: `loadWasmEngineModule()` tries SIMD variant first (HEAD probe),
 then baseline. `prewarmWasmEngine()` instantiates during idle via `requestIdleCallback`.
 
@@ -40,7 +49,7 @@ Coarse scene-level calls only (avoid per-node WASM transitions):
 
 ## Offline Asset Policy
 
-- WASM modules ship in app bundle (`apps/desktop/public/wasm/`). CI runs `just wasm-build` and passes artifacts to E2E.
+- WASM modules ship in app bundle (`apps/desktop/public/wasm/`). `ci.yml` runs `just wasm-build-all` (base + SIMD) and passes artifacts to E2E. **`build.yml`** (the actual release-packaging workflow) previously built no WASM at all — the gitignored output directory was simply empty on a clean checkout, so every packaged release silently shipped with the JS-only engine. Fixed 2026-07-11: `build.yml` now has a `build-wasm` job (`wasm-build-all`, once on Linux) whose artifact every OS's release job downloads before `pnpm build`.
 - ONNX models use `manifest.json` with SHA-256 verification via `ModelLoader`. No `.onnx` binaries are committed yet (`bundled: false`); users download explicitly from settings (ADR-0005).
 - `strata-layout` / `strata-trace` WASM bindings remain deferred stubs.
 
