@@ -20,6 +20,7 @@ import type {
   Variable,
   VariableValue,
 } from '@strata/scene';
+import type { DistributeMode } from '@strata/shared';
 import type { ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 
@@ -59,6 +60,7 @@ export interface DocumentContextValue {
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
+  distributeWithMode: (axis: 'horizontal' | 'vertical', mode: DistributeMode) => void;
   setKeyObject: (nodeId: string | null) => void;
   keyObjectId: string | null;
   alignToPage: boolean;

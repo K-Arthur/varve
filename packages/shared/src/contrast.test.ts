@@ -210,4 +210,37 @@ describe('autoFixContrast', () => {
       expect(result.deltaEOK).toBeLessThan(5);
     }
   });
+
+  it('properly gamut-maps a wide-gamut saturated foreground on white', () => {
+    // Saturated green (0, 255, 0) on white — ~1.37:1, fails AA.
+    // The binary search darkens L while keeping a,b constant, which can
+    // produce Oklab→sRGB values outside the gamut. The fix uses
+    // chroma-reduction gamut mapping instead of simple clipping.
+    const result = autoFixContrast(0, 255, 0, 255, 255, 255);
+    expect(result).not.toBeNull();
+    if (result) {
+      expect(result.ratio).toBeGreaterThanOrEqual(WCAG_AA_NORMAL);
+      expect(result.deltaEOK).toBeLessThan(5);
+      // Should have darkened toward black
+      expect(result.r).toBeLessThanOrEqual(50);
+      expect(result.g).toBeLessThan(200);
+      expect(result.b).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it('produces identical results for in-gamut colors (gamut mapping is identity)', () => {
+    // Gray (150,150,150) on white — fully in sRGB gamut.
+    // Gamut mapping should produce the same result as simple clamping
+    // because the binary search never leaves the gamut.
+    const result = autoFixContrast(150, 150, 150, 255, 255, 255);
+    expect(result).not.toBeNull();
+    if (result) {
+      expect(result.ratio).toBeGreaterThanOrEqual(WCAG_AA_NORMAL);
+      expect(result.deltaEOK).toBeLessThan(5);
+      // Darkened toward black
+      expect(result.r).toBeLessThan(150);
+      expect(result.g).toBeLessThan(150);
+      expect(result.b).toBeLessThan(150);
+    }
+  });
 });

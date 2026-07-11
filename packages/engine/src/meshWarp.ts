@@ -1,10 +1,13 @@
 /**
- * Mesh warp — planar mesh-based image deformation.
+ * Mesh warp — planar mesh-based image & vector deformation.
  *
  * Architecture:
  *   A (cols+1) x (rows+1) grid of control points defines a deformation field.
  *   Each quad cell is split into 2 triangles; output pixels are located in
  *   source space via barycentric interpolation across the deformed mesh.
+ *   Vector paths are warped via forward mapping: source points are located
+ *   in the grid, bilinearly interpolated across the deformed cell, and
+ *   bezier curves are subdivided first for accuracy.
  *
  * Research basis: Photoshop Liquify mesh, Illustrator Envelope Distort,
  *   Beier-Neely line morphing (deferred), MLS deformation (deferred).
@@ -301,6 +304,236 @@ export function warpMesh(
         dst[idx + 3] = a;
       }
     }
+  }
+
+  return result;
+}
+
+/**
+ * Draw the mesh warp grid and control point handles onto a canvas context.
+ */
+export function renderWarpGrid(
+  ctx: CanvasRenderingContext2D,
+  mesh: MeshWarp,
+  color: string = '#39d0c6',
+  handleColor: string = '#ffffff',
+  handleRadius: number = 5,
+): void {
+  const { cols, rows, vertices } = mesh;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.7;
+
+  for (let r = 0; r <= rows; r++) {
+    ctx.beginPath();
+    const start = vertices[r * (cols + 1)]!;
+    ctx.moveTo(start.x, start.y);
+    for (let c = 1; c <= cols; c++) {
+      const v = vertices[r * (cols + 1) + c]!;
+      ctx.lineTo(v.x, v.y);
+    }
+    ctx.stroke();
+  }
+
+  for (let c = 0; c <= cols; c++) {
+    ctx.beginPath();
+    const start = vertices[c]!;
+    ctx.moveTo(start.x, start.y);
+    for (let r = 1; r <= rows; r++) {
+      const v = vertices[r * (cols + 1) + c]!;
+      ctx.lineTo(v.x, v.y);
+    }
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = handleColor;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  for (const v of vertices) {
+    ctx.beginPath();
+    ctx.arc(v.x, v.y, handleRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * Warp a single source point through the mesh deformation.
+ *
+ * Finds which grid cell contains the source point, computes its normalized
+ * UV within that cell, and bilinearly interpolates across the four deformed
+ * vertices of that cell to determine the warped position.
+ *
+ * Points outside the mesh bounds are clamped to the nearest edge.
+ */
+export function warpPosition(
+  mesh: MeshWarp,
+  srcW: number,
+  srcH: number,
+  sx: number,
+  sy: number,
+): { x: number; y: number } {
+  const { cols, rows, vertices } = mesh;
+  if (cols === 0 || rows === 0) return { x: sx, y: sy };
+
+  const cellW = srcW / cols;
+  const cellH = srcH / rows;
+
+  const col = Math.max(0, Math.min(cols - 1, Math.floor(sx / cellW)));
+  const row = Math.max(0, Math.min(rows - 1, Math.floor(sy / cellH)));
+
+  const cellX = sx / cellW - col;
+  const cellY = sy / cellH - row;
+  const tx = Math.max(0, Math.min(1, cellX));
+  const ty = Math.max(0, Math.min(1, cellY));
+
+  const v = (r: number, c: number) => r * (cols + 1) + c;
+
+  const tl = vertices[v(row, col)]!;
+  const tr = vertices[v(row, col + 1)]!;
+  const bl = vertices[v(row + 1, col)]!;
+  const br = vertices[v(row + 1, col + 1)]!;
+
+  const topX = tl.x + (tr.x - tl.x) * tx;
+  const bottomX = bl.x + (br.x - bl.x) * tx;
+  const x = topX + (bottomX - topX) * ty;
+
+  const topY = tl.y + (tr.y - tl.y) * tx;
+  const bottomY = bl.y + (br.y - bl.y) * ty;
+  const y = topY + (bottomY - topY) * ty;
+
+  return { x, y };
+}
+
+/**
+ * Subdivide a cubic bezier segment between two path points to within
+ * the given tolerance, returning intermediate points (excluding start).
+ * Uses recursive midpoint subdivision with a flatness test.
+ */
+function subdivideSegment(
+  prev: { x: number; y: number; handleOut?: [number, number] | null },
+  curr: { x: number; y: number; handleIn?: [number, number] | null },
+  tolerance: number,
+): { x: number; y: number }[] {
+  const hasOut = prev.handleOut && (prev.handleOut[0] !== 0 || prev.handleOut[1] !== 0);
+  const hasIn = curr.handleIn && (curr.handleIn[0] !== 0 || curr.handleIn[1] !== 0);
+  if (!hasOut && !hasIn) return [];
+
+  const c1x = prev.x + (prev.handleOut?.[0] ?? 0);
+  const c1y = prev.y + (prev.handleOut?.[1] ?? 0);
+  const c2x = curr.x + (curr.handleIn?.[0] ?? 0);
+  const c2y = curr.y + (curr.handleIn?.[1] ?? 0);
+
+  const points: { x: number; y: number }[] = [];
+
+  function subdivide(
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    cx: number,
+    cy: number,
+    dx: number,
+    dy: number,
+    depth: number,
+  ) {
+    if (depth > 10) return;
+
+    const flatness =
+      Math.abs(ax + cx - bx - bx) +
+      Math.abs(bx + dx - cx - cx) +
+      Math.abs(ay + cy - by - by) +
+      Math.abs(by + dy - cy - cy);
+
+    if (flatness < tolerance * 4) {
+      points.push({ x: dx, y: dy });
+      return;
+    }
+
+    const mx = (ax + bx) / 2,
+      my = (ay + by) / 2;
+    const nx = (bx + cx) / 2,
+      ny = (by + cy) / 2;
+    const ox = (cx + dx) / 2,
+      oy = (cy + dy) / 2;
+    const px = (mx + nx) / 2,
+      py = (my + ny) / 2;
+    const qx = (nx + ox) / 2,
+      qy = (ny + oy) / 2;
+    const rx = (px + qx) / 2,
+      ry = (py + qy) / 2;
+
+    subdivide(ax, ay, mx, my, px, py, rx, ry, depth + 1);
+    subdivide(rx, ry, qx, qy, ox, oy, dx, dy, depth + 1);
+  }
+
+  subdivide(prev.x, prev.y, c1x, c1y, c2x, c2y, curr.x, curr.y, 0);
+  return points;
+}
+
+/**
+ * Warp a vector path through the mesh deformation.
+ *
+ * For corner points (no handles): warps directly via warpPosition.
+ * For curve segments with bezier handles: subdivides the curve to a
+ * tolerance first, warps each resulting point, then returns a polyline
+ * approximation of the warped curve.
+ *
+ * Handles on corner points are preserved as-is (they're in local space
+ * and the warp is a coordinate transform).
+ */
+export function warpPath(
+  path: {
+    x: number;
+    y: number;
+    handleIn?: [number, number] | null;
+    handleOut?: [number, number] | null;
+  }[],
+  mesh: MeshWarp,
+  srcW: number,
+  srcH: number,
+  tolerance: number = 1,
+): {
+  x: number;
+  y: number;
+  handleIn: [number, number] | null;
+  handleOut: [number, number] | null;
+}[] {
+  if (path.length === 0) return [];
+
+  const result: {
+    x: number;
+    y: number;
+    handleIn: [number, number] | null;
+    handleOut: [number, number] | null;
+  }[] = [];
+
+  const wp = (px: number, py: number) => warpPosition(mesh, srcW, srcH, px, py);
+
+  for (let i = 0; i < path.length; i++) {
+    const p = path[i]!;
+    const prev = i > 0 ? path[i - 1] : null;
+
+    const warped = wp(p.x, p.y);
+
+    const hIn: [number, number] | null =
+      p.handleIn && (p.handleIn[0] !== 0 || p.handleIn[1] !== 0) ? p.handleIn : null;
+    const hOut: [number, number] | null =
+      p.handleOut && (p.handleOut[0] !== 0 || p.handleOut[1] !== 0) ? p.handleOut : null;
+
+    const hasPrevOut = prev?.handleOut && (prev.handleOut[0] !== 0 || prev.handleOut[1] !== 0);
+    const hasCurrIn = hIn !== null;
+    if (prev && (hasPrevOut || hasCurrIn)) {
+      const subdivided = subdivideSegment(prev, p, tolerance);
+      for (const sp of subdivided) {
+        const w = wp(sp.x, sp.y);
+        result.push({ x: w.x, y: w.y, handleIn: null, handleOut: null });
+      }
+    }
+
+    result.push({ x: warped.x, y: warped.y, handleIn: hIn, handleOut: hOut });
   }
 
   return result;

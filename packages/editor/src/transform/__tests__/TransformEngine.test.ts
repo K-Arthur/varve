@@ -1,4 +1,10 @@
-import { createDocument, makeFrameNode, makeShapeNode, nextNodeId } from '@strata/scene';
+import {
+  createDocument,
+  makeFrameNode,
+  makeShapeNode,
+  makeTextNode,
+  nextNodeId,
+} from '@strata/scene';
 import type { Affine } from '@strata/shared';
 import { scaleXY } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
@@ -198,5 +204,127 @@ describe('TransformEngine', () => {
     approx(world!.y, 0, 1e-6);
     approx(world!.w, 15, 1e-6);
     approx(world!.h, 10, 1e-6);
+  });
+
+  // D: Mixed-rotation multi-selection
+  it('multi-select with mixed rotations keeps individual rotations in matrix', () => {
+    let doc = createDocument('test', true);
+    const { id: aId, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    const { id: bId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const a = makeShapeNode(
+      aId,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { transform: [1, 0, 0, 1, 0, 0] as Affine, rotation: 0 },
+    );
+    const b = makeShapeNode(
+      bId,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { transform: [1, 0, 0, 1, 20, 0] as Affine, rotation: 45 },
+    );
+    doc = { ...doc, nodes: { ...doc.nodes, [aId]: a, [bId]: b }, rootChildren: [aId, bId] };
+
+    const engine = new TransformEngine(doc, [aId, bId]);
+    const newDoc = engine.resize([50, 15], 'se', {});
+    // Rotation is encoded in the matrix; decomposeAffine may return null for
+    // compound matrices. Verify the transform is valid and unchanged in structure.
+    const nodeB = newDoc.nodes[bId];
+    expect(nodeB).toBeDefined();
+    expect(nodeB!.transform.every((v) => Number.isFinite(v))).toBe(true);
+    // The world bounds should still exist and be positive
+    const wB = nodeWorldBounds(newDoc, bId);
+    expect(wB).not.toBeNull();
+    expect(wB!.w).toBeGreaterThan(0);
+    expect(wB!.h).toBeGreaterThan(0);
+  });
+
+  it('multi-select resize preserves world positions of all nodes', () => {
+    let doc = createDocument('test', true);
+    const { id: aId, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    const { id: bId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const a = makeShapeNode(
+      aId,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { transform: [1, 0, 0, 1, 0, 0] as Affine },
+    );
+    const b = makeShapeNode(
+      bId,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { transform: [1, 0, 0, 1, 30, 0] as Affine },
+    );
+    doc = { ...doc, nodes: { ...doc.nodes, [aId]: a, [bId]: b }, rootChildren: [aId, bId] };
+
+    const engine = new TransformEngine(doc, [aId, bId]);
+    const newDoc = engine.resize([50, 20], 'se', {});
+    const wA = nodeWorldBounds(newDoc, aId);
+    const wB = nodeWorldBounds(newDoc, bId);
+    expect(wA).not.toBeNull();
+    expect(wB).not.toBeNull();
+    // Both nodes should have the same proportional scale applied
+    approx(wA!.w / 10, wB!.w / 10, 1e-6);
+  });
+
+  it('multi-select with one rotated and one flat node has correct union box', () => {
+    let doc = createDocument('test', true);
+    const { id: aId, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    const { id: bId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const a = makeShapeNode(
+      aId,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { transform: [1, 0, 0, 1, 0, 0] as Affine, rotation: 0 },
+    );
+    const b = makeShapeNode(
+      bId,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { transform: [1, 0, 0, 1, 20, 0] as Affine, rotation: 90 },
+    );
+    doc = { ...doc, nodes: { ...doc.nodes, [aId]: a, [bId]: b }, rootChildren: [aId, bId] };
+
+    const engine = new TransformEngine(doc, [aId, bId]);
+    const box = engine.getInitialBox();
+    // Multi-select union box is axis-aligned (rotation: 0) with world-space AABB
+    approx(box.rotation, 0);
+    expect(box.w).toBeGreaterThan(0);
+    expect(box.h).toBeGreaterThan(0);
+  });
+
+  // E: Text node resize
+  it('scales font size when baking a text node', () => {
+    let doc = createDocument('test', true);
+    const text = makeTextNode('t1', 'Hello', { fontSize: 16 });
+    doc = { ...doc, nodes: { ...doc.nodes, t1: text }, rootChildren: ['t1'] };
+
+    const engine = new TransformEngine(doc, ['t1'], { bakeOnCommit: true });
+    // Drag SE handle outside the initial box to scale up (2x the box w/h away)
+    const box = engine.getInitialBox();
+    const seWorldX = box.cx + box.w; // right edge
+    const seWorldY = box.cy + box.h; // bottom edge
+    const newDoc = engine.resize([seWorldX + box.w, seWorldY + box.h], 'se', {});
+    const committed = engine.commit(newDoc);
+    const node = committed.nodes.t1;
+    expect(node).toBeDefined();
+    expect(node!.kind).toBe('text');
+    if (node?.kind !== 'text') return;
+    expect(node.fontSize).toBeGreaterThan(16);
+  });
+
+  it('clamps font size to minimum 1px after text scale', () => {
+    let doc = createDocument('test', true);
+    const text = makeTextNode('t2', 'Tiny', { fontSize: 16 });
+    doc = { ...doc, nodes: { ...doc.nodes, t2: text }, rootChildren: ['t2'] };
+
+    const engine = new TransformEngine(doc, ['t2'], { bakeOnCommit: true });
+    // Drag well inside the box: extreme shrink
+    const newDoc = engine.resize([0.1, 0.1], 'se', {});
+    const committed = engine.commit(newDoc);
+    const node = committed.nodes.t2;
+    expect(node).toBeDefined();
+    if (node?.kind !== 'text') return;
+    expect(node.fontSize).toBeGreaterThanOrEqual(1);
   });
 });

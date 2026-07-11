@@ -110,7 +110,17 @@ export function PluginList() {
           </div>
         ))}
       </div>
-      {permPlugin && <PermissionDialog plugin={permPlugin} onClose={() => setPermPlugin(null)} />}
+      {permPlugin && (
+        <PermissionDialog
+          plugin={permPlugin}
+          onClose={() => setPermPlugin(null)}
+          onDeny={() => {
+            const p = permPlugin;
+            setPermPlugin(null);
+            removePlugin(p.id).then(load);
+          }}
+        />
+      )}
     </div>
   );
 }

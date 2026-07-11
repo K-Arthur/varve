@@ -7,4 +7,8 @@ export { SelectionOverlay } from './SelectionOverlay';
 export type { OpenFileRequest, ShellProps } from './Shell';
 export { Shell } from './Shell';
 export { formatShortcut, SHORTCUT_DEFS, useShortcuts } from './shortcuts';
+export type { StartupCapabilities } from './startup/capabilityCheck';
+export { checkStartupCapabilities } from './startup/capabilityCheck';
+export type { StartupMark, StartupTimer } from './startup/startupTimer';
+export { createStartupTimer } from './startup/startupTimer';
 export { TabStrip } from './TabStrip';

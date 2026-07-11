@@ -15,7 +15,7 @@ import type { Document, ExportBatch, ExportFormat, NodeId, SceneNode } from '@st
 import { isImageShape } from '@strata/scene';
 import { screenToWorld } from '@strata/shared';
 import type { MenuEntry } from '@strata/ui';
-import { ContextMenu, Icon } from '@strata/ui';
+import { ContextMenu, Icon, ToastProvider, useToast } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
@@ -23,6 +23,7 @@ import { captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { BatchBgRemoveDialog } from './components/BatchBgRemoveDialog';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
@@ -41,7 +42,7 @@ import { SelectionInfoBar } from './components/SelectionInfoBar';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
-import { EditorProvider, useEditor } from './context';
+import { EditorProvider, setToastHandler, useEditor } from './context';
 import type { DragNodeData } from './dnd-types';
 import { createExportSaveFile, saveExportBytes } from './exportSaveAdapter';
 import { ExportService } from './exportService';
@@ -442,10 +443,12 @@ function ShellInner({
         />
         <FloatingToolbar />
         <TabStrip onBackToHome={onBackToHome} />
-        <CanvasArea
-          canvasContainerRef={canvasContainerRef}
-          onContextMenu={handleCanvasContextMenu}
-        />
+        <ErrorBoundary>
+          <CanvasArea
+            canvasContainerRef={canvasContainerRef}
+            onContextMenu={handleCanvasContextMenu}
+          />
+        </ErrorBoundary>
         <CollabCursorOverlay
           users={collabUsers}
           cursors={[]}
@@ -466,10 +469,13 @@ function ShellInner({
           className="editor__layers-panel"
           data-visible={layersVisible || undefined}
           data-collapsed={!leftPanelVisible || undefined}
+          {...(!leftPanelVisible ? { inert: true } : {})}
         >
-          <PresenceIndicator presences={collabPresences} />
-          <MinimapPanel />
-          <LayersPanel dndRef={layersDndRef} />
+          <ErrorBoundary>
+            <PresenceIndicator presences={collabPresences} />
+            <MinimapPanel />
+            <LayersPanel dndRef={layersDndRef} />
+          </ErrorBoundary>
           <PanelResizeHandle
             side="layers"
             width={widths.layers}
@@ -480,8 +486,11 @@ function ShellInner({
           className="editor__inspector-panel"
           data-visible={inspectorVisible || undefined}
           data-collapsed={!rightPanelVisible || undefined}
+          {...(!rightPanelVisible ? { inert: true } : {})}
         >
-          <PropertiesPanel />
+          <ErrorBoundary>
+            <PropertiesPanel />
+          </ErrorBoundary>
           <PanelResizeHandle
             side="inspector"
             width={widths.inspector}
@@ -499,77 +508,79 @@ function ShellInner({
         )}
         {editor.state.timelinePanelVisible && (
           <div className="editor__timeline-panel">
-            <TimelinePanel
-              timelines={editor.state.document.timelines ?? {}}
-              activeTimelineId={editor.state.motion.activeTimelineId}
-              currentTime={editor.state.motion.currentTime}
-              isPlaying={editor.state.motion.isPlaying}
-              playbackSpeed={editor.state.motion.playbackSpeed}
-              loop={editor.state.motion.loop}
-              autoKeyframe={editor.state.motion.autoKeyframe}
-              motionPresets={editor.state.document.motionPresets ?? {}}
-              selectedTrackIds={editor.state.motion.selectedTrackIds}
-              selectedKeyframeIndex={null}
-              onPlay={() => editor.playTimeline()}
-              onPause={() => editor.pauseTimeline()}
-              onStop={() => editor.stopTimeline()}
-              onSeek={(time) => editor.seekTimeline(time)}
-              onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
-              onToggleLoop={() => editor.toggleLoop()}
-              onToggleAutoKeyframe={() => editor.toggleAutoKeyframe()}
-              onAddMarker={(timeMs) => {
-                const tlId = editor.state.motion.activeTimelineId;
-                if (!tlId) return;
-                const tl = editor.state.document.timelines?.[tlId];
-                if (!tl) return;
-                const count = (tl.markers?.length ?? 0) + 1;
-                const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
-                editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
-              }}
-              onRenameMarker={(markerId) => {
-                const tlId = editor.state.motion.activeTimelineId;
-                if (!tlId) return;
-                const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
-                  (m) => m.id === markerId,
-                );
-                const nextName = window.prompt('Marker name', marker?.name ?? '');
-                if (nextName?.trim()) {
-                  editor.renameTimelineMarker(tlId, markerId, nextName.trim());
-                }
-              }}
-              onDeleteMarker={(markerId) => {
-                const tlId = editor.state.motion.activeTimelineId;
-                if (tlId) editor.removeTimelineMarker(tlId, markerId);
-              }}
-              onSavePreset={() => {
-                const tlId = editor.state.motion.activeTimelineId;
-                if (!tlId) return;
-                const name = window.prompt('Preset name');
-                if (name?.trim()) {
-                  editor.createMotionPresetFromTimeline(tlId, name.trim());
-                }
-              }}
-              onApplyPreset={(presetId) => {
-                const tlId = editor.state.motion.activeTimelineId;
-                if (tlId) editor.applyMotionPreset(presetId, tlId);
-              }}
-              onSelectTimeline={(id) => editor.setActiveTimeline(id)}
-              onCreateTimeline={() => editor.createTimeline()}
-              onSelectTrack={() => {}}
-              onClickKeyframe={(_trackId, progress) => {
-                const tl = editor.state.motion.activeTimelineId
-                  ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
-                  : null;
-                if (tl) editor.seekTimeline(progress * tl.duration);
-              }}
-              onSetTrackNestedTimeline={(trackId, nestedTimelineId, startProgress) => {
-                const tlId = editor.state.motion.activeTimelineId;
-                if (tlId) {
-                  editor.setTrackNestedTimeline(tlId, trackId, nestedTimelineId, startProgress);
-                }
-              }}
-              getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
-            />
+            <ErrorBoundary>
+              <TimelinePanel
+                timelines={editor.state.document.timelines ?? {}}
+                activeTimelineId={editor.state.motion.activeTimelineId}
+                currentTime={editor.state.motion.currentTime}
+                isPlaying={editor.state.motion.isPlaying}
+                playbackSpeed={editor.state.motion.playbackSpeed}
+                loop={editor.state.motion.loop}
+                autoKeyframe={editor.state.motion.autoKeyframe}
+                motionPresets={editor.state.document.motionPresets ?? {}}
+                selectedTrackIds={editor.state.motion.selectedTrackIds}
+                selectedKeyframeIndex={null}
+                onPlay={() => editor.playTimeline()}
+                onPause={() => editor.pauseTimeline()}
+                onStop={() => editor.stopTimeline()}
+                onSeek={(time) => editor.seekTimeline(time)}
+                onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
+                onToggleLoop={() => editor.toggleLoop()}
+                onToggleAutoKeyframe={() => editor.toggleAutoKeyframe()}
+                onAddMarker={(timeMs) => {
+                  const tlId = editor.state.motion.activeTimelineId;
+                  if (!tlId) return;
+                  const tl = editor.state.document.timelines?.[tlId];
+                  if (!tl) return;
+                  const count = (tl.markers?.length ?? 0) + 1;
+                  const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
+                  editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
+                }}
+                onRenameMarker={(markerId) => {
+                  const tlId = editor.state.motion.activeTimelineId;
+                  if (!tlId) return;
+                  const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
+                    (m) => m.id === markerId,
+                  );
+                  const nextName = window.prompt('Marker name', marker?.name ?? '');
+                  if (nextName?.trim()) {
+                    editor.renameTimelineMarker(tlId, markerId, nextName.trim());
+                  }
+                }}
+                onDeleteMarker={(markerId) => {
+                  const tlId = editor.state.motion.activeTimelineId;
+                  if (tlId) editor.removeTimelineMarker(tlId, markerId);
+                }}
+                onSavePreset={() => {
+                  const tlId = editor.state.motion.activeTimelineId;
+                  if (!tlId) return;
+                  const name = window.prompt('Preset name');
+                  if (name?.trim()) {
+                    editor.createMotionPresetFromTimeline(tlId, name.trim());
+                  }
+                }}
+                onApplyPreset={(presetId) => {
+                  const tlId = editor.state.motion.activeTimelineId;
+                  if (tlId) editor.applyMotionPreset(presetId, tlId);
+                }}
+                onSelectTimeline={(id) => editor.setActiveTimeline(id)}
+                onCreateTimeline={() => editor.createTimeline()}
+                onSelectTrack={() => {}}
+                onClickKeyframe={(_trackId, progress) => {
+                  const tl = editor.state.motion.activeTimelineId
+                    ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
+                    : null;
+                  if (tl) editor.seekTimeline(progress * tl.duration);
+                }}
+                onSetTrackNestedTimeline={(trackId, nestedTimelineId, startProgress) => {
+                  const tlId = editor.state.motion.activeTimelineId;
+                  if (tlId) {
+                    editor.setTrackNestedTimeline(tlId, trackId, nestedTimelineId, startProgress);
+                  }
+                }}
+                getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
+              />
+            </ErrorBoundary>
           </div>
         )}
         <SelectionInfoBar />
@@ -611,7 +622,6 @@ function ShellInner({
               setInspectorVisible(false);
               setLibraryVisible(false);
             }}
-            onKeyDown={() => {}}
             role="presentation"
           />
         )}
@@ -952,6 +962,15 @@ function ShellInner({
   );
 }
 
+/** Bridges the @strata/ui Toast system into the editor context's showToast(). */
+function ToastBridge() {
+  const { toast } = useToast();
+  useEffect(() => {
+    setToastHandler(toast);
+  }, [toast]);
+  return null;
+}
+
 export function Shell({
   onBackToHome,
   documentJson,
@@ -968,12 +987,15 @@ export function Shell({
       platform={platform}
     >
       <SettingsProvider>
-        <ShellInner
-          onBackToHome={onBackToHome}
-          openFile={openFile}
-          platform={platform}
-          active={active}
-        />
+        <ToastProvider>
+          <ToastBridge />
+          <ShellInner
+            onBackToHome={onBackToHome}
+            openFile={openFile}
+            platform={platform}
+            active={active}
+          />
+        </ToastProvider>
       </SettingsProvider>
     </EditorProvider>
   );

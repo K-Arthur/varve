@@ -137,6 +137,7 @@ export function QuickActionsBar({ open, onClose, onExecute, position }: QuickAct
       className="quick-actions-bar"
       style={barStyle}
       role="dialog"
+      aria-modal={true}
       aria-label="Quick actions"
       onKeyDown={handleKeyDown}
     >

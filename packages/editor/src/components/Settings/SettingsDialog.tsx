@@ -101,9 +101,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             {SECTIONS.map((sec) => (
               <button
                 key={sec.id}
+                id={`settings-tab-${sec.id}`}
                 type="button"
                 role="tab"
                 aria-selected={activeSection === sec.id}
+                aria-controls="settings-tabpanel"
                 className={`settings-dialog__tab${activeSection === sec.id ? ' settings-dialog__tab--active' : ''}`}
                 onClick={() => setActiveSection(sec.id)}
               >
@@ -112,7 +114,13 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             ))}
           </nav>
 
-          <div className="settings-dialog__content">
+          <div
+            className="settings-dialog__content"
+            id="settings-tabpanel"
+            role="tabpanel"
+            aria-labelledby={`settings-tab-${activeSection}`}
+            tabIndex={0}
+          >
             {activeSection === 'general' && <GeneralSection />}
             {activeSection === 'appearance' && (
               <AppearanceSection onThemeChange={handleThemeChange} />
@@ -221,7 +229,7 @@ function GeneralSection() {
 }
 
 function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) => void }) {
-  const { settings } = useSettings();
+  const { settings, updateSection } = useSettings();
   const currentTheme = getTheme();
 
   return (
@@ -245,7 +253,7 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
         <Select
           options={FONT_SIZE_OPTIONS}
           value={settings.appearance.fontSizeUI}
-          onChange={(v) => onThemeChange(v)}
+          onChange={(v) => updateSection('appearance', { fontSizeUI: v })}
           label="UI font size"
         />
       </FieldRow>

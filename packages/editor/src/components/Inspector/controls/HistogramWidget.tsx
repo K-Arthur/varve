@@ -22,6 +22,8 @@ export interface HistogramWidgetProps {
   histogram?: Histogram;
   levels: LevelParams;
   onChange: (levels: LevelParams) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
 function drawHistogram(ctx: CanvasRenderingContext2D, histogram: Histogram, barColor: string) {
@@ -67,10 +69,20 @@ function drawTriangle(
   ctx.fillText(label, x, TRI_Y + TRI_SIZE + 10);
 }
 
-export function HistogramWidget({ histogram, levels, onChange }: HistogramWidgetProps) {
+export function HistogramWidget({
+  histogram,
+  levels,
+  onChange,
+  onDragStart,
+  onDragEnd,
+}: HistogramWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragType, setDragType] = useState<'black' | 'gamma' | 'white' | null>(null);
   const [focusType, setFocusType] = useState<'black' | 'gamma' | 'white' | null>(null);
+  const onDragStartRef = useRef(onDragStart);
+  onDragStartRef.current = onDragStart;
+  const onDragEndRef = useRef(onDragEnd);
+  onDragEndRef.current = onDragEnd;
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -143,6 +155,7 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
       }
 
       if (closest) {
+        onDragStartRef.current?.();
         setDragType(closest);
         canvas.setPointerCapture(e.pointerId);
       }
@@ -185,6 +198,7 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
 
   const handlePointerUp = useCallback(() => {
     setDragType(null);
+    onDragEndRef.current?.();
   }, []);
 
   const handleKeyDown = useCallback(
@@ -249,6 +263,7 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
 
   const handleAuto = useCallback(() => {
     if (!histogram) return;
+    onDragStartRef.current?.();
     const auto = autoLevelsParams(histogram);
     onChange({
       ...levels,
@@ -256,6 +271,7 @@ export function HistogramWidget({ histogram, levels, onChange }: HistogramWidget
       inputWhite: auto.inputWhite,
       gamma: auto.gamma,
     });
+    onDragEndRef.current?.();
   }, [histogram, levels, onChange]);
 
   return (

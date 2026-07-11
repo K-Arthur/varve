@@ -23,6 +23,8 @@ import { useCallback, useId, useRef, useState } from 'react';
 export interface GradientEditorProps {
   gradient: GradientFill;
   onChange: (gradient: GradientFill) => void;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
 }
 
 const INTERPOLATION_SPACES = [
@@ -82,9 +84,15 @@ function gradientCss(g: GradientFill): string {
   return `radial-gradient(circle, ${stopCss})`;
 }
 
-export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
+export function GradientEditor({
+  gradient,
+  onChange,
+  onEditStart,
+  onEditEnd,
+}: GradientEditorProps) {
   const [selectedStop, setSelectedStop] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number>(0);
   const autoId = useId();
 
   const updateStop = useCallback(
@@ -174,26 +182,42 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
     (index: number, e: React.PointerEvent<HTMLButtonElement>) => {
       if (e.button !== 0) return;
       e.preventDefault();
+      onEditStart?.();
       const bar = barRef.current;
       if (!bar) return;
       const rect = bar.getBoundingClientRect();
       const onMove = (me: PointerEvent) => {
-        const pos = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
-        updateStop(index, { position: Math.round(pos * 1000) / 1000 });
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+          const pos = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
+          updateStop(index, { position: Math.round(pos * 1000) / 1000 });
+        });
       };
       const onUp = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
         document.body.style.userSelect = '';
+        onEditEnd?.();
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
       document.body.style.userSelect = 'none';
     },
-    [updateStop],
+    [updateStop, onEditStart, onEditEnd],
   );
 
   const currentStop = gradient.stops[selectedStop];
+
+  const handleBarKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'a' || e.key === 'A' || e.key === 'Insert') {
+        e.preventDefault();
+        const pos = currentStop ? Math.min(1, currentStop.position + 0.1) : 0.5;
+        addStop(pos);
+      }
+    },
+    [currentStop, addStop],
+  );
 
   return (
     <div className="gradient-editor">
@@ -271,6 +295,7 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
         aria-valuetext={`${Math.round((currentStop?.position ?? 0) * 100)}%`}
         tabIndex={0}
         onPointerDown={handleBarPointerDown}
+        onKeyDown={handleBarKeyDown}
         className="gradient-editor__bar"
         style={{ background: gradientCss(gradient) }}
       >
@@ -295,6 +320,18 @@ export function GradientEditor({ gradient, onChange }: GradientEditorProps) {
               } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 updateStop(i, { position: Math.min(1, stop.position + 0.01) });
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                updateStop(i, { position: Math.max(0, stop.position - 0.05) });
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                updateStop(i, { position: Math.min(1, stop.position + 0.05) });
+              } else if (e.key === 'Home') {
+                e.preventDefault();
+                updateStop(i, { position: 0 });
+              } else if (e.key === 'End') {
+                e.preventDefault();
+                updateStop(i, { position: 1 });
               } else if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
                 removeStop(i);

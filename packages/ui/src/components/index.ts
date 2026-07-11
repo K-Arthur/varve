@@ -36,6 +36,8 @@ export type { EmptyStateProps } from './EmptyState';
 export { EmptyState } from './EmptyState';
 export type { FloatingPortalProps } from './FloatingPortal';
 export { FloatingPortal } from './FloatingPortal';
+export type { FocusTrapProps } from './FocusTrap';
+export { FocusTrap } from './FocusTrap';
 export type { IconButtonProps } from './IconButton';
 export { IconButton } from './IconButton';
 export type { InlineActivityIndicatorProps } from './InlineActivityIndicator';

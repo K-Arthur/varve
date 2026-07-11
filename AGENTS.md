@@ -29,7 +29,7 @@ pnpm typecheck       # 15/15 packages must pass
 pnpm lint            # 0 new errors on touched files
 pnpm test            # full test suite must pass
 pnpm audit:emoji     # zero violations
-pnpm audit:tokens    # 93/93 WCAG-AA (3 themes)
+pnpm audit:tokens    # 96/96 WCAG-AA (3 themes)
 ```
 
 Failure at any step means the change introduced a regression. Fix before committing.
@@ -64,8 +64,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 3572 tests across 285 files — all passing. TypeScript typecheck: 0 errors across all packages.
-- **Effects engine:** 52+ tests: 31 replay-fill effects, 13 halftone (AM matrix + FM stochastic + CMYK), 8 filterCompositor
+- **JS:** 4459+ tests across 387+ files — all passing. TypeScript typecheck: 0 errors across all packages.
+- **Effects engine:** 77+ tests: 34 replay-fill (was 31) + backdrop cache, 24 halftone (+Bayer, offset dispatch), 11 filterCompositor (+premultiplied alpha), 11 blur (new separable module), 19 boolean hardening (+self-intersect, degenerate, fuzz suite)
 - **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 96/96 WCAG-AA across 3 themes
 
@@ -332,34 +332,6 @@ Complete 10-phase redesign of the project/workspace/home system:
 **New types added to `@strata/platform`:** Folder, Collection, CollectionFilter, CollectionEntry, Workspace, Library, TemplateLibrary, ProjectTemplate, Asset, AssetFolder, VersionEntry, Branch, Permission, ActivityEvent, DRAFTS_ID sentinel, expanded SidebarSection
 
 **Verification:** 185+ JS tests pass (18 test files), typecheck clean on @strata/home and @strata/platform (pre-existing scene/prototype errors untouched), lint clean on all modified files.
-
-## Effects System Overhaul (2026-07-05)
-
-Complete effects system overhaul — P0 rendering bug fixes, filter compositor, halftone engine.
-
-| Phase | What | Key Files | Tests |
-|---|---|---|---|
-| **0** | Critical rendering fixes: removed Pass 1 double-render (shadows drew twice), implemented spread in Pass 2, wired `filters` through `toEngineNode`, fixed `hasEffects()` type guard (ImageNode + AdjustmentNode) | `replay.ts`, `CanvasArea.tsx`, `EffectsSection.tsx` | 569 (baseline) |
-| **1.1-1.2** | Filter compositor: offscreen canvas compositing for non-CSS filters with per-filter opacity/blend mode. 7 new software pixel engines (exposure, sharpen, temperature, tint, colorBalance, channelMixer, photoFilter, vibrance). Wired existing curves/levels/selectiveColor engines. | `filterCompositor.ts`, `replay.ts` | +8 |
-| **1.3** | Background blur: replaced stub with real backdrop capture via OffscreenCanvas. Captures content behind item, blurs, clips to shape, composites. Graceful fallback where OffscreenCanvas unavailable. | `replay.ts` | 577 |
-| **2.1-2.4** | Halftone screening engine: AM (clustered-dot threshold matrix, 5 dot shapes), FM (Floyd-Steinberg error diffusion, serpentine scan), standard CMYK angles (C:15°/M:75°/Y:0°/K:45°), per-channel and CMYK separation. | `halftone.ts`, `types.ts` (FilterIR), `filterCompositor.ts` | +13 |
-| **2.5-2.6** | Halftone UI + pipeline: FilterIR variant, AdjustmentKind, HalftoneSection UI component, filterToCss fallback, adjustmentDefaults, adjustmentToFilter mapping. | `HalftoneSection.tsx`, `filters.ts` | 590 |
-
-**Architecture decisions:**
-- Single-pass effects rendering (removed redundant Pass 1) — shadow rendering now uses Canvas2D native shadow API only, not duplicated CSS filter approach
-- Filter compositor uses offline canvas compositing for non-CSS filters, CSS filter string for simple cases
-- Halftone uses FilterIR (not Effect) so it composes in the nondestructive filter chain with other adjustments
-- Both AM and FM screening available; AM for traditional print, FM for stochastic/modern output
-- Standard CMYK angles from ISO 12647-2; users can override per channel
-
-**New modules:**
-| File | What |
-|---|---|
-| `packages/engine/src/filterCompositor.ts` | Offscreen compositing for non-CSS filters with per-filter opacity/blend |
-| `packages/engine/src/halftone.ts` | AM + FM halftone screening engine |
-| `packages/editor/src/components/Inspector/sections/HalftoneSection.tsx` | Halftone inspector UI |
-
-**Verification:** 595/597 JS tests pass (2 pre-existing alpha-mask failures), lint clean on all modified files.
 
 ## Motion System (2026-07-03)
 
@@ -1902,3 +1874,31 @@ Root-cause fixes for 7 issues that made background removal unreliable:
 | **Postinstall** | `scripts/copy-onnx-wasm.mjs` copies WASM files to `apps/desktop/public/ort-wasm/` | `package.json`, `.gitignore` |
 
 **Verification:** 111 bg-removal tests pass (was 110). Engine typecheck clean. Emoji/token audits pass.
+
+## Session 47 — Image & Vector Effects Engine Overhaul (2026-07-10)
+
+Full discovery-first, plan-then-execute implementation of effects engine hardening across 7 phases. Architecture decisions documented in `.effects_system_memory.md`.
+
+| Phase | What | Key files | Tests |
+|---|---|---|---|
+| **C** | Premultiplied alpha in filter kernels: `applySharpen` now converts to premultiplied before unsharp mask, converts back after. Eliminates dark-fringing artifacts at transparent edges. Decision: linear-light for blur compositing, gamma-space for pixel ops. | `filterCompositor.ts` | +3 |
+| **B** | Separable 2-pass blur module: `gaussianBlurSeparable` (gamma-space), `gaussianBlurLinearLight` (linear-light), `boxBlurSeparable` (O(n) sliding-window). Downsample-blur-upsample for radius > 100px (factor up to 4×). All operations use premultiplied alpha with clamp-to-edge extension. | `blur.ts` (new) | +11 |
+| **B.2** | Wired separable blur into effects pipeline: `CompositeCanvas.applyBlur` uses CSS filter (GPU) for radius ≤ 32px, software separable blur for > 32px. Layer blur in `replay.ts` uses same hybrid strategy. | `replay.ts`, `compositeCanvas.ts` | +4 |
+| **F** | Bayer ordered dithering (8×8 matrix) for position-stable FM preview. Floyd-Steinberg retained for export quality. `applyHalftone` accepts optional `offsetX`/`offsetY` — FM+offset dispatches to Bayer (pan-stable preview), FM no-offset uses Floyd-Steinberg (export). | `halftone.ts`, `index.ts` | +11 |
+| **G** | Backdrop blur LRU cache (20 entries, 500ms TTL, content-version + transform key). Swept at each `replayIr()` call. Companion LRU eviction clears oldest entries when full. | `replay.ts` | +6 |
+| **A** | `onDragStart`/`onDragEnd` callback props on `CurveEditor` and `HistogramWidget` for future undo transaction batching. Wired to pointer drag, keyboard arrow one-shot keyup, and auto button. | `CurveEditor.tsx`, `HistogramWidget.tsx` | +9 |
+| **D** | Boolean op hardening: `cleanPolygon` (dedup, collinear removal, degenerate rejection), `hasSelfIntersections`, `resolveSelfIntersections` (figure-8/bow-tie→sub-polygons). `clipPolygons` pre-processes both inputs. 19 new edge-case tests including self-intersecting, degenerate, and hole-form subtract. | `boolean.ts` | +19 |
+
+**Architecture decisions resolved:**
+- CPU/GPU split: Canvas2D primary + CSS filter (GPU, ≤32px) / separable software blur (CPU, >32px)
+- Preview vs export: same path for both; quality scales with resolution
+- Linear-light: blur compositing in linear-light (`gaussianBlurLinearLight`); pixel ops in gamma-space
+- Backdrop scope: same-group, content-version cached
+- Blend modes: unchanged (W3C spec, gamma-space, existing implementations correct)
+
+**New modules:**
+| File | What |
+|---|---|
+| `packages/engine/src/blur.ts` | Separable Gaussian/box blur kernels, linear-light conversion, downsample-blur-upsample |
+
+**Verification:** 4459+ JS tests pass (387 files), engine typecheck clean (0 errors), scene typecheck clean (0 errors), lint 0 errors on modified files, emoji audit clean (1057 files), token audit 96/96 WCAG-AA. Boolean ops: 704 scene tests (was 685, +19). Halftone: 24 tests (was 13, +11). Blur: 11 new tests. Backdrop cache: 6 new tests.

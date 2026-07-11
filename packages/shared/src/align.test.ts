@@ -6,6 +6,7 @@ import {
   bboxUnion,
   computeAlignmentTarget,
   computeDistribution,
+  computeDistributionCenters,
   computeTidyLayout,
   distributeToPosition,
   obbAlignmentTarget,
@@ -246,6 +247,167 @@ describe('computeDistribution', () => {
     expect(result[0]).toBe(0);
     expect(result[1]).toBe(15);
     expect(result[2]).toBe(30);
+  });
+});
+
+// ─── computeDistributionCenters (equal center-to-center) ─────────────────
+
+describe('computeDistributionCenters', () => {
+  it('returns null for <3 items', () => {
+    expect(computeDistributionCenters('horizontal', [{ x: 0, y: 0, w: 10, h: 10 }])).toBeNull();
+    expect(
+      computeDistributionCenters('horizontal', [
+        { x: 0, y: 0, w: 10, h: 10 },
+        { x: 20, y: 0, w: 10, h: 10 },
+      ]),
+    ).toBeNull();
+  });
+
+  it('3 items equal center spacing horizontally', () => {
+    // Items centers: 5, 25, 45 → total span = 40, step = 20
+    const boxes: BBox[] = [
+      { x: 0, y: 0, w: 10, h: 10 },
+      { x: 20, y: 0, w: 10, h: 10 },
+      { x: 40, y: 0, w: 10, h: 10 },
+    ];
+    const result = computeDistributionCenters('horizontal', boxes);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result.length).toBe(3);
+    expect(result[0]).toBe(5);
+    expect(result[1]).toBe(25);
+    expect(result[2]).toBe(45);
+  });
+
+  it('3 items equal center spacing vertically', () => {
+    const boxes: BBox[] = [
+      { x: 0, y: 0, w: 10, h: 10 },
+      { x: 0, y: 30, w: 10, h: 10 },
+      { x: 0, y: 60, w: 10, h: 10 },
+    ];
+    const result = computeDistributionCenters('vertical', boxes);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result.length).toBe(3);
+    expect(result[0]).toBe(5);
+    expect(result[1]).toBe(35);
+    expect(result[2]).toBe(65);
+  });
+
+  it('variable sized items — centers are evenly spaced', () => {
+    // Centers: 5, 25 (items overlap slightly), 75
+    // Span = 75 - 5 = 70, step = 35
+    // Centers: 5, 40, 75
+    const boxes: BBox[] = [
+      { x: 0, y: 0, w: 10, h: 10 },
+      { x: 10, y: 0, w: 30, h: 10 },
+      { x: 50, y: 0, w: 50, h: 10 },
+    ];
+    const result = computeDistributionCenters('horizontal', boxes);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result[0]).toBe(5);
+    expect(result[1]).toBe(40);
+    expect(result[2]).toBe(75);
+  });
+
+  it('overlapping items — still computes valid centers', () => {
+    // Centers: 5, 15, 25 → span = 20, step = 10
+    const boxes: BBox[] = [
+      { x: 0, y: 0, w: 10, h: 10 },
+      { x: 10, y: 0, w: 10, h: 10 },
+      { x: 20, y: 0, w: 10, h: 10 },
+    ];
+    const result = computeDistributionCenters('horizontal', boxes);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result[0]).toBe(5);
+    expect(result[1]).toBe(15);
+    expect(result[2]).toBe(25);
+  });
+});
+
+// ─── computeDistribution with negative gaps ──────────────────────────────
+
+describe('computeDistribution — negative gap handling', () => {
+  it('overlapping items with no fixed gap — gap clamps to 0', () => {
+    // Items that already overlap
+    const boxes: BBox[] = [
+      { x: 0, y: 0, w: 20, h: 10 },
+      { x: 5, y: 0, w: 20, h: 10 },
+      { x: 10, y: 0, w: 20, h: 10 },
+    ];
+    const result = computeDistribution('horizontal', boxes);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    // start=0, end=30, totalSize=60, gap=0 (clamped)
+    // positions: 0, 20, 40
+    expect(result[0]).toBe(0);
+    expect(result[1]).toBe(20);
+    expect(result[2]).toBe(40);
+  });
+
+  it('fixed negative gap — clamped to 0', () => {
+    const boxes: BBox[] = [
+      { x: 0, y: 0, w: 10, h: 10 },
+      { x: 30, y: 0, w: 10, h: 10 },
+      { x: 60, y: 0, w: 10, h: 10 },
+    ];
+    const result = computeDistribution('horizontal', boxes, -10);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    // With gap=0: positions: 0, 10, 20
+    expect(result[0]).toBe(0);
+    expect(result[1]).toBe(10);
+    expect(result[2]).toBe(20);
+  });
+
+  it('zero-width items with fixed gap', () => {
+    const boxes: BBox[] = [
+      { x: 0, y: 0, w: 0, h: 10 },
+      { x: 10, y: 0, w: 0, h: 10 },
+      { x: 20, y: 0, w: 0, h: 10 },
+    ];
+    const result = computeDistribution('horizontal', boxes, 5);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result[0]).toBe(0);
+    expect(result[1]).toBe(5);
+    expect(result[2]).toBe(10);
+  });
+});
+
+// ─── Tidy Up determinism ─────────────────────────────────────────────────
+
+describe('computeTidyLayout — determinism', () => {
+  it('same input produces same output across repeated runs', () => {
+    const boxes: BBox[] = [
+      { x: 10, y: 10, w: 20, h: 20 },
+      { x: 100, y: 100, w: 20, h: 20 },
+      { x: 50, y: 10, w: 20, h: 20 },
+      { x: 10, y: 100, w: 20, h: 20 },
+    ];
+    const result1 = computeTidyLayout(boxes, 4);
+    const result2 = computeTidyLayout(boxes, 4);
+    expect(result1.rows).toBe(result2.rows);
+    expect(result1.cols).toBe(result2.cols);
+    for (let i = 0; i < boxes.length; i++) {
+      expect(result1.assignments[i]).toEqual(result2.assignments[i]);
+    }
+  });
+
+  it('tie-break by X for items at same Y — leftmost gets col 0', () => {
+    // Items at same Y with different X — should sort left→right after Y tie-break
+    // Input order: [x=50, y=10], [x=10, y=10]
+    // After tie-break sort (cy, then cx): [idx=1 (x=10), idx=0 (x=50)]
+    const boxes: BBox[] = [
+      { x: 50, y: 10, w: 20, h: 20 },
+      { x: 10, y: 10, w: 20, h: 20 },
+    ];
+    const result = computeTidyLayout(boxes, 4);
+    // idx=1 (x=10) gets col 0, idx=0 (x=50) gets col 1
+    expect(result.assignments[1]).toEqual([0, 0]); // x=10 → row 0, col 0
+    expect(result.assignments[0]).toEqual([0, 1]); // x=50 → row 0, col 1
   });
 });
 

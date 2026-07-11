@@ -128,13 +128,19 @@ function gridLabels(): { x: number; y: number; label: string; isX: boolean }[] {
 export interface CurveEditorProps {
   value: CurvePoint[];
   onChange: (points: CurvePoint[]) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
-export function CurveEditor({ value, onChange }: CurveEditorProps) {
+export function CurveEditor({ value, onChange, onDragStart, onDragEnd }: CurveEditorProps) {
   const [channel, setChannel] = useState<Channel>('rgb');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const onDragStartRef = useRef(onDragStart);
+  onDragStartRef.current = onDragStart;
+  const onDragEndRef = useRef(onDragEnd);
+  onDragEndRef.current = onDragEnd;
 
   const points = value.length === 0 ? identityPoints() : value;
   const sorted = [...points].sort((a, b) => a.x - b.x);
@@ -157,14 +163,17 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
       });
 
       if (hitIdx >= 0) {
+        onDragStartRef.current?.();
         setDragIndex(hitIdx);
         setSelectedIndex(hitIdx);
         svgRef.current.focus();
         return;
       }
 
+      onDragStartRef.current?.();
       const newPoint = toCurveCoord(sx, sy);
       onChange([...points, newPoint]);
+      onDragEndRef.current?.();
       // Select the newly added point (it's now the last in the unsorted array)
       setSelectedIndex(sorted.length);
     },
@@ -250,6 +259,16 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
           return;
       }
 
+      if (!e.repeat) {
+        onDragStartRef.current?.();
+        const onKeyUp = (ke: KeyboardEvent) => {
+          if (ke.key.startsWith('Arrow')) {
+            onDragEndRef.current?.();
+            window.removeEventListener('keyup', onKeyUp);
+          }
+        };
+        window.addEventListener('keyup', onKeyUp);
+      }
       const updated = [...points];
       const orig = updated.find((p) => p.x === current.x && p.y === current.y);
       if (orig) {
@@ -282,6 +301,7 @@ export function CurveEditor({ value, onChange }: CurveEditorProps) {
 
   const handlePointerUp = useCallback(() => {
     setDragIndex(null);
+    onDragEndRef.current?.();
   }, []);
 
   const path = buildSplinePath(points);

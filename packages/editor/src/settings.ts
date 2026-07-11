@@ -41,11 +41,17 @@ export interface RenderSettingsStore {
   preferWebGpu: boolean;
 }
 
+export interface StartupSettingsStore {
+  /** Show the branded chromatic-aberration loader on boot. False → instant transition. */
+  showBrandedLoader: boolean;
+}
+
 export interface EditorSettings {
   export: ExportSettingsStore;
   appearance: AppearanceSettingsStore;
   panel: PanelSettingsStore;
   render: RenderSettingsStore;
+  startup: StartupSettingsStore;
 }
 
 const STORAGE_KEY = 'strata-editor-settings';
@@ -79,11 +85,28 @@ export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {
   preferWebGpu: false,
 };
 
+export const DEFAULT_STARTUP_SETTINGS: StartupSettingsStore = {
+  showBrandedLoader: true,
+};
+
+/** Performance budget for the startup/loading experience. */
+export const STARTUP_PERFORMANCE_BUDGET = {
+  /** Max additional time-to-interactive from branded loader (beyond init) — 50ms */
+  maxLoaderOverheadMs: 50,
+  /** Target frame rate for chromatic-aberration animation */
+  targetFps: 60,
+  /** Degradation threshold — switch to static below this */
+  minAcceptableFps: 30,
+  /** Max total startup time from app_mount to home_ready (budget for init work) */
+  maxStartupMs: 1200,
+} as const;
+
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   export: { ...DEFAULT_EXPORT_SETTINGS },
   appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
   panel: { ...DEFAULT_PANEL_SETTINGS },
   render: { ...DEFAULT_RENDER_SETTINGS },
+  startup: { ...DEFAULT_STARTUP_SETTINGS },
 };
 
 function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undefined): T {
@@ -105,6 +128,7 @@ export function loadSettings(): EditorSettings {
         appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
         panel: { ...DEFAULT_PANEL_SETTINGS },
         render: { ...DEFAULT_RENDER_SETTINGS },
+        startup: { ...DEFAULT_STARTUP_SETTINGS },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
@@ -115,6 +139,10 @@ export function loadSettings(): EditorSettings {
       ),
       panel: mergePartial(DEFAULT_PANEL_SETTINGS, parsed.panel as Partial<PanelSettingsStore>),
       render: mergePartial(DEFAULT_RENDER_SETTINGS, parsed.render as Partial<RenderSettingsStore>),
+      startup: mergePartial(
+        DEFAULT_STARTUP_SETTINGS,
+        parsed.startup as Partial<StartupSettingsStore>,
+      ),
     };
   } catch {
     return {
@@ -122,6 +150,7 @@ export function loadSettings(): EditorSettings {
       appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
       panel: { ...DEFAULT_PANEL_SETTINGS },
       render: { ...DEFAULT_RENDER_SETTINGS },
+      startup: { ...DEFAULT_STARTUP_SETTINGS },
     };
   }
 }
@@ -135,6 +164,7 @@ export interface EditorSettingsPatch {
   appearance?: Partial<AppearanceSettingsStore>;
   panel?: Partial<PanelSettingsStore>;
   render?: Partial<RenderSettingsStore>;
+  startup?: Partial<StartupSettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
@@ -144,17 +174,19 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     appearance: { ...current.appearance, ...patch.appearance },
     panel: { ...current.panel, ...patch.panel },
     render: { ...current.render, ...patch.render },
+    startup: { ...current.startup, ...patch.startup },
   };
   saveSettings(next);
   return next;
 }
 
 export function resetSettings(): EditorSettings {
-  const defaults = {
+  const defaults: EditorSettings = {
     export: { ...DEFAULT_EXPORT_SETTINGS },
     appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
     panel: { ...DEFAULT_PANEL_SETTINGS },
     render: { ...DEFAULT_RENDER_SETTINGS },
+    startup: { ...DEFAULT_STARTUP_SETTINGS },
   };
   saveSettings(defaults);
   return defaults;

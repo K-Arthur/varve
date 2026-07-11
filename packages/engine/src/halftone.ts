@@ -426,13 +426,141 @@ function getChannelLuminance(pixels: Uint8ClampedArray, idx: number, channel: st
   }
 }
 
+// ── Bayer Ordered Dithering ────────────────────────────────────────────
+
+/**
+ * Generate a Bayer ordered dithering matrix.
+ * Recursive construction: M(2n) = | 4*M(n)   4*M(n)+2 |
+ *                                 | 4*M(n)+3 4*M(n)+1 |
+ * Base case M(2) = [[0,2],[3,1]].
+ *
+ * @param size Matrix dimension (must be a power of 2, e.g., 4, 8)
+ * @returns Square matrix of size × size with values 0..size²-1
+ */
+export const BAYER_DEFAULT_SIZE = 8;
+
+export function bayerMatrix(size: number): number[][] {
+  if (size < 2 || (size & (size - 1)) !== 0) {
+    throw new Error(`Bayer matrix size must be a power of 2, got ${size}`);
+  }
+
+  // Start with M(2)
+  let m: number[][] = [
+    [0, 2],
+    [3, 1],
+  ];
+  let currentSize = 2;
+
+  while (currentSize < size) {
+    const newSize = currentSize * 2;
+    const newM: number[][] = Array.from({ length: newSize }, () => new Array(newSize).fill(0));
+
+    for (let y = 0; y < currentSize; y++) {
+      for (let x = 0; x < currentSize; x++) {
+        const v = m[y]![x]!;
+        newM[y]![x] = 4 * v;
+        newM[y]![x + currentSize] = 4 * v + 2;
+        newM[y + currentSize]![x] = 4 * v + 3;
+        newM[y + currentSize]![x + currentSize] = 4 * v + 1;
+      }
+    }
+
+    m = newM;
+    currentSize = newSize;
+  }
+
+  return m;
+}
+
+/**
+ * Apply Bayer ordered dithering to pixel data.
+ * Uses document-relative coordinates (pixel_x + offsetX, pixel_y + offsetY)
+ * to index the Bayer matrix, ensuring the dithering pattern is stable under
+ * viewport pan/zoom (each document position always maps to the same matrix entry).
+ *
+ * For preview (viewport tiling) use this; for full-frame export use the
+ * higher-quality Floyd-Steinberg error diffusion (applyFMStochastic).
+ *
+ * @param data ImageData to process (in-place)
+ * @param params Halftone parameters (channel/method)
+ * @param offsetX Document-space x offset of the render region
+ * @param offsetY Document-space y offset of the render region
+ */
+export function applyBayerDithering(
+  data: ImageData,
+  _params: HalftoneParams,
+  offsetX: number = 0,
+  offsetY: number = 0,
+): void {
+  const w = data.width;
+  const h = data.height;
+  const pixels = data.data;
+  const matrix = bayerMatrix(BAYER_DEFAULT_SIZE);
+  const size = matrix.length;
+  const totalCells = size * size;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+
+      // Convert to luminance in linear space
+      const r = srgbToLinear(pixels[idx]! / 255);
+      const g = srgbToLinear(pixels[idx + 1]! / 255);
+      const b = srgbToLinear(pixels[idx + 2]! / 255);
+      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      // Document-relative coordinates — stable under viewport pan/zoom
+      const docX = x + offsetX;
+      const docY = y + offsetY;
+
+      // Index into Bayer matrix with document-relative coords
+      const mx = ((docX % size) + size) % size;
+      const my = ((docY % size) + size) % size;
+      const threshold = matrix[my]![mx]! / totalCells;
+
+      // Binary dither: luminance > threshold → white, else black
+      if (luminance > threshold) {
+        pixels[idx] = 255;
+        pixels[idx + 1] = 255;
+        pixels[idx + 2] = 255;
+      } else {
+        pixels[idx] = 0;
+        pixels[idx + 1] = 0;
+        pixels[idx + 2] = 0;
+      }
+    }
+  }
+}
+
 /**
  * Apply halftone effect to pixel data.
  * Dispatches to AM or FM method based on params.
+ *
+ * For FM (stochastic) method:
+ * - Without offset params (full-frame export): uses Floyd-Steinberg error diffusion
+ *   for highest quality.
+ * - With offset params (viewport-tiled preview): uses Bayer ordered dithering,
+ *   which is position-stable under pan/zoom because threshold selection is
+ *   based on document-absolute coordinates, not relative scan position.
+ *
+ * @param data ImageData to process (in-place)
+ * @param params Halftone parameters
+ * @param offsetX Document-space x offset (providing this enables Bayer preview path)
+ * @param offsetY Document-space y offset
  */
-export function applyHalftone(data: ImageData, params: HalftoneParams): ImageData {
+export function applyHalftone(
+  data: ImageData,
+  params: HalftoneParams,
+  offsetX?: number,
+  offsetY?: number,
+): ImageData {
   if (params.method === 'fm') {
-    applyFMStochastic(data, params);
+    const hasOffset = offsetX !== undefined && offsetY !== undefined;
+    if (hasOffset) {
+      applyBayerDithering(data, params, offsetX, offsetY);
+    } else {
+      applyFMStochastic(data, params);
+    }
   } else {
     applyAMScreening(data, params);
   }

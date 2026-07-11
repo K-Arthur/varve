@@ -196,6 +196,21 @@ export class TransformEngine {
   }
 
   private bakeNode(node: SceneNode, localTransform: Affine): SceneNode {
+    if (node.kind === 'text') {
+      // Corner-resizing a text node scales font size proportionally.
+      const decomposed = this.extractTRS(localTransform);
+      if (decomposed) {
+        const { translateX, translateY, rotation, scaleX, scaleY } = decomposed;
+        const avgScale = Math.max((scaleX + scaleY) / 2, 0.01);
+        return {
+          ...node,
+          transform: [1, 0, 0, 1, translateX, translateY] as Affine,
+          rotation,
+          fontSize: Math.max((node.fontSize ?? 16) * avgScale, 1),
+        };
+      }
+      // Fall through to raw local transform if TRS extraction fails
+    }
     if (node.kind === 'shape' && !this.isRasterNode(node)) {
       const shapeNode = node as ShapeNode;
       const decomposed = this.extractTRS(localTransform);

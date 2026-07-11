@@ -10,7 +10,9 @@
  * Research basis: ARIA Authoring Practices Guide — Tabs pattern
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
-import { useRef } from 'react';
+
+import { AlertDialog } from '@strata/ui';
+import { useRef, useState } from 'react';
 import { useEditor } from './context';
 
 function CloseIcon() {
@@ -35,6 +37,7 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
   const { state, switchTab, closeTab, newTab } = useEditor();
   const { sessions, activeId } = state;
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [confirmCloseId, setConfirmCloseId] = useState<string | null>(null);
 
   function getTabIds(): string[] {
     return sessions.map((s) => s.id);
@@ -45,11 +48,8 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
   }
 
   function requestClose(id: string) {
-    const sess = sessions.find((s) => s.id === id);
     if (!closeTab(id)) {
-      if (confirm(`Close "${sess?.name ?? 'Untitled'}"? Unsaved changes will be lost.`)) {
-        closeTab(id, true);
-      }
+      setConfirmCloseId(id);
     }
   }
 
@@ -127,6 +127,26 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
       >
         <PlusIcon />
       </button>
+
+      {(() => {
+        if (!confirmCloseId) return null;
+        const closeSess = sessions.find((s) => s.id === confirmCloseId);
+        if (!closeSess) return null;
+        return (
+          <AlertDialog
+            open={true}
+            onClose={() => setConfirmCloseId(null)}
+            onConfirm={() => {
+              closeTab(confirmCloseId, true);
+              setConfirmCloseId(null);
+            }}
+            title="Close document"
+            description={`Close "${closeSess.name}"? Unsaved changes will be lost.`}
+            confirmLabel="Close"
+            variant="danger"
+          />
+        );
+      })()}
     </div>
   );
 }

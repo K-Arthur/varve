@@ -14,6 +14,7 @@ import { applyAffine } from './affine';
 
 export type AlignAxis = 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom';
 export type DistributeAxis = 'horizontal' | 'vertical';
+export type DistributeMode = 'equalGap' | 'equalCenter';
 
 export interface BBox {
   x: number;
@@ -121,7 +122,11 @@ export function alignBBox(
  * Compute evenly-spaced distribution positions for ≥3 bounding boxes.
  *
  * If `fixedGap` is provided, items are placed with that exact gap between adjacent edges.
- * Otherwise, gaps are computed to fill the span evenly.
+ * `fixedGap` is clamped to 0 for negative values (overlapping items produce zero-gap,
+ * not a visually broken negative gap or NaN).
+ *
+ * Otherwise, gaps are computed to fill the span evenly. When the span is smaller than
+ * the total content size (overlapping items), gap is 0 and the span is preserved.
  *
  * Returns array of positions (X for horizontal, Y for vertical) in sorted order,
  * or `null` if <3 items.
@@ -145,11 +150,12 @@ export function computeDistribution(
   const positions: number[] = [];
 
   if (fixedGap !== undefined) {
+    const safeGap = Math.max(0, fixedGap);
     let cursor = getPos(sorted[0]!);
     for (let i = 0; i < sorted.length; i++) {
       positions.push(cursor);
       if (i < sorted.length - 1) {
-        cursor += getSize(sorted[i]!) + fixedGap;
+        cursor += getSize(sorted[i]!) + safeGap;
       }
     }
     return positions;
@@ -160,7 +166,7 @@ export function computeDistribution(
   const start = getPos(first);
   const end = getPos(last) + getSize(last);
   const totalSize = sorted.reduce((s, b) => s + getSize(b), 0);
-  const gap = (end - start - totalSize) / (sorted.length - 1);
+  const gap = Math.max(0, (end - start - totalSize) / (sorted.length - 1));
 
   let cursor = start;
   for (let i = 0; i < sorted.length; i++) {
@@ -168,6 +174,40 @@ export function computeDistribution(
     cursor += getSize(sorted[i]!) + gap;
   }
   return positions;
+}
+
+/**
+ * Compute distribution positions using equal center-to-center spacing.
+ *
+ * Unlike `computeDistribution` (which spaces adjacent edges equally), this
+ * spaces the centers of each object equally within the overall span.
+ *
+ * Returns array of center positions (X for horizontal, Y for vertical) in
+ * sorted order, or `null` if <3 items.
+ */
+export function computeDistributionCenters(axis: DistributeAxis, bounds: BBox[]): number[] | null {
+  if (bounds.length < 3) return null;
+
+  const sorted = [...bounds].sort((a, b) => {
+    const posA = axis === 'horizontal' ? a.x + a.w / 2 : a.y + a.h / 2;
+    const posB = axis === 'horizontal' ? b.x + b.w / 2 : b.y + b.h / 2;
+    return posA - posB;
+  });
+
+  const getCenter = (b: BBox) => (axis === 'horizontal' ? b.x + b.w / 2 : b.y + b.h / 2);
+
+  const first = sorted[0]!;
+  const last = sorted[sorted.length - 1]!;
+  const startC = getCenter(first);
+  const endC = getCenter(last);
+  const totalSpan = endC - startC;
+  const step = sorted.length > 1 ? totalSpan / (sorted.length - 1) : 0;
+
+  const centers: number[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    centers.push(startC + step * i);
+  }
+  return centers;
 }
 
 /**
@@ -308,9 +348,13 @@ export function computeTidyLayout(items: BBox[], maxCols: number): TidyLayoutRes
   const avgH = centers.reduce((s, c) => s + c.h, 0) / centers.length;
   const threshold = avgH * 0.8;
 
-  // Index each item and sort by Y first
+  // Index each item and sort by Y first, then X for tie-breaking (deterministic)
   const indexed = centers.map((c, i) => ({ ...c, idx: i }));
-  const sortedByY = [...indexed].sort((a, b) => a.cy - b.cy);
+  const sortedByY = [...indexed].sort((a, b) => {
+    const dy = a.cy - b.cy;
+    if (Math.abs(dy) > 1e-9) return dy;
+    return a.cx - b.cx;
+  });
 
   // Group into rows
   const rows: Array<Array<{ idx: number; cx: number; cy: number; w: number; h: number }>> = [];

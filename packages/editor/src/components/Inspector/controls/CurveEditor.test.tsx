@@ -91,4 +91,134 @@ describe('CurveEditor', () => {
     expect(screen.getByRole('radio', { name: /^G$/i })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /^B$/i })).toBeTruthy();
   });
+
+  it('calls onDragStart when pointer down on anchor', () => {
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    render(
+      <CurveEditor
+        value={[
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ]}
+        onChange={vi.fn()}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    const svg = screen.getByRole('img', { name: /curve editor/i });
+    fireEvent.pointerDown(svg, { clientX: 30, clientY: 210 });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+    expect(onDragEnd).not.toHaveBeenCalled();
+  });
+
+  it('calls onDragEnd when pointer up', () => {
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    render(
+      <CurveEditor
+        value={[
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ]}
+        onChange={vi.fn()}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    const svg = screen.getByRole('img', { name: /curve editor/i });
+    fireEvent.pointerDown(svg, { clientX: 30, clientY: 210 });
+    fireEvent.pointerUp(svg);
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onDragStart/onDragEnd for keyboard arrow changes', () => {
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    render(
+      <CurveEditor
+        value={[
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ]}
+        onChange={vi.fn()}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    const svg = screen.getByRole('img', { name: /curve editor/i });
+
+    fireEvent.pointerDown(svg, { clientX: 30, clientY: 210 });
+    onDragStart.mockClear();
+    onDragEnd.mockClear();
+
+    fireEvent.keyDown(svg, { key: 'ArrowRight' });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyUp(window, { key: 'ArrowRight' });
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onDragStart/onDragEnd when adding a new point', () => {
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    const onChange = vi.fn();
+    render(
+      <CurveEditor
+        value={[
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ]}
+        onChange={onChange}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    const svg = screen.getByRole('img', { name: /curve editor/i });
+    fireEvent.pointerDown(svg, { clientX: 150, clientY: 120 });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onDragStart for reset', () => {
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    render(
+      <CurveEditor
+        value={[
+          { x: 0.2, y: 0.8 },
+          { x: 0.8, y: 0.2 },
+        ]}
+        onChange={vi.fn()}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    const resetBtn = screen.getByRole('button', { name: /reset curve/i });
+    fireEvent.click(resetBtn);
+    expect(onDragStart).not.toHaveBeenCalled();
+    expect(onDragEnd).not.toHaveBeenCalled();
+  });
+
+  it('does not call onDragStart for double-click delete', () => {
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    render(
+      <CurveEditor
+        value={[
+          { x: 0, y: 0 },
+          { x: 0.5, y: 0.5 },
+          { x: 1, y: 1 },
+        ]}
+        onChange={vi.fn()}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    const svg = screen.getByRole('img', { name: /curve editor/i });
+    fireEvent.doubleClick(svg, { clientX: 30, clientY: 210 });
+    expect(onDragStart).not.toHaveBeenCalled();
+    expect(onDragEnd).not.toHaveBeenCalled();
+  });
 });
