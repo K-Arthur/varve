@@ -13,6 +13,26 @@ describe('loadSettings', () => {
     expect(s.export.defaultFormat).toBe('png');
     expect(s.export.defaultScale).toEqual({ type: 'factor', value: 2 });
     expect(s.appearance.theme).toBe('light');
+    expect(s.startup.showBrandedLoader).toBe(true);
+  });
+
+  it('persists and loads startup settings', () => {
+    const s = loadSettings();
+    s.startup.showBrandedLoader = false;
+    saveSettings(s);
+    const loaded = loadSettings();
+    expect(loaded.startup.showBrandedLoader).toBe(false);
+  });
+
+  it('merges partial startup settings gracefully', () => {
+    localStorage.setItem(
+      'strata-editor-settings',
+      JSON.stringify({ export: { defaultFormat: 'svg' }, startup: { showBrandedLoader: false } }),
+    );
+    const s = loadSettings();
+    expect(s.export.defaultFormat).toBe('svg');
+    expect(s.startup.showBrandedLoader).toBe(false);
+    expect(s.appearance.reduceMotion).toBe(false);
   });
 
   it('round-trips through localStorage', () => {

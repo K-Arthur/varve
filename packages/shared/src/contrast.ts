@@ -8,9 +8,9 @@
 
 import {
   deltaEOk,
+  gamutMapToSrgb,
   linearSrgbToOklab,
-  linearToSrgb,
-  oklabToLinearSrgb,
+  oklabToOkLch,
   srgbToLinear,
 } from './colorConversion';
 
@@ -128,14 +128,10 @@ export function autoFixContrast(
   // Background Oklab L for direction determination
   const [bgL] = linearSrgbToOklab([srgbToLinear(bgR), srgbToLinear(bgG), srgbToLinear(bgB)]);
 
-  // Helper: Oklab → sRGB 0-255 via linear clamping
-  const oklabToSrgbClipped = (L: number): [number, number, number] => {
-    const linear = oklabToLinearSrgb([L, fgA, fgB_]);
-    return [
-      Math.max(0, Math.min(255, linearToSrgb(linear[0]))),
-      Math.max(0, Math.min(255, linearToSrgb(linear[1]))),
-      Math.max(0, Math.min(255, linearToSrgb(linear[2]))),
-    ];
+  // Helper: Oklab → sRGB 0-255 via chroma-reduction gamut mapping
+  // Preserves lightness and hue better than simple clamping for out-of-gamut colors.
+  const oklabToSrgbGamutMapped = (L: number): [number, number, number] => {
+    return gamutMapToSrgb(oklabToOkLch([L, fgA, fgB_]));
   };
 
   // Determine binary search range
@@ -155,7 +151,7 @@ export function autoFixContrast(
   const iterations = 50;
   for (let i = 0; i < iterations; i++) {
     const mid = (lo + hi) / 2;
-    const [r, g, b] = oklabToSrgbClipped(mid);
+    const [r, g, b] = oklabToSrgbGamutMapped(mid);
     const ratio = contrastRatio(relativeLuminance(r, g, b), bgLum);
 
     if (fgL >= bgL) {
@@ -176,7 +172,7 @@ export function autoFixContrast(
   }
 
   const resultL = fgL >= bgL ? hi : lo;
-  const [resultR, resultG, resultB] = oklabToSrgbClipped(resultL);
+  const [resultR, resultG, resultB] = oklabToSrgbGamutMapped(resultL);
   const achievedRatio = contrastRatio(relativeLuminance(resultR, resultG, resultB), bgLum);
 
   if (achievedRatio < targetRatio) return null;

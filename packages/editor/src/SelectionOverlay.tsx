@@ -16,6 +16,8 @@ import {
   handlePositions,
   type ResizeHandle,
   type SelectionBox,
+  simpleScreenToWorld,
+  simpleWorldToScreen,
   transformRect,
   tryInvertAffine,
 } from '@strata/shared';
@@ -28,6 +30,32 @@ import { TransformEngine } from './transform/TransformEngine';
 const HANDLE_HALF = 4;
 const ROT_OFFSET = 20;
 const ROT_SNAP = 15 * (Math.PI / 180);
+/** Minimum screen-px between adjacent handles before collapse. */
+const MIN_HANDLE_SPACING_PX = 14;
+
+/** Return which handle indices to show based on screen-space size. */
+function visibleHandles(
+  boxW: number,
+  boxH: number,
+  zoom: number,
+): { indices: Set<number>; showRotation: boolean } {
+  const sw = boxW * zoom;
+  const sh = boxH * zoom;
+  // Tiny: only center pivot (show none of the 8, rotation shown if space)
+  if (sw < MIN_HANDLE_SPACING_PX && sh < MIN_HANDLE_SPACING_PX) {
+    return { indices: new Set<number>(), showRotation: false };
+  }
+  if (sw < MIN_HANDLE_SPACING_PX) {
+    // Narrow: show only N, center, S
+    return { indices: new Set([1, 5]), showRotation: true };
+  }
+  if (sh < MIN_HANDLE_SPACING_PX) {
+    // Flat: show only W, center, E
+    return { indices: new Set([3, 7]), showRotation: true };
+  }
+  // Normal: show all 8
+  return { indices: new Set([0, 1, 2, 3, 4, 5, 6, 7]), showRotation: true };
+}
 
 /** Cursor per handle index: TL, T, TR, R, BR, B, BL, L */
 const HANDLE_CURSORS = [
@@ -64,24 +92,6 @@ interface DragState {
   initialAngle: number;
   canvasOffsetX: number;
   canvasOffsetY: number;
-}
-
-function worldToScreen(
-  wx: number,
-  wy: number,
-  pan: { x: number; y: number },
-  zoom: number,
-): [number, number] {
-  return [wx * zoom + pan.x, wy * zoom + pan.y];
-}
-
-function screenToWorld(
-  sx: number,
-  sy: number,
-  pan: { x: number; y: number },
-  zoom: number,
-): [number, number] {
-  return [(sx - pan.x) / zoom, (sy - pan.y) / zoom];
 }
 
 const MIN_SIZE = 1;
@@ -328,11 +338,11 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const canvasOffsetY = rect?.top ?? 0;
       const pointerScreenX = e.clientX - canvasOffsetX;
       const pointerScreenY = e.clientY - canvasOffsetY;
-      const pointerWorld: Point = screenToWorld(
+      const pointerWorld: Point = simpleScreenToWorld(
         pointerScreenX,
         pointerScreenY,
-        state.pan,
         state.zoom,
+        state.pan,
       );
 
       const engine = new TransformEngine(state.document, state.selection, {
@@ -379,11 +389,11 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       if (!g) return;
       const pointerScreenX = e.clientX - g.canvasOffsetX;
       const pointerScreenY = e.clientY - g.canvasOffsetY;
-      const pointerWorld: Point = screenToWorld(
+      const pointerWorld: Point = simpleScreenToWorld(
         pointerScreenX,
         pointerScreenY,
-        state.pan,
         state.zoom,
+        state.pan,
       );
 
       if (g.isRotation) {
@@ -419,16 +429,16 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
   const handles = handlePositions(box);
   const topCenter = handles['n'];
-  const [rotX, rotY] = worldToScreen(topCenter[0], topCenter[1], state.pan, state.zoom);
+  const [rotX, rotY] = simpleWorldToScreen(topCenter[0], topCenter[1], state.zoom, state.pan);
   const rotScreenX = rotX;
   const rotScreenY = rotY - ROT_OFFSET;
 
-  const centerScreen = worldToScreen(box.cx, box.cy, state.pan, state.zoom);
-  const topLeftScreen = worldToScreen(
+  const centerScreen = simpleWorldToScreen(box.cx, box.cy, state.zoom, state.pan);
+  const topLeftScreen = simpleWorldToScreen(
     box.cx - box.w / 2,
     box.cy - box.h / 2,
-    state.pan,
     state.zoom,
+    state.pan,
   );
   const rotationDeg = (box.rotation * 180) / Math.PI;
 
@@ -470,69 +480,78 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         filter="url(#selection-glow)"
       />
 
-      {hasInteractiveHandles && (
-        <>
-          <line
-            x1={rotX}
-            y1={rotY}
-            x2={rotScreenX}
-            y2={rotScreenY}
-            stroke="var(--color-interactive-default)"
-            strokeWidth={1}
-          />
-          <circle
-            cx={rotScreenX}
-            cy={rotScreenY}
-            r={8}
-            fill="transparent"
-            style={{ pointerEvents: 'auto', cursor: 'grab' }}
-            onPointerDown={(e) => handlePointerDown(e, 8)}
-          />
-          <circle
-            cx={rotScreenX}
-            cy={rotScreenY}
-            r={HANDLE_HALF}
-            fill="var(--color-surface-overlay)"
-            stroke="var(--color-interactive-default)"
-            strokeWidth={1.5}
-            aria-label="Rotate"
-            pointerEvents="none"
-          />
-        </>
-      )}
+      {hasInteractiveHandles &&
+        (() => {
+          const { showRotation } = visibleHandles(box.w, box.h, state.zoom);
+          if (!showRotation) return null;
+          return (
+            <>
+              <line
+                x1={rotX}
+                y1={rotY}
+                x2={rotScreenX}
+                y2={rotScreenY}
+                stroke="var(--color-interactive-default)"
+                strokeWidth={1}
+              />
+              <circle
+                cx={rotScreenX}
+                cy={rotScreenY}
+                r={8}
+                fill="transparent"
+                style={{ pointerEvents: 'auto', cursor: 'grab' }}
+                onPointerDown={(e) => handlePointerDown(e, 8)}
+              />
+              <circle
+                cx={rotScreenX}
+                cy={rotScreenY}
+                r={HANDLE_HALF}
+                fill="var(--color-surface-overlay)"
+                stroke="var(--color-interactive-default)"
+                strokeWidth={1.5}
+                aria-label="Rotate"
+                pointerEvents="none"
+              />
+            </>
+          );
+        })()}
 
-      {HANDLE_KEYS.slice(0, 8).map((key, i) => {
-        const [hx, hy] = handles[key];
-        const [sx, sy] = worldToScreen(hx, hy, state.pan, state.zoom);
-        return (
-          <Fragment key={i}>
-            <rect
-              x={sx - 8}
-              y={sy - 8}
-              width={16}
-              height={16}
-              fill="transparent"
-              style={{
-                pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
-                cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
-              }}
-              onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
-            />
-            <rect
-              x={sx - HANDLE_HALF}
-              y={sy - HANDLE_HALF}
-              width={HANDLE_HALF * 2}
-              height={HANDLE_HALF * 2}
-              fill="var(--color-surface-overlay)"
-              stroke="var(--color-interactive-default)"
-              strokeWidth={1.5}
-              rx={1}
-              aria-label={HANDLE_LABELS[i]}
-              pointerEvents="none"
-            />
-          </Fragment>
-        );
-      })}
+      {(() => {
+        const { indices } = visibleHandles(box.w, box.h, state.zoom);
+        return HANDLE_KEYS.slice(0, 8).map((key, i) => {
+          if (!indices.has(i)) return null;
+          const [hx, hy] = handles[key];
+          const [sx, sy] = simpleWorldToScreen(hx, hy, state.zoom, state.pan);
+          return (
+            <Fragment key={i}>
+              <rect
+                x={sx - 8}
+                y={sy - 8}
+                width={16}
+                height={16}
+                fill="transparent"
+                style={{
+                  pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
+                  cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
+                }}
+                onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
+              />
+              <rect
+                x={sx - HANDLE_HALF}
+                y={sy - HANDLE_HALF}
+                width={HANDLE_HALF * 2}
+                height={HANDLE_HALF * 2}
+                fill="var(--color-surface-overlay)"
+                stroke="var(--color-interactive-default)"
+                strokeWidth={1.5}
+                rx={1}
+                aria-label={HANDLE_LABELS[i]}
+                pointerEvents="none"
+              />
+            </Fragment>
+          );
+        });
+      })()}
 
       {hasInteractiveHandles && (
         <>
@@ -558,8 +577,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {sel.length > 0 && (
         <text
-          x={worldToScreen(handles['ne'][0], handles['ne'][1], state.pan, state.zoom)[0] + 6}
-          y={worldToScreen(handles['ne'][0], handles['ne'][1], state.pan, state.zoom)[1] + 12}
+          x={simpleWorldToScreen(handles['ne'][0], handles['ne'][1], state.zoom, state.pan)[0] + 6}
+          y={simpleWorldToScreen(handles['ne'][0], handles['ne'][1], state.zoom, state.pan)[1] + 12}
           fontSize={10}
           fill="var(--color-interactive-default)"
           fontFamily="system-ui, sans-serif"
@@ -570,8 +589,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {sel.length === 1 && (
         <text
-          x={worldToScreen(handles['sw'][0], handles['sw'][1], state.pan, state.zoom)[0]}
-          y={worldToScreen(handles['sw'][0], handles['sw'][1], state.pan, state.zoom)[1] + 14}
+          x={simpleWorldToScreen(handles['sw'][0], handles['sw'][1], state.zoom, state.pan)[0]}
+          y={simpleWorldToScreen(handles['sw'][0], handles['sw'][1], state.zoom, state.pan)[1] + 14}
           fontSize={10}
           fill="var(--color-interactive-default)"
           fontFamily="system-ui, sans-serif"

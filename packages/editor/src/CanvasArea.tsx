@@ -34,7 +34,9 @@ import {
   applyBindingsToNode,
   buildAllVariantCaches,
   buildParentIndexMap,
+  buildVariableDependencyMap,
   createVariableStore,
+  getChangedVariableIds,
   getEffectiveNode,
   isContainer,
   resolveAllStyles,
@@ -61,6 +63,7 @@ import { DocumentGridOverlay } from './components/DocumentGridOverlay/DocumentGr
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
 import { GradientHandleOverlay } from './components/GradientHandleOverlay';
 import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
+import { MeshWarpOverlay } from './components/MeshWarpOverlay';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
 import { Ruler } from './components/Ruler/Ruler';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
@@ -95,6 +98,31 @@ import { nodeWorldBounds } from './scene/world';
 import { loadSettings } from './settings';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
 import { type DraftShape, type ToolContext, ToolManager } from './tools';
+
+/**
+ * Quick reference-equality check: returns true when the only top-level field
+ * that differs between two Document objects is `variableStore`.
+ * All other fields must be reference-equal.
+ * Used to detect variable-only changes that can skip full cache invalidation.
+ */
+function isOnlyVariableStoreChange(oldDoc: Document, newDoc: Document): boolean {
+  if (oldDoc === newDoc) return false;
+  const keys = new Set([
+    ...(Object.keys(oldDoc) as (keyof Document)[]),
+    ...(Object.keys(newDoc) as (keyof Document)[]),
+  ]);
+  for (const key of keys) {
+    if (key === 'variableStore') continue;
+    if (
+      (oldDoc as unknown as Record<string, unknown>)[key] !==
+      (newDoc as unknown as Record<string, unknown>)[key]
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 import { ArrowTool } from './tools/ArrowTool';
 import { computeEdgeVelocity } from './tools/autoPan';
 import { CloneStampTool } from './tools/CloneStampTool';
@@ -447,10 +475,35 @@ export function CanvasArea({
   const frameIndexRef = useRef<FrameSpatialIndex | null>(null);
   const prevDrawDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
-    invalidateTransformCache(transformCacheRef.current);
-    subtreeIrCacheRef.current.invalidate();
-    docVersionRef.current += 1;
-    frameIndexRef.current = getOrCreateFrameSpatialIndex(state.document, frameIndexRef.current);
+    const prevDoc = prevDrawDocRef.current;
+    if (prevDoc && isOnlyVariableStoreChange(prevDoc, state.document)) {
+      // Variable-only change: selectively invalidate only the nodes bound to
+      // changed variables. This avoids a full cache wipe + docVersion bump,
+      // so all unaffected nodes keep their cached IR and skip rebuild.
+      const changedVarIds = getChangedVariableIds(
+        prevDoc.variableStore,
+        state.document.variableStore,
+      );
+      if (changedVarIds.size > 0) {
+        const depMap = buildVariableDependencyMap(
+          state.document.nodes,
+          state.document.variableStore,
+        );
+        for (const varId of changedVarIds) {
+          const bound = depMap.get(varId);
+          if (bound) {
+            for (const nodeId of bound) {
+              subtreeIrCacheRef.current.invalidate(nodeId);
+            }
+          }
+        }
+      }
+    } else {
+      invalidateTransformCache(transformCacheRef.current);
+      subtreeIrCacheRef.current.invalidate();
+      docVersionRef.current += 1;
+      frameIndexRef.current = getOrCreateFrameSpatialIndex(state.document, frameIndexRef.current);
+    }
     prevDrawDocRef.current = state.document;
   }
 
@@ -502,6 +555,7 @@ export function CanvasArea({
   const [textEditTargetId, setTextEditTargetId] = useState<string | null>(null);
   const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
+  const [warpMesh, setWarpMesh] = useState<import('@strata/engine').MeshWarp | null>(null);
   const lastCursorUpdate = useRef(0);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [renameDialog, setRenameDialog] = useState<{ defaultValue: string } | null>(null);
@@ -557,6 +611,8 @@ export function CanvasArea({
     };
   }, []);
 
+  const workerFailedRef = useRef(false);
+
   useEffect(() => {
     renderWorkerRef.current = createRenderWorkerHost((msg) => {
       if (msg.type === 'frameRendered') {
@@ -573,6 +629,17 @@ export function CanvasArea({
           };
           requestContentDrawRef.current?.();
         }
+      } else if (msg.type === 'error') {
+        if (!workerFailedRef.current) {
+          workerFailedRef.current = true;
+          if (typeof console !== 'undefined') {
+            console.warn(
+              '[Strata] Render worker failed, falling back to main-thread:',
+              msg.message,
+            );
+          }
+          requestContentDrawRef.current?.();
+        }
       }
     });
     return () => {
@@ -580,6 +647,7 @@ export function CanvasArea({
       renderWorkerRef.current = null;
       workerBitmapRef.current?.bitmap.close();
       workerBitmapRef.current = null;
+      workerFailedRef.current = false;
     };
   }, []);
 
@@ -1370,7 +1438,7 @@ export function CanvasArea({
             replaySubtree(id);
           }
         }
-      } else if (renderWorkerRef.current && workerReady) {
+      } else if (renderWorkerRef.current && !workerFailedRef.current && workerReady) {
         const wb = workerBitmapRef.current;
         const cameraMatches =
           wb &&
@@ -2552,6 +2620,23 @@ export function CanvasArea({
               );
             }
           }}
+        />
+      )}
+      {warpMesh && state.selection.length >= 1 && (
+        <MeshWarpOverlay
+          zoom={state.zoom}
+          pan={state.pan}
+          mesh={warpMesh}
+          srcW={
+            warpMesh.cols > 0 ? warpMesh.vertices.reduce((max, v) => Math.max(max, v.x), 0) : 100
+          }
+          srcH={
+            warpMesh.rows > 0 ? warpMesh.vertices.reduce((max, v) => Math.max(max, v.y), 0) : 100
+          }
+          onMeshChange={setWarpMesh}
+          onDragStart={() => editor.beginTransaction()}
+          onDragEnd={() => editor.commitTransaction()}
+          cameraRotation={state.cameraRotation}
         />
       )}
       {state.tool === 'nodeEdit' &&

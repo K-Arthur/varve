@@ -237,26 +237,53 @@ export function resizeSelectionBox(
     // Edge handle: the dragged edge changes; the opposite dimension follows.
     if (sx !== 0) {
       newW = box.w + (centered ? 2 : 1) * sx * dx;
-      newW = clampDim(newW, minSize);
-      newH = box.h * (newW / box.w);
-      if (!centered) newCx = box.cx + (sx * (newW - box.w)) / 2;
+      if (!centered && newW < 0) {
+        // Flip on X: use the raw negative value for center, then take absolute width
+        const rawW = newW;
+        newW = Math.max(-newW, minSize);
+        newH = box.h * (newW / box.w);
+        newCx = box.cx + (sx * (rawW - box.w)) / 2;
+      } else {
+        newW = clampDim(newW, minSize);
+        newH = box.h * (newW / box.w);
+        if (!centered) newCx = box.cx + (sx * (newW - box.w)) / 2;
+      }
     } else if (sy !== 0) {
       newH = box.h + (centered ? 2 : 1) * sy * dy;
-      newH = clampDim(newH, minSize);
-      newW = box.w * (newH / box.h);
-      if (!centered) newCy = box.cy + (sy * (newH - box.h)) / 2;
+      if (!centered && newH < 0) {
+        const rawH = newH;
+        newH = Math.max(-newH, minSize);
+        newW = box.w * (newH / box.h);
+        newCy = box.cy + (sy * (rawH - box.h)) / 2;
+      } else {
+        newH = clampDim(newH, minSize);
+        newW = box.w * (newH / box.h);
+        if (!centered) newCy = box.cy + (sy * (newH - box.h)) / 2;
+      }
     }
   } else {
     // Free resize.
     if (sx !== 0) {
       newW = box.w + (centered ? 2 : 1) * sx * dx;
-      newW = clampDim(newW, minSize);
-      if (!centered) newCx = box.cx + (sx * (newW - box.w)) / 2;
+      if (!centered && newW < 0) {
+        const rawW = newW;
+        newW = Math.max(-newW, minSize);
+        newCx = box.cx + (sx * (rawW - box.w)) / 2;
+      } else {
+        newW = clampDim(newW, minSize);
+        if (!centered) newCx = box.cx + (sx * (newW - box.w)) / 2;
+      }
     }
     if (sy !== 0) {
       newH = box.h + (centered ? 2 : 1) * sy * dy;
-      newH = clampDim(newH, minSize);
-      if (!centered) newCy = box.cy + (sy * (newH - box.h)) / 2;
+      if (!centered && newH < 0) {
+        const rawH = newH;
+        newH = Math.max(-newH, minSize);
+        newCy = box.cy + (sy * (rawH - box.h)) / 2;
+      } else {
+        newH = clampDim(newH, minSize);
+        if (!centered) newCy = box.cy + (sy * (newH - box.h)) / 2;
+      }
     }
   }
 

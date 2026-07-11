@@ -386,6 +386,33 @@ function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
 }
 
+function premultiply(data: Uint8ClampedArray): void {
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3]!;
+    if (a === 255) continue;
+    if (a === 0) {
+      data[i] = 0;
+      data[i + 1] = 0;
+      data[i + 2] = 0;
+      continue;
+    }
+    data[i] = clampByte((data[i]! * a) / 255);
+    data[i + 1] = clampByte((data[i + 1]! * a) / 255);
+    data[i + 2] = clampByte((data[i + 2]! * a) / 255);
+  }
+}
+
+function unpremultiply(data: Uint8ClampedArray): void {
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3]!;
+    if (a === 0 || a === 255) continue;
+    const inv = 255 / a;
+    data[i] = clampByte(data[i]! * inv);
+    data[i + 1] = clampByte(data[i + 1]! * inv);
+    data[i + 2] = clampByte(data[i + 2]! * inv);
+  }
+}
+
 /**
  * Exposure: value as EV adjustment, offset as linear shift, gamma correction.
  * Simulates photographic exposure (linear light scaling).
@@ -425,10 +452,12 @@ function applySharpen(data: ImageData, amount: number, radius: number, threshold
   const src = new Uint8ClampedArray(data.data);
   const factor = amount / 100;
 
+  // Operate on premultiplied alpha to avoid dark fringing at transparent edges
+  premultiply(src);
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
-      // Simple 3x3 box blur
       let ar = 0,
         ag = 0,
         ab = 0,
@@ -450,7 +479,6 @@ function applySharpen(data: ImageData, amount: number, radius: number, threshold
       ag /= count;
       ab /= count;
 
-      // Unsharp mask: original - blurred
       const dr = src[idx]! - ar;
       const dg = src[idx + 1]! - ag;
       const db = src[idx + 2]! - ab;
@@ -462,6 +490,8 @@ function applySharpen(data: ImageData, amount: number, radius: number, threshold
       }
     }
   }
+
+  unpremultiply(data.data);
 }
 
 /**

@@ -4,6 +4,29 @@
  * Holds the editor's tool state, viewport (zoom/pan), selection, AND the scene
  * Document. Document actions are provided through the context so any surface
  * (toolbar, canvas, layers, inspector) can mutate the scene.
+ */
+
+/** Module-level bridge injected by Shell to forward toasts to @strata/ui ToastProvider. */
+let toastHandler:
+  | ((opts: {
+      message: string;
+      type?: 'info' | 'success' | 'warning' | 'error';
+      duration?: number;
+    }) => void)
+  | null = null;
+
+export function setToastHandler(
+  fn: (opts: {
+    message: string;
+    type?: 'info' | 'success' | 'warning' | 'error';
+    duration?: number;
+  }) => void,
+): void {
+  toastHandler = fn;
+}
+
+/**
+ * Editor state context — shared across all shell surfaces.
  *
  * F1: Selection is now NodeId[] (multi-select capable). All surfaces read
  *     selection through isSelected()/selectedNodes() so nested nodes work
@@ -133,7 +156,9 @@ import {
   clampZoom,
   computeAlignmentTarget,
   computeDistribution,
+  computeDistributionCenters,
   computeTidyLayout,
+  type DistributeMode,
   distributeToPosition,
   fitBoundsCamera,
   type OBB,
@@ -2804,6 +2829,122 @@ export function EditorProvider({
         });
       },
 
+      // P0*: distribute with configurable mode (equalGap or equalCenter)
+      distributeWithMode: (axis, mode) => {
+        const sel = state.selection;
+        if (sel.length < 3) return;
+        const doc = state.document;
+        const items = getValidItemsWithBounds(sel, doc);
+        if (items.length < 3) return;
+
+        let positions: number[] | null;
+        if (mode === 'equalCenter') {
+          positions = computeDistributionCenters(
+            axis,
+            items.map((i) => i.bounds),
+          );
+          if (!positions) return;
+          // Centers mode: positions are center coordinates. Convert to origin positions.
+          const sortedByCenter = [...items].sort((a, b) => {
+            const ca =
+              axis === 'horizontal' ? a.bounds.x + a.bounds.w / 2 : a.bounds.y + a.bounds.h / 2;
+            const cb =
+              axis === 'horizontal' ? b.bounds.x + b.bounds.w / 2 : b.bounds.y + b.bounds.h / 2;
+            return ca - cb;
+          });
+          updateDoc((newDoc) => {
+            const nodes = { ...newDoc.nodes };
+            for (let i = 0; i < sortedByCenter.length; i++) {
+              const { id, node, bounds: b } = sortedByCenter[i]!;
+              if (!nodes[id]) continue;
+              const centerPos = positions![i]!;
+              const targetWorldX = axis === 'horizontal' ? centerPos - b.w / 2 : b.x;
+              const targetWorldY = axis === 'vertical' ? centerPos - b.h / 2 : b.y;
+              const wm = nodeWorldTransform(doc, id);
+              const bOffX = b.x - wm[4];
+              const bOffY = b.y - wm[5];
+              const nodeOriginWorldX = targetWorldX - bOffX;
+              const nodeOriginWorldY = targetWorldY - bOffY;
+              const parentId = getParentFast(doc, id, parentCacheRef.current);
+              let newLocalX = nodeOriginWorldX;
+              let newLocalY = nodeOriginWorldY;
+              if (parentId) {
+                const pInv = invertAffine(nodeWorldTransform(doc, parentId));
+                const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
+                newLocalX = local[0];
+                newLocalY = local[1];
+              }
+              nodes[id] = {
+                ...node,
+                transform: [
+                  node.transform[0],
+                  node.transform[1],
+                  node.transform[2],
+                  node.transform[3],
+                  newLocalX,
+                  newLocalY,
+                ] as Affine,
+              } as SceneNode;
+            }
+            return { ...newDoc, nodes };
+          });
+          return;
+        }
+
+        // equalGap mode — reuse distributeSelected logic
+        const sorted = [...items].sort((a, b) => {
+          return (
+            (axis === 'horizontal' ? a.bounds.x : a.bounds.y) -
+            (axis === 'horizontal' ? b.bounds.x : b.bounds.y)
+          );
+        });
+        positions = computeDistribution(
+          axis,
+          sorted.map((i) => i.bounds),
+        );
+        if (!positions) return;
+        updateDoc((newDoc) => {
+          const nodes = { ...newDoc.nodes };
+          for (let i = 0; i < sorted.length; i++) {
+            const { id, node, bounds: b } = sorted[i]!;
+            if (!nodes[id]) continue;
+            const pos = distributeToPosition(
+              positions![i]!,
+              i,
+              b,
+              axis,
+              sorted.map((s) => s.bounds),
+            );
+            const wm = nodeWorldTransform(doc, id);
+            const bOffX = b.x - wm[4];
+            const bOffY = b.y - wm[5];
+            const nodeOriginWorldX = pos.x - bOffX;
+            const nodeOriginWorldY = pos.y - bOffY;
+            const parentId = getParentFast(doc, id, parentCacheRef.current);
+            let newLocalX = nodeOriginWorldX;
+            let newLocalY = nodeOriginWorldY;
+            if (parentId) {
+              const pInv = invertAffine(nodeWorldTransform(doc, parentId));
+              const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
+              newLocalX = local[0];
+              newLocalY = local[1];
+            }
+            nodes[id] = {
+              ...node,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                newLocalX,
+                newLocalY,
+              ] as Affine,
+            } as SceneNode;
+          }
+          return { ...newDoc, nodes };
+        });
+      },
+
       // P0*: set the key object ID (null = use collective bounds)
       setKeyObject: (nodeId) => {
         setState((s) => ({ ...s, keyObjectId: nodeId }));
@@ -3367,6 +3508,10 @@ export function EditorProvider({
       },
       announceOperation: (op, result) => {
         announcerRef.current?.announceOperation(op, result);
+      },
+      showToast: (opts) => {
+        announcerRef.current?.announce(opts.message);
+        toastHandler?.(opts);
       },
 
       reparentNode: (id, newParentId, toIndex) => {
@@ -5076,6 +5221,7 @@ export function EditorProvider({
       alignSelected: value.alignSelected,
       distributeSelected: value.distributeSelected,
       distributeWithGap: value.distributeWithGap,
+      distributeWithMode: value.distributeWithMode,
       setKeyObject: value.setKeyObject,
       keyObjectId: value.keyObjectId,
       alignToPage: value.alignToPage,

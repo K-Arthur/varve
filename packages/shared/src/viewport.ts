@@ -154,6 +154,25 @@ export function clientToCanvas(
   return [clientX - rect.left, clientY - rect.top];
 }
 
+/** Simplified screen-to-world for SVG overlays and other non-camera use. */
+export function simpleWorldToScreen(
+  wx: number,
+  wy: number,
+  zoom: number,
+  pan: { x: number; y: number },
+): Point {
+  return [wx * zoom + pan.x, wy * zoom + pan.y];
+}
+
+export function simpleScreenToWorld(
+  sx: number,
+  sy: number,
+  zoom: number,
+  pan: { x: number; y: number },
+): Point {
+  return [(sx - pan.x) / zoom, (sy - pan.y) / zoom];
+}
+
 /** Legacy alias — uses zero origin and default viewport. */
 export function worldToScreenAffine(cam: Camera): Affine {
   return buildWorldToScreenAffine(cam, { width: 1920, height: 1080 }, [0, 0]);

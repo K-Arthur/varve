@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
 import type { ReplayGradient, ReplayTarget } from './replay';
 import { replayIr } from './replay';
-import type { RenderItem } from './types';
+import type { FillIR, RenderItem } from './types';
 
 interface RecorderProxy {
   target: ReplayTarget;
@@ -311,6 +311,78 @@ describe('gradient fill rendering', () => {
     expect(lgCall).toBeTruthy();
   });
 
+  it('clamps rotation 450 to same as rotation 90', () => {
+    const baseCtx = recorder();
+    const baseItem: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+          ],
+          rotation: 90,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+    };
+    replayIr(baseCtx.target, [baseItem]);
+    const call90 = baseCtx.calls.find((c) => c.startsWith('createLinearGradient('));
+
+    const clampedCtx = recorder();
+    const clampedFill: FillIR = { ...baseItem.fills![0], rotation: 450 } as FillIR;
+    const clampedItem: RenderItem = {
+      ...baseItem,
+      fills: [clampedFill],
+    };
+    replayIr(clampedCtx.target, [clampedItem]);
+    const call450 = clampedCtx.calls.find((c) => c.startsWith('createLinearGradient('));
+
+    expect(call450).toBe(call90);
+  });
+
+  it('clamps rotation -90 to same as rotation 270', () => {
+    const baseCtx = recorder();
+    const baseItem: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+          ],
+          rotation: 270,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+    };
+    replayIr(baseCtx.target, [baseItem]);
+    const call270 = baseCtx.calls.find((c) => c.startsWith('createLinearGradient('));
+
+    const clampedCtx = recorder();
+    const clampedFill: FillIR = { ...baseItem.fills![0], rotation: -90 } as FillIR;
+    const clampedItem: RenderItem = {
+      ...baseItem,
+      fills: [clampedFill],
+    };
+    replayIr(clampedCtx.target, [clampedItem]);
+    const callNeg90 = clampedCtx.calls.find((c) => c.startsWith('createLinearGradient('));
+
+    expect(callNeg90).toBe(call270);
+  });
+
   it('invisible gradient fill is skipped', () => {
     const rec = recorder();
     const item: RenderItem = {
@@ -548,6 +620,103 @@ describe('per-fill compositing', () => {
     const fillStyleSets = rec.calls.filter((c) => c === 'set fillStyle');
     expect(fillStyleSets.length).toBe(1);
     expect(String(rec.props.fillStyle ?? '')).toContain('255, 0, 0');
+  });
+});
+
+describe('gradient degenerate shape handling', () => {
+  it('shape with w=0,h=0 renders as solid fill of last stop (no gradient API calls)', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 } },
+          ],
+          rotation: 0,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 0, h: 0 },
+    };
+    replayIr(rec.target, [item]);
+    expect(rec.calls.some((c) => c.startsWith('createLinearGradient'))).toBe(false);
+    expect(rec.calls.some((c) => c.startsWith('createRadialGradient'))).toBe(false);
+    expect(rec.calls.some((c) => c.startsWith('createConicGradient'))).toBe(false);
+    expect(String(rec.props.fillStyle ?? '')).toContain('0, 255, 0');
+  });
+
+  it('transform matrix with zero scale produces solid fill (no gradient API calls)', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+          transform: [0, 0, 0, 0, 50, 50],
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+    };
+    replayIr(rec.target, [item]);
+    expect(rec.calls.some((c) => c.startsWith('createLinearGradient'))).toBe(false);
+    expect(String(rec.props.fillStyle ?? '')).toContain('0, 0, 255');
+  });
+});
+
+describe('gradient caching', () => {
+  it('identical gradient fills reuse cached gradient (only one gradient created)', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    const lgCalls = rec.calls.filter((c) => c.startsWith('createLinearGradient('));
+    expect(lgCalls.length).toBe(1);
   });
 });
 
@@ -990,6 +1159,42 @@ describe('effects rendering', () => {
     expect(saves.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('layerBlur with radius > 32 uses software separable blur (no CSS filter set on target)', () => {
+    const rec = recorder();
+    // Spy on filter sets
+    const filterSetValues: string[] = [];
+    Object.defineProperty(rec.target, 'filter', {
+      get() {
+        return ((rec.props as Record<string, unknown>).filter as string) ?? 'none';
+      },
+      set(v: string) {
+        (rec.props as Record<string, unknown>).filter = v;
+        filterSetValues.push(v);
+        rec.calls.push('set filter');
+      },
+      configurable: true,
+    });
+    let drawImageCount = 0;
+    (rec.target as { drawImage?: (...args: unknown[]) => void }).drawImage = (
+      ...args: unknown[]
+    ) => {
+      drawImageCount++;
+      rec.calls.push(`drawImage(${args.length})`);
+    };
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 100, g: 150, b: 200, a: 255 },
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      effects: [{ type: 'layerBlur', radius: 50, visible: true }],
+    };
+    replayIr(rec.target, [item]);
+    expect(drawImageCount).toBe(1);
+    // Software path should NOT set a blur CSS filter on the target.
+    // The blur is applied via ImageData manipulation on the offscreen canvas
+    // before drawing to the target. No 'blur(...)' string should appear.
+    expect(filterSetValues.some((v) => v.includes('blur'))).toBe(false);
+  });
+
   it('multiple effects: dropShadow + layerBlur both render', () => {
     const rec = recorder();
     (rec.target as { drawImage?: (...args: unknown[]) => void }).drawImage = (
@@ -1357,5 +1562,152 @@ describe('multi-item compositing edge cases', () => {
     // Invisible fill: no fills are drawn, no fillStyle set
     const fillStyleSets = rec.calls.filter((c) => c === 'set fillStyle');
     expect(fillStyleSets.length).toBe(0);
+  });
+
+  // ── Backdrop blur cache tests ──────────────────────────────────────────
+
+  describe('backdrop blur cache', () => {
+    function makeBackgroundBlurTarget(): ReplayTarget {
+      const mockCanvas = { width: 200, height: 200 } as HTMLCanvasElement;
+      const rec = recorder();
+      return {
+        ...rec.target,
+        canvas: mockCanvas,
+        getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+        drawImage: (..._args: unknown[]) => {
+          rec.calls.push(`drawImage(${_args.length})`);
+        },
+      };
+    }
+
+    function makeBlurItem(overrides?: Partial<RenderItem> & { radius?: number }): RenderItem {
+      return {
+        transform: [1, 0, 0, 1, 10, 10],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+        effects: [{ type: 'backgroundBlur', radius: overrides?.radius ?? 4, visible: true }],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+        ...overrides,
+      };
+    }
+
+    it('stores one entry on first paint and reuses it on second call', async () => {
+      const { __getBackdropCacheSize, __clearBackdropCache: clr } = await import('./replay');
+      clr();
+
+      const target = makeBackgroundBlurTarget();
+      const item = makeBlurItem();
+
+      expect(__getBackdropCacheSize()).toBe(0);
+      replayIr(target, [item]);
+      expect(__getBackdropCacheSize()).toBe(1);
+
+      // Second call with same params: cache hit
+      replayIr(target, [item]);
+      expect(__getBackdropCacheSize()).toBe(1);
+    });
+
+    it('creates a new cache entry when blur radius changes', async () => {
+      const { __getBackdropCacheSize, __clearBackdropCache: clr } = await import('./replay');
+      clr();
+
+      const target = makeBackgroundBlurTarget();
+
+      replayIr(target, [makeBlurItem({ radius: 4 })]);
+      const sizeAfterFirst = __getBackdropCacheSize();
+      expect(sizeAfterFirst).toBe(1);
+
+      replayIr(target, [makeBlurItem({ radius: 8 })]);
+      // Cache miss — a second entry created
+      expect(__getBackdropCacheSize()).toBe(2);
+    });
+
+    it('creates a new cache entry when transform changes', async () => {
+      const { __getBackdropCacheSize, __clearBackdropCache: clr } = await import('./replay');
+      clr();
+
+      const target = makeBackgroundBlurTarget();
+
+      replayIr(target, [makeBlurItem()]);
+      expect(__getBackdropCacheSize()).toBe(1);
+
+      // Different transform → different screen-space bounds → cache miss
+      replayIr(target, [makeBlurItem({ transform: [2, 0, 0, 2, 0, 0] })]);
+      expect(__getBackdropCacheSize()).toBe(2);
+    });
+
+    it('limits cache to 20 entries (LRU eviction)', async () => {
+      const { __getBackdropCacheSize, __clearBackdropCache: clr } = await import('./replay');
+      clr();
+
+      const mockCanvas = { width: 500, height: 500 } as HTMLCanvasElement;
+      const rec = recorder();
+      const target: ReplayTarget = {
+        ...rec.target,
+        canvas: mockCanvas,
+        getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+        drawImage: (..._args: unknown[]) => {
+          rec.calls.push(`drawImage(${_args.length})`);
+        },
+      };
+
+      // 25 different items (different positions) → cache must evict to ≤20
+      for (let i = 0; i < 25; i++) {
+        replayIr(target, [
+          {
+            transform: [1, 0, 0, 1, i * 10, i * 10],
+            fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+            effects: [{ type: 'backgroundBlur', radius: 4, visible: true }],
+            primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+          },
+        ]);
+      }
+
+      expect(__getBackdropCacheSize()).toBeLessThanOrEqual(20);
+    });
+
+    it('clears all entries via __clearBackdropCache', async () => {
+      const { __getBackdropCacheSize, __clearBackdropCache: clr } = await import('./replay');
+      clr();
+
+      const target = makeBackgroundBlurTarget();
+
+      replayIr(target, [makeBlurItem()]);
+      expect(__getBackdropCacheSize()).toBe(1);
+
+      clr();
+      expect(__getBackdropCacheSize()).toBe(0);
+    });
+
+    it('still renders correctly on cache hit (drawImage + clip called)', async () => {
+      const { __clearBackdropCache: clr } = await import('./replay');
+      clr();
+
+      const mockCanvas = { width: 200, height: 200 } as HTMLCanvasElement;
+      const callOrder: string[] = [];
+      const target: ReplayTarget = {
+        ...recorder().target,
+        canvas: mockCanvas,
+        getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+        drawImage: (..._args: unknown[]) => {
+          callOrder.push('drawImage');
+        },
+        fillRect: (..._args: unknown[]) => {
+          callOrder.push('fillRect');
+        },
+      };
+
+      const item = makeBlurItem();
+
+      // First call: cache miss, captures+blurs+composites
+      replayIr(target, [item]);
+      expect(callOrder.filter((c) => c === 'drawImage').length).toBeGreaterThanOrEqual(1);
+
+      // Second call: cache hit, should still composite via drawImage
+      const drawImageBefore = callOrder.filter((c) => c === 'drawImage').length;
+      replayIr(target, [item]);
+      const drawImageAfter = callOrder.filter((c) => c === 'drawImage').length;
+      // drawImage must still be called (compositing the cached result)
+      expect(drawImageAfter).toBeGreaterThan(drawImageBefore);
+    });
   });
 });

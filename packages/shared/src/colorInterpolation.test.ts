@@ -148,6 +148,73 @@ describe('expandGradientStops', () => {
   });
 });
 
+describe('Bug 1: oklch undefined-hue through gray stops', () => {
+  const gray = { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 };
+  const red = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 };
+  const blue = { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 };
+  const black = { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
+  const white = { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 };
+
+  it('gray→red in oklch produces red-ish color (no hue shift through green)', () => {
+    const result = interpolateManagedColor(gray, red, 0.5, 'oklch');
+    // Red channel should dominate — no blue/green hue shift through gray
+    expect(result.r).toBeGreaterThan(150);
+    expect(result.g).toBeLessThan(100);
+    expect(result.b).toBeLessThan(100);
+  });
+
+  it('blue→gray in oklch keeps hue near blue (no hue shift through green/yellow)', () => {
+    const result = interpolateManagedColor(blue, gray, 0.5, 'oklch');
+    // Blue channel should dominate — no green/yellow hue shift
+    expect(result.b).toBeGreaterThan(150);
+    expect(result.g).toBeLessThan(result.b);
+  });
+
+  it('black→white→red three-stop gradient: achromatic segment preserves neutrality', () => {
+    const stops: GradientStopInput[] = [
+      { position: 0, color: black },
+      { position: 0.5, color: white },
+      { position: 1, color: red },
+    ];
+    // Sample at the midpoint of black→white segment (position 0.25)
+    const midBw = sampleGradientColor(stops, 0.25, 'oklch');
+    // Should be near-neutral gray (R≈G≈B)
+    const maxC = Math.max(midBw.r, midBw.g, midBw.b);
+    const minC = Math.min(midBw.r, midBw.g, midBw.b);
+    expect(maxC - minC).toBeLessThan(30);
+  });
+});
+
+describe('Bug 2: stops outside [0,1] unclamped in expandGradientStops', () => {
+  it('handles stop at -0.5 by clamping to 0', () => {
+    const red = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 };
+    const green = { space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 };
+    const stops: GradientStopInput[] = [
+      { position: -0.5, color: red },
+      { position: 0.5, color: green },
+    ];
+    const expanded = expandGradientStops(stops, 'oklab', 4);
+    for (const s of expanded) {
+      expect(s.position).toBeGreaterThanOrEqual(0);
+      expect(s.position).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('handles stop at 1.5 by clamping to 1', () => {
+    const red = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 };
+    const green = { space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 };
+    const stops: GradientStopInput[] = [
+      { position: 0.2, color: red },
+      { position: 1.5, color: green },
+    ];
+    const expanded = expandGradientStops(stops, 'oklab', 4);
+    for (const s of expanded) {
+      expect(s.position).toBeGreaterThanOrEqual(0);
+      expect(s.position).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
 describe('interpolation space dispatch', () => {
   const spaces: GradientInterpolationSpace[] = ['srgb', 'oklab', 'oklch', 'hsl'];
 

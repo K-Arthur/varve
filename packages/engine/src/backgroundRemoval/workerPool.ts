@@ -185,16 +185,18 @@ function processQueue(): void {
 }
 
 export function cancelAllWorkerJobs(): void {
-  for (const job of pending) {
-    clearTimeout(job.timeout);
-    job.abort.abort();
-    job.reject(new Error('cancelled'));
-  }
+  const jobs = pending.slice();
   pending.length = 0;
   const workers = getPool();
   for (const pw of workers) {
     pw.busy = false;
     pw.jobCount = 0;
+  }
+  // Reject after clearing, so the abort handler does not try to remove
+  // the job from a now-empty pending list (avoids double-reject).
+  for (const job of jobs) {
+    clearTimeout(job.timeout);
+    job.reject(new Error('cancelled'));
   }
 }
 
@@ -269,6 +271,7 @@ export async function runPooledInference(
         if (idx >= 0) pending.splice(idx, 1);
         clearTimeout(timeout);
         reject(new Error('cancelled'));
+        processQueue();
       };
       signal?.addEventListener('abort', onAbort, { once: true });
       abort.signal.addEventListener('abort', onAbort, { once: true });
@@ -298,6 +301,7 @@ export async function runPooledInference(
         }
       }
       reject(new Error('Worker inference timed out'));
+      processQueue();
     }, timeoutMs);
 
     const wrappedResolve = (r: BackgroundRemovalResult) => {
@@ -326,6 +330,7 @@ export async function runPooledInference(
       target.busy = false;
       target.jobCount = Math.max(0, target.jobCount - 1);
       reject(new Error('cancelled'));
+      processQueue();
     };
     signal?.addEventListener('abort', onAbort, { once: true });
     abort.signal.addEventListener('abort', onAbort, { once: true });

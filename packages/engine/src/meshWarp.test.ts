@@ -5,6 +5,8 @@ import {
   type MeshWarp,
   meshTriangles,
   warpMesh,
+  warpPath,
+  warpPosition,
 } from './meshWarp';
 
 describe('createFlatMesh', () => {
@@ -12,9 +14,7 @@ describe('createFlatMesh', () => {
     const mesh = createFlatMesh(2, 2, 200, 100);
     expect(mesh.cols).toBe(2);
     expect(mesh.rows).toBe(2);
-    // (2+1)*(2+1) = 9 vertices
     expect(mesh.vertices).toHaveLength(9);
-    // Corners
     expect(mesh.vertices[0]).toEqual({ x: 0, y: 0 });
     expect(mesh.vertices[2]).toEqual({ x: 200, y: 0 });
     expect(mesh.vertices[6]).toEqual({ x: 0, y: 100 });
@@ -24,7 +24,6 @@ describe('createFlatMesh', () => {
   it('creates a 1x1 mesh (single quad)', () => {
     const mesh = createFlatMesh(1, 1, 100, 100);
     expect(mesh.vertices).toHaveLength(4);
-    // Row-major order: TL, TR, BL, BR
     expect(mesh.vertices[0]).toEqual({ x: 0, y: 0 });
     expect(mesh.vertices[1]).toEqual({ x: 100, y: 0 });
     expect(mesh.vertices[2]).toEqual({ x: 0, y: 100 });
@@ -36,15 +35,10 @@ describe('meshTriangles', () => {
   it('produces 2 triangles per cell for a 1x1 mesh', () => {
     const mesh = createFlatMesh(1, 1, 100, 100);
     const tris = meshTriangles(mesh, 100, 100);
-    // 1 cell * 2 triangles = 2
     expect(tris).toHaveLength(2);
-
-    // Triangle 1: TL, TR, BR
     expect(tris[0]!.src.a).toEqual({ x: 0, y: 0 });
     expect(tris[0]!.src.b).toEqual({ x: 100, y: 0 });
     expect(tris[0]!.src.c).toEqual({ x: 100, y: 100 });
-
-    // Triangle 2: TL, BR, BL
     expect(tris[1]!.src.a).toEqual({ x: 0, y: 0 });
     expect(tris[1]!.src.b).toEqual({ x: 100, y: 100 });
     expect(tris[1]!.src.c).toEqual({ x: 0, y: 100 });
@@ -53,40 +47,177 @@ describe('meshTriangles', () => {
   it('produces 8 triangles for a 2x2 mesh', () => {
     const mesh = createFlatMesh(2, 2, 200, 200);
     const tris = meshTriangles(mesh, 200, 200);
-    // 4 cells * 2 triangles = 8
     expect(tris).toHaveLength(8);
   });
 
   it('maps deformed vertices by index', () => {
-    // 1x1 mesh where the bottom-right corner is displaced.
-    // Row-major order: [TL, TR, BL, BR]
     const mesh: MeshWarp = {
       cols: 1,
       rows: 1,
       vertices: [
-        { x: 0, y: 0 }, // [0] TL
-        { x: 100, y: 0 }, // [1] TR
-        { x: 0, y: 100 }, // [2] BL
-        { x: 80, y: 80 }, // [3] BR displaced inward
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 0, y: 100 },
+        { x: 80, y: 80 },
       ],
     };
     const tris = meshTriangles(mesh, 100, 100);
     expect(tris).toHaveLength(2);
-    // Triangle 1: TL, TR, BR — dst.c should be the displaced BR
     expect(tris[0]!.dst.a).toEqual({ x: 0, y: 0 });
     expect(tris[0]!.dst.b).toEqual({ x: 100, y: 0 });
     expect(tris[0]!.dst.c).toEqual({ x: 80, y: 80 });
-    // Triangle 2: TL, BR, BL — dst.c should be BL
     expect(tris[1]!.dst.a).toEqual({ x: 0, y: 0 });
     expect(tris[1]!.dst.b).toEqual({ x: 80, y: 80 });
     expect(tris[1]!.dst.c).toEqual({ x: 0, y: 100 });
   });
 });
 
+describe('warpPosition', () => {
+  it('returns the same position for an undeformed mesh', () => {
+    const mesh = createFlatMesh(2, 2, 100, 100);
+    const result = warpPosition(mesh, 100, 100, 50, 50);
+    expect(result.x).toBeCloseTo(50, 5);
+    expect(result.y).toBeCloseTo(50, 5);
+  });
+
+  it('displaces a point toward a moved corner', () => {
+    const mesh: MeshWarp = {
+      cols: 1,
+      rows: 1,
+      vertices: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 0, y: 100 },
+        { x: 50, y: 50 },
+      ],
+    };
+    const result = warpPosition(mesh, 100, 100, 90, 90);
+    expect(result.x).toBeLessThan(60);
+    expect(result.y).toBeLessThan(60);
+  });
+
+  it('returns same position for center of undeformed mesh', () => {
+    const mesh = createFlatMesh(2, 2, 200, 100);
+    const result = warpPosition(mesh, 200, 100, 100, 50);
+    expect(result.x).toBeCloseTo(100, 5);
+    expect(result.y).toBeCloseTo(50, 5);
+  });
+
+  it('clamps points outside the mesh to the nearest edge', () => {
+    const mesh = createFlatMesh(2, 2, 100, 100);
+    const result = warpPosition(mesh, 100, 100, 150, 50);
+    expect(result.x).toBe(100);
+    expect(result.y).toBe(50);
+  });
+
+  it('handles position at exact vertex', () => {
+    const mesh = createFlatMesh(1, 1, 100, 100);
+    const result = warpPosition(mesh, 100, 100, 100, 0);
+    expect(result.x).toBe(100);
+    expect(result.y).toBe(0);
+  });
+});
+
+describe('warpPath', () => {
+  it('returns the same path for an undeformed mesh', () => {
+    const mesh = createFlatMesh(2, 2, 100, 100);
+    const path = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      { x: 90, y: 10, handleIn: null, handleOut: null },
+      { x: 90, y: 90, handleIn: null, handleOut: null },
+      { x: 10, y: 90, handleIn: null, handleOut: null },
+    ];
+    const result = warpPath(path, mesh, 100, 100);
+    expect(result).toHaveLength(4);
+    expect(result[0]!.x).toBeCloseTo(10, 5);
+    expect(result[0]!.y).toBeCloseTo(10, 5);
+    expect(result[2]!.x).toBeCloseTo(90, 5);
+    expect(result[2]!.y).toBeCloseTo(90, 5);
+  });
+
+  it('preserves handle types when possible', () => {
+    const mesh = createFlatMesh(2, 2, 100, 100);
+    const path = [
+      { x: 10, y: 10, handleIn: null, handleOut: [20, 10] as [number, number] },
+      { x: 90, y: 10, handleIn: [80, 10] as [number, number], handleOut: null },
+    ];
+    const result = warpPath(path, mesh, 100, 100);
+    expect(result[0]!.handleOut).toEqual([20, 10]);
+    expect(result[result.length - 1]!.handleIn).toEqual([80, 10]);
+  });
+
+  it('wraps path through displaced mesh', () => {
+    const mesh: MeshWarp = {
+      cols: 1,
+      rows: 1,
+      vertices: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 0, y: 100 },
+        { x: 60, y: 60 },
+      ],
+    };
+    const path = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      { x: 90, y: 10, handleIn: null, handleOut: null },
+      { x: 90, y: 90, handleIn: null, handleOut: null },
+      { x: 10, y: 90, handleIn: null, handleOut: null },
+    ];
+    const result = warpPath(path, mesh, 100, 100);
+    expect(result).toHaveLength(4);
+    expect(result[3]!.x).toBeLessThan(10);
+    expect(result[3]!.y).toBeLessThan(90);
+  });
+
+  it('subdivides curves with handles before warping for accuracy', () => {
+    const mesh: MeshWarp = {
+      cols: 2,
+      rows: 2,
+      vertices: [
+        { x: 0, y: 0 },
+        { x: 50, y: 0 },
+        { x: 100, y: 0 },
+        { x: 0, y: 50 },
+        { x: 50, y: 50 },
+        { x: 100, y: 50 },
+        { x: 0, y: 100 },
+        { x: 50, y: 100 },
+        { x: 100, y: 100 },
+      ],
+    };
+    const path = [
+      { x: 10, y: 50, handleIn: null, handleOut: [40, 50] as [number, number] },
+      { x: 90, y: 50, handleIn: [60, 50] as [number, number], handleOut: null },
+    ];
+    const result = warpPath(path, mesh, 100, 100);
+    expect(result.length).toBeGreaterThan(2);
+    const last = result[result.length - 1]!;
+    expect(last.x).toBeCloseTo(90, 5);
+    expect(last.y).toBeCloseTo(50, 5);
+  });
+
+  it('does not crash on degenerate mesh (all vertices at same point)', () => {
+    const mesh: MeshWarp = {
+      cols: 1,
+      rows: 1,
+      vertices: [
+        { x: 50, y: 50 },
+        { x: 50, y: 50 },
+        { x: 50, y: 50 },
+        { x: 50, y: 50 },
+      ],
+    };
+    const path = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      { x: 90, y: 10, handleIn: null, handleOut: null },
+    ];
+    expect(() => warpPath(path, mesh, 100, 100)).not.toThrow();
+  });
+});
+
 describe('warpMesh', () => {
   function makeTestImage(w: number, h: number): ImageData {
     const data = new ImageData(w, h);
-    // Create a simple gradient: red channel increases with x, green with y
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = (y * w + x) * 4;
@@ -100,31 +231,26 @@ describe('warpMesh', () => {
   }
 
   it('returns same image for flat (undeformed) mesh', () => {
-    const w = 20;
-    const h = 20;
+    const w = 20,
+      h = 20;
     const src = makeTestImage(w, h);
     const mesh = createFlatMesh(2, 2, w, h);
     const result = warpMesh(src, mesh, w, h);
-
     expect(result.width).toBe(w);
     expect(result.height).toBe(h);
-    // With no deformation, the result should closely match the source
     let diffCount = 0;
     for (let i = 0; i < src.data.length; i++) {
-      const sv = src.data[i];
-      const rv = result.data[i];
-      if (sv !== undefined && rv !== undefined && Math.abs(sv - rv) > 2) diffCount++;
+      const sv = src.data[i]!;
+      const rv = result.data[i]!;
+      if (Math.abs(sv - rv) > 2) diffCount++;
     }
-    // Allow some edge pixel differences due to bilinear sampling at boundaries
     expect(diffCount).toBeLessThan(20);
   });
 
   it('warps content when corner is displaced', () => {
-    const w = 20;
-    const h = 20;
+    const w = 20,
+      h = 20;
     const src = makeTestImage(w, h);
-    // Displace BR corner inward by 5px.
-    // Row-major: [TL, TR, BL, BR]
     const mesh: MeshWarp = {
       cols: 1,
       rows: 1,
@@ -132,18 +258,13 @@ describe('warpMesh', () => {
         { x: 0, y: 0 },
         { x: w, y: 0 },
         { x: 0, y: h },
-        { x: w - 5, y: h - 5 }, // BR displaced inward
+        { x: w - 5, y: h - 5 },
       ],
     };
     const result = warpMesh(src, mesh, w, h);
-
-    // The bottom-right pixel (19,19) maps from source (14,14) approximately
-    // (19 maps from w * 14/19 ≈ 14.7 via barycentric). Verify pixel changed.
     const brIdx = ((h - 1) * w + (w - 1)) * 4;
-    // Source BR pixel (19,19) has r=255, g=255
-    // Deformed BR output should have lower red/green because it samples from (14,14)
-    expect(result.data[brIdx]).toBeLessThan(255); // red should be lower
-    expect(result.data[brIdx + 1]).toBeLessThan(255); // green should be lower
+    expect(result.data[brIdx]).toBeLessThan(255);
+    expect(result.data[brIdx + 1]).toBeLessThan(255);
   });
 
   it('handles different output dimensions', () => {
@@ -156,7 +277,6 @@ describe('warpMesh', () => {
 
   it('handles extreme deformation without crashing', () => {
     const src = makeTestImage(16, 16);
-    // All vertices collapsed to center (row-major: TL, TR, BL, BR)
     const mesh: MeshWarp = {
       cols: 1,
       rows: 1,
@@ -167,7 +287,6 @@ describe('warpMesh', () => {
         { x: 8, y: 8 },
       ],
     };
-    // Should not crash — degenerate triangles are skipped by pointInTriangle
     const result = warpMesh(src, mesh, 16, 16);
     expect(result.width).toBe(16);
     expect(result.height).toBe(16);

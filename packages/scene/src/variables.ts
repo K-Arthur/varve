@@ -458,6 +458,121 @@ export function resolveBinding(store: VariableStore, binding: PropertyBinding): 
   return baseValue;
 }
 
+// ── Variable change detection / dependency map ────────────────────────────
+
+/**
+ * Compare two VariableStores and return the set of variable IDs whose values
+ * differ between them (including added/removed variables).
+ */
+export function getChangedVariableIds(
+  oldStore: VariableStore | undefined,
+  newStore: VariableStore | undefined,
+): Set<string> {
+  const changed = new Set<string>();
+
+  if (oldStore === newStore) return changed;
+  if (!oldStore && !newStore) return changed;
+
+  const oldVars = oldStore?.variables ?? {};
+  const newVars = newStore?.variables ?? {};
+
+  const allIds = new Set([...Object.keys(oldVars), ...Object.keys(newVars)]);
+
+  for (const id of allIds) {
+    const oldVar = oldVars[id];
+    const newVar = newVars[id];
+
+    if (!oldVar || !newVar) {
+      changed.add(id);
+      continue;
+    }
+
+    const oldModes = oldVar.valuesByMode;
+    const newModes = newVar.valuesByMode;
+    const modeKeys = new Set([...Object.keys(oldModes), ...Object.keys(newModes)]);
+
+    for (const mode of modeKeys) {
+      if (oldModes[mode] !== newModes[mode]) {
+        changed.add(id);
+        break;
+      }
+    }
+  }
+
+  return changed;
+}
+
+/**
+ * Walk all nodes in a document and build a map of variableId → Set<nodeId>
+ * showing which nodes have bindings referencing each variable.
+ *
+ * Follows alias chains: if variable A = "{B}" then nodes bound to A also
+ * appear in B's set.
+ *
+ * Accepts a nodes map and optional variable store so the function does not
+ * import the Document type (avoids circular dependency between document.ts
+ * and variables.ts).
+ */
+export function buildVariableDependencyMap(
+  nodes: Record<string, { bindings?: Record<string, { variableId: string }> }>,
+  store?: VariableStore,
+): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+
+  // Walk all nodes and collect direct bindings (varId → nodeId)
+  for (const [nodeId, node] of Object.entries(nodes)) {
+    if (!node.bindings) continue;
+    for (const binding of Object.values(node.bindings)) {
+      const varId = binding.variableId;
+      if (!map.has(varId)) {
+        map.set(varId, new Set());
+      }
+      map.get(varId)!.add(nodeId);
+    }
+  }
+
+  // Follow alias chains: if var A = "{B}" then nodes bound to A also depend on B
+  if (store) {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const [varId, deps] of map) {
+        const v = store.variables[varId];
+        if (!v) continue;
+
+        for (const raw of Object.values(v.valuesByMode)) {
+          if (typeof raw !== 'string') continue;
+          const refs = raw.match(/\{([^}]+)\}/g);
+          if (!refs) continue;
+
+          for (const ref of refs) {
+            const refName = ref.slice(1, -1);
+            // Resolve refName to a variable ID (name-based or id-based lookup)
+            const refVar =
+              store.variables[refName] ??
+              Object.values(store.variables).find((x) => x.name === refName);
+            if (!refVar) continue;
+
+            if (!map.has(refVar.id)) {
+              map.set(refVar.id, new Set());
+            }
+
+            // Propagate: nodes depending on this var also depend on the alias target
+            for (const nodeId of deps) {
+              if (!map.get(refVar.id)!.has(nodeId)) {
+                map.get(refVar.id)!.add(nodeId);
+                changed = true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return map;
+}
+
 // ── Private helpers ─────────────────────────────────────────────────────────
 
 function collectAliases(

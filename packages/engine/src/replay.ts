@@ -11,6 +11,7 @@
  */
 
 import { expandGradientStops, managedColorToRgba } from '@strata/shared';
+import { gaussianBlurSeparable } from './blur';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss } from './filters';
@@ -288,9 +289,26 @@ function paintBackgroundBlur(
   const sw = Math.max(1, maxX - minX);
   const sh = Math.max(1, maxY - minY);
 
+  // ── Backdrop cache lookup ─────────────────────────────────────
+  const cacheKeyInput = backdropCacheKey(lx, ly, lw, lh, m, item.transform, effect.radius);
+  const cached = getBackdropCache(cacheKeyInput);
+  if (cached) {
+    // Cache hit: composite the pre-blurred backdrop clipped to shape
+    target.save();
+    target.beginPath();
+    traceOutline(target, item.primitive);
+    if (target.clip) target.clip();
+    target.drawImage(cached.canvas as CanvasImageSource, lx, ly, lw, lh);
+    target.restore();
+    return;
+  }
+
   const cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
   cc.captureSource(canvas, minX, minY, sw, sh, 0, 0);
   cc.applyBlur(effect.radius);
+
+  // ── Store in cache ────────────────────────────────────────────
+  setBackdropCache(cacheKeyInput, cc.canvas);
 
   target.save();
   target.beginPath();
@@ -411,6 +429,10 @@ export function replayIr(
   ir: readonly RenderItem[],
   imageLookup?: (src: string) => CanvasImageSource | undefined,
 ): void {
+  // Sweep expired backdrop cache entries (preserves recent entries across frames)
+  sweepBackdropCache();
+  // Gradient cache lives per replayIr call so it doesn't leak across frames
+  gradientCache.clear();
   imageLookupForCurrentReplay = imageLookup ?? null;
   try {
     for (const item of ir) {
@@ -489,17 +511,35 @@ export function replayIr(
         cc.ctx.translate(-bounds.x, -bounds.y);
         paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
 
+        const radius = layerBlurEffect.radius;
         target.save();
-        target.filter = `blur(${layerBlurEffect.radius}px)`;
         target.globalAlpha = itemAlpha;
-        if (target.drawImage) {
-          target.drawImage(
-            cc.canvas as unknown as CanvasImageSource,
-            bounds.x,
-            bounds.y,
-            bounds.w,
-            bounds.h,
-          );
+        if (radius > 32) {
+          // Software separable blur for large radii:
+          // Capture fills to ImageData, blur in pixel space, put back, then draw.
+          const imageData = cc.getImageData(0, 0, bounds.w, bounds.h);
+          const blurred = gaussianBlurSeparable(imageData, radius);
+          cc.putImageData(blurred, 0, 0);
+          if (target.drawImage) {
+            target.drawImage(
+              cc.canvas as unknown as CanvasImageSource,
+              bounds.x,
+              bounds.y,
+              bounds.w,
+              bounds.h,
+            );
+          }
+        } else {
+          target.filter = `blur(${radius}px)`;
+          if (target.drawImage) {
+            target.drawImage(
+              cc.canvas as unknown as CanvasImageSource,
+              bounds.x,
+              bounds.y,
+              bounds.w,
+              bounds.h,
+            );
+          }
         }
         target.restore();
       } else {
@@ -794,6 +834,83 @@ function expandGradientStopsForFill(
   }));
 }
 
+// ── Backdrop blur cache ──────────────────────────────────────────────
+
+interface BackdropCacheEntry {
+  canvas: HTMLCanvasElement | OffscreenCanvas;
+  lastAccess: number;
+}
+
+const backdropCache = new Map<string, BackdropCacheEntry>();
+const BACKDROP_CACHE_MAX = 20;
+const BACKDROP_CACHE_TTL = 500;
+
+function backdropCacheKey(
+  lx: number,
+  ly: number,
+  lw: number,
+  lh: number,
+  canvasTransform: { a: number; b: number; c: number; d: number; e: number; f: number },
+  itemTransform: readonly [number, number, number, number, number, number],
+  radius: number,
+): string {
+  return `${lx.toFixed(1)},${ly.toFixed(1)},${lw.toFixed(1)},${lh.toFixed(1)}|${canvasTransform.a},${canvasTransform.b},${canvasTransform.c},${canvasTransform.d},${canvasTransform.e},${canvasTransform.f}|${itemTransform.join(',')}|r${radius}`;
+}
+
+function getBackdropCache(key: string): BackdropCacheEntry | undefined {
+  const entry = backdropCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.lastAccess > BACKDROP_CACHE_TTL) {
+    backdropCache.delete(key);
+    return undefined;
+  }
+  entry.lastAccess = Date.now();
+  return entry;
+}
+
+function setBackdropCache(key: string, canvas: HTMLCanvasElement | OffscreenCanvas): void {
+  if (backdropCache.size >= BACKDROP_CACHE_MAX) {
+    let oldestKey = '';
+    let oldestTime = Infinity;
+    for (const [k, v] of backdropCache) {
+      if (v.lastAccess < oldestTime) {
+        oldestTime = v.lastAccess;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey) backdropCache.delete(oldestKey);
+  }
+  backdropCache.set(key, { canvas, lastAccess: Date.now() });
+}
+
+/** Sweep expired backdrop cache entries. Called at the start of replayIr. */
+function sweepBackdropCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of backdropCache) {
+    if (now - entry.lastAccess > BACKDROP_CACHE_TTL) {
+      backdropCache.delete(key);
+    }
+  }
+}
+
+export function __clearBackdropCache(): void {
+  backdropCache.clear();
+}
+
+export function __getBackdropCacheSize(): number {
+  return backdropCache.size;
+}
+
+/** Module-level gradient cache: maps a hash of {fill, bounds} → CanvasGradient | string. */
+const gradientCache = new Map<string, CanvasGradient | string>();
+
+function gradientCacheKey(
+  fill: Extract<FillIR, { type: 'gradient' }>,
+  bounds: { x: number; y: number; w: number; h: number },
+): string {
+  return `${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.rotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
+}
+
 /** Create a gradient fillStyle from a FillIR gradient. */
 function createGradientStyle(
   target: ReplayTarget,
@@ -804,10 +921,17 @@ function createGradientStyle(
   if (stops.length === 0) return 'rgba(0,0,0,0)';
 
   const bounds = primitiveBounds(item.primitive);
-  let rot = (fill.rotation * Math.PI) / 180;
+  // Normalize rotation to [0, 360) so out-of-range values don't escape
+  let rot = ((((fill.rotation % 360) + 360) % 360) * Math.PI) / 180;
   let cx = (bounds.x + bounds.w) / 2;
   let cy = (bounds.y + bounds.h) / 2;
   let halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
+
+  // Degenerate shape with zero area — render as solid fill of last stop
+  if (halfDiag <= 0) {
+    const last = stops[stops.length - 1];
+    return last ? rgba(last.color) : 'rgba(0,0,0,0)';
+  }
 
   // When a fill transform matrix is provided, derive gradient parameters from it
   if (fill.transform) {
@@ -818,10 +942,23 @@ function createGradientStyle(
     cy = bounds.y + t[5]; // translate y
     rot = Math.atan2(dv, du); // rotation from u-axis
     halfDiag = Math.sqrt(du * du + dv * dv); // scale magnitude
+
+    // Degenerate after transform — render as solid fill of last stop
+    if (halfDiag <= 0) {
+      const last = stops[stops.length - 1];
+      return last ? rgba(last.color) : 'rgba(0,0,0,0)';
+    }
   }
+
+  // Gradient caching: check cache before computing
+  const key = gradientCacheKey(fill, bounds);
+  const cached = gradientCache.get(key);
+  if (cached !== undefined) return cached;
 
   const dx = Math.cos(rot) * halfDiag;
   const dy = Math.sin(rot) * halfDiag;
+
+  let result: CanvasGradient | string | undefined;
 
   if (fill.gradientType === 'radial' && target.createRadialGradient) {
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
@@ -829,37 +966,34 @@ function createGradientStyle(
     for (const s of expanded) {
       grad.addColorStop(s.position, rgba(s.color));
     }
-    return grad;
-  }
-
-  if (fill.gradientType === 'angular' && target.createConicGradient) {
+    result = grad;
+  } else if (fill.gradientType === 'angular' && target.createConicGradient) {
     const grad = target.createConicGradient(rot, cx, cy);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
       grad.addColorStop(s.position, rgba(s.color));
     }
-    return grad;
-  }
-
-  if (fill.gradientType === 'diamond' && target.createRadialGradient) {
+    result = grad;
+  } else if (fill.gradientType === 'diamond' && target.createRadialGradient) {
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
       grad.addColorStop(s.position, rgba(s.color));
     }
-    return grad;
-  }
-
-  if (target.createLinearGradient) {
+    result = grad;
+  } else if (target.createLinearGradient) {
     const grad = target.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
       grad.addColorStop(s.position, rgba(s.color));
     }
-    return grad;
+    result = grad;
+  } else {
+    result = rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
   }
 
-  return rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
+  gradientCache.set(key, result);
+  return result;
 }
 
 /**
@@ -943,7 +1077,8 @@ function paintTiledGradientFill(
 ): void {
   const bounds = primitiveBounds(item.primitive);
   if (bounds.w <= 0 || bounds.h <= 0) return;
-  let rot = (fill.rotation * Math.PI) / 180;
+  // Normalize rotation to [0, 360) so out-of-range values don't escape
+  let rot = ((((fill.rotation % 360) + 360) % 360) * Math.PI) / 180;
   let cx = (bounds.x + bounds.w) / 2;
   let cy = (bounds.y + bounds.h) / 2;
   const halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;

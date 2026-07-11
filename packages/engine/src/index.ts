@@ -112,6 +112,8 @@ export {
 export type { FontEntry, FontLoadState, VariableAxisInfo } from './fontRegistry';
 export { FontRegistry, getFontRegistry, resetFontRegistry } from './fontRegistry';
 export * from './geometry';
+export type { HalftoneDotShape, HalftoneMethod, HalftoneParams, HalftonePattern } from './halftone';
+export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
@@ -128,6 +130,8 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
+export type { MeshControlPoint, MeshTriangle, MeshWarp, MeshWarpCell } from './meshWarp';
+export { createFlatMesh, renderWarpGrid, warpMesh, warpPath, warpPosition } from './meshWarp';
 export type { NonSeparableMode } from './nonSeparable';
 export {
   blendColorLch,
@@ -173,6 +177,8 @@ export {
 } from './retouch';
 export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './textOutlines';
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
+export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
+export { warpTextToMesh } from './textWarpPipeline';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
 export { traceSceneNodeOutline } from './tracing';

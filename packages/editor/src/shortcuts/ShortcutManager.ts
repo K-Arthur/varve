@@ -21,7 +21,7 @@ export const SHORTCUT_DEFS = {
     category: 'File',
   },
   exportSvg: {
-    binding: { key: 'e', ctrl: true, shift: true },
+    binding: { key: 'e', ctrl: true, alt: true },
     label: 'Export SVG\u2026',
     category: 'File',
   },
@@ -266,6 +266,38 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
 } satisfies Record<string, ShortcutDef>;
+
+// ── Collision detection ───────────────────────────────────────────────
+
+export function detectCollisions(): Array<{ id1: string; id2: string; binding: string }> {
+  const seen = new Map<string, string>();
+  const collisions: Array<{ id1: string; id2: string; binding: string }> = [];
+
+  for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
+    const b: ShortcutBinding = def.binding;
+    const key = `${b.ctrl ? 'C+' : ''}${b.shift ? 'S+' : ''}${b.alt ? 'A+' : ''}${(b.key ?? '').toLowerCase()}`;
+    const existing = seen.get(key);
+    if (existing) {
+      collisions.push({ id1: existing, id2: id, binding: key });
+    } else {
+      seen.set(key, id);
+    }
+  }
+
+  if (collisions.length > 0) {
+    if (typeof console !== 'undefined') {
+      console.warn(
+        '[Strata] ShortcutManager: detected shortcut collisions:',
+        collisions.map((c) => `${c.id1} <-> ${c.id2} (${c.binding})`).join(', '),
+      );
+    }
+  }
+
+  return collisions;
+}
+
+// Run collision detection once at module init
+detectCollisions();
 
 // ── Persistence ────────────────────────────────────────────────────────
 

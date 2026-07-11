@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createVariableStore, resolve, type VariableStore } from './variables';
+import {
+  buildVariableDependencyMap,
+  createVariableStore,
+  getChangedVariableIds,
+  resolve,
+  type VariableStore,
+} from './variables';
 
 function storeWith(opts?: Partial<VariableStore>): VariableStore {
   return { ...createVariableStore(), ...opts };
@@ -142,5 +148,195 @@ describe('resolve', () => {
       },
     });
     expect(resolve(store, 'abc-123')).toBe(42);
+  });
+});
+
+describe('getChangedVariableIds', () => {
+  it('returns empty set when both stores are undefined', () => {
+    expect([...getChangedVariableIds(undefined, undefined)]).toEqual([]);
+  });
+
+  it('returns empty set when stores are identical', () => {
+    const store = storeWith({
+      variables: {
+        v1: { id: 'v1', name: 'a', type: 'number', valuesByMode: { default: 8 } },
+      },
+    });
+    expect([...getChangedVariableIds(store, store)]).toEqual([]);
+  });
+
+  it('returns empty set when stores have identical values', () => {
+    const a = storeWith({
+      variables: {
+        v1: { id: 'v1', name: 'a', type: 'number', valuesByMode: { default: 8 } },
+      },
+    });
+    const b = storeWith({
+      variables: {
+        v1: { id: 'v1', name: 'a', type: 'number', valuesByMode: { default: 8 } },
+      },
+    });
+    expect([...getChangedVariableIds(a, b)]).toEqual([]);
+  });
+
+  it('returns changed variable ID when a single value changes', () => {
+    const a = storeWith({
+      variables: {
+        v1: { id: 'v1', name: 'a', type: 'number', valuesByMode: { default: 8 } },
+      },
+    });
+    const b = storeWith({
+      variables: {
+        v1: { id: 'v1', name: 'a', type: 'number', valuesByMode: { default: 16 } },
+      },
+    });
+    expect([...getChangedVariableIds(a, b)]).toEqual(['v1']);
+  });
+
+  it('detects mode-specific value changes', () => {
+    const a = storeWith({
+      modes: ['default', 'dark'],
+      variables: {
+        v1: { id: 'v1', name: 'a', type: 'number', valuesByMode: { default: 8, dark: 4 } },
+      },
+    });
+    const b = storeWith({
+      modes: ['default', 'dark'],
+      variables: {
+        v1: { id: 'v1', name: 'a', type: 'number', valuesByMode: { default: 8, dark: 6 } },
+      },
+    });
+    expect([...getChangedVariableIds(a, b)]).toEqual(['v1']);
+  });
+
+  it('detects when a variable is added', () => {
+    const a = storeWith({ variables: {} });
+    const b = storeWith({
+      variables: {
+        v1: { id: 'v1', name: 'new', type: 'number', valuesByMode: { default: 42 } },
+      },
+    });
+    expect([...getChangedVariableIds(a, b)]).toEqual(['v1']);
+  });
+
+  it('detects when a variable is removed', () => {
+    const a = storeWith({
+      variables: {
+        v1: { id: 'v1', name: 'old', type: 'number', valuesByMode: { default: 42 } },
+      },
+    });
+    const b = storeWith({ variables: {} });
+    expect([...getChangedVariableIds(a, b)]).toEqual(['v1']);
+  });
+});
+
+describe('buildVariableDependencyMap', () => {
+  it('returns empty map when no bindings exist', () => {
+    const nodes = {
+      n1: {},
+      n2: {},
+    };
+    const map = buildVariableDependencyMap(nodes, undefined);
+    expect(map.size).toBe(0);
+  });
+
+  it('maps a variable ID to the node bound to it', () => {
+    const nodes = {
+      n1: { bindings: { fill: { variableId: 'v1' } } },
+      n2: {},
+    };
+    const map = buildVariableDependencyMap(nodes);
+    expect([...map.get('v1')!]).toEqual(['n1']);
+  });
+
+  it('maps multiple nodes bound to the same variable', () => {
+    const nodes = {
+      n1: { bindings: { fill: { variableId: 'v1' } } },
+      n2: { bindings: { opacity: { variableId: 'v1' } } },
+    };
+    const map = buildVariableDependencyMap(nodes);
+    expect([...map.get('v1')!]).toEqual(['n1', 'n2']);
+  });
+
+  it('follows alias chains', () => {
+    const nodes = {
+      n1: { bindings: { fill: { variableId: 'vA' } } },
+    };
+    const store = storeWith({
+      variables: {
+        vA: {
+          id: 'vA',
+          name: 'a',
+          type: 'number',
+          valuesByMode: { default: '{vB}' },
+        },
+        vB: {
+          id: 'vB',
+          name: 'b',
+          type: 'number',
+          valuesByMode: { default: 8 },
+        },
+      },
+    });
+    const map = buildVariableDependencyMap(nodes, store);
+    // n1 should depend on both vA and vB (since vA = "{vB}")
+    expect([...map.get('vA')!]).toEqual(['n1']);
+    expect([...map.get('vB')!]).toEqual(['n1']);
+  });
+
+  it('follows transitive alias chains (A -> B -> C)', () => {
+    const nodes = {
+      n1: { bindings: { fill: { variableId: 'vA' } } },
+    };
+    const store = storeWith({
+      variables: {
+        vA: {
+          id: 'vA',
+          name: 'a',
+          type: 'number',
+          valuesByMode: { default: '{vB}' },
+        },
+        vB: {
+          id: 'vB',
+          name: 'b',
+          type: 'number',
+          valuesByMode: { default: '{vC}' },
+        },
+        vC: {
+          id: 'vC',
+          name: 'c',
+          type: 'number',
+          valuesByMode: { default: 4 },
+        },
+      },
+    });
+    const map = buildVariableDependencyMap(nodes, store);
+    expect([...map.get('vA')!]).toEqual(['n1']);
+    expect([...map.get('vB')!]).toEqual(['n1']);
+    expect([...map.get('vC')!]).toEqual(['n1']);
+  });
+
+  it('follows alias chains by variable name (not just id)', () => {
+    const nodes = {
+      n1: { bindings: { fill: { variableId: 'v1' } } },
+    };
+    const store = storeWith({
+      variables: {
+        v1: {
+          id: 'v1',
+          name: 'base',
+          type: 'number',
+          valuesByMode: { default: '{secondary}' },
+        },
+        v2: {
+          id: 'v2',
+          name: 'secondary',
+          type: 'number',
+          valuesByMode: { default: 12 },
+        },
+      },
+    });
+    const map = buildVariableDependencyMap(nodes, store);
+    expect([...map.get('v2')!]).toEqual(['n1']);
   });
 });

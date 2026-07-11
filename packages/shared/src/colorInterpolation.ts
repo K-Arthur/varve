@@ -179,6 +179,13 @@ export function interpolateManagedColor(
       const [l2, a2, b2] = linearSrgbToOklab(toLinear(to));
       const [L1, C1, H1] = oklabToOkLch([l1, a1, b1]);
       const [L2, C2, H2] = oklabToOkLch([l2, a2, b2]);
+      // When either endpoint has near-zero chroma, the hue is undefined
+      // (oklabToOkLch returns H=0 from atan2(0,0)). Interpolating from
+      // the arbitrary 0 to a real hue produces visible hue shift through
+      // gray. Fall back to OKLab, which has no undefined-hue problem.
+      if (C1 < 0.001 || C2 < 0.001) {
+        return interpolateManagedColor(from, to, t, 'oklab', { ...opts, premultiplied: false });
+      }
       const lerp = (a: number, b: number) => a + (b - a) * t;
       let h2 = H2;
       const h1 = H1;
@@ -224,7 +231,11 @@ export function sampleGradientColor(
   if (stops.length === 0) return { space: 'rgb', r: 0, g: 0, b: 0, a: 0 };
   if (stops.length === 1) return normalizeStopColor(stops[0]!.color);
 
-  const sorted = [...stops].sort((a, b) => a.position - b.position);
+  const clamped = stops.map((s) => ({
+    ...s,
+    position: Math.max(0, Math.min(1, s.position)),
+  }));
+  const sorted = [...clamped].sort((a, b) => a.position - b.position);
   const p = Math.max(0, Math.min(1, position));
 
   if (p <= sorted[0]!.position) return normalizeStopColor(sorted[0]!.color);
@@ -269,7 +280,11 @@ export function expandGradientStops(
     ];
   }
 
-  const sorted = [...stops].sort((a, b) => a.position - b.position);
+  const clamped = stops.map((s) => ({
+    ...s,
+    position: Math.max(0, Math.min(1, s.position)),
+  }));
+  const sorted = [...clamped].sort((a, b) => a.position - b.position);
   const result: { position: number; color: RgbColor }[] = [];
   const seen = new Set<string>();
 
