@@ -521,7 +521,10 @@ function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
               aria-label={`Point ${i + 1} input`}
               title="Input"
             />
-            <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }} aria-hidden="true">
+            <span
+              style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}
+              aria-hidden="true"
+            >
               to
             </span>
             <input
@@ -544,7 +547,7 @@ function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
                   border: 'none',
                   color: 'var(--color-danger)',
                   cursor: 'pointer',
-                  fontSize: '11px',
+                  fontSize: 'var(--font-size-xs)',
                   padding: '0 4px',
                 }}
               >
@@ -670,7 +673,7 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleTriplet(range, 'cyanRed')}
           aria-label={`${label} cyan/red`}
         />
-        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>
+        <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
           {adj[range].cyanRed}
         </span>
       </div>
@@ -685,7 +688,7 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleTriplet(range, 'magentaGreen')}
           aria-label={`${label} magenta/green`}
         />
-        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>
+        <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
           {adj[range].magentaGreen}
         </span>
       </div>
@@ -700,7 +703,7 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleTriplet(range, 'yellowBlue')}
           aria-label={`${label} yellow/blue`}
         />
-        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>
+        <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
           {adj[range].yellowBlue}
         </span>
       </div>
@@ -953,7 +956,9 @@ function PhotoFilterEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleSlider('density')}
           aria-label="Density"
         />
-        <span style={{ fontSize: '10px', minWidth: 24, textAlign: 'right' }}>{adj.density}</span>
+        <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
+          {adj.density}
+        </span>
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Preserve Luminosity</span>

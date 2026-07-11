@@ -27,7 +27,9 @@ export function PromptDialog() {
 
   useEffect(() => {
     setPromptState = setState;
-    return () => { setPromptState = null; };
+    return () => {
+      setPromptState = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -64,7 +66,9 @@ export function PromptDialog() {
       }}
     >
       <div className="strata-dialog__content">
-        <h3 id="prompt-title" className="strata-dialog__title">{state.title}</h3>
+        <h3 id="prompt-title" className="strata-dialog__title">
+          {state.title}
+        </h3>
         <input
           ref={inputRef}
           type="text"

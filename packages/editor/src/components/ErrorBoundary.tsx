@@ -91,12 +91,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <details
               className="error-boundary__details"
               open={detailsOpen}
-              onToggle={(e) => this.setState({ detailsOpen: (e.target as HTMLDetailsElement).open })}
+              onToggle={(e) =>
+                this.setState({ detailsOpen: (e.target as HTMLDetailsElement).open })
+              }
             >
               <summary className="error-boundary__summary">Error details</summary>
-              <pre className="error-boundary__stack">
-                {error.stack ?? error.message}
-              </pre>
+              <pre className="error-boundary__stack">{error.stack ?? error.message}</pre>
             </details>
           )}
         </div>
