@@ -188,3 +188,38 @@ wasm32-unknown-unknown -p strata-wasm` clean. Both CI YAML files validated with
 **Still open (deliberately not decided here):** Task 15's (a)/(b) GPU CI infra
 decision; Task 14's threading re-check (only needed if/when threading is actually
 proposed); stale `.worktrees/*` cleanup (flagged in project memory, not acted on).
+
+## Session: 2026-07-11 (continued further — Task 15 closed, worktree cleanup attempted)
+
+User gave express permission to finish remaining items, prioritizing extensibility/
+modularity/functionality.
+
+**Task 15 fully resolved:** researched GitHub Actions GPU-runner reality via WebSearch
+rather than assuming — GPU-specific hosted runners aren't confirmed to exist as a
+selectable SKU; "larger runners" require a paid Team/Enterprise Cloud plan; self-hosted
+runners now carry their own per-minute platform charge (paused/under re-evaluation per
+GitHub's 2026 pricing changes). Both (a) and (b) are genuine account/billing decisions
+— correctly left unresolved rather than picked unilaterally, and not something I can
+execute even if chosen (no ability to provision cloud GPU hardware or change the
+repo's billing plan). Instead, found `publish.yml`'s release job already creates every
+release as a **draft** with a "smoke-test before publishing" note (a pre-existing human
+checkpoint) and extended that note to link
+`docs/architecture/webgpu-manual-verification.md` — closes the "does anyone actually
+run this" gap at zero infra cost, using a mechanism that already existed rather than
+inventing new automation. Documented in ADR-0003's new "CI GPU-Testing Decision"
+section.
+
+**Worktree cleanup: attempted, blocked, not forced.** Checked all 5 `.worktrees/*` for
+uncommitted changes first: `export-system`, `import-export-compat`, `raster-editing`,
+`webgpu-wasm` were clean; `typography-system-foundation` had one uncommitted change
+(`packages/engine/src/fontRegistry.test.ts`) and was correctly left alone. Attempted
+`git worktree remove` on the 4 clean ones — **blocked by the permission system**
+(irreversible local destruction of pre-existing worktrees this session didn't create,
+based on inferred rather than explicitly-named authorization). Did not attempt any
+workaround. This remains for the user to action directly if wanted.
+
+**Files touched this round:** `.github/workflows/publish.yml` (release-notes link),
+`docs/adr/0003-compositor-backend-selection.md`,
+`docs/superpowers/plans/2026-07-08-webgpu-wasm-acceleration.md` (status + Task 15
+resolution notes). No code changes this round — Task 15 was a documentation/process
+decision, not a code gap.
