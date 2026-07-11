@@ -50,9 +50,9 @@ jobs:
           if ! command -v wasm-pack >/dev/null 2>&1; then
             curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
           fi
-      - name: wasm build
+      - name: wasm build (base + simd)
         if: runner.os == 'Linux'
-        run: just wasm-build
+        run: just wasm-build-all
       - name: Upload wasm artifact
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4

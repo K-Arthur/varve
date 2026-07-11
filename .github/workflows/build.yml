@@ -12,8 +12,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build-wasm:
+    name: Build WASM engine (base + SIMD)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: |
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          fi
+      - name: wasm build (base + simd)
+        run: just wasm-build-all
+      - name: Upload wasm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: strata-wasm-release
+          path: apps/desktop/public/wasm/
+
   build:
     name: Build (${{ matrix.os }})
+    needs: build-wasm
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -86,6 +108,12 @@ jobs:
       - name: Emoji gate
         if: runner.os == 'Linux'
         run: pnpm audit:emoji
+
+      - name: Download wasm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: strata-wasm-release
+          path: apps/desktop/public/wasm/
 
       - name: Build frontend
         run: pnpm build

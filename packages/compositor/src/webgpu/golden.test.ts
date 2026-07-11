@@ -111,6 +111,38 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     wgpu.destroy();
   });
 
+  it('declines a software-emulated adapter before requesting a device', async () => {
+    let requestDeviceCalls = 0;
+    const originalGpu = (navigator as Navigator & { gpu?: unknown }).gpu;
+    Object.defineProperty(navigator, 'gpu', {
+      configurable: true,
+      value: {
+        requestAdapter: async () => ({
+          info: { device: 'SwiftShader Device (LLVM)' },
+          requestDevice: async () => {
+            requestDeviceCalls++;
+            throw new Error('requestDevice should not be called for a declined software adapter');
+          },
+        }),
+        getPreferredCanvasFormat: () => 'rgba8unorm',
+      },
+    });
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const wgpu = new WebGPUBackend();
+      await wgpu.init(canvas);
+      const diag = wgpu.getDiagnostics();
+      expect(requestDeviceCalls).toBe(0);
+      expect(diag.gpuActive).toBe(false);
+      expect(diag.adapterIsFallback).toBe(true);
+      wgpu.destroy();
+    } finally {
+      Object.defineProperty(navigator, 'gpu', { configurable: true, value: originalGpu });
+    }
+  });
+
   it.skipIf(typeof (navigator as Navigator & { gpu?: GPU }).gpu === 'undefined')(
     'native WebGPU path renders without error',
     async () => {
@@ -119,6 +151,8 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       canvasGpu.height = 128;
       const wgpu = new WebGPUBackend();
       await wgpu.init(canvasGpu);
+      // Separate from WASM init latency (Task 13) — only measurable with a real adapter.
+      expect(wgpu.getDiagnostics().pipelineInitMs).toBeGreaterThanOrEqual(0);
       wgpu.beginFrame(frame, { applyCamera: false, clear: true });
       wgpu.drawVectorItems(FIXTURE_ITEMS);
       wgpu.endFrame();

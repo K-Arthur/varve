@@ -122,3 +122,69 @@ Protocol section added for future work in this area only (not retroactive).
 **Not done in this session:** no code changes, no CI changes, no git commits/pushes/
 branches — this was a documentation reconciliation pass. Tasks 12-16's actual
 implementation (CI fix for SIMD, baseline policy code, ADR updates) remain open.
+
+## Session: 2026-07-11 (continued — Tasks 12-16 implemented, gaps fixed)
+
+User asked to implement all incomplete items and fix gaps in what's already there.
+
+**CI/build fixes:**
+- `ci.yml`: `just wasm-build` → `wasm-build-all` (SIMD artifact now actually built and
+  uploaded, reaches the `e2e` Playwright job too).
+- `build.yml`: was building **no WASM at all** for release packaging (confirmed: no
+  wasm step existed; `apps/desktop/public/wasm/` is gitignored and empty on a clean
+  checkout; `wasmLoader.ts`'s fetch-based loader gracefully 404s to the JS stub, so
+  this was a silent capability loss, not a build break). Added a `build-wasm` job
+  (Linux, `wasm-build-all`, uploads `strata-wasm-release`) that the per-OS `build` job
+  now depends on and downloads before `pnpm build`.
+
+**Task 12 (rollback readiness):** documented in `render-pipeline.md` (reload caveat,
+incident-response order) and ADR-0003 (removal criterion: WebGPU default for 1+
+release with no rollback + cross-platform validation + real-GPU sign-off).
+
+**Task 13 (shader/pipeline caching):** added `pipelineInitMs` to `CompositorDiagnostics`,
+timed in `WebGPUBackend.init()` around shader-module + pipeline creation, separate from
+WASM init. Researched current WebGPU spec via WebSearch (not assumed from training
+data): confirmed no application-facing persistent pipeline-cache API exists for
+browser WebGPU — only an opaque internal browser cache. Native (non-browser) `wgpu`
+has `PipelineCache`, but that's unreachable through `navigator.gpu`. Documented in
+render-pipeline.md.
+
+**Task 14 (threading):** already-documented finding from the prior reconciliation pass
+carried forward as-is; cross-linked into `wasm-backends.md`'s existing (deferred)
+`strata_engine_threads.wasm` row so the finding lives next to the artifact it concerns.
+
+**Task 15 (CI GPU honesty):** documented the gap in `render-pipeline.md` Known Gaps —
+including that Playwright's Chromium in the `e2e` job also gets no real GPU on
+GitHub-hosted runners, so even E2E doesn't validate the hardware path. Implemented the
+zero-infra-cost option: `docs/architecture/webgpu-manual-verification.md`, a manual
+pre-release checklist. Deliberately did NOT pick between a GPU-enabled CI runner vs. a
+scheduled hardware benchmark pass — flagged as an open infra/cost decision.
+
+**Task 16 (minimum baseline):** `WebGPUBackend.init()` now declines software-emulated
+adapters (checked via the existing `adapterIsFallback`/SwiftShader heuristic) *before*
+calling `requestDevice()`, falling through to Canvas2D. `adapterIsFallback` still
+reports `true` so diagnostics can distinguish "declined software GPU" from "no WebGPU
+at all" — surfaced in `StatusBar.tsx`'s tooltip. Added a regression test in
+`golden.test.ts` (mocks `navigator.gpu.requestAdapter` returning a SwiftShader-like
+adapter, asserts `requestDevice` is never called). Documented as a heuristic, not a
+guarantee, in ADR-0003.
+
+**Verification:** scoped to files actually touched, since the working tree had
+unrelated concurrent changes landing throughout this session (confirmed via repeated
+`git status` — not this feature's concern). `@strata/compositor` typecheck clean,
+12/13 tests pass (1 correctly skipped without real GPU). `packages/editor`
+typecheck shows no new errors from `StatusBar.tsx`. `cargo check --target
+wasm32-unknown-unknown -p strata-wasm` clean. Both CI YAML files validated with
+`yaml.safe_load`.
+
+**Files touched this session:** `.github/workflows/{ci,build}.yml`,
+`docs/adr/0003-compositor-backend-selection.md`,
+`docs/architecture/{render-pipeline,wasm-backends}.md`,
+`docs/architecture/webgpu-manual-verification.md` (new),
+`packages/compositor/src/types.ts`, `packages/compositor/src/webgpu/backend.ts`,
+`packages/compositor/src/webgpu/golden.test.ts`, `packages/editor/src/StatusBar.tsx`,
+`docs/superpowers/plans/2026-07-08-webgpu-wasm-acceleration.md` (checkboxes + notes).
+
+**Still open (deliberately not decided here):** Task 15's (a)/(b) GPU CI infra
+decision; Task 14's threading re-check (only needed if/when threading is actually
+proposed); stale `.worktrees/*` cleanup (flagged in project memory, not acted on).

@@ -50,7 +50,7 @@ export function StatusBar() {
       {compositorDiag && (
         <span
           className="editor-status__info"
-          title={`GPU ${compositorDiag.gpuActive ? 'active' : 'fallback'} · pool ${compositorDiag.vertexPoolEntries} · bundles ${compositorDiag.bundleCacheEntries}`}
+          title={`GPU ${compositorDiag.gpuActive ? 'active' : compositorDiag.adapterIsFallback ? 'fallback (software adapter declined)' : 'fallback'} · pool ${compositorDiag.vertexPoolEntries} · bundles ${compositorDiag.bundleCacheEntries}`}
         >
           {compositorDiag.backendId}
           {compositorDiag.gpuActive ? '' : ' (cpu)'}
