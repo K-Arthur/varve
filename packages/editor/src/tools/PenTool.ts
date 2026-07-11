@@ -135,7 +135,12 @@ export class PenTool extends BaseTool {
           const nx = handleDx / handleLen;
           const ny = handleDy / handleLen;
           pt.handleOut = { x: nx * outLen, y: ny * outLen };
-          pt.handleIn = { x: -nx * outLen, y: -ny * outLen };
+          if (e.altKey) {
+            // Alt-drag: break symmetry — handleIn retains its previous value
+            // (if null, stays null → one-sided/corner handle)
+          } else {
+            pt.handleIn = { x: -nx * outLen, y: -ny * outLen };
+          }
         }
       } else {
         pt.handleIn = null;

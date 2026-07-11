@@ -1,5 +1,5 @@
 import type { Asset, AssetFolder, Platform } from '@strata/platform';
-import { Icon, type IconName } from '@strata/ui';
+import { ContentSkeleton, Icon, type IconName } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface AssetBrowserProps {
@@ -182,8 +182,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
 
           {loading ? (
             <div className="asset-browser__loading">
-              <div className="asset-browser__loading-spinner" />
-              <span>Loading assets...</span>
+              <ContentSkeleton variant="grid" columns={3} rows={3} label="Loading assets" />
             </div>
           ) : assets.length === 0 && subFolders.length === 0 ? (
             <div className="asset-browser__empty">

@@ -9,7 +9,7 @@ import {
   type RemovalMethod,
   workerModelIdForMethod,
 } from '@strata/engine';
-import { Button } from '@strata/ui';
+import { Button, RegionLoader } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
@@ -90,9 +90,7 @@ export function BgRemovalModelsTab() {
         </p>
       )}
 
-      {loading && <p className="settings-section__hint">Loading model status...</p>}
-
-      {!loading && (
+      <RegionLoader label="Loading model status" loading={loading}>
         <ul className="bg-models-list" aria-label="Installed background removal models">
           {rows.map((row) => {
             const meta = AVAILABLE_MODELS.find((m) => m.id === row.id);
@@ -137,7 +135,7 @@ export function BgRemovalModelsTab() {
             );
           })}
         </ul>
-      )}
+      </RegionLoader>
 
       <p className="settings-section__hint">
         AI Balanced uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general-lite')?.name}. AI

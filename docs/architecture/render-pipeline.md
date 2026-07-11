@@ -152,6 +152,31 @@ The per-character letter-spacing measurement now uses a module-level cached `Can
 ### Worker floating-origin parity
 The OffscreenCanvas render worker now applies `computeFloatingOrigin()` in its camera transform, matching the main thread's `applyCameraTransform()`.
 
+## Frame Capture-on-Draw (World-Space AABB)
+
+When a frame tool creates a new frame, sibling nodes fully contained within it are auto-reparented into the new frame. This is done during `createShapeAt` in the editor context.
+
+**Fix (2026-07-11):** Previously, the containment check used `{ x: world.x, y: world.y, w: frameNode.w, h: frameNode.h }` — the world-space click position paired with local dimensions. For frames inside rotated or scaled parents, the local w/h differs from the actual world-space AABB, causing false-negatives (siblings were not captured) or false-positives.
+
+The fix computes the true world-space AABB via `nodeWorldTransform(id) * transformRect({0,0,w,h})`. The frame's local rect is transformed through its full world transform (composition of all ancestor transforms + rotation), producing a correct axis-aligned bounding box for the containment check.
+
+## Hierarchy Performance Targets
+
+Concrete budgets for hierarchy operations, measured at 10K-node scale:
+
+| Operation | Scale | Target (p95) | Source |
+|---|---|---|---|
+| `flattenTree` | 10K nodes | < 100 ms | `layers10k.bench` |
+| `flattenTree` + filter + search | 10K nodes | < 150 ms | `layers10k.bench` |
+| `buildParentIndexMap` | 10K nodes | < 10 ms | O(n) scan |
+| `getParentFast` (1K lookups) | 10K nodes | < 10 ms | O(1) via index |
+| `validateDocument` full invariant | 10K nodes | < 200 ms | 6-pass O(n), dev-only |
+| `reparentNode` (1 node) | any | < 2 ms | O(1) filter + splice |
+| `reparentNode` (50 nodes) | 10K | < 10 ms | batch within transaction |
+| Spatial index rebuild | 10K | < 300 ms | `layers10k.bench` |
+| `buildIr` + `replayIr` (1K rects) | 1080p | < 16 ms | 60fps budget |
+| Input-to-pixel latency (drag) | any | < 50 ms | Interaction SLO |
+
 ## Known Gaps
 
 - WebKitGTK (Linux Tauri) has no WebGPU; Canvas2D is the production path on CachyOS/Wayland.
