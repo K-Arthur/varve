@@ -9,26 +9,36 @@ export interface StartupLoaderProps {
   onRetry?: () => void;
   /** Whether the app is ready (triggers exit transition). */
   ready?: boolean;
+  /** Skip chromatic-aberration animation (used for reduced-motion or low-GPU). */
+  simplified?: boolean;
+  /** Fired after the exit animation completes. */
+  onExited?: () => void;
+  /** Exit animation duration in ms (default 250). */
+  exitDuration?: number;
 }
 
 /**
  * Branded startup loader for Strata.
  * Renders the symbolic Strata logo in white with a CSS/SVG chromatic aberration effect.
  */
-export function StartupLoader({ error, onRetry, ready }: StartupLoaderProps) {
+export function StartupLoader({ error, onRetry, ready, simplified, onExited, exitDuration }: StartupLoaderProps) {
   const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
     if (ready) {
       setExiting(true);
+      const timer = setTimeout(() => {
+        onExited?.();
+      }, exitDuration ?? 250);
+      return () => clearTimeout(timer);
     }
-  }, [ready]);
+  }, [ready, onExited, exitDuration]);
 
   if (ready && !exiting) return null;
 
   return (
     <div
-      className={`startup-loader ${exiting ? 'startup-loader--exiting' : ''} ${error ? 'startup-loader--error' : ''}`}
+      className={`startup-loader ${exiting ? 'startup-loader--exiting' : ''} ${error ? 'startup-loader--error' : ''} ${simplified ? 'startup-loader--simplified' : ''}`}
       role="status"
       aria-live="polite"
       aria-busy={!error && !ready}

@@ -847,7 +847,7 @@
 }
 
 .layers-context-menu__item:hover,
-.layers-context-menu__item:focus {
+.layers-context-menu__item:focus-visible {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   outline: none;
@@ -864,7 +864,7 @@
 }
 
 .layers-context-menu__item:hover .layers-context-menu__shortcut,
-.layers-context-menu__item:focus .layers-context-menu__shortcut {
+.layers-context-menu__item:focus-visible .layers-context-menu__shortcut {
   color: var(--color-text-on-accent);
 }
 

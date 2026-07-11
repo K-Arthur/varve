@@ -1,6 +1,7 @@
-import { type OpenFileRequest, Shell } from '@strata/editor';
+import { type OpenFileRequest, Shell, useStartup } from '@strata/editor';
 import { HomeShell } from '@strata/home';
 import { detectPlatform, type FileEntry } from '@strata/platform';
+import { StartupLoader } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
 
@@ -8,15 +9,30 @@ const platform = detectPlatform();
 
 export function App() {
   const [view, setView] = useState<'home' | 'editor'>('home');
-  // The editor stays mounted once opened so tabs/sessions survive trips to
-  // the home screen; `view` only toggles which surface is visible.
   const [editorMounted, setEditorMounted] = useState(false);
   const [openRequest, setOpenRequest] = useState<OpenFileRequest | null>(null);
+  const [homeReady, setHomeReady] = useState(false);
+
+  const {
+    showLoader,
+    bootError,
+    onRetry,
+    capabilities,
+    onHomeReady,
+    onEditorReady,
+    onBootError,
+  } = useStartup({
+    onBootComplete: () => {
+      performance.measure('strata-startup', 'app_mount');
+    },
+  });
+
+  const handleHomeReady = useCallback(() => {
+    setHomeReady(true);
+    onHomeReady();
+  }, [onHomeReady]);
 
   const handleOpenFile = useCallback((entry: FileEntry) => {
-    // Read the document BEFORE switching views. Dispatching the open first
-    // and patching JSON in later raced the editor mount: the shell came up
-    // with the previous file's content (stale frames in a "new" file).
     platform
       .readFile(entry.id)
       .catch(() => null)
@@ -29,8 +45,9 @@ export function App() {
         }));
         setEditorMounted(true);
         setView('editor');
+        onEditorReady();
       });
-  }, []);
+  }, [onEditorReady]);
 
   const handleBackToHome = useCallback(() => {
     setView('home');
@@ -38,7 +55,8 @@ export function App() {
 
   const handleResumeEditing = useCallback(() => {
     setView('editor');
-  }, []);
+    onEditorReady();
+  }, [onEditorReady]);
 
   const surfaceStyle = (visible: boolean): React.CSSProperties => ({
     display: visible ? 'flex' : 'none',
@@ -48,33 +66,44 @@ export function App() {
   });
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        width: '100dvw',
-        height: '100dvh',
-        overflow: 'hidden',
-      }}
-    >
-      <TitleBar />
-      <div style={surfaceStyle(view === 'home')}>
-        <HomeShell
-          platform={platform}
-          onOpenFile={handleOpenFile}
-          onResumeEditing={editorMounted ? handleResumeEditing : undefined}
+    <>
+      {showLoader && (
+        <StartupLoader
+          error={bootError}
+          onRetry={bootError ? onRetry : undefined}
+          ready={bootError ? false : homeReady}
+          simplified={capabilities.shouldSimplify}
         />
-      </div>
-      {editorMounted && (
-        <div style={surfaceStyle(view === 'editor')}>
-          <Shell
-            onBackToHome={handleBackToHome}
-            openFile={openRequest}
+      )}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100dvw',
+          height: '100dvh',
+          overflow: 'hidden',
+        }}
+      >
+        <TitleBar />
+        <div style={surfaceStyle(view === 'home')}>
+          <HomeShell
             platform={platform}
-            active={view === 'editor'}
+            onOpenFile={handleOpenFile}
+            onResumeEditing={editorMounted ? handleResumeEditing : undefined}
+            onReady={handleHomeReady}
           />
         </div>
-      )}
-    </div>
+        {editorMounted && (
+          <div style={surfaceStyle(view === 'editor')}>
+            <Shell
+              onBackToHome={handleBackToHome}
+              openFile={openRequest}
+              platform={platform}
+              active={view === 'editor'}
+            />
+          </div>
+        )}
+      </div>
+    </>
   );
 }
