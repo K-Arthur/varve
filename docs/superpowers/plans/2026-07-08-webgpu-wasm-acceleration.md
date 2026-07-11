@@ -1,6 +1,14 @@
-Tests: PASSED (3970 passed)
-Typecheck: FAILED (43 pre-existing errors in WebGPU, text chain, and other unrelated areas)
-Lint: FAILED (12 pre-existing errors, 359 warnings)# WebGPU & WASM Acceleration Engine Overhaul
+# WebGPU & WASM Acceleration Engine Overhaul
+
+> **Status as of 2026-07-11 reconciliation:** Tasks 1-6 and 8-10 below are verified
+> committed on `master` (confirmed by reading the actual code, not just prior session
+> notes — see Task checkboxes). Task 7 is coded but not actually shipped (CI never
+> builds the SIMD artifact). Task 11's last recorded run (`Tests: PASSED 3970`,
+> `Typecheck: FAILED 43 pre-existing`, `Lint: FAILED 12 pre-existing/359 warnings`)
+> predates this reconciliation and should be re-run fresh before the next commit in
+> this area rather than trusted — it was sitting unlabeled at the top of this file.
+> Tasks 12-16 below are new, added from a second-pass addendum review; they were not
+> part of the original plan.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -22,22 +30,22 @@ Lint: FAILED (12 pre-existing errors, 359 warnings)# WebGPU & WASM Acceleration 
 - Modify: `packages/compositor/tsconfig.json`
 - Test: `packages/compositor/src/compositor.test.ts`
 
-- [ ] **Step 1: Add `@webgpu/types` dependency**
+- [x] **Step 1: Add `@webgpu/types` dependency**
 
 ```bash
 cd packages/compositor
 pnpm add -D @webgpu/types
 ```
 
-- [ ] **Step 2: Remove handwritten ambient types**
+- [x] **Step 2: Remove handwritten ambient types**
 
 Delete `packages/compositor/src/webgpu/webgpu-env.d.ts`.
 
-- [ ] **Step 3: Update tsconfig to include WebGPU types**
+- [x] **Step 3: Update tsconfig to include WebGPU types**
 
 In `packages/compositor/tsconfig.json`, add `"types": ["@webgpu/types"]` to `compilerOptions`.
 
-- [ ] **Step 4: Update compositor code to use correct types**
+- [x] **Step 4: Update compositor code to use correct types**
 
 In `packages/compositor/src/webgpu/backend.ts`, remove the local `interface GpuNavigator extends Navigator` and replace with standard `navigator.gpu` typing from `@webgpu/types`.
 
@@ -47,17 +55,17 @@ In `packages/compositor/src/webgpu/shaders.ts`, update the `CircleUniform` struc
 
 In `packages/compositor/src/canvas2d/tileCache.ts` — update any type references.
 
-- [ ] **Step 5: Run typecheck and fix any new errors**
+- [x] **Step 5: Run typecheck and fix any new errors**
 
 Run: `pnpm --filter @strata/compositor typecheck`
 Expected: 0 errors with WebGPU types properly resolved.
 
-- [ ] **Step 6: Run full compositor tests**
+- [x] **Step 6: Run full compositor tests**
 
 Run: `pnpm --filter @strata/compositor test`
 Expected: 7/7 pass (no behavior change, just types).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/compositor/
@@ -77,7 +85,7 @@ git commit -m "feat(compositor): replace handwritten WebGPU types with @webgpu/t
 
 **Root cause:** `buildVertices` emits 2 vertices for lines (from and to), but the pipeline uses `topology: 'triangle-list'`. Two vertices cannot form a triangle — the GPU draws nothing. The fix: tessellate each line segment into a thin quad (2 triangles = 6 vertices) using the stroke width and perpendicular direction.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `golden.test.ts`, add a test that specifically checks line rendering produces visible non-zero pixels:
 
@@ -107,7 +115,7 @@ it('line primitive produces visible pixels', async () => {
 Run: `pnpm --filter @strata/compositor test`
 Expected: passes (Canvas2D works). Then verify WebGPU path fails by checking the golden diff.
 
-- [ ] **Step 3: Tessellate lines as quads in buildVertices**
+- [x] **Step 3: Tessellate lines as quads in buildVertices**
 
 Replace the line case in `buildVertices` in `backend.ts`. Instead of 2 points, emit 6 vertices (2 triangles forming a thin rectangle perpendicular to the line direction). Use a fixed line width (e.g., 2px in local space — or 1px since lines in this engine are filled paths, not stroked):
 
@@ -132,13 +140,13 @@ Replace the line case in `buildVertices` in `backend.ts`. Instead of 2 points, e
 
 Also create a shared line-width constant at module top: `const LINE_HALF_WIDTH = 1.5;`
 
-- [ ] **Step 4: Add line vertex shader alias + line fragment shader**
+- [x] **Step 4: Add line vertex shader alias + line fragment shader**
 
 In `shaders.ts`, the existing `SOLID_VERTEX_WGSL` works for lines (same transform/passthrough). The existing `SOLID_FRAGMENT_WGSL` works too. No new shaders needed for lines after tessellation. Add a `LINE_VERTEX_WGSL = SOLID_VERTEX_WGSL` alias for clarity.
 
 The pipeline in `init()` combines vertex+ fragment: we only need one pipeline for solid-fill rect+line+circle. But circle needs a separate fragment shader with `discard`. For now, keep the combined approach but push circle uniform via a 2nd bind group.
 
-- [ ] **Step 5: Update the pipeline to handle circle via a separate render pass or shader variant**
+- [x] **Step 5: Update the pipeline to handle circle via a separate render pass or shader variant**
 
 Currently `SOLID_FRAGMENT_WGSL` is used for all primitives including circles. The circle fragment shader (`CIRCLE_FRAGMENT_WGSL`) is defined but never actually used in the pipeline — `init()` only uses `SOLID_FRAGMENT_WGSL`. The circle's `discard` is never applied.
 
@@ -157,17 +165,17 @@ const circleUniformBuffer = device.createBuffer({
 
 In `drawGpuItems`, separate items into `solidItems` (rect + line) and `circleItems`, emit each with their respective pipeline and bind group.
 
-- [ ] **Step 6: Write the fix test**
+- [x] **Step 6: Write the fix test**
 
 Run: `pnpm --filter @strata/compositor test`
 Expected: All 7 tests pass, plus the new visible-pixels test.
 
-- [ ] **Step 7: Verify golden diff relaxes or passes**
+- [x] **Step 7: Verify golden diff relaxes or passes**
 
 Run: `pnpm --filter @strata/compositor test`
 Expected: `fallback path matches Canvas2D` still passes (< 8 avg pixel diff).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/compositor/src/webgpu/
@@ -186,7 +194,7 @@ git commit -m "fix(compositor): tessellate lines as quads, add circle pipeline v
 
 **Rationale:** Per WebGPU best practices (toji.dev), `layout: 'auto'` creates bind group layouts that are pipeline-specific and cannot be shared. This prevents using the same bind group across multiple pipelines (solid + circle), requiring duplicate bind groups per pipeline switch. Explicit pipeline layouts allow bind group reuse and better driver optimization.
 
-- [ ] **Step 1: Create explicit bind group layouts**
+- [x] **Step 1: Create explicit bind group layouts**
 
 In `init()`, before creating pipelines, create explicit layouts:
 
@@ -220,11 +228,11 @@ const circlePipelineLayout = device.createPipelineLayout({
 });
 ```
 
-- [ ] **Step 2: Create pipelines with explicit layouts**
+- [x] **Step 2: Create pipelines with explicit layouts**
 
 Replace the `layout: 'auto'` in `createRenderPipeline` calls with the explicit pipeline layouts.
 
-- [ ] **Step 3: Create reusable bind groups**
+- [x] **Step 3: Create reusable bind groups**
 
 Create the camera bind group once during init, and a circle uniform bind group:
 
@@ -243,7 +251,7 @@ const circleBindGroup = device.createBindGroup({
 });
 ```
 
-- [ ] **Step 4: Update drawGpuItems to use shared bind groups**
+- [x] **Step 4: Update drawGpuItems to use shared bind groups**
 
 In `drawGpuItems`, use the pre-created `cameraBindGroup` for the solid pipeline and `circleBindGroup` for the circle pipeline instead of creating a new bind group each frame:
 
@@ -253,12 +261,12 @@ pass.setBindGroup(0, cameraBindGroup);
 pass.setBindGroup(0, device.createBindGroup({ ... }));
 ```
 
-- [ ] **Step 5: Verify all tests pass**
+- [x] **Step 5: Verify all tests pass**
 
 Run: `pnpm --filter @strata/compositor test`
 Expected: 7+/7 pass + golden diff still passes.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/compositor/src/webgpu/
@@ -276,7 +284,7 @@ git commit -m "perf(compositor): explicit pipeline layouts with shared bind grou
 
 **Root cause:** `drawGpuItems` calls `device.createBuffer()` + `device.queue.writeBuffer()` every frame, then `vertexBuffer.destroy()` at the end. This allocates GPU memory every frame, which is the #1 WebGPU performance anti-pattern. Instead, maintain a ring buffer of vertex buffers that grow as needed.
 
-- [ ] **Step 1: Add a vertex buffer pool to WebGPUBackend**
+- [x] **Step 1: Add a vertex buffer pool to WebGPUBackend**
 
 ```typescript
 private vertexPool: Map<number, GPUBuffer> = new Map(); // size → buffer
@@ -303,7 +311,7 @@ private getOrCreateVertexBuffer(byteSize: number): GPUBuffer {
 }
 ```
 
-- [ ] **Step 2: Update drawGpuItems to use pool**
+- [x] **Step 2: Update drawGpuItems to use pool**
 
 Replace the per-frame `device.createBuffer`/`.destroy()` with:
 
@@ -313,7 +321,7 @@ device.queue.writeBuffer(vertexBuffer, 0, data);
 // Remove the vertexBuffer.destroy() call at the end
 ```
 
-- [ ] **Step 3: Clean up pool on destroy**
+- [x] **Step 3: Clean up pool on destroy**
 
 Add pool cleanup to `destroy()`:
 
@@ -322,12 +330,12 @@ for (const buf of this.vertexPool.values()) buf.destroy();
 this.vertexPool.clear();
 ```
 
-- [ ] **Step 4: Verify all tests pass**
+- [x] **Step 4: Verify all tests pass**
 
 Run: `pnpm --filter @strata/compositor test`
 Expected: 7+/7 pass + golden diff passes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/compositor/src/webgpu/backend.ts
@@ -346,7 +354,7 @@ git commit -m "perf(compositor): vertex buffer ring pool, eliminate per-frame al
 
 **Rationale:** When the same set of items is drawn across multiple frames (common in design tools — the canvas content doesn't change every frame), render bundles encode the GPU commands once and replay them with a single `renderBundle.execute()` call, reducing CPU overhead.
 
-- [ ] **Step 1: Add a render bundle cache**
+- [x] **Step 1: Add a render bundle cache**
 
 After the first `drawGpuItems`, encode the draw calls into a `GPURenderBundle` and cache it. On subsequent frames with the same vertex data hash, replay the bundle instead of re-encoding:
 
@@ -370,7 +378,7 @@ private encodeRenderBundle(
 }
 ```
 
-- [ ] **Step 2: Use bundles in drawGpuItems**
+- [x] **Step 2: Use bundles in drawGpuItems**
 
 Compute a content hash of the vertices array. If the hash matches the previous frame, replay the cached bundle:
 
@@ -396,7 +404,7 @@ pass.end();
 device.queue.submit([encoder.finish()]);
 ```
 
-- [ ] **Step 3: Implement the hash function**
+- [x] **Step 3: Implement the hash function**
 
 ```typescript
 private hashVertices(data: Float32Array): string {
@@ -410,18 +418,18 @@ private hashVertices(data: Float32Array): string {
 }
 ```
 
-- [ ] **Step 4: Clear bundle cache on device/destroy events**
+- [x] **Step 4: Clear bundle cache on device/destroy events**
 
 In `destroy()`: `this.bundleCache.clear();`
 
 In `watchDeviceLost`, clear the cache on device lost.
 
-- [ ] **Step 5: Verify all tests pass**
+- [x] **Step 5: Verify all tests pass**
 
 Run: `pnpm --filter @strata/compositor test`
 Expected: All tests pass (render bundles empty fallback when content changes every frame = never hits cache in test, but doesn't break).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/compositor/src/webgpu/
@@ -439,7 +447,7 @@ git commit -m "perf(compositor): render bundle cache for repeated draws"
 
 **Root cause:** `wasm-opt = false` in both release and dev profiles. wasm-opt (Binaryen) performs critical size+speed optimizations like dead code elimination, function inlining, constant propagation, and SIMD vectorization.
 
-- [ ] **Step 1: Enable wasm-opt at default level**
+- [x] **Step 1: Enable wasm-opt at default level**
 
 In `crates/strata-wasm/Cargo.toml`:
 ```toml
@@ -450,7 +458,7 @@ wasm-opt = true  # default -O optimizations (or "-O3" for max)
 wasm-opt = false  # keep dev fast
 ```
 
-- [ ] **Step 2: Update wasm-pack.toml to match**
+- [x] **Step 2: Update wasm-pack.toml to match**
 
 ```toml
 [package.metadata.wasm-pack.profile.release]
@@ -460,7 +468,7 @@ wasm-opt = "-O3"
 wasm-opt = false
 ```
 
-- [ ] **Step 3: Rebuild the WASM target**
+- [x] **Step 3: Rebuild the WASM target**
 
 ```bash
 just wasm-build
@@ -468,7 +476,7 @@ just wasm-build
 
 Expected: Build completes, `apps/desktop/public/wasm/strata_wasm_bg.wasm` is reduced in size (typically 30-50% smaller).
 
-- [ ] **Step 4: Verify WASM still loads**
+- [x] **Step 4: Verify WASM still loads**
 
 Check the WASM file loads correctly:
 ```bash
@@ -481,11 +489,11 @@ console.log('WASM size:', (wasm.length / 1024).toFixed(1), 'KB');
 
 Note the before/after size.
 
-- [ ] **Step 5: Run Rust tests**
+- [x] **Step 5: Run Rust tests**
 
 `cargo test --workspace` — Expected: 166/166 pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add crates/strata-wasm/ apps/desktop/public/wasm/
@@ -502,6 +510,18 @@ git commit -m "perf(wasm): enable wasm-opt -O3 for release builds"
 - Create: `crates/strata-wasm-simd/` (or use Cargo features)
 
 **Rationale:** wasm-pack can build a SIMD variant with `-C target-feature=+simd128` when the `wasm32-unknown-unknown` target supports it. SIMD can give 2-4x speedup for the compute-heavy `build_render_ir` and `hit_test_json` functions (which iterate arrays of scene nodes).
+
+> **Reconciliation finding (2026-07-11):** `wasm-build-simd` and `wasm-build-all` recipes
+> exist in `justfile` (lines 34, 40) and `wasmLoader.ts` already fetches
+> `strata_wasm_simd_bg.wasm` first — code-complete. But `.github/workflows/ci.yml`
+> only runs `just wasm-build` (the base variant), never `wasm-build-all`. So the SIMD
+> artifact is never built or uploaded in CI/release, meaning every shipped build falls
+> through to the base WASM every time — the SIMD path is currently dead code in
+> practice, not a shipped optimization. Fixing this is a one-line CI change
+> (`wasm-build` → `wasm-build-all` in ci.yml and build.yml) plus confirming build time
+> impact is acceptable; tracked as a follow-up rather than done here since it changes
+> CI, which the git-workflow protocol (Task 15) says should land as its own reviewable
+> commit.
 
 - [ ] **Step 1: Add a `simd` feature to strata-wasm Cargo.toml**
 
@@ -575,7 +595,7 @@ git commit -m "perf(wasm): build + serve SIMD variant (wasm32 simd128)"
 
 **Rationale:** WASM instantiation is synchronous and can block the main thread for 50-200ms. By pre-warming the WASM module during browser idle time (before the user opens a document), the engine is ready instantly when needed.
 
-- [ ] **Step 1: Add prewarm function to wasmLoader**
+- [x] **Step 1: Add prewarm function to wasmLoader**
 
 ```typescript
 let prewarmPromise: Promise<WasmEngineModule | null> | null = null;
@@ -586,7 +606,7 @@ export function prewarmWasmEngine(): void {
 }
 ```
 
-- [ ] **Step 2: Wire prewarm into CanvasArea mount**
+- [x] **Step 2: Wire prewarm into CanvasArea mount**
 
 In `CanvasArea.tsx`, add a `useEffect` on mount that calls `prewarmWasmEngine()`:
 
@@ -601,12 +621,12 @@ useEffect(() => {
 
 The `createEngine` call in `CanvasArea` already uses the cached module from `loadWasmEngineModule` when it calls `tryWasmEngine`, so the promise will resolve instantly.
 
-- [ ] **Step 3: Verify no regressions**
+- [x] **Step 3: Verify no regressions**
 
 Run: `pnpm typecheck` — Expected: 0 errors.
 Run: `pnpm --filter @strata/editor test` — Expected: 1385/1385 pass (or close to it).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/engine/src/wasmLoader.ts packages/editor/src/CanvasArea.tsx
@@ -627,7 +647,7 @@ git commit -m "perf(wasm): pre-warm WASM engine on idle via prewarmWasmEngine()"
 
 **Fix:** Pre-decode images on the main thread, pass the decoded `ImageBitmap` via Structured Clone (`postMessage(bitmap, [bitmap])`) to the worker, and reference it as a `CanvasImageSource` in the worker's `OffscreenCanvasRenderingContext2D.drawImage()`.
 
-- [ ] **Step 1: Extend WorkerCommand with image map**
+- [x] **Step 1: Extend WorkerCommand with image map**
 
 In `workerHost.ts`, add a `render`-type command with an optional image map:
 
@@ -644,7 +664,7 @@ export interface RenderCommand {
 }
 ```
 
-- [ ] **Step 2: Update CanvasArea to send image bitmaps**
+- [x] **Step 2: Update CanvasArea to send image bitmaps**
 
 In the draw path, when sending a render command to the worker, extract image fill sources from the IR, load them from ImageCache, and pass them as `ImageBitmap`s:
 
@@ -670,7 +690,7 @@ const images = await collectImageBitmaps(ir);
 worker.post({ type: 'render', ..., images }, Object.values(images));
 ```
 
-- [ ] **Step 3: Update renderWorker to use ImageBitmaps**
+- [x] **Step 3: Update renderWorker to use ImageBitmaps**
 
 In `renderWorker.ts`, on `render` message with `images`, store the bitmap map:
 
@@ -681,7 +701,7 @@ let imageMap: Record<string, ImageBitmap> = {};
 if (msg.images) imageMap = msg.images;
 ```
 
-- [ ] **Step 4: Make paintImageFill work in worker via imageMap**
+- [x] **Step 4: Make paintImageFill work in worker via imageMap**
 
 In `replay.ts`, the `paintImageFill` function uses `new Image()`. In the worker, we need to replace this with looking up from `imageMap`. The cleanest approach: add a `DrawImageFn` parameter to `replayIr` that resolves image sources to `CanvasImageSource`:
 
@@ -715,7 +735,7 @@ In the worker, pass the lookup:
 replayIr(ctx, msg.ir, (src) => imageMap[src]);
 ```
 
-- [ ] **Step 5: Remove the image-fill gate (if images have bitmaps available)**
+- [x] **Step 5: Remove the image-fill gate (if images have bitmaps available)**
 
 In `sceneCompositing.ts`, document that `sceneHasImageFills` can be relaxed when images are pre-loaded:
 
@@ -723,7 +743,7 @@ Actually, this is more nuanced. Keep `sceneHasImageFills` as a fast-path gate fo
 
 The `sceneHasImageFills` function remains the primary gate. This task creates the infrastructure for the worker to handle images, but does NOT change the routing logic yet (too risky — images may not be pre-loaded when the worker starts rendering).
 
-- [ ] **Step 6: Write a test for image transport**
+- [x] **Step 6: Write a test for image transport**
 
 In `packages/editor/src/render/renderWorker.test.ts`, add a test that the worker can receive and use ImageBitmaps. Since this is in jsdom without real workers, test the command message shape:
 
@@ -745,7 +765,7 @@ it('render command can carry ImageBitmaps', () => {
 Run: `pnpm --filter @strata/editor test packages/editor/src/render/renderWorker.test.ts`
 Expected: Passes.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/editor/src/render/ packages/engine/src/replay.ts
@@ -761,7 +781,7 @@ git commit -m "feat(render): structured-clone ImageBitmap transport for render w
 - Create: `packages/engine/src/bench/wasm-bench.test.ts`
 - Modify: `packages/engine/package.json` (add benchmark script if needed)
 
-- [ ] **Step 1: WebGPU benchmark — vertex buffer pool hit rate**
+- [x] **Step 1: WebGPU benchmark — vertex buffer pool hit rate**
 
 ```typescript
 // packages/compositor/src/webgpu/bench.test.ts
@@ -781,7 +801,7 @@ describe('WebGPUBackend vertex pool', () => {
 });
 ```
 
-- [ ] **Step 2: WASM benchmark — buildIr throughput**
+- [x] **Step 2: WASM benchmark — buildIr throughput**
 
 ```typescript
 // packages/engine/src/bench/wasm-bench.test.ts
@@ -821,7 +841,7 @@ function generateTestScene(count: number): unknown[] {
 }
 ```
 
-- [ ] **Step 3: Run benchmarks**
+- [x] **Step 3: Run benchmarks**
 
 ```bash
 pnpm --filter @strata/compositor test -- --run packages/compositor/src/webgpu/bench.test.ts
@@ -830,7 +850,7 @@ pnpm --filter @strata/engine test -- --run packages/engine/src/bench/wasm-bench.
 
 Expected: Benchmarks pass within thresholds.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/compositor/src/webgpu/bench.test.ts packages/engine/src/bench/wasm-bench.test.ts
@@ -840,6 +860,16 @@ git commit -m "test(perf): WebGPU vertex pool + WASM throughput benchmarks"
 ---
 
 ### Task 11: Regression gate — full suite
+
+> **Reconciliation finding (2026-07-11):** a prior run's result (`Tests: PASSED 3970`,
+> `Typecheck: FAILED — 43 pre-existing errors`, `Lint: FAILED — 12 pre-existing errors,
+> 359 warnings`) was left as an unlabeled fragment at the very top of this file with no
+> date or commit reference, which made it look like current status when it was stale.
+> Moved here for visibility. Per AGENTS.md's regression protocol, `pnpm typecheck` must
+> be 15/15 and lint 0 *new* errors before committing — "43/12 pre-existing" needs a
+> fresh run to confirm it's still accurate and still pre-existing (i.e., not introduced
+> by this work) before relying on it again. Re-run Steps 1-2 below and record the
+> result with a date instead of leaving it ambient.
 
 - [ ] **Step 1: Run typecheck**
 
@@ -889,6 +919,83 @@ Expected: 166/166 pass.
 cargo clippy --workspace -D warnings
 ```
 Expected: clean.
+
+---
+
+### Task 12: Rollback readiness — fallback removal criterion
+
+**Rationale:** `settings.render.preferWebGpu` (`packages/editor/src/settings.ts:41,85`) already gives a runtime-toggleable fallback — it's a persisted setting with a Settings UI toggle, not a build-time flag, so incident response doesn't require a rebuild. That part of this concern is already satisfied. What's missing is documentation of the two things that make a fallback a real safety net rather than permanent dual-implementation debt: the exact incident-response order, and a criterion for when the fallback (and the Canvas2D-parity-maintenance burden it implies) gets removed.
+
+- [ ] **Step 1: Document known caveat** — flipping `preferWebGpu` currently requires an app/tab reload to re-init the compositor (per `WEBGPU_WASM_ENGINE_MEMORY.md`); it is not a hot-swap mid-session. State this explicitly in `docs/architecture/render-pipeline.md` so on-call doesn't discover it live.
+- [ ] **Step 2: Document incident-response order** — (a) flip `preferWebGpu` off / ship a default-flip if needed (fast, no deploy for users who already have the setting UI; a forced default change still needs a release), (b) only if the fallback itself doesn't resolve the issue, bisect and revert specific WebGPU/WASM commits (this implies shared cleanup code — e.g. `destroy()`, vertex pool teardown — is the suspect, since it runs regardless of which path is active).
+- [ ] **Step 3: Define removal criterion** — e.g. "remove the Canvas2D-parity requirement once WebGPU has shipped as default for N releases with no rollback, across the cross-platform matrix" (tie to whatever matrix Task 16 / ADR-0003 ends up defining). Record it in `docs/adr/0003-compositor-backend-selection.md` so it isn't an unstated permanent dual-implementation.
+
+---
+
+### Task 13: Shader/pipeline compilation caching — measure before assuming
+
+**Rationale:** Pipeline/shader-module creation cost is a real, separate contributor to startup latency alongside WASM init, but it hasn't been measured here, and — this is the important constraint — **WebGPU does not currently expose a standard, JS-accessible persistent pipeline cache API** (unlike Vulkan's `VkPipelineCache` or Metal binary archives). Dawn/wgpu may cache internally at the process or driver level, but there is nothing in the spec today for an app to explicitly serialize compiled pipeline state to disk and reload it across launches. Treat "can we cache this" as an open research question with a likely-negative answer, not an implementation task.
+
+- [ ] **Step 1: Measure baseline** — add a timing mark around `device.createShaderModule` + `device.createRenderPipeline` in `WebGPUBackend.init()` (`packages/compositor/src/webgpu/backend.ts:173-281`), separate from WASM init timing. Log via the existing `CompositorDiagnostics` path.
+- [ ] **Step 2: Confirm spec status** — re-check the current WebGPU spec / Dawn and wgpu release notes for any shipped pipeline-cache proposal before assuming it's still unavailable; this changes fast enough to be worth a fresh look rather than trusting this document.
+- [ ] **Step 3: If still unavailable**, document the finding in `docs/architecture/render-pipeline.md` and close this out as "not implementable today, revisit if the spec changes" rather than leaving it as a silent gap. If a cache mechanism does exist by the time this is read, scope it as a new task rather than bolting it on here.
+
+---
+
+### Task 14: WASM threading reality check — documented finding
+
+**Rationale:** the addendum asked this be made concrete rather than left as an abstract "threading assumptions unsupported on some targets." It now is:
+
+- [x] **Finding:** No code in this repository uses `SharedArrayBuffer`, `wasm-bindgen-rayon`, or Rust `rayon` for WASM threading. The only `thread`-adjacent hits (`crates/strata-trace/src/lib.rs`, `apps/desktop/src-tauri/src/lib.rs`) are native-side `std::thread` usage in Tauri's Rust process, unrelated to the WASM module. The `simd128` variant (Task 7) is SIMD, which parallelizes across vector lanes within a single thread — it does **not** require shared memory or cross-origin isolation.
+- [x] **Finding:** `apps/desktop/src-tauri/tauri.conf.json:28` sets `"csp": null` — no COOP/COEP-equivalent headers are configured. This is currently moot, since nothing requests threaded WASM. It becomes load-bearing only if threaded WASM is added later (e.g. a future `rayon`-based compute path), at which point Tauri's isolation story would need a real check (Tauri's webview shell differs from a browser tab; the COOP/COEP mental model doesn't map 1:1 and needs its own verification when it's actually needed).
+- [ ] **Step 1 (if threading is ever proposed later):** re-open this task, verify Tauri's actual `SharedArrayBuffer` availability on all target platforms before relying on it, and confirm the single-threaded fallback path is the one actually exercised in tests on configurations where it's unavailable.
+
+---
+
+### Task 15: CI GPU honesty — documented gap, not implied coverage
+
+**Rationale:** make explicit what "tests pass in CI" does and doesn't cover for the WebGPU path.
+
+- [x] **Finding:** `.github/workflows/ci.yml` runs the Rust/JS matrix on GitHub-hosted `ubuntu-latest` / `macos-latest` / `windows-latest` runners. None provide real GPU hardware access. `packages/compositor/src/webgpu/golden.test.ts:114` explicitly self-skips via `it.skipIf(navigator.gpu === undefined)` — in Vitest/jsdom, `navigator.gpu` is always undefined, so **the WebGPU rendering path has never been exercised by an automated test run**; only the Canvas2D fallback path and the code-level unit tests (vertex math, pool reuse, hashing) run in CI. The "11/11 pass, 1 skipped native GPU" note in `WEBGPU_WASM_ENGINE_MEMORY.md` is this same skip, worth reading as "untested," not "tested and fine."
+- [ ] **Step 1: Decide and document one of** — (a) a GPU-enabled CI runner (self-hosted with real hardware, or a GitHub-hosted GPU runner tier if available for this org), (b) a scheduled/manual benchmark-and-visual-regression pass on real hardware before each release, or (c) an explicit manual verification checklist maintained alongside releases. This is a cost/infra decision for a human, not something to default silently — flag it rather than pick one.
+- [ ] **Step 2:** whichever is chosen, add a line to `docs/architecture/render-pipeline.md` stating the actual GPU-testing posture so "tests pass" claims in future PRs don't imply GPU coverage they don't have.
+
+---
+
+### Task 16: Documented minimum supported baseline
+
+**Rationale:** `WebGPUBackend.init()` (`packages/compositor/src/webgpu/backend.ts:160-163`) already detects when the adapter is a software implementation (`adapterIsFallback`, checking for `'swift'` i.e. SwiftShader) and surfaces it via `CompositorDiagnostics` — but nothing currently *acts* on that signal. Right now a SwiftShader-backed "WebGPU" adapter is treated the same as real hardware, which is exactly the indefinite-capability-degradation gap the addendum flagged: detection exists, policy doesn't.
+
+- [ ] **Step 1: Decide the floor** — e.g. "if `adapterIsFallback` is true, prefer Canvas2D over software-WebGPU" (a real GPU-optimized Canvas2D path is likely faster than a software-emulated WebGPU one) or "warn via diagnostics/status bar but allow it." This is a product/UX decision, not a technical one — surface it rather than pick silently.
+- [ ] **Step 2:** implement whichever policy is chosen in `drawVectorItems`/`init` gating logic.
+- [ ] **Step 3:** record the decision in `docs/adr/0003-compositor-backend-selection.md` alongside the existing backend-selection rationale, so it reads as one coherent policy instead of two separate half-decisions.
+
+---
+
+## Git Workflow Protocol (for remaining/future tasks in this area)
+
+Adopted from a second-pass addendum review; scoped to this project's actual task-based
+structure rather than the phase-cluster framing it was originally written in. Applies
+to Tasks 12-16 above and any further WebGPU/WASM work, not retroactively to what's
+already merged.
+
+- **Why stricter here than elsewhere:** regressions in this subsystem are often
+  driver-/hardware-specific and only reproducible after the fact (see Task 15) —
+  bisectability matters more here than in most of this codebase.
+- **One behavioral change per commit**, small enough that `git bisect` lands cleanly
+  on a single cause if a user reports a regression on a specific GPU/driver
+  combination. Conventional commits, per existing repo convention.
+- **Commit messages reference the task/finding that motivated the change** (e.g. "Task
+  16" or "addendum §6") so this document and the change history stay reconcilable —
+  the exact drift this reconciliation pass had to repair once already.
+- **Docs/ADR updates land in the same commit or PR as the behavioral change they
+  describe**, not deferred to a later pass.
+- **Push and open PRs only with explicit go-ahead** — none of Tasks 12-16 involve a
+  push or PR yet; this section documents the protocol for when they do, it doesn't
+  authorize one now.
+- **Merge to master requires explicit human sign-off** — consistent with how this
+  repo already treats master as the single working branch.
+- **If CI fails, fix and re-push the same branch** rather than routing around it.
 
 ---
 
