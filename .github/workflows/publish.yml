@@ -316,6 +316,9 @@ jobs:
             ```
 
             > **Note:** This is a draft release. Edit and publish after smoke-testing artifacts.
+            > CI has no real GPU access (see `docs/architecture/render-pipeline.md` Known Gaps) —
+            > run the [WebGPU manual verification checklist](https://github.com/${{ github.repository }}/blob/${{ github.ref_name || inputs.tag }}/docs/architecture/webgpu-manual-verification.md)
+            > on real hardware before publishing if the WebGPU compositor path changed this release.
 
       - name: Automated failure debug
         if: failure()
