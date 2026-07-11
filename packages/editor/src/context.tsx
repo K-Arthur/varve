@@ -1831,7 +1831,12 @@ export function EditorProvider({
           // fully-contained sibling nodes into it
           if (isFrame) {
             const frameNode = newDoc.nodes[id] as import('@strata/scene').FrameNode;
-            const frameBounds = { x: world.x, y: world.y, w: frameNode.w, h: frameNode.h };
+            // Compute true world-space AABB via nodeWorldTransform + transformRect
+            // instead of using axis-aligned local dims at world click position.
+            // This correctly handles rotated/scaled parent frames where the
+            // frame's local w/h differ from its world-space AABB.
+            const frameWorld = nodeWorldTransform(newDoc, id);
+            const frameBounds = transformRect(frameWorld, { x: 0, y: 0, w: frameNode.w, h: frameNode.h });
             const parentIndex = buildParentIndexMap(newDoc);
 
             // Find siblings (nodes with same parent as the new frame)

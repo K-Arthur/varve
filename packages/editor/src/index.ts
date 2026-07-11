@@ -11,6 +11,6 @@ export type { StartupCapabilities } from './startup/capabilityCheck';
 export { checkStartupCapabilities } from './startup/capabilityCheck';
 export type { StartupMark, StartupTimer } from './startup/startupTimer';
 export { createStartupTimer } from './startup/startupTimer';
-export { TabStrip } from './TabStrip';
-export { useStartup } from './startup/useStartup';
 export type { UseStartupOptions, UseStartupResult } from './startup/useStartup';
+export { useStartup } from './startup/useStartup';
+export { TabStrip } from './TabStrip';
