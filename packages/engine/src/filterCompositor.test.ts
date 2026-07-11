@@ -151,16 +151,15 @@ describe('filter compositing', () => {
     // Patch OffscreenCanvas to exercise software filter path
     const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
     const putImageDataCalls: Array<{ x: number; y: number }> = [];
-    globalThis.OffscreenCanvas.prototype.getContext = function () {
-      return {
+    globalThis.OffscreenCanvas.prototype.getContext = (() =>
+      ({
         getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
         putImageData: (_data: ImageData, x: number, y: number) => {
           putImageDataCalls.push({ x, y });
         },
         drawImage: () => {},
         filter: 'none',
-      } as unknown as OffscreenCanvasRenderingContext2D;
-    } as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [
@@ -187,16 +186,15 @@ describe('filter compositing', () => {
   it('applies colorBalance filter via software bridge', () => {
     const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
     const putImageDataCalls: Array<{ x: number; y: number }> = [];
-    globalThis.OffscreenCanvas.prototype.getContext = function () {
-      return {
+    globalThis.OffscreenCanvas.prototype.getContext = (() =>
+      ({
         getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
         putImageData: (_data: ImageData, x: number, y: number) => {
           putImageDataCalls.push({ x, y });
         },
         drawImage: () => {},
         filter: 'none',
-      } as unknown as OffscreenCanvasRenderingContext2D;
-    } as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [
@@ -218,16 +216,15 @@ describe('filter compositing', () => {
   it('applies channelMixer filter via software bridge', () => {
     const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
     const putImageDataCalls: Array<{ x: number; y: number }> = [];
-    globalThis.OffscreenCanvas.prototype.getContext = function () {
-      return {
+    globalThis.OffscreenCanvas.prototype.getContext = (() =>
+      ({
         getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
         putImageData: (_data: ImageData, x: number, y: number) => {
           putImageDataCalls.push({ x, y });
         },
         drawImage: () => {},
         filter: 'none',
-      } as unknown as OffscreenCanvasRenderingContext2D;
-    } as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
 
     const { target } = mockTarget();
     // Red channel output: 80% red + 10% green + 0% blue + constant 5
@@ -252,16 +249,15 @@ describe('filter compositing', () => {
   it('applies photoFilter filter via software bridge', () => {
     const origGetContext = globalThis.OffscreenCanvas.prototype.getContext;
     const putImageDataCalls: Array<{ x: number; y: number }> = [];
-    globalThis.OffscreenCanvas.prototype.getContext = function () {
-      return {
+    globalThis.OffscreenCanvas.prototype.getContext = (() =>
+      ({
         getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
         putImageData: (_data: ImageData, x: number, y: number) => {
           putImageDataCalls.push({ x, y });
         },
         drawImage: () => {},
         filter: 'none',
-      } as unknown as OffscreenCanvasRenderingContext2D;
-    } as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [

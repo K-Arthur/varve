@@ -1,9 +1,18 @@
+import type { SelectionBox } from '@strata/shared';
+
 export interface SnapGuide {
   axis: 'horizontal' | 'vertical';
   position: number;
   label?: string;
   distance?: number;
   type?: 'edge' | 'center' | 'midpoint' | 'spacing' | 'rotation' | 'size-match';
+}
+
+export interface SnapBoxOptions {
+  zoom?: number;
+  otherBounds?: Array<{ x: number; y: number; w: number; h: number }>;
+  grid?: number;
+  layoutGridStep?: number;
 }
 
 export interface SnapResult {
@@ -365,4 +374,71 @@ export function snapSize(
 /** Create a fresh snap session (call on pointer down). */
 export function createSnapSession(): SnapSession {
   return { stickyX: null, stickyY: null };
+}
+
+/** Snap a selection box (position and size) to other bounds. */
+export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}): SelectionBox {
+  const { zoom = 1, otherBounds = [], grid, layoutGridStep } = options;
+  const thresh = thresholdWorld(zoom);
+
+  let snappedCx = box.cx;
+  let snappedCy = box.cy;
+  let snappedW = box.w;
+  let snappedH = box.h;
+
+  // Snap position (center)
+  if (otherBounds.length > 0) {
+    let bestXDiff = Infinity;
+    let bestYDiff = Infinity;
+
+    for (const b of otherBounds) {
+      const bCx = b.x + b.w / 2;
+      const bCy = b.y + b.h / 2;
+
+      const xDiff = box.cx - bCx;
+      const yDiff = box.cy - bCy;
+
+      if (Math.abs(xDiff) < thresh && Math.abs(xDiff) < bestXDiff) {
+        bestXDiff = Math.abs(xDiff);
+        snappedCx = bCx;
+      }
+
+      if (Math.abs(yDiff) < thresh && Math.abs(yDiff) < bestYDiff) {
+        bestYDiff = Math.abs(yDiff);
+        snappedCy = bCy;
+      }
+    }
+  }
+
+  // Snap to grid
+  if (grid && grid > 0) {
+    const gridCx = Math.round(box.cx / grid) * grid;
+    const gridCy = Math.round(box.cy / grid) * grid;
+    if (Math.abs(gridCx - box.cx) < thresh) snappedCx = gridCx;
+    if (Math.abs(gridCy - box.cy) < thresh) snappedCy = gridCy;
+  }
+
+  // Snap to layout grid
+  if (layoutGridStep && layoutGridStep > 0) {
+    const step = layoutGridStep;
+    const gridCx = Math.round(box.cx / step) * step;
+    const gridCy = Math.round(box.cy / step) * step;
+    if (Math.abs(gridCx - box.cx) < thresh) snappedCx = gridCx;
+    if (Math.abs(gridCy - box.cy) < thresh) snappedCy = gridCy;
+  }
+
+  // Snap size
+  const sizeSnap = snapSize(box.w, box.h, otherBounds, zoom);
+  if (sizeSnap.matched) {
+    snappedW = sizeSnap.w;
+    snappedH = sizeSnap.h;
+  }
+
+  return {
+    cx: snappedCx,
+    cy: snappedCy,
+    w: snappedW,
+    h: snappedH,
+    rotation: box.rotation,
+  };
 }

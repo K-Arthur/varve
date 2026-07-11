@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { simulateColorBlindness, type ColorBlindnessType } from './colorBlindness';
+import { type ColorBlindnessType, simulateColorBlindness } from './colorBlindness';
 
 describe('simulateColorBlindness', () => {
   const pureRed: [number, number, number] = [255, 0, 0];

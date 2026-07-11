@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   applyMidpointBias,
   expandGradientStops,
-  interpolateManagedColor,
-  sampleGradientColor,
   type GradientInterpolationSpace,
   type GradientStopInput,
+  interpolateManagedColor,
+  sampleGradientColor,
 } from './colorInterpolation';
 
 const red = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 };

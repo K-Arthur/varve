@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  parseGplPalette,
-  exportGplPalette,
-  parseAcoPalette,
   exportAcoPalette,
-  parseAsePalette,
+  exportGplPalette,
   type GplColorEntry,
+  parseAcoPalette,
+  parseAsePalette,
+  parseGplPalette,
 } from './paletteFormats';
 
 /** Build an ASE binary buffer from high-level descriptor. */

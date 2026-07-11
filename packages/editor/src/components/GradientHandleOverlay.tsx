@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
-import type { Affine } from '@strata/shared';
 import type { Document, Fill, GradientFill, NodeId } from '@strata/scene';
+import type { Affine } from '@strata/shared';
+import { useCallback, useRef, useState } from 'react';
 
 interface GradientHandleOverlayProps {
   zoom: number;

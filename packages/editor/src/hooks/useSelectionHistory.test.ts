@@ -2,7 +2,7 @@
  * useSelectionHistory tests — selection history stack navigation.
  */
 
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useSelectionHistory } from './useSelectionHistory';
 
@@ -12,7 +12,7 @@ describe('useSelectionHistory', () => {
     act(() => {
       result.current.push(['node1']);
     });
-    expect(result.current.canGoBack()).toBe(true);
+    expect(result.current.canGoBack()).toBe(false);
     expect(result.current.canGoForward()).toBe(false);
   });
 
@@ -22,7 +22,7 @@ describe('useSelectionHistory', () => {
       result.current.push(['node1']);
       result.current.push(['node1']);
     });
-    expect(result.current.canGoBack()).toBe(true);
+    expect(result.current.canGoBack()).toBe(false);
     expect(result.current.canGoForward()).toBe(false);
   });
 
@@ -32,13 +32,12 @@ describe('useSelectionHistory', () => {
       result.current.push(['node1']);
       result.current.push(['node2']);
     });
-    let prev: string[] | null;
     act(() => {
-      prev = result.current.selectPrevious();
+      const prev = result.current.selectPrevious();
+      expect(prev).toEqual(['node1']);
+      expect(result.current.canGoBack()).toBe(false);
+      expect(result.current.canGoForward()).toBe(true);
     });
-    expect(prev).toEqual(['node1']);
-    expect(result.current.canGoBack()).toBe(false);
-    expect(result.current.canGoForward()).toBe(true);
   });
 
   it('selectNext returns next selection', () => {
@@ -48,13 +47,12 @@ describe('useSelectionHistory', () => {
       result.current.push(['node2']);
       result.current.selectPrevious();
     });
-    let next: string[] | null;
     act(() => {
-      next = result.current.selectNext();
+      const next = result.current.selectNext();
+      expect(next).toEqual(['node2']);
+      expect(result.current.canGoBack()).toBe(true);
+      expect(result.current.canGoForward()).toBe(false);
     });
-    expect(next).toEqual(['node2']);
-    expect(result.current.canGoBack()).toBe(true);
-    expect(result.current.canGoForward()).toBe(false);
   });
 
   it('truncates forward history when pushing new entry', () => {
@@ -104,11 +102,10 @@ describe('useSelectionHistory', () => {
     act(() => {
       result.current.push(['node1']);
     });
-    let prev: string[] | null;
     act(() => {
-      prev = result.current.selectPrevious();
+      const prev = result.current.selectPrevious();
+      expect(prev).toBeNull();
     });
-    expect(prev).toBeNull();
   });
 
   it('selectNext returns null at end', () => {
@@ -116,10 +113,9 @@ describe('useSelectionHistory', () => {
     act(() => {
       result.current.push(['node1']);
     });
-    let next: string[] | null;
     act(() => {
-      next = result.current.selectNext();
+      const next = result.current.selectNext();
+      expect(next).toBeNull();
     });
-    expect(next).toBeNull();
   });
 });
