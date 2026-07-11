@@ -77,3 +77,48 @@
 - Vertex pool: power-of-2 rounded buffers
 - Bundle cache: LRU max 32 entries
 - Worker image map: keyed by src URL, zero-copy transferables
+
+## Session: 2026-07-11 (addendum reconciliation)
+
+A second-pass addendum arrived referencing a "31-phase directive" (Evidence Ledger,
+ADRs, Gates A-R) that does not exist anywhere in this repo or conversation history —
+confirmed via repo-wide grep before acting on it. User directed: apply the addendum's
+applicable ideas to the actual plan (`docs/superpowers/plans/2026-07-08-webgpu-wasm-acceleration.md`),
+which is task-based, not phase-based.
+
+**Ground-truth check (read actual code/config, not prior session notes):**
+- Tasks 1-6, 8, 9, 10 of the plan: verified committed on `master` — `backend.ts`,
+  `Cargo.toml`/`wasm-pack.toml`, `wasmLoader.ts`, `CanvasArea.tsx` (prewarm wired),
+  `collectImageBitmaps.ts` + `workerHost.ts`, and bench test files all confirmed by
+  direct read.
+- `.worktrees/webgpu-wasm` (branch `feat/webgpu-wasm-acceleration`, tip `eef7d20`) is
+  a stale worktree — that commit is already an ancestor of `master`'s history
+  (confirmed via `git log -- backend.ts`). The branch/worktree can likely be cleaned
+  up; flagged to user, not deleted unprompted.
+- Task 7 (SIMD): code-complete (justfile recipes, loader preference) but CI
+  (`ci.yml`) only runs `just wasm-build`, never `wasm-build-all` — the SIMD artifact
+  is never built or shipped. Dead code path in production today.
+- Threading (addendum §4): no `SharedArrayBuffer`/`rayon`/`wasm-bindgen-rayon`
+  anywhere; `simd128` doesn't need shared memory. Tauri conf has `csp: null` (no
+  COOP/COEP equivalent) — moot until/unless threaded WASM is actually attempted.
+- CI GPU access (addendum §5): matrix runs on GitHub-hosted runners only, no real
+  GPU. `golden.test.ts` self-skips on `navigator.gpu === undefined`, so the WebGPU
+  render path has **never** run in CI, only Canvas2D fallback + unit-level math.
+- Runtime-toggleable fallback (addendum §2): `settings.render.preferWebGpu` already
+  satisfies "not build-time-only" — it's a persisted setting + UI toggle. Missing
+  pieces were the incident-response order and a removal criterion, not the toggle
+  itself.
+- Minimum baseline (addendum §6): `adapterIsFallback` (SwiftShader detection) already
+  exists in `backend.ts` and reaches `CompositorDiagnostics`, but nothing acts on it —
+  detection without policy.
+
+**Action taken:** plan doc updated in place — stale/unlabeled status blob at the top
+removed and relocated under Task 11 with a note to re-run before next commit; Tasks
+1-6/8-10 checkboxes flipped to reflect verified reality; Tasks 12-16 appended for the
+addendum's genuinely new items (rollback removal criterion, shader-cache measurement,
+threading finding, CI-GPU honesty, minimum-baseline policy); a scoped Git Workflow
+Protocol section added for future work in this area only (not retroactive).
+
+**Not done in this session:** no code changes, no CI changes, no git commits/pushes/
+branches — this was a documentation reconciliation pass. Tasks 12-16's actual
+implementation (CI fix for SIMD, baseline policy code, ADR updates) remain open.
