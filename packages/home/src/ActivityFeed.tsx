@@ -1,6 +1,6 @@
 import type { Platform } from '@strata/platform';
 import { formatRelativeTime } from '@strata/platform';
-import { Icon } from '@strata/ui';
+import { Icon, InlineActivityIndicator } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
 
 export interface ActivityFeedProps {
@@ -143,8 +143,7 @@ export function ActivityFeed({
     return (
       <div className="activity-feed" role="region" aria-label="Activity feed">
         <div className="activity-feed__loading" role="status">
-          <Icon name="LoaderCircle" label="Loading activity" />
-          <span>Loading activity...</span>
+          <InlineActivityIndicator label="Loading activity" />
         </div>
       </div>
     );

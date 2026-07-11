@@ -24,7 +24,6 @@ import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPick
 import { BatchBgRemoveDialog } from './components/BatchBgRemoveDialog';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { promptDialog, PromptDialog } from './components/PromptDialog';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
@@ -36,6 +35,7 @@ import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onb
 import { TOUR_STEPS } from './components/Onboarding/tourSteps';
 import { PageNav } from './components/PageNav/PageNav';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
+import { PromptDialog, promptDialog } from './components/PromptDialog';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { RecoveryDialog } from './components/RecoveryDialog';

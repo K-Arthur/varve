@@ -330,6 +330,90 @@ describe('PenTool', () => {
     expect(pt1.handleOut).toBeNull();
   });
 
+  it('Alt-drag creates one-sided handle (handleIn stays null)', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    // Alt-click-drag: drag from (100,100) to (130,130) with altKey held
+    tool.onPointerDown?.(makePointerEvent(100, 100, { altKey: true }), ctx);
+    tool.onPointerMove?.(makePointerEvent(130, 130, { altKey: true }), ctx);
+    tool.onPointerUp?.(makePointerEvent(130, 130, { altKey: true }), ctx);
+
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{ handleIn: unknown; handleOut: unknown }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    // First point should have handleOut set (from drag) but handleIn = null (Alt broke symmetry)
+    expect(pathPoints[0]?.handleOut).not.toBeNull();
+    expect(pathPoints[0]?.handleIn).toBeNull();
+  });
+
+  it('subsequent Alt-drag preserves previous handleIn value', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    // First normal drag: creates symmetric handles
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerMove?.(makePointerEvent(130, 130), ctx);
+    tool.onPointerUp?.(makePointerEvent(130, 130), ctx);
+
+    vi.advanceTimersByTime(500);
+
+    // Add a second point with Alt held
+    tool.onPointerDown?.(makePointerEvent(200, 150, { altKey: true }), ctx);
+    tool.onPointerMove?.(makePointerEvent(240, 180, { altKey: true }), ctx);
+    tool.onPointerUp?.(makePointerEvent(240, 180, { altKey: true }), ctx);
+
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{ handleIn: unknown; handleOut: unknown }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    // Second point (index 1) should have handleOut but handleIn = null (Alt broke symmetry)
+    expect(pathPoints[1]?.handleOut).not.toBeNull();
+    expect(pathPoints[1]?.handleIn).toBeNull();
+  });
+
+  it('normal drag creates symmetric handles (handleIn mirrors handleOut)', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerMove?.(makePointerEvent(130, 130), ctx);
+    tool.onPointerUp?.(makePointerEvent(130, 130), ctx);
+
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{ handleIn: [number, number] | null; handleOut: [number, number] | null }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    const hOut = pathPoints[0]?.handleOut;
+    const hIn = pathPoints[0]?.handleIn;
+    expect(hOut).not.toBeNull();
+    expect(hIn).not.toBeNull();
+    // Symmetric: handleIn should be the negation of handleOut
+    if (hOut && hIn) {
+      expect(hIn[0]).toBeCloseTo(-hOut[0], 5);
+      expect(hIn[1]).toBeCloseTo(-hOut[1], 5);
+    }
+  });
+
   it('onDeactivate clears state without committing', () => {
     const tool = new PenTool();
     const ctx = makeCtx();

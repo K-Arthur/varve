@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CURRENT_DOCUMENT_VERSION, migrateDocument, serializeDocument } from '../version';
 import { validateDocument } from '../document';
+import { CURRENT_DOCUMENT_VERSION, migrateDocument, serializeDocument } from '../version';
 import legacyFixture from './legacy-v1.5.json';
 
 describe('Legacy v1.5 Document Fixture', () => {

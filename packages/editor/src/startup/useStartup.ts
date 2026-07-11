@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadSettings } from '../settings';
-import { createBootManager, type BootManager, type BootState } from './bootManager';
-import { createStartupTimer, type StartupTimer } from './startupTimer';
+import { type BootManager, type BootState, createBootManager } from './bootManager';
 import { checkStartupCapabilities, type StartupCapabilities } from './capabilityCheck';
+import { createStartupTimer, type StartupTimer } from './startupTimer';
 
 export interface UseStartupOptions {
   onBootComplete?: () => void;

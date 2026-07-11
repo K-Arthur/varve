@@ -1,6 +1,6 @@
 import type { Platform, VersionEntry } from '@strata/platform';
 import { formatAbsoluteTime, formatRelativeTime } from '@strata/platform';
-import { AlertDialog, Button, Dialog, Icon } from '@strata/ui';
+import { AlertDialog, Button, Dialog, Icon, InlineActivityIndicator } from '@strata/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface VersionHistoryProps {
@@ -195,8 +195,7 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
 
         {loading && (
           <div className="version-history__loading" role="status">
-            <Icon name="LoaderCircle" label="Loading" />
-            <span>Loading version history...</span>
+            <InlineActivityIndicator label="Loading version history" />
           </div>
         )}
 
