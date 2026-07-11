@@ -68,8 +68,8 @@ export function offsetPath(
   for (let i = 0; i < n; i++) {
     const a = points[i]!;
     const b = points[(i + 1) % points.length]!;
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
     const len = vecLen(dx, dy);
     if (len < 1e-12) continue;
     const [nx, ny] = normalize(dy, -dx);

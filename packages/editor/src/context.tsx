@@ -15,13 +15,7 @@
 
 import { getTransactionHooks } from '@strata/collab';
 import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
-import {
-  applyAffine,
-  invertAffine,
-  multiplyAffine,
-  rectContains,
-  shapeContains,
-} from '@strata/engine';
+import { applyAffine, invertAffine, multiplyAffine, rectContains } from '@strata/engine';
 import { type ImportFileInput, ImportService } from '@strata/import';
 import { makeFileEntry, type Platform } from '@strata/platform';
 import {
@@ -196,6 +190,7 @@ import type {
   ToolId,
 } from './context/types';
 import { applyDropPosition } from './dropUtils';
+import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
 import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
@@ -211,13 +206,7 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from './scene/parentIndexCache';
-import {
-  type FrameSpatialIndex,
-  getOrCreateFrameSpatialIndex,
-  getOrCreateSpatialIndex,
-  queryPoint,
-  type SpatialIndex,
-} from './scene/spatialIndex';
+import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
@@ -1231,7 +1220,6 @@ export function EditorProvider({
   /** Transform cache — invalidated whenever document reference changes. */
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const prevDocRef = useRef(state.document);
-  const spatialIndexRef = useRef<SpatialIndex | null>(null);
   const frameSpatialIndexRef = useRef<FrameSpatialIndex | null>(null);
   if (state.document !== prevDocRef.current) {
     invalidateTransformCache(transformCacheRef.current);
@@ -2008,69 +1996,9 @@ export function EditorProvider({
       },
 
       hitTestNode: (world) => {
-        // Get or build spatial index for O(1) candidate lookup.
-        const spatialIndex = getOrCreateSpatialIndex(state.document, spatialIndexRef.current);
-        spatialIndexRef.current = spatialIndex;
-        const candidates = queryPoint(spatialIndex, world.x, world.y);
-
-        // Walk the active page's nodes in paint order (DFS) and reverse so
-        // that children are tested before parents and later siblings before
-        // earlier ones — the correct topmost-first hit order. Scoped to the
-        // active page so a click can't hit a node on a different page that
-        // happens to occupy the same on-screen coordinates.
-        const entries = walkNodes(state.document, getActivePageNodes(state.document));
-        const ordered = [...entries.values()].reverse();
-        for (const entry of ordered) {
-          const n = entry.node;
-          if (n.locked || !n.visible) continue;
-          // Only test nodes that overlap the query point's cell.
-          if (!candidates.has(entry.nodeId)) continue;
-          if (n.kind === 'shape') {
-            const worldMat = nodeWorldTransform(state.document, entry.nodeId);
-            const wInv = invertAffine(worldMat);
-            const local = applyAffine(wInv, [world.x, world.y]);
-            if (shapeContains(n.shape, local)) {
-              return { nodeId: entry.nodeId, node: n };
-            }
-          }
-          if (n.kind === 'text' || n.kind === 'frame') {
-            const bbox = nodeWorldBounds(state.document, entry.nodeId);
-            if (bbox && rectContains(bbox, [world.x, world.y])) {
-              return { nodeId: entry.nodeId, node: n };
-            }
-          }
-          if (n.kind === 'group') {
-            // Groups use precise child geometry rather than AABB, avoiding
-            // false positives on empty corners of the group's bounding box.
-            // Iterate children and check each one's world bounds; if any
-            // child's geometry contains the point, the group counts as "hit".
-            // This also means clicking in gaps between children does NOT
-            // select the group — matching Figma/Sketch behavior.
-            const groupNode = n as import('@strata/scene').GroupNode;
-            if (groupNode.children) {
-              for (const childId of groupNode.children) {
-                const child = state.document.nodes[childId];
-                if (!child || child.locked || child.visible === false) continue;
-                if (child.kind === 'shape') {
-                  const childWorld = nodeWorldTransform(state.document, childId);
-                  const childInv = invertAffine(childWorld);
-                  const childLocal = applyAffine(childInv, [world.x, world.y]);
-                  if (
-                    shapeContains((child as import('@strata/scene').ShapeNode).shape, childLocal)
-                  ) {
-                    return { nodeId: entry.nodeId, node: n };
-                  }
-                } else {
-                  const childBounds = nodeWorldBounds(state.document, childId);
-                  if (childBounds && rectContains(childBounds, [world.x, world.y])) {
-                    return { nodeId: entry.nodeId, node: n };
-                  }
-                }
-              }
-            }
-          }
-        }
-        return null;
+        const engine = new HitTestEngine(state.document, { isolatedNodeId: state.isolatedNodeId });
+        const hit = engine.hitTest(world);
+        return hit ? { nodeId: hit.nodeId, node: hit.node } : null;
       },
 
       getNode: (id) => state.document.nodes[id],

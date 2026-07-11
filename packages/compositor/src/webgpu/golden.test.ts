@@ -3,7 +3,7 @@
 import type { RenderItem } from '@strata/engine';
 import { describe, expect, it } from 'vitest';
 import { Canvas2DBackend } from '../canvas2d/backend';
-import { WebGPUBackend, lineTessellationVertexCount } from './backend';
+import { lineTessellationVertexCount, WebGPUBackend } from './backend';
 
 const FIXTURE_ITEMS: RenderItem[] = [
   {

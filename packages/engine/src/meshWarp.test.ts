@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   createFlatMesh,
-  meshTriangles,
-  warpMesh,
   type MeshControlPoint,
   type MeshWarp,
+  meshTriangles,
+  warpMesh,
 } from './meshWarp';
 
 describe('createFlatMesh', () => {

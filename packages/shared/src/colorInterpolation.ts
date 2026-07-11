@@ -181,8 +181,8 @@ export function interpolateManagedColor(
       const [L2, C2, H2] = oklabToOkLch([l2, a2, b2]);
       const lerp = (a: number, b: number) => a + (b - a) * t;
       let h2 = H2;
-      let h1 = H1;
-      let diff = h2 - h1;
+      const h1 = H1;
+      const diff = h2 - h1;
       if (diff > Math.PI) h2 -= 2 * Math.PI;
       else if (diff < -Math.PI) h2 += 2 * Math.PI;
       const H = h1 + (h2 - h1) * t;

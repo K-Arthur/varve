@@ -68,10 +68,19 @@ pub fn compute_alignment_target(_axis: AlignOp, bounds: &[BBox]) -> Option<BBox>
     if bounds.len() < 2 {
         return None;
     }
-    let min_x = bounds.iter().map(|b| b.left()).fold(f64::INFINITY, f64::min);
-    let max_x = bounds.iter().map(|b| b.right()).fold(f64::NEG_INFINITY, f64::max);
+    let min_x = bounds
+        .iter()
+        .map(|b| b.left())
+        .fold(f64::INFINITY, f64::min);
+    let max_x = bounds
+        .iter()
+        .map(|b| b.right())
+        .fold(f64::NEG_INFINITY, f64::max);
     let min_y = bounds.iter().map(|b| b.top()).fold(f64::INFINITY, f64::min);
-    let max_y = bounds.iter().map(|b| b.bottom()).fold(f64::NEG_INFINITY, f64::max);
+    let max_y = bounds
+        .iter()
+        .map(|b| b.bottom())
+        .fold(f64::NEG_INFINITY, f64::max);
     Some(BBox {
         x: min_x,
         y: min_y,
@@ -313,27 +322,47 @@ mod tests {
 
     #[test]
     fn bbox_left_right() {
-        let b = BBox { x: 10.0, y: 20.0, w: 100.0, h: 50.0 };
+        let b = BBox {
+            x: 10.0,
+            y: 20.0,
+            w: 100.0,
+            h: 50.0,
+        };
         assert_eq!(b.left(), 10.0);
         assert_eq!(b.right(), 110.0);
     }
 
     #[test]
     fn bbox_center_x() {
-        let b = BBox { x: 10.0, y: 20.0, w: 100.0, h: 50.0 };
+        let b = BBox {
+            x: 10.0,
+            y: 20.0,
+            w: 100.0,
+            h: 50.0,
+        };
         assert_eq!(b.center_x(), 60.0);
     }
 
     #[test]
     fn bbox_top_bottom() {
-        let b = BBox { x: 10.0, y: 20.0, w: 100.0, h: 50.0 };
+        let b = BBox {
+            x: 10.0,
+            y: 20.0,
+            w: 100.0,
+            h: 50.0,
+        };
         assert_eq!(b.top(), 20.0);
         assert_eq!(b.bottom(), 70.0);
     }
 
     #[test]
     fn bbox_center_y() {
-        let b = BBox { x: 10.0, y: 20.0, w: 100.0, h: 50.0 };
+        let b = BBox {
+            x: 10.0,
+            y: 20.0,
+            w: 100.0,
+            h: 50.0,
+        };
         assert_eq!(b.center_y(), 45.0);
     }
 
@@ -342,8 +371,18 @@ mod tests {
     #[test]
     fn alignment_target_two_items() {
         let bounds = vec![
-            BBox { x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
-            BBox { x: 20.0, y: 30.0, w: 40.0, h: 20.0 },
+            BBox {
+                x: 0.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
+            BBox {
+                x: 20.0,
+                y: 30.0,
+                w: 40.0,
+                h: 20.0,
+            },
         ];
         let target = compute_alignment_target(AlignOp::Left, &bounds).unwrap();
         assert_eq!(target.x, 0.0);
@@ -355,9 +394,24 @@ mod tests {
     #[test]
     fn alignment_target_three_items() {
         let bounds = vec![
-            BBox { x: 5.0, y: 5.0, w: 10.0, h: 10.0 },
-            BBox { x: 0.0, y: 0.0, w: 20.0, h: 20.0 },
-            BBox { x: 30.0, y: 15.0, w: 5.0, h: 5.0 },
+            BBox {
+                x: 5.0,
+                y: 5.0,
+                w: 10.0,
+                h: 10.0,
+            },
+            BBox {
+                x: 0.0,
+                y: 0.0,
+                w: 20.0,
+                h: 20.0,
+            },
+            BBox {
+                x: 30.0,
+                y: 15.0,
+                w: 5.0,
+                h: 5.0,
+            },
         ];
         let target = compute_alignment_target(AlignOp::Left, &bounds).unwrap();
         assert_eq!(target.x, 0.0); // min X
@@ -373,7 +427,12 @@ mod tests {
 
     #[test]
     fn alignment_target_one_item() {
-        let bounds = vec![BBox { x: 0.0, y: 0.0, w: 10.0, h: 10.0 }];
+        let bounds = vec![BBox {
+            x: 0.0,
+            y: 0.0,
+            w: 10.0,
+            h: 10.0,
+        }];
         assert!(compute_alignment_target(AlignOp::Left, &bounds).is_none());
     }
 
@@ -381,8 +440,18 @@ mod tests {
 
     #[test]
     fn align_bbox_left() {
-        let bbox = BBox { x: 5.0, y: 5.0, w: 20.0, h: 10.0 };
-        let target = BBox { x: 0.0, y: 0.0, w: 100.0, h: 100.0 };
+        let bbox = BBox {
+            x: 5.0,
+            y: 5.0,
+            w: 20.0,
+            h: 10.0,
+        };
+        let target = BBox {
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+        };
         let (nx, ny) = align_bbox(&bbox, AlignOp::Left, &target);
         assert_eq!(nx, 0.0);
         assert_eq!(ny, 5.0);
@@ -390,8 +459,18 @@ mod tests {
 
     #[test]
     fn align_bbox_center_h() {
-        let bbox = BBox { x: 5.0, y: 5.0, w: 20.0, h: 10.0 };
-        let target = BBox { x: 0.0, y: 0.0, w: 100.0, h: 100.0 };
+        let bbox = BBox {
+            x: 5.0,
+            y: 5.0,
+            w: 20.0,
+            h: 10.0,
+        };
+        let target = BBox {
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+        };
         let (nx, ny) = align_bbox(&bbox, AlignOp::CenterH, &target);
         assert_eq!(nx, 40.0); // 50 - 10
         assert_eq!(ny, 5.0);
@@ -399,8 +478,18 @@ mod tests {
 
     #[test]
     fn align_bbox_right() {
-        let bbox = BBox { x: 5.0, y: 5.0, w: 20.0, h: 10.0 };
-        let target = BBox { x: 0.0, y: 0.0, w: 100.0, h: 100.0 };
+        let bbox = BBox {
+            x: 5.0,
+            y: 5.0,
+            w: 20.0,
+            h: 10.0,
+        };
+        let target = BBox {
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+        };
         let (nx, ny) = align_bbox(&bbox, AlignOp::Right, &target);
         assert_eq!(nx, 80.0); // 100 - 20
         assert_eq!(ny, 5.0);
@@ -408,8 +497,18 @@ mod tests {
 
     #[test]
     fn align_bbox_top() {
-        let bbox = BBox { x: 5.0, y: 5.0, w: 20.0, h: 10.0 };
-        let target = BBox { x: 0.0, y: 0.0, w: 100.0, h: 100.0 };
+        let bbox = BBox {
+            x: 5.0,
+            y: 5.0,
+            w: 20.0,
+            h: 10.0,
+        };
+        let target = BBox {
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+        };
         let (nx, ny) = align_bbox(&bbox, AlignOp::Top, &target);
         assert_eq!(nx, 5.0);
         assert_eq!(ny, 0.0);
@@ -417,8 +516,18 @@ mod tests {
 
     #[test]
     fn align_bbox_center_v() {
-        let bbox = BBox { x: 5.0, y: 5.0, w: 20.0, h: 10.0 };
-        let target = BBox { x: 0.0, y: 0.0, w: 100.0, h: 100.0 };
+        let bbox = BBox {
+            x: 5.0,
+            y: 5.0,
+            w: 20.0,
+            h: 10.0,
+        };
+        let target = BBox {
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+        };
         let (nx, ny) = align_bbox(&bbox, AlignOp::CenterV, &target);
         assert_eq!(nx, 5.0);
         assert_eq!(ny, 45.0); // 50 - 5
@@ -426,8 +535,18 @@ mod tests {
 
     #[test]
     fn align_bbox_bottom() {
-        let bbox = BBox { x: 5.0, y: 5.0, w: 20.0, h: 10.0 };
-        let target = BBox { x: 0.0, y: 0.0, w: 100.0, h: 100.0 };
+        let bbox = BBox {
+            x: 5.0,
+            y: 5.0,
+            w: 20.0,
+            h: 10.0,
+        };
+        let target = BBox {
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+        };
         let (nx, ny) = align_bbox(&bbox, AlignOp::Bottom, &target);
         assert_eq!(nx, 5.0);
         assert_eq!(ny, 90.0); // 100 - 10
@@ -439,9 +558,24 @@ mod tests {
     fn distribute_three_horizontal_even() {
         // Items already evenly-spaced; positions should match their leading edges
         let bounds = vec![
-            BBox { x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
-            BBox { x: 30.0, y: 0.0, w: 20.0, h: 10.0 },
-            BBox { x: 70.0, y: 0.0, w: 10.0, h: 10.0 },
+            BBox {
+                x: 0.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
+            BBox {
+                x: 30.0,
+                y: 0.0,
+                w: 20.0,
+                h: 10.0,
+            },
+            BBox {
+                x: 70.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
         ];
         let positions = compute_distribution(DistributeOp::Horizontal, &bounds, None).unwrap();
         assert_eq!(positions.len(), 3);
@@ -456,9 +590,24 @@ mod tests {
     #[test]
     fn distribute_three_vertical_even() {
         let bounds = vec![
-            BBox { x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
-            BBox { x: 0.0, y: 30.0, w: 10.0, h: 20.0 },
-            BBox { x: 0.0, y: 70.0, w: 10.0, h: 10.0 },
+            BBox {
+                x: 0.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
+            BBox {
+                x: 0.0,
+                y: 30.0,
+                w: 10.0,
+                h: 20.0,
+            },
+            BBox {
+                x: 0.0,
+                y: 70.0,
+                w: 10.0,
+                h: 10.0,
+            },
         ];
         let positions = compute_distribution(DistributeOp::Vertical, &bounds, None).unwrap();
         assert_eq!(positions.len(), 3);
@@ -473,9 +622,24 @@ mod tests {
     #[test]
     fn distribute_fixed_gap() {
         let bounds = vec![
-            BBox { x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
-            BBox { x: 30.0, y: 0.0, w: 10.0, h: 10.0 },
-            BBox { x: 60.0, y: 0.0, w: 10.0, h: 10.0 },
+            BBox {
+                x: 0.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
+            BBox {
+                x: 30.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
+            BBox {
+                x: 60.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
         ];
         let positions = compute_distribution(DistributeOp::Horizontal, &bounds, Some(5.0)).unwrap();
         assert_eq!(positions.len(), 3);
@@ -487,12 +651,27 @@ mod tests {
     #[test]
     fn distribute_less_than_three_items() {
         let two = vec![
-            BBox { x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
-            BBox { x: 20.0, y: 0.0, w: 10.0, h: 10.0 },
+            BBox {
+                x: 0.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
+            BBox {
+                x: 20.0,
+                y: 0.0,
+                w: 10.0,
+                h: 10.0,
+            },
         ];
         assert!(compute_distribution(DistributeOp::Horizontal, &two, None).is_none());
 
-        let one = vec![BBox { x: 0.0, y: 0.0, w: 10.0, h: 10.0 }];
+        let one = vec![BBox {
+            x: 0.0,
+            y: 0.0,
+            w: 10.0,
+            h: 10.0,
+        }];
         assert!(compute_distribution(DistributeOp::Horizontal, &one, None).is_none());
 
         assert!(compute_distribution(DistributeOp::Horizontal, &[], None).is_none());
@@ -569,8 +748,18 @@ mod tests {
     #[test]
     fn obb_align_left_right() {
         let obbs = vec![
-            [Point::new(5.0, 0.0), Point::new(15.0, 0.0), Point::new(15.0, 10.0), Point::new(5.0, 10.0)],
-            [Point::new(20.0, 5.0), Point::new(40.0, 5.0), Point::new(40.0, 25.0), Point::new(20.0, 25.0)],
+            [
+                Point::new(5.0, 0.0),
+                Point::new(15.0, 0.0),
+                Point::new(15.0, 10.0),
+                Point::new(5.0, 10.0),
+            ],
+            [
+                Point::new(20.0, 5.0),
+                Point::new(40.0, 5.0),
+                Point::new(40.0, 25.0),
+                Point::new(20.0, 25.0),
+            ],
         ];
         let left = obb_alignment_target(AlignOp::Left, &obbs).unwrap();
         assert_eq!(left, 5.0); // min X across all corners
@@ -581,8 +770,18 @@ mod tests {
     #[test]
     fn obb_align_center_h() {
         let obbs = vec![
-            [Point::new(0.0, 0.0), Point::new(20.0, 0.0), Point::new(20.0, 10.0), Point::new(0.0, 10.0)],
-            [Point::new(30.0, 0.0), Point::new(50.0, 0.0), Point::new(50.0, 10.0), Point::new(30.0, 10.0)],
+            [
+                Point::new(0.0, 0.0),
+                Point::new(20.0, 0.0),
+                Point::new(20.0, 10.0),
+                Point::new(0.0, 10.0),
+            ],
+            [
+                Point::new(30.0, 0.0),
+                Point::new(50.0, 0.0),
+                Point::new(50.0, 10.0),
+                Point::new(30.0, 10.0),
+            ],
         ];
         let ch = obb_alignment_target(AlignOp::CenterH, &obbs).unwrap();
         // obb1 center X = 10, obb2 center X = 40, avg = 25
@@ -592,8 +791,18 @@ mod tests {
     #[test]
     fn obb_align_top_bottom() {
         let obbs = vec![
-            [Point::new(0.0, 5.0), Point::new(10.0, 5.0), Point::new(10.0, 15.0), Point::new(0.0, 15.0)],
-            [Point::new(0.0, 20.0), Point::new(10.0, 20.0), Point::new(10.0, 40.0), Point::new(0.0, 40.0)],
+            [
+                Point::new(0.0, 5.0),
+                Point::new(10.0, 5.0),
+                Point::new(10.0, 15.0),
+                Point::new(0.0, 15.0),
+            ],
+            [
+                Point::new(0.0, 20.0),
+                Point::new(10.0, 20.0),
+                Point::new(10.0, 40.0),
+                Point::new(0.0, 40.0),
+            ],
         ];
         let top = obb_alignment_target(AlignOp::Top, &obbs).unwrap();
         assert_eq!(top, 5.0); // min Y
@@ -604,8 +813,18 @@ mod tests {
     #[test]
     fn obb_align_center_v() {
         let obbs = vec![
-            [Point::new(0.0, 0.0), Point::new(10.0, 0.0), Point::new(10.0, 20.0), Point::new(0.0, 20.0)],
-            [Point::new(0.0, 30.0), Point::new(10.0, 30.0), Point::new(10.0, 50.0), Point::new(0.0, 50.0)],
+            [
+                Point::new(0.0, 0.0),
+                Point::new(10.0, 0.0),
+                Point::new(10.0, 20.0),
+                Point::new(0.0, 20.0),
+            ],
+            [
+                Point::new(0.0, 30.0),
+                Point::new(10.0, 30.0),
+                Point::new(10.0, 50.0),
+                Point::new(0.0, 50.0),
+            ],
         ];
         let cv = obb_alignment_target(AlignOp::CenterV, &obbs).unwrap();
         // obb1 center Y = 10, obb2 center Y = 40, avg = 25
@@ -624,11 +843,56 @@ mod tests {
     fn tidy_layout_scattered_points() {
         // Three items in a rough row, one below
         let items: Vec<(BBox, f64, f64)> = vec![
-            (BBox { x: 0.0, y: 0.0, w: 10.0, h: 10.0 }, 5.0, 5.0),
-            (BBox { x: 15.0, y: 0.0, w: 10.0, h: 10.0 }, 20.0, 5.0),
-            (BBox { x: 30.0, y: 0.0, w: 10.0, h: 10.0 }, 35.0, 5.0),
-            (BBox { x: 5.0, y: 20.0, w: 10.0, h: 10.0 }, 10.0, 25.0),
-            (BBox { x: 20.0, y: 20.0, w: 10.0, h: 10.0 }, 25.0, 25.0),
+            (
+                BBox {
+                    x: 0.0,
+                    y: 0.0,
+                    w: 10.0,
+                    h: 10.0,
+                },
+                5.0,
+                5.0,
+            ),
+            (
+                BBox {
+                    x: 15.0,
+                    y: 0.0,
+                    w: 10.0,
+                    h: 10.0,
+                },
+                20.0,
+                5.0,
+            ),
+            (
+                BBox {
+                    x: 30.0,
+                    y: 0.0,
+                    w: 10.0,
+                    h: 10.0,
+                },
+                35.0,
+                5.0,
+            ),
+            (
+                BBox {
+                    x: 5.0,
+                    y: 20.0,
+                    w: 10.0,
+                    h: 10.0,
+                },
+                10.0,
+                25.0,
+            ),
+            (
+                BBox {
+                    x: 20.0,
+                    y: 20.0,
+                    w: 10.0,
+                    h: 10.0,
+                },
+                25.0,
+                25.0,
+            ),
         ];
         let result = compute_tidy_layout(&items, 4);
         assert_eq!(result.len(), 5);
@@ -652,7 +916,16 @@ mod tests {
         let items: Vec<(BBox, f64, f64)> = (0..5)
             .map(|i| {
                 let x = i as f64 * 15.0;
-                (BBox { x, y: 0.0, w: 10.0, h: 10.0 }, x + 5.0, 5.0)
+                (
+                    BBox {
+                        x,
+                        y: 0.0,
+                        w: 10.0,
+                        h: 10.0,
+                    },
+                    x + 5.0,
+                    5.0,
+                )
             })
             .collect();
         let result = compute_tidy_layout(&items, 2);
