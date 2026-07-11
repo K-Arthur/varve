@@ -39,9 +39,11 @@ export function useSelectionHistory() {
     }
 
     historyRef.current.push(entry);
+    currentIndexRef.current = historyRef.current.length - 1;
+
+    // Cap at MAX_HISTORY
     if (historyRef.current.length > MAX_HISTORY) {
       historyRef.current.shift();
-    } else {
       currentIndexRef.current = historyRef.current.length - 1;
     }
   }, []);

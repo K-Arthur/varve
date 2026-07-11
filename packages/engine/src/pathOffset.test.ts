@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { offsetPath, expandStroke, roundCorners } from './pathOffset';
+import { expandStroke, offsetPath, roundCorners } from './pathOffset';
 import type { PathPoint } from './types';
 
 function linePath(fromX: number, fromY: number, toX: number, toY: number): PathPoint[] {

@@ -46,6 +46,7 @@ function makeCtx(overrides?: Record<string, unknown>) {
     setPointerCapture: vi.fn(),
     releasePointerCapture: vi.fn(),
     findContainingFrame: vi.fn().mockReturnValue(null),
+    setDropTargetFrame: vi.fn(),
     nodeWorldBounds: vi.fn().mockReturnValue(null),
     engine: null,
     hitTest: vi.fn().mockReturnValue(null),

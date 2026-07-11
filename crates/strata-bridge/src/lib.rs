@@ -220,7 +220,10 @@ pub struct IpcSceneNode {
     #[serde(with = "affine_serde")]
     pub transform: Affine,
     pub shape: IpcShape,
-    #[serde(default = "default_fill", deserialize_with = "deserialize_engine_color")]
+    #[serde(
+        default = "default_fill",
+        deserialize_with = "deserialize_engine_color"
+    )]
     pub fill: EngineColor,
     #[serde(default = "default_opacity")]
     pub opacity: f64,

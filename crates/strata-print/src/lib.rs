@@ -64,9 +64,7 @@ impl Default for PdfOptions {
 fn engine_color_rgba(color: &EngineColor) -> (u8, u8, u8, u8) {
     match color {
         EngineColor::Rgb { r, g, b, a, .. } => (*r as u8, *g as u8, *b as u8, *a as u8),
-        EngineColor::Cmyk {
-            c, m, y, k, a, ..
-        } => {
+        EngineColor::Cmyk { c, m, y, k, a, .. } => {
             let rc = 1.0 - (c / 255.0);
             let rm = 1.0 - (m / 255.0);
             let ry = 1.0 - (y / 255.0);

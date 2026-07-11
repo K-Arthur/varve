@@ -1,16 +1,16 @@
-import { createDocument, makeShapeNode, type SceneNode, type Document } from '@strata/scene';
+import { createDocument, type Document, makeShapeNode, type SceneNode } from '@strata/scene';
 import {
   alignBBox,
   type BBox,
   computeAlignmentTarget,
   computeDistribution,
   computeTidyLayout,
-  orientedBBox,
+  identity,
   obbAlignmentTarget,
+  orientedBBox,
 } from '@strata/shared';
-import { identity } from '@strata/shared';
-import { nodeWorldBounds } from '../../scene/world';
 import { describe, expect, it } from 'vitest';
+import { nodeWorldBounds } from '../../scene/world';
 
 function makeRect(id: string, x: number, y: number, w: number, h: number): SceneNode {
   return makeShapeNode(

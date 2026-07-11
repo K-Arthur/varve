@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { applyAffine, identity, rotateDeg, rotateRad, scale, translate } from './affine';
 import {
   alignBBox,
+  type BBox,
   bboxUnion,
   computeAlignmentTarget,
   computeDistribution,
@@ -9,9 +11,7 @@ import {
   obbAlignmentTarget,
   obbToAABB,
   orientedBBox,
-  type BBox,
 } from './align';
-import { applyAffine, identity, rotateDeg, rotateRad, scale, translate } from './affine';
 
 const EPS = 1e-9;
 
