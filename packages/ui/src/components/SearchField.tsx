@@ -34,11 +34,6 @@ export function SearchField({
         ref={inputRef}
         id={id}
         type="search"
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={value.length > 0}
-        aria-controls={`${id}-list`}
-        aria-activedescendant={undefined}
         className="strata-search__input"
         placeholder={placeholder}
         value={value}

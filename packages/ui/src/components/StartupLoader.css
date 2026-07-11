@@ -149,6 +149,14 @@
   background: var(--color-interactive-hover);
 }
 
+/* Simplified mode — used when simplified prop set or low-GPU detected */
+.startup-loader--simplified .startup-loader__logo--red,
+.startup-loader--simplified .startup-loader__logo--green,
+.startup-loader--simplified .startup-loader__logo--blue {
+  animation: none;
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .startup-loader__logo--red,
   .startup-loader__logo--green,

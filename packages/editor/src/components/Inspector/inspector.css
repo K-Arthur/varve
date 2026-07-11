@@ -408,7 +408,7 @@
   border-color: var(--color-border-subtle);
 }
 .insp-num__input:focus-visible,
-.insp-num__input:focus {
+.insp-num__input:focus-visible {
   border-color: var(--color-border-focus);
 }
 .insp-num__input[aria-invalid="true"] {
@@ -449,7 +449,7 @@
 .insp-select:hover {
   border-color: var(--color-border-subtle);
 }
-.insp-select:focus,
+.insp-select:focus-visible,
 .insp-select:focus-visible {
   border-color: var(--color-border-focus);
   outline: none;
@@ -576,7 +576,7 @@
 .insp-per-side:hover {
   border-color: var(--color-border-subtle);
 }
-.insp-per-side:focus,
+.insp-per-side:focus-visible,
 .insp-per-side:focus-visible {
   border-color: var(--color-border-focus);
   outline: none;
@@ -800,7 +800,7 @@
   outline: none;
 }
 
-.typography__text-input:focus {
+.typography__text-input:focus-visible {
   border-color: var(--color-interactive-default);
 }
 

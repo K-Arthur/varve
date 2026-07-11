@@ -66,6 +66,13 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
     items: [
       { label: 'Undo', shortcut: formatShortcut(SHORTCUT_DEFS.undo.binding), action: 'undo' },
       { label: 'Redo', shortcut: formatShortcut(SHORTCUT_DEFS.redo.binding), action: 'redo' },
+      { label: '---' },
+      { label: 'Cut', shortcut: formatShortcut(SHORTCUT_DEFS.cut.binding), action: 'cut' },
+      { label: 'Copy', shortcut: formatShortcut(SHORTCUT_DEFS.copy.binding), action: 'copy' },
+      { label: 'Paste', shortcut: formatShortcut(SHORTCUT_DEFS.paste.binding), action: 'paste' },
+      { label: 'Duplicate', shortcut: formatShortcut(SHORTCUT_DEFS.duplicate.binding), action: 'duplicate' },
+      { label: '---' },
+      { label: 'Select All', shortcut: formatShortcut(SHORTCUT_DEFS.selectAll.binding), action: 'selectAll' },
       { label: 'Delete', shortcut: '\u232B', action: 'delete' },
     ],
   },
@@ -298,6 +305,13 @@ export function Menubar({
     undo,
     redo,
     removeSelected,
+    cutSelected,
+    copySelected,
+    paste,
+    duplicateSelected,
+    rootNodes,
+    setSelection,
+    toggleSelection,
     setTool,
     setZoom,
     setShowExportDialog,
@@ -405,6 +419,29 @@ export function Menubar({
         case 'redo':
           redo();
           break;
+        case 'cut':
+          cutSelected();
+          break;
+        case 'copy':
+          copySelected();
+          break;
+        case 'paste':
+          paste();
+          break;
+        case 'duplicate':
+          duplicateSelected();
+          break;
+        case 'selectAll': {
+          const nodes = rootNodes();
+          if (nodes.length > 0) {
+            setSelection(nodes[0]?.id ?? null);
+            for (let i = 1; i < nodes.length; i++) {
+              const n = nodes[i];
+              if (n) toggleSelection(n.id, true);
+            }
+          }
+          break;
+        }
         case 'delete':
           removeSelected();
           break;

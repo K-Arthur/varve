@@ -736,7 +736,7 @@
 .editor-menubar__doc-name-input:hover {
   border-bottom-color: var(--color-border-subtle);
 }
-.editor-menubar__doc-name-input:focus {
+.editor-menubar__doc-name-input:focus-visible {
   border-bottom-color: var(--color-interactive-default);
 }
 
@@ -771,7 +771,7 @@
 .editor-menubar__zoom-input:hover {
   border-bottom-color: var(--color-border-subtle);
 }
-.editor-menubar__zoom-input:focus {
+.editor-menubar__zoom-input:focus-visible {
   border-bottom-color: var(--color-interactive-default);
 }
 .editor-menubar__zoom-divider,
@@ -1173,7 +1173,7 @@
   font-size: var(--font-size-sm);
   outline: none;
 }
-.settings-text-input:focus {
+.settings-text-input:focus-visible {
   border-color: var(--color-interactive-default);
 }
 .settings-text-input:focus-visible {
@@ -1607,7 +1607,7 @@
   line-height: 1.4;
   transition: border-color var(--duration-quick) var(--ease-default);
 }
-.ai-panel__textarea:focus {
+.ai-panel__textarea:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
   border-color: transparent;
@@ -1646,7 +1646,7 @@
 [data-theme="high-contrast"] .ai-panel__bubble--user {
   outline: 1px solid var(--color-border-strong);
 }
-[data-theme="high-contrast"] .ai-panel__textarea:focus {
+[data-theme="high-contrast"] .ai-panel__textarea:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
 }
 
@@ -1952,7 +1952,7 @@
   outline: none;
   transition: border-color var(--duration-quick) var(--ease-default);
 }
-.plugin-marketplace__category-select:focus {
+.plugin-marketplace__category-select:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
   border-color: transparent;
@@ -2060,7 +2060,7 @@
   transform: none;
 }
 [data-theme="high-contrast"] .plugin-marketplace__search:focus-within,
-[data-theme="high-contrast"] .plugin-marketplace__category-select:focus {
+[data-theme="high-contrast"] .plugin-marketplace__category-select:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
@@ -2142,7 +2142,7 @@
   font-size: var(--font-size-sm);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.canvas-rename__input:focus {
+.canvas-rename__input:focus-visible {
   border-color: var(--color-interactive-focus-ring);
   outline: none;
 }

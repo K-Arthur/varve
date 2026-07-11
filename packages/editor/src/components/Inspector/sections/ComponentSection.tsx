@@ -121,7 +121,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
                   padding: '2px 6px',
                   borderRadius: 'var(--radius-sm)',
                   background: 'rgba(57, 208, 198, 0.15)',
-                  color: '#39d0c6',
+                  color: 'var(--color-accent-primary)',
                   border: '1px solid rgba(57, 208, 198, 0.3)',
                 }}
               >

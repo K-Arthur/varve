@@ -24,6 +24,7 @@ import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPick
 import { BatchBgRemoveDialog } from './components/BatchBgRemoveDialog';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { promptDialog, PromptDialog } from './components/PromptDialog';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
@@ -536,29 +537,29 @@ function ShellInner({
                   const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
                   editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
                 }}
-                onRenameMarker={(markerId) => {
-                  const tlId = editor.state.motion.activeTimelineId;
-                  if (!tlId) return;
-                  const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
-                    (m) => m.id === markerId,
-                  );
-                  const nextName = window.prompt('Marker name', marker?.name ?? '');
-                  if (nextName?.trim()) {
-                    editor.renameTimelineMarker(tlId, markerId, nextName.trim());
-                  }
-                }}
+              onRenameMarker={async (markerId) => {
+                const tlId = editor.state.motion.activeTimelineId;
+                if (!tlId) return;
+                const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
+                  (m) => m.id === markerId,
+                );
+                const nextName = await promptDialog('Marker name', marker?.name ?? '');
+                if (nextName?.trim()) {
+                  editor.renameTimelineMarker(tlId, markerId, nextName.trim());
+                }
+              }}
                 onDeleteMarker={(markerId) => {
                   const tlId = editor.state.motion.activeTimelineId;
                   if (tlId) editor.removeTimelineMarker(tlId, markerId);
                 }}
-                onSavePreset={() => {
-                  const tlId = editor.state.motion.activeTimelineId;
-                  if (!tlId) return;
-                  const name = window.prompt('Preset name');
-                  if (name?.trim()) {
-                    editor.createMotionPresetFromTimeline(tlId, name.trim());
-                  }
-                }}
+              onSavePreset={async () => {
+                const tlId = editor.state.motion.activeTimelineId;
+                if (!tlId) return;
+                const name = await promptDialog('Preset name');
+                if (name?.trim()) {
+                  editor.createMotionPresetFromTimeline(tlId, name.trim());
+                }
+              }}
                 onApplyPreset={(presetId) => {
                   const tlId = editor.state.motion.activeTimelineId;
                   if (tlId) editor.applyMotionPreset(presetId, tlId);
@@ -810,6 +811,7 @@ function ShellInner({
 
         {/* Help Browser */}
         <HelpBrowser open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <PromptDialog />
 
         {/* Canvas right-click context menu */}
         {canvasContextMenu &&

@@ -276,8 +276,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'tree-row-hover': N(7),
     // WCAG fix: T(8)=medium teal with white text-on-accent was 3.75:1. T(9) gives 4.66:1.
     'tree-row-selected': T(9),
-    'tree-row-focus': T(9),
-    'tree-indent-guide': N(7),
+    'tree-row-focus': T(7),
+    'tree-indent-guide': N(6),
     'layer-accent-frame': B(6),
     'layer-wash-frame': B(1),
     'layer-accent-group': A(8),
@@ -344,8 +344,8 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     // WCAG 3.0 UI: N(7) L=0.570 provides ~4:1 contrast against N(11) L=0.264 tree-row.
     'tree-row-hover': N(7),
     'tree-row-selected': T(5),
-    'tree-row-focus': T(5),
-    'tree-indent-guide': N(7),
+    'tree-row-focus': T(7),
+    'tree-indent-guide': N(8),
     'layer-accent-frame': B(3),
     'layer-wash-frame': B(11),
     'layer-accent-group': A(3),
