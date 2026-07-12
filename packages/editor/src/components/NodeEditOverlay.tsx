@@ -2,6 +2,8 @@ import type { PathPoint } from '@strata/engine';
 import { applyAffine } from '@strata/engine';
 import type { ShapeNode } from '@strata/scene';
 import type { Affine } from '@strata/shared';
+import { computeFloatingOrigin, worldToScreen } from '@strata/shared';
+import { getEditorViewport } from '../canvas/cameraState';
 
 interface NodeEditOverlayProps {
   node: ShapeNode;
@@ -12,13 +14,21 @@ interface NodeEditOverlayProps {
   worldTransform?: Affine;
 }
 
+// Must match the transform the canvas actually paints with
+// (applyEditorCameraToCtx: floating origin) — naive world*zoom+pan drifts
+// from the real paint position once panned away from world (0,0), putting
+// these anchor handles somewhere other than the path they're editing.
 function worldToCanvas(
   wx: number,
   wy: number,
   zoom: number,
   pan: { x: number; y: number },
 ): { x: number; y: number } {
-  return { x: wx * zoom + pan.x, y: wy * zoom + pan.y };
+  const cam = { zoom, pan };
+  const viewport = getEditorViewport();
+  const origin = computeFloatingOrigin(cam, viewport);
+  const [x, y] = worldToScreen(cam, wx, wy, viewport, origin);
+  return { x, y };
 }
 
 export function NodeEditOverlay({

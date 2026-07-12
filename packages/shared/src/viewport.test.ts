@@ -239,6 +239,41 @@ describe('zoomAboutPoint', () => {
     expect(Math.abs(screenBefore[1] - screenAfter[1])).toBeLessThan(EPS);
   });
 
+  it('keeps world anchor stable with floating origin and real viewport', () => {
+    const c: Camera = {
+      pan: { x: -8620.25, y: 4317.5 },
+      zoom: 3.75,
+      rotation: 0,
+    };
+    const viewport: Viewport = { width: 1377, height: 813 };
+    const beforeOrigin = computeFloatingOrigin(c, viewport);
+    const anchor = screenToWorld(c, 589, 377, viewport, beforeOrigin);
+    const after = zoomAboutPoint(c, anchor, 5.5, viewport);
+    const afterOrigin = computeFloatingOrigin(after, viewport);
+    const screenAfter = worldToScreen(after, anchor[0], anchor[1], viewport, afterOrigin);
+
+    expect(screenAfter[0]).toBeCloseTo(589, 6);
+    expect(screenAfter[1]).toBeCloseTo(377, 6);
+  });
+
+  it('keeps world anchor stable while rotated', () => {
+    const c: Camera = {
+      pan: { x: -1200, y: 700 },
+      zoom: 1.8,
+      rotation: Math.PI / 7,
+    };
+    const viewport: Viewport = { width: 1200, height: 700 };
+    const beforeOrigin = computeFloatingOrigin(c, viewport);
+    const anchor = screenToWorld(c, 840, 220, viewport, beforeOrigin);
+    const after = zoomAboutPoint(c, anchor, 2.6, viewport);
+    const afterOrigin = computeFloatingOrigin(after, viewport);
+    const screenAfter = worldToScreen(after, anchor[0], anchor[1], viewport, afterOrigin);
+
+    expect(screenAfter[0]).toBeCloseTo(840, 6);
+    expect(screenAfter[1]).toBeCloseTo(220, 6);
+    expect(after.rotation).toBeCloseTo(c.rotation ?? 0, 9);
+  });
+
   it('clamps the new zoom', () => {
     const c = cam(0, 0, 1);
     const clamped = zoomAboutPoint(c, [0, 0], 100);

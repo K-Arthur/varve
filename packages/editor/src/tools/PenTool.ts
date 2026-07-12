@@ -132,8 +132,14 @@ export class PenTool extends BaseTool {
         const outLen = handleLen / 3;
 
         if (handleLen > 0) {
-          const nx = handleDx / handleLen;
-          const ny = handleDy / handleLen;
+          let nx = handleDx / handleLen;
+          let ny = handleDy / handleLen;
+          if (e.shiftKey) {
+            // Shift-constrain handle direction to 45° increments
+            const angle = Math.round(Math.atan2(ny, nx) / (Math.PI / 4)) * (Math.PI / 4);
+            nx = Math.cos(angle);
+            ny = Math.sin(angle);
+          }
           pt.handleOut = { x: nx * outLen, y: ny * outLen };
           if (e.altKey) {
             // Alt-drag: break symmetry — handleIn retains its previous value

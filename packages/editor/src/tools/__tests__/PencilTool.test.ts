@@ -237,6 +237,79 @@ describe('PencilTool', () => {
     expect(callArgs?.[0]).toEqual({ x: 150, y: 200 });
   });
 
+  it('captured points include pressure data', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    tool.onPointerDown?.(makePointerEvent(100, 100, { pressure: 0.75 }), ctx);
+
+    rafCb?.(0);
+    tool.onPointerMove?.(makePointerEvent(110, 110), ctx);
+    rafCb?.(0);
+    tool.onPointerMove?.(makePointerEvent(120, 120), ctx);
+    rafCb?.(0);
+
+    tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{ pressure?: number }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    // All fitted points should carry the stroke's average pressure
+    for (const pt of pathPoints) {
+      expect(pt.pressure).toBeDefined();
+      expect(pt.pressure).toBeGreaterThan(0);
+    }
+  });
+
+  it('captures pressure from pointer event', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    tool.onPointerDown?.(makePointerEvent(100, 100, { pressure: 0.8 }), ctx);
+    rafCb?.(0);
+
+    tool.onPointerMove?.(makePointerEvent(120, 120), ctx);
+    rafCb?.(0);
+
+    tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{ pressure?: number }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    // First point should have the captured pressure
+    if (pathPoints[0]) {
+      expect(pathPoints[0].pressure).toBeGreaterThan(0);
+    }
+  });
+
+  it('default pressure for low-pressure pointer events', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    // PointerEvent.pressure=0 for non-pressure devices
+    tool.onPointerDown?.(makePointerEvent(100, 100, { pressure: 0 }), ctx);
+    rafCb?.(0);
+
+    tool.onPointerMove?.(makePointerEvent(120, 120), ctx);
+    rafCb?.(0);
+
+    tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{ pressure?: number }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    // Should default to 0.5 for non-pressure input
+    if (pathPoints[0]) {
+      expect(pathPoints[0].pressure).toBe(0.5);
+    }
+  });
+
   it('ends capture on deactivate', () => {
     const tool = new PencilTool();
     const ctx = makeCtx();

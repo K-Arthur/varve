@@ -1,5 +1,7 @@
 import type { Guide } from '@strata/scene';
+import { computeFloatingOrigin } from '@strata/shared';
 import { useCallback, useRef, useState } from 'react';
+import { getEditorViewport } from '../../canvas/cameraState';
 import { GuideContextMenu } from './GuideContextMenu';
 import './GuideOverlay.css';
 
@@ -32,9 +34,14 @@ export function GuideOverlay({
   const draggingRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Axis-aligned guide lines (no camera-rotation support) — only the
+  // floating-origin translation needs correcting, matching the transform the
+  // canvas actually paints with.
   const screenPos = useCallback(
     (guide: Guide): number => {
-      return guide.position * zoom + (guide.axis === 'vertical' ? pan.x : pan.y);
+      const origin = computeFloatingOrigin({ zoom, pan, rotation: 0 }, getEditorViewport());
+      const originAxis = guide.axis === 'vertical' ? origin[0] : origin[1];
+      return (guide.position - originAxis) * zoom + (guide.axis === 'vertical' ? pan.x : pan.y);
     },
     [zoom, pan.x, pan.y],
   );
@@ -62,7 +69,11 @@ export function GuideOverlay({
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       const pos = guide.axis === 'vertical' ? e.clientX - rect.left : e.clientY - rect.top;
-      const world = Math.round((pos - (guide.axis === 'vertical' ? pan.x : pan.y)) / zoom);
+      const origin = computeFloatingOrigin({ zoom, pan, rotation: 0 }, getEditorViewport());
+      const originAxis = guide.axis === 'vertical' ? origin[0] : origin[1];
+      const world = Math.round(
+        (pos - (guide.axis === 'vertical' ? pan.x : pan.y)) / zoom + originAxis,
+      );
       onMoveGuide(guide.id, world);
     },
     [zoom, pan.x, pan.y, onMoveGuide],

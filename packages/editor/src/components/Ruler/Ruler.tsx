@@ -1,4 +1,4 @@
-import { formatCoordForRuler, type RulerMode } from '@strata/shared';
+import { computeFloatingOrigin, formatCoordForRuler, type RulerMode } from '@strata/shared';
 import { useCallback, useRef } from 'react';
 import './Ruler.css';
 
@@ -10,7 +10,8 @@ interface RulerProps {
   rulerMode?: RulerMode;
   artboard?: { x: number; y: number; w: number; h: number } | null;
   pageRulerOrigin?: { x: number; y: number };
-  onAddGuide: (axis: 'horizontal' | 'vertical', position: number) => void;
+  onAddGuide: (axis: 'horizontal' | 'vertical', position: number) => string | void;
+  onMoveGuide?: (id: string, position: number) => void;
   canvasWidth?: number;
   canvasHeight?: number;
 }
@@ -51,10 +52,47 @@ export function Ruler({
   artboard = null,
   pageRulerOrigin,
   onAddGuide,
+  onMoveGuide,
+  canvasWidth,
+  canvasHeight,
 }: RulerProps) {
   const topRulerRef = useRef<HTMLCanvasElement>(null);
   const leftRulerRef = useRef<HTMLCanvasElement>(null);
-  const isDragging = useRef<'h' | 'v' | null>(null);
+  const activeGuideDrag = useRef<{ guideId: string | null } | null>(null);
+
+  const viewportForAxis = useCallback(
+    (axis: 'horizontal' | 'vertical', size: number) => ({
+      width: canvasWidth ?? (axis === 'horizontal' ? size : 1),
+      height: canvasHeight ?? (axis === 'vertical' ? size : 1),
+    }),
+    [canvasHeight, canvasWidth],
+  );
+
+  const floatingOriginForAxis = useCallback(
+    (axis: 'horizontal' | 'vertical', size: number): number => {
+      const origin = computeFloatingOrigin({ zoom, pan, rotation: 0 }, viewportForAxis(axis, size));
+      return axis === 'horizontal' ? origin[0] : origin[1];
+    },
+    [pan, viewportForAxis, zoom],
+  );
+
+  const screenToWorldAxis = useCallback(
+    (axis: 'horizontal' | 'vertical', screen: number, size: number): number => {
+      const origin = floatingOriginForAxis(axis, size);
+      const offset = axis === 'horizontal' ? pan.x : pan.y;
+      return (screen - offset) / zoom + origin;
+    },
+    [floatingOriginForAxis, pan.x, pan.y, zoom],
+  );
+
+  const worldToScreenAxis = useCallback(
+    (axis: 'horizontal' | 'vertical', world: number, size: number): number => {
+      const origin = floatingOriginForAxis(axis, size);
+      const offset = axis === 'horizontal' ? pan.x : pan.y;
+      return (world - origin) * zoom + offset;
+    },
+    [floatingOriginForAxis, pan.x, pan.y, zoom],
+  );
 
   const drawRuler = useCallback(
     (ctx: CanvasRenderingContext2D, axis: 'horizontal' | 'vertical', size: number) => {
@@ -71,7 +109,6 @@ export function Ruler({
 
       const interval = getTickInterval(zoom);
       const scale = UNIT_SCALE[unitType] ?? 1;
-      const offset = axis === 'horizontal' ? pan.x : pan.y;
       const originOffset =
         rulerMode === 'artboard' && artboard
           ? axis === 'horizontal'
@@ -80,15 +117,16 @@ export function Ruler({
           : 0;
 
       const startWorld =
-        Math.floor((-offset / zoom - originOffset) / interval) * interval + originOffset;
-      const endWorld = startWorld + size / zoom + interval * 2;
+        Math.floor((screenToWorldAxis(axis, 0, size) - originOffset) / interval) * interval +
+        originOffset;
+      const endWorld = screenToWorldAxis(axis, size, size) + interval * 2;
 
       ctx.strokeStyle = tickColor;
       ctx.fillStyle = tickColor;
       ctx.font = '9px system-ui';
 
       for (let w = startWorld; w <= endWorld; w += interval) {
-        const screenPos = w * zoom + offset;
+        const screenPos = worldToScreenAxis(axis, w, size);
         if (screenPos < -RULER_SIZE || screenPos > size + RULER_SIZE) continue;
 
         const isLarge = Math.abs((w - originOffset) % (interval * 5)) < 0.001;
@@ -135,7 +173,16 @@ export function Ruler({
 
       void cameraRotation;
     },
-    [zoom, pan.x, pan.y, unitType, rulerMode, artboard, pageRulerOrigin, cameraRotation],
+    [
+      zoom,
+      unitType,
+      rulerMode,
+      artboard,
+      pageRulerOrigin,
+      cameraRotation,
+      screenToWorldAxis,
+      worldToScreenAxis,
+    ],
   );
 
   const topCanvasRef = useCallback(
@@ -176,20 +223,26 @@ export function Ruler({
 
   const handleMouseDown = (axis: 'h' | 'v') => (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    isDragging.current = axis;
+    e.preventDefault();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const pos = axis === 'h' ? e.clientX - rect.left : e.clientY - rect.top;
-    const world = axis === 'h' ? (pos - pan.x) / zoom : (pos - pan.y) / zoom;
-    onAddGuide(axis === 'h' ? 'vertical' : 'horizontal', Math.round(world));
+    const guideAxis = axis === 'h' ? 'vertical' : 'horizontal';
+    const rulerAxis = axis === 'h' ? 'horizontal' : 'vertical';
+    const world = screenToWorldAxis(rulerAxis, pos, axis === 'h' ? rect.width : rect.height);
+    const createdId = onAddGuide(guideAxis, Math.round(world));
+    activeGuideDrag.current = { guideId: typeof createdId === 'string' ? createdId : null };
 
     const handleMove = (ev: MouseEvent) => {
       const p = axis === 'h' ? ev.clientX - rect.left : ev.clientY - rect.top;
-      const w = axis === 'h' ? (p - pan.x) / zoom : (p - pan.y) / zoom;
-      onAddGuide(axis === 'h' ? 'vertical' : 'horizontal', Math.round(w));
+      const w = screenToWorldAxis(rulerAxis, p, axis === 'h' ? rect.width : rect.height);
+      const active = activeGuideDrag.current;
+      if (active?.guideId) {
+        onMoveGuide?.(active.guideId, Math.round(w));
+      }
     };
 
     const handleUp = () => {
-      isDragging.current = null;
+      activeGuideDrag.current = null;
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
     };

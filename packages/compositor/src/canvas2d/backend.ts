@@ -2,6 +2,7 @@
  * Canvas2D compositor backend — wraps replayIr.
  */
 import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
+import { computeFloatingOrigin } from '@strata/shared';
 import type { CompositorBackend, CompositorDiagnostics, CompositorFrame } from '../types';
 
 /** Canvas surface accepted by the 2D backend (main canvas or offscreen overlay). */
@@ -87,9 +88,14 @@ export class Canvas2DBackend implements CompositorBackend {
 
   private applyCamera(frame: CompositorFrame): void {
     if (!this.ctx) return;
-    const { camera } = frame;
-    // Matches @strata/shared/viewport: screen = world * zoom + pan
+    const { camera, viewport } = frame;
+    // Matches @strata/shared/viewport: screen = (world - origin) * zoom + pan,
+    // where origin is the floating-origin correction (see computeFloatingOrigin).
+    // Omitting it here would desync this backend's painted positions from
+    // every other camera-transform call site once pan/zoom moves off [0,0].
+    const origin = computeFloatingOrigin(camera, viewport);
     this.ctx.translate(camera.pan.x, camera.pan.y);
     this.ctx.scale(camera.zoom, camera.zoom);
+    this.ctx.translate(-origin[0], -origin[1]);
   }
 }

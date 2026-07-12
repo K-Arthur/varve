@@ -7,21 +7,15 @@
  */
 
 /** Module-level bridge injected by Shell to forward toasts to @strata/ui ToastProvider. */
-let toastHandler:
-  | ((opts: {
-      message: string;
-      type?: 'info' | 'success' | 'warning' | 'error';
-      duration?: number;
-    }) => void)
-  | null = null;
+interface EditorToastOptions {
+  message: string;
+  type?: 'info' | 'success' | 'warning' | 'error';
+  duration?: number;
+}
 
-export function setToastHandler(
-  fn: (opts: {
-    message: string;
-    type?: 'info' | 'success' | 'warning' | 'error';
-    duration?: number;
-  }) => void,
-): void {
+let toastHandler: ((opts: EditorToastOptions) => void) | null = null;
+
+export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
   toastHandler = fn;
 }
 
@@ -80,6 +74,7 @@ import {
   clearGuides,
   createComponent,
   createDocument,
+  createGuideId,
   createMotionPreset as createMotionPresetDoc,
   createStateMachineRuntime,
   createTextChain as createTextChainDoc,
@@ -132,6 +127,7 @@ import {
   type SceneNode,
   type SlugConfig,
   type SMRuntime,
+  setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
@@ -166,7 +162,6 @@ import {
   orientedBBox,
   revealBoundsCamera,
   screenDeltaToWorld,
-  screenToWorld,
   stepZoom,
   transformRect,
   type Viewport,
@@ -455,6 +450,8 @@ export interface EditorContextValue {
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   /** P0*: distribute with a fixed gap in world units. */
   distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
+  /** P0*: distribute with a configurable spacing mode. */
+  distributeWithMode: (axis: 'horizontal' | 'vertical', mode: DistributeMode) => void;
   /** P0*: designate the key object for alignment (null = use collective bounds). */
   setKeyObject: (nodeId: string | null) => void;
   /** P0*: current key object ID (null when not set). */
@@ -605,6 +602,8 @@ export interface EditorContextValue {
   announceSelection: (selected: SceneNode[]) => void;
   /** Announce an operation result. */
   announceOperation: (op: string, result: string) => void;
+  /** Show a visual toast notification and mirror it to aria-live. */
+  showToast: (opts: EditorToastOptions) => void;
   /** Reparent a node to a new container (or root). One undo step. */
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
   /** Arrange selected nodes within their parent (front/back/forward/backward). */
@@ -806,7 +805,7 @@ export interface EditorContextValue {
   // ── Guide management ────────────────────────────────────────────────────────
 
   /** Add a layout guide at the given axis and world position. */
-  addGuide: (axis: 'horizontal' | 'vertical', position: number) => void;
+  addGuide: (axis: 'horizontal' | 'vertical', position: number) => string;
   /** Remove a guide by id. */
   removeGuide: (id: string) => void;
   /** Move a guide to a new world position. */
@@ -1538,7 +1537,7 @@ export function EditorProvider({
         };
         const centre = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
         const newZoom = stepZoom(state.zoom, 'in');
-        const newCam = zoomAboutPoint(toCamera(camState), centre, newZoom);
+        const newCam = zoomAboutPoint(toCamera(camState), centre, newZoom, vp);
         patch({ zoom: newCam.zoom, pan: newCam.pan, cameraRotation: newCam.rotation ?? 0 });
       },
       zoomOut: () => {
@@ -1553,28 +1552,43 @@ export function EditorProvider({
         };
         const centre = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
         const newZoom = stepZoom(state.zoom, 'out');
-        const newCam = zoomAboutPoint(toCamera(camState), centre, newZoom);
+        const newCam = zoomAboutPoint(toCamera(camState), centre, newZoom, vp);
         patch({ zoom: newCam.zoom, pan: newCam.pan, cameraRotation: newCam.rotation ?? 0 });
       },
       zoomTo: (level) => {
-        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const cam = { pan: state.pan, zoom: state.zoom };
-        const centre = screenToWorld(cam, vpW / 2, vpH / 2);
-        const newCam = zoomAboutPoint(cam, centre, clampZoom(level));
-        patch({ zoom: newCam.zoom, pan: newCam.pan });
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        const camState = {
+          zoom: state.zoom,
+          pan: state.pan,
+          cameraRotation: state.cameraRotation,
+        };
+        const cam = toCamera(camState);
+        const centre = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
+        const newCam = zoomAboutPoint(cam, centre, clampZoom(level), vp);
+        patch({ zoom: newCam.zoom, pan: newCam.pan, cameraRotation: newCam.rotation ?? 0 });
       },
       smoothZoomTo: (targetZoom, durationMs = 200) => {
-        const startCam = { pan: stateRef.current.pan, zoom: stateRef.current.zoom };
-        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const centre = screenToWorld(startCam, vpW / 2, vpH / 2);
-        const endCam = zoomAboutPoint(startCam, centre, clampZoom(targetZoom));
+        const s = stateRef.current;
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        const startCamState = {
+          zoom: s.zoom,
+          pan: s.pan,
+          cameraRotation: s.cameraRotation,
+        };
+        const startCam = toCamera(startCamState);
+        const centre = editorScreenToWorld(startCamState, vp.width / 2, vp.height / 2, vp);
+        const endCam = zoomAboutPoint(startCam, centre, clampZoom(targetZoom), vp);
         const startTime = performance.now();
         requestAnimationFrame(function tick(now: number) {
           const elapsed = now - startTime;
           const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
-          patch({ zoom: camera.zoom, pan: camera.pan });
+          patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 });
           if (!done) requestAnimationFrame(tick);
         });
       },
@@ -1836,7 +1850,12 @@ export function EditorProvider({
             // This correctly handles rotated/scaled parent frames where the
             // frame's local w/h differ from its world-space AABB.
             const frameWorld = nodeWorldTransform(newDoc, id);
-            const frameBounds = transformRect(frameWorld, { x: 0, y: 0, w: frameNode.w, h: frameNode.h });
+            const frameBounds = transformRect(frameWorld, {
+              x: 0,
+              y: 0,
+              w: frameNode.w,
+              h: frameNode.h,
+            });
             const parentIndex = buildParentIndexMap(newDoc);
 
             // Find siblings (nodes with same parent as the new frame)
@@ -1943,12 +1962,15 @@ export function EditorProvider({
           const { id, doc: d2 } = nextNodeId(s.document);
           const autoName = nextAutoName(d2, preset.name);
 
-          // World-space center of the visible canvas (window estimate; the
-          // fit-reveal below corrects the framing precisely afterward).
-          const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-          const vpH = typeof window !== 'undefined' ? window.innerHeight : 800;
-          const cam = { pan: s.pan, zoom: s.zoom };
-          const center = screenToWorld(cam, vpW / 2, vpH / 2);
+          // World-space center of the visible canvas area, using the real
+          // canvas element size and the floating origin so this matches
+          // what's actually on screen regardless of current pan/zoom.
+          const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+          const vp: Viewport = canvasEl
+            ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+            : { width: window.innerWidth, height: window.innerHeight - 120 };
+          const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+          const center = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
           const transform: Affine = [
             1,
             0,
@@ -1967,7 +1989,18 @@ export function EditorProvider({
             h: preset.h,
           });
 
-          return { ...s, document: addNode(d2, node), selection: [id] };
+          // Add to the active page's content root so the node is scoped to
+          // the active page (activePageNodes), not global rootChildren —
+          // otherwise it's invisible to the canvas renderer while still
+          // showing in the Layers panel. Mirrors createShapeAt.
+          const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
+          const contentRootId = activePage?.contentRoot;
+          const newDoc =
+            contentRootId && d2.nodes[contentRootId]
+              ? addChild(d2, contentRootId, node)
+              : addNode(d2, node);
+
+          return { ...s, document: newDoc, selection: [id] };
         });
       },
 
@@ -3427,7 +3460,7 @@ export function EditorProvider({
       },
 
       setActivePage: (pageId) => {
-        updateDoc((doc) => ({ ...doc, activePageId: pageId }));
+        updateDoc((doc) => setActivePageDoc(doc, pageId));
       },
       setCurrentPageId: (id) => {
         patch({ currentPageId: id });
@@ -5115,7 +5148,9 @@ export function EditorProvider({
       guides: state.document.guides ?? [],
 
       addGuide: (axis, position) => {
-        updateDoc((doc) => addGuideDoc(doc, axis, position));
+        const id = createGuideId();
+        updateDoc((doc) => addGuideDoc(doc, axis, position, { id }));
+        return id;
       },
 
       removeGuide: (id) => {

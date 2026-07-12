@@ -5,7 +5,7 @@ export interface SnapGuide {
   position: number;
   label?: string;
   distance?: number;
-  type?: 'edge' | 'center' | 'midpoint' | 'spacing' | 'rotation' | 'size-match';
+  type?: 'guide' | 'edge' | 'center' | 'midpoint' | 'spacing' | 'rotation' | 'size-match';
 }
 
 export interface SnapBoxOptions {
@@ -34,6 +34,8 @@ export interface SnapOptions {
   session?: SnapSession | null;
   /** Enable sticky (hysteresis) snap. Default true. */
   sticky?: boolean;
+  /** Permanent ruler guides that objects can snap to. */
+  guideTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
   /** Layout grid cell size for frame grid snapping (world units). */
   layoutGridStep?: number;
 }
@@ -117,14 +119,15 @@ function tryStickyAxis(
   };
 }
 
-const SNAP_PRIORITY: Record<string, number> = {
+const SNAP_PRIORITY = {
   grid: 100,
+  guide: 90,
   edge: 80,
   center: 70,
   midpoint: 50,
   spacing: 30,
   layoutGrid: 20,
-};
+} as const;
 
 /** Compete a new snap candidate; returns true if it wins (higher priority or same priority + closer). */
 function compete(
@@ -214,6 +217,49 @@ export function snapPosition(
       bestYSnap = ly;
       bestYGuide = { axis: 'horizontal', position: ly, type: 'edge' };
       bestYPriority = prio;
+    }
+  }
+
+  // C2.5: Permanent ruler guides. These are line targets, so compare every
+  // movable edge/center on the matching axis against the guide's position.
+  if (options.guideTargets && options.guideTargets.length > 0) {
+    for (const guide of options.guideTargets) {
+      const prio = SNAP_PRIORITY.guide;
+      if (guide.axis === 'vertical') {
+        for (const key of ['left', 'centerX', 'right'] as const) {
+          const diff = edges[key] - guide.position;
+          const absDiff = Math.abs(diff);
+          if (absDiff < thresh && compete(prio, absDiff, bestXPriority, bestXDiff)) {
+            bestXDiff = absDiff;
+            bestXSnap = x - diff;
+            bestXGuide = {
+              axis: 'vertical',
+              position: guide.position,
+              distance: absDiff,
+              type: 'guide',
+              label: 'guide',
+            };
+            bestXPriority = prio;
+          }
+        }
+      } else {
+        for (const key of ['top', 'centerY', 'bottom'] as const) {
+          const diff = edges[key] - guide.position;
+          const absDiff = Math.abs(diff);
+          if (absDiff < thresh && compete(prio, absDiff, bestYPriority, bestYDiff)) {
+            bestYDiff = absDiff;
+            bestYSnap = y - diff;
+            bestYGuide = {
+              axis: 'horizontal',
+              position: guide.position,
+              distance: absDiff,
+              type: 'guide',
+              label: 'guide',
+            };
+            bestYPriority = prio;
+          }
+        }
+      }
     }
   }
 
