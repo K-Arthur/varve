@@ -2,6 +2,8 @@
 
 **Date:** 2026-07-06 | **Implementation:** 2026-07-06 (Phases A–F) | **Scope:** `@strata/editor`, `@strata/engine`, `@strata/scene`, `@strata/shared`, `@strata/compositor`, `@strata/collab`, ADR-0001/0003
 
+> **Staleness note (2026-07-12):** Section 1.5 below ("Existing problems") predates several fixes landed in the six days since this audit was written. Verified against current code this session: **view rotation is implemented** (`viewport.ts:496` composes real rotation; the `_cam` passthrough stub quoted at 1.5-P0 no longer exists), **zoom range is `[0.001, 64]`** (`viewport.ts:32,34`, not the audited 10%–1000%), **sticky/hysteresis snapping is implemented** (`snapping.ts:24-35`), **artboard-local coordinates exist** (`packages/shared/src/coordinates.ts`, `RulerMode`, tested), and **floating origin is wired through Canvas2D, the render worker, and the WebGPU camera uniform**. Don't action the P0–P3 items below without re-checking current code first. See `docs/architecture/render-pipeline.md`'s "Known Gaps" and "Canvas 2D Export Determinism & Size Limits" sections for the current, maintained gap list.
+
 ---
 
 ## Implementation Status (2026-07-06)

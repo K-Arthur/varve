@@ -112,19 +112,24 @@ export function AssetExportControls({
           setMessage('Engine not ready');
           return;
         }
-        const blob = await exportNodeAsRaster(node, doc, eng, {
+        const { blob, warnings } = await exportNodeAsRaster(node, doc, eng, {
           format: format as 'image/png' | 'image/jpeg' | 'image/webp',
           scale: effectiveScale,
           quality: format === 'image/jpeg' ? 0.92 : undefined,
         });
         const ext = format === 'image/png' ? 'png' : format === 'image/jpeg' ? 'jpg' : 'webp';
+        const warningSuffix = warnings.length > 0 ? ` — ${warnings.join(' ')}` : '';
         if (isTauri && platform) {
           const bytes = await blobToBytes(blob);
           await platform.saveBinaryFile(buildFilename(node.name, ext), bytes, blob.type, `.${ext}`);
-          setMessage(`Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x`);
+          setMessage(
+            `Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x${warningSuffix}`,
+          );
         } else {
           downloadBlob(blob, buildFilename(node.name, ext));
-          setMessage(`Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x`);
+          setMessage(
+            `Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x${warningSuffix}`,
+          );
         }
       }
     } catch (err) {

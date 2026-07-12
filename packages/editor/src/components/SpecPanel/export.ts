@@ -5,7 +5,7 @@
 
 import { exportNodeToSvg } from '@strata/codegen';
 import type { Engine } from '@strata/engine';
-import { replayIr } from '@strata/engine';
+import { awaitExportsReady, getCanvasSizeLimit, replayIr } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode } from '@strata/scene';
 import { worldBBox } from './measurement';
 
@@ -16,6 +16,20 @@ export interface ExportOptions {
   scale: number;
   quality?: number;
 }
+
+export interface RasterExportResult {
+  blob: Blob;
+  warnings: string[];
+}
+
+/**
+ * Narrowest per-engine canvas dimension cap among Chromium/WebKit/Gecko
+ * (WebKit's 16384px). We can't reliably identify the actual rendering engine
+ * from script, so raster export clamps to this conservative floor rather than
+ * risking a thrown exception or silently corrupted/blank output on an engine
+ * with a tighter limit than the one this session happens to be tested on.
+ */
+const MAX_SAFE_CANVAS_DIMENSION = getCanvasSizeLimit('webkit');
 
 function toEngineNode(n: SceneNode) {
   const base = {
@@ -56,16 +70,36 @@ export async function exportNodeAsRaster(
   doc: SceneDocument,
   eng: Engine,
   opts: ExportOptions,
-): Promise<Blob> {
+): Promise<RasterExportResult> {
+  // Guard against exporting mid-font-swap: a font requested via fontFamily
+  // may still be loading (bundled FontFace fetch, Google Fonts injection, or
+  // a race right after the user picks a new typeface). Without this, text
+  // silently renders with the fallback font and the export looks correct at
+  // a glance but is wrong — deterministic export requires settled fonts.
+  await awaitExportsReady();
+
   const bbox = worldBBox(node, doc);
-  const w = Math.max(Math.round(bbox.w * opts.scale), 1);
-  const h = Math.max(Math.round(bbox.h * opts.scale), 1);
+  const warnings: string[] = [];
+
+  let scale = opts.scale;
+  let w = Math.max(Math.round(bbox.w * scale), 1);
+  let h = Math.max(Math.round(bbox.h * scale), 1);
+
+  const largestDimension = Math.max(w, h);
+  if (largestDimension > MAX_SAFE_CANVAS_DIMENSION) {
+    scale = opts.scale * (MAX_SAFE_CANVAS_DIMENSION / largestDimension);
+    w = Math.max(Math.round(bbox.w * scale), 1);
+    h = Math.max(Math.round(bbox.h * scale), 1);
+    warnings.push(
+      `Requested export size exceeded the ${MAX_SAFE_CANVAS_DIMENSION}px canvas limit; scaled down to ${w}x${h} (effective ${scale.toFixed(3)}x of ${opts.scale}x) to avoid a blank or corrupted export.`,
+    );
+  }
 
   const canvas = new OffscreenCanvas(w, h);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get offscreen canvas context');
 
-  ctx.scale(opts.scale, opts.scale);
+  ctx.scale(scale, scale);
   ctx.translate(-bbox.x, -bbox.y);
 
   const ir = await eng.buildIr({
@@ -73,11 +107,22 @@ export async function exportNodeAsRaster(
   });
   replayIr(ctx as unknown as import('@strata/engine').ReplayTarget, ir);
 
-  const blob = await canvas.convertToBlob({
-    type: opts.format,
-    quality: opts.quality ?? (opts.format === 'image/jpeg' ? 0.92 : undefined),
-  });
-  return blob;
+  let blob: Blob;
+  try {
+    blob = await canvas.convertToBlob({
+      type: opts.format,
+      quality: opts.quality ?? (opts.format === 'image/jpeg' ? 0.92 : undefined),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'SecurityError') {
+      throw new Error(
+        'Export failed: this node includes a cross-origin image that does not permit CORS access, which taints the canvas and blocks pixel export. Re-import the image as a local asset, or ensure the image host sends permissive CORS headers.',
+      );
+    }
+    throw err;
+  }
+
+  return { blob, warnings };
 }
 
 export async function exportNodeAsSvg(node: SceneNode, doc: SceneDocument): Promise<Blob> {
@@ -106,6 +151,10 @@ export async function exportNodeAsPdf(
   doc: SceneDocument,
   scale: number,
 ): Promise<{ bytes: Uint8Array; filename: string }> {
+  // Same font-readiness guard as raster export: worldBBox measures text via
+  // canvas metrics that depend on the requested font actually being loaded.
+  await awaitExportsReady();
+
   const bbox = worldBBox(node, doc);
   const w = Math.max(Math.round(bbox.w * scale), 1);
   const h = Math.max(Math.round(bbox.h * scale), 1);
