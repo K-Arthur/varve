@@ -40,8 +40,11 @@ is adopted.
 - [ ] **Resize the window:** canvas + offscreen fallback surface both resize; no stretched or
       black frame.
 - [ ] **Force a device loss if your driver/tooling allows it** (e.g. `chrome://gpu-internals` or
-      driver-level tools) and confirm `watchDeviceLost` recovers by falling back to Canvas2D
-      instead of leaving a blank canvas.
+      driver-level tools) and confirm the status bar switches to "GPU lost — reload to restore"
+      (`CompositorDiagnostics.deviceLost`). It will **not** recover in place — a browser
+      `<canvas>` element's context type (`webgpu` vs `2d`) is fixed for its lifetime, so falling
+      back to Canvas2D on the same canvas isn't possible; this is the expected, correct behavior
+      as of 2026-07-12, not a bug. Confirm reloading the document tab restores rendering.
 - [ ] **Check `pipelineInitMs` via the diagnostics** (status bar tooltip today only shows pool/
       bundle counts — read `compositorDiagnosticsStore`'s current value directly, or add a
       temporary log) and sanity-check it's not a multi-hundred-ms outlier on this hardware.
