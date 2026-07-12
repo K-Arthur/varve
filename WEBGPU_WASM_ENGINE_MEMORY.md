@@ -287,10 +287,41 @@ verifies:
 ### GpuAccelerator test coverage (+1 new test)
 Added `resetInstance` test to verify singleton lifecycle.
 
-### Known deferred items (no change in state)
+### Known deferred items (state as of 2026-07-11)
 - WebGPU compositor still scaffold-only (untestable without real GPU)
 - WebGPU compute shaders same status
 - Rust wgpu integration still absent (aspirational comment only)
 - WGSL shaders are only structurally validated — no naga-based compilation check exists
 - No automated WebGPU E2E test exists (no GPU CI runner)
+
+**Update 2026-07-12:** the last two are now stale — `crates/strata-bridge/tests/wgsl_validation.rs`
+(naga-based compile validation, 8 tests) and `tests/e2e/webgpu/webgpu-smoke.spec.ts` +
+`scripts/verify-webgpu.sh` (Playwright E2E against headless Chromium/SwiftShader) both exist and
+pass. "Rust wgpu integration still absent" is confirmed accurate and by design, not a gap — see
+the §0 architecture resolution in `docs/architecture/render-pipeline.md`'s "WebGPU/WGSL Subsystem
+Correctness Pass (2026-07-12)" section: this app has no native `wgpu`-rs anywhere (zero `wgpu`
+entries in `Cargo.lock`), WebGPU rendering happens entirely inside the webview via `navigator.gpu`,
+and that's the intended architecture (ADR-0001 IR-replay), not an incomplete migration.
+
+## Session: 2026-07-12 — GPU/WebGPU subsystem correctness pass
+
+Full session details, evidence, and file:line references are in
+`docs/architecture/render-pipeline.md`'s "WebGPU/WGSL Subsystem Correctness Pass (2026-07-12)"
+section (kept there instead of duplicated here, since it's the doc that's actually current/load-
+bearing). Summary: fixed `GpuAccelerator.requestAdapterInfo()` calling a WebGPU API removed from
+Chrome since v131 (silently disabled background-removal GPU acceleration on every current
+browser), added the missing software-adapter decline to `GpuAccelerator` (ADR-0003 policy was
+previously only enforced by the render compositor), consolidated three divergent software-adapter
+heuristics into `packages/engine/src/gpuAdapter.ts`, fixed a real floating-origin anchor-drift bug
+in `ZoomTool`'s click-to-zoom, removed dead/unreachable `onDeviceLost` router recovery code and
+replaced it with real `deviceLost` diagnostics + a StatusBar message, migrated
+`packages/engine`'s hand-rolled WebGPU ambient types to the real `@webgpu/types` package, and
+corrected a factually-wrong "naga regression" code comment (verified directly against this repo's
+pinned naga version: the original code was genuinely invalid WGSL, not a naga bug).
+
+**Newly identified, deferred (not attempted this session):** WGSL has no single source of truth
+(hand-copied between TS and the Rust naga-validation test — caught one live drift instance this
+session); circles never use the render-bundle cache that rects/lines already do (real perf gap,
+no real GPU available in this sandbox to measure against); `docs/perf/ledger.md` has no
+WebGPU-specific before/after numbers despite substantial WebGPU perf work across sessions.
 
