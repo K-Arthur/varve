@@ -1,4 +1,4 @@
-import { createDocument, type Document, makeFrameNode, type SceneNode } from '@strata/scene';
+import { createDocument, type Document, type LayoutStyle, type SceneNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { checkLayoutCycle } from '../cycleDetection';
 
@@ -53,6 +53,21 @@ function makeGroup(id: string, overrides: Partial<SceneNode> = {}): SceneNode {
   } as SceneNode;
 }
 
+function layoutStyle(overrides: Partial<LayoutStyle> = {}): LayoutStyle {
+  return {
+    mode: 'flex',
+    direction: 'row',
+    gap: 10,
+    wrap: false,
+    padding: [0, 0, 0, 0],
+    grow: 0,
+    shrink: 0,
+    alignItems: 'start',
+    justifyContent: 'start',
+    ...overrides,
+  };
+}
+
 describe('checkLayoutCycle', () => {
   it('no cycle for non-fill node', () => {
     const doc = createDocument('test');
@@ -63,14 +78,7 @@ describe('checkLayoutCycle', () => {
   it('no cycle for fill node without hug parent', () => {
     const child = makeNode('child', { layoutSizing: 'fill' } as Partial<SceneNode>);
     const parent = makeFrame('parent', {
-      layoutStyle: {
-        direction: 'row',
-        gap: 10,
-        padding: [0, 0, 0, 0],
-        alignItems: 'start',
-        justifyContent: 'start',
-        wrap: false,
-      },
+      layoutStyle: layoutStyle(),
       layoutSizing: 'fixed' as const,
       children: ['child'],
     } as Partial<SceneNode>);
@@ -88,14 +96,7 @@ describe('checkLayoutCycle', () => {
     } as Partial<SceneNode>);
     const parent = makeFrame('parent', {
       layoutSizing: 'hug',
-      layoutStyle: {
-        direction: 'row',
-        gap: 10,
-        padding: [0, 0, 0, 0],
-        alignItems: 'start',
-        justifyContent: 'start',
-        wrap: false,
-      },
+      layoutStyle: layoutStyle(),
       children: ['child'],
     } as Partial<SceneNode>);
     let doc = createDocument('test');
@@ -116,14 +117,9 @@ describe('checkLayoutCycle', () => {
     });
     const outer = makeFrame('outer', {
       layoutSizing: 'hug',
-      layoutStyle: {
+      layoutStyle: layoutStyle({
         direction: 'column',
-        gap: 10,
-        padding: [0, 0, 0, 0],
-        alignItems: 'start',
-        justifyContent: 'start',
-        wrap: false,
-      },
+      }),
       children: ['inner'],
     });
     let doc = createDocument('test');
@@ -147,14 +143,9 @@ describe('checkLayoutCycle', () => {
     });
     const outer = makeFrame('outer', {
       layoutSizing: 'hug',
-      layoutStyle: {
+      layoutStyle: layoutStyle({
         direction: 'column',
-        gap: 10,
-        padding: [0, 0, 0, 0],
-        alignItems: 'start',
-        justifyContent: 'start',
-        wrap: false,
-      },
+      }),
       children: ['inner'],
     });
     let doc = createDocument('test');

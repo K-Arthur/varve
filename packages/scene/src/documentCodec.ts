@@ -11,8 +11,8 @@
  */
 
 import type { Document } from './document';
-import { isContainer } from './document';
-import type { NodeId, SceneNode } from './types';
+import { isContainer, makeGroupNode } from './document';
+import type { NodeId, Page, SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
   migrateDocumentDetailed,
@@ -116,6 +116,75 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
     }
   }
 
+  let pages: Page[] | undefined;
+  if (doc.pages) {
+    pages = [];
+    for (const page of doc.pages) {
+      if (!nodes[page.contentRoot]) {
+        nodes[page.contentRoot] = makeGroupNode(page.contentRoot, {
+          name: `${page.name} content`,
+          children: [],
+        });
+        warnings.push(
+          warning(
+            'document.page-content-root-missing',
+            `Page ${page.id} referenced missing content root ${page.contentRoot}; an empty content root was created`,
+            'warning',
+            `pages.${page.id}.contentRoot`,
+          ),
+        );
+      }
+
+      const backgrounds: NodeId[] = [];
+      for (const backgroundId of page.backgrounds) {
+        if (nodes[backgroundId]) {
+          backgrounds.push(backgroundId);
+        } else {
+          warnings.push(
+            warning(
+              'document.page-background-missing',
+              `Page ${page.id} referenced missing background ${backgroundId}`,
+              'warning',
+              `pages.${page.id}.backgrounds`,
+            ),
+          );
+        }
+      }
+
+      pages.push({ ...page, backgrounds });
+      if (!rootChildren.includes(page.contentRoot)) {
+        rootChildren.push(page.contentRoot);
+        warnings.push(
+          warning(
+            'document.page-content-root-rooted',
+            `Page ${page.id} content root ${page.contentRoot} was restored to rootChildren`,
+            'warning',
+            `pages.${page.id}.contentRoot`,
+          ),
+        );
+      }
+    }
+  }
+
+  const activePageId =
+    pages && pages.length > 0
+      ? pages.some((page) => page.id === doc.activePageId)
+        ? doc.activePageId
+        : pages[0]?.id
+      : undefined;
+  if (doc.activePageId !== activePageId) {
+    warnings.push(
+      warning(
+        'document.active-page-normalized',
+        activePageId
+          ? `Active page normalized to ${activePageId}`
+          : 'Active page cleared because the document has no valid pages',
+        'warning',
+        'activePageId',
+      ),
+    );
+  }
+
   const minNextId = maxNumericNodeId(nodes) + 1;
   const nextId = Math.max(doc.nextId, minNextId, 1);
 
@@ -127,6 +196,8 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
       nodes,
       nextId,
       components: doc.components ?? {},
+      pages,
+      activePageId,
     },
     warnings,
   };

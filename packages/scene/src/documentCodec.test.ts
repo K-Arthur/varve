@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { addNode, createDocument, makeGroupNode, makeShapeNode } from './document';
+import {
+  addNode,
+  addPage,
+  createDocument,
+  makeGroupNode,
+  makeShapeNode,
+  validateDocument,
+} from './document';
 import { DocumentCodec } from './documentCodec';
+import type { Page } from './types';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
 describe('DocumentCodec', () => {
@@ -47,6 +55,33 @@ describe('DocumentCodec', () => {
     expect(result.document.nextId).toBeGreaterThan(1);
     expect(result.warnings.map((w) => w.code)).toContain('document.orphan-root');
     expect(result.warnings.map((w) => w.code)).toContain('document.orphan-child');
+  });
+
+  it('repairs stale page ownership and active page references', () => {
+    let doc = createDocument('Broken pages');
+    doc = addPage(doc);
+    const first = doc.pages?.[0] as Page;
+    const second = doc.pages?.[1] as Page;
+    doc = {
+      ...doc,
+      activePageId: 'missing-page',
+      pages: [
+        { ...first, contentRoot: 'missing-root' },
+        { ...second, backgrounds: ['missing-background'] },
+      ],
+    };
+
+    const result = DocumentCodec.normalize(doc);
+
+    expect(result.document.pages?.map((p) => p.id)).toEqual([first.id, second.id]);
+    expect(result.document.activePageId).toBe(first.id);
+    expect(result.document.nodes['missing-root']?.kind).toBe('group');
+    expect(result.document.rootChildren).toContain('missing-root');
+    expect(result.document.pages?.[1]?.backgrounds).toEqual([]);
+    expect(validateDocument(result.document).valid).toBe(true);
+    expect(result.warnings.map((w) => w.code)).toContain('document.page-content-root-missing');
+    expect(result.warnings.map((w) => w.code)).toContain('document.page-background-missing');
+    expect(result.warnings.map((w) => w.code)).toContain('document.active-page-normalized');
   });
 
   it('collects the full dependency closure for imported subtrees', () => {

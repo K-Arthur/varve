@@ -11,7 +11,7 @@
  * Figma auto-layout cycle guards, token alias cycle detection in color engines.
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId } from '@strata/scene';
 import { getParent } from '@strata/scene';
 
 export type LayoutCycleVerdict = 'no_cycle' | 'cycle_detected';
@@ -59,8 +59,7 @@ export function checkLayoutCycle(doc: Document, targetId: NodeId): CycleCheckRes
 
     // A container with layoutSizing 'hug' and auto-layout enabled is sized
     // by its children — fill-sized children create a cycle
-    const hasAutoLayout =
-      (current.kind === 'frame' || current.kind === 'group') && current.layoutStyle !== undefined;
+    const hasAutoLayout = current.kind === 'frame' && current.layoutStyle !== undefined;
 
     if (hasAutoLayout && current.layoutSizing === 'hug') {
       // Check if target is a direct layout child of this container
