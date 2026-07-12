@@ -103,6 +103,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    return <div key={this.state.key}>{this.props.children}</div>;
+    // display:contents makes this wrapper invisible to layout — without it,
+    // this div sits between whatever CSS Grid/Flex container renders
+    // <ErrorBoundary> and its child, breaking the child's grid-area/flex-item
+    // placement (e.g. CanvasArea's `.editor-canvas` relies on being a direct
+    // grid item of `.editor-shell` for `grid-area: canvas` + stretch sizing;
+    // an unstyled wrapper collapses it to 0 height since all of its own
+    // children are absolutely positioned).
+    return (
+      <div key={this.state.key} style={{ display: 'contents' }}>
+        {this.props.children}
+      </div>
+    );
   }
 }

@@ -198,7 +198,7 @@ describe('VersionHistory', () => {
       <VersionHistory fileId="file-1" platform={platform} onRestore={vi.fn()} onClose={vi.fn()} />,
     );
 
-    expect(screen.getByText('Loading version history...')).toBeTruthy();
+    expect(screen.getByRole('img', { name: /Loading version history/ })).toBeTruthy();
   });
 
   it('compare button toggles diff placeholder', async () => {

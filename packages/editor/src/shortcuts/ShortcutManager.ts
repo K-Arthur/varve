@@ -261,7 +261,11 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   colorBlindnessTritanopia: {
-    binding: { key: 't', ctrl: true, alt: true },
+    // 't' collides with toggleTimelinePanel (Ctrl+Alt+T, documented in
+    // AGENTS.md as the canonical timeline shortcut) — use '3' to keep the
+    // numeric pattern started by colorBlindnessNone's '0' instead of
+    // reassigning the more established timeline binding.
+    binding: { key: '3', ctrl: true, alt: true },
     label: 'Color Blindness: Tritanopia',
     category: 'View',
   },

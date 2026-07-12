@@ -7,7 +7,6 @@ interface PromptDialogState {
   resolve: (value: string | null) => void;
 }
 
-const promptState: PromptDialogState | null = null;
 let setPromptState: ((s: PromptDialogState | null) => void) | null = null;
 
 export function promptDialog(title: string, defaultValue = ''): Promise<string | null> {
