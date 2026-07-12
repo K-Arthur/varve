@@ -87,14 +87,14 @@ describe('GpuAccelerator WGSL compute shaders', () => {
       const { horizontal } = getPrivateShaders(accel);
       expect(horizontal).toContain('@group(0) @binding(0) var<storage, read> input');
       expect(horizontal).toContain('@group(0) @binding(1) var<storage, read_write> output');
-      expect(horizontal).toContain('@group(0) @binding(2) var<uniform> uniforms');
+      expect(horizontal).toContain('@group(0) @binding(2) var<storage, read> uniforms');
     });
 
     it('vertical shader has matching binding layout', () => {
       const { vertical } = getPrivateShaders(accel);
       expect(vertical).toContain('@group(0) @binding(0) var<storage, read> input');
       expect(vertical).toContain('@group(0) @binding(1) var<storage, read_write> output');
-      expect(vertical).toContain('@group(0) @binding(2) var<uniform> uniforms');
+      expect(vertical).toContain('@group(0) @binding(2) var<storage, read> uniforms');
     });
   });
 
@@ -116,16 +116,15 @@ describe('GpuAccelerator WGSL compute shaders', () => {
     });
   });
 
-  describe('uniform buffer layout matches JS-side writes', () => {
-    it('Unfiorm struct size matches JS write buffer', () => {
+  describe('storage buffer layout matches JS-side writes', () => {
+    it('Uniforms struct size matches JS write buffer', () => {
       const { horizontal } = getPrivateShaders(accel);
-      // WGSL layout for var<uniform>:
-      //   width(i32):   offset 0,  size 4
-      //   height(i32):  offset 4,  size 4
-      //   radius(i32):  offset 8,  size 4
-      //   kernelSize(i32): offset 12, size 4
-      //   kernel(array<f32,128>): offset 16 (aligned to 16), size 512
-      // Total: 16 + 512 = 528
+      // WGSL layout for var<storage, read> (tightly packed):
+      //   width(i32):        offset 0,  size 4
+      //   height(i32):       offset 4,  size 4
+      //   radius(i32):       offset 8,  size 4
+      //   kernelSize(i32):   offset 12, size 4
+      //   kernel(array<f32,128>): offset 16 (stride 4), size 512
       expect(horizontal).toContain('array<f32, 128>');
       // JS writes: UNIFORM_SIZE = 16 + 128*4 = 528
       expect(528).toBe(16 + 128 * 4);

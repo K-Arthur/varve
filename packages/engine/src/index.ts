@@ -70,6 +70,8 @@ export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
+export type { TileExportOpts } from './export';
+export { getCanvasSizeLimit, tiledExport } from './export';
 export type {
   Adjustment,
   AdjustmentBase,
@@ -110,7 +112,12 @@ export {
   makeAdjustment,
 } from './filters';
 export type { FontEntry, FontLoadState, VariableAxisInfo } from './fontRegistry';
-export { FontRegistry, getFontRegistry, resetFontRegistry } from './fontRegistry';
+export {
+  awaitExportsReady,
+  FontRegistry,
+  getFontRegistry,
+  resetFontRegistry,
+} from './fontRegistry';
 export * from './geometry';
 export type { HalftoneDotShape, HalftoneMethod, HalftoneParams, HalftonePattern } from './halftone';
 export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';

@@ -203,6 +203,10 @@ export interface PathPoint {
   y: number;
   handleIn: [number, number] | null;
   handleOut: [number, number] | null;
+  /** Normalised pressure 0-1 (from PointerEvent.pressure). Null when unavailable. */
+  pressure?: number;
+  /** Pointer tilt (from PointerEvent.tiltX/tiltY). Null when unavailable. */
+  tilt?: { x: number; y: number };
 }
 
 export type Shape =

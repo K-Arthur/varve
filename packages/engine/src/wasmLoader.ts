@@ -51,12 +51,16 @@ export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
         const jsSource = await fetch(jsUrl).then((r) => r.text());
         blobUrl = URL.createObjectURL(new Blob([jsSource], { type: 'text/javascript' }));
         const mod = (await import(/* @vite-ignore */ blobUrl)) as {
-          default: (input?: WebAssembly.Module | BufferSource) => Promise<void>;
+          default: (opts?: {
+            module_or_path?: WebAssembly.Module | BufferSource | Promise<BufferSource>;
+          }) => Promise<void>;
           build_ir_json: (json: string) => string;
           hit_test_json: (json: string, x: number, y: number) => number;
           wasm_engine_version: () => string;
         };
-        await mod.default(fetch(wasmUrl).then((r) => r.arrayBuffer()));
+        // The generated glue's positional-argument form is deprecated (logs a
+        // console warning on every call) in favor of a single options object.
+        await mod.default({ module_or_path: fetch(wasmUrl).then((r) => r.arrayBuffer()) });
         cachedModule = mod;
         return mod;
       } catch {

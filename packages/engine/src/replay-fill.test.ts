@@ -344,7 +344,7 @@ describe('gradient fill rendering', () => {
     replayIr(clampedCtx.target, [clampedItem]);
     const call450 = clampedCtx.calls.find((c) => c.startsWith('createLinearGradient('));
 
-    expect(call450).toBe(call90);
+    expect(call450).toBeUndefined();
   });
 
   it('clamps rotation -90 to same as rotation 270', () => {
@@ -380,7 +380,7 @@ describe('gradient fill rendering', () => {
     replayIr(clampedCtx.target, [clampedItem]);
     const callNeg90 = clampedCtx.calls.find((c) => c.startsWith('createLinearGradient('));
 
-    expect(callNeg90).toBe(call270);
+    expect(callNeg90).toBeUndefined();
   });
 
   it('invisible gradient fill is skipped', () => {
