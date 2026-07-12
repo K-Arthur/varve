@@ -3,8 +3,8 @@ import type { Page } from '@playwright/test';
 /** Open the editor from the home screen via New File dialog. */
 export async function navigateToEditor(page: Page): Promise<void> {
   await page.goto('/');
-  await page.getByRole('button', { name: /new file/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /new file/i }).click();
+  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /^new$/i }).click();
   await page
     .locator('dialog')
     .getByRole('button', { name: /^create$/i })

@@ -3,8 +3,10 @@ import { expect, test } from '@playwright/test';
 
 async function navigateToEditor(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: /new file/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /new file/i }).click();
+  // Toolbar button's accessible name is "New" (icon + "New" text), not
+  // "New file" — matching on the fuller phrase silently times out.
+  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /^new$/i }).click();
   await page
     .locator('dialog')
     .getByRole('button', { name: /^create$/i })
@@ -14,6 +16,17 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
     .getByRole('button', { name: /^create$/i })
     .click();
   await page.locator('.layers-panel').waitFor({ timeout: 10000 });
+
+  // A first-run "Welcome to Strata" modal can overlay the canvas.
+  const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
+  if (
+    await welcomeClose
+      .first()
+      .isVisible({ timeout: 1000 })
+      .catch(() => false)
+  ) {
+    await welcomeClose.first().click();
+  }
 }
 
 test.describe('Inspector Panel - axe-core scan', () => {

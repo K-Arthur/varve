@@ -11,5 +11,8 @@ strata-core = { path = "../strata-core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+[dev-dependencies]
+naga = { version = "30", default-features = false, features = ["wgsl-in", "stderr"] }
+
 [lints]
 workspace = true
