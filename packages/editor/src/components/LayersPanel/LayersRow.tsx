@@ -321,6 +321,8 @@ export const LayersRow = memo(function LayersRow({
         {editing ? (
           <input
             ref={inputRef}
+            id={`layers-row-rename-${node.id}`}
+            name={`layers-row-rename-${node.id}`}
             className="layers-row__name-input"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}

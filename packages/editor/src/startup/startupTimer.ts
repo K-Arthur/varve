@@ -15,6 +15,9 @@ export function createStartupTimer(): StartupTimer {
   return {
     mark(name: string): void {
       marks.push({ name, time: performance.now() });
+      // Also register a native User Timing mark so consumers (e.g. `performance.measure`,
+      // browser devtools) can reference it by name.
+      performance.mark(name);
     },
 
     getMarks(): readonly StartupMark[] {
@@ -23,7 +26,10 @@ export function createStartupTimer(): StartupTimer {
 
     elapsed(): number {
       if (marks.length === 0) return 0;
-      return marks[marks.length - 1].time - marks[0].time;
+      const first = marks[0];
+      const last = marks[marks.length - 1];
+      if (!first || !last) return 0;
+      return last.time - first.time;
     },
   };
 }
