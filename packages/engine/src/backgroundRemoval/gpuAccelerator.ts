@@ -251,16 +251,16 @@ export class GpuAccelerator {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
     });
 
-    // Uniform buffer layout matches WGSL struct:
+    // Storage-buffer layout matches WGSL struct:
     //   width: i32    @ offset 0
     //   height: i32   @ offset 4
     //   radius: i32   @ offset 8
     //   kernelSize: i32 @ offset 12
-    //   kernel: array<f32, 128> @ offset 16
+    //   kernel: array<f32, 128> @ offset 16 (tightly packed, stride 4)
     const UNIFORM_SIZE = 16 + 128 * 4;
     const uniformBuffer = device.createBuffer({
       size: UNIFORM_SIZE,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
     const uniformData = new ArrayBuffer(UNIFORM_SIZE);
@@ -440,7 +440,7 @@ export class GpuAccelerator {
 
       @group(0) @binding(0) var<storage, read> input: array<f32>;
       @group(0) @binding(1) var<storage, read_write> output: array<f32>;
-      @group(0) @binding(2) var<uniform> uniforms: Uniforms;
+      @group(0) @binding(2) var<storage, read> uniforms: Uniforms;
 
       @compute @workgroup_size(64)
       fn main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -472,7 +472,7 @@ export class GpuAccelerator {
 
       @group(0) @binding(0) var<storage, read> input: array<f32>;
       @group(0) @binding(1) var<storage, read_write> output: array<f32>;
-      @group(0) @binding(2) var<uniform> uniforms: Uniforms;
+      @group(0) @binding(2) var<storage, read> uniforms: Uniforms;
 
       @compute @workgroup_size(64)
       fn main(@builtin(global_invocation_id) id: vec3<u32>) {

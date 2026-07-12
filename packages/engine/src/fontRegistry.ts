@@ -79,11 +79,23 @@ export class FontRegistry {
   private loadState: Map<string, FontLoadState> = new Map();
   /** Track injected link elements to avoid duplicates. */
   private injectedLinks: Set<string> = new Set();
+  /** Subscribers notified when any font's load state changes. */
+  private _listeners: Set<() => void> = new Set();
 
   constructor(initial?: FontEntry[]) {
     for (const entry of initial ?? DEFAULT_FONTS) {
       this.register(entry);
     }
+  }
+
+  /** Subscribe to font-load events. Returns an unsubscribe function. */
+  subscribe(fn: () => void): () => void {
+    this._listeners.add(fn);
+    return () => this._listeners.delete(fn);
+  }
+
+  private _notify(): void {
+    for (const fn of this._listeners) fn();
   }
 
   /** Register a font entry (e.g., from system enumeration or Google Fonts API). */
@@ -182,6 +194,7 @@ export class FontRegistry {
       this.loadState.set(family, 'error');
     } finally {
       this.pending.delete(family);
+      this._notify();
     }
   }
 
@@ -448,4 +461,30 @@ export function getFontRegistry(): FontRegistry {
 
 export function resetFontRegistry(): void {
   globalRegistry = null;
+}
+
+/**
+ * Wait until all registered fonts are loaded and available.
+ * Safety timeout of 5000ms prevents hanging when a font fails to load.
+ */
+export async function awaitExportsReady(): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return;
+
+  await document.fonts.ready;
+
+  const registry = getFontRegistry();
+  const families = registry.families();
+
+  if (families.every((f) => registry.isAvailable(f))) return;
+
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, 5000);
+    const unsub = registry.subscribe(() => {
+      if (families.every((f) => registry.isAvailable(f))) {
+        clearTimeout(timer);
+        unsub();
+        resolve();
+      }
+    });
+  });
 }

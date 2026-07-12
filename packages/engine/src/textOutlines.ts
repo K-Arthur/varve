@@ -20,7 +20,7 @@
  * opentype.js glyph path extraction, ab_glyph Rust crate.
  */
 
-import opentype from 'opentype.js';
+import { parse as parseOpentypeBuffer } from 'opentype.js';
 import type { PathPoint } from './types';
 
 /** A single glyph outline represented as a series of path points. */
@@ -221,7 +221,7 @@ function extractWithOpentype(
 }
 
 function parseOpentypeFont(data: ArrayBuffer) {
-  return (opentype as unknown as { parse: (data: ArrayBuffer) => unknown }).parse(data) as {
+  return parseOpentypeBuffer(data) as {
     unitsPerEm: number;
     charToGlyph: (char: string) => {
       advanceWidth: number;

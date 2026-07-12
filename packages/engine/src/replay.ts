@@ -15,6 +15,7 @@ import { gaussianBlurSeparable } from './blur';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss } from './filters';
+import { FrameCache } from './frameCache';
 import { getImageCache } from './imageCache';
 import { placeGlyphsOnPath } from './pathText';
 import { layoutRichText } from './textLayout';
@@ -265,6 +266,7 @@ function paintBackgroundBlur(
   if (!target.getTransform) return;
 
   const bounds = primitiveBounds(item.primitive);
+  if (bounds.w <= 0 || bounds.h <= 0) return;
   const pad = Math.ceil(effect.radius * 3);
   const lx = bounds.x - pad;
   const ly = bounds.y - pad;
@@ -431,8 +433,9 @@ export function replayIr(
 ): void {
   // Sweep expired backdrop cache entries (preserves recent entries across frames)
   sweepBackdropCache();
-  // Gradient cache lives per replayIr call so it doesn't leak across frames
-  gradientCache.clear();
+  // Frame-based gradient cache eviction
+  gradientCache.nextFrame();
+  gradientCache.sweep();
   imageLookupForCurrentReplay = imageLookup ?? null;
   try {
     for (const item of ir) {
@@ -503,45 +506,47 @@ export function replayIr(
       // ── Fills + strokes pass (offscreen when layerBlur present) ───
       if (layerBlurEffect) {
         const bounds = primitiveBounds(item.primitive);
-        const cc = new CompositeCanvas({
-          width: Math.max(1, bounds.w),
-          height: Math.max(1, bounds.h),
-          devicePixelRatio: 1,
-        });
-        cc.ctx.translate(-bounds.x, -bounds.y);
-        paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
+        if (bounds.w > 0 && bounds.h > 0) {
+          const cc = new CompositeCanvas({
+            width: Math.max(1, bounds.w),
+            height: Math.max(1, bounds.h),
+            devicePixelRatio: 1,
+          });
+          cc.ctx.translate(-bounds.x, -bounds.y);
+          paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
 
-        const radius = layerBlurEffect.radius;
-        target.save();
-        target.globalAlpha = itemAlpha;
-        if (radius > 32) {
-          // Software separable blur for large radii:
-          // Capture fills to ImageData, blur in pixel space, put back, then draw.
-          const imageData = cc.getImageData(0, 0, bounds.w, bounds.h);
-          const blurred = gaussianBlurSeparable(imageData, radius);
-          cc.putImageData(blurred, 0, 0);
-          if (target.drawImage) {
-            target.drawImage(
-              cc.canvas as unknown as CanvasImageSource,
-              bounds.x,
-              bounds.y,
-              bounds.w,
-              bounds.h,
-            );
+          const radius = layerBlurEffect.radius;
+          target.save();
+          target.globalAlpha = itemAlpha;
+          if (radius > 32) {
+            // Software separable blur for large radii:
+            // Capture fills to ImageData, blur in pixel space, put back, then draw.
+            const imageData = cc.getImageData(0, 0, bounds.w, bounds.h);
+            const blurred = gaussianBlurSeparable(imageData, radius);
+            cc.putImageData(blurred, 0, 0);
+            if (target.drawImage) {
+              target.drawImage(
+                cc.canvas as unknown as CanvasImageSource,
+                bounds.x,
+                bounds.y,
+                bounds.w,
+                bounds.h,
+              );
+            }
+          } else {
+            target.filter = `blur(${radius}px)`;
+            if (target.drawImage) {
+              target.drawImage(
+                cc.canvas as unknown as CanvasImageSource,
+                bounds.x,
+                bounds.y,
+                bounds.w,
+                bounds.h,
+              );
+            }
           }
-        } else {
-          target.filter = `blur(${radius}px)`;
-          if (target.drawImage) {
-            target.drawImage(
-              cc.canvas as unknown as CanvasImageSource,
-              bounds.x,
-              bounds.y,
-              bounds.w,
-              bounds.h,
-            );
-          }
+          target.restore();
         }
-        target.restore();
       } else {
         paintFillsAndStrokes(target, item, itemAlpha, itemBlend);
       }
@@ -902,13 +907,14 @@ export function __getBackdropCacheSize(): number {
 }
 
 /** Module-level gradient cache: maps a hash of {fill, bounds} → CanvasGradient | string. */
-const gradientCache = new Map<string, CanvasGradient | string>();
+const gradientCache = new FrameCache<string, CanvasGradient | string>();
 
 function gradientCacheKey(
   fill: Extract<FillIR, { type: 'gradient' }>,
   bounds: { x: number; y: number; w: number; h: number },
 ): string {
-  return `${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.rotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
+  const normalizedRotation = ((fill.rotation % 360) + 360) % 360;
+  return `${fill.gradientType}|${fill.interpolationSpace ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
 }
 
 /** Create a gradient fillStyle from a FillIR gradient. */
@@ -1493,11 +1499,13 @@ function paintText(
   const fw = Math.max(1, Math.min(1000, p.fontWeight));
   target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
 
-  // Text baseline from vertical alignment
+  // Text baseline from vertical alignment.
+  // When textAlignVertical='bottom', use 'bottom' baseline so descenders
+  // (g, j, p, q, y) stay inside the text box rather than extending below it.
   const baselineMap: Record<string, CanvasTextBaseline> = {
     top: 'top',
     middle: 'middle',
-    bottom: 'alphabetic',
+    bottom: 'bottom',
   };
   target.textBaseline = baselineMap[p.textAlignVertical] ?? 'top';
   target.textAlign = p.textAlign as CanvasTextAlign;
@@ -1681,16 +1689,28 @@ function paintText(
   }
 }
 
-/** Module-level cached canvas context for measureText calls (created lazily). */
-let _measureCtx: CanvasRenderingContext2D | null = null;
+/** Module-level cached canvas + context for measureText calls (created lazily). */
+let _measureCanvasOffscreen: OffscreenCanvas | HTMLCanvasElement | null = null;
+let _measureCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
+
+function _ensureMeasureContext(): void {
+  if (_measureCtx) return;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    _measureCanvasOffscreen = new OffscreenCanvas(4096, 1);
+    _measureCtx = _measureCanvasOffscreen.getContext('2d');
+  }
+  if (!_measureCtx && typeof document !== 'undefined') {
+    _measureCanvasOffscreen = document.createElement('canvas');
+    _measureCanvasOffscreen.width = 4096;
+    _measureCanvasOffscreen.height = 1;
+    _measureCtx = _measureCanvasOffscreen.getContext('2d');
+  }
+}
 
 /** Measure the width of a single character in the current canvas font. Falls back to an estimate. */
 function measureTextAdvance(target: ReplayTarget, char: string): number {
-  if (typeof document === 'undefined') return target.font ? parseFontSize(target.font) * 0.6 : 0;
-  if (!_measureCtx) {
-    _measureCtx = document.createElement('canvas').getContext('2d');
-  }
-  if (!_measureCtx) return parseFontSize(target.font) * 0.6;
+  _ensureMeasureContext();
+  if (!_measureCtx) return target.font ? parseFontSize(target.font) * 0.6 : 0;
   _measureCtx.font = target.font;
   return _measureCtx.measureText(char).width;
 }
@@ -1735,7 +1755,17 @@ function paintPathFill(
   target.fill();
 }
 
-/** Paint a single stroke over the primitive path. */
+/**
+ * Paint a single stroke over the primitive path.
+ *
+ * Canvas2D natively supports only `'center'` stroke alignment (`lineWidth`
+ * straddles the path equally on both sides). `'inside'` stroke alignment is
+ * approximated by clipping to the shape interior before stroking (the part
+ * of the stroke outside the shape is clipped away). `'outside'` alignment
+ * cannot be approximated with Canvas2D's clip API (no "inverse clip"
+ * primitive) and falls back to `'center'` with a console.warn on first use.
+ */
+let _strokeAlignWarned = false;
 function paintStroke(
   target: ReplayTarget,
   stroke: import('./types').Stroke,
@@ -1750,6 +1780,53 @@ function paintStroke(
 
   if (stroke.dashPattern && stroke.dashPattern.length > 0) {
     target.setLineDash(stroke.dashPattern);
+  }
+
+  // Handle non-center stroke alignment (Canvas2D only supports center natively)
+  if (stroke.align === 'inside') {
+    // Inside stroke: clip to shape interior, then stroke centered.
+    // The outer half of the stroke is clipped away, leaving only the inside half.
+    target.beginPath();
+    traceOutline(target, item.primitive);
+    if (target.clip) target.clip();
+  } else if (stroke.align === 'outside') {
+    // Outside stroke: render a double-width stroke, then composite the shape
+    // interior on top with destination-out to remove the inner half.
+    // This leaves only the portion of the stroke outside the shape boundary.
+    if (typeof OffscreenCanvas !== 'undefined' && typeof document !== 'undefined') {
+      try {
+        const strokePad = stroke.weight * 2 + 2;
+        const b = primitiveBounds(item.primitive);
+        const sw = Math.ceil((b.w || 1) + strokePad * 2);
+        const sh = Math.ceil((b.h || 1) + strokePad * 2);
+        const oc = new OffscreenCanvas(sw, sh);
+        const octx = oc.getContext('2d');
+        if (octx) {
+          const ox = (b.x || 0) - strokePad;
+          const oy = (b.y || 0) - strokePad;
+          octx.translate(-ox, -oy);
+          octx.beginPath();
+          traceOutline(octx, item.primitive);
+          octx.fillStyle = 'white';
+          octx.fill();
+          target.lineWidth = stroke.weight * 2;
+          target.beginPath();
+          traceOutline(target, item.primitive);
+          target.stroke();
+          target.globalCompositeOperation = 'destination-out';
+          target.drawImage!(oc as unknown as CanvasImageSource, 0, 0);
+          target.globalCompositeOperation = 'source-over';
+          target.restore();
+          return;
+        }
+      } catch {
+        // fall through to center fallback
+      }
+    }
+    if (!_strokeAlignWarned) {
+      console.warn('Canvas2D does not support outside stroke alignment; falling back to center');
+      _strokeAlignWarned = true;
+    }
   }
 
   const p = item.primitive;

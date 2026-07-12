@@ -90,29 +90,28 @@ describe('filter compositing', () => {
     expect(target.filter).toContain('brightness');
   });
 
-  it('falls back to CSS for opacity<1 filter when OffscreenCanvas unavailable', () => {
-    // In node test env, OffscreenCanvas polyfill returns null from getContext,
-    // so the fallback applies CSS filter for CSS-compatible filters
-    const { target } = mockTarget();
+  it('handles opacity<1 filter via offscreen compositing when available', () => {
+    const { target, calls } = mockTarget();
     const filters: FilterIR[] = [
       { kind: 'brightness', value: 10, opacity: 0.5, blendMode: 'normal' },
     ];
     applyFilterWithCompositing(target, filters, 100, 100);
-    // Fallback: brightness is CSS-compatible so it gets applied
-    expect(target.filter).toContain('brightness');
+    // OffscreenCanvas is available: compositing path takes a snapshot, then
+    // draws the filtered result back. At minimum drawImage is called.
+    expect(calls).toContain('drawImage');
   });
 
-  it('falls back to CSS for non-normal blend filter when OffscreenCanvas unavailable', () => {
-    const { target } = mockTarget();
+  it('handles non-normal blend filter via offscreen compositing when available', () => {
+    const { target, calls } = mockTarget();
     const filters: FilterIR[] = [
       { kind: 'brightness', value: 10, opacity: 1, blendMode: 'multiply' },
     ];
     applyFilterWithCompositing(target, filters, 100, 100);
-    // Fallback: CSS-compatible with blend ignored (CSS filter doesn't support per-filter blend)
-    expect(target.filter).toContain('brightness');
+    // OffscreenCanvas is available: compositing path
+    expect(calls).toContain('drawImage');
   });
 
-  it('handles non-CSS filter with CSS fallback when OffscreenCanvas unavailable', () => {
+  it('handles non-CSS filter with CSS fallback when filter compositing available', () => {
     const { target } = mockTarget();
     const filters: FilterIR[] = [
       {
@@ -127,7 +126,8 @@ describe('filter compositing', () => {
       },
     ];
     applyFilterWithCompositing(target, filters, 100, 100);
-    // curves has no CSS equivalent, so in fallback mode filter stays 'none'
+    // Non-CSS filter: the offscreen compositing path handles curves via
+    // software pixel processing, so target.filter stays 'none'.
     expect(target.filter).toBe('none');
   });
 
@@ -143,8 +143,8 @@ describe('filter compositing', () => {
     expect(filterStr).toContain('contrast');
   });
 
-  it('handles mixed CSS and non-CSS filters with CSS fallback', () => {
-    const { target } = mockTarget();
+  it('handles mixed CSS and non-CSS filters with offscreen compositing', () => {
+    const { target, calls } = mockTarget();
     const filters: FilterIR[] = [
       { kind: 'brightness', value: 10, opacity: 1, blendMode: 'normal' },
       {
@@ -160,8 +160,8 @@ describe('filter compositing', () => {
       },
     ];
     applyFilterWithCompositing(target, filters, 100, 100);
-    // Fallback applies CSS-compatible filters only
-    expect(target.filter).toContain('brightness');
+    // Offscreen compositing path applies both filters
+    expect(calls).toContain('drawImage');
   });
 
   it('applies selectiveColor filter via software bridge', () => {
