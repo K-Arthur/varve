@@ -32,13 +32,17 @@ IR-replay remains the stable seam; compositor consumes `RenderItem[]`.
 
 WebGPUBackend acquires a real `GPUDevice` when `navigator.gpu` is available; unsupported primitives and device loss fall back to the embedded Canvas2D backend.
 
-## Minimum Supported Baseline (2026-07-11)
+## Minimum Supported Baseline (2026-07-11, consolidated 2026-07-12)
 
-`WebGPUBackend.init()` inspects the adapter's `info.device` string before requesting
-a `GPUDevice`. If it identifies a software rasterizer (currently: contains `"swift"`,
-matching SwiftShader — the software implementation most CI/headless Chromium
-environments fall back to when no real GPU is present), it declines the adapter and
-uses Canvas2D instead, without ever calling `requestDevice()`.
+`WebGPUBackend.init()` (via `packages/engine/src/gpuAdapter.ts`'s `selectWebGpuAdapter`,
+shared with `detectWebGPU` and `GpuAccelerator`) inspects every string field on the
+adapter's `info` (`vendor`, `architecture`, `device`, `description`) before requesting a
+`GPUDevice`. If any field contains `"swift"` (SwiftShader), `"fallback"`, `"software"`,
+`"llvmpipe"`, or `"lavapipe"` (Mesa's software rasterizers — the ones actually reachable
+on this project's Linux dev target, not just Chromium/ANGLE's SwiftShader), it declines
+the adapter and uses Canvas2D instead, without ever calling `requestDevice()`. Before
+2026-07-12 this policy existed only in `WebGPUBackend`; `GpuAccelerator` (background-removal
+compute shaders) accepted any adapter including software ones — now consistent across both.
 
 **Rationale:** a software-emulated "WebGPU" adapter is not a real GPU — it's a CPU
 rasterizer behind the WebGPU API surface. The hand-tuned Canvas2D path
@@ -51,10 +55,17 @@ was declined (not used) — this distinguishes "software adapter detected and de
 from "no WebGPU support at all" for diagnostics/status-bar purposes
 (`packages/editor/src/StatusBar.tsx`).
 
-This is a detection heuristic (a substring match on a vendor-supplied string), not a
-guarantee — if a future software renderer doesn't self-identify with "swift", it will
-be accepted as if it were real hardware. Revisit if evidence emerges of another
-software backend slipping through.
+This is a detection heuristic (a substring match on vendor-supplied strings), not a
+guarantee — if a future software renderer doesn't self-identify with any of the above
+markers, it will be accepted as if it were real hardware. Revisit if evidence emerges of
+another software backend slipping through.
+
+**Device loss is a separate failure mode from adapter selection**, and is *not*
+recoverable in place: once `GPUDevice.lost` resolves mid-session, `WebGPUBackend` cannot
+fall back to Canvas2D on the same `<canvas>` element, because a browser canvas's context
+type (`webgpu` vs `2d`) is fixed for its lifetime. `CompositorDiagnostics.deviceLost`
+surfaces this so the UI can prompt for a reload (`StatusBar`'s "GPU lost — reload to
+restore") rather than attempt an in-place recovery that platform constraints rule out.
 
 ## Fallback Removal Criterion
 
