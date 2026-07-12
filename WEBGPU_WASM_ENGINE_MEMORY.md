@@ -223,3 +223,74 @@ workaround. This remains for the user to action directly if wanted.
 `docs/superpowers/plans/2026-07-08-webgpu-wasm-acceleration.md` (status + Task 15
 resolution notes). No code changes this round — Task 15 was a documentation/process
 decision, not a code gap.
+
+## Session: 2026-07-11 — WGSL/WebGPU subsystem improvement
+
+### Floating-origin drift fix (P0 correctness)
+**Root cause:** `SOLID_VERTEX_WGSL` computed `screen = world * zoom + pan` without
+subtracting the floating origin that `Canvas2DBackend.applyCamera` applies via
+`computeFloatingOrigin()`. Once the editor panned away from world (0,0), any
+content rendered through the WebGPU backend would drift from the identical Canvas2D
+replay. Same gap in the per-circle screen-space uniform (computed in
+`drawGpuItems`).
+
+**Fix:** Added `origin: vec2f` to `CameraUniform` in both `SOLID_VERTEX_WGSL` and
+`CIRCLE_VERTEX_WGSL` (shared). Updated `vs_main` to compute
+`(world - origin) * zoom + pan`. Updated JS-side buffer writes in `drawGpuItems`
+to write 8 Float32 values matching the new struct layout
+([pan.x, pan.y, zoom, viewportW, viewportH, pad, origin.x, origin.y] = 32 bytes).
+Circle uniform computation updated to match the same convention.
+
+Verified: WGSL struct alignment (vec2f at offset 24, 4 bytes padding at 20-23),
+JS buffer layout (8 f32 = 32 bytes = struct size + 16-byte uniform alignment).
+Shader validation tests confirm all expected offsets.
+
+### Adapter power-preference fallback (robustness)
+**Root cause:** `detect.ts` and `WebGPUBackend.init()` hardcoded
+`powerPreference: 'high-performance'`, which fails on integrated-only GPU systems
+(no discrete GPU to select).
+
+**Fix:** Both detection and init now iterate `['high-performance', 'low-power']`
+and accept the first adapter found. `detect()` accepts an optional
+`powerPreference` parameter for callers that know their preference.
+
+### WebGPU compute device-loss monitoring (robustness)
+**Root cause:** `GpuAccelerator` had no `device.lost` watcher. If the GPU device
+was lost mid-operation, stale device/pipeline state would silently persist,
+potentially throwing on the next GPU operation rather than gracefully falling back
+to CPU.
+
+**Fix:** Added `_watchDeviceLost()` that clears device, pipelines, and cached
+capabilities on device loss. Subsequent operations transparently fall back to CPU.
+Added `resetInstance()` static method for test-driven lifecycle management.
+
+### WGSL shader validation tests (new coverage, +15 tests)
+New `packages/compositor/src/webgpu/shaders.test.ts` verifies:
+- All 6 shader strings are non-empty, contain WGSL keywords
+- CameraUniform struct has all 5 fields (pan, zoom, viewportW, viewportH, origin)
+- Origin field is at correct byte offset 24 with size 8
+- Vertex shader computes `(world - origin) * zoom + pan`
+- Circle discard shader has correct CircleUniform struct
+- Blit struct matches fullscreen-triangle layout
+- No GLSL keywords (gl_Position, void main, layout())
+- JS writes exactly 8 Float32 values for 32-byte uniform buffer
+
+New `packages/engine/src/backgroundRemoval/__tests__/gpuAcceleratorShaders.test.ts`
+verifies:
+- Both compute shaders are valid WGSL with @compute + @workgroup_size(64)
+- Uniforms struct has 5 fields with correct types
+- Buffer binding annotations match JS-side bind group layout
+- Boundary clamping (clamp, early-return bounds check)
+- Separable convolution logic (row-wise horizontal, column-wise vertical)
+- Kernel index uses k + radius offset
+
+### GpuAccelerator test coverage (+1 new test)
+Added `resetInstance` test to verify singleton lifecycle.
+
+### Known deferred items (no change in state)
+- WebGPU compositor still scaffold-only (untestable without real GPU)
+- WebGPU compute shaders same status
+- Rust wgpu integration still absent (aspirational comment only)
+- WGSL shaders are only structurally validated — no naga-based compilation check exists
+- No automated WebGPU E2E test exists (no GPU CI runner)
+

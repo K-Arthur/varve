@@ -6,6 +6,7 @@
  * Uses explicit pipeline layouts and a vertex buffer ring pool.
  */
 import type { RenderItem } from '@strata/engine';
+import { computeFloatingOrigin } from '@strata/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import type { CompositorDiagnostics, CompositorFrame } from '../types';
 import {
@@ -156,7 +157,14 @@ export class WebGPUBackend {
     try {
       const gpu = navigator.gpu;
       if (!gpu) throw new Error('WebGPU unavailable');
-      const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
+      // Try high-performance first, fall back to low-power (integrated GPU).
+      // This covers laptops and mixed-GPU systems where requesting the
+      // discrete GPU alone may fail (e.g. no discrete GPU present).
+      let adapter: GPUAdapter | null = null;
+      for (const pref of ['high-performance', 'low-power'] as const) {
+        adapter = await gpu.requestAdapter({ powerPreference: pref });
+        if (adapter) break;
+      }
       if (!adapter) throw new Error('No WebGPU adapter');
       this.adapterIsFallback =
         (adapter as GPUAdapter & { info?: { device?: string } }).info?.device
@@ -611,12 +619,17 @@ export class WebGPUBackend {
 
     const camera = frame.camera;
     const viewport = frame.viewport;
+    const origin = computeFloatingOrigin(camera, viewport);
+    // WGSL CameraUniform layout: pan(8) + zoom(4) + viewportW(4) + viewportH(4) + pad(4) + origin(8) = 32 bytes
     const cam = new Float32Array([
       camera.pan.x,
       camera.pan.y,
       camera.zoom,
       viewport.width,
       viewport.height,
+      0,
+      origin[0],
+      origin[1],
     ]);
     device.queue.writeBuffer(cameraBuffer, 0, cam);
 
@@ -673,8 +686,12 @@ export class WebGPUBackend {
       const prim = circleItem.primitive;
       if (prim.kind !== 'circle') continue;
       const t = circleItem.transform;
-      const screenCx = (t[0] * prim.cx + t[2] * prim.cy + t[4]) * camera.zoom + camera.pan.x;
-      const screenCy = (t[1] * prim.cx + t[3] * prim.cy + t[5]) * camera.zoom + camera.pan.y;
+      const origin = computeFloatingOrigin(camera, frame.viewport);
+      // Match the vertex shader's (world - origin) * zoom + pan convention.
+      const worldCx = t[0] * prim.cx + t[2] * prim.cy + t[4];
+      const worldCy = t[1] * prim.cx + t[3] * prim.cy + t[5];
+      const screenCx = (worldCx - origin[0]) * camera.zoom + camera.pan.x;
+      const screenCy = (worldCy - origin[1]) * camera.zoom + camera.pan.y;
       const screenR = prim.r * camera.zoom;
       const circleData = new Float32Array([screenCx, screenCy, screenR, 0]);
       device.queue.writeBuffer(circleUniformBuffer, 0, circleData.buffer as ArrayBuffer);

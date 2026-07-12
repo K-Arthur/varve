@@ -76,18 +76,20 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    pre-decodes on the main thread; `sceneCanUseWorkerRenderer` gates the worker path
    until every image src is loaded. Until then, main-thread replay applies.
 
-## WebGPU Compositor (2026-07-08)
+## WebGPU Compositor (2026-07-11)
 
 | Feature | Implementation |
 |---|---|
 | Init order | WebGPU context acquired before any 2D context on main canvas |
 | Fallback | OffscreenCanvas 2D for non-GPU primitives; alpha-blitted onto WebGPU surface |
 | Primitives | rect, circle, line (tessellated quad) on GPU; text/path/effects on 2D overlay |
-| Pipeline | Explicit bind group layouts; shared camera uniform; per-circle discard shader |
+| Pipeline | Explicit bind group layouts; shared camera uniform with floating-origin correction; per-circle discard shader |
+| Camera parity | `CameraUniform` includes `origin: vec2f` matching `computeFloatingOrigin()` from the Canvas2D backend, so panning far from (0,0) produces identical output from both backends |
+| Power preference | Tries `high-performance` first, falls back to `low-power` — covers mixed-GPU and integrated-only systems |
 | Perf | Vertex buffer pool (power-of-2); render bundle cache for static solid geometry |
 | Device loss | `watchDeviceLost` clears pools; router swaps to Canvas2DBackend |
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
-| Diagnostics | Status bar via `CompositorDiagnostics` (backend id, pool/bundle counts) |
+| Diagnostics | Status bar via `CompositorDiagnostics` (backend id, pool/bundle counts, pipeline init ms) |
 | Minimum baseline | Software-emulated adapters (e.g. SwiftShader) are declined before `requestDevice()`; Canvas2D is used instead — see ADR-0003 |
 
 ### Rollback & Incident Response
