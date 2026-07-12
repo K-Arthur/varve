@@ -43,26 +43,31 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     }
     // Update image map from Structured Clone transport
     if (msg.images) imageMap = msg.images;
-    const origin = computeFloatingOrigin(msg.camera, msg.viewport);
-    ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
-    ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
-    ctx.save();
-    ctx.translate(msg.camera.pan.x, msg.camera.pan.y);
-    ctx.scale(msg.camera.zoom, msg.camera.zoom);
-    ctx.translate(-origin[0], -origin[1]);
-    replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[], (src) => imageMap[src]);
-    ctx.restore();
-    if (msg.docVersion >= activeDocVersion) {
-      const bitmap = canvas.transferToImageBitmap();
-      post(
-        {
-          type: 'frameRendered',
-          docVersion: msg.docVersion,
-          camera: msg.camera,
-          bitmap,
-        },
-        [bitmap],
-      );
+    try {
+      const origin = computeFloatingOrigin(msg.camera, msg.viewport);
+      ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
+      ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
+      ctx.save();
+      ctx.translate(msg.camera.pan.x, msg.camera.pan.y);
+      ctx.scale(msg.camera.zoom, msg.camera.zoom);
+      ctx.translate(-origin[0], -origin[1]);
+      replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[], (src) => imageMap[src]);
+      ctx.restore();
+      if (msg.docVersion >= activeDocVersion) {
+        const bitmap = canvas.transferToImageBitmap();
+        post(
+          {
+            type: 'frameRendered',
+            docVersion: msg.docVersion,
+            camera: msg.camera,
+            bitmap,
+          },
+          [bitmap],
+        );
+      }
+    } catch (err) {
+      const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+      post({ type: 'error', message: `render failed: ${detail}`, docVersion: msg.docVersion });
     }
     return;
   }
