@@ -4,6 +4,9 @@ import { defineConfig } from 'vitest/config';
 //   // @vitest-environment jsdom
 // at the top of a test file when DOM is needed.
 export default defineConfig({
+  optimizeDeps: {
+    exclude: ['fast-check'],
+  },
   resolve: {
     alias: {
       '@tauri-apps/api/core': '/home/karthur/CodingProjects/Strata/vitest.mocks.ts',

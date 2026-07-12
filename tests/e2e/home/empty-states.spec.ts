@@ -50,7 +50,7 @@ test.describe('Home empty states', () => {
     await cta.click();
     await page.waitForTimeout(300);
 
-    const dialog = page.locator('dialog.strata-dialog');
+    const dialog = page.locator('dialog.strata-dialog[open]');
     await expect(dialog).toBeVisible();
   });
 

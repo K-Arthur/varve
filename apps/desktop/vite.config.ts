@@ -51,6 +51,9 @@ export default defineConfig({
   plugins: [react(), ortWasmDevPlugin()],
   clearScreen: false,
   server: { port: 1420, strictPort: true },
+  optimizeDeps: {
+    exclude: ['fast-check'],
+  },
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
     target: process.env.TAURI_PLATFORM === 'windows' ? 'chrome105' : 'safari14',
