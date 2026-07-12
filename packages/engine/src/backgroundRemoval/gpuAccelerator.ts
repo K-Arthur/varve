@@ -42,6 +42,7 @@ export class GpuAccelerator {
   private pipelines: Map<string, GPUComputePipeline> = new Map();
   private initialized = false;
   private _capabilities: GpuCapabilities | null = null;
+  private deviceLostWatched = false;
 
   private constructor() {}
 
@@ -50,6 +51,23 @@ export class GpuAccelerator {
       GpuAccelerator.instance = new GpuAccelerator();
     }
     return GpuAccelerator.instance;
+  }
+
+  /**
+   * Force re-initialization (e.g. after simulated device loss in tests, or
+   * if the WebGPU adapter becomes available after an initial failure).
+   */
+  static resetInstance(): void {
+    const inst = GpuAccelerator.instance;
+    if (inst) {
+      inst.device?.destroy();
+      inst.device = null;
+      inst.pipelines.clear();
+      inst.initialized = false;
+      inst._capabilities = null;
+      inst.deviceLostWatched = false;
+    }
+    GpuAccelerator.instance = null;
   }
 
   async initialize(): Promise<GpuCapabilities> {
@@ -66,6 +84,7 @@ export class GpuAccelerator {
 
       this.device = device;
       this.pipelines.clear();
+      this._watchDeviceLost(device);
 
       const adapterInfo = await (
         adapter as unknown as {
@@ -389,6 +408,22 @@ export class GpuAccelerator {
     const pipeline = factory();
     this.pipelines.set(name, pipeline);
     return pipeline;
+  }
+
+  /**
+   * Watch for GPU device loss and reset state so subsequent operations
+   * transparently fall back to CPU.
+   */
+  private _watchDeviceLost(device: GPUDevice): void {
+    if (this.deviceLostWatched) return;
+    this.deviceLostWatched = true;
+    void device.lost.then(async () => {
+      this.device = null;
+      this.pipelines.clear();
+      this._capabilities = null;
+      this.initialized = false;
+      this.deviceLostWatched = false;
+    });
   }
 
   // ---- WGSL shaders ----

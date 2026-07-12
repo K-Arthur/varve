@@ -5,7 +5,9 @@
  */
 import type { CompositorCapabilities } from '../types';
 
-export async function detectWebGPU(): Promise<CompositorCapabilities> {
+export async function detectWebGPU(
+  powerPreference?: GPUPowerPreference,
+): Promise<CompositorCapabilities> {
   if (typeof navigator === 'undefined') {
     return { webgpu: false, webgpuReason: 'navigator.gpu unavailable' };
   }
@@ -13,21 +15,23 @@ export async function detectWebGPU(): Promise<CompositorCapabilities> {
   if (!gpu) {
     return { webgpu: false, webgpuReason: 'navigator.gpu unavailable' };
   }
-  try {
-    const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
-    if (!adapter) {
-      return { webgpu: false, webgpuReason: 'no adapter' };
+  // Try the requested preference first, fall back to the other if unavailable.
+  const preferences: GPUPowerPreference[] = powerPreference
+    ? [powerPreference, powerPreference === 'high-performance' ? 'low-power' : 'high-performance']
+    : ['high-performance', 'low-power'];
+  for (const pref of preferences) {
+    try {
+      const adapter = await gpu.requestAdapter({ powerPreference: pref });
+      if (!adapter) continue;
+      const device = await adapter.requestDevice();
+      device.destroy();
+      return {
+        webgpu: true,
+        isFallbackAdapter: adapter.info?.description?.includes('fallback') ?? false,
+      };
+    } catch {
+      // Fall through to next preference.
     }
-    const device = await adapter.requestDevice();
-    device.destroy();
-    return {
-      webgpu: true,
-      isFallbackAdapter: adapter.info?.description?.includes('fallback') ?? false,
-    };
-  } catch (err) {
-    return {
-      webgpu: false,
-      webgpuReason: err instanceof Error ? err.message : 'adapter request failed',
-    };
   }
+  return { webgpu: false, webgpuReason: 'no adapter available' };
 }
