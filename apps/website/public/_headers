@@ -1,0 +1,17 @@
+# Security headers for GitHub Pages / Netlify / Cloudflare Pages
+# GitHub Pages ignores this file; Netlify and Cloudflare Pages respect it.
+# CSP is enforced via <meta> tag in Layout.astro for universal compatibility.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+
+# Assets with long cache
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML: short cache, revalidate
+*.html
+  Cache-Control: public, max-age=0, must-revalidate
