@@ -76,6 +76,11 @@ function SortablePageTab({
       {...listeners}
       role="tab"
       tabIndex={isActive ? 0 : -1}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        onSelect(page.id);
+      }}
     >
       <div className="page-nav__thumbnail" style={pageThumbnailStyle(page)}>
         <span className="page-nav__thumb-label">{page.name}</span>
@@ -86,9 +91,9 @@ function SortablePageTab({
 }
 
 export function PageNav() {
-  const { state, updateDoc, setCurrentPageId } = useEditor();
+  const { state, updateDoc, setActivePage, setCurrentPageId } = useEditor();
   const pages = state.document.pages ?? [];
-  const currentId = state.currentPageId;
+  const currentId = state.document.activePageId ?? state.currentPageId;
 
   const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const [ctxPageId, setCtxPageId] = useState<string | null>(null);
@@ -108,9 +113,10 @@ export function PageNav() {
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
+      setActivePage(pageId);
       setCurrentPageId(pageId);
     },
-    [setCurrentPageId],
+    [setActivePage, setCurrentPageId],
   );
 
   const handleDragEnd = useCallback(

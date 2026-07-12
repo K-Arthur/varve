@@ -1282,7 +1282,15 @@ export function removePage(doc: Document, pageId: NodeId): Document {
   if (idx < 0) return doc;
 
   const page = doc.pages[idx]!;
-  let d = doc;
+  const nextPages = doc.pages.filter((p) => p.id !== pageId);
+  const activePageStillExists =
+    doc.activePageId !== undefined && nextPages.some((p) => p.id === doc.activePageId);
+  const fallbackPage = nextPages[Math.min(idx, nextPages.length - 1)] ?? nextPages[0];
+  let d: Document = {
+    ...doc,
+    pages: nextPages,
+    activePageId: activePageStillExists ? doc.activePageId : fallbackPage?.id,
+  };
 
   // Remove background nodes
   for (const bgId of page.backgrounds) {
@@ -1291,12 +1299,8 @@ export function removePage(doc: Document, pageId: NodeId): Document {
 
   // Remove contentRoot and all its descendants
   d = removeNode(d, page.contentRoot);
-
-  // Remove the page entry
-  const nextPages = [...d.pages!];
-  nextPages.splice(idx, 1);
-
-  return { ...d, pages: nextPages };
+  devValidate(d);
+  return d;
 }
 
 /**
@@ -1527,7 +1531,13 @@ export function setVariableModeOnDocument(doc: Document, mode: string): Document
 
 // ── Guide operations ─────────────────────────────────────────────────────────
 
-function guideId(): string {
+export interface AddGuideOptions {
+  id?: string;
+  locked?: boolean;
+  color?: string;
+}
+
+export function createGuideId(): string {
   return `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -1536,11 +1546,14 @@ export function addGuide(
   doc: Document,
   axis: 'horizontal' | 'vertical',
   position: number,
+  options: AddGuideOptions = {},
 ): Document {
   const guide: import('./types').Guide = {
-    id: guideId(),
+    id: options.id ?? createGuideId(),
     axis,
     position,
+    ...(options.locked !== undefined ? { locked: options.locked } : {}),
+    ...(options.color !== undefined ? { color: options.color } : {}),
   };
   return { ...doc, guides: [...(doc.guides ?? []), guide] };
 }
@@ -1582,6 +1595,7 @@ export function clearGuides(doc: Document): Document {
 
 /** Set the active page. */
 export function setActivePage(doc: Document, pageId: NodeId): Document {
+  if (!doc.pages?.some((p) => p.id === pageId)) return doc;
   return { ...doc, activePageId: pageId };
 }
 
@@ -1645,6 +1659,9 @@ export function validateDocument(doc: Document): DocValidationResult {
 
   // ── 1b. Page integrity ──────────────────────────────────────────────────
   if (doc.pages) {
+    if (doc.activePageId && !doc.pages.some((page) => page.id === doc.activePageId)) {
+      errors.push(`activePageId ${doc.activePageId} does not reference an existing page`);
+    }
     for (const page of doc.pages) {
       if (!reachable.has(page.contentRoot)) {
         errors.push(`Page "${page.name}" contentRoot ${page.contentRoot} is not reachable`);
@@ -1789,7 +1806,7 @@ export function createTextChain(
  * Delete a text chain and its references.
  */
 export function deleteTextChain(doc: Document, chainId: string): Document {
-  if (!doc.textChains || !doc.textChains[chainId]) return doc;
+  if (!doc.textChains?.[chainId]) return doc;
   const { [chainId]: _, ...remaining } = doc.textChains;
   return { ...doc, textChains: remaining };
 }
