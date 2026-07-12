@@ -123,28 +123,41 @@ export class ImageCache {
     // Mark as loading
     this.cache.set(url, { state: 'loading', image: null });
 
-    const promise = new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
+    const isInline = url.startsWith('data:') || url.startsWith('blob:');
+
+    const attempt = (crossOrigin: boolean): Promise<HTMLImageElement> =>
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        if (crossOrigin) img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+        img.loading = 'eager';
+        img.src = url;
+      });
+
+    // Cross-origin URLs are first requested with crossOrigin='anonymous' so a
+    // CORS-permissive server yields an untainted canvas (required to export
+    // raster/blob output that includes the image). If the server doesn't grant
+    // CORS, that request fails outright — retry without crossOrigin so the
+    // image still loads for on-screen display, just tainted for pixel export.
+    // Inline data:/blob: URLs are always same-origin, so skip the CORS dance.
+    const promise = (isInline ? attempt(false) : attempt(true).catch(() => attempt(false)))
+      .then((img) => {
         this.cache.set(url, { state: 'loaded', image: img });
         this.evictIfNeeded();
         this.pending.delete(url);
         this.touch(url);
         this.notifyListeners(url);
-        resolve(img);
-      };
-      img.onerror = () => {
-        const error = new Error(`Failed to load image: ${url}`);
+        return img;
+      })
+      .catch((error: Error) => {
         this.cache.set(url, { state: 'error', image: null, error });
         this.evictIfNeeded();
         this.pending.delete(url);
         this.touch(url);
         this.notifyListeners(url);
-        reject(error);
-      };
-      img.loading = 'eager';
-      img.src = url;
-    });
+        throw error;
+      });
 
     this.pending.set(url, promise);
     this.touch(url);

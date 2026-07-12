@@ -177,7 +177,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       const mime = rasterMime(job.format);
       if (!mime) throw new Error(`Unsupported export format: ${job.format}`);
       if (!context.engine) throw new Error(`${job.format.toUpperCase()} export requires an engine`);
-      const blob = await exportNodeAsRaster(node, context.document, context.engine, {
+      const { blob, warnings } = await exportNodeAsRaster(node, context.document, context.engine, {
         format: mime,
         scale: rasterScaleForJob(job, context),
         quality: job.format === 'jpg' ? 0.92 : undefined,
@@ -185,7 +185,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       return {
         bytes: await blobToBytes(blob),
         mimeType: blob.type || mime,
-        warnings: [],
+        warnings,
       };
     }
   }
