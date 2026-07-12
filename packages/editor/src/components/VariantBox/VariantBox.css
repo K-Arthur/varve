@@ -37,8 +37,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--space-5);
+  height: var(--space-5);
   border: none;
   background: none;
   cursor: pointer;
@@ -229,7 +229,7 @@
 }
 
 .variant-box__bool-toggle {
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-surface-sunken);
@@ -251,7 +251,7 @@
 }
 
 .variant-box__text-input {
-  padding: 2px 6px;
+  padding: var(--space-1) var(--space-1);
   border: var(--border-micro);
   border-radius: var(--radius-sm);
   background: var(--elevation-surface-sunken);

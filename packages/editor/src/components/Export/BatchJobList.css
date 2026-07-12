@@ -16,7 +16,7 @@
   border-bottom: var(--border-micro);
 }
 .batch-job-list__select-all {
-  width: 20px;
+  width: var(--space-5);
   display: flex;
   align-items: center;
 }
@@ -34,7 +34,7 @@
   text-align: right;
 }
 .batch-job-list__col-status {
-  width: 24px;
+  width: var(--space-5);
   text-align: center;
 }
 .batch-job-list__empty {
@@ -68,7 +68,7 @@
   color: var(--color-text-on-accent);
 }
 .batch-job-row__checkbox {
-  width: 20px;
+  width: var(--space-5);
   display: flex;
   align-items: center;
 }
@@ -102,7 +102,7 @@
   color: var(--color-text-on-accent);
 }
 .batch-job-row__status {
-  width: 24px;
+  width: var(--space-5);
   text-align: center;
 }
 .batch-job-row__status--done {
