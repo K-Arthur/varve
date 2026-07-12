@@ -36,6 +36,18 @@ export interface CompositorDiagnostics {
   adapterIsFallback: boolean;
   /** Shader module + pipeline compilation time during init, in ms. Not tracked by Canvas2DBackend. */
   pipelineInitMs?: number;
+  /**
+   * True once `GPUDevice.lost` has resolved for a backend that previously
+   * had a working device. Distinct from `!gpuActive` on its own: a browser
+   * `<canvas>` element's context type (`webgpu` vs `2d`) can't be changed
+   * after the first `getContext()` call, so losing the device mid-session
+   * leaves the visible canvas with no working rendering path at all (not
+   * even a Canvas2D fallback) until the page/canvas element is reloaded —
+   * this needs a distinct, actionable UI message rather than being folded
+   * into the normal "(cpu)" fallback label, which implies a working
+   * degraded mode.
+   */
+  deviceLost?: boolean;
 }
 
 export interface CompositorBackend {

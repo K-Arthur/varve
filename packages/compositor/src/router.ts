@@ -14,13 +14,15 @@ export async function createCompositorBackend(
   let backend: CompositorBackend;
 
   if (opts.preferWebGpu && capabilities.webgpu) {
-    const wgpu = new WebGPUBackend();
-    wgpu.onDeviceLost = async () => {
-      const c2d = new Canvas2DBackend();
-      await c2d.init(canvas);
-      backend = c2d;
-    };
-    backend = wgpu;
+    // No `onDeviceLost` hot-swap here: a `<canvas>` element's context type
+    // (`webgpu` vs `2d`) is fixed for its lifetime in every browser, so a
+    // Canvas2DBackend can't be initialized on this same `canvas` after
+    // `getContext('webgpu')` has already been called on it — recovery
+    // requires the caller to remount a fresh canvas element and re-run
+    // `createCompositorBackend` on it. `WebGPUBackend.getDiagnostics()`
+    // exposes `deviceLost: true` once `GPUDevice.lost` resolves so the UI
+    // can prompt for that instead of silently leaving a frozen canvas.
+    backend = new WebGPUBackend();
   } else {
     backend = new Canvas2DBackend();
   }
