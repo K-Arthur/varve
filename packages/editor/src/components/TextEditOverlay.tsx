@@ -11,13 +11,15 @@
 
 import type { Affine } from '@strata/engine';
 import type { TextNode } from '@strata/scene';
-import { measureText } from '@strata/shared';
+import { computeFloatingOrigin, measureText, worldToScreen } from '@strata/shared';
 import { useCallback, useEffect, useRef } from 'react';
 
 interface TextEditOverlayProps {
   node: TextNode;
   zoom: number;
   pan: { x: number; y: number };
+  /** View rotation in radians (non-destructive canvas rotate). Default 0. */
+  cameraRotation?: number;
   canvasElement: HTMLCanvasElement | null;
   /** Pre-composed world-space X (accounts for ancestor transforms). */
   worldX?: number;
@@ -35,6 +37,7 @@ export function TextEditOverlay({
   node,
   zoom,
   pan,
+  cameraRotation,
   canvasElement,
   worldX,
   worldY,
@@ -45,14 +48,23 @@ export function TextEditOverlay({
   const composingRef = useRef(false);
 
   // Compute screen-space position from world-space transform
-  // Use pre-composed world coordinates when available (accounts for ancestor transforms)
+  // Use pre-composed world coordinates when available (accounts for ancestor transforms).
+  // Must go through worldToScreen + computeFloatingOrigin — the same transform
+  // the canvas itself paints with (applyEditorCameraToCtx) — not hand-rolled
+  // world*zoom+pan, which drifts from the painted position once panned away
+  // from world (0,0) and puts this overlay somewhere else on screen than the
+  // text it's supposed to be editing.
   const rect = canvasElement?.getBoundingClientRect();
   const canvasLeft = rect?.left ?? 0;
   const canvasTop = rect?.top ?? 0;
+  const cam = { zoom, pan, rotation: cameraRotation ?? 0 };
+  const viewport = { width: rect?.width ?? 1920, height: rect?.height ?? 1080 };
+  const origin = computeFloatingOrigin(cam, viewport);
   const wx = worldX ?? node.transform[4];
   const wy = worldY ?? node.transform[5];
-  const x = wx * zoom + pan.x + canvasLeft;
-  const y = wy * zoom + pan.y + canvasTop;
+  const [sx, sy] = worldToScreen(cam, wx, wy, viewport, origin);
+  const x = sx + canvasLeft;
+  const y = sy + canvasTop;
   const textSize = measureText(node.text, {
     fontSize: node.fontSize ?? 16,
     fontFamily: node.fontFamily ?? 'Inter',

@@ -4,11 +4,11 @@ import {
   clampZoom,
   fitBoundsCamera,
   revealBoundsCamera,
-  screenToWorld,
   type Viewport,
 } from '@strata/shared';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
+import { editorScreenToWorld, editorWorldToScreen, getEditorViewport } from '../canvas/cameraState';
 import type { CanvasMode, EditorState } from './types';
 
 export interface ViewportContextValue {
@@ -150,22 +150,32 @@ export function ViewportProvider({
 
   const canvasToWorld = useCallback(
     (cx: number, cy: number) => {
-      const pt = screenToWorld({ pan: state.pan, zoom: state.zoom }, cx, cy);
+      const pt = editorScreenToWorld(
+        { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation },
+        cx,
+        cy,
+        getEditorViewport(),
+      );
       return { x: pt[0], y: pt[1] };
     },
-    [state.pan, state.zoom],
+    [state.pan, state.zoom, state.cameraRotation],
   );
 
   const worldToCanvas = useCallback(
     (wx: number, wy: number) => {
-      // Canonical transform: screen = world * zoom + pan
-      // (see viewport.ts worldToScreen for the authoritative implementation)
-      return {
-        x: wx * state.zoom + state.pan.x,
-        y: wy * state.zoom + state.pan.y,
-      };
+      // Must go through the floating-origin-aware transform
+      // (editorWorldToScreen) that the canvas actually paints with — a naive
+      // world*zoom+pan drifts from the real paint position once panned away
+      // from world (0,0). See packages/editor/src/canvas/cameraState.ts.
+      const pt = editorWorldToScreen(
+        { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation },
+        wx,
+        wy,
+        getEditorViewport(),
+      );
+      return { x: pt[0], y: pt[1] };
     },
-    [state.pan, state.zoom],
+    [state.pan, state.zoom, state.cameraRotation],
   );
 
   const canvasDeltaToWorld = useCallback(

@@ -100,6 +100,52 @@ describe('snapPosition — distance indicators', () => {
   });
 });
 
+describe('snapPosition — ruler guide targets', () => {
+  it('snaps the nearest vertical edge to a vertical guide', () => {
+    const result = snapPosition(97, 240, 80, 60, [], undefined, undefined, {
+      guideTargets: [{ axis: 'vertical', position: 100 }],
+      zoom: 1,
+    });
+
+    expect(result.x).toBe(100);
+    expect(result.y).toBe(240);
+    expect(result.guides).toContainEqual({
+      axis: 'vertical',
+      position: 100,
+      type: 'guide',
+      label: 'guide',
+      distance: 3,
+    });
+  });
+
+  it('snaps the nearest horizontal edge to a horizontal guide', () => {
+    const result = snapPosition(240, 205, 80, 60, [], undefined, undefined, {
+      guideTargets: [{ axis: 'horizontal', position: 200 }],
+      zoom: 1,
+    });
+
+    expect(result.x).toBe(240);
+    expect(result.y).toBe(200);
+    expect(result.guides).toContainEqual({
+      axis: 'horizontal',
+      position: 200,
+      type: 'guide',
+      label: 'guide',
+      distance: 5,
+    });
+  });
+
+  it('prioritizes grid snapping over guide snapping when both are in range', () => {
+    const result = snapPosition(97, 200, 80, 60, [], 10, undefined, {
+      guideTargets: [{ axis: 'vertical', position: 100 }],
+      zoom: 1,
+    });
+
+    expect(result.x).toBe(100);
+    expect(result.guides.find((g) => g.axis === 'vertical')?.type).toBe('edge');
+  });
+});
+
 describe('snapPosition — mid-point snapping', () => {
   it('snaps to mid-point between two aligned objects', () => {
     // Two targets at x=0,w=100 (center=50) and x=200,w=100 (center=250)

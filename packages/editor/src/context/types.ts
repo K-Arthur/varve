@@ -439,7 +439,7 @@ export interface EditorContextValue {
   toggleAutoKeyframe: () => void;
 
   // Guides
-  addGuide: (axis: 'horizontal' | 'vertical', position: number) => void;
+  addGuide: (axis: 'horizontal' | 'vertical', position: number) => string;
   removeGuide: (id: string) => void;
   moveGuide: (id: string, position: number) => void;
   toggleGuideLock: (id: string) => void;
