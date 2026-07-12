@@ -70,7 +70,12 @@ export class ZoomTool extends BaseTool {
       const newZoom = clampZoom(ctx.zoom * factor);
       const anchor: [number, number] = [this.drag.startWorld.x, this.drag.startWorld.y];
       const cam = { pan: ctx.pan, zoom: ctx.zoom };
-      const newCam = zoomAboutPoint(cam, anchor, newZoom);
+      const canvasRect = ctx.canvasElement?.getBoundingClientRect();
+      const viewport = {
+        width: canvasRect?.width ?? window.innerWidth,
+        height: canvasRect?.height ?? window.innerHeight,
+      };
+      const newCam = zoomAboutPoint(cam, anchor, newZoom, viewport);
       ctx.setZoom(newCam.zoom);
       ctx.setPan(newCam.pan);
     }
