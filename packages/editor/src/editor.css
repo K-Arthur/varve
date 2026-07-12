@@ -694,6 +694,11 @@
   gap: 0.15em;
 }
 
+.editor-status__info--warning {
+  color: var(--color-feedback-warning);
+  font-weight: var(--font-weight-medium);
+}
+
 /* ── High-contrast selection handles ────────────────── */
 .high-contrast-handles .selection-overlay-handle {
   stroke-width: 2.5;

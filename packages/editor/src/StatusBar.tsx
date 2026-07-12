@@ -47,7 +47,15 @@ export function StatusBar() {
   return (
     <div className="editor-status">
       <span>{state.tool}</span>
-      {compositorDiag && (
+      {compositorDiag && compositorDiag.deviceLost && (
+        <span
+          className="editor-status__info editor-status__info--warning"
+          title="The GPU device was lost mid-session (driver reset, OS suspend/resume, or another app claiming the GPU). A browser canvas can't switch rendering modes after the fact, so this document's canvas is no longer updating — reload to restore rendering."
+        >
+          GPU lost — reload to restore
+        </span>
+      )}
+      {compositorDiag && !compositorDiag.deviceLost && (
         <span
           className="editor-status__info"
           title={`GPU ${compositorDiag.gpuActive ? 'active' : compositorDiag.adapterIsFallback ? 'fallback (software adapter declined)' : 'fallback'} · pool ${compositorDiag.vertexPoolEntries} · bundles ${compositorDiag.bundleCacheEntries}`}

@@ -160,4 +160,46 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       expect(true).toBe(true);
     },
   );
+
+  it('reports deviceLost + gpuActive:false once GPUDevice.lost resolves', async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const wgpu = new WebGPUBackend();
+    await wgpu.init(canvas); // no navigator.gpu mocked -> falls back, gpuReady stays false
+
+    let resolveLost: (info: { reason: string; message: string }) => void = () => {};
+    const lost = new Promise<{ reason: string; message: string }>((resolve) => {
+      resolveLost = resolve;
+    });
+    const fakeDevice = { lost } as unknown as GPUDevice;
+
+    expect(wgpu.getDiagnostics().deviceLost).toBe(false);
+    wgpu.watchDeviceLost(fakeDevice);
+    resolveLost({ reason: 'unknown', message: 'simulated device loss' });
+    await lost;
+    // Let the `.then` continuation scheduled inside watchDeviceLost run.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const diag = wgpu.getDiagnostics();
+    expect(diag.deviceLost).toBe(true);
+    expect(diag.gpuActive).toBe(false);
+    wgpu.destroy();
+  });
+
+  it('createCompositorBackend does not attempt an in-place onDeviceLost canvas2d swap', async () => {
+    // Regression test: a browser <canvas> element's context type is fixed
+    // for its lifetime, so re-initializing a Canvas2DBackend on the same
+    // canvas after a WebGPU context was already bound to it cannot work.
+    // The router used to attempt exactly this via a dead closure (the
+    // reassignment never reached the caller, who already holds the
+    // original backend reference by value) — assert it's gone, not
+    // silently reintroduced.
+    const { createCompositorBackend } = await import('../router');
+    const canvas = document.createElement('canvas');
+    const { backend } = await createCompositorBackend(canvas, { preferWebGpu: true });
+    expect((backend as { onDeviceLost?: unknown }).onDeviceLost).toBeUndefined();
+    backend.destroy();
+  });
 });
