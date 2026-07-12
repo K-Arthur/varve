@@ -19,6 +19,7 @@ import {
   type Engine,
   type EngineColor,
   type SceneNode as EngineNode,
+  getFontRegistry,
   getImageCache,
   mapBlendMode,
   prewarmWasmEngine,
@@ -577,6 +578,11 @@ export function CanvasArea({
   useEffect(() => {
     createEngine('auto').then((eng) => {
       engineRef.current = eng;
+      // drawContent() bails out entirely while engineRef.current is null, and
+      // nothing else re-triggers a draw once this async engine init resolves —
+      // force one now so the canvas doesn't stay blank waiting for an
+      // unrelated state change (pan/zoom/doc edit) to happen to redraw it.
+      requestContentDrawRef.current?.();
     });
   }, []);
 
@@ -604,6 +610,10 @@ export function CanvasArea({
           adapterIsFallback: false,
         },
       );
+      // The backend resolves asynchronously; drawContent() may have already run
+      // (and silently no-op'd via optional chaining) with compositorRef still null.
+      // Force one redraw now that a backend is actually available.
+      requestContentDrawRef.current?.();
     });
     return () => {
       backend?.destroy();
@@ -697,6 +707,16 @@ export function CanvasArea({
     return unsub;
   }, []);
 
+  // Re-render the canvas whenever async fonts finish loading.
+  // Without this, dynamic fonts (Google Fonts, FontFace) render in the
+  // fallback typeface on the first frame and never update.
+  useEffect(() => {
+    const unsub = getFontRegistry().subscribe(() => {
+      setImageCacheStamp((n) => n + 1);
+    });
+    return unsub;
+  }, []);
+
   // Auto-enter text edit mode after creating a text node via TextTool
   useEffect(() => {
     if (pendingAutoTextEditRef.current && state.selection.length === 1) {
@@ -770,8 +790,18 @@ export function CanvasArea({
       canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
 
       setPointerCapture: (pointerId) => {
-        const el = contentCanvasRef.current;
-        if (el) el.setPointerCapture(pointerId);
+        try {
+          const el = contentCanvasRef.current;
+          if (el) el.setPointerCapture(pointerId);
+        } catch (err) {
+          // If this throws, BaseTool.onPointerDown aborts before setting
+          // drag.kind = 'dragging', silently breaking every drag-to-create
+          // tool (pointermove is a no-op while drag.kind stays 'idle').
+          // Surface it instead of failing silently.
+          if (typeof console !== 'undefined') {
+            console.warn('[Strata] setPointerCapture failed:', err);
+          }
+        }
       },
       releasePointerCapture: (pointerId) => {
         try {
@@ -875,6 +905,11 @@ export function CanvasArea({
         }
 
         const allTargets = [...filtered, ...pageBoundsTargets];
+        const guideTargets =
+          doc.guides?.map((guide) => ({
+            axis: guide.axis,
+            position: guide.position,
+          })) ?? [];
         const result = snapPosition(
           bounds.x,
           bounds.y,
@@ -886,6 +921,7 @@ export function CanvasArea({
           {
             zoom: s.zoom,
             session: snapSessionRef.current,
+            guideTargets,
             layoutGridStep,
           },
         );
@@ -1816,11 +1852,19 @@ export function CanvasArea({
       ctx.setLineDash([]);
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // The path-drawing above ran inside applyEditorCameraToCtx's transform
+      // (floating origin included), but this label is drawn after resetting
+      // to a plain DPR transform — must redo the same origin-aware world→
+      // screen math here, or the label drifts from the shape once panned.
+      const draftOrigin = computeFloatingOrigin(
+        { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation },
+        vp,
+      );
       if (draft.kind === 'freehand') {
         const pt = draft.points[0];
         if (pt) {
-          const sx = pt.x * s.zoom + s.pan.x;
-          const sy = pt.y * s.zoom + s.pan.y;
+          const sx = (pt.x - draftOrigin[0]) * s.zoom + s.pan.x;
+          const sy = (pt.y - draftOrigin[1]) * s.zoom + s.pan.y;
           ctx.font = '11px system-ui';
           ctx.fillStyle = accentColor;
           ctx.fillText(draft.label ?? `${draft.points.length} pts`, sx + 4, sy + 14);
@@ -1828,12 +1872,12 @@ export function CanvasArea({
       } else {
         const sx =
           draft.kind === 'line' || draft.kind === 'arrow'
-            ? Math.min(draft.x1, draft.x2) * s.zoom + s.pan.x
-            : draft.x * s.zoom + s.pan.x;
+            ? (Math.min(draft.x1, draft.x2) - draftOrigin[0]) * s.zoom + s.pan.x
+            : (draft.x - draftOrigin[0]) * s.zoom + s.pan.x;
         const sy =
           draft.kind === 'line' || draft.kind === 'arrow'
-            ? Math.min(draft.y1, draft.y2) * s.zoom + s.pan.y
-            : draft.y * s.zoom + s.pan.y;
+            ? (Math.min(draft.y1, draft.y2) - draftOrigin[1]) * s.zoom + s.pan.y
+            : (draft.y - draftOrigin[1]) * s.zoom + s.pan.y;
         const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
         ctx.font = '11px system-ui';
         ctx.fillStyle = accentColor;
@@ -1951,14 +1995,21 @@ export function CanvasArea({
           y: s.pan.y + (geo.centroid.y - pinch.lastCentroid.y),
         };
         // …then zoom about the current centroid by the distance ratio.
-        const cam = { pan: panned, zoom: s.zoom };
+        const cam = { pan: panned, zoom: s.zoom, rotation: s.cameraRotation };
+        const viewport = {
+          width: rect?.width ?? contentCanvasRef.current?.clientWidth ?? 1920,
+          height: rect?.height ?? contentCanvasRef.current?.clientHeight ?? 1080,
+        };
+        const origin = computeFloatingOrigin(cam, viewport);
         const anchor = screenToWorld(
           cam,
           geo.centroid.x - (rect?.left ?? 0),
           geo.centroid.y - (rect?.top ?? 0),
+          viewport,
+          origin,
         );
         const factor = pinch.lastDist > 0 ? geo.dist / pinch.lastDist : 1;
-        const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor));
+        const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor), viewport);
         editorRef.current.setZoom(newCam.zoom);
         editorRef.current.setPan(newCam.pan);
         pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
@@ -2068,9 +2119,11 @@ export function CanvasArea({
     const zoomAboutClientPoint = (clientX: number, clientY: number, newZoom: number): void => {
       const s = stateRef.current;
       const rect = el.getBoundingClientRect();
-      const cam = { pan: s.pan, zoom: s.zoom };
-      const anchor = screenToWorld(cam, clientX - rect.left, clientY - rect.top);
-      const newCam = zoomAboutPoint(cam, anchor, clampZoom(newZoom));
+      const viewport = { width: rect.width, height: rect.height };
+      const cam = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
+      const origin = computeFloatingOrigin(cam, viewport);
+      const anchor = screenToWorld(cam, clientX - rect.left, clientY - rect.top, viewport, origin);
+      const newCam = zoomAboutPoint(cam, anchor, clampZoom(newZoom), viewport);
       editorRef.current.setZoom(newCam.zoom);
       editorRef.current.setPan(newCam.pan);
     };
@@ -2243,9 +2296,11 @@ export function CanvasArea({
         const parent = contentCanvasRef.current?.parentElement;
         const vpW = parent?.clientWidth ?? 800;
         const vpH = parent?.clientHeight ?? 600;
-        const cam = { pan: s.pan, zoom: s.zoom };
-        const centreWorld = screenToWorld(cam, vpW / 2, vpH / 2);
-        const newCam = zoomAboutPoint(cam, centreWorld, newZoom);
+        const viewport = { width: vpW, height: vpH };
+        const cam = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
+        const origin = computeFloatingOrigin(cam, viewport);
+        const centreWorld = screenToWorld(cam, vpW / 2, vpH / 2, viewport, origin);
+        const newCam = zoomAboutPoint(cam, centreWorld, newZoom, viewport);
         eRef.setZoom(newCam.zoom);
         eRef.setPan(newCam.pan);
       }
@@ -2392,8 +2447,17 @@ export function CanvasArea({
     const cam = {
       pan: stateRef.current.pan,
       zoom: stateRef.current.zoom,
+      rotation: stateRef.current.cameraRotation,
     };
-    const dropWorld = rect ? screenToWorld(cam, e.clientX - rect.left, e.clientY - rect.top) : null;
+    const dropWorld = rect
+      ? screenToWorld(
+          cam,
+          e.clientX - rect.left,
+          e.clientY - rect.top,
+          { width: rect.width, height: rect.height },
+          computeFloatingOrigin(cam, { width: rect.width, height: rect.height }),
+        )
+      : null;
 
     const reader = editorRef.current;
 
@@ -2585,6 +2649,9 @@ export function CanvasArea({
         artboard={artboardRect}
         pageRulerOrigin={activePage?.rulerOrigin}
         onAddGuide={(axis, position) => editor.addGuide(axis, position)}
+        onMoveGuide={(id, position) => editor.moveGuide(id, position)}
+        canvasWidth={canvasSize.width}
+        canvasHeight={canvasSize.height}
       />
       <GuideOverlay
         guides={editor.guides}
@@ -2669,8 +2736,11 @@ export function CanvasArea({
         if (!hasVariants) return null;
         const worldB = editor.getWorldBounds(singleId);
         if (!worldB) return null;
-        const screenX = worldB.x * state.zoom + state.pan.x;
-        const screenY = worldB.y * state.zoom + state.pan.y;
+        // editor.worldToCanvas applies the same floating-origin correction
+        // the canvas actually paints with — naive world*zoom+pan drifts once
+        // panned away from world (0,0), floating this box away from the
+        // frame it's meant to sit next to.
+        const { x: screenX, y: screenY } = editor.worldToCanvas(worldB.x, worldB.y);
         const screenW = worldB.w * state.zoom;
         const screenH = worldB.h * state.zoom;
         return (
@@ -2698,8 +2768,26 @@ export function CanvasArea({
           const textWorldMat = editor.getWorldTransform(textEditTargetId);
           const worldX = textWorldMat[4];
           const worldY = textWorldMat[5];
-          const textScreenX = worldX * state.zoom + state.pan.x + canvasLeft;
-          const textScreenY = worldY * state.zoom + state.pan.y + canvasTop;
+          // Must match the transform the canvas actually paints with
+          // (applyEditorCameraToCtx: floating origin + rotation) — naive
+          // world*zoom+pan drifts from the real paint position once panned
+          // away from world (0,0), landing this overlay somewhere other than
+          // the text node it's meant to be editing.
+          const textCam = { zoom: state.zoom, pan: state.pan, rotation: state.cameraRotation ?? 0 };
+          const textViewport = {
+            width: canvasRect?.width ?? 1920,
+            height: canvasRect?.height ?? 1080,
+          };
+          const textOrigin = computeFloatingOrigin(textCam, textViewport);
+          const [textCanvasX, textCanvasY] = worldToScreen(
+            textCam,
+            worldX,
+            worldY,
+            textViewport,
+            textOrigin,
+          );
+          const textScreenX = textCanvasX + canvasLeft;
+          const textScreenY = textCanvasY + canvasTop;
           const textScreenW =
             (n.text.length > 0
               ? n.text.length * (n.fontSize ?? 16) * 0.6
@@ -2717,6 +2805,7 @@ export function CanvasArea({
                 node={n}
                 zoom={state.zoom}
                 pan={state.pan}
+                cameraRotation={state.cameraRotation}
                 canvasElement={contentCanvasRef.current}
                 worldX={worldX}
                 worldY={worldY}

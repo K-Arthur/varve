@@ -1,5 +1,11 @@
 import type { MeshWarp } from '@strata/engine';
+import {
+  computeFloatingOrigin,
+  screenToWorld as sharedScreenToWorld,
+  worldToScreen as sharedWorldToScreen,
+} from '@strata/shared';
 import { useCallback, useRef, useState } from 'react';
+import { getEditorViewport } from '../canvas/cameraState';
 
 interface MeshWarpOverlayProps {
   zoom: number;
@@ -12,10 +18,17 @@ interface MeshWarpOverlayProps {
   onDragStart?: () => void;
   /** Called when a drag gesture completes. */
   onDragEnd?: () => void;
-  /** Camera rotation in degrees (default 0). */
+  /** Camera rotation in radians (default 0) — matches EditorState.cameraRotation. */
   cameraRotation?: number;
 }
 
+// Must match the transform the canvas actually paints with
+// (applyEditorCameraToCtx: floating origin + rotation) — the previous local
+// implementation handled rotation but, missing the floating-origin
+// correction, still drifted from the real paint position once panned away
+// from world (0,0). It also treated `rotation` as degrees while
+// EditorState.cameraRotation (what CanvasArea actually passes in) is
+// radians, silently mis-rotating handles whenever the view was rotated.
 function worldToScreen(
   wx: number,
   wy: number,
@@ -23,15 +36,11 @@ function worldToScreen(
   pan: { x: number; y: number },
   rotation: number,
 ): { x: number; y: number } {
-  if (rotation !== 0) {
-    const rad = (rotation * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-    const rx = wx * cos - wy * sin;
-    const ry = wx * sin + wy * cos;
-    return { x: rx * zoom + pan.x, y: ry * zoom + pan.y };
-  }
-  return { x: wx * zoom + pan.x, y: wy * zoom + pan.y };
+  const cam = { zoom, pan, rotation };
+  const viewport = getEditorViewport();
+  const origin = computeFloatingOrigin(cam, viewport);
+  const [x, y] = sharedWorldToScreen(cam, wx, wy, viewport, origin);
+  return { x, y };
 }
 
 function screenToWorld(
@@ -41,15 +50,11 @@ function screenToWorld(
   pan: { x: number; y: number },
   rotation: number,
 ): { x: number; y: number } {
-  const ux = (sx - pan.x) / zoom;
-  const uy = (sy - pan.y) / zoom;
-  if (rotation !== 0) {
-    const rad = (-rotation * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-    return { x: ux * cos - uy * sin, y: ux * sin + uy * cos };
-  }
-  return { x: ux, y: uy };
+  const cam = { zoom, pan, rotation };
+  const viewport = getEditorViewport();
+  const origin = computeFloatingOrigin(cam, viewport);
+  const [x, y] = sharedScreenToWorld(cam, sx, sy, viewport, origin);
+  return { x, y };
 }
 
 export function MeshWarpOverlay({

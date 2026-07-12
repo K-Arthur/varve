@@ -10,7 +10,9 @@
  */
 
 import type { Document, SceneNode } from '@strata/scene';
+import { computeFloatingOrigin, worldToScreen as sharedWorldToScreen } from '@strata/shared';
 import { useMemo } from 'react';
+import { getEditorViewport } from '../../canvas/cameraState';
 import { edgeDistance, worldBBox } from './measurement';
 
 interface MeasureOverlayProps {
@@ -21,13 +23,21 @@ interface MeasureOverlayProps {
   hoveredNode: SceneNode | null;
 }
 
+// Must match the transform the canvas actually paints with
+// (applyEditorCameraToCtx: floating origin) — naive world*zoom+pan drifts
+// from the real paint position once panned away from world (0,0), putting
+// these measurement readouts on the wrong edges of the node.
 function worldToScreen(
   wx: number,
   wy: number,
   pan: { x: number; y: number },
   zoom: number,
 ): [number, number] {
-  return [wx * zoom + pan.x, wy * zoom + pan.y];
+  const cam = { zoom, pan };
+  const viewport = getEditorViewport();
+  const origin = computeFloatingOrigin(cam, viewport);
+  const [x, y] = sharedWorldToScreen(cam, wx, wy, viewport, origin);
+  return [x, y];
 }
 
 function renderDimensionLine(

@@ -107,7 +107,7 @@ export interface DocumentContextValue {
   setLayerColor: (id: NodeId, color: LayerColor) => void;
   setNodeLayout: (id: NodeId, layout: LayoutStyle | undefined) => void;
   guides: Guide[];
-  addGuide: (axis: 'horizontal' | 'vertical', position: number) => void;
+  addGuide: (axis: 'horizontal' | 'vertical', position: number) => string;
   removeGuide: (id: string) => void;
   moveGuide: (id: string, position: number) => void;
   toggleGuideLock: (id: string) => void;

@@ -9,16 +9,23 @@
  *                 Schneider, P. Graphics Gems (1990).
  */
 
+import type { PathPoint } from '@strata/engine';
 import { BaseTool } from './BaseTool';
 import type { Point2D } from './fitting';
 import { fitPathToBeziers, simplifyPoints } from './fitting';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
+interface CapturedPoint extends Point2D {
+  pressure: number;
+}
+
 export class PencilTool extends BaseTool {
   id = 'pencil' as const;
 
-  private captured: Point2D[] = [];
+  private captured: CapturedPoint[] = [];
   private rafId: number | null = null;
+  /** Pressure from initial pointerDown, used for all points in this stroke. */
+  private strokePressure: number = 0.5;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
@@ -28,7 +35,8 @@ export class PencilTool extends BaseTool {
     const result = super.onPointerDown(e, ctx);
     if (!result.consumed) return result;
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.captured = [{ x: world.x, y: world.y }];
+    this.strokePressure = e.pressure > 0 ? e.pressure : 0.5;
+    this.captured = [{ x: world.x, y: world.y, pressure: this.strokePressure }];
     this.startCapture(ctx);
     return result;
   }
@@ -54,11 +62,15 @@ export class PencilTool extends BaseTool {
     const epsilon = SCREEN_PX_EPSILON / ctx.zoom;
     const simplified = simplifyPoints(this.captured, epsilon);
     const fitted = fitPathToBeziers(simplified);
-    const pathPoints = fitted.map((p) => ({
+    // Average pressure across captured points for the stroke
+    const avgPressure =
+      this.captured.reduce((sum, p) => sum + p.pressure, 0) / this.captured.length;
+    const pathPoints: PathPoint[] = fitted.map((p) => ({
       x: p.x,
       y: p.y,
       handleIn: p.handleIn as [number, number] | null,
       handleOut: p.handleOut as [number, number] | null,
+      pressure: avgPressure,
     }));
 
     const parentId = this.commitToParent(
@@ -100,7 +112,7 @@ export class PencilTool extends BaseTool {
         const dx = cur.x - last.x;
         const dy = cur.y - last.y;
         if (dx * dx + dy * dy > 1) {
-          this.captured.push({ x: cur.x, y: cur.y });
+          this.captured.push({ x: cur.x, y: cur.y, pressure: this.strokePressure });
           ctx.setDraft({
             kind: 'freehand',
             points: this.captured,

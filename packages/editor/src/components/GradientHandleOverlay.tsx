@@ -1,6 +1,8 @@
 import type { Document, Fill, GradientFill, NodeId } from '@strata/scene';
 import type { Affine } from '@strata/shared';
+import { computeFloatingOrigin, screenToWorld, worldToScreen } from '@strata/shared';
 import { useCallback, useRef, useState } from 'react';
+import { getEditorViewport } from '../canvas/cameraState';
 
 interface GradientHandleOverlayProps {
   zoom: number;
@@ -11,13 +13,21 @@ interface GradientHandleOverlayProps {
   onUpdateGradient: (nodeId: NodeId, fillIndex: number, gradient: GradientFill) => void;
 }
 
+// Must match the transform the canvas actually paints with
+// (applyEditorCameraToCtx: floating origin) — naive world*zoom+pan drifts
+// from the real paint position once panned away from world (0,0), putting
+// these handles somewhere other than the gradient they're meant to control.
 function worldToCanvas(
   wx: number,
   wy: number,
   zoom: number,
   pan: { x: number; y: number },
 ): { x: number; y: number } {
-  return { x: wx * zoom + pan.x, y: wy * zoom + pan.y };
+  const cam = { zoom, pan };
+  const viewport = getEditorViewport();
+  const origin = computeFloatingOrigin(cam, viewport);
+  const [x, y] = worldToScreen(cam, wx, wy, viewport, origin);
+  return { x, y };
 }
 
 interface GradientHandle {
@@ -141,8 +151,16 @@ export function GradientHandleOverlay({
         if (!dragRef.current) return;
         const rect = (e.currentTarget as HTMLElement).closest('section')?.getBoundingClientRect();
         if (!rect) return;
-        const mx = (me.clientX - rect.left - pan.x) / zoom;
-        const my = (me.clientY - rect.top - pan.y) / zoom;
+        const cam = { zoom, pan };
+        const viewport = getEditorViewport();
+        const origin = computeFloatingOrigin(cam, viewport);
+        const [mx, my] = screenToWorld(
+          cam,
+          me.clientX - rect.left,
+          me.clientY - rect.top,
+          viewport,
+          origin,
+        );
         const newAngle = Math.atan2(my - h.cy, mx - h.cx);
         const newDeg = ((newAngle * 180) / Math.PI + 360) % 360;
         const updatedGrad = { ...h.gradient, rotation: Math.round(newDeg) };

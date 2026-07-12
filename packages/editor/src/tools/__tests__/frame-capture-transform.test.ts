@@ -1,13 +1,25 @@
-import { describe, expect, it } from 'vitest';
-import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode, type Document } from '@strata/scene';
-import { nodeWorldTransform } from '../../scene/world';
+import {
+  addChild,
+  addNode,
+  createDocument,
+  type Document,
+  makeFrameNode,
+  makeShapeNode,
+} from '@strata/scene';
 import { transformRect } from '@strata/shared';
+import { describe, expect, it } from 'vitest';
+import { nodeWorldTransform } from '../../scene/world';
 
 function captureCheck(doc: Document, frameId: string, siblingId: string): boolean {
   const frameNode = doc.nodes[frameId] as any;
   const frameWorld = nodeWorldTransform(doc, frameId);
   const frameBounds = transformRect(frameWorld, { x: 0, y: 0, w: frameNode.w, h: frameNode.h });
-  const siblingBounds = transformRect(nodeWorldTransform(doc, siblingId), { x: 0, y: 0, w: 100, h: 80 });
+  const siblingBounds = transformRect(nodeWorldTransform(doc, siblingId), {
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 80,
+  });
   return (
     siblingBounds.x >= frameBounds.x &&
     siblingBounds.y >= frameBounds.y &&
@@ -23,10 +35,14 @@ describe('Frame capture world-space AABB', () => {
     const parent = makeFrameNode('p', { w: 500, h: 500, name: 'Parent' });
     doc = addNode(doc, parent);
     // Add sibling shape inside parent
-    const shape = makeShapeNode('s', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, {
-      name: 'Shape',
-      transform: [1, 0, 0, 1, 20, 20],
-    });
+    const shape = makeShapeNode(
+      's',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      {
+        name: 'Shape',
+        transform: [1, 0, 0, 1, 20, 20],
+      },
+    );
     doc = addChild(doc, 'p', shape);
     // Add capture frame inside parent, overlapping shape
     const frame = makeFrameNode('f', { w: 300, h: 200, name: 'Frame' });
@@ -39,10 +55,14 @@ describe('Frame capture world-space AABB', () => {
     let doc = createDocument('Test', true);
     const parent = makeFrameNode('p', { w: 500, h: 500, name: 'Parent' });
     doc = addNode(doc, parent);
-    const shape = makeShapeNode('s', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, {
-      name: 'Shape',
-      transform: [1, 0, 0, 1, 400, 400],
-    });
+    const shape = makeShapeNode(
+      's',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      {
+        name: 'Shape',
+        transform: [1, 0, 0, 1, 400, 400],
+      },
+    );
     doc = addChild(doc, 'p', shape);
     const frame = makeFrameNode('f', { w: 300, h: 200, name: 'Frame' });
     doc = addChild(doc, 'p', { ...frame, transform: [1, 0, 0, 1, 10, 10] });
@@ -56,10 +76,14 @@ describe('Frame capture world-space AABB', () => {
     const parent = makeFrameNode('p', { w: 500, h: 500, name: 'Parent' });
     doc = addNode(doc, { ...parent, transform: [2, 0, 0, 2, 0, 0] });
     // Shape inside parent at local (20,20)
-    const shape = makeShapeNode('s', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, {
-      name: 'Shape',
-      transform: [1, 0, 0, 1, 20, 20],
-    });
+    const shape = makeShapeNode(
+      's',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      {
+        name: 'Shape',
+        transform: [1, 0, 0, 1, 20, 20],
+      },
+    );
     doc = addChild(doc, 'p', shape);
     // Frame inside parent at local (10,10)
     const frame = makeFrameNode('f', { w: 200, h: 200, name: 'Frame' });

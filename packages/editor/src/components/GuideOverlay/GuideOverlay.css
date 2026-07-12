@@ -5,6 +5,12 @@
   height: 100%;
   z-index: calc(var(--z-raised, 50) - 2);
   overflow: hidden;
+  /* Only the per-guide 8px hit-strips (pointerEvents: 'auto' inline) should
+   * be interactive — without this, whenever any guide exists, this full-
+   * canvas-sized container silently eats every pointer event outside those
+   * thin strips, since none of its other (pointer-events:none) descendants
+   * are hit-testable and the browser falls back to testing this box. */
+  pointer-events: none;
 }
 
 .guide-overlay__svg {

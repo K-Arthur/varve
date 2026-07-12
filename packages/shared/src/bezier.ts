@@ -30,6 +30,8 @@ export interface PathPoint {
   y: number;
   handleIn: [number, number] | null;
   handleOut: [number, number] | null;
+  pressure?: number;
+  tilt?: { x: number; y: number };
 }
 
 function lerp(a: number, b: number, t: number): number {

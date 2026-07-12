@@ -1,4 +1,6 @@
+import { computeFloatingOrigin } from '@strata/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getEditorViewport } from '../../canvas/cameraState';
 import { useEditor } from '../../context';
 import { nodeWorldBounds } from '../../scene/world';
 import './alignment-overlay.css';
@@ -48,12 +50,18 @@ export function AlignmentGuideOverlay() {
   const zoom = state.zoom;
   const pan = state.pan;
   const width = typeof window !== 'undefined' ? window.innerWidth : 99999;
+  // These guide lines are drawn purely axis-aligned (no camera-rotation
+  // support), so only the floating-origin translation needs correcting here
+  // — not a full 2D worldToScreen, which would also rotate the line.
+  const origin = computeFloatingOrigin({ zoom, pan, rotation: 0 }, getEditorViewport());
 
   return (
     <svg className="alignment-guide-overlay" aria-hidden="true">
       <title>Alignment guides</title>
       {guides.map((guide, _i) => {
-        const pos = guide.position * zoom + (guide.axis === 'vertical' ? pan.x : pan.y);
+        const originAxis = guide.axis === 'vertical' ? origin[0] : origin[1];
+        const pos =
+          (guide.position - originAxis) * zoom + (guide.axis === 'vertical' ? pan.x : pan.y);
         return (
           <line
             key={`guide-${guide.axis}-${guide.position}`}

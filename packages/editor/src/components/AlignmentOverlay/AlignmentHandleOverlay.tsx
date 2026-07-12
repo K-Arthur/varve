@@ -1,4 +1,6 @@
+import { computeFloatingOrigin } from '@strata/shared';
 import { useCallback, useRef, useState } from 'react';
+import { getEditorViewport } from '../../canvas/cameraState';
 import { useEditor } from '../../context';
 import { nodeWorldBounds } from '../../scene/world';
 import './alignment-overlay.css';
@@ -24,12 +26,16 @@ interface SessionData {
   gaps: number[];
 }
 
-function worldToScreenX(wx: number, zoom: number, panX: number): number {
-  return wx * zoom + panX;
+// Must match the transform the canvas actually paints with
+// (applyEditorCameraToCtx: floating origin) — naive world*zoom+pan drifts
+// from the real paint position once panned away from world (0,0), putting
+// these spacing handles somewhere other than the selection they measure.
+function worldToScreenX(wx: number, zoom: number, panX: number, originX: number): number {
+  return (wx - originX) * zoom + panX;
 }
 
-function worldToScreenY(wy: number, zoom: number, panY: number): number {
-  return wy * zoom + panY;
+function worldToScreenY(wy: number, zoom: number, panY: number, originY: number): number {
+  return (wy - originY) * zoom + panY;
 }
 
 export function AlignmentHandleOverlay() {
@@ -43,6 +49,10 @@ export function AlignmentHandleOverlay() {
   const doc = state.document;
   const zoom = state.zoom;
   const pan = state.pan;
+  const origin = computeFloatingOrigin(
+    { zoom, pan, rotation: state.cameraRotation },
+    getEditorViewport(),
+  );
 
   const computeData = useCallback(() => {
     if (sel.length < 2) return null;
@@ -135,15 +145,21 @@ export function AlignmentHandleOverlay() {
     return sortedH.slice(0, -1).map((item, i) => {
       const next = sortedH[i + 1];
       if (!next) return null;
-      const left = worldToScreenX(item.x + item.w, zoom, pan.x);
-      const right = worldToScreenX(next.x, zoom, pan.x);
+      const left = worldToScreenX(item.x + item.w, zoom, pan.x, origin[0]);
+      const right = worldToScreenX(next.x, zoom, pan.x, origin[0]);
       const midX = (left + right) / 2;
-      const topY = worldToScreenY(Math.min(item.y, next.y), zoom, pan.y);
-      const bottomY = worldToScreenY(Math.max(item.y + item.h, next.y + next.h), zoom, pan.y);
+      const topY = worldToScreenY(Math.min(item.y, next.y), zoom, pan.y, origin[1]);
+      const bottomY = worldToScreenY(
+        Math.max(item.y + item.h, next.y + next.h),
+        zoom,
+        pan.y,
+        origin[1],
+      );
       const midY = worldToScreenY(
         (Math.max(item.y + item.h, next.y + next.h) + Math.min(item.y, next.y)) / 2,
         zoom,
         pan.y,
+        origin[1],
       );
 
       const gap =
@@ -198,15 +214,21 @@ export function AlignmentHandleOverlay() {
     return sortedV.slice(0, -1).map((item, i) => {
       const next = sortedV[i + 1];
       if (!next) return null;
-      const top = worldToScreenY(item.y + item.h, zoom, pan.y);
-      const bottom = worldToScreenY(next.y, zoom, pan.y);
+      const top = worldToScreenY(item.y + item.h, zoom, pan.y, origin[1]);
+      const bottom = worldToScreenY(next.y, zoom, pan.y, origin[1]);
       const midY = (top + bottom) / 2;
-      const leftX = worldToScreenX(Math.min(item.x, next.x), zoom, pan.x);
-      const rightX = worldToScreenX(Math.max(item.x + item.w, next.x + next.w), zoom, pan.x);
+      const leftX = worldToScreenX(Math.min(item.x, next.x), zoom, pan.x, origin[0]);
+      const rightX = worldToScreenX(
+        Math.max(item.x + item.w, next.x + next.w),
+        zoom,
+        pan.x,
+        origin[0],
+      );
       const midX = worldToScreenX(
         (Math.max(item.x + item.w, next.x + next.w) + Math.min(item.x, next.x)) / 2,
         zoom,
         pan.x,
+        origin[0],
       );
 
       const gap =

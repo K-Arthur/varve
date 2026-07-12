@@ -40,11 +40,10 @@ struct VertexOutput {
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
   var out: VertexOutput;
-  let m = mat2x3f(
-    vec3f(input.transform.x, input.transform.y, input.transform.z),
-    vec3f(input.transform.w, input.transform2.x, input.transform2.y),
+  let world = vec2f(
+    input.transform.x * input.localPos.x + input.transform.z * input.localPos.y + input.transform.w,
+    input.transform.y * input.localPos.x + input.transform2.x * input.localPos.y + input.transform2.y,
   );
-  let world = m * vec3f(input.localPos.x, input.localPos.y, 1.0);
   let screen = vec2f(
     (world.x - camera.origin.x) * camera.zoom + camera.pan.x,
     (world.y - camera.origin.y) * camera.zoom + camera.pan.y,

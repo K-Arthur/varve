@@ -384,6 +384,29 @@ describe('PenTool', () => {
     expect(pathPoints[1]?.handleIn).toBeNull();
   });
 
+  it('undo granularity: commitPath is atomic (single createShapeAt call)', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    // Place 3 points, then commit via Enter
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(300, 200), ctx);
+    tool.onPointerUp?.(makePointerEvent(300, 200), ctx);
+
+    // Only 1 shape should be created, not 3
+    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    expect(ctx.createShapeAt).toHaveBeenCalledTimes(1);
+  });
+
   it('normal drag creates symmetric handles (handleIn mirrors handleOut)', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
@@ -400,7 +423,10 @@ describe('PenTool', () => {
 
     const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
     const callArgs = mock.calls[0];
-    const pathPoints = callArgs?.[3] as Array<{ handleIn: [number, number] | null; handleOut: [number, number] | null }>;
+    const pathPoints = callArgs?.[3] as Array<{
+      handleIn: [number, number] | null;
+      handleOut: [number, number] | null;
+    }>;
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
     const hOut = pathPoints[0]?.handleOut;
@@ -411,6 +437,73 @@ describe('PenTool', () => {
     if (hOut && hIn) {
       expect(hIn[0]).toBeCloseTo(-hOut[0], 5);
       expect(hIn[1]).toBeCloseTo(-hOut[1], 5);
+    }
+  });
+
+  it('Shift-drag handle snaps handle direction to 45-degree increments', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    // Dragon at ~30° angle (tan⁻¹(57.7/100) ≈ 30°) with Shift
+    // Should snap to 45°: handleOut direction should be (cos45, sin45) = (0.7071, 0.7071)
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerMove?.(makePointerEvent(200, 157.7, { shiftKey: true }), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 157.7, { shiftKey: true }), ctx);
+
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(300, 300), ctx);
+    tool.onPointerUp?.(makePointerEvent(300, 300), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{
+      handleOut: [number, number] | null;
+      handleIn: [number, number] | null;
+    }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    const hOut = pathPoints[0]?.handleOut;
+    expect(hOut).not.toBeNull();
+    if (hOut) {
+      // Direction should be at 45° (cos45 ≈ sin45 ≈ 0.707 × length)
+      const angle = Math.atan2(hOut[1], hOut[0]);
+      const snappedDeg = Math.round((angle * 180) / Math.PI);
+      expect(snappedDeg % 45).toBe(0);
+    }
+  });
+
+  it('Shift-drag at 60° snaps to 45° not 90°', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    // Drag at ~60° angle with Shift
+    // Should snap to 45° (closest 45° increment for 60° is 45°)
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerMove?.(makePointerEvent(150, 186.6, { shiftKey: true }), ctx);
+    tool.onPointerUp?.(makePointerEvent(150, 186.6, { shiftKey: true }), ctx);
+
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(300, 200), ctx);
+    tool.onPointerUp?.(makePointerEvent(300, 200), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{
+      handleOut: [number, number] | null;
+    }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    const hOut = pathPoints[0]?.handleOut;
+    expect(hOut).not.toBeNull();
+    if (hOut) {
+      const angle = Math.atan2(hOut[1], hOut[0]);
+      const snappedDeg = Math.round((angle * 180) / Math.PI);
+      // Should snap to 45° (not 90°)
+      expect(snappedDeg).toBe(45);
     }
   });
 
