@@ -3,6 +3,7 @@
 /**
  * WebGPU capability detection with fallback adapter reporting.
  */
+import { selectWebGpuAdapter } from '@strata/engine';
 import type { CompositorCapabilities } from '../types';
 
 export async function detectWebGPU(
@@ -15,23 +16,22 @@ export async function detectWebGPU(
   if (!gpu) {
     return { webgpu: false, webgpuReason: 'navigator.gpu unavailable' };
   }
-  // Try the requested preference first, fall back to the other if unavailable.
-  const preferences: GPUPowerPreference[] = powerPreference
-    ? [powerPreference, powerPreference === 'high-performance' ? 'low-power' : 'high-performance']
-    : ['high-performance', 'low-power'];
-  for (const pref of preferences) {
-    try {
-      const adapter = await gpu.requestAdapter({ powerPreference: pref });
-      if (!adapter) continue;
-      const device = await adapter.requestDevice();
-      device.destroy();
-      return {
-        webgpu: true,
-        isFallbackAdapter: adapter.info?.description?.includes('fallback') ?? false,
-      };
-    } catch {
-      // Fall through to next preference.
-    }
+  // Same adapter-selection policy as WebGPUBackend.init (ADR-0003 Minimum
+  // Supported Baseline): decline software adapters rather than reporting
+  // them as usable, so this capability probe and the real backend init
+  // agree on whether a given machine gets GPU or Canvas2D.
+  const result = await selectWebGpuAdapter(gpu, { powerPreference, requireHardwareAdapter: true });
+  if (result.kind === 'unavailable') {
+    return { webgpu: false, webgpuReason: 'no adapter available' };
   }
-  return { webgpu: false, webgpuReason: 'no adapter available' };
+  if (result.kind === 'declined-software') {
+    return { webgpu: false, webgpuReason: 'software adapter declined', isFallbackAdapter: true };
+  }
+  try {
+    const device = await result.adapter.requestDevice();
+    device.destroy();
+  } catch {
+    return { webgpu: false, webgpuReason: 'device request failed' };
+  }
+  return { webgpu: true, isFallbackAdapter: result.isFallbackAdapter };
 }
