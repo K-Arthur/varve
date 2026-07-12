@@ -54,8 +54,17 @@ struct VertexOutput {
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
   var out: VertexOutput;
-  // Affine transform manually computed — naga 30 rejects mat2x3f * vec3f
-  // despite it being valid WGSL (naga regression).
+  // Affine transform manually computed as scalar arithmetic rather than a
+  // matrix multiply. An earlier version used `mat2x3f(...) * vec3f(...)`,
+  // which is genuinely invalid WGSL (not a naga bug): WGSL's matCxR * vecC
+  // rule requires the vector's component count to match the matrix's
+  // *column* count, so mat2x3 (2 columns) needs a vec2 operand, not vec3 —
+  // verified directly against this crate's pinned naga version, which
+  // correctly rejects it at validation time ("Operation Multiply can't work
+  // with Matrix{columns:Bi,rows:Tri} and Vector{size:Tri}"). The intended
+  // op is representable as `mat3x2f(...) * vec3f(...)` (3 columns matching
+  // the vec3 homogeneous-coordinate input, producing a vec2) instead — this
+  // scalar form is kept for now since it's already validated end-to-end.
   let world = vec2f(
     input.transform.x * input.localPos.x + input.transform.z * input.localPos.y + input.transform.w,
     input.transform.y * input.localPos.x + input.transform2.x * input.localPos.y + input.transform2.y,
@@ -204,8 +213,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 // ---- helpers ----
 
 fn validate(wgsl: &str, name: &str, has_entry_points: bool) {
-    let module = parse_str(wgsl)
-        .unwrap_or_else(|e| panic!("{name}: WGSL parse failed: {e}"));
+    let module = parse_str(wgsl).unwrap_or_else(|e| panic!("{name}: WGSL parse failed: {e}"));
 
     if has_entry_points {
         let mut validator = Validator::new(ValidationFlags::all(), Capabilities::all());
@@ -237,7 +245,11 @@ fn solid_fragment_wgsl() {
 fn circle_vertex_wgsl() {
     // CIRCLE_VERTEX_WGSL aliases SOLID_VERTEX_WGSL in the TS source.
     // Validate it as a separate test to confirm the alias compiles.
-    validate(SOLID_VERTEX_WGSL, "CIRCLE_VERTEX_WGSL (= SOLID_VERTEX_WGSL)", true);
+    validate(
+        SOLID_VERTEX_WGSL,
+        "CIRCLE_VERTEX_WGSL (= SOLID_VERTEX_WGSL)",
+        true,
+    );
 }
 
 #[test]
@@ -257,10 +269,18 @@ fn blit_fragment_wgsl() {
 
 #[test]
 fn separable_blur_h_wgsl() {
-    validate(SEPARABLE_BLUR_H_WGSL, "separableBlurH (gpuAccelerator)", true);
+    validate(
+        SEPARABLE_BLUR_H_WGSL,
+        "separableBlurH (gpuAccelerator)",
+        true,
+    );
 }
 
 #[test]
 fn separable_blur_v_wgsl() {
-    validate(SEPARABLE_BLUR_V_WGSL, "separableBlurV (gpuAccelerator)", true);
+    validate(
+        SEPARABLE_BLUR_V_WGSL,
+        "separableBlurV (gpuAccelerator)",
+        true,
+    );
 }

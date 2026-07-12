@@ -44,6 +44,59 @@ describe('GpuAccelerator', () => {
     });
   });
 
+  describe('initialize with a mocked navigator.gpu', () => {
+    function mockGpu(adapterInfo: { device?: string; description?: string; vendor?: string }) {
+      const originalGpu = (navigator as Navigator & { gpu?: unknown }).gpu;
+      Object.defineProperty(navigator, 'gpu', {
+        configurable: true,
+        value: {
+          requestAdapter: async () => ({
+            info: adapterInfo,
+            requestDevice: async () => ({
+              limits: { maxTextureDimension2D: 8192 },
+              lost: new Promise(() => {}),
+              destroy: () => {},
+            }),
+          }),
+        },
+      });
+      return () =>
+        Object.defineProperty(navigator, 'gpu', { configurable: true, value: originalGpu });
+    }
+
+    it('reports available=true and reads adapterName from the synchronous adapter.info property', async () => {
+      // Regression test for GPUAdapter.requestAdapterInfo(), removed from
+      // the spec/browsers in favor of `.info` (Chrome 131+) — the old code
+      // called the removed method, always threw, and silently disabled GPU
+      // acceleration on every current browser regardless of real hardware.
+      const restore = mockGpu({ description: 'Mock GPU', vendor: 'MockVendor' });
+      GpuAccelerator.resetInstance();
+      try {
+        const accel = GpuAccelerator.getInstance();
+        const caps = await accel.initialize();
+        expect(caps.available).toBe(true);
+        expect(caps.adapterName).toBe('Mock GPU');
+        expect(caps.maxTextureDimension).toBe(8192);
+      } finally {
+        GpuAccelerator.resetInstance();
+        restore();
+      }
+    });
+
+    it('declines a software-emulated adapter, consistent with the render compositor (ADR-0003)', async () => {
+      const restore = mockGpu({ device: 'SwiftShader Device (LLVM)' });
+      GpuAccelerator.resetInstance();
+      try {
+        const accel = GpuAccelerator.getInstance();
+        const caps = await accel.initialize();
+        expect(caps.available).toBe(false);
+      } finally {
+        GpuAccelerator.resetInstance();
+        restore();
+      }
+    });
+  });
+
   describe('gaussianBlur', () => {
     it('falls back to CPU when WebGPU unavailable', async () => {
       const accel = GpuAccelerator.getInstance();
