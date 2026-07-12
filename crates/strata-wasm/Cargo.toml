@@ -20,7 +20,13 @@ serde_json = "1"
 workspace = true
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = "-O3"
+# wasm-pack's bundled wasm-opt binary in this environment doesn't validate
+# bulk-memory ops emitted by the current Rust toolchain (fails with
+# "Bulk memory operations require bulk memory [--enable-bulk-memory]").
+# Disabled here; `just wasm-build` runs a separate manual wasm-opt pass
+# (skipped gracefully if no system wasm-opt is on PATH) instead of relying
+# on wasm-pack's bundled one.
+wasm-opt = false
 
 [package.metadata.wasm-pack.profile.dev]
 wasm-opt = false

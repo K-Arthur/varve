@@ -1,5 +1,7 @@
 packages:
-  - "apps/*"
+  # apps/web removed 2026-07-12 — was a Next.js scaffold with no meaningful code (task 0.9 deferred indefinitely).
+  - "apps/desktop"
+  - "apps/website"
   - "packages/*"
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).

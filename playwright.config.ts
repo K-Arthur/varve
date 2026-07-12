@@ -16,6 +16,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium-snapshot', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     // Safari/WebKit requires macOS for full testing — runs basic smoke tests on Linux
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },

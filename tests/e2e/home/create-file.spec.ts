@@ -7,15 +7,15 @@ test.describe('Create File dialog', () => {
   });
 
   test('clicking New File opens dialog', async ({ page }) => {
-    await page.getByRole('button', { name: /new file/i }).click();
-    const dialog = page.locator('dialog.strata-dialog');
+    await page.getByRole('button', { name: /^new$/i }).click();
+    const dialog = page.locator('dialog.strata-dialog[open]');
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('.strata-dialog__title')).toContainText(/new file/i);
   });
 
   test('presets tab shows preset options', async ({ page }) => {
-    await page.getByRole('button', { name: /new file/i }).click();
-    const dialog = page.locator('dialog.strata-dialog');
+    await page.getByRole('button', { name: /^new$/i }).click();
+    const dialog = page.locator('dialog.strata-dialog[open]');
     await expect(dialog).toBeVisible();
 
     await expect(dialog.getByText('Presets')).toBeVisible();
@@ -24,8 +24,8 @@ test.describe('Create File dialog', () => {
   });
 
   test('templates tab shows templates', async ({ page }) => {
-    await page.getByRole('button', { name: /new file/i }).click();
-    const dialog = page.locator('dialog.strata-dialog');
+    await page.getByRole('button', { name: /^new$/i }).click();
+    const dialog = page.locator('dialog.strata-dialog[open]');
     await expect(dialog).toBeVisible();
 
     await dialog.getByText('Templates').click();
@@ -38,8 +38,8 @@ test.describe('Create File dialog', () => {
   });
 
   test('clicking Create navigates to editor', async ({ page }) => {
-    await page.getByRole('button', { name: /new file/i }).click();
-    await page.waitForSelector('dialog.strata-dialog');
+    await page.getByRole('button', { name: /^new$/i }).click();
+    await page.waitForSelector('dialog.strata-dialog[open]');
 
     await page.getByRole('button', { name: /^create$/i }).click();
     await page.waitForSelector('.layers-panel', { timeout: 10000 });

@@ -40,6 +40,8 @@ afterEach(() => {
 });
 
 if (typeof HTMLCanvasElement !== 'undefined') {
+  HTMLCanvasElement.prototype.setPointerCapture = vi.fn();
+  HTMLCanvasElement.prototype.releasePointerCapture = vi.fn();
   Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
     configurable: true,
     value(contextId: string) {
@@ -79,12 +81,20 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         stroke: vi.fn(),
         setLineDash: vi.fn(),
         fillText: vi.fn(),
-        measureText: vi.fn().mockReturnValue({
-          width: 0,
-          actualBoundingBoxAscent: 0,
-          actualBoundingBoxDescent: 0,
-          fontBoundingBoxAscent: 0,
-          fontBoundingBoxDescent: 0,
+        measureText: vi.fn((text: string) => {
+          // Parse font size from the font set on the context, fallback to 16px.
+          const fontStr = ctx.font || '16px sans-serif';
+          const sizeMatch = fontStr.match(/(\d+(?:\.\d+)?)px/);
+          const fontSize = sizeMatch ? Number.parseFloat(sizeMatch[1]) : 16;
+          // Estimate width: average glyph width ≈ 0.55 * fontSize for latin text.
+          const avgWidth = fontSize * 0.55;
+          return {
+            width: text.length * avgWidth,
+            actualBoundingBoxAscent: fontSize * 0.8,
+            actualBoundingBoxDescent: fontSize * 0.2,
+            fontBoundingBoxAscent: fontSize,
+            fontBoundingBoxDescent: fontSize * 0.25,
+          };
         }),
         translate: vi.fn(),
         scale: vi.fn(),
@@ -132,20 +142,89 @@ if (typeof ImageData === 'undefined') {
 
 // jsdom does not implement OffscreenCanvas
 if (typeof OffscreenCanvas === 'undefined') {
-  globalThis.OffscreenCanvas = class OffscreenCanvas {
+  class OffscreenCanvasMock {
     width: number;
     height: number;
+    private _mockCtx: OffscreenCanvasRenderingContext2D | null = null;
     constructor(w: number, h: number) {
       this.width = w;
       this.height = h;
     }
-    getContext() {
-      return null;
+    getContext(id: string): OffscreenCanvasRenderingContext2D | null {
+      if (id !== '2d') return null;
+      if (!this._mockCtx) {
+        this._mockCtx = {
+          canvas: this,
+          save: vi.fn(),
+          restore: vi.fn(),
+          setTransform: vi.fn(),
+          transform: vi.fn(),
+          fillRect: vi.fn(),
+          strokeRect: vi.fn(),
+          beginPath: vi.fn(),
+          ellipse: vi.fn(),
+          arc: vi.fn(),
+          closePath: vi.fn(),
+          moveTo: vi.fn(),
+          lineTo: vi.fn(),
+          bezierCurveTo: vi.fn(),
+          quadraticCurveTo: vi.fn(),
+          rect: vi.fn(),
+          clip: vi.fn(),
+          rotate: vi.fn(),
+          arcTo: vi.fn(),
+          fill: vi.fn(),
+          stroke: vi.fn(),
+          setLineDash: vi.fn(),
+          fillText: vi.fn(),
+          measureText: vi.fn(() => ({
+            width: 0,
+            actualBoundingBoxAscent: 0,
+            actualBoundingBoxDescent: 0,
+            fontBoundingBoxAscent: 0,
+            fontBoundingBoxDescent: 0,
+          })),
+          translate: vi.fn(),
+          scale: vi.fn(),
+          clearRect: vi.fn(),
+          createImageData: vi.fn((w: number, h: number) => new ImageData(w, h)),
+          putImageData: vi.fn(),
+          getImageData: vi.fn(
+            (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
+          ),
+          drawImage: vi.fn(),
+          fillStyle: '',
+          strokeStyle: '',
+          lineWidth: 1,
+          lineCap: 'butt' as CanvasLineCap,
+          font: '',
+          textAlign: 'start' as CanvasTextAlign,
+          textBaseline: 'alphabetic' as CanvasTextBaseline,
+          globalAlpha: 1,
+          globalCompositeOperation: 'source-over',
+          filter: 'none',
+          shadowColor: 'transparent',
+          shadowBlur: 0,
+          shadowOffsetX: 0,
+          shadowOffsetY: 0,
+          lineDashOffset: 0,
+          lineJoin: 'miter' as CanvasLineJoin,
+          miterLimit: 10,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'low' as ImageSmoothingQuality,
+          direction: 'ltr' as CanvasDirection,
+        } as unknown as OffscreenCanvasRenderingContext2D;
+      }
+      return this._mockCtx;
     }
-    convertToBlob() {
-      return Promise.resolve(new Blob());
+    transferToImageBitmap(): ImageBitmap {
+      return {} as ImageBitmap;
     }
-  } as unknown as typeof OffscreenCanvas;
+    convertToBlob(): Promise<Blob> {
+      return Promise.resolve(new Blob(['dummy'], { type: 'image/png' }));
+    }
+  }
+  globalThis.OffscreenCanvas = OffscreenCanvasMock as unknown as typeof OffscreenCanvas;
 }
 
 // jsdom does not implement PointerEvent; node has neither PointerEvent nor MouseEvent

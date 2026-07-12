@@ -8,7 +8,7 @@ test.describe('Home Shell', () => {
 
   test('renders HomeShell with toolbar', async ({ page }) => {
     await expect(page.locator('.strata-home__toolbar')).toBeVisible();
-    await expect(page.getByRole('button', { name: /new file/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^new$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /open/i })).toBeVisible();
   });
 

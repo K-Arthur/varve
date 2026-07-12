@@ -63,11 +63,95 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 ```
 
 ## Current test counts
-- **Rust:** 82 tests (75 workspace + 7 src-tauri): strata-core 32, strata-engine 4, strata-layout 9, strata-print 12, strata-sync 10, strata-trace 8, strata-desktop 7
-- **JS:** 4459+ tests across 387+ files — all passing. TypeScript typecheck: 0 errors across all packages.
+- **Rust:** 197 tests (all workspace crates): strata-bgremove 8, strata-bridge 3, strata-core 62, strata-engine 4, strata-layout 9, strata-print 93, strata-sync 10, strata-trace 8
+- **JS:** 4542 tests across 399 files — all passing. TypeScript typecheck: all packages clean (pre-existing type errors in @strata/editor remain — see Session 48).
 - **Effects engine:** 77+ tests: 34 replay-fill (was 31) + backdrop cache, 24 halftone (+Bayer, offset dispatch), 11 filterCompositor (+premultiplied alpha), 11 blur (new separable module), 19 boolean hardening (+self-intersect, degenerate, fuzz suite)
-- **Playwright E2E:** `pnpm test:e2e --filter @strata/home` (21 tests, 9 spec files, chromium)
+- **Playwright E2E:** `npx playwright test tests/e2e --project=chromium` from repo root (NOT `pnpm test:e2e --filter @strata/home` — that `--filter` flag is a pnpm-workspace filter, not a Playwright test filter, and does not scope to the home suite; it's accepted but ignored). 6 spec directories under `tests/e2e/` (home, inspector, layers, spec, motion, canvas). `playwright.config.ts`'s `webServer` boots `pnpm --filter @strata/desktop dev` automatically — no need to start the dev server yourself first.
+  - **Current state (2026-07-11, chromium project):** 22 passed / 79 failed / 1 skipped, NOT the "21 tests, 9 spec files, all passing" this line previously (and wrongly) claimed. The suite bit-rotted from UI copy/markup changes over many sessions without anyone re-running it. Two mechanical patterns account for most failures — fix both and re-run before assuming a failure is a real app bug:
+    1. `getByRole('button', { name: /new file/i })` — the button's accessible name is now `"New"` (icon + "New" text), not "New file". Use `/^new$/i`. (Fixed in: home/create-file, home/a11y, home/home-shell, spec/axe, spec/measurement, inspector/inspector, canvas/tools. NOT yet fixed in: home/empty-states, home/keyboard-nav, home/search-sort-filter, home/trash-flow, layers/*, motion/*.)
+    2. `page.locator('dialog.strata-dialog')` (unscoped) — the app always mounts one `<dialog class="strata-dialog">` per feature (New file, Keyboard shortcuts, New Project, Save Search, Import files, etc.), toggling only the `open` attribute rather than conditionally rendering. An unscoped locator hits a Playwright strict-mode violation ("resolved to 5 elements"). Scope to `dialog.strata-dialog[open]`.
+  - `tests/e2e/canvas/tools.spec.ts` (new, 2026-07-11) is unaffected by either pattern and passes 4/4 — use it as the template for new specs.
 - **Gates:** lint 0 warnings/errors on new/modified files; emoji 0 violations; tokens 96/96 WCAG-AA across 3 themes
+
+## Automated UI/canvas testing (read this before manually round-tripping bugs through the user)
+
+**If a bug involves the canvas, pointer/drag interaction, or "something doesn't render/respond" — write and run a Playwright E2E test before asking the user to test manually, or before declaring a fix verified.** Vitest/RTL unit tests call tool methods and React handlers directly; they never dispatch real `PointerEvent`s through the real DOM, never lay out real CSS Grid/Flexbox, and never hit the real `setPointerCapture`/`OffscreenCanvas` browser APIs. A whole class of real bugs — broken CSS layout collapsing an element to 0×0, an overlay eating pointer events, a browser API throwing — is **invisible to unit tests** and only shows up in a real browser. (Session 2026-07-11: three straight rounds of "fixed it" → user retests → still broken happened because every fix was verified only by code-reading and unit tests, none of which could see that `.editor-canvas` had collapsed to 0px height. One Playwright test with `getBoundingClientRect()` found it in under a minute.)
+
+### One-time setup
+```bash
+npx playwright install chromium   # ~180MB; firefox/webkit optional, chromium is enough for layout/interaction bugs
+```
+No `sudo`/`--with-deps` needed for the chromium-only install used here (the full `--with-deps` install needs root and isn't required for headless chromium runs in this sandbox).
+
+### Running tests
+```bash
+# Whole suite
+npx playwright test tests/e2e --project=chromium --reporter=list
+
+# One file (fast iteration loop)
+npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium --reporter=list
+
+# Never pipe the run through `| tail`, `| head`, etc. — Playwright's `list`
+# reporter streams per-test as they finish, but a pipe stage like `tail -150`
+# buffers everything until the *source* process exits (EOF), so you'll see
+# nothing until the entire suite finishes, and a hang looks identical to
+# "no output yet". Redirect to a file and read it instead if you need to
+# check progress mid-run: `... > /tmp/e2e.log 2>&1 &` then `Read`/`tail -f` the file.
+```
+
+### Standard nav helper (copy this into any new canvas/editor spec)
+```ts
+async function navigateToEditor(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  // The toolbar button's accessible name is "New" (icon + "New" text) — NOT
+  // "New file". Matching /new file/i times out silently; this bit every
+  // pre-existing spec in tests/e2e/{home,spec,inspector} until fixed 2026-07-11.
+  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /^new$/i }).click();
+  await page.locator('dialog').getByRole('button', { name: /^create$/i }).waitFor({ timeout: 5000 });
+  await page.locator('dialog').getByRole('button', { name: /^create$/i }).click();
+  await page.locator('.layers-panel').waitFor({ timeout: 10000 });
+
+  // A first-run "Welcome to Strata" modal can overlay the canvas on a fresh
+  // browser profile (every Playwright run is a fresh profile). It has real
+  // paragraph text, so a drag starting on it becomes a text selection
+  // instead of reaching the canvas underneath — dismiss it before any
+  // canvas interaction or every tool will appear silently broken.
+  const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
+  if (await welcomeClose.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+    await welcomeClose.first().click();
+  }
+}
+```
+Reference implementation with drag-to-create tool tests: `tests/e2e/canvas/tools.spec.ts`.
+
+### Debugging recipe: "it doesn't respond to clicks" / "it doesn't render"
+Don't guess from reading CSS — `page.evaluate()` to pull real computed layout beats re-reading stylesheets every time:
+```ts
+const info = await page.evaluate(() => {
+  const el = document.querySelector('.some-element') as HTMLElement;
+  const cs = getComputedStyle(el);
+  return {
+    rect: el.getBoundingClientRect().toJSON(),
+    display: cs.display, height: cs.height, contain: cs.contain,
+    parentClass: el.parentElement?.className,   // "" (empty) here is a red flag —
+                                                  // it means an unstyled wrapper div
+                                                  // (very often <ErrorBoundary>) sits
+                                                  // between el and its intended
+                                                  // grid/flex container.
+  };
+});
+console.log(JSON.stringify(info, null, 2));
+```
+If `getBoundingClientRect()` returns `height: 0` (or `width: 0`) on an element that should be visible, that IS the bug — a click/drag at coordinates derived from that box will land outside it, and every symptom downstream (wrong cursor, "nothing happens", "tool doesn't work") is a consequence, not a separate bug. Don't chase the downstream symptoms; fix the 0×0 element.
+
+**Known trap — `<ErrorBoundary>` breaks CSS Grid/Flex placement.** `ErrorBoundary` (`packages/editor/src/components/ErrorBoundary.tsx`) renders its children inside a plain `<div>` when there's no error. If you wrap something in `<ErrorBoundary>` that relies on being a *direct* grid/flex item of its parent (e.g. anything using `grid-area` or depending on `align-items: stretch` for sizing, like `.editor-canvas`), that wrapper div breaks the placement — `grid-area` on the child has no effect since it's no longer a direct grid child, and if the child's own children are all `position: absolute` (no in-flow content), it collapses to 0 height. Fixed for `ErrorBoundary` itself (`display: contents` on the wrapper), but if you introduce a *new* wrapper component anywhere in `Shell.tsx`'s grid or similar, check for this same failure mode.
+
+### For future sessions / less capable models
+The failure mode this section exists to prevent: fixing a real bug (or three), verifying by reading code + running unit tests, telling the user "should be fixed now," and being wrong — because the actual defect was in real-browser layout/interaction that no amount of code reading surfaces. If the user reports "X doesn't work when I click/drag/interact," and X touches CanvasArea, pointer events, or CSS layout, the correct sequence is:
+1. Write (or reuse) a Playwright spec that drives the actual interaction (`page.mouse.down/move/up`, not just `.click()`, for anything drag-based).
+2. Run it. If it fails, use the `page.evaluate()` recipe above to find the real DOM/CSS state, not the code you *expect* to be running.
+3. Only report a fix as done once the E2E test passes — not once the diff "looks correct."
 
 ## Ephemeral tree recovery
 
@@ -86,7 +170,7 @@ git log --oneline -3
 | Home/Workspace System | `docs/plans/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/session-04-packaging.md` |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit.md` |
-| Marketing Website | `apps/website/` - Astro-based public website with product pages, docs, support, and contribution information |
+| Marketing Website | `apps/website/` - Astro 5 static site, 42 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md`, `docs/plans/website-strategy.md`, `docs/plans/website-hardening-report.md` |
 
 ## Packaging (Phase 0.11 — Done, Session 4)
 - `apps/desktop/src-tauri/tauri.conf.json` — full bundle metadata (AppImage/deb/rpm/dmg/msi)
@@ -1902,3 +1986,21 @@ Full discovery-first, plan-then-execute implementation of effects engine hardeni
 | `packages/engine/src/blur.ts` | Separable Gaussian/box blur kernels, linear-light conversion, downsample-blur-upsample |
 
 **Verification:** 4459+ JS tests pass (387 files), engine typecheck clean (0 errors), scene typecheck clean (0 errors), lint 0 errors on modified files, emoji audit clean (1057 files), token audit 96/96 WCAG-AA. Boolean ops: 704 scene tests (was 685, +19). Halftone: 24 tests (was 13, +11). Blur: 11 new tests. Backdrop cache: 6 new tests.
+
+## Session 48 — Pre-Existing Test Failure Investigation & Resolution (2026-07-11)
+
+TDD-first investigation of 3 pre-existing issues following the methodology in `docs/superpowers/plans/pre-existing-test-failure-investigation.md`:
+
+### Fixed
+
+| Issue | Root Cause | Fix | Files | Verification |
+|---|---|---|---|---|
+| **VersionHistory loading state test** (1 test failure) | Test used `getByText('Loading version history...')` but `InlineActivityIndicator` renders the label in SVG `aria-label`/`<title>`, not visible DOM text | Changed to `getByRole('img', { name: /Loading version history/ })` | `packages/home/src/VersionHistory.test.tsx` | 104/104 home tests pass |
+| **HistogramWidget unhandled errors** (2 runtime errors) | jsdom doesn't implement `canvas.setPointerCapture()` | Added `HTMLCanvasElement.prototype.setPointerCapture = vi.fn()` (and `releasePointerCapture`) to `vitest.setup.ts` | `vitest.setup.ts` | 1552/1552 editor tests pass, 0 unhandled errors |
+| **Scene fixture typecheck errors** (8 TS errors) | Unsafe casts from `Record<string, unknown>` to `Document` without `unknown` intermediate; inline types missing `kind`/`handleIn`/`handleOut` fields | Casts through `unknown` via `as unknown as Document`; expanded inline types to include all accessed fields | `packages/scene/src/__fixtures__/legacy-fixture.test.ts`, `path-fixture.test.ts` | `@strata/scene` typecheck clean |
+
+### Gates
+- **JS tests:** 4542 passed, 0 failed, 1 skipped (399 files)
+- **Typecheck:** All 17 packages clean (pre-existing @strata/editor errors untouched — 44 errors across 10 files)
+- **Lint:** 0 new errors on modified files
+- **Rust:** 197/197 workspace tests pass

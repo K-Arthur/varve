@@ -29,7 +29,7 @@ test.describe('Home - axe-core scan', () => {
   test('New File dialog has no automated accessibility violations', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.strata-home');
-    await page.getByRole('button', { name: /new file/i }).click();
+    await page.getByRole('button', { name: /^new$/i }).click();
     await page.waitForSelector('dialog.strata-dialog');
 
     const results = await new AxeBuilder({ page })

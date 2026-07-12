@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 async function navigateToEditor(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: /new file/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /new file/i }).click();
+  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /^new$/i }).click();
   await page
     .locator('dialog')
     .getByRole('button', { name: /^create$/i })
