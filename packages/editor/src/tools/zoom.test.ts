@@ -5,7 +5,13 @@
  * All assertions verify that `setZoom` + `setPan` are called with values that
  * keep the world point under the cursor fixed after zoom.
  */
-import { MAX_ZOOM, MIN_ZOOM } from '@strata/shared';
+import {
+  computeFloatingOrigin,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  screenToWorld,
+  worldToScreen,
+} from '@strata/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { ToolContext } from './types';
 import { ZoomTool } from './ZoomTool';
@@ -184,6 +190,64 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
 
     const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
     expect(newZoom).toBeCloseTo(0.8, 2);
+  });
+});
+
+describe('ZoomTool — viewport-aware anchor (floating-origin correction)', () => {
+  it('click zoom-in keeps the anchor fixed once the camera has panned past the floating-origin grid (FLOATING_ORIGIN_GRID=512)', () => {
+    // zoomAboutPoint(cam, anchor, newZoom, viewport) needs the real viewport
+    // to compute the same floating-origin correction (computeFloatingOrigin)
+    // the renderer will use. ZoomTool previously called it with only 3 args,
+    // silently falling into the `!viewport` branch, which assumes origin=[0,0]
+    // and a hardcoded 1920x1080 size — invisible near world (0,0), but once
+    // pan/zoom puts the viewport more than one 512-unit grid cell away from
+    // true origin, the assumed and actual origins diverge and the anchor
+    // drifts hundreds of pixels off the cursor on click-to-zoom.
+    //
+    // Reproduced directly against packages/shared/src/viewport.ts: pan
+    // (-1800,-1100) at zoom 1 -> 1.25, viewport 640x480 -- without the real
+    // viewport passed through, the anchor (world (3736, 2424), screen
+    // (400,300) before the click) renders at screen (-624, 44) after zoom, a
+    // ~1000px jump. With the viewport passed through it lands exactly back
+    // at (400, 300).
+    const tool = new ZoomTool();
+    const fakeCanvas = {
+      getBoundingClientRect: () => ({ width: 640, height: 480 }) as DOMRect,
+    } as unknown as HTMLCanvasElement;
+    const pan = { x: -1800, y: -1100 };
+    const zoom = 1;
+    const ctx = makeCtx({
+      zoom,
+      pan,
+      canvasElement: fakeCanvas,
+      // Faithful floating-origin-aware canvasToWorld, matching the real
+      // implementation in context.tsx (editorScreenToWorld), unlike this
+      // file's default naive mock.
+      canvasToWorld: vi.fn((cx: number, cy: number) => {
+        const origin = computeFloatingOrigin({ pan, zoom }, { width: 640, height: 480 });
+        const [wx, wy] = screenToWorld({ pan, zoom }, cx, cy, { width: 640, height: 480 }, origin);
+        return { x: wx, y: wy };
+      }),
+    });
+
+    const pointerDown = makePointerEvent(400, 300);
+    tool.onPointerDown(pointerDown, ctx);
+    tool.onPointerUp?.(pointerDown, ctx);
+
+    const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
+    const newPan = firstCallArg<{ x: number; y: number }>(ctx.setPan as ReturnType<typeof vi.fn>);
+    const resultCam = { pan: newPan, zoom: newZoom };
+    const finalOrigin = computeFloatingOrigin(resultCam, { width: 640, height: 480 });
+    const [screenX, screenY] = worldToScreen(
+      resultCam,
+      3736,
+      2424,
+      { width: 640, height: 480 },
+      finalOrigin,
+    );
+
+    expect(screenX).toBeCloseTo(400, 0);
+    expect(screenY).toBeCloseTo(300, 0);
   });
 });
 
