@@ -1,4 +1,4 @@
-/// <reference path="../webgpu-types.d.ts" />
+/// <reference path="../webgpu-ambient.d.ts" />
 
 /**
  * GPU compute shader accelerator for background removal operations.
@@ -12,6 +12,7 @@
  * GPU Gems 3, Ch. 27); WGSL storage-buffer tiling for 2D image ops.
  */
 
+import { selectWebGpuAdapter } from '../gpuAdapter';
 import {
   computeMaskConfidence,
   featherMaskArray,
@@ -76,8 +77,22 @@ export class GpuAccelerator {
     try {
       if (!navigator.gpu) throw new Error('WebGPU not available');
 
-      const adapter = await navigator.gpu.requestAdapter();
-      if (!adapter) throw new Error('No WebGPU adapter found');
+      // Same adapter-selection policy as the render compositor (ADR-0003
+      // Minimum Supported Baseline): decline software/emulated adapters
+      // rather than running compute shaders on them. This used to be
+      // inconsistent — the compositor declined software adapters in favor
+      // of a (faster) CPU path, but this accelerator accepted anything,
+      // including SwiftShader/llvmpipe, which the CPU featherMaskArray/etc.
+      // fallbacks in this same file comfortably outperform.
+      const selection = await selectWebGpuAdapter(navigator.gpu, { requireHardwareAdapter: true });
+      if (selection.kind !== 'accepted') {
+        throw new Error(
+          selection.kind === 'declined-software'
+            ? 'WebGPU adapter is software-emulated; declining in favor of CPU'
+            : 'No WebGPU adapter found',
+        );
+      }
+      const { adapter } = selection;
 
       const device = await adapter.requestDevice();
       if (!device) throw new Error('No WebGPU device');
@@ -86,18 +101,19 @@ export class GpuAccelerator {
       this.pipelines.clear();
       this._watchDeviceLost(device);
 
-      const adapterInfo = await (
-        adapter as unknown as {
-          requestAdapterInfo(): Promise<{ description?: string; vendor?: string }>;
-        }
-      ).requestAdapterInfo();
+      // `GPUAdapter.requestAdapterInfo()` was removed from the spec/browsers
+      // (Chrome 131+, mid-2024) in favor of the synchronous `.info`
+      // property — the old async-method call here always threw, silently
+      // caught below, permanently disabling GPU acceleration for background
+      // removal on every current browser regardless of real GPU availability.
+      const info = adapter.info;
       const maxTextureDim = device.limits.maxTextureDimension2D;
 
       this._capabilities = {
         available: true,
         maxTextureDimension: maxTextureDim,
         acceleratedOps: ['gaussianBlur', 'chwPack', 'thresholdResize'],
-        adapterName: adapterInfo.description || adapterInfo.vendor || 'unknown',
+        adapterName: info?.description || info?.vendor || 'unknown',
       };
 
       this.initialized = true;

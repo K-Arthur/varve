@@ -1,11 +1,12 @@
 /// <reference types="@webgpu/types" />
 
+import type { RenderItem } from '@strata/engine';
 /**
  * WebGPU compositor backend — solid fills for rect/circle/line with Canvas2D fallback.
  * Lines are tessellated as thin quads; circles get a dedicated discard shader.
  * Uses explicit pipeline layouts and a vertex buffer ring pool.
  */
-import type { RenderItem } from '@strata/engine';
+import { selectWebGpuAdapter } from '@strata/engine';
 import { computeFloatingOrigin } from '@strata/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import type { CompositorDiagnostics, CompositorFrame } from '../types';
@@ -126,6 +127,7 @@ export class WebGPUBackend {
   private deviceLostHandler: (() => Promise<void>) | null = null;
   private gpuReady = false;
   private adapterIsFallback = false;
+  private deviceLost = false;
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
   private format: GPUTextureFormat = 'rgba8unorm';
@@ -157,28 +159,22 @@ export class WebGPUBackend {
     try {
       const gpu = navigator.gpu;
       if (!gpu) throw new Error('WebGPU unavailable');
-      // Try high-performance first, fall back to low-power (integrated GPU).
-      // This covers laptops and mixed-GPU systems where requesting the
-      // discrete GPU alone may fail (e.g. no discrete GPU present).
-      let adapter: GPUAdapter | null = null;
-      for (const pref of ['high-performance', 'low-power'] as const) {
-        adapter = await gpu.requestAdapter({ powerPreference: pref });
-        if (adapter) break;
-      }
-      if (!adapter) throw new Error('No WebGPU adapter');
-      this.adapterIsFallback =
-        (adapter as GPUAdapter & { info?: { device?: string } }).info?.device
-          ?.toLowerCase()
-          .includes('swift') ?? false;
-      if (this.adapterIsFallback) {
-        // Minimum supported baseline (ADR-0003): a software-emulated adapter
-        // (e.g. SwiftShader) is not a real GPU. The hand-tuned Canvas2D path
-        // outperforms software-rendered WebGPU, so decline it here rather than
-        // silently accepting degraded-but-technically-functional GPU mode.
-        // `adapterIsFallback` stays true (set above) so diagnostics can still
-        // distinguish "declined software adapter" from "no WebGPU at all".
+      // Try high-performance first, fall back to low-power (integrated GPU) —
+      // covers laptops and mixed-GPU systems where requesting the discrete
+      // GPU alone may fail (e.g. no discrete GPU present). Declines a
+      // software-emulated adapter (e.g. SwiftShader) rather than accepting
+      // degraded-but-technically-functional GPU mode: the hand-tuned
+      // Canvas2D path outperforms software-rendered WebGPU (ADR-0003
+      // Minimum Supported Baseline).
+      const selection = await selectWebGpuAdapter(gpu, { requireHardwareAdapter: true });
+      if (selection.kind === 'declined-software') {
+        // `adapterIsFallback` stays true so diagnostics can distinguish
+        // "declined software adapter" from "no WebGPU at all".
+        this.adapterIsFallback = true;
         throw new Error('WebGPU adapter is software-emulated; declining in favor of Canvas2D');
       }
+      if (selection.kind === 'unavailable') throw new Error('No WebGPU adapter');
+      const { adapter } = selection;
       const device = await adapter.requestDevice();
       const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
       if (!context) {
@@ -453,6 +449,7 @@ export class WebGPUBackend {
       lastFrameVertexBytes: this.lastFrameVertexBytes,
       adapterIsFallback: this.adapterIsFallback,
       pipelineInitMs: this.pipelineInitMs,
+      deviceLost: this.deviceLost,
     };
   }
 
@@ -487,6 +484,7 @@ export class WebGPUBackend {
   watchDeviceLost(device: GPUDevice): void {
     void device.lost.then(async () => {
       this.gpuReady = false;
+      this.deviceLost = true;
       this.device = null;
       for (const buf of this.vertexPool.values()) buf.destroy();
       this.vertexPool.clear();

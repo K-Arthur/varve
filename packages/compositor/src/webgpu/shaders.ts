@@ -40,6 +40,12 @@ struct VertexOutput {
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
   var out: VertexOutput;
+  // Affine transform as scalar arithmetic rather than a matrix multiply.
+  // WGSL's matCxR * vecC rule needs the vector's component count to match
+  // the matrix's *column* count, so a 2-column transform matrix multiplies
+  // a vec2, not this vec3 homogeneous-coordinate input (mat3x2f, 3 columns,
+  // would) — see crates/strata-bridge/tests/wgsl_validation.rs for the
+  // naga-verified detail.
   let world = vec2f(
     input.transform.x * input.localPos.x + input.transform.z * input.localPos.y + input.transform.w,
     input.transform.y * input.localPos.x + input.transform2.x * input.localPos.y + input.transform2.y,

@@ -119,6 +119,8 @@ export {
   resetFontRegistry,
 } from './fontRegistry';
 export * from './geometry';
+export type { AdapterSelectionResult } from './gpuAdapter';
+export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
 export type { HalftoneDotShape, HalftoneMethod, HalftoneParams, HalftonePattern } from './halftone';
 export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
