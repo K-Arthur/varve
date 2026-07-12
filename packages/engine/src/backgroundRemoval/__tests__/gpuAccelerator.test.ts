@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { GpuAccelerator, getGpuCapabilities, gpuFeatherMask } from '../gpuAccelerator';
 import { featherMaskArray, resizeMaskNearestNeighbor, thresholdMask } from '../maskOps';
 
@@ -179,6 +179,15 @@ describe('gpuFeatherMask', () => {
     const result = await gpuFeatherMask(mask, 0, 0, 2);
     expect(result).toBeInstanceOf(Uint8Array);
     expect(result.length).toBe(0);
+  });
+});
+
+describe('resetInstance', () => {
+  it('clears cached state and allows fresh initialization', () => {
+    const accel = GpuAccelerator.getInstance();
+    GpuAccelerator.resetInstance();
+    const newAccel = GpuAccelerator.getInstance();
+    expect(newAccel).not.toBe(accel);
   });
 });
 
