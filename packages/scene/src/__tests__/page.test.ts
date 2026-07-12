@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   activePageNodes,
   addChild,
@@ -14,6 +14,7 @@ import {
   reorderPages,
   setActivePage,
   setPageSize,
+  validateDocument,
 } from '../document';
 import type { GroupNode, Page } from '../types';
 
@@ -100,6 +101,21 @@ describe('Page operations', () => {
     expect(doc.nodes[firstContentRootId]).toBeDefined();
   });
 
+  it('removePage removes an inactive page without transient validation warnings', () => {
+    let doc = createDocument();
+    doc = addPage(doc);
+    const secondPage = doc.pages?.[1] as Page;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const updated = removePage(doc, secondPage.id);
+      expect(validateDocument(updated).valid).toBe(true);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('removePage removes child nodes inside the contentRoot', () => {
     let doc = createDocument();
     const pageId = firstPage(doc).id;
@@ -130,6 +146,20 @@ describe('Page operations', () => {
     const result = removePage(doc, pageId);
     expect(result.pages?.length).toBe(1);
     expect(result.pages?.[0]?.id).toBe(pageId);
+  });
+
+  it('removePage retargets activePageId when the active page is removed', () => {
+    let doc = createDocument();
+    const first = firstPage(doc);
+    doc = addPage(doc);
+    const second = doc.pages?.[1] as Page;
+
+    const updated = removePage(doc, first.id);
+
+    expect(updated.pages?.map((p) => p.id)).toEqual([second.id]);
+    expect(updated.activePageId).toBe(second.id);
+    expect(activePageNodes(updated)).toEqual([]);
+    expect(validateDocument(updated).valid).toBe(true);
   });
 
   it('reorderPages reorders pages', () => {
@@ -338,12 +368,17 @@ describe('Page operations', () => {
       expect(doc.globalChildren).toEqual([]);
     });
 
-    it('setActivePage updates activePageId', () => {
+    it('setActivePage updates activePageId for an existing page', () => {
       const doc = createDocument();
-      const newPageId = 'custom-page-id';
-      const updated = setActivePage(doc, newPageId);
-      expect(updated.activePageId).toBe(newPageId);
+      const updated = setActivePage(doc, firstPage(doc).id);
+      expect(updated.activePageId).toBe(firstPage(doc).id);
       expect(updated).not.toBe(doc);
+    });
+
+    it('setActivePage ignores missing page IDs', () => {
+      const doc = createDocument();
+      const updated = setActivePage(doc, 'missing-page');
+      expect(updated).toBe(doc);
     });
 
     it('addGlobalChild adds a node ID to globalChildren', () => {

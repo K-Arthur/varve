@@ -1,13 +1,28 @@
-import type { Page } from '@strata/scene';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { computeReorderedPageIds, PageNav } from './PageNav';
+
+type Page = {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  backgrounds: string[];
+  contentRoot: string;
+};
+
+vi.mock('@strata/scene', () => ({
+  addPage: vi.fn((doc: unknown) => doc),
+  duplicatePage: vi.fn((doc: unknown) => doc),
+  removePage: vi.fn((doc: unknown) => doc),
+  reorderPages: vi.fn((doc: unknown) => doc),
+}));
 
 vi.mock('../../context', () => ({
   useEditor: vi.fn(),
 }));
 
 import { useEditor } from '../../context';
+import { computeReorderedPageIds, PageNav } from './PageNav';
 
 function makePage(id: string, name: string): Page {
   return { id, name, width: 1920, height: 1080, backgrounds: [], contentRoot: `${id}-root` };
@@ -15,16 +30,21 @@ function makePage(id: string, name: string): Page {
 
 function mockEditor(overrides: {
   pages: Page[];
+  activePageId?: string | null;
   currentPageId?: string | null;
   updateDoc?: ReturnType<typeof vi.fn>;
+  setActivePage?: ReturnType<typeof vi.fn>;
   setCurrentPageId?: ReturnType<typeof vi.fn>;
 }) {
+  const activePageId =
+    overrides.activePageId ?? overrides.currentPageId ?? overrides.pages[0]?.id ?? null;
   vi.mocked(useEditor).mockReturnValue({
     state: {
-      document: { pages: overrides.pages },
+      document: { pages: overrides.pages, activePageId },
       currentPageId: overrides.currentPageId ?? overrides.pages[0]?.id ?? null,
     },
     updateDoc: overrides.updateDoc ?? vi.fn(),
+    setActivePage: overrides.setActivePage ?? vi.fn(),
     setCurrentPageId: overrides.setCurrentPageId ?? vi.fn(),
   } as unknown as ReturnType<typeof useEditor>);
 }
@@ -47,14 +67,39 @@ describe('PageNav', () => {
     expect(tabs[1]).toHaveAttribute('aria-label', 'Page: Page 2');
   });
 
-  it('clicking a page calls setCurrentPageId', () => {
+  it('marks the document active page as selected', () => {
+    const pages = [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')];
+    mockEditor({ pages, activePageId: 'p2', currentPageId: 'p1' });
+
+    render(<PageNav />);
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'false');
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('clicking a page activates the document page', () => {
+    const setActivePage = vi.fn();
     const setCurrentPageId = vi.fn();
     const pages = [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')];
-    mockEditor({ pages, currentPageId: 'p1', setCurrentPageId });
+    mockEditor({ pages, currentPageId: 'p1', setActivePage, setCurrentPageId });
 
     render(<PageNav />);
     const tabs = screen.getAllByRole('tab');
     fireEvent.click(tabs[1]!);
+    expect(setActivePage).toHaveBeenCalledWith('p2');
+    expect(setCurrentPageId).toHaveBeenCalledWith('p2');
+  });
+
+  it('pressing Enter on a page tab activates the document page', () => {
+    const setActivePage = vi.fn();
+    const setCurrentPageId = vi.fn();
+    const pages = [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')];
+    mockEditor({ pages, currentPageId: 'p1', setActivePage, setCurrentPageId });
+
+    render(<PageNav />);
+    const tabs = screen.getAllByRole('tab');
+    fireEvent.keyDown(tabs[1]!, { key: 'Enter' });
+    expect(setActivePage).toHaveBeenCalledWith('p2');
     expect(setCurrentPageId).toHaveBeenCalledWith('p2');
   });
 

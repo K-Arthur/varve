@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Document } from '../document';
 import { validateDocument } from '../document';
 import { CURRENT_DOCUMENT_VERSION, migrateDocument, serializeDocument } from '../version';
 import legacyFixture from './legacy-v1.5.json';
@@ -34,7 +35,7 @@ describe('Legacy v1.5 Document Fixture', () => {
     const result = migrateDocument(legacyFixture as Record<string, unknown>);
     expect(result).not.toBeNull();
 
-    const validation = validateDocument(result as Parameters<typeof validateDocument>[0]);
+    const validation = validateDocument(result as unknown as Document);
     expect(validation.valid).toBe(true);
     expect(validation.errors).toEqual([]);
   });
@@ -53,7 +54,7 @@ describe('Legacy v1.5 Document Fixture', () => {
     expect(reResult!.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
 
     // Still passes validation
-    const reValidation = validateDocument(reResult as Parameters<typeof validateDocument>[0]);
+    const reValidation = validateDocument(reResult as unknown as Document);
     expect(reValidation.valid).toBe(true);
     expect(reValidation.errors).toEqual([]);
   });
