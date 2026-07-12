@@ -102,6 +102,8 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
         <Icon name={CHROME_ICONS.search} size="0.85em" aria-hidden />
         <input
           ref={filterRef}
+          id="layers-filter-search"
+          name="layers-filter-search"
           className="layers-filter-bar__input"
           type="search"
           placeholder="Filter by name..."

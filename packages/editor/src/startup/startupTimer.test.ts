@@ -7,8 +7,8 @@ describe('createStartupTimer', () => {
     timer.mark('app_mount');
     const marks = timer.getMarks();
     expect(marks).toHaveLength(1);
-    expect(marks[0].name).toBe('app_mount');
-    expect(marks[0].time).toBeGreaterThan(0);
+    expect(marks[0]?.name).toBe('app_mount');
+    expect(marks[0]?.time).toBeGreaterThan(0);
   });
 
   it('records marks in insertion order', () => {
@@ -16,8 +16,8 @@ describe('createStartupTimer', () => {
     timer.mark('first');
     timer.mark('second');
     const marks = timer.getMarks();
-    expect(marks[0].name).toBe('first');
-    expect(marks[1].name).toBe('second');
+    expect(marks[0]?.name).toBe('first');
+    expect(marks[1]?.name).toBe('second');
   });
 
   it('computes elapsed from first to last mark', () => {

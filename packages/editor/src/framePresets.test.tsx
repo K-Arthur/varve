@@ -2,6 +2,8 @@
  * Frame preset tests — verify the Figma-model applyFramePreset context method
  * creates a correctly-sized frame and resizes a selected frame in place.
  */
+
+import { activePageNodes } from '@strata/scene';
 import { render, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from './context';
@@ -46,6 +48,23 @@ describe('frame presets', () => {
       if (frame?.kind !== 'frame') throw new Error('frame not created');
       expect(frame.w).toBe(393);
       expect(frame.h).toBe(852);
+    });
+  });
+
+  it('applyFramePreset scopes the new frame to the active page (visible on canvas, not just in doc.nodes)', async () => {
+    const getCtx = setup();
+    getCtx().applyFramePreset({ name: 'iPhone 15 Pro', w: 393, h: 852 });
+
+    await waitFor(() => {
+      const doc = getCtx().state.document;
+      const frames = Object.values(doc.nodes).filter((n) => n.kind === 'frame');
+      expect(frames).toHaveLength(1);
+      const frame = frames[0];
+      if (!frame) throw new Error('frame not created');
+      // The canvas renderer walks activePageNodes(doc), not doc.rootChildren
+      // directly — a frame added only to doc.rootChildren exists in the doc
+      // (and shows in the Layers panel) but never paints on screen.
+      expect(activePageNodes(doc)).toContain(frame.id);
     });
   });
 
