@@ -229,8 +229,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: var(--space-6);
+  height: var(--space-6);
   flex-shrink: 0;
 }
 .frame-presets__preview-box {
@@ -459,8 +459,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--space-5);
+  height: var(--space-5);
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -506,8 +506,8 @@
 }
 
 .insp-swatch {
-  width: 24px;
-  height: 24px;
+  width: var(--space-5);
+  height: var(--space-5);
   border-radius: var(--radius-sm);
   border: var(--border-micro);
   flex-shrink: 0;
@@ -562,7 +562,7 @@
 }
 
 .insp-per-side {
-  width: 36px;
+  width: var(--space-7);
   height: var(--space-5);
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
@@ -636,7 +636,7 @@
 .insp-separator {
   width: 1px;
   background: var(--color-border-subtle);
-  margin: 0 2px;
+  margin: 0 var(--space-05);
 }
 
 .insp-smoothing-value {
@@ -647,18 +647,18 @@
 
 .insp-badge {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: var(--space-1);
+  height: var(--space-1);
   border-radius: 50%;
   background: var(--color-accent-primary);
-  margin-left: 2px;
+  margin-left: var(--space-05);
 }
 
 .insp-dropdown {
   position: absolute;
   bottom: 100%;
   right: 0;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
   background: var(--elevation-surface-overlay);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -709,8 +709,8 @@
  */
 .insp-segmented {
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-1);
+  padding: var(--space-1);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -758,7 +758,7 @@
 .insp-slider__track {
   position: relative;
   flex: 1;
-  height: 4px;
+  height: var(--space-1);
   background: var(--color-surface-sunken);
   border-radius: var(--radius-pill);
 }
@@ -771,8 +771,8 @@
 .insp-slider__thumb {
   position: absolute;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: var(--space-3);
+  height: var(--space-3);
   margin-left: -7px;
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-strong);
@@ -948,8 +948,8 @@
   border-radius: var(--radius-sm);
 }
 .intelligence-severity-dot {
-  width: 8px;
-  height: 8px;
+  width: var(--space-2);
+  height: var(--space-2);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -1101,20 +1101,20 @@
 .intelligence-histogram__bars {
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  height: 40px;
+  gap: var(--space-1);
+  height: var(--space-8);
 }
 .intelligence-histogram__bar-wrap {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
 }
 .intelligence-histogram__bar {
   width: 100%;
-  min-height: 2px;
+  min-height: var(--space-05);
   background: var(--color-interactive-default);
   border-radius: 1px 1px 0 0;
   transition: height var(--duration-quick) var(--ease-standard);
@@ -1288,7 +1288,7 @@
 }
 .binding-menu__input {
   width: 100%;
-  height: 28px;
+  height: var(--space-6);
   font-size: var(--font-size-xs);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
@@ -1358,7 +1358,7 @@
 }
 .gradient-editor__bar {
   position: relative;
-  height: 24px;
+  height: var(--space-5);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-subtle);
   cursor: copy;
@@ -1368,8 +1368,8 @@
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 14px;
-  height: 14px;
+  width: var(--space-3);
+  height: var(--space-3);
   border-radius: 50%;
   cursor: grab;
   padding: 0;
@@ -1391,14 +1391,14 @@
   color: var(--color-text-muted);
 }
 .gradient-editor__position-input {
-  width: 60px;
+  width: var(--space-10);
 }
 .gradient-editor__remove-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--space-5);
+  height: var(--space-5);
   background: transparent;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
@@ -1424,7 +1424,7 @@
 }
 .binding-menu__input {
   width: 100%;
-  height: 28px;
+  height: var(--space-6);
   font-size: var(--font-size-xs);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
@@ -1494,7 +1494,7 @@
 }
 .gradient-editor__bar {
   position: relative;
-  height: 24px;
+  height: var(--space-5);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-subtle);
   cursor: copy;
@@ -1504,8 +1504,8 @@
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 14px;
-  height: 14px;
+  width: var(--space-3);
+  height: var(--space-3);
   border-radius: 50%;
   cursor: grab;
   padding: 0;
@@ -1527,14 +1527,14 @@
   color: var(--color-text-muted);
 }
 .gradient-editor__position-input {
-  width: 60px;
+  width: var(--space-10);
 }
 .gradient-editor__remove-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--space-5);
+  height: var(--space-5);
   background: transparent;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);

@@ -11,7 +11,7 @@
 
 .prototype-presenter__toolbar {
   position: fixed;
-  bottom: 24px;
+  bottom: var(--space-5);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -273,7 +273,7 @@
   width: 134px;
   height: 5px;
   background: var(--color-text-muted);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   z-index: 2;
 }
 
