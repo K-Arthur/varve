@@ -14,12 +14,28 @@ const TOOL_HELP_MAP: Record<string, string> = {
   select: 'tool:select',
   rectangle: 'tool:rect',
   ellipse: 'tool:ellipse',
+  polygon: 'tool:polygon',
+  star: 'tool:star',
   line: 'tool:line',
   arrow: 'tool:arrow',
   pen: 'tool:pen',
   pencil: 'tool:pencil',
   text: 'tool:text',
   frame: 'tool:frame',
+  hand: 'tool:hand',
+  zoom: 'tool:zoom',
+  slice: 'tool:slice',
+  eyedropper: 'tool:eyedropper',
+  scale: 'tool:scale',
+  inspect: 'tool:inspect',
+  'clone stamp': 'tool:cloneStamp',
+  'healing brush': 'tool:healBrush',
+  'spot heal': 'tool:spotHeal',
+  'patch tool': 'tool:patch',
+  union: 'tool:booleanUnion',
+  subtract: 'tool:booleanSubtract',
+  intersect: 'tool:booleanIntersect',
+  exclude: 'tool:booleanExclude',
 };
 
 export function WhatIsThis({ open, onOpenHelp, onExit }: WhatIsThisProps) {
@@ -34,6 +50,15 @@ export function WhatIsThis({ open, onOpenHelp, onExit }: WhatIsThisProps) {
 
     document.body.style.cursor = 'help';
     setHint('Click any tool, panel, or element to learn about it');
+    // Announce mode entry to screen readers
+    const announcer = document.createElement('div');
+    announcer.setAttribute('role', 'status');
+    announcer.setAttribute('aria-live', 'polite');
+    announcer.className = 'sr-only';
+    announcer.textContent =
+      'What is this mode activated. Click any tool, panel, or element to learn about it. Press Escape to exit.';
+    document.body.appendChild(announcer);
+    setTimeout(() => announcer.remove(), 3000);
 
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;

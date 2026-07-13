@@ -15,7 +15,7 @@ interface ChecklistItem {
   label: string;
 }
 
-const CHECKLIST_ITEMS: ChecklistItem[] = [
+export const CHECKLIST_ITEMS: ChecklistItem[] = [
   { id: 'shape', label: 'Add your first shape' },
   { id: 'color', label: "Change a shape's color" },
   { id: 'text', label: 'Add some text' },
@@ -58,9 +58,8 @@ export function OnboardingChecklist({
 
   if (allDone) {
     return (
-      <div
+      <section
         className="onboarding-checklist onboarding-checklist--celebration"
-        role="region"
         aria-label="Getting started checklist"
       >
         <div className="onboarding-checklist__celebration">
@@ -68,14 +67,13 @@ export function OnboardingChecklist({
           <p className="onboarding-checklist__celebration-text">All done!</p>
           <p className="onboarding-checklist__celebration-sub">You have completed all the steps</p>
         </div>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div
+    <section
       className={`onboarding-checklist ${open ? 'onboarding-checklist--open' : ''}`}
-      role="region"
       aria-label="Getting started checklist"
     >
       <div className="onboarding-checklist__header">
@@ -136,6 +134,6 @@ export function OnboardingChecklist({
           Dismiss
         </button>
       </div>
-    </div>
+    </section>
   );
 }

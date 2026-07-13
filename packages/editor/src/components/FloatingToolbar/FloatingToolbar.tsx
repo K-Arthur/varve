@@ -85,6 +85,7 @@ function ToolButton({ id, groupStart }: ToolButtonProps) {
         className={`floating-toolbar__btn${state.tool === id ? ' floating-toolbar__btn--active' : ''}${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
         aria-pressed={state.tool === id}
         aria-label={label}
+        data-tool={id}
         onClick={() => setTool(id)}
       >
         <Icon name={TOOL_ICONS[id] ?? 'MousePointer2'} size={16} />
@@ -157,6 +158,7 @@ export function FloatingToolbar() {
               className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
               aria-pressed={state.tool === currentShape}
               aria-label={TOOL_LABELS[currentShape] ?? currentShape}
+              data-tool={currentShape}
               onClick={() => setTool(currentShape)}
             >
               <Icon name={TOOL_ICONS[currentShape] ?? 'MousePointer2'} size={16} />
@@ -186,6 +188,7 @@ export function FloatingToolbar() {
               className={`floating-toolbar__btn${state.tool === currentBoolean ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
               aria-pressed={state.tool === currentBoolean}
               aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
+              data-tool={currentBoolean}
               onClick={() => {
                 const op = BOOLEAN_OP_MAP[currentBoolean];
                 if (op) {

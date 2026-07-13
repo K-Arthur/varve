@@ -1,3 +1,5 @@
+import { HELP_CONTENT as HELP_PACKAGE_CONTENT } from '@strata/help';
+
 export interface HelpArticle {
   id: string;
   title: string;
@@ -8,7 +10,12 @@ export interface HelpArticle {
   related: string[];
 }
 
-export const HELP_CONTENT: Record<string, HelpArticle> = {
+/**
+ * Local tool/panel/export help articles. Merged with the shared
+ * @strata/help package so all help entry points (F1, What's This,
+ * ContextualHelp) search the same corpus.
+ */
+const LOCAL_HELP_CONTENT: Record<string, HelpArticle> = {
   'tool:select': {
     id: 'tool:select',
     title: 'Select Tool (V)',
@@ -36,6 +43,24 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
     category: 'Tools',
     related: ['tool:rect', 'tool:select'],
   },
+  'tool:polygon': {
+    id: 'tool:polygon',
+    title: 'Polygon Tool',
+    summary: 'Draw regular polygons with configurable sides.',
+    body: 'Click and drag to draw a polygon. Change the number of sides in the Inspector. Hold Shift to constrain rotation.',
+    keywords: ['polygon', 'shape', 'sides', 'draw'],
+    category: 'Tools',
+    related: ['tool:star', 'tool:rect'],
+  },
+  'tool:star': {
+    id: 'tool:star',
+    title: 'Star Tool',
+    summary: 'Draw stars with configurable points and radius.',
+    body: 'Click and drag to draw a star. Adjust the number of points and inner radius in the Inspector.',
+    keywords: ['star', 'shape', 'points', 'draw'],
+    category: 'Tools',
+    related: ['tool:polygon', 'tool:rect'],
+  },
   'tool:line': {
     id: 'tool:line',
     title: 'Line Tool (L)',
@@ -54,6 +79,105 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
     category: 'Tools',
     related: ['tool:line', 'tool:pen'],
   },
+  'tool:hand': {
+    id: 'tool:hand',
+    title: 'Hand Tool (H)',
+    summary: 'Pan the canvas viewport.',
+    body: 'Click and drag to pan around the canvas. Hold the spacebar temporariliy activates the Hand tool from any other tool. Use the scroll wheel to scroll vertically and Shift+scroll to scroll horizontally.',
+    keywords: ['hand', 'pan', 'scroll', 'viewport', 'navigate', 'h'],
+    category: 'Tools',
+    related: ['tool:zoom', 'tool:select'],
+  },
+  'tool:zoom': {
+    id: 'tool:zoom',
+    title: 'Zoom Tool (Z)',
+    summary: 'Zoom in and out of the canvas.',
+    body: 'Click to zoom in. Alt+click to zoom out. Drag to create a marquee selection that fills the viewport. Ctrl+0 resets zoom to 100%.',
+    keywords: ['zoom', 'magnify', 'view', 'z'],
+    category: 'Tools',
+    related: ['tool:hand', 'shortcuts'],
+  },
+  'tool:slice': {
+    id: 'tool:slice',
+    title: 'Slice Tool (K)',
+    summary: 'Define export regions on the canvas.',
+    body: 'Click and drag to create a slice region. Slices define areas for selective export. Use slices to export specific portions of your design without cropping the original.',
+    keywords: ['slice', 'export', 'region', 'crop', 'k'],
+    category: 'Tools',
+    related: ['tool:select', 'export'],
+  },
+  'tool:eyedropper': {
+    id: 'tool:eyedropper',
+    title: 'Eyedropper Tool (I)',
+    summary: 'Sample colors from the canvas.',
+    body: "Click on any pixel in the canvas to sample its color. The sampled color is applied to the selected object's fill. Hold Alt to sample to stroke instead.",
+    keywords: ['eyedropper', 'color', 'pick', 'sample', 'i'],
+    category: 'Tools',
+    related: ['tool:select', 'panel:inspector'],
+  },
+  'tool:scale': {
+    id: 'tool:scale',
+    title: 'Scale Tool',
+    summary: 'Scale objects by dragging for precise resizing.',
+    body: 'Select an object, then drag from the center or edge to scale it uniformly or non-uniformly. The Inspector shows precise dimensions during scaling.',
+    keywords: ['scale', 'resize', 'transform', 's'],
+    category: 'Tools',
+    related: ['tool:select', 'tool:inspect'],
+  },
+  'tool:inspect': {
+    id: 'tool:inspect',
+    title: 'Inspect Tool',
+    summary: 'Measure distances and inspect element properties.',
+    body: 'Hover over objects to see their dimensions and position. Click to lock a measurement. Distance and angle readouts help with precise layout.',
+    keywords: ['inspect', 'measure', 'distance', 'dimensions', 'info'],
+    category: 'Tools',
+    related: ['tool:select', 'panel:inspector'],
+  },
+  'tool:cloneStamp': {
+    id: 'tool:cloneStamp',
+    title: 'Clone Stamp Tool',
+    summary: 'Copy pixels from one area to another.',
+    body: 'Alt+click to set a source point, then paint to clone pixels from the source to the destination area. Useful for removing imperfections or duplicating texture.',
+    keywords: ['clone', 'stamp', 'copy', 'pixels', 'retouch', 'j'],
+    category: 'Tools',
+    related: ['tool:healBrush', 'tool:spotHeal'],
+  },
+  'tool:healBrush': {
+    id: 'tool:healBrush',
+    title: 'Healing Brush Tool',
+    summary: 'Intelligently repair blemishes and imperfections.',
+    body: 'Alt+click to set a source area, then paint over the area to repair. The healing brush blends source texture with destination lighting for seamless results.',
+    keywords: ['heal', 'brush', 'repair', 'blemish', 'retouch'],
+    category: 'Tools',
+    related: ['tool:cloneStamp', 'tool:spotHeal'],
+  },
+  'tool:spotHeal': {
+    id: 'tool:spotHeal',
+    title: 'Spot Healing Tool',
+    summary: 'Quickly remove small blemishes and spots.',
+    body: 'Click on a spot or blemish to remove it. The spot healing tool samples surrounding pixels and blends them seamlessly. Best for small, isolated imperfections.',
+    keywords: ['spot', 'heal', 'blemish', 'remove', 'retouch'],
+    category: 'Tools',
+    related: ['tool:healBrush', 'tool:cloneStamp'],
+  },
+  'tool:patch': {
+    id: 'tool:patch',
+    title: 'Patch Tool',
+    summary: 'Replace a selected area with sampled texture.',
+    body: 'Drag to select an area to patch. Then drag the selection to a source area with the texture you want. The patch tool blends the source texture into the target region.',
+    keywords: ['patch', 'replace', 'texture', 'area', 'retouch'],
+    category: 'Tools',
+    related: ['tool:healBrush', 'tool:cloneStamp'],
+  },
+  'tool:nodeEdit': {
+    id: 'tool:nodeEdit',
+    title: 'Node Edit Tool',
+    summary: 'Edit anchor points and bezier handles of paths.',
+    body: 'Double-click a path to enter node edit mode. Click and drag anchors to reposition. Drag bezier handles to adjust curves. Use the toolbar to convert between corner and smooth points.',
+    keywords: ['node', 'anchor', 'bezier', 'handle', 'path', 'edit'],
+    category: 'Tools',
+    related: ['tool:pen', 'tool:pencil'],
+  },
   'tool:pen': {
     id: 'tool:pen',
     title: 'Pen Tool (P)',
@@ -65,10 +189,10 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
   },
   'tool:pencil': {
     id: 'tool:pencil',
-    title: 'Pencil Tool (N)',
+    title: 'Pencil Tool (Shift+P)',
     summary: 'Freehand draw smooth paths.',
     body: 'Click and drag to draw freeform paths. The pencil automatically smooths your strokes using Ramer-Douglas-Peucker simplification. Edit the result with the Node Edit tool.',
-    keywords: ['pencil', 'freehand', 'draw', 'sketch', 'n'],
+    keywords: ['pencil', 'freehand', 'draw', 'sketch', 'shift+p'],
     category: 'Tools',
     related: ['tool:pen', 'tool:nodeEdit'],
   },
@@ -108,6 +232,60 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
     category: 'Panels',
     related: ['tool:select', 'panel:layers'],
   },
+  'panel:timeline': {
+    id: 'panel:timeline',
+    title: 'Timeline Panel',
+    summary: 'Create animations and interactive prototypes.',
+    body: 'The Timeline panel lets you create keyframe animations, set transitions between screens, and build interactive prototypes. Add motion to your designs with timeline-based animation.',
+    keywords: ['timeline', 'animation', 'motion', 'keyframe', 'prototype'],
+    category: 'Panels',
+    related: ['tool:frame', 'export'],
+  },
+  'panel:library': {
+    id: 'panel:library',
+    title: 'Library Panel',
+    summary: 'Access shared components and design resources.',
+    body: 'The Library panel contains reusable components, styles, and assets. Drag components from the library onto the canvas to instantiate them. Changes to library components sync across all instances.',
+    keywords: ['library', 'components', 'assets', 'reuse', 'sync'],
+    category: 'Panels',
+    related: ['tool:frame', 'panel:layers'],
+  },
+  'tool:booleanUnion': {
+    id: 'tool:booleanUnion',
+    title: 'Boolean Union (Ctrl+Alt+U)',
+    summary: 'Combine selected shapes into a single shape.',
+    body: 'Union merges overlapping shapes into one combined shape. The resulting shape takes the fill of the topmost selected shape.',
+    keywords: ['boolean', 'union', 'combine', 'merge', 'shape'],
+    category: 'Tools',
+    related: ['tool:booleanSubtract', 'tool:booleanIntersect'],
+  },
+  'tool:booleanSubtract': {
+    id: 'tool:booleanSubtract',
+    title: 'Boolean Subtract (Ctrl+Alt+S)',
+    summary: 'Cut away overlapping areas of shapes.',
+    body: 'Subtract removes the area of the topmost shape from the shapes below it. Useful for creating cutouts and negative space effects.',
+    keywords: ['boolean', 'subtract', 'cut', 'difference', 'shape'],
+    category: 'Tools',
+    related: ['tool:booleanUnion', 'tool:booleanIntersect'],
+  },
+  'tool:booleanIntersect': {
+    id: 'tool:booleanIntersect',
+    title: 'Boolean Intersect (Ctrl+Alt+I)',
+    summary: 'Keep only the overlapping area of shapes.',
+    body: 'Intersect keeps only the area where all selected shapes overlap. Everything outside the overlap is removed.',
+    keywords: ['boolean', 'intersect', 'overlap', 'common', 'shape'],
+    category: 'Tools',
+    related: ['tool:booleanUnion', 'tool:booleanSubtract'],
+  },
+  'tool:booleanExclude': {
+    id: 'tool:booleanExclude',
+    title: 'Boolean Exclude (Ctrl+Alt+X)',
+    summary: 'Remove the overlapping area between shapes.',
+    body: 'Exclude removes the area where shapes overlap, keeping only the non-overlapping portions. Also known as XOR.',
+    keywords: ['boolean', 'exclude', 'xor', 'difference', 'shape'],
+    category: 'Tools',
+    related: ['tool:booleanUnion', 'tool:booleanSubtract'],
+  },
   export: {
     id: 'export',
     title: 'Exporting Your Design',
@@ -126,6 +304,15 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
     category: 'General',
     related: ['export', 'tool:select'],
   },
+};
+
+/**
+ * Merged help corpus: local tool/panel articles + the shared @strata/help
+ * package (Getting Started, FAQ, Troubleshooting, etc.).
+ */
+export const HELP_CONTENT: Record<string, HelpArticle> = {
+  ...LOCAL_HELP_CONTENT,
+  ...HELP_PACKAGE_CONTENT,
 };
 
 export function getHelpContent(id: string): HelpArticle | undefined {
