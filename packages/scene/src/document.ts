@@ -931,7 +931,14 @@ export function reparentNode(
   if (newParentId) {
     const newParent = doc.nodes[newParentId];
     if (!newParent || !isContainer(newParent)) return doc;
-    if (isAncestor(doc, id, newParentId)) return doc;
+    // Reject only if newParentId is id's own descendant (would create a
+    // cycle). isAncestor(doc, parent, child) walks down from `child`
+    // looking for `parent`, so "is newParentId inside id's subtree" is
+    // isAncestor(doc, newParentId, id) — NOT isAncestor(doc, id,
+    // newParentId), which walks down from newParentId and trivially finds
+    // id whenever newParentId is simply id's current parent, rejecting
+    // every same-parent reorder (drag/keyboard) as a false cycle.
+    if (isAncestor(doc, newParentId, id)) return doc;
   }
 
   const nodes = { ...doc.nodes };
