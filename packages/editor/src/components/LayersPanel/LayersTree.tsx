@@ -785,7 +785,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         return;
       }
 
-      // Keyboard reorder: Ctrl+[ move up, Ctrl+] move down
+      // Keyboard reorder: Ctrl+[ move up (visually, toward front-most),
+      // Ctrl+] move down (visually, toward back-most).
       if ((e.ctrlKey || e.metaKey) && (e.key === '[' || e.key === ']')) {
         e.preventDefault();
         const focusEntry = entries[focusIdx];
@@ -798,15 +799,21 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
           : resolveRootLevelSiblings(doc);
         const myIdx = siblings.indexOf(focusEntry.node.id);
         if (myIdx < 0) return;
-        const delta = e.key === '[' ? -1 : 1;
-        const newIdx = myIdx + delta;
+        // `entries` (panel/visual order) is front-most-first, the reverse of
+        // `siblings` (raw document array, back-to-front) — see
+        // computeMultiMoveSteps above. Moving "up" visually means moving
+        // toward the *end* of the raw array, so the array-index delta is the
+        // negation of the visual delta.
+        const visualDelta = e.key === '[' ? -1 : 1;
+        const rawDelta = -visualDelta;
+        const newIdx = myIdx + rawDelta;
         if (newIdx < 0 || newIdx >= siblings.length) return;
         reparentNode(focusEntry.node.id, parentId, newIdx);
         const siblingId = siblings[newIdx];
         if (!siblingId) throw new Error('sibling not found');
         const otherNode = doc.nodes[siblingId];
         announce(
-          delta < 0
+          visualDelta < 0
             ? `Moved ${focusEntry.node.name} above ${otherNode?.name || ''}`
             : `Moved ${focusEntry.node.name} below ${otherNode?.name || ''}`,
         );
