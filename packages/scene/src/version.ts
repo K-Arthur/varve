@@ -1,6 +1,6 @@
-export const CURRENT_DOCUMENT_VERSION = '1.6';
+export const CURRENT_DOCUMENT_VERSION = '1.7';
 
-export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6'];
+export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7'];
 
 export interface DocumentMigration {
   from: string;
@@ -160,6 +160,24 @@ const migrations: DocumentMigration[] = [
       formatVersion: '1.6',
       interactions: raw.interactions ?? undefined,
     }),
+  },
+  {
+    from: '1.6',
+    to: '1.7',
+    migrate: (raw) => {
+      const activePageId =
+        (raw.activePageId as string | undefined) ??
+        (raw.pages as { id: string }[] | undefined)?.[0]?.id;
+      const guides = (raw.guides as { pageId?: string }[] | undefined) ?? [];
+      return {
+        ...raw,
+        formatVersion: '1.7',
+        guides: guides.map((g) => ({
+          ...g,
+          pageId: g.pageId ?? activePageId,
+        })),
+      };
+    },
   },
 ];
 

@@ -1530,8 +1530,29 @@ export function setVariableModeOnDocument(doc: Document, mode: string): Document
 
 export interface AddGuideOptions {
   id?: string;
+  pageId?: string;
   locked?: boolean;
   color?: string;
+}
+
+/** Active page id for guide placement, or undefined on flat documents. */
+export function resolveGuidePageId(doc: Document): string | undefined {
+  return doc.activePageId ?? doc.pages?.[0]?.id;
+}
+
+/** Guides visible on the given page (legacy guides without pageId match any page). */
+export function getGuidesForPage(
+  doc: Document,
+  pageId: string | null | undefined,
+): import('./types').Guide[] {
+  const all = doc.guides ?? [];
+  if (!pageId) return all.filter((g) => !g.pageId);
+  return all.filter((g) => !g.pageId || g.pageId === pageId);
+}
+
+function guideOnPage(guide: import('./types').Guide, pageId: string | undefined): boolean {
+  if (!pageId) return !guide.pageId;
+  return !guide.pageId || guide.pageId === pageId;
 }
 
 export function createGuideId(): string {
@@ -1549,6 +1570,7 @@ export function addGuide(
     id: options.id ?? createGuideId(),
     axis,
     position,
+    ...(options.pageId !== undefined ? { pageId: options.pageId } : {}),
     ...(options.locked !== undefined ? { locked: options.locked } : {}),
     ...(options.color !== undefined ? { color: options.color } : {}),
   };
@@ -1583,10 +1605,16 @@ export function toggleGuideLock(doc: Document, id: string): Document {
   return { ...doc, guides: next };
 }
 
-/** Lock or unlock every guide. No-op when there are no guides. */
-export function setAllGuidesLocked(doc: Document, locked: boolean): Document {
+/** Lock or unlock guides on a page. Omit pageId to lock/unlock every guide. */
+export function setAllGuidesLocked(doc: Document, locked: boolean, pageId?: string): Document {
   if (!doc.guides || doc.guides.length === 0) return doc;
-  return { ...doc, guides: doc.guides.map((g) => ({ ...g, locked })) };
+  return {
+    ...doc,
+    guides: doc.guides.map((g) => {
+      if (pageId === undefined) return { ...g, locked };
+      return guideOnPage(g, pageId) ? { ...g, locked } : g;
+    }),
+  };
 }
 
 /** Duplicate a guide at a new position. Returns unchanged doc if id not found. */
@@ -1603,9 +1631,31 @@ export function duplicateGuide(
   return { ...doc, guides: [...doc.guides, copy] };
 }
 
-/** Clear all guides from a document. */
-export function clearGuides(doc: Document): Document {
-  return { ...doc, guides: [] };
+/** Clear guides. When pageId is set, only removes guides on that page. */
+export function clearGuides(doc: Document, pageId?: string): Document {
+  if (!doc.guides || doc.guides.length === 0) return doc;
+  if (!pageId) return { ...doc, guides: [] };
+  return { ...doc, guides: doc.guides.filter((g) => !guideOnPage(g, pageId)) };
+}
+
+/** Paste guides onto a page with new ids and an optional position offset. */
+export function pasteGuides(
+  doc: Document,
+  guides: import('./types').Guide[],
+  pageId: string | undefined,
+  newId: () => string,
+  offset = 10,
+): Document {
+  let result = doc;
+  for (const source of guides) {
+    result = addGuide(result, source.axis, source.position + offset, {
+      id: newId(),
+      pageId: pageId ?? source.pageId,
+      locked: false,
+      ...(source.color !== undefined ? { color: source.color } : {}),
+    });
+  }
+  return result;
 }
 
 // ── Active page & global children operations ───────────────────────────────

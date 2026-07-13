@@ -1112,6 +1112,36 @@
   color: var(--color-text-muted);
   line-height: var(--line-height-relaxed);
 }
+.settings-section__subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.settings-shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+.settings-shortcuts-table th,
+.settings-shortcuts-table td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-micro);
+  color: var(--color-text-primary);
+}
+.settings-shortcuts-table code {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+}
+.editor-status__snap-grid {
+  display: inline-flex;
+  align-items: center;
+  max-width: 4.5rem;
+}
+.editor-status__snap-grid .number-input {
+  min-width: 3rem;
+}
 .bg-models-list {
   list-style: none;
   margin: 0;

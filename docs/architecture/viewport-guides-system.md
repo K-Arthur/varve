@@ -29,13 +29,13 @@ The practical split is therefore:
 | Window model | One configured native window today | One browser tab per load |
 | In-app tabs | `EditorProvider` sessions, full viewport snapshots | Same |
 | Native multi-window | Not implemented | Not applicable |
-| Reserved shortcuts | Tauri can add native menu/global shortcut handling later | Browser/OS reserved shortcuts remain constrained |
+| Reserved shortcuts | OS-level list in Settings; app shortcuts via Tauri later | Browser-reserved list in Settings |
 | File/fullscreen permissions | Tauri commands/capabilities available | Browser File System and Fullscreen APIs require browser permissions and user activation |
 
 ### Reserved shortcuts (browser build)
 
-These shortcuts cannot be overridden in a normal browser tab and are not bound
-in the shared editor:
+These shortcuts cannot be overridden in a normal browser tab and are surfaced
+in **Settings → Keyboard Shortcuts** (see `reservedShortcuts.ts`):
 
 | Shortcut | Browser action |
 |---|---|
@@ -45,8 +45,9 @@ in the shared editor:
 | `Ctrl/Cmd+Q` (macOS) | Quit browser |
 | `F5` / `Ctrl/Cmd+R` | Reload |
 
-The Tauri desktop build can register overlapping combos via
-`tauri-plugin-global-shortcut` in the future; they are not wired today.
+The Tauri desktop build shows OS-reserved shortcuts in the same panel. App-level
+global shortcuts can be registered via `tauri-plugin-global-shortcut` in the
+future.
 
 ## Coordinate Spaces
 
@@ -77,7 +78,7 @@ entirely off-screen when content bounds are known.
 | `zoom`, `pan`, `cameraRotation` | `EditorState` (active tab) | Per inactive tab in `sessionStoreRef` |
 | `snapEnabled`, `pixelGridEnabled`, `rulerMode`, `gridOverlayMode`, `unitType`, `guidesVisible`, `snapGrid` | `EditorState` | Per inactive tab snapshot + `localStorage` defaults via `settings.viewport` |
 | `selectedGuideId` | `EditorState` (ephemeral) | Not persisted |
-| `Document.guides[]` | Document model | Saved with `.strata` file |
+| `Document.guides[]` | Document model (`pageId` per guide) | Saved with `.strata` file |
 | Panel visibility | `settings.panel` | `localStorage` |
 
 ### Per-tab snapshot (`SavedViewport`)
@@ -85,7 +86,7 @@ entirely off-screen when content bounds are known.
 Inactive tabs store a full `SavedViewport` via `captureViewport()`:
 
 - `zoom`, `pan`, `cameraRotation`
-- `snapEnabled`, `pixelGridEnabled`, `rulerMode`, `gridOverlayMode`, `unitType`, `guidesVisible`
+- `snapEnabled`, `pixelGridEnabled`, `rulerMode`, `gridOverlayMode`, `unitType`, `guidesVisible`, `snapGrid`
 
 Legacy snapshots containing only `zoom`/`pan` are normalized with defaults via
 `normalizeSavedViewport()`.
@@ -95,8 +96,10 @@ New tabs reset camera to defaults and load view preferences from
 
 ## Guides and Rulers
 
-Guides are persisted on `Document.guides` and are not part of rendered/exported
-IR. Rulers and guide overlays are editor UI layers only.
+Guides are persisted on `Document.guides` with an optional `pageId` (document
+format v1.7). Only guides on the active page render and participate in snapping.
+Guides are not part of rendered/exported IR. Rulers and guide overlays are editor
+UI layers only.
 
 Current behavior:
 
@@ -109,9 +112,14 @@ Current behavior:
 - Locked guides cannot be dragged, but they remain visible and snap targets.
 - `Ctrl+;` toggles guide visibility (`guidesVisible`); guides remain in the
   document and continue to snap when hidden.
-- `Ctrl+Alt+;` locks all guides if any are unlocked, otherwise unlocks all.
+- `Ctrl+Alt+;` locks all guides on the active page if any are unlocked,
+  otherwise unlocks all on that page.
 - Click a guide to select it; arrow keys nudge by 1px (Shift = 10px); Delete
   removes the selected guide; Escape clears selection.
+- `Ctrl+C` / `Ctrl+V` with a guide selected copies/pastes guides (10px offset)
+  via `guideClipboard.ts` (`application/vnd.strata+guides+json`).
+- Status bar **Snap grid** `NumberInput` sets `snapGrid` (1–256 px), persisted
+  in viewport settings and per-tab snapshots.
 - Objects snap to permanent ruler guides when snapping is enabled. Guide snapping
   has lower priority than the explicit snap grid and higher priority than object
   edge/center snapping.
@@ -120,8 +128,8 @@ Guide creation returns the created guide id from `editor.addGuide(...)`. This is
 used by the ruler so a drag can create once, then call `moveGuide(id, position)`
 for subsequent pointer movement.
 
-**Known limitation:** None for view rotation — layout guides, snap overlays, and ruler
-ticks all use rotation-aware projection via `guideGeometry` / `rulerGeometry`.
+Layout guides, snap overlays, and ruler ticks use rotation-aware projection via
+`guideGeometry.ts` / `rulerGeometry.ts`.
 
 ## Input Pipeline
 
@@ -138,6 +146,12 @@ Canvas navigation is driven by DOM events in `CanvasArea`:
 
 Browser and Tauri currently share this pipeline because Tauri forwards webview DOM
 events. Native Tauri shortcut/window APIs are not used for viewport commands yet.
+
+## Native Tauri E2E
+
+Optional smoke coverage lives in `tests/e2e/tauri/smoke.spec.ts`, gated by
+`STRATA_TAURI_E2E=1` and `scripts/tauri-e2e.sh` (requires `tauri-driver` +
+WebDriver). PR CI uses Chromium Playwright only; see `tests/e2e/tauri/README.md`.
 
 ## Research Notes
 
@@ -160,38 +174,29 @@ Access date: 2026-07-13.
   is possible but not wired into Strata's viewport state today:
   https://v2.tauri.app/reference/javascript/api/namespacewebviewwindow/
 
-## Prioritized Backlog
+## Shipped (2026-07-13)
 
-Shipped this session (2026-07-13):
-
-1. P0 data integrity: full per-tab viewport snapshot (rotation + view prefs).
+1. P0 data integrity: full per-tab viewport snapshot (rotation + view prefs + snapGrid).
 2. P0 data integrity: application-level view defaults in `settings.viewport`.
 3. P1 guide visibility toggle (`Ctrl+;`) without deleting guides.
-4. P1 lock/unlock all guides (`Ctrl+Alt+;`).
+4. P1 lock/unlock all guides (`Ctrl+Alt+;`) scoped to active page.
 5. P1 Alt-drag guide duplication.
 6. P1 keyboard guide nudge/delete when a guide is selected.
 7. P1 `clampCamera` wired into `setPan`.
-7. P1 view-rotation parity for layout guides, snap overlays, and ruler ticks.
-8. Regression coverage: `viewportSession.test.ts`, `guideGeometry.test.ts`,
-   `rulerGeometry.test.ts`, expanded scene guide tests, expanded Playwright
-   `guides.spec.ts`.
+8. P1 view-rotation parity for layout guides, snap overlays, and ruler ticks.
+9. P2 page-scoped guides (`Guide.pageId`, migration v1.7).
+10. P2 guide copy/paste across documents (`guideClipboard.ts`).
+11. P2 snap grid UI in status bar + persistence.
+12. P1 in-app reserved shortcut documentation (Settings → Keyboard Shortcuts).
+13. P2 visual regression matrix: `guides-visual.spec.ts` (light/dark/high-contrast).
+14. P2 performance benchmark: `guides1k.bench.test.ts` (1000 guides < 50ms).
+15. P0/P1 native Tauri E2E harness (gated smoke + README + script).
 
-Deferred:
-
-1. P0/P1 native Tauri E2E: no tauri-driver/WebDriver harness is configured in
-   this repo. Current E2E coverage runs the shared frontend in Chromium.
-2. P1 per-target shortcut documentation in-app (browser-reserved list exists in
-   this doc only).
-3. P2 page-scoped guides and guide copy/paste across documents.
-4. P2 configurable `snapGrid` UI (value persisted in settings, still no setter).
-5. P2 full visual regression matrix for light/dark/high-contrast guide rendering.
-6. P2 performance benchmark for hundreds/thousands of guides.
-
-## Verification Added
+## Verification
 
 - `packages/editor/src/viewportSession.test.ts`: snapshot capture and legacy
-  normalization.
-- `packages/scene/src/document.test.ts`: `setAllGuidesLocked`, `duplicateGuide`.
+  normalization (includes `snapGrid`).
+- `packages/scene/src/document.test.ts`: guide ops, page scope, paste.
 - `packages/editor/src/settings.test.ts`: viewport defaults in `loadSettings`.
 - `packages/shared/src/viewport.test.ts`: viewport-aware zoom anchoring with
   floating origin and rotation; `clampCamera`.
@@ -199,7 +204,10 @@ Deferred:
   and priority.
 - `packages/editor/src/canvas/rulerGeometry.test.ts`: rotation-aware ruler tick
   projection and pointer mapping.
-- `packages/editor/src/components/Ruler/Ruler.test.tsx`: one guide per ruler
-  drag, moved by id, rotation-aware guide placement.
-- `tests/e2e/canvas/guides.spec.ts`: ruler drag, guide visibility toggle,
-  keyboard nudge (Chromium browser build).
+- `packages/editor/src/components/Ruler/Ruler.test.tsx`: ruler drag guide creation.
+- `packages/editor/src/guideClipboard.test.ts`: guide clipboard round-trip.
+- `packages/editor/src/shortcuts/reservedShortcuts.test.ts`: browser target list.
+- `packages/editor/src/components/GuideOverlay/__benchmarks__/guides1k.bench.test.ts`.
+- `tests/e2e/canvas/guides.spec.ts`: interaction regression (Chromium).
+- `tests/e2e/canvas/guides-visual.spec.ts`: theme snapshot matrix.
+- `tests/e2e/tauri/smoke.spec.ts`: optional native smoke (gated).

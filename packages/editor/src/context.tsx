@@ -93,6 +93,7 @@ import {
   type Guide,
   activePageNodes as getActivePageNodes,
   getCurrentStateTimelineId,
+  getGuidesForPage,
   getInstanceStatus as getInstanceStatusDoc,
   getInteractionsForNode,
   getNestedValue,
@@ -108,6 +109,7 @@ import {
   moveGuide as moveGuideDoc,
   moveNode,
   nextNodeId,
+  pasteGuides as pasteGuidesDoc,
   pushMasterChanges as pushMasterChangesDoc,
   removeFrameFromChain as removeFrameFromChainDoc,
   removeGuide as removeGuideDoc,
@@ -122,6 +124,7 @@ import {
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
+  resolveGuidePageId,
   resolveNodeFills,
   resolveVariantPropertiesForNode as resolveVariantPropertiesForNodeDoc,
   type SafeAreaConfig,
@@ -213,6 +216,7 @@ import type {
 } from './context/types';
 import { computeZoomStep, computeZoomTo } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
+import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
 import { insertDerivedImageShape, insertTraceGroup, selectedImageShape } from './imageOperations';
@@ -682,6 +686,7 @@ export interface EditorContextValue {
   setPixelGridEnabled: (v: boolean) => void;
   /** Toggle snap-to-grid. */
   setSnapEnabled: (v: boolean) => void;
+  setSnapGrid: (v: number) => void;
   /** Set canvas rendering mode (full / outline / preview). */
   setCanvasMode: (mode: CanvasMode) => void;
   setCameraRotation: (radians: number) => void;
@@ -835,7 +840,11 @@ export interface EditorContextValue {
   toggleGuidesVisible: () => void;
   setSelectedGuideId: (id: string | null) => void;
   nudgeSelectedGuide: (dx: number, dy: number) => void;
-  /** All guides in the document. */
+  /** Copy the selected guide to the clipboard. */
+  copySelectedGuide: () => void;
+  /** Paste guides from the clipboard onto the active page. */
+  pasteGuides: () => Promise<void>;
+  /** All guides on the active page. */
   guides: Guide[];
 
   /** Set the active variant on a component instance. */
@@ -928,6 +937,7 @@ function restoreViewportFields(
   | 'gridOverlayMode'
   | 'unitType'
   | 'guidesVisible'
+  | 'snapGrid'
 > {
   const v = normalizeSavedViewport(raw);
   return {
@@ -940,6 +950,7 @@ function restoreViewportFields(
     gridOverlayMode: v.gridOverlayMode,
     unitType: v.unitType,
     guidesVisible: v.guidesVisible,
+    snapGrid: v.snapGrid,
   };
 }
 
@@ -3778,6 +3789,18 @@ export function EditorProvider({
       },
 
       copySelected: () => {
+        const guideId = stateRef.current.selectedGuideId;
+        if (guideId) {
+          const pageId = resolveGuidePageId(stateRef.current.document);
+          const guide = getGuidesForPage(stateRef.current.document, pageId).find(
+            (g) => g.id === guideId,
+          );
+          if (guide) {
+            void writeGuidesToClipboard([guide]);
+            announcerRef.current?.announce('Copied guide');
+          }
+          return;
+        }
         const sel = state.selection;
         if (sel.length === 0) return;
         const nodes = sel
@@ -3808,6 +3831,30 @@ export function EditorProvider({
       },
 
       paste: async () => {
+        const guideClipboard = await readGuidesFromClipboard();
+        if (guideClipboard && guideClipboard.length > 0) {
+          const pageId = resolveGuidePageId(stateRef.current.document);
+          const pastedIds: string[] = [];
+          updateDoc((doc) =>
+            pasteGuidesDoc(
+              doc,
+              guideClipboard,
+              pageId,
+              () => {
+                const id = createGuideId();
+                pastedIds.push(id);
+                return id;
+              },
+              10,
+            ),
+          );
+          patch({ selectedGuideId: pastedIds[pastedIds.length - 1] ?? null });
+          announcerRef.current?.announce(
+            `Pasted ${guideClipboard.length} guide${guideClipboard.length > 1 ? 's' : ''}`,
+          );
+          return;
+        }
+
         // Single clipboard read — uses DOM ClipboardEvent when available
         // (cross-platform, no Wayland permission issues), falls back to
         // navigator.clipboard.read() for menu-triggered pastes.
@@ -4006,6 +4053,11 @@ export function EditorProvider({
       setSnapEnabled: (v) => {
         patch({ snapEnabled: v });
         persistViewportPrefs({ ...stateRef.current, snapEnabled: v });
+      },
+      setSnapGrid: (v) => {
+        const clamped = Math.max(1, Math.min(256, Math.round(v)));
+        patch({ snapGrid: clamped });
+        persistViewportPrefs({ ...stateRef.current, snapGrid: clamped });
       },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setCameraRotation: (radians) => patch({ cameraRotation: radians }),
@@ -5352,11 +5404,12 @@ export function EditorProvider({
 
       // ── Guide management implementations ─────────────────────────────────
 
-      guides: state.document.guides ?? [],
+      guides: getGuidesForPage(state.document, resolveGuidePageId(state.document)),
 
       addGuide: (axis, position) => {
         const id = createGuideId();
-        updateDoc((doc) => addGuideDoc(doc, axis, position, { id }));
+        const pageId = resolveGuidePageId(stateRef.current.document);
+        updateDoc((doc) => addGuideDoc(doc, axis, position, { id, pageId }));
         return id;
       },
 
@@ -5373,9 +5426,10 @@ export function EditorProvider({
       },
 
       toggleLockAllGuides: () => {
-        const guides = stateRef.current.document.guides ?? [];
+        const pageId = resolveGuidePageId(stateRef.current.document);
+        const guides = getGuidesForPage(stateRef.current.document, pageId);
         const anyUnlocked = guides.some((g) => !g.locked);
-        updateDoc((doc) => setAllGuidesLocked(doc, anyUnlocked));
+        updateDoc((doc) => setAllGuidesLocked(doc, anyUnlocked, pageId));
         announcerRef.current?.announce(anyUnlocked ? 'All guides locked' : 'All guides unlocked');
       },
 
@@ -5386,8 +5440,46 @@ export function EditorProvider({
       },
 
       clearAllGuides: () => {
-        updateDoc((doc) => clearGuides(doc));
+        const pageId = resolveGuidePageId(stateRef.current.document);
+        updateDoc((doc) => clearGuides(doc, pageId));
         patch({ selectedGuideId: null });
+      },
+
+      copySelectedGuide: () => {
+        const guideId = stateRef.current.selectedGuideId;
+        if (!guideId) return;
+        const pageId = resolveGuidePageId(stateRef.current.document);
+        const guide = getGuidesForPage(stateRef.current.document, pageId).find(
+          (g) => g.id === guideId,
+        );
+        if (guide) {
+          void writeGuidesToClipboard([guide]);
+          announcerRef.current?.announce('Copied guide');
+        }
+      },
+
+      pasteGuides: async () => {
+        const guideClipboard = await readGuidesFromClipboard();
+        if (!guideClipboard?.length) return;
+        const pageId = resolveGuidePageId(stateRef.current.document);
+        const pastedIds: string[] = [];
+        updateDoc((doc) =>
+          pasteGuidesDoc(
+            doc,
+            guideClipboard,
+            pageId,
+            () => {
+              const id = createGuideId();
+              pastedIds.push(id);
+              return id;
+            },
+            10,
+          ),
+        );
+        patch({ selectedGuideId: pastedIds[pastedIds.length - 1] ?? null });
+        announcerRef.current?.announce(
+          `Pasted ${guideClipboard.length} guide${guideClipboard.length > 1 ? 's' : ''}`,
+        );
       },
 
       setGuidesVisible: (visible) => {
@@ -5407,7 +5499,10 @@ export function EditorProvider({
       nudgeSelectedGuide: (dx, dy) => {
         const guideId = stateRef.current.selectedGuideId;
         if (!guideId) return;
-        const guide = stateRef.current.document.guides?.find((g) => g.id === guideId);
+        const pageId = resolveGuidePageId(stateRef.current.document);
+        const guide = getGuidesForPage(stateRef.current.document, pageId).find(
+          (g) => g.id === guideId,
+        );
         if (!guide || guide.locked) return;
         const delta = guide.axis === 'vertical' ? dx : dy;
         if (delta === 0) return;
@@ -5559,6 +5654,8 @@ export function EditorProvider({
       toggleGuidesVisible: value.toggleGuidesVisible,
       setSelectedGuideId: value.setSelectedGuideId,
       nudgeSelectedGuide: value.nudgeSelectedGuide,
+      copySelectedGuide: value.copySelectedGuide,
+      pasteGuides: value.pasteGuides,
       showExportDialog: value.showExportDialog,
       setShowExportDialog: value.setShowExportDialog,
       addPreset: value.addPreset,

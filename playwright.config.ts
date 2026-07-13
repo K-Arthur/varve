@@ -26,6 +26,12 @@ export default defineConfig({
     {
       name: 'chromium-snapshot',
       use: { ...devices['Desktop Chrome'], permissions: ['clipboard-read', 'clipboard-write'] },
+      testMatch: /guides-visual\.spec\.ts/,
+    },
+    {
+      name: 'tauri',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /tauri\/.*\.spec\.ts/,
     },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     // Safari/WebKit requires macOS for full testing — runs basic smoke tests on Linux

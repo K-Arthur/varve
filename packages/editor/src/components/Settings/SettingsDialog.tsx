@@ -5,6 +5,7 @@ import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useState } from 'react';
 import { loadSettings, updateSettings } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
+import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
 import { useSettings } from './SettingsContext';
@@ -265,6 +266,8 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
 }
 
 function ShortcutsSection({ onOpenPalette }: { onOpenPalette: () => void }) {
+  const reserved = getReservedShortcutsForTarget();
+
   return (
     <div className="settings-section">
       <h3 className="settings-section__title">Keyboard Shortcuts</h3>
@@ -272,6 +275,33 @@ function ShortcutsSection({ onOpenPalette }: { onOpenPalette: () => void }) {
       <Button variant="secondary" size="sm" onClick={onOpenPalette}>
         Customize keyboard shortcuts...
       </Button>
+      <Divider />
+      <h4 className="settings-section__subtitle">
+        {reserved.target === 'browser' ? 'Browser-reserved shortcuts' : 'OS-reserved shortcuts'}
+      </h4>
+      <p className="settings-hint">
+        {reserved.target === 'browser'
+          ? 'These shortcuts are owned by the browser and cannot be overridden in the web build.'
+          : 'Strata desktop can register app shortcuts via Tauri; these remain reserved by the OS.'}
+      </p>
+      <table className="settings-shortcuts-table">
+        <thead>
+          <tr>
+            <th scope="col">Shortcut</th>
+            <th scope="col">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reserved.shortcuts.map((row) => (
+            <tr key={row.keys}>
+              <td>
+                <code>{row.keys}</code>
+              </td>
+              <td>{row.action}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

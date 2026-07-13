@@ -39,6 +39,7 @@ import {
   createVariableStore,
   getChangedVariableIds,
   getEffectiveNode,
+  getGuidesForPage,
   isContainer,
   resolveAllStyles,
   walkNodes,
@@ -752,7 +753,7 @@ export function CanvasArea({
       pointerType: (ev.pointerType as 'mouse' | 'pen' | 'touch') ?? 'mouse',
       pointerPressure: ev.pressure ?? 0,
       snapEnabled: s.snapEnabled,
-      snapGrid: 8,
+      snapGrid: s.snapGrid,
 
       createShapeAt: (world, size, parentId) => e.createShapeAt(world, size, parentId),
       createTextNodeAt: (world, size, parentId, text) => {
@@ -906,7 +907,7 @@ export function CanvasArea({
 
         const allTargets = [...filtered, ...pageBoundsTargets];
         const guideTargets =
-          doc.guides?.map((guide) => ({
+          getGuidesForPage(doc, doc.activePageId).map((guide) => ({
             axis: guide.axis,
             position: guide.position,
           })) ?? [];

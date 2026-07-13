@@ -315,6 +315,22 @@ describe('Detailed Migration', () => {
     expect(doc.timelines).toBeDefined();
     expect((doc.timelines as Record<string, unknown>)['tl-1']).toBeDefined();
   });
+
+  it('migrates 1.6 guides to page-scoped 1.7', () => {
+    const raw = {
+      id: 'd1',
+      name: 'test',
+      formatVersion: '1.6',
+      activePageId: 'page-1',
+      pages: [{ id: 'page-1', name: 'Page 1', contentRoot: 'root' }],
+      guides: [{ id: 'g1', axis: 'vertical', position: 100 }],
+      rootChildren: [],
+      nodes: {},
+    };
+    const migrated = migrateDocument(raw);
+    expect(migrated?.formatVersion).toBe('1.7');
+    expect((migrated?.guides as { pageId: string }[])?.[0]?.pageId).toBe('page-1');
+  });
 });
 
 describe('serializeDocument', () => {

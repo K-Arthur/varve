@@ -1,4 +1,4 @@
-import { Icon } from '@strata/ui';
+import { Icon, NumberInput } from '@strata/ui';
 import { useSyncExternalStore } from 'react';
 import { useEditor } from './context';
 import {
@@ -13,6 +13,7 @@ export function StatusBar() {
     setUnitType,
     setPixelGridEnabled,
     setSnapEnabled,
+    setSnapGrid,
     setRulerMode,
     setGridOverlayMode,
     revealSelection,
@@ -104,6 +105,16 @@ export function StatusBar() {
       >
         <Icon name="Magnet" size={12} />
       </button>
+      <span className="editor-status__snap-grid" title="Snap grid spacing (px)">
+        <NumberInput
+          value={state.snapGrid}
+          min={1}
+          max={256}
+          step={1}
+          onChange={setSnapGrid}
+          label="Snap grid"
+        />
+      </span>
       <button
         type="button"
         aria-pressed={state.rulerMode === 'artboard'}

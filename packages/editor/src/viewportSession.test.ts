@@ -12,6 +12,7 @@ describe('viewportSession', () => {
     gridOverlayMode: 'baseline' as const,
     unitType: 'mm' as const,
     guidesVisible: false,
+    snapGrid: 16,
   };
 
   it('captureViewport copies all fields', () => {
@@ -27,6 +28,7 @@ describe('viewportSession', () => {
     expect(legacy.cameraRotation).toBe(DEFAULT_SAVED_VIEWPORT.cameraRotation);
     expect(legacy.snapEnabled).toBe(DEFAULT_SAVED_VIEWPORT.snapEnabled);
     expect(legacy.guidesVisible).toBe(DEFAULT_SAVED_VIEWPORT.guidesVisible);
+    expect(legacy.snapGrid).toBe(DEFAULT_SAVED_VIEWPORT.snapGrid);
   });
 
   it('normalizeSavedViewport returns defaults for undefined', () => {
