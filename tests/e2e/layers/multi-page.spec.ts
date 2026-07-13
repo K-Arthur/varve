@@ -1,9 +1,36 @@
 import { expect, test } from '@playwright/test';
 
+async function navigateToEditor(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  // Toolbar button's accessible name is "New" (icon + "New" text), not
+  // "New file" — matching on the fuller phrase silently times out.
+  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /^new$/i }).click();
+  await page
+    .locator('dialog')
+    .getByRole('button', { name: /^create$/i })
+    .waitFor({ timeout: 5000 });
+  await page
+    .locator('dialog')
+    .getByRole('button', { name: /^create$/i })
+    .click();
+  await page.locator('.layers-panel').waitFor({ timeout: 10000 });
+
+  // A first-run "Welcome to Strata" modal can overlay the canvas.
+  const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
+  if (
+    await welcomeClose
+      .first()
+      .isVisible({ timeout: 1000 })
+      .catch(() => false)
+  ) {
+    await welcomeClose.first().click();
+  }
+}
+
 test.describe('Layers Panel - Multi-Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.layers-panel');
+    await navigateToEditor(page);
     await page.waitForSelector('[role="tablist"][aria-label="Page navigation"]');
   });
 
