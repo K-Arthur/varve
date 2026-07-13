@@ -9,7 +9,7 @@ import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@strata/scene
 import { isContainer } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../../context';
 import {
@@ -62,6 +62,29 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     y: number;
     id: NodeId;
   } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // The menu is anchored at the raw click point with no viewport-edge
+  // awareness — a right-click near the panel's top/right edge (the layers
+  // panel is a narrow sidebar, so this is the common case, not an edge
+  // case) pushes items like the color-tag row or bottom actions off
+  // screen. Clamp after the real size is known, before paint.
+  useLayoutEffect(() => {
+    if (!contextMenu || !contextMenuRef.current) return;
+    const el = contextMenuRef.current;
+    const rect = el.getBoundingClientRect();
+    const margin = 4;
+    let left = contextMenu.x;
+    let top = contextMenu.y;
+    if (rect.right > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - rect.width - margin);
+    }
+    if (rect.bottom > window.innerHeight - margin) {
+      top = Math.max(margin, window.innerHeight - rect.height - margin);
+    }
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  }, [contextMenu]);
 
   // Parent index cache for O(1) lookups
   const parentCacheRef = useRef<ParentIndexCache | null>(null);
@@ -382,6 +405,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       {contextMenu &&
         createPortal(
           <div
+            ref={contextMenuRef}
             className="layers-context-menu"
             role="menu"
             style={{ left: contextMenu.x, top: contextMenu.y }}
