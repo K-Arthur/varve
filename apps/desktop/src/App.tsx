@@ -4,6 +4,7 @@ import { detectPlatform, type FileEntry } from '@strata/platform';
 import { StartupLoader } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
+import { revealMainWindow } from './startup/revealMainWindow';
 
 const platform = detectPlatform();
 
@@ -13,16 +14,21 @@ export function App() {
   const [openRequest, setOpenRequest] = useState<OpenFileRequest | null>(null);
   const [homeReady, setHomeReady] = useState(false);
 
-  const { showLoader, bootError, onRetry, capabilities, onHomeReady, onEditorReady, onBootError } =
+  const { showLoader, bootError, onRetry, retryCount, capabilities, onHomeReady, onEditorReady } =
     useStartup({
       onBootComplete: () => {
-        performance.measure('strata-startup', 'app_mount');
+        try {
+          performance.measure('strata-startup', 'app_mount');
+        } catch {
+          // Mark may be absent in test environments
+        }
       },
     });
 
   const handleHomeReady = useCallback(() => {
     setHomeReady(true);
     onHomeReady();
+    void revealMainWindow();
   }, [onHomeReady]);
 
   const handleOpenFile = useCallback(
@@ -83,6 +89,7 @@ export function App() {
         <TitleBar />
         <div style={surfaceStyle(view === 'home')}>
           <HomeShell
+            key={retryCount}
             platform={platform}
             onOpenFile={handleOpenFile}
             onResumeEditing={editorMounted ? handleResumeEditing : undefined}
