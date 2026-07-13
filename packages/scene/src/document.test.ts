@@ -423,6 +423,39 @@ describe('reparentNode', () => {
     const result = reparentNode(doc, fId, cId, 0);
     expect(result).toBe(doc);
   });
+
+  it('rejects reparenting a frame into its own descendant frame (exercises isAncestor, not just the container-type guard)', () => {
+    // The test above moves a frame into a leaf shape, which is already
+    // rejected by the "!isContainer(newParent)" guard before isAncestor
+    // ever runs — it doesn't prove isAncestor itself is correct. This one
+    // targets a container descendant so only isAncestor can catch it.
+    let doc = createDocument();
+    const { id: outerId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const { id: innerId, doc: d3 } = nextNodeId(doc);
+    doc = d3;
+    doc = addNode(doc, makeFrameNode(outerId, { name: 'Outer' }));
+    doc = addChild(doc, outerId, makeFrameNode(innerId, { name: 'Inner' }));
+    const result = reparentNode(doc, outerId, innerId, 0);
+    expect(result).toBe(doc);
+  });
+
+  it('reorders within the same parent (regression: isAncestor(doc, id, newParentId) previously rejected every same-parent move, since newParentId trivially contains id as a child)', () => {
+    let doc = createDocument();
+    const { id: fId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    doc = addNode(doc, makeFrameNode(fId, { name: 'F' }));
+    const a = shape(doc, 'a');
+    doc = a.doc;
+    doc = addChild(doc, fId, a.node);
+    const b = shape(doc, 'b');
+    doc = b.doc;
+    doc = addChild(doc, fId, b.node);
+    expect((getById(doc, fId) as FrameNode).children).toEqual([a.id, b.id]);
+
+    doc = reparentNode(doc, a.id, fId, 1);
+    expect((getById(doc, fId) as FrameNode).children).toEqual([b.id, a.id]);
+  });
 });
 
 describe('groupNodes / ungroupNode', () => {
