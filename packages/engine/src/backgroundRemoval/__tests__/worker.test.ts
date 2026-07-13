@@ -15,7 +15,7 @@ describe('background removal worker', () => {
     expect(typeof OffscreenCanvas).toBeDefined();
   });
 
-  it('handles missing onnxruntime-web gracefully', async () => {
+  it('reports AI worker failures without falling back to quick removal', async () => {
     vi.stubGlobal(
       'Worker',
       vi.fn(() => {
@@ -38,8 +38,9 @@ describe('background removal worker', () => {
 
     const { removeBackground } = await import('../index');
     const img = new ImageData(10, 10);
-    const result = await removeBackground(img, { method: 'ai-balanced' });
-    expect(result.method).toBe('quick');
+    await expect(removeBackground(img, { method: 'ai-balanced' })).rejects.toThrow(
+      'AI background removal failed',
+    );
   }, 10000);
 
   it('transferImageData creates transferable buffer', () => {
