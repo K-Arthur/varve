@@ -1,50 +1,5 @@
 import { expect, test } from '@playwright/test';
-
-async function navigateToEditor(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  // Toolbar button's accessible name is "New" (icon + "New" text), not
-  // "New file" — matching on the fuller phrase silently times out.
-  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /^new$/i }).click();
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .waitFor({ timeout: 5000 });
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .click();
-  await page.locator('.layers-panel').waitFor({ timeout: 10000 });
-
-  // A first-run "Welcome to Strata" modal can overlay the canvas.
-  const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
-  if (
-    await welcomeClose
-      .first()
-      .isVisible({ timeout: 1000 })
-      .catch(() => false)
-  ) {
-    await welcomeClose.first().click();
-  }
-}
-
-/** Draw `count` distinct rectangles so the layers tree is populated. */
-async function seedLayers(page: import('@playwright/test').Page, count: number) {
-  const canvas = page.locator('canvas').first();
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('canvas not found');
-  for (let i = 0; i < count; i++) {
-    const x1 = 100 + i * 120;
-    const y1 = 100 + i * 60;
-    await page.keyboard.press('r');
-    await page.mouse.move(box.x + x1, box.y + y1);
-    await page.mouse.down();
-    await page.mouse.move(box.x + x1 + 40, box.y + y1 + 40);
-    await page.mouse.move(box.x + x1 + 80, box.y + y1 + 80);
-    await page.mouse.up();
-  }
-  await page.getByRole('treeitem').first().waitFor({ timeout: 5000 });
-}
+import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Layers Panel - Drag & Drop', () => {
   test.beforeEach(async ({ page }) => {
@@ -79,8 +34,12 @@ test.describe('Layers Panel - Drag & Drop', () => {
     const count = await items.count();
     if (count >= 2) {
       const firstName = await items.first().textContent();
-      // Focus second item, then move up with Ctrl+[
+      // Focus second item, then move up with Ctrl+[. The keyboard-reorder
+      // handler reads the tree's internal focusIdx, which syncs from
+      // selection via a useEffect — wait for aria-selected to land before
+      // pressing the shortcut, or it can fire against the stale focus.
       await items.nth(1).click();
+      await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
       await page.keyboard.press('Control+[');
       await page.waitForTimeout(200);
       const newFirstName = await items.first().textContent();
@@ -89,15 +48,21 @@ test.describe('Layers Panel - Drag & Drop', () => {
   });
 
   test('canvas accepts DnD drop zone', async ({ page }) => {
-    const canvas = page.getByLabel('Canvas');
+    // getByLabel targets form-associated elements; the drop zone is a
+    // <section aria-label="Canvas"> (distinct from the inner
+    // <canvas aria-label="Design canvas">), so match on the attribute
+    // directly instead.
+    const canvas = page.locator('[aria-label="Canvas"]');
     await expect(canvas).toBeVisible();
-    // The canvas should be present and have the droppable attribute
     await expect(canvas).toHaveAttribute('aria-label', 'Canvas');
   });
 
   test('file import input exists', async ({ page }) => {
     const importInput = page.locator('#file-import-input');
     await expect(importInput).toBeVisible({ visible: false });
-    await expect(importInput).toHaveAttribute('accept', '.svg,.png,.jpg,.jpeg,.webp,.gif');
+    await expect(importInput).toHaveAttribute(
+      'accept',
+      '.svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch',
+    );
   });
 });
