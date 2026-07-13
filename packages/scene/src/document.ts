@@ -1583,6 +1583,26 @@ export function toggleGuideLock(doc: Document, id: string): Document {
   return { ...doc, guides: next };
 }
 
+/** Lock or unlock every guide. No-op when there are no guides. */
+export function setAllGuidesLocked(doc: Document, locked: boolean): Document {
+  if (!doc.guides || doc.guides.length === 0) return doc;
+  return { ...doc, guides: doc.guides.map((g) => ({ ...g, locked })) };
+}
+
+/** Duplicate a guide at a new position. Returns unchanged doc if id not found. */
+export function duplicateGuide(
+  doc: Document,
+  id: string,
+  position: number,
+  newId: string,
+): Document {
+  if (!doc.guides || doc.guides.length === 0) return doc;
+  const source = doc.guides.find((g) => g.id === id);
+  if (!source) return doc;
+  const copy = { ...source, id: newId, position, locked: false };
+  return { ...doc, guides: [...doc.guides, copy] };
+}
+
 /** Clear all guides from a document. */
 export function clearGuides(doc: Document): Document {
   return { ...doc, guides: [] };

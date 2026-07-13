@@ -6,6 +6,7 @@ import {
   arrangeNode,
   createDocument,
   detachInstance,
+  duplicateGuide,
   getById,
   getChildren,
   getParent,
@@ -26,6 +27,7 @@ import {
   renameNode,
   reparentNode,
   rootNodes,
+  setAllGuidesLocked,
   setLayerColor,
   toggleGuideLock,
   ungroupNode,
@@ -738,6 +740,28 @@ describe('Guide operations', () => {
     const doc = createDocument('test');
     const d2 = toggleGuideLock(doc, 'any-id');
     expect(d2).toBe(doc);
+  });
+
+  it('setAllGuidesLocked locks every guide', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'vertical', 100);
+    doc = addGuide(doc, 'horizontal', 200);
+    const locked = setAllGuidesLocked(doc, true);
+    expect(locked.guides?.every((g) => g.locked)).toBe(true);
+    const unlocked = setAllGuidesLocked(locked, false);
+    expect(unlocked.guides?.every((g) => !g.locked)).toBe(true);
+  });
+
+  it('duplicateGuide copies axis and creates a new id', () => {
+    let doc = createDocument('test');
+    doc = addGuide(doc, 'vertical', 100);
+    const sourceId = doc.guides?.[0]?.id ?? '';
+    const d2 = duplicateGuide(doc, sourceId, 250, 'copy-id');
+    expect(d2.guides?.length).toBe(2);
+    const copy = d2.guides?.find((g) => g.id === 'copy-id');
+    expect(copy?.axis).toBe('vertical');
+    expect(copy?.position).toBe(250);
+    expect(copy?.locked).toBe(false);
   });
 });
 
