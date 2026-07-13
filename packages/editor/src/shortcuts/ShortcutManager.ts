@@ -170,6 +170,16 @@ export const SHORTCUT_DEFS = {
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
   settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },
+  toggleGuidesVisible: {
+    binding: { key: ';', ctrl: true },
+    label: 'Show/Hide Guides',
+    category: 'View',
+  },
+  lockAllGuides: {
+    binding: { key: ';', ctrl: true, alt: true },
+    label: 'Lock/Unlock All Guides',
+    category: 'View',
+  },
   toggleLeftPanel: {
     binding: { key: 'b', ctrl: true },
     label: 'Toggle Layers Panel',
