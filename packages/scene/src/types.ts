@@ -543,6 +543,11 @@ export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | Adjustmen
 
 export type ContainerNode = GroupNode | FrameNode;
 
+/** True if the node is a container (has a children array). */
+export function isContainer(node: SceneNode): node is ContainerNode {
+  return node.kind === 'frame' || node.kind === 'group';
+}
+
 // ── Page type ────────────────────────────────────────────────────────────────
 
 export interface Page {

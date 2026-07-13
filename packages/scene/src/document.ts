@@ -28,6 +28,7 @@ import type {
 } from './colorManagement';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
 import type { ExportSettings } from './export-types';
+import { nextNodeId } from './node-id';
 import type {
   ComponentDefinition,
   ContainerNode,
@@ -42,9 +43,16 @@ import type {
   Style,
   TextNode,
 } from './types';
+import { isContainer } from './types';
 import type { Variable } from './variables';
 import { createVariableStore, deleteVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
+
+export { nextNodeId } from './node-id';
+// Re-exported for existing same-package consumers that import these from
+// './document' — their canonical homes are now './types' and './node-id'
+// respectively, moved out to break the document.ts <-> clone.ts import cycle.
+export { isContainer } from './types';
 
 export interface Document {
   id: string;
@@ -183,12 +191,6 @@ export function createDocument(name = 'Untitled', flat?: boolean): Document {
 function cryptoId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `doc-${Math.random().toString(36).slice(2)}`;
-}
-
-/** Allocate the next stable node id from the document's counter. */
-export function nextNodeId(doc: Document): { id: NodeId; doc: Document } {
-  const id = `n${doc.nextId}`;
-  return { id, doc: { ...doc, nextId: doc.nextId + 1 } };
 }
 
 export function makeAdjustmentNode(
@@ -611,11 +613,6 @@ export function buildParentIndexMap(doc: Document): Map<NodeId, NodeId> {
     }
   }
   return parents;
-}
-
-/** True if the node is a container (has a children array). */
-export function isContainer(node: SceneNode): node is ContainerNode {
-  return node.kind === 'frame' || node.kind === 'group';
 }
 
 /**

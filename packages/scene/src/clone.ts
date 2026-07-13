@@ -6,8 +6,9 @@
  */
 
 import type { Document } from './document';
-import { isContainer, nextNodeId } from './document';
+import { nextNodeId } from './node-id';
 import type { ContainerNode, FrameNode, GroupNode, NodeId, SceneNode } from './types';
+import { isContainer } from './types';
 
 export interface CloneResult {
   nodes: Record<NodeId, SceneNode>;
