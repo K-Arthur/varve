@@ -13,14 +13,22 @@ test.describe('Create File dialog', () => {
     await expect(dialog.locator('.strata-dialog__title')).toContainText(/new file/i);
   });
 
-  test('presets tab shows preset options', async ({ page }) => {
+  test('blank tab shows blank canvas and print document options', async ({ page }) => {
+    // As of 123b56e ("Figma preset model"), New File is blank-canvas-first:
+    // device/social/web size presets moved into the editor as
+    // FramePresetsSection, applied to a frame after creation. The dialog
+    // itself now only offers a blank canvas and print (CMYK) document
+    // sizes — there is no "Presets" tab or "Web" option here anymore.
     await page.getByRole('button', { name: /^new$/i }).click();
     const dialog = page.locator('dialog.strata-dialog[open]');
     await expect(dialog).toBeVisible();
 
-    await expect(dialog.getByText('Presets')).toBeVisible();
-    await expect(dialog.getByText('Blank')).toBeVisible();
-    await expect(dialog.getByText('Web')).toBeVisible();
+    await expect(dialog.getByRole('tab', { name: 'Blank' })).toBeVisible();
+    // getByText('Blank canvas') also matches the icon's <title> a11y text —
+    // scope to the visible label span.
+    await expect(dialog.locator('.new-file__blank-title')).toHaveText('Blank canvas');
+    await expect(dialog.getByText('Print document')).toBeVisible();
+    await expect(dialog.getByText('A4')).toBeVisible();
   });
 
   test('templates tab shows templates', async ({ page }) => {
