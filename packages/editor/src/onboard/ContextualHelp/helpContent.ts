@@ -299,7 +299,7 @@ const LOCAL_HELP_CONTENT: Record<string, HelpArticle> = {
     id: 'shortcuts',
     title: 'Keyboard Shortcuts',
     summary: 'Speed up your workflow with keyboard shortcuts.',
-    body: 'Press Ctrl+Shift+P to open the Shortcut Palette, where you can view and remap all shortcuts. Common shortcuts: V (Select), R (Rectangle), T (Text), Ctrl+Z (Undo), Ctrl+G (Group).',
+    body: 'Press Ctrl+/ (Cmd+/) to open the keyboard shortcuts palette, where you can view and remap all shortcuts. Common shortcuts: V (Select), R (Rectangle), T (Text), Ctrl+Z (Undo), Ctrl+G (Group).',
     keywords: ['shortcuts', 'keys', 'keyboard', 'hotkeys', 'speed'],
     category: 'General',
     related: ['export', 'tool:select'],

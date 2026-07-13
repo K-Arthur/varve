@@ -1,57 +1,103 @@
-# Onboarding & Help System Architecture
+# Onboarding and Help System
 
-## Offline-First (Section 0 Resolution)
+Architecture for first-run guidance, contextual help, and the offline help corpus in Strata.
 
-- **Accounts/auth**: None. No cloud sync. The app is fully local-first. onboarding must never include "sign up / verify email / invite team" steps.
-- **Help content**: Bundled as TypeScript modules. No network requests. The `@strata/help` package contains ~30 articles; `packages/editor/src/onboard/ContextualHelp/` has 30+ tool/panel articles. Both are statically imported — works fully offline.
-- **Analytics/telemetry**: None. The ActionTracker (`packages/editor/src/intelligence/actionTracker.ts`) records local user actions to localStorage only — never sent anywhere. Onboarding features must not add external analytics SDKs.
-- **Dual-target persistence**: Onboarding state persists to both `localStorage` (fast, same-session) and `Platform.getAppSetting/setAppSetting` (SQLite on Tauri, IndexedDB on web). The second layer corrects for WebView localStorage being cleared between launches (common on WebKitGTK). After a storage-clear event, the welcome dialog re-appears — this is acceptable degradation (onboarding is harmless to re-show).
-- **External links**: `tauri-plugin-opener` is registered but unused. Help content currently has no external URLs — all help is bundled. If external links are added later, use `window.open` in browser and `tauri-plugin-opener` on desktop.
+## Design constraints (offline-first, dual-target)
 
-## Help Content Architecture
+| Constraint | Resolution |
+|---|---|
+| **Offline help** | All in-app articles live in bundled TypeScript (`@strata/help` + editor-local tool/panel articles). No network fetch for search or articles. |
+| **No accounts** | Onboarding state is per-device only. No cloud profile or cross-device sync. |
+| **Desktop persistence** | Full `OnboardingStore` JSON is written to platform app settings (SQLite via Tauri on desktop, IndexedDB KV on web) on every save — not only on dismiss. |
+| **Browser persistence** | Same platform path; `localStorage` is a fast cache that may be cleared independently (private mode, site data wipe). Platform storage is authoritative on hydrate. |
+| **External links** | In-app help has no external URLs today. Settings About links are stubs; when added, desktop must use `tauri-plugin-opener`, browser uses `target="_blank"`. |
+| **Analytics** | None sent remotely. `ActionTracker` and help feedback are `localStorage` only. |
 
-Two help content registries, now merged:
-1. **`@strata/help`** (`packages/help/src/content/`) — F1 Help Browser. Categories: Getting Started, Tools, Panels, Export, Shortcuts, FAQ, Troubleshooting. ~30 articles. Each article has: id, title, summary, body, keywords[], category, related[].
-2. **ContextualHelp** (`packages/editor/src/onboard/ContextualHelp/helpContent.ts`) — slide-out help panel. Tool/panel-specific articles for What's This mode. Now imports and merges `@strata/help` content so all entry points search the full corpus.
+## User-facing entry points
 
-Both use `HelpArticle` interface with same shape; both are statically bundled TypeScript.
+| Entry | Shortcut / path | UI |
+|---|---|---|
+| **Welcome dialog** | First launch (`onboardingComplete: false`) | Modal with tour / template / blank |
+| **Spotlight tour** | Welcome → tour, or Help → Take a tour | `SpotlightOverlay` coachmarks |
+| **Getting started checklist** | After welcome dismissed | Floating checklist |
+| **Did You Know tips** | Idle-triggered, max 5/day | Toast card |
+| **Contextual help** | `F1`, Help → Contextual help | Right-side `ContextualHelpPanel` |
+| **Help center** | `Ctrl+Shift+F1`, Help → Help center | `HelpBrowser` modal (full corpus) |
+| **What's This?** | `Shift+F1`, Help → What's this? | Click-to-learn overlay |
+| **Reset onboarding** | Settings → General → Reset onboarding | Clears state + re-shows welcome |
 
-## Content Addition Guide
+## Content architecture
 
-### Adding a help article
-1. Add to `packages/help/src/content/<category>.ts` (for F1 browser) or
-2. Add to `packages/editor/src/onboard/ContextualHelp/helpContent.ts` (for What's This mode)
-3. If adding to both, IDs must not collide (use `tool:`, `panel:`, `getting-started:`, `faq:`, etc. prefixes)
+```
+packages/help/src/content/*.ts     # Getting Started, FAQ, Troubleshooting, Shortcuts
+packages/editor/src/onboard/ContextualHelp/helpContent.ts  # tool:* / panel:* articles
+packages/editor/src/onboard/DidYouKnow/tips.ts             # conditional tips
+packages/editor/src/components/Onboarding/tourSteps.ts     # tour copy
+packages/editor/src/samples/tutorial-document.ts           # bundled tutorial doc
+```
 
-### Adding a tour step
-1. Add entry to `packages/editor/src/components/Onboarding/tourSteps.ts`
-2. Use specific CSS selectors (prefer `data-*` attributes or semantic selectors over fragile `[class*="..."]` patterns)
-3. Test that the tour step target exists in the DOM when the step runs
+Articles are plain strings versioned with the app. Update copy in the same PR as UI changes that affect screenshots or selectors.
 
-### Adding a Did You Know tip
-1. Add entry to `packages/editor/src/onboard/DidYouKnow/tips.ts`
-2. Set `condition` function to query action tracker for relevance
+**Tour anchoring:** `SpotlightOverlay` uses CSS selectors. Missing targets show a non-blocking status message and the tour continues — it does not crash.
 
-### Adding data attributes for What's This mode
-- Tool buttons: add `data-tool={toolId}` attribute
-- Panels: add `data-panel={panelName}` attribute (e.g. `data-panel="layers"`)
-- Update `TOOL_HELP_MAP` in `packages/editor/src/onboard/WhatIsThis/WhatIsThis.tsx`
+## State model
 
-## State persistence
+`OnboardingStore` (`packages/editor/src/onboard/onboardingStore.ts`):
 
-- **`OnboardingStore`** (`packages/editor/src/onboard/onboardingStore.ts`): tracks `onboardingComplete`, `version`, `skillLevel`, `checklistProgress[]`, `dismissedTips[]`, `seenFeatureBadges[]`, `tutorialFileCompleted`.
-- Dual write: `localStorage` (synchronous, fast) + `Platform` storage (async, survives WebView resets).
-- `useOnboarding` hook reads localStorage first for fast first paint, then corrects from platform storage.
+- `onboardingComplete`, `onboardingVersion`
+- `checklistProgress`, `dismissedTips`, `seenFeatureBadges`
+- `tutorialFileCompleted`, `skillLevel` (reserved; classifier not wired)
 
-## Entry points
+Persistence keys:
 
-| Trigger | What opens | Source |
-|---------|-----------|--------|
-| First launch | `WelcomeDialog` | `packages/editor/src/components/Onboarding/` |
-| "Take the tour" | `SpotlightOverlay` (6 steps) | `packages/editor/src/components/Onboarding/` |
-| Welcome dismiss | `OnboardingChecklist` (auto-shown) | `packages/editor/src/onboard/OnboardingChecklist/` |
-| 15s idle | `DidYouKnowTip` (contextual) | `packages/editor/src/onboard/DidYouKnow/` |
-| F1 | `HelpBrowser` (dialog) | `packages/help/src/` |
-| ? | `ShortcutPalette` | `packages/editor/src/shortcuts/` |
-| Shift+F1 | What's This mode | `packages/editor/src/onboard/WhatIsThis/` |
-| Ctrl+Shift+P | `ShortcutPalette` | `packages/editor/src/shortcuts/` |
+- `localStorage`: `strata:onboarding`
+- Platform app setting: `onboarding` (full JSON)
+
+## Key modules
+
+| Module | Role |
+|---|---|
+| `useOnboarding` | Welcome + tour state, platform hydrate |
+| `useEditorHelp` | F1 contextual help, help center, Shift+F1 What's This |
+| `ContextualHelpPanel` | Side panel search + articles |
+| `WhatIsThis` | Click-to-learn mode |
+| `HelpBrowser` | Full help center modal |
+| `useDidYouKnow` | Idle tips from `ActionTracker` |
+
+## Adding help content
+
+1. **Tool article:** add `tool:<toolId>` to `LOCAL_HELP_CONTENT` in `helpContent.ts`.
+2. **Panel article:** add `panel:<name>` and `data-panel="<name>"` on the panel root in `Shell.tsx`.
+3. **General article:** add to `packages/help/src/content/*.ts`.
+4. **Tour step:** add to `tourSteps.ts` with a stable CSS selector; verify in Playwright if possible.
+
+No rebuild pipeline beyond TypeScript — content is imported at compile time.
+
+## Accessibility
+
+- WCAG 2.2 AA target (matches repo token audit).
+- Tour: `role="dialog"`, `aria-modal`, Escape to dismiss, arrow keys for steps.
+- Contextual panel: `role="complementary"`, labelled search, Escape to close.
+- What's This: `aria-live` announcement on enter; Escape to exit.
+- `prefers-reduced-motion`: tour/coachmark animations disabled via CSS.
+
+## Testing
+
+- Unit: `packages/editor/src/onboard/**/*.test.ts`
+- Integration: `ShellHelp.integration.test.tsx` (F1, Ctrl+Shift+F1, Shift+F1)
+- E2E: `tests/e2e/canvas/onboarding-help.spec.ts`
+
+## Deferred (lower priority)
+
+| Item | Severity | Rationale |
+|---|---|---|
+| `onboardingAdapter` skill-based flow branching | Medium | Classifier exists but not wired; beginner/intermediate paths need product decision |
+| `NewFeatureBadge` on toolbar | Low | Component tested but not mounted; version-bump UX needs design |
+| Version-bump re-onboarding modal | Medium | `isVersionBump()` exists; no UI trigger on app update |
+| Localized help (i18n) | Medium | Language setting is English-only stub |
+| Tauri native Help menu | Low | Uses in-webview menubar today |
+| Website docs integration | Low | `apps/website` is separate static site, not loaded in-editor |
+
+## Research basis
+
+Patterns adapted from offline-first tools (Affinity welcome hub + bundled help, Sketch command bar) rather than cloud-only Discover panels (Adobe/Figma) that require connectivity. See assignment research notes in session final report.

@@ -285,7 +285,9 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
   {
     id: 'Help',
     items: [
-      { label: 'Search help', shortcut: 'F1', action: 'openHelp' },
+      { label: 'Contextual help', shortcut: 'F1', action: 'openHelp' },
+      { label: 'Help center', shortcut: 'Ctrl+Shift+F1', action: 'openHelpCenter' },
+      { label: "What's this?", shortcut: 'Shift+F1', action: 'whatIsThis' },
       { label: 'Take a tour', action: 'startTour' },
       { label: '---' },
       { label: 'About Strata', action: 'about' },
@@ -306,6 +308,9 @@ export function Menubar({
   onStartTour,
   onOpenPalette,
   onOpenHelp,
+  onOpenHelpCenter,
+  onWhatIsThis,
+  onOpenAbout,
   onBatchBgRemove,
 }: {
   onBackToHome?: () => void;
@@ -313,6 +318,9 @@ export function Menubar({
   onStartTour?: () => void;
   onOpenPalette?: () => void;
   onOpenHelp?: () => void;
+  onOpenHelpCenter?: () => void;
+  onWhatIsThis?: () => void;
+  onOpenAbout?: () => void;
   onBatchBgRemove?: () => void;
 }) {
   const {
@@ -500,6 +508,15 @@ export function Menubar({
         case 'openHelp':
           onOpenHelp?.();
           break;
+        case 'openHelpCenter':
+          onOpenHelpCenter?.();
+          break;
+        case 'whatIsThis':
+          onWhatIsThis?.();
+          break;
+        case 'about':
+          onOpenAbout?.();
+          break;
         case 'batchBgRemove':
           onBatchBgRemove?.();
           break;
@@ -622,6 +639,10 @@ export function Menubar({
       onBackToHome,
       onOpenSettings,
       onStartTour,
+      onOpenHelp,
+      onOpenHelpCenter,
+      onWhatIsThis,
+      onOpenAbout,
       onBatchBgRemove,
       save,
       saveAs,
