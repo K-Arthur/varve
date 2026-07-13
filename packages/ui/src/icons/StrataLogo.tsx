@@ -34,9 +34,9 @@ export const StrataLogo = forwardRef<SVGSVGElement, StrataLogoProps>(function St
         {...commonProps}
       >
         <title>{label ?? 'Strata logo'}</title>
-        <rect x="1" y="2" width="9" height="3" rx="1" />
-        <rect x="3" y="7" width="9" height="3" rx="1" />
-        <rect x="5" y="12" width="9" height="3" rx="1" />
+        <polygon points="1,1.5 10,1.5 11,4.5 2,4.5" />
+        <polygon points="3,5.5 12,5.5 13,8.5 4,8.5" />
+        <polygon points="5,9.5 14,9.5 15,12.5 6,12.5" />
       </svg>
     );
   }
