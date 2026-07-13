@@ -2,11 +2,11 @@
  * Background removal inference worker pool — multi-worker, load-balanced.
  *
  * Architecture:
- * - N workers (default = clamp(hardwareConcurrency / 2, 1, 4))
+ * - N workers (default = clamp(hardwareConcurrency / 2, 1, 2))
  * - Round-robin dispatch to the least-loaded worker
  * - Each worker maintains a warm ONNX session for its assigned model
  * - Shared cancellation across all workers
- * - Per-job timeout: 10s for cold start, 60s for warm session
+ * - Per-job timeout: 120s, including a large-model cold start
  */
 import type {
   BackgroundRemovalOptions,
@@ -29,6 +29,7 @@ interface PoolJob {
   imageData: ImageData;
   modelPath: string;
   modelId: WorkerModelId;
+  method: 'ai-balanced' | 'ai-quality';
   feather?: number;
   decontaminate?: boolean;
   previewMaxDimension?: number;
@@ -48,7 +49,7 @@ const pending: PoolJob[] = [];
 /** Determine the ideal number of inference workers. */
 export function getIdealWorkerCount(): number {
   if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-    return Math.max(1, Math.min(4, Math.floor(navigator.hardwareConcurrency / 2)));
+    return Math.max(1, Math.min(2, Math.floor(navigator.hardwareConcurrency / 2)));
   }
   return 2;
 }
@@ -160,6 +161,7 @@ function dispatchJobToWorker(job: PoolJob, worker: PoolWorker, workerIndex: numb
     imageData: job.imageData,
     modelPath: job.modelPath,
     modelId: job.modelId,
+    method: job.method,
     reuseSession: worker.ready,
     feather: job.feather,
     decontaminate: job.decontaminate,
@@ -231,6 +233,7 @@ export async function runPooledInference(
       imageData,
       modelPath,
       modelId,
+      method: options.method === 'ai-quality' ? 'ai-quality' : 'ai-balanced',
       feather: options.feather,
       decontaminate: options.decontaminate,
       previewMaxDimension: options.previewMaxDimension,
@@ -239,7 +242,7 @@ export async function runPooledInference(
     // Find an idle worker; if none, queue the job.
     const target = findIdleWorker();
     if (!target) {
-      const timeoutMs = 120_000;
+      const timeoutMs = options.method === 'ai-quality' ? 300_000 : 120_000;
       const timeout = setTimeout(() => {
         const idx = pending.findIndex((j) => j.reject === wrappedReject);
         if (idx >= 0) pending.splice(idx, 1);
@@ -281,7 +284,7 @@ export async function runPooledInference(
     const workerIndex = getPool().indexOf(target);
 
     // Determine timeout: cold start (first inference on this worker) vs warm
-    const timeoutMs = target.ready ? 60_000 : 10_000;
+    const timeoutMs = options.method === 'ai-quality' ? 300_000 : 120_000;
     const timeout = setTimeout(() => {
       const idx = pending.findIndex((j) => j.reject === wrappedReject);
       if (idx >= 0) pending.splice(idx, 1);

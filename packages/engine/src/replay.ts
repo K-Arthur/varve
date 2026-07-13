@@ -17,6 +17,7 @@ import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss } from './filters';
 import { FrameCache } from './frameCache';
 import { getImageCache } from './imageCache';
+import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
 import { layoutRichText } from './textLayout';
 import type { EngineColor, FillIR, RenderItem } from './types';
@@ -44,7 +45,7 @@ export interface ReplayTarget {
   bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void;
   /** Rounded-rect path (Canvas2D `roundRect`); radii mirror the CSS shorthand forms. */
   roundRect?(x: number, y: number, w: number, h: number, radii: number | number[]): void;
-  fill(): void;
+  fill(fillRule?: CanvasFillRule): void;
   stroke(): void;
   closePath(): void;
   clip(): void;
@@ -1720,7 +1721,7 @@ function parseFontSize(font: string): number {
   return match?.[1] ? Number.parseFloat(match[1]) : 16;
 }
 
-/** Paint a closed/open path fill. */
+/** Paint a closed/open path fill (supports optional hole rings via evenodd). */
 function paintPathFill(
   target: ReplayTarget,
   p: {
@@ -1732,27 +1733,42 @@ function paintPathFill(
     }[];
     closed: boolean;
     tolerance: number;
+    holes?: {
+      x: number;
+      y: number;
+      handleIn: [number, number] | null;
+      handleOut: [number, number] | null;
+    }[][];
+    fillRule?: 'nonzero' | 'evenodd';
   },
 ): void {
-  if (p.points.length < 2) return;
+  const shape = { kind: 'path' as const, ...p };
+  const rings = pathRings(shape);
+  if (rings.length === 0) return;
   target.beginPath();
-  target.moveTo(p.points[0]?.x ?? 0, p.points[0]?.y ?? 0);
-  for (let i = 1; i < p.points.length; i++) {
-    const pt = p.points[i];
-    const prev = p.points[i - 1];
-    if (!pt || !prev) continue;
-    if (prev.handleOut || pt.handleIn) {
-      const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
-      const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
-      const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
-      const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
-      target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
-    } else {
-      target.lineTo(pt.x, pt.y);
+  for (const ring of rings) {
+    const first = ring[0];
+    if (!first) continue;
+    target.moveTo(first.x, first.y);
+    for (let i = 1; i < ring.length; i++) {
+      const pt = ring[i];
+      const prev = ring[i - 1];
+      if (!pt || !prev) continue;
+      if (prev.handleOut || pt.handleIn) {
+        const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
+        const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
+        const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
+        const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
+        target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
+      } else {
+        target.lineTo(pt.x, pt.y);
+      }
     }
+    target.closePath();
   }
-  if (p.closed) target.closePath();
-  target.fill();
+  const fillRule = pathFillRule(shape);
+  if (fillRule === 'evenodd') target.fill(fillRule);
+  else target.fill();
 }
 
 /**

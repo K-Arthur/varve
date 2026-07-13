@@ -4719,9 +4719,7 @@ export function EditorProvider({
           );
           if (signal.aborted) return;
           if (method !== 'quick' && result.method === 'quick') {
-            announcerRef.current?.announce(
-              'AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.',
-            );
+            throw new Error('AI provider returned a Quick result');
           }
           const currentSelection = stateRef.current.selection;
           const stillSelected = currentSelection.includes(processingNodeId);
@@ -4810,9 +4808,7 @@ export function EditorProvider({
           );
           if (signal.aborted) return;
           if (method !== 'quick' && result.method === 'quick') {
-            announcerRef.current?.announce(
-              'AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.',
-            );
+            throw new Error('AI provider returned a Quick result');
           }
 
           const { finalizeMaskResult } = await import('@strata/engine');

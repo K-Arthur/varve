@@ -115,6 +115,10 @@ pub enum Primitive {
         points: Vec<PathPoint>,
         closed: bool,
         tolerance: f64,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        holes: Vec<Vec<PathPoint>>,
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "fillRule")]
+        fill_rule: Option<String>,
     },
     #[serde(rename = "text")]
     Text {
@@ -262,10 +266,14 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
             points,
             closed,
             tolerance,
+            holes,
+            fill_rule,
         } => Primitive::Path {
             points: points.clone(),
             closed: *closed,
             tolerance: *tolerance,
+            holes: holes.clone(),
+            fill_rule: fill_rule.clone(),
         },
         Shape::Text {
             text,

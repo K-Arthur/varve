@@ -331,15 +331,26 @@ function flattenBezier(
 }
 
 /**
- * Winding number for a point against a closed bezier path.
- *
- * Uses adaptive subdivision: each bezier segment is recursively flattened
- * until flat, then the standard ray-crossing winding test is applied to
- * each flat subsegment.
+ * Ray-crossing / winding accumulation for a closed bezier ring.
+ * Returns [crossings, winding] for evenodd vs nonzero fill rules.
  */
-function pointInBezierPath(points: PathPoint[], p: Point): boolean {
-  if (points.length < 3) return false;
+function accumulateBezierRing(
+  points: PathPoint[],
+  p: Point,
+): { crossings: number; winding: number } {
+  if (points.length < 3) return { crossings: 0, winding: 0 };
   let winding = 0;
+  let crossings = 0;
+
+  const accumulateSegment = (yi: number, yj: number, xi: number, xj: number) => {
+    if (yi > p[1] !== yj > p[1]) {
+      const xIntersect = xi + ((p[1] - yi) * (xj - xi)) / (yj - yi);
+      if (xIntersect > p[0]) {
+        crossings += 1;
+        winding += yi > p[1] ? 1 : -1;
+      }
+    }
+  };
 
   for (let i = 0; i < points.length; i++) {
     const p0 = points[i];
@@ -348,46 +359,37 @@ function pointInBezierPath(points: PathPoint[], p: Point): boolean {
 
     const isBezier = p0.handleOut !== null || p1.handleIn !== null;
     if (!isBezier) {
-      // Straight segment — use standard winding test
-      const yi = p0.y;
-      const yj = p1.y;
-      if (yi > p[1] !== yj > p[1]) {
-        const xi = p0.x;
-        const xj = p1.x;
-        const xIntersect = xi + ((p[1] - yi) * (xj - xi)) / (yj - yi);
-        if (xIntersect > p[0]) {
-          winding += yi > p[1] ? 1 : -1;
-        }
-      }
+      accumulateSegment(p0.y, p1.y, p0.x, p1.x);
     } else {
-      // Bezier segment — flatten and test each subsegment
       const cx1 = p0.handleOut ? p0.x + p0.handleOut[0] : p0.x;
       const cy1 = p0.handleOut ? p0.y + p0.handleOut[1] : p0.y;
       const cx2 = p1.handleIn ? p1.x + p1.handleIn[0] : p1.x;
       const cy2 = p1.handleIn ? p1.y + p1.handleIn[1] : p1.y;
 
-      flattenBezier(
-        p0.x,
-        p0.y,
-        cx1,
-        cy1,
-        cx2,
-        cy2,
-        p1.x,
-        p1.y,
-        0.5, // flatness tolerance for subdivision
-        (xi, yi, xj, yj) => {
-          if (yi > p[1] !== yj > p[1]) {
-            const xIntersect = xi + ((p[1] - yi) * (xj - xi)) / (yj - yi);
-            if (xIntersect > p[0]) {
-              winding += yi > p[1] ? 1 : -1;
-            }
-          }
-        },
-      );
+      flattenBezier(p0.x, p0.y, cx1, cy1, cx2, cy2, p1.x, p1.y, 0.5, (xi, yi, xj, yj) => {
+        accumulateSegment(yi, yj, xi, xj);
+      });
     }
   }
 
+  return { crossings, winding };
+}
+
+function pointInBezierPath(
+  points: PathPoint[],
+  p: Point,
+  fillRule: 'nonzero' | 'evenodd' = 'nonzero',
+  holes?: PathPoint[][],
+): boolean {
+  const outer = accumulateBezierRing(points, p);
+  let crossings = outer.crossings;
+  let winding = outer.winding;
+  for (const hole of holes ?? []) {
+    const holeHit = accumulateBezierRing(hole, p);
+    crossings += holeHit.crossings;
+    winding += holeHit.winding;
+  }
+  if (fillRule === 'evenodd') return crossings % 2 === 1;
   return winding !== 0;
 }
 
@@ -428,7 +430,9 @@ export function shapeContains(shape: Shape, p: Point): boolean {
       return pointToSegmentDistSq(shape.from, shape.to, p) <= shape.tolerance * shape.tolerance;
     case 'path':
       if (shape.closed) {
-        return pointInBezierPath(shape.points, p);
+        const fillRule =
+          shape.fillRule ?? (shape.holes && shape.holes.length > 0 ? 'evenodd' : 'nonzero');
+        return pointInBezierPath(shape.points, p, fillRule, shape.holes);
       }
       return pathSegmentDistSq(shape.points, p) <= shape.tolerance * shape.tolerance;
   }

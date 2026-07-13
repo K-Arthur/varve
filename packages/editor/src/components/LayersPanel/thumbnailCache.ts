@@ -111,10 +111,19 @@ function stableHash(input: string): number {
  *   touch the fill.
  */
 export function thumbnailCacheKey(
-  node: { id: string; kind: string; fill?: unknown; shape?: unknown },
+  node: {
+    id: string;
+    kind: string;
+    fill?: unknown;
+    shape?: unknown;
+    fills?: Array<{ type: string; image?: { src: string } }>;
+  },
   docId?: string,
 ): string {
   const fillHash = stableHash(node.fill ? JSON.stringify(node.fill) : 'none');
   const shapeHash = stableHash(node.shape ? JSON.stringify(node.shape) : 'none');
-  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}`;
+  const imageSrcHash = stableHash(
+    node.fills?.find((f) => f.type === 'image' && f.image?.src)?.image?.src ?? 'none',
+  );
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}`;
 }

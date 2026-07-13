@@ -29,9 +29,11 @@ strata-sync = { path = "../../../crates/strata-sync" }
 strata-print = { path = "../../../crates/strata-print" }
 strata-bridge = { path = "../../../crates/strata-bridge" }
 strata-bgremove = { path = "../../../crates/strata-bgremove" }
+strata-trace = { path = "../../../crates/strata-trace" }
+strata-upscale = { path = "../../../crates/strata-upscale" }
 image = "0.25"
 tauri-plugin-fs = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
-ai = ["strata-bgremove/ai"]
+ai = ["strata-bgremove/ai", "strata-upscale/ai"]

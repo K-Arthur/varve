@@ -196,12 +196,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             AI Balanced{!aiAvailable ? ' (download required)' : ''}
           </option>
           <option value="ai-quality">
-            AI Best Quality{!aiAvailable ? ' (download required)' : ''}
+            AI High Quality{!aiAvailable ? ' (download required)' : ''}
           </option>
         </select>
         <span id="bg-method-desc" className="sr-only">
-          Quick uses a fast heuristic. AI methods use a machine learning model for better results
-          but require a download.
+          Quick uses a fast heuristic. AI Balanced uses the bundled offline model. AI High Quality
+          uses a downloadable model for more complex edges.
         </span>
       </div>
 

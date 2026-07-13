@@ -14,7 +14,9 @@
  * Research basis: OffscreenCanvas (WICG), idle-until-urgent pattern.
  */
 
+import { getImageCache } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
+import { isImageShape } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ThumbnailCache, thumbnailCacheKey } from './thumbnailCache';
@@ -23,7 +25,7 @@ const THUMB_W = 28;
 const THUMB_H = 28;
 const PADDING = 2;
 
-function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTMLCanvasElement) {
+async function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTMLCanvasElement) {
   const ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null;
   if (!ctx) return null;
 
@@ -41,6 +43,21 @@ function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTMLCanva
   const oy = PADDING;
 
   ctx.fillStyle = fill;
+
+  // Image fill thumbnail: render the actual image content.
+  if (node.kind === 'shape' && isImageShape(node)) {
+    const imgFill = (node as ShapeNode).fills?.find((f) => f.type === 'image' && f.image?.src);
+    if (imgFill?.image) {
+      try {
+        const img = await getImageCache().load(imgFill.image.src);
+        ctx.drawImage(img, ox, oy, area, area);
+      } catch {
+        ctx.fillStyle = 'rgba(200,200,200,0.5)';
+        ctx.fillRect(ox, oy, area, area);
+      }
+      return canvas;
+    }
+  }
 
   if (node.kind === 'shape') {
     const s = (node as ShapeNode).shape;
@@ -120,8 +137,10 @@ export function useThumbnail(node: SceneNode, docId?: string): string | null {
   );
   const nodeRef = useRef(node);
   nodeRef.current = node;
+  const activeKeyRef = useRef(cacheKey);
+  activeKeyRef.current = cacheKey;
 
-  const render = useCallback((key: string) => {
+  const render = useCallback(async (key: string) => {
     let canvas: OffscreenCanvas | HTMLCanvasElement;
     let useOffscreen = false;
 
@@ -134,22 +153,21 @@ export function useThumbnail(node: SceneNode, docId?: string): string | null {
       canvas.height = THUMB_H;
     }
 
-    renderNodeToCanvas(nodeRef.current, canvas);
+    await renderNodeToCanvas(nodeRef.current, canvas);
 
     if (useOffscreen) {
-      (canvas as OffscreenCanvas).convertToBlob().then((blob) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const url = reader.result as string;
-          sharedThumbnailCache.set(key, url);
-          setDataUrl(url);
-        };
-        reader.readAsDataURL(blob);
-      });
+      const blob = await (canvas as OffscreenCanvas).convertToBlob();
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const url = reader.result as string;
+        sharedThumbnailCache.set(key, url);
+        if (activeKeyRef.current === key) setDataUrl(url);
+      };
+      reader.readAsDataURL(blob);
     } else {
       const url = (canvas as HTMLCanvasElement).toDataURL('image/png');
       sharedThumbnailCache.set(key, url);
-      setDataUrl(url);
+      if (activeKeyRef.current === key) setDataUrl(url);
     }
   }, []);
 
@@ -164,10 +182,10 @@ export function useThumbnail(node: SceneNode, docId?: string): string | null {
     setDataUrl(null);
 
     if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(() => render(cacheKey), { timeout: 300 });
+      const id = requestIdleCallback(() => void render(cacheKey), { timeout: 300 });
       return () => cancelIdleCallback(id);
     }
-    const id = setTimeout(() => render(cacheKey), 50);
+    const id = setTimeout(() => void render(cacheKey), 50);
     return () => clearTimeout(id);
   }, [cacheKey, render]);
 

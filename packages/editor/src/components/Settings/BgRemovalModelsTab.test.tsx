@@ -13,27 +13,48 @@ const { mockListInstalledModels, mockDeleteModel, mockGetModelLoaderReady, mockV
 vi.mock('@strata/engine', () => ({
   AVAILABLE_MODELS: [
     {
+      id: 'u2netp',
+      name: 'U^2-Net Light',
+      description: 'Bundled balanced model',
+      size: 4_574_861,
+      quality: 3,
+      remoteUrl: 'https://github.com/example/u2netp.onnx',
+      checksum: 'verified-u2netp-checksum',
+    },
+    {
       id: 'birefnet-general-lite',
       name: 'BiRefNet Lite',
-      description: 'Balanced quality/speed AI model',
-      size: 120_000_000,
-      quality: 4,
+      description: 'High quality AI model',
+      size: 224_005_088,
+      quality: 4.5,
       remoteUrl: 'https://github.com/example/birefnet-general-lite.onnx',
-      checksum: '',
+      checksum: 'verified-lite-checksum',
     },
     {
       id: 'birefnet-general',
       name: 'BiRefNet Full',
       description: 'Best quality AI model',
-      size: 380_000_000,
+      size: 928_000_000,
       quality: 5,
       remoteUrl: 'https://github.com/example/birefnet-general.onnx',
       checksum: '',
     },
   ],
+  UPSCALE_MODELS: [
+    {
+      id: 'upscale-realesr-general',
+      name: 'Real-ESRGAN General (x4)',
+      description: 'General 4x',
+      size: 8_000_000,
+      filename: 'realesr-general-x4v3.onnx',
+      remoteUrl: '',
+      checksum: 'verified-upscale-checksum',
+      bundled: true,
+    },
+  ],
   getModelLoaderReady: mockGetModelLoaderReady,
   workerModelIdForMethod: (m: string) =>
-    m === 'ai-balanced' ? 'birefnet-general-lite' : m === 'ai-quality' ? 'birefnet-general' : null,
+    m === 'ai-balanced' ? 'u2netp' : m === 'ai-quality' ? 'birefnet-general-lite' : null,
 }));
 
 vi.mock('../BackgroundRemoval/ModelDownloadDialog', () => ({
@@ -62,6 +83,7 @@ function mockLoader(
     listInstalledModels: mockListInstalledModels.mockResolvedValue(rows),
     deleteModel: mockDeleteModel.mockResolvedValue(undefined),
     verifyBundledModel: mockVerifyBundled,
+    isModelAvailable: vi.fn().mockResolvedValue(false),
     subscribe: vi.fn().mockReturnValue(() => {}),
   };
 }
@@ -80,6 +102,13 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
   it('lists every known model with size and install status, even before any download', async () => {
     mockGetModelLoaderReady.mockResolvedValue(
       mockLoader([
+        {
+          id: 'u2netp',
+          name: 'U^2-Net Light',
+          size: 4_574_861,
+          installed: true,
+          source: 'bundled',
+        },
         {
           id: 'birefnet-general-lite',
           name: 'BiRefNet Lite',
@@ -101,7 +130,8 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
 
     await waitFor(() => expect(screen.getByText('BiRefNet Lite')).toBeInTheDocument());
     expect(screen.getByText('BiRefNet Full')).toBeInTheDocument();
-    expect(screen.getAllByText(/not installed/i)).toHaveLength(2);
+    expect(screen.getAllByText(/not installed/i)).toHaveLength(3);
+    expect(screen.getByText(/Image Upscaling Models/i)).toBeInTheDocument();
     // Storage location must be disclosed, not hidden.
     expect(screen.getByText(/stored in/i)).toBeInTheDocument();
   });

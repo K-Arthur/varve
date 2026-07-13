@@ -3,8 +3,8 @@
 //! Uses the `ort` crate (ONNX Runtime Rust bindings) to run
 //! segmentation models on-device. Opt-in via the `ai` Cargo feature.
 
-use image::DynamicImage;
-use ort::{Session, SessionBuilder, Value};
+use image::{DynamicImage, GenericImageView};
+use ort::{session::Session, value::Tensor};
 
 use crate::{heuristic, mask_to_base64, model, RemovalOptions, RemovalResult};
 
@@ -28,9 +28,9 @@ pub fn remove_ai(
         ));
     }
 
-    let session = SessionBuilder::new()
+    let mut session = Session::builder()
         .map_err(|e| format!("Failed to create ONNX session: {e}"))?
-        .with_model_from_file(&model_path)
+        .commit_from_file(&model_path)
         .map_err(|e| format!("Failed to load model '{model_id}': {e}"))?;
 
     let (orig_w, orig_h) = img.dimensions();
@@ -61,60 +61,62 @@ pub fn remove_ai(
     let pixels = rgba.into_raw();
 
     let n = (input_size * input_size) as usize;
+    let max_channel = pixels
+        .chunks_exact(4)
+        .flat_map(|pixel| pixel[..3].iter().copied())
+        .max()
+        .unwrap_or(0) as f32;
+    let divisor = max_channel.max(1e-6);
+    let mean = [0.485f32, 0.456, 0.406];
+    let std = [0.229f32, 0.224, 0.225];
     let mut tensor_data = Vec::with_capacity(n * 3);
     for c in 0..3 {
         for y in 0..input_size {
             for x in 0..input_size {
                 let i = ((y * input_size + x) * 4 + c) as usize;
-                tensor_data.push(pixels[i] as f32 / 255.0);
+                let normalized = pixels[i] as f32 / divisor;
+                tensor_data.push((normalized - mean[c as usize]) / std[c as usize]);
             }
         }
     }
 
-    let tensor = Value::from_array(
-        session.allocator(),
-        &[1i64, 3, input_size as i64, input_size as i64],
-        &tensor_data,
-    )
+    let tensor = Tensor::from_array((
+        [1usize, 3, input_size as usize, input_size as usize],
+        tensor_data,
+    ))
     .map_err(|e| format!("Failed to create input tensor: {e}"))?;
 
     let input_name = session
-        .inputs
+        .inputs()
         .first()
         .ok_or("No input found in model")?
-        .name
-        .clone();
-
-    let outputs = session
-        .run(
-            ort::inputs! { input_name.as_str() => tensor }
-                .map_err(|e| format!("Input binding error: {e}"))?,
-        )
-        .map_err(|e| format!("ONNX inference failed: {e}"))?;
-
+        .name()
+        .to_owned();
     let output_name = session
-        .outputs
+        .outputs()
         .first()
         .ok_or("No output found in model")?
-        .name
-        .clone();
+        .name()
+        .to_owned();
+
+    let outputs = session
+        .run(ort::inputs! { input_name.as_str() => tensor })
+        .map_err(|e| format!("ONNX inference failed: {e}"))?;
 
     let output = outputs
         .get(&output_name)
         .ok_or("Output not found in results")?;
 
-    let output_data = output
+    let (_, output_data) = output
         .try_extract_tensor::<f32>()
         .map_err(|e| format!("Failed to extract output tensor: {e}"))?;
 
     let mask_size = output_data.len();
     let mask_dim = (mask_size as f64).sqrt() as u32;
-    let mut mask = vec![0u8; mask_size];
+    let mask = normalize_segmentation_output(output_data, model_id != "u2netp");
     let mut confidence_sum = 0.0f32;
-
-    for (i, &val) in output_data.iter().enumerate() {
-        mask[i] = if val > 0.5 { 255 } else { 0 };
-        confidence_sum += (val - 0.5).abs();
+    for value in &mask {
+        confidence_sum += (*value as f32 / 255.0 - 0.5).abs();
     }
     let confidence = if mask_size > 0 {
         ((confidence_sum / mask_size as f32) * 2.0).min(1.0)
@@ -141,7 +143,8 @@ pub fn remove_ai(
 
     let method = match model_id {
         "birefnet-general" => "ai-quality",
-        "birefnet-general-lite" => "ai-balanced",
+        "birefnet-general-lite" => "ai-quality",
+        "u2netp" => "ai-balanced",
         _ => model_id,
     };
 
@@ -159,6 +162,32 @@ pub fn remove_ai(
 }
 
 /// Nearest-neighbor resize of a binary mask.
+fn normalize_segmentation_output(data: &[f32], apply_sigmoid: bool) -> Vec<u8> {
+    if data.is_empty() {
+        return Vec::new();
+    }
+    let values: Vec<f32> = data
+        .iter()
+        .map(|value| {
+            if apply_sigmoid {
+                1.0 / (1.0 + (-value).exp())
+            } else {
+                *value
+            }
+        })
+        .collect();
+    let min = values.iter().copied().fold(f32::INFINITY, f32::min);
+    let max = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let range = max - min;
+    if !range.is_finite() || range <= f32::EPSILON {
+        return vec![0; data.len()];
+    }
+    values
+        .iter()
+        .map(|value| (((value - min) / range) * 255.0) as u8)
+        .collect()
+}
+
 fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> Vec<u8> {
     if src_w == dst_w && src_h == dst_h {
         return mask.to_vec();
@@ -166,12 +195,49 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 
     let mut result = vec![0u8; (dst_w * dst_h) as usize];
     for dy in 0..dst_h {
+        let sy = (((dy as f32 + 0.5) * src_h as f32 / dst_h as f32) - 0.5)
+            .clamp(0.0, (src_h - 1) as f32);
+        let y0 = sy.floor() as u32;
+        let y1 = (y0 + 1).min(src_h - 1);
+        let wy = sy - y0 as f32;
         for dx in 0..dst_w {
-            let sx = (dx * src_w) / dst_w;
-            let sy = (dy * src_h) / dst_h;
-            let src_idx = (sy * src_w + sx).min(mask.len() as u32 - 1) as usize;
-            result[(dy * dst_w + dx) as usize] = mask[src_idx];
+            let sx = (((dx as f32 + 0.5) * src_w as f32 / dst_w as f32) - 0.5)
+                .clamp(0.0, (src_w - 1) as f32);
+            let x0 = sx.floor() as u32;
+            let x1 = (x0 + 1).min(src_w - 1);
+            let wx = sx - x0 as f32;
+            let top = mask[(y0 * src_w + x0) as usize] as f32 * (1.0 - wx)
+                + mask[(y0 * src_w + x1) as usize] as f32 * wx;
+            let bottom = mask[(y1 * src_w + x0) as usize] as f32 * (1.0 - wx)
+                + mask[(y1 * src_w + x1) as usize] as f32 * wx;
+            result[(dy * dst_w + dx) as usize] = (top * (1.0 - wy) + bottom * wy).round() as u8;
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize_segmentation_output, resize_mask};
+
+    #[test]
+    fn normalizes_u2net_probabilities() {
+        assert_eq!(
+            normalize_segmentation_output(&[0.2, 0.4, 0.6], false),
+            vec![0, 127, 255]
+        );
+    }
+
+    #[test]
+    fn applies_birefnet_sigmoid() {
+        assert_eq!(
+            normalize_segmentation_output(&[-2.0, 0.0, 2.0], true),
+            vec![0, 127, 255]
+        );
+    }
+
+    #[test]
+    fn resizes_soft_mask_bilinearly() {
+        assert_eq!(resize_mask(&[0, 255], 2, 1, 4, 1), vec![0, 64, 191, 255]);
+    }
 }

@@ -63,6 +63,10 @@ pub enum IpcShape {
         points: Vec<PathPoint>,
         closed: bool,
         tolerance: f64,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        holes: Vec<Vec<PathPoint>>,
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "fillRule")]
+        fill_rule: Option<String>,
     },
     #[serde(rename = "text")]
     Text {
@@ -161,10 +165,14 @@ impl IpcShape {
                 points,
                 closed,
                 tolerance,
+                holes,
+                fill_rule,
             } => Shape::Path {
                 points,
                 closed,
                 tolerance,
+                holes,
+                fill_rule,
             },
             IpcShape::Text {
                 text,

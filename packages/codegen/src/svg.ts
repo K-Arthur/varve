@@ -7,6 +7,7 @@
 import type { Affine } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode, TextNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
+import { applyAffine, multiplyAffine } from '@strata/shared';
 import {
   adjustmentStackTargetGaps,
   affineToSvg,
@@ -17,11 +18,222 @@ import {
 } from './shared';
 import type { TargetGap } from './types';
 
+function fitToPreserveAspectRatio(fit: string): string {
+  switch (fit) {
+    case 'fill':
+      return 'xMidYMid slice';
+    case 'fit':
+      return 'xMidYMid meet';
+    case 'stretch':
+      return 'none';
+    default:
+      return 'xMidYMid meet';
+  }
+}
+
+function shapeBounds(shape: import('@strata/engine').Shape): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  switch (shape.kind) {
+    case 'rect':
+      return { x: shape.x, y: shape.y, width: shape.w, height: shape.h };
+    case 'ellipse':
+      return {
+        x: shape.cx - shape.rx,
+        y: shape.cy - shape.ry,
+        width: shape.rx * 2,
+        height: shape.ry * 2,
+      };
+    case 'circle':
+      return {
+        x: shape.cx - shape.r,
+        y: shape.cy - shape.r,
+        width: shape.r * 2,
+        height: shape.r * 2,
+      };
+    case 'polygon':
+      return {
+        x: shape.cx - shape.radius,
+        y: shape.cy - shape.radius,
+        width: shape.radius * 2,
+        height: shape.radius * 2,
+      };
+    case 'star':
+      return {
+        x: shape.cx - shape.outerRadius,
+        y: shape.cy - shape.outerRadius,
+        width: shape.outerRadius * 2,
+        height: shape.outerRadius * 2,
+      };
+    case 'line':
+    case 'arrow': {
+      const padding = shape.kind === 'arrow' ? shape.arrowheadSize : shape.tolerance;
+      const x = Math.min(shape.from[0], shape.to[0]) - padding;
+      const y = Math.min(shape.from[1], shape.to[1]) - padding;
+      return {
+        x,
+        y,
+        width: Math.max(Math.abs(shape.to[0] - shape.from[0]) + padding * 2, 1),
+        height: Math.max(Math.abs(shape.to[1] - shape.from[1]) + padding * 2, 1),
+      };
+    }
+    case 'path': {
+      if (shape.points.length === 0) return { x: 0, y: 0, width: 1, height: 1 };
+      const xs = shape.points.map((point) => point.x);
+      const ys = shape.points.map((point) => point.y);
+      const x = Math.min(...xs);
+      const y = Math.min(...ys);
+      return {
+        x,
+        y,
+        width: Math.max(Math.max(...xs) - x, 1),
+        height: Math.max(Math.max(...ys) - y, 1),
+      };
+    }
+  }
+}
+
+function shapeClipPath(node: import('@strata/scene').SceneNode): string {
+  if (node.kind !== 'shape') return '';
+  const s = node.shape;
+  switch (s.kind) {
+    case 'rect':
+      return `<rect x="0" y="0" width="${s.w}" height="${s.h}" />`;
+    case 'ellipse':
+      return `<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" />`;
+    case 'circle':
+      return `<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" />`;
+    case 'polygon':
+    case 'star':
+      return `<polygon points="${shapeVerticesToPoints(node)}" />`;
+    case 'path': {
+      const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
+      const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
+      return `<path d="${pathToData(s)}"${fillRuleAttr} />`;
+    }
+    case 'line':
+      return `<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="black" stroke-width="${s.tolerance * 2}" />`;
+    case 'arrow':
+      return `<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="black" stroke-width="${s.tolerance * 2}" />`;
+    default:
+      return '';
+  }
+}
+
+function pathToData(shape: Extract<import('@strata/engine').Shape, { kind: 'path' }>): string {
+  const ringToCommands = (
+    points: import('@strata/engine').PathPoint[],
+    closed: boolean,
+  ): string[] => {
+    const first = points[0];
+    if (!first) return [];
+    const commands = [`M ${first.x} ${first.y}`];
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1] as import('@strata/engine').PathPoint;
+      const current = points[index] as import('@strata/engine').PathPoint;
+      if (previous.handleOut || current.handleIn) {
+        const c1x = previous.x + (previous.handleOut?.[0] ?? 0);
+        const c1y = previous.y + (previous.handleOut?.[1] ?? 0);
+        const c2x = current.x + (current.handleIn?.[0] ?? 0);
+        const c2y = current.y + (current.handleIn?.[1] ?? 0);
+        commands.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${current.x} ${current.y}`);
+      } else {
+        commands.push(`L ${current.x} ${current.y}`);
+      }
+    }
+    if (closed) commands.push('Z');
+    return commands;
+  };
+
+  const commands = ringToCommands(shape.points, shape.closed);
+  for (const hole of shape.holes ?? []) {
+    commands.push(...ringToCommands(hole, true));
+  }
+  return commands.join(' ');
+}
+
 export interface SvgExportOptions {
   /** Width of the SVG viewBox. Defaults to node width. */
   viewBoxWidth?: number;
   /** Height of the SVG viewBox. Defaults to node height. */
   viewBoxHeight?: number;
+}
+
+interface SvgBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+function transformedBounds(
+  points: ReadonlyArray<readonly [number, number]>,
+  transform: Affine,
+): SvgBounds {
+  const transformed = points.map((point) => applyAffine(transform, point));
+  return {
+    minX: Math.min(...transformed.map((point) => point[0])),
+    minY: Math.min(...transformed.map((point) => point[1])),
+    maxX: Math.max(...transformed.map((point) => point[0])),
+    maxY: Math.max(...transformed.map((point) => point[1])),
+  };
+}
+
+function mergeBounds(bounds: SvgBounds[]): SvgBounds | null {
+  if (bounds.length === 0) return null;
+  return {
+    minX: Math.min(...bounds.map((item) => item.minX)),
+    minY: Math.min(...bounds.map((item) => item.minY)),
+    maxX: Math.max(...bounds.map((item) => item.maxX)),
+    maxY: Math.max(...bounds.map((item) => item.maxY)),
+  };
+}
+
+function nodeSvgBounds(
+  node: SceneNode,
+  doc: SceneDocument,
+  parentTransform: Affine = [1, 0, 0, 1, 0, 0],
+): SvgBounds | null {
+  const worldTransform = multiplyAffine(parentTransform, node.transform);
+  if (node.kind === 'group' || node.kind === 'frame') {
+    return mergeBounds(
+      getChildren(doc, node)
+        .map((child) => nodeSvgBounds(child, doc, worldTransform))
+        .filter((bounds): bounds is SvgBounds => bounds !== null),
+    );
+  }
+  if (node.kind === 'text') {
+    const width = Math.max(1, node.text.length * (node.fontSize ?? 16) * 0.6);
+    const height = Math.max(1, (node.fontSize ?? 16) * (node.lineHeight ?? 1.2));
+    return transformedBounds(
+      [
+        [0, 0],
+        [width, 0],
+        [width, height],
+        [0, height],
+      ],
+      worldTransform,
+    );
+  }
+  if (node.kind !== 'shape') return null;
+  const bounds = shapeBounds(node.shape);
+  const points: Array<readonly [number, number]> = [
+    [bounds.x, bounds.y],
+    [bounds.x + bounds.width, bounds.y],
+    [bounds.x + bounds.width, bounds.y + bounds.height],
+    [bounds.x, bounds.y + bounds.height],
+  ];
+  if (node.shape.kind === 'path') {
+    for (const point of node.shape.points) {
+      if (point.handleIn) points.push([point.x + point.handleIn[0], point.y + point.handleIn[1]]);
+      if (point.handleOut)
+        points.push([point.x + point.handleOut[0], point.y + point.handleOut[1]]);
+    }
+  }
+  return transformedBounds(points, worldTransform);
 }
 
 /** P2: Generate SVG <defs> for gradient fills, returns {defs, fillRef}. */
@@ -160,6 +372,19 @@ function nodeToSvgTag(
   switch (node.kind) {
     case 'shape': {
       const s = node.shape;
+      // Image fill: render <image> element instead of geometry shape.
+      const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
+      if (imgFill?.image) {
+        const img = imgFill.image;
+        const par = fitToPreserveAspectRatio(img.fit);
+        const href = escapeXml(img.src);
+        if (s.kind === 'rect') {
+          return `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${withTransform} />`;
+        }
+        const clipId = `clip-${node.id}`;
+        const bounds = shapeBounds(s);
+        return `${indent}<g${withTransform}>\n${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})" />\n${indent}</g>`;
+      }
       switch (s.kind) {
         case 'rect':
           return `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${withTransform} />`;
@@ -172,6 +397,8 @@ function nodeToSvgTag(
         case 'polygon':
         case 'star':
           return `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${withTransform} />`;
+        case 'path':
+          return `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${withTransform} />`;
       }
       break;
     }
@@ -240,11 +467,12 @@ export function exportNodeToSvg(
   doc: SceneDocument,
   opts?: SvgExportOptions,
 ): string {
+  const bounds = nodeSvgBounds(node, doc);
   const pos = {
-    x: node.transform[4] ?? 0,
-    y: node.transform[5] ?? 0,
-    w: opts?.viewBoxWidth ?? 200,
-    h: opts?.viewBoxHeight ?? 160,
+    x: bounds?.minX ?? node.transform[4] ?? 0,
+    y: bounds?.minY ?? node.transform[5] ?? 0,
+    w: opts?.viewBoxWidth ?? Math.max(1, (bounds?.maxX ?? 200) - (bounds?.minX ?? 0)),
+    h: opts?.viewBoxHeight ?? Math.max(1, (bounds?.maxY ?? 160) - (bounds?.minY ?? 0)),
   };
   const inner = nodeToSvgTag(node, doc, 2, node.transform);
   return [

@@ -167,6 +167,7 @@ describe('PenTool', () => {
         expect.objectContaining({ x: 100, y: 100 }),
         expect.objectContaining({ x: 200, y: 150 }),
       ]),
+      false,
     );
   });
 
@@ -202,7 +203,7 @@ describe('PenTool', () => {
     tool.onKeyDown?.(makeKeyEvent('Escape'), ctx);
 
     expect(ctx.createShapeAt).toHaveBeenCalled();
-    expect(ctx.announce).toHaveBeenCalledWith('Path cancelled');
+    expect(ctx.announce).toHaveBeenCalledWith('Path finished');
   });
 
   it('single click without commit creates a dot (placeholder)', () => {
@@ -234,10 +235,11 @@ describe('PenTool', () => {
     const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
     const callArgs = mock.calls[0];
     const pathPoints = callArgs?.[3];
+    const pathClosed = callArgs?.[4];
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
-    // Closed path: first point added at end too
-    expect(pathPoints.length).toBeGreaterThanOrEqual(3);
+    expect(pathPoints.length).toBe(2);
+    expect(pathClosed).toBe(true);
   });
 
   it('Shift-click constrains point to 45-degree angle', () => {
@@ -524,5 +526,132 @@ describe('PenTool', () => {
     const ctx = makeCtx();
 
     expect(() => tool.onDeactivate?.(ctx)).not.toThrow();
+  });
+
+  it('commitPath wraps createShapeAt in undo transaction', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    expect(ctx.beginTransaction).toHaveBeenCalled();
+    expect(ctx.createShapeAt).toHaveBeenCalled();
+    expect(ctx.commitTransaction).toHaveBeenCalled();
+    // begin called before createShapeAt, commit called after
+    const beginOrder = (ctx.beginTransaction as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    const shapeAtOrder = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    const commitOrder = (ctx.commitTransaction as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    expect(beginOrder).toBeLessThan(shapeAtOrder);
+    expect(shapeAtOrder).toBeLessThan(commitOrder);
+  });
+
+  it('Escape during Dragging state resets cleanly', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    // First point, drag to create handles
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerMove?.(makePointerEvent(130, 130), ctx);
+
+    // Now in Dragging state with a draft active
+    // Escape should cancel without committing
+    const escapeResult = tool.onKeyDown?.(makeKeyEvent('Escape'), ctx);
+
+    expect(escapeResult).toBe(true);
+    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+    expect(ctx.setDraft).toHaveBeenCalledWith(null);
+  });
+
+  it('Escape during Dragging state allows starting new path after', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerMove?.(makePointerEvent(130, 130), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Escape'), ctx);
+
+    // Should be able to start a new path
+    tool.onPointerDown?.(makePointerEvent(300, 300), ctx);
+    tool.onPointerUp?.(makePointerEvent(300, 300), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(400, 400), ctx);
+    tool.onPointerUp?.(makePointerEvent(400, 400), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    expect(ctx.createShapeAt).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking near existing path endpoint continues path from that point', () => {
+    const tool = new PenTool();
+    const pathShapeNode = {
+      id: 'path-1',
+      kind: 'shape' as const,
+      name: 'Path 1',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+      transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
+      shape: {
+        kind: 'path' as const,
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 100, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 3,
+      },
+      fills: [] as [],
+      strokes: [] as [],
+      effects: [] as [],
+    };
+    const ctx = makeCtx({
+      document: {
+        nodes: { 'path-1': pathShapeNode },
+        rootChildren: ['path-1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      hitTest: vi.fn(() => ({
+        nodeId: 'path-1',
+        node: pathShapeNode,
+      })),
+      getNode: vi.fn((id: string) => (id === 'path-1' ? pathShapeNode : undefined)),
+    });
+    tool.onActivate?.(ctx);
+
+    // Click near the last point of the existing path (100, 100)
+    // The endpoint is at (100, 100), so clicking near it should continue the path
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+
+    // Should NOT create a new shape — should be in Placing state continuing the path
+    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+
+    // Place another point continuing from the endpoint
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(150, 200), ctx);
+    tool.onPointerUp?.(makePointerEvent(150, 200), ctx);
+
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+    // Should have added a point to the existing path via updateNode
+    expect(ctx.updateNode).toHaveBeenCalled();
   });
 });

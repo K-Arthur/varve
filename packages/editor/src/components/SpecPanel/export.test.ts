@@ -1,11 +1,19 @@
 import { awaitExportsReady, createEngine } from '@strata/engine';
-import { createDocument, makeShapeNode } from '@strata/scene';
+import { createDocument, imageFill, makeShapeNode } from '@strata/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { exportNodeAsRaster } from './export';
 
+const { imageLoad } = vi.hoisted(() => ({
+  imageLoad: vi.fn(async () => document.createElement('img')),
+}));
+
 vi.mock('@strata/engine', async () => {
   const actual = await vi.importActual<typeof import('@strata/engine')>('@strata/engine');
-  return { ...actual, awaitExportsReady: vi.fn(actual.awaitExportsReady) };
+  return {
+    ...actual,
+    awaitExportsReady: vi.fn(actual.awaitExportsReady),
+    getImageCache: vi.fn(() => ({ load: imageLoad })),
+  };
 });
 
 function buildDoc() {
@@ -17,6 +25,7 @@ function buildDoc() {
 describe('exportNodeAsRaster', () => {
   afterEach(() => {
     vi.mocked(awaitExportsReady).mockClear();
+    imageLoad.mockClear();
   });
 
   it('awaits font readiness before rendering, so exports never race a font swap', async () => {
@@ -80,5 +89,34 @@ describe('exportNodeAsRaster', () => {
     } finally {
       proto.convertToBlob = original;
     }
+  });
+
+  it('produces a valid export blob for a shape with image fills', async () => {
+    const doc = createDocument('Export', true);
+    const baseNode = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 64, h: 64 },
+      { name: 'Photo' },
+    );
+    const node = {
+      ...baseNode,
+      fills: [
+        imageFill(
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+          { fit: 'fill' },
+        ),
+      ],
+    };
+    const imgDoc = { ...doc, rootChildren: ['n1'], nodes: { n1: node } };
+    const eng = await createEngine('stub');
+
+    const { blob, warnings } = await exportNodeAsRaster(node, imgDoc, eng, {
+      format: 'image/png',
+      scale: 1,
+    });
+
+    expect(blob).toBeInstanceOf(Blob);
+    expect(warnings).toEqual([]);
+    expect(imageLoad).toHaveBeenCalledWith(node.fills[0]?.image?.src);
   });
 });

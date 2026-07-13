@@ -1,12 +1,12 @@
 /**
- * Settings tab — offline AI background-removal model storage (ADR-0005).
- * Surfaces download status, storage location, and delete controls per platform.
+ * Settings tab — offline AI models for background removal and image upscaling (ADR-0005).
  */
 
 import {
   AVAILABLE_MODELS,
   getModelLoaderReady,
   type RemovalMethod,
+  UPSCALE_MODELS,
   workerModelIdForMethod,
 } from '@strata/engine';
 import { Button, RegionLoader } from '@strata/ui';
@@ -19,6 +19,7 @@ interface InstalledModelRow {
   size: number;
   installed: boolean;
   source: 'bundled' | 'downloaded' | 'none';
+  downloadable: boolean;
 }
 
 function formatMb(bytes: number): string {
@@ -34,6 +35,7 @@ function storageLabel(): string {
 
 export function BgRemovalModelsTab() {
   const [rows, setRows] = useState<InstalledModelRow[]>([]);
+  const [upscaleRows, setUpscaleRows] = useState<InstalledModelRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadModelId, setDownloadModelId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -48,7 +50,29 @@ export function BgRemovalModelsTab() {
       const verify = await loader.verifyBundledModel('u2netp');
       setBundleStatus(verify);
       const list = await loader.listInstalledModels();
-      setRows(list);
+      setRows(
+        list.map((row) => {
+          const metadata = AVAILABLE_MODELS.find((model) => model.id === row.id);
+          return {
+            ...row,
+            downloadable: Boolean(metadata?.remoteUrl && metadata.checksum),
+          };
+        }),
+      );
+
+      const upscaleStatus: InstalledModelRow[] = [];
+      for (const model of UPSCALE_MODELS) {
+        const installed = await loader.isModelAvailable(model.id);
+        upscaleStatus.push({
+          id: model.id,
+          name: model.name,
+          size: model.size,
+          installed,
+          source: installed ? (model.bundled ? 'bundled' : 'downloaded') : 'none',
+          downloadable: Boolean(model.remoteUrl),
+        });
+      }
+      setUpscaleRows(upscaleStatus);
     } finally {
       setLoading(false);
     }
@@ -121,7 +145,7 @@ export function BgRemovalModelsTab() {
                       {busyId === row.id ? 'Removing...' : 'Delete'}
                     </Button>
                   )}
-                  {!row.installed && (
+                  {!row.installed && row.downloadable && (
                     <Button
                       variant="primary"
                       onClick={() => setDownloadModelId(row.id)}
@@ -129,6 +153,9 @@ export function BgRemovalModelsTab() {
                     >
                       Download
                     </Button>
+                  )}
+                  {!row.installed && !row.downloadable && (
+                    <span className="bg-models-list__meta">Unavailable</span>
                   )}
                 </div>
               </li>
@@ -138,9 +165,61 @@ export function BgRemovalModelsTab() {
       </RegionLoader>
 
       <p className="settings-section__hint">
-        AI Balanced uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general-lite')?.name}. AI
-        Best Quality uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general')?.name}.
+        AI Balanced uses {AVAILABLE_MODELS.find((m) => m.id === 'u2netp')?.name}. AI High Quality
+        uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general-lite')?.name}.
       </p>
+
+      <h3 className="settings-section__title">Image Upscaling Models</h3>
+      <p className="settings-section__hint">
+        Real-ESRGAN runs locally in a worker and is bundled for browser and desktop use.
+      </p>
+      <ul className="bg-models-list" aria-label="Image upscaling models">
+        {upscaleRows.map((row) => {
+          const meta = UPSCALE_MODELS.find((m) => m.id === row.id);
+          return (
+            <li key={row.id} className="bg-models-list__row">
+              <div className="bg-models-list__info">
+                <span className="bg-models-list__name">{row.name}</span>
+                <span className="bg-models-list__meta">
+                  {formatMb(row.size)}
+                  {row.installed
+                    ? row.source === 'bundled'
+                      ? ' — bundled with app'
+                      : ' — downloaded'
+                    : ' — not installed'}
+                </span>
+                {meta?.description && (
+                  <span className="bg-models-list__desc">{meta.description}</span>
+                )}
+              </div>
+              <div className="bg-models-list__actions">
+                {row.installed && row.source === 'downloaded' && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => void handleDelete(row.id)}
+                    disabled={busyId === row.id}
+                    aria-label={`Delete ${row.name} model`}
+                  >
+                    {busyId === row.id ? 'Removing...' : 'Delete'}
+                  </Button>
+                )}
+                {!row.installed && row.downloadable && (
+                  <Button
+                    variant="primary"
+                    onClick={() => setDownloadModelId(row.id)}
+                    aria-label={`Download ${row.name} model`}
+                  >
+                    Download
+                  </Button>
+                )}
+                {!row.installed && !row.downloadable && (
+                  <span className="bg-models-list__meta">Unavailable</span>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
 
       {downloadModelId && (
         <ModelDownloadDialog

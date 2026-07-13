@@ -3,9 +3,9 @@ import {
   computeMaskConfidence,
   decontaminateMask,
   featherMaskArray,
-  packChwFloat32,
-  resizeMaskNearestNeighbor,
-  thresholdMask,
+  normalizeSegmentationOutput,
+  packSegmentationChwFloat32,
+  resizeMaskBilinear,
 } from '../maskOps';
 import { downscaleImageData } from '../previewDownscale';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerModelId } from '../types';
@@ -85,7 +85,7 @@ async function removeBackgroundDirectOnnx(
   const sourceImage = previewMax > 0 ? downscaleImageData(imageData, previewMax) : imageData;
 
   const resized = resizeImageDataToModelInput(sourceImage, inputSize, inputSize);
-  const floatData = packChwFloat32(resized);
+  const floatData = packSegmentationChwFloat32(resized);
   const inputTensor = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
 
   const feeds: Record<string, import('onnxruntime-web').Tensor> = {};
@@ -98,8 +98,8 @@ async function removeBackgroundDirectOnnx(
   const maskWidth = outputTensor?.dims[3] ?? inputSize;
   const maskHeight = outputTensor?.dims[2] ?? inputSize;
 
-  const mask = thresholdMask(outputData);
-  const upscaledMask = resizeMaskNearestNeighbor(
+  const mask = normalizeSegmentationOutput(outputData, modelId !== 'u2netp');
+  const upscaledMask = resizeMaskBilinear(
     mask,
     maskWidth,
     maskHeight,
@@ -120,7 +120,7 @@ async function removeBackgroundDirectOnnx(
 
   return {
     maskDataUrl,
-    confidence: computeMaskConfidence(outputData),
+    confidence: computeMaskConfidence(Float32Array.from(mask, (value) => value / 255)),
     method: options.method,
     processingTimeMs: Math.round(processingTimeMs),
     width: imageData.width,
