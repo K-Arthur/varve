@@ -116,6 +116,10 @@ export interface EditorState {
   rulerMode: RulerMode;
   /** Optional document overlay grid type. */
   gridOverlayMode: GridOverlayMode;
+  /** When false, guide lines are hidden but remain in the document and snap targets. */
+  guidesVisible: boolean;
+  /** Selected guide for keyboard adjustment; null when no guide is focused. */
+  selectedGuideId: string | null;
   currentPageId: string | null;
   /** Isolation/focus view: when set, the layers panel shows only this
    * container's subtree. A view-mode flag, not a document mutation — not
@@ -443,7 +447,13 @@ export interface EditorContextValue {
   removeGuide: (id: string) => void;
   moveGuide: (id: string, position: number) => void;
   toggleGuideLock: (id: string) => void;
+  toggleLockAllGuides: () => void;
+  duplicateGuide: (id: string, position: number) => string;
   clearAllGuides: () => void;
+  setGuidesVisible: (visible: boolean) => void;
+  toggleGuidesVisible: () => void;
+  setSelectedGuideId: (id: string | null) => void;
+  nudgeSelectedGuide: (dx: number, dy: number) => void;
   guides: Guide[];
 
   // Variants

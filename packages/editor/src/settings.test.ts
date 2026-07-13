@@ -14,6 +14,9 @@ describe('loadSettings', () => {
     expect(s.export.defaultScale).toEqual({ type: 'factor', value: 2 });
     expect(s.appearance.theme).toBe('light');
     expect(s.startup.showBrandedLoader).toBe(true);
+    expect(s.viewport.snapEnabled).toBe(true);
+    expect(s.viewport.guidesVisible).toBe(true);
+    expect(s.viewport.snapGrid).toBe(8);
   });
 
   it('persists and loads startup settings', () => {

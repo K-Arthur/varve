@@ -46,12 +46,24 @@ export interface StartupSettingsStore {
   showBrandedLoader: boolean;
 }
 
+/** Application-level viewport/view defaults restored on new sessions and page reload. */
+export interface ViewportSettingsStore {
+  snapEnabled: boolean;
+  pixelGridEnabled: boolean;
+  rulerMode: 'global' | 'artboard';
+  gridOverlayMode: 'none' | 'baseline' | 'isometric';
+  unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
+  guidesVisible: boolean;
+  snapGrid: number;
+}
+
 export interface EditorSettings {
   export: ExportSettingsStore;
   appearance: AppearanceSettingsStore;
   panel: PanelSettingsStore;
   render: RenderSettingsStore;
   startup: StartupSettingsStore;
+  viewport: ViewportSettingsStore;
 }
 
 const STORAGE_KEY = 'strata-editor-settings';
@@ -89,6 +101,16 @@ export const DEFAULT_STARTUP_SETTINGS: StartupSettingsStore = {
   showBrandedLoader: true,
 };
 
+export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
+  snapEnabled: true,
+  pixelGridEnabled: false,
+  rulerMode: 'artboard',
+  gridOverlayMode: 'none',
+  unitType: 'px',
+  guidesVisible: true,
+  snapGrid: 8,
+};
+
 /** Performance budget for the startup/loading experience. */
 export const STARTUP_PERFORMANCE_BUDGET = {
   /** Max additional time-to-interactive from branded loader (beyond init) — 50ms */
@@ -107,6 +129,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   panel: { ...DEFAULT_PANEL_SETTINGS },
   render: { ...DEFAULT_RENDER_SETTINGS },
   startup: { ...DEFAULT_STARTUP_SETTINGS },
+  viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
 };
 
 function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undefined): T {
@@ -129,6 +152,7 @@ export function loadSettings(): EditorSettings {
         panel: { ...DEFAULT_PANEL_SETTINGS },
         render: { ...DEFAULT_RENDER_SETTINGS },
         startup: { ...DEFAULT_STARTUP_SETTINGS },
+        viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
@@ -143,6 +167,10 @@ export function loadSettings(): EditorSettings {
         DEFAULT_STARTUP_SETTINGS,
         parsed.startup as Partial<StartupSettingsStore>,
       ),
+      viewport: mergePartial(
+        DEFAULT_VIEWPORT_SETTINGS,
+        parsed.viewport as Partial<ViewportSettingsStore>,
+      ),
     };
   } catch {
     return {
@@ -151,6 +179,7 @@ export function loadSettings(): EditorSettings {
       panel: { ...DEFAULT_PANEL_SETTINGS },
       render: { ...DEFAULT_RENDER_SETTINGS },
       startup: { ...DEFAULT_STARTUP_SETTINGS },
+      viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
     };
   }
 }
@@ -165,6 +194,7 @@ export interface EditorSettingsPatch {
   panel?: Partial<PanelSettingsStore>;
   render?: Partial<RenderSettingsStore>;
   startup?: Partial<StartupSettingsStore>;
+  viewport?: Partial<ViewportSettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
@@ -175,6 +205,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     panel: { ...current.panel, ...patch.panel },
     render: { ...current.render, ...patch.render },
     startup: { ...current.startup, ...patch.startup },
+    viewport: { ...current.viewport, ...patch.viewport },
   };
   saveSettings(next);
   return next;
@@ -187,6 +218,7 @@ export function resetSettings(): EditorSettings {
     panel: { ...DEFAULT_PANEL_SETTINGS },
     render: { ...DEFAULT_RENDER_SETTINGS },
     startup: { ...DEFAULT_STARTUP_SETTINGS },
+    viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
   };
   saveSettings(defaults);
   return defaults;
