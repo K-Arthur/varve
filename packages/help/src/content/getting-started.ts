@@ -46,7 +46,7 @@ export const GETTING_STARTED: Record<string, HelpArticle> = {
     id: 'getting-started:keys',
     title: 'Keyboard Basics',
     summary: 'Essential shortcuts for beginners to speed up your workflow.',
-    body: 'Master these essential shortcuts to work faster in Strata: Tool shortcuts: V (Select), R (Rectangle), E (Ellipse), L (Line), T (Text), F (Frame), P (Pen), N (Pencil), H (Hand), Z (Zoom). Edit shortcuts: Ctrl+Z (Undo), Ctrl+Shift+Z (Redo), Ctrl+C (Copy), Ctrl+X (Cut), Ctrl+V (Paste), Ctrl+D (Duplicate), Delete (Remove). File shortcuts: Ctrl+N (New), Ctrl+O (Open), Ctrl+S (Save). View shortcuts: Ctrl+0 (Zoom to 100%), Ctrl+= (Zoom In), Ctrl+- (Zoom Out), Ctrl+B (Toggle Layers Panel). Press F1 to open the full help browser with complete shortcut reference.',
+    body: 'Master these essential shortcuts to work faster in Strata: Tool shortcuts: V (Select), R (Rectangle), E (Ellipse), L (Line), T (Text), F (Frame), P (Pen), Shift+P (Pencil), H (Hand), Z (Zoom). Edit shortcuts: Ctrl+Z (Undo), Ctrl+Shift+Z (Redo), Ctrl+C (Copy), Ctrl+X (Cut), Ctrl+V (Paste), Ctrl+D (Duplicate), Delete (Remove). File shortcuts: Ctrl+N (New), Ctrl+O (Open), Ctrl+S (Save). View shortcuts: Ctrl+0 (Zoom to 100%), Ctrl+= (Zoom In), Ctrl+- (Zoom Out), Ctrl+B (Toggle Layers Panel). Press F1 to open the full help browser with complete shortcut reference.',
     keywords: ['shortcuts', 'keys', 'beginner', 'basics', 'essential', 'quick'],
     category: 'Getting Started',
     related: ['shortcuts', 'getting-started:overview', 'faq:shortcuts'],

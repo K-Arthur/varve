@@ -30,6 +30,7 @@ export interface DocumentContextValue {
     size?: { w: number; h: number },
     parentId?: NodeId | null,
     pathPoints?: import('@strata/engine').PathPoint[],
+    pathClosed?: boolean,
   ) => void;
   createTextNodeAt: (
     world: { x: number; y: number },
