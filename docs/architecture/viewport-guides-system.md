@@ -120,8 +120,8 @@ Guide creation returns the created guide id from `editor.addGuide(...)`. This is
 used by the ruler so a drag can create once, then call `moveGuide(id, position)`
 for subsequent pointer movement.
 
-**Known limitation:** Ruler tick marks remain axis-aligned and do not rotate with
-`cameraRotation`. Layout guides and ephemeral snap guides rotate with the view.
+**Known limitation:** None for view rotation — layout guides, snap overlays, and ruler
+ticks all use rotation-aware projection via `guideGeometry` / `rulerGeometry`.
 
 ## Input Pipeline
 
@@ -171,21 +171,21 @@ Shipped this session (2026-07-13):
 5. P1 Alt-drag guide duplication.
 6. P1 keyboard guide nudge/delete when a guide is selected.
 7. P1 `clampCamera` wired into `setPan`.
-7. P1 view-rotation parity for layout guides and snap overlays (`guideGeometry.ts`).
-8. Regression coverage: `viewportSession.test.ts`, `guideGeometry.test.ts`, expanded scene guide tests,
-   expanded Playwright `guides.spec.ts`.
+7. P1 view-rotation parity for layout guides, snap overlays, and ruler ticks.
+8. Regression coverage: `viewportSession.test.ts`, `guideGeometry.test.ts`,
+   `rulerGeometry.test.ts`, expanded scene guide tests, expanded Playwright
+   `guides.spec.ts`.
 
 Deferred:
 
 1. P0/P1 native Tauri E2E: no tauri-driver/WebDriver harness is configured in
    this repo. Current E2E coverage runs the shared frontend in Chromium.
-2. P1 view-rotation parity for ruler tick marks (layout guides and snap overlays ship rotated).
-3. P1 per-target shortcut documentation in-app (browser-reserved list exists in
+2. P1 per-target shortcut documentation in-app (browser-reserved list exists in
    this doc only).
-4. P2 page-scoped guides and guide copy/paste across documents.
-5. P2 configurable `snapGrid` UI (value persisted in settings, still no setter).
-6. P2 full visual regression matrix for light/dark/high-contrast guide rendering.
-7. P2 performance benchmark for hundreds/thousands of guides.
+3. P2 page-scoped guides and guide copy/paste across documents.
+4. P2 configurable `snapGrid` UI (value persisted in settings, still no setter).
+5. P2 full visual regression matrix for light/dark/high-contrast guide rendering.
+6. P2 performance benchmark for hundreds/thousands of guides.
 
 ## Verification Added
 
@@ -197,7 +197,9 @@ Deferred:
   floating origin and rotation; `clampCamera`.
 - `packages/editor/src/tools/__tests__/snapping.test.ts`: snap-to-guide targets
   and priority.
+- `packages/editor/src/canvas/rulerGeometry.test.ts`: rotation-aware ruler tick
+  projection and pointer mapping.
 - `packages/editor/src/components/Ruler/Ruler.test.tsx`: one guide per ruler
-  drag, moved by id.
+  drag, moved by id, rotation-aware guide placement.
 - `tests/e2e/canvas/guides.spec.ts`: ruler drag, guide visibility toggle,
   keyboard nudge (Chromium browser build).

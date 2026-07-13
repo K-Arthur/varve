@@ -78,4 +78,32 @@ describe('Ruler guide creation', () => {
     expect(onMoveGuide).toHaveBeenCalledOnce();
     expect(onMoveGuide).toHaveBeenCalledWith('guide-2', 70);
   });
+
+  it('places a vertical guide using rotation-aware world mapping from the top ruler', () => {
+    const onAddGuide = vi.fn((_axis: 'horizontal' | 'vertical', _position: number) => 'guide-rot');
+    const onMoveGuide = vi.fn();
+    const { container } = render(
+      <Ruler
+        zoom={1}
+        pan={{ x: 0, y: 0 }}
+        cameraRotation={Math.PI / 4}
+        unitType="px"
+        onAddGuide={onAddGuide}
+        onMoveGuide={onMoveGuide}
+        canvasWidth={800}
+        canvasHeight={600}
+      />,
+    );
+
+    const topRuler = container.querySelector('.ruler-canvas--top');
+    expect(topRuler).toBeInstanceOf(HTMLCanvasElement);
+    mockRect(topRuler!, { left: 20, top: 0, width: 800, height: 20 });
+
+    fireEvent.mouseDown(topRuler!, { button: 0, clientX: 220, clientY: 8 });
+    fireEvent.mouseUp(window);
+
+    expect(onAddGuide).toHaveBeenCalledTimes(1);
+    const worldX = onAddGuide.mock.calls[0]![1];
+    expect(worldX).not.toBe(200);
+  });
 });
