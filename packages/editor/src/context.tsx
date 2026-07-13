@@ -34,7 +34,7 @@ import { getTransactionHooks } from '@strata/collab';
 import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
 import { applyAffine, invertAffine, multiplyAffine } from '@strata/engine';
 import { type ImportFileInput, ImportService } from '@strata/import';
-import { makeFileEntry, type Platform } from '@strata/platform';
+import { type Platform, upsertPreservingMeta } from '@strata/platform';
 import {
   PrototypeDebugConsole,
   type PrototypeRuntime,
@@ -1337,8 +1337,7 @@ export function EditorProvider({
         const meta = s.sessions.find((sess) => sess.id === s.activeId);
         try {
           if (meta?.fileId) {
-            const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
-            await platform.upsertFile(fe, json);
+            await upsertPreservingMeta(platform, meta.fileId, meta.name, json);
           } else {
             // Untitled document: persist as recovery point so work is never lost
             const doc = JSON.parse(json) as Document;
@@ -3292,8 +3291,7 @@ export function EditorProvider({
           const meta = s.sessions.find((sess) => sess.id === s.activeId);
           const json = DocumentCodec.encode(s.document);
           if (meta?.fileId) {
-            const fe = makeFileEntry({ id: meta.fileId, name: meta.name });
-            await platform.upsertFile(fe, json);
+            await upsertPreservingMeta(platform, meta.fileId, meta.name, json);
           } else {
             return await saveAsImpl(platform, stateRef, recoveryRef, patch);
           }
