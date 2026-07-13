@@ -9,6 +9,13 @@ import { ErrorBoundary } from '@strata/editor';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { dismissBootFallback } from './startup/revealMainWindow';
+
+// Remove the pre-JS boot fallback before React paints (browser target).
+dismissBootFallback();
+if (typeof performance !== 'undefined' && performance.mark) {
+  performance.mark('strata-boot-dismissed');
+}
 
 // Restore persisted theme before first paint so both home and editor surfaces
 // start with the correct [data-theme] attribute rather than falling through to
