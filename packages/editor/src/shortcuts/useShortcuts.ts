@@ -227,6 +227,10 @@ export function useShortcuts(
         return () => e.setTool('inspect' as ToolId);
       case 'toggleSnap':
         return () => e.setSnapEnabled(!e.state.snapEnabled);
+      case 'toggleGuidesVisible':
+        return () => e.toggleGuidesVisible();
+      case 'lockAllGuides':
+        return () => e.toggleLockAllGuides();
       case 'softProof':
         return () => e.setSoftProofEnabled(!e.state.softProofEnabled);
       case 'toggleLeftPanel':
@@ -302,6 +306,43 @@ export function useShortcuts(
       )
         return;
       if (target.closest?.('[data-shortcut-ignore]')) return;
+
+      const editor = ref.current;
+      const guideId = editor.state.selectedGuideId;
+      if (guideId && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const step = e.shiftKey ? 10 : 1;
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          editor.nudgeSelectedGuide(-step, 0);
+          return;
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          editor.nudgeSelectedGuide(step, 0);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          editor.nudgeSelectedGuide(0, -step);
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          editor.nudgeSelectedGuide(0, step);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          editor.setSelectedGuideId(null);
+          return;
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          editor.removeGuide(guideId);
+          editor.setSelectedGuideId(null);
+          return;
+        }
+      }
 
       for (const [id, _def] of Object.entries(SHORTCUT_DEFS)) {
         const binding = getEffectiveBinding(id);
