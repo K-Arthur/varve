@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 /**
  * Navigate from the home screen to the editor.

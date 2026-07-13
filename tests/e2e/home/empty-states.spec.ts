@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { navigateToHome, sidebarNavClick, waitForOpenDialog } from '../shared';
+import { navigateToHome, sidebarNavClick } from '../shared';
 
 test.describe('Home empty states', () => {
   test.beforeEach(async ({ page }) => {
