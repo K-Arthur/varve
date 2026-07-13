@@ -7,25 +7,25 @@ test.describe('Home empty states', () => {
   });
 
   async function navigateToSection(page: import('@playwright/test').Page, label: string) {
-    const item = page.locator('nav[aria-label="File navigation"] button[role="option"]', {
-      hasText: label,
-    });
-    if (await item.isVisible()) {
-      await item.click();
-      await page.waitForTimeout(300);
-    }
+    const item = page
+      .locator('nav[aria-label="File navigation"]')
+      .getByRole('button', { name: new RegExp(label, 'i') });
+    await item.click();
+    await page.waitForTimeout(300);
   }
 
-  test('Recent section shows "No recent files" headline', async ({ page }) => {
+  test('Recent section shows "Nothing here yet" headline', async ({ page }) => {
     await navigateToSection(page, 'Recent');
     const empty = page.locator('.strata-empty[role="status"]');
-    await expect(empty.locator('.strata-empty__headline')).toContainText(/no recent files/i);
+    await expect(empty.locator('.strata-empty__headline')).toContainText(/nothing here yet/i);
   });
 
-  test('All Files section shows "No files yet" headline', async ({ page }) => {
+  test('All Files section shows "Start with a blank slate" headline', async ({ page }) => {
     await navigateToSection(page, 'All Files');
     const empty = page.locator('.strata-empty[role="status"]');
-    await expect(empty.locator('.strata-empty__headline')).toContainText(/no files yet/i);
+    await expect(empty.locator('.strata-empty__headline')).toContainText(
+      /start with a blank slate/i,
+    );
   });
 
   test('Trash section shows "Trash is empty" headline', async ({ page }) => {

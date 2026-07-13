@@ -7,16 +7,16 @@ test.describe('Home trash flow', () => {
   });
 
   test('sidebar has Trash item with count', async ({ page }) => {
-    const trashItem = page.locator('nav[aria-label="File navigation"] button[role="option"]', {
-      hasText: 'Trash',
-    });
+    const trashItem = page
+      .locator('nav[aria-label="File navigation"]')
+      .getByRole('button', { name: /trash/i });
     await expect(trashItem).toBeVisible();
   });
 
   test('trash section shows empty state when no trashed files', async ({ page }) => {
-    const trashItem = page.locator('nav[aria-label="File navigation"] button[role="option"]', {
-      hasText: 'Trash',
-    });
+    const trashItem = page
+      .locator('nav[aria-label="File navigation"]')
+      .getByRole('button', { name: /trash/i });
     await trashItem.click();
     await page.waitForTimeout(200);
 
@@ -26,9 +26,9 @@ test.describe('Home trash flow', () => {
   });
 
   test('trash section CTA navigates back to files', async ({ page }) => {
-    const trashItem = page.locator('nav[aria-label="File navigation"] button[role="option"]', {
-      hasText: 'Trash',
-    });
+    const trashItem = page
+      .locator('nav[aria-label="File navigation"]')
+      .getByRole('button', { name: /trash/i });
     await trashItem.click();
     await page.waitForTimeout(200);
 
@@ -42,9 +42,9 @@ test.describe('Home trash flow', () => {
   });
 
   test('trash section with files shows Restore and Delete buttons', async ({ page }) => {
-    const trashItem = page.locator('nav[aria-label="File navigation"] button[role="option"]', {
-      hasText: 'Trash',
-    });
+    const trashItem = page
+      .locator('nav[aria-label="File navigation"]')
+      .getByRole('button', { name: /trash/i });
     await trashItem.click();
     await page.waitForTimeout(200);
 

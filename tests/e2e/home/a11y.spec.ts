@@ -44,9 +44,9 @@ test.describe('Home - axe-core scan', () => {
     await page.goto('/');
     await page.waitForSelector('.strata-home');
 
-    const trashItem = page.locator('nav[aria-label="File navigation"] button[role="option"]', {
-      hasText: 'Trash',
-    });
+    const trashItem = page
+      .locator('nav[aria-label="File navigation"]')
+      .getByRole('button', { name: /trash/i });
     await trashItem.click();
     await page.waitForTimeout(200);
 
