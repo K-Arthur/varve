@@ -2,17 +2,25 @@
 
 import type { RenderItem } from '@strata/engine';
 /**
- * WebGPU compositor backend — solid fills for rect/circle/line with Canvas2D fallback.
- * Lines are tessellated as thin quads; circles get a dedicated discard shader.
- * Uses explicit pipeline layouts and a vertex buffer ring pool.
+ * WebGPU compositor backend — solid fills for rect/circle/line.
+ *
+ * Canvas ownership (2026-07-13): the *present* canvas stays Canvas2D so
+ * CanvasArea.drawContent (board fill, camera, structural masks, partial
+ * redraw) keeps working. GPU work targets an offscreen `<canvas>` with a
+ * `webgpu` context; results are `drawImage`'d onto the 2D present surface
+ * with an identity transform. This also makes device-loss recoverable
+ * in-place (drop GPU, keep 2D) — a browser canvas's context type is fixed
+ * for its lifetime, so the prior "steal webgpu on the content canvas"
+ * design could never fall back without a full remount/reload.
+ *
+ * Lines are tessellated as thin quads; circles use a discard shader.
+ * Explicit pipeline layouts + vertex buffer ring pool.
  */
 import { selectWebGpuAdapter } from '@strata/engine';
 import { computeFloatingOrigin } from '@strata/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import type { CompositorDiagnostics, CompositorFrame } from '../types';
 import {
-  BLIT_FRAGMENT_WGSL,
-  BLIT_VERTEX_WGSL,
   CIRCLE_FRAGMENT_WGSL,
   CIRCLE_VERTEX_WGSL,
   SOLID_FRAGMENT_WGSL,
@@ -29,6 +37,11 @@ interface GpuVertex {
 }
 
 const LINE_HALF_WIDTH = 1.5;
+
+const PREMUL_BLEND: GPUBlendState = {
+  color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+};
 
 function fillToRgba(fill: RenderItem['fill']): [number, number, number, number] {
   if (fill && typeof fill === 'object' && 'space' in fill && fill.space === 'rgb') {
@@ -113,70 +126,94 @@ export function lineTessellationVertexCount(item: RenderItem): number {
   return buildVertices([item]).length;
 }
 
+/**
+ * Apply item affine to a local point — same convention as SOLID_VERTEX_WGSL
+ * and `@strata/shared` `applyAffine` (`x'=a·x+c·y+e`, `y'=b·x+d·y+f`).
+ */
+export function applyItemAffine(
+  localPos: readonly [number, number],
+  transform: readonly [number, number, number, number, number, number],
+): [number, number] {
+  const [a, b, c, d, e, f] = transform;
+  const [x, y] = localPos;
+  return [a * x + c * y + e, b * x + d * y + f];
+}
+
 /** Return the smallest power of 2 >= n, clamped to 256 minimum. */
 function roundUpPow2(n: number): number {
   if (n <= 256) return 256;
   return 1 << (32 - Math.clz32(n - 1));
 }
 
+function worldToScreenCss(
+  worldX: number,
+  worldY: number,
+  camera: CompositorFrame['camera'],
+  viewport: CompositorFrame['viewport'],
+  origin: readonly [number, number],
+): [number, number] {
+  const zoomedX = (worldX - origin[0]) * camera.zoom;
+  const zoomedY = (worldY - origin[1]) * camera.zoom;
+  const cx = viewport.width * 0.5;
+  const cy = viewport.height * 0.5;
+  const dx = zoomedX - cx;
+  const dy = zoomedY - cy;
+  const r = camera.rotation ?? 0;
+  const cos = Math.cos(r);
+  const sin = Math.sin(r);
+  return [cx + camera.pan.x + dx * cos - dy * sin, cy + camera.pan.y + dx * sin + dy * cos];
+}
+
 export class WebGPUBackend {
   readonly id = 'webgpu' as const;
-  private fallback: Canvas2DBackend | null = null;
-  /** Offscreen 2D surface for non-GPU primitives when WebGPU owns the main canvas. */
-  private fallbackSurface: OffscreenCanvas | null = null;
+  /** Always owns the present (content) canvas via Canvas2D. */
+  private present: Canvas2DBackend | null = null;
   private deviceLostHandler: (() => Promise<void>) | null = null;
   private gpuReady = false;
   private adapterIsFallback = false;
   private deviceLost = false;
   private device: GPUDevice | null = null;
+  /** Offscreen canvas that holds the `webgpu` context — never the present canvas. */
+  private gpuCanvas: HTMLCanvasElement | null = null;
   private context: GPUCanvasContext | null = null;
   private format: GPUTextureFormat = 'rgba8unorm';
   private solidPipeline: GPURenderPipeline | null = null;
   private circlePipeline: GPURenderPipeline | null = null;
-  private blitPipeline: GPURenderPipeline | null = null;
   private cameraBuffer: GPUBuffer | null = null;
   private circleUniformBuffer: GPUBuffer | null = null;
-  private blitUniformBuffer: GPUBuffer | null = null;
   private cameraBindGroup: GPUBindGroup | null = null;
   private circleBindGroup: GPUBindGroup | null = null;
-  private blitBindGroupLayout: GPUBindGroupLayout | null = null;
-  private blitSampler: GPUSampler | null = null;
   private vertexPool: Map<number, GPUBuffer> = new Map();
   private bundleCache: Map<string, GPURenderBundle> = new Map();
   private currentFrame: CompositorFrame | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private lastFrameVertexBytes = 0;
   private pipelineInitMs = 0;
-  private needsFallbackComposite = false;
   private frameCleared = false;
   private gpuDrawnThisFrame = false;
 
   async init(canvas: HTMLCanvasElement): Promise<void> {
     this.canvas = canvas;
-    this.fallback = new Canvas2DBackend();
+    // Present surface is ALWAYS Canvas2D on the content canvas — see file header.
+    this.present = new Canvas2DBackend();
+    await this.present.init(canvas);
 
-    // Acquire WebGPU context BEFORE any 2D context on the main canvas.
     try {
       const gpu = navigator.gpu;
       if (!gpu) throw new Error('WebGPU unavailable');
-      // Try high-performance first, fall back to low-power (integrated GPU) —
-      // covers laptops and mixed-GPU systems where requesting the discrete
-      // GPU alone may fail (e.g. no discrete GPU present). Declines a
-      // software-emulated adapter (e.g. SwiftShader) rather than accepting
-      // degraded-but-technically-functional GPU mode: the hand-tuned
-      // Canvas2D path outperforms software-rendered WebGPU (ADR-0003
-      // Minimum Supported Baseline).
       const selection = await selectWebGpuAdapter(gpu, { requireHardwareAdapter: true });
       if (selection.kind === 'declined-software') {
-        // `adapterIsFallback` stays true so diagnostics can distinguish
-        // "declined software adapter" from "no WebGPU at all".
         this.adapterIsFallback = true;
         throw new Error('WebGPU adapter is software-emulated; declining in favor of Canvas2D');
       }
       if (selection.kind === 'unavailable') throw new Error('No WebGPU adapter');
       const { adapter } = selection;
       const device = await adapter.requestDevice();
-      const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
+
+      const gpuCanvas = document.createElement('canvas');
+      gpuCanvas.width = Math.max(1, canvas.width || 1);
+      gpuCanvas.height = Math.max(1, canvas.height || 1);
+      const context = gpuCanvas.getContext('webgpu') as GPUCanvasContext | null;
       if (!context) {
         device.destroy();
         throw new Error('WebGPU canvas context unavailable');
@@ -184,12 +221,6 @@ export class WebGPUBackend {
       this.format = gpu.getPreferredCanvasFormat();
       context.configure({ device, format: this.format, alphaMode: 'premultiplied' });
 
-      // Measured separately from WASM init latency (see docs/architecture/render-pipeline.md) —
-      // shader/pipeline compilation is frequently the larger, more variable contributor to
-      // first-frame latency. No persistent cross-launch cache exists for this: the WebGPU
-      // spec has no application-facing pipeline-cache API (only an opaque, implementation-
-      // internal browser cache); that's a native-wgpu-only capability this browser-facing
-      // backend can't reach. See ADR-0003.
       const pipelineInitStart = performance.now();
 
       const solidModule = device.createShaderModule({
@@ -197,9 +228,6 @@ export class WebGPUBackend {
       });
       const circleModule = device.createShaderModule({
         code: `${CIRCLE_VERTEX_WGSL}\n${CIRCLE_FRAGMENT_WGSL}`,
-      });
-      const blitModule = device.createShaderModule({
-        code: `${BLIT_VERTEX_WGSL}\n${BLIT_FRAGMENT_WGSL}`,
       });
 
       const vertexBufferLayout: GPUVertexBufferLayout = {
@@ -237,29 +265,17 @@ export class WebGPUBackend {
         ],
       });
 
-      const blitBindGroupLayout = device.createBindGroupLayout({
-        entries: [
-          {
-            binding: 0,
-            visibility: GPUShaderStage.VERTEX,
-            buffer: { type: 'uniform' },
-          },
-          { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
-          { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-        ],
-      });
-
       const solidPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts: [solidBindGroupLayout],
       });
-
       const circlePipelineLayout = device.createPipelineLayout({
         bindGroupLayouts: [circleBindGroupLayout],
       });
 
-      const blitPipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [blitBindGroupLayout],
-      });
+      const colorTarget: GPUColorTargetState = {
+        format: this.format,
+        blend: PREMUL_BLEND,
+      };
 
       const solidPipeline = device.createRenderPipeline({
         layout: solidPipelineLayout,
@@ -267,7 +283,7 @@ export class WebGPUBackend {
         fragment: {
           module: solidModule,
           entryPoint: 'fs_main',
-          targets: [{ format: this.format }],
+          targets: [colorTarget],
         },
         primitive: { topology: 'triangle-list' },
       });
@@ -278,26 +294,7 @@ export class WebGPUBackend {
         fragment: {
           module: circleModule,
           entryPoint: 'fs_main',
-          targets: [{ format: this.format }],
-        },
-        primitive: { topology: 'triangle-list' },
-      });
-
-      const blitPipeline = device.createRenderPipeline({
-        layout: blitPipelineLayout,
-        vertex: { module: blitModule, entryPoint: 'vs_main' },
-        fragment: {
-          module: blitModule,
-          entryPoint: 'fs_main',
-          targets: [
-            {
-              format: this.format,
-              blend: {
-                color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-                alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-              },
-            },
-          ],
+          targets: [colorTarget],
         },
         primitive: { topology: 'triangle-list' },
       });
@@ -309,10 +306,6 @@ export class WebGPUBackend {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
       const circleUniformBuffer = device.createBuffer({
-        size: 16,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
-      const blitUniformBuffer = device.createBuffer({
         size: 16,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
@@ -328,47 +321,28 @@ export class WebGPUBackend {
           { binding: 1, resource: { buffer: circleUniformBuffer } },
         ],
       });
-      const blitSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
 
       this.device = device;
+      this.gpuCanvas = gpuCanvas;
       this.context = context;
       this.solidPipeline = solidPipeline;
       this.circlePipeline = circlePipeline;
-      this.blitPipeline = blitPipeline;
       this.cameraBuffer = cameraBuffer;
       this.circleUniformBuffer = circleUniformBuffer;
-      this.blitUniformBuffer = blitUniformBuffer;
       this.cameraBindGroup = cameraBindGroup;
       this.circleBindGroup = circleBg;
-      this.blitBindGroupLayout = blitBindGroupLayout;
-      this.blitSampler = blitSampler;
       this.gpuReady = true;
       this.watchDeviceLost(device);
     } catch {
       this.gpuReady = false;
-    }
-
-    if (this.gpuReady) {
-      const dpr = window.devicePixelRatio || 1;
-      this.fallbackSurface = new OffscreenCanvas(
-        Math.max(1, Math.floor((canvas.width || 1) * dpr)),
-        Math.max(1, Math.floor((canvas.height || 1) * dpr)),
-      );
-      await this.fallback.init(this.fallbackSurface);
-    } else {
-      await this.fallback.init(canvas);
+      this.teardownGpuOnly();
     }
   }
 
   beginFrame(frame: CompositorFrame, opts?: BeginOpts): void {
     this.currentFrame = frame;
-    this.needsFallbackComposite = false;
     this.frameCleared = false;
     this.gpuDrawnThisFrame = false;
-    if (!this.gpuReady) {
-      this.fallback?.beginFrame(frame, opts);
-      return;
-    }
     const { viewport } = frame;
     const dpr = window.devicePixelRatio || 1;
     const w = Math.max(1, Math.floor(viewport.width * dpr));
@@ -377,19 +351,24 @@ export class WebGPUBackend {
       this.canvas.width = w;
       this.canvas.height = h;
     }
-    if (
-      this.fallbackSurface &&
-      (this.fallbackSurface.width !== w || this.fallbackSurface.height !== h)
-    ) {
-      this.fallbackSurface.width = w;
-      this.fallbackSurface.height = h;
+    if (this.gpuCanvas && (this.gpuCanvas.width !== w || this.gpuCanvas.height !== h)) {
+      this.gpuCanvas.width = w;
+      this.gpuCanvas.height = h;
+      if (this.device && this.context) {
+        this.context.configure({
+          device: this.device,
+          format: this.format,
+          alphaMode: 'premultiplied',
+        });
+      }
     }
+    // Present path always goes through Canvas2D beginFrame so camera/clear
+    // semantics stay shared with the pure-2D backend when GPU is down.
+    this.present?.beginFrame(frame, opts);
   }
 
   drawVectorItems(items: RenderItem[]): void {
     if (!items.length) return;
-    const gpuItems = items.filter(isGpuPrimitive);
-    const fallbackItems = items.filter((i) => !isGpuPrimitive(i));
     if (
       this.gpuReady &&
       this.device &&
@@ -399,26 +378,25 @@ export class WebGPUBackend {
       this.cameraBuffer &&
       this.circleUniformBuffer &&
       this.cameraBindGroup &&
-      this.circleBindGroup
+      this.circleBindGroup &&
+      this.gpuCanvas
     ) {
+      const gpuItems = items.filter(isGpuPrimitive);
+      const fallbackItems = items.filter((i) => !isGpuPrimitive(i));
       const frame = this.currentFrame;
       if (frame && gpuItems.length > 0) {
         this.drawGpuItems(gpuItems, frame);
         this.gpuDrawnThisFrame = true;
+        this.blitGpuToPresent();
       }
-      if (fallbackItems.length > 0 && this.fallback) {
-        this.fallback.beginFrame(frame ?? this.currentFrame!, {
-          applyCamera: true,
-          clear: true,
-        });
-        this.fallback.drawVectorItems(fallbackItems);
-        this.fallback.endFrame();
-        this.needsFallbackComposite = true;
+      if (fallbackItems.length > 0) {
+        // Present canvas already has camera from beginFrame / CanvasArea;
+        // draw non-GPU primitives in world space on top of the GPU blit.
+        this.present?.drawVectorItems(fallbackItems);
       }
-    } else {
-      this.fallback?.drawVectorItems(items);
       return;
     }
+    this.present?.drawVectorItems(items);
   }
 
   compositeRasterLayer(
@@ -427,17 +405,12 @@ export class WebGPUBackend {
     transform: readonly [number, number, number, number, number, number],
     blendMode: string,
   ): void {
-    this.fallback?.compositeRasterLayer(id, bitmap, transform, blendMode);
+    this.present?.compositeRasterLayer(id, bitmap, transform, blendMode);
   }
 
   endFrame(): void {
-    if (this.gpuReady && this.needsFallbackComposite) {
-      this.compositeFallbackOverlay();
-    }
+    this.present?.endFrame();
     this.currentFrame = null;
-    if (!this.gpuReady) {
-      this.fallback?.endFrame();
-    }
   }
 
   getDiagnostics(): CompositorDiagnostics {
@@ -454,26 +427,9 @@ export class WebGPUBackend {
   }
 
   destroy(): void {
-    this.device?.destroy();
-    this.device = null;
-    this.context = null;
-    this.solidPipeline = null;
-    this.circlePipeline = null;
-    this.blitPipeline = null;
-    this.cameraBuffer = null;
-    this.circleUniformBuffer = null;
-    this.blitUniformBuffer = null;
-    this.cameraBindGroup = null;
-    this.circleBindGroup = null;
-    this.blitBindGroupLayout = null;
-    this.blitSampler = null;
-    for (const buf of this.vertexPool.values()) buf.destroy();
-    this.vertexPool.clear();
-    this.bundleCache.clear();
-    this.gpuReady = false;
-    this.fallback?.destroy();
-    this.fallback = null;
-    this.fallbackSurface = null;
+    this.teardownGpuOnly();
+    this.present?.destroy();
+    this.present = null;
     this.canvas = null;
   }
 
@@ -483,14 +439,41 @@ export class WebGPUBackend {
 
   watchDeviceLost(device: GPUDevice): void {
     void device.lost.then(async () => {
-      this.gpuReady = false;
       this.deviceLost = true;
-      this.device = null;
-      for (const buf of this.vertexPool.values()) buf.destroy();
-      this.vertexPool.clear();
-      this.bundleCache.clear();
+      // In-place recovery: present canvas was always 2D, so dropping GPU
+      // leaves a working Canvas2D path. No remount/reload required.
+      this.teardownGpuOnly();
+      this.gpuReady = false;
       if (this.deviceLostHandler) await this.deviceLostHandler();
     });
+  }
+
+  /** True when the present canvas still exposes a 2D context after init. */
+  presentCanvasHas2dContext(): boolean {
+    if (!this.canvas) return false;
+    return this.canvas.getContext('2d') !== null;
+  }
+
+  /** Test accessor for vertex pool reuse assertions. */
+  getOrCreateVertexBufferForTest(byteSize: number): GPUBuffer | null {
+    if (!this.device) return null;
+    return this.getOrCreateVertexBuffer(this.device, byteSize);
+  }
+
+  private teardownGpuOnly(): void {
+    this.device?.destroy();
+    this.device = null;
+    this.context = null;
+    this.gpuCanvas = null;
+    this.solidPipeline = null;
+    this.circlePipeline = null;
+    this.cameraBuffer = null;
+    this.circleUniformBuffer = null;
+    this.cameraBindGroup = null;
+    this.circleBindGroup = null;
+    for (const buf of this.vertexPool.values()) buf.destroy();
+    this.vertexPool.clear();
+    this.bundleCache.clear();
   }
 
   private getOrCreateVertexBuffer(device: GPUDevice, byteSize: number): GPUBuffer {
@@ -519,76 +502,40 @@ export class WebGPUBackend {
     return `${data.length}:${data.byteLength}:${h.toString(16)}`;
   }
 
-  /** Test accessor for vertex pool reuse assertions. */
-  getOrCreateVertexBufferForTest(byteSize: number): GPUBuffer | null {
-    if (!this.device) return null;
-    return this.getOrCreateVertexBuffer(this.device, byteSize);
+  private blitGpuToPresent(): void {
+    const presentCanvas = this.canvas;
+    const gpuCanvas = this.gpuCanvas;
+    if (!presentCanvas || !gpuCanvas || !this.gpuDrawnThisFrame) return;
+    const ctx = presentCanvas.getContext('2d');
+    if (!ctx) return;
+    // GPU output is already in screen/CSS space (camera applied in shader).
+    // Draw in device pixels with identity so we don't double-apply CanvasArea's
+    // camera transform that may already be on the 2D context.
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(gpuCanvas, 0, 0);
+    ctx.restore();
   }
 
-  private compositeFallbackOverlay(): void {
+  private writeCameraUniform(frame: CompositorFrame): void {
     const device = this.device;
-    const context = this.context;
-    const blitPipeline = this.blitPipeline;
-    const blitBindGroupLayout = this.blitBindGroupLayout;
-    const blitSampler = this.blitSampler;
-    const blitUniformBuffer = this.blitUniformBuffer;
-    const surface = this.fallbackSurface;
-    const frame = this.currentFrame;
-    if (
-      !device ||
-      !context ||
-      !blitPipeline ||
-      !blitBindGroupLayout ||
-      !blitSampler ||
-      !blitUniformBuffer ||
-      !surface ||
-      !frame
-    ) {
-      return;
-    }
-    const dpr = window.devicePixelRatio || 1;
-    const w = Math.max(1, Math.floor(frame.viewport.width * dpr));
-    const h = Math.max(1, Math.floor(frame.viewport.height * dpr));
-    const overlayTexture = device.createTexture({
-      size: [w, h, 1],
-      format: 'rgba8unorm',
-      usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    device.queue.copyExternalImageToTexture(
-      { source: surface },
-      { texture: overlayTexture },
-      { width: w, height: h },
-    );
-    const blitUniform = new Float32Array([frame.viewport.width, frame.viewport.height, 0, 0]);
-    device.queue.writeBuffer(blitUniformBuffer, 0, blitUniform);
-    const bindGroup = device.createBindGroup({
-      layout: blitBindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: blitUniformBuffer } },
-        { binding: 1, resource: blitSampler },
-        { binding: 2, resource: overlayTexture.createView() },
-      ],
-    });
-    const encoder = device.createCommandEncoder();
-    const pass = encoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: context.getCurrentTexture().createView(),
-          clearValue: { r: 0, g: 0, b: 0, a: 0 },
-          loadOp: this.gpuDrawnThisFrame ? 'load' : 'clear',
-          storeOp: 'store',
-        },
-      ],
-    });
-    pass.setPipeline(blitPipeline);
-    pass.setBindGroup(0, bindGroup);
-    pass.draw(3);
-    pass.end();
-    device.queue.submit([encoder.finish()]);
-    overlayTexture.destroy();
+    const cameraBuffer = this.cameraBuffer;
+    if (!device || !cameraBuffer) return;
+    const camera = frame.camera;
+    const viewport = frame.viewport;
+    const origin = computeFloatingOrigin(camera, viewport);
+    // Layout: pan(8) zoom(4) viewportW(4) viewportH(4) rotation(4) origin(8)
+    const cam = new Float32Array([
+      camera.pan.x,
+      camera.pan.y,
+      camera.zoom,
+      viewport.width,
+      viewport.height,
+      camera.rotation ?? 0,
+      origin[0],
+      origin[1],
+    ]);
+    device.queue.writeBuffer(cameraBuffer, 0, cam);
   }
 
   private drawGpuItems(items: RenderItem[], frame: CompositorFrame): void {
@@ -615,27 +562,13 @@ export class WebGPUBackend {
     const solidItems = items.filter((i) => i.primitive.kind !== 'circle');
     const circleItems = items.filter((i) => i.primitive.kind === 'circle');
 
-    const camera = frame.camera;
-    const viewport = frame.viewport;
-    const origin = computeFloatingOrigin(camera, viewport);
-    // WGSL CameraUniform layout: pan(8) + zoom(4) + viewportW(4) + viewportH(4) + pad(4) + origin(8) = 32 bytes
-    const cam = new Float32Array([
-      camera.pan.x,
-      camera.pan.y,
-      camera.zoom,
-      viewport.width,
-      viewport.height,
-      0,
-      origin[0],
-      origin[1],
-    ]);
-    device.queue.writeBuffer(cameraBuffer, 0, cam);
+    this.writeCameraUniform(frame);
 
     const textureView = context.getCurrentTexture().createView();
     const encoder = device.createCommandEncoder();
     let firstPass = !this.frameCleared;
+    const dpr = window.devicePixelRatio || 1;
 
-    // Solid items (rect + line) — render bundles with fresh vertex upload each frame
     if (solidItems.length > 0) {
       const solidVerts = buildVertices(solidItems);
       if (solidVerts.length > 0) {
@@ -677,21 +610,26 @@ export class WebGPUBackend {
       }
     }
 
-    // Circle items — per-circle draw (uniform varies per primitive; no bundle cache)
+    const camera = frame.camera;
+    const origin = computeFloatingOrigin(camera, frame.viewport);
+
     for (const circleItem of circleItems) {
       const circleVerts = buildVertices([circleItem]);
       if (circleVerts.length === 0) continue;
       const prim = circleItem.primitive;
       if (prim.kind !== 'circle') continue;
       const t = circleItem.transform;
-      const origin = computeFloatingOrigin(camera, frame.viewport);
-      // Match the vertex shader's (world - origin) * zoom + pan convention.
-      const worldCx = t[0] * prim.cx + t[2] * prim.cy + t[4];
-      const worldCy = t[1] * prim.cx + t[3] * prim.cy + t[5];
-      const screenCx = (worldCx - origin[0]) * camera.zoom + camera.pan.x;
-      const screenCy = (worldCy - origin[1]) * camera.zoom + camera.pan.y;
+      const [worldCx, worldCy] = applyItemAffine([prim.cx, prim.cy], t);
+      const [screenCx, screenCy] = worldToScreenCss(
+        worldCx,
+        worldCy,
+        camera,
+        frame.viewport,
+        origin,
+      );
       const screenR = prim.r * camera.zoom;
-      const circleData = new Float32Array([screenCx, screenCy, screenR, 0]);
+      // @builtin(position) is in framebuffer pixels; uniforms must match DPR.
+      const circleData = new Float32Array([screenCx * dpr, screenCy * dpr, screenR * dpr, 0]);
       device.queue.writeBuffer(circleUniformBuffer, 0, circleData.buffer as ArrayBuffer);
       const data = flattenVertices(circleVerts);
       this.lastFrameVertexBytes += data.byteLength;

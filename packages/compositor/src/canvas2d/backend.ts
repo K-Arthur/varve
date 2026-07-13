@@ -89,12 +89,17 @@ export class Canvas2DBackend implements CompositorBackend {
   private applyCamera(frame: CompositorFrame): void {
     if (!this.ctx) return;
     const { camera, viewport } = frame;
-    // Matches @strata/shared/viewport: screen = (world - origin) * zoom + pan,
-    // where origin is the floating-origin correction (see computeFloatingOrigin).
-    // Omitting it here would desync this backend's painted positions from
-    // every other camera-transform call site once pan/zoom moves off [0,0].
+    // Same composition as applyCameraTransform, but WITHOUT setTransform —
+    // beginFrame already applied DPR via setTransform; calling
+    // applyCameraTransform would reset it.
     const origin = computeFloatingOrigin(camera, viewport);
+    const cx = viewport.width / 2;
+    const cy = viewport.height / 2;
+    const r = camera.rotation ?? 0;
     this.ctx.translate(camera.pan.x, camera.pan.y);
+    this.ctx.translate(cx, cy);
+    if (r !== 0) this.ctx.rotate(r);
+    this.ctx.translate(-cx, -cy);
     this.ctx.scale(camera.zoom, camera.zoom);
     this.ctx.translate(-origin[0], -origin[1]);
   }
