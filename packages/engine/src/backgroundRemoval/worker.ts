@@ -9,9 +9,9 @@ import {
   computeMaskConfidence,
   decontaminateMask,
   featherMaskArray,
-  packChwFloat32,
-  resizeMaskNearestNeighbor,
-  thresholdMask,
+  normalizeSegmentationOutput,
+  packSegmentationChwFloat32,
+  resizeMaskBilinear,
 } from './maskOps';
 import { downscaleImageData } from './previewDownscale';
 import type { BackgroundRemovalResult } from './types';
@@ -21,6 +21,7 @@ interface WorkerCommand {
   imageData: ImageData;
   modelPath: string;
   modelId: 'u2netp' | 'birefnet-general-lite' | 'birefnet-general';
+  method: 'ai-balanced' | 'ai-quality';
   reuseSession?: boolean;
   feather?: number;
   decontaminate?: boolean;
@@ -62,6 +63,11 @@ async function getSession(
   if (cachedSession && cachedModelPath === modelPath) {
     return { session: cachedSession, executionProvider: cachedExecutionProvider };
   }
+  if (cachedSession) {
+    await cachedSession.release();
+    cachedSession = null;
+    cachedModelPath = null;
+  }
   const ort = await import('onnxruntime-web');
   await configureOrtWasm(ort);
   try {
@@ -84,6 +90,7 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     imageData,
     modelPath,
     modelId,
+    method,
     reuseSession,
     feather,
     decontaminate,
@@ -116,9 +123,10 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
 
     const imageBitmap = await createImageBitmap(sourceImage);
     resizedCtx.drawImage(imageBitmap, 0, 0, inputSize, inputSize);
+    imageBitmap.close();
     const resizedData = resizedCtx.getImageData(0, 0, inputSize, inputSize);
 
-    const floatData = packChwFloat32(resizedData);
+    const floatData = packSegmentationChwFloat32(resizedData);
 
     const inputName = session.inputNames[0]!;
     const feeds: Record<string, Tensor> = {};
@@ -131,9 +139,9 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     const dims = results[outputName]?.dims;
     const maskW = dims?.[3] ?? inputSize;
     const maskH = dims?.[2] ?? inputSize;
-    const mask = thresholdMask(outputData);
+    const mask = normalizeSegmentationOutput(outputData, modelId !== 'u2netp');
 
-    let fullMask = resizeMaskNearestNeighbor(mask, maskW, maskH, imageData.width, imageData.height);
+    let fullMask = resizeMaskBilinear(mask, maskW, maskH, imageData.width, imageData.height);
 
     if (decontaminate) {
       fullMask = decontaminateMask(fullMask, imageData.width, imageData.height);
@@ -169,13 +177,8 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
       type: 'result',
       result: {
         maskDataUrl,
-        confidence: computeMaskConfidence(outputData),
-        method:
-          modelId === 'birefnet-general'
-            ? 'ai-quality'
-            : modelId === 'birefnet-general-lite'
-              ? 'ai-balanced'
-              : 'quick',
+        confidence: computeMaskConfidence(Float32Array.from(mask, (value) => value / 255)),
+        method,
         processingTimeMs,
         width: imageData.width,
         height: imageData.height,

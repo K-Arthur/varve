@@ -75,7 +75,10 @@ function withPreviewDefaults(options: BackgroundRemovalOptions): BackgroundRemov
  *
  * Dispatch is handled by the provider chain in `providers/dispatch.ts`:
  * 1. `method: 'quick'` — pure TypeScript heuristic (always available).
- * 2. AI methods — Worker ONNX → Tauri IPC → direct ONNX → cloud API → heuristic fallback.
+ * 2. AI methods — Worker ONNX → Tauri IPC → direct ONNX → cloud API.
+ *
+ * AI requests fail when every AI provider is unavailable. The Quick heuristic
+ * runs only when the caller explicitly requests `method: 'quick'`.
  */
 export async function removeBackground(
   imageData: ImageData,

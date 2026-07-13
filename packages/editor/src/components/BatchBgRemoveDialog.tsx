@@ -107,7 +107,6 @@ export function BatchBgRemoveDialog({
   const [progress, setProgress] = useState(0);
   const cancelledRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-  const hadAiFallbackRef = useRef(false);
   const [announceMsg, setAnnounceMsg] = useState('');
   const [aiAvailable, setAiAvailable] = useState(true);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
@@ -216,15 +215,17 @@ export function BatchBgRemoveDialog({
         return 'error';
       }
 
+      if (method !== 'quick' && result.method === 'quick') {
+        updateFileStatus(
+          file.id,
+          'error',
+          'AI background removal failed: the provider returned a Quick result.',
+        );
+        return 'error';
+      }
+
       const { finalizeMaskResult } = await import('@strata/engine');
       const finalized = await finalizeMaskResult(result);
-
-      if (method !== 'quick' && result.method === 'quick') {
-        hadAiFallbackRef.current = true;
-        setAnnounceMsg(
-          'AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.',
-        );
-      }
 
       const state: BackgroundRemovalState = {
         maskDataUrl: finalized.maskDataUrl,
@@ -255,7 +256,6 @@ export function BatchBgRemoveDialog({
 
     abortRef.current?.abort();
     abortRef.current = new AbortController();
-    hadAiFallbackRef.current = false;
 
     const filtered = files.map((f) => ({ ...f, status: 'queued' as FileStatus }));
 
@@ -295,12 +295,9 @@ export function BatchBgRemoveDialog({
 
     if (!cancelledRef.current) {
       setProgress(total);
-      let completionMsg = `Background removal complete: ${done} succeeded, ${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ''}`;
-      if (hadAiFallbackRef.current) {
-        completionMsg +=
-          '. AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.';
-      }
-      setAnnounceMsg(completionMsg);
+      setAnnounceMsg(
+        `Background removal complete: ${done} succeeded, ${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ''}`,
+      );
       setStage('results');
     }
   }, [files, nodes, runFile, updateFileStatus, method, aiAvailable]);

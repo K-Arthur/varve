@@ -27,7 +27,7 @@ vi.mock('@strata/engine', () => ({
     subscribe: () => () => {},
   }),
   workerModelIdForMethod: (method: string) =>
-    method === 'ai-balanced' ? 'u2netp' : method === 'ai-quality' ? 'birefnet-general' : null,
+    method === 'ai-balanced' ? 'u2netp' : method === 'ai-quality' ? 'birefnet-general-lite' : null,
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ describe('BatchBgRemoveDialog', () => {
     expect(screen.getByText(/AI model not downloaded/i)).toBeTruthy();
   });
 
-  it('persists result.method not requested method on fallback', async () => {
+  it('fails the item instead of applying a quick result to an AI request', async () => {
     mockIsModelAvailable.mockResolvedValue(true);
     setupSuccessMocks();
     mockRemoveBackground.mockResolvedValue({
@@ -362,28 +362,9 @@ describe('BatchBgRemoveDialog', () => {
     await vi.waitFor(() => expect(findStartBtn()).not.toBeDisabled());
     fireEvent.click(findStartBtn());
     expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
-    expect(onNodeUpdate).toHaveBeenCalledWith('i1', expect.objectContaining({ method: 'quick' }));
-  });
-
-  it('announces fallback via aria-live when AI downgrades to quick', async () => {
-    mockIsModelAvailable.mockResolvedValue(true);
-    setupSuccessMocks();
-    mockRemoveBackground.mockResolvedValue({
-      maskDataUrl: 'data:image/png;base64,fallback',
-      confidence: 0.5,
-      method: 'quick',
-      processingTimeMs: 1,
-      width: 100,
-      height: 80,
-    });
-
-    renderDialog([imageNode('i1')]);
-    fireEvent.click(screen.getAllByRole('radio')[1]!);
-    await vi.waitFor(() => expect(findStartBtn()).not.toBeDisabled());
-    fireEvent.click(findStartBtn());
-    expect(await screen.findByRole('button', { name: 'Done' })).toBeTruthy();
+    expect(onNodeUpdate).not.toHaveBeenCalled();
     const liveRegion = document.querySelector('[role="status"]');
-    expect(liveRegion?.textContent).toMatch(/quick heuristic/i);
+    expect(liveRegion?.textContent).toMatch(/0 succeeded, 1 failed/i);
   });
 
   it('reprocesses nodes even when they already have a backgroundRemoval state', async () => {

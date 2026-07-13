@@ -3,6 +3,7 @@ import {
   addNode,
   createDocument,
   createVariableStore,
+  imageFill,
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
@@ -82,6 +83,20 @@ describe('exportNodeToCss', () => {
     expect(css).toContain('top: 80px');
     expect(css).toContain('width: 200px');
     expect(css).toContain('height: 100px');
+  });
+
+  it('escapes image URLs before embedding them in a CSS string', () => {
+    const doc = createDocument('CSS image');
+    const base = makeShapeNode('img', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const node = {
+      ...base,
+      fills: [imageFill('asset.png"); color: red; /*', { fit: 'fill' })],
+    };
+
+    const css = exportNodeToCss(node, doc);
+
+    expect(css).toContain('background-image: url("asset.png\\"); color: red; /*")');
+    expect(css).not.toContain('url("asset.png"); color: red');
   });
 });
 

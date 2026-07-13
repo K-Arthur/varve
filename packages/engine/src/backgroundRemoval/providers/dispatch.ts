@@ -3,7 +3,7 @@
  *
  * Quick mode bypasses AI providers entirely. AI modes try Worker ONNX first
  * (all platforms), then Tauri native IPC, then main-thread ONNX, then cloud API
- * fallback, then heuristic (always available).
+ * fallback. AI requests never silently return heuristic output.
  */
 import { removeBackgroundHeuristic } from '../heuristic';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
@@ -22,7 +22,8 @@ export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
 ];
 
 /** Hard ceiling for any single provider attempt (including model loading). */
-const PROVIDER_TIMEOUT = 125_000;
+const BALANCED_PROVIDER_TIMEOUT = 125_000;
+const QUALITY_PROVIDER_TIMEOUT = 310_000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -71,6 +72,10 @@ export async function dispatchBackgroundRemoval(
     return removeBackgroundHeuristic(imageData, options);
   }
 
+  const providerTimeout =
+    options.method === 'ai-quality' ? QUALITY_PROVIDER_TIMEOUT : BALANCED_PROVIDER_TIMEOUT;
+  const errors: string[] = [];
+  let attempted = false;
   for (const provider of AI_PROVIDER_CHAIN) {
     if (signal?.aborted) {
       throw new Error('cancelled');
@@ -80,7 +85,7 @@ export async function dispatchBackgroundRemoval(
     try {
       available = await withTimeout(
         Promise.resolve(provider.isAvailable(options, signal)),
-        PROVIDER_TIMEOUT,
+        providerTimeout,
         signal,
       );
     } catch (e) {
@@ -89,18 +94,26 @@ export async function dispatchBackgroundRemoval(
       continue;
     }
     if (!available) continue;
+    attempted = true;
 
     try {
       return await withTimeout(
         provider.remove(imageData, options, signal),
-        PROVIDER_TIMEOUT,
+        providerTimeout,
         signal,
       );
     } catch (e) {
       if ((e as Error).message === 'cancelled') throw e;
-      // Fall through to the next provider in the chain.
+      errors.push(`${provider.id}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  return removeBackgroundHeuristic(imageData, options);
+  if (!attempted) {
+    throw new Error('AI background removal is unavailable. Install the selected offline model.');
+  }
+  throw new Error(
+    errors.length > 0
+      ? `AI background removal failed (${errors.join('; ')})`
+      : 'AI background removal failed',
+  );
 }

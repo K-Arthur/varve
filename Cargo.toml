@@ -10,6 +10,7 @@ members = [
     "crates/strata-sync",
     "crates/strata-trace",
     "crates/strata-print",
+    "crates/strata-upscale",
     "crates/strata-bgremove",
     "crates/strata-bridge",
     "crates/strata-wasm",

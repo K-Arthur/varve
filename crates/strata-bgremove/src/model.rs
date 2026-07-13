@@ -10,7 +10,7 @@
 //! builds. Native storage is populated only via explicit export/import or
 //! future native download IPC — not automatic dual-storage.
 
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::LazyLock};
 
 /// Metadata for an available AI model.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -24,34 +24,38 @@ pub struct ModelInfo {
 }
 
 /// Available models — synced with TS `AVAILABLE_MODELS` + manifest.json.
-pub const AVAILABLE_MODELS: &[ModelInfo] = &[
+pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
+    vec![
     ModelInfo {
-        id: "u2netp",
-        name: "U^2-Net Light",
-        description: "4.7 MB — fast preview quality, works on most images",
+        id: "u2netp".to_owned(),
+        name: "U^2-Net Light".to_owned(),
+        description: "4.7 MB — fast preview quality, works on most images".to_owned(),
         size_bytes: 4_700_000,
-        remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
+        remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx".to_owned(),
         checksum_sha256: Some(
             "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8".into(),
         ),
     },
     ModelInfo {
-        id: "birefnet-general-lite",
-        name: "BiRefNet Lite",
-        description: "214 MB — high quality, handles complex edges",
-        size_bytes: 214_000_000,
-        remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx",
-        checksum_sha256: None,
+        id: "birefnet-general-lite".to_owned(),
+        name: "BiRefNet Lite".to_owned(),
+        description: "224 MB — high quality, handles complex edges".to_owned(),
+        size_bytes: 224_005_088,
+        remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx".to_owned(),
+        checksum_sha256: Some(
+            "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333".into(),
+        ),
     },
     ModelInfo {
-        id: "birefnet-general",
-        name: "BiRefNet Full",
-        description: "928 MB — best quality, handles hair/fur/transparency",
+        id: "birefnet-general".to_owned(),
+        name: "BiRefNet Full".to_owned(),
+        description: "928 MB — best quality, handles hair/fur/transparency".to_owned(),
         size_bytes: 928_000_000,
-        remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx",
+        remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx".to_owned(),
         checksum_sha256: None,
     },
-];
+    ]
+});
 
 /// Get the directory where native models are stored.
 pub fn models_dir() -> PathBuf {
@@ -121,7 +125,7 @@ mod tests {
         let lite = model_info("birefnet-general-lite").expect("lite model");
         assert!(lite.remote_url.contains("rembg"));
         assert!(lite.remote_url.contains("BiRefNet-general-bb_swin"));
-        assert_eq!(lite.size_bytes, 214_000_000);
+        assert_eq!(lite.size_bytes, 224_005_088);
 
         let full = model_info("birefnet-general").expect("full model");
         assert!(full.remote_url.contains("BiRefNet-general-epoch_244"));

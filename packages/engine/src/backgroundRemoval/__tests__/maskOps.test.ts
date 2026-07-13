@@ -3,7 +3,10 @@ import {
   computeMaskConfidence,
   decontaminateMask,
   featherMaskArray,
+  normalizeSegmentationOutput,
   packChwFloat32,
+  packSegmentationChwFloat32,
+  resizeMaskBilinear,
   resizeMaskNearestNeighbor,
   thresholdMask,
 } from '../maskOps';
@@ -112,6 +115,40 @@ describe('packChwFloat32', () => {
     expect(packed[3]).toBeCloseTo(1);
     expect(packed[4]).toBeCloseTo(0);
     expect(packed[5]).toBeCloseTo(0);
+  });
+});
+
+describe('packSegmentationChwFloat32', () => {
+  it('matches rembg max-value and ImageNet normalization', () => {
+    const data = new Uint8ClampedArray([128, 64, 0, 255]);
+    const packed = packSegmentationChwFloat32({ data, width: 1, height: 1 });
+    expect(packed[0]).toBeCloseTo((1 - 0.485) / 0.229, 5);
+    expect(packed[1]).toBeCloseTo((0.5 - 0.456) / 0.224, 5);
+    expect(packed[2]).toBeCloseTo((0 - 0.406) / 0.225, 5);
+  });
+});
+
+describe('normalizeSegmentationOutput', () => {
+  it('min-max normalizes U2-Net probabilities to a soft byte mask', () => {
+    const mask = normalizeSegmentationOutput(new Float32Array([0.2, 0.4, 0.6]), false);
+    expect(Array.from(mask)).toEqual([0, 127, 255]);
+  });
+
+  it('applies sigmoid before normalizing BiRefNet logits', () => {
+    const mask = normalizeSegmentationOutput(new Float32Array([-2, 0, 2]), true);
+    expect(Array.from(mask)).toEqual([0, 127, 255]);
+  });
+
+  it('returns an empty mask for a constant output', () => {
+    const mask = normalizeSegmentationOutput(new Float32Array([3, 3]), true);
+    expect(Array.from(mask)).toEqual([0, 0]);
+  });
+});
+
+describe('resizeMaskBilinear', () => {
+  it('preserves soft edges while enlarging a mask', () => {
+    const result = resizeMaskBilinear(new Uint8Array([0, 255]), 2, 1, 4, 1);
+    expect(Array.from(result)).toEqual([0, 64, 191, 255]);
   });
 });
 

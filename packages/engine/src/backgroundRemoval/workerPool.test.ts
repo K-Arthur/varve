@@ -84,7 +84,7 @@ describe('workerPool', () => {
     it('default worker count respects hardware concurrency', () => {
       const count = workerPool.__getIdealWorkerCount();
       expect(count).toBeGreaterThanOrEqual(1);
-      expect(count).toBeLessThanOrEqual(4);
+      expect(count).toBeLessThanOrEqual(2);
     });
 
     it('uses single worker when concurrency is 1', () => {

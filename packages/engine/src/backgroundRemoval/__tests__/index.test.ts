@@ -105,14 +105,14 @@ describe('removeBackground dispatch', () => {
     expect(result.maskDataUrl).toContain('worker');
   });
 
-  it('falls back to Tauri native IPC when the Worker throws, and maps the camelCase response correctly', async () => {
+  it('accepts a matching Tauri AI result when the Worker throws', async () => {
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ = {};
     vi.stubGlobal('Worker', class {});
     mockRunPooledInference.mockRejectedValue(new Error('worker unavailable'));
     mockInvoke.mockResolvedValue({
       maskBase64: 'abc123',
       confidence: 0.6,
-      method: 'quick',
+      method: 'ai-quality',
       processingTimeMs: 5,
       width: 4,
       height: 4,
@@ -134,7 +134,7 @@ describe('removeBackground dispatch', () => {
     expect(result.maskDataUrl).toBe('data:image/png;base64,abc123');
     expect(result.confidence).toBe(0.6);
     expect(result.processingTimeMs).toBe(5);
-    expect(result.method).toBe('quick');
+    expect(result.method).toBe('ai-quality');
 
     vi.restoreAllMocks();
   });
@@ -180,20 +180,21 @@ describe('removeBackground dispatch', () => {
       expect.anything(),
       expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-quality' }),
       expect.anything(),
-      'birefnet-general',
+      'birefnet-general-lite',
       undefined,
     );
   });
 
-  it('falls through to the heuristic when Worker, Tauri, and direct AI are all unavailable', async () => {
+  it('does not silently substitute a heuristic when AI providers are unavailable', async () => {
     vi.stubGlobal('Worker', undefined);
     const { removeBackground } = await import('../index');
-    const result = await removeBackground(makeImage(), { method: 'ai-balanced' });
-    expect(result).toEqual(HEURISTIC_RESULT);
-    expect(mockHeuristic).toHaveBeenCalledTimes(1);
+    await expect(removeBackground(makeImage(), { method: 'ai-balanced' })).rejects.toThrow(
+      /AI background removal is unavailable/i,
+    );
+    expect(mockHeuristic).not.toHaveBeenCalled();
   });
 
-  it('falls through to the heuristic when the direct AI path throws', async () => {
+  it('reports failure when the direct AI path throws', async () => {
     vi.stubGlobal('Worker', undefined);
     mockGetModelLoader.mockReturnValue({
       getState: () => 'ready',
@@ -203,10 +204,10 @@ describe('removeBackground dispatch', () => {
     });
 
     const { removeBackground } = await import('../index');
-    const result = await removeBackground(makeImage(), { method: 'ai-balanced' });
-
-    expect(result).toEqual(HEURISTIC_RESULT);
-    expect(mockHeuristic).toHaveBeenCalledTimes(1);
+    await expect(removeBackground(makeImage(), { method: 'ai-balanced' })).rejects.toThrow(
+      /AI background removal failed/i,
+    );
+    expect(mockHeuristic).not.toHaveBeenCalled();
   });
 
   it('does not attempt direct AI when the specific model is unavailable', async () => {
@@ -219,20 +220,20 @@ describe('removeBackground dispatch', () => {
     });
 
     const { removeBackground } = await import('../index');
-    const result = await removeBackground(makeImage(), { method: 'ai-balanced' });
-
-    expect(result).toEqual(HEURISTIC_RESULT);
-    expect(mockHeuristic).toHaveBeenCalledTimes(1);
+    await expect(removeBackground(makeImage(), { method: 'ai-balanced' })).rejects.toThrow(
+      /AI background removal is unavailable/i,
+    );
+    expect(mockHeuristic).not.toHaveBeenCalled();
   });
 
-  it('Tauri IPC result method is never trusted as AI when native returns quick', async () => {
+  it('rejects a Tauri heuristic result for an AI request', async () => {
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ = {};
     vi.stubGlobal('Worker', class {});
     mockRunPooledInference.mockRejectedValue(new Error('worker unavailable'));
     mockInvoke.mockResolvedValue({
       maskBase64: 'fake',
       confidence: 0.99,
-      method: 'ai-quality',
+      method: 'quick',
       processingTimeMs: 5,
       width: 4,
       height: 4,
@@ -248,9 +249,9 @@ describe('removeBackground dispatch', () => {
     } as unknown as HTMLCanvasElement);
 
     const { removeBackground } = await import('../index');
-    const result = await removeBackground(makeImage(), { method: 'ai-quality' });
-
-    expect(result.method).toBe('quick');
+    await expect(removeBackground(makeImage(), { method: 'ai-quality' })).rejects.toThrow(
+      /AI background removal failed/i,
+    );
     vi.restoreAllMocks();
   });
 
@@ -274,7 +275,7 @@ describe('removeBackground dispatch', () => {
     await expect(promise).rejects.toThrow('cancelled');
   });
 
-  it('times out a hung provider and falls through to the heuristic', async () => {
+  it('times out a hung provider without claiming heuristic output is AI', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.stubGlobal('Worker', undefined);
     mockGetModelLoader.mockReturnValue({
@@ -286,11 +287,10 @@ describe('removeBackground dispatch', () => {
 
     const { removeBackground } = await import('../index');
     const promise = removeBackground(makeImage(), { method: 'ai-balanced' });
+    const expectation = expect(promise).rejects.toThrow(/AI background removal/i);
     await vi.advanceTimersByTimeAsync(150_000);
-    const result = await promise;
-
-    expect(result).toEqual(HEURISTIC_RESULT);
-    expect(mockHeuristic).toHaveBeenCalledTimes(1);
+    await expectation;
+    expect(mockHeuristic).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 });

@@ -36,6 +36,7 @@ export interface FitPathPoint {
   y: number;
   handleIn: [number, number] | null;
   handleOut: [number, number] | null;
+  pressure?: number;
 }
 
 /** Corner angle threshold in radians. Angle < threshold = corner. */

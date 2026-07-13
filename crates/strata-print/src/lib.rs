@@ -1094,6 +1094,8 @@ mod tests {
                 ],
                 closed: false,
                 tolerance: 1.0,
+                holes: vec![],
+                fill_rule: None,
             },
             fill: EngineColor::Rgb {
                 r: 0.0,
@@ -1133,6 +1135,8 @@ mod tests {
                 points: vec![],
                 closed: false,
                 tolerance: 1.0,
+                holes: vec![],
+                fill_rule: None,
             },
             fill: EngineColor::Rgb {
                 r: 0.0,

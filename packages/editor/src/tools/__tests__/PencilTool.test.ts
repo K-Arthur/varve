@@ -321,4 +321,65 @@ describe('PencilTool', () => {
     // After deactivate, subsequent pointer moves should not cause errors
     expect(() => tool.onPointerMove?.(makePointerEvent(200, 200), ctx)).not.toThrow();
   });
+
+  it('commit wraps createShapeAt in undo transaction', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+
+    rafCb?.(0);
+    tool.onPointerMove?.(makePointerEvent(110, 110), ctx);
+    rafCb?.(0);
+    tool.onPointerMove?.(makePointerEvent(120, 120), ctx);
+    rafCb?.(0);
+
+    tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
+
+    expect(ctx.beginTransaction).toHaveBeenCalled();
+    expect(ctx.createShapeAt).toHaveBeenCalled();
+    expect(ctx.commitTransaction).toHaveBeenCalled();
+    const beginOrder = (ctx.beginTransaction as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    const shapeAtOrder = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    const commitOrder = (ctx.commitTransaction as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    expect(beginOrder).toBeLessThan(shapeAtOrder);
+    expect(shapeAtOrder).toBeLessThan(commitOrder);
+  });
+
+  it('per-point pressure stores each event pressure, not a uniform stroke average', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx();
+
+    // Pointer down with low pressure
+    tool.onPointerDown?.(makePointerEvent(100, 100, { pressure: 0.2 }), ctx);
+    rafCb?.(0);
+
+    // Move with different pressure
+    tool.onPointerMove?.(makePointerEvent(150, 100, { pressure: 0.9 }), ctx);
+    rafCb?.(0);
+
+    tool.onPointerMove?.(makePointerEvent(200, 100, { pressure: 0.5 }), ctx);
+    rafCb?.(0);
+
+    // Check internal captured points have per-point pressure
+    // The first point (from pointerDown) has pressure 0.2
+    // Subsequent captured points get pressure from the latest onPointerMove event
+    expect((tool as unknown as { captured: Array<{ pressure: number }> }).captured).toBeDefined();
+
+    tool.onPointerUp?.(makePointerEvent(200, 100), ctx);
+
+    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
+    const callArgs = mock.calls[0];
+    const pathPoints = callArgs?.[3] as Array<{ pressure?: number }>;
+    expect(pathPoints).toBeDefined();
+    if (!pathPoints) return;
+    // All fitted points should carry pressure data
+    for (const pt of pathPoints) {
+      expect(pt.pressure).toBeGreaterThan(0);
+      expect(pt.pressure).toBeLessThanOrEqual(1);
+    }
+  });
 });

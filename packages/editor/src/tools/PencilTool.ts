@@ -24,8 +24,8 @@ export class PencilTool extends BaseTool {
 
   private captured: CapturedPoint[] = [];
   private rafId: number | null = null;
-  /** Pressure from initial pointerDown, used for all points in this stroke. */
-  private strokePressure: number = 0.5;
+  /** Per-point pressure tracking. Updated from each pointer event. */
+  private currentPressure: number = 0.5;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
@@ -35,8 +35,8 @@ export class PencilTool extends BaseTool {
     const result = super.onPointerDown(e, ctx);
     if (!result.consumed) return result;
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.strokePressure = e.pressure > 0 ? e.pressure : 0.5;
-    this.captured = [{ x: world.x, y: world.y, pressure: this.strokePressure }];
+    this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
+    this.captured = [{ x: world.x, y: world.y, pressure: this.currentPressure }];
     this.startCapture(ctx);
     return result;
   }
@@ -45,45 +45,78 @@ export class PencilTool extends BaseTool {
     if (this.drag.kind !== 'dragging') return;
     this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
+    this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
+
+    // Sample coalesced sub-frame events when available (Chrome/Firefox/Safari 18.2+).
+    // WebKitGTK returns a stub — falls back to the single event.
+    const events =
+      typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
+        ? e.getCoalescedEvents()
+        : [e];
+    for (const ev of events) {
+      const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
+      const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
+      this.samplePoint(world, pressure, ctx);
+    }
+  }
+
+  /** Append a captured point if it moved enough from the last sample. */
+  private samplePoint(world: { x: number; y: number }, pressure: number, ctx: ToolContext): void {
+    if (this.captured.length === 0) return;
+    const last = this.captured[this.captured.length - 1] as Point2D;
+    const dx = world.x - last.x;
+    const dy = world.y - last.y;
+    if (dx * dx + dy * dy > 1) {
+      this.captured.push({ x: world.x, y: world.y, pressure });
+      ctx.setDraft({
+        kind: 'freehand',
+        points: this.captured,
+        label: `${this.captured.length} pts`,
+      });
+    }
   }
 
   override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
     this.stopCapture();
 
-    if (this.captured.length < 2) {
-      ctx.createShapeAt(this.drag.startWorld, { w: 4, h: 4 });
-      super.onPointerUp(e, ctx);
-      this.reset();
-      return;
+    ctx.beginTransaction();
+    try {
+      if (this.captured.length < 2) {
+        ctx.createShapeAt(this.drag.startWorld, { w: 4, h: 4 });
+        super.onPointerUp(e, ctx);
+        this.reset();
+        return;
+      }
+
+      // Simplify with zoom-aware epsilon (2 screen pixels → world units)
+      const SCREEN_PX_EPSILON = 2;
+      const epsilon = SCREEN_PX_EPSILON / ctx.zoom;
+      const simplified = simplifyPoints(this.captured, epsilon);
+      const fitted = fitPathToBeziers(simplified);
+      // Per-point pressure from captured data
+      const pathPoints: PathPoint[] = fitted.map((p) => ({
+        x: p.x,
+        y: p.y,
+        handleIn: p.handleIn as [number, number] | null,
+        handleOut: p.handleOut as [number, number] | null,
+        pressure: p.pressure ?? 0.5,
+      }));
+
+      const parentId = this.commitToParent(
+        { x: this.drag.startWorld.x, y: this.drag.startWorld.y },
+        ctx,
+      );
+
+      ctx.createShapeAt(
+        { x: this.drag.startWorld.x, y: this.drag.startWorld.y },
+        undefined,
+        parentId,
+        pathPoints,
+        false,
+      );
+    } finally {
+      ctx.commitTransaction();
     }
-
-    // Simplify with zoom-aware epsilon (2 screen pixels → world units)
-    const SCREEN_PX_EPSILON = 2;
-    const epsilon = SCREEN_PX_EPSILON / ctx.zoom;
-    const simplified = simplifyPoints(this.captured, epsilon);
-    const fitted = fitPathToBeziers(simplified);
-    // Average pressure across captured points for the stroke
-    const avgPressure =
-      this.captured.reduce((sum, p) => sum + p.pressure, 0) / this.captured.length;
-    const pathPoints: PathPoint[] = fitted.map((p) => ({
-      x: p.x,
-      y: p.y,
-      handleIn: p.handleIn as [number, number] | null,
-      handleOut: p.handleOut as [number, number] | null,
-      pressure: avgPressure,
-    }));
-
-    const parentId = this.commitToParent(
-      { x: this.drag.startWorld.x, y: this.drag.startWorld.y },
-      ctx,
-    );
-
-    ctx.createShapeAt(
-      { x: this.drag.startWorld.x, y: this.drag.startWorld.y },
-      undefined,
-      parentId,
-      pathPoints,
-    );
     super.onPointerUp(e, ctx);
     this.reset();
   }
@@ -107,18 +140,7 @@ export class PencilTool extends BaseTool {
     const capture = () => {
       if (this.drag.kind !== 'dragging') return;
       if (this.captured.length > 0) {
-        const last = this.captured[this.captured.length - 1] as Point2D;
-        const cur = this.drag.currentWorld;
-        const dx = cur.x - last.x;
-        const dy = cur.y - last.y;
-        if (dx * dx + dy * dy > 1) {
-          this.captured.push({ x: cur.x, y: cur.y, pressure: this.strokePressure });
-          ctx.setDraft({
-            kind: 'freehand',
-            points: this.captured,
-            label: `${this.captured.length} pts`,
-          });
-        }
+        this.samplePoint(this.drag.currentWorld, this.currentPressure, ctx);
       }
       this.rafId = requestAnimationFrame(capture);
     };

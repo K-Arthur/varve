@@ -50,12 +50,15 @@ async function invokeTauriRemoveBackground(
     },
   });
 
-  // Native only round-trips `'quick'` unless the opt-in `ai` Cargo feature is
-  // enabled. Never trust `raw.method` for AI claims (ADR-0005).
+  if (raw.method !== options.method) {
+    throw new Error(
+      `Native background removal returned '${raw.method}' for '${options.method}' request`,
+    );
+  }
   return {
     maskDataUrl: `data:image/png;base64,${raw.maskBase64}`,
     confidence: raw.confidence,
-    method: 'quick',
+    method: options.method,
     processingTimeMs: raw.processingTimeMs,
     width: raw.width,
     height: raw.height,

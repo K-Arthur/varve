@@ -36,6 +36,13 @@ function formatSize(px: number, unit: 'px' | 'rem', base: number): string {
   return unit === 'rem' ? `${px / base}rem` : `${px}px`;
 }
 
+function escapeCssString(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r\n|\r|\n/g, '\\a ');
+}
+
 function className(node: SceneNode, prefix?: string): string {
   const base = prefix ?? node.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   return base.startsWith('.') ? base : `.${base}`;
@@ -65,6 +72,27 @@ export function exportNodeToCss(
     lines.push(`  background: var(--${tokenName});`);
   } else {
     lines.push(`  background: ${formatColor(node.fill, colorFmt)};`);
+  }
+
+  // Image fill: emit background-image for image-filled shapes.
+  const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
+  if (imgFill?.image) {
+    lines.push(`  background-image: url("${escapeCssString(imgFill.image.src)}");`);
+    lines.push(
+      imgFill.image.fit === 'fill'
+        ? '  background-size: cover;'
+        : imgFill.image.fit === 'fit'
+          ? '  background-size: contain;'
+          : imgFill.image.fit === 'stretch'
+            ? '  background-size: 100% 100%;'
+            : '  background-size: auto;',
+    );
+    lines.push(
+      imgFill.image.fit === 'tile'
+        ? '  background-repeat: repeat;'
+        : '  background-repeat: no-repeat;',
+    );
+    lines.push('  background-position: center;');
   }
 
   if (node.kind === 'text') {

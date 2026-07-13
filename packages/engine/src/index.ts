@@ -125,6 +125,12 @@ export type { HalftoneDotShape, HalftoneMethod, HalftoneParams, HalftonePattern 
 export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
+export type { UpscaleMethod, UpscaleOptions } from './imageEnhancement';
+export {
+  computeUpscaleDimensions,
+  DEFAULT_AI_UPSCALE_MODEL_ID,
+  upscaleImageData,
+} from './imageEnhancement';
 export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
 export {
   analogousHarmony,
@@ -162,6 +168,8 @@ export {
   setLum,
   setSat,
 } from './nonSeparable';
+export type { FillRule, PathShapeLike } from './pathCompound';
+export { pathFillRule, pathRings } from './pathCompound';
 export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
 export { pathLength, placeGlyphsOnPath, samplePathAtLength } from './pathText';
 export type { PorterDuffOp } from './porterDuff';
@@ -172,6 +180,15 @@ export {
 } from './porterDuff';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
+export type {
+  RasterTraceFill,
+  RasterTraceMode,
+  RasterTraceOptions,
+  RasterTracePath,
+  RasterTracePoint,
+  RasterTraceResult,
+} from './rasterTrace';
+export { quantizePalette, traceRasterToPaths } from './rasterTrace';
 export type { ReplayTarget } from './replay';
 export { renderAlphaMask, replayIr } from './replay';
 export {
@@ -214,6 +231,12 @@ export type {
   StrokeCap,
   StrokeJoin,
 } from './types';
+export type { UpscaleModelMetadata } from './upscaleModels';
+export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
+export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/dispatch';
+export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
+export { dispatchTrace } from './upscaleProviders/traceDispatch';
+export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
 export type {
   VideoExportOptions,
   VideoExportResult,

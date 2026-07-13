@@ -1,4 +1,4 @@
-import { AVAILABLE_MODELS, getModelLoader } from '@strata/engine';
+import { AVAILABLE_MODELS, getModelLoader, UPSCALE_MODELS } from '@strata/engine';
 import { useCallback, useRef, useState } from 'react';
 import { FocusTrap } from '../../onboard/FocusTrap';
 import './ModelDownloadDialog.css';
@@ -20,7 +20,8 @@ function sourceHostname(url: string): string {
 type DownloadStatus = 'confirm' | 'downloading' | 'done' | 'error';
 
 export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownloadDialogProps) {
-  const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
+  const removalModel = AVAILABLE_MODELS.find((candidate) => candidate.id === modelId);
+  const model = removalModel ?? UPSCALE_MODELS.find((candidate) => candidate.id === modelId);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<DownloadStatus>('confirm');
   const [error, setError] = useState('');
@@ -69,6 +70,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
 
   const sizeMB = model ? Math.round(model.size / 1_000_000) : 0;
   const sourceHost = model ? sourceHostname(model.remoteUrl) : 'a remote server';
+  const purpose = removalModel ? 'background removal' : 'image upscaling';
 
   return (
     <div
@@ -88,10 +90,9 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
             <>
               <p className="model-download__desc">
                 {model ? `${model.name} — ~${sizeMB} MB` : 'This model'} will be downloaded from{' '}
-                <strong>{sourceHost}</strong> and stored on this device for offline background
-                removal. It is only used locally to run AI-quality background removal — no images
-                are uploaded anywhere. This is a one-time download; Quick mode remains available
-                with no download required.
+                <strong>{sourceHost}</strong> and stored on this device for offline local {purpose}.
+                It is only used on this machine — no images are uploaded. This is a one-time
+                download.
               </p>
               <div className="model-download__actions">
                 <button type="button" className="button button--ghost" onClick={handleCancel}>

@@ -1,3 +1,4 @@
+import { getUpscaleModel } from '../upscaleModels';
 import { fetchWithTimeout } from './fetchWithTimeout';
 import { getManifestEntry, verifyModelChecksum } from './modelManifest';
 import {
@@ -14,10 +15,20 @@ import {
 import type { ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';
 
+function modelMeta(
+  modelId: string,
+): { remoteUrl: string; name?: string; size: number } | undefined {
+  const bg = AVAILABLE_MODELS.find((m) => m.id === modelId);
+  if (bg) return bg;
+  const up = getUpscaleModel(modelId);
+  if (up) return { remoteUrl: up.remoteUrl, name: up.name, size: up.size };
+  return undefined;
+}
+
 /** How long a probe HEAD request for a model path is allowed to take. */
 const MODEL_PATH_PROBE_TIMEOUT = 5_000;
 /** How long a full model-file download is allowed to take. */
-const MODEL_DOWNLOAD_TIMEOUT = 300_000;
+const MODEL_DOWNLOAD_TIMEOUT = 900_000;
 
 const STATE_KEY = 'strata-bg-model-state';
 
@@ -254,7 +265,7 @@ class ModelLoader {
     signal?: AbortSignal,
   ): Promise<{ local: string; remote: string; bundled: boolean } | null> {
     const entry = await getManifestEntry(modelId, signal);
-    const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
+    const model = modelMeta(modelId);
     if (!model && !entry) return null;
     return {
       local: entry?.localPath ?? `/models/${modelId}.onnx`,
@@ -268,7 +279,7 @@ class ModelLoader {
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal,
   ): Promise<void> {
-    const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
+    const model = modelMeta(modelId);
     if (!model) {
       throw new Error(`Unknown model: ${modelId}`);
     }

@@ -8,7 +8,8 @@
 
 import type { Affine } from '@strata/engine';
 import type { Document, ManagedColor, NodeId, SceneNode } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import { isImageShape } from '@strata/scene';
+import { applyAffine, managedColorToRgba, multiplyAffine } from '@strata/shared';
 
 export { timelineToCSSKeyframes } from './animation-css';
 export type { InteractiveExportOptions, InteractiveExportResult } from './animation-interactive';
@@ -96,9 +97,156 @@ function shapeVerticesToPoints(
   return '';
 }
 
+function shapePathToData(
+  shape: Extract<import('@strata/engine').Shape, { kind: 'path' }>,
+  precision: number,
+): string {
+  const ringToCommands = (points: import('@strata/engine').PathPoint[], closed: boolean) => {
+    const first = points[0];
+    if (!first) return [];
+    const commands = [`M ${fmtNum(first.x, precision)} ${fmtNum(first.y, precision)}`];
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1] as import('@strata/engine').PathPoint;
+      const current = points[index] as import('@strata/engine').PathPoint;
+      if (previous.handleOut || current.handleIn) {
+        const c1x = previous.x + (previous.handleOut?.[0] ?? 0);
+        const c1y = previous.y + (previous.handleOut?.[1] ?? 0);
+        const c2x = current.x + (current.handleIn?.[0] ?? 0);
+        const c2y = current.y + (current.handleIn?.[1] ?? 0);
+        commands.push(
+          `C ${fmtNum(c1x, precision)} ${fmtNum(c1y, precision)} ${fmtNum(c2x, precision)} ${fmtNum(c2y, precision)} ${fmtNum(current.x, precision)} ${fmtNum(current.y, precision)}`,
+        );
+      } else {
+        commands.push(`L ${fmtNum(current.x, precision)} ${fmtNum(current.y, precision)}`);
+      }
+    }
+    if (closed) commands.push('Z');
+    return commands;
+  };
+
+  const commands = ringToCommands(shape.points, shape.closed);
+  for (const hole of shape.holes ?? []) {
+    commands.push(...ringToCommands(hole, true));
+  }
+  return commands.join(' ');
+}
+
 /**
  * Compute the bounding box of all root-level nodes in a document.
  */
+function documentNodeBounds(
+  node: SceneNode,
+  doc: Document,
+  parentTransform: Affine = [1, 0, 0, 1, 0, 0],
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const transform = multiplyAffine(parentTransform, node.transform);
+  if (node.kind === 'group' || node.kind === 'frame') {
+    const children = node.children
+      .map((id) => doc.nodes[id])
+      .filter((child): child is SceneNode => child?.visible === true)
+      .map((child) => documentNodeBounds(child, doc, transform))
+      .filter((bounds): bounds is NonNullable<typeof bounds> => bounds !== null);
+    if (children.length > 0) {
+      return {
+        minX: Math.min(...children.map((bounds) => bounds.minX)),
+        minY: Math.min(...children.map((bounds) => bounds.minY)),
+        maxX: Math.max(...children.map((bounds) => bounds.maxX)),
+        maxY: Math.max(...children.map((bounds) => bounds.maxY)),
+      };
+    }
+  }
+
+  let x = 0;
+  let y = 0;
+  let width = 100;
+  let height = 100;
+  if (node.kind === 'shape') {
+    const shape = node.shape;
+    switch (shape.kind) {
+      case 'rect':
+        ({ x, y, w: width, h: height } = shape);
+        break;
+      case 'ellipse':
+        x = shape.cx - shape.rx;
+        y = shape.cy - shape.ry;
+        width = shape.rx * 2;
+        height = shape.ry * 2;
+        break;
+      case 'circle':
+        x = shape.cx - shape.r;
+        y = shape.cy - shape.r;
+        width = shape.r * 2;
+        height = shape.r * 2;
+        break;
+      case 'line':
+      case 'arrow':
+        x = Math.min(shape.from[0], shape.to[0]);
+        y = Math.min(shape.from[1], shape.to[1]);
+        width = Math.max(1, Math.abs(shape.to[0] - shape.from[0]));
+        height = Math.max(1, Math.abs(shape.to[1] - shape.from[1]));
+        break;
+      case 'polygon':
+        x = shape.cx - shape.radius;
+        y = shape.cy - shape.radius;
+        width = shape.radius * 2;
+        height = shape.radius * 2;
+        break;
+      case 'star':
+        x = shape.cx - shape.outerRadius;
+        y = shape.cy - shape.outerRadius;
+        width = shape.outerRadius * 2;
+        height = shape.outerRadius * 2;
+        break;
+      case 'path': {
+        if (shape.points.length === 0) break;
+        const xs = shape.points.flatMap((point) => [
+          point.x,
+          point.x + (point.handleIn?.[0] ?? 0),
+          point.x + (point.handleOut?.[0] ?? 0),
+        ]);
+        const ys = shape.points.flatMap((point) => [
+          point.y,
+          point.y + (point.handleIn?.[1] ?? 0),
+          point.y + (point.handleOut?.[1] ?? 0),
+        ]);
+        x = Math.min(...xs);
+        y = Math.min(...ys);
+        width = Math.max(1, Math.max(...xs) - x);
+        height = Math.max(1, Math.max(...ys) - y);
+        break;
+      }
+    }
+  } else if (node.kind === 'text') {
+    width = Math.max(1, node.text.length * node.fontSize * 0.6);
+    height = Math.max(1, node.fontSize * 1.2);
+  } else if (node.kind === 'path') {
+    if (node.points.length > 0) {
+      const xs = node.points.map((point) => point.x);
+      const ys = node.points.map((point) => point.y);
+      x = Math.min(...xs);
+      y = Math.min(...ys);
+      width = Math.max(1, Math.max(...xs) - x);
+      height = Math.max(1, Math.max(...ys) - y);
+    }
+  } else if (node.kind === 'frame') {
+    width = 200;
+    height = 200;
+  }
+
+  const corners = [
+    applyAffine(transform, [x, y]),
+    applyAffine(transform, [x + width, y]),
+    applyAffine(transform, [x + width, y + height]),
+    applyAffine(transform, [x, y + height]),
+  ];
+  return {
+    minX: Math.min(...corners.map((point) => point[0])),
+    minY: Math.min(...corners.map((point) => point[1])),
+    maxX: Math.max(...corners.map((point) => point[0])),
+    maxY: Math.max(...corners.map((point) => point[1])),
+  };
+}
+
 export function computeDocumentBounds(doc: Document): {
   x: number;
   y: number;
@@ -116,64 +264,13 @@ export function computeDocumentBounds(doc: Document): {
     const node = doc.nodes[id];
     if (!node?.visible) continue;
     if (contentRoots.has(id)) continue;
+    const bounds = documentNodeBounds(node, doc);
+    if (!bounds) continue;
     hasNodes = true;
-    const tx = node.transform[4] ?? 0;
-    const ty = node.transform[5] ?? 0;
-    let bx = 0,
-      by = 0,
-      bw = 100,
-      bh = 100;
-    if (node.kind === 'shape') {
-      const s = node.shape;
-      switch (s.kind) {
-        case 'rect':
-          bx = s.x;
-          by = s.y;
-          bw = s.w;
-          bh = s.h;
-          break;
-        case 'ellipse':
-          bx = s.cx - s.rx;
-          by = s.cy - s.ry;
-          bw = s.rx * 2;
-          bh = s.ry * 2;
-          break;
-        case 'circle':
-          bx = s.cx - s.r;
-          by = s.cy - s.r;
-          bw = s.r * 2;
-          bh = s.r * 2;
-          break;
-        case 'line':
-          bx = Math.min(s.from[0], s.to[0]);
-          by = Math.min(s.from[1], s.to[1]);
-          bw = Math.abs(s.to[0] - s.from[0]);
-          bh = Math.abs(s.to[1] - s.from[1]);
-          break;
-        case 'polygon':
-          bx = s.cx - s.radius;
-          by = s.cy - s.radius;
-          bw = s.radius * 2;
-          bh = s.radius * 2;
-          break;
-        case 'star':
-          bx = s.cx - s.outerRadius;
-          by = s.cy - s.outerRadius;
-          bw = s.outerRadius * 2;
-          bh = s.outerRadius * 2;
-          break;
-      }
-    } else if (node.kind === 'text') {
-      bw = node.text.length * node.fontSize * 0.6;
-      bh = node.fontSize * 1.2;
-    } else if (node.kind === 'frame') {
-      bw = 200;
-      bh = 200; // approximate
-    }
-    minX = Math.min(minX, tx + bx);
-    minY = Math.min(minY, ty + by);
-    maxX = Math.max(maxX, tx + bx + bw);
-    maxY = Math.max(maxY, ty + by + bh);
+    minX = Math.min(minX, bounds.minX);
+    minY = Math.min(minY, bounds.minY);
+    maxX = Math.max(maxX, bounds.maxX);
+    maxY = Math.max(maxY, bounds.maxY);
   }
 
   if (!hasNodes) return { x: 0, y: 0, w: doc.canvasWidth ?? 1920, h: doc.canvasHeight ?? 1080 };
@@ -201,6 +298,23 @@ function nodeToSvg(
   switch (node.kind) {
     case 'shape': {
       const s = node.shape;
+      // Image fill: render <image> element instead of geometry shape.
+      if (isImageShape(node)) {
+        const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
+        if (imgFill?.image) {
+          const img = imgFill.image;
+          const par =
+            img.fit === 'fill'
+              ? 'xMidYMid slice'
+              : img.fit === 'stretch'
+                ? 'none'
+                : 'xMidYMid meet';
+          const href = escapeXml(img.src);
+          const w = fmtNum(s.kind === 'rect' ? s.w : 200, precision);
+          const h = fmtNum(s.kind === 'rect' ? s.h : 160, precision);
+          return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="${par}" transform="${transform}" />`;
+        }
+      }
       switch (s.kind) {
         case 'rect':
           return `${indent}<rect x="${fmtNum(s.x, precision)}" y="${fmtNum(s.y, precision)}" width="${fmtNum(s.w, precision)}" height="${fmtNum(s.h, precision)}" fill="${fill}" transform="${transform}" />`;
@@ -214,6 +328,11 @@ function nodeToSvg(
           return `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}" />`;
         case 'star':
           return `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}" />`;
+        case 'path': {
+          const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
+          const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
+          return `${indent}<path d="${shapePathToData(s, precision)}" fill="${fill}"${fillRuleAttr} transform="${transform}" />`;
+        }
         default:
           return `${indent}<!-- unsupported shape: ${s.kind} -->`;
       }

@@ -30,11 +30,7 @@ vi.mock('@strata/engine', () => ({
     subscribe: () => () => {},
   }),
   workerModelIdForMethod: (method: string) =>
-    method === 'ai-quality'
-      ? 'birefnet-general'
-      : method === 'ai-balanced'
-        ? 'birefnet-general-lite'
-        : null,
+    method === 'ai-quality' ? 'birefnet-general-lite' : method === 'ai-balanced' ? 'u2netp' : null,
   removeBackground: mockExportRemoveBg,
   getImageCache: () => mockExportImageCache,
 }));
@@ -385,6 +381,42 @@ describe('ExportDialog - Remove background toggle', () => {
       expect(liveRegion?.textContent).toMatch(/Download the AI model first/i);
     });
     expect(onApplyBackgroundRemoval).not.toHaveBeenCalled();
+  });
+
+  it('does not export when an AI preprocessing request returns a quick result', async () => {
+    mockExportRemoveBg.mockResolvedValue({
+      maskDataUrl: 'data:image/png;base64,fallback',
+      method: 'quick',
+      confidence: 0.5,
+      processingTimeMs: 1,
+      width: 200,
+      height: 160,
+    });
+    const { ExportDialog } = await import('../../../Export/ExportDialog');
+    const onApplyBackgroundRemoval = vi.fn();
+    const onExport = vi.fn();
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[makeExportableImageNode()]}
+        onExport={onExport}
+        onApplyBackgroundRemoval={onApplyBackgroundRemoval}
+      />,
+    );
+    fireEvent.click(screen.getByText('Remove background before export'));
+    fireEvent.change(screen.getByLabelText('Background removal method for export'), {
+      target: { value: 'ai-balanced' },
+    });
+    await vi.waitFor(() => {
+      expect(screen.queryByRole('button', { name: /download ai model/i })).toBeNull();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /export \(1\)/i }));
+    await vi.waitFor(() => {
+      expect(screen.getByRole('status').textContent).toMatch(/AI background removal failed/i);
+    });
+    expect(onApplyBackgroundRemoval).not.toHaveBeenCalled();
+    expect(onExport).not.toHaveBeenCalled();
   });
 });
 
