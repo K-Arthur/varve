@@ -122,6 +122,44 @@ describe('useHomeView — fuzzy search', () => {
   });
 });
 
+describe('useHomeView — recents and favorites', () => {
+  it('lists recent files by openedAt and favorites by favoritedAt', async () => {
+    const platform = createMemoryPlatform();
+    await platform.upsertFile(
+      makeFileEntry({ id: 'never', name: 'Never Opened', openedAt: 0 }),
+      sampleJson('Never Opened'),
+    );
+    await platform.upsertFile(
+      makeFileEntry({ id: 'old', name: 'Old Open', openedAt: 100 }),
+      sampleJson('Old Open'),
+    );
+    await platform.upsertFile(
+      makeFileEntry({
+        id: 'new',
+        name: 'New Open',
+        openedAt: 200,
+        favoritedAt: 50,
+      }),
+      sampleJson('New Open'),
+    );
+    await platform.upsertFile(
+      makeFileEntry({
+        id: 'fav',
+        name: 'Only Fav',
+        openedAt: 0,
+        favoritedAt: 300,
+      }),
+      sampleJson('Only Fav'),
+    );
+
+    const { result } = renderHook(() => useHomeView(platform));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.recentFiles.map((f) => f.id)).toEqual(['new', 'old']);
+    expect(result.current.favoriteFiles.map((f) => f.id)).toEqual(['fav', 'new']);
+  });
+});
+
 describe('useFileActions — workspace-aware project creation', () => {
   it('associates a new project with the active workspace', async () => {
     const platform = createMemoryPlatform();

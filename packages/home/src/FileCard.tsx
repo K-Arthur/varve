@@ -24,7 +24,8 @@ export interface FileCardProps extends HTMLAttributes<HTMLDivElement> {
   onClick?: (e: React.MouseEvent) => void;
   onRename?: (id: string, newName: string) => void;
   isRenaming?: boolean;
-  onStartRename?: () => void;
+  /** Pass entry.id to enter rename, null to exit (matches FileList). */
+  onStartRename?: (id: string | null) => void;
   isMissing?: boolean;
   onToggleFavorite?: (entry: FileEntry) => void;
 }
@@ -92,12 +93,12 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
         } else {
           setRenameValue(entry.name);
         }
-        onStartRename?.();
+        onStartRename?.(null);
       }
       if (e.key === 'Escape') {
         e.preventDefault();
         setRenameValue(entry.name);
-        onStartRename?.();
+        onStartRename?.(null);
       }
     },
     [renameValue, entry.id, entry.name, onRename, onStartRename],
@@ -109,7 +110,7 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
     } else {
       setRenameValue(entry.name);
     }
-    onStartRename?.();
+    onStartRename?.(null);
   }, [renameValue, entry.id, entry.name, onRename, onStartRename]);
 
   useEffect(() => {
@@ -130,7 +131,7 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
     }
     if (e.key === 'F2') {
       e.preventDefault();
-      onStartRename?.();
+      onStartRename?.(entry.id);
     }
   };
 
@@ -145,12 +146,12 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
       style={mergedStyle}
       onClick={onClick}
       onContextMenu={(e) => onContext(e, entry)}
-      onKeyDown={handleKey}
       onDragStart={(e) => onFileDragStart?.(e, entry)}
       {...attributes}
       tabIndex={0}
       role="gridcell"
       {...listeners}
+      onKeyDown={handleKey}
       {...rest}
     >
       <div className="file-card__thumb" ref={thumbRef}>

@@ -465,6 +465,8 @@ struct HomeFile {
     ordering: String,
     #[serde(rename = "contentHash")]
     content_hash: String,
+    #[serde(rename = "favoritedAt", skip_serializing_if = "Option::is_none")]
+    favorited_at: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -487,6 +489,8 @@ struct HomeFileInput {
     #[serde(default)]
     ordering: String,
     content_hash: String,
+    #[serde(default)]
+    favorited_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -512,6 +516,7 @@ fn file_to_home(f: strata_sync::FileRow) -> HomeFile {
         size: f.size, pinned: f.pinned,
         trashed_at: f.trashed_at.as_ref().map(|s| rfc3339_to_epoch_ms(s)),
         file_path: f.file_path, ordering: f.ordering, content_hash: f.content_hash,
+        favorited_at: f.favorited_at.filter(|&t| t > 0),
     }
 }
 
@@ -574,6 +579,7 @@ fn home_upsert_file(store: tauri::State<'_, strata_sync::DocumentStore>, entry: 
         entry.size, entry.pinned,
         entry.trashed_at.map(epoch_ms_to_rfc3339).as_deref(),
         entry.file_path.as_deref(), &entry.ordering, &entry.content_hash,
+        entry.favorited_at.filter(|&t| t > 0),
     ).map_err(|e| e.to_string())
 }
 
@@ -591,6 +597,16 @@ fn home_rename_file(store: tauri::State<'_, strata_sync::DocumentStore>, id: Str
 #[tauri::command]
 fn home_set_pinned(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, pinned: bool) -> Result<(), String> {
     store.set_file_pinned(&id, pinned).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_set_favorited(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+    favorited_at: Option<i64>,
+) -> Result<(), String> {
+    let at = favorited_at.filter(|&t| t > 0);
+    store.set_file_favorited(&id, at).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -859,6 +875,7 @@ pub fn run() {
             home_touch_file,
             home_rename_file,
             home_set_pinned,
+            home_set_favorited,
             home_move_project,
             home_trash,
             home_restore,

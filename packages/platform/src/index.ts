@@ -13,6 +13,7 @@
 
 export type { PlatformKind } from './detect';
 export { detectPlatform, detectPlatformKind } from './detect';
+export { upsertPreservingMeta } from './filePersist';
 export type { MemoryPlatformOptions } from './memory';
 export { createMemoryPlatform, makeFileEntry, makeProject } from './memory';
 export type { Platform } from './platform';
