@@ -2657,11 +2657,21 @@ export function CanvasArea({
         guides={editor.guides}
         zoom={state.zoom}
         pan={state.pan}
+        cameraRotation={state.cameraRotation}
+        visible={state.guidesVisible}
+        selectedGuideId={state.selectedGuideId}
         onMoveGuide={(id, position) => editor.moveGuide(id, position)}
         onRemoveGuide={(id) => editor.removeGuide(id)}
         onToggleLock={(id) => editor.toggleGuideLock(id)}
+        onDuplicateGuide={(id, position) => editor.duplicateGuide(id, position)}
+        onSelectGuide={(id) => editor.setSelectedGuideId(id)}
       />
-      <SnapGuidesOverlay guides={snapGuides} zoom={state.zoom} pan={state.pan} />
+      <SnapGuidesOverlay
+        guides={snapGuides}
+        zoom={state.zoom}
+        pan={state.pan}
+        cameraRotation={state.cameraRotation}
+      />
       <AlignmentGuideOverlay />
       {state.selection.length >= 2 && <AlignmentHandleOverlay />}
       {state.selection.length >= 1 && (

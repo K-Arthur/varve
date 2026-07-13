@@ -1,11 +1,13 @@
-import { computeFloatingOrigin } from '@strata/shared';
+import type { Viewport } from '@strata/shared';
 import { getEditorViewport } from '../canvas/cameraState';
+import { guideLineScreenEndpoints } from '../canvas/guideGeometry';
 import type { SnapGuide } from '../tools/snapping';
 
 interface SnapGuidesOverlayProps {
   guides: SnapGuide[];
   zoom: number;
   pan: { x: number; y: number };
+  cameraRotation?: number;
 }
 
 function guideColor(type?: string): string {
@@ -21,29 +23,33 @@ function guideColor(type?: string): string {
   }
 }
 
-export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps) {
+export function SnapGuidesOverlay({
+  guides,
+  zoom,
+  pan,
+  cameraRotation = 0,
+}: SnapGuidesOverlayProps) {
   if (guides.length === 0) return null;
-  // Axis-aligned guide lines (no camera-rotation support) — only the
-  // floating-origin translation needs correcting, matching the transform the
-  // canvas actually paints with.
-  const origin = computeFloatingOrigin({ zoom, pan, rotation: 0 }, getEditorViewport());
-  const toScreen = (axis: 'vertical' | 'horizontal', position: number): number => {
-    const originAxis = axis === 'vertical' ? origin[0] : origin[1];
-    return (position - originAxis) * zoom + (axis === 'vertical' ? pan.x : pan.y);
-  };
+
+  const camState = { zoom, pan, cameraRotation };
+  const viewport: Viewport = getEditorViewport();
+
+  const lineFor = (axis: 'vertical' | 'horizontal', position: number) =>
+    guideLineScreenEndpoints({ axis, position }, camState, viewport);
+
   return (
     <svg className="snap-guides-overlay" aria-hidden>
       <title>Snap guides overlay</title>
       {guides.map((g, i) => {
-        const pos = toScreen(g.axis, g.position);
+        const line = lineFor(g.axis, g.position);
         const color = guideColor(g.type);
         return (
           <line
             key={i}
-            x1={g.axis === 'vertical' ? pos : 0}
-            y1={g.axis === 'vertical' ? 0 : pos}
-            x2={g.axis === 'vertical' ? pos : 99999}
-            y2={g.axis === 'vertical' ? 99999 : pos}
+            x1={line.x1}
+            y1={line.y1}
+            x2={line.x2}
+            y2={line.y2}
             stroke={color}
             strokeWidth={1}
             strokeDasharray="4,2"
@@ -53,11 +59,12 @@ export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps)
       {guides
         .filter((g) => g.label)
         .map((g, i) => {
+          const line = lineFor(g.axis, g.position);
           const color = guideColor(g.type);
-          const x = g.axis === 'vertical' ? toScreen(g.axis, g.position) + 4 : 10;
-          const y = g.axis === 'horizontal' ? toScreen(g.axis, g.position) - 4 : 20;
+          const midX = (line.x1 + line.x2) / 2;
+          const midY = (line.y1 + line.y2) / 2;
           return (
-            <text key={`l${i}`} x={x} y={y} fontSize={10} fill={color}>
+            <text key={`l${i}`} x={midX + 4} y={midY - 4} fontSize={10} fill={color}>
               {g.label}
             </text>
           );
@@ -65,11 +72,12 @@ export function SnapGuidesOverlay({ guides, zoom, pan }: SnapGuidesOverlayProps)
       {guides
         .filter((g) => g.distance !== undefined)
         .map((g, i) => {
+          const line = lineFor(g.axis, g.position);
           const color = guideColor(g.type);
-          const x = g.axis === 'vertical' ? toScreen(g.axis, g.position) + 4 : 10;
-          const y = g.axis === 'horizontal' ? toScreen(g.axis, g.position) + 12 : 36;
+          const midX = (line.x1 + line.x2) / 2;
+          const midY = (line.y1 + line.y2) / 2;
           return (
-            <text key={`d${i}`} x={x} y={y} fontSize={9} fill={color}>
+            <text key={`d${i}`} x={midX + 4} y={midY + 12} fontSize={9} fill={color}>
               {g.distance}px
             </text>
           );

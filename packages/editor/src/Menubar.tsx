@@ -114,6 +114,16 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         action: 'toggleSnap',
       },
       {
+        label: 'Show Guides',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleGuidesVisible.binding),
+        action: 'toggleGuidesVisible',
+      },
+      {
+        label: 'Lock All Guides',
+        shortcut: formatShortcut(SHORTCUT_DEFS.lockAllGuides.binding),
+        action: 'lockAllGuides',
+      },
+      {
         label: 'Soft Proofing',
         shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
         action: 'softProof',
@@ -340,6 +350,8 @@ export function Menubar({
     booleanOp,
     startPresentation,
     clearAllGuides,
+    toggleGuidesVisible,
+    toggleLockAllGuides,
     save,
     saveAs,
   } = useEditor();
@@ -511,6 +523,12 @@ export function Menubar({
           break;
         case 'toggleSnap':
           setSnapEnabled(!state.snapEnabled);
+          break;
+        case 'toggleGuidesVisible':
+          toggleGuidesVisible();
+          break;
+        case 'lockAllGuides':
+          toggleLockAllGuides();
           break;
         case 'softProof':
           setSoftProofEnabled(!state.softProofEnabled);
