@@ -18,6 +18,14 @@ interface Rect {
   height: number;
 }
 
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
 export function SpotlightOverlay({
   stepIndex,
   totalSteps,
@@ -27,13 +35,18 @@ export function SpotlightOverlay({
   step,
 }: SpotlightOverlayProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const titleId = `spotlight-title-${step.id}`;
+  const descId = `spotlight-desc-${step.id}`;
   const [rect, setRect] = useState<Rect | null>(null);
+  const [targetMissing, setTargetMissing] = useState(false);
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === totalSteps - 1;
+  const reduceMotion = prefersReducedMotion();
 
   const updatePosition = useCallback(() => {
     if (!step.target) {
       setRect(null);
+      setTargetMissing(false);
       return;
     }
     const el = document.querySelector(step.target);
@@ -45,6 +58,10 @@ export function SpotlightOverlay({
         width: r.width,
         height: r.height,
       });
+      setTargetMissing(false);
+    } else {
+      setRect(null);
+      setTargetMissing(true);
     }
   }, [step.target, step.offset?.x, step.offset?.y]);
 
@@ -101,7 +118,13 @@ export function SpotlightOverlay({
   }, [rect, step.placement]);
 
   return (
-    <div className="spotlight-overlay" role="dialog" aria-label="Tour step" aria-modal>
+    <div
+      className={`spotlight-overlay${reduceMotion ? ' spotlight-overlay--no-animation' : ''}`}
+      role="dialog"
+      aria-labelledby={titleId}
+      aria-describedby={descId}
+      aria-modal
+    >
       {/* Dark overlay */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop intercepts clicks to dismiss */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape handled by parent keydown handler */}
@@ -110,7 +133,7 @@ export function SpotlightOverlay({
       {/* Highlight region (cutout) */}
       {rect && (
         <div
-          className="spotlight-overlay__highlight"
+          className={`spotlight-overlay__highlight${reduceMotion ? ' spotlight-overlay__highlight--no-animation' : ''}`}
           style={{
             top: rect.top,
             left: rect.left,
@@ -120,15 +143,30 @@ export function SpotlightOverlay({
         />
       )}
 
+      {/* Target-missing fallback hint */}
+      {targetMissing && (
+        <div className="spotlight-overlay__missing-hint" role="status" aria-live="polite">
+          Could not find the &ldquo;{step.title}&rdquo; element. The tour continues.
+        </div>
+      )}
+
       {/* Tooltip */}
-      <div ref={tooltipRef} className="spotlight-overlay__tooltip" style={tooltipStyle}>
+      <div
+        ref={tooltipRef}
+        className={`spotlight-overlay__tooltip${reduceMotion ? ' spotlight-overlay__tooltip--no-animation' : ''}`}
+        style={tooltipStyle}
+      >
         <div className="spotlight-overlay__tooltip-header">
           <span className="spotlight-overlay__step-indicator">
             {stepIndex + 1} / {totalSteps}
           </span>
         </div>
-        <h3 className="spotlight-overlay__title">{step.title}</h3>
-        <p className="spotlight-overlay__desc">{step.description}</p>
+        <h3 className="spotlight-overlay__title" id={titleId}>
+          {step.title}
+        </h3>
+        <p className="spotlight-overlay__desc" id={descId}>
+          {step.description}
+        </p>
         <div className="spotlight-overlay__actions">
           <Button variant="ghost" size="sm" onClick={onDismiss}>
             Skip

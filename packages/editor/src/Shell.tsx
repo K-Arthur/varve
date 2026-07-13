@@ -52,6 +52,7 @@ import { getActionTracker } from './intelligence/actionTracker';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
 import {
+  checkChecklistItem,
   DidYouKnowTip,
   loadOnboardingState,
   markTutorialComplete,
@@ -60,6 +61,10 @@ import {
   useDidYouKnow,
   useTutorialProgress,
 } from './onboard';
+import {
+  CHECKLIST_ITEMS,
+  OnboardingChecklist,
+} from './onboard/OnboardingChecklist/OnboardingChecklist';
 import { buildPackageExport } from './packageExport';
 import { getSharedRecoveryManager, type RecoverySession } from './recovery';
 import { StatusBar } from './StatusBar';
@@ -323,6 +328,56 @@ function ShellInner({
 
   const onboarding = useOnboarding(editor.platform);
 
+  // ── Onboarding checklist ────────────────────────────────
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [checklistProgress, setChecklistProgressState] = useState<string[]>(() => {
+    const saved = loadOnboardingState();
+    return saved.checklistProgress;
+  });
+
+  const updateChecklistProgress = useCallback((itemId: string) => {
+    setChecklistProgressState((prev) => {
+      if (prev.includes(itemId)) return prev;
+      const updated = [...prev, itemId];
+      const saved = loadOnboardingState();
+      saveOnboardingState(checkChecklistItem(saved, itemId));
+      return updated;
+    });
+  }, []);
+
+  const dismissChecklist = useCallback(() => {
+    setChecklistOpen(false);
+  }, []);
+
+  // Auto-detect checklist progress from user actions
+  useEffect(() => {
+    const tracker = getActionTracker();
+    if (tracker.getCount('op:createNode', 300_000) > 0) updateChecklistProgress('shape');
+    if (tracker.getCount('menu:fill', 300_000) > 0) updateChecklistProgress('color');
+    if (tracker.getCount('tool:text', 300_000) > 0) updateChecklistProgress('text');
+    if (
+      tracker.getCount('shortcut:group', 600_000) > 0 ||
+      tracker.getCount('tool:select', 600_000) > 0
+    ) {
+      const saved = loadOnboardingState();
+      if (saved.checklistProgress.includes('shape') && saved.checklistProgress.includes('color')) {
+        updateChecklistProgress('group');
+      }
+    }
+    if (tracker.getCount('export', 600_000) > 0) updateChecklistProgress('export');
+  }, [updateChecklistProgress]);
+
+  // Show checklist after welcome is dismissed, if not yet completed
+  useEffect(() => {
+    if (!onboarding.showWelcome && !onboarding.active) {
+      const saved = loadOnboardingState();
+      const allDone = CHECKLIST_ITEMS.every((item) => saved.checklistProgress.includes(item.id));
+      if (!saved.onboardingComplete || !allDone) {
+        setChecklistOpen(true);
+      }
+    }
+  }, [onboarding.showWelcome, onboarding.active]);
+
   // ── Did You Know? contextual tips ───────────────────────
   const {
     currentTip: didYouKnowTip,
@@ -468,6 +523,7 @@ function ShellInner({
         </div>
         <div
           className="editor__layers-panel"
+          data-panel="layers"
           data-visible={layersVisible || undefined}
           data-collapsed={!leftPanelVisible || undefined}
           {...(!leftPanelVisible ? { inert: true } : {})}
@@ -485,6 +541,7 @@ function ShellInner({
         </div>
         <div
           className="editor__inspector-panel"
+          data-panel="inspector"
           data-visible={inspectorVisible || undefined}
           data-collapsed={!rightPanelVisible || undefined}
           {...(!rightPanelVisible ? { inert: true } : {})}
@@ -499,7 +556,7 @@ function ShellInner({
           />
         </div>
         {libraryVisible && (
-          <div className="editor__library-panel">
+          <div className="editor__library-panel" data-panel="library">
             <LibraryPanel
               doc={editor.state.document}
               onInstallLibrary={editor.installLibrary}
@@ -508,7 +565,7 @@ function ShellInner({
           </div>
         )}
         {editor.state.timelinePanelVisible && (
-          <div className="editor__timeline-panel">
+          <div className="editor__timeline-panel" data-panel="timeline">
             <ErrorBoundary>
               <TimelinePanel
                 timelines={editor.state.document.timelines ?? {}}
@@ -798,6 +855,15 @@ function ShellInner({
           }}
           activeTransition={editor.prototypeTransition}
           onClearTransition={editor.clearPrototypeTransition}
+        />
+
+        {/* Onboarding checklist */}
+        <OnboardingChecklist
+          open={checklistOpen}
+          onClose={() => setChecklistOpen(false)}
+          progress={checklistProgress}
+          onItemClick={(id) => updateChecklistProgress(id)}
+          onDismiss={dismissChecklist}
         />
 
         {/* Did You Know? contextual tips */}
