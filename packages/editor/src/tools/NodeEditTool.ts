@@ -24,6 +24,8 @@ export class NodeEditTool extends BaseTool {
   private dragStartWorld: { x: number; y: number } | null = null;
   private draggingHandle: { anchorIdx: number; which: 'in' | 'out' } | null = null;
   private dragStartHandleValue: [number, number] | null = null;
+  private inTransaction = false;
+  private altDragStarted = false;
 
   override cursor(state: ToolCursorState): CursorSpec {
     if (state === 'drag') return { css: 'move' };
@@ -31,11 +33,27 @@ export class NodeEditTool extends BaseTool {
   }
 
   override onDeactivate(ctx: ToolContext): void {
+    this.endEditTransaction(ctx);
     ctx.setNodeEditTargetId(null);
     this.selectedAnchors.clear();
     this.draggingAnchorIdx = null;
     this.draggingHandle = null;
     this.dragStartHandleValue = null;
+    this.altDragStarted = false;
+  }
+
+  private beginEditTransaction(ctx: ToolContext): void {
+    if (!this.inTransaction) {
+      ctx.beginTransaction();
+      this.inTransaction = true;
+    }
+  }
+
+  private endEditTransaction(ctx: ToolContext): void {
+    if (this.inTransaction) {
+      ctx.commitTransaction();
+      this.inTransaction = false;
+    }
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
@@ -66,14 +84,18 @@ export class NodeEditTool extends BaseTool {
       // This avoids accidental handle grabs when the user intends to move the anchor.
     } else if (handleHit !== null) {
       // Handle hit, no competing anchor hit
+      this.beginEditTransaction(ctx);
       if (!e.shiftKey) this.selectedAnchors.clear();
       ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
       const pt = node.shape.points[handleHit.anchorIdx]!;
+      const wasAlt = e.altKey;
       this.draggingHandle = handleHit;
       this.dragStartHandleValue = [
         ...(handleHit.which === 'in' ? pt.handleIn! : pt.handleOut!),
       ] as [number, number];
       this.dragStartWorld = world;
+      // Store whether Alt key was held at drag start (breaks symmetry)
+      this.altDragStarted = wasAlt;
       this.drag = {
         kind: 'dragging',
         pointerId: e.pointerId,
@@ -86,6 +108,7 @@ export class NodeEditTool extends BaseTool {
     }
 
     if (anchorHit !== null) {
+      this.beginEditTransaction(ctx);
       if (!e.shiftKey) this.selectedAnchors.clear();
       this.selectedAnchors.add(anchorHit);
       ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
@@ -107,6 +130,7 @@ export class NodeEditTool extends BaseTool {
         ctx.setNodeEditSelectedAnchors(new Set());
       }
       this.draggingAnchorIdx = null;
+      this.endEditTransaction(ctx);
     }
 
     return { consumed: true, captured: true };
@@ -144,9 +168,21 @@ export class NodeEditTool extends BaseTool {
         const points: PathPoint[] = n.shape.points.map((p, i) => {
           if (i !== anchorIdx) return p;
           if (which === 'in') {
-            return { ...p, handleIn: [newHandle0, newHandle1] as [number, number] };
+            const updated = { ...p, handleIn: [newHandle0, newHandle1] as [number, number] };
+            // Alt-drag: don't mirror to handleOut (break symmetry)
+            if (!this.altDragStarted) {
+              updated.handleOut = [-newHandle0, -newHandle1] as [number, number];
+            }
+            return updated;
           }
-          return { ...p, handleOut: [newHandle0, newHandle1] as [number, number] };
+          const updated = { ...p, handleOut: [newHandle0, newHandle1] as [number, number] };
+          // Alt-drag: don't mirror to handleIn (break symmetry)
+          if (!this.altDragStarted) {
+            if (p.handleIn) {
+              updated.handleIn = [-newHandle0, -newHandle1] as [number, number];
+            }
+          }
+          return updated;
         });
         return { ...n, shape: { ...n.shape, points } } as ShapeNode;
       });
@@ -170,11 +206,13 @@ export class NodeEditTool extends BaseTool {
 
   override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
     ctx.releasePointerCapture(e.pointerId);
+    this.endEditTransaction(ctx);
     this.draggingAnchorIdx = null;
     this.dragStartAnchorPos = null;
     this.dragStartWorld = null;
     this.draggingHandle = null;
     this.dragStartHandleValue = null;
+    this.altDragStarted = false;
     this.drag = {
       kind: 'idle',
       pointerId: -1,
@@ -211,11 +249,13 @@ export class NodeEditTool extends BaseTool {
     if (node.shape.points.length - this.selectedAnchors.size < 2) return false;
 
     const toRemove = new Set(this.selectedAnchors);
+    ctx.beginTransaction();
     ctx.updateNode(targetId, (n) => {
       if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
       const points = n.shape.points.filter((_, i) => !toRemove.has(i));
       return { ...n, shape: { ...n.shape, points } } as ShapeNode;
     });
+    ctx.commitTransaction();
     this.selectedAnchors.clear();
     ctx.setNodeEditSelectedAnchors(new Set());
     return true;

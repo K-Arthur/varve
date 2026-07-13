@@ -593,7 +593,7 @@ describe('ModelLoader', () => {
 
     const promise = loader.downloadModel('u2netp');
     const assertion = expect(promise).rejects.toThrow();
-    await vi.advanceTimersByTimeAsync(650_000);
+    await vi.advanceTimersByTimeAsync(1_850_000);
     await assertion;
     vi.useRealTimers();
   });

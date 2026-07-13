@@ -11,7 +11,13 @@
  *                 de Casteljau's algorithm, cubic Bezier math.
  */
 
+import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
+import {
+  distanceToPathEndpoint,
+  pathPointsLocalToWorld,
+  pathPointsWorldToLocal,
+} from './pathCoords';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 interface PenPoint {
@@ -36,6 +42,8 @@ export class PenTool extends BaseTool {
   private points: PenPoint[] = [];
   private lastPointTime = 0;
   private dragStartCanvas: { x: number; y: number } | null = null;
+  /** When non-null, we're continuing this existing path node. */
+  private continuePathId: string | null = null;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
@@ -51,7 +59,36 @@ export class PenTool extends BaseTool {
     this.penState = PenState.Idle;
     this.points = [];
     this.dragStartCanvas = null;
+    this.continuePathId = null;
     ctx.setDraft(null);
+  }
+
+  /** Check if a click hits the endpoint of an existing path node. */
+  private tryContinueExistingPath(world: { x: number; y: number }, ctx: ToolContext): boolean {
+    const hit = ctx.hitTest(world);
+    if (!hit) return false;
+    const node = ctx.getNode(hit.nodeId);
+    if (!node || node.kind !== 'shape' || node.shape.kind !== 'path') return false;
+    const pts = node.shape.points;
+    if (pts.length < 1) return false;
+
+    const wm = nodeWorldTransform(ctx.document, hit.nodeId);
+    const threshold = 8 / ctx.zoom;
+    const distLast = distanceToPathEndpoint(world, pts, wm, 'last');
+    const distFirst = distanceToPathEndpoint(world, pts, wm, 'first');
+    if (distLast > threshold && distFirst > threshold) return false;
+
+    const worldPts = pathPointsLocalToWorld(pts, wm);
+    this.continuePathId = hit.nodeId;
+    this.points = worldPts.map((p) => ({
+      x: p.x,
+      y: p.y,
+      handleIn: p.handleIn ? { x: p.handleIn[0], y: p.handleIn[1] } : null,
+      handleOut: p.handleOut ? { x: p.handleOut[0], y: p.handleOut[1] } : null,
+    }));
+    this.penState = PenState.Placing;
+    ctx.announce('Continuing path');
+    return true;
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
@@ -60,6 +97,9 @@ export class PenTool extends BaseTool {
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
 
     if (this.penState === PenState.Idle) {
+      if (this.tryContinueExistingPath(world, ctx)) {
+        return { consumed: true };
+      }
       this.penState = PenState.Dragging;
       this.points = [{ x: world.x, y: world.y, handleIn: null, handleOut: null }];
       this.dragStartCanvas = { x: canvas.x, y: canvas.y };
@@ -190,15 +230,28 @@ export class PenTool extends BaseTool {
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
     if (this.penState === PenState.Placing || this.penState === PenState.Dragging) {
       if (e.key === 'Escape') {
-        this.dragStartCanvas = null;
+        if (this.penState === PenState.Dragging) {
+          this.dragStartCanvas = null;
+          if (this.points.length <= 1) {
+            this.penState = PenState.Idle;
+            this.points = [];
+          } else {
+            this.penState = PenState.Placing;
+          }
+          ctx.setDraft(null);
+          ctx.announce('Path cancelled');
+          return true;
+        }
         if (this.points.length > 1) {
+          this.dragStartCanvas = null;
           this.commitPath(ctx, false);
+          ctx.announce('Path finished');
         } else {
           this.penState = PenState.Idle;
           this.points = [];
           ctx.setDraft(null);
+          ctx.announce('Path cancelled');
         }
-        ctx.announce('Path cancelled');
         return true;
       }
       if (e.key === 'Enter') {
@@ -221,32 +274,45 @@ export class PenTool extends BaseTool {
 
   private commitPath(ctx: ToolContext, closed: boolean): void {
     ctx.setDraft(null);
-    if (this.points.length < 2 && !closed) {
-      const pt = this.points[0];
-      if (!pt) throw new Error('point not found');
-      ctx.createShapeAt({ x: pt.x, y: pt.y }, { w: 4, h: 4 });
-    } else if (this.points.length >= 2 || closed) {
-      const first = this.points[0];
-      if (!first) throw new Error('first point not found');
-      const pathPoints = this.points.map((p) => ({
-        x: p.x,
-        y: p.y,
-        handleIn: p.handleIn ? ([p.handleIn.x, p.handleIn.y] as [number, number]) : null,
-        handleOut: p.handleOut ? ([p.handleOut.x, p.handleOut.y] as [number, number]) : null,
-      }));
-      if (closed && pathPoints.length > 0) {
-        const firstPt = pathPoints[0]!;
-        pathPoints.push({
-          x: firstPt.x,
-          y: firstPt.y,
-          handleIn: firstPt.handleIn,
-          handleOut: firstPt.handleOut,
-        });
+    ctx.beginTransaction();
+    try {
+      if (this.points.length < 2 && !closed) {
+        const pt = this.points[0];
+        if (!pt) throw new Error('point not found');
+        ctx.createShapeAt({ x: pt.x, y: pt.y }, { w: 4, h: 4 });
+      } else if (this.points.length >= 2 || closed) {
+        const first = this.points[0];
+        if (!first) throw new Error('first point not found');
+        const pathPoints: import('@strata/engine').PathPoint[] = this.points.map((p) => ({
+          x: p.x,
+          y: p.y,
+          handleIn: p.handleIn ? ([p.handleIn.x, p.handleIn.y] as [number, number]) : null,
+          handleOut: p.handleOut ? ([p.handleOut.x, p.handleOut.y] as [number, number]) : null,
+        }));
+        if (this.continuePathId) {
+          const wm = nodeWorldTransform(ctx.document, this.continuePathId);
+          const localPoints = pathPointsWorldToLocal(pathPoints, wm);
+          ctx.updateNode(this.continuePathId, (n) => {
+            if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
+            return {
+              ...n,
+              shape: {
+                ...n.shape,
+                points: localPoints,
+                closed: closed || n.shape.closed,
+              },
+            } as import('@strata/scene').ShapeNode;
+          });
+        } else {
+          ctx.createShapeAt({ x: first.x, y: first.y }, undefined, undefined, pathPoints, closed);
+        }
       }
-      ctx.createShapeAt({ x: first.x, y: first.y }, undefined, undefined, pathPoints);
+    } finally {
+      ctx.commitTransaction();
     }
     this.penState = PenState.Idle;
     this.points = [];
     this.dragStartCanvas = null;
+    this.continuePathId = null;
   }
 }

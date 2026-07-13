@@ -5,7 +5,8 @@
  * so the same code runs identically in a Worker global scope.
  *
  * Research basis: Photoshop "Select and Mask" Shift Edge (choke) + Feather;
- * GIMP Script-Fu edge-clean; classic image-matting edge refinement.
+ * GIMP Script-Fu edge-clean; classic image-matting edge refinement; rembg
+ * U2-Net/BiRefNet normalization and mask post-processing.
  */
 
 /**
@@ -111,6 +112,30 @@ export function thresholdMask(data: Float32Array, threshold = 0.5): Uint8Array {
   return mask;
 }
 
+/** Convert U2-Net probabilities or BiRefNet logits to rembg-compatible soft mask bytes. */
+export function normalizeSegmentationOutput(data: Float32Array, applySigmoid: boolean): Uint8Array {
+  if (data.length === 0) return new Uint8Array();
+
+  const normalized = new Float32Array(data.length);
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < data.length; i++) {
+    const raw = data[i] ?? 0;
+    const value = applySigmoid ? 1 / (1 + Math.exp(-raw)) : raw;
+    normalized[i] = value;
+    min = Math.min(min, value);
+    max = Math.max(max, value);
+  }
+
+  const range = max - min;
+  const mask = new Uint8Array(data.length);
+  if (!Number.isFinite(range) || range <= Number.EPSILON) return mask;
+  for (let i = 0; i < normalized.length; i++) {
+    mask[i] = Math.trunc((((normalized[i] ?? min) - min) / range) * 255);
+  }
+  return mask;
+}
+
 /** Nearest-neighbor upscale/downscale of a single-channel mask. */
 export function resizeMaskNearestNeighbor(
   mask: Uint8Array,
@@ -134,6 +159,34 @@ export function resizeMaskNearestNeighbor(
   return result;
 }
 
+/** Bilinear resize for a soft single-channel mask using pixel-center coordinates. */
+export function resizeMaskBilinear(
+  mask: Uint8Array,
+  srcW: number,
+  srcH: number,
+  dstW: number,
+  dstH: number,
+): Uint8Array {
+  if (srcW === dstW && srcH === dstH) return mask;
+  const result = new Uint8Array(dstW * dstH);
+  for (let dy = 0; dy < dstH; dy++) {
+    const sy = Math.max(0, Math.min(srcH - 1, ((dy + 0.5) * srcH) / dstH - 0.5));
+    const y0 = Math.floor(sy);
+    const y1 = Math.min(srcH - 1, y0 + 1);
+    const wy = sy - y0;
+    for (let dx = 0; dx < dstW; dx++) {
+      const sx = Math.max(0, Math.min(srcW - 1, ((dx + 0.5) * srcW) / dstW - 0.5));
+      const x0 = Math.floor(sx);
+      const x1 = Math.min(srcW - 1, x0 + 1);
+      const wx = sx - x0;
+      const top = (mask[y0 * srcW + x0] ?? 0) * (1 - wx) + (mask[y0 * srcW + x1] ?? 0) * wx;
+      const bottom = (mask[y1 * srcW + x0] ?? 0) * (1 - wx) + (mask[y1 * srcW + x1] ?? 0) * wx;
+      result[dy * dstW + dx] = Math.round(top * (1 - wy) + bottom * wy);
+    }
+  }
+  return result;
+}
+
 /** Pack RGBA ImageData into CHW float32 tensor data (0-1 range). */
 export function packChwFloat32(imageData: {
   data: Uint8ClampedArray | Uint8Array;
@@ -148,6 +201,31 @@ export function packChwFloat32(imageData: {
     floatData[width * height * 2 + i] = (data[i * 4 + 2] ?? 0) / 255;
   }
   return floatData;
+}
+
+/** Pack an RGBA image using rembg's max-value and ImageNet normalization. */
+export function packSegmentationChwFloat32(imageData: {
+  data: Uint8ClampedArray | Uint8Array;
+  width: number;
+  height: number;
+}): Float32Array {
+  const { data, width, height } = imageData;
+  const pixelCount = width * height;
+  let maxChannel = 0;
+  for (let i = 0; i < pixelCount; i++) {
+    maxChannel = Math.max(maxChannel, data[i * 4] ?? 0, data[i * 4 + 1] ?? 0, data[i * 4 + 2] ?? 0);
+  }
+  const divisor = Math.max(maxChannel, 1e-6);
+  const mean = [0.485, 0.456, 0.406] as const;
+  const std = [0.229, 0.224, 0.225] as const;
+  const result = new Float32Array(pixelCount * 3);
+  for (let i = 0; i < pixelCount; i++) {
+    for (let channel = 0; channel < 3; channel++) {
+      const value = (data[i * 4 + channel] ?? 0) / divisor;
+      result[channel * pixelCount + i] = (value - (mean[channel] ?? 0)) / (std[channel] ?? 1);
+    }
+  }
+  return result;
 }
 
 /** Compute confidence from raw sigmoid outputs as mean distance from 0.5,

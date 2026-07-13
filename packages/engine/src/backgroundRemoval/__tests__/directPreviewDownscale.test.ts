@@ -9,6 +9,7 @@ const { mockGetModelLoader, mockHeuristic, mockCreate, mockDownscale } = vi.hois
 }));
 
 vi.mock('../heuristic', () => ({
+  maskToDataUrl: vi.fn(() => 'data:image/png;base64,direct'),
   removeBackgroundHeuristic: mockHeuristic,
 }));
 vi.mock('../workerPool', () => ({

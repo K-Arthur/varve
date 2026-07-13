@@ -58,11 +58,15 @@ pub enum Shape {
         #[serde(rename = "arrowheadSize")]
         arrowhead_size: f64,
     },
-    /// Bezier path (open or closed).
+    /// Bezier path (open or closed). Optional `holes` + `fill_rule` for compound fills.
     Path {
         points: Vec<PathPoint>,
         closed: bool,
         tolerance: f64,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        holes: Vec<Vec<PathPoint>>,
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "fillRule")]
+        fill_rule: Option<String>,
     },
     #[serde(rename = "text")]
     Text {
@@ -147,13 +151,28 @@ impl Shape {
                 points,
                 closed,
                 tolerance,
+                holes,
+                fill_rule,
             } => {
                 if points.is_empty() {
                     return false;
                 }
                 if *closed && points.len() >= 3 {
-                    let verts: Vec<Point> = points.iter().map(|p| Point::new(p.x, p.y)).collect();
-                    point_in_polygon(&verts, pt)
+                    let fill_evenodd = fill_rule
+                        .as_deref()
+                        .map(|r| r.eq_ignore_ascii_case("evenodd"))
+                        .unwrap_or(!holes.is_empty());
+                    let mut crossings = 0u32;
+                    let mut winding = 0i32;
+                    accumulate_polygon_hit(points, pt, &mut crossings, &mut winding);
+                    for hole in holes {
+                        accumulate_polygon_hit(hole, pt, &mut crossings, &mut winding);
+                    }
+                    if fill_evenodd {
+                        crossings % 2 == 1
+                    } else {
+                        winding != 0
+                    }
                 } else {
                     // Open path: hit if within tolerance of any segment.
                     for i in 0..points.len().saturating_sub(1) {
@@ -205,6 +224,23 @@ fn star_vertices(
         verts.push(Point::new(cx + r * a.cos(), cy + r * a.sin()));
     }
     verts
+}
+
+fn accumulate_polygon_hit(points: &[PathPoint], pt: Point, crossings: &mut u32, winding: &mut i32) {
+    if points.len() < 3 {
+        return;
+    }
+    for i in 0..points.len() {
+        let a = &points[i];
+        let b = &points[(i + 1) % points.len()];
+        if (a.y > pt.y) != (b.y > pt.y) {
+            let x_intersect = a.x + ((pt.y - a.y) * (b.x - a.x)) / (b.y - a.y);
+            if x_intersect > pt.x {
+                *crossings += 1;
+                *winding += if a.y > pt.y { 1 } else { -1 };
+            }
+        }
+    }
 }
 
 fn point_in_polygon(vertices: &[Point], pt: Point) -> bool {

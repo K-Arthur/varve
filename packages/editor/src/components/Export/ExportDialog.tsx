@@ -296,12 +296,12 @@ export function ExportDialog({
             const w = imageShapeW(imgNode);
             const h = imageShapeH(imgNode);
             const img = await cache.load(src);
-            if (!img) continue;
+            if (!img) throw new Error(`Could not load ${imgNode.name}`);
             const c = globalThis.document.createElement('canvas');
             c.width = w;
             c.height = h;
             const ctx = c.getContext('2d');
-            if (!ctx) continue;
+            if (!ctx) throw new Error('Canvas rendering is unavailable');
             ctx.drawImage(img, 0, 0, w, h);
             const imageData = ctx.getImageData(0, 0, w, h);
             const result = await removeBgFn(imageData, {
@@ -310,9 +310,7 @@ export function ExportDialog({
               decontaminate: true,
             });
             if (bgMethod !== 'quick' && result.method === 'quick') {
-              setAnnounceMsg(
-                'AI model unavailable; used quick heuristic instead. Download the AI model in Settings, Offline Models.',
-              );
+              throw new Error('the provider returned a Quick result');
             }
             onApplyBackgroundRemoval(imgNode.id, {
               maskDataUrl: result.maskDataUrl,
@@ -322,8 +320,11 @@ export function ExportDialog({
               feather: 0.5,
               decontaminate: true,
             });
-          } catch {
-            // continue with export even if bg removal fails
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setAnnounceMsg(`AI background removal failed: ${message}`);
+            setRunning(false);
+            return;
           }
         }
       }
@@ -768,7 +769,7 @@ export function ExportDialog({
 
           {showDownloadDialog && (
             <ModelDownloadDialog
-              modelId={bgMethod === 'ai-quality' ? 'birefnet-general' : 'birefnet-general-lite'}
+              modelId={requiredModelId ?? 'u2netp'}
               onClose={() => setShowDownloadDialog(false)}
               onComplete={() => {
                 setShowDownloadDialog(false);

@@ -474,3 +474,155 @@ describe('NodeEditTool — toggleCornerSmooth segment-aware', () => {
     expect(outLen).toBeGreaterThanOrEqual(4);
   });
 });
+
+describe('NodeEditTool — undo transactions', () => {
+  it('anchor drag-move is wrapped in undo transaction', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    tool.onPointerDown?.(makePointerEvent(10, 10), ctx);
+    tool.onPointerMove?.(makePointerEvent(30, 20), ctx);
+    tool.onPointerUp?.(makePointerEvent(30, 20), ctx);
+
+    expect(ctx.beginTransaction).toHaveBeenCalled();
+    expect(ctx.updateNode).toHaveBeenCalled();
+    expect(ctx.commitTransaction).toHaveBeenCalled();
+    const beginOrder = (ctx.beginTransaction as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    const updateOrder = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!;
+    const commitOrder = (ctx.commitTransaction as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    expect(beginOrder).toBeLessThan(updateOrder);
+    expect(updateOrder).toBeLessThan(commitOrder);
+  });
+
+  it('handle drag is wrapped in undo transaction', () => {
+    const smoothPoints: PathPoint[] = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      {
+        x: 100,
+        y: 10,
+        handleIn: [0, 0] as [number, number],
+        handleOut: [30, 0] as [number, number],
+      },
+      { x: 130, y: 40, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(smoothPoints);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    tool.onPointerDown?.(makePointerEvent(132, 10), ctx);
+    tool.onPointerMove?.(makePointerEvent(140, 10), ctx);
+    tool.onPointerUp?.(makePointerEvent(140, 10), ctx);
+
+    expect(ctx.beginTransaction).toHaveBeenCalled();
+    expect(ctx.updateNode).toHaveBeenCalled();
+    expect(ctx.commitTransaction).toHaveBeenCalled();
+    const beginOrder = (ctx.beginTransaction as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    const updateOrder = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!;
+    const commitOrder = (ctx.commitTransaction as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0]!;
+    expect(beginOrder).toBeLessThan(updateOrder);
+    expect(updateOrder).toBeLessThan(commitOrder);
+  });
+
+  it('anchor delete is wrapped in undo transaction', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    tool.onPointerDown?.(makePointerEvent(10, 10), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Backspace'), ctx);
+
+    expect(ctx.beginTransaction).toHaveBeenCalled();
+    expect(ctx.updateNode).toHaveBeenCalled();
+    expect(ctx.commitTransaction).toHaveBeenCalled();
+  });
+});
+
+describe('NodeEditTool — Alt-drag handle symmetry', () => {
+  it('Alt-drag handleOut does not update handleIn (breaks symmetry)', () => {
+    const smoothPoints: PathPoint[] = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      {
+        x: 100,
+        y: 10,
+        handleIn: [-30, 0] as [number, number],
+        handleOut: [30, 0] as [number, number],
+      },
+      { x: 130, y: 40, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(smoothPoints);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    // Click on handleOut of point 1 (at 130, 10) with Alt held
+    const down = makePointerEvent(132, 10, { altKey: true });
+    tool.onPointerDown?.(down, ctx);
+    // Drag handleOut right by 20px
+    const move = makePointerEvent(152, 10, { altKey: true });
+    tool.onPointerMove?.(move, ctx);
+    // handleOut should have moved by +20 in x
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
+    const updated = updater(original);
+    // handleOut moved from [30,0] to [50,0]
+    expect(updated.shape.points[1]?.handleOut?.[0]).toBeCloseTo(50);
+    expect(updated.shape.points[1]?.handleOut?.[1]).toBeCloseTo(0);
+    // handleIn should still be [-30, 0] (NOT moved to [-50, 0])
+    expect(updated.shape.points[1]?.handleIn?.[0]).toBeCloseTo(-30);
+    expect(updated.shape.points[1]?.handleIn?.[1]).toBeCloseTo(0);
+  });
+
+  it('Alt-drag handleIn does not update handleOut (breaks symmetry)', () => {
+    const smoothPoints: PathPoint[] = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      {
+        x: 100,
+        y: 10,
+        handleIn: [-30, 0] as [number, number],
+        handleOut: [30, 0] as [number, number],
+      },
+      { x: 130, y: 40, handleIn: null, handleOut: null },
+    ];
+    const node = makePathNode(smoothPoints);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    // Click on handleIn of point 1 (at 70, 10) with Alt held
+    const down = makePointerEvent(68, 10, { altKey: true });
+    tool.onPointerDown?.(down, ctx);
+    // Drag handleIn further left by 20px
+    const move = makePointerEvent(48, 10, { altKey: true });
+    tool.onPointerMove?.(move, ctx);
+    // handleIn should have moved by -20 in x
+    const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
+    const original = (ctx.getNode as ReturnType<typeof vi.fn>)('n1')!;
+    const updated = updater(original);
+    // handleIn moved from [-30,0] to [-50,0]
+    expect(updated.shape.points[1]?.handleIn?.[0]).toBeCloseTo(-50);
+    expect(updated.shape.points[1]?.handleIn?.[1]).toBeCloseTo(0);
+    // handleOut should still be [30, 0] (NOT moved to [50, 0])
+    expect(updated.shape.points[1]?.handleOut?.[0]).toBeCloseTo(30);
+    expect(updated.shape.points[1]?.handleOut?.[1]).toBeCloseTo(0);
+  });
+});

@@ -76,7 +76,10 @@ const NODE_ICONS: Record<string, IconName> = {
 };
 
 function nodeTypeIcon(n: SceneNode): IconName {
-  if (n.kind === 'shape') return NODE_ICONS[(n as ShapeNode).shape.kind] ?? TOOL_ICONS.rect;
+  if (n.kind === 'shape') {
+    if (isImageShape(n)) return NODE_ICONS.image ?? TOOL_ICONS.rect;
+    return NODE_ICONS[(n as ShapeNode).shape.kind] ?? TOOL_ICONS.rect;
+  }
   return NODE_ICONS[n.kind] ?? TOOL_ICONS.rect;
 }
 

@@ -13,7 +13,7 @@
       "id": "birefnet-general-lite",
       "filename": "birefnet-general-lite.onnx",
       "localPath": "/models/birefnet-general-lite.onnx",
-      "sha256": null,
+      "sha256": "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333",
       "bundled": false,
       "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx"
     },
@@ -24,6 +24,15 @@
       "sha256": null,
       "bundled": false,
       "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx"
+    },
+    {
+      "id": "upscale-realesr-general",
+      "filename": "realesr-general-x4v3.onnx",
+      "localPath": "/models/realesr-general-x4v3.onnx",
+      "sha256": "856e1f4d77f553e8871302f1782b58e315a12dac52bb0b856dde2dde149b96f7",
+      "bundled": true,
+      "remoteUrl": "",
+      "notes": "Bundled ONNX conversion of the official Real-ESRGAN v0.3.0 general-purpose x4v3 checkpoint (asset tag v0.2.5.0)."
     }
   ]
 }

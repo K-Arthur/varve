@@ -1443,10 +1443,8 @@ mod tests {
 
     #[test]
     fn remove_background_ai_method_is_rejected_without_ai_feature() {
-        // Without the `ai` Cargo feature compiled in (the default distributed
-        // build per ADR-0005), requesting an AI method must not error — it
-        // should transparently degrade to the heuristic and say so honestly
-        // via the returned `method` field.
+        // Without the `ai` Cargo feature, an AI request must fail explicitly.
+        // Returning a Quick mask here would mislabel heuristic output as AI.
         let png = make_test_png(10, 10);
         let options: BgRemoveOptions = serde_json::from_value(serde_json::json!({
             "method": "ai-balanced",

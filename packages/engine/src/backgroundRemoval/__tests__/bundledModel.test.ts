@@ -33,9 +33,22 @@ describe('bundled model integrity', () => {
     expect(lite?.remoteUrl).toContain('danielgatis/rembg');
     expect(lite?.remoteUrl).toContain('BiRefNet-general-bb_swin_v1_tiny');
     expect(lite?.bundled).toBe(false);
-    expect(lite?.sha256).toBeNull();
+    expect(lite?.sha256).toBe('5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333');
     expect(full?.remoteUrl).toContain('BiRefNet-general-epoch_244');
     expect(full?.bundled).toBe(false);
     expect(full?.sha256).toBeNull();
+  });
+
+  it('bundled Real-ESRGAN x4v3 SHA-256 matches manifest.json', () => {
+    const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as {
+      models: Array<{ id: string; filename: string; sha256: string | null; bundled: boolean }>;
+    };
+    const entry = manifest.models.find((model) => model.id === 'upscale-realesr-general');
+    expect(entry?.bundled).toBe(true);
+    expect(entry?.sha256).toBeTruthy();
+
+    const bytes = readFileSync(resolve(MODELS_DIR, entry?.filename ?? 'missing'));
+    const actual = createHash('sha256').update(bytes).digest('hex');
+    expect(actual).toBe(entry?.sha256);
   });
 });

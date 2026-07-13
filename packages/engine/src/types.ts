@@ -225,7 +225,15 @@ export type Shape =
       rotation: number;
     }
   | { kind: 'arrow'; from: Point; to: Point; tolerance: number; arrowheadSize: number }
-  | { kind: 'path'; points: PathPoint[]; closed: boolean; tolerance: number };
+  | {
+      kind: 'path';
+      points: PathPoint[];
+      closed: boolean;
+      tolerance: number;
+      /** Additional closed hole rings (evenodd fill). Optional for back-compat. */
+      holes?: PathPoint[][];
+      fillRule?: 'nonzero' | 'evenodd';
+    };
 
 export interface SceneNode {
   id: string;
@@ -367,7 +375,14 @@ export type Primitive =
       rotation: number;
     }
   | { kind: 'arrow'; from: Point; to: Point; tolerance: number; arrowheadSize: number }
-  | { kind: 'path'; points: PathPoint[]; closed: boolean; tolerance: number }
+  | {
+      kind: 'path';
+      points: PathPoint[];
+      closed: boolean;
+      tolerance: number;
+      holes?: PathPoint[][];
+      fillRule?: 'nonzero' | 'evenodd';
+    }
   | {
       kind: 'text';
       x: number;

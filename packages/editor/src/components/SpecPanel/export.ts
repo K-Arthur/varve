@@ -5,8 +5,9 @@
 
 import { exportNodeToSvg } from '@strata/codegen';
 import type { Engine } from '@strata/engine';
-import { awaitExportsReady, getCanvasSizeLimit, replayIr } from '@strata/engine';
+import { awaitExportsReady, getCanvasSizeLimit, getImageCache, replayIr } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode } from '@strata/scene';
+import { imageShapeSrc, isImageShape } from '@strata/scene';
 import { worldBBox } from './measurement';
 
 export type RasterFormat = 'image/png' | 'image/jpeg' | 'image/webp';
@@ -31,17 +32,35 @@ export interface RasterExportResult {
  */
 const MAX_SAFE_CANVAS_DIMENSION = getCanvasSizeLimit('webkit');
 
+async function preloadNodeImages(node: SceneNode, doc: SceneDocument): Promise<void> {
+  const sources: string[] = [];
+  const stack: SceneNode[] = [node];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (current.kind === 'shape' && isImageShape(current)) sources.push(imageShapeSrc(current));
+    if ('children' in current && current.children) {
+      for (const childId of current.children) {
+        const child = doc.nodes[childId];
+        if (child) stack.push(child);
+      }
+    }
+  }
+  await Promise.all([...new Set(sources)].map((source) => getImageCache().load(source)));
+}
+
 function toEngineNode(n: SceneNode) {
   const base = {
     id: n.id,
     name: n.name,
     fill: n.fill,
+    fills: n.fills ?? [],
     transform: n.transform,
     opacity: n.opacity ?? 1,
     blendMode: n.blendMode ?? ('normal' as const),
     rotation: n.rotation ?? 0,
     strokes: 'strokes' in n ? (n.strokes ?? []) : [],
     effects: 'effects' in n ? (n.effects ?? []) : [],
+    alphaMask: 'alphaMask' in n && typeof n.alphaMask === 'string' ? n.alphaMask : undefined,
   };
   if (n.kind === 'shape') return { ...base, shape: n.shape };
   if (n.kind === 'text')
@@ -77,6 +96,7 @@ export async function exportNodeAsRaster(
   // silently renders with the fallback font and the export looks correct at
   // a glance but is wrong — deterministic export requires settled fonts.
   await awaitExportsReady();
+  await preloadNodeImages(node, doc);
 
   const bbox = worldBBox(node, doc);
   const warnings: string[] = [];

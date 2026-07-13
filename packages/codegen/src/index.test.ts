@@ -1,5 +1,12 @@
 import type { Document } from '@strata/scene';
-import { addNode, createDocument, makeShapeNode, makeTextNode, nextNodeId } from '@strata/scene';
+import {
+  addNode,
+  createDocument,
+  imageFill,
+  makeShapeNode,
+  makeTextNode,
+  nextNodeId,
+} from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import {
   computeDocumentBounds,
@@ -66,6 +73,21 @@ describe('exportDocumentToSvg', () => {
     expect(svg).toContain('<text');
     expect(svg).toContain('Hello');
     expect(svg).toContain('font-family="Inter"');
+  });
+
+  it('exports a shape with image fill as an SVG <image> element', () => {
+    let doc = createDocument('ImageSVG');
+    const { id, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const node = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 64, h: 64 }, { name: 'Photo' });
+    doc = addNode(doc, {
+      ...node,
+      fills: [imageFill('data:image/png;base64,FAKE', { fit: 'fill' })],
+    });
+    const svg = exportDocumentToSvg(doc);
+    expect(svg).toContain('<image');
+    expect(svg).toContain('href="data:image/png;base64,FAKE"');
+    expect(svg).toContain('preserveAspectRatio="xMidYMid slice"');
   });
 });
 

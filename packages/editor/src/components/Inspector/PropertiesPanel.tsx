@@ -25,11 +25,13 @@ import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
+import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
 import { ComponentSection } from './sections/ComponentSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
 import { FramePresetsSection } from './sections/FramePresetsSection';
+import { ImageEnhancementSection } from './sections/ImageEnhancementSection';
 import { InteractionSection } from './sections/InteractionSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
@@ -210,6 +212,8 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
+      <ImageEnhancementSection nodes={nodes} />
+      <BackgroundRemovalSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />
