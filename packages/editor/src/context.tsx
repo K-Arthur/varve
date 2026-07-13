@@ -88,6 +88,7 @@ import {
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
+  duplicateGuide as duplicateGuideDoc,
   fillSlot as fillSlotDoc,
   type Guide,
   activePageNodes as getActivePageNodes,
@@ -129,6 +130,7 @@ import {
   type SMRuntime,
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
+  setAllGuidesLocked,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
@@ -149,6 +151,7 @@ import {
 import {
   alignBBox,
   animateCamera,
+  clampCamera,
   clampZoom,
   computeAlignmentTarget,
   computeDistribution,
@@ -212,6 +215,7 @@ import { computeZoomStep, computeZoomTo } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
+import { insertDerivedImageShape, insertTraceGroup, selectedImageShape } from './imageOperations';
 import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
@@ -240,6 +244,7 @@ import { loadSettings, updateSettings } from './settings';
 import { createInitialMotionState } from './state/motion-state';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
+import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
@@ -708,6 +713,12 @@ export interface EditorContextValue {
   ) => Promise<void>;
   /** Cancel an in-progress background removal job. */
   cancelBackgroundRemoval: () => void;
+  /** Enlarge the selected image into a new editable image layer. */
+  upscaleSelectedImage: (options: import('@strata/engine').UpscaleOptions) => Promise<void>;
+  /** Trace the selected image into a new editable vector group. */
+  traceSelectedImage: (options: import('@strata/engine').RasterTraceOptions) => Promise<void>;
+  /** Cancel an in-progress image enlargement or trace job. */
+  cancelImageProcessing: () => void;
   /** Toggle preview of original image (without background removal mask). */
   setShowOriginalBg: (nodeId: import('@strata/scene').NodeId | null) => void;
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
@@ -813,8 +824,17 @@ export interface EditorContextValue {
   moveGuide: (id: string, position: number) => void;
   /** Toggle a guide's locked state. */
   toggleGuideLock: (id: string) => void;
+  /** Lock all guides if any are unlocked; otherwise unlock all. */
+  toggleLockAllGuides: () => void;
+  /** Duplicate a guide at a new position. Returns the new guide id. */
+  duplicateGuide: (id: string, position: number) => string;
   /** Remove all guides from the document. */
   clearAllGuides: () => void;
+  /** Show or hide guide overlay lines (guides remain in document). */
+  setGuidesVisible: (visible: boolean) => void;
+  toggleGuidesVisible: () => void;
+  setSelectedGuideId: (id: string | null) => void;
+  nudgeSelectedGuide: (dx: number, dy: number) => void;
   /** All guides in the document. */
   guides: Guide[];
 
@@ -870,11 +890,92 @@ export const EditorCtx = createContext<EditorContextValue | null>(null);
 interface SavedSession {
   document: Document;
   selection: NodeId[];
-  viewport: { zoom: number; pan: { x: number; y: number } };
+  viewport: SavedViewport;
   undo: Document[];
   redo: Document[];
   undoSel: NodeId[][];
   redoSel: NodeId[][];
+}
+
+function snapshotEditorSession(
+  s: EditorState,
+  undo: Document[],
+  redo: Document[],
+  undoSel: NodeId[][],
+  redoSel: NodeId[][],
+): SavedSession {
+  return {
+    document: s.document,
+    selection: s.selection,
+    viewport: captureViewport(s),
+    undo: [...undo],
+    redo: [...redo],
+    undoSel: [...undoSel],
+    redoSel: [...redoSel],
+  };
+}
+
+function restoreViewportFields(
+  raw: Partial<SavedViewport> | undefined,
+): Pick<
+  EditorState,
+  | 'zoom'
+  | 'pan'
+  | 'cameraRotation'
+  | 'snapEnabled'
+  | 'pixelGridEnabled'
+  | 'rulerMode'
+  | 'gridOverlayMode'
+  | 'unitType'
+  | 'guidesVisible'
+> {
+  const v = normalizeSavedViewport(raw);
+  return {
+    zoom: v.zoom,
+    pan: v.pan,
+    cameraRotation: v.cameraRotation,
+    snapEnabled: v.snapEnabled,
+    pixelGridEnabled: v.pixelGridEnabled,
+    rulerMode: v.rulerMode,
+    gridOverlayMode: v.gridOverlayMode,
+    unitType: v.unitType,
+    guidesVisible: v.guidesVisible,
+  };
+}
+
+function persistViewportPrefs(s: EditorState): void {
+  updateSettings({
+    viewport: {
+      snapEnabled: s.snapEnabled,
+      pixelGridEnabled: s.pixelGridEnabled,
+      rulerMode: s.rulerMode,
+      gridOverlayMode: s.gridOverlayMode,
+      unitType: s.unitType,
+      guidesVisible: s.guidesVisible,
+      snapGrid: s.snapGrid,
+    },
+  });
+}
+
+function computeDocumentUnionBounds(
+  doc: Document,
+): { x: number; y: number; w: number; h: number } | null {
+  const entries = walkNodes(doc);
+  let union: { x: number; y: number; w: number; h: number } | null = null;
+  for (const [id] of entries) {
+    const b = nodeWorldBounds(doc, id);
+    if (!b) continue;
+    if (!union) {
+      union = { ...b };
+      continue;
+    }
+    const minX = Math.min(union.x, b.x);
+    const minY = Math.min(union.y, b.y);
+    const maxX = Math.max(union.x + union.w, b.x + b.w);
+    const maxY = Math.max(union.y + union.h, b.y + b.h);
+    union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+  return union;
 }
 
 // F4: human-readable type name per tool
@@ -1118,6 +1219,7 @@ export function EditorProvider({
         name = initialDocumentName ?? doc.name ?? 'Untitled';
       }
     }
+    const vpDefaults = loadSettings().viewport;
     return {
       tool: 'select',
       zoom: 1,
@@ -1128,10 +1230,10 @@ export function EditorProvider({
       activeId: INITIAL_SESSION_ID,
       dirty: false,
       cursorPos: null,
-      unitType: 'px',
-      pixelGridEnabled: false,
-      snapEnabled: true,
-      snapGrid: 8,
+      unitType: vpDefaults.unitType,
+      pixelGridEnabled: vpDefaults.pixelGridEnabled,
+      snapEnabled: vpDefaults.snapEnabled,
+      snapGrid: vpDefaults.snapGrid,
       saveState: 'idle' as const,
       lastSavedAt: null,
       prototypeMode: false,
@@ -1149,8 +1251,10 @@ export function EditorProvider({
       motion: createInitialMotionState(),
       canvasMode: 'full',
       cameraRotation: 0,
-      rulerMode: 'artboard' as RulerMode,
-      gridOverlayMode: 'none' as GridOverlayMode,
+      rulerMode: vpDefaults.rulerMode as RulerMode,
+      gridOverlayMode: vpDefaults.gridOverlayMode as GridOverlayMode,
+      guidesVisible: vpDefaults.guidesVisible,
+      selectedGuideId: null,
       currentPageId: null,
       isolatedNodeId: null,
       showOriginalBgNodeId: null,
@@ -1260,6 +1364,9 @@ export function EditorProvider({
   /** In-flight single-image background removal — aborted on selection change/unmount. */
   const bgRemovalAbortRef = useRef<AbortController | null>(null);
   const processingBgNodeRef = useRef<NodeId | null>(null);
+  /** In-flight image enlargement or tracing, aborted on selection change/unmount. */
+  const imageProcessingAbortRef = useRef<AbortController | null>(null);
+  const processingImageNodeRef = useRef<NodeId | null>(null);
   /** Ephemeral trimap buffers keyed by node id (not undo-able). */
   const trimapStoreRef = useRef<Map<string, { data: Uint8Array; width: number; height: number }>>(
     new Map(),
@@ -1272,6 +1379,15 @@ export function EditorProvider({
       bgRemovalAbortRef.current?.abort();
       bgRemovalAbortRef.current = null;
       processingBgNodeRef.current = null;
+    }
+  }, [state.selection]);
+
+  useEffect(() => {
+    const processingId = processingImageNodeRef.current;
+    if (processingId && !state.selection.includes(processingId)) {
+      imageProcessingAbortRef.current?.abort();
+      imageProcessingAbortRef.current = null;
+      processingImageNodeRef.current = null;
     }
   }, [state.selection]);
 
@@ -1288,6 +1404,9 @@ export function EditorProvider({
       bgRemovalAbortRef.current?.abort();
       bgRemovalAbortRef.current = null;
       processingBgNodeRef.current = null;
+      imageProcessingAbortRef.current?.abort();
+      imageProcessingAbortRef.current = null;
+      processingImageNodeRef.current = null;
       autoSaveRef.current?.stop();
       motionFacadeRef.current?.stop();
       void import('@strata/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
@@ -1449,7 +1568,19 @@ export function EditorProvider({
         patch({ tool: t });
       },
       setZoom: (z) => patch({ zoom: clampZoom(z) }),
-      setPan: (p) => patch({ pan: p }),
+      setPan: (p) => {
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        const bounds = computeDocumentUnionBounds(stateRef.current.document);
+        const cam = clampCamera(
+          { zoom: stateRef.current.zoom, pan: p, rotation: stateRef.current.cameraRotation },
+          vp,
+          bounds,
+        );
+        patch({ pan: cam.pan });
+      },
       zoomIn: () => {
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
         const vp: Viewport = canvasEl
@@ -3111,15 +3242,16 @@ export function EditorProvider({
         // Snapshot current session before replacing document
         const sid = state.activeId;
         if (sid) {
-          sessionStoreRef.current.set(sid, {
-            document: state.document,
-            selection: state.selection,
-            viewport: { zoom: state.zoom, pan: state.pan },
-            undo: [...undoStackRef.current],
-            redo: [...redoStackRef.current],
-            undoSel: [...undoSelStackRef.current],
-            redoSel: [...redoSelStackRef.current],
-          });
+          sessionStoreRef.current.set(
+            sid,
+            snapshotEditorSession(
+              state,
+              undoStackRef.current,
+              redoStackRef.current,
+              undoSelStackRef.current,
+              redoSelStackRef.current,
+            ),
+          );
         }
         undoStackRef.current = [];
         redoStackRef.current = [];
@@ -3860,12 +3992,21 @@ export function EditorProvider({
         });
       },
       setCursorPos: (pos) => patch({ cursorPos: pos }),
-      setUnitType: (t) => patch({ unitType: t }),
+      setUnitType: (t) => {
+        patch({ unitType: t });
+        persistViewportPrefs({ ...stateRef.current, unitType: t });
+      },
       setDocumentUnit: (unit) => {
         updateDoc((doc) => ({ ...doc, documentUnit: unit }));
       },
-      setPixelGridEnabled: (v) => patch({ pixelGridEnabled: v }),
-      setSnapEnabled: (v) => patch({ snapEnabled: v }),
+      setPixelGridEnabled: (v) => {
+        patch({ pixelGridEnabled: v });
+        persistViewportPrefs({ ...stateRef.current, pixelGridEnabled: v });
+      },
+      setSnapEnabled: (v) => {
+        patch({ snapEnabled: v });
+        persistViewportPrefs({ ...stateRef.current, snapEnabled: v });
+      },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setCameraRotation: (radians) => patch({ cameraRotation: radians }),
       rotateViewBy: (radians, screenAnchor) => {
@@ -3894,8 +4035,14 @@ export function EditorProvider({
           ),
         );
       },
-      setRulerMode: (mode) => patch({ rulerMode: mode }),
-      setGridOverlayMode: (mode) => patch({ gridOverlayMode: mode }),
+      setRulerMode: (mode) => {
+        patch({ rulerMode: mode });
+        persistViewportPrefs({ ...stateRef.current, rulerMode: mode });
+      },
+      setGridOverlayMode: (mode) => {
+        patch({ gridOverlayMode: mode });
+        persistViewportPrefs({ ...stateRef.current, gridOverlayMode: mode });
+      },
       fitActivePage: () => {
         const doc = state.document;
         const pageId = doc.activePageId;
@@ -4051,21 +4198,22 @@ export function EditorProvider({
 
       newTab: () => {
         setState((s) => {
-          // Snapshot current session before leaving it
-          sessionStoreRef.current.set(s.activeId, {
-            document: s.document,
-            selection: s.selection,
-            viewport: { zoom: s.zoom, pan: s.pan },
-            undo: [...undoStackRef.current],
-            redo: [...redoStackRef.current],
-            undoSel: [...undoSelStackRef.current],
-            redoSel: [...redoSelStackRef.current],
-          });
+          sessionStoreRef.current.set(
+            s.activeId,
+            snapshotEditorSession(
+              s,
+              undoStackRef.current,
+              redoStackRef.current,
+              undoSelStackRef.current,
+              redoSelStackRef.current,
+            ),
+          );
           const syncedSessions = s.sessions.map((sess) =>
             sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
           );
           const newId = `session-${Date.now()}`;
           const newDoc = createDocument('Untitled');
+          const vpDefaults = loadSettings().viewport;
           undoStackRef.current = [];
           redoStackRef.current = [];
           undoSelStackRef.current = [];
@@ -4074,8 +4222,17 @@ export function EditorProvider({
             ...s,
             document: newDoc,
             selection: [],
+            selectedGuideId: null,
             zoom: 1,
             pan: { x: 0, y: 0 },
+            cameraRotation: 0,
+            snapEnabled: vpDefaults.snapEnabled,
+            pixelGridEnabled: vpDefaults.pixelGridEnabled,
+            rulerMode: vpDefaults.rulerMode,
+            gridOverlayMode: vpDefaults.gridOverlayMode,
+            unitType: vpDefaults.unitType,
+            guidesVisible: vpDefaults.guidesVisible,
+            snapGrid: vpDefaults.snapGrid,
             dirty: false,
             sessions: [...syncedSessions, { id: newId, name: 'Untitled', dirty: false }],
             activeId: newId,
@@ -4086,20 +4243,19 @@ export function EditorProvider({
       switchTab: (id) => {
         setState((s) => {
           if (id === s.activeId) return s;
-          // Snapshot current
-          sessionStoreRef.current.set(s.activeId, {
-            document: s.document,
-            selection: s.selection,
-            viewport: { zoom: s.zoom, pan: s.pan },
-            undo: [...undoStackRef.current],
-            redo: [...redoStackRef.current],
-            undoSel: [...undoSelStackRef.current],
-            redoSel: [...redoSelStackRef.current],
-          });
+          sessionStoreRef.current.set(
+            s.activeId,
+            snapshotEditorSession(
+              s,
+              undoStackRef.current,
+              redoStackRef.current,
+              undoSelStackRef.current,
+              redoSelStackRef.current,
+            ),
+          );
           const syncedSessions = s.sessions.map((sess) =>
             sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
           );
-          // Restore target session
           const saved = sessionStoreRef.current.get(id);
           const targetMeta = syncedSessions.find((sess) => sess.id === id);
           undoStackRef.current = saved ? [...saved.undo] : [];
@@ -4111,8 +4267,8 @@ export function EditorProvider({
             ...s,
             document: restoredDoc,
             selection: saved?.selection ?? [],
-            zoom: saved?.viewport.zoom ?? 1,
-            pan: saved?.viewport.pan ?? { x: 0, y: 0 },
+            selectedGuideId: null,
+            ...restoreViewportFields(saved?.viewport),
             dirty: targetMeta?.dirty ?? false,
             sessions: syncedSessions,
             activeId: id,
@@ -4152,15 +4308,16 @@ export function EditorProvider({
               (fileId && sess.fileId === fileId) || (filePath && sess.filePath === filePath),
           );
           const snapshotCurrent = () => {
-            sessionStoreRef.current.set(s.activeId, {
-              document: s.document,
-              selection: s.selection,
-              viewport: { zoom: s.zoom, pan: s.pan },
-              undo: [...undoStackRef.current],
-              redo: [...redoStackRef.current],
-              undoSel: [...undoSelStackRef.current],
-              redoSel: [...redoSelStackRef.current],
-            });
+            sessionStoreRef.current.set(
+              s.activeId,
+              snapshotEditorSession(
+                s,
+                undoStackRef.current,
+                redoStackRef.current,
+                undoSelStackRef.current,
+                redoSelStackRef.current,
+              ),
+            );
           };
           const syncedSessions = s.sessions.map((sess) =>
             sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
@@ -4178,8 +4335,8 @@ export function EditorProvider({
               ...s,
               document: savedDoc,
               selection: saved?.selection ?? [],
-              zoom: saved?.viewport.zoom ?? 1,
-              pan: saved?.viewport.pan ?? { x: 0, y: 0 },
+              selectedGuideId: null,
+              ...restoreViewportFields(saved?.viewport),
               dirty: existing.dirty,
               sessions: syncedSessions,
               activeId: existing.id,
@@ -4303,6 +4460,140 @@ export function EditorProvider({
           d = addNode(d2, newNode);
           return { ...s, document: d, selection: [newId], dirty: true };
         });
+      },
+
+      upscaleSelectedImage: async (options) => {
+        const imageNode = selectedImageShape(state.document, state.selection);
+        if (!imageNode) {
+          announcerRef.current?.announce('Select an image layer first');
+          return;
+        }
+        const processingNodeId = imageNode.id;
+        imageProcessingAbortRef.current?.abort();
+        const controller = new AbortController();
+        imageProcessingAbortRef.current = controller;
+        processingImageNodeRef.current = processingNodeId;
+        announcerRef.current?.announce('Upscaling image...');
+        try {
+          const { getImageCache, dispatchUpscale } = await import('@strata/engine');
+          const { imageShapeSrc } = await import('@strata/scene');
+          const sourceSrc = imageShapeSrc(imageNode);
+          const image = await getImageCache().load(sourceSrc);
+          if (controller.signal.aborted) return;
+          const width = Math.max(1, image.naturalWidth || image.width);
+          const height = Math.max(1, image.naturalHeight || image.height);
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Canvas pixel processing is unavailable');
+          context.drawImage(image, 0, 0, width, height);
+          const source = context.getImageData(0, 0, width, height);
+          const output = await dispatchUpscale(source, options, controller.signal);
+          if (controller.signal.aborted) return;
+          const outputCanvas = document.createElement('canvas');
+          outputCanvas.width = output.width;
+          outputCanvas.height = output.height;
+          const outputContext = outputCanvas.getContext('2d');
+          if (!outputContext) throw new Error('Canvas image encoding is unavailable');
+          outputContext.putImageData(output, 0, 0);
+          const dataUrl = outputCanvas.toDataURL('image/png');
+          const current = stateRef.current;
+          if (
+            !current.selection.includes(processingNodeId) ||
+            current.document.nodes[processingNodeId] !== imageNode
+          )
+            return;
+          const scaleLabel = options.method === 'ai' ? '4x-ai' : `${options.scale ?? 2}x`;
+          const inserted = insertDerivedImageShape(current.document, processingNodeId, {
+            dataUrl,
+            width: output.width,
+            height: output.height,
+            suffix: scaleLabel,
+          });
+          updateDoc(() => inserted.doc);
+          patch({ selection: [inserted.nodeId] });
+          announcerRef.current?.announce(
+            `Image upscaled to ${output.width} by ${output.height} pixels`,
+          );
+        } catch (error) {
+          if (controller.signal.aborted) throw new Error('cancelled');
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          announcerRef.current?.announce(`Image upscaling failed: ${message}`);
+          throw error;
+        } finally {
+          if (processingImageNodeRef.current === processingNodeId) {
+            imageProcessingAbortRef.current = null;
+            processingImageNodeRef.current = null;
+          }
+        }
+      },
+
+      traceSelectedImage: async (options) => {
+        const imageNode = selectedImageShape(state.document, state.selection);
+        if (!imageNode) {
+          announcerRef.current?.announce('Select an image layer first');
+          return;
+        }
+        const processingNodeId = imageNode.id;
+        imageProcessingAbortRef.current?.abort();
+        const controller = new AbortController();
+        imageProcessingAbortRef.current = controller;
+        processingImageNodeRef.current = processingNodeId;
+        announcerRef.current?.announce('Tracing image...');
+        try {
+          const { getImageCache, dispatchTrace } = await import('@strata/engine');
+          const { imageShapeSrc } = await import('@strata/scene');
+          const sourceSrc = imageShapeSrc(imageNode);
+          const image = await getImageCache().load(sourceSrc);
+          if (controller.signal.aborted) return;
+          const width = Math.max(1, image.naturalWidth || image.width);
+          const height = Math.max(1, image.naturalHeight || image.height);
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Canvas pixel processing is unavailable');
+          context.drawImage(image, 0, 0, width, height);
+          const imageData = context.getImageData(0, 0, width, height);
+
+          const tracedPaths = await dispatchTrace(imageData, options, controller.signal);
+
+          if (controller.signal.aborted) return;
+          if (tracedPaths.paths.length === 0) throw new Error('No foreground contours were found');
+          const current = stateRef.current;
+          if (
+            !current.selection.includes(processingNodeId) ||
+            current.document.nodes[processingNodeId] !== imageNode
+          )
+            return;
+          const inserted = insertTraceGroup(current.document, processingNodeId, tracedPaths);
+          updateDoc(() => inserted.doc);
+          patch({ selection: [inserted.nodeId] });
+          const holeNote =
+            tracedPaths.omittedHoles > 0
+              ? ` (${tracedPaths.omittedHoles} unpaired holes omitted)`
+              : '';
+          announcerRef.current?.announce(
+            `Created ${tracedPaths.paths.length} vector paths${holeNote}`,
+          );
+        } catch (error) {
+          if (controller.signal.aborted) throw new Error('cancelled');
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          announcerRef.current?.announce(`Image tracing failed: ${message}`);
+          throw error;
+        } finally {
+          if (processingImageNodeRef.current === processingNodeId) {
+            imageProcessingAbortRef.current = null;
+            processingImageNodeRef.current = null;
+          }
+        }
+      },
+
+      cancelImageProcessing: () => {
+        imageProcessingAbortRef.current?.abort();
+        imageProcessingAbortRef.current = null;
+        processingImageNodeRef.current = null;
       },
 
       removeBackground: async (method) => {
@@ -5081,8 +5372,46 @@ export function EditorProvider({
         updateDoc((doc) => toggleGuideLockDoc(doc, id));
       },
 
+      toggleLockAllGuides: () => {
+        const guides = stateRef.current.document.guides ?? [];
+        const anyUnlocked = guides.some((g) => !g.locked);
+        updateDoc((doc) => setAllGuidesLocked(doc, anyUnlocked));
+        announcerRef.current?.announce(anyUnlocked ? 'All guides locked' : 'All guides unlocked');
+      },
+
+      duplicateGuide: (id, position) => {
+        const newId = createGuideId();
+        updateDoc((doc) => duplicateGuideDoc(doc, id, position, newId));
+        return newId;
+      },
+
       clearAllGuides: () => {
         updateDoc((doc) => clearGuides(doc));
+        patch({ selectedGuideId: null });
+      },
+
+      setGuidesVisible: (visible) => {
+        patch({ guidesVisible: visible });
+        persistViewportPrefs({ ...stateRef.current, guidesVisible: visible });
+      },
+
+      toggleGuidesVisible: () => {
+        const next = !stateRef.current.guidesVisible;
+        patch({ guidesVisible: next });
+        persistViewportPrefs({ ...stateRef.current, guidesVisible: next });
+        announcerRef.current?.announce(next ? 'Guides shown' : 'Guides hidden');
+      },
+
+      setSelectedGuideId: (id) => patch({ selectedGuideId: id }),
+
+      nudgeSelectedGuide: (dx, dy) => {
+        const guideId = stateRef.current.selectedGuideId;
+        if (!guideId) return;
+        const guide = stateRef.current.document.guides?.find((g) => g.id === guideId);
+        if (!guide || guide.locked) return;
+        const delta = guide.axis === 'vertical' ? dx : dy;
+        if (delta === 0) return;
+        updateDoc((doc) => moveGuideDoc(doc, guideId, guide.position + delta));
       },
 
       closeTab: (id, force = false) => {
@@ -5114,8 +5443,8 @@ export function EditorProvider({
             ...s,
             document: nextDoc,
             selection: saved?.selection ?? [],
-            zoom: saved?.viewport.zoom ?? 1,
-            pan: saved?.viewport.pan ?? { x: 0, y: 0 },
+            selectedGuideId: null,
+            ...restoreViewportFields(saved?.viewport),
             dirty: next.dirty,
             sessions: remaining,
             activeId: next.id,
@@ -5223,7 +5552,13 @@ export function EditorProvider({
       removeGuide: value.removeGuide,
       moveGuide: value.moveGuide,
       toggleGuideLock: value.toggleGuideLock,
+      toggleLockAllGuides: value.toggleLockAllGuides,
+      duplicateGuide: value.duplicateGuide,
       clearAllGuides: value.clearAllGuides,
+      setGuidesVisible: value.setGuidesVisible,
+      toggleGuidesVisible: value.toggleGuidesVisible,
+      setSelectedGuideId: value.setSelectedGuideId,
+      nudgeSelectedGuide: value.nudgeSelectedGuide,
       showExportDialog: value.showExportDialog,
       setShowExportDialog: value.setShowExportDialog,
       addPreset: value.addPreset,

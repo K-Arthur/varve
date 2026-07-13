@@ -111,7 +111,13 @@ export interface DocumentContextValue {
   removeGuide: (id: string) => void;
   moveGuide: (id: string, position: number) => void;
   toggleGuideLock: (id: string) => void;
+  toggleLockAllGuides: () => void;
+  duplicateGuide: (id: string, position: number) => string;
   clearAllGuides: () => void;
+  setGuidesVisible: (visible: boolean) => void;
+  toggleGuidesVisible: () => void;
+  setSelectedGuideId: (id: string | null) => void;
+  nudgeSelectedGuide: (dx: number, dy: number) => void;
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
   addPreset: (nodeId: NodeId, preset: ExportPreset) => void;
