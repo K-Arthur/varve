@@ -13,17 +13,17 @@ IR still from Rust native/`wasm`/stub; **display** is Canvas2D (default) or opt-
 
 ## Prioritized backlog
 
-### Must-complete (this session)
+### Must-complete (this session) — SHIPPED in `1768d6c`
 
-| Sev | Gap | Root cause |
+| Sev | Gap | Resolution |
 |---|---|---|
-| P0 | Prefer-WebGPU blanks the canvas | `WebGPUBackend` binds `getContext('webgpu')` on the content canvas; `CanvasArea.drawContent` requires `getContext('2d')` and early-returns |
-| P0 | Affine wrong in SOLID_VERTEX_WGSL | Uses `transform.w` (d) as tx and `transform2.x` (e) as dy scale — breaks all non-trivial transforms |
-| P0 | Golden "GPU" test is Canvas2D↔Canvas2D | No `navigator.gpu` in jsdom → both paths are 2D; never catches affine bug |
-| P1 | Device loss forces reload | Ownership model made in-place Canvas2D recovery impossible; inverted ownership restores it |
-| P1 | Premul mismatch | Canvas `alphaMode: 'premultiplied'` but pipelines output straight alpha / no blend |
-| P1 | View rotation omitted | Compositor camera omits `rotation`; CanvasArea doesn't pass it |
-| P1 | TS↔Rust WGSL drift | Duplicated strings in `wgsl_validation.rs` |
+| P0 | Prefer-WebGPU blanks canvas | Present canvas stays 2D; GPU offscreen + blit |
+| P0 | Affine wrong in SOLID_VERTEX_WGSL | Fixed to `a·x+c·y+e` / `b·x+d·y+f` |
+| P0 | Golden test false confidence | Added affine contract + ownership tests; drift guard |
+| P1 | Device loss forced reload | In-place Canvas2D continue |
+| P1 | Premul mismatch | Premul in VS + pipeline blend |
+| P1 | View rotation omitted | `rotation` in CameraUniform; CanvasArea passes it |
+| P1 | TS↔Rust WGSL drift | `wgsl-drift.test.ts` + updated naga mirror |
 
 ### Deferred (documented, not silent TODOs)
 
