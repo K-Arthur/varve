@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { editorScreenToWorld, editorWorldToScreen, getEditorViewport } from '../canvas/cameraState';
 import type { CanvasMode, EditorState } from './types';
+import { computeZoomStep, computeZoomTo } from './viewportOps';
 
 export interface ViewportContextValue {
   zoom: number;
@@ -76,17 +77,26 @@ export function ViewportProvider({
     [patch],
   );
 
-  const zoomIn = useCallback(
-    () => setState((s) => ({ ...s, zoom: clampZoom(s.zoom * 1.25) })),
-    [setState],
-  );
+  const zoomIn = useCallback(() => {
+    const s = stateRef.current;
+    const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+    patch(computeZoomStep(camState, 'in', getEditorViewport()));
+  }, [patch, stateRef]);
 
-  const zoomOut = useCallback(
-    () => setState((s) => ({ ...s, zoom: clampZoom(s.zoom / 1.25) })),
-    [setState],
-  );
+  const zoomOut = useCallback(() => {
+    const s = stateRef.current;
+    const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+    patch(computeZoomStep(camState, 'out', getEditorViewport()));
+  }, [patch, stateRef]);
 
-  const zoomTo = useCallback((level: number) => patch({ zoom: clampZoom(level) }), [patch]);
+  const zoomTo = useCallback(
+    (level: number) => {
+      const s = stateRef.current;
+      const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+      patch(computeZoomTo(camState, level, getEditorViewport()));
+    },
+    [patch, stateRef],
+  );
 
   const smoothZoomTo = useCallback(
     (targetZoom: number, durationMs = 200) => {

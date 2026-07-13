@@ -162,7 +162,6 @@ import {
   orientedBBox,
   revealBoundsCamera,
   screenDeltaToWorld,
-  stepZoom,
   transformRect,
   type Viewport,
   zoomAboutPoint,
@@ -209,6 +208,7 @@ import type {
   SessionMeta,
   ToolId,
 } from './context/types';
+import { computeZoomStep, computeZoomTo } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
@@ -1460,10 +1460,7 @@ export function EditorProvider({
           pan: state.pan,
           cameraRotation: state.cameraRotation,
         };
-        const centre = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
-        const newZoom = stepZoom(state.zoom, 'in');
-        const newCam = zoomAboutPoint(toCamera(camState), centre, newZoom, vp);
-        patch({ zoom: newCam.zoom, pan: newCam.pan, cameraRotation: newCam.rotation ?? 0 });
+        patch(computeZoomStep(camState, 'in', vp));
       },
       zoomOut: () => {
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
@@ -1475,10 +1472,7 @@ export function EditorProvider({
           pan: state.pan,
           cameraRotation: state.cameraRotation,
         };
-        const centre = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
-        const newZoom = stepZoom(state.zoom, 'out');
-        const newCam = zoomAboutPoint(toCamera(camState), centre, newZoom, vp);
-        patch({ zoom: newCam.zoom, pan: newCam.pan, cameraRotation: newCam.rotation ?? 0 });
+        patch(computeZoomStep(camState, 'out', vp));
       },
       zoomTo: (level) => {
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
@@ -1490,10 +1484,7 @@ export function EditorProvider({
           pan: state.pan,
           cameraRotation: state.cameraRotation,
         };
-        const cam = toCamera(camState);
-        const centre = editorScreenToWorld(camState, vp.width / 2, vp.height / 2, vp);
-        const newCam = zoomAboutPoint(cam, centre, clampZoom(level), vp);
-        patch({ zoom: newCam.zoom, pan: newCam.pan, cameraRotation: newCam.rotation ?? 0 });
+        patch(computeZoomTo(camState, level, vp));
       },
       smoothZoomTo: (targetZoom, durationMs = 200) => {
         const s = stateRef.current;
