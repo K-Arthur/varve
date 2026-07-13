@@ -47,6 +47,8 @@ export interface Guide {
   id: string;
   axis: 'horizontal' | 'vertical';
   position: number;
+  /** Page this guide belongs to (multi-page documents). Omitted on legacy flat docs. */
+  pageId?: NodeId;
   locked?: boolean;
   color?: string;
 }
