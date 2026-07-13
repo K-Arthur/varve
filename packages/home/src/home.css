@@ -545,15 +545,8 @@
     var(--color-surface-sunken) 70%
   );
   background-size: 200% 100%;
+  /* keyframes defined in @strata/ui ContentSkeleton.css */
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
-}
-@keyframes skeleton-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
 }
 .file-card__body {
   padding: var(--space-2) var(--space-2) var(--space-1);
