@@ -33,7 +33,9 @@ struct CameraUniform {
   zoom: f32,
   viewportW: f32,
   viewportH: f32,
-  // 4 bytes implicit padding before origin (vec2f requires 8-byte alignment)
+  // Occupies the 4-byte slot that WGSL would otherwise insert as padding
+  // before origin (vec2f requires 8-byte alignment at offset 24).
+  rotation: f32,
   origin: vec2f,
 };
 
@@ -54,29 +56,35 @@ struct VertexOutput {
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
   var out: VertexOutput;
-  // Affine transform manually computed as scalar arithmetic rather than a
-  // matrix multiply. An earlier version used `mat2x3f(...) * vec3f(...)`,
-  // which is genuinely invalid WGSL (not a naga bug): WGSL's matCxR * vecC
-  // rule requires the vector's component count to match the matrix's
-  // *column* count, so mat2x3 (2 columns) needs a vec2 operand, not vec3 —
-  // verified directly against this crate's pinned naga version, which
-  // correctly rejects it at validation time ("Operation Multiply can't work
-  // with Matrix{columns:Bi,rows:Tri} and Vector{size:Tri}"). The intended
-  // op is representable as `mat3x2f(...) * vec3f(...)` (3 columns matching
-  // the vec3 homogeneous-coordinate input, producing a vec2) instead — this
-  // scalar form is kept for now since it's already validated end-to-end.
+  // Affine: transform=vec4(a,b,c,d), transform2=vec2(e,f) → x'=a·x+c·y+e, y'=b·x+d·y+f
+  // (kurbo / canvas / @strata/shared affine convention). Scalar form avoids
+  // WGSL matCxR*vecC column-count traps — see strata-bridge wgsl_validation.
   let world = vec2f(
-    input.transform.x * input.localPos.x + input.transform.z * input.localPos.y + input.transform.w,
-    input.transform.y * input.localPos.x + input.transform2.x * input.localPos.y + input.transform2.y,
+    input.transform.x * input.localPos.x + input.transform.z * input.localPos.y + input.transform2.x,
+    input.transform.y * input.localPos.x + input.transform.w * input.localPos.y + input.transform2.y,
   );
+  // Matches buildWorldToScreenAffine / applyCameraTransform: origin → zoom →
+  // rotate about viewport centre → pan.
+  let zoomed = vec2f(
+    (world.x - camera.origin.x) * camera.zoom,
+    (world.y - camera.origin.y) * camera.zoom,
+  );
+  let cx = camera.viewportW * 0.5;
+  let cy = camera.viewportH * 0.5;
+  let dx = zoomed.x - cx;
+  let dy = zoomed.y - cy;
+  let c = cos(camera.rotation);
+  let s = sin(camera.rotation);
   let screen = vec2f(
-    (world.x - camera.origin.x) * camera.zoom + camera.pan.x,
-    (world.y - camera.origin.y) * camera.zoom + camera.pan.y,
+    cx + camera.pan.x + dx * c - dy * s,
+    cy + camera.pan.y + dx * s + dy * c,
   );
   let ndcX = (screen.x / camera.viewportW) * 2.0 - 1.0;
   let ndcY = 1.0 - (screen.y / camera.viewportH) * 2.0;
   out.position = vec4f(ndcX, ndcY, 0.0, 1.0);
-  out.color = input.color;
+  // Premultiply here: canvas configured with alphaMode=premultiplied and
+  // pipelines blend with one / one-minus-src-alpha.
+  out.color = vec4f(input.color.rgb * input.color.a, input.color.a);
   return out;
 }
 "#;

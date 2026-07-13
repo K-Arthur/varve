@@ -1278,7 +1278,7 @@ export function CanvasArea({
       compositorRef.current?.beginFrame(
         {
           items: ir,
-          camera: { zoom: s.zoom, pan: s.pan },
+          camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
           viewport: { width: VP_W, height: VP_H },
           docVersion,
         },

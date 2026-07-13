@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import type { RenderItem } from '@strata/engine';
+import { applyAffine } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import { Canvas2DBackend } from '../canvas2d/backend';
-import { lineTessellationVertexCount, WebGPUBackend } from './backend';
+import { applyItemAffine, lineTessellationVertexCount, WebGPUBackend } from './backend';
 
 const FIXTURE_ITEMS: RenderItem[] = [
   {
@@ -79,6 +80,26 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       effects: [],
     };
     expect(lineTessellationVertexCount(LINE_ITEM)).toBe(6);
+  });
+
+  it('applyItemAffine matches @strata/shared applyAffine (a·x+c·y+e)', () => {
+    const t = [2, 0.5, -0.25, 3, 10, -4] as const;
+    const p = [4, 6] as const;
+    expect(applyItemAffine(p, t)).toEqual(applyAffine(t, p));
+    // Identity must be a true identity (the prior WGSL bug mapped (x,y)→(x+1,0)).
+    expect(applyItemAffine([7, 9], [1, 0, 0, 1, 0, 0])).toEqual([7, 9]);
+    expect(applyItemAffine([0, 0], [1, 0, 0, 1, 40, 50])).toEqual([40, 50]);
+  });
+
+  it('keeps a 2D context on the present canvas after init (ownership invert)', async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const wgpu = new WebGPUBackend();
+    await wgpu.init(canvas);
+    expect(wgpu.presentCanvasHas2dContext()).toBe(true);
+    expect(canvas.getContext('2d')).not.toBeNull();
+    wgpu.destroy();
   });
 
   it('fallback path matches Canvas2D for rect+circle+line', async () => {
@@ -161,12 +182,12 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     },
   );
 
-  it('reports deviceLost + gpuActive:false once GPUDevice.lost resolves', async () => {
+  it('reports deviceLost + gpuActive:false once GPUDevice.lost resolves; present 2D survives', async () => {
     const canvas = document.createElement('canvas');
     canvas.width = 32;
     canvas.height = 32;
     const wgpu = new WebGPUBackend();
-    await wgpu.init(canvas); // no navigator.gpu mocked -> falls back, gpuReady stays false
+    await wgpu.init(canvas);
 
     let resolveLost: (info: { reason: string; message: string }) => void = () => {};
     const lost = new Promise<{ reason: string; message: string }>((resolve) => {
@@ -178,13 +199,17 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     wgpu.watchDeviceLost(fakeDevice);
     resolveLost({ reason: 'unknown', message: 'simulated device loss' });
     await lost;
-    // Let the `.then` continuation scheduled inside watchDeviceLost run.
     await Promise.resolve();
     await Promise.resolve();
 
     const diag = wgpu.getDiagnostics();
     expect(diag.deviceLost).toBe(true);
     expect(diag.gpuActive).toBe(false);
+    // Ownership invert: content canvas stays 2D, so drawing still works.
+    expect(wgpu.presentCanvasHas2dContext()).toBe(true);
+    wgpu.beginFrame(frame, { applyCamera: false });
+    wgpu.drawVectorItems(FIXTURE_ITEMS);
+    wgpu.endFrame();
     wgpu.destroy();
   });
 

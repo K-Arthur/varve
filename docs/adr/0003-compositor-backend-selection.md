@@ -32,6 +32,12 @@ IR-replay remains the stable seam; compositor consumes `RenderItem[]`.
 
 WebGPUBackend acquires a real `GPUDevice` when `navigator.gpu` is available; unsupported primitives and device loss fall back to the embedded Canvas2D backend.
 
+## Canvas ownership (amended 2026-07-13)
+
+The present/content `<canvas>` **always** keeps a Canvas2D context. GPU work targets an offscreen canvas with a `webgpu` context; results are `drawImage`'d onto the 2D present surface. This was required because `CanvasArea.drawContent` needs `getContext('2d')` for board fill, camera, structural masks, and partial redraw — binding `webgpu` on the content canvas made `getContext('2d')` return null and blanked the editor when `preferWebGpu` was on.
+
+**Device loss** is now recoverable in place: tear down GPU resources, keep painting via Canvas2D on the same element. StatusBar shows "GPU lost — using Canvas2D". Reload only to re-acquire the GPU.
+
 ## Minimum Supported Baseline (2026-07-11, consolidated 2026-07-12)
 
 `WebGPUBackend.init()` (via `packages/engine/src/gpuAdapter.ts`'s `selectWebGpuAdapter`,
@@ -60,12 +66,11 @@ guarantee — if a future software renderer doesn't self-identify with any of th
 markers, it will be accepted as if it were real hardware. Revisit if evidence emerges of
 another software backend slipping through.
 
-**Device loss is a separate failure mode from adapter selection**, and is *not*
-recoverable in place: once `GPUDevice.lost` resolves mid-session, `WebGPUBackend` cannot
-fall back to Canvas2D on the same `<canvas>` element, because a browser canvas's context
-type (`webgpu` vs `2d`) is fixed for its lifetime. `CompositorDiagnostics.deviceLost`
-surfaces this so the UI can prompt for a reload (`StatusBar`'s "GPU lost — reload to
-restore") rather than attempt an in-place recovery that platform constraints rule out.
+**Device loss is a separate failure mode from adapter selection.** After the
+2026-07-13 ownership invert (2D present canvas + offscreen WebGPU), losing
+`GPUDevice` mid-session drops to Canvas2D on the same element — no remount
+required. `CompositorDiagnostics.deviceLost` still surfaces so the UI can warn
+("GPU lost — using Canvas2D") and optionally prompt a reload to re-acquire GPU.
 
 ## Fallback Removal Criterion
 

@@ -76,26 +76,27 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    pre-decodes on the main thread; `sceneCanUseWorkerRenderer` gates the worker path
    until every image src is loaded. Until then, main-thread replay applies.
 
-## WebGPU Compositor (2026-07-11)
+## WebGPU Compositor (2026-07-11; ownership invert 2026-07-13)
 
 | Feature | Implementation |
 |---|---|
-| Init order | WebGPU context acquired before any 2D context on main canvas |
-| Fallback | OffscreenCanvas 2D for non-GPU primitives; alpha-blitted onto WebGPU surface |
-| Primitives | rect, circle, line (tessellated quad) on GPU; text/path/effects on 2D overlay |
-| Pipeline | Explicit bind group layouts; shared camera uniform with floating-origin correction; per-circle discard shader |
-| Camera parity | `CameraUniform` includes `origin: vec2f` matching `computeFloatingOrigin()` from the Canvas2D backend, so panning far from (0,0) produces identical output from both backends |
-| Power preference | Tries `high-performance` first, falls back to `low-power` — covers mixed-GPU and integrated-only systems. Shared with `GpuAccelerator` and `detectWebGPU` via `@strata/engine`'s `selectWebGpuAdapter()` (2026-07-12) — previously three independent, textually-different implementations that could disagree on the same adapter. |
-| Perf | Vertex buffer pool (power-of-2); render bundle cache for static solid geometry (rects/lines only — circles' per-primitive uniform means no bundle cache for them yet, see Known Gaps) |
-| Device loss | `watchDeviceLost` clears pools, sets `CompositorDiagnostics.deviceLost: true`. **Does not** swap to Canvas2DBackend — a browser `<canvas>`'s context type (`webgpu` vs `2d`) is fixed for its lifetime, so that's not actually possible on the same canvas element (see 2026-07-12 entry below); StatusBar shows "GPU lost — reload to restore" instead. |
-| Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D — current per 2026-07 research, WebKitGTK has no shipped `navigator.gpu`; upstream WebKit itself still gates WebGPU behind a Preview/opt-in flag on some platforms) |
-| Diagnostics | Status bar via `CompositorDiagnostics` (backend id, pool/bundle counts, pipeline init ms, `deviceLost`) |
-| Minimum baseline | Software-emulated adapters (e.g. SwiftShader, Mesa llvmpipe/lavapipe) are declined before `requestDevice()` for both the render compositor and `GpuAccelerator`'s background-removal compute shaders (2026-07-12: the latter previously accepted any adapter); Canvas2D/CPU is used instead — see ADR-0003 |
+| Init order | Present canvas stays Canvas2D; offscreen canvas acquires `webgpu` |
+| Fallback | Non-GPU primitives (text/path/effects) draw via present Canvas2D on top of GPU blit |
+| Primitives | rect, circle, line (tessellated quad) on GPU; text/path/effects on 2D |
+| Pipeline | Explicit bind group layouts; shared camera uniform (floating origin + view rotation); per-circle discard shader; premul blend |
+| Affine | Vertex shader uses kurbo/canvas `a·x+c·y+e` / `b·x+d·y+f` (`transform`/`transform2` attrs) |
+| Camera parity | `CameraUniform` includes `origin` + `rotation`; matches `buildWorldToScreenAffine` |
+| Power preference | Shared `selectWebGpuAdapter()` (high-performance then low-power; decline software) |
+| Perf | Vertex buffer pool (power-of-2); render bundle cache for solid rects/lines |
+| Device loss | In-place Canvas2D continue; StatusBar "GPU lost — using Canvas2D" |
+| Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
+| Diagnostics | Status bar via `CompositorDiagnostics` |
+| Drift guard | `wgsl-drift.test.ts` keeps TS shaders ≡ `crates/strata-bridge/tests/wgsl_validation.rs` |
 
 ### Rollback & Incident Response
 
-- **Known caveat:** flipping `settings.render.preferWebGpu` requires an app/tab reload to re-init the compositor — it is not a hot-swap mid-session. Don't expect a live toggle to change the active backend without a reload.
-- **Incident order:** (1) flip `preferWebGpu` off (fast — no deploy needed for a user who already has the setting; a forced default change still needs a release), (2) only if the fallback itself doesn't resolve the issue, bisect and revert specific WebGPU/WASM commits — this implies the bug is in shared cleanup code (e.g. `destroy()`, vertex pool teardown) that runs regardless of which backend is active, since the fallback alone didn't help.
+- **Known caveat:** flipping `settings.render.preferWebGpu` requires an app/tab reload to re-init the compositor — it is not a hot-swap mid-session.
+- **Incident order:** (1) flip `preferWebGpu` off, (2) only if needed, bisect WebGPU commits.
 - **Removal criterion:** see ADR-0003.
 
 ### Shader/Pipeline Compilation Cost (2026-07-11)

@@ -106,22 +106,41 @@ describe('WGSL shader strings', () => {
 
     it('CameraUniform origin is at expected byte offset (24) with size 8', () => {
       const fields = parseStructFields(SOLID_VERTEX_WGSL, 'CameraUniform');
-      expect(fields.length).toBeGreaterThanOrEqual(5);
+      expect(fields.length).toBeGreaterThanOrEqual(6);
       const originField = fields.find((f) => f.name === 'origin');
       expect(originField).toBeDefined();
       expect(originField!.type).toBe('vec2f');
-      // Manually compute: pan(8) + zoom(4) + viewportW(4) + viewportH(4) = 20
-      // -> align to 8 for vec2f = 24
+      // pan(8) + zoom(4) + viewportW(4) + viewportH(4) + rotation(4) = 24
       const info = wgslUniformOffset(fields, 'origin');
       expect(info).not.toBeNull();
       expect(info!.offset).toBe(24);
       expect(info!.size).toBe(8);
+      const rot = wgslUniformOffset(fields, 'rotation');
+      expect(rot).not.toBeNull();
+      expect(rot!.offset).toBe(20);
     });
 
-    it('computes screen = (world - origin) * zoom + pan', () => {
+    it('computes screen via origin → zoom → rotate-about-centre → pan', () => {
       expect(SOLID_VERTEX_WGSL).toContain('camera.origin');
-      expect(SOLID_VERTEX_WGSL).toContain('(world.x - camera.origin.x)');
-      expect(SOLID_VERTEX_WGSL).toContain('(world.y - camera.origin.y)');
+      expect(SOLID_VERTEX_WGSL).toContain('camera.rotation');
+      expect(SOLID_VERTEX_WGSL).toContain('cos(camera.rotation)');
+      expect(SOLID_VERTEX_WGSL).toContain('(world.x - camera.origin.x) * camera.zoom');
+    });
+
+    it('applies affine as x=a·x+c·y+e, y=b·x+d·y+f (kurbo/canvas convention)', () => {
+      // Vertex attrs: transform=vec4(a,b,c,d), transform2=vec2(e,f).
+      // A prior bug used transform.w (d) as tx and transform2.x (e) as the
+      // y-scale term — identity transforms then mapped (x,y) → (x+1, 0).
+      expect(SOLID_VERTEX_WGSL).toMatch(
+        /transform\.x\s*\*\s*input\.localPos\.x\s*\+\s*input\.transform\.z\s*\*\s*input\.localPos\.y\s*\+\s*input\.transform2\.x/,
+      );
+      expect(SOLID_VERTEX_WGSL).toMatch(
+        /transform\.y\s*\*\s*input\.localPos\.x\s*\+\s*input\.transform\.w\s*\*\s*input\.localPos\.y\s*\+\s*input\.transform2\.y/,
+      );
+      // Explicitly reject the broken form.
+      expect(SOLID_VERTEX_WGSL).not.toMatch(
+        /transform\.z\s*\*\s*input\.localPos\.y\s*\+\s*input\.transform\.w\s*,/,
+      );
     });
   });
 
@@ -181,11 +200,9 @@ describe('CameraUniform JS buffer layout matches WGSL struct', () => {
   it('JS writes exactly 8 floats to match 32-byte WGSL CameraUniform', () => {
     const fields = parseStructFields(SOLID_VERTEX_WGSL, 'CameraUniform');
     const structSize = computeStructSize(fields);
-    // WGSL var<uniform> struct layout:
-    //   pan(8) + zoom(4) + viewportW(4) + viewportH(4) + pad(4) + origin(8) = 32
-    // The struct size is rounded up to 16 bytes for uniform buffer alignment.
+    // pan(8)+zoom(4)+viewportW(4)+viewportH(4)+rotation(4)+origin(8) = 32
     expect(structSize).toBe(32);
-    // JS Float32Array: [pan.x, pan.y, zoom, viewportW, viewportH, pad, origin.x, origin.y]
+    // JS: [pan.x, pan.y, zoom, viewportW, viewportH, rotation, origin.x, origin.y]
     const jsValues = 8;
     const jsBytes = jsValues * 4;
     expect(jsBytes).toBe(32);

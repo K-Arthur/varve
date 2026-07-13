@@ -32,19 +32,18 @@ is adopted.
       original plan fixed — lines rendered nothing before quad tessellation).
 - [ ] **Mixed content composites correctly:** a document with GPU primitives (rect/circle/line)
       *and* CPU-only content (text, path, effects) in the same frame — confirm the Canvas2D
-      overlay blends onto the WebGPU surface without a visible seam, double-draw, or missing
-      layer (alpha-blit overlay path in `compositeFallbackOverlay`).
+      present path draws non-GPU primitives on top of the GPU blit without a visible seam
+      (ownership invert 2026-07-13: present canvas is always 2D; GPU is offscreen).
 - [ ] **Pan/zoom stays smooth and correct:** no vertex corruption, no stale bundle-cache artifacts
       (the render-bundle cache keys on a content hash — a hash collision or stale-write bug would
-      show up as "wrong shape drawn" during rapid edits).
-- [ ] **Resize the window:** canvas + offscreen fallback surface both resize; no stretched or
+      show up as "wrong shape drawn" during rapid edits). Confirm rotated view (view rotation)
+      keeps GPU and 2D content aligned.
+- [ ] **Resize the window:** present canvas + offscreen GPU canvas both resize; no stretched or
       black frame.
-- [ ] **Force a device loss if your driver/tooling allows it** (e.g. `chrome://gpu-internals` or
-      driver-level tools) and confirm the status bar switches to "GPU lost — reload to restore"
-      (`CompositorDiagnostics.deviceLost`). It will **not** recover in place — a browser
-      `<canvas>` element's context type (`webgpu` vs `2d`) is fixed for its lifetime, so falling
-      back to Canvas2D on the same canvas isn't possible; this is the expected, correct behavior
-      as of 2026-07-12, not a bug. Confirm reloading the document tab restores rendering.
+- [ ] **Force a device loss if your driver/tooling allows it** and confirm the status bar switches
+      to "GPU lost — using Canvas2D" (`CompositorDiagnostics.deviceLost`). Rendering must
+      **continue** on Canvas2D without a remount (ownership invert). Reload only if you want to
+      re-acquire the GPU adapter.
 - [ ] **Check `pipelineInitMs` via the diagnostics** (status bar tooltip today only shows pool/
       bundle counts — read `compositorDiagnosticsStore`'s current value directly, or add a
       temporary log) and sanity-check it's not a multi-hundred-ms outlier on this hardware.
