@@ -22,6 +22,8 @@ pub struct FileRow {
     pub file_path: Option<String>,
     pub ordering: String,
     pub content_hash: String,
+    /// Epoch ms when favorited; None when not in Favorites.
+    pub favorited_at: Option<i64>,
 }
 
 /// Row type for project entries.
@@ -62,7 +64,8 @@ impl DocumentStore {
                 trashed_at TEXT,
                 file_path TEXT,
                 ordering TEXT NOT NULL DEFAULT '',
-                content_hash TEXT NOT NULL DEFAULT ''
+                content_hash TEXT NOT NULL DEFAULT '',
+                favorited_at INTEGER
             );
             CREATE TABLE IF NOT EXISTS projects (
                 id TEXT PRIMARY KEY,
@@ -103,6 +106,8 @@ impl DocumentStore {
             END;
             INSERT INTO files_fts(files_fts) VALUES('rebuild');",
         )?;
+        // Idempotent migration for DBs created before favorited_at existed.
+        let _ = conn.execute("ALTER TABLE files ADD COLUMN favorited_at INTEGER", []);
         Ok(DocumentStore {
             conn: Mutex::new(conn),
         })
@@ -158,13 +163,14 @@ impl DocumentStore {
             file_path: row.get(10)?,
             ordering: row.get(11)?,
             content_hash: row.get(12)?,
+            favorited_at: row.get(13)?,
         })
     }
 
     pub fn list_files(&self) -> Result<Vec<FileRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at
              FROM files WHERE trashed_at IS NULL ORDER BY ordering ASC, updated_at DESC",
         )?;
         let rows = stmt.query_map([], Self::row_to_file)?;
@@ -174,7 +180,7 @@ impl DocumentStore {
     pub fn list_trashed_files(&self) -> Result<Vec<FileRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at
              FROM files WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC",
         )?;
         let rows = stmt.query_map([], Self::row_to_file)?;
@@ -184,7 +190,7 @@ impl DocumentStore {
     pub fn get_file(&self, id: &str) -> Result<Option<FileRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash
+            "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at
              FROM files WHERE id = ?1",
         )?;
         let mut rows = stmt.query(rusqlite::params![id])?;
@@ -210,11 +216,12 @@ impl DocumentStore {
         file_path: Option<&str>,
         ordering: &str,
         content_hash: &str,
+        favorited_at: Option<i64>,
     ) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO files (id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+            "INSERT INTO files (id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 kind = excluded.kind,
@@ -226,10 +233,11 @@ impl DocumentStore {
                 trashed_at = excluded.trashed_at,
                 file_path = excluded.file_path,
                 ordering = excluded.ordering,
-                content_hash = excluded.content_hash",
+                content_hash = excluded.content_hash,
+                favorited_at = excluded.favorited_at",
             rusqlite::params![
                 id, name, kind, project_id, created_at, updated_at, opened_at, size,
-                pinned as i64, trashed_at, file_path, ordering, content_hash
+                pinned as i64, trashed_at, file_path, ordering, content_hash, favorited_at
             ],
         )?;
         Ok(())
@@ -258,6 +266,19 @@ impl DocumentStore {
         conn.execute(
             "UPDATE files SET pinned = ?2 WHERE id = ?1",
             rusqlite::params![id, pinned as i64],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_file_favorited(
+        &self,
+        id: &str,
+        favorited_at: Option<i64>,
+    ) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET favorited_at = ?2 WHERE id = ?1",
+            rusqlite::params![id, favorited_at],
         )?;
         Ok(())
     }
@@ -306,7 +327,7 @@ impl DocumentStore {
         }
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT f.id, f.name, f.kind, f.project_id, f.created_at, f.updated_at, f.opened_at, f.size, f.pinned, f.trashed_at, f.file_path, f.ordering, f.content_hash
+            "SELECT f.id, f.name, f.kind, f.project_id, f.created_at, f.updated_at, f.opened_at, f.size, f.pinned, f.trashed_at, f.file_path, f.ordering, f.content_hash, f.favorited_at
              FROM files f
              JOIN files_fts ft ON f.rowid = ft.rowid
              WHERE files_fts MATCH ?1 AND f.trashed_at IS NULL
@@ -518,6 +539,7 @@ mod tests {
                 None,
                 "",
                 "abc123",
+                None,
             )
             .expect("upsert");
         let files = store.list_files().expect("list");
@@ -525,6 +547,37 @@ mod tests {
         assert_eq!(files[0].name, "Test Design");
         assert_eq!(files[0].kind, "strata");
         assert!(!files[0].pinned);
+        assert!(files[0].favorited_at.is_none());
+    }
+
+    #[test]
+    fn set_file_favorited_round_trip() {
+        let store = temp_store();
+        let t = now();
+        store
+            .upsert_file(
+                "fav1",
+                "Starred",
+                "strata",
+                None,
+                &t,
+                &t,
+                &t,
+                0,
+                false,
+                None,
+                None,
+                "",
+                "",
+                None,
+            )
+            .expect("upsert");
+        store.set_file_favorited("fav1", Some(1_700_000_000_000)).expect("favorite");
+        let got = store.get_file("fav1").expect("get").expect("exists");
+        assert_eq!(got.favorited_at, Some(1_700_000_000_000));
+        store.set_file_favorited("fav1", None).expect("unfavorite");
+        let got = store.get_file("fav1").expect("get").expect("exists");
+        assert!(got.favorited_at.is_none());
     }
 
     #[test]
@@ -546,6 +599,7 @@ mod tests {
                 None,
                 "",
                 "",
+                None,
             )
             .expect("upsert");
         let trash_t = now();
@@ -563,7 +617,7 @@ mod tests {
         store.save_document("f3", "{}").expect("save doc");
         store
             .upsert_file(
-                "f3", "Purge Me", "strata", None, &t, &t, &t, 0, false, None, None, "", "",
+                "f3", "Purge Me", "strata", None, &t, &t, &t, 0, false, None, None, "", "", None,
             )
             .expect("upsert");
         store.purge_file("f3").expect("purge");
@@ -621,17 +675,17 @@ mod tests {
         let t = now();
         store
             .upsert_file(
-                "f1", "Alpha", "strata", None, &t, &t, &t, 100, false, None, None, "", "hash1",
+                "f1", "Alpha", "strata", None, &t, &t, &t, 100, false, None, None, "", "hash1", None,
             )
             .expect("upsert");
         store
             .upsert_file(
-                "f2", "Beta", "strata", None, &t, &t, &t, 200, false, None, None, "", "hash2",
+                "f2", "Beta", "strata", None, &t, &t, &t, 200, false, None, None, "", "hash2", None,
             )
             .expect("upsert");
         store
             .upsert_file(
-                "f3", "Gamma", "strata", None, &t, &t, &t, 300, false, None, None, "", "hash3",
+                "f3", "Gamma", "strata", None, &t, &t, &t, 300, false, None, None, "", "hash3", None,
             )
             .expect("upsert");
         let results = store.search_files("alpha").expect("search");
@@ -647,7 +701,7 @@ mod tests {
         let t = now();
         store
             .upsert_file(
-                "f1", "First", "strata", None, &t, &t, &t, 0, false, None, None, "a0", "hash1",
+                "f1", "First", "strata", None, &t, &t, &t, 0, false, None, None, "a0", "hash1", None,
             )
             .expect("upsert");
         store.reorder_file("f1", "z0").expect("reorder");

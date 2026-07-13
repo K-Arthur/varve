@@ -289,7 +289,7 @@ export function FileGrid({
                       onClick={(e) => handleCardClick(e, fileIdx)}
                       onRename={onRename}
                       isRenaming={renamingId === entry.id}
-                      onStartRename={() => onStartRename?.(entry.id)}
+                      onStartRename={onStartRename}
                       isMissing={missingFiles.has(entry.id)}
                       onToggleFavorite={onToggleFavorite}
                       tabIndex={fileIdx === focusIdx ? 0 : -1}

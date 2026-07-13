@@ -44,6 +44,8 @@ export interface HomeShellProps {
   onResumeEditing?: () => void;
   /** Called once the home screen has finished loading its initial data. */
   onReady?: () => void;
+  /** When true, home is the visible surface (refresh when becoming active). */
+  active?: boolean;
 }
 
 async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson: string) {
@@ -65,9 +67,16 @@ async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson:
   }
 }
 
-export function HomeShell({ platform, onOpenFile, onResumeEditing, onReady }: HomeShellProps) {
+export function HomeShell({
+  platform,
+  onOpenFile,
+  onResumeEditing,
+  onReady,
+  active = true,
+}: HomeShellProps) {
   const view = useHomeView(platform);
   const readyFired = useRef(false);
+  const wasActiveRef = useRef(active);
 
   useEffect(() => {
     if (!view.loading && !readyFired.current) {
@@ -75,6 +84,16 @@ export function HomeShell({ platform, onOpenFile, onResumeEditing, onReady }: Ho
       onReady?.();
     }
   }, [view.loading, onReady]);
+
+  // Refresh file list when returning from the editor so Recents/Favourites
+  // reflect touchFile + any save metadata updates.
+  useEffect(() => {
+    const becameActive = active && !wasActiveRef.current;
+    wasActiveRef.current = active;
+    if (becameActive) {
+      void view.refresh();
+    }
+  }, [active, view.refresh]);
   const actions = useFileActions(platform, view.refresh);
   const thumbnails = useThumbnailLoader(platform);
 

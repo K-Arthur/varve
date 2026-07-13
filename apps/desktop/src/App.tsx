@@ -29,6 +29,9 @@ export function App() {
     setHomeReady(true);
     onHomeReady();
     void revealMainWindow();
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent('strata:ready', { detail: { mode: 'home' } }));
+    });
   }, [onHomeReady]);
 
   const handleOpenFile = useCallback(
@@ -37,6 +40,7 @@ export function App() {
         .readFile(entry.id)
         .catch(() => null)
         .then((json) => {
+          void platform.touchFile(entry.id).catch(() => undefined);
           setOpenRequest((prev) => ({
             id: entry.id,
             name: entry.name,
@@ -46,6 +50,9 @@ export function App() {
           setEditorMounted(true);
           setView('editor');
           onEditorReady();
+          requestAnimationFrame(() => {
+            window.dispatchEvent(new CustomEvent('strata:ready', { detail: { mode: 'editor' } }));
+          });
         });
     },
     [onEditorReady],
@@ -94,6 +101,7 @@ export function App() {
             onOpenFile={handleOpenFile}
             onResumeEditing={editorMounted ? handleResumeEditing : undefined}
             onReady={handleHomeReady}
+            active={view === 'home'}
           />
         </div>
         {editorMounted && (
