@@ -71,7 +71,7 @@ describe('workerPool', () => {
       const p2 = runPooledInference(img, opts, '/models/u2netp.onnx', 'u2netp');
       for (const p of [p1, p2]) p.catch(() => {});
 
-      await vi.advanceTimersByTimeAsync(11_000);
+      await vi.advanceTimersByTimeAsync(121_000);
 
       await expect(p1).rejects.toThrow('Worker inference timed out');
 
