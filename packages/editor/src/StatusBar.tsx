@@ -47,12 +47,12 @@ export function StatusBar() {
   return (
     <div className="editor-status">
       <span>{state.tool}</span>
-      {compositorDiag && compositorDiag.deviceLost && (
+      {compositorDiag?.deviceLost && (
         <span
           className="editor-status__info editor-status__info--warning"
-          title="The GPU device was lost mid-session (driver reset, OS suspend/resume, or another app claiming the GPU). A browser canvas can't switch rendering modes after the fact, so this document's canvas is no longer updating — reload to restore rendering."
+          title="The GPU device was lost mid-session (driver reset, OS suspend/resume, or another app claiming the GPU). Rendering continues on Canvas2D; reload if you want to re-acquire the GPU."
         >
-          GPU lost — reload to restore
+          GPU lost — using Canvas2D
         </span>
       )}
       {compositorDiag && !compositorDiag.deviceLost && (

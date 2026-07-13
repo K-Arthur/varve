@@ -119,6 +119,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             id="settings-tabpanel"
             role="tabpanel"
             aria-labelledby={`settings-tab-${activeSection}`}
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: APG pattern — tabpanel is a focus target
             tabIndex={0}
           >
             {activeSection === 'general' && <GeneralSection />}
@@ -221,8 +222,10 @@ function GeneralSection() {
         </label>
       </FieldRow>
       <p className="settings-hint">
-        Reload the document tab after changing. Falls back to Canvas2D on device loss or unsupported
-        primitives. Status bar shows active backend.
+        Reload the document tab after changing. Uses an offscreen WebGPU surface and keeps the
+        content canvas on Canvas2D (so the editor never blanks). Falls back to Canvas2D on device
+        loss or unsupported primitives. Unavailable on Linux WebKitGTK. Status bar shows the active
+        backend.
       </p>
     </div>
   );
