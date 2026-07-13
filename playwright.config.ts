@@ -12,11 +12,21 @@ export default defineConfig({
     baseURL: 'http://localhost:1420',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    permissions: ['clipboard-read', 'clipboard-write'],
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'chromium-snapshot', use: { ...devices['Desktop Chrome'] } },
+    // clipboard-read/write permission grants are only supported by
+    // Chromium's Permissions API — Firefox and WebKit fail context/page
+    // creation outright ("Unknown permission") if asked to grant them, so
+    // this is scoped to the Chromium projects rather than the top-level
+    // `use` block.
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], permissions: ['clipboard-read', 'clipboard-write'] },
+    },
+    {
+      name: 'chromium-snapshot',
+      use: { ...devices['Desktop Chrome'], permissions: ['clipboard-read', 'clipboard-write'] },
+    },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     // Safari/WebKit requires macOS for full testing — runs basic smoke tests on Linux
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
