@@ -1,6 +1,6 @@
 import { addChild, addNode, createDocument, type Document, makeFrameNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { findContainingFrameInDoc } from '../../context';
+import { findContainingFrameInDoc } from '../findContainingFrame';
 
 function makeDoc(): Document {
   return createDocument('test-doc');
