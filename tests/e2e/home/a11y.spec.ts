@@ -1,10 +1,10 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { navigateToHome } from '../shared';
 
 test.describe('Home - axe-core scan', () => {
   test('HomeShell main view has no automated accessibility violations', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await navigateToHome(page);
 
     const results = await new AxeBuilder({ page })
       .include('.strata-home')
@@ -15,8 +15,7 @@ test.describe('Home - axe-core scan', () => {
   });
 
   test('sidebar navigation has no automated accessibility violations', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await navigateToHome(page);
 
     const results = await new AxeBuilder({ page })
       .include('nav[aria-label="File navigation"]')
@@ -27,13 +26,12 @@ test.describe('Home - axe-core scan', () => {
   });
 
   test('New File dialog has no automated accessibility violations', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await navigateToHome(page);
     await page.getByRole('button', { name: /^new$/i }).click();
-    await page.waitForSelector('dialog.strata-dialog');
+    await page.waitForSelector('dialog[open]');
 
     const results = await new AxeBuilder({ page })
-      .include('dialog.strata-dialog')
+      .include('dialog[open]')
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();
 
@@ -41,8 +39,7 @@ test.describe('Home - axe-core scan', () => {
   });
 
   test('Trash section has no automated accessibility violations', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await navigateToHome(page);
 
     const trashItem = page
       .locator('nav[aria-label="File navigation"]')

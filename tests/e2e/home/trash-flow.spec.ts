@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { navigateToHome, sidebarNavClick } from '../shared';
 
 test.describe('Home trash flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await navigateToHome(page);
   });
 
   test('sidebar has Trash item with count', async ({ page }) => {
@@ -14,11 +14,8 @@ test.describe('Home trash flow', () => {
   });
 
   test('trash section shows empty state when no trashed files', async ({ page }) => {
-    const trashItem = page
-      .locator('nav[aria-label="File navigation"]')
-      .getByRole('button', { name: /trash/i });
-    await trashItem.click();
-    await page.waitForTimeout(200);
+    await sidebarNavClick(page, 'Trash');
+    await page.waitForTimeout(150);
 
     const emptyState = page.locator('.strata-empty[role="status"]');
     await expect(emptyState).toBeVisible();
@@ -26,27 +23,21 @@ test.describe('Home trash flow', () => {
   });
 
   test('trash section CTA navigates back to files', async ({ page }) => {
-    const trashItem = page
-      .locator('nav[aria-label="File navigation"]')
-      .getByRole('button', { name: /trash/i });
-    await trashItem.click();
-    await page.waitForTimeout(200);
+    await sidebarNavClick(page, 'Trash');
+    await page.waitForTimeout(150);
 
     const cta = page.locator('.strata-empty__actions button');
     await expect(cta).toBeVisible();
 
     await cta.click();
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(150);
 
     await expect(page.locator('.strata-home')).toBeVisible();
   });
 
   test('trash section with files shows Restore and Delete buttons', async ({ page }) => {
-    const trashItem = page
-      .locator('nav[aria-label="File navigation"]')
-      .getByRole('button', { name: /trash/i });
-    await trashItem.click();
-    await page.waitForTimeout(200);
+    await sidebarNavClick(page, 'Trash');
+    await page.waitForTimeout(150);
 
     const hasFiles = await page
       .locator('button:has-text("Restore")')
@@ -64,7 +55,7 @@ test.describe('Home trash flow', () => {
     if (count < 1) return;
 
     await card.click({ button: 'right' });
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(150);
 
     const ctxMenu = page.locator('.strata-ctxmenu[role="menu"]');
     await expect(ctxMenu.locator('[role="menuitem"]').filter({ hasText: /trash/i })).toBeVisible();
