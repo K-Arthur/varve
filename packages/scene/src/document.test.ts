@@ -501,6 +501,33 @@ describe('groupNodes / ungroupNode', () => {
     const result = ungroupNode(doc, a.id);
     expect(result).toBe(doc);
   });
+
+  it('groups siblings nested inside a real container, not just rootChildren (regression: groupNodes created the group via addNode, which always appends to doc.rootChildren — for a non-null parentId the group was never reparented into it, leaving it orphaned in rootChildren while its members vanished from the visible tree)', () => {
+    let doc = createDocument();
+    const cr = pageContentRoot(doc);
+    const a = shape(doc, 'a');
+    doc = a.doc;
+    doc = addChild(doc, cr, a.node);
+    const b = shape(doc, 'b');
+    doc = b.doc;
+    doc = addChild(doc, cr, b.node);
+    const c = shape(doc, 'c');
+    doc = c.doc;
+    doc = addChild(doc, cr, c.node);
+    expect((getById(doc, cr) as FrameNode).children).toEqual([a.id, b.id, c.id]);
+
+    const { id: gId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const group = makeGroupNode(gId, { name: 'G' });
+    doc = groupNodes(doc, [a.id, b.id], group);
+
+    // The group must land inside the real parent, at the position its
+    // first member occupied — not be left dangling in rootChildren.
+    expect((getById(doc, cr) as FrameNode).children).toEqual([gId, c.id]);
+    expect(doc.rootChildren).not.toContain(gId);
+    const grp = getById(doc, gId) as GroupNode;
+    expect(grp.children).toEqual([a.id, b.id]);
+  });
 });
 
 describe('detachInstance', () => {
