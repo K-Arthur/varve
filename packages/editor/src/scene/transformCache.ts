@@ -2,7 +2,7 @@ import type { Document, NodeId } from '@strata/scene';
 import { getParent } from '@strata/scene';
 import type { Affine, Rect } from '@strata/shared';
 import { identity, multiplyAffine, rotateDeg, transformRect } from '@strata/shared';
-import { nodeLocalBounds } from './world';
+import { nodeLocalBounds } from './nodeBounds';
 
 export interface TransformCache {
   worldTransform: Map<NodeId, Affine>;
