@@ -5,8 +5,8 @@ import {
   loadOnboardingState,
   loadOnboardingStateFromPlatform,
   markOnboardingComplete,
+  type OnboardingStore,
   saveOnboardingState,
-  saveOnboardingStateToPlatform,
 } from '../../onboard/onboardingStore';
 import { TOUR_STEPS } from './tourSteps';
 
@@ -23,6 +23,7 @@ export interface OnboardingActions {
   dismiss: () => void;
   isComplete: () => boolean;
   reopen: () => void;
+  resetWelcome: () => void;
   dismissTip: (tipId: string) => void;
 }
 
@@ -36,18 +37,29 @@ export function useOnboarding(platform?: Platform): OnboardingState & Onboarding
     };
   });
 
-  // localStorage is read synchronously above for a fast first paint, but on
-  // desktop it isn't guaranteed to survive between separate app launches
-  // (see the comment on loadOnboardingStateFromPlatform). Correct the
-  // optimistic localStorage-derived guess against native platform storage
-  // once it resolves, so a returning user doesn't see the welcome dialog
-  // again just because the WebView's localStorage was reset.
+  // Hydrate durable onboarding state from platform storage (SQLite on
+  // desktop, IndexedDB on web). Merges into localStorage when platform has
+  // richer state — e.g. checklist progress surviving a WebView localStorage wipe.
   useEffect(() => {
     if (!platform) return;
     let cancelled = false;
     loadOnboardingStateFromPlatform(platform).then((saved) => {
-      if (cancelled || !saved?.onboardingComplete) return;
-      setState({ active: false, stepIndex: -1, showWelcome: false });
+      if (cancelled || !saved) return;
+      const local = loadOnboardingState();
+      const merged: OnboardingStore = {
+        ...local,
+        ...saved,
+        checklistProgress:
+          saved.checklistProgress.length >= local.checklistProgress.length
+            ? saved.checklistProgress
+            : local.checklistProgress,
+        dismissedTips: [...new Set([...local.dismissedTips, ...saved.dismissedTips])],
+        seenFeatureBadges: [...new Set([...local.seenFeatureBadges, ...saved.seenFeatureBadges])],
+      };
+      saveOnboardingState(merged, platform);
+      if (merged.onboardingComplete) {
+        setState({ active: false, stepIndex: -1, showWelcome: false });
+      }
     });
     return () => {
       cancelled = true;
@@ -57,8 +69,7 @@ export function useOnboarding(platform?: Platform): OnboardingState & Onboarding
   const complete = useCallback(() => {
     const saved = loadOnboardingState();
     const updated = markOnboardingComplete(saved);
-    saveOnboardingState(updated);
-    if (platform) saveOnboardingStateToPlatform(platform, updated);
+    saveOnboardingState(updated, platform);
     setState({ active: false, stepIndex: -1, showWelcome: false });
   }, [platform]);
 
@@ -98,11 +109,18 @@ export function useOnboarding(platform?: Platform): OnboardingState & Onboarding
     setState({ active: true, stepIndex: 0, showWelcome: false });
   }, []);
 
-  const dismissTip = useCallback((tipId: string) => {
-    const saved = loadOnboardingState();
-    const updated = dismissTipStore(saved, tipId);
-    saveOnboardingState(updated);
+  const resetWelcome = useCallback(() => {
+    setState({ active: true, stepIndex: -1, showWelcome: true });
   }, []);
+
+  const dismissTip = useCallback(
+    (tipId: string) => {
+      const saved = loadOnboardingState();
+      const updated = dismissTipStore(saved, tipId);
+      saveOnboardingState(updated, platform);
+    },
+    [platform],
+  );
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -132,6 +150,7 @@ export function useOnboarding(platform?: Platform): OnboardingState & Onboarding
     dismiss,
     isComplete,
     reopen,
+    resetWelcome,
     dismissTip,
   };
 }

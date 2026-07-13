@@ -52,14 +52,18 @@ import { getActionTracker } from './intelligence/actionTracker';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
 import {
+  ContextualHelpPanel,
   checkChecklistItem,
   DidYouKnowTip,
   loadOnboardingState,
   markTutorialComplete,
+  resetOnboarding,
   saveOnboardingState,
   TutorialBanner,
   useDidYouKnow,
+  useEditorHelp,
   useTutorialProgress,
+  WhatIsThis,
 } from './onboard';
 import {
   CHECKLIST_ITEMS,
@@ -115,15 +119,12 @@ function ShellInner({
   active?: boolean;
 }) {
   const editor = useEditor();
-  const {
-    paletteOpen,
-    closePalette,
-    openPalette,
-    quickActionsOpen,
-    setQuickActionsOpen,
-    helpOpen,
-    setHelpOpen,
-  } = useShortcuts(editor, onBackToHome, active);
+  const editorHelp = useEditorHelp(editor.state.tool);
+  const { paletteOpen, closePalette, openPalette, quickActionsOpen, setQuickActionsOpen } =
+    useShortcuts(editor, onBackToHome, active, {
+      onOpenContextualHelp: editorHelp.openContextualHelp,
+      onOpenHelpCenter: () => editorHelp.setHelpCenterOpen(true),
+    });
 
   const { presences: collabPresences, users: collabUsers } = useCollabPresence(
     editor.state.activeId,
@@ -315,6 +316,9 @@ function ShellInner({
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [libraryVisible, setLibraryVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<
+    'general' | 'appearance' | 'shortcuts' | 'export' | 'models' | 'collab' | 'ai' | 'about'
+  >('general');
   const [batchBgRemoveOpen, setBatchBgRemoveOpen] = useState(false);
   const { shellStyle, widths, setWidth } = usePanelWidths();
 
@@ -335,15 +339,18 @@ function ShellInner({
     return saved.checklistProgress;
   });
 
-  const updateChecklistProgress = useCallback((itemId: string) => {
-    setChecklistProgressState((prev) => {
-      if (prev.includes(itemId)) return prev;
-      const updated = [...prev, itemId];
-      const saved = loadOnboardingState();
-      saveOnboardingState(checkChecklistItem(saved, itemId));
-      return updated;
-    });
-  }, []);
+  const updateChecklistProgress = useCallback(
+    (itemId: string) => {
+      setChecklistProgressState((prev) => {
+        if (prev.includes(itemId)) return prev;
+        const updated = [...prev, itemId];
+        const saved = loadOnboardingState();
+        saveOnboardingState(checkChecklistItem(saved, itemId), platform);
+        return updated;
+      });
+    },
+    [platform],
+  );
 
   const dismissChecklist = useCallback(() => {
     setChecklistOpen(false);
@@ -365,7 +372,7 @@ function ShellInner({
       }
     }
     if (tracker.getCount('export', 600_000) > 0) updateChecklistProgress('export');
-  }, [updateChecklistProgress]);
+  }, [updateChecklistProgress, platform]);
 
   // Show checklist after welcome is dismissed, if not yet completed
   useEffect(() => {
@@ -491,10 +498,19 @@ function ShellInner({
       <div className="editor-shell" style={gridStyle}>
         <Menubar
           onBackToHome={onBackToHome}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => {
+            setSettingsSection('general');
+            setSettingsOpen(true);
+          }}
           onStartTour={onboarding.reopen}
           onOpenPalette={openPalette}
-          onOpenHelp={() => setHelpOpen(true)}
+          onOpenHelp={editorHelp.openContextualHelp}
+          onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
+          onWhatIsThis={editorHelp.toggleWhatIsThis}
+          onOpenAbout={() => {
+            setSettingsSection('about');
+            setSettingsOpen(true);
+          }}
           onBatchBgRemove={() => setBatchBgRemoveOpen(true)}
         />
         <FloatingToolbar />
@@ -760,7 +776,15 @@ function ShellInner({
         />
 
         {/* Settings dialog */}
-        <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          initialSection={settingsSection}
+          onOnboardingReset={() => {
+            resetOnboarding(platform);
+            onboarding.resetWelcome();
+          }}
+        />
 
         {/* Export dialog */}
         <ExportDialog
@@ -789,7 +813,7 @@ function ShellInner({
 
         {/* Onboarding: Welcome dialog */}
         <WelcomeDialog
-          open={onboarding.showWelcome && onboarding.active}
+          open={onboarding.showWelcome && onboarding.active && !showRecovery}
           onStartTour={onboarding.startTour}
           onStartTutorial={() => {
             const tutorialDoc = createTutorialDocument();
@@ -801,6 +825,7 @@ function ShellInner({
           }}
           onStartTemplate={() => {
             onboarding.dismiss();
+            onBackToHome?.();
           }}
           onClose={onboarding.dismiss}
         />
@@ -875,8 +900,26 @@ function ShellInner({
           />
         )}
 
+        {/* Contextual help side panel (F1) */}
+        <ContextualHelpPanel
+          state={editorHelp.contextual.state}
+          onClose={editorHelp.contextual.close}
+          onSetArticle={editorHelp.contextual.setArticle}
+          onSetSearchQuery={editorHelp.contextual.setSearchQuery}
+        />
+
+        {/* What's This? click-to-learn overlay (Shift+F1) */}
+        <WhatIsThis
+          open={editorHelp.whatIsThisOpen}
+          onOpenHelp={editorHelp.handleWhatIsThisArticle}
+          onExit={editorHelp.exitWhatIsThis}
+        />
+
         {/* Help Browser */}
-        <HelpBrowser open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <HelpBrowser
+          open={editorHelp.helpCenterOpen}
+          onClose={() => editorHelp.setHelpCenterOpen(false)}
+        />
         <PromptDialog />
 
         {/* Canvas right-click context menu */}

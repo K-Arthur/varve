@@ -66,16 +66,23 @@ function colorToHex(c: ManagedColor): string {
 export interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
+  initialSection?: SettingsSection;
+  onOnboardingReset?: () => void;
 }
 
-export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
+export function SettingsDialog({
+  open,
+  onClose,
+  initialSection = 'general',
+  onOnboardingReset,
+}: SettingsDialogProps) {
   const { updateSection, resetSettings } = useSettings();
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
-    if (open) setActiveSection('general');
-  }, [open]);
+    if (open) setActiveSection(initialSection);
+  }, [open, initialSection]);
 
   const handleThemeChange = useCallback(
     (theme: string) => {
@@ -123,7 +130,9 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             // biome-ignore lint/a11y/noNoninteractiveTabindex: APG pattern — tabpanel is a focus target
             tabIndex={0}
           >
-            {activeSection === 'general' && <GeneralSection />}
+            {activeSection === 'general' && (
+              <GeneralSection onOnboardingReset={onOnboardingReset} />
+            )}
             {activeSection === 'appearance' && (
               <AppearanceSection onThemeChange={handleThemeChange} />
             )}
@@ -167,7 +176,7 @@ function Divider() {
   return <div className="settings-divider" />;
 }
 
-function GeneralSection() {
+function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void }) {
   const { settings, updateSection } = useSettings();
   const [preferWebGpu, setPreferWebGpu] = useState(() => loadSettings().render.preferWebGpu);
 
@@ -228,6 +237,21 @@ function GeneralSection() {
         loss or unsupported primitives. Unavailable on Linux WebKitGTK. Status bar shows the active
         backend.
       </p>
+      <Divider />
+      <h3 className="settings-section__title">Onboarding</h3>
+      <p className="settings-desc">
+        Reset the welcome dialog, tour progress, checklist, and dismissed tips. Use Help &gt; Take a
+        tour to replay the spotlight tour anytime.
+      </p>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => {
+          onOnboardingReset?.();
+        }}
+      >
+        Reset onboarding
+      </Button>
     </div>
   );
 }

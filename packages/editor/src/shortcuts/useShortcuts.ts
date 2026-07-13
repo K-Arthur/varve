@@ -3,24 +3,31 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorContextValue, ToolId } from '../context';
 import { bindingMatchesEvent, getEffectiveBinding, SHORTCUT_DEFS } from './ShortcutManager';
 
+export interface EditorHelpActions {
+  onOpenContextualHelp?: () => void;
+  onOpenHelpCenter?: () => void;
+}
+
 export function useShortcuts(
   editor: EditorContextValue,
   onBackToHome?: () => void,
   enabled = true,
+  helpActions?: EditorHelpActions,
 ): {
   paletteOpen: boolean;
   closePalette: () => void;
   openPalette: () => void;
   quickActionsOpen: boolean;
   setQuickActionsOpen: (open: boolean) => void;
-  helpOpen: boolean;
-  setHelpOpen: (open: boolean) => void;
 } {
   const ref = useRef(editor);
   ref.current = editor;
 
   const onBackToHomeRef = useRef(onBackToHome);
   onBackToHomeRef.current = onBackToHome;
+
+  const helpActionsRef = useRef(helpActions);
+  helpActionsRef.current = helpActions;
 
   // While the editor is hidden (home screen shown over a kept-alive shell),
   // its global shortcuts must not fire.
@@ -29,7 +36,6 @@ export function useShortcuts(
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
 
   const getHandler = useCallback((id: string): (() => void) | null => {
     const e = ref.current;
@@ -278,7 +284,9 @@ export function useShortcuts(
       case 'colorBlindnessTritanopia':
         return () => e.setColorBlindnessView('tritanopia');
       case 'openHelp':
-        return () => setHelpOpen((p) => !p);
+        return () => helpActionsRef.current?.onOpenContextualHelp?.();
+      case 'openHelpCenter':
+        return () => helpActionsRef.current?.onOpenHelpCenter?.();
       default:
         return null;
     }
@@ -379,7 +387,5 @@ export function useShortcuts(
     openPalette: () => setPaletteOpen(true),
     quickActionsOpen,
     setQuickActionsOpen,
-    helpOpen,
-    setHelpOpen,
   };
 }
