@@ -25,7 +25,6 @@
     "@strata/help": "workspace:*",
     "@strata/import": "workspace:*",
     "@strata/platform": "workspace:*",
-    "@strata/plugin-sandbox": "workspace:*",
     "@strata/prototype": "workspace:*",
     "@strata/scene": "workspace:*",
     "@strata/shared": "workspace:*",

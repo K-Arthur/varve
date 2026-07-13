@@ -215,9 +215,6 @@ importers:
       '@strata/platform':
         specifier: workspace:*
         version: link:../platform
-      '@strata/plugin-sandbox':
-        specifier: workspace:*
-        version: link:../plugin-sandbox
       '@strata/prototype':
         specifier: workspace:*
         version: link:../prototype
@@ -361,8 +358,6 @@ importers:
       fake-indexeddb:
         specifier: ^6.2.5
         version: 6.2.5
-
-  packages/plugin-sandbox: {}
 
   packages/print:
     dependencies:
