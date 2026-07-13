@@ -35,8 +35,11 @@ export function loadOnboardingState(): OnboardingStore {
   }
 }
 
-export function saveOnboardingState(state: OnboardingStore): void {
+export function saveOnboardingState(state: OnboardingStore, platform?: Platform): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (platform) {
+    void saveOnboardingStateToPlatform(platform, state);
+  }
 }
 
 /**
@@ -70,8 +73,19 @@ export async function saveOnboardingStateToPlatform(
   }
 }
 
-export function resetOnboarding(): void {
-  saveOnboardingState({ ...DEFAULT_STATE });
+export async function clearOnboardingFromPlatform(platform: Platform): Promise<void> {
+  try {
+    await platform.setAppSetting(APP_SETTING_KEY, '');
+  } catch {
+    // Best-effort — localStorage reset still applies.
+  }
+}
+
+export function resetOnboarding(platform?: Platform): void {
+  saveOnboardingState({ ...DEFAULT_STATE }, platform);
+  if (platform) {
+    void clearOnboardingFromPlatform(platform);
+  }
 }
 
 export function isVersionBump(state: OnboardingStore): boolean {

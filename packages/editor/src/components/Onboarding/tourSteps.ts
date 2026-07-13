@@ -56,7 +56,7 @@ export const TOUR_STEPS: TourStep[] = [
     target: '[class*="editor-status"]',
     title: 'Work faster with shortcuts',
     description:
-      'Press Ctrl+; (Cmd+;) to open the Quick Actions bar, or press ? to view the full keyboard shortcuts palette.',
+      'Press Ctrl+/ (Cmd+/) to open the keyboard shortcuts palette, or Ctrl+; (Cmd+;) for Quick Actions.',
     placement: 'top',
     offset: { y: -8 },
   },

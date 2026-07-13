@@ -252,7 +252,12 @@ export const SHORTCUT_DEFS = {
   },
   openHelp: {
     binding: { key: 'F1' },
-    label: 'Help Browser',
+    label: 'Contextual Help',
+    category: 'View',
+  },
+  openHelpCenter: {
+    binding: { key: 'F1', ctrl: true, shift: true },
+    label: 'Help Center',
     category: 'View',
   },
   colorBlindnessNone: {
