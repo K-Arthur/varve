@@ -16,7 +16,7 @@ test.describe('Home Shell', () => {
     const sidebar = page.locator('nav[aria-label="File navigation"]');
     await expect(sidebar).toBeVisible();
 
-    const items = sidebar.locator('[role="option"]');
+    const items = sidebar.getByRole('button');
     const labels = await items.evaluateAll((els) => els.map((el) => el.textContent?.trim() ?? ''));
 
     expect(labels.some((l) => l.startsWith('Recent'))).toBe(true);
@@ -25,9 +25,9 @@ test.describe('Home Shell', () => {
   });
 
   test('sidebar nav items can be clicked to switch sections', async ({ page }) => {
-    const trashItem = page.locator('nav[aria-label="File navigation"] button[role="option"]', {
-      hasText: 'Trash',
-    });
+    const trashItem = page
+      .locator('nav[aria-label="File navigation"]')
+      .getByRole('button', { name: /trash/i });
     await trashItem.click();
     await page.waitForTimeout(200);
 
@@ -39,6 +39,6 @@ test.describe('Home Shell', () => {
   test('empty state shows correct headline for recent section', async ({ page }) => {
     const emptyState = page.locator('.strata-empty[role="status"]');
     await expect(emptyState).toBeVisible();
-    await expect(emptyState.locator('.strata-empty__headline')).toContainText(/no recent files/i);
+    await expect(emptyState.locator('.strata-empty__headline')).toContainText(/nothing here yet/i);
   });
 });
