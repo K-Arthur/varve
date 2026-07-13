@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { navigateToHome } from '../shared';
 
 test.describe('Home search, sort, and filter', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await navigateToHome(page);
   });
 
   test('search input exists and can be typed into', async ({ page }) => {
@@ -19,26 +19,31 @@ test.describe('Home search, sort, and filter', () => {
     await expect(search).toHaveAttribute('placeholder', /search/i);
   });
 
-  test('sort segmented control exists', async ({ page }) => {
-    const sortGroup = page.locator('.search-sort-group');
-    await expect(sortGroup).toBeVisible();
-
-    await expect(sortGroup.getByText('Opened')).toBeVisible();
-    await expect(sortGroup.getByText('Modified')).toBeVisible();
-    await expect(sortGroup.getByText('Name')).toBeVisible();
-  });
+  // As of 35c95aa ("Redesign homepage for desktop application feel"),
+  // Phase 3 explicitly "simplified filter/sort controls": the toolbar's
+  // Opened/Modified/Name segmented control (.search-sort-group) was
+  // removed outright, not relocated within the toolbar. Sort-by-key now
+  // only exists as sortable column headers in the list view
+  // (packages/home/src/FileList.tsx), a different surface than this
+  // toolbar-focused test file covers — no toolbar replacement test added
+  // here to keep this fix scoped to what regressed, not what moved.
 
   test('sort direction toggle button exists', async ({ page }) => {
     const sortBtn = page.locator(
-      '.search-sort-group button[aria-label*="ascending"], .search-sort-group button[aria-label*="descending"]',
+      'button[aria-label*="ascending"], button[aria-label*="descending"]',
     );
     await expect(sortBtn).toBeVisible();
   });
 
-  test('view mode toggle exists with grid and list options', async ({ page }) => {
-    await expect(page.getByLabel('View')).toBeVisible();
-    await expect(page.getByRole('button', { name: /grid/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /list/i })).toBeVisible();
+  test('view mode toggle exists and switches between grid and list', async ({ page }) => {
+    // A single toggle button, not two separate Grid/List buttons — its
+    // aria-label names the mode a click will switch *to*, so exactly one
+    // of "Grid view"/"List view" is present at a time, never both.
+    const toggle = page.getByRole('button', { name: /(grid|list) view/i });
+    await expect(toggle).toBeVisible();
+    const labelBefore = await toggle.getAttribute('aria-label');
+    await toggle.click();
+    await expect(toggle).not.toHaveAttribute('aria-label', labelBefore ?? '');
   });
 
   test('clear search button appears when query entered', async ({ page }) => {
