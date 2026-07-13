@@ -359,6 +359,25 @@ export function revealBoundsCamera(
   };
 }
 
+/**
+ * Zoom the camera to `newZoom`, adjusting `pan` so the given world point
+ * stays under the same screen position.
+ *
+ * Solved as a single closed-form calculation using one fixed origin (the
+ * *starting* camera's floating origin, or [0,0] with no viewport) for both
+ * the "before" and "base" screen-position probes — origin cancels out of
+ * the subtraction, so this is exact regardless of which origin is chosen.
+ *
+ * A previous version additionally tried to re-converge the origin for the
+ * *new* (post-zoom) camera state via an 8-iteration fixed-point loop. That
+ * was unnecessary — whatever renders the next frame recomputes origin fresh
+ * from the committed camera state anyway — and had a real bug: when the
+ * anchor's world coordinate sat near a FLOATING_ORIGIN_GRID cell boundary,
+ * the loop would oscillate between two adjacent origins forever, never
+ * converge, and fall back to "lowest error seen" — which for a genuine
+ * 2-cycle is an arbitrary, often large (hundreds of px) error. Reproduced
+ * via packages/editor/src/context/viewportOps.test.ts.
+ */
 export function zoomAboutPoint(
   cam: Camera,
   worldAnchor: Point,
@@ -366,68 +385,16 @@ export function zoomAboutPoint(
   viewport?: Viewport,
 ): Camera {
   const z = clampZoom(newZoom);
-  if (!viewport) {
-    const noOrigin: Point = [0, 0];
-    const [screenX, screenY] = worldToScreen(
-      cam,
-      worldAnchor[0],
-      worldAnchor[1],
-      { width: 1920, height: 1080 },
-      noOrigin,
-    );
-    const after: Camera = { ...cam, zoom: z };
-    const [newScreenX, newScreenY] = worldToScreen(
-      after,
-      worldAnchor[0],
-      worldAnchor[1],
-      { width: 1920, height: 1080 },
-      noOrigin,
-    );
-    return {
-      ...after,
-      pan: {
-        x: cam.pan.x + (screenX - newScreenX),
-        y: cam.pan.y + (screenY - newScreenY),
-      },
-    };
-  }
-
-  const beforeOrigin = computeFloatingOrigin(cam, viewport);
-  const [screenX, screenY] = worldToScreen(
-    cam,
-    worldAnchor[0],
-    worldAnchor[1],
-    viewport,
-    beforeOrigin,
-  );
-  let origin = beforeOrigin;
-  let best: { camera: Camera; error: number } | null = null;
-
-  for (let i = 0; i < 8; i++) {
-    const baseCam: Camera = { ...cam, pan: { x: 0, y: 0 }, zoom: z };
-    const [baseX, baseY] = worldToScreen(baseCam, worldAnchor[0], worldAnchor[1], viewport, origin);
-    const candidate: Camera = {
-      ...cam,
-      zoom: z,
-      pan: { x: screenX - baseX, y: screenY - baseY },
-    };
-    const candidateOrigin = computeFloatingOrigin(candidate, viewport);
-    const [candidateX, candidateY] = worldToScreen(
-      candidate,
-      worldAnchor[0],
-      worldAnchor[1],
-      viewport,
-      candidateOrigin,
-    );
-    const error = Math.hypot(candidateX - screenX, candidateY - screenY);
-    if (!best || error < best.error) best = { camera: candidate, error };
-    if (candidateOrigin[0] === origin[0] && candidateOrigin[1] === origin[1]) {
-      return candidate;
-    }
-    origin = candidateOrigin;
-  }
-
-  return best?.camera ?? { ...cam, zoom: z };
+  const vp = viewport ?? { width: 1920, height: 1080 };
+  const origin: Point = viewport ? computeFloatingOrigin(cam, viewport) : [0, 0];
+  const [screenX, screenY] = worldToScreen(cam, worldAnchor[0], worldAnchor[1], vp, origin);
+  const baseCam: Camera = { ...cam, pan: { x: 0, y: 0 }, zoom: z };
+  const [baseX, baseY] = worldToScreen(baseCam, worldAnchor[0], worldAnchor[1], vp, origin);
+  return {
+    ...cam,
+    zoom: z,
+    pan: { x: screenX - baseX, y: screenY - baseY },
+  };
 }
 
 export function localRectToScreen(worldMatrix: Affine, cam: Camera, localRect: Rect): Rect {

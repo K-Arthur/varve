@@ -15,15 +15,23 @@ const camState: EditorCameraState = { zoom: 1.5, pan: { x: 40, y: -25 }, cameraR
 // NOTE: these assertions deliberately stop short of checking that the world
 // point under the viewport center is preserved (the actual purpose of
 // anchoring zoom around the center). Investigating this test's failures
-// surfaced a separate, pre-existing bug in `zoomAboutPoint`
-// (packages/shared/src/viewport.ts) — for most non-zero pan values, the
-// anchor world point does *not* stay under the viewport center after
-// zooming (verified via manual repro, independent of this module and
-// present before this change). That bug is out of scope here: fixing the
-// shared zoom-about-point math is a separate, higher-risk change. What this
-// module fixes is narrower — EditorProvider's `value.zoomIn/Out/To` and
-// ViewportContext's `zoomIn/Out/To` now call the exact same function, so
-// `useEditor()` and `useViewport()` can no longer disagree with each other.
+// surfaced a separate, pre-existing architectural gap in `zoomAboutPoint`
+// (packages/shared/src/viewport.ts, see viewport.test.ts's
+// 'zoomAboutPoint floating-origin edge cases' block): the floating-origin
+// grid used for canvas numerical stability is recomputed fresh from
+// scratch on every render call with no memory of the previously-used
+// origin, so for a real fraction of zoom/pan/anchor combinations there is
+// no pan value that keeps the anchor pixel-exact after the *next* render's
+// origin recompute — an inherent ~1-grid-cell (zoom * 512px) jump, not a
+// rounding error. zoomAboutPoint itself was fixed here (an actual bug: an
+// 8-iteration convergence loop that could oscillate forever and fall back
+// to an arbitrary answer — replaced with a deterministic closed-form
+// calculation), but closing the remaining gap needs hysteretic origin
+// tracking threaded through the render pipeline, out of scope for this
+// module. What this module fixes is narrower — EditorProvider's
+// `value.zoomIn/Out/To` and ViewportContext's `zoomIn/Out/To` now call the
+// exact same function, so `useEditor()` and `useViewport()` can no longer
+// disagree with *each other*, whatever zoomAboutPoint itself does.
 
 describe('computeZoomStep', () => {
   it('changes zoom in the requested direction', () => {
