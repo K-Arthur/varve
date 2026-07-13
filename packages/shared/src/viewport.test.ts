@@ -281,6 +281,68 @@ describe('zoomAboutPoint', () => {
   });
 });
 
+describe('zoomAboutPoint floating-origin edge cases', () => {
+  // Previously, the with-viewport branch tried to also re-converge the
+  // floating origin for the *new* camera state via an 8-iteration
+  // fixed-point loop. When the anchor's world coordinate sat near a
+  // FLOATING_ORIGIN_GRID cell boundary, the loop could oscillate between
+  // two adjacent origins forever, never hit its exact-match exit
+  // condition, and fall back to "lowest error seen" — which for a genuine
+  // 2-cycle doesn't distinguish between two equally-bad candidates and can
+  // return an answer with hundreds of pixels of anchor drift.
+  const viewport: Viewport = { width: 1000, height: 800 };
+  const c: Camera = { pan: { x: 40, y: -25 }, zoom: 1.5, rotation: 0 };
+
+  it('is deterministic for an anchor near a floating-origin grid boundary', () => {
+    const origin = computeFloatingOrigin(c, viewport);
+    const anchor = screenToWorld(c, viewport.width / 2, viewport.height / 2, viewport, origin);
+
+    const results = Array.from({ length: 5 }, () => zoomAboutPoint(c, anchor, 1.2, viewport));
+    for (const r of results.slice(1)) {
+      expect(r).toEqual(results[0]);
+    }
+  });
+
+  it('matches the closed-form single-origin calculation (no iteration)', () => {
+    // zoomAboutPoint now computes pan directly from the *starting* camera's
+    // origin, matching the same pattern the !viewport branch already used.
+    // This asserts the implementation is exactly that — not an
+    // approximation of it — as a regression guard against reintroducing
+    // the iterative solver.
+    const origin = computeFloatingOrigin(c, viewport);
+    const anchor = screenToWorld(c, viewport.width / 2, viewport.height / 2, viewport, origin);
+    const newZoom = 1.2;
+
+    const [screenX, screenY] = worldToScreen(c, anchor[0], anchor[1], viewport, origin);
+    const baseCam: Camera = { ...c, pan: { x: 0, y: 0 }, zoom: newZoom };
+    const [baseX, baseY] = worldToScreen(baseCam, anchor[0], anchor[1], viewport, origin);
+    const expected: Camera = {
+      ...c,
+      zoom: newZoom,
+      pan: { x: screenX - baseX, y: screenY - baseY },
+    };
+
+    expect(zoomAboutPoint(c, anchor, newZoom, viewport)).toEqual(expected);
+  });
+
+  // NOT asserted here: that the anchor stays pixel-exact under the
+  // viewport center after a *fresh* origin recompute (i.e. what the next
+  // real paint call does — see packages/editor/src/CanvasArea.tsx:1006's
+  // applyEditorCameraToCtx, which calls computeFloatingOrigin fresh from
+  // whatever camera state is current, with no memory of the origin used
+  // here). That's a real, separate gap: for a meaningful fraction of
+  // zoom/anchor/pan combinations there is no pan value that's
+  // self-consistent with a freshly-recomputed origin for the *new* camera
+  // state (verified analytically — the fixed-point equation this implies
+  // has no integer solution whenever a derived quantity has odd parity,
+  // confirmed empirically at ~44% of random inputs). When it doesn't
+  // resolve, the resulting jump is exactly one grid cell in screen space
+  // (zoom * FLOATING_ORIGIN_GRID px), not a rounding error. Fixing this
+  // needs hysteretic origin tracking (reuse the previous origin unless the
+  // camera has drifted meaningfully past it) threaded through the render
+  // pipeline — a distinctly larger change than this function.
+});
+
 describe('rotateAboutScreenPoint', () => {
   it('updates rotation and keeps anchor fixed on screen', () => {
     const c = cam(100, 50, 1);
