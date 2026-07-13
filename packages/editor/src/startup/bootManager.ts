@@ -9,6 +9,8 @@ export interface BootManager {
   markHomeReady(): void;
   markEditorReady(): void;
   markError(error: Error): void;
+  /** Return to init after a fatal error so startup can be retried. */
+  reset(): void;
   error(): Error | null;
   isStartupComplete(): boolean;
 }
@@ -39,6 +41,14 @@ export function createBootManager(opts?: BootManagerOptions): BootManager {
     markError: (err: Error) => {
       _error = err;
       transition('error');
+    },
+    reset: () => {
+      const prev = _state;
+      _state = 'init';
+      _error = null;
+      if (prev !== 'init') {
+        opts?.onStateChange?.(prev, 'init');
+      }
     },
     error: () => _error,
     isStartupComplete: () => _state === 'editor_ready',
