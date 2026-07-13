@@ -4,11 +4,13 @@ import {
   addGuide,
   addNode,
   arrangeNode,
+  clearGuides,
   createDocument,
   detachInstance,
   duplicateGuide,
   getById,
   getChildren,
+  getGuidesForPage,
   getParent,
   groupNodes,
   insertNode,
@@ -22,6 +24,7 @@ import {
   moveGuide,
   moveNode,
   nextNodeId,
+  pasteGuides,
   removeGuide,
   removeNode,
   renameNode,
@@ -762,6 +765,37 @@ describe('Guide operations', () => {
     expect(copy?.axis).toBe('vertical');
     expect(copy?.position).toBe(250);
     expect(copy?.locked).toBe(false);
+  });
+
+  it('getGuidesForPage returns only guides on the active page', () => {
+    let doc = createDocument('test');
+    const page1 = doc.activePageId ?? doc.pages?.[0]?.id ?? '';
+    doc = addGuide(doc, 'vertical', 100, { pageId: page1 });
+    doc = addGuide(doc, 'horizontal', 200, { pageId: 'other-page' });
+    const visible = getGuidesForPage(doc, page1);
+    expect(visible).toHaveLength(1);
+    expect(visible[0]?.position).toBe(100);
+  });
+
+  it('clearGuides with pageId removes only that page guides', () => {
+    let doc = createDocument('test');
+    const page1 = doc.activePageId ?? doc.pages?.[0]?.id ?? '';
+    doc = addGuide(doc, 'vertical', 100, { pageId: page1 });
+    doc = addGuide(doc, 'horizontal', 200, { pageId: 'other-page' });
+    doc = clearGuides(doc, page1);
+    expect(doc.guides).toHaveLength(1);
+    expect(doc.guides?.[0]?.pageId).toBe('other-page');
+  });
+
+  it('pasteGuides creates new guides on the target page with offset', () => {
+    let doc = createDocument('test');
+    const page1 = doc.activePageId ?? doc.pages?.[0]?.id ?? '';
+    const source = [{ id: 'g1', axis: 'vertical' as const, position: 50, pageId: 'old' }];
+    doc = pasteGuides(doc, source, page1, () => 'g-new', 10);
+    expect(doc.guides).toHaveLength(1);
+    expect(doc.guides?.[0]?.id).toBe('g-new');
+    expect(doc.guides?.[0]?.pageId).toBe(page1);
+    expect(doc.guides?.[0]?.position).toBe(60);
   });
 });
 
