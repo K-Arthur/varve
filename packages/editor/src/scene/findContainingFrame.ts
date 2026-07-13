@@ -2,8 +2,8 @@ import { applyAffine, invertAffine, rectContains } from '@strata/engine';
 import {
   type Document,
   type GroupNode,
-  type NodeId,
   activePageNodes as getActivePageNodes,
+  type NodeId,
   walkNodes,
 } from '@strata/scene';
 import { type Affine, transformRect } from '@strata/shared';
