@@ -1051,6 +1051,19 @@ export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): 
     return idxA - idxB;
   });
 
+  // Capture where the group should land in its real parent's children
+  // before the reparenting loop below moves the original members out of
+  // that array (after which their old position there is no longer
+  // determinable).
+  let groupInsertIdx = -1;
+  if (parentId) {
+    const parentNode = d.nodes[parentIdNonNull];
+    const firstSorted = sorted[0];
+    if (firstSorted && parentNode && isContainer(parentNode)) {
+      groupInsertIdx = parentNode.children.indexOf(firstSorted);
+    }
+  }
+
   for (const sid of sorted) {
     d = reparentNode(d, sid, groupNode.id, children.length);
     children.push(sid);
@@ -1063,6 +1076,12 @@ export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): 
     if (firstIdxInRoot >= 0) {
       d = moveNode(d, groupNode.id, Math.min(firstIdxInRoot, d.rootChildren.length - 1));
     }
+  } else {
+    // addNode() always appends new nodes to doc.rootChildren, regardless
+    // of where the grouped members actually lived — the group must be
+    // reparented into its real parent, or it's left orphaned in
+    // rootChildren (invisible in the page it was created on).
+    d = reparentNode(d, groupNode.id, parentId, groupInsertIdx >= 0 ? groupInsertIdx : 0);
   }
 
   const groupInDoc = d.nodes[groupNode.id];
