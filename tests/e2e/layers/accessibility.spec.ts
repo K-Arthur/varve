@@ -8,18 +8,24 @@ test.describe('Layers Panel - Accessibility', () => {
   });
 
   test('tab enters layers tree', async ({ page }) => {
-    const _tree = page.getByRole('tree', { name: /layers/i });
-    // Press Tab until the tree receives focus
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
+    // How many Tab-able elements precede the layers tree depends on what
+    // else is in the shell (toolbar, menubar, contextual-help affordances,
+    // etc.), which changes over time — don't hardcode a press count. Press
+    // Tab until the tree (or a row inside it, since roving tabindex means
+    // the tree container itself has tabIndex=-1) receives focus, or give up
+    // after a generous bound.
+    const isTreeFocused = async () =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        return el?.getAttribute('role') === 'tree' || el?.closest('[role="tree"]') !== null;
+      });
 
-    const focused = page.locator(':focus');
-    const isTreeFocused = await focused.evaluate(
-      (el) => el.getAttribute('role') === 'tree' || el.closest('[role="tree"]') !== null,
-    );
-    expect(isTreeFocused).toBe(true);
+    let focused = false;
+    for (let i = 0; i < 20 && !focused; i++) {
+      await page.keyboard.press('Tab');
+      focused = await isTreeFocused();
+    }
+    expect(focused).toBe(true);
   });
 
   test('arrow keys navigate correctly', async ({ page }) => {
@@ -27,23 +33,28 @@ test.describe('Layers Panel - Accessibility', () => {
     const count = await items.count();
     test.skip(count < 2, 'Need at least 2 layers for arrow key nav');
 
+    // Drawing a shape auto-selects it, so the tree's internal focusIdx
+    // already tracks the front-most item (index 0, the last one seedLayers
+    // drew) before any keypress — but real DOM focus only moves there in
+    // response to a keypress-driven state change, so ArrowDown moves focus
+    // *away* from index 0, to index 1, not onto index 0.
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
 
-    // ArrowDown should focus the first item
-    await page.keyboard.press('ArrowDown');
-    await page.waitForTimeout(50);
-    await expect(items.first()).toBeFocused();
-
-    // ArrowDown again should move to second item
+    // ArrowDown should move to the second item
     await page.keyboard.press('ArrowDown');
     await page.waitForTimeout(50);
     await expect(items.nth(1)).toBeFocused();
 
-    // ArrowUp should move back to first item
+    // ArrowDown again should move to the third item
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(50);
+    await expect(items.nth(2)).toBeFocused();
+
+    // ArrowUp should move back to the second item
     await page.keyboard.press('ArrowUp');
     await page.waitForTimeout(50);
-    await expect(items.first()).toBeFocused();
+    await expect(items.nth(1)).toBeFocused();
   });
 
   test('home/end jump to first/last', async ({ page }) => {
@@ -73,19 +84,21 @@ test.describe('Layers Panel - Accessibility', () => {
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
 
-    // Focus first item
+    // Focus starts on the first item (drawing auto-selects it); ArrowDown
+    // moves to the second item.
     await page.keyboard.press('ArrowDown');
     await page.waitForTimeout(50);
+    await expect(items.nth(1)).toBeFocused();
 
-    // Space should toggle selection of first item
+    // Space should toggle selection of the second item
     await page.keyboard.press(' ');
     await page.waitForTimeout(50);
-    await expect(items.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
 
     // Space again should deselect
     await page.keyboard.press(' ');
     await page.waitForTimeout(50);
-    await expect(items.first()).toHaveAttribute('aria-selected', 'false');
+    await expect(items.nth(1)).toHaveAttribute('aria-selected', 'false');
   });
 
   test('f2 starts rename', async ({ page }) => {
@@ -138,7 +151,11 @@ test.describe('Layers Panel - Accessibility', () => {
     const count = await items.count();
     test.skip(count < 1, 'Need at least 1 layer for aria-selected');
 
-    // By default, no item should be selected
+    // Drawing a shape auto-selects it, so the front-most item starts
+    // selected — deselect via Escape first to test the attribute actually
+    // reflects state rather than always being 'true'.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(50);
     const selectedBefore = await items.first().getAttribute('aria-selected');
     expect(selectedBefore).toBe('false');
 
