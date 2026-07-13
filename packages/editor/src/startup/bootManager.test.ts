@@ -51,6 +51,17 @@ describe('createBootManager', () => {
     expect(bm.state()).toBe('error');
   });
 
+  it('reset returns to init from error so retry can proceed', () => {
+    const bm = createBootManager();
+    bm.markError(new Error('failed'));
+    expect(bm.state()).toBe('error');
+    bm.reset();
+    expect(bm.state()).toBe('init');
+    expect(bm.error()).toBeNull();
+    bm.markHomeReady();
+    expect(bm.state()).toBe('home_ready');
+  });
+
   it('calls onStateChange callbacks', () => {
     const changes: string[] = [];
     const bm = createBootManager({

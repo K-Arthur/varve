@@ -68,17 +68,29 @@ describe('useStartup', () => {
     expect(result.current.showLoader).toBe(true);
   });
 
-  it('retry resets error state', () => {
+  it('retry resets boot manager so home can become ready again', () => {
     const { result } = renderHook(() => useStartup({}));
     act(() => {
       result.current.onBootError(new Error('Init failed'));
     });
-    expect(result.current.bootError).toBe('Init failed');
     act(() => {
       result.current.onRetry();
     });
+    act(() => {
+      result.current.onHomeReady();
+    });
     expect(result.current.bootError).toBeNull();
-    expect(result.current.bootState).toBe('init');
+    expect(result.current.bootState).toBe('home_ready');
+    expect(result.current.showLoader).toBe(false);
+  });
+
+  it('increments retryCount on retry', () => {
+    const { result } = renderHook(() => useStartup({}));
+    expect(result.current.retryCount).toBe(0);
+    act(() => {
+      result.current.onRetry();
+    });
+    expect(result.current.retryCount).toBe(1);
   });
 
   it('skips branded loader on warm restart (sessionStorage)', () => {
