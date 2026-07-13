@@ -357,6 +357,7 @@ export interface EditorContextValue {
     size?: { w: number; h: number },
     parentId?: NodeId | null,
     pathPoints?: PathPoint[],
+    pathClosed?: boolean,
   ) => void;
   /** Create a text node at the given world-space point. */
   createTextNodeAt: (
@@ -1809,7 +1810,7 @@ export function EditorProvider({
       },
 
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
-      createShapeAt: (world, size, parentId, pathPoints) => {
+      createShapeAt: (world, size, parentId, pathPoints, pathClosed) => {
         setState((s) => {
           // Read the tool from the ref (synchronously current) instead of the
           // state closure, which may be stale due to React 18 automatic batching.
@@ -1858,11 +1859,16 @@ export function EditorProvider({
             });
             isFrame = true;
           } else if (pathPoints && pathPoints.length > 0) {
-            // Path tools (pen/pencil) pass point data directly
+            // Path tools pass world-space anchors; store node-local relative to origin.
+            const localPoints = pathPoints.map((p) => ({
+              ...p,
+              x: p.x - world.x,
+              y: p.y - world.y,
+            }));
             const shape: Shape = {
               kind: 'path',
-              points: pathPoints,
-              closed: false,
+              points: localPoints,
+              closed: pathClosed ?? false,
               tolerance: 3,
             };
             node = makeShapeNode(id, shape, { name: autoName, transform });
@@ -1950,7 +1956,13 @@ export function EditorProvider({
             }
           }
 
-          return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
+          const keepDrawTool = activeTool === 'pen' || activeTool === 'pencil';
+          return {
+            ...s,
+            document: newDoc,
+            selection: [id],
+            tool: keepDrawTool ? activeTool : ('select' as ToolId),
+          };
         });
       },
 
@@ -2498,16 +2510,10 @@ export function EditorProvider({
                     x: (p.x - minX) * sx3 + minX,
                     y: (p.y - minY) * sy3 + minY,
                     handleIn: p.handleIn
-                      ? ([
-                          (p.handleIn[0] - minX) * sx3 + minX,
-                          (p.handleIn[1] - minY) * sy3 + minY,
-                        ] as [number, number])
+                      ? ([p.handleIn[0] * sx3, p.handleIn[1] * sy3] as [number, number])
                       : null,
                     handleOut: p.handleOut
-                      ? ([
-                          (p.handleOut[0] - minX) * sx3 + minX,
-                          (p.handleOut[1] - minY) * sy3 + minY,
-                        ] as [number, number])
+                      ? ([p.handleOut[0] * sx3, p.handleOut[1] * sy3] as [number, number])
                       : null,
                   })),
                 },

@@ -57,10 +57,10 @@ export const TOOLS: Record<string, HelpArticle> = {
   },
   'tool:pencil': {
     id: 'tool:pencil',
-    title: 'Pencil Tool (N)',
+    title: 'Pencil Tool (Shift+P)',
     summary: 'Freehand draw smooth paths.',
-    body: 'Click and drag to draw freeform paths. The pencil automatically smooths your strokes using Ramer-Douglas-Peucker simplification. Edit the result with the Node Edit tool to refine bezier handles and anchor points.',
-    keywords: ['pencil', 'freehand', 'draw', 'sketch', 'n'],
+    body: 'Click and drag to draw freeform paths. The pencil automatically smooths your strokes using Ramer-Douglas-Peucker simplification and cubic Bezier fitting. Edit the result with the Node Edit tool to refine bezier handles and anchor points.',
+    keywords: ['pencil', 'freehand', 'draw', 'sketch', 'shift+p'],
     category: 'Tools',
     related: ['tool:pen', 'tool:nodeEdit'],
   },

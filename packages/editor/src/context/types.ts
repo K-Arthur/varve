@@ -189,6 +189,7 @@ export interface EditorContextValue {
     size?: { w: number; h: number },
     parentId?: NodeId | null,
     pathPoints?: PathPoint[],
+    pathClosed?: boolean,
   ) => void;
   createTextNodeAt: (
     world: { x: number; y: number },

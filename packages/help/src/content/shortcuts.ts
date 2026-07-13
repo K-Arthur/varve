@@ -50,7 +50,7 @@ export const SHORTCUTS_REFERENCE: HelpArticle = {
     'T - Text Tool',
     'F - Frame Tool',
     'P - Pen Tool',
-    'N - Pencil Tool',
+    'Shift+P - Pencil Tool',
     'H - Hand Tool',
     'Z - Zoom Tool',
     'I - Inspect Tool',

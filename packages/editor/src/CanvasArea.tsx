@@ -755,7 +755,8 @@ export function CanvasArea({
       snapEnabled: s.snapEnabled,
       snapGrid: s.snapGrid,
 
-      createShapeAt: (world, size, parentId) => e.createShapeAt(world, size, parentId),
+      createShapeAt: (world, size, parentId, pathPoints, pathClosed) =>
+        e.createShapeAt(world, size, parentId, pathPoints, pathClosed),
       createTextNodeAt: (world, size, parentId, text) => {
         pendingAutoTextEditRef.current = true;
         e.createTextNodeAt(world, size, parentId, text);
