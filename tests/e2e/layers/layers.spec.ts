@@ -16,18 +16,24 @@ test.describe('Layers Panel - APG Tree View', () => {
   test('keyboard navigation with arrow keys', async ({ page }) => {
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
+    // Drawing a shape auto-selects it, so focus already tracks the
+    // front-most item (index 0) before any keypress — ArrowDown moves to
+    // the second item, not the first.
     await page.keyboard.press('ArrowDown');
-    // Focus moved to first row
-    const firstItem = page.getByRole('treeitem').first();
-    await expect(firstItem).toBeFocused();
+    const secondItem = page.getByRole('treeitem').nth(1);
+    await expect(secondItem).toBeFocused();
   });
 
   test('expand and collapse containers with arrow keys', async ({ page }) => {
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
 
-    // Find first container with aria-expanded
-    const container = page.locator('[aria-expanded]').first();
+    // Find first container with aria-expanded — scoped to the tree, since
+    // an unscoped page-wide [aria-expanded] can match unrelated UI (e.g. a
+    // collapsed sidebar section) and seedLayers only draws flat rectangles,
+    // so there's usually nothing here to expand; the count()===0 guard
+    // below is expected to skip the body in that case.
+    const container = tree.locator('[aria-expanded]').first();
     if ((await container.count()) > 0) {
       const wasExpanded = await container.getAttribute('aria-expanded');
       if (wasExpanded === 'false') {
