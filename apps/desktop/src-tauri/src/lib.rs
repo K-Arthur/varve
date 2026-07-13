@@ -120,10 +120,9 @@ struct BgRemoveResult {
 ///
 /// `method: "quick"` always uses the heuristic engine (always available).
 /// `"ai-balanced"` / `"ai-quality"` use ONNX inference when this binary was
-/// built with the `ai` Cargo feature (opt-in, requires a downloaded model —
-/// see ADR-0005); otherwise they fall back to the heuristic rather than
-/// failing, matching the same graceful-degradation contract as the
-/// TypeScript facade in `@strata/engine`.
+/// built with the `ai` Cargo feature (opt-in, requires a downloaded model).
+/// Builds without that feature reject AI requests instead of mislabelling a
+/// heuristic result as AI output.
 #[tauri::command]
 fn remove_background(
     image_data: Vec<u8>,
@@ -138,7 +137,10 @@ fn remove_background(
         _ => strata_bgremove::RemovalMethod::Quick,
     };
     #[cfg(not(feature = "ai"))]
-    let method = strata_bgremove::RemovalMethod::Quick;
+    let method = match options.method.as_str() {
+        "quick" => strata_bgremove::RemovalMethod::Quick,
+        _ => return Err("AI background removal is not enabled in this desktop build".into()),
+    };
 
     let remove_opts = strata_bgremove::RemovalOptions {
         method,
@@ -160,6 +162,119 @@ fn remove_background(
         width: result.width,
         height: result.height,
     })
+}
+
+#[derive(Debug, Deserialize)]
+struct UpscaleImageOptions {
+    scale: f64,
+    #[serde(default = "default_upscale_method")]
+    method: String,
+    #[serde(default, rename = "modelId")]
+    model_id: Option<String>,
+    #[serde(default, rename = "maxPixels")]
+    max_pixels: Option<u64>,
+    #[serde(default, rename = "targetWidth")]
+    target_width: Option<u32>,
+    #[serde(default, rename = "targetHeight")]
+    target_height: Option<u32>,
+}
+
+fn default_upscale_method() -> String {
+    "bicubic".into()
+}
+
+#[tauri::command]
+fn upscale_image(image_data: Vec<u8>, options: UpscaleImageOptions) -> Result<Vec<u8>, String> {
+    let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
+    let rgba = img.to_rgba8();
+    let (width, height) = rgba.dimensions();
+    let pixels = rgba.into_raw();
+
+    let scale = if let (Some(tw), Some(th)) = (options.target_width, options.target_height) {
+        let sx = tw as f64 / width as f64;
+        let sy = th as f64 / height as f64;
+        sx.min(sy).max(0.001)
+    } else {
+        options.scale
+    };
+
+    let out_w = (width as f64 * scale).round().max(1.0) as u32;
+    let out_h = (height as f64 * scale).round().max(1.0) as u32;
+    if let Some(max) = options.max_pixels {
+        if (out_w as u64) * (out_h as u64) > max {
+            return Err(format!("Output exceeds the maximum of {max} pixels"));
+        }
+    }
+
+    let result = if options.method == "ai" {
+        let model_id = options
+            .model_id
+            .as_deref()
+            .unwrap_or("upscale-realesr-general");
+        #[cfg(feature = "ai")]
+        {
+            // Real-ESRGAN models are fixed 4x; ignore requested scale for inference.
+            strata_upscale::ai_upscale(&pixels, width, height, model_id)?
+        }
+        #[cfg(not(feature = "ai"))]
+        {
+            return Err(format!(
+                "AI upscaling requires a desktop build with the ai feature enabled (model '{model_id}')"
+            ));
+        }
+    } else {
+        let filter = strata_upscale::UpscaleFilter::from_method(&options.method);
+        let mp = (width as u64) * (height as u64);
+        if mp > 4_000_000 {
+            strata_upscale::tiled_upscale(&pixels, width, height, scale, 256, 16, filter)?
+        } else {
+            strata_upscale::cpu_upscale(&pixels, width, height, scale, filter)?
+        }
+    };
+
+    let result_w = if options.method == "ai" {
+        width * 4
+    } else {
+        out_w
+    };
+    let result_h = if options.method == "ai" {
+        height * 4
+    } else {
+        out_h
+    };
+
+    let out_img = image::DynamicImage::ImageRgba8(
+        image::ImageBuffer::from_raw(result_w, result_h, result)
+            .ok_or("Failed to construct output image")?,
+    );
+
+    let mut bytes: Vec<u8> = Vec::new();
+    out_img
+        .write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+        .map_err(|e| format!("PNG encode error: {e}"))?;
+
+    Ok(bytes)
+}
+
+#[derive(Debug, Deserialize)]
+struct TraceImageOptions {
+    threshold: u8,
+    min_pixels: usize,
+    max_colors: u8,
+}
+
+#[tauri::command]
+fn trace_image(image_data: Vec<u8>, options: TraceImageOptions) -> Result<Vec<strata_trace::Path>, String> {
+    let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
+    let gray = img.to_luma8();
+    let (width, height) = gray.dimensions();
+    let pixels = gray.into_raw();
+    let opts = strata_trace::TraceOptions {
+        threshold: options.threshold,
+        min_pixels: options.min_pixels,
+        max_colors: options.max_colors,
+    };
+    Ok(strata_trace::trace_contours(&pixels, width, height, &opts))
 }
 
 // ── PDF export ─────────────────────────────────────────
@@ -669,6 +784,19 @@ fn list_plugins() -> Result<Vec<PluginInfo>, String> {
     Ok(vec![])
 }
 
+/// Close the native splashscreen and reveal the main window once the frontend is ready.
+/// Pattern: https://v2.tauri.app/learn/splashscreen/ (2026-07-13)
+#[tauri::command]
+fn close_splashscreen(app: tauri::AppHandle) {
+    if let Some(splash) = app.get_webview_window("splashscreen") {
+        let _ = splash.close();
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.show();
+        let _ = main.set_focus();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -753,6 +881,8 @@ pub fn run() {
             home_write_text_file,
             write_binary_file,
             remove_background,
+            trace_image,
+            upscale_image,
             export_node_pdf,
             export_pdfx1a,
             export_pdfx4,
@@ -763,6 +893,7 @@ pub fn run() {
             get_collab_users,
             update_cursor,
             list_plugins,
+            close_splashscreen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -771,7 +902,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use strata_core::{BlendMode, EngineColor};
+    use strata_core::EngineColor;
 
     fn ts_wire_json() -> serde_json::Value {
         serde_json::json!([
@@ -1311,7 +1442,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_background_ai_method_falls_back_to_quick_without_ai_feature() {
+    fn remove_background_ai_method_is_rejected_without_ai_feature() {
         // Without the `ai` Cargo feature compiled in (the default distributed
         // build per ADR-0005), requesting an AI method must not error — it
         // should transparently degrade to the heuristic and say so honestly
@@ -1322,8 +1453,82 @@ mod tests {
         }))
         .expect("deserialize options");
 
-        let result = remove_background(png, options).expect("should degrade, not error");
         #[cfg(not(feature = "ai"))]
-        assert_eq!(result.method, "quick");
+        assert!(remove_background(png, options)
+            .expect_err("AI request must not degrade to quick")
+            .contains("not enabled"));
+    }
+
+    #[test]
+    fn upscale_image_end_to_end_png_roundtrip() {
+        let mut buf = image::RgbaImage::new(8, 8);
+        for y in 0..8 {
+            for x in 0..8 {
+                let v = if (x + y) % 2 == 0 { 255 } else { 0 };
+                buf.put_pixel(x, y, image::Rgba([v, v, v, 255]));
+            }
+        }
+        let mut png: Vec<u8> = Vec::new();
+        image::DynamicImage::ImageRgba8(buf)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .expect("encode png");
+
+        let options = UpscaleImageOptions {
+            scale: 2.0,
+            method: "nearest".into(),
+            model_id: None,
+            max_pixels: None,
+            target_width: None,
+            target_height: None,
+        };
+        let result = upscale_image(png, options).expect("upscale_image should succeed");
+        let decoded = image::load_from_memory(&result).expect("result must be PNG");
+        assert_eq!(decoded.width(), 16);
+        assert_eq!(decoded.height(), 16);
+    }
+
+    #[test]
+    fn trace_image_end_to_end() {
+        // Create a 20x20 PNG with a white square (foreground) on black background.
+        let mut buf = image::RgbaImage::new(20, 20);
+        for y in 0..20 {
+            for x in 0..20 {
+                let is_foreground = x > 2 && x < 17 && y > 2 && y < 17;
+                buf.put_pixel(x, y, if is_foreground {
+                    image::Rgba([255, 255, 255, 255])
+                } else {
+                    image::Rgba([0, 0, 0, 255])
+                });
+            }
+        }
+        let mut png: Vec<u8> = Vec::new();
+        image::DynamicImage::ImageRgba8(buf)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .expect("encode png");
+
+        let options = TraceImageOptions {
+            threshold: 128,
+            min_pixels: 5,
+            max_colors: 2,
+        };
+        let result = trace_image(png, options).expect("trace_image should succeed");
+        // A 20x20 image with a white square foreground on black should trace at least one contour.
+        assert!(!result.is_empty(), "expected at least one traced path");
+        // Each path should be a closed contour with points.
+        for path in &result {
+            assert!(path.points.len() >= 3, "each path must have at least 3 points");
+            assert!(path.closed, "contour paths should be closed");
+        }
+    }
+
+    #[test]
+    fn trace_image_rejects_undecodable_bytes() {
+        let options = TraceImageOptions {
+            threshold: 128,
+            min_pixels: 5,
+            max_colors: 2,
+        };
+        let err = trace_image(vec![0, 1, 2, 3], options).unwrap_err();
+        assert!(err.contains("decode"), "should report a decode error: {err}");
     }
 }

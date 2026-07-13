@@ -21,7 +21,21 @@
         "minHeight": 600,
         "resizable": true,
         "decorations": false,
-        "shadow": true
+        "shadow": true,
+        "visible": false
+      },
+      {
+        "label": "splashscreen",
+        "title": "Strata",
+        "url": "splashscreen.html",
+        "width": 360,
+        "height": 280,
+        "decorations": false,
+        "center": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "alwaysOnTop": true,
+        "shadow": false
       }
     ],
     "security": {

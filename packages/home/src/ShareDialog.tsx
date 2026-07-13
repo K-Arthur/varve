@@ -1,5 +1,5 @@
 import type { Permission, Platform } from '@strata/platform';
-import { Button, Dialog, Icon } from '@strata/ui';
+import { Button, Dialog, InlineActivityIndicator } from '@strata/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface ShareDialogProps {
@@ -95,8 +95,8 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
         <div className="share-dialog__section">
           <h3 className="share-dialog__section-title">People with access</h3>
           {loading ? (
-            <div className="share-dialog__loading" role="status">
-              <Icon name="LoaderCircle" label="Loading permissions" />
+            <div className="share-dialog__loading">
+              <InlineActivityIndicator label="Loading permissions" />
             </div>
           ) : permissions.length === 0 ? (
             <p className="share-dialog__empty">No one else has access yet.</p>

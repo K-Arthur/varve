@@ -17,6 +17,47 @@ This document establishes the official patterns for loading and perceived perfor
 | **F. Initialization** | Startup | Branded Loader | `StartupLoader` (white logo + chromatic aberration) |
 | **G. Failure** | Error | Failure State | Explicit error message + Retry action |
 
+## Deployment Targets
+
+Startup is **asymmetric by design** — each target covers the latency it actually controls.
+
+### Tauri desktop (primary dev: CachyOS / WebKitGTK)
+
+| Stage | What the user sees | When it ends |
+| --- | --- | --- |
+| **Native splash** | `splashscreen.html` — standalone HTML, white symbolic logo + chromatic aberration (CSS only, no JS) | `close_splashscreen` IPC when home data is ready |
+| **Main window (hidden)** | React mounts; `StartupLoader` runs inside hidden main webview | `revealMainWindow()` shows main + closes splash |
+| **In-app loader exit** | `StartupLoader` fade-out (`ready` from `HomeShell.onReady`) | 250ms CSS transition |
+
+Config: `apps/desktop/src-tauri/tauri.conf.json` — `main.visible: false`, `splashscreen` window → `splashscreen.html`.
+
+Research: [Tauri 2 splashscreen guide](https://v2.tauri.app/learn/splashscreen/) (accessed 2026-07-13).
+
+**Stuck-splash failure mode:** If the frontend never calls `close_splashscreen`, the splash remains visible. Mitigations: `useStartup` 30s timeout → error UI with retry; `revealMainWindow` is invoked from `handleHomeReady`.
+
+### Browser (Vite dev / static build)
+
+| Stage | What the user sees | When it ends |
+| --- | --- | --- |
+| **Pre-JS fallback** | Inline `#strata-boot-fallback` in `index.html` (static SVG + CSS, no network) | `dismissBootFallback()` in `main.tsx` before React mount |
+| **In-app loader** | `StartupLoader` via `useStartup` | `HomeShell.onReady` |
+
+Cold-cache latency (bundle download) is dominated by network; the pre-JS fallback covers the gap before JS executes. Warm reload skips the branded loader via `sessionStorage` `strata-session-started`.
+
+### Reduced motion per engine
+
+| Engine | `prefers-reduced-motion` | Notes |
+| --- | --- | --- |
+| Chromium / Firefox / Safari | Supported | CSS `@media` in `StartupLoader.css` + `splashscreen.html` |
+| WebKitGTK 2.41.4+ | Supported | Forwards GTK setting into web content ([release notes](https://webkitgtk.org/releases/webkitgtk-2.41.4.tar.xz.news), 2026-07-13) |
+| WebView2 / WKWebView | Supported | Standard media query |
+
+`checkStartupCapabilities()` also sets `shouldSimplify` when reduced-motion is active or WebGL probe score &lt; 0.4.
+
+### Chromatic aberration implementation
+
+**CSS layered SVG** (not WebGPU) — three RGB-offset copies of `StrataLogo` symbolic mark + white base layer. Works on all targets without capability detection. `simplified` prop / reduced-motion disables animation.
+
 ## Boot Sequence
 
 The startup follows a two-phase state machine:
@@ -36,10 +77,12 @@ init → home_ready → editor_ready
 
 ### Transitions
 
-1. **App mount** (`init`): The `useStartup` hook creates the `BootManager`. `StartupLoader` is displayed.
-2. **HomeShell fires `onReady`** (`init → home_ready`): Called once `useHomeView` completes its first data fetch. The loader begins its exit animation (250ms fade-out).
-3. **File open** (`home_ready → editor_ready`): Called when `App.handleOpenFile` resolves. Marks total startup via `performance.measure('strata-startup')`.
-4. **Error** (`any → error`): If a fatal boot error occurs, the loader shows an error message and retry button.
+1. **App mount** (`init`): `useStartup` creates `BootManager`, records `performance.mark('app_mount')`. `StartupLoader` displays (unless warm restart or feature flag off).
+2. **Tauri:** Native `splashscreen.html` visible until home ready; then `close_splashscreen` + main show.
+3. **Browser:** `#strata-boot-fallback` removed in `main.tsx`; `StartupLoader` takes over.
+4. **HomeShell fires `onReady`** (`init → home_ready`): Called once `useHomeView` completes its first data fetch. Loader begins exit animation (250ms fade-out).
+5. **File open** (`home_ready → editor_ready`): Called when `App.handleOpenFile` resolves. Marks total startup via `performance.measure('strata-startup')`.
+6. **Error** (`any → error`): Fatal boot error or 30s timeout. Loader shows error message + retry (`BootManager.reset()` + `retryCount` remounts `HomeShell`).
 
 ### Warm restart
 
