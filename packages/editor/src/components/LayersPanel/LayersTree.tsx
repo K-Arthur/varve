@@ -1397,7 +1397,12 @@ function SortableVirtualRow({
       ref={(el) => {
         setSortableRef(el);
         virtualizer.measureElement(el);
-        if (el) rowRefs.current.set(node.id, el);
+        // This div is just the virtualizer's absolute-positioned wrapper —
+        // it has no tabIndex and can't receive focus. The focusable
+        // role="treeitem" element (LayersRow's root) is its direct child;
+        // that's what roving-tabindex focus management needs a handle to.
+        const row = el?.querySelector<HTMLDivElement>('[role="treeitem"]');
+        if (row) rowRefs.current.set(node.id, row);
         else rowRefs.current.delete(node.id);
       }}
       data-index={virtualItem.index}
