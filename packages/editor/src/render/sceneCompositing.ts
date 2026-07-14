@@ -23,10 +23,12 @@ function computeNeedsStructuralCompositing(doc: Document): boolean {
       return true;
     }
     if (node.kind === 'group') {
+      const hasVisibleEffects = node.effects.some((effect) => effect.visible);
       const needsFlatten =
         node.isolated === true ||
         (node.blendMode && node.blendMode !== 'normal' && node.blendMode !== 'passThrough') ||
-        (node.opacity !== undefined && node.opacity < 1);
+        (node.opacity !== undefined && node.opacity < 1) ||
+        hasVisibleEffects;
       if (needsFlatten && node.children.length > 0) return true;
     }
   }
@@ -84,6 +86,22 @@ function computeHasImageFills(doc: Document): boolean {
   return false;
 }
 
+function sceneHasUnsupportedWorkerRasterResources(doc: Document): boolean {
+  for (const node of Object.values(doc.nodes)) {
+    if (!node) continue;
+    const fills = (node as { fills?: Array<{ type?: string; visible?: boolean }> }).fills;
+    if (fills?.some((fill) => fill?.type === 'pattern' && fill.visible !== false)) return true;
+    if (
+      node.kind === 'shape' &&
+      node.backgroundRemoval?.maskDataUrl &&
+      fills?.some((fill) => fill?.type === 'image' && fill.visible !== false)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Image src URLs on visible image fills in the document. */
 export function imageFillSrcsInDocument(doc: Document): string[] {
   const srcs = new Set<string>();
@@ -110,6 +128,10 @@ export function sceneCanUseWorkerRenderer(
   doc: Document,
   isImageLoaded: (src: string) => boolean,
 ): boolean {
+  // Pattern tiles are not included in the worker transfer contract, and
+  // background-removal masks require DOM-canvas compositing in replay.ts.
+  // Reject those scenes instead of silently producing different pixels.
+  if (sceneHasUnsupportedWorkerRasterResources(doc)) return false;
   if (!sceneHasImageFills(doc)) return true;
   for (const src of imageFillSrcsInDocument(doc)) {
     if (!isImageLoaded(src)) return false;

@@ -61,6 +61,7 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         textBaseline: 'alphabetic' as CanvasTextBaseline,
         save: vi.fn(),
         restore: vi.fn(),
+        getTransform: vi.fn(() => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })),
         setTransform: vi.fn(),
         transform: vi.fn(),
         fillRect: vi.fn(),

@@ -14,9 +14,9 @@
  * Research basis: Figma mask model, Adobe Photoshop layer masks,
  * Affinity Designer pixel/vector masks, SVG <clipPath>/<mask> specs.
  */
-import type { Affine } from '@strata/engine';
+import type { Affine, PathPoint } from '@strata/engine';
 import type { Document } from './document';
-import type { Mask, MaskType, NodeId, SceneNode } from './types';
+import type { Mask, MaskFillRule, MaskType, NodeId, SceneNode, VectorMaskData } from './types';
 
 // ── Resolution ──────────────────────────────────────────────────────────────
 
@@ -28,16 +28,23 @@ export function resolveMask(node: SceneNode): Mask | null {
   const container = node as SceneNode & { mask?: Mask; children?: string[] };
   if (!container.mask) return null;
   if (container.mask.visible === false) return null;
-  // For frames and groups, the mask source must be a child.
-  // For adjustment nodes, the mask source is an arbitrary node reference.
-  if (
-    node.kind !== 'adjustment' &&
-    container.children &&
-    !container.children.includes(container.mask.sourceNodeId)
-  ) {
-    return null;
+  // Vector masks don't require a sourceNodeId
+  if (container.mask.vectorMask && container.mask.vectorMask.points.length > 0) {
+    return container.mask;
   }
-  return container.mask;
+  // For frames and groups with sourceNodeId, the mask source must be a child.
+  if (container.mask.sourceNodeId) {
+    if (
+      node.kind !== 'adjustment' &&
+      container.children &&
+      !container.children.includes(container.mask.sourceNodeId)
+    ) {
+      return null;
+    }
+    return container.mask;
+  }
+  // Mask has neither vectorMask nor sourceNodeId — incomplete
+  return null;
 }
 
 /** True if the container has an active (visible, valid) mask. */
@@ -125,19 +132,80 @@ export function canNodeHaveMask(node: SceneNode): boolean {
 const VALID_MASK_TYPES: MaskType[] = ['clip', 'alpha', 'luminance'];
 
 /**
+ * Detect cycles in the mask graph.
+ * A mask cycle exists when container A has a mask referencing child B,
+ * and B (or one of B's descendants, if B is a container) has a mask
+ * referencing A (or one of A's ancestors).
+ *
+ * @returns Array of cycle paths, each an ordered list of node IDs forming a cycle.
+ *         Empty array when no cycles exist.
+ */
+export function detectMaskCycles(doc: Document): NodeId[][] {
+  const cycles: NodeId[][] = [];
+  const visited = new Set<NodeId>();
+  const inStack = new Set<NodeId>();
+  const path: NodeId[] = [];
+
+  function visit(nid: NodeId): void {
+    if (inStack.has(nid)) {
+      // Found a cycle — extract the path from the start of the cycle
+      const cycleStart = path.indexOf(nid);
+      if (cycleStart >= 0) {
+        cycles.push([...path.slice(cycleStart), nid]);
+      }
+      return;
+    }
+    if (visited.has(nid)) return;
+
+    visited.add(nid);
+    inStack.add(nid);
+    path.push(nid);
+
+    const node = doc.nodes[nid];
+    const n = node as SceneNode & { mask?: Mask; children?: NodeId[] };
+    if (n.mask?.sourceNodeId && n.mask.visible !== false) {
+      const srcId = n.mask.sourceNodeId;
+      const srcNode = doc.nodes[srcId];
+      // Follow mask source if the source is itself a container (nested masks)
+      if (srcNode && isContainerNode(srcNode)) {
+        visit(srcId);
+      }
+    }
+    // Also check children recursively for their own masks
+    if (n.children) {
+      for (const childId of n.children) {
+        visit(childId);
+      }
+    }
+
+    path.pop();
+    inStack.delete(nid);
+  }
+
+  for (const nid of Object.keys(doc.nodes)) {
+    if (!visited.has(nid as NodeId)) {
+      visit(nid as NodeId);
+    }
+  }
+
+  return cycles;
+}
+
+/**
  * Add a mask to a container node.
  *
  * @param doc - The document
  * @param containerId - The container node ID (frame, group, or adjustment)
- * @param sourceNodeId - The child node ID to use as mask source
+ * @param sourceNodeId - Optional child node ID to use as mask source.
+ *        May be omitted when vectorMask is provided.
  * @param type - The mask type ('clip', 'alpha', or 'luminance')
- * @param opts - Optional mask properties (inverted, feather, density, linked, visible, transform)
+ * @param opts - Optional mask properties
  * @returns A new document with the mask added, or the same document if invalid
  */
 export function addMask(
   doc: Document,
   containerId: NodeId,
-  sourceNodeId: NodeId,
+  sourceNodeId: NodeId | undefined,
   type: MaskType,
   opts?: {
     inverted?: boolean;
@@ -147,6 +215,8 @@ export function addMask(
     visible?: boolean;
     transform?: Affine;
     hideMaskSource?: boolean;
+    vectorMask?: VectorMaskData;
+    fillRule?: MaskFillRule;
   },
 ): Document {
   const container = doc.nodes[containerId];
@@ -154,18 +224,20 @@ export function addMask(
   if (!isContainerNode(container)) return doc;
   if (!VALID_MASK_TYPES.includes(type)) return doc;
 
-  // Source must exist
-  if (!doc.nodes[sourceNodeId]) return doc;
+  // Must have either sourceNodeId or vectorMask
+  if (!sourceNodeId && !opts?.vectorMask) return doc;
+
+  // Source must exist if specified
+  if (sourceNodeId && !doc.nodes[sourceNodeId]) return doc;
 
   // Source must be a child of the container (frames and groups only)
-  if (container.kind !== 'adjustment') {
+  if (sourceNodeId && container.kind !== 'adjustment') {
     const children = container.children;
     if (children && !children.includes(sourceNodeId)) return doc;
   }
 
   const mask: Mask = {
     type,
-    sourceNodeId,
     visible: opts?.visible ?? true,
     inverted: opts?.inverted,
     feather: opts?.feather,
@@ -173,16 +245,34 @@ export function addMask(
     linked: opts?.linked,
     transform: opts?.transform,
     hideMaskSource: opts?.hideMaskSource,
+    vectorMask: opts?.vectorMask,
+    fillRule: opts?.fillRule,
   };
 
-  // Clean undefined values
-  const cleaned: Mask = { type: mask.type, sourceNodeId: mask.sourceNodeId, visible: mask.visible };
+  // Only set sourceNodeId if provided
+  const cleaned: Mask = { type: mask.type, visible: mask.visible };
+  if (sourceNodeId) cleaned.sourceNodeId = sourceNodeId;
   if (mask.inverted) cleaned.inverted = true;
   if (mask.feather !== undefined && mask.feather > 0) cleaned.feather = mask.feather;
   if (mask.density !== undefined && mask.density < 1) cleaned.density = mask.density;
   if (mask.linked === false) cleaned.linked = false;
   if (mask.transform) cleaned.transform = mask.transform;
   if (mask.hideMaskSource) cleaned.hideMaskSource = true;
+  if (mask.vectorMask) cleaned.vectorMask = mask.vectorMask;
+  if (mask.fillRule) cleaned.fillRule = mask.fillRule;
+
+  // Check for cycles before adding the mask
+  const testDoc = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [containerId]: { ...container, mask: cleaned } as SceneNode,
+    },
+  };
+  const cycles = detectMaskCycles(testDoc);
+  if (cycles.length > 0) {
+    return doc; // Reject masks that would create cycles
+  }
 
   const nodes = {
     ...doc.nodes,
@@ -310,6 +400,52 @@ export function setMaskHideSource(
     hideSource || undefined,
     (v) => !!v,
   );
+}
+
+/** Set the vector mask path data for a container's mask. */
+export function setMaskVectorPath(
+  doc: Document,
+  containerId: NodeId,
+  points: PathPoint[],
+  closed: boolean,
+  fillRule?: MaskFillRule,
+): Document {
+  return updateMaskProperty(doc, containerId, 'vectorMask', {
+    points,
+    closed,
+    fillRule: fillRule ?? 'nonzero',
+  } as VectorMaskData);
+}
+
+/** Set the fill rule for a clip/vector mask. */
+export function setMaskFillRule(
+  doc: Document,
+  containerId: NodeId,
+  fillRule: MaskFillRule,
+): Document {
+  return updateMaskProperty(doc, containerId, 'fillRule', fillRule);
+}
+
+/** Check if a mask has a self-contained vector path (not dependent on a child node). */
+export function hasVectorMask(mask: Mask): boolean {
+  return !!mask.vectorMask && mask.vectorMask.points.length > 0;
+}
+
+/** Check if a mask has a source node reference. */
+export function hasSourceNode(mask: Mask): boolean {
+  return !!mask.sourceNodeId;
+}
+
+/** Get all mask source node IDs in the document (for invalidation tracking). */
+export function getAllMaskSourceIds(doc: Document): Set<NodeId> {
+  const sources = new Set<NodeId>();
+  for (const node of Object.values(doc.nodes)) {
+    const n = node as SceneNode & { mask?: Mask };
+    if (n.mask?.sourceNodeId) {
+      sources.add(n.mask.sourceNodeId);
+    }
+  }
+  return sources;
 }
 
 /** Change the mask source node (must be a child of the container). */

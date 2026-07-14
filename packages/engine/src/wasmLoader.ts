@@ -102,3 +102,59 @@ export function wasmHitTestFallback(
 ): number | null {
   return stubHitTest(nodes, world);
 }
+
+// ── WASM trace module loader ──────────────────────────────────────────
+
+export interface WasmTraceModule {
+  trace_contours_json(
+    pixels: Uint8Array,
+    width: number,
+    height: number,
+    threshold: number,
+    minPixels: number,
+  ): string;
+  wasm_trace_version(): string;
+}
+
+let cachedTraceModule: WasmTraceModule | null = null;
+
+export async function tryLoadTraceWasm(): Promise<WasmTraceModule | null> {
+  if (cachedTraceModule) return cachedTraceModule;
+  try {
+    const base = '/wasm';
+    const candidates = [`${base}/strata_wasm_simd_bg.wasm`, `${base}/strata_wasm_bg.wasm`];
+    for (const wasmUrl of candidates) {
+      let blobUrl: string | null = null;
+      try {
+        const response = await fetch(wasmUrl, { method: 'HEAD' });
+        if (!response.ok) continue;
+        const jsUrl = wasmUrl.replace('_bg.wasm', '.js').replace('_simd_bg.wasm', '_simd.js');
+        const jsSource = await fetch(jsUrl).then((r) => r.text());
+        blobUrl = URL.createObjectURL(new Blob([jsSource], { type: 'text/javascript' }));
+        const mod = (await import(/* @vite-ignore */ blobUrl)) as {
+          default: (opts?: {
+            module_or_path?: WebAssembly.Module | BufferSource | Promise<BufferSource>;
+          }) => Promise<void>;
+          trace_contours_json: (
+            pixels: Uint8Array,
+            width: number,
+            height: number,
+            threshold: number,
+            minPixels: number,
+          ) => string;
+          wasm_trace_version: () => string;
+        };
+        await mod.default({ module_or_path: fetch(wasmUrl).then((r) => r.arrayBuffer()) });
+        cachedTraceModule = mod;
+        return mod;
+      } catch {
+        // try the next candidate
+      } finally {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}

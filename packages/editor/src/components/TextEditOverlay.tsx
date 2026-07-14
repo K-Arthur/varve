@@ -11,8 +11,15 @@
 
 import type { Affine } from '@strata/engine';
 import type { TextNode } from '@strata/scene';
-import { computeFloatingOrigin, measureText, worldToScreen } from '@strata/shared';
+import {
+  buildWorldToScreenAffine,
+  computeFloatingOrigin,
+  DEFAULT_ARTWORK_FONT_FAMILY,
+  measureText,
+  multiplyAffine,
+} from '@strata/shared';
 import { useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface TextEditOverlayProps {
   node: TextNode;
@@ -41,6 +48,7 @@ export function TextEditOverlay({
   canvasElement,
   worldX,
   worldY,
+  worldTransform,
   onCommit,
   onUpdateText,
 }: TextEditOverlayProps) {
@@ -60,22 +68,31 @@ export function TextEditOverlay({
   const cam = { zoom, pan, rotation: cameraRotation ?? 0 };
   const viewport = { width: rect?.width ?? 1920, height: rect?.height ?? 1080 };
   const origin = computeFloatingOrigin(cam, viewport);
-  const wx = worldX ?? node.transform[4];
-  const wy = worldY ?? node.transform[5];
-  const [sx, sy] = worldToScreen(cam, wx, wy, viewport, origin);
-  const x = sx + canvasLeft;
-  const y = sy + canvasTop;
+  const worldMatrix =
+    worldTransform ??
+    ([1, 0, 0, 1, worldX ?? node.transform[4], worldY ?? node.transform[5]] as Affine);
+  const cameraMatrix = buildWorldToScreenAffine(cam, viewport, origin);
+  const screenMatrix = multiplyAffine(cameraMatrix, worldMatrix);
+  const cssMatrix: Affine = [
+    screenMatrix[0],
+    screenMatrix[1],
+    screenMatrix[2],
+    screenMatrix[3],
+    screenMatrix[4] + canvasLeft,
+    screenMatrix[5] + canvasTop,
+  ];
   const textSize = measureText(node.text, {
     fontSize: node.fontSize ?? 16,
-    fontFamily: node.fontFamily ?? 'Inter',
+    fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
     fontWeight: node.fontWeight,
     fontStyle: node.fontStyle,
     letterSpacing: node.letterSpacing,
     lineHeight: node.lineHeight,
     textCase: node.textCase,
   });
-  const w = Math.max(textSize.width, node.text.length === 0 ? (node.fontSize ?? 16) * 3 : 0) * zoom;
-  const h = textSize.height * zoom;
+  const w =
+    node.w ?? Math.max(textSize.width, node.text.length === 0 ? (node.fontSize ?? 16) * 3 : 0);
+  const h = node.h ?? textSize.height;
 
   const handleInput = useCallback(() => {
     const ta = textareaRef.current;
@@ -121,7 +138,7 @@ export function TextEditOverlay({
     }
   }, []);
 
-  return (
+  const editor = (
     <textarea
       ref={textareaRef}
       defaultValue={node.text}
@@ -135,15 +152,15 @@ export function TextEditOverlay({
       dir="auto"
       style={{
         position: 'fixed',
-        left: x,
-        top: y,
+        left: 0,
+        top: 0,
         width: Math.max(w, 20),
-        minHeight: Math.max(h, 20),
-        fontSize: (node.fontSize ?? 16) * zoom,
-        fontFamily: node.fontFamily ?? 'Inter',
+        height: Math.max(h, 20),
+        fontSize: node.fontSize ?? 16,
+        fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
         fontWeight: node.fontWeight ?? 400,
         lineHeight: (node.lineHeight ?? 1.2).toString(),
-        letterSpacing: `${(node.letterSpacing ?? 0) * zoom}px`,
+        letterSpacing: `${node.letterSpacing ?? 0}px`,
         padding: 0,
         margin: 0,
         border: '1px solid var(--color-interactive-default, #3b82f6)',
@@ -155,8 +172,11 @@ export function TextEditOverlay({
         caretColor: 'var(--color-interactive-default, #3b82f6)',
         whiteSpace: 'pre-wrap',
         wordWrap: 'break-word',
+        transform: `matrix(${cssMatrix.join(',')})`,
+        transformOrigin: '0 0',
         zIndex: 1000,
       }}
     />
   );
+  return createPortal(editor, document.body);
 }

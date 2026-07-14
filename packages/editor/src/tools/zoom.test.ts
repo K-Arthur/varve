@@ -2,8 +2,8 @@
  * ZoomTool unit tests.
  *
  * Tests cursor-anchored click-zoom, alt-click zoom-out, and marquee zoom.
- * All assertions verify that `setZoom` + `setPan` are called with values that
- * keep the world point under the cursor fixed after zoom.
+ * All assertions verify that one atomic `setCamera` call keeps the world point
+ * under the cursor fixed after zoom.
  */
 import {
   computeFloatingOrigin,
@@ -29,6 +29,17 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     metaKey: false,
     pointerType: 'mouse',
     pointerPressure: 0,
+    tiltX: 0,
+    tiltY: 0,
+    twist: 0,
+    tangentialPressure: 0,
+    pointerWidth: 1,
+    pointerHeight: 1,
+    altitudeAngle: Math.PI / 2,
+    azimuthAngle: 0,
+    hasCoalescedEvents: false,
+    hasPredictedEvents: false,
+    sourceEvents: [],
     snapEnabled: false,
     snapGrid: 8,
     createShapeAt: vi.fn(),
@@ -41,6 +52,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     updateNode: vi.fn(),
     removeSelected: vi.fn(),
     reparentNode: vi.fn(),
+    setCamera: vi.fn(),
     setPan: vi.fn(),
     setZoom: vi.fn(),
     announce: vi.fn(),
@@ -129,14 +141,13 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     // Pointer up at same position (no marquee) → click zoom
     tool.onPointerUp?.(pointerDown, ctx);
 
-    const setZoomMock = ctx.setZoom as ReturnType<typeof vi.fn>;
-    const setPanMock = ctx.setPan as ReturnType<typeof vi.fn>;
+    const setCameraMock = ctx.setCamera as ReturnType<typeof vi.fn>;
 
-    expect(setZoomMock.mock.calls).toHaveLength(1);
-    expect(setPanMock.mock.calls).toHaveLength(1);
+    expect(setCameraMock.mock.calls).toHaveLength(1);
 
-    const newZoom = firstCallArg<number>(setZoomMock);
-    const newPan = firstCallArg<{ x: number; y: number }>(setPanMock);
+    const camera = firstCallArg<import('@strata/shared').Camera>(setCameraMock);
+    const newZoom = camera.zoom;
+    const newPan = camera.pan;
 
     // The world point (400, 300) should map to the same screen position after zoom.
     // screenAfter = worldPoint * newZoom + newPan
@@ -158,8 +169,11 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(pointerDown, ctx);
     tool.onPointerUp?.(pointerDown, ctx);
 
-    const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
-    const newPan = firstCallArg<{ x: number; y: number }>(ctx.setPan as ReturnType<typeof vi.fn>);
+    const camera = firstCallArg<import('@strata/shared').Camera>(
+      ctx.setCamera as ReturnType<typeof vi.fn>,
+    );
+    const newZoom = camera.zoom;
+    const newPan = camera.pan;
 
     // screen before zoom: 250*2 + (-200) = 300, 150*2 + (-100) = 200 (verified)
     const screenX = 250 * newZoom + newPan.x;
@@ -177,8 +191,10 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
-    expect(newZoom).toBeCloseTo(1.25, 2);
+    const camera = firstCallArg<import('@strata/shared').Camera>(
+      ctx.setCamera as ReturnType<typeof vi.fn>,
+    );
+    expect(camera.zoom).toBeCloseTo(1.25, 2);
   });
 
   it('alt+click zoom-out factor is ~0.8x', () => {
@@ -188,34 +204,29 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
-    expect(newZoom).toBeCloseTo(0.8, 2);
+    const camera = firstCallArg<import('@strata/shared').Camera>(
+      ctx.setCamera as ReturnType<typeof vi.fn>,
+    );
+    expect(camera.zoom).toBeCloseTo(0.8, 2);
   });
 });
 
-describe('ZoomTool — viewport-aware anchor (floating-origin correction)', () => {
-  it('click zoom-in keeps the anchor fixed once the camera has panned past the floating-origin grid (FLOATING_ORIGIN_GRID=512)', () => {
-    // zoomAboutPoint(cam, anchor, newZoom, viewport) needs the real viewport
-    // to compute the same floating-origin correction (computeFloatingOrigin)
-    // the renderer will use. ZoomTool previously called it with only 3 args,
-    // silently falling into the `!viewport` branch, which assumes origin=[0,0]
-    // and a hardcoded 1920x1080 size — invisible near world (0,0), but once
-    // pan/zoom puts the viewport more than one 512-unit grid cell away from
-    // true origin, the assumed and actual origins diverge and the anchor
-    // drifts hundreds of pixels off the cursor on click-to-zoom.
-    //
-    // Reproduced directly against packages/shared/src/viewport.ts: pan
-    // (-1800,-1100) at zoom 1 -> 1.25, viewport 640x480 -- without the real
-    // viewport passed through, the anchor (world (3736, 2424), screen
-    // (400,300) before the click) renders at screen (-624, 44) after zoom, a
-    // ~1000px jump. With the viewport passed through it lands exactly back
-    // at (400, 300).
+describe('ZoomTool — viewport-aware anchor', () => {
+  it('click zoom-in keeps the semantic world anchor fixed after a large pan', () => {
+    // The floating-origin grid is a renderer precision aid, not part of the
+    // document coordinate system. The point under the cursor must therefore
+    // remain stable without adding or subtracting a grid cell.
     const tool = new ZoomTool();
     const fakeCanvas = {
       getBoundingClientRect: () => ({ width: 640, height: 480 }) as DOMRect,
     } as unknown as HTMLCanvasElement;
     const pan = { x: -1800, y: -1100 };
     const zoom = 1;
+    const pointerScreen = { x: 400, y: 300 };
+    const worldAnchor = {
+      x: (pointerScreen.x - pan.x) / zoom,
+      y: (pointerScreen.y - pan.y) / zoom,
+    };
     const ctx = makeCtx({
       zoom,
       pan,
@@ -230,24 +241,24 @@ describe('ZoomTool — viewport-aware anchor (floating-origin correction)', () =
       }),
     });
 
-    const pointerDown = makePointerEvent(400, 300);
+    const pointerDown = makePointerEvent(pointerScreen.x, pointerScreen.y);
     tool.onPointerDown(pointerDown, ctx);
     tool.onPointerUp?.(pointerDown, ctx);
 
-    const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
-    const newPan = firstCallArg<{ x: number; y: number }>(ctx.setPan as ReturnType<typeof vi.fn>);
-    const resultCam = { pan: newPan, zoom: newZoom };
+    const resultCam = firstCallArg<import('@strata/shared').Camera>(
+      ctx.setCamera as ReturnType<typeof vi.fn>,
+    );
     const finalOrigin = computeFloatingOrigin(resultCam, { width: 640, height: 480 });
     const [screenX, screenY] = worldToScreen(
       resultCam,
-      3736,
-      2424,
+      worldAnchor.x,
+      worldAnchor.y,
       { width: 640, height: 480 },
       finalOrigin,
     );
 
-    expect(screenX).toBeCloseTo(400, 0);
-    expect(screenY).toBeCloseTo(300, 0);
+    expect(screenX).toBeCloseTo(pointerScreen.x, 0);
+    expect(screenY).toBeCloseTo(pointerScreen.y, 0);
   });
 });
 
@@ -259,8 +270,10 @@ describe('ZoomTool — zoom clamping', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
-    expect(newZoom).toBeLessThanOrEqual(MAX_ZOOM);
+    const camera = firstCallArg<import('@strata/shared').Camera>(
+      ctx.setCamera as ReturnType<typeof vi.fn>,
+    );
+    expect(camera.zoom).toBeLessThanOrEqual(MAX_ZOOM);
   });
 
   it(`does not zoom below MIN_ZOOM (${MIN_ZOOM})`, () => {
@@ -270,7 +283,9 @@ describe('ZoomTool — zoom clamping', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const newZoom = firstCallArg<number>(ctx.setZoom as ReturnType<typeof vi.fn>);
-    expect(newZoom).toBeGreaterThanOrEqual(MIN_ZOOM);
+    const camera = firstCallArg<import('@strata/shared').Camera>(
+      ctx.setCamera as ReturnType<typeof vi.fn>,
+    );
+    expect(camera.zoom).toBeGreaterThanOrEqual(MIN_ZOOM);
   });
 });

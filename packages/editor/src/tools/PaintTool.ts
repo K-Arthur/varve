@@ -3,6 +3,7 @@ import {
   compositeDabOnNode,
   defaultBrushPreset,
   generateDabs,
+  seedJitter,
   smoothStrokePoints,
   strokePoint,
   tilesForBounds,
@@ -67,8 +68,12 @@ export class PaintTool extends BaseTool {
     }
     this.rasterNodeId = rasterNodeId;
 
+    // Seed deterministic jitter for this stroke
+    seedJitter(Math.round(performance.now() * 1000) & 0x7fffffff);
+
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
-    const sp = strokePoint(world.x, world.y, { pressure });
+    const avgTilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
+    const sp = strokePoint(world.x, world.y, { pressure, tilt: avgTilt });
     this.strokePoints = [sp];
     this.updatePreview(ctx);
 
@@ -88,7 +93,8 @@ export class PaintTool extends BaseTool {
     for (const ev of events) {
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
-      this.sampleStrokePoint(world, pressure);
+      const tilt = (Math.abs(ev.tiltX ?? 0) + Math.abs(ev.tiltY ?? 0)) / 2;
+      this.sampleStrokePoint(world, pressure, undefined, tilt);
     }
 
     this.flushDabs(ctx);
@@ -100,7 +106,8 @@ export class PaintTool extends BaseTool {
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
-    this.sampleStrokePoint(world, pressure);
+    const tilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
+    this.sampleStrokePoint(world, pressure, undefined, tilt);
 
     this.flushDabs(ctx);
     ctx.commitTransaction();
@@ -140,6 +147,7 @@ export class PaintTool extends BaseTool {
     world: { x: number; y: number },
     pressure: number,
     time?: number,
+    tilt?: number,
   ): void {
     const pts = this.strokePoints;
     if (pts.length === 0) return;
@@ -152,7 +160,13 @@ export class PaintTool extends BaseTool {
 
     const speed = t - last.time > 0 ? (Math.sqrt(dx * dx + dy * dy) / (t - last.time)) * 1000 : 0;
     const direction = Math.atan2(dy, dx);
-    const sp = strokePoint(world.x, world.y, { pressure, direction, speed, time: t });
+    const sp = strokePoint(world.x, world.y, {
+      pressure,
+      tilt: tilt ?? last.tilt,
+      direction,
+      speed,
+      time: t,
+    });
     pts.push(sp);
   }
 

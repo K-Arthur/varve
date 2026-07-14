@@ -31,7 +31,8 @@ export type AdjustmentKind =
   | 'colorBalance'
   | 'channelMixer'
   | 'photoFilter'
-  | 'halftone';
+  | 'halftone'
+  | 'gradientMap';
 
 export type AdjustmentBlendMode =
   | 'normal'
@@ -193,6 +194,18 @@ export interface HalftoneAdjustment extends AdjustmentBase {
   method: 'am' | 'fm';
 }
 
+export interface GradientMapStop {
+  position: number;
+  color: Color;
+}
+
+export interface GradientMapAdjustment extends AdjustmentBase {
+  kind: 'gradientMap';
+  stops: GradientMapStop[];
+  dither: boolean;
+  preserveLuminosity: boolean;
+}
+
 export type Adjustment =
   | BrightnessAdjustment
   | ContrastAdjustment
@@ -214,7 +227,8 @@ export type Adjustment =
   | SelectiveColorAdjustment
   | ColorBalanceAdjustment
   | ChannelMixerAdjustment
-  | PhotoFilterAdjustment;
+  | PhotoFilterAdjustment
+  | GradientMapAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
   const base = { opacity: adjustment.opacity, blendMode: adjustment.blendMode };
@@ -322,6 +336,17 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         method: adjustment.method,
         ...base,
       };
+    case 'gradientMap':
+      return {
+        kind: 'gradientMap',
+        stops: adjustment.stops.map((s) => ({
+          position: s.position,
+          color: s.color as readonly [number, number, number, number],
+        })),
+        dither: adjustment.dither,
+        preserveLuminosity: adjustment.preserveLuminosity,
+        ...base,
+      };
     default:
       return { kind: 'opacity', value: 100, opacity: 1, blendMode: 'normal' };
   }
@@ -366,6 +391,7 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'channelMixer':
     case 'photoFilter':
     case 'halftone':
+    case 'gradientMap':
       // No direct CSS equivalent; use identity or a placeholder.
       return null;
     case 'chain':
@@ -379,6 +405,11 @@ export function filterToCss(filter: FilterIR): string | null {
 export function filterChainToCss(filters: FilterIR[]): string | null {
   const parts = filters.map(filterToCss).filter((p): p is string => p !== null && p.length > 0);
   return parts.length > 0 ? parts.join(' ') : null;
+}
+
+/** True only when the runtime implements CanvasRenderingContext2D.filter. */
+export function supportsCanvasFilter(target: object): target is { filter: string } {
+  return 'filter' in target && typeof (target as { filter?: unknown }).filter === 'string';
 }
 
 /** Apply a filter chain to a Canvas2D context by setting ctx.filter. */
@@ -401,6 +432,8 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Photo Filter';
     case 'selectiveColor':
       return 'Selective Color';
+    case 'gradientMap':
+      return 'Gradient Map';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
@@ -490,6 +523,16 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         dotShape: 'round',
         channel: 'k',
         method: 'am',
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'gradientMap':
+      return {
+        ...base,
+        stops: [
+          { position: 0, color: [0, 0, 0, 255] as Color },
+          { position: 1, color: [255, 255, 255, 255] as Color },
+        ],
+        dither: true,
+        preserveLuminosity: false,
       } as Omit<Adjustment, 'id' | 'kind'>;
     default:
       return { ...base } as Omit<Adjustment, 'id' | 'kind'>;

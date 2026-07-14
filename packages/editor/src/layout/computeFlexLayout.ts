@@ -7,7 +7,7 @@
  * Research basis: CSS Flexible Box Layout Module Level 1, Figma auto layout.
  */
 import type { FrameNode, SceneNode } from '@strata/scene';
-import { measureText } from '@strata/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
 
 export interface LayoutResult {
   id: string;
@@ -35,7 +35,7 @@ function childSize(n: SceneNode): { w: number; h: number } {
     const fs = n.fontSize ?? 16;
     const measured = measureText(n.text ?? '', {
       fontSize: fs,
-      fontFamily: n.fontFamily ?? 'sans-serif',
+      fontFamily: n.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
       fontWeight: n.fontWeight ?? 400,
       fontStyle: n.fontStyle ?? 'normal',
       letterSpacing: n.letterSpacing ?? 0,

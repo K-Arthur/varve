@@ -1,23 +1,5 @@
 import { expect, test } from '@playwright/test';
-
-async function navigateToEditor(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /^new$/i }).click();
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .waitFor({ timeout: 5000 });
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .click();
-  await page
-    .getByRole('img', { name: 'Design canvas' })
-    .waitFor({ timeout: 10000, state: 'visible' });
-  // Allow the canvas to settle into its final CSS size before pointer events.
-  await page.waitForTimeout(500);
-}
+import { navigateToEditor } from '../shared';
 
 function getCanvas(page: import('@playwright/test').Page) {
   return page.getByRole('img', { name: 'Design canvas' });

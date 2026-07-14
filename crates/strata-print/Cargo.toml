@@ -9,9 +9,11 @@ repository.workspace = true
 
 [dependencies]
 strata-core = { path = "../strata-core" }
+strata-colour = { path = "../strata-colour" }
 lopdf = { version = "0.31", features = [] }
 serde = { version = "1", features = ["derive"] }
 ab_glyph = "0.2"
+font-subset = "0.1"
 
 [dev-dependencies]
 serde_json = "1"

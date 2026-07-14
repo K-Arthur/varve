@@ -68,8 +68,10 @@ export function visitNodePartial<T>(
     case 'adjustment':
       return visitor.adjustment ? visitor.adjustment(node) : fallback(node);
     case 'path':
-    case 'rasterLayer':
-      return visitor.rasterLayer ? visitor.rasterLayer(node) : fallback(node);
+    case 'rasterLayer': {
+      const rlNode = node as import('./types').RasterLayerNode;
+      return visitor.rasterLayer ? visitor.rasterLayer(rlNode) : fallback(node);
+    }
   }
   return fallback(node);
 }

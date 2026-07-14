@@ -1,22 +1,32 @@
 import type { RasterTraceOptions, RasterTraceResult } from '../rasterTrace';
 import { directTraceProvider } from './directTraceProvider';
+import { nativeTraceProvider } from './nativeTraceProvider';
+import { wasmTraceProvider } from './wasmTraceProvider';
+import { workerTraceProvider } from './workerTraceProvider';
 import type { TraceProvider } from './types';
 
 export { directTraceProvider } from './directTraceProvider';
 export { mapNativePathsToTraceResult } from './mapNativePaths';
+export { nativeTraceProvider } from './nativeTraceProvider';
+export { wasmTraceProvider } from './wasmTraceProvider';
+
+/** Ordered providers — first available success wins. */
+export const TRACE_PROVIDER_CHAIN: TraceProvider[] = [
+  nativeTraceProvider,
+  wasmTraceProvider,
+  workerTraceProvider,
+  directTraceProvider,
+];
 
 export async function dispatchTrace(
   imageData: ImageData,
   options: RasterTraceOptions = {},
   signal?: AbortSignal,
-  chain?: TraceProvider[],
+  chain: TraceProvider[] = TRACE_PROVIDER_CHAIN,
 ): Promise<RasterTraceResult> {
-  const { workerTraceProvider } = await import('./workerTraceProvider');
-  const providers = chain ?? [workerTraceProvider, directTraceProvider];
-
   if (signal?.aborted) throw new Error('cancelled');
   const errors: string[] = [];
-  for (const provider of providers) {
+  for (const provider of chain) {
     if (signal?.aborted) throw new Error('cancelled');
     let available: boolean;
     try {

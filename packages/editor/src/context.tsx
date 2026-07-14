@@ -154,7 +154,9 @@ import {
   setMaskInverted as setMaskInvertedDoc,
   setMaskLinked as setMaskLinkedDoc,
   setMaskSourceNode as setMaskSourceNodeDoc,
+  setMaskFillRule as setMaskFillRuleDoc,
   setMaskType as setMaskTypeDoc,
+  setMaskVectorPath as setMaskVectorPathDoc,
   setMaskVisible as setMaskVisibleDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
@@ -671,6 +673,10 @@ export interface EditorContextValue {
   setMaskType: (type: MaskType) => void;
   /** Change the mask source node (must be a child of the container). */
   setMaskSourceNode: (sourceNodeId: string) => void;
+  /** Set the fill rule for a clip/vector mask ('nonzero' | 'evenodd'). */
+  setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => void;
+  /** Set a vector path mask on the selected container. */
+  setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => void;
   /** Create an adjustment layer node with optional initial adjustments and select it. */
   createAdjustmentLayer: (initialAdjustments?: import('@strata/engine').Adjustment[]) => void;
   /** Append an adjustment to an adjustment layer node. */
@@ -957,6 +963,22 @@ export interface EditorContextValue {
   documentColorMode: ColorMode;
   /** Switch the document color mode, converting all colors. */
   switchColorMode: (mode: ColorMode) => void;
+
+  // Quick-mask mode
+  /** Enter quick-mask mode: paint-based selection editing. */
+  enterQuickMask: () => void;
+  /** Exit quick-mask mode, optionally converting coverage to a raster mask. */
+  exitQuickMask: (convertToMask?: boolean) => void;
+  /** Replace the coverage buffer with externally-computed data. */
+  setQuickMaskCoverage: (coverage: Uint8Array, width: number, height: number) => void;
+  /** Paint a circular brush stroke into the coverage buffer. */
+  paintQuickMask: (x: number, y: number, radius: number, value: number) => void;
+  /** Fill the entire coverage buffer with a constant value. */
+  fillQuickMask: (value: number) => void;
+  /** Invert the coverage buffer (255 - v for every pixel). */
+  invertQuickMask: () => void;
+  /** Whether quick-mask mode is active. */
+  isQuickMaskActive: () => boolean;
 
   /** Record a user action for analytics/onboarding/intelligence. */
   recordAction: (actionId: string) => void;
@@ -1455,6 +1477,13 @@ export function EditorProvider({
       colorBlindnessView: 'none',
       foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
       backgroundColor: [255, 255, 255, 255] as [number, number, number, number],
+      quickMask: {
+        active: false,
+        color: [255, 0, 0, 128] as [number, number, number, number],
+        coverage: null,
+        width: 0,
+        height: 0,
+      },
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -3916,6 +3945,109 @@ export function EditorProvider({
         updateDoc((doc) => setMaskSourceNodeDoc(doc, id, sourceNodeId as NodeId));
       },
 
+      setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => setMaskFillRuleDoc(doc, id, fillRule));
+      },
+
+      setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => setMaskVectorPathDoc(doc, id, points, closed));
+      },
+
+      enterQuickMask: () => {
+        setState((s) => {
+          const w = s.document.canvasWidth ?? 1920;
+          const h = s.document.canvasHeight ?? 1080;
+          const coverage = s.quickMask.coverage ?? new Uint8Array(w * h);
+          announcerRef.current?.announce('Quick mask mode');
+          return {
+            ...s,
+            quickMask: {
+              ...s.quickMask,
+              active: true,
+              coverage,
+              width: w,
+              height: h,
+            },
+          };
+        });
+      },
+
+      exitQuickMask: (convertToMask?: boolean) => {
+        setState((s) => {
+          announcerRef.current?.announce('Exited quick mask mode');
+          return {
+            ...s,
+            quickMask: {
+              ...s.quickMask,
+              active: false,
+              coverage: convertToMask ? s.quickMask.coverage : null,
+            },
+          };
+        });
+      },
+
+      setQuickMaskCoverage: (coverage: Uint8Array, width: number, height: number) => {
+        setState((s) => ({
+          ...s,
+          quickMask: { ...s.quickMask, coverage, width, height },
+        }));
+      },
+
+      paintQuickMask: (x: number, y: number, radius: number, value: number) => {
+        setState((s) => {
+          const buf = s.quickMask.coverage;
+          if (!buf) return s;
+          const w = s.quickMask.width;
+          const h = s.quickMask.height;
+          const r = Math.max(1, radius);
+          const clamped = Math.max(0, Math.min(255, Math.round(value)));
+          const minX = Math.max(0, Math.floor(x - r));
+          const maxX = Math.min(w - 1, Math.ceil(x + r));
+          const minY = Math.max(0, Math.floor(y - r));
+          const maxY = Math.min(h - 1, Math.ceil(y + r));
+          const r2 = r * r;
+          for (let py = minY; py <= maxY; py++) {
+            for (let px = minX; px <= maxX; px++) {
+              const dx = px - x;
+              const dy = py - y;
+              if (dx * dx + dy * dy <= r2) {
+                buf[py * w + px] = clamped;
+              }
+            }
+          }
+          return { ...s, quickMask: { ...s.quickMask, coverage: buf.slice(0) } };
+        });
+      },
+
+      fillQuickMask: (value: number) => {
+        setState((s) => {
+          const buf = s.quickMask.coverage;
+          if (!buf) return s;
+          const clamped = Math.max(0, Math.min(255, Math.round(value)));
+          buf.fill(clamped);
+          return { ...s, quickMask: { ...s.quickMask, coverage: buf.slice(0) } };
+        });
+      },
+
+      invertQuickMask: () => {
+        setState((s) => {
+          const buf = s.quickMask.coverage;
+          if (!buf) return s;
+          for (let i = 0; i < buf.length; i++) {
+            buf[i] = 255 - buf[i];
+          }
+          return { ...s, quickMask: { ...s.quickMask, coverage: buf.slice(0) } };
+        });
+      },
+
+      isQuickMaskActive: () => state.quickMask.active,
+
       detachSelected: () => {
         const sel = state.selection;
         const id = sel[0];
@@ -6037,6 +6169,8 @@ export function EditorProvider({
       setMaskLinked: value.setMaskLinked,
       setMaskType: value.setMaskType,
       setMaskSourceNode: value.setMaskSourceNode,
+      setMaskFillRule: value.setMaskFillRule,
+      setMaskVectorPath: value.setMaskVectorPath,
       detachSelected: value.detachSelected,
       copySelected: value.copySelected,
       cutSelected: value.cutSelected,

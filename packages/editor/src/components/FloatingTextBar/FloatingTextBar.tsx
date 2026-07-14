@@ -1,8 +1,9 @@
 import { getFontRegistry } from '@strata/engine';
 import type { ManagedColor, NodeId, TextNode } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@strata/shared';
 import { ColorPicker, Icon, Popover } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './FloatingTextBar.css';
 
 export interface FloatingTextBarProps {
@@ -15,6 +16,8 @@ export interface FloatingTextBarProps {
 const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 const SYSTEM_FONTS = [
+  'IBM Plex Sans Variable',
+  'Geist Variable',
   'Inter',
   'Arial',
   'Helvetica',
@@ -145,7 +148,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   const isList = (node.listStyle ?? 'none') !== 'none';
   const textAlign = node.textAlign ?? 'left';
 
-  return (
+  return createPortal(
     <div
       className="floating-text-bar"
       style={{ left: barLeft, top: barTop }}
@@ -155,7 +158,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
     >
       <select
         className="floating-text-bar__select"
-        value={node.fontFamily ?? 'Inter'}
+        value={node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY}
         onChange={handleFontFamilyChange}
         aria-label="Font family"
       >
@@ -267,6 +270,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
           }}
         />
       </Popover>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,19 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-async function navigateToEditor(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /^new$/i }).click();
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .waitFor({ timeout: 5000 });
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .click();
-  await page.locator('.layers-panel').waitFor({ timeout: 10000 });
-}
+import { navigateToEditor } from '../shared';
 
 test.describe('onboarding and help', () => {
   test('welcome dialog offers skip paths and tour can be dismissed', async ({ page }) => {

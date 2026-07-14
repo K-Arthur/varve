@@ -1,25 +1,7 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
-async function navigateToEditor(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /^new$/i }).click();
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .click();
-  await page.locator('.layers-panel').waitFor({ timeout: 10000 });
-  const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
-  if (
-    await welcomeClose
-      .first()
-      .isVisible({ timeout: 1000 })
-      .catch(() => false)
-  ) {
-    await welcomeClose.first().click();
-  }
-}
+import { navigateToEditor } from '../shared';
 
 test('imports, upscales, undoes, and traces an image through the inspector', async ({ page }) => {
   test.setTimeout(180000);

@@ -46,7 +46,11 @@ export async function navigateToHome(page: Page) {
  * populated.  Uses the Rect tool shortcut (r) + drag across the canvas.
  */
 export async function seedLayers(page: Page, count: number) {
-  const canvas = page.locator('canvas').first();
+  // The editor mounts hidden thumbnail/offscreen canvases as features become
+  // available. Target the owned artwork surface explicitly so engine-specific
+  // DOM timing cannot select a zero-sized auxiliary canvas.
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.waitFor({ state: 'visible', timeout: 10_000 });
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas not found');
   for (let i = 0; i < count; i++) {
@@ -72,8 +76,36 @@ export async function dragOnCanvas(
   page: Page,
   fromWorld: { x: number; y: number },
   toWorld: { x: number; y: number },
+): Promise<NonNullable<Awaited<ReturnType<ReturnType<Page['locator']>['boundingBox']>>>>;
+export async function dragOnCanvas(
+  page: Page,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+): Promise<NonNullable<Awaited<ReturnType<ReturnType<Page['locator']>['boundingBox']>>>>;
+export async function dragOnCanvas(
+  page: Page,
+  fromOrX: { x: number; y: number } | number,
+  toOrY: { x: number; y: number } | number,
+  maybeToX?: number,
+  maybeToY?: number,
 ) {
-  const canvas = page.locator('canvas').first();
+  const fromWorld = typeof fromOrX === 'number' ? { x: fromOrX, y: toOrY as number } : fromOrX;
+  const toWorld =
+    typeof fromOrX === 'number'
+      ? { x: maybeToX as number, y: maybeToY as number }
+      : (toOrY as { x: number; y: number });
+  const coordinates = [fromWorld.x, fromWorld.y, toWorld.x, toWorld.y];
+  if (!coordinates.every(Number.isFinite)) {
+    throw new TypeError(`Canvas drag coordinates must be finite: ${coordinates.join(', ')}`);
+  }
+
+  // Hidden thumbnail/offscreen canvases may mount before the editor surface.
+  // Always target the owned artwork layer so browser-specific DOM timing does
+  // not select a zero-sized auxiliary canvas.
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.waitFor({ state: 'visible', timeout: 10_000 });
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas not found');
 

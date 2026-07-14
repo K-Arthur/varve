@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilterWithCompositing } from './filterCompositor';
+import { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 import type { FilterIR } from './types';
 
 // Helper to create a small RGBA ImageData for testing premultiplied alpha
@@ -81,6 +81,26 @@ function mockTarget() {
 }
 
 describe('filter compositing', () => {
+  it('provides a software brightness fallback when ctx.filter is unavailable', () => {
+    const input = makeTestImageData([[100, 50, 25, 255]], 1, 1);
+    let output: ImageData | undefined;
+    const context = {
+      getImageData: () => input,
+      putImageData: (data: ImageData) => {
+        output = data;
+      },
+    };
+
+    applySoftwareFilter(
+      context as unknown as OffscreenCanvasRenderingContext2D,
+      { kind: 'brightness', value: 50, opacity: 1, blendMode: 'normal' },
+      1,
+      1,
+    );
+
+    expect(Array.from(output?.data ?? [])).toEqual([150, 75, 38, 255]);
+  });
+
   it('applies CSS-compatible filter directly when opacity=1 and blendMode=normal', () => {
     const { target } = mockTarget();
     const filters: FilterIR[] = [
@@ -176,7 +196,7 @@ describe('filter compositing', () => {
         },
         drawImage: () => {},
         filter: 'none',
-      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as unknown as typeof globalThis.OffscreenCanvas.prototype.getContext;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [
@@ -211,7 +231,7 @@ describe('filter compositing', () => {
         },
         drawImage: () => {},
         filter: 'none',
-      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as unknown as typeof globalThis.OffscreenCanvas.prototype.getContext;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [
@@ -241,7 +261,7 @@ describe('filter compositing', () => {
         },
         drawImage: () => {},
         filter: 'none',
-      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as unknown as typeof globalThis.OffscreenCanvas.prototype.getContext;
 
     const { target } = mockTarget();
     // Red channel output: 80% red + 10% green + 0% blue + constant 5
@@ -274,7 +294,7 @@ describe('filter compositing', () => {
         },
         drawImage: () => {},
         filter: 'none',
-      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as unknown as typeof globalThis.OffscreenCanvas.prototype.getContext;
 
     const { target } = mockTarget();
     const filters: FilterIR[] = [
@@ -295,9 +315,6 @@ describe('filter compositing', () => {
   // ── Premultiplied alpha helpers ──
 
   it('premultiply/unpremultiply round-trip for opaque pixels', () => {
-    const data = new Uint8ClampedArray([100, 150, 200, 255, 30, 60, 90, 255]);
-    const original = new Uint8ClampedArray(data);
-
     // We need direct access to the internal functions.
     // Simulate via applySharpen with amount=0 (no-op after conversion)
     const imgData = makeTestImageData(
@@ -334,7 +351,7 @@ describe('filter compositing', () => {
         canvas: { width: 2, height: 1 },
         globalAlpha: 1,
         globalCompositeOperation: 'source-over',
-      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as unknown as typeof globalThis.OffscreenCanvas.prototype.getContext;
 
     const { target } = mockTarget();
     applyFilterWithCompositing(target, [filter], 2, 1);
@@ -388,7 +405,7 @@ describe('filter compositing', () => {
         canvas: { width: 2, height: 1 },
         globalAlpha: 1,
         globalCompositeOperation: 'source-over',
-      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as unknown as typeof globalThis.OffscreenCanvas.prototype.getContext;
 
     const { target } = mockTarget();
     applyFilterWithCompositing(target, [filter], 2, 1);
@@ -453,7 +470,7 @@ describe('filter compositing', () => {
         canvas: { width: 3, height: 3 },
         globalAlpha: 1,
         globalCompositeOperation: 'source-over',
-      }) as unknown as OffscreenCanvasRenderingContext2D) as any;
+      }) as unknown as OffscreenCanvasRenderingContext2D) as unknown as typeof globalThis.OffscreenCanvas.prototype.getContext;
 
     const { target } = mockTarget();
     applyFilterWithCompositing(target, [filter], 3, 3);

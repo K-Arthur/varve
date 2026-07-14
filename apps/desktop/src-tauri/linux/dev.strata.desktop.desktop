@@ -1,0 +1,13 @@
+[Desktop Entry]
+Categories={{categories}}
+Comment={{comment}}
+Exec={{exec}} %F
+GenericName=Design Tool
+Icon=dev.strata.desktop
+Keywords=design;ui;vector;graphics;print;
+Name={{name}}
+StartupNotify=true
+StartupWMClass=dev.strata.desktop
+Terminal=false
+Type=Application
+MimeType=application/x-strata;

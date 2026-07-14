@@ -31,6 +31,9 @@ Thumbs.db
 # --- Worktrees ---
 .worktrees
 
+# --- Agent brainstorm / visual companion ---
+.superpowers/
+
 # --- Env / secrets ---
 .env
 .env.*

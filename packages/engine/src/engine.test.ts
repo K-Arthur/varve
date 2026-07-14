@@ -305,6 +305,36 @@ describe('createEngine (stub)', () => {
     }
   });
 
+  it('uses explicit area-text dimensions instead of measured point-text bounds', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'area-text',
+          name: 'Area text',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          text: 'Short',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+          textMode: 'area',
+          w: 240,
+          h: 120,
+        },
+      ],
+    });
+    const primitive = ir[0]?.primitive;
+    expect(primitive?.kind).toBe('text');
+    if (primitive?.kind === 'text') {
+      expect(primitive.w).toBe(240);
+      expect(primitive.h).toBe(120);
+      expect(primitive.textMode).toBe('area');
+    }
+  });
+
   it('propagates letterSpacing and lineHeight to text primitive', async () => {
     const eng = await createEngine();
     const ir = await eng.buildIr({

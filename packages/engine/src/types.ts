@@ -356,6 +356,10 @@ export interface EnginePatternFillData {
   tileSrc: string;
   spacing: number;
   rotation: number;
+  /** Tile width override in px. When omitted, natural image width is used. */
+  imageWidth?: number;
+  /** Tile height override in px. When omitted, natural image height is used. */
+  imageHeight?: number;
 }
 
 export interface EngineFill {
@@ -622,6 +626,10 @@ export type FillIR =
       tileSrc: string;
       spacing: number;
       rotation: number;
+      /** Tile width override in px. When omitted, natural image width is used. */
+      imageWidth?: number;
+      /** Tile height override in px. When omitted, natural image height is used. */
+      imageHeight?: number;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;

@@ -10,6 +10,8 @@
  *
  * Each tool overrides onDragStart / onDragMove / onDragEnd / onDragCancel.
  */
+
+import { zoomAwareDragThreshold } from './inputNormalizer';
 import type {
   CursorSpec,
   GestureResult,
@@ -85,9 +87,10 @@ export abstract class BaseTool implements Tool {
     this.drag.currentCanvas = canvas;
     this.drag.currentWorld = world;
 
+    const threshold = zoomAwareDragThreshold(DRAG_THRESHOLD_CSS_PX, ctx.zoom);
     const dx = Math.abs(canvas.x - this.drag.startCanvas.x);
     const dy = Math.abs(canvas.y - this.drag.startCanvas.y);
-    if (dx > DRAG_THRESHOLD_CSS_PX || dy > DRAG_THRESHOLD_CSS_PX) {
+    if (dx > threshold || dy > threshold) {
       if (!this.dragStartFired) {
         this.dragStartFired = true;
         this.onDragStart?.(ctx);
@@ -114,10 +117,11 @@ export abstract class BaseTool implements Tool {
   onKeyUp?(e: KeyboardEvent, ctx: ToolContext): void;
   onDoubleClick?(e: PointerEvent, ctx: ToolContext): void;
 
-  protected checkDragThreshold(_ctx: ToolContext): boolean {
+  protected checkDragThreshold(ctx: ToolContext): boolean {
+    const threshold = zoomAwareDragThreshold(DRAG_THRESHOLD_CSS_PX, ctx.zoom);
     const dx = Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x);
     const dy = Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y);
-    return dx > DRAG_THRESHOLD_CSS_PX || dy > DRAG_THRESHOLD_CSS_PX;
+    return dx > threshold || dy > threshold;
   }
 
   protected constrainSize(w: number, h: number, shift: boolean): { w: number; h: number } {
@@ -181,10 +185,11 @@ export abstract class BaseTool implements Tool {
     return this.findContainingFrame(world, _ctx);
   }
 
-  protected isBelowThreshold(_ctx: ToolContext): boolean {
+  protected isBelowThreshold(ctx: ToolContext): boolean {
+    const threshold = zoomAwareDragThreshold(DRAG_THRESHOLD_CSS_PX, ctx.zoom);
     const dx = Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x);
     const dy = Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y);
-    return dx <= DRAG_THRESHOLD_CSS_PX && dy <= DRAG_THRESHOLD_CSS_PX;
+    return dx <= threshold && dy <= threshold;
   }
 
   private freshDrag(): DragState {

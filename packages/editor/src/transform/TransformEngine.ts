@@ -114,7 +114,7 @@ export class TransformEngine {
       const parentId = getParent(this.doc, id);
       const parentWorld = parentId ? nodeWorldTransform(this.doc, parentId) : identity;
       const parentWorldInverse = tryInvertAffine(parentWorld);
-      let localRect = nodeLocalBounds(node);
+      let localRect = nodeLocalBounds(node, this.doc);
       if (!localRect) {
         const worldBounds = nodeWorldBounds(this.doc, id);
         if (!worldBounds) continue;
@@ -142,7 +142,7 @@ export class TransformEngine {
         const node = doc.nodes[id];
         if (!node) return null;
         const worldMat = nodeWorldTransform(doc, id);
-        let localRect = nodeLocalBounds(node);
+        let localRect = nodeLocalBounds(node, doc);
         if (!localRect) {
           const worldBounds = nodeWorldBounds(doc, id);
           if (!worldBounds) return null;

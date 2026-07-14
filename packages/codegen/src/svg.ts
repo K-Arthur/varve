@@ -5,8 +5,14 @@
  */
 
 import type { Affine } from '@strata/engine';
-import type { Document as SceneDocument, SceneNode, TextNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+import type {
+  Mask,
+  Document as SceneDocument,
+  SceneNode,
+  TextNode,
+  VectorMaskData,
+} from '@strata/scene';
+import { isImageShape, resolveMask } from '@strata/scene';
 import { applyAffine, multiplyAffine } from '@strata/shared';
 import {
   adjustmentStackTargetGaps,
@@ -282,6 +288,240 @@ function fillToSvg(node: SceneNode, nodeId: string): { defs: string; fillAttr: s
   };
 }
 
+// ── Mask def helpers ─────────────────────────────────────────────────────────
+
+/** Convert VectorMaskData points to an SVG path data string. */
+function vectorMaskToPathData(vm: VectorMaskData): string {
+  const pts = vm.points;
+  if (pts.length === 0) return '';
+  const first = pts[0]!;
+  const cmds: string[] = [`M ${first.x} ${first.y}`];
+  for (let i = 1; i < pts.length; i += 1) {
+    const prev = pts[i - 1]!;
+    const curr = pts[i]!;
+    if (prev.handleOut || curr.handleIn) {
+      const c1x = prev.x + (prev.handleOut?.[0] ?? 0);
+      const c1y = prev.y + (prev.handleOut?.[1] ?? 0);
+      const c2x = curr.x + (curr.handleIn?.[0] ?? 0);
+      const c2y = curr.y + (curr.handleIn?.[1] ?? 0);
+      cmds.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${curr.x} ${curr.y}`);
+    } else {
+      cmds.push(`L ${curr.x} ${curr.y}`);
+    }
+  }
+  if (vm.closed) cmds.push('Z');
+  return cmds.join(' ');
+}
+
+/** Collect geometry clip elements (shape outlines) from a source node subtree. */
+function collectClipElements(doc: SceneDocument, node: SceneNode): string[] {
+  if (node.kind === 'shape') {
+    const el = shapeClipPath(node);
+    return el ? [el] : [];
+  }
+  if (node.kind === 'frame' || node.kind === 'group') {
+    return getChildren(doc, node).flatMap((child) => collectClipElements(doc, child));
+  }
+  return [];
+}
+
+/**
+ * Render a source child node as SVG content inside a mask element.
+ * All fills/strokes are replaced with `fillColor` so the mask
+ * luminance/alpha is uniform.
+ */
+function renderSourceNodeAsMaskContent(
+  doc: SceneDocument,
+  sourceNodeId: string,
+  fillColor: string,
+  localTransform: Affine,
+  depth: number,
+): string {
+  const node = doc.nodes[sourceNodeId];
+  if (!node) return '';
+  const indent = '  '.repeat(depth + 2);
+  const t = affineToSvg(localTransform);
+  const withTransform = ` transform="${t}"`;
+
+  switch (node.kind) {
+    case 'shape': {
+      const s = node.shape;
+      switch (s.kind) {
+        case 'rect':
+          return `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillColor}"${withTransform} />`;
+        case 'ellipse':
+          return `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillColor}"${withTransform} />`;
+        case 'circle':
+          return `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillColor}"${withTransform} />`;
+        case 'line':
+        case 'arrow':
+          return `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${fillColor}" stroke-width="${s.tolerance * 2}" stroke-linecap="round"${withTransform} />`;
+        case 'polygon':
+        case 'star':
+          return `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillColor}"${withTransform} />`;
+        case 'path':
+          return `${indent}<path d="${pathToData(s)}" fill="${fillColor}"${withTransform} />`;
+      }
+      return '';
+    }
+    case 'text': {
+      const tn = node as TextNode;
+      const fontSize = tn.fontSize ?? 16;
+      const lineHeight = (tn.lineHeight ?? 1.2) * fontSize;
+      const lines = (tn.text ?? '').split('\n');
+      const content = lines
+        .map(
+          (line, i) =>
+            `${indent}  <tspan x="0" y="${(i * lineHeight).toFixed(2)}">${escapeXml(line)}</tspan>`,
+        )
+        .join('\n');
+      return `${indent}<text x="0" y="0" fill="${fillColor}" font-size="${fontSize}"${withTransform}>\n${content}\n${indent}</text>`;
+    }
+    case 'frame':
+    case 'group': {
+      const children = getChildren(doc, node)
+        .map((child) =>
+          renderSourceNodeAsMaskContent(doc, child.id, fillColor, child.transform, depth + 1),
+        )
+        .join('\n');
+      return `${indent}<g${withTransform}>\n${children}\n${indent}</g>`;
+    }
+    default:
+      return '';
+  }
+}
+
+/** Generate a single `<clipPath>` or `<mask>` def element for a masked container. */
+function buildMaskDef(doc: SceneDocument, containerId: string, mask: Mask): string | null {
+  if (mask.visible === false) return null;
+  const maskId = `mask-${containerId}`;
+  const lines: string[] = [];
+  const indent = '      ';
+
+  // Determine mask content
+  const hasVectorMask = mask.vectorMask && mask.vectorMask.points.length > 0;
+  const hasSourceNode = mask.sourceNodeId && doc.nodes[mask.sourceNodeId];
+
+  const contentLines: string[] = [];
+
+  if (hasVectorMask) {
+    const d = vectorMaskToPathData(mask.vectorMask!);
+    if (d) {
+      if (mask.type === 'clip') {
+        const fillRuleAttr = mask.fillRule === 'evenodd' ? ` clip-rule="evenodd"` : '';
+        contentLines.push(`${indent}<path d="${d}"${fillRuleAttr} />`);
+      } else {
+        contentLines.push(`${indent}<path d="${d}" fill="white" />`);
+      }
+    }
+  } else if (hasSourceNode) {
+    const sourceNode = doc.nodes[mask.sourceNodeId!]!;
+    if (mask.type === 'clip') {
+      const elements = collectClipElements(doc, sourceNode);
+      for (const el of elements) {
+        contentLines.push(`${indent}${el}`);
+      }
+    } else {
+      const maskTransform: Affine =
+        mask.linked === false ? (mask.transform ?? [1, 0, 0, 1, 0, 0]) : [1, 0, 0, 1, 0, 0];
+      const content = renderSourceNodeAsMaskContent(
+        doc,
+        mask.sourceNodeId!,
+        'white',
+        maskTransform,
+        0,
+      );
+      if (content) contentLines.push(content);
+    }
+  }
+
+  if (contentLines.length === 0) return null;
+
+  const contentStr = contentLines.join('\n');
+
+  if (mask.type === 'clip') {
+    if (mask.inverted) {
+      // Clip inversion: use <mask> with white rect + black clip shape
+      lines.push(`    <mask id="${maskId}">`);
+      lines.push(`      <rect width="100%" height="100%" fill="white" />`);
+      if (hasVectorMask) {
+        const d = vectorMaskToPathData(mask.vectorMask!);
+        lines.push(`      <path d="${d}" fill="black" />`);
+      } else {
+        lines.push(contentStr.replace(/fill="[^"]*"/g, 'fill="black"'));
+      }
+      lines.push(`    </mask>`);
+    } else {
+      const fillRuleAttr = mask.fillRule === 'evenodd' ? ` clip-rule="evenodd"` : '';
+      const unitsAttr = mask.linked === false ? ` clipPathUnits="userSpaceOnUse"` : '';
+      lines.push(`    <clipPath id="${maskId}"${fillRuleAttr}${unitsAttr}>`);
+      lines.push(contentStr);
+      lines.push(`    </clipPath>`);
+    }
+  } else {
+    // alpha or luminance mask
+    const maskTypeAttr = mask.type === 'luminance' ? ` mask-type="luminance"` : '';
+    const unitsAttr =
+      mask.linked === false ? ` maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse"` : '';
+
+    if (mask.feather && mask.feather > 0) {
+      const filterId = `${maskId}-filter`;
+      lines.push(`    <filter id="${filterId}">`);
+      lines.push(`      <feGaussianBlur stdDeviation="${mask.feather}" />`);
+      lines.push(`    </filter>`);
+    }
+
+    const filterId = `${maskId}-filter`;
+    const hasFilter = mask.feather && mask.feather > 0;
+    const filterAttr = hasFilter ? ` filter="url(#${filterId})"` : '';
+
+    lines.push(`    <mask id="${maskId}"${maskTypeAttr}${filterAttr}${unitsAttr}>`);
+
+    if (mask.inverted) {
+      lines.push(`      <rect width="100%" height="100%" fill="white" />`);
+      // Black content punches holes
+      lines.push(contentStr.replace(/fill="[^"]*"/g, 'fill="black"'));
+    } else {
+      lines.push(`      <rect width="100%" height="100%" fill="black" />`);
+      lines.push(contentStr);
+    }
+
+    // Density < 1: reduce effect via opacity on the mask
+    if (mask.density !== undefined && mask.density < 1) {
+      // Wrap mask children in a group with reduced opacity to simulate density
+      // We add an opacity on the baseline assumption: black bg + white fg with
+      // density as a multiplier on the fg opacity. Approximate by replacing
+      // "fill="white"" with reduced-opacity fills.
+      // Since we already emitted the content, we can't easily wrap it here.
+      // Instead, add a rect with opacity that backs off the mask effect.
+      const densityOpacity = 1 - mask.density;
+      lines.push(
+        `      <rect width="100%" height="100%" fill="white" opacity="${densityOpacity}" />`,
+      );
+    }
+
+    lines.push(`    </mask>`);
+  }
+
+  return lines.join('\n');
+}
+
+/** Walk a subtree and collect mask defs from every masked container. */
+function collectSubtreeMaskDefs(doc: SceneDocument, node: SceneNode): string[] {
+  const defs: string[] = [];
+  const mask = resolveMask(node);
+  if (mask) {
+    const def = buildMaskDef(doc, node.id, mask);
+    if (def) defs.push(def);
+  }
+  if (node.kind === 'frame' || node.kind === 'group') {
+    for (const child of getChildren(doc, node)) {
+      defs.push(...collectSubtreeMaskDefs(doc, child));
+    }
+  }
+  return defs;
+}
+
 function buildTextContent(node: TextNode, indent: string): string {
   const baseY = 0;
   const lineHeight = (node.lineHeight ?? 1.2) * (node.fontSize ?? 16);
@@ -453,10 +693,23 @@ function nodeToSvgTag(
     }
     case 'frame':
     case 'group': {
-      const children = getChildren(doc, node)
+      const mask = resolveMask(node);
+      const filteredChildren = getChildren(doc, node).filter(
+        (child) => !(mask?.hideMaskSource && mask.sourceNodeId === child.id),
+      );
+      const children = filteredChildren
         .map((child) => nodeToSvgTag(child, doc, depth + 1, child.transform))
         .join('\n');
-      return `${indent}<g${withTransform}>\n${children}\n${indent}</g>`;
+      let groupAttrs = withTransform;
+      if (mask) {
+        const maskId = `url(#mask-${node.id})`;
+        if (mask.type === 'clip' && !mask.inverted) {
+          groupAttrs = ` clip-path="${maskId}"${groupAttrs}`;
+        } else {
+          groupAttrs = ` mask="${maskId}"${groupAttrs}`;
+        }
+      }
+      return `${indent}<g${groupAttrs}>\n${children}\n${indent}</g>`;
     }
   }
   return '';
@@ -474,11 +727,14 @@ export function exportNodeToSvg(
     w: opts?.viewBoxWidth ?? Math.max(1, (bounds?.maxX ?? 200) - (bounds?.minX ?? 0)),
     h: opts?.viewBoxHeight ?? Math.max(1, (bounds?.maxY ?? 160) - (bounds?.minY ?? 0)),
   };
+  const maskDefs = collectSubtreeMaskDefs(doc, node);
+  const defsSection = maskDefs.length > 0 ? `  <defs>\n${maskDefs.join('\n')}\n  </defs>\n` : '';
   const inner = nodeToSvgTag(node, doc, 2, node.transform);
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${pos.x} ${pos.y} ${pos.w} ${pos.h}" width="${pos.w}" height="${pos.h}">`,
     `  <rect width="100%" height="100%" fill="#ffffff" />`,
+    defsSection,
     inner,
     `</svg>`,
     '',

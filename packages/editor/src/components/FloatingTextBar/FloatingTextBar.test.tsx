@@ -233,8 +233,8 @@ describe('FloatingTextBar', () => {
 
   it('positions above text when space permits', () => {
     const rect = { x: 100, y: 300, w: 200, h: 30 };
-    const { container } = render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
-    const el = container.firstChild as HTMLElement;
+    render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
+    const el = screen.getByRole('toolbar');
     // Position: above (300 - 42 - 8 = 250)
     expect(el.style.top).toBe('250px');
     expect(el.style.left).toBe('100px');
@@ -243,8 +243,8 @@ describe('FloatingTextBar', () => {
   it('positions below text when no space above', () => {
     // Put the text near the top of the viewport
     const rect = { x: 100, y: 10, w: 200, h: 30 };
-    const { container } = render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
-    const el = container.firstChild as HTMLElement;
+    render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
+    const el = screen.getByRole('toolbar');
     // Position: below (10 + 30 + 8 = 48)
     expect(el.style.top).toBe('48px');
   });
@@ -253,8 +253,8 @@ describe('FloatingTextBar', () => {
     // Make viewport too small for above or below
     window.innerHeight = 100;
     const rect = { x: 100, y: 30, w: 200, h: 30 };
-    const { container } = render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
-    const el = container.firstChild as HTMLElement;
+    render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
+    const el = screen.getByRole('toolbar');
     // Position: to the right (100 + 200 + 8 = 308)
     expect(el.style.left).toBe('308px');
   });

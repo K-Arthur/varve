@@ -29,6 +29,7 @@ function makeCtx(overrides?: Record<string, unknown>) {
     removeSelected: vi.fn(),
     duplicateSelected: vi.fn(),
     reparentNode: vi.fn(),
+    setCamera: vi.fn(),
     setPan: vi.fn((p: { x: number; y: number }) => {
       pan.x = p.x;
       pan.y = p.y;

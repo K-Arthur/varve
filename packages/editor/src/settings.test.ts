@@ -53,6 +53,14 @@ describe('loadSettings', () => {
     const s = loadSettings();
     expect(s.export.defaultFormat).toBe('png');
   });
+
+  it('migrates the formerly exposed unimplemented Display-P3 export setting to sRGB', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ export: { defaultColorProfile: 'display-p3' } }),
+    );
+    expect(loadSettings().export.defaultColorProfile).toBe('srgb');
+  });
 });
 
 describe('updateSettings', () => {

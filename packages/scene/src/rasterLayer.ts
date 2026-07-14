@@ -1,7 +1,8 @@
 import type { Affine } from '@strata/engine';
 import type { RasterLayerNode, RasterTile } from './types';
+import type { BrushDab } from './brush';
 
-export type { BrushDab } from './brush';
+export type { BrushDab };
 
 export const TILE_SIZE = 128;
 
@@ -370,7 +371,7 @@ function compositeBrushDabOnPixels(
     for (let mx = 0; mx < size; mx++) {
       const px = offsetX + mx;
       if (px < 0 || px >= tileW) continue;
-      const maskValue = brushMask[my * size + mx];
+      const maskValue = brushMask[my * size + mx]!;
       if (maskValue <= 0) continue;
 
       const srcAlpha = color[3]! / 255;

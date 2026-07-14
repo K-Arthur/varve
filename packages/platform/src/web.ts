@@ -17,7 +17,7 @@
  *    for native picker UX in Chromium; Firefox/Safari fall back transparently.
  */
 import { type IDBPDatabase, openDB } from 'idb';
-import type { Platform } from './platform';
+import type { Platform, PrinterInfo, PrintJobResult } from './platform';
 import {
   contentHash,
   defaultViewState,
@@ -985,6 +985,26 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       a.click();
       URL.revokeObjectURL(url);
       return suggested;
+    },
+
+    async listPrinters() {
+      return [] as PrinterInfo[];
+    },
+    async printPdf(data, _jobTitle, _options) {
+      // Browser-based printing: create a blob URL and open in a new tab.
+      // The browser's native PDF viewer handles printing. This is limited —
+      // no printer selection, no job tracking, no programmatic print trigger.
+      const blob = new Blob([data as unknown as ArrayBuffer], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      return {
+        jobId: 0,
+        message: 'PDF opened in new tab for printing',
+        success: true,
+      } satisfies PrintJobResult;
+    },
+    async cancelPrintJob(_printerName, _jobId) {
+      return 'Cancel not supported in browser';
     },
 
     async revealInFileManager() {

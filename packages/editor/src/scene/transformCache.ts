@@ -71,7 +71,7 @@ export function getWorldBounds(cache: TransformCache, doc: Document, nodeId: Nod
   const node = doc.nodes[nodeId];
   if (!node) return null;
 
-  const local = nodeLocalBounds(node);
+  const local = nodeLocalBounds(node, doc);
   if (!local) return null;
 
   const worldMat = getWorldTransform(cache, doc, nodeId);

@@ -8,6 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   timeout: 30000,
+  expect: { timeout: 10000 },
   use: {
     baseURL: 'http://localhost:1420',
     trace: 'on-first-retry',
@@ -33,7 +34,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testMatch: /tauri\/.*\.spec\.ts/,
     },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        // React's development build plus the full inspector can exceed
+        // Firefox's headless slow-script watchdog on software-rendered CI.
+        // Keep the watchdog enabled, but give real pointer workflows enough
+        // time to finish. Production performance is covered separately.
+        firefoxUserPrefs: { 'dom.max_script_run_time': 30 },
+      },
+    },
     // Safari/WebKit requires macOS for full testing — runs basic smoke tests on Linux
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],

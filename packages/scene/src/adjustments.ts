@@ -24,6 +24,8 @@ export type {
   CurvesPoint,
   ExposureAdjustment,
   FilterIR,
+  GradientMapAdjustment,
+  GradientMapStop,
   GrayscaleAdjustment,
   HalftoneAdjustment,
   HueRotateAdjustment,

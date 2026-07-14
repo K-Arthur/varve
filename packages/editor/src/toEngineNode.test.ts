@@ -14,7 +14,7 @@
 import type { NodeId } from '@strata/scene';
 import { makeTextNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { toEngineNode } from './CanvasArea';
+import { sceneNodeToEngineNode as toEngineNode } from './render/sceneToEngine';
 
 const REQUIRED_TEXT_SHAPE_FIELDS = [
   'text',
@@ -61,5 +61,34 @@ describe('toEngineNode text contract', () => {
     for (const field of REQUIRED_TEXT_SHAPE_FIELDS) {
       expect(shape[field], `serialized shape.${field}`).not.toBeUndefined();
     }
+  });
+
+  it('preserves advanced text semantics on the native/WASM wire contract', () => {
+    const richText = { paragraphs: [{ runs: [{ text: 'Styled' }] }] };
+    const node = makeTextNode('t3' as NodeId, 'Styled', {
+      w: 240,
+      h: 120,
+      textMode: 'area',
+      textAlignVertical: 'middle',
+      paragraphSpacing: 9,
+      textOverflow: 'ellipsis',
+      listStyle: 'decimal',
+      openTypeFeatures: { liga: true },
+      variableAxes: { wght: 525 },
+      richText,
+    });
+
+    const engineNode = toEngineNode(node);
+
+    expect(engineNode).toMatchObject({
+      textMode: 'area',
+      textAlignVertical: 'middle',
+      paragraphSpacing: 9,
+      textOverflow: 'ellipsis',
+      listStyle: 'decimal',
+      openTypeFeatures: { liga: true },
+      variableAxes: { wght: 525 },
+      richText,
+    });
   });
 });

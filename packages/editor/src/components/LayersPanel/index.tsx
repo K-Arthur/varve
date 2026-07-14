@@ -55,6 +55,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     publishComponentToLibrary,
     enterIsolation,
     exitIsolation,
+    addMaskToSelected,
+    removeMaskFromSelected,
+    toggleMask,
+    invertMask,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
@@ -347,6 +351,12 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     contextMenuNode != null &&
     isContainer(contextMenuNode) &&
     contextMenu.id !== state.isolatedNodeId;
+
+  const contextMenuIsContainer =
+    contextMenu != null && contextMenuNode != null && isContainer(contextMenuNode);
+
+  const contextMenuHasMask =
+    contextMenuIsContainer && (contextMenuNode as { mask?: unknown }).mask != null;
   // Gated on the right-clicked node, not state.selection — a right-click on
   // a node that's already part of an existing multi-selection doesn't change
   // the selection, so gating this on selection.length === 1 would wrongly
@@ -458,6 +468,57 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               shortcut="Ctrl+Shift+["
               onAction={handleMoveToBack}
             />
+            <hr className="layers-context-menu__separator" />
+            {contextMenuIsContainer && !contextMenuHasMask && (
+              <>
+                <ContextMenuItem
+                  label="Add Alpha Mask"
+                  onAction={() => {
+                    addMaskToSelected('alpha');
+                    closeMenu();
+                  }}
+                />
+                <ContextMenuItem
+                  label="Add Clip Mask"
+                  onAction={() => {
+                    addMaskToSelected('clip');
+                    closeMenu();
+                  }}
+                />
+                <ContextMenuItem
+                  label="Add Luminance Mask"
+                  onAction={() => {
+                    addMaskToSelected('luminance');
+                    closeMenu();
+                  }}
+                />
+              </>
+            )}
+            {contextMenuHasMask && (
+              <>
+                <ContextMenuItem
+                  label="Remove Mask"
+                  onAction={() => {
+                    removeMaskFromSelected();
+                    closeMenu();
+                  }}
+                />
+                <ContextMenuItem
+                  label="Toggle Mask"
+                  onAction={() => {
+                    toggleMask();
+                    closeMenu();
+                  }}
+                />
+                <ContextMenuItem
+                  label="Invert Mask"
+                  onAction={() => {
+                    invertMask();
+                    closeMenu();
+                  }}
+                />
+              </>
+            )}
             <hr className="layers-context-menu__separator" />
             {contextMenu && isContainer(state.document.nodes[contextMenu.id] as SceneNode) && (
               <ContextMenuItem label="Collapse Others" onAction={handleCollapseOthers} />

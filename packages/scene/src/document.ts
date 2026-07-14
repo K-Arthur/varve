@@ -15,11 +15,13 @@
 import type { Affine, Shape } from '@strata/engine';
 import type { DocumentUnit } from '@strata/shared';
 import { generateKeyBetween } from '@strata/shared';
+import { defaultColorConfig } from './colorManagement';
 import { stripBindingForVariable } from './bindings';
 import { deepCloneSubtree } from './clone';
 import type {
   BleedConfig,
   ColorConfig,
+  ColorMode,
   ColorSwatch,
   ManagedColor,
   SafeAreaConfig,
@@ -28,6 +30,7 @@ import type {
 } from './colorManagement';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
 import type { ExportSettings } from './export-types';
+import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
 import { nextNodeId } from './node-id';
 import type {
   ComponentDefinition,
@@ -37,6 +40,7 @@ import type {
   LayerColor,
   NodeId,
   Page,
+  Paint,
   PathNode,
   SceneNode,
   ShapeNode,
@@ -74,6 +78,13 @@ export interface Document {
   canvasBackground?: ManagedColor;
   /** Per-document export defaults (optional — falls back to ExportSettings globals). */
   exportDefaults?: Partial<ExportSettings>;
+  /**
+   * V1.8+: Reusable Paint entities keyed by paint id.
+   * Each Paint wraps a Fill with identity so multiple nodes can reference
+   * the same visual content via paintRefs. Paints are the mechanism for
+   * paint reuse: changing one Paint updates all nodes that reference it.
+   */
+  paints?: Record<string, import('./types').Paint>;
   /** Reusable styles keyed by style id (color, text, effect, layout). */
   styles?: Record<string, Style>;
   /** Persisted variable store with collections and modes. */
@@ -135,6 +146,11 @@ export interface Document {
 
   /** Text flow chains for linked text frames. */
   textChains?: Record<string, import('./typography').TextChain>;
+
+  // ── Brush presets (v1.10+) ──────────────────────────────────────────────────
+
+  /** Brush presets keyed by preset id (v1.10+). */
+  brushPresets?: Record<string, import('./brush').BrushPreset>;
 }
 
 export interface NodeEntry {
@@ -145,8 +161,21 @@ export interface NodeEntry {
   depth: number;
 }
 
+export interface CreateDocumentOptions {
+  flat?: boolean;
+  colorMode?: ColorMode;
+  physicalWidth?: number;
+  physicalHeight?: number;
+  documentUnit?: DocumentUnit;
+  bleed?: BleedConfig;
+}
+
 export function createDocument(name?: string, flat?: boolean): Document;
-export function createDocument(name = 'Untitled', flat?: boolean): Document {
+export function createDocument(name?: string, opts?: CreateDocumentOptions): Document;
+export function createDocument(
+  name = 'Untitled',
+  param2?: boolean | CreateDocumentOptions,
+): Document {
   const base: Document = {
     id: cryptoId(),
     formatVersion: CURRENT_DOCUMENT_VERSION,
@@ -157,12 +186,51 @@ export function createDocument(name = 'Untitled', flat?: boolean): Document {
     nextId: 1,
   };
 
-  if (flat) {
+  if (param2 === true) {
     // Flat document: no pages, just root-level nodes
     return base;
   }
 
-  // Create a default page with a contentRoot group
+  if (typeof param2 === 'object' && param2 !== null) {
+    const opts = param2 as CreateDocumentOptions;
+    if (opts.flat) {
+      return base;
+    }
+
+    const pageWidth = opts.physicalWidth ?? 1920;
+    const pageHeight = opts.physicalHeight ?? 1080;
+
+    const { id: contentRootId, doc: d1 } = nextNodeId(base);
+    const contentRoot = makeGroupNode(contentRootId, {
+      name: 'Page 1 content',
+      children: [],
+    });
+
+    const page: Page = {
+      id: cryptoId(),
+      name: 'Page 1',
+      width: pageWidth,
+      height: pageHeight,
+      backgrounds: [],
+      contentRoot: contentRootId,
+    };
+
+    return {
+      ...d1,
+      activePageId: page.id,
+      globalChildren: [],
+      pages: [page],
+      rootChildren: [contentRootId],
+      nodes: { ...d1.nodes, [contentRootId]: contentRoot },
+      colorConfig: opts.colorMode ? defaultColorConfig(opts.colorMode) : undefined,
+      documentUnit: opts.documentUnit,
+      physicalWidth: opts.physicalWidth,
+      physicalHeight: opts.physicalHeight,
+      bleed: opts.bleed,
+    };
+  }
+
+  // Create a default page with a contentRoot group (legacy behavior)
   const { id: contentRootId, doc: d1 } = nextNodeId(base);
   const contentRoot = makeGroupNode(contentRootId, {
     name: 'Page 1 content',
@@ -287,6 +355,8 @@ export function makeTextNode(
       | 'layerColor'
       | 'transform'
       | 'fill'
+      | 'w'
+      | 'h'
       | 'fontSize'
       | 'fontFamily'
       | 'fontWeight'
@@ -328,9 +398,11 @@ export function makeTextNode(
     rotation: opts.rotation ?? 0,
     text,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
+    w: opts.w,
+    h: opts.h,
     fill: opts.fill ?? { space: 'rgb', r: 16, g: 21, b: 31, a: 255 },
     fontSize: opts.fontSize ?? 16,
-    fontFamily: opts.fontFamily ?? 'Inter',
+    fontFamily: opts.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
     fontWeight: opts.fontWeight ?? 400,
     fontStyle: opts.fontStyle ?? 'normal',
     lineHeight: opts.lineHeight ?? 1.2,
@@ -471,20 +543,35 @@ export function makeImageShapeNode(
       | 'effects'
       | 'order'
       | 'cornerRadius'
+      | 'shapeless'
     >
   > & {
     /** Image source URL (data URL, file path, or asset id). */
     src?: string;
-    /** Width of the image area in world-space px. */
+    /** Width of the image area in world-space px. Used when shapeless=false or shape is explicit. */
     w?: number;
-    /** Height of the image area in world-space px. */
+    /** Height of the image area in world-space px. Used when shapeless=false or shape is explicit. */
     h?: number;
+    /** Natural image width in px. When shapeless=true, this defines the derived geometry. */
+    imageWidth?: number;
+    /** Natural image height in px. When shapeless=true, this defines the derived geometry. */
+    imageHeight?: number;
     /** How the image fills the bounds. */
     imageFit?: import('./types').ImageFit;
   } = {},
 ): ShapeNode {
-  const w = opts.w ?? 100;
-  const h = opts.h ?? 100;
+  const w = opts.w ?? opts.imageWidth ?? 100;
+  const h = opts.h ?? opts.imageHeight ?? 100;
+  const shapeless = opts.shapeless ?? false;
+  const imageFillData: import('./types').ImageFillData = {
+    src: opts.src ?? '',
+    fit: opts.imageFit ?? 'fill',
+    x: 0,
+    y: 0,
+    scale: 1,
+    ...(opts.imageWidth !== undefined ? { imageWidth: opts.imageWidth } : {}),
+    ...(opts.imageHeight !== undefined ? { imageHeight: opts.imageHeight } : {}),
+  };
   return {
     id,
     kind: 'shape',
@@ -497,12 +584,13 @@ export function makeImageShapeNode(
     blendMode: opts.blendMode ?? 'normal',
     rotation: opts.rotation ?? 0,
     shape: { kind: 'rect', x: 0, y: 0, w, h } as Shape,
+    shapeless,
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     fill: opts.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
     fills: [
       {
         type: 'image',
-        image: { src: opts.src ?? '', fit: opts.imageFit ?? 'fill', x: 0, y: 0, scale: 1 },
+        image: imageFillData,
         opacity: 1,
         blendMode: 'normal',
         visible: true,
@@ -1549,6 +1637,51 @@ export function setVariableModeOnDocument(doc: Document, mode: string): Document
   return {
     ...doc,
     variableStore: { ...store, activeMode: mode, modes },
+  };
+}
+
+// ── Paint operations (v1.8+) ──────────────────────────────────────────────────
+
+/**
+ * Add a Paint to the document's paints collection.
+ * Creates the paints map if it doesn't exist.
+ * If a paint with the same id already exists, replaces it.
+ */
+export function addPaintToDocument(doc: Document, paint: Paint): Document {
+  return {
+    ...doc,
+    paints: { ...(doc.paints ?? {}), [paint.id]: paint },
+  };
+}
+
+/**
+ * Remove a Paint from the document's paints collection.
+ * Does NOT update nodes that reference this paint — they will silently
+ * lose their fill for that layer. Callers should first update referencing
+ * nodes' paintRefs.
+ */
+export function removePaintFromDocument(doc: Document, paintId: string): Document {
+  const paints = doc.paints;
+  if (!paints || !paints[paintId]) return doc;
+  const { [paintId]: _, ...rest } = paints;
+  return { ...doc, paints: Object.keys(rest).length > 0 ? rest : undefined };
+}
+
+/**
+ * Update a Paint in the document's paints collection.
+ * The paint's id cannot be changed. Returns the document unchanged
+ * if the paint doesn't exist.
+ */
+export function updatePaintInDocument(
+  doc: Document,
+  paintId: string,
+  patch: Partial<Omit<Paint, 'id'>>,
+): Document {
+  const paints = doc.paints;
+  if (!paints || !paints[paintId]) return doc;
+  return {
+    ...doc,
+    paints: { ...paints, [paintId]: { ...paints[paintId], ...patch } },
   };
 }
 

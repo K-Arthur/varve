@@ -6,6 +6,7 @@
  */
 
 import type { Document } from './document';
+import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
 import type { NodeId } from './types';
 import type { RichText } from './typography';
 
@@ -56,7 +57,7 @@ export function runTypographyPreflight(
   for (const node of Object.values(doc.nodes)) {
     if (node.kind !== 'text') continue;
 
-    const fontFamily = node.fontFamily ?? 'Inter';
+    const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
 
     if (!availableFonts.has(fontFamily)) {
       issues.push({

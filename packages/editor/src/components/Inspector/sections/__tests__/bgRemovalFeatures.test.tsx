@@ -525,3 +525,61 @@ describe('BackgroundRemovalSection - Phase E actions', () => {
     expect(startTrimapEdit).toHaveBeenCalled();
   });
 });
+
+describe('BackgroundRemovalSection - Error normalization', () => {
+  it('returns "Cancelled" for aborted/cancelled errors', async () => {
+    const removeBackgroundWithOptions = vi.fn().mockRejectedValue(new Error('cancelled'));
+    mockedUseEditor.mockReturnValue(createMockEditorContext({ removeBackgroundWithOptions }));
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'quick',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Re-apply'));
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/Background removal failed/i)).toBeNull();
+    });
+  });
+
+  it('preserves real AI provider detail in error message', async () => {
+    const realError = 'AI background removal failed (worker-onnx: ONNX Runtime ran out of memory)';
+    const removeBackgroundWithOptions = vi.fn().mockRejectedValue(new Error(realError));
+    mockedUseEditor.mockReturnValue(createMockEditorContext({ removeBackgroundWithOptions }));
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'quick',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Re-apply'));
+    await vi.waitFor(() => {
+      expect(screen.getByRole('alert').textContent).toContain('ran out of memory');
+    });
+  });
+
+  it('preserves generic error detail when no known pattern matches', async () => {
+    const realError = 'AI background removal failed (worker-onnx: WebGPU device lost)';
+    const removeBackgroundWithOptions = vi.fn().mockRejectedValue(new Error(realError));
+    mockedUseEditor.mockReturnValue(createMockEditorContext({ removeBackgroundWithOptions }));
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'quick',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Re-apply'));
+    await vi.waitFor(() => {
+      expect(screen.getByRole('alert').textContent).toContain('WebGPU device lost');
+    });
+  });
+});

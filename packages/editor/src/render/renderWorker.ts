@@ -3,7 +3,9 @@
  * Supports pre-decoded ImageBitmaps via Structured Clone for image fills.
  */
 import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
-import { computeFloatingOrigin } from '@strata/shared';
+import { canvasBackingSize } from '../canvas/canvasSurface';
+import { replaceImageBitmapMap } from './collectImageBitmaps';
+import { applyWorkerCamera } from './workerCamera';
 import type { WorkerCommand, WorkerResponse } from './workerHost';
 
 let canvas: OffscreenCanvas | null = null;
@@ -19,18 +21,20 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     return;
   }
   if (msg.type === 'resize') {
-    canvas = new OffscreenCanvas(Math.floor(msg.width * msg.dpr), Math.floor(msg.height * msg.dpr));
+    canvas = new OffscreenCanvas(
+      canvasBackingSize(msg.width, msg.dpr),
+      canvasBackingSize(msg.height, msg.dpr),
+    );
     ctx = canvas.getContext('2d');
     return;
   }
   if (msg.type === 'render') {
     if (msg.docVersion < activeDocVersion) return;
     activeDocVersion = msg.docVersion;
-    if (!canvas || !ctx) {
-      canvas = new OffscreenCanvas(
-        Math.floor(msg.viewport.width * msg.dpr),
-        Math.floor(msg.viewport.height * msg.dpr),
-      );
+    const backingWidth = canvasBackingSize(msg.viewport.width, msg.dpr);
+    const backingHeight = canvasBackingSize(msg.viewport.height, msg.dpr);
+    if (!canvas || !ctx || canvas.width !== backingWidth || canvas.height !== backingHeight) {
+      canvas = new OffscreenCanvas(backingWidth, backingHeight);
       ctx = canvas.getContext('2d');
     }
     if (!ctx) {
@@ -42,15 +46,12 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       return;
     }
     // Update image map from Structured Clone transport
-    if (msg.images) imageMap = msg.images;
+    if (msg.images) imageMap = replaceImageBitmapMap(imageMap, msg.images);
     try {
-      const origin = computeFloatingOrigin(msg.camera, msg.viewport);
       ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
       ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
       ctx.save();
-      ctx.translate(msg.camera.pan.x, msg.camera.pan.y);
-      ctx.scale(msg.camera.zoom, msg.camera.zoom);
-      ctx.translate(-origin[0], -origin[1]);
+      applyWorkerCamera(ctx, msg.camera, msg.dpr, msg.viewport);
       replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[], (src) => imageMap[src]);
       ctx.restore();
       if (msg.docVersion >= activeDocVersion) {
@@ -60,6 +61,8 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
             type: 'frameRendered',
             docVersion: msg.docVersion,
             camera: msg.camera,
+            viewport: msg.viewport,
+            dpr: msg.dpr,
             bitmap,
           },
           [bitmap],

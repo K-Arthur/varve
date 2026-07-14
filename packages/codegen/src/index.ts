@@ -7,8 +7,15 @@
  */
 
 import type { Affine } from '@strata/engine';
-import type { Document, ManagedColor, NodeId, SceneNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+import type {
+  Document,
+  ManagedColor,
+  Mask,
+  NodeId,
+  SceneNode,
+  VectorMaskData,
+} from '@strata/scene';
+import { isImageShape, resolveMask } from '@strata/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@strata/shared';
 
 export { timelineToCSSKeyframes } from './animation-css';
@@ -283,6 +290,180 @@ export function computeDocumentBounds(doc: Document): {
   return { x: Math.max(0, x), y: Math.max(0, y), w: Math.max(1, w), h: Math.max(1, h) };
 }
 
+/** Minimal vector-mask SVG path data for document-level mask defs. */
+function docVectorMaskToPathData(vm: VectorMaskData): string {
+  const pts = vm.points;
+  if (pts.length === 0) return '';
+  const first = pts[0]!;
+  const cmds: string[] = [`M ${first.x} ${first.y}`];
+  for (let i = 1; i < pts.length; i += 1) {
+    const prev = pts[i - 1]!;
+    const curr = pts[i]!;
+    if (prev.handleOut || curr.handleIn) {
+      const c1x = prev.x + (prev.handleOut?.[0] ?? 0);
+      const c1y = prev.y + (prev.handleOut?.[1] ?? 0);
+      const c2x = curr.x + (curr.handleIn?.[0] ?? 0);
+      const c2y = curr.y + (curr.handleIn?.[1] ?? 0);
+      cmds.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${curr.x} ${curr.y}`);
+    } else {
+      cmds.push(`L ${curr.x} ${curr.y}`);
+    }
+  }
+  if (vm.closed) cmds.push('Z');
+  return cmds.join(' ');
+}
+
+/** Build a single mask def element for document-level export. */
+function docBuildMaskDef(doc: Document, containerId: string, mask: Mask): string | null {
+  if (mask.visible === false) return null;
+  const maskId = `mask-${containerId}`;
+  const lines: string[] = [];
+
+  const hasVectorMask = mask.vectorMask && mask.vectorMask.points.length > 0;
+  const hasSourceNode = mask.sourceNodeId && doc.nodes[mask.sourceNodeId];
+
+  if (!hasVectorMask && !hasSourceNode) return null;
+
+  if (hasVectorMask) {
+    const d = docVectorMaskToPathData(mask.vectorMask!);
+    if (!d) return null;
+    if (mask.type === 'clip') {
+      if (mask.inverted) {
+        lines.push(`    <mask id="${maskId}">`);
+        lines.push(`      <rect width="100%" height="100%" fill="white" />`);
+        lines.push(`      <path d="${d}" fill="black" />`);
+        lines.push(`    </mask>`);
+      } else {
+        const fillRuleAttr = mask.fillRule === 'evenodd' ? ` clip-rule="evenodd"` : '';
+        const unitsAttr = mask.linked === false ? ` clipPathUnits="userSpaceOnUse"` : '';
+        lines.push(`    <clipPath id="${maskId}"${fillRuleAttr}${unitsAttr}>`);
+        lines.push(`      <path d="${d}" />`);
+        lines.push(`    </clipPath>`);
+      }
+    } else {
+      const maskTypeAttr = mask.type === 'luminance' ? ` mask-type="luminance"` : '';
+      const unitsAttr =
+        mask.linked === false
+          ? ` maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse"`
+          : '';
+      let filterAttr = '';
+      if (mask.feather && mask.feather > 0) {
+        const filterId = `${maskId}-filter`;
+        lines.push(`    <filter id="${filterId}">`);
+        lines.push(`      <feGaussianBlur stdDeviation="${mask.feather}" />`);
+        lines.push(`    </filter>`);
+        filterAttr = ` filter="url(#${filterId})"`;
+      }
+      lines.push(`    <mask id="${maskId}"${maskTypeAttr}${filterAttr}${unitsAttr}>`);
+      if (mask.inverted) {
+        lines.push(`      <rect width="100%" height="100%" fill="white" />`);
+        lines.push(`      <path d="${d}" fill="black" />`);
+      } else {
+        lines.push(`      <rect width="100%" height="100%" fill="black" />`);
+        lines.push(`      <path d="${d}" fill="white" />`);
+      }
+      if (mask.density !== undefined && mask.density < 1) {
+        lines.push(
+          `      <rect width="100%" height="100%" fill="white" opacity="${(1 - mask.density).toFixed(3)}" />`,
+        );
+      }
+      lines.push(`    </mask>`);
+    }
+  } else if (hasSourceNode) {
+    const sourceNode = doc.nodes[mask.sourceNodeId!]!;
+    const sourceTransform = affineToSvg(sourceNode.transform);
+    if (mask.type === 'clip') {
+      const fillRuleAttr = mask.fillRule === 'evenodd' ? ` clip-rule="evenodd"` : '';
+      const unitsAttr = mask.linked === false ? ` clipPathUnits="userSpaceOnUse"` : '';
+      lines.push(`    <clipPath id="${maskId}"${fillRuleAttr}${unitsAttr}>`);
+      if (sourceNode.kind === 'shape') {
+        const s = sourceNode.shape;
+        lines.push(`      <g transform="${sourceTransform}">`);
+        lines.push(`        <${svgElementForShape(s)} fill="black" />`);
+        lines.push(`      </g>`);
+      } else {
+        lines.push(`      <use href="#${sourceNode.id}" />`);
+      }
+      lines.push(`    </clipPath>`);
+    } else {
+      const maskTypeAttr = mask.type === 'luminance' ? ` mask-type="luminance"` : '';
+      const unitsAttr =
+        mask.linked === false
+          ? ` maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse"`
+          : '';
+      let filterAttr = '';
+      if (mask.feather && mask.feather > 0) {
+        const filterId = `${maskId}-filter`;
+        lines.push(`    <filter id="${filterId}">`);
+        lines.push(`      <feGaussianBlur stdDeviation="${mask.feather}" />`);
+        lines.push(`    </filter>`);
+        filterAttr = ` filter="url(#${filterId})"`;
+      }
+      lines.push(`    <mask id="${maskId}"${maskTypeAttr}${filterAttr}${unitsAttr}>`);
+      if (mask.inverted) {
+        lines.push(`      <rect width="100%" height="100%" fill="white" />`);
+        lines.push(`      <use href="#${sourceNode.id}" fill="black" />`);
+      } else {
+        lines.push(`      <rect width="100%" height="100%" fill="black" />`);
+        lines.push(`      <use href="#${sourceNode.id}" fill="white" />`);
+      }
+      if (mask.density !== undefined && mask.density < 1) {
+        lines.push(
+          `      <rect width="100%" height="100%" fill="white" opacity="${(1 - mask.density).toFixed(3)}" />`,
+        );
+      }
+      lines.push(`    </mask>`);
+    }
+  }
+
+  return lines.length > 0 ? lines.join('\n') : null;
+}
+
+/** Walk a subtree and collect doc-level mask defs. */
+function docCollectMaskDefs(doc: Document, rootIds: string[]): string[] {
+  const defs: string[] = [];
+  const seen = new Set<string>();
+  const walk = (node: SceneNode): void => {
+    const mask = resolveMask(node);
+    if (mask && !seen.has(node.id)) {
+      seen.add(node.id);
+      const def = docBuildMaskDef(doc, node.id, mask);
+      if (def) defs.push(def);
+    }
+    if (node.kind === 'frame' || node.kind === 'group') {
+      for (const cid of node.children ?? []) {
+        const child = doc.nodes[cid];
+        if (child) walk(child);
+      }
+    }
+  };
+  for (const id of rootIds) {
+    const node = doc.nodes[id];
+    if (node) walk(node);
+  }
+  return defs;
+}
+
+/** Return the SVG element name for a shape, given the engine Shape type. */
+function svgElementForShape(s: import('@strata/engine').Shape): string {
+  switch (s.kind) {
+    case 'rect':
+      return `rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}"`;
+    case 'ellipse':
+      return `ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}"`;
+    case 'circle':
+      return `circle cx="${s.cx}" cy="${s.cy}" r="${s.r}"`;
+    case 'line':
+    case 'arrow':
+      return `line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}"`;
+    case 'polygon':
+    case 'star':
+      return `polygon points="${shapeVerticesToPoints(s, 3)}"`;
+    case 'path':
+      return `path d="${shapePathToData(s, 3)}"`;
+  }
+}
+
 function nodeToSvg(
   node: SceneNode,
   doc: Document,
@@ -341,7 +522,11 @@ function nodeToSvg(
       return `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}">${escapeXml(node.text)}</text>`;
     case 'frame':
     case 'group': {
-      const children = (node.children ?? [])
+      const mask = resolveMask(node);
+      const filtered = (node.children ?? []).filter(
+        (cid) => !(mask?.hideMaskSource && mask.sourceNodeId === cid),
+      );
+      const children = filtered
         .map((cid: NodeId) => {
           const child = doc.nodes[cid];
           return child ? nodeToSvg(child, doc, depth + 1, options) : '';
@@ -349,7 +534,16 @@ function nodeToSvg(
         .filter(Boolean)
         .join(options.minify ? '' : '\n');
       const sep = options.minify ? '' : '\n';
-      return `${indent}<g transform="${transform}">${sep}${children}${sep}${indent}</g>`;
+      let attrs = ` transform="${transform}"`;
+      if (mask) {
+        const ref = `url(#mask-${node.id})`;
+        if (mask.type === 'clip' && !mask.inverted) {
+          attrs = ` clip-path="${ref}"${attrs}`;
+        } else {
+          attrs = ` mask="${ref}"${attrs}`;
+        }
+      }
+      return `${indent}<g${attrs}>${sep}${children}${sep}${indent}</g>`;
     }
     default:
       return '';
@@ -372,14 +566,20 @@ export function exportDocumentToSvgAdvanced(
   const bounds = boundsOverride ?? computeDocumentBounds(doc);
   const nl = options.minify ? '' : '\n';
   const contentRoots = new Set(doc.pages?.map((p) => p.contentRoot) ?? []);
-  const children = doc.rootChildren
-    .filter((id) => !contentRoots.has(id))
+  const visibleRootIds = doc.rootChildren.filter((id) => !contentRoots.has(id));
+
+  // Collect mask defs across all visible root subtrees
+  const maskDefs = docCollectMaskDefs(doc, visibleRootIds);
+  const defsSection =
+    maskDefs.length > 0 ? `  <defs>${nl}${maskDefs.join(nl)}${nl}  </defs>${nl}` : '';
+
+  const children = visibleRootIds
     .map((id: NodeId) => {
       const node = doc.nodes[id];
       return node ? nodeToSvg(node, doc, 2, options) : '';
     })
     .filter(Boolean)
-    .join(options.minify ? '' : '\n');
+    .join(nl);
 
   const parts: string[] = [];
   if (!options.minify) {
@@ -391,6 +591,7 @@ export function exportDocumentToSvgAdvanced(
   parts.push(
     `  <rect x="${bounds.x}" y="${bounds.y}" width="${bounds.w}" height="${bounds.h}" fill="#ffffff" />`,
   );
+  if (defsSection) parts.push(defsSection);
   parts.push(children);
   parts.push(`</svg>`);
 

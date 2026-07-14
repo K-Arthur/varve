@@ -14,7 +14,7 @@
  *    works with `withGlobalTauri: true` without bundling the JS plugin.
  */
 
-import type { Platform } from './platform';
+import type { Platform, PrinterInfo, PrintJobResult } from './platform';
 import {
   contentHash,
   defaultViewState,
@@ -556,6 +556,28 @@ export function createTauriPlatform(): Platform {
         // not an Error), which loses its message when callers assume `.message`.
         throw e instanceof Error ? e : new Error(String(e));
       }
+    },
+
+    async listPrinters() {
+      const c = core();
+      return (await c.invoke('list_printers')) as PrinterInfo[];
+    },
+    async printPdf(data, jobTitle, options) {
+      const c = core();
+      const bytes: number[] = Array.from(data);
+      return (await c.invoke('print_pdf', {
+        data: bytes,
+        jobTitle,
+        printerName: options.printerName,
+        copies: options.copies ?? 1,
+        duplex: options.duplex ?? false,
+        colorMode: options.colorMode ?? 'color',
+        pageSize: options.pageSize ?? 'A4',
+      })) as PrintJobResult;
+    },
+    async cancelPrintJob(printerName, jobId) {
+      const c = core();
+      return (await c.invoke('cancel_print_job', { printerName, jobId })) as string;
     },
 
     async revealInFileManager(path) {

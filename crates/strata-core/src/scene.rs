@@ -155,10 +155,24 @@ pub enum FillIR {
         x: f64,
         y: f64,
         scale: f64,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "imageWidth"
+        )]
+        image_width: Option<f64>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "imageHeight"
+        )]
+        image_height: Option<f64>,
         opacity: f64,
         #[serde(rename = "blendMode")]
         blend_mode: BlendMode,
         visible: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "alphaMask")]
+        alpha_mask: Option<String>,
     },
     #[serde(rename = "pattern")]
     Pattern {
@@ -166,6 +180,18 @@ pub enum FillIR {
         tile_src: String,
         spacing: f64,
         rotation: f64,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "imageWidth"
+        )]
+        image_width: Option<f64>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "imageHeight"
+        )]
+        image_height: Option<f64>,
         opacity: f64,
         #[serde(rename = "blendMode")]
         blend_mode: BlendMode,
@@ -254,6 +280,20 @@ pub enum Effect {
         color: EngineColor,
         opacity: f64,
         blend_mode: BlendMode,
+        visible: bool,
+    },
+    #[serde(rename = "glassMaterial")]
+    GlassMaterial {
+        blur: f64,
+        tint: EngineColor,
+        tint_opacity: f64,
+        saturation: f64,
+        brightness: f64,
+        noise: f64,
+        edge_highlight: bool,
+        edge_highlight_width: f64,
+        edge_highlight_color: EngineColor,
+        edge_highlight_opacity: f64,
         visible: bool,
     },
 }
@@ -460,6 +500,27 @@ mod tests {
     #[test]
     fn empty_scene_misses() {
         assert_eq!(hit_test(&[], Point::new(0.0, 0.0)), None);
+    }
+
+    #[test]
+    fn legacy_image_fill_defaults_optional_canvas_resource_metadata() {
+        let fill: FillIR = serde_json::from_value(serde_json::json!({
+            "type": "image",
+            "src": "legacy.png",
+            "fit": "fill",
+            "x": 0.0,
+            "y": 0.0,
+            "scale": 1.0,
+            "opacity": 1.0,
+            "blendMode": "normal",
+            "visible": true
+        }))
+        .expect("legacy image fill");
+
+        let normalized = serde_json::to_value(fill).expect("serialize legacy image fill");
+        assert!(normalized.get("imageWidth").is_none());
+        assert!(normalized.get("imageHeight").is_none());
+        assert!(normalized.get("alphaMask").is_none());
     }
 
     #[test]

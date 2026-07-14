@@ -46,6 +46,21 @@ wasm-check:
     rustup target add wasm32-unknown-unknown
     cargo check --target wasm32-unknown-unknown -p strata-wasm
 
+# --- WASM build (colour engine, for browser print pipeline) ---
+wasm-build-colour:
+    rustup target add wasm32-unknown-unknown
+    cd crates/strata-colour && wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name strata_colour -- --features wasm
+    which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/strata_colour_bg.wasm apps/desktop/public/wasm/strata_colour_bg.wasm || echo "wasm-opt not on PATH — skipping manual optimization"
+
+wasm-build-all: wasm-build wasm-build-simd wasm-build-colour
+
+wasm-size:
+    ls -lh apps/desktop/public/wasm/strata_wasm_bg.wasm apps/desktop/public/wasm/strata_wasm_simd_bg.wasm apps/desktop/public/wasm/strata_colour_bg.wasm 2>/dev/null
+
+wasm-check-colour:
+    rustup target add wasm32-unknown-unknown
+    cargo check --target wasm32-unknown-unknown -p strata-colour --features wasm
+
 # --- Tests (TDD-first) ---
 test: test-rust test-js
 test-rust:
@@ -72,8 +87,15 @@ audit-emoji:
     pnpm audit:emoji
 
 # --- Icon generation ---
+# Canonical master: packages/ui/src/icons/strata-app-icon.svg
+# (via apps/desktop/build-icons.sh — do not regenerate launchers from mark-only SVGs)
 generate-icons:
-    bash scripts/generate-icons.sh
+    bash apps/desktop/build-icons.sh
+
+# Install FreeDesktop .desktop + hicolor icons for tauri:dev on Wayland/KDE
+# so Plasma resolves the Strata icon instead of the Wayland logo.
+install-dev-icons:
+    bash apps/desktop/scripts/install-dev-icons.sh
 
 # --- Combined pre-commit gate ---
 gate: format-check lint test gates

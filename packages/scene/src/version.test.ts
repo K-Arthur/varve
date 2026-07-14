@@ -328,7 +328,7 @@ describe('Detailed Migration', () => {
       nodes: {},
     };
     const migrated = migrateDocument(raw);
-    expect(migrated?.formatVersion).toBe('1.7');
+    expect(migrated?.formatVersion).toBe('1.8');
     expect((migrated?.guides as { pageId: string }[])?.[0]?.pageId).toBe('page-1');
   });
 });

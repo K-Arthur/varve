@@ -65,7 +65,7 @@ export function findContainingFrameInDoc(
       for (const childId of groupNode.children) {
         const child = doc.nodes[childId];
         if (!child) continue;
-        const childLocal = nodeLocalBounds(child);
+        const childLocal = nodeLocalBounds(child, doc);
         if (!childLocal) continue;
         // Transform child's own local bounds by its transform to get
         // bounds in group-space, then check if the local point is inside

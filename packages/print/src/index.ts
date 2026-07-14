@@ -16,6 +16,13 @@ export { createNativePrintEngine } from './native';
 export { createStubPrintEngine } from './stub';
 export type { PdfExportOptions, PdfResult, PrintEngine } from './types';
 
+export {
+  createColourEngineFromModule,
+  loadColourWasmModule,
+  prewarmColourWasm,
+} from './colourLoader';
+export type { ColourEngine } from './colourLoader';
+
 export const PACKAGE = '@strata/print' as const;
 
 export async function createPrintEngine(

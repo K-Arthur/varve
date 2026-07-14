@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { ReplayTarget } from './replay';
-import { replayIr } from './replay';
+import { primitiveBounds, replayIr } from './replay';
 import type { RenderItem } from './types';
 
 interface RecorderProxy {
@@ -228,7 +228,73 @@ class Recorder implements ReplayTarget {
   shadowOffsetY: number = 0;
 }
 
+describe('primitiveBounds', () => {
+  it('includes path anchors, Bézier handles, and hole rings', () => {
+    const bounds = primitiveBounds({
+      kind: 'path',
+      points: [
+        { x: 10, y: 20, handleIn: null, handleOut: [-30, 5] },
+        { x: 50, y: 60, handleIn: [40, -80], handleOut: null },
+      ],
+      holes: [
+        [
+          { x: -100, y: 200, handleIn: null, handleOut: [-10, 30] },
+          { x: -80, y: 210, handleIn: null, handleOut: null },
+        ],
+      ],
+      closed: true,
+      tolerance: 1,
+      fillRule: 'evenodd',
+    });
+
+    expect(bounds).toEqual({ x: -110, y: -20, w: 200, h: 250 });
+  });
+
+  it('returns finite zero bounds for an empty path', () => {
+    expect(primitiveBounds({ kind: 'path', points: [], closed: false, tolerance: 1 })).toEqual({
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
+    });
+  });
+
+  it('ignores non-finite path coordinates and handles', () => {
+    const bounds = primitiveBounds({
+      kind: 'path',
+      points: [
+        { x: Number.NaN, y: 10, handleIn: null, handleOut: null },
+        { x: 20, y: 30, handleIn: [Number.POSITIVE_INFINITY, 0], handleOut: [-5, 10] },
+      ],
+      closed: false,
+      tolerance: 1,
+    });
+
+    expect(bounds).toEqual({ x: 15, y: 30, w: 5, h: 10 });
+    expect(Object.values(bounds).every(Number.isFinite)).toBe(true);
+  });
+});
+
 describe('replayIr', () => {
+  it('restores canvas state when painting an item throws', () => {
+    const rec = recorder();
+    let restoreCount = 0;
+    rec.target.restore = () => {
+      restoreCount++;
+    };
+    rec.target.fillRect = () => {
+      throw new Error('paint failed');
+    };
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+    };
+
+    expect(() => replayIr(rec.target, [item])).toThrow('paint failed');
+    expect(restoreCount).toBe(1);
+  });
+
   it('replays a rect: save, transform, fillStyle, fillRect, restore', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 10, 20],
@@ -1047,6 +1113,83 @@ describe('replayIr', () => {
     expect(m.bezierCurveTo).toHaveBeenCalledWith(40, 60, 100, 200, 100, 200);
   });
 
+  it('variable-width path stroke uses pressure to modulate width', () => {
+    const m = recorder();
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+        opacity: 1,
+        blendMode: 'normal',
+        strokes: [
+          {
+            color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } as const,
+            weight: 8,
+            align: 'center' as const,
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round' as const,
+            join: 'round' as const,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 10, y: 20, handleIn: null, handleOut: null, pressure: 0.2 },
+            { x: 100, y: 200, handleIn: null, handleOut: null, pressure: 0.8 },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
+      },
+    ]);
+    // Variable width sets lineWidth multiple times (one per segment)
+    const lineWidthCalls = m.calls.filter((c) => c.startsWith('set lineWidth'));
+    expect(lineWidthCalls.length).toBeGreaterThan(1);
+    // At least some segments have lineWidth < 8 (from 0.2 pressure) and > 0
+    const lineWidthValues = lineWidthCalls.map((c) => m.props.lineWidth as number);
+    expect(lineWidthValues.some((w) => w < 8)).toBe(true);
+  });
+
+  it('variable-width path stroke with uniform pressure falls back to uniform stroke', () => {
+    const m = recorder();
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+        opacity: 1,
+        blendMode: 'normal',
+        strokes: [
+          {
+            color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } as const,
+            weight: 8,
+            align: 'center' as const,
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round' as const,
+            join: 'round' as const,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 10, y: 20, handleIn: null, handleOut: null, pressure: 0.5 },
+            { x: 100, y: 200, handleIn: null, handleOut: null, pressure: 0.5 },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
+      },
+    ]);
+    // Uniform pressure: only one lineWidth set (not per-segment variable)
+    const lineWidthCalls = m.calls.filter((c) => c.startsWith('set lineWidth'));
+    expect(lineWidthCalls.length).toBe(1);
+  });
+
   it('renders bulleted list with disc prefix', () => {
     const items: RenderItem[] = [
       {
@@ -1183,6 +1326,40 @@ describe('replayIr', () => {
     // Words should be at different x positions (not at the same x origin)
     expect(fillCalls[0]).toContain('"Hello"');
     expect(fillCalls[1]).toContain('"World"');
+  });
+
+  it('wraps area text to its explicit container width', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'text',
+        text: 'one two three four',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.4,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'clip',
+        listStyle: 'none',
+        textMode: 'area',
+        x: 0,
+        y: 0,
+        w: 70,
+        h: 100,
+      },
+    };
+    const rec = new Recorder();
+    replayIr(rec, [item]);
+    const fillCalls = rec.calls.filter((call) => call.startsWith('fillText'));
+    expect(fillCalls.length).toBeGreaterThan(1);
+    expect(fillCalls[0]).not.toContain('one two three four');
   });
 
   it('applies firstLineIndent to the first line only', () => {

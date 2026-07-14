@@ -292,7 +292,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         const node = state.document.nodes[id];
         if (!node) return null;
         const worldMat = nodeWorldTransform(state.document, id);
-        let localRect = nodeLocalBounds(node);
+        let localRect = nodeLocalBounds(node, state.document);
         if (!localRect) {
           const worldBounds = nodeWorldBounds(state.document, id);
           if (!worldBounds) return null;

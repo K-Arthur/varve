@@ -275,7 +275,7 @@ export function NewFileDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleCreate}>
+          <Button variant="primary" onClick={handleCreate} data-testid="create-file-button">
             Create
           </Button>
         </div>

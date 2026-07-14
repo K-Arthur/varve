@@ -1,5 +1,13 @@
 import type { Affine } from '@strata/engine';
-import { createDocument, makeShapeNode } from '@strata/scene';
+import {
+  addChild,
+  addNode,
+  createDocument,
+  makeFrameNode,
+  makeGroupNode,
+  makeShapeNode,
+  makeTextNode,
+} from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import {
   type AABB,
@@ -58,6 +66,45 @@ describe('worldBBox', () => {
     expect(bbox.y).toBe(130);
     expect(bbox.w).toBe(80);
     expect(bbox.h).toBe(40);
+  });
+
+  it('uses the declared frame dimensions instead of a placeholder box', () => {
+    let doc = createDocument('Frame bounds', true);
+    const frame = makeFrameNode('frame', {
+      w: 393,
+      h: 852,
+      transform: [1, 0, 0, 1, -67, -561],
+    });
+    doc = addNode(doc, frame);
+
+    expect(worldBBox(frame, doc)).toEqual({ x: -67, y: -561, w: 393, h: 852 });
+  });
+
+  it('uses area-text width and height', () => {
+    let doc = createDocument('Area text bounds', true);
+    const text = makeTextNode('text', 'A short line', {
+      w: 180,
+      h: 60,
+      textMode: 'area',
+      transform: [1, 0, 0, 1, 12, 18],
+    });
+    doc = addNode(doc, text);
+
+    expect(worldBBox(text, doc)).toEqual({ x: 12, y: 18, w: 180, h: 60 });
+  });
+
+  it('unions transformed descendants for a group', () => {
+    let doc = createDocument('Group bounds', true);
+    const group = makeGroupNode('group', { transform: [1, 0, 0, 1, 100, 50] });
+    const child = makeShapeNode(
+      'child',
+      { kind: 'rect', x: 0, y: 0, w: 40, h: 30 },
+      { transform: [1, 0, 0, 1, 20, 25] },
+    );
+    doc = addNode(doc, group);
+    doc = addChild(doc, group.id, child);
+
+    expect(worldBBox(group, doc)).toEqual({ x: 120, y: 75, w: 40, h: 30 });
   });
 });
 

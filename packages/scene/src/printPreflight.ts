@@ -9,7 +9,7 @@
  * Enfocus PitStop, ISO 15930 (PDF/X) requirements.
  */
 
-import { physicalToPx } from '@strata/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, physicalToPx } from '@strata/shared';
 import type { ColorMode } from './colorManagement';
 import type { Document } from './document';
 import { isImageShape } from './fills';
@@ -242,7 +242,7 @@ function checkTextNodeForPrint(
   opts: { availableFonts?: Set<string> },
   issues: PrintPreflightIssue[],
 ): void {
-  const fontFamily = node.fontFamily ?? 'sans-serif';
+  const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
   if (opts.availableFonts && opts.availableFonts.size > 0 && !opts.availableFonts.has(fontFamily)) {
     issues.push({
       severity: 'error',

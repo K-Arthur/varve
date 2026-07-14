@@ -1,13 +1,23 @@
+/* Startup loader — brand-fixed dark splash (intentional, Cursor-style).
+ *
+ * Does NOT follow light/dark/high-contrast app themes. Hardcoded brand
+ * canvas (#10151f) + white mark so every cold start shares one identity.
+ * Sharp white mark + thin static chromatic fringe; quiet ambient pulse.
+ */
+
 .startup-loader {
+  /* Isolate from inherited [data-theme] / light-mode chrome tokens */
+  color-scheme: dark;
   position: fixed;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--startup-bg, #10151f);
+  display: grid;
+  place-items: center;
+  /* Brand canvas — never var(--color-surface-app) */
+  background: #10151f;
+  color: #ffffff;
   z-index: 9999;
   opacity: 1;
-  transition: opacity var(--duration-base) var(--ease-out);
+  transition: opacity var(--duration-base, 0.25s) var(--ease-out, ease-out);
 }
 
 .startup-loader--exiting {
@@ -19,159 +29,123 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-6, 1.5rem);
 }
 
 .startup-loader__logo-container {
   position: relative;
-  width: 80px;
-  height: 80px;
+  width: 160px;
+  height: 160px;
+  transform: translateY(6%);
+}
+
+/* Soft, even ambient — no hotspot, no sweep */
+.startup-loader__logo-container::before {
+  content: "";
+  position: absolute;
+  inset: -36%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.1) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.65;
+}
+
+.startup-loader__logo-container--pulse::before {
+  animation: strata-logo-luminosity 3.6s ease-in-out infinite;
 }
 
 .startup-loader__logo {
   position: absolute;
   inset: 0;
-  color: var(--startup-logo, #ffffff);
-  mix-blend-mode: screen;
+  width: 160px;
+  height: 160px;
+  color: #ffffff;
+  z-index: 1;
 }
 
-/* Chromatic aberration layers */
-.startup-loader__logo--red {
-  color: #ff0000;
-  animation: strata-ca-red 3s infinite var(--ease-standard);
+/* Thin, sharp spectral fringe — restrained channel split + soft edge light */
+.startup-loader__logo--mark {
+  color: #ffffff;
+  filter: drop-shadow(-1.25px 0 0 rgb(57 208 198 / 0.7))
+    drop-shadow(1.25px 0 0 rgb(255 110 140 / 0.55)) drop-shadow(0 0 10px rgb(255 255 255 / 0.14));
 }
 
-.startup-loader__logo--green {
-  color: #00ff00;
-  animation: strata-ca-green 3s infinite var(--ease-standard);
-}
-
-.startup-loader__logo--blue {
-  color: #0000ff;
-  animation: strata-ca-blue 3s infinite var(--ease-standard);
-}
-
-.startup-loader__logo--white {
-  color: var(--startup-logo, #ffffff);
-}
-
-@keyframes strata-ca-red {
-  0%,
-  100% {
-    transform: translate(0, 0);
-    opacity: 0.8;
-  }
-  25% {
-    transform: translate(-1px, -0.5px);
-    opacity: 1;
-  }
-  50% {
-    transform: translate(0.5px, 0.5px);
-    opacity: 0.8;
-  }
-  75% {
-    transform: translate(-0.5px, 1px);
-    opacity: 1;
-  }
-}
-
-@keyframes strata-ca-green {
-  0%,
-  100% {
-    transform: translate(0, 0);
-    opacity: 0.8;
-  }
-  33% {
-    transform: translate(1px, 0.5px);
-    opacity: 1;
-  }
-  66% {
-    transform: translate(-0.5px, -0.5px);
-    opacity: 0.8;
-  }
-}
-
-@keyframes strata-ca-blue {
-  0%,
-  100% {
-    transform: translate(0, 0);
-    opacity: 0.8;
-  }
-  20% {
-    transform: translate(0.5px, -1px);
-    opacity: 1;
-  }
-  40% {
-    transform: translate(-1px, 0.5px);
-    opacity: 0.8;
-  }
-  60% {
-    transform: translate(1px, 1px);
-    opacity: 1;
-  }
-  80% {
-    transform: translate(-0.5px, -0.5px);
-    opacity: 0.8;
-  }
+.startup-loader--simplified .startup-loader__logo--mark {
+  filter: drop-shadow(-1px 0 0 rgb(57 208 198 / 0.5)) drop-shadow(1px 0 0 rgb(255 110 140 / 0.4))
+    drop-shadow(0 0 8px rgb(255 255 255 / 0.1));
 }
 
 .startup-loader__error {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-4, 1rem);
   max-width: 320px;
   text-align: center;
-  animation: strata-fade-in var(--duration-base) var(--ease-out);
+  animation: strata-startup-fade-in var(--duration-base, 0.25s) var(--ease-out, ease-out);
 }
 
 .startup-loader__error-msg {
-  color: var(--color-feedback-danger);
-  font-size: var(--font-size-sm);
+  color: var(--color-feedback-danger, #e5484d);
+  font-size: var(--font-size-sm, 0.875rem);
   margin: 0;
-  line-height: var(--font-line-normal);
+  line-height: var(--font-line-normal, 1.5);
 }
 
 .startup-loader__retry-btn {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-default, #39d0c6);
+  color: var(--color-text-on-accent, #0a0e14);
   border: none;
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md, 8px);
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
   font-family: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
   cursor: pointer;
-  transition: background var(--duration-quick) var(--ease-standard);
+  transition: background var(--duration-quick, 0.15s) var(--ease-standard, ease);
 }
 
 .startup-loader__retry-btn:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover, #2bb8af);
 }
 
-/* Simplified mode — used when simplified prop set or low-GPU detected */
-.startup-loader--simplified .startup-loader__logo--red,
-.startup-loader--simplified .startup-loader__logo--green,
-.startup-loader--simplified .startup-loader__logo--blue {
-  animation: none;
-  opacity: 0;
+/* Ambient only — mark geometry stays rock-solid */
+@keyframes strata-logo-luminosity {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes strata-startup-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .startup-loader__logo--red,
-  .startup-loader__logo--green,
-  .startup-loader__logo--blue {
-    animation: none;
-    opacity: 0.3;
+  .startup-loader {
+    transition: none;
   }
 
-  .startup-loader__logo--red {
-    transform: translate(-0.5px, -0.25px);
+  .startup-loader__error {
+    animation: none;
   }
-  .startup-loader__logo--green {
-    transform: translate(0.5px, 0.25px);
+
+  .startup-loader__logo-container--pulse::before {
+    animation: none;
+    opacity: 0.55;
   }
-  .startup-loader__logo--blue {
-    transform: translate(0, 0.5px);
+
+  .startup-loader__logo--mark {
+    filter: drop-shadow(-1px 0 0 rgb(57 208 198 / 0.55)) drop-shadow(1px 0 0 rgb(255 110 140 / 0.4))
+      drop-shadow(0 0 6px rgb(255 255 255 / 0.1));
   }
 }

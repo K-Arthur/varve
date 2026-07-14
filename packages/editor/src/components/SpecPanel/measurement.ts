@@ -11,6 +11,7 @@
 import type { Affine, Point, Shape } from '@strata/engine';
 import { applyAffine } from '@strata/engine';
 import type { ContainerNode, Document, SceneNode } from '@strata/scene';
+import { nodeWorldBounds } from '../../scene/world';
 
 export interface AABB {
   x: number;
@@ -123,6 +124,14 @@ function shapeLocalBBox(shape: Shape): AABB {
 
 function approximateTextBBox(node: SceneNode): AABB | null {
   if (node.kind !== 'text') return null;
+  if (node.w !== undefined || node.h !== undefined) {
+    return {
+      x: 0,
+      y: 0,
+      w: node.w ?? Math.max(node.text.length * node.fontSize * 0.6, node.fontSize * 3),
+      h: node.h ?? node.fontSize * (node.lineHeight ?? 1.4),
+    };
+  }
   const size = node.fontSize;
   const w = node.text.length * size * 0.6;
   const h = size * 1.4;
@@ -188,12 +197,22 @@ function getParent(doc: Document, id: string): string | null {
 }
 
 export function worldBBox(node: SceneNode, doc: Document): AABB {
+  // Measurement, selection, zoom-to-fit, and export must share one world
+  // geometry contract. Frames carry explicit dimensions, area text carries
+  // its container, and groups are the union of their descendants.
+  if (doc.nodes[node.id]) {
+    const canonical = nodeWorldBounds(doc, node.id);
+    if (canonical) return canonical;
+  }
+
   const localBBox =
     node.kind === 'shape'
       ? shapeLocalBBox(node.shape)
       : node.kind === 'text'
         ? (approximateTextBBox(node) ?? { x: 0, y: 0, w: 100, h: 20 })
-        : { x: 0, y: 0, w: 200, h: 160 };
+        : node.kind === 'frame'
+          ? { x: 0, y: 0, w: node.w, h: node.h }
+          : { x: 0, y: 0, w: 0, h: 0 };
 
   const world = getAccumulatedTransform(doc, node.id, node.transform as Affine);
   return applyAffineToAABB(world, localBBox);

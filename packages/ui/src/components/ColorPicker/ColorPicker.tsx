@@ -1,4 +1,4 @@
-import type { ManagedColor } from '@strata/scene';
+import type { ColorMode, ManagedColor } from '@strata/scene';
 import { isCmykColor, isGrayColor, isRgbColor, isSpotColor } from '@strata/scene';
 import { managedColorToRgba, rgbToCmyk } from '@strata/shared';
 import { useCallback, useMemo, useState } from 'react';
@@ -21,21 +21,26 @@ export interface ColorPickerProps {
   value: ManagedColor;
   onChange: (color: ManagedColor) => void;
   bgColor?: Color;
+  /** Document colour mode — when set, default initial space to match document mode. */
+  documentColorMode?: ColorMode;
 }
 
 function managedColorToRgbTuple(c: ManagedColor): Color {
   return managedColorToRgba(c) as unknown as Color;
 }
 
-function initialSpace(c: ManagedColor): ColorSpace {
+function initialSpace(c: ManagedColor, documentColorMode?: ColorMode): ColorSpace {
   if (isCmykColor(c)) return 'cmyk';
   if (isGrayColor(c)) return 'gray';
   if (isSpotColor(c)) return 'spot';
+  // Default to document colour mode when the value is plain RGB
+  if (documentColorMode === 'cmyk') return 'cmyk';
+  if (documentColorMode === 'grayscale') return 'gray';
   return 'rgb';
 }
 
-export function ColorPicker({ value, onChange, bgColor }: ColorPickerProps) {
-  const [space, setSpace] = useState<ColorSpace>(() => initialSpace(value));
+export function ColorPicker({ value, onChange, bgColor, documentColorMode }: ColorPickerProps) {
+  const [space, setSpace] = useState<ColorSpace>(() => initialSpace(value, documentColorMode));
 
   const rgbTuple = useMemo(() => managedColorToRgbTuple(value), [value]);
   const [h, s, v] = useMemo(() => rgbToHsv(rgbTuple[0], rgbTuple[1], rgbTuple[2]), [rgbTuple]);

@@ -4,10 +4,22 @@
  */
 
 import { exportNodeToSvg } from '@strata/codegen';
-import type { Engine } from '@strata/engine';
-import { awaitExportsReady, getCanvasSizeLimit, getImageCache, replayIr } from '@strata/engine';
+import type { Engine, RenderItem, SceneNode as EngineNode } from '@strata/engine';
+import {
+  awaitExportsReady,
+  createRasterSurface,
+  DEFAULT_RASTER_SURFACE_POLICY,
+  type ExportFontRequest,
+  encodeRasterSurface,
+  fitRasterDimensions,
+  getImageCache,
+  primitiveBounds,
+} from '@strata/engine';
 import type { Document as SceneDocument, SceneNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
+import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@strata/shared';
+import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
+import { replayStructuredScene } from '../../render/replayScene';
+import { flattenSceneToEngine } from '../../render/sceneToEngine';
 import { worldBBox } from './measurement';
 
 export type RasterFormat = 'image/png' | 'image/jpeg' | 'image/webp';
@@ -23,65 +35,114 @@ export interface RasterExportResult {
   warnings: string[];
 }
 
-/**
- * Narrowest per-engine canvas dimension cap among Chromium/WebKit/Gecko
- * (WebKit's 16384px). We can't reliably identify the actual rendering engine
- * from script, so raster export clamps to this conservative floor rather than
- * risking a thrown exception or silently corrupted/blank output on an engine
- * with a tighter limit than the one this session happens to be tested on.
- */
-const MAX_SAFE_CANVAS_DIMENSION = getCanvasSizeLimit('webkit');
+function collectEngineFonts(nodes: readonly EngineNode[]): ExportFontRequest[] {
+  const requests: ExportFontRequest[] = [];
+  for (const current of nodes) {
+    if (current.kind !== 'text') continue;
+    const family = current.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+    const weight = current.fontWeight ?? 400;
+    const style = current.fontStyle === 'italic' ? 'italic' : 'normal';
+    requests.push({ family, weight, style, text: current.text ?? '' });
+    for (const paragraph of current.richText?.paragraphs ?? []) {
+      for (const run of paragraph.runs) {
+        requests.push({
+          family: run.format?.fontFamily ?? family,
+          weight: run.format?.fontWeight ?? weight,
+          style: run.format?.fontStyle === 'italic' ? 'italic' : style,
+          text: run.text,
+        });
+      }
+    }
+  }
+  return requests;
+}
 
-async function preloadNodeImages(node: SceneNode, doc: SceneDocument): Promise<void> {
-  const sources: string[] = [];
-  const stack: SceneNode[] = [node];
+async function preloadEngineImages(nodes: readonly EngineNode[]): Promise<void> {
+  const sources = new Set<string>();
+  for (const current of nodes) {
+    for (const fill of current.fills ?? []) {
+      if (fill.visible === false) continue;
+      if (fill.type === 'image' && fill.image?.src) sources.add(fill.image.src);
+      if (fill.type === 'pattern' && fill.pattern?.tileSrc) sources.add(fill.pattern.tileSrc);
+    }
+    if (current.alphaMask) sources.add(current.alphaMask);
+  }
+  await Promise.all([...sources].map((source) => getImageCache().load(source)));
+}
+
+function colorHasAlpha(color: { a: number } | undefined): boolean {
+  return color !== undefined && color.a < 255;
+}
+
+function unionBounds(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): { x: number; y: number; w: number; h: number } {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    w: Math.max(a.x + a.w, b.x + b.w) - x,
+    h: Math.max(a.y + a.h, b.y + b.h) - y,
+  };
+}
+
+/** Bounds of every pixel the resolved render IR may emit. */
+function exportWorldBounds(
+  node: SceneNode,
+  doc: SceneDocument,
+  flattenedIds: readonly string[],
+  items: readonly RenderItem[],
+): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
+  let bounds: { x: number; y: number; w: number; h: number } | null = null;
+  for (const item of items) {
+    const geometry = transformRect(item.transform, primitiveBounds(item.primitive));
+    const visual = expandRect(geometry, appearancePaddingWorld(item, item.transform));
+    bounds = bounds ? unionBounds(bounds, visual) : visual;
+  }
+  if (node.kind === 'frame' && node.clipContent !== false) {
+    const rootIndex = flattenedIds.indexOf(node.id);
+    const rootItem = rootIndex >= 0 ? items[rootIndex] : undefined;
+    if (rootItem) {
+      const geometry = transformRect(rootItem.transform, primitiveBounds(rootItem.primitive));
+      bounds = expandRect(geometry, appearancePaddingWorld(rootItem, rootItem.transform));
+    }
+  }
+  bounds ??= worldBBox(node, doc);
+  const x = Math.floor(bounds.x);
+  const y = Math.floor(bounds.y);
+  const maxX = Math.ceil(bounds.x + bounds.w);
+  const maxY = Math.ceil(bounds.y + bounds.h);
+  return {
+    x,
+    y,
+    w: Math.max(0, maxX - x),
+    h: Math.max(0, maxY - y),
+  };
+}
+
+function assertRasterStructuralSupport(node: SceneNode, doc: SceneDocument): void {
+  const stack: SceneNode[] = [doc.nodes[node.id] ?? node];
   while (stack.length > 0) {
     const current = stack.pop()!;
-    if (current.kind === 'shape' && isImageShape(current)) sources.push(imageShapeSrc(current));
-    if ('children' in current && current.children) {
+    if (current.kind === 'group' && current.effects.some((effect) => effect.visible)) {
+      throw new Error(
+        `Raster export cannot yet preserve effects applied to group "${current.name}". Apply the effect to its children, or export SVG until shared group-surface effects are implemented.`,
+      );
+    }
+    if ('children' in current) {
       for (const childId of current.children) {
         const child = doc.nodes[childId];
         if (child) stack.push(child);
       }
     }
   }
-  await Promise.all([...new Set(sources)].map((source) => getImageCache().load(source)));
-}
-
-function toEngineNode(n: SceneNode) {
-  const base = {
-    id: n.id,
-    name: n.name,
-    fill: n.fill,
-    fills: n.fills ?? [],
-    transform: n.transform,
-    opacity: n.opacity ?? 1,
-    blendMode: n.blendMode ?? ('normal' as const),
-    rotation: n.rotation ?? 0,
-    strokes: 'strokes' in n ? (n.strokes ?? []) : [],
-    effects: 'effects' in n ? (n.effects ?? []) : [],
-    alphaMask: 'alphaMask' in n && typeof n.alphaMask === 'string' ? n.alphaMask : undefined,
-  };
-  if (n.kind === 'shape') return { ...base, shape: n.shape };
-  if (n.kind === 'text')
-    return {
-      ...base,
-      kind: 'text',
-      text: n.text,
-      fontSize: n.fontSize,
-      fontFamily: n.fontFamily,
-      fontWeight: n.fontWeight,
-      fontStyle: n.fontStyle,
-      textAlign: n.textAlign,
-      letterSpacing: n.letterSpacing,
-      lineHeight: n.lineHeight,
-      paragraphSpacing: n.paragraphSpacing,
-      textCase: n.textCase,
-      textDecoration: n.textDecoration,
-      textOverflow: n.textOverflow,
-      listStyle: n.listStyle,
-    };
-  return { ...base, shape: { kind: 'rect' as const, x: 0, y: 0, w: 200, h: 160 } };
 }
 
 export async function exportNodeAsRaster(
@@ -90,49 +151,57 @@ export async function exportNodeAsRaster(
   eng: Engine,
   opts: ExportOptions,
 ): Promise<RasterExportResult> {
+  // Resolve variants, bindings, reusable styles, and world transforms before
+  // resource readiness. Waiting on the raw model can load a stale font/image
+  // while the resolved render node uses a different resource.
+  const flattened = flattenSceneToEngine(doc, [node.id]);
+  assertRasterStructuralSupport(node, doc);
   // Guard against exporting mid-font-swap: a font requested via fontFamily
   // may still be loading (bundled FontFace fetch, Google Fonts injection, or
   // a race right after the user picks a new typeface). Without this, text
   // silently renders with the fallback font and the export looks correct at
   // a glance but is wrong — deterministic export requires settled fonts.
-  await awaitExportsReady();
-  await preloadNodeImages(node, doc);
+  await awaitExportsReady(collectEngineFonts(flattened.nodes));
+  await preloadEngineImages(flattened.nodes);
 
-  const bbox = worldBBox(node, doc);
   const warnings: string[] = [];
 
-  let scale = opts.scale;
-  let w = Math.max(Math.round(bbox.w * scale), 1);
-  let h = Math.max(Math.round(bbox.h * scale), 1);
+  const ir = await eng.buildIr({ nodes: flattened.nodes });
+  const bbox = exportWorldBounds(node, doc, flattened.ids, ir);
 
-  const largestDimension = Math.max(w, h);
-  if (largestDimension > MAX_SAFE_CANVAS_DIMENSION) {
-    scale = opts.scale * (MAX_SAFE_CANVAS_DIMENSION / largestDimension);
-    w = Math.max(Math.round(bbox.w * scale), 1);
-    h = Math.max(Math.round(bbox.h * scale), 1);
+  let scale = opts.scale;
+  const requestedW = Math.max(Math.ceil(bbox.w * scale), 1);
+  const requestedH = Math.max(Math.ceil(bbox.h * scale), 1);
+  const fitted = fitRasterDimensions(requestedW, requestedH);
+  const w = fitted.width;
+  const h = fitted.height;
+  if (fitted.scaleFactor < 1) {
+    scale = opts.scale * fitted.scaleFactor;
     warnings.push(
-      `Requested export size exceeded the ${MAX_SAFE_CANVAS_DIMENSION}px canvas limit; scaled down to ${w}x${h} (effective ${scale.toFixed(3)}x of ${opts.scale}x) to avoid a blank or corrupted export.`,
+      `Requested ${requestedW}x${requestedH} export exceeded the portable raster safety policy (${DEFAULT_RASTER_SURFACE_POLICY.maxDimension}px per axis and ${DEFAULT_RASTER_SURFACE_POLICY.maxPixels.toLocaleString()} total pixels); scaled down to ${w}x${h} (effective ${scale.toFixed(3)}x of ${opts.scale}x) to avoid excessive memory use or a blank export.`,
     );
   }
 
-  const canvas = new OffscreenCanvas(w, h);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Failed to get offscreen canvas context');
+  const surface = createRasterSurface(w, h, { alpha: opts.format !== 'image/jpeg' });
+  const ctx = surface.context;
 
   ctx.scale(scale, scale);
   ctx.translate(-bbox.x, -bbox.y);
 
-  const ir = await eng.buildIr({
-    nodes: [toEngineNode(node)],
+  replayStructuredScene(ctx, {
+    document: doc,
+    rootIds: [node.id],
+    flattenedIds: flattened.ids,
+    items: ir,
   });
-  replayIr(ctx as unknown as import('@strata/engine').ReplayTarget, ir);
 
   let blob: Blob;
   try {
-    blob = await canvas.convertToBlob({
-      type: opts.format,
-      quality: opts.quality ?? (opts.format === 'image/jpeg' ? 0.92 : undefined),
-    });
+    blob = await encodeRasterSurface(
+      surface,
+      opts.format,
+      opts.quality ?? (opts.format === 'image/jpeg' ? 0.92 : undefined),
+    );
   } catch (err) {
     if (err instanceof DOMException && err.name === 'SecurityError') {
       throw new Error(
@@ -140,6 +209,12 @@ export async function exportNodeAsRaster(
       );
     }
     throw err;
+  }
+
+  if (blob.type && blob.type !== opts.format) {
+    warnings.push(
+      `This runtime encoded ${blob.type} instead of the requested ${opts.format}; the file uses the actual encoded format.`,
+    );
   }
 
   return { blob, warnings };
@@ -171,15 +246,116 @@ export async function exportNodeAsPdf(
   doc: SceneDocument,
   scale: number,
 ): Promise<{ bytes: Uint8Array; filename: string }> {
+  const subtree = flattenSceneToEngine(doc, [node.id]);
   // Same font-readiness guard as raster export: worldBBox measures text via
   // canvas metrics that depend on the requested font actually being loaded.
-  await awaitExportsReady();
+  await awaitExportsReady(collectEngineFonts(subtree.nodes));
 
   const bbox = worldBBox(node, doc);
-  const w = Math.max(Math.round(bbox.w * scale), 1);
-  const h = Math.max(Math.round(bbox.h * scale), 1);
+  if (scale !== 1) {
+    throw new Error(
+      'PDF is vector output and currently supports 1x document units only. Choose 1x, or export PNG/JPEG/WebP for scaled raster output.',
+    );
+  }
+  const w = Math.max(Math.ceil(bbox.w), 1);
+  const h = Math.max(Math.ceil(bbox.h), 1);
 
-  const nodes = [toEngineNode(node)];
+  // Validate the structural scene before flattening. Groups are not raster
+  // primitives, so leaf-only checks would silently lose group compositing.
+  const structuralStack: SceneNode[] = [doc.nodes[node.id] ?? node];
+  while (structuralStack.length > 0) {
+    const current = structuralStack.pop()!;
+    if (current.kind === 'group') {
+      const unsupportedGroupCompositing =
+        (current.opacity ?? 1) < 1 ||
+        (current.blendMode !== undefined &&
+          current.blendMode !== 'normal' &&
+          current.blendMode !== 'passThrough') ||
+        current.isolated === true ||
+        current.effects.some((effect) => effect.visible) ||
+        current.mask?.visible === true;
+      if (unsupportedGroupCompositing) {
+        throw new Error(
+          `PDF export cannot yet preserve group opacity, blends, isolation, effects, or masks on "${current.name}". Export PNG for exact Canvas 2D appearance.`,
+        );
+      }
+    } else if ('mask' in current && current.mask?.visible === true) {
+      throw new Error(
+        `PDF export cannot yet preserve the mask on "${current.name}". Export PNG for exact Canvas 2D appearance.`,
+      );
+    }
+    if ('children' in current) {
+      for (const childId of current.children) {
+        const child = doc.nodes[childId];
+        if (child) structuralStack.push(child);
+      }
+    }
+  }
+
+  for (const sceneNode of subtree.nodes) {
+    const [a, b, c, d] = sceneNode.transform;
+    if (a !== 1 || b !== 0 || c !== 0 || d !== 1) {
+      throw new Error(
+        `PDF export cannot yet preserve rotated, skewed, or scaled node "${sceneNode.name}". Export PNG for exact Canvas 2D appearance.`,
+      );
+    }
+    const unsupportedFillSemantics =
+      colorHasAlpha(sceneNode.fill) ||
+      (sceneNode.fills?.some(
+        (fill) =>
+          fill.visible &&
+          (fill.type !== 'solid' ||
+            fill.opacity < 1 ||
+            fill.blendMode !== 'normal' ||
+            colorHasAlpha(fill.color)),
+      ) ??
+        false);
+    const unsupportedStrokeSemantics =
+      sceneNode.strokes?.some((stroke) => stroke.visible && colorHasAlpha(stroke.color)) ?? false;
+    if (sceneNode.kind === 'text') {
+      throw new Error(
+        `Native PDF text outlining is not wired for "${sceneNode.name}"; exporting it would replace the text with a rectangle. Use SVG to preserve editable text, or PNG for exact Canvas 2D appearance.`,
+      );
+    }
+    if (
+      (sceneNode.opacity ?? 1) < 1 ||
+      (sceneNode.blendMode && sceneNode.blendMode !== 'normal') ||
+      (sceneNode.effects?.some((effect) => effect.visible) ?? false) ||
+      (sceneNode.filters?.length ?? 0) > 0 ||
+      unsupportedFillSemantics ||
+      unsupportedStrokeSemantics
+    ) {
+      throw new Error(
+        `PDF export cannot yet preserve transparency, blends, effects, filters, gradients, images, or patterns on "${sceneNode.name}". Export PNG for exact Canvas 2D appearance.`,
+      );
+    }
+  }
+  const stack: SceneNode[] = [doc.nodes[node.id] ?? node];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (current.kind === 'frame' && current.clipContent !== false && current.children.length > 0) {
+      throw new Error(
+        `PDF export cannot yet preserve clipped descendants in frame "${current.name}". Export PNG for exact Canvas 2D appearance.`,
+      );
+    }
+    if ('children' in current) {
+      for (const childId of current.children) {
+        const child = doc.nodes[childId];
+        if (child) stack.push(child);
+      }
+    }
+  }
+  const nodes = subtree.nodes.map((sceneNode) => ({
+    ...sceneNode,
+    transform: [
+      1,
+      0,
+      0,
+      1,
+      sceneNode.transform[4] - bbox.x,
+      sceneNode.transform[5] - bbox.y,
+    ] as const,
+  }));
   const opts = { page_width: w, page_height: h, title: node.name, author: 'Strata' };
   const tauri = (window as unknown as Record<string, unknown>).__TAURI__ as
     | { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }

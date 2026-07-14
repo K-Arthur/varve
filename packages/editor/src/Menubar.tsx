@@ -234,6 +234,13 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       { label: '---' },
       { label: 'Remove Background...', action: 'batchBgRemove' },
       { label: '---' },
+      { label: 'Add Alpha Mask', action: 'addAlphaMask' },
+      { label: 'Add Clip Mask', action: 'addClipMask' },
+      { label: 'Add Luminance Mask', action: 'addLuminanceMask' },
+      { label: 'Remove Mask', action: 'removeMask' },
+      { label: 'Toggle Mask', action: 'toggleMask' },
+      { label: 'Invert Mask', action: 'invertMask' },
+      { label: '---' },
       {
         label: 'Union',
         shortcut: formatShortcut(SHORTCUT_DEFS.booleanUnion.binding),
@@ -360,6 +367,10 @@ export function Menubar({
     clearAllGuides,
     toggleGuidesVisible,
     toggleLockAllGuides,
+    addMaskToSelected,
+    removeMaskFromSelected,
+    toggleMask,
+    invertMask,
     save,
     saveAs,
   } = useEditor();
@@ -525,6 +536,24 @@ export function Menubar({
           break;
         case 'ungroup':
           ungroupSelected();
+          break;
+        case 'addAlphaMask':
+          addMaskToSelected('alpha');
+          break;
+        case 'addClipMask':
+          addMaskToSelected('clip');
+          break;
+        case 'addLuminanceMask':
+          addMaskToSelected('luminance');
+          break;
+        case 'removeMask':
+          removeMaskFromSelected();
+          break;
+        case 'toggleMask':
+          toggleMask();
+          break;
+        case 'invertMask':
+          invertMask();
           break;
         case 'bringFront':
           arrangeSelected('front');
@@ -778,6 +807,7 @@ export function Menubar({
       role="menubar"
       aria-label="Application"
       ref={menuRef}
+      data-testid="menubar"
       onKeyDown={handleMenuKeyDown}
     >
       <div className="editor-menubar__left">

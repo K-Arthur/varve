@@ -6,7 +6,7 @@
  *
  * Research basis: APG Dialog (Modal); Floating UI placement; WCAG 2.2 target size.
  */
-import type { ManagedColor } from '@strata/scene';
+import type { ColorMode, ManagedColor } from '@strata/scene';
 import { FloatingPortal, FocusTrap, Icon } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -21,6 +21,8 @@ export interface InspectorColorPopoverProps {
   /** Optional class on the trigger button. */
   className?: string;
   disabled?: boolean;
+  /** Document colour mode — ColorPicker defaults initial space to match. */
+  documentColorMode?: ColorMode;
 }
 
 export function InspectorColorPopover({
@@ -30,6 +32,7 @@ export function InspectorColorPopover({
   swatchStyle,
   className = 'insp-swatch',
   disabled = false,
+  documentColorMode,
 }: InspectorColorPopoverProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -110,7 +113,7 @@ export function InspectorColorPopover({
                 <Icon name="X" label={undefined} size="0.85em" />
               </button>
             </div>
-            <ColorPicker value={value} onChange={onChange} />
+            <ColorPicker value={value} onChange={onChange} documentColorMode={documentColorMode} />
             <button type="button" onClick={close} className="insp-picker-done">
               Done
             </button>

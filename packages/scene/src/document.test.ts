@@ -36,7 +36,7 @@ import {
   ungroupNode,
   walkNodes,
 } from './document';
-import type { FrameNode, GroupNode, LayerColor, TextNode } from './types';
+import type { FrameNode, GroupNode, LayerColor, NodeId, TextNode } from './types';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
 function shape(doc: ReturnType<typeof createDocument>, name: string) {
@@ -555,7 +555,7 @@ describe('makeTextNode', () => {
     const node = makeTextNode('t1', 'Hello');
     expect(node.text).toBe('Hello');
     expect(node.fontSize).toBe(16);
-    expect(node.fontFamily).toBe('Inter');
+    expect(node.fontFamily).toBe('IBM Plex Sans Variable');
     expect(node.fontWeight).toBe(400);
     expect(node.fontStyle).toBe('normal');
     expect(node.textAlign).toBe('left');
@@ -597,6 +597,19 @@ describe('makeTextNode', () => {
     expect(node.textOverflow).toBe('ellipsis');
     expect(node.textResizing).toBe('autoHeight');
     expect(node.openTypeFeatures).toEqual({ liga: true, kern: true });
+  });
+
+  it('preserves explicit area-text container dimensions', () => {
+    const node = makeTextNode('t-area', 'Wrapped text', {
+      w: 240,
+      h: 120,
+      textMode: 'area',
+      textResizing: 'fixed',
+    });
+    expect(node.w).toBe(240);
+    expect(node.h).toBe(120);
+    expect(node.textMode).toBe('area');
+    expect(node.textResizing).toBe('fixed');
   });
 
   it('produces a valid TextNode that can be added to a document', () => {
@@ -931,7 +944,7 @@ describe('Document print production fields', () => {
 
     it('is a no-op for non-existent node ids', () => {
       let doc = createDocument();
-      doc = setLayerColor(doc, 'nonexistent' as any, 'green');
+      doc = setLayerColor(doc, 'nonexistent' as NodeId, 'green');
       expect(doc.nodes).toEqual(createDocument().nodes);
     });
 

@@ -25,7 +25,8 @@ import {
   walkNodes,
 } from '@strata/scene';
 import { fitBoundsCamera, type Rect } from '@strata/shared';
-import { applyPropertyPath, toEngineNode } from '../CanvasArea';
+import { applyPropertyPath } from '../CanvasArea';
+import { sceneNodeToEngineNode } from '../render/sceneToEngine';
 import { nodeWorldTransform } from '../scene/world';
 import { sampleTimelineAt } from '../timeline/TimelineSampler';
 
@@ -113,7 +114,7 @@ function flattenVisibleNodes(doc: Document): { ids: string[]; nodes: EngineNode[
     n = applyBindingsToNode(n, variableStore);
     const world = nodeWorldTransform(doc, id);
     ids.push(id);
-    nodes.push({ ...toEngineNode(n), transform: world });
+    nodes.push({ ...sceneNodeToEngineNode(n), transform: world });
   }
 
   const resolvedStyles = resolveAllStyles(doc);
