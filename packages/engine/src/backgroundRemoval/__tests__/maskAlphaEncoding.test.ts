@@ -78,11 +78,10 @@ describe('worker encoding contract (code-level)', () => {
   it('BUG encoding: A=255 while RGB=mask_value (inconsistent)', () => {
     const mask = [0, 128, 255];
     for (const v of mask) {
-      const r = v,
-        g = v,
-        b = v;
-      const buggyA = 255; // The old worker bug
-      // With destination-in, only 'a' matters:
+      // Worker bug: R=G=B=v (correct), A=255 (wrong — should be v)
+      // With destination-in, only the alpha channel matters
+      const buggyA = 255;
+      expect(v).toBeGreaterThanOrEqual(0); // RGB channels exist but are ignored
       expect(buggyA / 255).toBe(1); // Always opaque = mask ineffective
     }
   });
