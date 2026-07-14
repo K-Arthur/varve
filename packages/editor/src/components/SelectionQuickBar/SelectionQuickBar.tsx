@@ -1,10 +1,12 @@
 /**
- * SelectionQuickBar — Canva-style selection-anchored action strip.
+ * SelectionQuickBar — selection-anchored action strip.
  *
- * Research basis: Canva contextual image bar; Figma floating chrome.
- * Positioned below the selection screen bbox inside the canvas layer.
+ * Visual language matches FloatingToolbar: raised surface, 32px icon buttons,
+ * Tooltip labels (no cramped multi-line captions).
+ *
+ * Research basis: Strata FloatingToolbar chrome; Canva contextual action bar.
  */
-import { Icon, type IconName } from '@strata/ui';
+import { Icon, type IconName, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { QuickBarActionId, QuickBarProfile } from './resolveQuickBarProfile';
 import './SelectionQuickBar.css';
@@ -42,7 +44,6 @@ const ACTION_ICONS: Partial<Record<QuickBarActionId, IconName>> = {
 };
 
 const PADDING = 8;
-const BAR_HEIGHT_EST = 44;
 
 export function SelectionQuickBar({
   profile,
@@ -84,59 +85,69 @@ export function SelectionQuickBar({
   return (
     <div
       className="selection-quick-bar"
-      role="toolbar"
-      aria-label="Selection actions"
-      style={{ left, top, height: BAR_HEIGHT_EST }}
+      style={{ left, top }}
       data-kind={profile.kind}
       data-testid="selection-quick-bar"
     >
-      {profile.actions.map((a) => {
-        const icon = ACTION_ICONS[a.id] ?? 'Circle';
-        return (
-          <button
-            key={a.id}
-            type="button"
-            className="selection-quick-bar__btn"
-            aria-label={a.label}
-            disabled={pending.has(a.id)}
-            onClick={() => handleAction(a.id)}
-          >
-            <Icon name={icon} label={undefined} size="0.95em" />
-            <span className="selection-quick-bar__label">{a.label}</span>
-          </button>
-        );
-      })}
-      {hasMore && (
-        <div className="selection-quick-bar__more" ref={moreRef}>
-          <button
-            type="button"
-            className="selection-quick-bar__btn selection-quick-bar__btn--more"
-            aria-label="More"
-            aria-expanded={moreOpen}
-            aria-haspopup="menu"
-            onClick={() => setMoreOpen((v) => !v)}
-          >
-            <Icon name="ChevronDown" label={undefined} size="0.95em" />
-            <span className="selection-quick-bar__label">More</span>
-          </button>
-          {moreOpen && (
-            <div className="selection-quick-bar__menu" role="menu" aria-label="More actions">
-              {profile.moreActions!.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  role="menuitem"
-                  className="selection-quick-bar__menuitem"
-                  disabled={pending.has(a.id)}
-                  onClick={() => handleAction(a.id)}
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="selection-quick-bar__inner" role="toolbar" aria-label="Selection actions">
+        {profile.actions.map((a, index) => {
+          const icon = ACTION_ICONS[a.id] ?? 'Circle';
+          const isPending = pending.has(a.id);
+          const groupStart =
+            index > 0 &&
+            ((a.id === 'flipH' &&
+              ['vectorize', 'simplify', 'editText'].includes(
+                profile.actions[index - 1]?.id ?? '',
+              )) ||
+              (a.id.startsWith('boolean') && profile.actions[index - 1]?.id === 'group'));
+          return (
+            <Tooltip key={a.id} label={a.label}>
+              <button
+                type="button"
+                className={`selection-quick-bar__btn${groupStart ? ' selection-quick-bar__btn--group-start' : ''}${isPending ? ' selection-quick-bar__btn--pending' : ''}`}
+                aria-label={a.label}
+                disabled={isPending}
+                onClick={() => handleAction(a.id)}
+              >
+                <Icon name={icon} size={16} />
+              </button>
+            </Tooltip>
+          );
+        })}
+        {hasMore && (
+          <div className="selection-quick-bar__more" ref={moreRef}>
+            <Tooltip label="More">
+              <button
+                type="button"
+                className="selection-quick-bar__chevron"
+                aria-label="More"
+                aria-expanded={moreOpen}
+                aria-haspopup="menu"
+                onClick={() => setMoreOpen((v) => !v)}
+              >
+                <Icon name="ChevronDown" size={14} />
+              </button>
+            </Tooltip>
+            {moreOpen && (
+              <div className="selection-quick-bar__menu" role="menu" aria-label="More actions">
+                {profile.moreActions!.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    role="menuitem"
+                    className="selection-quick-bar__menuitem"
+                    disabled={pending.has(a.id)}
+                    onClick={() => handleAction(a.id)}
+                  >
+                    <Icon name={ACTION_ICONS[a.id] ?? 'Circle'} size={14} />
+                    <span>{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

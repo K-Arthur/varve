@@ -55,8 +55,8 @@ import {
 } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
 import { CanvasNameLabels } from './canvas/CanvasNameLabels';
+import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
 import { SubtreeIrCache } from './canvas/subtreeIrCache';
 import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './components/AlignmentOverlay';
 import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
@@ -69,11 +69,7 @@ import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
 import { MeshWarpOverlay } from './components/MeshWarpOverlay';
 import { NodeEditOverlay } from './components/NodeEditOverlay';
 import { Ruler } from './components/Ruler/Ruler';
-import {
-  type QuickBarActionId,
-  resolveQuickBarProfile,
-} from './components/SelectionQuickBar/resolveQuickBarProfile';
-import { SelectionQuickBar } from './components/SelectionQuickBar/SelectionQuickBar';
+import { SelectionQuickBarHost } from './components/SelectionQuickBar/SelectionQuickBarHost';
 import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
 import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
 import { TextEditOverlay } from './components/TextEditOverlay';
@@ -2782,55 +2778,11 @@ export function CanvasArea({
           />
         );
       })()}
-      {(() => {
-        const sel = state.selection;
-        let suppressForVariant = false;
-        if (sel.length === 1) {
-          const singleNode = state.document.nodes[sel[0]!];
-          if (singleNode?.kind === 'frame' && singleNode.componentId) {
-            const component = state.document.components[singleNode.componentId];
-            if (component?.variants && component.variants.length > 0) {
-              suppressForVariant = true;
-            }
-          }
-        }
-        const profile = resolveQuickBarProfile({
-          document: state.document,
-          selection: sel,
-          tool: state.tool,
-          textEditTargetId,
-          bgRemovalPending: false,
-          suppressForVariant,
-        });
-        if (!profile) return null;
-        let minX = Number.POSITIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        let maxX = Number.NEGATIVE_INFINITY;
-        let maxY = Number.NEGATIVE_INFINITY;
-        for (const id of sel) {
-          const b = editor.getWorldBounds(id);
-          if (!b) continue;
-          minX = Math.min(minX, b.x);
-          minY = Math.min(minY, b.y);
-          maxX = Math.max(maxX, b.x + b.w);
-          maxY = Math.max(maxY, b.y + b.h);
-        }
-        if (!Number.isFinite(minX)) return null;
-        const { x: screenX, y: screenY } = editor.worldToCanvas(minX, minY);
-        const screenW = (maxX - minX) * state.zoom;
-        const screenH = (maxY - minY) * state.zoom;
-        const onQuickAction = (id: QuickBarActionId) => {
-          if (id === 'flipH') editor.setSelectedFlipH();
-          else if (id === 'flipV') editor.setSelectedFlipV();
-        };
-        return (
-          <SelectionQuickBar
-            profile={profile}
-            screenBounds={{ x: screenX, y: screenY, w: screenW, h: screenH }}
-            onAction={onQuickAction}
-          />
-        );
-      })()}
+      <SelectionQuickBarHost
+        textEditTargetId={textEditTargetId}
+        setTextEditTargetId={setTextEditTargetId}
+        setNodeEditTargetId={setNodeEditTargetId}
+      />
       {textEditTargetId &&
         (() => {
           const n = state.document.nodes[textEditTargetId];
