@@ -335,7 +335,7 @@ export class TransformEngine {
     if (node.kind !== 'shape') return false;
     const shapeNode = node as ShapeNode;
     const fills = shapeNode.fills;
-    if (fills && fills.some((f) => f.type === 'image' || f.type === 'pattern')) return true;
+    if (fills?.some((f) => f.type === 'image' || f.type === 'pattern')) return true;
     return false;
   }
 

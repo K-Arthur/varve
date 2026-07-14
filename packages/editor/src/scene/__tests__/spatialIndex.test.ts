@@ -253,7 +253,7 @@ describe('computeFrameFingerprint', () => {
     const fp1 = computeFrameFingerprint(doc);
 
     // Move frame n3 to a different position
-    const frame = { ...doc.nodes['n3'], transform: [1, 0, 0, 1, 100, 300] as Affine };
+    const frame = { ...doc.nodes.n3, transform: [1, 0, 0, 1, 100, 300] as Affine };
     doc = { ...doc, nodes: { ...doc.nodes, n3: frame as (typeof doc.nodes)['n3'] } };
 
     const fp2 = computeFrameFingerprint(doc);
@@ -265,7 +265,7 @@ describe('computeFrameFingerprint', () => {
     const fp1 = computeFrameFingerprint(doc);
 
     // Move rect n1 without affecting any frame/group
-    const rect = { ...doc.nodes['n1'], transform: [1, 0, 0, 1, 150, 150] as Affine };
+    const rect = { ...doc.nodes.n1, transform: [1, 0, 0, 1, 150, 150] as Affine };
     doc = { ...doc, nodes: { ...doc.nodes, n1: rect as (typeof doc.nodes)['n1'] } };
 
     const fp2 = computeFrameFingerprint(doc);
@@ -328,7 +328,7 @@ describe('getOrCreateFrameSpatialIndex', () => {
     const index = buildFrameSpatialIndex(doc);
 
     // Move frame n3
-    const frame = { ...doc.nodes['n3'], transform: [1, 0, 0, 1, 500, 500] as Affine };
+    const frame = { ...doc.nodes.n3, transform: [1, 0, 0, 1, 500, 500] as Affine };
     doc = { ...doc, nodes: { ...doc.nodes, n3: frame as (typeof doc.nodes)['n3'] } };
 
     const rebuilt = getOrCreateFrameSpatialIndex(doc, index);

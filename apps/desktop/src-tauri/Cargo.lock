@@ -4569,6 +4569,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-colour"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "strata-core",
+ "tintbox",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "strata-core"
 version = "0.0.0"
 dependencies = [
@@ -4622,8 +4633,8 @@ dependencies = [
  "font-subset",
  "lopdf",
  "serde",
+ "strata-colour",
  "strata-core",
- "tintbox",
 ]
 
 [[package]]

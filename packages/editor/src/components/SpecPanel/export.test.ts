@@ -2,8 +2,8 @@ import { awaitExportsReady, createEngine, createRasterSurface } from '@strata/en
 import {
   addChild,
   addNode,
-  createTextStyle,
   createDocument,
+  createTextStyle,
   imageFill,
   makeFrameNode,
   makeGroupNode,

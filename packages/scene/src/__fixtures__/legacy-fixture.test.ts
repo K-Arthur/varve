@@ -13,22 +13,22 @@ describe('Legacy v1.5 Document Fixture', () => {
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
 
     const nodes = doc.nodes as Record<string, unknown>;
-    expect(nodes['n2']).toBeDefined();
-    expect(nodes['n3']).toBeDefined();
-    expect(nodes['n4']).toBeDefined();
-    expect(nodes['n5']).toBeDefined();
+    expect(nodes.n2).toBeDefined();
+    expect(nodes.n3).toBeDefined();
+    expect(nodes.n4).toBeDefined();
+    expect(nodes.n5).toBeDefined();
 
-    const frame = nodes['n2'] as Record<string, unknown>;
+    const frame = nodes.n2 as Record<string, unknown>;
     expect(frame.kind).toBe('frame');
     const frameChildren = frame.children as string[];
     expect(frameChildren).toContain('n2c');
-    expect(nodes['n2c']).toBeDefined();
+    expect(nodes.n2c).toBeDefined();
 
-    const group = nodes['n3'] as Record<string, unknown>;
+    const group = nodes.n3 as Record<string, unknown>;
     expect(group.kind).toBe('group');
     const groupChildren = group.children as string[];
     expect(groupChildren).toContain('n3c');
-    expect(nodes['n3c']).toBeDefined();
+    expect(nodes.n3c).toBeDefined();
   });
 
   it('migrated document has no orphans and passes validateDocument', () => {

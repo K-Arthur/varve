@@ -30,7 +30,7 @@ export function translateAffine(t: Affine, dx: number, dy: number): Affine {
  */
 export function commitImageCrop(doc: Document, nodeId: NodeId, crop: LocalCropRect): Document {
   const node = doc.nodes[nodeId];
-  if (!node || node.kind !== 'shape' || !isImageShape(node)) return doc;
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
   if (node.shape.kind !== 'rect') return doc;
 
   const W = node.shape.w;

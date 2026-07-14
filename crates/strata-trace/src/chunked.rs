@@ -33,7 +33,7 @@ pub fn trace_contours_chunked(
     }
 
     let chunks = num_chunks.max(1);
-    let chunk_size = (seeds.len() + chunks - 1) / chunks;
+    let chunk_size = seeds.len().div_ceil(chunks);
 
     let mut visited = vec![false; (width * height) as usize];
     let mut traced = Vec::new();

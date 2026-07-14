@@ -30,28 +30,19 @@ function getPopoverEl() {
 }
 
 function getTriggerWrapper() {
-  const button = screen.getByRole('button', { name: 'Open' });
-  const wrapper = button.parentElement;
-  if (!wrapper) throw new Error('trigger wrapper not found');
-  return wrapper;
+  const button = screen.getByRole('button', { name: /^open$/i });
+  if (!button) throw new Error('trigger button not found');
+  return button;
 }
 
 describe('Popover', () => {
   it('renders trigger', () => {
-    render(
-      <Popover popover={<div>content</div>}>
-        <button type="button">Open</button>
-      </Popover>,
-    );
+    render(<Popover popover={<div>content</div>}>Open</Popover>);
     expect(screen.getByRole('button', { name: 'Open' })).toBeInTheDocument();
   });
 
   it('opens popover on trigger click', () => {
-    render(
-      <Popover popover={<div>content</div>}>
-        <button type="button">Open</button>
-      </Popover>,
-    );
+    render(<Popover popover={<div>content</div>}>Open</Popover>);
     const button = screen.getByRole('button', { name: 'Open' });
     fireEvent.click(button);
     const wrapper = getTriggerWrapper();
@@ -59,11 +50,7 @@ describe('Popover', () => {
   });
 
   it('closes on Escape', async () => {
-    render(
-      <Popover popover={<div>content</div>}>
-        <button type="button">Open</button>
-      </Popover>,
-    );
+    render(<Popover popover={<div>content</div>}>Open</Popover>);
     const button = screen.getByRole('button', { name: 'Open' });
     fireEvent.click(button);
     const wrapper = getTriggerWrapper();
@@ -80,11 +67,7 @@ describe('Popover', () => {
 
   it('has correct placement (default bottom)', async () => {
     const { computePosition } = await import('@floating-ui/dom');
-    render(
-      <Popover popover={<div>content</div>}>
-        <button type="button">Open</button>
-      </Popover>,
-    );
+    render(<Popover popover={<div>content</div>}>Open</Popover>);
     const button = screen.getByRole('button', { name: 'Open' });
     fireEvent.click(button);
     await waitFor(() => {
@@ -97,11 +80,7 @@ describe('Popover', () => {
   });
 
   it('popover content renders when open', () => {
-    render(
-      <Popover popover={<div>Popover content</div>}>
-        <button type="button">Open</button>
-      </Popover>,
-    );
+    render(<Popover popover={<div>Popover content</div>}>Open</Popover>);
     expect(screen.getByText('Popover content')).toBeInTheDocument();
     const button = screen.getByRole('button', { name: 'Open' });
     fireEvent.click(button);
@@ -111,9 +90,7 @@ describe('Popover', () => {
   it('closes on outside click', async () => {
     render(
       <div>
-        <Popover popover={<div>content</div>}>
-          <button type="button">Open</button>
-        </Popover>
+        <Popover popover={<div>content</div>}>Open</Popover>
         <div>Outside</div>
       </div>,
     );

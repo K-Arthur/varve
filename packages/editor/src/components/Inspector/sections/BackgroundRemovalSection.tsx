@@ -35,7 +35,7 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   if (message.includes('Model') || message.includes('model')) {
     return `Model failed to load: ${defaultMessage}`;
   }
-  return message.length > 180 ? message.slice(0, 180) + '...' : message;
+  return message.length > 180 ? `${message.slice(0, 180)}...` : message;
 }
 
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {

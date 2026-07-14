@@ -3,10 +3,11 @@
  * Tests the full pipeline: extract alpha contours from ImageData, convert
  * to ShapeNode[], then feed into the existing boolean engine.
  */
-import { describe, it, expect } from 'vitest';
+
+import { type AlphaContour, alphaContoursToShapeNodes, extractAlphaContours } from '@strata/engine';
 import type { ShapeNode } from '@strata/scene';
 import { booleanOp } from '@strata/scene';
-import { alphaContoursToShapeNodes, extractAlphaContours, type AlphaContour } from '@strata/engine';
+import { describe, expect, it } from 'vitest';
 
 function makeImageData(width: number, height: number, alpha: number[]): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);

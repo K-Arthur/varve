@@ -68,7 +68,7 @@ function getGradientHandles(
     }
     for (let fi = 0; fi < fills.length; fi++) {
       const fill = fills[fi];
-      if (!fill || !fill.visible) continue;
+      if (!fill?.visible) continue;
       if (fill.type !== 'gradient' || !fill.gradient) continue;
       const g = fill.gradient;
       const cx = bounds.x + bounds.w / 2;

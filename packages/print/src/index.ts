@@ -12,16 +12,15 @@
 import { createStubPrintEngine } from './stub';
 import type { PrintEngine } from './types';
 
-export { createNativePrintEngine } from './native';
-export { createStubPrintEngine } from './stub';
-export type { PdfExportOptions, PdfResult, PrintEngine } from './types';
-
+export type { ColourEngine, ColourWasmModule } from './colourLoader';
 export {
   createColourEngineFromModule,
   loadColourWasmModule,
   prewarmColourWasm,
 } from './colourLoader';
-export type { ColourEngine } from './colourLoader';
+export { createNativePrintEngine } from './native';
+export { createStubPrintEngine } from './stub';
+export type { PdfExportOptions, PdfResult, PrintEngine } from './types';
 
 export const PACKAGE = '@strata/print' as const;
 

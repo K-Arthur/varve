@@ -9,13 +9,13 @@
  */
 
 import {
+  detectFontFormat,
   type EmbeddingRights,
   type FontCategory,
   type FontFormat,
   type ParsedAxis,
   type ParsedFontMetadata,
   type ParsedNamedInstance,
-  detectFontFormat,
 } from './fontIdentity';
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -47,8 +47,8 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
 
   // WOFF2 header: signature(4) flavor(4) length(4) numTables(2) reserved(2)
   // metaOffset(4) metaLength(4) metaOrigLength(4) privOffset(4) privLength(4)
-  const numTables = view.getUint16(12);
-  const totalSfntSize = view.getUint32(20);
+  const _numTables = view.getUint16(12);
+  const _totalSfntSize = view.getUint32(20);
 
   // Reconstruct the original font from WOFF2 table directory + compressed data
   // WOFF2 uses Brotli compression — we need the decompressed table data
@@ -197,8 +197,8 @@ function decompressZlib(data: ArrayBuffer, _expectedLength: number): ArrayBuffer
   if (typeof DecompressionStream !== 'undefined') {
     const ds = new DecompressionStream('deflate-raw');
     const writer = ds.writable.getWriter();
-    const reader = ds.readable.getReader();
-    const chunks: Uint8Array[] = [];
+    const _reader = ds.readable.getReader();
+    const _chunks: Uint8Array[] = [];
 
     // Write compressed data
     writer.write(new Uint8Array(data)).catch(() => {});
@@ -460,7 +460,7 @@ function parseNameTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     if (recOff + 12 > data.byteLength) break;
 
     const platformID = view.getUint16(recOff);
-    const encodingID = view.getUint16(recOff + 2);
+    const _encodingID = view.getUint16(recOff + 2);
     const nameID = view.getUint16(recOff + 4);
     const length = view.getUint16(recOff + 6);
     const offset2 = view.getUint16(recOff + 8);
@@ -642,8 +642,8 @@ function parseFvarTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     const minValue = view.getFloat32(axisOffset + 4, false);
     const defaultValue = view.getFloat32(axisOffset + 8, false);
     const maxValue = view.getFloat32(axisOffset + 12, false);
-    const flags = view.getUint16(axisOffset + 16);
-    const nameID = view.getUint16(axisOffset + 18);
+    const _flags = view.getUint16(axisOffset + 16);
+    const _nameID = view.getUint16(axisOffset + 18);
 
     // Resolve axis name from name table
     const axisName = AXIS_NAMES[tag] || tag;
@@ -701,8 +701,8 @@ function parseCmapTable(
   for (let i = 0; i < numSubtables && i < 10; i++) {
     if (subtableOffset + 8 > data.byteLength) break;
 
-    const platformID = view.getUint16(subtableOffset);
-    const encodingID = view.getUint16(subtableOffset + 2);
+    const _platformID = view.getUint16(subtableOffset);
+    const _encodingID = view.getUint16(subtableOffset + 2);
     const offset2 = view.getUint32(subtableOffset + 4);
     const formatOffset = base + offset2;
 
@@ -750,7 +750,7 @@ function parseGPOSTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
   return parseFeatureList(data, table.offset, table.length);
 }
 
-function parseFeatureList(data: ArrayBuffer, offset: number, length: number): string[] {
+function parseFeatureList(data: ArrayBuffer, offset: number, _length: number): string[] {
   if (offset + 8 > data.byteLength) return [];
 
   const view = new DataView(data);
@@ -789,7 +789,7 @@ function parseMaxpGlyphCount(data: ArrayBuffer, tables: Map<string, TableDirecto
   return view.getUint16(table.offset + 4);
 }
 
-function detectColorGlyphs(data: ArrayBuffer, tables: Map<string, TableDirectory>): boolean {
+function detectColorGlyphs(_data: ArrayBuffer, tables: Map<string, TableDirectory>): boolean {
   return tables.has('COLR') || tables.has('sbix') || tables.has('SVG ');
 }
 
@@ -810,7 +810,7 @@ const AXIS_NAMES: Record<string, string> = {
 
 // ── Classification ──────────────────────────────────────────────────────────
 
-function classifyFont(familyName: string, _panose?: Uint8Array, macStyle?: number): FontCategory {
+function classifyFont(familyName: string, _panose?: Uint8Array, _macStyle?: number): FontCategory {
   const lower = familyName.toLowerCase();
 
   // Quick classification from family name keywords
