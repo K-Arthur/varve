@@ -2,13 +2,14 @@
  * Appearance section — opacity, blend mode for the current selection.
  *
  * F6 (Inspector): opacity via NumberField (0-1, step 0.01), blend mode via
- * native <select>. Multi-select aware via commonValue/MIXED.
+ * themed Select (portaled listbox — never native OS dark menus).
  *
  * Research basis: Figma/Sketch opacity slider + blend mode dropdown;
- * APG Spinbutton for the numeric field, native <select> for the dropdown.
+ * APG Spinbutton + Combobox.
  */
 import type { BlendMode } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
+import { Select } from '@strata/ui';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -51,21 +52,19 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
         max={1}
         onChange={setSelectedOpacity}
       />
-      <FieldRow label="Blend" htmlFor="insp-blend">
-        <select
-          id="insp-blend"
+      <FieldRow label="Blend">
+        <Select
+          label="Blend mode"
           value={isMixed(blendRaw) ? '' : blendRaw}
-          className="insp-select"
-          onChange={(e) => setSelectedBlendMode(e.target.value as BlendMode)}
-          aria-label="Blend mode"
-        >
-          {isMixed(blendRaw) && <option value="">Mixed</option>}
-          {BLEND_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          options={[
+            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            ...BLEND_OPTIONS,
+          ]}
+          onChange={(v) => {
+            if (v) setSelectedBlendMode(v as BlendMode);
+          }}
+          placeholder="Mixed"
+        />
       </FieldRow>
     </DisclosureSection>
   );

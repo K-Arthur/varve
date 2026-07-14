@@ -11,8 +11,8 @@
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
 import type { ManagedColor, SceneNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useState } from 'react';
 import { useEditor } from '../../context';
 import { docVariableStore } from '../../docVariableStore';
@@ -23,6 +23,7 @@ import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
+import { InspectorColorPopover } from './controls/InspectorColorPopover';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
@@ -132,7 +133,7 @@ function EmptySelectionState() {
   const canvasBg: ManagedColor | undefined = doc.canvasBackground;
 
   return (
-    <div className="insp-panel">
+    <div className="insp-panel__empty">
       <EmptyState
         illustration={
           <svg
@@ -162,13 +163,24 @@ function EmptySelectionState() {
         description="Select a layer to edit its properties"
       />
       <DisclosureSection title="Canvas" defaultExpanded={true}>
-        <div className="insp-field">
-          <span className="insp-field__label">Background</span>
-          <div className="insp-field__control">
-            <ColorPicker
-              value={canvasBg ?? { space: 'rgb', r: 255, g: 255, b: 255, a: 255 }}
-              onChange={(c) => setCanvasBackground(c as ManagedColor)}
-            />
+        <div className="insp-canvas-props">
+          <div className="insp-field">
+            <span className="insp-field__label">Background</span>
+            <div className="insp-field__control">
+              <InspectorColorPopover
+                label="Canvas background"
+                value={canvasBg ?? { space: 'rgb', r: 255, g: 255, b: 255, a: 255 }}
+                onChange={(c) => setCanvasBackground(c)}
+                swatchStyle={{
+                  background: (() => {
+                    const [r, g, b, a] = managedColorToRgba(
+                      canvasBg ?? { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+                    );
+                    return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
+                  })(),
+                }}
+              />
+            </div>
           </div>
         </div>
       </DisclosureSection>
