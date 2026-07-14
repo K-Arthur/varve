@@ -2523,12 +2523,11 @@ export function rebuildSpreads(doc: Document, facingPages?: FacingPagesConfig): 
     let i = 0;
     const startOnRight = config.startOnRight ?? true;
 
-    // If first page should be right, insert a blank left page
+    // If first page should be on the right, put it alone
     if (startOnRight && doc.pages.length > 0) {
-      const blankPageId = cryptoId();
       spreads.push({
         id: cryptoId(),
-        pageIds: [blankPageId, doc.pages[0]!.id],
+        pageIds: [doc.pages[0]!.id],
       });
       i = 1;
     }
@@ -2580,6 +2579,11 @@ export function getPageSide(
 
   for (const spread of spreads) {
     const idx = spread.pageIds.indexOf(pageId);
+    if (idx === -1) continue;
+    if (spread.pageIds.length === 1) {
+      // Single-page spread: side depends on whether first page should be right
+      return config.startOnRight ? 'right' : 'left';
+    }
     if (idx === 0) return 'left';
     if (idx === 1) return 'right';
   }
@@ -2604,10 +2608,10 @@ export function isPageOnLeftSide(
  * Get the 1-indexed page number for a page, respecting section numbering.
  */
 export function getPageNumber(doc: Document, pageId: NodeId): number {
-  if (!doc.pages) return 1;
+  if (!doc.pages) return 0;
 
   const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex === -1) return 1;
+  if (pageIndex === -1) return 0;
 
   // Check for section-based numbering
   const sections = doc.sections ?? [];
@@ -2669,10 +2673,12 @@ function toRoman(num: number): string {
 export function getFormattedPageNumber(doc: Document, pageId: NodeId): string {
   const num = getPageNumber(doc, pageId);
 
+  if (num === 0) return '';
+
   if (!doc.pages) return String(num);
 
   const page = doc.pages.find((p) => p.id === pageId);
-  if (!page) return String(num);
+  if (!page) return '';
 
   // Find the section for this page's numbering style
   const sections = doc.sections ?? [];
@@ -2684,6 +2690,7 @@ export function getFormattedPageNumber(doc: Document, pageId: NodeId): string {
     if (sectionStartPageIdx !== -1) {
       const pageIdx = doc.pages.indexOf(page);
       if (pageIdx >= sectionStartPageIdx) {
+        if (!section.showPageNumber) return '';
         style = section.numberStyle;
         prefix = section.prefix ?? '';
       }
