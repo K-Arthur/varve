@@ -100,6 +100,13 @@ export interface Mask {
    * is used (which itself is relative to the container).
    */
   transform?: Affine;
+  /**
+   * When true, the mask source node is hidden from direct rendering
+   * but still contributes to the mask effect.
+   * Like Figma's "hide mask source" or Photoshop's mask thumbnail.
+   * (default: false — mask source is rendered normally)
+   */
+  hideMaskSource?: boolean;
 }
 
 // ── Guide interface ──────────────────────────────────────────────────────────

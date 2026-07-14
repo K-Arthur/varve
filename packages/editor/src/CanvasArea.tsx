@@ -24,14 +24,15 @@ import {
   mapBlendMode,
   prewarmWasmEngine,
   type ReplayTarget,
-  renderAlphaMask,
+  renderEnhancedMask,
   replayIr,
   traceSceneNodeOutline,
 } from '@strata/engine';
 import { type ImportFileInput, ImportService } from '@strata/import';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, Paint, SceneNode } from '@strata/scene';
 import {
   activePageNodes,
+  addNode,
   applyBindingsToNode,
   buildAllVariantCaches,
   buildParentIndexMap,
@@ -41,6 +42,8 @@ import {
   getEffectiveNode,
   getGuidesForPage,
   isContainer,
+  makeRasterLayerNode,
+  nextNodeId,
   resolveAllStyles,
   walkNodes,
 } from '@strata/scene';
@@ -152,6 +155,7 @@ import { HandTool } from './tools/HandTool';
 import { HealingBrushTool } from './tools/HealingBrushTool';
 import { LineTool } from './tools/LineTool';
 import { NodeEditTool } from './tools/NodeEditTool';
+import { PaintTool } from './tools/PaintTool';
 import { PatchTool } from './tools/PatchTool';
 import { PencilTool } from './tools/PencilTool';
 import { PenTool } from './tools/PenTool';
@@ -176,10 +180,17 @@ import { ZoomTool } from './tools/ZoomTool';
 
 let _showOriginalBgNodeId: string | null = null;
 
-export function toEngineNode(node: SceneNode): EngineNode {
-  return sceneNodeToEngineNode(node, {
-    showOriginalBackgroundNodeId: _showOriginalBgNodeId,
-  });
+export function toEngineNode(
+  node: SceneNode,
+  doc?: { paints?: Record<string, Paint> },
+): EngineNode {
+  return sceneNodeToEngineNode(
+    node,
+    {
+      showOriginalBackgroundNodeId: _showOriginalBgNodeId,
+    },
+    doc,
+  );
 }
 
 function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): number {
@@ -325,6 +336,8 @@ function getToolManager(): ToolManager {
     toolManager.register('refineMask', () => new RefineMaskTool());
     toolManager.register('trimapEdit', () => new TrimapEditTool());
     toolManager.register('crop', () => new CropTool());
+    toolManager.register('paint', () => new PaintTool(false));
+    toolManager.register('eraser', () => new PaintTool(true));
   }
   toolManager.setTool('select');
   return toolManager;
@@ -920,6 +933,14 @@ export function CanvasArea({
         const entry = e.getTrimapData(nodeId);
         if (entry) e.setTrimapData(nodeId, trimap, entry.width, entry.height);
       },
+      createRasterLayer: (width, height) => {
+        const s2 = stateRef.current;
+        const { id, doc: d2 } = nextNodeId(s2.document);
+        const layer = makeRasterLayerNode(id, { width, height }, { name: 'Brush Layer' });
+        const newDoc = addNode(d2, layer);
+        e.updateDoc(() => newDoc);
+        return id;
+      },
     };
   }
 
@@ -980,8 +1001,15 @@ export function CanvasArea({
 
       const boardColor = (() => {
         const bg = doc.canvasBackground;
-        if (bg?.space === 'rgb') {
-          return `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
+        if (bg) {
+          if (bg.space === 'rgb') {
+            return `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
+          }
+          try {
+            return managedColorToCss(bg);
+          } catch {
+            // fallback on conversion failure
+          }
         }
         return getComputedStyle(document.documentElement)
           .getPropertyValue('--color-surface-sunken')
@@ -1327,13 +1355,13 @@ export function CanvasArea({
               targetCtx.restore();
             }
           };
-          if (mask.type === 'alpha') {
+          if (mask.type === 'alpha' || mask.type === 'luminance') {
             const result = document.createElement('canvas');
             result.width = targetCtx.canvas.width;
             result.height = targetCtx.canvas.height;
             const resultCtx = result.getContext('2d');
             if (!resultCtx) return;
-            renderAlphaMask(
+            renderEnhancedMask(
               resultCtx,
               {
                 draw: (maskCtx: CanvasRenderingContext2D) => {
@@ -1347,16 +1375,74 @@ export function CanvasArea({
                   for (const childId of (n as import('@strata/scene').ContainerNode).children) {
                     if (childId !== maskSrcId) replaySubtreeToCtx(childId, contentCtx);
                   }
+                  // Render mask source on top of masked content unless hideMaskSource is true
+                  if (!mask.hideMaskSource) {
+                    replaySubtreeToCtx(maskSrcId, contentCtx);
+                  }
                 },
+              },
+              {
+                luminance: mask.type === 'luminance',
+                inverted: mask.inverted === true,
+                feather: mask.feather,
+                density: mask.density,
               },
             );
             compositeMaskedSurface(result);
             return;
           }
           const drawClippedChildren = (clipCtx: CanvasRenderingContext2D): void => {
+            // For inverted clip masks, we need offscreen compositing because
+            // Canvas2D clip() has no native inverse mode.
+            // Strategy: render children to offscreen canvas, then draw mask source
+            // shape filled fully, then use destination-out to punch the clip region
+            // out of the offscreen canvas (keeping content outside the clip region).
+            if (mask.inverted) {
+              const offscreen = document.createElement('canvas');
+              offscreen.width = targetCtx.canvas.width;
+              offscreen.height = targetCtx.canvas.height;
+              const offCtx = offscreen.getContext('2d');
+              if (!offCtx) return;
+              offCtx.setTransform(baseTransform);
+              // Render all non-mask-source children to offscreen canvas
+              for (const childId of (n as import('@strata/scene').ContainerNode).children) {
+                if (childId !== maskSrcId) replaySubtreeToCtx(childId, offCtx);
+              }
+              // Render mask source on top unless hideMaskSource
+              if (!mask.hideMaskSource) {
+                replaySubtreeToCtx(maskSrcId, offCtx);
+              }
+              // Punch out the clip region using destination-out
+              // First, render the mask source shape to the offscreen canvas
+              // at the correct world-space position
+              const maskWorldTransform =
+                mask.linked !== false
+                  ? getCachedWorldTransform(cache, doc, maskSrcId)
+                  : (mask.transform ?? getCachedWorldTransform(cache, doc, maskSrcId));
+              offCtx.save();
+              offCtx.setTransform(1, 0, 0, 1, 0, 0);
+              offCtx.globalCompositeOperation = 'destination-out';
+              offCtx.transform(...maskWorldTransform);
+              offCtx.beginPath();
+              traceSceneNodeOutline(
+                offCtx,
+                maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
+              );
+              offCtx.closePath();
+              offCtx.fillStyle = 'rgba(255,255,255,1)';
+              offCtx.fill();
+              offCtx.restore();
+              // Draw the result onto clipCtx
+              clipCtx.drawImage(offscreen, 0, 0);
+              return;
+            }
             clipCtx.save();
             try {
-              clipCtx.transform(...getCachedWorldTransform(cache, doc, maskSrcId));
+              const maskWorldTransform =
+                mask.linked !== false
+                  ? getCachedWorldTransform(cache, doc, maskSrcId)
+                  : (mask.transform ?? getCachedWorldTransform(cache, doc, maskSrcId));
+              clipCtx.transform(...maskWorldTransform);
               clipCtx.beginPath();
               traceSceneNodeOutline(
                 clipCtx,
@@ -1367,6 +1453,11 @@ export function CanvasArea({
               clipCtx.setTransform(baseTransform);
               for (const childId of (n as import('@strata/scene').ContainerNode).children) {
                 if (childId !== maskSrcId) replaySubtreeToCtx(childId, clipCtx);
+              }
+              // Render mask source on top of clipped children unless hideMaskSource
+              if (!mask.hideMaskSource) {
+                clipCtx.setTransform(baseTransform);
+                replaySubtreeToCtx(maskSrcId, clipCtx);
               }
             } finally {
               clipCtx.restore();
@@ -1421,6 +1512,12 @@ export function CanvasArea({
             }
           }
         } else if (n.kind === 'group') {
+          if (s.canvasMode === 'outline') {
+            for (const childId of n.children) {
+              replaySubtreeToCtx(childId, targetCtx);
+            }
+            return;
+          }
           const isIsolated = n.isolated === true;
           const visibleGroupEffects = n.effects.filter((effect) => effect.visible);
           const needsFlatten =
@@ -1473,39 +1570,214 @@ export function CanvasArea({
               gCtx.restore();
 
               for (const effect of visibleGroupEffects) {
-                if (effect.type !== 'dropShadow' && effect.type !== 'outerGlow') continue;
-                const effectCanvas = document.createElement('canvas');
-                effectCanvas.width = gCanvas.canvas.width;
-                effectCanvas.height = gCanvas.canvas.height;
-                const effectCtx = effectCanvas.getContext('2d');
-                if (!effectCtx) continue;
-                effectCtx.shadowColor = managedColorToCss(effect.color);
-                effectCtx.shadowBlur = (effect.blur + Math.max(0, effect.spread) / 2) * renderScale;
-                effectCtx.shadowOffsetX =
-                  (effect.type === 'dropShadow' ? effect.x : 0) * renderScale;
-                effectCtx.shadowOffsetY =
-                  (effect.type === 'dropShadow' ? effect.y : 0) * renderScale;
-                effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
-                effectCtx.globalCompositeOperation = 'destination-out';
-                effectCtx.shadowColor = 'transparent';
-                effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
-                targetCtx.save();
-                targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
-                targetCtx.globalCompositeOperation = mapBlendMode(
-                  effect.blendMode,
-                ) as GlobalCompositeOperation;
-                targetCtx.drawImage(
-                  effectCanvas,
-                  0,
-                  0,
-                  effectCanvas.width,
-                  effectCanvas.height,
-                  minX - effectPadding,
-                  minY - effectPadding,
-                  groupWidth,
-                  groupHeight,
-                );
-                targetCtx.restore();
+                if (effect.type === 'outerGlow') {
+                  const effectCanvas = document.createElement('canvas');
+                  effectCanvas.width = gCanvas.canvas.width;
+                  effectCanvas.height = gCanvas.canvas.height;
+                  const effectCtx = effectCanvas.getContext('2d');
+                  if (!effectCtx) continue;
+                  effectCtx.shadowColor = managedColorToCss(effect.color);
+                  effectCtx.shadowBlur =
+                    (effect.blur + Math.max(0, effect.spread) / 2) * renderScale;
+                  effectCtx.shadowOffsetX = 0;
+                  effectCtx.shadowOffsetY = 0;
+                  effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
+                  effectCtx.globalCompositeOperation = 'destination-out';
+                  effectCtx.shadowColor = 'transparent';
+                  effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
+                  targetCtx.save();
+                  targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
+                  targetCtx.globalCompositeOperation = mapBlendMode(
+                    effect.blendMode,
+                  ) as GlobalCompositeOperation;
+                  targetCtx.drawImage(
+                    effectCanvas,
+                    0,
+                    0,
+                    effectCanvas.width,
+                    effectCanvas.height,
+                    minX - effectPadding,
+                    minY - effectPadding,
+                    groupWidth,
+                    groupHeight,
+                  );
+                  targetCtx.restore();
+                } else if (effect.type === 'dropShadow') {
+                  const effectCanvas = document.createElement('canvas');
+                  effectCanvas.width = gCanvas.canvas.width;
+                  effectCanvas.height = gCanvas.canvas.height;
+                  const effectCtx = effectCanvas.getContext('2d');
+                  if (!effectCtx) continue;
+                  effectCtx.shadowColor = managedColorToCss(effect.color);
+                  effectCtx.shadowBlur =
+                    (effect.blur + Math.max(0, effect.spread) / 2) * renderScale;
+                  effectCtx.shadowOffsetX = effect.x * renderScale;
+                  effectCtx.shadowOffsetY = effect.y * renderScale;
+                  effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
+                  effectCtx.globalCompositeOperation = 'destination-out';
+                  effectCtx.shadowColor = 'transparent';
+                  effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
+                  targetCtx.save();
+                  targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
+                  targetCtx.globalCompositeOperation = mapBlendMode(
+                    effect.blendMode,
+                  ) as GlobalCompositeOperation;
+                  targetCtx.drawImage(
+                    effectCanvas,
+                    0,
+                    0,
+                    effectCanvas.width,
+                    effectCanvas.height,
+                    minX - effectPadding,
+                    minY - effectPadding,
+                    groupWidth,
+                    groupHeight,
+                  );
+                  targetCtx.restore();
+                } else if (effect.type === 'glassMaterial') {
+                  // Glass material at group level: capture backdrop behind the group
+                  // bounds, apply blur/tint/saturation/brightness/noise, and
+                  // composite the processed backdrop clipped to the group area.
+                  // This renders BEFORE the group content via the drawImage below.
+                  const m = targetCtx.getTransform();
+                  const gx = minX - effectPadding;
+                  const gy = minY - effectPadding;
+                  const corners = [
+                    [gx, gy],
+                    [gx + groupWidth, gy],
+                    [gx, gy + groupHeight],
+                    [gx + groupWidth, gy + groupHeight],
+                  ].map(([cx, cy]) => ({
+                    sx: m.a * cx + m.c * cy + m.e,
+                    sy: m.b * cx + m.d * cy + m.f,
+                  }));
+                  const screenX = Math.floor(Math.min(...corners.map((c) => c.sx)));
+                  const screenY = Math.floor(Math.min(...corners.map((c) => c.sy)));
+                  const screenW = Math.ceil(Math.max(...corners.map((c) => c.sx))) - screenX;
+                  const screenH = Math.ceil(Math.max(...corners.map((c) => c.sy))) - screenY;
+                  if (screenW > 0 && screenH > 0) {
+                    const blurPad = Math.ceil(effect.blur * 3);
+                    const padX = Math.ceil(Math.abs(blurPad * m.a));
+                    const padY = Math.ceil(Math.abs(blurPad * m.d));
+                    const capX = screenX - padX;
+                    const capY = screenY - padY;
+                    const capW = screenW + padX * 2;
+                    const capH = screenH + padY * 2;
+                    const cc = new CompositeCanvas({
+                      width: capW,
+                      height: capH,
+                      devicePixelRatio: 1,
+                      testCanvas: document.createElement('canvas'),
+                    });
+                    cc.captureSource(
+                      targetCtx.canvas as HTMLCanvasElement,
+                      capX,
+                      capY,
+                      capW,
+                      capH,
+                      0,
+                      0,
+                    );
+                    cc.applyBlur(effect.blur);
+                    if (effect.tintOpacity > 0) {
+                      const td = cc.getImageData(0, 0, capW, capH);
+                      const px = td.data;
+                      const t = effect.tint;
+                      const tR = 'r' in t ? t.r : 'c' in t ? 0 : 0;
+                      const tG = 'g' in t ? t.g : 'm' in t ? 0 : 0;
+                      const tB = 'b' in t ? t.b : 'y' in t ? 0 : 0;
+                      const tA = effect.tintOpacity;
+                      for (let i = 0; i < px.length; i += 4) {
+                        px[i] = Math.max(0, Math.min(255, Math.round(px[i]! * (1 - tA) + tR * tA)));
+                        px[i + 1] = Math.max(
+                          0,
+                          Math.min(255, Math.round(px[i + 1]! * (1 - tA) + tG * tA)),
+                        );
+                        px[i + 2] = Math.max(
+                          0,
+                          Math.min(255, Math.round(px[i + 2]! * (1 - tA) + tB * tA)),
+                        );
+                      }
+                      cc.putImageData(td, 0, 0);
+                    }
+                    if (effect.saturation !== 1) {
+                      const sd = cc.getImageData(0, 0, capW, capH);
+                      const px = sd.data;
+                      for (let i = 0; i < px.length; i += 4) {
+                        const r = px[i]!;
+                        const g = px[i + 1]!;
+                        const b = px[i + 2]!;
+                        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                        px[i] = Math.max(
+                          0,
+                          Math.min(255, Math.round(luma + (r - luma) * effect.saturation)),
+                        );
+                        px[i + 1] = Math.max(
+                          0,
+                          Math.min(255, Math.round(luma + (g - luma) * effect.saturation)),
+                        );
+                        px[i + 2] = Math.max(
+                          0,
+                          Math.min(255, Math.round(luma + (b - luma) * effect.saturation)),
+                        );
+                      }
+                      cc.putImageData(sd, 0, 0);
+                    }
+                    if (effect.brightness !== 1) {
+                      const bd = cc.getImageData(0, 0, capW, capH);
+                      const px = bd.data;
+                      for (let i = 0; i < px.length; i += 4) {
+                        px[i] = Math.max(0, Math.min(255, Math.round(px[i]! * effect.brightness)));
+                        px[i + 1] = Math.max(
+                          0,
+                          Math.min(255, Math.round(px[i + 1]! * effect.brightness)),
+                        );
+                        px[i + 2] = Math.max(
+                          0,
+                          Math.min(255, Math.round(px[i + 2]! * effect.brightness)),
+                        );
+                      }
+                      cc.putImageData(bd, 0, 0);
+                    }
+                    if (effect.noise > 0) {
+                      const nd = cc.getImageData(0, 0, capW, capH);
+                      const px = nd.data;
+                      for (let y = 0; y < capH; y++) {
+                        for (let x = 0; x < capW; x++) {
+                          const idx = (y * capW + x) * 4;
+                          const seed = x * 374761393 + y * 668265263;
+                          const noiseVal = ((seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+                          const offset = (noiseVal - 0.5) * 2 * effect.noise * 255;
+                          px[idx] = Math.max(0, Math.min(255, Math.round(px[idx]! + offset)));
+                          px[idx + 1] = Math.max(
+                            0,
+                            Math.min(255, Math.round(px[idx + 1]! + offset)),
+                          );
+                          px[idx + 2] = Math.max(
+                            0,
+                            Math.min(255, Math.round(px[idx + 2]! + offset)),
+                          );
+                        }
+                      }
+                      cc.putImageData(nd, 0, 0);
+                    }
+                    targetCtx.save();
+                    targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
+                    targetCtx.drawImage(
+                      cc.canvas as CanvasImageSource,
+                      0,
+                      0,
+                      capW,
+                      capH,
+                      gx - blurPad,
+                      gy - blurPad,
+                      groupWidth + blurPad * 2,
+                      groupHeight + blurPad * 2,
+                    );
+                    targetCtx.restore();
+                  }
+                } else if (effect.type !== 'dropShadow' && effect.type !== 'outerGlow') {
+                }
               }
               const bm = n.blendMode ?? 'passThrough';
               if (bm !== 'passThrough') {
@@ -2903,7 +3175,7 @@ export function CanvasArea({
         tm.current &&
         (() => {
           const crop = tm.current.getTool<CropTool>('crop');
-          if (!crop || !crop.getNodeId()) return null;
+          if (!crop?.getNodeId()) return null;
           const id = crop.getNodeId()!;
           const worldB = editor.getWorldBounds(id);
           if (!worldB) return null;
