@@ -37,7 +37,7 @@
   --color-tree-row-hover: oklch(0.5699 0.0308 260.28);
   --color-tree-row-selected: oklch(0.4452 0.0693 190.9);
   --color-tree-row-focus: oklch(0.6577 0.1059 188.48);
-  --color-tree-indent-guide: oklch(0.6798 0.0281 259.04);
+  --color-tree-indent-guide: oklch(0.5699 0.0308 260.28);
   --color-layer-accent-frame: oklch(0.6415 0.1247 249.76);
   --color-layer-wash-frame: oklch(0.9594 0.02 250.38);
   --color-layer-accent-group: oklch(0.6274 0.1136 84.68);
@@ -70,6 +70,14 @@
   --color-text-secondary-on-raised: oklch(0.3123 0.0293 262.83);
   --color-text-primary-on-overlay: oklch(0.1956 0.0217 263.87);
   --color-text-secondary-on-overlay: oklch(0.3123 0.0293 262.83);
+  --color-text-muted-on-default: oklch(0.43 0.032 262);
+  --color-text-muted-on-raised: oklch(0.35 0.035 262);
+  --color-text-muted-on-sunken: oklch(0.35 0.035 262);
+  --color-text-muted-on-overlay: oklch(0.35 0.035 262);
+  --color-text-subtle-on-default: oklch(0.46 0.028 261);
+  --color-text-subtle-on-raised: oklch(0.38 0.03 261);
+  --color-text-subtle-on-sunken: oklch(0.38 0.03 261);
+  --color-text-subtle-on-overlay: oklch(0.38 0.03 261);
 
   /* --- Typography --- */
   --font-display:
@@ -234,7 +242,7 @@
   --color-tree-row-hover: oklch(0.5699 0.0308 260.28);
   --color-tree-row-selected: oklch(0.7873 0.1127 186.47);
   --color-tree-row-focus: oklch(0.6577 0.1059 188.48);
-  --color-tree-indent-guide: oklch(0.473 0.0318 262.19);
+  --color-tree-indent-guide: oklch(0.5699 0.0308 260.28);
   --color-layer-accent-frame: oklch(0.8636 0.0532 252.8);
   --color-layer-wash-frame: oklch(0.3187 0.0994 259.79);
   --color-layer-accent-group: oklch(0.9238 0.0635 87.27);
@@ -267,6 +275,14 @@
   --color-text-secondary-on-raised: oklch(0.8948 0.0145 254.61);
   --color-text-primary-on-overlay: oklch(0.9755 0.0045 258.32);
   --color-text-secondary-on-overlay: oklch(0.8948 0.0145 254.61);
+  --color-text-muted-on-default: oklch(0.6798 0.0281 259.04);
+  --color-text-muted-on-raised: oklch(0.6798 0.0281 259.04);
+  --color-text-muted-on-sunken: oklch(0.6798 0.0281 259.04);
+  --color-text-muted-on-overlay: oklch(0.6798 0.0281 259.04);
+  --color-text-subtle-on-default: oklch(0.6798 0.0281 259.04);
+  --color-text-subtle-on-raised: oklch(0.6798 0.0281 259.04);
+  --color-text-subtle-on-sunken: oklch(0.6798 0.0281 259.04);
+  --color-text-subtle-on-overlay: oklch(0.6798 0.0281 259.04);
 
   /* Elevation surfaces (dark mode — front-lit: higher = brighter). */
   --elevation-surface-sunken: oklch(0.12 0.008 260);
@@ -356,6 +372,14 @@
   --color-text-secondary-on-raised: oklch(1 0 0);
   --color-text-primary-on-overlay: oklch(1 0 0);
   --color-text-secondary-on-overlay: oklch(1 0 0);
+  --color-text-muted-on-default: oklch(0.8577 0 0);
+  --color-text-muted-on-raised: oklch(0.8577 0 0);
+  --color-text-muted-on-sunken: oklch(0.8577 0 0);
+  --color-text-muted-on-overlay: oklch(0.8577 0 0);
+  --color-text-subtle-on-default: oklch(0.8577 0 0);
+  --color-text-subtle-on-raised: oklch(0.8577 0 0);
+  --color-text-subtle-on-sunken: oklch(0.8577 0 0);
+  --color-text-subtle-on-overlay: oklch(0.8577 0 0);
 
   /* Elevation surfaces (high-contrast — maximum separation). */
   --elevation-surface-sunken: oklch(0 0 0);
@@ -414,7 +438,7 @@
     --color-tree-row-hover: oklch(0.5699 0.0308 260.28);
     --color-tree-row-selected: oklch(0.7873 0.1127 186.47);
     --color-tree-row-focus: oklch(0.6577 0.1059 188.48);
-    --color-tree-indent-guide: oklch(0.473 0.0318 262.19);
+    --color-tree-indent-guide: oklch(0.5699 0.0308 260.28);
     --color-layer-accent-frame: oklch(0.8636 0.0532 252.8);
     --color-layer-wash-frame: oklch(0.3187 0.0994 259.79);
     --color-layer-accent-group: oklch(0.9238 0.0635 87.27);
@@ -447,6 +471,14 @@
     --color-text-secondary-on-raised: oklch(0.8948 0.0145 254.61);
     --color-text-primary-on-overlay: oklch(0.9755 0.0045 258.32);
     --color-text-secondary-on-overlay: oklch(0.8948 0.0145 254.61);
+    --color-text-muted-on-default: oklch(0.6798 0.0281 259.04);
+    --color-text-muted-on-raised: oklch(0.6798 0.0281 259.04);
+    --color-text-muted-on-sunken: oklch(0.6798 0.0281 259.04);
+    --color-text-muted-on-overlay: oklch(0.6798 0.0281 259.04);
+    --color-text-subtle-on-default: oklch(0.6798 0.0281 259.04);
+    --color-text-subtle-on-raised: oklch(0.6798 0.0281 259.04);
+    --color-text-subtle-on-sunken: oklch(0.6798 0.0281 259.04);
+    --color-text-subtle-on-overlay: oklch(0.6798 0.0281 259.04);
 
     /* Elevation surfaces (dark mode — front-lit: higher = brighter). */
     --elevation-surface-sunken: oklch(0.12 0.008 260);
@@ -513,6 +545,14 @@
     --color-layer-wash-shape: Canvas;
     --color-layer-accent-component: Highlight;
     --color-layer-wash-component: Canvas;
+    --color-text-muted-on-default: GrayText;
+    --color-text-muted-on-raised: GrayText;
+    --color-text-muted-on-sunken: GrayText;
+    --color-text-muted-on-overlay: GrayText;
+    --color-text-subtle-on-default: GrayText;
+    --color-text-subtle-on-raised: GrayText;
+    --color-text-subtle-on-sunken: GrayText;
+    --color-text-subtle-on-overlay: GrayText;
     --color-hero-glow: transparent;
     --elevation-surface-sunken: Canvas;
     --elevation-surface-default: Canvas;
