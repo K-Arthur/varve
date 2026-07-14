@@ -18,31 +18,37 @@ function ortWasmDevPlugin() {
   return {
     name: 'ort-wasm-dev',
     apply: 'serve' as const,
-    configureServer(server: any) {
-      server.middlewares.use((req: any, res: any, next: any) => {
-        if (req.url?.startsWith('/ort-wasm/')) {
-          const publicDir = join(process.cwd(), 'public', 'ort-wasm');
-          const filePath = join(publicDir, req.url.slice('/ort-wasm/'.length));
-          try {
-            const data = readFileSync(filePath);
-            const ext = req.url.split('.').pop();
-            const contentType =
-              ext === 'mjs'
-                ? 'text/javascript'
-                : ext === 'wasm'
-                  ? 'application/wasm'
-                  : 'application/octet-stream';
-            res.setHeader('Content-Type', contentType);
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.end(data);
-          } catch {
-            res.statusCode = 404;
-            res.end('Not found');
+    configureServer(server: import('vite').ViteDevServer) {
+      server.middlewares.use(
+        (
+          req: import('http').IncomingMessage,
+          res: import('http').ServerResponse,
+          next: import('connect').NextFunction,
+        ) => {
+          if (req.url?.startsWith('/ort-wasm/')) {
+            const publicDir = join(process.cwd(), 'public', 'ort-wasm');
+            const filePath = join(publicDir, req.url.slice('/ort-wasm/'.length));
+            try {
+              const data = readFileSync(filePath);
+              const ext = req.url.split('.').pop();
+              const contentType =
+                ext === 'mjs'
+                  ? 'text/javascript'
+                  : ext === 'wasm'
+                    ? 'application/wasm'
+                    : 'application/octet-stream';
+              res.setHeader('Content-Type', contentType);
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(data);
+            } catch {
+              res.statusCode = 404;
+              res.end('Not found');
+            }
+          } else {
+            next();
           }
-        } else {
-          next();
-        }
-      });
+        },
+      );
     },
   };
 }
