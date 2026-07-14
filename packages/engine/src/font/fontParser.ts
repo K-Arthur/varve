@@ -47,8 +47,8 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
 
   // WOFF2 header: signature(4) flavor(4) length(4) numTables(2) reserved(2)
   // metaOffset(4) metaLength(4) metaOrigLength(4) privOffset(4) privLength(4)
-  const _numTables = view.getUint16(12);
-  const _totalSfntSize = view.getUint32(20);
+  void view.getUint16(12);
+  void view.getUint32(20);
 
   // Reconstruct the original font from WOFF2 table directory + compressed data
   // WOFF2 uses Brotli compression — we need the decompressed table data
@@ -197,8 +197,7 @@ function decompressZlib(data: ArrayBuffer, _expectedLength: number): ArrayBuffer
   if (typeof DecompressionStream !== 'undefined') {
     const ds = new DecompressionStream('deflate-raw');
     const writer = ds.writable.getWriter();
-    const _reader = ds.readable.getReader();
-    const _chunks: Uint8Array[] = [];
+    void ds.readable.getReader();
 
     // Write compressed data
     writer.write(new Uint8Array(data)).catch(() => {});
