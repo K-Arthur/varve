@@ -15,6 +15,7 @@ import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
 import { LibraryPanel } from './components/LibraryPanel/LibraryPanel';
+import { MasterPanel } from './components/MasterPanel/MasterPanel';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { PageNav } from './components/PageNav/PageNav';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
@@ -33,6 +34,7 @@ import {
   RecoveryManager,
 } from './components/Shell';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
+import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
 import { EditorProvider, setToastHandler, useEditor } from './context';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { LayersPanel } from './LayersPanel';
@@ -211,6 +213,8 @@ function ShellInner({
           <ErrorBoundary>
             <PresenceIndicator presences={collabPresences} />
             <MinimapPanel />
+            <MasterPanel />
+            <SpreadSettings />
             <LayersPanel dndRef={layersDndRef} />
           </ErrorBoundary>
           <PanelResizeHandle
