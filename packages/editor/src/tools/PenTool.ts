@@ -68,7 +68,7 @@ export class PenTool extends BaseTool {
     const hit = ctx.hitTest(world);
     if (!hit) return false;
     const node = ctx.getNode(hit.nodeId);
-    if (!node || node.kind !== 'shape' || node.shape.kind !== 'path') return false;
+    if (node?.kind !== 'shape' || node.shape.kind !== 'path') return false;
     const pts = node.shape.points;
     if (pts.length < 1) return false;
 

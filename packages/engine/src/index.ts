@@ -7,6 +7,11 @@
  */
 
 export type { AdjustmentChannel, AdjustmentParams } from './adjustment';
+export {
+  analyticalCmykToRgb,
+  analyticalRgbToCmyk,
+  convertToCmykIcc,
+} from './adjustment/colorConversion';
 export type { CurvePoint } from './adjustment/curves';
 export type { Histogram, HistogramStats } from './adjustment/histogram';
 export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
@@ -68,6 +73,15 @@ export {
   blendScreen,
   blendSoftLight,
 } from './blendModes';
+export {
+  convertSrgbBufferToCmykWasm,
+  getColourProfileInfo,
+  getColourWasm,
+  isColourWasmAvailable,
+  prewarmColourWasm,
+  srgbToCmykWasm,
+  validateColourProfile,
+} from './colourWasm';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 export {
@@ -139,6 +153,19 @@ export type { AdapterSelectionResult } from './gpuAdapter';
 export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
 export type { HalftoneDotShape, HalftoneMethod, HalftoneParams, HalftonePattern } from './halftone';
 export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';
+export type {
+  ConvertedImage,
+  ExportImageResource,
+  ImageConversionOptions,
+} from './iccImageConverter';
+export {
+  buildExportImageManifest,
+  collectImageSrcsFromFills,
+  convertImageForExport,
+  invalidateIccCache,
+  loadImagePixels,
+  scaleDimensions,
+} from './iccImageConverter';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type { UpscaleMethod, UpscaleOptions } from './imageEnhancement';

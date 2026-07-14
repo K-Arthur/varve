@@ -28,7 +28,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
 ) {
   const [dirty, setDirty] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  useImperativeHandle(ref, () => inputRef.current!, [inputRef]);
+  useImperativeHandle(ref, () => inputRef.current!, []);
   const dragRef = useRef<{
     startX: number;
     startValue: number;

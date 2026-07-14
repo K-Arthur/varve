@@ -130,7 +130,7 @@ describe('roundCorners', () => {
   });
 
   it('does not modify open path endpoints', () => {
-    const pts = linePath(0, 0, 100, 0);
+    const _pts = linePath(0, 0, 100, 0);
     // Add intermediate points so we have corners to round
     const pts3: PathPoint[] = [
       { x: 0, y: 0, handleIn: null, handleOut: null },

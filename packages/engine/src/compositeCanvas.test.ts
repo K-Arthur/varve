@@ -87,7 +87,7 @@ describe('CompositeCanvas', () => {
     // The software path calls getImageData + gaussianBlurLinearLight + putImageData
     // With radius 50, the CSS filter path would set ctx.filter.
     // The software path does NOT set ctx.filter.
-    const ctx = cc.ctx as unknown as { filter: string };
+    const _ctx = cc.ctx as unknown as { filter: string };
     expect(() => cc.applyBlur(50)).not.toThrow();
   });
 

@@ -10,10 +10,14 @@ pub enum ColorSpace {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageResource {
     pub id: String,
+    /// Original source URL (matches FillIR::Image.src). Enables Rust to
+    /// look up the correct pixel data for each image fill in the manifest
+    /// without requiring the TS side to maintain a separate id→src mapping.
+    pub src: Option<String>,
     pub mime_type: String,
     pub width: u32,
     pub height: u32,
-    pub data: Vec<u8>, // Raw RGBA bytes
+    pub data: Vec<u8>, // Raw RGBA bytes (or CMYK depending on color_space)
     pub color_space: ColorSpace,
 }
 
@@ -101,6 +105,21 @@ impl ExportManifest {
             })
     }
 
+    /// Resolve an image by its original source URL. Images from the export
+    /// pipeline carry the original URL in `src`, matching `FillIR::Image.src`.
+    /// Falls back to id-based lookup when `src` is None (backward compat with
+    /// manifests that don't set src, e.g. pattern-only manifests).
+    pub fn resolve_image_by_src(&self, src: &str) -> Result<&ImageResource, ResourceError> {
+        self.images
+            .iter()
+            .find(|i| i.src.as_deref() == Some(src))
+            .or_else(|| self.images.iter().find(|i| i.id == src))
+            .ok_or_else(|| ResourceError {
+                resource_id: src.to_string(),
+                message: format!("Image with src '{src}' not found in manifest"),
+            })
+    }
+
     pub fn resolve_pattern(&self, id: &str) -> Result<&PatternResource, ResourceError> {
         self.patterns
             .iter()
@@ -146,6 +165,7 @@ mod resource_tests {
         let manifest = ExportManifest {
             images: vec![ImageResource {
                 id: "img_0".into(),
+                src: None,
                 mime_type: "image/png".into(),
                 width: 100,
                 height: 50,
@@ -174,6 +194,7 @@ mod resource_tests {
     fn image_resource_validates_dimensions() {
         let valid = ImageResource {
             id: "ok".into(),
+            src: None,
             mime_type: "image/png".into(),
             width: 10,
             height: 20,
@@ -186,6 +207,7 @@ mod resource_tests {
 
         let zero_w = ImageResource {
             id: "bad".into(),
+            src: None,
             mime_type: "image/png".into(),
             width: 0,
             height: 10,
@@ -196,6 +218,7 @@ mod resource_tests {
 
         let empty_data = ImageResource {
             id: "empty".into(),
+            src: None,
             mime_type: "image/png".into(),
             width: 10,
             height: 10,
@@ -228,6 +251,7 @@ mod resource_tests {
             images: vec![
                 ImageResource {
                     id: "img_0".into(),
+                    src: None,
                     mime_type: "image/png".into(),
                     width: 10,
                     height: 10,
@@ -236,6 +260,7 @@ mod resource_tests {
                 },
                 ImageResource {
                     id: "img_1".into(),
+                    src: None,
                     mime_type: "image/png".into(),
                     width: 10,
                     height: 10,
@@ -244,6 +269,7 @@ mod resource_tests {
                 },
                 ImageResource {
                     id: "img_2".into(),
+                    src: None,
                     mime_type: "image/png".into(),
                     width: 5,
                     height: 5,
@@ -273,6 +299,7 @@ mod resource_tests {
         let manifest = ExportManifest {
             images: vec![ImageResource {
                 id: "tile".into(),
+                src: None,
                 mime_type: "image/png".into(),
                 width: 32,
                 height: 32,

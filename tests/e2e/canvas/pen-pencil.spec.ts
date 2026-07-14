@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { navigateToEditor, dragOnCanvas } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 async function contentCanvasBox(page: import('@playwright/test').Page) {
   const canvas = page.locator('canvas.editor-canvas__content-layer');

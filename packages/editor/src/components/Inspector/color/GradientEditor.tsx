@@ -9,6 +9,7 @@
  */
 
 import type {
+  ColorMode,
   GradientFill,
   GradientStop,
   GradientTilingMode,
@@ -17,7 +18,6 @@ import type {
 } from '@strata/scene';
 import { expandGradientStops, interpolateManagedColor, managedColorToRgba } from '@strata/shared';
 import { Icon } from '@strata/ui';
-import type { ColorMode } from '@strata/scene';
 import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';
 

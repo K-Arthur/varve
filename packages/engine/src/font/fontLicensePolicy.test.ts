@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { FontLicenseInfo } from './fontLicensePolicy';
 import {
   FontLicensePolicy,
-  KNOWN_LICENSES,
   getLicenseFromEmbeddingRights,
+  KNOWN_LICENSES,
 } from './fontLicensePolicy';
-import type { FontLicenseInfo } from './fontLicensePolicy';
 
 // ---------------------------------------------------------------------------
 // Helpers

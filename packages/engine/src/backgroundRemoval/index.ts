@@ -1,5 +1,5 @@
-import { dispatchBackgroundRemoval } from './providers/dispatch';
 import { downscaleImageData } from './previewDownscale';
+import { dispatchBackgroundRemoval } from './providers/dispatch';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
 

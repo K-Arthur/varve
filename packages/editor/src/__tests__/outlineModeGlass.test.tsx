@@ -228,7 +228,7 @@ describe('outline mode + glass material on groups', () => {
     const effects = [glassMaterialEffect, dropShadowEffect];
 
     // First pass: full mode — effects are rendered
-    let pass1: string[] = [];
+    const pass1: string[] = [];
     if (mode !== 'outline') {
       for (const e of effects) {
         if (e.type === 'dropShadow' || e.type === 'outerGlow' || e.type === 'glassMaterial') {
@@ -242,7 +242,7 @@ describe('outline mode + glass material on groups', () => {
     mode = 'outline';
 
     // Outline pass — effects are skipped
-    let pass2: string[] = [];
+    const pass2: string[] = [];
     if (mode !== 'outline') {
       for (const e of effects) {
         pass2.push(e.type);

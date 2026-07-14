@@ -114,8 +114,7 @@ pub fn trace_contours_json(
         js_sys::eval("typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2")
             .map(|v| v.as_f64().unwrap_or(2.0) as usize)
             .unwrap_or(2)
-            .max(1)
-            .min(4);
+            .clamp(1, 4);
 
     let paths =
         strata_trace::chunked::trace_contours_chunked(&gray, width, height, &opts, chunk_count);

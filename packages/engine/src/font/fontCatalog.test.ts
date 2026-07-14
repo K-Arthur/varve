@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { FontCatalog, diffCatalogs } from './fontCatalog';
-import type { FontCatalogEntry } from './fontCatalog';
+import { describe, expect, it } from 'vitest';
+import { diffCatalogs, FontCatalog } from './fontCatalog';
 import type { FontIdentity, ParsedFontMetadata } from './fontIdentity';
 import { fontIdentityKey } from './fontIdentity';
 

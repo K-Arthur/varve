@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { computeBlockFlow, warpMask } from '../opticalFlow';
-import type { VideoFrame, VideoMatteOptions, VideoMatteResult } from '../videoMatte';
+import type { VideoFrame, VideoMatteOptions } from '../videoMatte';
 import { processVideoMatte } from '../videoMatte';
 
-function makeFrame(
+function _makeFrame(
   data: Uint8ClampedArray | Uint8Array,
   width: number,
   height: number,

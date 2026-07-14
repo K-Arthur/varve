@@ -69,35 +69,45 @@ import {
   advanceSMTransition,
   appendFrameToChain as appendFrameToChainDoc,
   arrangeNode as arrangeNodeDoc,
+  assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
   buildParentIndexMap,
   clearGuides,
   createComponent,
   createDocument,
   createGuideId,
+  createMaster as createMasterDoc,
   createTextChain as createTextChainDoc,
   createVariableStore,
   createVariant as createVariantDoc,
   type Document,
   DocumentCodec,
   deepCloneSubtree,
+  deleteMaster as deleteMasterDoc,
   deleteTextChain as deleteTextChainDoc,
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
   duplicateGuide as duplicateGuideDoc,
+  duplicateMaster as duplicateMasterDoc,
   fillSlot as fillSlotDoc,
   flattenLiveTrace as flattenLiveTraceDoc,
   type Guide,
   activePageNodes as getActivePageNodes,
+  activePageNodesWithMaster as getActivePageNodesWithMaster,
   getCurrentStateTimelineId,
+  getFormattedPageNumber as getFormattedPageNumberDoc,
   getGuidesForPage,
   getInstanceStatus as getInstanceStatusDoc,
   getInteractionsForNode,
+  getPageNumber as getPageNumberDoc,
+  getPageSide as getPageSideDoc,
+  getSpreadForPage as getSpreadForPageDoc,
   groupNodes as groupNodesDoc,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isContainer,
+  isPageOnLeftSide as isPageOnLeftSideDoc,
   type MaskType,
   makeAdjustmentNode,
   makeFrameNode,
@@ -109,11 +119,13 @@ import {
   nextNodeId,
   pasteGuides as pasteGuidesDoc,
   pushMasterChanges as pushMasterChangesDoc,
+  rebuildSpreads as rebuildSpreadsDoc,
   removeFrameFromChain as removeFrameFromChainDoc,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
   removeMask as removeMaskDoc,
   removeNode,
+  renameMaster as renameMasterDoc,
   renameNode,
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
@@ -128,6 +140,7 @@ import {
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
+  setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
   setLiveTraceParams as setLiveTraceParamsDoc,
   setLiveTraceResolved as setLiveTraceResolvedDoc,
@@ -141,6 +154,7 @@ import {
   setMaskType as setMaskTypeDoc,
   setMaskVectorPath as setMaskVectorPathDoc,
   setMaskVisible as setMaskVisibleDoc,
+  setMasterAppliesTo as setMasterAppliesToDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
@@ -148,6 +162,7 @@ import {
   switchColorMode as switchColorModeDoc,
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
+  toggleFacingPages as toggleFacingPagesDoc,
   toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
   updateInteraction as updateInteractionDoc,
@@ -3673,6 +3688,61 @@ export function EditorProvider({
 
       activePageNodes: () => {
         return getActivePageNodes(state.document);
+      },
+
+      // Master page methods
+      createMaster: (name, width, height) => {
+        updateDoc((doc) => createMasterDoc(doc, { name, width, height }));
+      },
+      deleteMaster: (masterId) => {
+        updateDoc((doc) => deleteMasterDoc(doc, masterId));
+      },
+      renameMaster: (masterId, name) => {
+        updateDoc((doc) => renameMasterDoc(doc, masterId, name));
+      },
+      duplicateMaster: (masterId) => {
+        updateDoc((doc) => duplicateMasterDoc(doc, masterId));
+      },
+      assignMasterToPage: (pageId, masterId) => {
+        updateDoc((doc) => assignMasterToPageDoc(doc, pageId, masterId));
+      },
+      setMasterAppliesTo: (masterId, appliesTo) => {
+        updateDoc((doc) => setMasterAppliesToDoc(doc, masterId, appliesTo));
+      },
+      activePageNodesWithMaster: () => {
+        const doc = state.document;
+        if (!doc.activePageId) return getActivePageNodes(doc);
+        return getActivePageNodesWithMaster(doc, doc.activePageId);
+      },
+
+      // Spread methods
+      rebuildSpreads: (facingPages) => {
+        updateDoc((doc) => rebuildSpreadsDoc(doc, facingPages));
+      },
+      getSpreadForPage: (pageId) => {
+        return getSpreadForPageDoc(state.document, pageId);
+      },
+      getPageSide: (pageId) => {
+        return getPageSideDoc(state.document, pageId);
+      },
+      isPageOnLeftSide: (pageId) => {
+        return isPageOnLeftSideDoc(state.document, pageId);
+      },
+
+      // Page numbering
+      getPageNumber: (pageId) => {
+        return getPageNumberDoc(state.document, pageId);
+      },
+      getFormattedPageNumber: (pageId) => {
+        return getFormattedPageNumberDoc(state.document, pageId);
+      },
+
+      // Facing pages toggle
+      toggleFacingPages: () => {
+        updateDoc((doc) => toggleFacingPagesDoc(doc));
+      },
+      setFacingPagesEnabled: (enabled) => {
+        updateDoc((doc) => setFacingPagesEnabledDoc(doc, enabled));
       },
 
       recordAction: (actionId: string) => {

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { FontCache, FontMetadataCache, FontBinaryCache } from './fontCache';
-import type { ParsedFontMetadata, FontIdentity } from './fontIdentity';
+import { describe, expect, it, vi } from 'vitest';
+import { FontBinaryCache, FontCache, FontMetadataCache } from './fontCache';
+import type { FontIdentity, ParsedFontMetadata } from './fontIdentity';
 
 function makeIdentity(overrides: Partial<FontIdentity> = {}): FontIdentity {
   return {

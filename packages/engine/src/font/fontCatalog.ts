@@ -10,10 +10,10 @@
  */
 
 import type {
-  ParsedFontMetadata,
-  FontSourceKind,
-  FontCategory,
   EmbeddingRights,
+  FontCategory,
+  FontSourceKind,
+  ParsedFontMetadata,
 } from './fontIdentity';
 import { fontIdentityKey } from './fontIdentity';
 
