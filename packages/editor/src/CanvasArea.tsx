@@ -71,6 +71,7 @@ import {
 } from './canvas/canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
 import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
+import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { SubtreeIrCache } from './canvas/subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
@@ -96,6 +97,7 @@ import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
   getWorldTransform as getCachedWorldTransform,
+  invalidateNodes,
   invalidateAll as invalidateTransformCache,
   type TransformCache,
 } from './scene/transformCache';
@@ -441,10 +443,26 @@ export function CanvasArea({
         }
       }
     } else {
-      invalidateTransformCache(transformCacheRef.current);
-      subtreeIrCacheRef.current.invalidate();
+      // Determine whether this is a structural change (container moved,
+      // node added/removed, parent changed) or a property-only change
+      // (fill, stroke, opacity, position, etc.). Structural changes force
+      // a full cache wipe; property-only changes selectively invalidate
+      // only the affected nodes (plus their parents), preserving all
+      // other cache entries.
+      const plan = computeInvalidationPlan(prevDoc, state.document);
       docVersionRef.current += 1;
-      frameIndexRef.current = getOrCreateFrameSpatialIndex(state.document, frameIndexRef.current);
+
+      if (plan.isStructural) {
+        invalidateTransformCache(transformCacheRef.current);
+        subtreeIrCacheRef.current.invalidate();
+        frameIndexRef.current = getOrCreateFrameSpatialIndex(state.document, frameIndexRef.current);
+      } else {
+        invalidateNodes(transformCacheRef.current, plan.changedIds);
+        for (const id of plan.changedIds) {
+          subtreeIrCacheRef.current.invalidate(id);
+        }
+        // Frame spatial index is unchanged — container bounds haven't changed.
+      }
     }
     prevDrawDocRef.current = state.document;
   }
