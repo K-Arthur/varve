@@ -105,6 +105,7 @@ export function InteractionSection() {
                   <label className="insp-interaction-row__enabled">
                     <input
                       type="checkbox"
+                      className="insp-checkbox"
                       checked={ix.enabled}
                       onChange={(e) => patchInteraction(ix, { enabled: e.target.checked })}
                     />

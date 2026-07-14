@@ -277,6 +277,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       <label className="bg-removal__checkbox-label">
         <input
           type="checkbox"
+          className="insp-checkbox"
           checked={decontaminate}
           onChange={(e) => setDecontaminate(e.target.checked)}
         />
