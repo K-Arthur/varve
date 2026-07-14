@@ -10,6 +10,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod chunked;
+
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
