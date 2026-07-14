@@ -200,13 +200,6 @@
   --bp-lg: 1024px;
   --bp-xl: 1280px;
   --bp-2xl: 1536px;
-
-  /* Surface aliases — single elevation system (Neo-Bento redesign). */
-  --color-surface-app: var(--elevation-surface-default);
-  --color-surface-base: var(--elevation-surface-default);
-  --color-surface-raised: var(--elevation-surface-raised);
-  --color-surface-sunken: var(--elevation-surface-sunken);
-  --color-surface-overlay: var(--elevation-surface-overlay);
 }
 
 [data-theme="dark"] {
@@ -297,13 +290,6 @@
   /* Micro-borders (dark mode — more visible). */
   --border-micro: 1px solid oklch(1 0 0 / 0.08);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
-
-  /* Surface aliases — single elevation system (Neo-Bento redesign). */
-  --color-surface-app: var(--elevation-surface-default);
-  --color-surface-base: var(--elevation-surface-default);
-  --color-surface-raised: var(--elevation-surface-raised);
-  --color-surface-sunken: var(--elevation-surface-sunken);
-  --color-surface-overlay: var(--elevation-surface-overlay);
 }
 
 [data-theme="high-contrast"] {
@@ -394,13 +380,6 @@
   /* Micro-borders (HC — thicker, full-contrast edges). */
   --border-micro: 2px solid oklch(1 0 0);
   --border-micro-accent: 2px solid oklch(0.95 0.2 188);
-
-  /* Surface aliases — single elevation system (Neo-Bento redesign). */
-  --color-surface-app: var(--elevation-surface-default);
-  --color-surface-base: var(--elevation-surface-default);
-  --color-surface-raised: var(--elevation-surface-raised);
-  --color-surface-sunken: var(--elevation-surface-sunken);
-  --color-surface-overlay: var(--elevation-surface-overlay);
 }
 
 /* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
@@ -493,13 +472,6 @@
     /* Micro-borders (dark mode — more visible). */
     --border-micro: 1px solid oklch(1 0 0 / 0.08);
     --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
-
-    /* Surface aliases — single elevation system (Neo-Bento redesign). */
-    --color-surface-app: var(--elevation-surface-default);
-    --color-surface-base: var(--elevation-surface-default);
-    --color-surface-raised: var(--elevation-surface-raised);
-    --color-surface-sunken: var(--elevation-surface-sunken);
-    --color-surface-overlay: var(--elevation-surface-overlay);
   }
 }
 
