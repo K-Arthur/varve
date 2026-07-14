@@ -1,0 +1,302 @@
+/**
+ * MissingFontDialog styles — modal overlay with dialog content, font list,
+ * substitute selectors, and action buttons. Uses design tokens exclusively.
+ */
+
+/* ---------- Overlay ---------- */
+
+.missing-font-dialog__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(0 0 0 / 0.5);
+}
+
+/* ---------- Dialog content ---------- */
+
+.missing-font-dialog__content {
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 90vw);
+  max-height: 70vh;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.2);
+  overflow: hidden;
+  outline: none;
+}
+
+/* ---------- Header ---------- */
+
+.missing-font-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.missing-font-dialog__close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.missing-font-dialog__close-btn:hover {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-primary);
+}
+
+.missing-font-dialog__close-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.missing-font-dialog__title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.missing-font-dialog__count {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+
+/* ---------- Font list ---------- */
+
+.missing-font-dialog__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) 0;
+}
+
+/* ---------- Item ---------- */
+
+.missing-font-dialog__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.missing-font-dialog__item:last-child {
+  border-bottom: none;
+}
+
+.missing-font-dialog__item-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.missing-font-dialog__item-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.missing-font-dialog__item-warning {
+  color: var(--color-feedback-warning);
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+.missing-font-dialog__item-status {
+  display: inline-flex;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-feedback-danger);
+  background: oklch(0.5763 0.1773 22.78 / 0.12);
+  line-height: 1.4;
+}
+
+.missing-font-dialog__item-detail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.missing-font-dialog__item-nodes {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+/* ---------- Substitute selector ---------- */
+
+.missing-font-dialog__item-substitute {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.missing-font-dialog__substitute-label {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.missing-font-dialog__substitute-select {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  outline: none;
+}
+
+.missing-font-dialog__substitute-select:focus-visible {
+  border-color: var(--color-interactive-focus-ring);
+}
+
+.missing-font-dialog__substitute-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.missing-font-dialog__apply-btn {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.missing-font-dialog__apply-btn:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+}
+
+.missing-font-dialog__apply-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.missing-font-dialog__apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Warning text ---------- */
+
+.missing-font-dialog__warning {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-warning);
+  background: oklch(0.6399 0.1261 79.82 / 0.08);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+/* ---------- Actions ---------- */
+
+.missing-font-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.missing-font-dialog__btn {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.missing-font-dialog__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.missing-font-dialog__btn--secondary {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+
+.missing-font-dialog__btn--secondary:hover {
+  background: var(--color-interactive-hover);
+}
+
+.missing-font-dialog__btn--primary {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+
+.missing-font-dialog__btn--primary:hover {
+  background: var(--color-interactive-hover);
+}
+
+.missing-font-dialog__btn--primary:disabled {
+  background: var(--color-interactive-disabled);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* ---------- High-contrast / forced-colors ---------- */
+
+[data-theme="high-contrast"] .missing-font-dialog__content {
+  border-width: 2px;
+  border-color: var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .missing-font-dialog__btn--primary {
+  border: 2px solid var(--color-text-on-accent);
+}
+
+@media (forced-colors: active) {
+  .missing-font-dialog__overlay {
+    background: Canvas;
+  }
+
+  .missing-font-dialog__content {
+    border: 2px solid ButtonText;
+  }
+
+  .missing-font-dialog__btn--primary {
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .missing-font-dialog__item-status {
+    border: 1px solid ButtonText;
+  }
+
+  .missing-font-dialog__substitute-select {
+    border-color: ButtonText;
+  }
+}
