@@ -43,11 +43,7 @@ import { type Platform, upsertPreservingMeta } from '@strata/platform';
 import {
   PrototypeDebugConsole,
   type PrototypeRuntime,
-  applyActionResult as protoApplyActionResult,
-  getVariable as protoGetVar,
-  handleEvent as protoHandleEvent,
   processDelays as protoProcessDelays,
-  setVariable as protoSetVar,
 } from '@strata/prototype';
 import type {
   AdjustmentNode,
@@ -67,15 +63,11 @@ import {
   addComponentProperty as addComponentPropertyDoc,
   addGuide as addGuideDoc,
   addInteraction as addInteractionDoc,
-  addKeyframe,
   addMask as addMaskDoc,
   addNode,
-  addTimelineMarker as addTimelineMarkerDoc,
-  addTrack,
   addVariableToDocument,
   advanceSMTransition,
   appendFrameToChain as appendFrameToChainDoc,
-  applyMotionPreset as applyMotionPresetDoc,
   arrangeNode as arrangeNodeDoc,
   type BleedConfig,
   buildParentIndexMap,
@@ -83,10 +75,7 @@ import {
   createComponent,
   createDocument,
   createGuideId,
-  createMotionPreset as createMotionPresetDoc,
-  createStateMachineRuntime,
   createTextChain as createTextChainDoc,
-  createTimeline as createTimelineDoc,
   createVariableStore,
   createVariant as createVariantDoc,
   type Document,
@@ -105,7 +94,6 @@ import {
   getGuidesForPage,
   getInstanceStatus as getInstanceStatusDoc,
   getInteractionsForNode,
-  getNestedValue,
   groupNodes as groupNodesDoc,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
@@ -126,12 +114,7 @@ import {
   removeInteraction as removeInteractionDoc,
   removeMask as removeMaskDoc,
   removeNode,
-  removeTimeline as removeTimelineDoc,
-  removeTimelineMarker as removeTimelineMarkerDoc,
-  removeTrack as removeTrackDoc,
   renameNode,
-  renameTimeline as renameTimelineDoc,
-  renameTimelineMarker as renameTimelineMarkerDoc,
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
@@ -166,7 +149,6 @@ import {
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
   toggleGuideLock as toggleGuideLockDoc,
-  triggerSMEvent,
   ungroupNode as ungroupNodeDoc,
   updateInteraction as updateInteractionDoc,
   updateTrack as updateTrackDoc,
@@ -231,7 +213,15 @@ import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPu
 import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import type { DocumentContextValue } from './context/DocumentContext';
-import { DocumentProvider, SelectionProvider, ViewportProvider } from './context/index';
+import {
+  DocumentProvider,
+  MotionProvider,
+  PrototypeProvider,
+  SelectionProvider,
+  ViewportProvider,
+} from './context/index';
+import { useMotion } from './context/MotionContext';
+import { usePrototype } from './context/PrototypeContext';
 import type {
   CanvasMode,
   EditorState,
@@ -250,10 +240,6 @@ import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
-import { MotionFacade } from './motion/MotionFacade';
-import { createRuntimeFromDocument, interactionsMapFromDocument } from './motion/prototypeRuntime';
-import { computeSmartAnimateTransition } from './motion/smartAnimateBridge';
-import { getPrimaryStateMachineTimelineId } from './motion/stateMachineBridge';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
 import {
@@ -1580,15 +1566,6 @@ export function EditorProvider({
   const toolRef = useRef<ToolId>(state.tool);
   const prototypeRuntimeRef = useRef<PrototypeRuntime | null>(null);
   const smRuntimeRef = useRef<SMRuntime | null>(null);
-  const prototypeSmartAnimateRef = useRef<ReturnType<typeof computeSmartAnimateTransition> | null>(
-    null,
-  );
-  const [prototypeTransition, setPrototypeTransition] = useState<ActivePrototypeTransition | null>(
-    null,
-  );
-  const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
-  const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
-  const motionFacadeRef = useRef<MotionFacade | null>(null);
   /** In-flight single-image background removal — aborted on selection change/unmount. */
   const bgRemovalAbortRef = useRef<AbortController | null>(null);
   const processingBgNodeRef = useRef<NodeId | null>(null);
@@ -1636,7 +1613,6 @@ export function EditorProvider({
       imageProcessingAbortRef.current = null;
       processingImageNodeRef.current = null;
       autoSaveRef.current?.stop();
-      motionFacadeRef.current?.stop();
       void import('@strata/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
     };
   }, []);
@@ -1810,6 +1786,9 @@ export function EditorProvider({
       };
     });
   }, []);
+
+  const motion = useMotion();
+  const proto = usePrototype();
 
   const value = useMemo<EditorContextValue>(
     () => ({
@@ -5574,155 +5553,7 @@ export function EditorProvider({
         trimapStoreRef.current.set(nodeId, { data, width, height });
       },
 
-      setPrototypeMode: (active) => {
-        patch({ prototypeMode: active });
-        if (active) {
-          const doc = stateRef.current.document;
-          const { runtime, entryScreenId } = createRuntimeFromDocument(doc);
-          prototypeRuntimeRef.current = runtime;
-          const smIds = Object.keys(doc.stateMachines ?? {});
-          smRuntimeRef.current = smIds[0] ? createStateMachineRuntime(doc, smIds[0]) : null;
-          patch({
-            prototypeRuntime: runtime,
-            prototypeData: {
-              interactions: interactionsMapFromDocument(doc),
-            },
-          });
-          setPrototypeCurrentScreen(entryScreenId);
-        } else {
-          prototypeRuntimeRef.current = null;
-          smRuntimeRef.current = null;
-          patch({ prototypeRuntime: null });
-        }
-      },
-
-      updatePrototypeData: () => {
-        const { runtime, entryScreenId } = createRuntimeFromDocument(stateRef.current.document);
-        prototypeRuntimeRef.current = runtime;
-        patch({
-          prototypeRuntime: runtime,
-          prototypeData: {
-            interactions: interactionsMapFromDocument(stateRef.current.document),
-          },
-        });
-        setPrototypeCurrentScreen(entryScreenId);
-      },
-
-      handlePrototypeEvent: (event) => {
-        const runtime = prototypeRuntimeRef.current;
-        if (!runtime) return;
-        const fromScreenId = runtime.state.currentScreenId;
-        const results = protoHandleEvent(runtime, event as Parameters<typeof protoHandleEvent>[1]);
-        for (const result of results) {
-          for (const actionResult of result.actionResults) {
-            if (actionResult.kind === 'navigateTo') {
-              const transition = actionResult.transition;
-              let smartValues: Record<string, Record<string, unknown>> | undefined;
-              if (transition.kind === 'smartAnimate') {
-                const sa = computeSmartAnimateTransition(
-                  stateRef.current.document,
-                  fromScreenId,
-                  actionResult.targetId,
-                );
-                prototypeSmartAnimateRef.current = sa;
-                smartValues = sa?.values;
-              }
-              if (transition.kind !== 'instant') {
-                setPrototypeTransition({
-                  fromScreenId,
-                  toScreenId: actionResult.targetId,
-                  transition,
-                  smartAnimateValues: smartValues,
-                  layerMatches: prototypeSmartAnimateRef.current?.matches,
-                  startedAt: performance.now(),
-                });
-              }
-            }
-            protoApplyActionResult(runtime, actionResult);
-          }
-        }
-
-        if (smRuntimeRef.current) {
-          const ev = event as { type?: string };
-          if (ev.type === 'click') {
-            smRuntimeRef.current = triggerSMEvent(smRuntimeRef.current, 'onClick');
-            const tlId = getCurrentStateTimelineId(smRuntimeRef.current);
-            if (tlId) {
-              patch({
-                motion: { ...stateRef.current.motion, activeTimelineId: tlId, currentTime: 0 },
-              });
-            }
-          }
-        }
-
-        setPrototypeCurrentScreen(runtime.state.currentScreenId);
-      },
-
-      getPrototypeVariable: (id) => {
-        const runtime = prototypeRuntimeRef.current;
-        if (!runtime) return undefined;
-        return protoGetVar(runtime, id);
-      },
-
-      setPrototypeVariable: (id, value) => {
-        const runtime = prototypeRuntimeRef.current;
-        if (runtime) protoSetVar(runtime, id, value);
-        updateDoc((doc) => {
-          const v = doc.variableStore?.variables[id];
-          if (!v) return doc;
-          const mode = doc.variableStore?.activeMode ?? 'default';
-          return updateVariableInDocument(doc, id, {
-            valuesByMode: { ...v.valuesByMode, [mode]: value },
-          });
-        });
-      },
-
-      startPresentation: () => {
-        const doc = stateRef.current.document;
-        const { runtime, entryScreenId } = createRuntimeFromDocument(doc);
-        prototypeRuntimeRef.current = runtime;
-        const smIds = Object.keys(doc.stateMachines ?? {});
-        smRuntimeRef.current = smIds[0] ? createStateMachineRuntime(doc, smIds[0]) : null;
-        const smTimelineId = getPrimaryStateMachineTimelineId(doc);
-        patch({
-          isPresenting: true,
-          prototypeRuntime: runtime,
-          prototypeData: {
-            interactions: interactionsMapFromDocument(doc),
-          },
-          ...(smTimelineId
-            ? {
-                motion: {
-                  ...stateRef.current.motion,
-                  activeTimelineId: smTimelineId,
-                  currentTime: 0,
-                  isPlaying: false,
-                },
-              }
-            : {}),
-        });
-        updateDoc((d) => (smTimelineId ? setActiveTimelineDoc(d, smTimelineId) : d));
-        setPrototypeCurrentScreen(entryScreenId);
-      },
-
-      stopPresentation: () => {
-        patch({ isPresenting: false });
-      },
-
-      getPrototypeScreens: () => {
-        return Object.values(state.document.nodes)
-          .filter((n): n is import('@strata/scene').FrameNode => n.kind === 'frame')
-          .map((n) => ({ id: n.id, name: n.name }));
-      },
-
-      prototypeCurrentScreen,
-      navigatePrototypeTo: (screenId) => {
-        const runtime = prototypeRuntimeRef.current;
-        if (runtime) {
-          runtime.state.currentScreenId = screenId;
-        }
-        setPrototypeCurrentScreen(screenId);
-      },
+      ...proto,
 
       getNodeInteractions: (nodeId) => {
         return getInteractionsForNode(stateRef.current.document, nodeId);
@@ -5740,158 +5571,7 @@ export function EditorProvider({
         updateDoc((doc) => updateInteractionDoc(doc, interactionId, updates));
       },
 
-      selectedInteractionId,
-      selectPrototypeInteraction: (nodeId, interactionId) => {
-        setSelectedInteractionId(interactionId);
-        patch({ selection: [nodeId] });
-      },
-
-      prototypeTransition,
-      clearPrototypeTransition: () => setPrototypeTransition(null),
-
-      playTimeline: (timelineId) => {
-        const s = stateRef.current;
-        const tlId = timelineId ?? s.motion.activeTimelineId;
-        if (!tlId) return;
-        const timeline = s.document.timelines?.[tlId];
-        if (!timeline) return;
-
-        let facade = motionFacadeRef.current;
-        if (!facade) {
-          facade = new MotionFacade({
-            onFrame: (time) => {
-              patch({ motion: { ...stateRef.current.motion, currentTime: time } });
-            },
-            onFinish: () => {
-              patch({ motion: { ...stateRef.current.motion, isPlaying: false } });
-            },
-          });
-          motionFacadeRef.current = facade;
-        }
-
-        facade.setLoop(s.motion.loop);
-        facade.setSpeed(s.motion.playbackSpeed);
-        facade.play(timeline);
-        patch({ motion: { ...s.motion, isPlaying: true, activeTimelineId: tlId } });
-      },
-
-      pauseTimeline: () => {
-        motionFacadeRef.current?.pause();
-        patch({ motion: { ...stateRef.current.motion, isPlaying: false } });
-      },
-
-      stopTimeline: () => {
-        motionFacadeRef.current?.stop();
-        patch({ motion: { ...stateRef.current.motion, isPlaying: false, currentTime: 0 } });
-      },
-
-      seekTimeline: (time) => {
-        const clamped = Math.max(0, time);
-        motionFacadeRef.current?.seek(clamped);
-        patch({ motion: { ...stateRef.current.motion, currentTime: clamped } });
-      },
-
-      setActiveTimeline: (id) => {
-        updateDoc((doc) => setActiveTimelineDoc(doc, id));
-        motionFacadeRef.current?.stop();
-        patch({
-          motion: {
-            ...stateRef.current.motion,
-            activeTimelineId: id,
-            currentTime: 0,
-            isPlaying: false,
-          },
-        });
-      },
-
-      setPlaybackSpeed: (speed) => {
-        motionFacadeRef.current?.setSpeed(speed);
-        patch({ motion: { ...stateRef.current.motion, playbackSpeed: speed } });
-      },
-
-      toggleLoop: () => {
-        const nextLoop = !stateRef.current.motion.loop;
-        motionFacadeRef.current?.setLoop(nextLoop);
-        patch({ motion: { ...stateRef.current.motion, loop: nextLoop } });
-      },
-
-      addKeyframeToSelected: (property) => {
-        const tlId = state.motion.activeTimelineId;
-        if (!tlId || state.selection.length === 0) return;
-        updateDoc((doc) => {
-          let d = doc;
-          const timeline = d.timelines?.[tlId];
-          if (!timeline) return d;
-          const progress = timeline.duration > 0 ? state.motion.currentTime / timeline.duration : 0;
-          for (const nodeId of state.selection) {
-            const node = d.nodes[nodeId];
-            if (!node) continue;
-            const existingTrack = timeline.tracks.find(
-              (t) => t.nodeId === nodeId && t.property === property,
-            );
-            if (existingTrack) {
-              d = addKeyframe(d, tlId, existingTrack.id, {
-                progress,
-                value: getPropertyValueAt(node, property),
-              });
-            } else {
-              const { doc: d2, trackId } = addTrack(d, tlId, nodeId, property);
-              d = addKeyframe(d2, tlId, trackId, {
-                progress,
-                value: getPropertyValueAt(node, property),
-              });
-            }
-          }
-          return d;
-        });
-        invalidateSamplerCache();
-      },
-
-      createTimeline: (name = 'Timeline 1', duration = 5000) => {
-        let newId = '';
-        updateDoc((doc) => {
-          const { doc: next, id } = createTimelineDoc(doc, name, duration);
-          newId = id;
-          return setActiveTimelineDoc(next, id);
-        });
-        invalidateSamplerCache();
-        motionFacadeRef.current?.stop();
-        patch({
-          motion: {
-            ...stateRef.current.motion,
-            activeTimelineId: newId,
-            currentTime: 0,
-            isPlaying: false,
-          },
-        });
-        return newId;
-      },
-
-      removeTimeline: (id) => {
-        const wasActive = stateRef.current.motion.activeTimelineId === id;
-        updateDoc((doc) => removeTimelineDoc(doc, id));
-        invalidateSamplerCache();
-        if (wasActive) {
-          motionFacadeRef.current?.stop();
-          patch({
-            motion: {
-              ...stateRef.current.motion,
-              activeTimelineId: null,
-              currentTime: 0,
-              isPlaying: false,
-            },
-          });
-        }
-      },
-
-      renameTimeline: (id, name) => {
-        updateDoc((doc) => renameTimelineDoc(doc, id, name));
-      },
-
-      removeTrack: (timelineId, trackId) => {
-        updateDoc((doc) => removeTrackDoc(doc, timelineId, trackId));
-        invalidateSamplerCache();
-      },
+      ...motion,
 
       setTrackNestedTimeline: (timelineId, trackId, nestedTimelineId, startProgress = 0) => {
         updateDoc((doc) =>
@@ -5901,51 +5581,6 @@ export function EditorProvider({
           }),
         );
         invalidateSamplerCache();
-      },
-
-      addTimelineMarker: (timelineId, name, progress) => {
-        const markerId = `mk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        updateDoc((doc) => addTimelineMarkerDoc(doc, timelineId, { id: markerId, name, progress }));
-        invalidateSamplerCache();
-      },
-
-      removeTimelineMarker: (timelineId, markerId) => {
-        updateDoc((doc) => removeTimelineMarkerDoc(doc, timelineId, markerId));
-        invalidateSamplerCache();
-      },
-
-      renameTimelineMarker: (timelineId, markerId, name) => {
-        updateDoc((doc) => renameTimelineMarkerDoc(doc, timelineId, markerId, name));
-        invalidateSamplerCache();
-      },
-
-      createMotionPresetFromTimeline: (timelineId, name) => {
-        let presetId = '';
-        updateDoc((doc) => {
-          const { doc: next, id } = createMotionPresetDoc(doc, timelineId, name);
-          presetId = id;
-          return next;
-        });
-        invalidateSamplerCache();
-        return presetId;
-      },
-
-      applyMotionPreset: (presetId, timelineId) => {
-        updateDoc((doc) => applyMotionPresetDoc(doc, presetId, timelineId));
-        invalidateSamplerCache();
-      },
-
-      toggleAutoKeyframe: () => {
-        patch({
-          motion: {
-            ...stateRef.current.motion,
-            autoKeyframe: !stateRef.current.motion.autoKeyframe,
-          },
-        });
-      },
-
-      toggleTimelinePanel: () => {
-        patch({ timelinePanelVisible: !stateRef.current.timelinePanelVisible });
       },
 
       // ── Guide management implementations ─────────────────────────────────
@@ -6114,10 +5749,9 @@ export function EditorProvider({
       focusedField,
       setFocusedField,
       showExportDialog,
-      prototypeCurrentScreen,
-      prototypeTransition,
-      selectedInteractionId,
+      proto,
       platform,
+      motion,
     ],
   );
 
@@ -6265,7 +5899,24 @@ export function EditorProvider({
       <DocumentProvider value={documentValue}>
         <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
           <SelectionProvider state={state} setState={setState}>
-            {children}
+            <MotionProvider
+              state={state}
+              setState={setState}
+              stateRef={stateRef}
+              updateDoc={updateDoc}
+              invalidateSamplerCache={invalidateSamplerCache}
+            >
+              <PrototypeProvider
+                state={state}
+                setState={setState}
+                stateRef={stateRef}
+                updateDoc={updateDoc}
+                prototypeRuntimeRef={prototypeRuntimeRef}
+                smRuntimeRef={smRuntimeRef}
+              >
+                {children}
+              </PrototypeProvider>
+            </MotionProvider>
           </SelectionProvider>
         </ViewportProvider>
       </DocumentProvider>
@@ -6279,7 +5930,7 @@ export function useEditor(): EditorContextValue {
   return ctx;
 }
 
-export { useDocument, useSelection, useViewport } from './context/index';
+export { useDocument, useMotion, usePrototype, useSelection, useViewport } from './context/index';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);
@@ -6404,20 +6055,4 @@ function computeKeyObjectTarget(
     centerX: keyBounds.x + keyBounds.w / 2,
     centerY: keyBounds.y + keyBounds.h / 2,
   };
-}
-
-/** Extract a property value from a scene node for keyframe storage. */
-function getPropertyValueAt(node: import('@strata/scene').SceneNode, property: string): unknown {
-  if (property === 'opacity') return node.opacity;
-  if (property === 'rotation') return node.rotation;
-  if (property === 'fill' || property.startsWith('fill[')) return node.fill;
-  if (property === 'transform' || property.startsWith('transform[')) {
-    const t = (node as import('@strata/scene').ShapeNode).transform;
-    return t ?? [1, 0, 0, 1, 0, 0];
-  }
-  if ('w' in node && property === 'w') return (node as import('@strata/scene').FrameNode).w;
-  if ('h' in node && property === 'h') return (node as import('@strata/scene').FrameNode).h;
-  if (property === 'fontSize' && 'fontSize' in node)
-    return (node as import('@strata/scene').TextNode).fontSize;
-  return getNestedValue(node as unknown as Record<string, unknown>, property.split('.')) ?? 0;
 }

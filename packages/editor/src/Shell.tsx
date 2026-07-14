@@ -1,78 +1,44 @@
-import {
-  DndContext,
-  type DragEndEvent,
-  type DragMoveEvent,
-  DragOverlay,
-  type DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import { createEngine, type Engine } from '@strata/engine';
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
-import type { Document, ExportBatch, ExportFormat, NodeId, SceneNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
-import { screenToWorld } from '@strata/shared';
+import type { Document, SceneNode } from '@strata/scene';
 import type { MenuEntry } from '@strata/ui';
 import { ContextMenu, Icon, ToastProvider, useToast } from '@strata/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
 import { captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
-import { BatchBgRemoveDialog } from './components/BatchBgRemoveDialog';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { ExportDialog } from './components/Export/ExportDialog';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
 import { LibraryPanel } from './components/LibraryPanel/LibraryPanel';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
-import { SpotlightOverlay, useOnboarding, WelcomeDialog } from './components/Onboarding';
-import { TOUR_STEPS } from './components/Onboarding/tourSteps';
 import { PageNav } from './components/PageNav/PageNav';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
 import { PromptDialog, promptDialog } from './components/PromptDialog';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
-import { RecoveryDialog } from './components/RecoveryDialog';
 import { SelectionInfoBar } from './components/SelectionInfoBar';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
+import {
+  DnDShell,
+  ExportLayer,
+  type ExportLayerHandle,
+  OnboardingLayer,
+  type OnboardingLayerHandle,
+  RecoveryManager,
+} from './components/Shell';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { EditorProvider, setToastHandler, useEditor } from './context';
-import type { DragNodeData } from './dnd-types';
-import { createExportSaveFile, saveExportBytes } from './exportSaveAdapter';
-import { ExportService } from './exportService';
 import { useCollabPresence } from './hooks/useCollabPresence';
-import { getActionTracker } from './intelligence/actionTracker';
 import { LayersPanel } from './LayersPanel';
 import { Menubar } from './Menubar';
-import {
-  ContextualHelpPanel,
-  checkChecklistItem,
-  DidYouKnowTip,
-  loadOnboardingState,
-  markTutorialComplete,
-  resetOnboarding,
-  saveOnboardingState,
-  TutorialBanner,
-  useDidYouKnow,
-  useEditorHelp,
-  useTutorialProgress,
-  WhatIsThis,
-} from './onboard';
-import {
-  CHECKLIST_ITEMS,
-  OnboardingChecklist,
-} from './onboard/OnboardingChecklist/OnboardingChecklist';
-import { buildPackageExport } from './packageExport';
-import { getSharedRecoveryManager, type RecoverySession } from './recovery';
+import { ContextualHelpPanel, resetOnboarding, useEditorHelp, WhatIsThis } from './onboard';
 import { StatusBar } from './StatusBar';
-import { createTutorialDocument } from './samples/tutorial-document';
 import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
@@ -103,10 +69,6 @@ export interface ShellProps {
   platform?: Platform;
 }
 
-function isRasterExport(format: ExportFormat): boolean {
-  return format === 'png' || format === 'jpg' || format === 'webp';
-}
-
 function ShellInner({
   onBackToHome,
   openFile,
@@ -133,110 +95,12 @@ function ShellInner({
   );
 
   const [canvasContextMenu, setCanvasContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const exportEngineRef = useRef<Promise<Engine> | null>(null);
-  const saveExportFile = useMemo(() => createExportSaveFile(platform), [platform]);
 
   const handleCanvasContextMenu = useCallback((pos: { x: number; y: number }) => {
     setCanvasContextMenu(pos);
   }, []);
 
-  const getExportEngine = useCallback(() => {
-    exportEngineRef.current ??= createEngine('auto');
-    return exportEngineRef.current;
-  }, []);
-
-  const handleExportBatch = useCallback(
-    async (batch: ExportBatch) => {
-      const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
-      const engine = needsEngine ? await getExportEngine() : null;
-      return await ExportService.run(batch, {
-        document: editor.state.document,
-        engine,
-        saveFile: saveExportFile,
-      });
-    },
-    [editor.state.document, getExportEngine, saveExportFile],
-  );
-
-  const handleExportMotion = useCallback(
-    (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => {
-      const mimeType =
-        format === 'lottie' ? 'application/json' : format === 'svg' ? 'image/svg+xml' : 'text/css';
-      const extension = format === 'lottie' ? '.json' : format === 'svg' ? '.svg' : '.css';
-      void saveExportBytes(
-        platform,
-        fileName,
-        new TextEncoder().encode(content),
-        mimeType,
-        extension,
-      );
-    },
-    [platform],
-  );
-
-  const handleSaveVideoFile = useCallback(
-    async (fileName: string, bytes: Uint8Array, mimeType: string) => {
-      const extension = fileName.toLowerCase().endsWith('.webm') ? '.webm' : '.mp4';
-      await saveExportBytes(platform, fileName, bytes, mimeType, extension);
-    },
-    [platform],
-  );
-
-  const handlePackageExport = useCallback(async () => {
-    const pkg = buildPackageExport(editor.state.document);
-    await saveExportBytes(platform, pkg.fileName, pkg.bytes, pkg.mimeType, '.zip');
-  }, [editor.state.document, platform]);
-
   // ── Lifecycle event handlers ─────────────────────────────────────────────
-  const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
-  const [showRecovery, setShowRecovery] = useState(false);
-
-  // Check for recovery sessions on mount
-  useEffect(() => {
-    const mgr = getSharedRecoveryManager();
-    mgr.hasSessions().then((has) => {
-      if (has) {
-        mgr.listSessions().then((sessions) => {
-          setRecoverySessions(sessions);
-          setShowRecovery(true);
-        });
-      }
-    });
-  }, []);
-
-  // beforeunload: attempt save, let browser show unsaved warning
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (editor.state.dirty) {
-        editor.save();
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [editor, editor.state.dirty]);
-
-  // visibilitychange: save when tab becomes hidden
-  useEffect(() => {
-    const handler = () => {
-      if (document.hidden && editor.state.dirty) {
-        editor.save();
-      }
-    };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, [editor, editor.state.dirty]);
-
-  // pagehide: save when navigating away
-  useEffect(() => {
-    const handler = () => {
-      if (editor.state.dirty) {
-        editor.save();
-      }
-    };
-    window.addEventListener('pagehide', handler);
-    return () => window.removeEventListener('pagehide', handler);
-  }, [editor, editor.state.dirty]);
 
   // Native paste event listener (cross-platform, works on Wayland).
   // Captures clipboard data from the DOM event directly, bypassing
@@ -256,53 +120,6 @@ function ShellInner({
     return () => window.removeEventListener('paste', handler);
   }, [editor]);
 
-  // ── Recovery dialog handlers ─────────────────────────────────────────────
-  const handleRecoveryRestore = useCallback(
-    (id: string) => {
-      const mgr = getSharedRecoveryManager();
-      mgr.restoreSession(id).then((data) => {
-        if (data) {
-          editor.loadDocument(JSON.stringify(data.document), { name: data.tabName });
-          mgr.deleteSession(id);
-        }
-      });
-    },
-    [editor],
-  );
-
-  const handleRecoveryDiscard = useCallback((id: string) => {
-    const mgr = getSharedRecoveryManager();
-    mgr.deleteSession(id).then(() => {
-      setRecoverySessions((prev) => prev.filter((s) => s.id !== id));
-    });
-  }, []);
-
-  const handleRecoveryRestoreAll = useCallback(() => {
-    const mgr = getSharedRecoveryManager();
-    mgr.listSessions().then((sessions) => {
-      for (const session of sessions) {
-        mgr.restoreSession(session.id).then((data) => {
-          if (data) {
-            editor.loadDocument(JSON.stringify(data.document), { name: data.tabName });
-            mgr.deleteSession(session.id);
-          }
-        });
-      }
-    });
-    setShowRecovery(false);
-  }, [editor]);
-
-  const handleRecoveryDiscardAll = useCallback(() => {
-    const mgr = getSharedRecoveryManager();
-    mgr.listSessions().then((sessions) => {
-      for (const s of sessions) {
-        mgr.deleteSession(s.id);
-      }
-    });
-    setRecoverySessions([]);
-    setShowRecovery(false);
-  }, []);
-
   // Dispatch host file-open requests into tabs (dedupe/reuse handled by
   // editor.openFile). seq guards against re-dispatch on unrelated re-renders.
   const lastOpenSeq = useRef(0);
@@ -319,7 +136,8 @@ function ShellInner({
   const [settingsSection, setSettingsSection] = useState<
     'general' | 'appearance' | 'shortcuts' | 'export' | 'models' | 'collab' | 'ai' | 'about'
   >('general');
-  const [batchBgRemoveOpen, setBatchBgRemoveOpen] = useState(false);
+  const exportLayerRef = useRef<ExportLayerHandle | null>(null);
+  const onboardingLayerRef = useRef<OnboardingLayerHandle | null>(null);
   const { shellStyle, widths, setWidth } = usePanelWidths();
 
   // Register all actions into the ActionRegistry once on mount
@@ -328,78 +146,12 @@ function ShellInner({
     registerEditorActions(editor);
   }, [editor]);
 
-  const tutorialProgress = useTutorialProgress(editor.state.document);
-
-  const onboarding = useOnboarding(editor.platform);
-
-  // ── Onboarding checklist ────────────────────────────────
-  const [checklistOpen, setChecklistOpen] = useState(false);
-  const [checklistProgress, setChecklistProgressState] = useState<string[]>(() => {
-    const saved = loadOnboardingState();
-    return saved.checklistProgress;
-  });
-
-  const updateChecklistProgress = useCallback(
-    (itemId: string) => {
-      setChecklistProgressState((prev) => {
-        if (prev.includes(itemId)) return prev;
-        const updated = [...prev, itemId];
-        const saved = loadOnboardingState();
-        saveOnboardingState(checkChecklistItem(saved, itemId), platform);
-        return updated;
-      });
-    },
-    [platform],
-  );
-
-  const dismissChecklist = useCallback(() => {
-    setChecklistOpen(false);
-  }, []);
-
-  // Auto-detect checklist progress from user actions
-  useEffect(() => {
-    const tracker = getActionTracker();
-    if (tracker.getCount('op:createNode', 300_000) > 0) updateChecklistProgress('shape');
-    if (tracker.getCount('menu:fill', 300_000) > 0) updateChecklistProgress('color');
-    if (tracker.getCount('tool:text', 300_000) > 0) updateChecklistProgress('text');
-    if (
-      tracker.getCount('shortcut:group', 600_000) > 0 ||
-      tracker.getCount('tool:select', 600_000) > 0
-    ) {
-      const saved = loadOnboardingState();
-      if (saved.checklistProgress.includes('shape') && saved.checklistProgress.includes('color')) {
-        updateChecklistProgress('group');
-      }
-    }
-    if (tracker.getCount('export', 600_000) > 0) updateChecklistProgress('export');
-  }, [updateChecklistProgress, platform]);
-
-  // Show checklist after welcome is dismissed, if not yet completed
-  useEffect(() => {
-    if (!onboarding.showWelcome && !onboarding.active) {
-      const saved = loadOnboardingState();
-      const allDone = CHECKLIST_ITEMS.every((item) => saved.checklistProgress.includes(item.id));
-      if (!saved.onboardingComplete || !allDone) {
-        setChecklistOpen(true);
-      }
-    }
-  }, [onboarding.showWelcome, onboarding.active]);
-
-  // ── Did You Know? contextual tips ───────────────────────
-  const {
-    currentTip: didYouKnowTip,
-    dismiss: dismissTip,
-    dontShowAgain: dontShowAgainTip,
-  } = useDidYouKnow(getActionTracker());
-
   const handlePaletteSelect = useCallback((id: string) => {
     const input = fileRef.current;
     if (id === 'open' && input) {
       input.click();
     }
   }, []);
-
-  const currentStep = onboarding.stepIndex >= 0 && onboarding.active ? onboarding.stepIndex : -1;
 
   // Desktop panel visibility (Ctrl+B / Ctrl+Shift+B): collapse the grid
   // column so the canvas reclaims the space.
@@ -408,93 +160,11 @@ function ShellInner({
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
 
-  // ── Unified DndContext (cross-panel drag & drop) ─────────────────────
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
   const layersDndRef = useRef<LayersDnDHandle | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
-  const lastPointerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [activeDragNode, setActiveDragNode] = useState<{ id: NodeId; name: string } | null>(null);
-
-  const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
-      // Notify layers tree to track active id for DragOverlay
-      layersDndRef.current?.handleDragStart(event);
-
-      // Set active drag overlay content
-      const data = event.active.data.current as DragNodeData | undefined;
-      if (data?.type === 'layer') {
-        const node = editor.state.document.nodes[data.nodeId];
-        if (node) {
-          setActiveDragNode({ id: data.nodeId, name: node.name });
-        }
-      }
-    },
-    [editor],
-  );
-
-  const handleDragMove = useCallback((event: DragMoveEvent) => {
-    layersDndRef.current?.handleDragMove(event);
-    // Track pointer position for canvas drop detection
-    const ev = event.activatorEvent;
-    if (ev instanceof MouseEvent || ev instanceof PointerEvent) {
-      lastPointerPos.current = { x: ev.clientX, y: ev.clientY };
-    }
-  }, []);
-
-  const handleDragOver = useCallback((event: import('@dnd-kit/core').DragOverEvent) => {
-    layersDndRef.current?.handleDragOver(event);
-  }, []);
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      const data = active.data.current as DragNodeData | undefined;
-
-      // Cross-panel drop: layer from tree → canvas
-      if (over?.id === 'canvas-drop-zone' && data?.type === 'layer') {
-        setActiveDragNode(null);
-        // Move the node to root level at the drop position
-        const nodeId = data.nodeId as string;
-        const canvasSection = document.querySelector('.editor-canvas');
-        const canvasEl = canvasSection?.querySelector('canvas');
-        if (canvasEl) {
-          const rect = canvasEl.getBoundingClientRect();
-          const cam = {
-            pan: editor.state.pan,
-            zoom: editor.state.zoom,
-          };
-          const [wx, wy] = screenToWorld(
-            cam,
-            lastPointerPos.current.x - rect.left,
-            lastPointerPos.current.y - rect.top,
-          );
-          // Append to the end of the active page's top level (reparentNode
-          // clamps toIndex to the target list's actual length).
-          editor.reparentNode(nodeId, null, Number.MAX_SAFE_INTEGER);
-          editor.setNodePosition(nodeId, wx, wy);
-          editor.setSelection(nodeId);
-          editor.announce('Moved layer to canvas');
-        }
-        return;
-      }
-
-      // Delegate to layers tree for internal reorder
-      layersDndRef.current?.handleDragEnd(event);
-      setActiveDragNode(null);
-    },
-    [editor],
-  );
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
+    <DnDShell layersDndRef={layersDndRef}>
       <div className="editor-shell" style={gridStyle}>
         <Menubar
           onBackToHome={onBackToHome}
@@ -502,7 +172,7 @@ function ShellInner({
             setSettingsSection('general');
             setSettingsOpen(true);
           }}
-          onStartTour={onboarding.reopen}
+          onStartTour={() => onboardingLayerRef.current?.reopen()}
           onOpenPalette={openPalette}
           onOpenHelp={editorHelp.openContextualHelp}
           onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
@@ -511,7 +181,7 @@ function ShellInner({
             setSettingsSection('about');
             setSettingsOpen(true);
           }}
-          onBatchBgRemove={() => setBatchBgRemoveOpen(true)}
+          onBatchBgRemove={() => exportLayerRef.current?.openBatchBgRemove()}
         />
         <FloatingToolbar />
         <TabStrip onBackToHome={onBackToHome} />
@@ -525,13 +195,6 @@ function ShellInner({
           users={collabUsers}
           cursors={[]}
           worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
-        />
-        <TutorialBanner
-          progress={tutorialProgress}
-          onComplete={() => {
-            const state = loadOnboardingState();
-            saveOnboardingState(markTutorialComplete(state));
-          }}
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
         <div className="page-nav-container">
@@ -783,26 +446,11 @@ function ShellInner({
           initialSection={settingsSection}
           onOnboardingReset={() => {
             resetOnboarding(platform);
-            onboarding.resetWelcome();
           }}
         />
 
-        {/* Export dialog */}
-        <ExportDialog
-          isOpen={editor.showExportDialog}
-          onClose={() => editor.setShowExportDialog(false)}
-          nodes={editor.rootNodes()}
-          timelines={editor.state.document.timelines}
-          document={editor.state.document}
-          selectionIds={editor.state.selection}
-          onExport={handleExportBatch}
-          onPackageExport={handlePackageExport}
-          onExportMotion={handleExportMotion}
-          onSaveVideoFile={handleSaveVideoFile}
-          onApplyBackgroundRemoval={(id, state) => {
-            editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
-          }}
-        />
+        {/* Export dialog + batch BG removal (self-contained) */}
+        <ExportLayer ref={exportLayerRef} platform={platform} />
 
         {editor.state.subjectPickerSession && (
           <SubjectPickerOverlay
@@ -812,53 +460,11 @@ function ShellInner({
           />
         )}
 
-        {/* Onboarding: Welcome dialog */}
-        <WelcomeDialog
-          open={onboarding.showWelcome && onboarding.active && !showRecovery}
-          onStartTour={onboarding.startTour}
-          onStartTutorial={() => {
-            const tutorialDoc = createTutorialDocument();
-            editor.updateDoc(() => tutorialDoc);
-            onboarding.dismiss();
-          }}
-          onStartBlank={() => {
-            onboarding.dismiss();
-          }}
-          onStartTemplate={() => {
-            onboarding.dismiss();
-            onBackToHome?.();
-          }}
-          onClose={onboarding.dismiss}
-        />
-
-        {/* Onboarding: Spotlight tour overlay */}
-        {currentStep >= 0 &&
-          onboarding.active &&
-          (() => {
-            const step = TOUR_STEPS[currentStep];
-            if (!step) return null;
-            return (
-              <SpotlightOverlay
-                stepIndex={currentStep}
-                totalSteps={TOUR_STEPS.length}
-                step={step}
-                onNext={onboarding.nextStep}
-                onPrev={onboarding.prevStep}
-                onDismiss={onboarding.dismiss}
-              />
-            );
-          })()}
+        {/* Onboarding: welcome, tour, checklist, tips */}
+        <OnboardingLayer ref={onboardingLayerRef} platform={platform} onBackToHome={onBackToHome} />
 
         {/* Recovery dialog for crash-recovery sessions */}
-        <RecoveryDialog
-          open={showRecovery}
-          sessions={recoverySessions}
-          onRestore={handleRecoveryRestore}
-          onDiscard={handleRecoveryDiscard}
-          onRestoreAll={handleRecoveryRestoreAll}
-          onDiscardAll={handleRecoveryDiscardAll}
-          onClose={() => setShowRecovery(false)}
-        />
+        <RecoveryManager platform={platform} document={editor.state.document} />
 
         {/* Prototype presenter (fullscreen preview) */}
         <PrototypePresenter
@@ -882,24 +488,6 @@ function ShellInner({
           activeTransition={editor.prototypeTransition}
           onClearTransition={editor.clearPrototypeTransition}
         />
-
-        {/* Onboarding checklist */}
-        <OnboardingChecklist
-          open={checklistOpen}
-          onClose={() => setChecklistOpen(false)}
-          progress={checklistProgress}
-          onItemClick={(id) => updateChecklistProgress(id)}
-          onDismiss={dismissChecklist}
-        />
-
-        {/* Did You Know? contextual tips */}
-        {didYouKnowTip && (
-          <DidYouKnowTip
-            tip={didYouKnowTip}
-            onDismiss={dismissTip}
-            onDontShowAgain={dontShowAgainTip}
-          />
-        )}
 
         {/* Contextual help side panel (F1) */}
         <ContextualHelpPanel
@@ -1039,38 +627,8 @@ function ShellInner({
               />
             );
           })()}
-
-        {/* Batch background removal dialog */}
-        <BatchBgRemoveDialog
-          open={batchBgRemoveOpen}
-          onClose={() => setBatchBgRemoveOpen(false)}
-          nodes={editor.state.selection
-            .map((id) => editor.state.document.nodes[id])
-            .filter((n): n is import('@strata/scene').ShapeNode => !!n && isImageShape(n))}
-          onNodeUpdate={(id, state) => {
-            editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
-          }}
-        />
       </div>
-
-      {/* DragOverlay for cross-panel drag */}
-      <DragOverlay dropAnimation={null}>
-        {activeDragNode ? (
-          <div
-            className="drag-overlay"
-            style={{
-              padding: '4px 12px',
-              background: 'var(--color-surface-raised)',
-              borderRadius: '4px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              fontSize: 'var(--font-size-sm)',
-            }}
-          >
-            {activeDragNode.name}
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+    </DnDShell>
   );
 }
 

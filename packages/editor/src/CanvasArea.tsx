@@ -2923,7 +2923,6 @@ export function CanvasArea({
   }, []);
 
   const gridSize = Math.max(4, 24 * state.zoom);
-  const showOverlays = state.canvasMode !== 'preview';
 
   const canvasDropClass = isCanvasDropOver ? ' editor-canvas--dnd-over' : '';
 
@@ -2987,27 +2986,6 @@ export function CanvasArea({
           }}
         />
       )}
-      {state.gridOverlayMode !== 'none' && (
-        <DocumentGridOverlay
-          mode={state.gridOverlayMode}
-          zoom={state.zoom}
-          pan={state.pan}
-          cameraRotation={state.cameraRotation}
-          width={canvasSize.width}
-          height={canvasSize.height}
-        />
-      )}
-      {state.colorBlindnessView !== 'none' && (
-        <ColorBlindnessOverlay
-          type={state.colorBlindnessView}
-          sourceCanvas={contentCanvasRef.current}
-        />
-      )}
-      <CollabCursorOverlay
-        users={collab.users}
-        cursors={stubRemoteCursors}
-        worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
-      />
       <canvas
         ref={contentCanvasRef}
         tabIndex={0}
@@ -3045,7 +3023,6 @@ export function CanvasArea({
       />
       <CanvasOverlays
         contentCanvasRef={contentCanvasRef}
-        overlayCanvasRef={overlayCanvasRef}
         announcerRef={announcer}
         zoom={state.zoom}
         pan={state.pan}
@@ -3056,7 +3033,6 @@ export function CanvasArea({
         canvasMode={state.canvasMode}
         gridOverlayMode={state.gridOverlayMode}
         colorBlindnessView={state.colorBlindnessView}
-        pixelGridEnabled={state.pixelGridEnabled}
         guidesVisible={state.guidesVisible}
         selectedGuideId={state.selectedGuideId}
         unitType={state.unitType}
