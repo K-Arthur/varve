@@ -11,9 +11,30 @@
  * (no WASM memory ceiling). The web build selects wasm.
  */
 import type { MeasureTextFn } from '@strata/shared';
-import { measureText } from '@strata/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
 import { hitTest } from './geometry';
 import type { Backend, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
+
+/**
+ * Derive a rect primitive from paint fills for shapeless nodes.
+ * Mirrors the logic in @strata/scene/src/paint.ts deriveGeometryFromPaints
+ * but operates on engine-level FillIRs.
+ */
+function derivePrimitiveFromPaints(node: SceneNode): import('./types').Primitive {
+  // Check for image fills first — they define natural dimensions
+  if (node.fills && node.fills.length > 0) {
+    for (const f of node.fills) {
+      if (!f.visible) continue;
+      if (f.type === 'image' && f.image) {
+        const w = f.image.imageWidth ?? 100;
+        const h = f.image.imageHeight ?? 100;
+        return { kind: 'rect', x: 0, y: 0, w, h };
+      }
+    }
+  }
+  // Default: 100×100 for non-image paints
+  return { kind: 'rect', x: 0, y: 0, w: 100, h: 100 };
+}
 
 export interface Engine {
   readonly backend: Backend;
@@ -42,6 +63,16 @@ function shapeToPrimitive(
   measureTextFn?: MeasureTextFn,
   nodeMap?: Map<string, SceneNode>,
 ): RenderItem['primitive'] {
+  // Raster layer nodes produce a rasterLayer primitive from their tile data.
+  if (node.kind === 'rasterLayer' && node.rasterLayerData) {
+    return {
+      kind: 'rasterLayer',
+      width: node.rasterLayerData.width,
+      height: node.rasterLayerData.height,
+      pixelMode: node.rasterLayerData.pixelMode,
+      tiles: node.rasterLayerData.tiles,
+    };
+  }
   if (node.kind === 'text' || (node.shape as { kind?: string } | undefined)?.kind === 'text') {
     const textShape =
       node.shape && 'text' in node.shape
@@ -51,11 +82,13 @@ function shapeToPrimitive(
             fontFamily?: string;
             fontWeight?: number;
             fontStyle?: string;
+            w?: number;
+            h?: number;
           })
         : null;
     const fontSize = node.fontSize ?? textShape?.fontSize ?? 14;
     const text = node.text ?? textShape?.text ?? '';
-    const fontFamily = node.fontFamily ?? 'sans-serif';
+    const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
     const textOptions = {
       fontSize,
       fontFamily,
@@ -76,15 +109,17 @@ function shapeToPrimitive(
       width = r.width;
       height = r.height;
     }
+    const explicitWidth = node.w ?? textShape?.w;
+    const explicitHeight = node.h ?? textShape?.h;
     return {
       kind: 'text',
       x: 0,
       y: 0,
-      w: Math.max(width, fontSize),
-      h: Math.max(height, fontSize),
+      w: explicitWidth === undefined ? Math.max(width, fontSize) : Math.max(explicitWidth, 1),
+      h: explicitHeight === undefined ? Math.max(height, fontSize) : Math.max(explicitHeight, 1),
       text,
       fontSize,
-      fontFamily: node.fontFamily ?? 'sans-serif',
+      fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
       fontWeight: node.fontWeight ?? 400,
       fontStyle: (node.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
       textAlign: (node.textAlign as 'left' | 'center' | 'right' | 'justify' | undefined) ?? 'left',
@@ -107,6 +142,11 @@ function shapeToPrimitive(
       pathTextSettings: node.pathTextSettings,
       pathShape: resolvePathShape(node, nodeMap),
     };
+  }
+  // V1.8+: shapeless nodes derive geometry from their paint
+  // (e.g. an image's natural dimensions become the rect bounds)
+  if ('shapeless' in node && node.shapeless === true) {
+    return derivePrimitiveFromPaints(node);
   }
   const s = node.shape;
   if (!s) return { kind: 'rect', x: 0, y: 0, w: 100, h: 100 };

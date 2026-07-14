@@ -11,8 +11,13 @@
  */
 
 import { applyAffine, invertAffine, rectContains, shapeContains } from '@strata/engine';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
-import { activePageNodes, walkNodes } from '@strata/scene';
+import type { Document, NodeId, SceneNode, ShapeNode } from '@strata/scene';
+import {
+  activePageNodes,
+  deriveGeometryFromPaints,
+  resolveNodePaints,
+  walkNodes,
+} from '@strata/scene';
 import { getOrCreateSpatialIndex, queryPoint } from '../scene/spatialIndex';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
@@ -66,7 +71,11 @@ export class HitTestEngine {
         const worldMat = nodeWorldTransform(this.doc, entry.nodeId);
         const wInv = invertAffine(worldMat);
         const local = applyAffine(wInv, [world.x, world.y]);
-        if (shapeContains(n.shape, local)) {
+        const shape =
+          (n as ShapeNode).shapeless === true
+            ? deriveGeometryFromPaints(resolveNodePaints(n, this.doc))
+            : n.shape;
+        if (shapeContains(shape, local)) {
           return { nodeId: entry.nodeId, node: n };
         }
       }
@@ -88,7 +97,11 @@ export class HitTestEngine {
               const childWorld = nodeWorldTransform(this.doc, childId);
               const childInv = invertAffine(childWorld);
               const childLocal = applyAffine(childInv, [world.x, world.y]);
-              if (shapeContains((child as import('@strata/scene').ShapeNode).shape, childLocal)) {
+              const childShape =
+                (child as ShapeNode).shapeless === true
+                  ? deriveGeometryFromPaints(resolveNodePaints(child, this.doc))
+                  : child.shape;
+              if (shapeContains(childShape, childLocal)) {
                 return { nodeId: entry.nodeId, node: n };
               }
             } else {
@@ -129,7 +142,11 @@ export class HitTestEngine {
         const worldMat = nodeWorldTransform(this.doc, entry.nodeId);
         const wInv = invertAffine(worldMat);
         const local = applyAffine(wInv, [world.x, world.y]);
-        if (shapeContains(n.shape, local)) {
+        const shape =
+          (n as ShapeNode).shapeless === true
+            ? deriveGeometryFromPaints(resolveNodePaints(n, this.doc))
+            : n.shape;
+        if (shapeContains(shape, local)) {
           results.push({ nodeId: entry.nodeId, node: n });
         }
       } else if (n.kind === 'text' || n.kind === 'frame') {
@@ -147,7 +164,11 @@ export class HitTestEngine {
               const childWorld = nodeWorldTransform(this.doc, childId);
               const childInv = invertAffine(childWorld);
               const childLocal = applyAffine(childInv, [world.x, world.y]);
-              if (shapeContains((child as import('@strata/scene').ShapeNode).shape, childLocal)) {
+              const childShape =
+                (child as ShapeNode).shapeless === true
+                  ? deriveGeometryFromPaints(resolveNodePaints(child, this.doc))
+                  : child.shape;
+              if (shapeContains(childShape, childLocal)) {
                 results.push({ nodeId: entry.nodeId, node: n });
                 break;
               }

@@ -231,6 +231,10 @@ export function useShortcuts(
         return () => e.setTool('zoom' as ToolId);
       case 'toolInspect':
         return () => e.setTool('inspect' as ToolId);
+      case 'toolPaint':
+        return () => e.setTool('paint' as ToolId);
+      case 'toolEraser':
+        return () => e.setTool('eraser' as ToolId);
       case 'toggleSnap':
         return () => e.setSnapEnabled(!e.state.snapEnabled);
       case 'toggleGuidesVisible':
