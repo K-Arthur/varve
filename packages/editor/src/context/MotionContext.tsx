@@ -15,7 +15,7 @@ import {
   setActiveTimeline as setActiveTimelineDoc,
 } from '@strata/scene';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useMemo, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { MotionFacade } from '../motion/MotionFacade';
 import type { EditorState } from './types';
 
@@ -56,6 +56,7 @@ interface MotionProviderProps {
   stateRef: React.MutableRefObject<EditorState>;
   updateDoc: (fn: (doc: Document) => Document) => void;
   invalidateSamplerCache: () => void;
+  onReady?: (value: MotionContextValue) => void;
 }
 
 export function MotionProvider({
@@ -65,6 +66,7 @@ export function MotionProvider({
   stateRef,
   updateDoc,
   invalidateSamplerCache,
+  onReady,
 }: MotionProviderProps) {
   const motionFacadeRef = useRef<MotionFacade | null>(null);
 
@@ -354,6 +356,10 @@ export function MotionProvider({
       toggleAutoKeyframe,
     ],
   );
+
+  useEffect(() => {
+    onReady?.(value);
+  }, [value, onReady]);
 
   return <MotionCtx.Provider value={value}>{children}</MotionCtx.Provider>;
 }
