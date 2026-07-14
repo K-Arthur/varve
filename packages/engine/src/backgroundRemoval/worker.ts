@@ -164,7 +164,7 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
       refined.data[i * 4] = v;
       refined.data[i * 4 + 1] = v;
       refined.data[i * 4 + 2] = v;
-      refined.data[i * 4 + 3] = 255;
+      refined.data[i * 4 + 3] = v;
     }
     finalCtx.putImageData(refined, 0, 0);
 
