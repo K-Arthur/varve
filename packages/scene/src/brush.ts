@@ -124,6 +124,10 @@ export interface BrushDab {
   roundness: number;
   /** 0-1 progress along the stroke. */
   strokeT: number;
+  /** Brush tip shape (circle, square, etc.). Defaults to 'circle'. */
+  shape?: BrushShape;
+  /** Blend mode for this dab. Defaults to the preset's blend mode. */
+  blendMode?: string;
 }
 
 export interface BrushStroke {
@@ -252,6 +256,26 @@ export function generateDabs(points: StrokePoint[], preset: BrushPreset): BrushD
   return dabs;
 }
 
+/**
+ * Mulberry32 — a fast, seedable 32-bit PRNG.
+ * Gives deterministic jitter that is reproducible across stroke replays.
+ */
+let _rngState = 1;
+
+/** Seed the deterministic RNG. Each stroke calls this with a unique seed. */
+export function seedJitter(seed: number): void {
+  _rngState = seed | 0;
+  if (_rngState === 0) _rngState = 1;
+}
+
+function deterministicRandom(): number {
+  _rngState += 0x6d2b79f5;
+  let t = _rngState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
 function makeDab(point: StrokePoint, preset: BrushPreset, strokeT: number): BrushDab {
   const sizeMod = evaluateDynamics(preset, point, 'size');
   const opacityMod = evaluateDynamics(preset, point, 'opacity');
@@ -266,8 +290,8 @@ function makeDab(point: StrokePoint, preset: BrushPreset, strokeT: number): Brus
   const angle = preset.angle + rotationMod * Math.PI;
 
   const positionJitter = preset.positionJitter * radius;
-  const jx = positionJitter > 0 ? (Math.random() - 0.5) * positionJitter * 2 : 0;
-  const jy = positionJitter > 0 ? (Math.random() - 0.5) * positionJitter * 2 : 0;
+  const jx = positionJitter > 0 ? (deterministicRandom() - 0.5) * positionJitter * 2 : 0;
+  const jy = positionJitter > 0 ? (deterministicRandom() - 0.5) * positionJitter * 2 : 0;
 
   return {
     x: point.x + jx,
@@ -279,6 +303,8 @@ function makeDab(point: StrokePoint, preset: BrushPreset, strokeT: number): Brus
     angle,
     roundness: preset.roundness,
     strokeT,
+    shape: preset.shape,
+    blendMode: preset.blendMode,
   };
 }
 
@@ -313,7 +339,7 @@ function getInputValue(preset: BrushPreset, point: StrokePoint, input: BrushDyna
     case 'direction':
       return (point.direction + Math.PI) / (2 * Math.PI);
     case 'random':
-      return Math.random();
+      return deterministicRandom();
     case 'stroke':
       return 0; // Requires external stroke progress
     case 'custom':
