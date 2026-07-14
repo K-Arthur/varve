@@ -453,6 +453,13 @@ export function CanvasArea({
   const [dropTargetFrameId, setDropTargetFrameId] = useState<NodeId | null>(null);
   // Incremented by the image cache subscriber so drawContent re-runs after async image loads.
   const [imageCacheStamp, setImageCacheStamp] = useState(0);
+  // Independent stamp for font loads — previously both used imageCacheStamp, so a font
+  // loading during an image-heavy frame could clear the pending image-laden state.
+  const [fontLoadStamp, setFontLoadStamp] = useState(0);
+  // Explicit redraw counter — bumped by requestRedraw() to guarantee drawContent
+  // identity changes (and thus a RAF reschedule) on every mutation path, even when
+  // rootNodes/zoom/pan etc. are unchanged due to React batching edge cases.
+  const [redrawCount, setRedrawCount] = useState(0);
   const contentDrawRafRef = useRef<number | null>(null);
   const overlayDrawRafRef = useRef<number | null>(null);
   // Concurrency guard for drawContent's async body: `drawContent`'s identity
@@ -684,6 +691,7 @@ export function CanvasArea({
   useEffect(() => {
     const unsub = getImageCache().subscribeGlobal(() => {
       setImageCacheStamp((n) => n + 1);
+      requestRedrawRef.current?.();
     });
     return unsub;
   }, []);
@@ -691,9 +699,12 @@ export function CanvasArea({
   // Re-render the canvas whenever async fonts finish loading.
   // Without this, dynamic fonts (Google Fonts, FontFace) render in the
   // fallback typeface on the first frame and never update.
+  // Uses its own stamp (not imageCacheStamp) so font loading never clears
+  // the pending image-laden state on a frame.
   useEffect(() => {
     const unsub = getFontRegistry().subscribe(() => {
-      setImageCacheStamp((n) => n + 1);
+      setFontLoadStamp((n) => n + 1);
+      requestRedrawRef.current?.();
     });
     return unsub;
   }, []);
@@ -979,9 +990,19 @@ export function CanvasArea({
     const parent = canvas.parentElement;
     if (!parent) return;
 
+    // Zero-size viewport guard: if the canvas or its container has no layout
+    // dimensions (display:none, not-yet-sized grid cell, off-screen mount),
+    // bail out. The ResizeObserver will fire when dimensions become available,
+    // bumping canvasSize and triggering a new drawContent.
+    const vpWidth = parent.clientWidth;
+    const vpHeight = parent.clientHeight;
+    if (vpWidth === 0 || vpHeight === 0) {
+      return;
+    }
+
     const dpr = displayDpr;
-    const cssW = parent.clientWidth;
-    const cssH = parent.clientHeight;
+    const cssW = vpWidth;
+    const cssH = vpHeight;
     resizeCanvasBackingStore(canvas, cssW, cssH, dpr);
 
     const ctx = canvas.getContext('2d');
@@ -1967,6 +1988,8 @@ export function CanvasArea({
     state.cameraRotation,
     state.canvasMode,
     imageCacheStamp,
+    fontLoadStamp,
+    redrawCount,
     state.motion.currentTime,
     state.motion.isPlaying,
     state.motion.activeTimelineId,
@@ -1975,9 +1998,29 @@ export function CanvasArea({
     canvasSize.height,
   ]);
 
+  // ── requestRedraw: defence-in-depth redraw trigger ────────────────────
+  // In addition to the drawContent-dependency-based RAF scheduling (which
+  // works when state changes cause a React re-render that changes one of the
+  // deps), provide a direct callback that bumps redrawCount to guarantee a
+  // drawContent identity change. This covers edge cases such as:
+  //   - engine/compositor init resolving outside the React commit phase
+  //   - worker responses arriving during a React batch
+  //   - lifecycle events (visibility change, context restored)
+  //   - any other path where a direct drawContent call occurs
+  const requestRedraw = useCallback(() => {
+    setRedrawCount((n) => n + 1);
+  }, []);
+  const requestRedrawRef = useRef<() => void>(requestRedraw);
+  requestRedrawRef.current = requestRedraw;
+
   useEffect(() => {
-    requestContentDrawRef.current = () => drawContent();
-  }, [drawContent]);
+    requestContentDrawRef.current = () => {
+      drawContent();
+      // Also bump the redraw counter so the next React render gets a new
+      // drawContent identity, making the RAF-scheduling effect re-fire.
+      requestRedrawRef.current();
+    };
+  }, [drawContent, requestRedraw]);
 
   // ── Overlay canvas draw: layout grid overlay, draft shapes ──────────────
 

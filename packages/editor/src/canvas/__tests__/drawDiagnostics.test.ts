@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { FrameDiagnostics } from '../drawDiagnostics';
 import {
   enableDrawDiagnostics,
@@ -8,7 +9,6 @@ import {
   recordFrame,
   resetDiagnostics,
 } from '../drawDiagnostics';
-import { beforeEach, describe, expect, it } from 'vitest';
 
 function makeFrame(overrides?: Partial<FrameDiagnostics>): FrameDiagnostics {
   return {

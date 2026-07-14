@@ -1,10 +1,10 @@
+import { describe, expect, it } from 'vitest';
 import {
-  FRAME_BUDGET_MS,
   endFrameTiming,
+  FRAME_BUDGET_MS,
   getPreviousFrameMs,
   startFrameTiming,
 } from '../frameBudget';
-import { describe, expect, it } from 'vitest';
 
 describe('frameBudget', () => {
   it('getPreviousFrameMs returns 0 initially', () => {
