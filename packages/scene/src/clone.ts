@@ -7,7 +7,14 @@
 
 import type { Document } from './document';
 import { nextNodeId } from './node-id';
-import type { ContainerNode, FrameNode, GroupNode, NodeId, SceneNode } from './types';
+import type {
+  ContainerNode,
+  FrameNode,
+  GroupNode,
+  NodeId,
+  RasterLayerNode,
+  SceneNode,
+} from './types';
 import { isContainer } from './types';
 
 export interface CloneResult {
@@ -76,6 +83,16 @@ export function deepCloneSubtree(doc: Document, rootId: NodeId): CloneResult {
           };
         }
       }
+    } else if (node.kind === 'rasterLayer') {
+      const rl = node as RasterLayerNode;
+      const newTiles = new Map<string, import('./types').RasterTile>();
+      for (const [key, tile] of rl.tiles) {
+        newTiles.set(key, {
+          pixels: new Uint8ClampedArray(tile.pixels),
+          version: tile.version,
+        });
+      }
+      cloned = { ...rl, id: newId, tiles: newTiles } as SceneNode;
     } else {
       // Leaf node: simple id replacement
       cloned = { ...node, id: newId } as SceneNode;
