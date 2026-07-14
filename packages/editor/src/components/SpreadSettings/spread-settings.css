@@ -1,0 +1,50 @@
+/* ── Spread Settings ─────────────────────────────────── */
+/* Neo-Bento: compact toggle + info row.                 */
+
+.spread-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.spread-settings__header {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.spread-settings__title {
+  font-weight: 600;
+}
+
+.spread-settings__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.spread-settings__toggle input {
+  cursor: pointer;
+}
+
+.spread-settings__toggle input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.spread-settings__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.spread-settings__row {
+  display: flex;
+  justify-content: space-between;
+}
