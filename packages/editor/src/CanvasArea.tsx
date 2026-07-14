@@ -737,6 +737,10 @@ export function CanvasArea({
       metaKey: ev.metaKey,
       pointerType: (ev.pointerType as 'mouse' | 'pen' | 'touch') ?? 'mouse',
       pointerPressure: ev.pressure ?? 0,
+      tiltX: ev.tiltX ?? 0,
+      tiltY: ev.tiltY ?? 0,
+      twist: ev.twist ?? 0,
+      foregroundColor: s.foregroundColor,
       snapEnabled: s.snapEnabled,
       snapGrid: s.snapGrid,
 

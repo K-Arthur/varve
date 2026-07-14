@@ -3,6 +3,7 @@ import type { Platform } from '@strata/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@strata/prototype';
 import type {
   BackgroundRemovalMethod,
+  ColorMode,
   Document,
   Fill,
   GridItemPlacement,
@@ -49,7 +50,9 @@ export type ToolId =
   | 'patch'
   | 'refineMask'
   | 'trimapEdit'
-  | 'crop';
+  | 'crop'
+  | 'paint'
+  | 'eraser';
 
 export type TrimapPenMode = 'foreground' | 'unknown' | 'background';
 
@@ -133,6 +136,11 @@ export interface EditorState {
   keyObjectId: string | null;
   alignToPage: boolean;
   colorBlindnessView: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
+
+  /** Foreground color for painting, as RGBA [r, g, b, a] in 0-255 range. */
+  foregroundColor: [number, number, number, number];
+  /** Background color for painting, as RGBA [r, g, b, a] in 0-255 range. */
+  backgroundColor: [number, number, number, number];
 }
 
 export interface EditorContextValue {
@@ -491,8 +499,19 @@ export interface EditorContextValue {
   setCurrentPageId: (id: string | null) => void;
   activePageNodes: () => NodeId[];
 
+  // Color mode
+  documentColorMode: ColorMode;
+  switchColorMode: (mode: ColorMode) => void;
+
   // Color blindness simulation
   setColorBlindnessView: (type: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia') => void;
+
+  // Foreground/background painting colors
+  setForegroundColor: (color: [number, number, number, number]) => void;
+  setBackgroundColor: (color: [number, number, number, number]) => void;
+  swapColors: () => void;
+  /** Reset foreground/background to defaults (black foreground, white background). */
+  resetColors: () => void;
 
   // Analytics
   recordAction: (actionId: string) => void;
