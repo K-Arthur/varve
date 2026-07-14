@@ -14,7 +14,15 @@ import {
   updateVariableInDocument,
 } from '@strata/scene';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ActivePrototypeTransition } from '../components/Prototype/usePrototypeTransition';
 import { createRuntimeFromDocument, interactionsMapFromDocument } from '../motion/prototypeRuntime';
 import { computeSmartAnimateTransition } from '../motion/smartAnimateBridge';
@@ -67,6 +75,7 @@ interface PrototypeProviderProps {
   /** Shared refs — kept in the parent so the delay-polling useEffect can access them. */
   prototypeRuntimeRef: React.MutableRefObject<PrototypeRuntime | null>;
   smRuntimeRef: React.MutableRefObject<SMRuntime | null>;
+  onReady?: (value: PrototypeContextValue) => void;
 }
 
 export function PrototypeProvider({
@@ -77,6 +86,7 @@ export function PrototypeProvider({
   updateDoc,
   prototypeRuntimeRef,
   smRuntimeRef,
+  onReady,
 }: PrototypeProviderProps) {
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -300,6 +310,10 @@ export function PrototypeProvider({
       selectPrototypeInteraction,
     ],
   );
+
+  useEffect(() => {
+    onReady?.(value);
+  }, [value, onReady]);
 
   return <PrototypeCtx.Provider value={value}>{children}</PrototypeCtx.Provider>;
 }
