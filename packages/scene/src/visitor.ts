@@ -3,6 +3,7 @@ import type {
   FrameNode,
   GroupNode,
   PathNode,
+  RasterLayerNode,
   SceneNode,
   ShapeNode,
   TextNode,
@@ -16,6 +17,7 @@ export type NodeVisitor<T> = {
   frame: (node: FrameNode) => T;
   adjustment: (node: AdjustmentNode) => T;
   path: (node: PathNode) => T;
+  rasterLayer: (node: RasterLayerNode) => T;
 };
 
 /** Visit a SceneNode with type-safe dispatch. */
@@ -33,6 +35,8 @@ export function visitNode<T>(node: SceneNode, visitor: NodeVisitor<T>): T {
       return visitor.adjustment(node as AdjustmentNode);
     case 'path':
       return visitor.path(node as PathNode);
+    case 'rasterLayer':
+      return visitor.rasterLayer(node as RasterLayerNode);
     default: {
       const _exhaustive: never = node;
       throw new Error(`Unhandled node kind: ${(_exhaustive as SceneNode).kind}`);
@@ -63,6 +67,9 @@ export function visitNodePartial<T>(
       return visitor.group ? visitor.group(node) : fallback(node);
     case 'adjustment':
       return visitor.adjustment ? visitor.adjustment(node) : fallback(node);
+    case 'path':
+    case 'rasterLayer':
+      return visitor.rasterLayer ? visitor.rasterLayer(node) : fallback(node);
   }
   return fallback(node);
 }

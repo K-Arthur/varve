@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { deepCloneSubtree } from '../clone';
+import { addNode, createDocument, removeNode, walkNodes } from '../document';
 import {
   type BrushDab,
   compositeDabOnNode,
@@ -232,5 +234,59 @@ describe('Tile compositing', () => {
     expect(result.tiles.get('1:0')).toBeDefined();
     expect(result.tiles.get('0:1')).toBeDefined();
     expect(result.tiles.get('1:1')).toBeDefined();
+  });
+});
+
+describe('RasterLayerNode document integration', () => {
+  it('can be added to a document via addNode', () => {
+    let doc = createDocument('raster-test');
+    const node = makeRasterLayerNode('rl-1', { width: 640, height: 480 });
+    doc = addNode(doc, node);
+    expect(doc.nodes['rl-1']).toBeDefined();
+    expect(doc.nodes['rl-1']!.kind).toBe('rasterLayer');
+    expect(doc.rootChildren).toContain('rl-1');
+  });
+
+  it('appears in walkNodes output', () => {
+    let doc = createDocument('raster-test-2');
+    const node = makeRasterLayerNode('rl-2', { width: 100, height: 100 });
+    doc = addNode(doc, node);
+    const result = walkNodes(doc);
+    expect(result.has('rl-2')).toBe(true);
+    expect(result.get('rl-2')!.node.kind).toBe('rasterLayer');
+  });
+
+  it('can be removed from a document', () => {
+    let doc = createDocument('raster-test-3');
+    doc = addNode(doc, makeRasterLayerNode('rl-3', { width: 200, height: 200 }));
+    expect(doc.nodes['rl-3']).toBeDefined();
+    doc = removeNode(doc, 'rl-3');
+    expect(doc.nodes['rl-3']).toBeUndefined();
+    expect(doc.rootChildren).not.toContain('rl-3');
+  });
+
+  it('clone preserves tile data', () => {
+    const rl = makeRasterLayerNode('rl-clone-1', { width: 256, height: 256 });
+    const tile = createEmptyTile();
+    tile.pixels[0] = 128;
+    tile.pixels[1] = 64;
+    tile.pixels[2] = 32;
+    tile.pixels[3] = 255;
+    rl.tiles.set('0:0', tile);
+
+    let doc = createDocument('raster-clone-test');
+    doc = addNode(doc, rl);
+
+    const result = deepCloneSubtree(doc, 'rl-clone-1');
+    const clonedNode = result.nodes[result.rootId] as import('../types').RasterLayerNode;
+
+    expect(clonedNode.kind).toBe('rasterLayer');
+    expect(clonedNode.id).not.toBe('rl-clone-1');
+    expect(clonedNode.tiles.size).toBe(1);
+    expect(clonedNode.tiles.get('0:0')).toBeDefined();
+    expect(clonedNode.tiles.get('0:0')!.pixels[0]).toBe(128);
+    expect(clonedNode.tiles.get('0:0')!.pixels[1]).toBe(64);
+    expect(clonedNode.tiles.get('0:0')!.pixels[2]).toBe(32);
+    expect(clonedNode.tiles.get('0:0')!.pixels[3]).toBe(255);
   });
 });
