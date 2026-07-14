@@ -1,0 +1,107 @@
+.selection-quick-bar {
+  position: absolute;
+  z-index: calc(var(--z-overlay, 1000) - 1);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-05, 2px);
+  padding: var(--space-1);
+  transform: translateX(-50%);
+  background: var(--elevation-surface-raised);
+  border: var(--border-micro);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elevation-shadow-raised);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  pointer-events: auto;
+  color: var(--color-text-primary);
+}
+
+.selection-quick-bar__btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 52px;
+  max-width: 88px;
+  height: 100%;
+  padding: var(--space-05, 2px) var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  line-height: 1.1;
+}
+
+.selection-quick-bar__btn:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-primary);
+}
+
+.selection-quick-bar__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
+.selection-quick-bar__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selection-quick-bar__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.selection-quick-bar__more {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-left: 1px solid var(--color-border-subtle);
+  margin-left: var(--space-05, 2px);
+  padding-left: var(--space-05, 2px);
+}
+
+.selection-quick-bar__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 10rem;
+  padding: var(--space-1);
+  background: var(--elevation-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-shadow-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 1;
+}
+
+.selection-quick-bar__menuitem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.selection-quick-bar__menuitem:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+}
+
+.selection-quick-bar__menuitem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
