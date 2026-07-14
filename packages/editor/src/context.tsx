@@ -154,6 +154,7 @@ import {
 import {
   alignBBox,
   animateCamera,
+  type Camera,
   clampCamera,
   clampZoom,
   computeAlignmentTarget,
@@ -308,6 +309,8 @@ export interface EditorContextValue {
   /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
   setTool: (t: ToolId) => void;
+  /** Commit zoom, pan, and rotation as one camera transaction. */
+  setCamera: (camera: Camera) => void;
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
   /** Zoom in 25% anchored to the viewport center. */
@@ -1106,6 +1109,112 @@ const INITIAL_SESSION_ID = 'session-0';
 
 // ─── standalone helpers ─────────────────────────────────────────────────
 
+/**
+ * Resize a node to world-space width/height `w`/`h`, keeping its local
+ * origin (top-left of `nodeLocalBounds`) fixed so `node.transform`'s
+ * translation stays the node's on-canvas position. Shared by the canvas
+ * resize handles (`setNodeSize`) and the Position/Size inspector
+ * (`setSelectedW`/`setSelectedH`) so both paths agree on geometry.
+ */
+function resizeSceneNode(n: SceneNode, w: number, h: number): SceneNode {
+  if (n.kind === 'frame') return { ...n, w, h };
+  if (n.kind === 'text') return { ...n, w, h };
+  if (n.kind !== 'shape') return n;
+  const s = n.shape;
+  switch (s.kind) {
+    case 'rect':
+      return { ...n, shape: { ...s, w, h } };
+    case 'ellipse':
+      return { ...n, shape: { ...s, rx: w / 2, ry: h / 2, cx: w / 2, cy: h / 2 } };
+    case 'circle':
+      // Circle must stay circular: use max dimension so it doesn't warp
+      return { ...n, shape: { ...s, r: Math.max(w, h) / 2, cx: w / 2, cy: h / 2 } };
+    case 'line': {
+      const oldW = Math.abs(s.to[0] - s.from[0]) || 1;
+      const oldH = Math.abs(s.to[1] - s.from[1]) || 1;
+      const sx = w / oldW;
+      const sy = h / oldH;
+      const cx = (s.from[0] + s.to[0]) / 2;
+      const cy = (s.from[1] + s.to[1]) / 2;
+      return {
+        ...n,
+        shape: {
+          ...s,
+          from: [cx + (s.from[0] - cx) * sx, cy + (s.from[1] - cy) * sy] as [number, number],
+          to: [cx + (s.to[0] - cx) * sx, cy + (s.to[1] - cy) * sy] as [number, number],
+        },
+      };
+    }
+    case 'arrow': {
+      const oldW2 = Math.abs(s.to[0] - s.from[0]) || 1;
+      const oldH2 = Math.abs(s.to[1] - s.from[1]) || 1;
+      const sx2 = w / oldW2;
+      const sy2 = h / oldH2;
+      const cx2 = (s.from[0] + s.to[0]) / 2;
+      const cy2 = (s.from[1] + s.to[1]) / 2;
+      return {
+        ...n,
+        shape: {
+          ...s,
+          from: [cx2 + (s.from[0] - cx2) * sx2, cy2 + (s.from[1] - cy2) * sy2] as [number, number],
+          to: [cx2 + (s.to[0] - cx2) * sx2, cy2 + (s.to[1] - cy2) * sy2] as [number, number],
+        },
+      };
+    }
+    case 'polygon':
+      return { ...n, shape: { ...s, radius: Math.max(1, w / 2) } };
+    case 'star': {
+      const oldOR = s.outerRadius || 1;
+      const newOR = Math.max(1, w / 2);
+      const ratio = newOR / oldOR;
+      return {
+        ...n,
+        shape: {
+          ...s,
+          outerRadius: newOR,
+          innerRadius: Math.max(1, s.innerRadius * ratio),
+        },
+      };
+    }
+    case 'path': {
+      const points = s.points;
+      if (points.length === 0) return n;
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      for (const p of points) {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      }
+      const pbw = maxX - minX || 1;
+      const pbh = maxY - minY || 1;
+      const sx3 = w / pbw;
+      const sy3 = h / pbh;
+      return {
+        ...n,
+        shape: {
+          ...s,
+          points: points.map((p) => ({
+            x: (p.x - minX) * sx3 + minX,
+            y: (p.y - minY) * sy3 + minY,
+            handleIn: p.handleIn
+              ? ([p.handleIn[0] * sx3, p.handleIn[1] * sy3] as [number, number])
+              : null,
+            handleOut: p.handleOut
+              ? ([p.handleOut[0] * sx3, p.handleOut[1] * sy3] as [number, number])
+              : null,
+          })),
+        },
+      };
+    }
+    default:
+      return n;
+  }
+}
+
 /** Apply layout to a frame's children and return the updated doc. */
 function applyFrameLayout(doc: Document, parentId: string | null | undefined): Document {
   if (!parentId) return doc;
@@ -1569,6 +1678,31 @@ export function EditorProvider({
     [updateDoc],
   );
 
+  const setCamera = useCallback((camera: Camera) => {
+    setState((current) => {
+      const canvasEl = document.querySelector<HTMLElement>('canvas.editor-canvas__content-layer');
+      const viewport: Viewport = canvasEl
+        ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+        : { width: window.innerWidth, height: window.innerHeight - 120 };
+      const candidate: Camera = {
+        zoom: clampZoom(camera.zoom),
+        pan: { x: camera.pan.x, y: camera.pan.y },
+        rotation: camera.rotation ?? current.cameraRotation,
+      };
+      const clamped = clampCamera(
+        candidate,
+        viewport,
+        computeDocumentUnionBounds(current.document),
+      );
+      return {
+        ...current,
+        zoom: clamped.zoom,
+        pan: clamped.pan,
+        cameraRotation: clamped.rotation ?? 0,
+      };
+    });
+  }, []);
+
   const value = useMemo<EditorContextValue>(
     () => ({
       state,
@@ -1578,19 +1712,44 @@ export function EditorProvider({
         toolRef.current = t;
         patch({ tool: t });
       },
-      setZoom: (z) => patch({ zoom: clampZoom(z) }),
+      setCamera,
+      setZoom: (z) => {
+        setState((current) => {
+          const canvasEl = document.querySelector<HTMLElement>(
+            'canvas.editor-canvas__content-layer',
+          );
+          const viewport: Viewport = canvasEl
+            ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+            : { width: window.innerWidth, height: window.innerHeight - 120 };
+          return {
+            ...current,
+            ...computeZoomTo(
+              {
+                zoom: current.zoom,
+                pan: current.pan,
+                cameraRotation: current.cameraRotation,
+              },
+              z,
+              viewport,
+            ),
+          };
+        });
+      },
       setPan: (p) => {
-        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
-        const vp: Viewport = canvasEl
-          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
-          : { width: window.innerWidth, height: window.innerHeight - 120 };
-        const bounds = computeDocumentUnionBounds(stateRef.current.document);
-        const cam = clampCamera(
-          { zoom: stateRef.current.zoom, pan: p, rotation: stateRef.current.cameraRotation },
-          vp,
-          bounds,
-        );
-        patch({ pan: cam.pan });
+        setState((current) => {
+          const canvasEl = document.querySelector<HTMLElement>(
+            'canvas.editor-canvas__content-layer',
+          );
+          const viewport: Viewport = canvasEl
+            ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+            : { width: window.innerWidth, height: window.innerHeight - 120 };
+          const camera = clampCamera(
+            { zoom: current.zoom, pan: p, rotation: current.cameraRotation },
+            viewport,
+            computeDocumentUnionBounds(current.document),
+          );
+          return { ...current, pan: camera.pan };
+        });
       },
       zoomIn: () => {
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
@@ -1965,7 +2124,7 @@ export function EditorProvider({
         });
       },
 
-      createTextNodeAt: (world, _size, parentId, text = '') => {
+      createTextNodeAt: (world, size, parentId, text = '') => {
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
@@ -1978,6 +2137,10 @@ export function EditorProvider({
             name: autoName,
             transform,
             fontSize: 16,
+            w: size?.w,
+            h: size?.h,
+            textMode: size ? 'area' : 'point',
+            textResizing: size ? 'fixed' : 'autoWidth',
           });
 
           const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
@@ -2416,112 +2579,7 @@ export function EditorProvider({
       },
 
       setNodeSize: (id, w, h) => {
-        updateNodeProp(id, (n) => {
-          if (n.kind === 'frame') return { ...n, w, h };
-          if (n.kind !== 'shape') return n;
-          const s = n.shape;
-          switch (s.kind) {
-            case 'rect':
-              return { ...n, shape: { ...s, w, h } };
-            case 'ellipse':
-              return { ...n, shape: { ...s, rx: w / 2, ry: h / 2, cx: w / 2, cy: h / 2 } };
-            case 'circle':
-              // Circle must stay circular: use max dimension so it doesn't warp
-              return { ...n, shape: { ...s, r: Math.max(w, h) / 2, cx: w / 2, cy: h / 2 } };
-            case 'line': {
-              const oldW = Math.abs(s.to[0] - s.from[0]) || 1;
-              const oldH = Math.abs(s.to[1] - s.from[1]) || 1;
-              const sx = w / oldW;
-              const sy = h / oldH;
-              const cx = (s.from[0] + s.to[0]) / 2;
-              const cy = (s.from[1] + s.to[1]) / 2;
-              return {
-                ...n,
-                shape: {
-                  ...s,
-                  from: [cx + (s.from[0] - cx) * sx, cy + (s.from[1] - cy) * sy] as [
-                    number,
-                    number,
-                  ],
-                  to: [cx + (s.to[0] - cx) * sx, cy + (s.to[1] - cy) * sy] as [number, number],
-                },
-              };
-            }
-            case 'arrow': {
-              const oldW2 = Math.abs(s.to[0] - s.from[0]) || 1;
-              const oldH2 = Math.abs(s.to[1] - s.from[1]) || 1;
-              const sx2 = w / oldW2;
-              const sy2 = h / oldH2;
-              const cx2 = (s.from[0] + s.to[0]) / 2;
-              const cy2 = (s.from[1] + s.to[1]) / 2;
-              return {
-                ...n,
-                shape: {
-                  ...s,
-                  from: [cx2 + (s.from[0] - cx2) * sx2, cy2 + (s.from[1] - cy2) * sy2] as [
-                    number,
-                    number,
-                  ],
-                  to: [cx2 + (s.to[0] - cx2) * sx2, cy2 + (s.to[1] - cy2) * sy2] as [
-                    number,
-                    number,
-                  ],
-                },
-              };
-            }
-            case 'polygon':
-              return { ...n, shape: { ...s, radius: Math.max(1, w / 2) } };
-            case 'star': {
-              const oldOR = s.outerRadius || 1;
-              const newOR = Math.max(1, w / 2);
-              const ratio = newOR / oldOR;
-              return {
-                ...n,
-                shape: {
-                  ...s,
-                  outerRadius: newOR,
-                  innerRadius: Math.max(1, s.innerRadius * ratio),
-                },
-              };
-            }
-            case 'path': {
-              const points = s.points;
-              if (points.length === 0) return n;
-              let minX = Infinity,
-                minY = Infinity,
-                maxX = -Infinity,
-                maxY = -Infinity;
-              for (const p of points) {
-                minX = Math.min(minX, p.x);
-                minY = Math.min(minY, p.y);
-                maxX = Math.max(maxX, p.x);
-                maxY = Math.max(maxY, p.y);
-              }
-              const pbw = maxX - minX || 1;
-              const pbh = maxY - minY || 1;
-              const sx3 = w / pbw;
-              const sy3 = h / pbh;
-              return {
-                ...n,
-                shape: {
-                  ...s,
-                  points: points.map((p) => ({
-                    x: (p.x - minX) * sx3 + minX,
-                    y: (p.y - minY) * sy3 + minY,
-                    handleIn: p.handleIn
-                      ? ([p.handleIn[0] * sx3, p.handleIn[1] * sy3] as [number, number])
-                      : null,
-                    handleOut: p.handleOut
-                      ? ([p.handleOut[0] * sx3, p.handleOut[1] * sy3] as [number, number])
-                      : null,
-                  })),
-                },
-              };
-            }
-            default:
-              return n;
-          }
-        });
+        updateNodeProp(id, (n) => resizeSceneNode(n, w, h));
       },
 
       // Batch edits: one undo step for the whole selection (Strata plan §8).
@@ -2581,17 +2639,10 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (node?.kind !== 'shape') continue;
-            const s = node.shape;
-            const nextShape =
-              s.kind === 'rect'
-                ? { ...s, w }
-                : s.kind === 'ellipse'
-                  ? { ...s, rx: w }
-                  : s.kind === 'circle'
-                    ? { ...s, r: w }
-                    : s;
-            nodes[id] = { ...node, shape: nextShape };
+            if (!node) continue;
+            const bounds = nodeLocalBounds(node);
+            if (!bounds) continue;
+            nodes[id] = resizeSceneNode(node, w, bounds.h);
           }
           return { ...doc, nodes };
         });
@@ -2604,11 +2655,10 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (node?.kind !== 'shape') continue;
-            const s = node.shape;
-            const nextShape =
-              s.kind === 'rect' ? { ...s, h } : s.kind === 'ellipse' ? { ...s, ry: h } : s;
-            nodes[id] = { ...node, shape: nextShape };
+            if (!node) continue;
+            const bounds = nodeLocalBounds(node);
+            if (!bounds) continue;
+            nodes[id] = resizeSceneNode(node, bounds.w, h);
           }
           return { ...doc, nodes };
         });
@@ -3930,12 +3980,36 @@ export function EditorProvider({
             }
           }
 
+          // Place pasted (non-native, e.g. clipboard image) content at the
+          // center of the current viewport, not wherever the importer's
+          // document happened to put it — mirrors the world-center placement
+          // used for dropped files (CanvasArea.tsx handleDrop) and new frame
+          // presets, via the same editorScreenToWorld/applyDropPosition path.
+          const pasteCanvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+          const pasteVp: Viewport = pasteCanvasEl
+            ? { width: pasteCanvasEl.clientWidth, height: pasteCanvasEl.clientHeight }
+            : { width: window.innerWidth, height: window.innerHeight - 120 };
+          const pasteCamState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+          const pasteCenter = editorScreenToWorld(
+            pasteCamState,
+            pasteVp.width / 2,
+            pasteVp.height / 2,
+            pasteVp,
+          );
+          let pasteIndex = 0;
           for (const result of importResults) {
             for (const id of result.nodeIds) {
-              const inserted = insertImportedSubtree(doc, result.document, id, (node) => node);
+              const offset = pasteIndex * 40;
+              const inserted = insertImportedSubtree(doc, result.document, id, (node) =>
+                applyDropPosition(node, {
+                  x: pasteCenter[0] + offset,
+                  y: pasteCenter[1] + offset,
+                }),
+              );
               if (!inserted) continue;
               doc = inserted.doc;
               newIds.push(inserted.rootId);
+              pasteIndex += 1;
             }
           }
 
@@ -5551,6 +5625,7 @@ export function EditorProvider({
     [
       state,
       patch,
+      setCamera,
       updateDoc,
       rootNodes,
       updateNodeProp,
