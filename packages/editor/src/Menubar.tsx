@@ -6,7 +6,7 @@ import { getActionRegistry } from './actions/ActionRegistry';
 import { useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
 
-type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Plugins' | 'Help';
+type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Plugins' | 'Help';
 
 interface MenuItem {
   label: string;
@@ -122,6 +122,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         label: 'Lock All Guides',
         shortcut: formatShortcut(SHORTCUT_DEFS.lockAllGuides.binding),
         action: 'lockAllGuides',
+      },
+      { label: '---' },
+      {
+        label: 'Facing Pages',
+        action: 'toggleFacingPages',
       },
       {
         label: 'Soft Proofing',
@@ -288,6 +293,28 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       },
     ],
   },
+  {
+    id: 'Page',
+    items: [
+      {
+        label: 'Create Master',
+        action: 'createMaster',
+      },
+      {
+        label: 'Apply Master to Page',
+        action: 'applyMaster',
+      },
+      {
+        label: 'Detach Master from Page',
+        action: 'detachMaster',
+      },
+      { label: '---' },
+      {
+        label: 'Facing Pages',
+        action: 'toggleFacingPages',
+      },
+    ],
+  },
   { id: 'Plugins', items: [{ label: 'No plugins loaded', action: '' }] },
   {
     id: 'Help',
@@ -345,6 +372,9 @@ export function Menubar({
     removeMaskFromSelected,
     toggleMask,
     invertMask,
+    assignMasterToPage,
+    createMaster,
+    toggleFacingPages,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -459,6 +489,27 @@ export function Menubar({
         case 'present':
           startPresentation();
           return;
+        case 'toggleFacingPages':
+          toggleFacingPages();
+          return;
+        case 'createMaster':
+          createMaster('Master', 1920, 1080);
+          return;
+        case 'applyMaster': {
+          const activeId = state.document.activePageId;
+          const masterEntries = state.document.masters ? Object.keys(state.document.masters) : [];
+          if (activeId && masterEntries.length > 0) {
+            assignMasterToPage(activeId, masterEntries[0]!);
+          }
+          return;
+        }
+        case 'detachMaster': {
+          const activeId = state.document.activePageId;
+          if (activeId) {
+            assignMasterToPage(activeId, null);
+          }
+          return;
+        }
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
@@ -511,6 +562,9 @@ export function Menubar({
       invertMask,
       clearAllGuides,
       startPresentation,
+      assignMasterToPage,
+      createMaster,
+      toggleFacingPages,
     ],
   );
 
