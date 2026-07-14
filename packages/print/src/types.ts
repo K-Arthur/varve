@@ -20,6 +20,8 @@ export interface PdfExportOptions {
   iccProfile?: string;
   /** When true, includes CMYK colour bars on the output. */
   colorBars?: boolean;
+  /** JSON-serialized resource manifest with decoded image bytes for pattern fills. */
+  manifestJson?: string;
 }
 
 export interface PdfResult {
