@@ -316,6 +316,16 @@ fn render_fills(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8> {
                 if !fill_visible(fill) {
                     continue;
                 }
+                if matches!(fill, FillIR::Image { .. } | FillIR::Pattern { .. }) {
+                    // Basic PDF export has no image/pattern XObject pipeline
+                    // yet. Painting a solid color here would silently and
+                    // misleadingly stand in for the real content (it looks
+                    // like a deliberate fill, not a gap); skip the paint and
+                    // say so explicitly instead, matching how unsupported
+                    // effects/filters are already handled below.
+                    buf.extend_from_slice(b"% image/pattern fill (not rendered in basic PDF)\n");
+                    continue;
+                }
                 buf.extend_from_slice(b"q\n");
                 let color_str = fill_to_color_string(fill, use_cmyk);
                 buf.extend(color_str.as_bytes());
@@ -932,16 +942,24 @@ mod tests {
                 font_weight: 400,
                 font_style: "normal".into(),
                 text_align: "left".into(),
+                text_align_vertical: None,
                 x: 0.0,
                 y: 0.0,
                 w: font_size * text.len() as f64 * 0.6,
                 h: font_size * 1.2,
                 letter_spacing: None,
                 line_height: None,
+                paragraph_spacing: None,
                 text_case: None,
                 text_decoration: None,
+                text_overflow: None,
+                list_style: None,
+                rich_text: None,
                 open_type_features: None,
                 variable_axes: None,
+                text_mode: None,
+                path_text_settings: None,
+                path_shape: None,
             },
             fill: EngineColor::Rgb {
                 r: 0.0,
@@ -1238,6 +1256,59 @@ mod tests {
         let result = render_fills(&node, 100.0, false);
         let s = String::from_utf8_lossy(&result);
         assert!(!s.contains("rg"), "invisible fill should not render");
+    }
+
+    #[test]
+    fn render_fills_image_not_rendered_as_solid_black() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![FillIR::Image {
+            src: "data:image/png;base64,AAAA".into(),
+            fit: "fill".into(),
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+            image_width: None,
+            image_height: None,
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+            alpha_mask: None,
+        }]);
+        let result = render_fills(&node, 100.0, false);
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            !s.contains("0 0 0 rg") && !s.contains("f\n"),
+            "image fill has no PDF XObject pipeline yet and must not silently \
+             paint a solid color in its place: {s}"
+        );
+        assert!(
+            s.contains("not rendered"),
+            "should explicitly note the unsupported image fill: {s}"
+        );
+    }
+
+    #[test]
+    fn render_fills_pattern_not_rendered_as_solid_black() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![FillIR::Pattern {
+            tile_src: "data:image/png;base64,AAAA".into(),
+            spacing: 0.0,
+            rotation: 0.0,
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }]);
+        let result = render_fills(&node, 100.0, false);
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            !s.contains("0 0 0 rg") && !s.contains("f\n"),
+            "pattern fill has no PDF XObject pipeline yet and must not silently \
+             paint a solid color in its place: {s}"
+        );
+        assert!(
+            s.contains("not rendered"),
+            "should explicitly note the unsupported pattern fill: {s}"
+        );
     }
 
     #[test]
@@ -1726,16 +1797,24 @@ mod tests {
                 font_weight: 400,
                 font_style: "normal".into(),
                 text_align: "left".into(),
+                text_align_vertical: None,
                 x: 0.0,
                 y: 0.0,
                 w: 15.0,
                 h: 28.0,
                 letter_spacing: None,
                 line_height: None,
+                paragraph_spacing: None,
                 text_case: None,
                 text_decoration: None,
+                text_overflow: None,
+                list_style: None,
+                rich_text: None,
                 open_type_features: None,
                 variable_axes: None,
+                text_mode: None,
+                path_text_settings: None,
+                path_shape: None,
             },
             fill: EngineColor::Rgb {
                 r: 255.0,
