@@ -232,8 +232,7 @@ import {
   SelectionProvider,
   ViewportProvider,
 } from './context/index';
-import { useMotion } from './context/MotionContext';
-import { usePrototype } from './context/PrototypeContext';
+import type { MotionContextValue } from './context/MotionContext';
 import type {
   CanvasMode,
   EditorState,
@@ -1402,6 +1401,47 @@ export function nodeWorldBoundsFn(
   return null;
 }
 
+/** No-op fallback for motion methods used before MotionProvider mounts. */
+const MOTION_NOOP: MotionContextValue = {
+  playTimeline: () => {},
+  pauseTimeline: () => {},
+  stopTimeline: () => {},
+  seekTimeline: () => {},
+  setActiveTimeline: () => {},
+  setPlaybackSpeed: () => {},
+  toggleLoop: () => {},
+  addKeyframeToSelected: () => {},
+  createTimeline: () => '',
+  removeTimeline: () => {},
+  renameTimeline: () => {},
+  removeTrack: () => {},
+  toggleTimelinePanel: () => {},
+  addTimelineMarker: () => {},
+  removeTimelineMarker: () => {},
+  renameTimelineMarker: () => {},
+  createMotionPresetFromTimeline: () => '',
+  applyMotionPreset: () => {},
+  toggleAutoKeyframe: () => {},
+};
+
+/** No-op fallback for prototype methods used before PrototypeProvider mounts. */
+const PROTO_NOOP: import('./context/PrototypeContext').PrototypeContextValue = {
+  setPrototypeMode: () => {},
+  updatePrototypeData: () => {},
+  handlePrototypeEvent: () => {},
+  getPrototypeVariable: () => undefined,
+  setPrototypeVariable: () => {},
+  startPresentation: () => {},
+  stopPresentation: () => {},
+  getPrototypeScreens: () => [],
+  prototypeCurrentScreen: '',
+  navigatePrototypeTo: () => {},
+  prototypeTransition: null,
+  clearPrototypeTransition: () => {},
+  selectedInteractionId: null,
+  selectPrototypeInteraction: () => {},
+};
+
 export function EditorProvider({
   children,
   onBackToHome,
@@ -1833,8 +1873,10 @@ export function EditorProvider({
     });
   }, []);
 
-  const motion = useMotion();
-  const proto = usePrototype();
+  const [motionValue, setMotionValue] = useState<MotionContextValue | null>(null);
+  const [protoValue, setProtoValue] = useState<
+    import('./context/PrototypeContext').PrototypeContextValue | null
+  >(null);
   const bgRemoval = useBackgroundRemoval(
     state,
     patch,
@@ -5214,7 +5256,7 @@ export function EditorProvider({
 
       setTrimapData: bgRemoval.setTrimapData,
 
-      ...proto,
+      ...(protoValue ?? PROTO_NOOP),
 
       getNodeInteractions: (nodeId) => {
         return getInteractionsForNode(stateRef.current.document, nodeId);
@@ -5232,7 +5274,7 @@ export function EditorProvider({
         updateDoc((doc) => updateInteractionDoc(doc, interactionId, updates));
       },
 
-      ...motion,
+      ...(motionValue ?? MOTION_NOOP),
 
       setTrackNestedTimeline: (timelineId, trackId, nestedTimelineId, startProgress = 0) => {
         updateDoc((doc) =>
@@ -5410,10 +5452,10 @@ export function EditorProvider({
       focusedField,
       setFocusedField,
       showExportDialog,
-      proto,
+      protoValue,
       bgRemoval,
       platform,
-      motion,
+      motionValue,
       newDocument,
       serializeDocument,
       save,
@@ -5572,6 +5614,7 @@ export function EditorProvider({
               stateRef={stateRef}
               updateDoc={updateDoc}
               invalidateSamplerCache={invalidateSamplerCache}
+              onReady={setMotionValue}
             >
               <PrototypeProvider
                 state={state}
@@ -5580,6 +5623,7 @@ export function EditorProvider({
                 updateDoc={updateDoc}
                 prototypeRuntimeRef={prototypeRuntimeRef}
                 smRuntimeRef={smRuntimeRef}
+                onReady={setProtoValue}
               >
                 {children}
               </PrototypeProvider>
