@@ -178,20 +178,6 @@ test.describe('Layers Panel - Accessibility', () => {
   });
 
   test('reduced motion disables animations', async ({ page }) => {
-    // Check that the reduced motion media query is respected
-    const _hasReducedMotionStyles = await page.evaluate(() => {
-      const style = document.createElement('style');
-      style.textContent =
-        '@media (prefers-reduced-motion: reduce) { .layers-row { transition: none !important; } }';
-      document.head.appendChild(style);
-
-      const row = document.querySelector('.layers-row');
-      if (!row) return true; // no rows to check, skip gracefully
-
-      const computed = window.getComputedStyle(row);
-      return computed.transition === 'none' || computed.transition === '';
-    });
-
     // The test checks that reduced motion styles exist in the CSS
     const cssContent = await page.evaluate(() => {
       const sheets = Array.from(document.styleSheets);

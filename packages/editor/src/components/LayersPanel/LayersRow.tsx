@@ -403,6 +403,22 @@ export const LayersRow = memo(function LayersRow({
           <span className="layers-row__keyframe-badge">{keyframeCount}</span>
         )}
 
+        {/* Mask indicator badge */}
+        {(node as { mask?: { type?: string; visible?: boolean } }).mask?.visible && !editing && (
+          <span
+            className={`layers-row__mask-badge ${
+              (node as { mask?: { type?: string } }).mask?.type === 'alpha'
+                ? 'layers-row__mask-badge--alpha'
+                : (node as { mask?: { type?: string } }).mask?.type === 'luminance'
+                  ? 'layers-row__mask-badge--luminance'
+                  : 'layers-row__mask-badge--clip'
+            }`}
+            title={`${(node as { mask?: { type?: string } }).mask?.type ?? 'clip'} mask`}
+          >
+            {(node as { mask?: { type?: string } }).mask?.type ?? 'clip'}
+          </span>
+        )}
+
         {/* Blend mode / opacity badge */}
         {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
 

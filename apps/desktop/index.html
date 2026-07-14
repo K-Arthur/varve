@@ -10,60 +10,70 @@
     <link rel="icon" type="image/x-icon" href="/icons/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <!-- Performance mark: first HTML content renders before any JS executes. -->
     <script>
       if (typeof performance !== 'undefined' && performance.mark) {
         performance.mark('strata-html-paint');
       }
     </script>
-    <!-- Pre-JS boot fallback: paints before the bundle downloads (browser target only). -->
     <style id="strata-boot-fallback-style">
       #strata-boot-fallback {
+        /* Brand-fixed dark splash — ignores in-app light/dark/HC theme. */
+        color-scheme: dark;
         position: fixed;
         inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: grid;
+        place-items: center;
         background: #10151f;
+        color: #ffffff;
         z-index: 2147483646;
       }
       #strata-boot-fallback .boot-logo-wrap {
         position: relative;
-        width: 64px;
-        height: 64px;
+        width: 136px;
+        height: 136px;
+        transform: translateY(6%);
+      }
+      #strata-boot-fallback .boot-logo-wrap::before {
+        content: '';
+        position: absolute;
+        inset: -36%;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgb(255 255 255 / 0.1) 0%, transparent 65%);
+        pointer-events: none;
+        z-index: 0;
+        animation: strata-logo-luminosity 3.6s ease-in-out infinite;
       }
       #strata-boot-fallback .boot-logo {
-        position: absolute;
-        inset: 0;
-        width: 64px;
-        height: 64px;
+        position: relative;
+        z-index: 1;
+        display: block;
+        width: 136px;
+        height: 136px;
         color: #fff;
-        mix-blend-mode: screen;
+        filter:
+          drop-shadow(-1.25px 0 0 rgb(57 208 198 / 0.7))
+          drop-shadow(1.25px 0 0 rgb(255 110 140 / 0.55))
+          drop-shadow(0 0 10px rgb(255 255 255 / 0.14));
       }
-      #strata-boot-fallback .boot-logo--red {
-        color: #f00;
-        transform: translate(-0.5px, -0.25px);
-        opacity: 0.35;
-      }
-      #strata-boot-fallback .boot-logo--green {
-        color: #0f0;
-        transform: translate(0.5px, 0.25px);
-        opacity: 0.35;
-      }
-      #strata-boot-fallback .boot-logo--blue {
-        color: #00f;
-        transform: translate(0, 0.5px);
-        opacity: 0.35;
-      }
-      #strata-boot-fallback .boot-logo--white {
-        color: #fff;
-        mix-blend-mode: normal;
+      @keyframes strata-logo-luminosity {
+        0%,
+        100% {
+          opacity: 0.45;
+        }
+        50% {
+          opacity: 0.9;
+        }
       }
       @media (prefers-reduced-motion: reduce) {
-        #strata-boot-fallback .boot-logo--red,
-        #strata-boot-fallback .boot-logo--green,
-        #strata-boot-fallback .boot-logo--blue {
-          opacity: 0.25;
+        #strata-boot-fallback .boot-logo-wrap::before {
+          animation: none;
+          opacity: 0.55;
+        }
+        #strata-boot-fallback .boot-logo {
+          filter:
+            drop-shadow(-1px 0 0 rgb(57 208 198 / 0.55))
+            drop-shadow(1px 0 0 rgb(255 110 140 / 0.4))
+            drop-shadow(0 0 6px rgb(255 255 255 / 0.1));
         }
       }
     </style>
@@ -71,23 +81,7 @@
   <body>
     <div id="strata-boot-fallback" role="status" aria-live="polite" aria-label="Loading Strata">
       <div class="boot-logo-wrap" aria-hidden="true">
-        <svg class="boot-logo boot-logo--red" viewBox="0 0 16 16" fill="currentColor">
-          <!-- Three cascading parallelograms matching the Strata brand mark -->
-          <polygon points="1,1.5 10,1.5 11,4.5 2,4.5" />
-          <polygon points="3,5.5 12,5.5 13,8.5 4,8.5" />
-          <polygon points="5,9.5 14,9.5 15,12.5 6,12.5" />
-        </svg>
-        <svg class="boot-logo boot-logo--green" viewBox="0 0 16 16" fill="currentColor">
-          <polygon points="1,1.5 10,1.5 11,4.5 2,4.5" />
-          <polygon points="3,5.5 12,5.5 13,8.5 4,8.5" />
-          <polygon points="5,9.5 14,9.5 15,12.5 6,12.5" />
-        </svg>
-        <svg class="boot-logo boot-logo--blue" viewBox="0 0 16 16" fill="currentColor">
-          <polygon points="1,1.5 10,1.5 11,4.5 2,4.5" />
-          <polygon points="3,5.5 12,5.5 13,8.5 4,8.5" />
-          <polygon points="5,9.5 14,9.5 15,12.5 6,12.5" />
-        </svg>
-        <svg class="boot-logo boot-logo--white" viewBox="0 0 16 16" fill="currentColor">
+        <svg class="boot-logo" viewBox="0 0 16 16" fill="currentColor">
           <polygon points="1,1.5 10,1.5 11,4.5 2,4.5" />
           <polygon points="3,5.5 12,5.5 13,8.5 4,8.5" />
           <polygon points="5,9.5 14,9.5 15,12.5 6,12.5" />

@@ -141,18 +141,24 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     const maskH = dims?.[2] ?? inputSize;
     const mask = normalizeSegmentationOutput(outputData, modelId !== 'u2netp');
 
-    let fullMask = resizeMaskBilinear(mask, maskW, maskH, imageData.width, imageData.height);
+    // Cap upsample to previewMax as defense-in-depth; the engine entry already
+    // caps imageData to this dimension before dispatch.
+    const upsampleCap =
+      previewMaxDimension && previewMaxDimension > 0 ? previewMaxDimension : imageData.width;
+    const upsampleW = Math.min(imageData.width, upsampleCap);
+    const upsampleH = Math.min(imageData.height, upsampleCap);
+    let fullMask = resizeMaskBilinear(mask, maskW, maskH, upsampleW, upsampleH);
 
     if (decontaminate) {
-      fullMask = decontaminateMask(fullMask, imageData.width, imageData.height);
+      fullMask = decontaminateMask(fullMask, upsampleW, upsampleH);
     }
     if (feather && feather > 0) {
-      fullMask = featherMaskArray(fullMask, imageData.width, imageData.height, feather);
+      fullMask = featherMaskArray(fullMask, upsampleW, upsampleH, feather);
     }
 
-    const finalCanvas = new OffscreenCanvas(imageData.width, imageData.height);
+    const finalCanvas = new OffscreenCanvas(upsampleW, upsampleH);
     const finalCtx = finalCanvas.getContext('2d')!;
-    const refined = finalCtx.createImageData(imageData.width, imageData.height);
+    const refined = finalCtx.createImageData(upsampleW, upsampleH);
     for (let i = 0; i < fullMask.length; i++) {
       const v = fullMask[i] ?? 0;
       refined.data[i * 4] = v;
@@ -163,13 +169,12 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     finalCtx.putImageData(refined, 0, 0);
 
     const finalBlob = await finalCanvas.convertToBlob({ type: 'image/png' });
-    const buffer = await finalBlob.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i] ?? 0);
-    }
-    const maskDataUrl = `data:image/png;base64,${btoa(binary)}`;
+    const maskDataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to encode mask PNG'));
+      reader.readAsDataURL(finalBlob);
+    });
 
     const processingTimeMs = Math.round(performance.now() - start);
 
@@ -180,8 +185,8 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
         confidence: computeMaskConfidence(Float32Array.from(mask, (value) => value / 255)),
         method,
         processingTimeMs,
-        width: imageData.width,
-        height: imageData.height,
+        width: upsampleW,
+        height: upsampleH,
         executionProvider,
       },
     };

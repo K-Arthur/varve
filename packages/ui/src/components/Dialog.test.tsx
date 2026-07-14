@@ -27,6 +27,24 @@ describe('Dialog', () => {
     fireEvent.click(closeBtn);
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it('does not mount expensive dialog content while closed', () => {
+    const mounted = vi.fn();
+    function ExpensiveContent() {
+      mounted();
+      return <p>expensive content</p>;
+    }
+
+    const { container } = render(
+      <Dialog open={false} title="Hidden" onClose={vi.fn()}>
+        <ExpensiveContent />
+      </Dialog>,
+    );
+
+    expect(container.querySelector('dialog')).not.toBeNull();
+    expect(mounted).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain('expensive content');
+  });
 });
 
 describe('AlertDialog', () => {

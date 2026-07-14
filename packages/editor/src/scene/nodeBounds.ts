@@ -1,6 +1,11 @@
-import type { SceneNode } from '@strata/scene';
+import {
+  deriveGeometryFromPaints,
+  type Paint,
+  resolveNodePaints,
+  type SceneNode,
+} from '@strata/scene';
 import type { Rect } from '@strata/shared';
-import { measureText } from '@strata/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
 
 /**
  * Compute the axis-aligned bounding box of a node's geometry in its own local
@@ -9,9 +14,32 @@ import { measureText } from '@strata/shared';
  * Returns `null` for node types whose bounds cannot be determined from the
  * scene model alone (e.g. groups whose bounds depend on children, or
  * arrow/path shapes without a clear box).
+ *
+ * @param doc Optional document for resolving paintRefs on shapeless nodes.
+ *            When provided, shapeless nodes with paintRefs resolve their
+ *            geometry from the referenced paints. When omitted, only inline
+ *            fills are used for shapeless geometry derivation.
  */
-export function nodeLocalBounds(node: SceneNode): Rect | null {
+export function nodeLocalBounds(
+  node: SceneNode,
+  doc?: { paints?: Record<string, Paint> },
+): Rect | null {
   if (node.kind === 'shape') {
+    // V1.8+: shapeless nodes derive geometry from paints, not the shape field.
+    // The shape field is a one-time snapshot that can become stale when paints
+    // are updated independently (e.g., image fill resolution changes).
+    if ((node as Record<string, unknown>).shapeless === true) {
+      // Resolve effective fills: paintRefs → inline fills → legacy fill
+      const fills = doc
+        ? resolveNodePaints(node, doc)
+        : node.fills && node.fills.length > 0
+          ? node.fills
+          : [];
+      if (fills.length > 0) {
+        const geom = deriveGeometryFromPaints(fills);
+        return { x: 0, y: 0, w: geom.w, h: geom.h };
+      }
+    }
     const s = node.shape;
     switch (s.kind) {
       case 'rect':
@@ -81,13 +109,18 @@ export function nodeLocalBounds(node: SceneNode): Rect | null {
     const fs = node.fontSize ?? 16;
     const measured = measureText(node.text, {
       fontSize: fs,
-      fontFamily: node.fontFamily ?? 'sans-serif',
+      fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
       fontWeight: node.fontWeight ?? 400,
       fontStyle: node.fontStyle ?? 'normal',
       letterSpacing: node.letterSpacing ?? 0,
       lineHeight: node.lineHeight ?? 1.4,
     });
-    return { x: 0, y: 0, w: Math.max(measured.width, fs * 3), h: measured.height };
+    return {
+      x: 0,
+      y: 0,
+      w: node.w ?? Math.max(measured.width, fs * 3),
+      h: node.h ?? measured.height,
+    };
   }
   if (node.kind === 'frame') {
     const w = 'w' in node ? (node.w ?? 100) : 100;

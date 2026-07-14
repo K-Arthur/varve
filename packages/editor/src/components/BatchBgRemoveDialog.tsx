@@ -8,6 +8,7 @@
  */
 
 import {
+  DEFAULT_PREVIEW_MAX_DIMENSION,
   getImageCache,
   getModelLoaderReady,
   removeBackground,
@@ -179,19 +180,23 @@ export function BatchBgRemoveDialog({
         return 'error';
       }
 
+      const maxDim = DEFAULT_PREVIEW_MAX_DIMENSION;
+      const scale = Math.min(1, maxDim / Math.max(file.w, file.h));
+      const extractW = Math.ceil(file.w * scale);
+      const extractH = Math.ceil(file.h * scale);
       const canvas = document.createElement('canvas');
-      canvas.width = file.w;
-      canvas.height = file.h;
+      canvas.width = extractW;
+      canvas.height = extractH;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         updateFileStatus(file.id, 'error', 'Canvas not available');
         return 'error';
       }
-      ctx.drawImage(img, 0, 0, file.w, file.h);
+      ctx.drawImage(img, 0, 0, extractW, extractH);
 
       let imageData: ImageData;
       try {
-        imageData = ctx.getImageData(0, 0, file.w, file.h);
+        imageData = ctx.getImageData(0, 0, extractW, extractH);
       } catch (err) {
         updateFileStatus(file.id, 'error', `Failed to read pixels: ${err}`);
         return 'error';

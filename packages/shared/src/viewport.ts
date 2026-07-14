@@ -9,17 +9,18 @@
  *   world = (screen − pan) / zoom        (canvas-area CSS px → world)
  *
  * With rotation, transforms compose around the viewport centre:
- *   screen = T(pan) · T(vpCentre) · R(θ) · T(−vpCentre) · S(zoom) · T(−origin) · world
+ *   screen = T(pan) · T(vpCentre) · R(θ) · T(−vpCentre) · S(zoom) · world
  *
  * `pan` is in **CSS pixels**. DPR is applied separately on the canvas context.
  *
  * Research basis: HTML Canvas Transform spec, Figma camera model, Illustrator
- * Rotate View, Babylon.js floating origin, Strata ADR-0001.
+ * Rotate View, and Strata ADR-0001.
  */
 
 import type { Affine, Point, Rect } from './affine';
 import {
   applyAffine,
+  identity,
   multiplyAffine,
   rotateRad,
   scale as scaleAffine,
@@ -42,7 +43,10 @@ export const DEFAULT_CAMERA_ANIMATION_MS = 200;
 export const SNAP_THRESHOLD_PX = 8;
 /** Hysteresis multiplier for sticky snap release. */
 export const STICKY_SNAP_RELEASE_FACTOR = 1.5;
-/** World-unit grid for floating-origin snapping. */
+/**
+ * Legacy floating-origin grid retained for document/API compatibility.
+ * Semantic camera transforms no longer rebase unre-based scene geometry.
+ */
 export const FLOATING_ORIGIN_GRID = 512;
 
 /** Camera state: pan, zoom, optional view rotation (radians). */
@@ -70,25 +74,35 @@ export function snapThresholdWorld(zoom: number): number {
 }
 
 /**
- * Floating render origin — subtract from world coords before replay so large
- * coordinates stay numerically stable in Canvas2D transforms.
+ * Return the semantic render origin.
+ *
+ * A previous implementation derived a 512-unit origin from the camera and
+ * subtracted it in some render paths without rebasing the scene geometry in
+ * those same paths. Crossing a cell boundary therefore moved every object by
+ * 512 world units. Until IR geometry is deliberately rebased as one atomic
+ * operation, the only correct shared origin is zero.
  */
-export function computeFloatingOrigin(cam: Camera, _viewport?: Viewport): Point {
-  const probe = screenToWorld({ ...cam, rotation: 0 }, 0, 0);
-  const g = FLOATING_ORIGIN_GRID;
-  return [Math.floor(probe[0] / g) * g, Math.floor(probe[1] / g) * g];
+export function computeFloatingOrigin(_cam: Camera, _viewport?: Viewport): Point {
+  return [0, 0];
 }
 
-/** Build world→screen affine including rotation, zoom, pan, and floating origin. */
+/**
+ * Build the semantic world→screen affine including rotation, zoom, and pan.
+ *
+ * `origin` is accepted for compatibility with renderers that rebase their
+ * geometry before this call. It must not alter semantic coordinates by
+ * itself: applying `T(-origin)` to unre-based scene geometry causes a visible
+ * grid-cell jump whenever the origin changes.
+ */
 export function buildWorldToScreenAffine(
   cam: Camera,
   viewport: Viewport,
-  origin: Point = [0, 0],
+  _origin: Point = [0, 0],
 ): Affine {
   const r = cam.rotation ?? 0;
   const cx = viewport.width / 2;
   const cy = viewport.height / 2;
-  let m = translate(-origin[0], -origin[1]);
+  let m = identity;
   m = multiplyAffine(scaleAffine(cam.zoom), m);
   m = multiplyAffine(translate(-cx, -cy), m);
   if (r !== 0) {
@@ -189,7 +203,7 @@ export function applyCameraTransform(
   cam: Camera,
   dpr: number,
   viewport: Viewport,
-  origin: Point,
+  _origin: Point,
 ): void {
   const cx = viewport.width / 2;
   const cy = viewport.height / 2;
@@ -200,7 +214,6 @@ export function applyCameraTransform(
   if (r !== 0) ctx.rotate(r);
   ctx.translate(-cx, -cy);
   ctx.scale(cam.zoom, cam.zoom);
-  ctx.translate(-origin[0], -origin[1]);
 }
 
 export function isRectInView(cam: Camera, viewport: Viewport, worldRect: Rect): boolean {
@@ -363,20 +376,8 @@ export function revealBoundsCamera(
  * Zoom the camera to `newZoom`, adjusting `pan` so the given world point
  * stays under the same screen position.
  *
- * Solved as a single closed-form calculation using one fixed origin (the
- * *starting* camera's floating origin, or [0,0] with no viewport) for both
- * the "before" and "base" screen-position probes — origin cancels out of
- * the subtraction, so this is exact regardless of which origin is chosen.
- *
- * A previous version additionally tried to re-converge the origin for the
- * *new* (post-zoom) camera state via an 8-iteration fixed-point loop. That
- * was unnecessary — whatever renders the next frame recomputes origin fresh
- * from the committed camera state anyway — and had a real bug: when the
- * anchor's world coordinate sat near a FLOATING_ORIGIN_GRID cell boundary,
- * the loop would oscillate between two adjacent origins forever, never
- * converge, and fall back to "lowest error seen" — which for a genuine
- * 2-cycle is an arbitrary, often large (hundreds of px) error. Reproduced
- * via packages/editor/src/context/viewportOps.test.ts.
+ * Solved as a single closed-form calculation. The render origin is semantic
+ * zero until a future renderer rebases both geometry and camera atomically.
  */
 export function zoomAboutPoint(
   cam: Camera,

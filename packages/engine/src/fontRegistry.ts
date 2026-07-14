@@ -26,11 +26,12 @@ export interface FontEntry {
 export type FontLoadState = 'unknown' | 'loading' | 'loaded' | 'error';
 
 const DEFAULT_FONTS: FontEntry[] = [
-  { family: 'Inter', weight: 400, style: 'normal', source: 'bundled' },
-  { family: 'Inter', weight: 500, style: 'normal', source: 'bundled' },
-  { family: 'Inter', weight: 600, style: 'normal', source: 'bundled' },
-  { family: 'Inter', weight: 700, style: 'normal', source: 'bundled' },
-  { family: 'Inter', weight: 400, style: 'italic', source: 'bundled' },
+  { family: 'IBM Plex Sans Variable', weight: 400, style: 'normal', source: 'bundled' },
+  { family: 'IBM Plex Sans Variable', weight: 500, style: 'normal', source: 'bundled' },
+  { family: 'IBM Plex Sans Variable', weight: 600, style: 'normal', source: 'bundled' },
+  { family: 'IBM Plex Sans Variable', weight: 700, style: 'normal', source: 'bundled' },
+  { family: 'Geist Variable', weight: 400, style: 'normal', source: 'bundled' },
+  { family: 'Inter', weight: 400, style: 'normal', source: 'system' },
   { family: 'Arial', weight: 400, style: 'normal', source: 'system' },
   { family: 'Arial', weight: 700, style: 'normal', source: 'system' },
   { family: 'Helvetica', weight: 400, style: 'normal', source: 'system' },
@@ -463,28 +464,48 @@ export function resetFontRegistry(): void {
   globalRegistry = null;
 }
 
+export interface ExportFontRequest {
+  family: string;
+  weight?: number;
+  style?: 'normal' | 'italic';
+  /** Representative glyphs force the exact face to load before export. */
+  text?: string;
+}
+
 /**
- * Wait until all registered fonts are loaded and available.
- * Safety timeout of 5000ms prevents hanging when a font fails to load.
+ * Initiate and await the exact font faces used by an export.
+ *
+ * `document.fonts.ready` only waits for loads that have already started;
+ * unused faces are not implicitly fetched. Calling `FontFaceSet.load()` for
+ * each used family/weight/style closes that race while avoiding the old
+ * five-second wait for every registered system font.
  */
-export async function awaitExportsReady(): Promise<void> {
+export async function awaitExportsReady(
+  requests: readonly ExportFontRequest[] = [],
+): Promise<void> {
   if (typeof document === 'undefined' || !document.fonts) return;
-
-  await document.fonts.ready;
-
   const registry = getFontRegistry();
-  const families = registry.families();
+  const unique = new Map<string, ExportFontRequest>();
+  for (const request of requests) {
+    const key = `${request.style ?? 'normal'}:${request.weight ?? 400}:${request.family}`;
+    if (!unique.has(key)) unique.set(key, request);
+  }
 
-  if (families.every((f) => registry.isAvailable(f))) return;
-
-  return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, 5000);
-    const unsub = registry.subscribe(() => {
-      if (families.every((f) => registry.isAvailable(f))) {
-        clearTimeout(timer);
-        unsub();
-        resolve();
-      }
-    });
+  const loadFaces = [...unique.values()].map(async (request) => {
+    await registry.load(request.family);
+    const style = request.style ?? 'normal';
+    const weight = request.weight ?? 400;
+    const descriptor = `${style} ${weight} 16px "${request.family.replaceAll('"', '\\"')}"`;
+    await document.fonts.load(descriptor, request.text || 'BESbswy');
   });
+
+  const readiness = Promise.all(loadFaces).then(async () => {
+    await document.fonts.ready;
+  });
+  await Promise.race([
+    readiness,
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, 5000);
+    }),
+  ]);
 }

@@ -35,6 +35,7 @@ import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
 import { ImageFillControls } from './ImageFillControls';
+import { PatternFillControls } from './PatternFillControls';
 
 export interface FillSectionProps {
   nodes: SceneNode[];
@@ -254,6 +255,7 @@ function FillRow({
   onEditStart,
   onEditEnd,
 }: FillRowProps) {
+  const editor = useEditor();
   const label = index === 0 ? 'Fill' : `Fill ${index + 1}`;
 
   const visibleRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.visible ?? true);
@@ -325,6 +327,7 @@ function FillRow({
               background: swatchBg,
               border: '2px solid var(--color-border-strong)',
             }}
+            documentColorMode={editor.documentColorMode}
           />
         ) : (
           <button
@@ -394,6 +397,7 @@ function FillRow({
           onChange={(g: GradientFill) => patch({ gradient: g })}
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
+          documentColorMode={editor.documentColorMode}
         />
       )}
 
@@ -461,45 +465,6 @@ function FillRow({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function PatternFillControls({
-  pattern,
-  onChange,
-}: {
-  pattern: PatternFillData;
-  onChange: (p: PatternFillData) => void;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-      <div className="insp-field">
-        <span className="insp-field__label">Tile</span>
-        <div className="insp-field__control">
-          <input
-            type="text"
-            value={pattern.tileSrc}
-            aria-label="Pattern tile source"
-            placeholder="Tile URL or asset id"
-            onChange={(e) => onChange({ ...pattern, tileSrc: e.target.value })}
-            className="insp-num__input"
-          />
-        </div>
-      </div>
-      <NumberField
-        label="Spacing"
-        unit="px"
-        value={pattern.spacing}
-        min={0}
-        onChange={(v) => onChange({ ...pattern, spacing: v })}
-      />
-      <NumberField
-        label="Rotation"
-        unit="deg"
-        value={pattern.rotation}
-        onChange={(v) => onChange({ ...pattern, rotation: v })}
-      />
     </div>
   );
 }

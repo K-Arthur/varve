@@ -390,3 +390,99 @@
   color: var(--color-accent-primary);
   background-color: var(--bg-hover);
 }
+
+/* ── Gradient Map Editor ──────────────────────────────────────────── */
+
+.gm-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.gm-editor__bar {
+  position: relative;
+  height: var(--space-6);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  outline: none;
+}
+
+.gm-editor__bar:focus-visible {
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 2px var(--color-accent-subtle);
+}
+
+.gm-editor__stop {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-raised);
+  cursor: grab;
+  padding: 0;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transition: box-shadow 0.1s;
+  z-index: 1;
+}
+
+.gm-editor__stop--idle {
+  border-color: var(--border-default);
+}
+
+.gm-editor__stop--selected {
+  border-color: var(--color-accent-primary);
+  box-shadow:
+    0 0 0 2px var(--color-accent-subtle),
+    0 1px 4px rgb(0 0 0 / 0.4);
+  z-index: 2;
+}
+
+.gm-editor__stop:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent-primary);
+}
+
+.gm-editor__stop-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.gm-editor__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.gm-editor__label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.gm-editor__number {
+  width: var(--space-10);
+  padding: var(--space-1) var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-control);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  text-align: right;
+}
+
+.gm-editor__number:focus-visible {
+  outline: none;
+  border-color: var(--color-accent-primary);
+}
+
+.gm-editor__unit {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}

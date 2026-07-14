@@ -5,6 +5,7 @@ import {
   createDocument,
   makeFrameNode,
   makeGroupNode,
+  makeImageShapeNode,
   makeShapeNode,
 } from '@strata/scene';
 import { multiplyAffine, rotateDeg } from '@strata/shared';
@@ -211,6 +212,63 @@ describe('nodeLocalBounds', () => {
     if (!p3) throw new Error('node not found');
     const b = nodeLocalBounds(p3);
     expect(b).toBeNull();
+  });
+
+  it('returns bounds from image fills for shapeless nodes (not stale shape)', () => {
+    const doc = createDocument();
+    const img = makeImageShapeNode('i1', {
+      src: 'test.png',
+      imageWidth: 800,
+      imageHeight: 600,
+      shapeless: true,
+    });
+    const d = addNode(doc, img);
+    const n = d.nodes.i1;
+    if (!n) throw new Error('node not found');
+    const b = nodeLocalBounds(n);
+    expect(b).not.toBeNull();
+    if (!b) return;
+    expect(b.w).toBe(800);
+    expect(b.h).toBe(600);
+  });
+
+  it('returns bounds from updated image fill (not stale shape field)', () => {
+    // Simulate a shapeless node whose paint dimensions were updated
+    // after creation (shape field is stale, fills have correct dimensions)
+    const node = makeImageShapeNode('i1', {
+      src: 'small.png',
+      imageWidth: 100,
+      imageHeight: 80,
+      shapeless: true,
+    });
+    // Now update the fills to different dimensions (simulating paint change)
+    // without touching the shape field
+    const updatedNode = {
+      ...node,
+      fills: [
+        {
+          type: 'image' as const,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+          image: {
+            src: 'large.png',
+            fit: 'fill' as const,
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 1920,
+            imageHeight: 1080,
+          },
+        },
+      ],
+    };
+    const b = nodeLocalBounds(updatedNode as import('@strata/scene').SceneNode);
+    expect(b).not.toBeNull();
+    if (!b) return;
+    // Should derive from updated fills, not the stale shape
+    expect(b.w).toBe(1920);
+    expect(b.h).toBe(1080);
   });
 });
 

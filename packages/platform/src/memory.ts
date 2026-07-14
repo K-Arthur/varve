@@ -761,6 +761,25 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async saveDocumentToDisk() {
       return null;
     },
+    async listPrinters() {
+      return [
+        {
+          name: 'Mock Printer',
+          description: 'In-memory mock printer for testing',
+          isColor: true,
+          paperSizes: ['A4', 'Letter'],
+          supportsDuplex: true,
+          acceptingJobs: true,
+        },
+      ];
+    },
+    async printPdf(_data, _jobTitle, _options) {
+      return { jobId: 1, message: 'Mock print job submitted (memory platform)', success: true };
+    },
+    async cancelPrintJob(_printerName, _jobId) {
+      return 'Mock print job cancelled (memory platform)';
+    },
+
     async saveBinaryFile(name) {
       return `memory://${name}`;
     },

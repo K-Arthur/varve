@@ -1,5 +1,6 @@
 import type { Adjustment } from '@strata/scene';
 import { useCallback } from 'react';
+import { GradientMapEditor } from '../Inspector/controls/GradientMapEditor';
 import './adjustment.css';
 
 export interface AdjustmentEditorProps {
@@ -360,6 +361,18 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
 
     case 'halftone':
       return <HalftoneEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'gradientMap': {
+      const adj = adjustment as import('@strata/scene').GradientMapAdjustment;
+      return (
+        <GradientMapEditor
+          stops={adj.stops}
+          dither={adj.dither}
+          preserveLuminosity={adj.preserveLuminosity}
+          onChange={(patch) => onChange(patch as unknown as Partial<Adjustment>)}
+        />
+      );
+    }
 
     default:
       return (

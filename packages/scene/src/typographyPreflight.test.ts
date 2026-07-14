@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addNode, createDocument, makeTextNode } from './document';
+import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
 import { createChain, detectOverset } from './textFlow';
 import { plainTextToRichText } from './typography';
 import { runTypographyPreflight, validateContrast, validateRichText } from './typographyPreflight';
@@ -43,7 +44,7 @@ describe('runTypographyPreflight', () => {
     const oversetMap = new Map();
     if (overset) oversetMap.set('t1', overset);
     const result = runTypographyPreflight(doc, {
-      availableFonts: new Set(['Inter']),
+      availableFonts: new Set([DEFAULT_ARTWORK_FONT_FAMILY]),
       oversetMap,
     });
     expect(result.warningCount).toBe(1);
@@ -71,7 +72,7 @@ describe('runTypographyPreflight', () => {
       },
     };
     const result = runTypographyPreflight(doc, {
-      availableFonts: new Set(['Inter']),
+      availableFonts: new Set([DEFAULT_ARTWORK_FONT_FAMILY]),
     });
     expect(result.infoCount).toBe(1);
     expect(result.issues[0]?.category).toBe('orphaned-style');

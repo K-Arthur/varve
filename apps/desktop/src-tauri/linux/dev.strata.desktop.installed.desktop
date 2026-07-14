@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Strata
+GenericName=Design Tool
+Comment=Local-first, cross-platform design suite
+Exec=strata-desktop %F
+Icon=dev.strata.desktop
+Type=Application
+Categories=Graphics;2DGraphics;VectorGraphics;
+MimeType=application/x-strata;
+Keywords=design;ui;vector;graphics;print;
+Terminal=false
+StartupNotify=true
+StartupWMClass=dev.strata.desktop

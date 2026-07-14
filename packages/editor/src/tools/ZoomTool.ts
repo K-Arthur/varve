@@ -59,10 +59,13 @@ export class ZoomTool extends BaseTool {
         const zoomX = canvasW / rect.w;
         const zoomY = canvasH / rect.h;
         const newZoom = Math.min(zoomX, zoomY) * 0.9;
-        ctx.setZoom(Math.max(0.1, Math.min(10, newZoom)));
-        ctx.setPan({
-          x: -cx * newZoom + canvasW / 2,
-          y: -cy * newZoom + canvasH / 2,
+        const clampedZoom = clampZoom(newZoom);
+        ctx.setCamera({
+          zoom: clampedZoom,
+          pan: {
+            x: -cx * clampedZoom + canvasW / 2,
+            y: -cy * clampedZoom + canvasH / 2,
+          },
         });
       }
     } else {
@@ -76,8 +79,7 @@ export class ZoomTool extends BaseTool {
         height: canvasRect?.height ?? window.innerHeight,
       };
       const newCam = zoomAboutPoint(cam, anchor, newZoom, viewport);
-      ctx.setZoom(newCam.zoom);
-      ctx.setPan(newCam.pan);
+      ctx.setCamera(newCam);
     }
     this.marqueeStart = null;
   }

@@ -49,6 +49,24 @@ fn default_opacity() -> f64 {
 fn default_blend_mode() -> BlendMode {
     BlendMode::Normal
 }
+fn default_text_align_vertical() -> String {
+    "top".to_owned()
+}
+fn default_line_height() -> f64 {
+    1.4
+}
+fn default_text_none() -> String {
+    "none".to_owned()
+}
+fn default_text_overflow() -> String {
+    "visible".to_owned()
+}
+fn default_list_style() -> String {
+    "none".to_owned()
+}
+fn default_text_mode() -> String {
+    "point".to_owned()
+}
 
 /// Geometry primitive in a node's LOCAL space (pre-transform).
 ///
@@ -133,28 +151,43 @@ pub enum Primitive {
         font_style: String,
         #[serde(rename = "textAlign")]
         text_align: String,
+        #[serde(default = "default_text_align_vertical", rename = "textAlignVertical")]
+        text_align_vertical: String,
         x: f64,
         y: f64,
         w: f64,
         h: f64,
+        #[serde(default, rename = "letterSpacing")]
+        letter_spacing: f64,
+        #[serde(default = "default_line_height", rename = "lineHeight")]
+        line_height: f64,
+        #[serde(default, rename = "paragraphSpacing")]
+        paragraph_spacing: f64,
+        #[serde(default = "default_text_none", rename = "textCase")]
+        text_case: String,
+        #[serde(default = "default_text_none", rename = "textDecoration")]
+        text_decoration: String,
+        #[serde(default = "default_text_overflow", rename = "textOverflow")]
+        text_overflow: String,
+        #[serde(default = "default_list_style", rename = "listStyle")]
+        list_style: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[serde(rename = "letterSpacing")]
-        letter_spacing: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[serde(rename = "lineHeight")]
-        line_height: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[serde(rename = "textCase")]
-        text_case: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[serde(rename = "textDecoration")]
-        text_decoration: Option<String>,
+        #[serde(rename = "richText")]
+        rich_text: Option<serde_json::Value>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(rename = "openTypeFeatures")]
         open_type_features: Option<serde_json::Value>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(rename = "variableAxes")]
         variable_axes: Option<serde_json::Value>,
+        #[serde(default = "default_text_mode", rename = "textMode")]
+        text_mode: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "pathTextSettings")]
+        path_text_settings: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "pathShape")]
+        path_shape: Option<serde_json::Value>,
     },
 }
 
@@ -282,16 +315,24 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
             font_weight,
             font_style,
             text_align,
+            text_align_vertical,
             x,
             y,
             w,
             h,
             letter_spacing,
             line_height,
+            paragraph_spacing,
             text_case,
             text_decoration,
+            text_overflow,
+            list_style,
+            rich_text,
             open_type_features,
             variable_axes,
+            text_mode,
+            path_text_settings,
+            path_shape,
         } => Primitive::Text {
             text: text.clone(),
             font_size: *font_size,
@@ -299,16 +340,26 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
             font_weight: *font_weight,
             font_style: font_style.clone(),
             text_align: text_align.clone(),
+            text_align_vertical: text_align_vertical
+                .clone()
+                .unwrap_or_else(default_text_align_vertical),
             x: *x,
             y: *y,
             w: *w,
             h: *h,
-            letter_spacing: *letter_spacing,
-            line_height: *line_height,
-            text_case: text_case.clone(),
-            text_decoration: text_decoration.clone(),
+            letter_spacing: letter_spacing.unwrap_or_default(),
+            line_height: line_height.unwrap_or_else(default_line_height),
+            paragraph_spacing: paragraph_spacing.unwrap_or_default(),
+            text_case: text_case.clone().unwrap_or_else(default_text_none),
+            text_decoration: text_decoration.clone().unwrap_or_else(default_text_none),
+            text_overflow: text_overflow.clone().unwrap_or_else(default_text_overflow),
+            list_style: list_style.clone().unwrap_or_else(default_list_style),
+            rich_text: rich_text.clone(),
             open_type_features: open_type_features.clone(),
             variable_axes: variable_axes.clone(),
+            text_mode: text_mode.clone().unwrap_or_else(default_text_mode),
+            path_text_settings: path_text_settings.clone(),
+            path_shape: path_shape.clone(),
         },
     }
 }
@@ -380,6 +431,106 @@ mod tests {
     #[test]
     fn empty_scene_yields_empty_ir() {
         assert!(build_render_ir(&[]).is_empty());
+    }
+
+    #[test]
+    fn image_fill_ir_preserves_native_canvas_resource_metadata() {
+        let mut node = rect_node(8, 0.0, 0.0, 320.0, 240.0);
+        node.fills = Some(
+            serde_json::from_value(serde_json::json!([{
+                "type": "image",
+                "src": "photo.png",
+                "fit": "fit",
+                "x": 3.0,
+                "y": 4.0,
+                "scale": 0.5,
+                "imageWidth": 640.0,
+                "imageHeight": 480.0,
+                "alphaMask": "data:image/png;base64,TUFDSw==",
+                "opacity": 0.75,
+                "blendMode": "normal",
+                "visible": true
+            }]))
+            .expect("deserialize image fill"),
+        );
+
+        let ir = build_render_ir(&[node]);
+        let fills = serde_json::to_value(&ir[0].fills).expect("serialize render image fill");
+        let image = &fills[0];
+
+        assert_eq!(image["imageWidth"], 640.0);
+        assert_eq!(image["imageHeight"], 480.0);
+        assert_eq!(image["alphaMask"], "data:image/png;base64,TUFDSw==");
+    }
+
+    #[test]
+    fn text_ir_preserves_canvas_layout_semantics() {
+        let mut node = rect_node(9, 0.0, 0.0, 240.0, 120.0);
+        node.shape = Shape::Text {
+            text: "First paragraph\nSecond paragraph".into(),
+            font_size: 18.0,
+            font_family: "Inter".into(),
+            font_weight: 500,
+            font_style: "normal".into(),
+            text_align: "center".into(),
+            text_align_vertical: Some("middle".into()),
+            x: 0.0,
+            y: 0.0,
+            w: 240.0,
+            h: 120.0,
+            letter_spacing: Some(0.5),
+            line_height: Some(1.6),
+            paragraph_spacing: Some(9.0),
+            text_case: Some("none".into()),
+            text_decoration: Some("underline".into()),
+            text_overflow: Some("ellipsis".into()),
+            list_style: Some("decimal".into()),
+            rich_text: Some(serde_json::json!({ "paragraphs": [] })),
+            open_type_features: Some(serde_json::json!({ "liga": true })),
+            variable_axes: Some(serde_json::json!({ "wght": 525.0 })),
+            text_mode: Some("area".into()),
+            path_text_settings: Some(serde_json::json!({ "pathNodeId": "path-1", "offset": 12.0 })),
+            path_shape: None,
+        };
+
+        let ir = build_render_ir(&[node]);
+        let primitive = serde_json::to_value(&ir[0].primitive).expect("serialize text primitive");
+
+        assert_eq!(primitive["textMode"], "area");
+        assert_eq!(primitive["textAlignVertical"], "middle");
+        assert_eq!(primitive["paragraphSpacing"], 9.0);
+        assert_eq!(primitive["textOverflow"], "ellipsis");
+        assert_eq!(primitive["listStyle"], "decimal");
+        assert_eq!(primitive["pathTextSettings"]["pathNodeId"], "path-1");
+    }
+
+    #[test]
+    fn legacy_text_ir_deserializes_with_canvas_layout_defaults() {
+        let primitive: Primitive = serde_json::from_value(serde_json::json!({
+            "kind": "text",
+            "text": "Legacy",
+            "fontSize": 14.0,
+            "fontFamily": "sans-serif",
+            "fontWeight": 400,
+            "fontStyle": "normal",
+            "textAlign": "left",
+            "x": 0.0,
+            "y": 0.0,
+            "w": 60.0,
+            "h": 20.0
+        }))
+        .expect("legacy text primitive");
+
+        let value = serde_json::to_value(primitive).expect("serialize normalized text primitive");
+        assert_eq!(value["textAlignVertical"], "top");
+        assert_eq!(value["letterSpacing"], 0.0);
+        assert_eq!(value["lineHeight"], 1.4);
+        assert_eq!(value["paragraphSpacing"], 0.0);
+        assert_eq!(value["textCase"], "none");
+        assert_eq!(value["textDecoration"], "none");
+        assert_eq!(value["textOverflow"], "visible");
+        assert_eq!(value["listStyle"], "none");
+        assert_eq!(value["textMode"], "point");
     }
 
     #[test]

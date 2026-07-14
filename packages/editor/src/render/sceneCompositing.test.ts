@@ -1,10 +1,12 @@
 import {
+  addChild,
   addNode,
   createDocument,
   imageFill,
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  patternFill,
   solidFill,
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
@@ -52,6 +54,22 @@ describe('sceneNeedsStructuralCompositing', () => {
         { name: 'Rect', transform: [1, 0, 0, 1, 10, 10] },
       ),
     );
+    expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
+  });
+
+  it('routes groups with visible effects through structural surface compositing', () => {
+    let doc = createDocument('group effects');
+    const group = {
+      ...makeGroupNode('g1'),
+      effects: [{ type: 'layerBlur' as const, radius: 6, visible: true }],
+    };
+    doc = addNode(doc, group);
+    doc = addChild(
+      doc,
+      group.id,
+      makeShapeNode('r1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+    );
+
     expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
   });
 
@@ -123,5 +141,38 @@ describe('sceneCanUseWorkerRenderer', () => {
     doc = addNode(doc, shapeWithFills('img1', [imageFill('test.png')]));
     expect(sceneCanUseWorkerRenderer(doc, () => false)).toBe(false);
     expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
+  });
+
+  it('rejects a visible pattern fill because worker pattern resources are not transferred', () => {
+    let doc = createDocument('test');
+    doc = addNode(doc, shapeWithFills('pattern1', [patternFill('tile.png')]));
+
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(false);
+  });
+
+  it('allows a hidden pattern fill', () => {
+    let doc = createDocument('test');
+    doc = addNode(
+      doc,
+      shapeWithFills('pattern1', [{ ...patternFill('tile.png'), visible: false }]),
+    );
+
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
+  });
+
+  it('rejects a background-removal alpha mask that worker replay cannot composite', () => {
+    let doc = createDocument('test');
+    const node = shapeWithFills('img1', [imageFill('image.png')]);
+    doc = addNode(doc, {
+      ...node,
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,MASK',
+        method: 'quick',
+        confidence: 1,
+        appliedAt: 1,
+      },
+    });
+
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(false);
   });
 });

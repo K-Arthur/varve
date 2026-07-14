@@ -137,7 +137,7 @@ export function nodeWorldBounds(
   const node = doc.nodes[id];
   if (!node) return null;
   if (node.kind === 'group') return groupWorldBounds(doc, id, parentIndex, cache, parentCache);
-  const local = nodeLocalBounds(node);
+  const local = nodeLocalBounds(node, doc);
   if (!local) return null;
   const worldMat = nodeWorldTransform(doc, id, parentIndex, cache, parentCache);
   return affineTransformRect(worldMat, local);

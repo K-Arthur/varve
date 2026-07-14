@@ -55,7 +55,7 @@ export function HomeToolbar({
         >
           <Icon name={sidebarCollapsed ? 'Menu' : 'Menu'} label={undefined} />
         </Button>
-        <Button variant="primary" onClick={onNewFile}>
+        <Button variant="primary" onClick={onNewFile} data-testid="new-file-button">
           <Icon name="Plus" label={undefined} />
           New
         </Button>

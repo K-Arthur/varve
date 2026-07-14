@@ -81,6 +81,9 @@ pub enum Shape {
         font_style: String,
         #[serde(rename = "textAlign")]
         text_align: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "textAlignVertical")]
+        text_align_vertical: Option<String>,
         x: f64,
         y: f64,
         w: f64,
@@ -92,17 +95,38 @@ pub enum Shape {
         #[serde(rename = "lineHeight")]
         line_height: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "paragraphSpacing")]
+        paragraph_spacing: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(rename = "textCase")]
         text_case: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(rename = "textDecoration")]
         text_decoration: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "textOverflow")]
+        text_overflow: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "listStyle")]
+        list_style: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "richText")]
+        rich_text: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(rename = "openTypeFeatures")]
         open_type_features: Option<serde_json::Value>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(rename = "variableAxes")]
         variable_axes: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "textMode")]
+        text_mode: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "pathTextSettings")]
+        path_text_settings: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "pathShape")]
+        path_shape: Option<serde_json::Value>,
     },
 }
 

@@ -10,7 +10,7 @@ import { ImageEnhancementSection } from '../ImageEnhancementSection';
 
 const mockedUseEditor = useEditor as unknown as ReturnType<typeof vi.fn>;
 
-function imageNode() {
+function imageNode(overrides?: Record<string, unknown>) {
   return {
     id: 'image-1',
     kind: 'shape' as const,
@@ -35,10 +35,242 @@ function imageNode() {
     strokes: [],
     effects: [],
     order: 'a0',
+    ...overrides,
   };
 }
 
-describe('ImageEnhancementSection', () => {
+describe('ImageEnhancementSection — live trace', () => {
+  const upscaleSelectedImage = vi.fn().mockResolvedValue(undefined);
+  const traceSelectedImage = vi.fn().mockResolvedValue(undefined);
+  const setSelectedLiveTraceParams = vi.fn();
+  const flattenSelectedLiveTrace = vi.fn();
+  const cancelImageProcessing = vi.fn();
+
+  beforeEach(() => {
+    upscaleSelectedImage.mockClear();
+    traceSelectedImage.mockClear();
+    setSelectedLiveTraceParams.mockClear();
+    flattenSelectedLiveTrace.mockClear();
+    cancelImageProcessing.mockClear();
+    mockedUseEditor.mockReturnValue({
+      upscaleSelectedImage,
+      traceSelectedImage,
+      setSelectedLiveTraceParams,
+      flattenSelectedLiveTrace,
+      cancelImageProcessing,
+      announce: vi.fn(),
+    });
+  });
+
+  afterEach(cleanup);
+
+  it('renders live trace toggle checkbox', () => {
+    render(<ImageEnhancementSection nodes={[imageNode()]} />);
+    expect(screen.getByLabelText(/live trace/i)).toBeInTheDocument();
+  });
+
+  it('live trace mode shows loading state when node has unresolved liveTrace', () => {
+    const node = imageNode({
+      liveTrace: {
+        sourceNodeId: 'image-1',
+        params: {
+          mode: 'monochrome',
+          threshold: 128,
+          foreground: 'dark',
+          alphaThreshold: 1,
+          minArea: 4,
+          simplifyTolerance: 0.75,
+          maxPaths: 1000,
+          maxColors: 8,
+          compoundHoles: true,
+        },
+        resolvedAt: null,
+        lastError: null,
+      },
+    });
+    render(<ImageEnhancementSection nodes={[node]} />);
+    expect(screen.getByText(/tracing/i)).toBeInTheDocument();
+  });
+
+  it('live trace mode shows resolved state when resolvedAt is set', () => {
+    const node = imageNode({
+      liveTrace: {
+        sourceNodeId: 'image-1',
+        params: {
+          mode: 'monochrome',
+          threshold: 128,
+          foreground: 'dark',
+          alphaThreshold: 1,
+          minArea: 4,
+          simplifyTolerance: 0.75,
+          maxPaths: 1000,
+          maxColors: 8,
+          compoundHoles: true,
+        },
+        resolvedAt: Date.now(),
+        lastError: null,
+      },
+    });
+    render(<ImageEnhancementSection nodes={[node]} />);
+    expect(screen.getByText(/live trace active/i)).toBeInTheDocument();
+  });
+
+  it('live trace mode shows error state when lastError is set', () => {
+    const node = imageNode({
+      liveTrace: {
+        sourceNodeId: 'image-1',
+        params: {
+          mode: 'monochrome',
+          threshold: 128,
+          foreground: 'dark',
+          alphaThreshold: 1,
+          minArea: 4,
+          simplifyTolerance: 0.75,
+          maxPaths: 1000,
+          maxColors: 8,
+          compoundHoles: true,
+        },
+        resolvedAt: null,
+        lastError: 'No foreground contours found',
+      },
+    });
+    render(<ImageEnhancementSection nodes={[node]} />);
+    expect(screen.getByText(/no foreground contours found/i)).toBeInTheDocument();
+  });
+
+  it('live trace param change triggers debounced trace via setSelectedLiveTraceParams', async () => {
+    const node = imageNode({
+      liveTrace: {
+        sourceNodeId: 'image-1',
+        params: {
+          mode: 'monochrome',
+          threshold: 128,
+          foreground: 'dark',
+          alphaThreshold: 1,
+          minArea: 4,
+          simplifyTolerance: 0.75,
+          maxPaths: 1000,
+          maxColors: 8,
+          compoundHoles: true,
+        },
+        resolvedAt: null,
+        lastError: null,
+      },
+    });
+    render(<ImageEnhancementSection nodes={[node]} />);
+
+    const thresholdSlider = screen.getByLabelText(/trace threshold/i);
+    fireEvent.change(thresholdSlider, { target: { value: '200' } });
+
+    await waitFor(() => {
+      expect(setSelectedLiveTraceParams).toHaveBeenCalledWith(
+        expect.objectContaining({ threshold: 200 }),
+      );
+    });
+  });
+
+  it('flatten button calls flattenSelectedLiveTrace', () => {
+    const node = imageNode({
+      liveTrace: {
+        sourceNodeId: 'image-1',
+        params: {
+          mode: 'monochrome',
+          threshold: 128,
+          foreground: 'dark',
+          alphaThreshold: 1,
+          minArea: 4,
+          simplifyTolerance: 0.75,
+          maxPaths: 1000,
+          maxColors: 8,
+          compoundHoles: true,
+        },
+        resolvedAt: Date.now(),
+        lastError: null,
+      },
+    });
+    render(<ImageEnhancementSection nodes={[node]} />);
+    const flatten = screen.getByRole('button', { name: /flatten/i });
+    fireEvent.click(flatten);
+    expect(flattenSelectedLiveTrace).toHaveBeenCalledTimes(1);
+  });
+
+  it('retrace button calls traceSelectedImage with liveTrace:true', () => {
+    const node = imageNode({
+      liveTrace: {
+        sourceNodeId: 'image-1',
+        params: {
+          mode: 'color',
+          threshold: 128,
+          foreground: 'dark',
+          alphaThreshold: 1,
+          minArea: 10,
+          simplifyTolerance: 0.5,
+          maxPaths: 500,
+          maxColors: 6,
+          compoundHoles: true,
+        },
+        resolvedAt: Date.now(),
+        lastError: null,
+      },
+    });
+    render(<ImageEnhancementSection nodes={[node]} />);
+    const retrace = screen.getByRole('button', { name: /retrace/i });
+    fireEvent.click(retrace);
+    expect(traceSelectedImage).toHaveBeenCalledWith(
+      expect.objectContaining({ liveTrace: true, mode: 'color', minArea: 10 }),
+    );
+  });
+
+  it('cancel button shows during loading and calls cancelImageProcessing', () => {
+    const node = imageNode({
+      liveTrace: {
+        sourceNodeId: 'image-1',
+        params: {
+          mode: 'monochrome',
+          threshold: 128,
+          foreground: 'dark',
+          alphaThreshold: 1,
+          minArea: 4,
+          simplifyTolerance: 0.75,
+          maxPaths: 1000,
+          maxColors: 8,
+          compoundHoles: true,
+        },
+        resolvedAt: null,
+        lastError: null,
+      },
+    });
+    render(<ImageEnhancementSection nodes={[node]} />);
+    const cancel = screen.getByRole('button', { name: /cancel/i });
+    fireEvent.click(cancel);
+    expect(cancelImageProcessing).toHaveBeenCalledTimes(1);
+  });
+
+  it('advanced section shows foreground, simplify tolerance, max paths, alpha threshold, compound holes', () => {
+    const node = imageNode({
+      liveTrace: {
+        sourceNodeId: 'image-1',
+        params: {
+          mode: 'monochrome',
+          threshold: 128,
+          foreground: 'dark',
+          alphaThreshold: 1,
+          minArea: 4,
+          simplifyTolerance: 0.75,
+          maxPaths: 1000,
+          maxColors: 8,
+          compoundHoles: true,
+        },
+        resolvedAt: Date.now(),
+        lastError: null,
+      },
+    });
+    render(<ImageEnhancementSection nodes={[node]} />);
+    expect(screen.getByText(/advanced/i)).toBeInTheDocument();
+  });
+});
+
+describe('ImageEnhancementSection — original one-shot', () => {
   const upscaleSelectedImage = vi.fn().mockResolvedValue(undefined);
   const traceSelectedImage = vi.fn().mockResolvedValue(undefined);
 
@@ -48,6 +280,8 @@ describe('ImageEnhancementSection', () => {
     mockedUseEditor.mockReturnValue({
       upscaleSelectedImage,
       traceSelectedImage,
+      setSelectedLiveTraceParams: vi.fn(),
+      flattenSelectedLiveTrace: vi.fn(),
       cancelImageProcessing: vi.fn(),
       announce: vi.fn(),
     });
@@ -88,6 +322,7 @@ describe('ImageEnhancementSection', () => {
         foreground: 'dark',
         minArea: 3,
         simplifyTolerance: 0.75,
+        liveTrace: false,
       }),
     );
   });

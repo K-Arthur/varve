@@ -556,23 +556,12 @@ mod tests {
         let t = now();
         store
             .upsert_file(
-                "fav1",
-                "Starred",
-                "strata",
-                None,
-                &t,
-                &t,
-                &t,
-                0,
-                false,
-                None,
-                None,
-                "",
-                "",
-                None,
+                "fav1", "Starred", "strata", None, &t, &t, &t, 0, false, None, None, "", "", None,
             )
             .expect("upsert");
-        store.set_file_favorited("fav1", Some(1_700_000_000_000)).expect("favorite");
+        store
+            .set_file_favorited("fav1", Some(1_700_000_000_000))
+            .expect("favorite");
         let got = store.get_file("fav1").expect("get").expect("exists");
         assert_eq!(got.favorited_at, Some(1_700_000_000_000));
         store.set_file_favorited("fav1", None).expect("unfavorite");
@@ -675,7 +664,8 @@ mod tests {
         let t = now();
         store
             .upsert_file(
-                "f1", "Alpha", "strata", None, &t, &t, &t, 100, false, None, None, "", "hash1", None,
+                "f1", "Alpha", "strata", None, &t, &t, &t, 100, false, None, None, "", "hash1",
+                None,
             )
             .expect("upsert");
         store
@@ -685,7 +675,8 @@ mod tests {
             .expect("upsert");
         store
             .upsert_file(
-                "f3", "Gamma", "strata", None, &t, &t, &t, 300, false, None, None, "", "hash3", None,
+                "f3", "Gamma", "strata", None, &t, &t, &t, 300, false, None, None, "", "hash3",
+                None,
             )
             .expect("upsert");
         let results = store.search_files("alpha").expect("search");
@@ -701,7 +692,8 @@ mod tests {
         let t = now();
         store
             .upsert_file(
-                "f1", "First", "strata", None, &t, &t, &t, 0, false, None, None, "a0", "hash1", None,
+                "f1", "First", "strata", None, &t, &t, &t, 0, false, None, None, "a0", "hash1",
+                None,
             )
             .expect("upsert");
         store.reorder_file("f1", "z0").expect("reorder");

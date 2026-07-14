@@ -1064,8 +1064,8 @@ function paintPatternFill(
     });
   }
   if (tileEntry?.state === 'loaded' && tileEntry.image) {
-    const imageWidth = tileEntry.image.naturalWidth;
-    const imageHeight = tileEntry.image.naturalHeight;
+    const imageWidth = fill.imageWidth ?? tileEntry.image.naturalWidth;
+    const imageHeight = fill.imageHeight ?? tileEntry.image.naturalHeight;
     const spacing = Number.isFinite(fill.spacing) ? fill.spacing : Number.NaN;
     const stepX = imageWidth + spacing;
     const stepY = imageHeight + spacing;

@@ -61,7 +61,10 @@
     "linux": {
       "appimage": {
         "bundleMediaFramework": false,
-        "files": {}
+        "files": {
+          "/usr/share/icons/hicolor": "icons/hicolor/",
+          "/usr/share/applications/dev.strata.desktop.desktop": "linux/dev.strata.desktop.installed.desktop"
+        }
       },
       "deb": {
         "depends": [
@@ -76,12 +79,44 @@
           "libpango-1.0-0",
           "libfontconfig1"
         ],
-        "files": {}
+        "desktopTemplate": "linux/dev.strata.desktop.desktop",
+        "files": {
+          "/usr/share/icons/hicolor/16x16/apps/dev.strata.desktop.png": "icons/hicolor/16x16/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/22x22/apps/dev.strata.desktop.png": "icons/hicolor/22x22/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/24x24/apps/dev.strata.desktop.png": "icons/hicolor/24x24/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/32x32/apps/dev.strata.desktop.png": "icons/hicolor/32x32/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/48x48/apps/dev.strata.desktop.png": "icons/hicolor/48x48/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/64x64/apps/dev.strata.desktop.png": "icons/hicolor/64x64/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/96x96/apps/dev.strata.desktop.png": "icons/hicolor/96x96/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/128x128/apps/dev.strata.desktop.png": "icons/hicolor/128x128/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/256x256/apps/dev.strata.desktop.png": "icons/hicolor/256x256/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/512x512/apps/dev.strata.desktop.png": "icons/hicolor/512x512/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/1024x1024/apps/dev.strata.desktop.png": "icons/hicolor/1024x1024/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/scalable/apps/dev.strata.desktop.svg": "icons/hicolor/scalable/apps/dev.strata.desktop.svg",
+          "/usr/share/icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg": "icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg",
+          "/usr/share/applications/dev.strata.desktop.desktop": "linux/dev.strata.desktop.installed.desktop"
+        }
       },
       "rpm": {
         "depends": ["webkit2gtk4.1", "gtk3", "glib2", "librsvg2", "openssl", "fontconfig"],
         "epoch": 0,
-        "files": {}
+        "desktopTemplate": "linux/dev.strata.desktop.desktop",
+        "files": {
+          "/usr/share/icons/hicolor/16x16/apps/dev.strata.desktop.png": "icons/hicolor/16x16/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/22x22/apps/dev.strata.desktop.png": "icons/hicolor/22x22/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/24x24/apps/dev.strata.desktop.png": "icons/hicolor/24x24/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/32x32/apps/dev.strata.desktop.png": "icons/hicolor/32x32/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/48x48/apps/dev.strata.desktop.png": "icons/hicolor/48x48/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/64x64/apps/dev.strata.desktop.png": "icons/hicolor/64x64/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/96x96/apps/dev.strata.desktop.png": "icons/hicolor/96x96/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/128x128/apps/dev.strata.desktop.png": "icons/hicolor/128x128/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/256x256/apps/dev.strata.desktop.png": "icons/hicolor/256x256/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/512x512/apps/dev.strata.desktop.png": "icons/hicolor/512x512/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/1024x1024/apps/dev.strata.desktop.png": "icons/hicolor/1024x1024/apps/dev.strata.desktop.png",
+          "/usr/share/icons/hicolor/scalable/apps/dev.strata.desktop.svg": "icons/hicolor/scalable/apps/dev.strata.desktop.svg",
+          "/usr/share/icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg": "icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg",
+          "/usr/share/applications/dev.strata.desktop.desktop": "linux/dev.strata.desktop.installed.desktop"
+        }
       }
     },
     "macOS": {

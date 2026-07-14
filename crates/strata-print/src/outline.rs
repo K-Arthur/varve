@@ -222,6 +222,8 @@ mod tests {
 
     fn test_font_data() -> &'static [u8] {
         let paths = [
+            "/usr/share/fonts/TTF/OpenSans-Regular.ttf",
+            "/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf",
             "/usr/share/fonts/TTF/Vera.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/TTF/Inter-Regular.ttf",

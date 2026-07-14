@@ -24,11 +24,16 @@ function makeRecorder(): {
 } {
   const calls: string[] = [];
   let filter = 'none';
+  const canvas = { width: 100, height: 100 };
   return {
     calls,
     target: {
       save: () => calls.push('save'),
       restore: () => calls.push('restore'),
+      canvas,
+      getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+      setTransform: () => calls.push('setTransform'),
+      drawImage: () => calls.push('drawImage'),
       transform: () => calls.push('transform'),
       fillRect: () => calls.push('fillRect'),
       strokeRect: () => calls.push('strokeRect'),
@@ -166,6 +171,25 @@ describe('replay filter chain', () => {
     expect(appliedFilters).toEqual([filter]);
   });
 
+  it('applies complex filters to an isolated item surface without clearing prior layers', () => {
+    const { target, calls } = makeRecorder();
+    const filter = {
+      kind: 'exposure' as const,
+      value: 1,
+      offset: 0,
+      gammaCorrection: 1,
+      opacity: 1,
+      blendMode: 'normal' as const,
+    };
+
+    replayIr(target, [{ ...rectItem(10, 10), filters: [filter] }]);
+
+    const [filterTarget] = applyFilterWithCompositingSpy.mock.calls[0]!;
+    expect(filterTarget).not.toBe(target);
+    expect(calls).not.toContain('clearRect');
+    expect(calls).toContain('drawImage');
+  });
+
   it('composes multiple convertible filters into one filter string', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
@@ -178,5 +202,55 @@ describe('replay filter chain', () => {
       },
     ]);
     expect(calls.some((c) => c === 'fill filter=brightness(110%) blur(4px)')).toBe(true);
+  });
+});
+
+describe('replay glass material effect', () => {
+  it('handles glassMaterial effect without crashing (bails out when OffscreenCanvas unavailable)', () => {
+    const { target, calls } = makeRecorder();
+    const item: RenderItem = {
+      ...rectItem(10, 10),
+      effects: [
+        {
+          type: 'glassMaterial',
+          blur: 12,
+          tint: { space: 'rgb', r: 200, g: 220, b: 255, a: 255 },
+          tintOpacity: 0.3,
+          saturation: 1.2,
+          brightness: 1.05,
+          noise: 0.02,
+          edgeHighlight: true,
+          edgeHighlightWidth: 1.5,
+          edgeHighlightColor: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+          edgeHighlightOpacity: 0.4,
+          visible: true,
+        },
+      ],
+    };
+    expect(() => replayIr(target, [item])).not.toThrow();
+  });
+
+  it('skips invisible glassMaterial effect', () => {
+    const { target, calls } = makeRecorder();
+    const item: RenderItem = {
+      ...rectItem(10, 10),
+      effects: [
+        {
+          type: 'glassMaterial',
+          blur: 12,
+          tint: { space: 'rgb', r: 200, g: 220, b: 255, a: 255 },
+          tintOpacity: 0.3,
+          saturation: 1.2,
+          brightness: 1.05,
+          noise: 0.02,
+          edgeHighlight: false,
+          edgeHighlightWidth: 0,
+          edgeHighlightColor: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+          edgeHighlightOpacity: 0,
+          visible: false,
+        },
+      ],
+    };
+    expect(() => replayIr(target, [item])).not.toThrow();
   });
 });

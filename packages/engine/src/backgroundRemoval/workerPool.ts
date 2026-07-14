@@ -156,17 +156,24 @@ function dispatchJobToWorker(job: PoolJob, worker: PoolWorker, workerIndex: numb
   job.workerIndex = workerIndex;
   worker.busy = true;
   worker.jobCount++;
-  worker.worker.postMessage({
-    type: 'infer',
-    imageData: job.imageData,
-    modelPath: job.modelPath,
-    modelId: job.modelId,
-    method: job.method,
-    reuseSession: worker.ready,
-    feather: job.feather,
-    decontaminate: job.decontaminate,
-    previewMaxDimension: job.previewMaxDimension,
-  } satisfies WorkerCommand & { reuseSession?: boolean });
+  // Transfer the ImageData buffer to avoid doubling peak RAM in the main
+  // thread. After transfer, job.imageData.data is detached (zero-length), but
+  // the job object is only used for completion routing and never reads pixels.
+  const transfer = [job.imageData.data.buffer];
+  worker.worker.postMessage(
+    {
+      type: 'infer',
+      imageData: job.imageData,
+      modelPath: job.modelPath,
+      modelId: job.modelId,
+      method: job.method,
+      reuseSession: worker.ready,
+      feather: job.feather,
+      decontaminate: job.decontaminate,
+      previewMaxDimension: job.previewMaxDimension,
+    } satisfies WorkerCommand & { reuseSession?: boolean },
+    transfer,
+  );
 }
 
 function processQueue(): void {

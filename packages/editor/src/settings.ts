@@ -14,7 +14,8 @@ import type { ExportFormat, ExportScale, RenderingIntent } from '@strata/scene';
 export interface ExportSettingsStore {
   defaultScale: ExportScale;
   defaultFormat: ExportFormat;
-  defaultColorProfile: 'srgb' | 'display-p3';
+  /** Portable Canvas 2D export baseline. Wide-gamut export is not advertised until encoded parity exists. */
+  defaultColorProfile: 'srgb';
   defaultDestination: string | null;
   defaultFilenameTemplate: string;
   defaultOutlineText: boolean;
@@ -155,8 +156,15 @@ export function loadSettings(): EditorSettings {
         viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const exportSettings = mergePartial(
+      DEFAULT_EXPORT_SETTINGS,
+      parsed.export as Partial<ExportSettingsStore>,
+    );
+    // Migrate the previously exposed but unimplemented Display-P3 choice.
+    // All current raster encoders use the cross-engine sRGB baseline.
+    exportSettings.defaultColorProfile = 'srgb';
     return {
-      export: mergePartial(DEFAULT_EXPORT_SETTINGS, parsed.export as Partial<ExportSettingsStore>),
+      export: exportSettings,
       appearance: mergePartial(
         DEFAULT_APPEARANCE_SETTINGS,
         parsed.appearance as Partial<AppearanceSettingsStore>,

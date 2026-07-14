@@ -3,6 +3,7 @@
  */
 import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
 import type { Camera, Viewport } from '@strata/shared';
+import { closeImageBitmapMap } from './collectImageBitmaps';
 
 export type WorkerCommand =
   | {
@@ -21,12 +22,20 @@ export type WorkerCommand =
   | { type: 'cancel'; docVersion: number };
 
 export type WorkerResponse =
-  | { type: 'frameRendered'; docVersion: number; camera: Camera; bitmap?: ImageBitmap }
+  | {
+      type: 'frameRendered';
+      docVersion: number;
+      camera: Camera;
+      viewport: Viewport;
+      dpr: number;
+      bitmap?: ImageBitmap;
+    }
   | { type: 'hitTestResult'; nodeId: number | null; docVersion: number }
   | { type: 'error'; message: string; docVersion?: number };
 
 export interface RenderWorkerHost {
-  post(command: WorkerCommand, transfer?: Transferable[]): void;
+  /** Returns false when the host refused the command or postMessage failed. */
+  post(command: WorkerCommand, transfer?: Transferable[]): boolean;
   terminate(): void;
   readonly permanentFailure: boolean;
   readonly restartCount: number;
@@ -57,17 +66,61 @@ export function createRenderWorkerHost(
   let lastRenderResizeGeneration = 0;
   let permanentFailure = false;
   let lastRenderCommand: WorkerCommand | null = null;
+  let lastRenderUsedTransfer = false;
+  let latestFrameIdentity: { viewport: Viewport; dpr: number } | null = null;
   let restartTimeout: ReturnType<typeof setTimeout> | null = null;
   const maxRestarts = 5;
+
+  function closeCommandResources(command: WorkerCommand): void {
+    if (command.type === 'render' && command.images) closeImageBitmapMap(command.images);
+  }
+
+  function closeResponseResources(response: WorkerResponse): void {
+    if (response.type === 'frameRendered') response.bitmap?.close();
+  }
+
+  function clearRestartTimeout(): void {
+    if (restartTimeout === null) return;
+    clearTimeout(restartTimeout);
+    restartTimeout = null;
+  }
+
+  function markPermanentFailure(): void {
+    if (permanentFailure) return;
+    permanentFailure = true;
+    clearRestartTimeout();
+    worker?.terminate();
+    worker = null;
+    workerGen++;
+    lastRenderCommand = null;
+    lastRenderUsedTransfer = false;
+    onPermanentFailure?.();
+  }
+
+  function frameIdentityMatches(response: Extract<WorkerResponse, { type: 'frameRendered' }>) {
+    return (
+      latestFrameIdentity !== null &&
+      response.dpr === latestFrameIdentity.dpr &&
+      response.viewport.width === latestFrameIdentity.viewport.width &&
+      response.viewport.height === latestFrameIdentity.viewport.height
+    );
+  }
 
   function createWorker(): Worker | null {
     const gen = ++workerGen;
     try {
       const w = new Worker(new URL('./renderWorker.ts', import.meta.url), { type: 'module' });
       w.onmessage = (e: MessageEvent<WorkerResponse>) => {
-        if (gen !== workerGen) return;
         const msg = e.data;
-        if (msg.type === 'frameRendered' && lastRenderResizeGeneration !== resizeGeneration) {
+        if (gen !== workerGen) {
+          closeResponseResources(msg);
+          return;
+        }
+        if (
+          msg.type === 'frameRendered' &&
+          (lastRenderResizeGeneration !== resizeGeneration || !frameIdentityMatches(msg))
+        ) {
+          closeResponseResources(msg);
           return;
         }
         onResponse(msg);
@@ -75,26 +128,27 @@ export function createRenderWorkerHost(
       w.onerror = () => {
         if (gen !== workerGen) return;
         restartCount++;
-        if (restartCount >= maxRestarts) {
-          permanentFailure = true;
-          onPermanentFailure?.();
+        // A successful transfer detaches the sender's ImageBitmaps. Retrying
+        // that command would reuse invalid resources and can never succeed.
+        if (lastRenderUsedTransfer || restartCount >= maxRestarts) {
+          markPermanentFailure();
           return;
         }
         worker?.terminate();
-        workerGen++;
-        if (restartTimeout !== null) {
-          clearTimeout(restartTimeout);
-        }
+        clearRestartTimeout();
         worker = createWorker();
         if (!worker) {
-          permanentFailure = true;
-          onPermanentFailure?.();
+          markPermanentFailure();
           return;
         }
         const delay = Math.min(2 ** restartCount, 30) * 1000;
         restartTimeout = setTimeout(() => {
           if (lastRenderCommand && !permanentFailure) {
-            worker?.postMessage(lastRenderCommand);
+            try {
+              worker?.postMessage(lastRenderCommand);
+            } catch {
+              markPermanentFailure();
+            }
           }
         }, delay);
       };
@@ -118,13 +172,9 @@ export function createRenderWorkerHost(
       return resizeGeneration;
     },
     post(command, transfer) {
-      if (!worker || permanentFailure) return;
-      if (command.type === 'render') {
-        lastRenderCommand = command;
-        lastRenderResizeGeneration = resizeGeneration;
-      }
-      if (command.type === 'resize') {
-        resizeGeneration++;
+      if (!worker || permanentFailure) {
+        closeCommandResources(command);
+        return false;
       }
       try {
         if (transfer?.length) {
@@ -133,18 +183,31 @@ export function createRenderWorkerHost(
           worker.postMessage(command);
         }
       } catch {
-        // worker might be terminated
+        closeCommandResources(command);
+        markPermanentFailure();
+        return false;
       }
+      if (command.type === 'render') {
+        lastRenderUsedTransfer = Boolean(transfer?.length);
+        // Commands containing ImageBitmaps are resource-bearing even when a
+        // caller accidentally omits the transfer list; never retain them.
+        lastRenderCommand = lastRenderUsedTransfer || command.images ? null : command;
+        lastRenderResizeGeneration = resizeGeneration;
+        latestFrameIdentity = { viewport: command.viewport, dpr: command.dpr };
+      }
+      if (command.type === 'resize') {
+        resizeGeneration++;
+      }
+      return true;
     },
     terminate() {
       permanentFailure = true;
-      if (restartTimeout !== null) {
-        clearTimeout(restartTimeout);
-        restartTimeout = null;
-      }
+      clearRestartTimeout();
       worker?.terminate();
       worker = null;
       workerGen++;
+      lastRenderCommand = null;
+      lastRenderUsedTransfer = false;
     },
   };
 }

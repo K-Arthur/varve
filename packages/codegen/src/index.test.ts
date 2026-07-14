@@ -7,6 +7,7 @@ import {
   makeTextNode,
   nextNodeId,
 } from '@strata/scene';
+import { DEFAULT_ARTWORK_FONT_FAMILY } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import {
   computeDocumentBounds,
@@ -72,7 +73,7 @@ describe('exportDocumentToSvg', () => {
     const svg = exportDocumentToSvg(doc);
     expect(svg).toContain('<text');
     expect(svg).toContain('Hello');
-    expect(svg).toContain('font-family="Inter"');
+    expect(svg).toContain(`font-family="${DEFAULT_ARTWORK_FONT_FAMILY}"`);
   });
 
   it('exports a shape with image fill as an SVG <image> element', () => {

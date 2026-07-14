@@ -3,11 +3,12 @@ import {
   contentHash,
   detectFileKind,
   type FileEntry,
+  type NewDocPreset,
   type Platform,
   type SavedSearch,
   type TemplateLibrary,
 } from '@strata/platform';
-import { createDocument, serializeDocument } from '@strata/scene';
+import { createDocument, serializeDocument, uniformBleed } from '@strata/scene';
 import { generateKeyBetween } from '@strata/shared';
 import { ContentSkeleton, Dialog, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -77,6 +78,9 @@ export function HomeShell({
   const view = useHomeView(platform);
   const readyFired = useRef(false);
   const wasActiveRef = useRef(active);
+  // Must be performance.now() (nav-relative), not Date.now() (epoch) —
+  // PerfProfile subtracts from performance.now(). Capture once on mount.
+  const renderStartRef = useRef(performance.now());
 
   useEffect(() => {
     if (!view.loading && !readyFired.current) {
@@ -465,14 +469,20 @@ export function HomeShell({
   // Create a document from a preset (blank or print) and open it. Shared by the
   // New File dialog and the home quick-start row.
   const createFromPreset = useCallback(
-    (name: string) => {
+    (preset: NewDocPreset) => {
       const id = crypto.randomUUID();
       const now = Date.now();
-      const doc = createDocument(name);
+      const doc = createDocument(preset.name, {
+        colorMode: preset.colorMode,
+        physicalWidth: preset.width,
+        physicalHeight: preset.height,
+        documentUnit: preset.unit,
+        bleed: preset.bleed ? uniformBleed(preset.bleed, preset.unit) : undefined,
+      });
       const docJson = serializeDocument(doc);
       const entry: FileEntry = {
         id,
-        name,
+        name: preset.name,
         kind: 'strata',
         projectId: null,
         createdAt: now,
@@ -871,7 +881,7 @@ export function HomeShell({
           {renderContent()}
           <PerfProfile
             fileCount={view.files.length}
-            renderStartTime={Date.now()}
+            renderStartTime={renderStartRef.current}
             searchResultCount={view.visibleFiles.length}
           />
         </main>
@@ -880,7 +890,7 @@ export function HomeShell({
           open={newFileOpen}
           onClose={() => setNewFileOpen(false)}
           onCreate={(preset) => {
-            createFromPreset(preset.name);
+            createFromPreset(preset);
             setNewFileOpen(false);
           }}
         />

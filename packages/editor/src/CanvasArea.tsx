@@ -1352,7 +1352,7 @@ export function CanvasArea({
         const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
         const maskSrcId = mask ? mask.sourceNodeId : null;
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
-        if (mask && maskChild && maskSrcId) {
+        if (mask && (maskSrcId || (mask.vectorMask && mask.vectorMask.points.length > 0))) {
           const baseTransform = targetCtx.getTransform();
           const compositeMaskedSurface = (surface: HTMLCanvasElement): void => {
             targetCtx.save();
@@ -1370,7 +1370,7 @@ export function CanvasArea({
               targetCtx.restore();
             }
           };
-          if (mask.type === 'alpha' || mask.type === 'luminance') {
+          if ((mask.type === 'alpha' || mask.type === 'luminance') && maskSrcId) {
             const result = document.createElement('canvas');
             result.width = targetCtx.canvas.width;
             result.height = targetCtx.canvas.height;
@@ -1406,6 +1406,32 @@ export function CanvasArea({
             compositeMaskedSurface(result);
             return;
           }
+          function traceVectorMaskPoints(
+            ctx: CanvasRenderingContext2D,
+            points: import('@strata/engine').PathPoint[],
+            closed: boolean,
+          ): void {
+            if (points.length === 0) return;
+            ctx.beginPath();
+            ctx.moveTo(points[0]!.x, points[0]!.y);
+            for (let i = 1; i < points.length; i++) {
+              const p = points[i]!;
+              const prev = points[i - 1]!;
+              if (p.handleIn || p.handleOut) {
+                ctx.bezierCurveTo(
+                  prev.handleOut?.[0] ?? prev.x,
+                  prev.handleOut?.[1] ?? prev.y,
+                  p.handleIn?.[0] ?? p.x,
+                  p.handleIn?.[1] ?? p.y,
+                  p.x,
+                  p.y,
+                );
+              } else {
+                ctx.lineTo(p.x, p.y);
+              }
+            }
+            if (closed) ctx.closePath();
+          }
           const drawClippedChildren = (clipCtx: CanvasRenderingContext2D): void => {
             // For inverted clip masks, we need offscreen compositing because
             // Canvas2D clip() has no native inverse mode.
@@ -1424,28 +1450,35 @@ export function CanvasArea({
                 if (childId !== maskSrcId) replaySubtreeToCtx(childId, offCtx);
               }
               // Render mask source on top unless hideMaskSource
-              if (!mask.hideMaskSource) {
+              if (!mask.hideMaskSource && maskSrcId) {
                 replaySubtreeToCtx(maskSrcId, offCtx);
               }
               // Punch out the clip region using destination-out
               // First, render the mask source shape to the offscreen canvas
               // at the correct world-space position
-              const maskWorldTransform =
-                mask.linked !== false
+              const maskWorldTransform = maskSrcId
+                ? mask.linked !== false
                   ? getCachedWorldTransform(cache, doc, maskSrcId)
-                  : (mask.transform ?? getCachedWorldTransform(cache, doc, maskSrcId));
+                  : (mask.transform ?? getCachedWorldTransform(cache, doc, maskSrcId))
+                : (mask.transform ?? ([1, 0, 0, 1, 0, 0] as const));
               offCtx.save();
               offCtx.setTransform(1, 0, 0, 1, 0, 0);
               offCtx.globalCompositeOperation = 'destination-out';
               offCtx.transform(...maskWorldTransform);
-              offCtx.beginPath();
-              traceSceneNodeOutline(
-                offCtx,
-                maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
-              );
-              offCtx.closePath();
-              offCtx.fillStyle = 'rgba(255,255,255,1)';
-              offCtx.fill();
+              if (mask.vectorMask && mask.vectorMask.points.length > 0) {
+                traceVectorMaskPoints(offCtx, mask.vectorMask.points, mask.vectorMask.closed);
+                offCtx.fillStyle = 'rgba(255,255,255,1)';
+                offCtx.fill(mask.vectorMask.fillRule ?? 'nonzero');
+              } else {
+                offCtx.beginPath();
+                traceSceneNodeOutline(
+                  offCtx,
+                  maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
+                );
+                offCtx.closePath();
+                offCtx.fillStyle = 'rgba(255,255,255,1)';
+                offCtx.fill();
+              }
               offCtx.restore();
               // Draw the result onto clipCtx
               clipCtx.drawImage(offscreen, 0, 0);
@@ -1453,24 +1486,30 @@ export function CanvasArea({
             }
             clipCtx.save();
             try {
-              const maskWorldTransform =
-                mask.linked !== false
+              const maskWorldTransform = maskSrcId
+                ? mask.linked !== false
                   ? getCachedWorldTransform(cache, doc, maskSrcId)
-                  : (mask.transform ?? getCachedWorldTransform(cache, doc, maskSrcId));
+                  : (mask.transform ?? getCachedWorldTransform(cache, doc, maskSrcId))
+                : (mask.transform ?? ([1, 0, 0, 1, 0, 0] as const));
               clipCtx.transform(...maskWorldTransform);
-              clipCtx.beginPath();
-              traceSceneNodeOutline(
-                clipCtx,
-                maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
-              );
-              clipCtx.closePath();
-              clipCtx.clip();
+              if (mask.vectorMask && mask.vectorMask.points.length > 0) {
+                traceVectorMaskPoints(clipCtx, mask.vectorMask.points, mask.vectorMask.closed);
+                clipCtx.clip(mask.vectorMask.fillRule ?? 'nonzero');
+              } else {
+                clipCtx.beginPath();
+                traceSceneNodeOutline(
+                  clipCtx,
+                  maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
+                );
+                clipCtx.closePath();
+                clipCtx.clip();
+              }
               clipCtx.setTransform(baseTransform);
               for (const childId of (n as import('@strata/scene').ContainerNode).children) {
                 if (childId !== maskSrcId) replaySubtreeToCtx(childId, clipCtx);
               }
               // Render mask source on top of clipped children unless hideMaskSource
-              if (!mask.hideMaskSource) {
+              if (!mask.hideMaskSource && maskSrcId) {
                 clipCtx.setTransform(baseTransform);
                 replaySubtreeToCtx(maskSrcId, clipCtx);
               }
@@ -1791,7 +1830,69 @@ export function CanvasArea({
                     );
                     targetCtx.restore();
                   }
-                } else if (effect.type !== 'dropShadow' && effect.type !== 'outerGlow') {
+                } else if (effect.type === 'backgroundBlur') {
+                  const m = targetCtx.getTransform();
+                  const gx = minX - effectPadding;
+                  const gy = minY - effectPadding;
+                  const corners = [
+                    [gx, gy],
+                    [gx + groupWidth, gy],
+                    [gx, gy + groupHeight],
+                    [gx + groupWidth, gy + groupHeight],
+                  ].map(
+                    ([cx, cy]) =>
+                      ({
+                        sx: m.a * cx + m.c * cy + m.e,
+                        sy: m.b * cx + m.d * cy + m.f,
+                      }) as { sx: number; sy: number },
+                  );
+                  const screenX = Math.floor(Math.min(...corners.map((c) => c.sx)));
+                  const screenY = Math.floor(Math.min(...corners.map((c) => c.sy)));
+                  const screenW = Math.ceil(Math.max(...corners.map((c) => c.sx))) - screenX;
+                  const screenH = Math.ceil(Math.max(...corners.map((c) => c.sy))) - screenY;
+                  if (screenW > 0 && screenH > 0) {
+                    const blurPad = Math.ceil(effect.radius * 3);
+                    const padX = Math.ceil(Math.abs(blurPad * m.a));
+                    const padY = Math.ceil(Math.abs(blurPad * m.d));
+                    const capX = screenX - padX;
+                    const capY = screenY - padY;
+                    const capW = screenW + padX * 2;
+                    const capH = screenH + padY * 2;
+                    const cc = new CompositeCanvas({
+                      width: capW,
+                      height: capH,
+                      devicePixelRatio: 1,
+                      testCanvas: document.createElement('canvas'),
+                    });
+                    cc.captureSource(
+                      targetCtx.canvas as HTMLCanvasElement,
+                      capX,
+                      capY,
+                      capW,
+                      capH,
+                      0,
+                      0,
+                    );
+                    cc.applyBlur(effect.radius);
+                    targetCtx.save();
+                    targetCtx.drawImage(
+                      cc.canvas as CanvasImageSource,
+                      0,
+                      0,
+                      capW,
+                      capH,
+                      gx - blurPad,
+                      gy - blurPad,
+                      groupWidth + blurPad * 2,
+                      groupHeight + blurPad * 2,
+                    );
+                    targetCtx.restore();
+                  }
+                } else if (
+                  effect.type !== 'dropShadow' &&
+                  effect.type !== 'outerGlow' &&
+                  effect.type !== 'backgroundBlur'
+                ) {
                 }
               }
               const bm = n.blendMode ?? 'passThrough';

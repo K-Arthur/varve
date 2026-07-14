@@ -8,6 +8,8 @@ packages:
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
 # postinstall; approve it explicitly. strictDepBuilds defaults to true.
 allowBuilds:
+  edgedriver: true
   esbuild: true
+  geckodriver: true
   protobufjs: true
   sharp: false

@@ -116,6 +116,21 @@ function defaultEffect(type: Effect['type']): Effect {
         blendMode: 'screen',
         visible: true,
       };
+    case 'glassMaterial':
+      return {
+        type,
+        blur: 12,
+        tint: { space: 'rgb' as const, r: 200, g: 220, b: 255, a: 60 },
+        tintOpacity: 0.3,
+        saturation: 1.2,
+        brightness: 1.05,
+        noise: 0.02,
+        edgeHighlight: true,
+        edgeHighlightWidth: 1.5,
+        edgeHighlightColor: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 120 },
+        edgeHighlightOpacity: 0.4,
+        visible: true,
+      };
   }
 }
 
@@ -131,6 +146,7 @@ const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
   { value: 'innerGlow', label: 'Inner Glow' },
   { value: 'layerBlur', label: 'Layer Blur' },
   { value: 'backgroundBlur', label: 'Background Blur' },
+  { value: 'glassMaterial', label: 'Glass Material' },
 ];
 
 export function EffectsSection({ nodes }: EffectsSectionProps) {
@@ -282,8 +298,11 @@ function EffectRow({
         >
           <Icon name={visibility ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
         </button>
-        {type && type !== 'layerBlur' && type !== 'backgroundBlur' && (
+        {type && type !== 'layerBlur' && type !== 'backgroundBlur' && type !== 'glassMaterial' && (
           <ShadowColorSwatch nodes={nodes} index={index} onChange={onChange} />
+        )}
+        {type === 'glassMaterial' && (
+          <GlassTintSwatch nodes={nodes} index={index} onChange={onChange} />
         )}
         <span
           style={{ flex: 1, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
@@ -340,6 +359,7 @@ function ShadowColorSwatch({
   index: number;
   onChange: (updater: (e: Effect) => Effect) => void;
 }) {
+  const { documentColorMode } = useEditor();
   const colorRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
     if (e && (e.type === 'dropShadow' || e.type === 'innerShadow')) return e.color;
@@ -360,6 +380,38 @@ function ShadowColorSwatch({
         )
       }
       swatchStyle={{ background: swatchBg }}
+      documentColorMode={documentColorMode}
+    />
+  );
+}
+
+function GlassTintSwatch({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const { documentColorMode } = useEditor();
+  const tintRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.tint;
+    return { space: 'rgb' as const, r: 200, g: 220, b: 255, a: 60 };
+  });
+  const tint = isMixed(tintRaw) ? null : tintRaw;
+  const swatchBg = tint ? toSwatchBg(tint) : 'transparent';
+
+  return (
+    <InspectorColorPopover
+      label="Glass tint"
+      value={tint ?? { space: 'rgb', r: 200, g: 220, b: 255, a: 60 }}
+      onChange={(c) =>
+        onChange((e) => (e.type === 'glassMaterial' ? { ...e, tint: c as ManagedColor } : e))
+      }
+      swatchStyle={{ background: swatchBg }}
+      documentColorMode={documentColorMode}
     />
   );
 }
@@ -385,6 +437,8 @@ function EffectParams({
     case 'layerBlur':
     case 'backgroundBlur':
       return <SingleBlurParam nodes={nodes} index={index} onChange={onChange} />;
+    case 'glassMaterial':
+      return <GlassMaterialParams nodes={nodes} index={index} onChange={onChange} />;
   }
 }
 
@@ -666,6 +720,141 @@ function SingleBlurParam({
           )
         }
       />
+    </div>
+  );
+}
+
+function GlassMaterialParams({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const blurRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.blur;
+    return 0;
+  });
+  const tintOpacityRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.tintOpacity;
+    return 0;
+  });
+  const saturationRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.saturation;
+    return 1;
+  });
+  const brightnessRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.brightness;
+    return 1;
+  });
+  const noiseRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.noise;
+    return 0;
+  });
+  const edgeHighlightRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.edgeHighlight;
+    return false;
+  });
+  const edgeWidthRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.edgeHighlightWidth;
+    return 1;
+  });
+
+  return (
+    <div
+      style={{
+        paddingLeft: 'var(--space-2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+      }}
+    >
+      <NumberField
+        label="Blur"
+        value={isMixed(blurRaw) ? 0 : blurRaw}
+        mixed={isMixed(blurRaw)}
+        step={1}
+        min={0}
+        onChange={(v) => onChange((e) => (e.type === 'glassMaterial' ? { ...e, blur: v } : e))}
+      />
+      <NumberField
+        label="Tint"
+        value={isMixed(tintOpacityRaw) ? 0 : tintOpacityRaw}
+        mixed={isMixed(tintOpacityRaw)}
+        step={0.01}
+        min={0}
+        max={1}
+        onChange={(v) =>
+          onChange((e) => (e.type === 'glassMaterial' ? { ...e, tintOpacity: v } : e))
+        }
+      />
+      <NumberField
+        label="Saturation"
+        value={isMixed(saturationRaw) ? 1 : saturationRaw}
+        mixed={isMixed(saturationRaw)}
+        step={0.1}
+        min={0}
+        max={3}
+        onChange={(v) =>
+          onChange((e) => (e.type === 'glassMaterial' ? { ...e, saturation: v } : e))
+        }
+      />
+      <NumberField
+        label="Brightness"
+        value={isMixed(brightnessRaw) ? 1 : brightnessRaw}
+        mixed={isMixed(brightnessRaw)}
+        step={0.05}
+        min={0}
+        max={3}
+        onChange={(v) =>
+          onChange((e) => (e.type === 'glassMaterial' ? { ...e, brightness: v } : e))
+        }
+      />
+      <NumberField
+        label="Noise"
+        value={isMixed(noiseRaw) ? 0 : noiseRaw}
+        mixed={isMixed(noiseRaw)}
+        step={0.01}
+        min={0}
+        max={1}
+        onChange={(v) => onChange((e) => (e.type === 'glassMaterial' ? { ...e, noise: v } : e))}
+      />
+      <div className="insp-field">
+        <button
+          type="button"
+          className={`insp-toggle-btn${isMixed(edgeHighlightRaw) ? '' : edgeHighlightRaw ? ' --active' : ''}`}
+          aria-label="Edge highlight"
+          aria-pressed={isMixed(edgeHighlightRaw) ? 'mixed' : edgeHighlightRaw}
+          onClick={() =>
+            onChange((e) =>
+              e.type === 'glassMaterial' ? { ...e, edgeHighlight: !e.edgeHighlight } : e,
+            )
+          }
+        >
+          {isMixed(edgeHighlightRaw) ? '—' : edgeHighlightRaw ? 'Edge On' : 'Edge Off'}
+        </button>
+        {isMixed(edgeHighlightRaw) || edgeHighlightRaw ? (
+          <NumberField
+            label="Width"
+            value={isMixed(edgeWidthRaw) ? 1 : edgeWidthRaw}
+            mixed={isMixed(edgeWidthRaw)}
+            step={0.5}
+            min={0}
+            onChange={(v) =>
+              onChange((e) => (e.type === 'glassMaterial' ? { ...e, edgeHighlightWidth: v } : e))
+            }
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

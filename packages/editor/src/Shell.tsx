@@ -538,8 +538,9 @@ function ShellInner({
           <PageNav />
         </div>
         <div
-          className="editor__layers-panel"
+          className="editor__layers-panel editor__panel--glass"
           data-panel="layers"
+          data-testid="layers-panel"
           data-visible={layersVisible || undefined}
           data-collapsed={!leftPanelVisible || undefined}
           {...(!leftPanelVisible ? { inert: true } : {})}
@@ -556,7 +557,7 @@ function ShellInner({
           />
         </div>
         <div
-          className="editor__inspector-panel"
+          className="editor__inspector-panel editor__panel--glass"
           data-panel="inspector"
           data-visible={inspectorVisible || undefined}
           data-collapsed={!rightPanelVisible || undefined}
@@ -876,7 +877,7 @@ function ShellInner({
           getNodeBounds={(nodeId) => {
             const node = editor.state.document.nodes[nodeId];
             if (!node) return null;
-            return nodeLocalBounds(node);
+            return nodeLocalBounds(node, editor.state.document);
           }}
           activeTransition={editor.prototypeTransition}
           onClearTransition={editor.clearPrototypeTransition}

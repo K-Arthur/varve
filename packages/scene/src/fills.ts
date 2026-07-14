@@ -92,6 +92,8 @@ export function patternFill(
   opts: {
     spacing?: number;
     rotation?: number;
+    imageWidth?: number;
+    imageHeight?: number;
     opacity?: number;
     blendMode?: BlendMode;
     visible?: boolean;
@@ -101,6 +103,8 @@ export function patternFill(
     tileSrc,
     spacing: opts.spacing ?? 0,
     rotation: opts.rotation ?? 0,
+    ...(opts.imageWidth !== undefined ? { imageWidth: opts.imageWidth } : {}),
+    ...(opts.imageHeight !== undefined ? { imageHeight: opts.imageHeight } : {}),
   };
   return {
     type: 'pattern',

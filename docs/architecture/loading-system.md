@@ -56,7 +56,9 @@ Cold-cache latency (bundle download) is dominated by network; the pre-JS fallbac
 
 ### Chromatic aberration implementation
 
-**CSS layered SVG** (not WebGPU) — three RGB-offset copies of `StrataLogo` symbolic mark + white base layer. Works on all targets without capability detection. `simplified` prop / reduced-motion disables animation.
+**Single white SVG + layered `drop-shadow`** (not WebGPU, not RGB underlay ghosts). Thin cyan/rose channel split + soft white bloom. Mark size **160px** (boot fallback 136px). Quiet ambient luminosity pulse only.
+
+**Theme policy (locked):** Startup is **brand-fixed dark** (`#10151f` + white mark) on every surface — native splash, pre-JS boot fallback, and `StartupLoader`. It intentionally does **not** follow light / dark / high-contrast `[data-theme]`. Same Cursor-style identity moment on every cold start. `color-scheme: dark` is set on those surfaces so OS/browser chrome cannot lighten them.
 
 ## Boot Sequence
 
@@ -105,7 +107,7 @@ When disabled, the app transitions directly to `home_ready` with no loader.
 ### 1. StartupLoader
 - **Use:** Initial app boot ONLY.
 - **Trigger:** Hooked to `useHomeView` readiness via `HomeShell.onReady`.
-- **Motion:** White logo, subtle chromatic aberration sweep (CSS keyframes).
+- **Motion:** White logo + static cyan/amber/rose spectral fringe; soft 4s luminosity breathe (`opacity`/`scale` + radial glow) — compositor-friendly. No filter-keyframe loops.
 - **A11y:** Static mark if `prefers-reduced-motion`. `role="status"`, `aria-live="polite"`.
 - **Props:** `error`, `onRetry`, `ready`, `simplified`, `onExited`, `exitDuration`.
 - **Graceful degradation:** `simplified` prop hides chromatic-aberration layers. Set automatically when `checkStartupCapabilities().shouldSimplify` is true (reduced-motion OR GPU score < 0.4).
@@ -160,8 +162,8 @@ These are read once at mount and used to adjust the loader visual complexity.
 ### Colors
 - `--loader-primary`: `var(--color-interactive-default)`
 - `--loader-muted`: `var(--color-text-muted)`
-- `--startup-bg`: `var(--color-surface-app)` (Dark)
-- `--startup-logo`: `#FFFFFF`
+- `--startup-bg`: **removed / unused** — splash is brand-fixed `#10151f`, not theme tokens
+- `--startup-logo`: white `#FFFFFF` (fixed; not theme-relative)
 - `--skeleton-bg-color`: `var(--color-surface-raised)`
 - `--skeleton-shimmer-color`: `var(--color-surface-overlay)`
 

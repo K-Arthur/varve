@@ -4,6 +4,30 @@
 import type { RenderItem } from '@strata/engine';
 import { getImageCache } from '@strata/engine';
 
+/** Close every distinct ImageBitmap in a map. */
+export function closeImageBitmapMap(images: Readonly<Record<string, ImageBitmap>>): void {
+  const closed = new Set<ImageBitmap>();
+  for (const bitmap of Object.values(images)) {
+    if (closed.has(bitmap)) continue;
+    bitmap.close();
+    closed.add(bitmap);
+  }
+}
+
+/** Replace a worker image map and release bitmaps no longer retained by identity. */
+export function replaceImageBitmapMap(
+  current: Readonly<Record<string, ImageBitmap>>,
+  next: Record<string, ImageBitmap>,
+): Record<string, ImageBitmap> {
+  const retained = new Set(Object.values(next));
+  const obsolete: Record<string, ImageBitmap> = {};
+  for (const [src, bitmap] of Object.entries(current)) {
+    if (!retained.has(bitmap)) obsolete[src] = bitmap;
+  }
+  closeImageBitmapMap(obsolete);
+  return next;
+}
+
 /** Collect image src URLs referenced by IR fill stacks. */
 export function imageSrcsFromIr(ir: RenderItem[]): string[] {
   const srcs = new Set<string>();
@@ -43,19 +67,24 @@ export async function collectImageBitmaps(
   const images: Record<string, ImageBitmap> = {};
   const transfer: Transferable[] = [];
 
+  const fail = (): null => {
+    closeImageBitmapMap(images);
+    return null;
+  };
+
   for (const src of srcs) {
     if (!cache.isLoaded(src)) {
       void cache.load(src).catch(() => undefined);
-      return null;
+      return fail();
     }
     const img = cache.getImage(src);
-    if (!img) return null;
+    if (!img) return fail();
     try {
       const bitmap = await createImageBitmap(img);
       images[src] = bitmap;
       transfer.push(bitmap);
     } catch {
-      return null;
+      return fail();
     }
   }
 

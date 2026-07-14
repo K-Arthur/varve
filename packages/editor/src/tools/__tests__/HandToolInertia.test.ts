@@ -60,6 +60,7 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
       removeSelected: vi.fn(),
       duplicateSelected: vi.fn(),
       reparentNode: vi.fn(),
+      setCamera: vi.fn(),
       setPan: vi.fn(() => {
         // Simulate production behavior: setPan does NOT mutate pan.
         // The pan object reference stays the same.

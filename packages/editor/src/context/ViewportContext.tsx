@@ -1,6 +1,7 @@
 import type { NodeId, SceneNode } from '@strata/scene';
 import {
   animateCamera,
+  type Camera,
   clampZoom,
   fitBoundsCamera,
   revealBoundsCamera,
@@ -16,6 +17,7 @@ export interface ViewportContextValue {
   zoom: number;
   pan: { x: number; y: number };
   canvasMode: CanvasMode;
+  setCamera: (camera: Camera) => void;
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
   zoomIn: () => void;
@@ -71,6 +73,16 @@ export function ViewportProvider({
   );
 
   const setZoom = useCallback((z: number) => patch({ zoom: clampZoom(z) }), [patch]);
+
+  const setCamera = useCallback(
+    (camera: Camera) =>
+      patch({
+        zoom: clampZoom(camera.zoom),
+        pan: { x: camera.pan.x, y: camera.pan.y },
+        cameraRotation: camera.rotation ?? stateRef.current.cameraRotation,
+      }),
+    [patch, stateRef],
+  );
 
   const setPan = useCallback(
     (p: { x: number; y: number }) => patch({ pan: { x: p.x, y: p.y } }),
@@ -269,6 +281,7 @@ export function ViewportProvider({
       zoom: state.zoom,
       pan: state.pan,
       canvasMode: state.canvasMode,
+      setCamera,
       setZoom,
       setPan,
       zoomIn,
@@ -288,6 +301,7 @@ export function ViewportProvider({
       state.zoom,
       state.pan,
       state.canvasMode,
+      setCamera,
       setZoom,
       setPan,
       zoomIn,

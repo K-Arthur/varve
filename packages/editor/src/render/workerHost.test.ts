@@ -15,6 +15,25 @@ class MockWorker {
   }
 }
 
+function mockBitmap(): ImageBitmap {
+  return { width: 1, height: 1, close: vi.fn() } as unknown as ImageBitmap;
+}
+
+function renderCommand(
+  overrides: Partial<Extract<WorkerCommand, { type: 'render' }>> = {},
+): Extract<WorkerCommand, { type: 'render' }> {
+  return {
+    type: 'render',
+    nodes: [],
+    ir: [],
+    camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+    viewport: { width: 100, height: 100 },
+    docVersion: 1,
+    dpr: 1,
+    ...overrides,
+  };
+}
+
 describe('render worker host restarts', () => {
   beforeEach(() => {
     mockWorkers.length = 0;
@@ -142,5 +161,110 @@ describe('render worker host restarts', () => {
 
     expect(host!.restartCount).toBe(1);
     expect(host!.permanentFailure).toBe(false);
+  });
+
+  it('never retries a render whose ImageBitmaps were transferred', () => {
+    const onPermanentFailure = vi.fn();
+    const host = createRenderWorkerHost(vi.fn(), onPermanentFailure);
+    const bitmap = mockBitmap();
+    const command = renderCommand({ images: { image: bitmap } });
+
+    expect(host!.post(command, [bitmap])).toBe(true);
+    mockWorkers[0]!.onerror!();
+    vi.runAllTimers();
+
+    expect(host!.permanentFailure).toBe(true);
+    expect(onPermanentFailure).toHaveBeenCalledTimes(1);
+    expect(mockWorkers).toHaveLength(1);
+    expect(mockWorkers[0]!.postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes render ImageBitmaps when a permanent host refuses the post', () => {
+    const host = createRenderWorkerHost(vi.fn());
+    host!.terminate();
+    const bitmap = mockBitmap();
+
+    expect(host!.post(renderCommand({ images: { image: bitmap } }), [bitmap])).toBe(false);
+    expect(bitmap.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes render ImageBitmaps and signals fallback when postMessage throws', () => {
+    const onPermanentFailure = vi.fn();
+    const host = createRenderWorkerHost(vi.fn(), onPermanentFailure);
+    const bitmap = mockBitmap();
+    mockWorkers[0]!.postMessage.mockImplementationOnce(() => {
+      throw new DOMException('detached', 'DataCloneError');
+    });
+
+    expect(host!.post(renderCommand({ images: { image: bitmap } }), [bitmap])).toBe(false);
+    expect(bitmap.close).toHaveBeenCalledTimes(1);
+    expect(host!.permanentFailure).toBe(true);
+    expect(onPermanentFailure).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes and drops frames whose viewport identity does not match the latest render', () => {
+    const onResponse = vi.fn();
+    const host = createRenderWorkerHost(onResponse);
+    expect(host!.post(renderCommand())).toBe(true);
+    const bitmap = mockBitmap();
+
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 200, height: 100 },
+          dpr: 1,
+          bitmap,
+        },
+      }),
+    );
+
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(bitmap.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes and drops frames whose DPR does not match the latest render', () => {
+    const onResponse = vi.fn();
+    const host = createRenderWorkerHost(onResponse);
+    expect(host!.post(renderCommand({ dpr: 2 }))).toBe(true);
+    const bitmap = mockBitmap();
+
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          bitmap,
+        },
+      }),
+    );
+
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(bitmap.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards frames whose viewport and DPR match the latest render', () => {
+    const onResponse = vi.fn();
+    const host = createRenderWorkerHost(onResponse);
+    expect(host!.post(renderCommand())).toBe(true);
+    const bitmap = mockBitmap();
+    const response = {
+      type: 'frameRendered' as const,
+      docVersion: 1,
+      camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+      viewport: { width: 100, height: 100 },
+      dpr: 1,
+      bitmap,
+    };
+
+    mockWorkers[0]!.onmessage!(new MessageEvent('message', { data: response }));
+
+    expect(onResponse).toHaveBeenCalledWith(response);
+    expect(bitmap.close).not.toHaveBeenCalled();
   });
 });

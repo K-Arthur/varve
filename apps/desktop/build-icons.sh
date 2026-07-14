@@ -44,8 +44,13 @@ for SIZE in "${HICOLOR_SIZES[@]}"; do
 done
 echo "    Exported ${#HICOLOR_SIZES[@]} sizes: ${HICOLOR_SIZES[*]}"
 
-# ── 4. Symbolic SVG — just copy; it's already authored to spec ───────────────
-echo "--> Installing symbolic SVG"
+# ── 4. Scalable + symbolic SVGs ───────────────────────────────────────────────
+echo "--> Installing scalable + symbolic SVGs"
+SCALABLE_DIR="$HICOLOR_DIR/scalable/apps"
+mkdir -p "$SCALABLE_DIR"
+# Colourful scalable launcher — same master as PNG ladder (with plate/bg).
+cp "$SRC_SVG" "$SCALABLE_DIR/${APP_ID}.svg"
+
 SYMBOLIC_DIR="$HICOLOR_DIR/symbolic/apps"
 mkdir -p "$SYMBOLIC_DIR"
 cp "$SYMBOLIC_SRC" "$SYMBOLIC_DIR/${APP_ID}-symbolic.svg"

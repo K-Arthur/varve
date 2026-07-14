@@ -16,8 +16,9 @@ import { applyCurve, buildCurveLUT } from './adjustment/curves';
 import { applyLevels } from './adjustment/levels';
 import type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 import { applySelectiveColor } from './adjustment/selectiveColor';
+import { gaussianBlurSeparable } from './blur';
 import { mapBlendMode } from './compositeCanvas';
-import { filterToCss } from './filters';
+import { filterToCss, supportsCanvasFilter } from './filters';
 import {
   applyHalftone,
   type HalftoneChannel,
@@ -25,6 +26,7 @@ import {
   type HalftoneMethod,
   type HalftonePattern,
 } from './halftone';
+import { createRasterSurface, type RasterCanvasContext } from './rasterSurface';
 import type { FilterIR } from './types';
 
 /** Build a CSS filter string from all CSS-compatible filters, ignoring opacity/blend. */
@@ -61,7 +63,8 @@ export function applyFilterWithCompositing(
   // Separate simple CSS filters from those needing offscreen compositing
   for (const f of filters) {
     const css = filterToCss(f);
-    const isSimpleCss = css !== null && f.opacity >= 1 && f.blendMode === 'normal';
+    const isSimpleCss =
+      supportsCanvasFilter(target) && css !== null && f.opacity >= 1 && f.blendMode === 'normal';
     if (isSimpleCss) {
       cssParts.push(css);
     } else {
@@ -78,87 +81,62 @@ export function applyFilterWithCompositing(
     return;
   }
 
-  // Phase 2: Mixed or complex filters require offscreen compositing per filter
-  // Check if OffscreenCanvas is available (not in all test environments)
-  const hasOffscreen = typeof OffscreenCanvas !== 'undefined';
-  if (!hasOffscreen) {
-    // Fallback: set CSS filter for whatever we can, skip software filters
+  let current: ReturnType<typeof createRasterSurface>;
+  try {
+    current = createRasterSurface(width, height);
+  } catch {
     const css = filterChainToCssSimple(filters);
-    if (css) target.filter = css;
+    if (css && supportsCanvasFilter(target)) target.filter = css;
     return;
   }
-
-  // Snapshot the current state (the rendered fills + strokes before filters)
-  const snapshot = new OffscreenCanvas(width, height);
-  const snapshotCtx = snapshot.getContext('2d');
-  if (!snapshotCtx) {
-    // OffscreenCanvas exists but getContext failed (test mock)
-    // Fallback: apply CSS filters only
-    const css = filterChainToCssSimple(filters);
-    if (css) target.filter = css;
-    return;
-  }
-  snapshotCtx.drawImage(target.canvas, 0, 0);
-
-  // Clear the main canvas and apply filters one at a time
-  target.clearRect(0, 0, width, height);
-  target.filter = 'none';
-
-  let accumulatedCss: string[] = [];
+  current.context.drawImage(target.canvas, 0, 0);
 
   for (const f of filters) {
     const css = filterToCss(f);
-    const isSimpleCss = css !== null && f.opacity >= 1 && f.blendMode === 'normal';
+    const filtered = createRasterSurface(width, height);
+    if (css && supportsCanvasFilter(filtered.context)) {
+      filtered.context.filter = css;
+      filtered.context.drawImage(current.canvas, 0, 0);
+    } else {
+      filtered.context.drawImage(current.canvas, 0, 0);
+      applySoftwareFilter(filtered.context, f, width, height);
+    }
 
-    if (isSimpleCss) {
-      // Accumulate CSS filters for batch application
-      accumulatedCss.push(css);
+    if ((f.opacity ?? 1) >= 1 && (!f.blendMode || f.blendMode === 'normal')) {
+      current = filtered;
       continue;
     }
 
-    // Flush any accumulated CSS filters first
-    if (accumulatedCss.length > 0) {
-      snapshotCtx.filter = accumulatedCss.join(' ');
-      snapshotCtx.drawImage(snapshot, 0, 0);
-      accumulatedCss = [];
-    }
-
-    // Apply this filter to the offscreen snapshot
-    const offscreen = new OffscreenCanvas(width, height);
-    const offCtx = offscreen.getContext('2d')!;
-
-    if (css !== null) {
-      // CSS-compatible filter with non-trivial opacity/blend
-      offCtx.filter = css;
-      offCtx.drawImage(snapshot, 0, 0);
-    } else {
-      // Software pixel filter
-      offCtx.drawImage(snapshot, 0, 0);
-      applySoftwareFilter(offCtx, f, width, height);
-    }
-
-    // Composite the filtered result with per-filter opacity and blend mode
-    target.save();
-    target.globalAlpha = f.opacity ?? 1;
-    if (f.blendMode && f.blendMode !== 'normal') {
-      target.globalCompositeOperation = mapBlendMode(f.blendMode) as GlobalCompositeOperation;
-    }
-    target.drawImage(offscreen, 0, 0);
-    target.restore();
+    const composed = createRasterSurface(width, height);
+    composed.context.drawImage(current.canvas, 0, 0);
+    composed.context.globalAlpha = f.opacity ?? 1;
+    composed.context.globalCompositeOperation = mapBlendMode(
+      f.blendMode ?? 'normal',
+    ) as GlobalCompositeOperation;
+    composed.context.drawImage(filtered.canvas, 0, 0);
+    current = composed;
   }
 
-  // Apply any remaining accumulated CSS filters
-  if (accumulatedCss.length > 0) {
-    target.filter = accumulatedCss.join(' ');
-    target.drawImage(snapshot, 0, 0);
+  target.save();
+  try {
+    if (typeof target.setTransform === 'function') {
+      target.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    target.clearRect(0, 0, width, height);
+    target.filter = 'none';
+    target.globalAlpha = 1;
+    target.globalCompositeOperation = 'source-over';
+    target.drawImage(current.canvas, 0, 0);
+  } finally {
+    target.restore();
   }
 }
 
 /**
  * Apply a software (non-CSS) filter to an offscreen canvas context.
  */
-function applySoftwareFilter(
-  ctx: OffscreenCanvasRenderingContext2D,
+export function applySoftwareFilter(
+  ctx: RasterCanvasContext,
   filter: FilterIR,
   width: number,
   height: number,
@@ -166,6 +144,26 @@ function applySoftwareFilter(
   const imageData = ctx.getImageData(0, 0, width, height);
 
   switch (filter.kind) {
+    case 'brightness':
+    case 'contrast':
+    case 'saturation':
+    case 'hueRotate':
+    case 'sepia':
+    case 'grayscale':
+    case 'invert':
+    case 'opacity': {
+      applyPortableCssFilter(imageData, filter);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'blur': {
+      ctx.putImageData(
+        gaussianBlurSeparable(imageData, Math.max(0, Math.round(filter.radius))),
+        0,
+        0,
+      );
+      break;
+    }
     case 'curves': {
       const channel =
         'channel' in filter
@@ -374,6 +372,20 @@ function applySoftwareFilter(
       ctx.putImageData(imageData, 0, 0);
       break;
     }
+    case 'chain': {
+      for (const child of filter.filters) applySoftwareFilter(ctx, child, width, height);
+      break;
+    }
+    case 'gradientMap': {
+      const gf = filter as {
+        stops: readonly { position: number; color: readonly [number, number, number, number] }[];
+        dither: boolean;
+        preserveLuminosity: boolean;
+      };
+      applyGradientMap(imageData, gf);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
     default:
       // Unknown filter kind — leave unchanged
       break;
@@ -384,6 +396,87 @@ function applySoftwareFilter(
 
 function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
+}
+
+function applyPortableCssFilter(data: ImageData, filter: FilterIR): void {
+  const pixels = data.data;
+  const amount = 'value' in filter ? filter.value : 0;
+  const t = Math.max(0, Math.min(1, amount / 100));
+  const radians = (amount * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i]!;
+    const g = pixels[i + 1]!;
+    const b = pixels[i + 2]!;
+    switch (filter.kind) {
+      case 'brightness': {
+        const factor = Math.max(0, 1 + amount / 100);
+        pixels[i] = clampByte(r * factor);
+        pixels[i + 1] = clampByte(g * factor);
+        pixels[i + 2] = clampByte(b * factor);
+        break;
+      }
+      case 'contrast': {
+        const factor = Math.max(0, 1 + amount / 100);
+        pixels[i] = clampByte((r - 128) * factor + 128);
+        pixels[i + 1] = clampByte((g - 128) * factor + 128);
+        pixels[i + 2] = clampByte((b - 128) * factor + 128);
+        break;
+      }
+      case 'saturation': {
+        const factor = Math.max(0, 1 + amount / 100);
+        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        pixels[i] = clampByte(luma + (r - luma) * factor);
+        pixels[i + 1] = clampByte(luma + (g - luma) * factor);
+        pixels[i + 2] = clampByte(luma + (b - luma) * factor);
+        break;
+      }
+      case 'grayscale': {
+        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        pixels[i] = clampByte(r + (luma - r) * t);
+        pixels[i + 1] = clampByte(g + (luma - g) * t);
+        pixels[i + 2] = clampByte(b + (luma - b) * t);
+        break;
+      }
+      case 'invert':
+        pixels[i] = clampByte(r + (255 - 2 * r) * t);
+        pixels[i + 1] = clampByte(g + (255 - 2 * g) * t);
+        pixels[i + 2] = clampByte(b + (255 - 2 * b) * t);
+        break;
+      case 'opacity':
+        pixels[i + 3] = clampByte(pixels[i + 3]! * t);
+        break;
+      case 'sepia': {
+        const sr = 0.393 * r + 0.769 * g + 0.189 * b;
+        const sg = 0.349 * r + 0.686 * g + 0.168 * b;
+        const sb = 0.272 * r + 0.534 * g + 0.131 * b;
+        pixels[i] = clampByte(r + (sr - r) * t);
+        pixels[i + 1] = clampByte(g + (sg - g) * t);
+        pixels[i + 2] = clampByte(b + (sb - b) * t);
+        break;
+      }
+      case 'hueRotate': {
+        pixels[i] = clampByte(
+          r * (0.213 + cos * 0.787 - sin * 0.213) +
+            g * (0.715 - cos * 0.715 - sin * 0.715) +
+            b * (0.072 - cos * 0.072 + sin * 0.928),
+        );
+        pixels[i + 1] = clampByte(
+          r * (0.213 - cos * 0.213 + sin * 0.143) +
+            g * (0.715 + cos * 0.285 + sin * 0.14) +
+            b * (0.072 - cos * 0.072 - sin * 0.283),
+        );
+        pixels[i + 2] = clampByte(
+          r * (0.213 - cos * 0.213 - sin * 0.787) +
+            g * (0.715 - cos * 0.715 + sin * 0.715) +
+            b * (0.072 + cos * 0.928 + sin * 0.072),
+        );
+        break;
+      }
+    }
+  }
 }
 
 function premultiply(data: Uint8ClampedArray): void {
@@ -640,6 +733,105 @@ function applyPhotoFilter(
  * Vibrance: intelligently boost saturation, protecting skin tones.
  * Applies more saturation to less-saturated areas.
  */
+/**
+ * Gradient map: maps luminance of each pixel to a position along a gradient stop
+ * ramp. The darkest pixels take the leftmost stop, lightest take the rightmost.
+ * Supports dithering for banding reduction and optional luminance preservation.
+ *
+ * Research basis: Adobe Photoshop Gradient Map adjustment layer, Affinity Photo
+ * Gradient Map, photographic split-toning concepts.
+ */
+function applyGradientMap(
+  data: ImageData,
+  params: {
+    stops: readonly { position: number; color: readonly [number, number, number, number] }[];
+    dither: boolean;
+    preserveLuminosity: boolean;
+  },
+): void {
+  const { stops, dither, preserveLuminosity } = params;
+  if (stops.length < 2) return;
+
+  const pixels = data.data;
+  const w = data.width;
+
+  // Pre-compute interpolated LUT: for each 0-255 luminance value, compute the mapped color
+  const lutR = new Uint8Array(256);
+  const lutG = new Uint8Array(256);
+  const lutB = new Uint8Array(256);
+
+  for (let lum = 0; lum < 256; lum++) {
+    const t = lum / 255;
+
+    // Find the two surrounding stops
+    let lower = stops[0]!;
+    let upper = stops[stops.length - 1]!;
+
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (t >= stops[i]!.position && t <= stops[i + 1]!.position) {
+        lower = stops[i]!;
+        upper = stops[i + 1]!;
+        break;
+      }
+    }
+
+    // Interpolate between lower and upper
+    const range = upper.position - lower.position;
+    const localT = range > 0 ? (t - lower.position) / range : 0;
+
+    const lc = lower.color;
+    const uc = upper.color;
+    lutR[lum] = Math.round(lc[0] + (uc[0] - lc[0]) * localT);
+    lutG[lum] = Math.round(lc[1] + (uc[1] - lc[1]) * localT);
+    lutB[lum] = Math.round(lc[2] + (uc[2] - lc[2]) * localT);
+  }
+
+  // Apply LUT to each pixel
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i]!;
+    const g = pixels[i + 1]!;
+    const b = pixels[i + 2]!;
+
+    // Luminance (Rec. 709 luma coefficients)
+    const lum = clampByte(0.2126 * r + 0.7152 * g + 0.0722 * b);
+
+    let mappedLum = lum;
+
+    // Optional ordered dithering for banding reduction
+    if (dither) {
+      const x = Math.round((i / 4) % w);
+      const y = Math.floor(i / 4 / w);
+      const ditherVal = ((BAYER_4X4[y & 3]?.[x & 3] ?? 0.5) - 0.5) * 1.5;
+      mappedLum = clampByte(lum + Math.round(ditherVal));
+    }
+
+    const nr = lutR[mappedLum]!;
+    const ng = lutG[mappedLum]!;
+    const nb = lutB[mappedLum]!;
+
+    if (preserveLuminosity) {
+      // Scale mapped color to preserve original luminance
+      const mappedLum2 = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb;
+      const scale = mappedLum > 0 ? lum / mappedLum2 : 1;
+      pixels[i] = clampByte(nr * scale);
+      pixels[i + 1] = clampByte(ng * scale);
+      pixels[i + 2] = clampByte(nb * scale);
+    } else {
+      pixels[i] = clampByte(nr);
+      pixels[i + 1] = clampByte(ng);
+      pixels[i + 2] = clampByte(nb);
+    }
+  }
+}
+
+/** 4x4 Bayer ordered dither matrix for banding reduction. */
+const BAYER_4X4: number[][] = [
+  [0.0625, 0.5625, 0.1875, 0.6875],
+  [0.8125, 0.3125, 0.9375, 0.4375],
+  [0.1875, 0.6875, 0.0625, 0.5625],
+  [0.9375, 0.4375, 0.8125, 0.3125],
+];
+
 function applyVibrance(data: ImageData, value: number): void {
   const pixels = data.data;
   const factor = value / 100;

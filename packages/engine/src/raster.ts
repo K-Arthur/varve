@@ -10,6 +10,7 @@
  */
 
 import { estimateFileSize } from './raster-size';
+import { createRasterSurface, encodeRasterSurface } from './rasterSurface';
 import type { ReplayTarget } from './replay';
 import { replayIr } from './replay';
 import type { Color, RenderItem } from './types';
@@ -92,21 +93,8 @@ export async function renderRaster(
 ): Promise<RasterResult> {
   const { width, height, format, quality, background, antiAlias } = options;
 
-  // Get a canvas context
-  let canvas: HTMLCanvasElement | OffscreenCanvas;
-  let ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
-
-  if (typeof OffscreenCanvas !== 'undefined') {
-    canvas = new OffscreenCanvas(width, height);
-    ctx = canvas.getContext('2d', { alpha: background === null });
-  } else {
-    canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    ctx = canvas.getContext('2d', { alpha: background === null });
-  }
-
-  if (!ctx) throw new Error('Failed to get canvas 2D context');
+  const surface = createRasterSurface(width, height, { alpha: background === null });
+  const ctx = surface.context;
 
   // Anti-aliasing control
   if (antiAlias === false) {
@@ -133,22 +121,7 @@ export async function renderRaster(
 
   // Produce blob
   const mime = mimeForFormat(format);
-  let blob: Blob;
-
-  if ('convertToBlob' in canvas) {
-    blob = await (canvas as OffscreenCanvas).convertToBlob({
-      type: mime,
-      quality: quality ? quality / 100 : undefined,
-    });
-  } else {
-    blob = await new Promise<Blob>((resolve, reject) => {
-      (canvas as HTMLCanvasElement).toBlob(
-        (b) => (b ? resolve(b) : reject(new Error('toBlob returned null'))),
-        mime,
-        quality ? quality / 100 : undefined,
-      );
-    });
-  }
+  const blob = await encodeRasterSurface(surface, mime, quality ? quality / 100 : undefined);
 
   const estimatedBytes = estimateFileSize(width, height, format, quality);
   return { blob, width, height, format, estimatedBytes };

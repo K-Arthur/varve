@@ -9,7 +9,7 @@ export interface StartupLoaderProps {
   onRetry?: () => void;
   /** Whether the app is ready (triggers exit transition). */
   ready?: boolean;
-  /** Skip chromatic-aberration animation (used for reduced-motion or low-GPU). */
+  /** Soften fringe slightly (low-capability). Motion still allowed. */
   simplified?: boolean;
   /** Fired after the exit animation completes. */
   onExited?: () => void;
@@ -17,9 +17,11 @@ export interface StartupLoaderProps {
   exitDuration?: number;
 }
 
+const LOGO_SIZE = 160;
+
 /**
- * Branded startup loader for Strata.
- * Renders the symbolic Strata logo in white with a CSS/SVG chromatic aberration effect.
+ * Branded startup loader — sharp white Strata mark, thin static spectral
+ * fringe, quiet luminosity pulse. No sweep/glitch overlays.
  */
 export function StartupLoader({
   error,
@@ -46,32 +48,18 @@ export function StartupLoader({
   return (
     <div
       className={`startup-loader ${exiting ? 'startup-loader--exiting' : ''} ${error ? 'startup-loader--error' : ''} ${simplified ? 'startup-loader--simplified' : ''}`}
+      data-brand-splash="fixed-dark"
       role="status"
       aria-live="polite"
       aria-busy={!error && !ready}
     >
       <div className="startup-loader__content">
-        <div className="startup-loader__logo-container">
-          {/* Chromatic aberration effect via 3 stacked layers (RGB offset) */}
+        <div className="startup-loader__logo-container startup-loader__logo-container--pulse">
           <StrataLogo
-            className="startup-loader__logo startup-loader__logo--red"
+            className="startup-loader__logo startup-loader__logo--mark"
+            data-fringe="chromatic"
             symbolic
-            size={80}
-          />
-          <StrataLogo
-            className="startup-loader__logo startup-loader__logo--green"
-            symbolic
-            size={80}
-          />
-          <StrataLogo
-            className="startup-loader__logo startup-loader__logo--blue"
-            symbolic
-            size={80}
-          />
-          <StrataLogo
-            className="startup-loader__logo startup-loader__logo--white"
-            symbolic
-            size={80}
+            size={LOGO_SIZE}
             label="Strata"
           />
         </div>

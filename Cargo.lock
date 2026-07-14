@@ -511,6 +511,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
+name = "font-subset"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e47922b9d737f16d425c10ec7b9b9751590cf8908270b5f9647bdad960b4b979"
+
+[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1684,6 +1690,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-colour"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "strata-core",
+ "tintbox",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "strata-core"
 version = "0.0.0"
 dependencies = [
@@ -1716,9 +1733,11 @@ name = "strata-print"
 version = "0.0.0"
 dependencies = [
  "ab_glyph",
+ "font-subset",
  "lopdf",
  "serde",
  "serde_json",
+ "strata-colour",
  "strata-core",
 ]
 
@@ -1752,10 +1771,12 @@ dependencies = [
 name = "strata-wasm"
 version = "0.0.0"
 dependencies = [
+ "serde",
  "serde_json",
  "strata-bridge",
  "strata-core",
  "strata-engine",
+ "strata-trace",
  "wasm-bindgen",
 ]
 
@@ -1878,6 +1899,12 @@ dependencies = [
  "num-conv",
  "time-core",
 ]
+
+[[package]]
+name = "tintbox"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "380c56a3637651c42f670223f6e856730bf5339864212869e7e3aff98a5fd212"
 
 [[package]]
 name = "tracing"

@@ -33,7 +33,15 @@ strata-trace = { path = "../../../crates/strata-trace" }
 strata-upscale = { path = "../../../crates/strata-upscale" }
 image = "0.25"
 tauri-plugin-fs = "2"
+# WDIO testing plugins (debug-only, excluded from release builds)
+tauri-plugin-wdio = { version = "1", optional = true }
+tauri-plugin-wdio-webdriver = { version = "1", optional = true }
+
+[target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
+# Wayland/KDE icon matching: g_set_prgname must equal the .desktop filename stem.
+glib = "0.20"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 ai = ["strata-bgremove/ai", "strata-upscale/ai"]
+wdio = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]

@@ -1,6 +1,18 @@
-export const CURRENT_DOCUMENT_VERSION = '1.7';
+export const CURRENT_DOCUMENT_VERSION = '1.10';
 
-export const SUPPORTED_VERSIONS = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7'];
+export const SUPPORTED_VERSIONS = [
+  '1.0',
+  '1.1',
+  '1.2',
+  '1.3',
+  '1.4',
+  '1.5',
+  '1.6',
+  '1.7',
+  '1.8',
+  '1.9',
+  '1.10',
+];
 
 export interface DocumentMigration {
   from: string;
@@ -178,6 +190,58 @@ const migrations: DocumentMigration[] = [
         })),
       };
     },
+  },
+  {
+    from: '1.7',
+    to: '1.8',
+    migrate: (raw) => ({
+      ...raw,
+      formatVersion: '1.8',
+      // paints field is optional — defaults to undefined
+      paints: raw.paints ?? undefined,
+    }),
+  },
+  {
+    from: '1.8',
+    to: '1.9',
+    migrate: (raw) => {
+      const nodes = (raw.nodes as Record<string, Record<string, unknown>>) ?? {};
+      const migrated: Record<string, Record<string, unknown>> = {};
+      for (const [id, node] of Object.entries(nodes)) {
+        const mask = node.mask as Record<string, unknown> | undefined;
+        if (mask && typeof mask === 'object') {
+          // v1.9: add fillRule to clip masks (default 'nonzero')
+          if (mask.type === 'clip' && !mask.fillRule) {
+            mask.fillRule = 'nonzero';
+          }
+          // v1.9: ensure vectorMask is preserved if present
+          if (mask.vectorMask && typeof mask.vectorMask === 'object') {
+            const vm = mask.vectorMask as Record<string, unknown>;
+            if (!vm.fillRule) {
+              vm.fillRule = 'nonzero';
+            }
+          }
+          // v1.9: sourceNodeId is now optional (vector masks don't require it)
+          migrated[id] = { ...node, mask };
+        } else {
+          migrated[id] = node;
+        }
+      }
+      return {
+        ...raw,
+        formatVersion: '1.9',
+        nodes: migrated,
+      };
+    },
+  },
+  {
+    from: '1.9',
+    to: '1.10',
+    migrate: (raw) => ({
+      ...raw,
+      formatVersion: '1.10',
+      brushPresets: raw.brushPresets ?? undefined,
+    }),
   },
 ];
 

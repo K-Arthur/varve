@@ -10,6 +10,7 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use strata_core::Point;
@@ -58,37 +59,45 @@ pub fn trace_contours(pixels: &[u8], width: u32, height: u32, opts: &TraceOption
     // Step 2: Find contour seeds (foreground pixels adjacent to background)
     let seeds: Vec<(u32, u32)> = find_seeds(&binary, width, height);
 
-    // Step 3: Trace contours in parallel
-    let paths: Vec<Vec<Path>> = seeds
-        .par_chunks(seeds.len().max(1) / rayon::current_num_threads().max(1) + 1)
-        .map(|chunk| {
-            let mut traced = Vec::new();
-            let mut visited = vec![false; (width * height) as usize];
-            for &(sx, sy) in chunk {
-                if visited[(sy * width + sx) as usize] {
-                    continue;
-                }
-                let pts = trace_one(
-                    &binary,
-                    width,
-                    height,
-                    sx,
-                    sy,
-                    &mut visited,
-                    opts.min_pixels,
-                );
-                if !pts.is_empty() {
-                    traced.push(Path {
-                        points: pts,
-                        closed: true,
-                    });
-                }
-            }
-            traced
-        })
-        .collect();
+    // Step 3: Trace contours (parallel with rayon, sequential otherwise)
+    #[cfg(feature = "rayon")]
+    let path_groups: Vec<Vec<Path>> = {
+        let chunk_size = seeds.len().max(1) / rayon::current_num_threads().max(1) + 1;
+        seeds
+            .par_chunks(chunk_size)
+            .map(|chunk| trace_chunk(chunk, &binary, width, height, opts.min_pixels))
+            .collect()
+    };
 
-    paths.into_iter().flatten().collect()
+    #[cfg(not(feature = "rayon"))]
+    let path_groups: Vec<Vec<Path>> =
+        { vec![trace_chunk(&seeds, &binary, width, height, opts.min_pixels)] };
+
+    path_groups.into_iter().flatten().collect()
+}
+
+fn trace_chunk(
+    seeds: &[(u32, u32)],
+    binary: &[bool],
+    width: u32,
+    height: u32,
+    min_pixels: usize,
+) -> Vec<Path> {
+    let mut traced = Vec::new();
+    let mut visited = vec![false; (width * height) as usize];
+    for &(sx, sy) in seeds {
+        if visited[(sy * width + sx) as usize] {
+            continue;
+        }
+        let pts = trace_one(binary, width, height, sx, sy, &mut visited, min_pixels);
+        if !pts.is_empty() {
+            traced.push(Path {
+                points: pts,
+                closed: true,
+            });
+        }
+    }
+    traced
 }
 
 fn binarize(pixels: &[u8], threshold: u8) -> Vec<bool> {

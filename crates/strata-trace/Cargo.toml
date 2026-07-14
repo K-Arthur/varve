@@ -7,9 +7,13 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[features]
+default = ["rayon"]
+wasm = []
+
 [dependencies]
 strata-core = { path = "../strata-core" }
-rayon = { version = "1", features = [] }
+rayon = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
 
 [lints]

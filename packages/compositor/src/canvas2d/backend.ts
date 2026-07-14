@@ -24,6 +24,7 @@ export class Canvas2DBackend implements CompositorBackend {
 
   beginFrame(frame: CompositorFrame, opts?: { applyCamera?: boolean; clear?: boolean }): void {
     if (!this.ctx) return;
+    this.dpr = window.devicePixelRatio || 1;
     const { viewport } = frame;
     const shouldClear = opts?.clear !== false;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -101,6 +102,8 @@ export class Canvas2DBackend implements CompositorBackend {
     if (r !== 0) this.ctx.rotate(r);
     this.ctx.translate(-cx, -cy);
     this.ctx.scale(camera.zoom, camera.zoom);
+    // Origin is currently semantic zero. Keep this call at the backend seam
+    // so a future geometry-rebasing implementation can update both together.
     this.ctx.translate(-origin[0], -origin[1]);
   }
 }

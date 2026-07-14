@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Replay performance microbenchmark — records p50/p95 frame time and IR size.
- * Run: pnpm test packages/engine/src/bench/replay.bench.ts
+ * Run: pnpm bench:canvas
  */
 import { describe, expect, it } from 'vitest';
 import { createEngine } from '../engine';
@@ -166,12 +166,18 @@ async function benchReplay(
 describe('replay bench', () => {
   it('100 rects — replay under 50ms p95', async () => {
     const { replay, irBytes } = await benchReplay(100);
+    console.log(
+      `canvas-bench 100 rects p50=${replay.p50.toFixed(2)}ms p95=${replay.p95.toFixed(2)}ms ir=${irBytes}B`,
+    );
     expect(replay.p95).toBeLessThan(50);
     expect(irBytes).toBeGreaterThan(0);
   }, 30_000);
 
   it('1000 rects — replay under 500ms p95', async () => {
     const { replay } = await benchReplay(1000, 3);
+    console.log(
+      `canvas-bench 1000 rects p50=${replay.p50.toFixed(2)}ms p95=${replay.p95.toFixed(2)}ms`,
+    );
     expect(replay.p95).toBeLessThan(500);
   }, 60_000);
 

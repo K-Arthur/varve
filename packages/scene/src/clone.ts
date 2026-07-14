@@ -75,8 +75,9 @@ export function deepCloneSubtree(doc: Document, rootId: NodeId): CloneResult {
       // Remap mask reference
       if ('mask' in container && container.mask) {
         const mask = container.mask;
-        const newSourceId = idMap.get(mask.sourceNodeId);
-        if (newSourceId) {
+        const srcId = mask.sourceNodeId;
+        if (srcId) {
+          const newSourceId = idMap.get(srcId) ?? srcId;
           (cloned as FrameNode | GroupNode).mask = {
             ...mask,
             sourceNodeId: newSourceId,
