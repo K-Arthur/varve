@@ -10,6 +10,7 @@
  */
 
 import type { PathPoint } from '@strata/engine';
+import { OneEuroFilter, oneEuroFilterPoint, strokePoint } from '@strata/scene';
 import { BaseTool } from './BaseTool';
 import type { Point2D } from './fitting';
 import { fitPathToBeziers, simplifyPoints } from './fitting';
@@ -27,6 +28,18 @@ export class PencilTool extends BaseTool {
   /** Per-point pressure tracking. Updated from each pointer event. */
   private currentPressure: number = 0.5;
 
+  private oneEuro: OneEuroFilter = new OneEuroFilter(1.0, 0.007, 1.0);
+
+  /** Stabilization strength: 0 = disabled (identity pass-through), 1 = full strength.
+   *  Default 0.3 (light stabilization). Maps to OneEuro minCutoff = 1 + strength * 10. */
+  private stabilizationStrength: number = 0.3;
+
+  setStabilization(strength: number): void {
+    this.stabilizationStrength = Math.max(0, Math.min(1, strength));
+    const minCutoff = 1 + (1 - this.stabilizationStrength) * 10;
+    this.oneEuro.updateConfig({ minCutoff });
+  }
+
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
   }
@@ -36,7 +49,13 @@ export class PencilTool extends BaseTool {
     if (!result.consumed) return result;
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
-    this.captured = [{ x: world.x, y: world.y, pressure: this.currentPressure }];
+    this.oneEuro.reset();
+    const sp = strokePoint(world.x, world.y, {
+      pressure: this.currentPressure,
+      time: performance.now(),
+    });
+    const filtered = oneEuroFilterPoint(sp, this.oneEuro);
+    this.captured = [{ x: filtered.x, y: filtered.y, pressure: this.currentPressure }];
     this.startCapture(ctx);
     return result;
   }
@@ -63,11 +82,14 @@ export class PencilTool extends BaseTool {
   /** Append a captured point if it moved enough from the last sample. */
   private samplePoint(world: { x: number; y: number }, pressure: number, ctx: ToolContext): void {
     if (this.captured.length === 0) return;
+    const rawSp = strokePoint(world.x, world.y, { pressure, time: performance.now() });
+    const filtered = oneEuroFilterPoint(rawSp, this.oneEuro);
+
     const last = this.captured[this.captured.length - 1] as Point2D;
-    const dx = world.x - last.x;
-    const dy = world.y - last.y;
+    const dx = filtered.x - last.x;
+    const dy = filtered.y - last.y;
     if (dx * dx + dy * dy > 1) {
-      this.captured.push({ x: world.x, y: world.y, pressure });
+      this.captured.push({ x: filtered.x, y: filtered.y, pressure });
       ctx.setDraft({
         kind: 'freehand',
         points: this.captured,
@@ -156,6 +178,7 @@ export class PencilTool extends BaseTool {
 
   private reset(): void {
     this.captured = [];
+    this.oneEuro.reset();
     this.drag = {
       kind: 'idle',
       pointerId: -1,
