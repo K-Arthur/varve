@@ -75,11 +75,13 @@ format-check:
     pnpm exec biome ci --formatter-enabled=true --linter-enabled=false .
 
 # Token + emoji + a11y gates (Cascade Review, §7)
-gates: audit-tokens audit-emoji
+gates: audit-tokens audit-emoji health-check
 audit-tokens:
     pnpm audit:tokens
 audit-emoji:
     pnpm audit:emoji
+health-check:
+    node scripts/audit-health.mjs
 
 # --- Icon generation ---
 # Canonical master: packages/ui/src/icons/strata-app-icon.svg
