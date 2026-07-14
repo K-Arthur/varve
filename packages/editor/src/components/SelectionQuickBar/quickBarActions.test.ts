@@ -124,4 +124,18 @@ describe('dispatchQuickBarAction', () => {
     expect(deps.setNodeEditTargetId).toHaveBeenCalledWith('p1');
     expect(deps.setTool).toHaveBeenCalledWith('nodeEdit');
   });
+
+  it('starts text edit for editText', async () => {
+    const deps = makeDeps({ selection: ['t1'], selectedImageNode: null });
+    await dispatchQuickBarAction('editText', deps);
+    expect(deps.setTextEditTargetId).toHaveBeenCalledWith('t1');
+  });
+
+  it('wires group and boolean ops', async () => {
+    const deps = makeDeps();
+    await dispatchQuickBarAction('group', deps);
+    await dispatchQuickBarAction('booleanUnion', deps);
+    expect(deps.groupSelected).toHaveBeenCalled();
+    expect(deps.booleanOp).toHaveBeenCalledWith('union');
+  });
 });
