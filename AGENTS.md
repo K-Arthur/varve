@@ -35,6 +35,128 @@ pnpm audit:tokens    # 120/120 WCAG-AA (3 themes)
 Failure at any step means the change introduced a regression. Fix before committing.
 Do NOT skip steps — each catches a different class of error.
 
+### Code-health check (triage gate)
+
+After any system-level change (new context provider, new hub file, new tool system,
+or any change to `context.tsx` / `CanvasArea.tsx` / `Shell.tsx`), run the
+jcodemunch triage suite to verify architectural metrics haven't regressed:
+
+```bash
+# Re-index first so the triage runs on current code
+# Then compare against the baselines in §Architecture health baseline
+```
+
+Check these thresholds (2026-07-14 baseline):
+| Metric | Current | Ceiling |
+|--------|---------|---------|
+| Avg cyclomatic complexity | 5.9 | 7.0 |
+| Dead code % | 1.9% | 3.0% |
+| Unstable modules (I > 0.7) | 191 | 250 |
+| Dependency cycles | 4 | 5 |
+| Layer violations | 0 | 0 |
+| Test reachability | 99.3% | 95% |
+| Hotspot #1 score | 4808 | 5500 |
+
+If any threshold is breached, stop and investigate — the change introduced
+architectural debt that must be resolved before merging.
+
+## Architecture constraints (do not violate)
+
+Every rule below was discovered through root-cause investigation of real regressions.
+Adding new violations will silently break tests and block CI.
+
+### No circular `workspace:*` dependency chains
+
+A package must never import from another package that transitively imports back to it.
+TypeScript + Vite module resolution will either fail outright or produce non-deterministic
+builds depending on evaluation order. Verified on 2026-07-14: a `colourWasm.ts` import from
+`@strata/engine → @strata/print → @strata/scene → @strata/engine` caused **191 test file
+failures** (every test that depended on `@strata/engine`). To break the cycle, move the
+shared code into the dependent package itself (or into `@strata/shared` if it truly belongs
+to no single owner). The `@strata/engine` colour-WASM loader was relocated from
+`@strata/print` directly into `@strata/engine` with `@strata/print` re-exporting from it.
+
+### Sub-context `onReady` pattern (Session 44+)
+
+`EditorProvider` in `context.tsx` composes sub-contexts (`MotionProvider`, `PrototypeProvider`,
+`ViewportProvider`) as nested JSX children. A sub-context's hooks (`useMotion`, `usePrototype`)
+MUST NOT be called at the `EditorProvider` function body level because the provider wrappers
+haven't mounted yet. Instead, the sub-context accepts an `onReady` callback prop that reports
+its value back to `EditorProvider` via `useState`, with a no-op fallback object used in the
+interim. **New sub-contexts MUST follow this pattern** — see `MotionProvider.onReady` in
+`MotionContext.tsx` and its usage at `context.tsx:5617`. Calling a sub-context hook directly
+in `EditorProvider` will re-introduce the `useX must be used within EditorProvider` cascade
+that broke 97 tests.
+
+### ActionRegistry overwrite order
+
+`Shell.tsx` calls `registerEditorActions(editor, callbacks)` BEFORE
+`registerAllShortcuts(() => null)`. This ordering is required because `registerAllShortcuts`
+pre-populates the registry with no-op stubs for every `SHORTCUT_DEFS` entry — if it runs
+first, the `r.has(id)` guard in `registerEditorActions` silently skips registering real
+handlers, making keyboard shortcuts non-functional. Any new registration path must respect
+this priority: real handlers first, no-op stubs second. **Test for this**: fire a keyboard
+shortcut via `fireEvent.keyDown(window, ...)` and assert the side effect occurs.
+
+### Module instability ceiling (Session 48+)
+
+A file with Instability `I = Ce/(Ca+Ce) > 0.9` is too coupled to its dependencies.
+Hub files (Shell, CanvasArea) are inherently unstable — but every new import added to
+them drags the whole module graph. Follow these rules:
+
+1. **Hub files must not import leaf modules directly.** CanvasArea imports 82 files.
+   Before adding another import, ask: can the integration live in a thin adapter module
+   that both sides depend on?
+2. **Prefer dependency injection over direct imports in hub files.** Context providers,
+   tool factories, and render pipelines should receive their dependencies as parameters
+   or via context, not import them statically.
+3. **New hub files must target I < 0.85.** Any new component that integrates 5+ modules
+   must be designed with an explicit dependency budget. Document the budget in a
+   top-of-file comment.
+
+### Cyclomatic complexity ceiling
+
+Every function/method in the editor package must stay below these thresholds:
+
+| Context | Ceiling | Example offenders |
+|---------|---------|-------------------|
+| React component body | **200** | EditorProvider (1021), CanvasArea (844) |
+| Non-component function | **50** | `replayIr` (95), `paintText` (105) |
+| Tool handler (onPointerDown, etc.) | **30** | — |
+| Test assertion body | **15** | — |
+
+Exceeding the ceiling is a **refactoring debt** that must be documented in a
+top-of-file `// COMPLEXITY:` comment with the measured value and a plan to reduce it.
+
+### Hook ordering invariance (EditorProvider extraction rule)
+
+React hooks (useState, useRef, useCallback, useEffect, and all custom hooks like
+`usePersistence`, `useBackgroundRemoval`) **must be called in the same order on every
+render**. When extracting code from `EditorProvider`:
+
+1. Identify all hook dependencies (`patch`, `state`, `stateRef`, refs, etc.)
+2. Create the hook function in `context/useX.ts`
+3. Place the hook call AFTER all hooks it depends on (especially `patch`, `updateDoc`)
+   and BEFORE the `value` useMemo
+4. The hook's return values must be added to the `value` useMemo dependency array
+5. **Never split a hook call across conditionals, loops, or early returns**
+
+See `context/usePersistence.ts` and `context/useBackgroundRemoval.ts` for the
+canonical extraction pattern.
+
+### Hub file dependency budget (Session 48 baseline)
+
+| File | Imports (Ce) | Instability (I) | Ceiling | Status |
+|------|-------------|-----------------|---------|--------|
+| `CanvasArea.tsx` | 82 | 0.95 | — | **Over budget** — must not increase |
+| `Shell.tsx` | 71 | 0.93 | — | **Over budget** — must not increase |
+| `Menubar.tsx` | 14 | 0.88 | 0.90 | At risk |
+| `context.tsx` | 40 | 0.36 | 0.50 | Healthy |
+
+**No new import may be added to CanvasArea.tsx or Shell.tsx without first removing
+an existing import of equal or greater weight.** This is a hard cap to prevent
+monolithic drift.
+
 ## Commands (run from repo root)
 - `pnpm install` — install JS deps
 - `just check-env` — verify toolchain on PATH
@@ -80,8 +202,9 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 197 tests (all workspace crates): strata-bgremove 8, strata-bridge 3, strata-core 62, strata-engine 4, strata-layout 9, strata-print 93, strata-sync 10, strata-trace 8
-- **JS:** 4542 tests across 399 files — all passing. TypeScript typecheck: all packages clean (pre-existing type errors in @strata/editor remain — see Session 48).
+- **JS:** 4542 tests across 399 files — all passing. TypeScript typecheck: all packages clean (pre-existing type errors in @strata/editor remain — 44 errors across 10 files as of Session 48).
 - **Effects engine:** 77+ tests: 34 replay-fill (was 31) + backdrop cache, 24 halftone (+Bayer, offset dispatch), 11 filterCompositor (+premultiplied alpha), 11 blur (new separable module), 19 boolean hardening (+self-intersect, degenerate, fuzz suite)
+- **Architecture health (2026-07-14 triage baseline):** Composite D (68.5/100). Avg complexity 5.9, dead code 1.9%, 191 unstable modules, 4 dependency cycles, 0 layer violations, 99.3% test reachability.
 - **Playwright E2E:** `npx playwright test tests/e2e --project=chromium` from repo root (NOT `pnpm test:e2e --filter @strata/home` — that `--filter` flag is a pnpm-workspace filter, not a Playwright test filter, and does not scope to the home suite; it's accepted but ignored). 6 spec directories under `tests/e2e/` (home, inspector, layers, spec, motion, canvas). `playwright.config.ts`'s `webServer` boots `pnpm --filter @strata/desktop dev` automatically — no need to start the dev server yourself first.
   - **Current state (2026-07-11, chromium project):** 22 passed / 79 failed / 1 skipped, NOT the "21 tests, 9 spec files, all passing" this line previously (and wrongly) claimed. The suite bit-rotted from UI copy/markup changes over many sessions without anyone re-running it. Two mechanical patterns account for most failures — fix both and re-run before assuming a failure is a real app bug:
     1. `getByRole('button', { name: /new file/i })` — the button's accessible name is now `"New"` (icon + "New" text), not "New file". Use `/^new$/i`. (Fixed in: home/create-file, home/a11y, home/home-shell, spec/axe, spec/measurement, inspector/inspector, canvas/tools. NOT yet fixed in: home/empty-states, home/keyboard-nav, home/search-sort-filter, home/trash-flow, layers/*, motion/*.)
