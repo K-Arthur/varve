@@ -50,9 +50,11 @@ import type {
   ColorMode,
   ContainerNode,
   ExportPreset,
+  FacingPagesConfig,
   InstanceStatus,
   LiveTraceParams,
   ManagedColor,
+  MasterAppliesTo,
   NodeId,
   Slot,
   SyncResult,
@@ -245,6 +247,7 @@ import type {
   SessionMeta,
   ToolId,
 } from './context/types';
+import { usePersistence } from './context/usePersistence';
 import { computeZoomStep, computeZoomTo } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
@@ -960,6 +963,39 @@ export interface EditorContextValue {
   /** Get node IDs visible on the active page (page content + global children). */
   activePageNodes: () => NodeId[];
 
+  /** Create a new master page with the given name and dimensions. */
+  createMaster: (name: string, width: number, height: number) => void;
+  /** Delete a master page by id. */
+  deleteMaster: (masterId: NodeId) => void;
+  /** Rename a master page. */
+  renameMaster: (masterId: NodeId, name: string) => void;
+  /** Duplicate a master page. */
+  duplicateMaster: (masterId: NodeId) => void;
+  /** Assign a master page to a specific page (null to detach). */
+  assignMasterToPage: (pageId: NodeId, masterId: NodeId | null) => void;
+  /** Set whether a master applies to all, left, or right pages. */
+  setMasterAppliesTo: (masterId: NodeId, appliesTo: MasterAppliesTo) => void;
+  /** Get nodes visible on the active page, including applied master content. */
+  activePageNodesWithMaster: () => NodeId[];
+
+  /** Rebuild spread groupings, optionally with a facing-pages config override. */
+  rebuildSpreads: (facingPages?: FacingPagesConfig) => void;
+  /** Get the spread that contains the given page id. */
+  getSpreadForPage: (pageId: NodeId) => import('./types').Spread | undefined;
+  /** Classify a page as left/right/none based on facing-pages mode. */
+  getPageSide: (pageId: NodeId) => import('./types').PageSide;
+  /** True when the page sits on the left side of a spread. */
+  isPageOnLeftSide: (pageId: NodeId) => boolean;
+  /** Get the 1-indexed page number for a page id. */
+  getPageNumber: (pageId: NodeId) => number;
+  /** Get formatted page number string (e.g. "iii", "A-1") respecting sections. */
+  getFormattedPageNumber: (pageId: NodeId) => string;
+
+  /** Toggle facing-pages mode on/off. */
+  toggleFacingPages: () => void;
+  /** Enable or disable facing-pages mode. */
+  setFacingPagesEnabled: (enabled: boolean) => void;
+
   /** Document color mode (rgb / cmyk / grayscale). */
   documentColorMode: ColorMode;
   /** Switch the document color mode, converting all colors. */
@@ -1370,44 +1406,6 @@ export function nodeWorldBoundsFn(
   return null;
 }
 
-/** Save-As implementation shared between save() and saveAs(). */
-async function saveAsImpl(
-  platform: Platform | undefined,
-  stateRef: React.MutableRefObject<EditorState>,
-  recoveryRef: React.MutableRefObject<RecoveryManager | null>,
-  patch: (partial: Partial<EditorState>) => void,
-): Promise<boolean> {
-  if (!platform) {
-    patch({ saveState: 'error' });
-    return false;
-  }
-  patch({ saveState: 'saving' });
-  try {
-    const s = stateRef.current;
-    const meta = s.sessions.find((sess) => sess.id === s.activeId);
-    const json = DocumentCodec.encode(s.document);
-    const filePath = await platform.saveDocumentToDisk(meta?.name ?? 'Untitled', json);
-    if (filePath) {
-      await recoveryRef.current?.deleteSession(s.activeId);
-      const fileId = crypto.randomUUID();
-      patch({
-        dirty: false,
-        saveState: 'saved',
-        lastSavedAt: Date.now(),
-        sessions: s.sessions.map((sess) =>
-          sess.id === s.activeId ? { ...sess, dirty: false, filePath, fileId } : sess,
-        ),
-      });
-      return true;
-    }
-    patch({ saveState: 'idle' });
-    return false;
-  } catch {
-    patch({ saveState: 'error' });
-    return false;
-  }
-}
-
 export function EditorProvider({
   children,
   onBackToHome,
@@ -1524,6 +1522,32 @@ export function EditorProvider({
   }
   /** Selection history for back/forward navigation. */
   const selectionHistory = useSelectionHistory();
+
+  /** Snapshot current session into the session store (for tab switching). */
+  const snapshotSession = useCallback(() => {
+    const sid = stateRef.current.activeId;
+    if (sid) {
+      sessionStoreRef.current.set(
+        sid,
+        snapshotEditorSession(
+          stateRef.current,
+          undoStackRef.current,
+          redoStackRef.current,
+          undoSelStackRef.current,
+          redoSelStackRef.current,
+        ),
+      );
+    }
+  }, [stateRef, sessionStoreRef]);
+
+  /** Reset undo/redo stacks. */
+  const resetUndo = useCallback(() => {
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    undoSelStackRef.current = [];
+    redoSelStackRef.current = [];
+  }, []);
+
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
   const txSnapshotRef = useRef<Document | null>(null);
@@ -1635,6 +1659,17 @@ export function EditorProvider({
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
     [],
+  );
+
+  /** Persistence (save/load/document lifecycle). */
+  const { newDocument, serializeDocument, save, saveAs, loadDocument } = usePersistence(
+    state,
+    patch,
+    stateRef,
+    platform,
+    snapshotSession,
+    resetUndo,
+    recoveryRef,
   );
 
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
@@ -3411,102 +3446,17 @@ export function EditorProvider({
         patch({ document: next, selection: nextSel ?? [] });
       },
 
-      newDocument: () => {
-        // Snapshot current session before replacing document
-        const sid = state.activeId;
-        if (sid) {
-          sessionStoreRef.current.set(
-            sid,
-            snapshotEditorSession(
-              state,
-              undoStackRef.current,
-              redoStackRef.current,
-              undoSelStackRef.current,
-              redoSelStackRef.current,
-            ),
-          );
-        }
-        undoStackRef.current = [];
-        redoStackRef.current = [];
-        undoSelStackRef.current = [];
-        redoSelStackRef.current = [];
-        patch({ document: createDocument('Untitled', true), selection: [] });
-      },
-
-      serializeDocument: () => {
-        return DocumentCodec.encode(state.document);
-      },
-
-      save: async () => {
-        if (!platform) {
-          patch({ saveState: 'error' });
-          return false;
-        }
-        patch({ saveState: 'saving' });
-        try {
-          const s = stateRef.current;
-          const meta = s.sessions.find((sess) => sess.id === s.activeId);
-          const json = DocumentCodec.encode(s.document);
-          if (meta?.fileId) {
-            await upsertPreservingMeta(platform, meta.fileId, meta.name, json);
-          } else {
-            return await saveAsImpl(platform, stateRef, recoveryRef, patch);
-          }
-          await recoveryRef.current?.deleteSession(s.activeId);
-          patch({
-            dirty: false,
-            saveState: 'saved',
-            lastSavedAt: Date.now(),
-            sessions: s.sessions.map((sess) =>
-              sess.id === s.activeId ? { ...sess, dirty: false } : sess,
-            ),
-          });
-          return true;
-        } catch {
-          patch({ saveState: 'error' });
-          return false;
-        }
-      },
-
-      saveAs: async () => {
-        return await saveAsImpl(platform, stateRef, recoveryRef, patch);
-      },
+      newDocument,
+      serializeDocument,
+      save,
+      saveAs,
 
       saveState: state.saveState,
       lastSavedAt: state.lastSavedAt,
       keyObjectId: state.keyObjectId,
       alignToPage: state.alignToPage,
 
-      loadDocument: (json, meta) => {
-        try {
-          const decoded = DocumentCodec.decode(json);
-          if (!decoded.ok) throw new Error(decoded.error);
-          const doc = decoded.document;
-          const result = validateDocument(doc);
-          if (!result.valid) {
-            if (typeof console !== 'undefined') {
-              console.warn('[Strata] loadDocument: validation warnings:', result.errors);
-            }
-          }
-          undoStackRef.current = [];
-          redoStackRef.current = [];
-          undoSelStackRef.current = [];
-          redoSelStackRef.current = [];
-          const name = meta?.name ?? doc.name;
-          const filePath = meta?.filePath;
-          const sessions = state.sessions.map((s) =>
-            s.id === state.activeId ? { ...s, name, filePath, dirty: false } : s,
-          );
-          patch({
-            document: doc,
-            selection: [],
-            sessions,
-            dirty: false,
-          });
-        } catch {
-          // invalid JSON — ignore silently
-        }
-      },
+      loadDocument,
 
       rootNodes,
 
@@ -5822,6 +5772,11 @@ export function EditorProvider({
       proto,
       platform,
       motion,
+      newDocument,
+      serializeDocument,
+      save,
+      saveAs,
+      loadDocument,
     ],
   );
 
