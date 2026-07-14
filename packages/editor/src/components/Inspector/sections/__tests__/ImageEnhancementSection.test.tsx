@@ -59,6 +59,10 @@ describe('ImageEnhancementSection', () => {
     render(<ImageEnhancementSection nodes={[imageNode()]} />);
 
     expect(screen.getByText(/Processing runs locally/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /image & vector/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
 
     fireEvent.change(screen.getByLabelText('Upscale factor'), { target: { value: '4' } });
     fireEvent.change(screen.getByLabelText('Upscale method'), { target: { value: 'nearest' } });
