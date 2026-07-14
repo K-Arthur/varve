@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import type { EditorContextValue } from '../context';
-import { bindingMatchesEvent, getEffectiveBinding, SHORTCUT_DEFS } from './ShortcutManager';
+import {
+  bindingMatchesEvent,
+  getEffectiveBinding,
+  SHORTCUT_DEFS,
+  shouldIgnoreShortcutTarget,
+} from './ShortcutManager';
 
 export interface EditorHelpActions {
   onOpenContextualHelp?: () => void;
@@ -60,19 +65,7 @@ export function useShortcuts(
     const handler = (e: KeyboardEvent) => {
       if (!enabledRef.current) return;
       if (e.defaultPrevented) return;
-      const target = e.target as HTMLElement;
-      const tag = target.tagName?.toLowerCase();
-      if (
-        tag === 'input' ||
-        tag === 'textarea' ||
-        tag === 'select' ||
-        target.isContentEditable ||
-        target.closest?.(
-          '[role="combobox"],[role="listbox"],[role="spinbutton"],[role="textbox"],[role="slider"],[role="tree"]',
-        )
-      )
-        return;
-      if (target.closest?.('[data-shortcut-ignore]')) return;
+      if (shouldIgnoreShortcutTarget(e.target as Element | null)) return;
 
       const editor = ref.current;
       const guideId = editor.state.selectedGuideId;

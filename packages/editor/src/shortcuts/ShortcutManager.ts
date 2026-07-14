@@ -426,6 +426,29 @@ export function shortcutFromEvent(e: KeyboardEvent): {
   };
 }
 
+/**
+ * Selectors for widgets that legitimately consume printable keys for typing
+ * or type-ahead (comboboxes, spinbuttons, sliders). `role="tree"` /
+ * `role="listbox"` are deliberately excluded: they're selectable lists (e.g.
+ * the Layers panel), not typing contexts, and blocking shortcuts there broke
+ * "select a layer, press a tool key" — the most common canvas workflow.
+ * Elements that DO need to swallow keys within a tree/listbox (a rename
+ * `<input>`) are already caught by the tag/isContentEditable checks below.
+ */
+const SHORTCUT_IGNORE_SELECTOR =
+  '[role="combobox"],[role="listbox"],[role="spinbutton"],[role="textbox"],[role="slider"]';
+
+/** True when a keydown on `target` should be left for the widget to handle, not treated as a tool/app shortcut. */
+export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
+  if (!target) return false;
+  const tag = target.tagName?.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  if ((target as HTMLElement).isContentEditable) return true;
+  if (target.closest?.(SHORTCUT_IGNORE_SELECTOR)) return true;
+  if (target.closest?.('[data-shortcut-ignore]')) return true;
+  return false;
+}
+
 export function bindingMatchesEvent(e: KeyboardEvent, binding: ShortcutBinding): boolean {
   if (e.repeat && binding.key !== 'Backspace') return false;
   const ev = shortcutFromEvent(e);

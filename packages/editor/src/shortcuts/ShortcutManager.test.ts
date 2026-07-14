@@ -5,7 +5,49 @@ import {
   isMac,
   SHORTCUT_DEFS,
   shortcutFromEvent,
+  shouldIgnoreShortcutTarget,
 } from './ShortcutManager';
+
+describe('shouldIgnoreShortcutTarget', () => {
+  it('does not ignore a Layers-panel treeitem, so tool shortcuts still fire after selecting a layer', () => {
+    document.body.innerHTML = `
+      <div role="tree" aria-label="Layers">
+        <div role="treeitem" tabindex="0">Rectangle 1</div>
+      </div>
+    `;
+    const treeitem = document.querySelector('[role="treeitem"]');
+    expect(shouldIgnoreShortcutTarget(treeitem)).toBe(false);
+  });
+
+  it('ignores an actual rename input inside the tree', () => {
+    document.body.innerHTML = `
+      <div role="tree" aria-label="Layers">
+        <div role="treeitem" tabindex="0"><input value="Rectangle 1" /></div>
+      </div>
+    `;
+    const input = document.querySelector('input');
+    expect(shouldIgnoreShortcutTarget(input)).toBe(true);
+  });
+
+  it('ignores comboboxes, spinbuttons, textboxes, sliders, and listboxes', () => {
+    for (const role of ['combobox', 'spinbutton', 'textbox', 'slider', 'listbox']) {
+      document.body.innerHTML = `<div role="${role}"><span id="inner">x</span></div>`;
+      const inner = document.getElementById('inner');
+      expect(shouldIgnoreShortcutTarget(inner), `role="${role}"`).toBe(true);
+    }
+  });
+
+  it('ignores elements opted out via data-shortcut-ignore', () => {
+    document.body.innerHTML = `<div data-shortcut-ignore><span id="inner">x</span></div>`;
+    expect(shouldIgnoreShortcutTarget(document.getElementById('inner'))).toBe(true);
+  });
+
+  it('does not ignore plain canvas/body targets', () => {
+    document.body.innerHTML = `<canvas id="c"></canvas>`;
+    expect(shouldIgnoreShortcutTarget(document.getElementById('c'))).toBe(false);
+    expect(shouldIgnoreShortcutTarget(document.body)).toBe(false);
+  });
+});
 
 describe('isMac', () => {
   it('detects non-Mac platform', () => {
