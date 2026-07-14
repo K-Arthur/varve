@@ -32,6 +32,9 @@
   border-right: 1px solid var(--color-border-subtle);
   overflow-y: auto;
   transition: width var(--duration-base) var(--ease-standard);
+  /* Per-surface muted text for raised backgrounds (a11y WCAG AA fix). */
+  --color-text-muted: var(--color-text-muted-on-raised);
+  --color-text-subtle: var(--color-text-subtle-on-raised);
 }
 .strata-home--collapsed .strata-home__sidebar {
   width: 0;
@@ -725,6 +728,8 @@
   background: var(--color-surface-sunken);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
+  --color-text-muted: var(--color-text-muted-on-sunken);
+  --color-text-subtle: var(--color-text-subtle-on-sunken);
 }
 .new-file__tab {
   flex: 1;
@@ -1706,6 +1711,8 @@
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface-sunken);
+  --color-text-muted: var(--color-text-muted-on-sunken);
+  --color-text-subtle: var(--color-text-subtle-on-sunken);
 }
 .search-palette__input-icon {
   flex-shrink: 0;
@@ -1817,6 +1824,8 @@
   margin-bottom: var(--space-3);
   color: var(--color-text-muted);
   transition: border-color var(--duration-quick) var(--ease-standard);
+  --color-text-muted: var(--color-text-muted-on-sunken);
+  --color-text-subtle: var(--color-text-subtle-on-sunken);
 }
 .templates-gallery__search:focus-within {
   border-color: var(--color-interactive-default);
@@ -2504,6 +2513,8 @@
   padding: var(--space-3);
   background: var(--color-surface-sunken);
   border-radius: var(--radius-md);
+  --color-text-muted: var(--color-text-muted-on-sunken);
+  --color-text-subtle: var(--color-text-subtle-on-sunken);
 }
 
 .version-history__naming-label {
@@ -2748,6 +2759,8 @@
   z-index: var(--z-floating, 100);
   opacity: 0.7;
   transition: opacity var(--duration-quick) var(--ease-standard);
+  --color-text-muted: var(--color-text-muted-on-sunken);
+  --color-text-subtle: var(--color-text-subtle-on-sunken);
 }
 .perf-profile:hover {
   opacity: 1;

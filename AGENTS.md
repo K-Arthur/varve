@@ -29,7 +29,7 @@ pnpm typecheck       # 15/15 packages must pass
 pnpm lint            # 0 new errors on touched files
 pnpm test            # full test suite must pass
 pnpm audit:emoji     # zero violations
-pnpm audit:tokens    # 96/96 WCAG-AA (3 themes)
+pnpm audit:tokens    # 120/120 WCAG-AA (3 themes)
 ```
 
 Failure at any step means the change introduced a regression. Fix before committing.
@@ -43,12 +43,28 @@ Do NOT skip steps — each catches a different class of error.
 - `just format` — `cargo fmt` + `pnpm format`
 - `just format-check` — verify formatting
 - `pnpm typecheck` — `tsc --noEmit` across packages/*
-- `pnpm audit:tokens` — WCAG 2.2 AA token gate (30 pairs × 3 themes = 90 checks, OKLCH perceptually uniform space)
+- `pnpm audit:tokens` — WCAG 2.2 AA token gate (40 pairs × 3 themes = 120 checks, OKLCH perceptually uniform space)
 - `pnpm audit:emoji` — zero-emoji gate (scales 271+ files)
 - `pnpm --filter @strata/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
 - `just gate` — full Cascade Review gate (format-check + lint + test + audits)
 
-## Running in the browser (stub backend, hot-reload)
+## Color contrast regression prevention
+
+Every new CSS `color`/`background` combination must pass WCAG AA (4.5:1 for text, 3:1 for UI). The token audit at `packages/ui/src/tokens/color.ts` checks every declared `CONTRAST_PAIR` across all 3 themes. Follow these rules to prevent drift:
+
+1. **Never use base text tokens (`text-muted`, `text-subtle`) on non-default surfaces.** Use per-surface variants instead: `text-muted-on-raised` for elements on `surface-raised`, `text-muted-on-sunken` for elements on `surface-sunken`, etc. The base tokens only guarantee contrast on `surface-app`.
+2. **Add CONTRAST_PAIRS for every new fg/bg combination** used in CSS. When you create a CSS rule that pairs a text or UI token against a non-default surface background, add the pair to `CONTRAST_PAIRS` so the audit enforces it across all 3 themes.
+3. **Use scoped CSS custom property overrides** for section-level backgrounds. Instead of changing every child selector, redefine `--color-text-muted` and `--color-text-subtle` at the section container level:
+   ```css
+   .my-section-on-raised {
+     --color-text-muted: var(--color-text-muted-on-raised);
+     --color-text-subtle: var(--color-text-subtle-on-raised);
+   }
+   ```
+4. **Regenerate tokens.css** after any change to `color.ts`: `pnpm --filter @strata/ui tokens:generate`
+5. **Never hardcode hex/rgb/hsl values.** All colors must trace to CSS custom properties from `tokens.css`.
+6. **Run `pnpm audit:tokens`** after any token change to verify all 120 pairs still pass. If adding tokens, also add contrast pairs for every new fg/bg combination.
+7. **Run `npx playwright test tests/e2e/home/a11y.spec.ts`** (or the full E2E a11y suite) to catch real-browser rendering discrepancies that the token audit's OKLCH→sRGB math may miss — browser engines can render OKLCH values slightly differently from the TS utility.
 ```bash
 cd apps/desktop
 pnpm dev

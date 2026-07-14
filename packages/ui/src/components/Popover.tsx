@@ -162,18 +162,25 @@ export function Popover({
 
   return (
     <>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: trigger wrapper; interactive children inside */}
-      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: span is a non-semantic wrapper for the interactive trigger */}
-      <span
+      <button
         ref={triggerRef}
+        type="button"
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         onClick={handleTriggerClick}
         onKeyDown={handleTriggerKeyDown}
-        style={{ display: 'inline-flex' }}
+        style={{
+          display: 'inline-flex',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+          font: 'inherit',
+          color: 'inherit',
+        }}
       >
         {children}
-      </span>
+      </button>
       <div
         ref={popoverRef}
         id={popoverId}
