@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./font": {
+      "types": "./src/font/index.ts",
+      "default": "./src/font/index.ts"
     }
   },
   "scripts": {
@@ -18,13 +22,10 @@
   "dependencies": {
     "@strata/shared": "workspace:*",
     "mp4-muxer": "^5.2.2",
-    "opentype.js": "^2.0.0",
-    "wawoff2": "^2.0.1",
     "webm-muxer": "^5.1.4"
   },
   "devDependencies": {
     "@tauri-apps/api": "^2.11.1",
-    "@types/opentype.js": "^1.3.10",
     "@webgpu/types": "^0.1.71",
     "onnxruntime-web": "^1.27.0"
   }
