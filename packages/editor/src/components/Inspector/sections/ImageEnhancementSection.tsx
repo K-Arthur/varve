@@ -1,17 +1,29 @@
 /**
  * Image enlargement and raster-to-vector inspector controls.
  *
- * Worker-first CPU dispatch shared by the browser and desktop webview.
+ * Mirrors other DisclosureSection panels: FieldRow + themed insp-select,
+ * @strata/ui Button — not the dead `button--primary` / bare `insp-section` shell.
+ *
+ * Research basis: Figma image toolbar density; Strata Appearance/Fill sections.
  */
 import type { RasterTraceMode, UpscaleMethod } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { useState } from 'react';
+import { Button } from '@strata/ui';
+import { useId, useState } from 'react';
 import { useEditor } from '../../../context';
+import { DisclosureSection } from '../controls/DisclosureSection';
+import { FieldRow } from '../controls/FieldRow';
 
 export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
   const { upscaleSelectedImage, traceSelectedImage, cancelImageProcessing } = useEditor();
   const node = nodes[0];
+  const scaleId = useId();
+  const methodId = useId();
+  const traceModeId = useId();
+  const thresholdId = useId();
+  const colorsId = useId();
+  const areaId = useId();
   const [scale, setScale] = useState(2);
   const [method, setMethod] = useState<UpscaleMethod>('bilinear');
   const [traceMode, setTraceMode] = useState<RasterTraceMode>('monochrome');
@@ -67,15 +79,12 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
         : 'Trace monochrome';
 
   return (
-    <section className="insp-section" aria-label="Image and vector enhancement">
-      <h3 className="insp-section__title">Image and Vector</h3>
-      <div className="insp-field">
-        <label className="insp-field__label" htmlFor="image-upscale-factor">
-          Scale
-        </label>
-        <div className="insp-field__control">
+    <DisclosureSection title="Image & Vector">
+      <div className="insp-field-group">
+        <p className="insp-subsection__label">Upscale</p>
+        <FieldRow label="Scale" htmlFor={scaleId}>
           <select
-            id="image-upscale-factor"
+            id={scaleId}
             className="insp-select"
             aria-label="Upscale factor"
             value={scale}
@@ -86,15 +95,10 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
             <option value={3}>3x</option>
             <option value={4}>4x</option>
           </select>
-        </div>
-      </div>
-      <div className="insp-field">
-        <label className="insp-field__label" htmlFor="image-upscale-method">
-          Method
-        </label>
-        <div className="insp-field__control">
+        </FieldRow>
+        <FieldRow label="Method" htmlFor={methodId}>
           <select
-            id="image-upscale-method"
+            id={methodId}
             className="insp-select"
             aria-label="Upscale method"
             value={method}
@@ -110,29 +114,31 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
             <option value="nearest">Hard edges (nearest)</option>
             <option value="ai">AI detail (Real-ESRGAN, 4x)</option>
           </select>
+        </FieldRow>
+        <p className="insp-hint">
+          Processing runs locally. Real-ESRGAN uses the bundled offline model in a worker.
+        </p>
+        <div className="insp-actions">
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            disabled={pending !== null}
+            loading={pending === 'upscale'}
+            onClick={() => void run('upscale')}
+          >
+            Upscale image
+          </Button>
         </div>
       </div>
-      <p className="bg-removal__hint">
-        Processing runs locally. Real-ESRGAN uses the bundled offline model in a worker.
-      </p>
-      <div className="bg-removal__actions">
-        <button
-          type="button"
-          className="button--primary"
-          disabled={pending !== null}
-          onClick={() => void run('upscale')}
-        >
-          {pending === 'upscale' ? 'Upscaling...' : 'Upscale image'}
-        </button>
-      </div>
-      <hr className="insp-section__divider" />
-      <div className="insp-field">
-        <label className="insp-field__label" htmlFor="image-trace-mode">
-          Trace mode
-        </label>
-        <div className="insp-field__control">
+
+      <hr className="insp-divider" />
+
+      <div className="insp-field-group">
+        <p className="insp-subsection__label">Vectorize</p>
+        <FieldRow label="Mode" htmlFor={traceModeId}>
           <select
-            id="image-trace-mode"
+            id={traceModeId}
             className="insp-select"
             aria-label="Trace mode"
             value={traceMode}
@@ -143,17 +149,13 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
             <option value="grayscale">Grayscale</option>
             <option value="color">Color</option>
           </select>
-        </div>
-      </div>
-      {traceMode === 'monochrome' ? (
-        <div className="insp-field">
-          <label className="insp-field__label" htmlFor="image-trace-threshold">
-            Threshold
-          </label>
-          <div className="insp-field__control">
+        </FieldRow>
+        {traceMode === 'monochrome' ? (
+          <FieldRow label="Threshold" htmlFor={thresholdId}>
             <input
-              id="image-trace-threshold"
+              id={thresholdId}
               type="range"
+              className="insp-range"
               min={0}
               max={255}
               value={threshold}
@@ -161,18 +163,14 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
               aria-label="Trace threshold"
               onChange={(event) => setThreshold(Number(event.target.value))}
             />
-            <output htmlFor="image-trace-threshold">{threshold}</output>
-          </div>
-        </div>
-      ) : (
-        <div className="insp-field">
-          <label className="insp-field__label" htmlFor="image-trace-colors">
-            Colors
-          </label>
-          <div className="insp-field__control">
+            <output htmlFor={thresholdId}>{threshold}</output>
+          </FieldRow>
+        ) : (
+          <FieldRow label="Colors" htmlFor={colorsId}>
             <input
-              id="image-trace-colors"
+              id={colorsId}
               type="number"
+              className="insp-num__input"
               min={2}
               max={32}
               value={maxColors}
@@ -182,17 +180,13 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
                 setMaxColors(Math.max(2, Math.min(32, Number(event.target.value) || 2)))
               }
             />
-          </div>
-        </div>
-      )}
-      <div className="insp-field">
-        <label className="insp-field__label" htmlFor="image-trace-area">
-          Minimum area
-        </label>
-        <div className="insp-field__control">
+          </FieldRow>
+        )}
+        <FieldRow label="Min area" htmlFor={areaId}>
           <input
-            id="image-trace-area"
+            id={areaId}
             type="number"
+            className="insp-num__input"
             min={1}
             max={10000}
             value={minArea}
@@ -200,33 +194,36 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
             aria-label="Minimum trace area"
             onChange={(event) => setMinArea(Math.max(1, Number(event.target.value)))}
           />
+        </FieldRow>
+        <div className="insp-actions">
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            disabled={pending !== null}
+            loading={pending === 'trace'}
+            onClick={() => void run('trace')}
+          >
+            {traceLabel}
+          </Button>
+          {pending !== null && (
+            <Button type="button" variant="ghost" size="sm" onClick={cancel}>
+              Cancel
+            </Button>
+          )}
         </div>
       </div>
-      <div className="bg-removal__actions">
-        <button
-          type="button"
-          className="button--primary"
-          disabled={pending !== null}
-          onClick={() => void run('trace')}
-        >
-          {pending === 'trace' ? 'Tracing...' : traceLabel}
-        </button>
-        {pending !== null && (
-          <button type="button" className="button--ghost" onClick={cancel}>
-            Cancel
-          </button>
-        )}
-      </div>
+
       {warning && (
-        <p className="bg-removal__hint" role="status">
+        <p className="insp-hint" role="status">
           {warning}
         </p>
       )}
       {error && (
-        <p className="bg-removal__hint" role="alert">
+        <p className="insp-hint insp-hint--error" role="alert">
           {error}
         </p>
       )}
-    </section>
+    </DisclosureSection>
   );
 }
