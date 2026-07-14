@@ -26,8 +26,8 @@
   flex-shrink: 0;
 }
 .color-picker__hex {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
   font-family: var(--font-mono);
 }
 .color-picker__swatch-section {
@@ -99,14 +99,15 @@
 }
 .color-fields__mode-btn {
   padding: 0 var(--space-2);
-  height: var(--space-5);
+  min-height: 1.5rem;
+  height: auto;
   border: none;
   border-right: 1px solid var(--color-border-subtle);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 .color-fields__mode-btn:last-child {
   border-right: none;
@@ -124,14 +125,20 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
   padding: 0;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   cursor: pointer;
+}
+.eye-dropper:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }
 .eye-dropper:disabled {
   color: var(--color-text-muted);
@@ -156,8 +163,10 @@
   gap: 4px;
 }
 .swatch-palette__swatch {
-  width: 22px;
-  height: 22px;
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
   padding: 0;
@@ -174,7 +183,8 @@
   align-items: center;
   gap: var(--space-1);
   font-size: var(--font-size-xs);
-  color: var(--color-warning, #b8860b);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-feedback-warning);
 }
 
 /* SpotColorBrowser */

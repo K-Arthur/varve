@@ -16,11 +16,13 @@ export function ColorSpaceSelector({ active, onChange }: ColorSpaceSelectorProps
   return (
     <div className="color-fields__mode-group" role="radiogroup" aria-label="Color space">
       {SPACES.map((s) => (
+        // biome-ignore lint/a11y/useSemanticElements: APG radiogroup pattern uses role="radio" on buttons for custom segmented controls
         <button
           key={s.key}
           type="button"
+          role="radio"
           className={`color-fields__mode-btn${active === s.key ? ' color-fields__mode-btn--active' : ''}`}
-          aria-pressed={active === s.key}
+          aria-checked={active === s.key}
           onClick={() => onChange(s.key)}
         >
           {s.label}

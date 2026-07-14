@@ -26,7 +26,7 @@ const THEME_PALETTE: { name: string; color: Color }[] = [
   { name: 'Brown 500', color: [120, 70, 40, 255] },
 ];
 
-const SWATCH_SIZE = 22;
+const SWATCH_SIZE = 24;
 
 function luminance(c: Color): number {
   return c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
