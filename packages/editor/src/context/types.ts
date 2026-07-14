@@ -14,7 +14,7 @@ import type {
   SceneNode,
   VariableValue,
 } from '@strata/scene';
-import type { DistributeMode, DocumentUnit, Viewport } from '@strata/shared';
+import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@strata/shared';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
@@ -48,7 +48,8 @@ export type ToolId =
   | 'spotHeal'
   | 'patch'
   | 'refineMask'
-  | 'trimapEdit';
+  | 'trimapEdit'
+  | 'crop';
 
 export type TrimapPenMode = 'foreground' | 'unknown' | 'background';
 
@@ -140,6 +141,7 @@ export interface EditorContextValue {
   // Tool
   setTool: (t: ToolId) => void;
   // Viewport
+  setCamera: (camera: Camera) => void;
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
   zoomIn: () => void;

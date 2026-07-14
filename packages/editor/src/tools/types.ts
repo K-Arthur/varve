@@ -12,6 +12,7 @@
 
 import type { Engine, PathPoint } from '@strata/engine';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Camera } from '@strata/shared';
 
 export type ToolId =
   | 'select'
@@ -42,7 +43,8 @@ export type ToolId =
   | 'spotHeal'
   | 'patch'
   | 'refineMask'
-  | 'trimapEdit';
+  | 'trimapEdit'
+  | 'crop';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',
@@ -128,6 +130,7 @@ export interface ToolContext {
   removeSelected: () => void;
   duplicateSelected: () => void;
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
+  setCamera: (camera: Camera) => void;
   setPan: (p: { x: number; y: number }) => void;
   setZoom: (z: number) => void;
   announce: (msg: string) => void;
