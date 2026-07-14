@@ -168,7 +168,6 @@ function mapSortParam(sort?: string): string {
       return 'date';
     case 'alphabetical':
       return 'alpha';
-    case 'relevance':
     default:
       return 'trending';
   }

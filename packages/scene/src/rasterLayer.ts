@@ -1,6 +1,6 @@
 import type { Affine } from '@strata/engine';
-import type { RasterLayerNode, RasterTile } from './types';
 import type { BrushDab } from './brush';
+import type { RasterLayerNode, RasterTile } from './types';
 
 export type { BrushDab };
 

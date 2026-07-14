@@ -1,7 +1,7 @@
 import type { Color, GradientMapStop } from '@strata/engine';
-import { managedColorToRgba } from '@strata/shared';
 import type { ManagedColor } from '@strata/scene';
 import { rgbFromTuple } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';
 

@@ -1,12 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  GoogleFontsProvider,
-  FontProviderRegistry,
-  type FontProvider,
-  type FontProviderFamily,
   type FontLicense,
-  type FontProviderSearchOptions,
-  type FontProviderResult,
+  type FontProvider,
+  FontProviderRegistry,
+  GoogleFontsProvider,
 } from './fontProviders';
 
 // ---------------------------------------------------------------------------

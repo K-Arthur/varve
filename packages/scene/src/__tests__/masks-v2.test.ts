@@ -2,27 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { addNode, createDocument, makeFrameNode, makeGroupNode, makeShapeNode } from '../document';
 import {
   addMask,
-  canNodeHaveMask,
   detectMaskCycles,
   getAllMaskSourceIds,
   hasSourceNode,
   hasVectorMask,
-  isMasked,
-  isMaskSource,
-  removeMask,
   resolveMask,
   resolveMaskType,
-  setMaskDensity,
-  setMaskFeather,
   setMaskFillRule,
-  setMaskHideSource,
-  setMaskInverted,
-  setMaskLinked,
-  setMaskSourceNode,
-  setMaskTransform,
-  setMaskType,
   setMaskVectorPath,
-  setMaskVisible,
 } from '../masks';
 
 describe('vector masks', () => {
@@ -193,7 +180,7 @@ describe('cycle detection', () => {
     // Try to add a mask on n1 that references f1 — this would create a cycle
     // since f1 already masks n1
     const shape2 = makeShapeNode('n2', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
-    let doc2 = addNode(doc, shape2);
+    const doc2 = addNode(doc, shape2);
     const n1Node = doc2.nodes.n1 as { children?: string[] };
     if (n1Node && 'children' in doc2.nodes.n1) {
       (doc2.nodes.n1 as { children: string[] }).children = ['n2'];

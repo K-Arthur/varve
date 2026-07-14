@@ -327,7 +327,7 @@ describe('ModelLoader', () => {
     const { resetModelManifestCache } = await import('../modelManifest');
     resetModelLoader();
     resetModelManifestCache();
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+    const fetchMock = vi.fn().mockImplementation((url: string, _init?: RequestInit) => {
       if (url.includes('manifest.json')) {
         return Promise.resolve({
           ok: true,

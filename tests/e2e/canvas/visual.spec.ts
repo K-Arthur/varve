@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { navigateToEditor, dragOnCanvas } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Canvas visual regression', () => {
   test.beforeEach(async ({ page }) => {

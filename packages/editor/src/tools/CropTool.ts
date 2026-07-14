@@ -60,7 +60,7 @@ export class CropTool extends BaseTool {
       return;
     }
     const node = ctx.getNode(id);
-    if (!node || node.kind !== 'shape' || node.shape.kind !== 'rect') {
+    if (node?.kind !== 'shape' || node.shape.kind !== 'rect') {
       ctx.announce('Crop requires an image rectangle');
       ctx.setTool('select');
       return;

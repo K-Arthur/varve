@@ -191,13 +191,13 @@ describe('warpMask', () => {
 
     expect(result.length).toBe(mask.length);
 
-    let originalLeftHalf = 0;
+    let _originalLeftHalf = 0;
     let shiftedLeftHalf = 0;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         if (x < 4 && y > 20) continue;
         if (x < 4 && y < 4) continue;
-        if (mask[y * w + x]! > 128) originalLeftHalf++;
+        if (mask[y * w + x]! > 128) _originalLeftHalf++;
         if (result[y * w + x]! > 128) shiftedLeftHalf++;
       }
     }
