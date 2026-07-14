@@ -257,13 +257,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         )}
 
         {bg && (
-          <div className="insp-meta-row" aria-label="Removal status">
+          <p className="insp-meta-row">
             <span>Confidence {Math.round((bg.confidence ?? 0) * 100)}%</span>
             <span className="insp-meta-row__sep" aria-hidden>
               ·
             </span>
             <span>{bg.method}</span>
-          </div>
+          </p>
         )}
 
         <div className="insp-field">
