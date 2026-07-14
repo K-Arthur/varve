@@ -471,15 +471,17 @@ fn render_fills(
                 }
                 match fill {
                     FillIR::Image {
+                        src,
                         x: fill_x,
                         y: fill_y,
                         opacity,
                         alpha_mask,
+                        image_width: _,
+                        image_height: _,
                         ..
                     } => {
                         match &mut image_state {
                             Some(state) => {
-                                // ── Image fill with document: embed placeholder XObject ──
                                 buf.extend_from_slice(b"q\n");
 
                                 // Non-rectangular shapes: clip to the shape path first
@@ -488,51 +490,117 @@ fn render_fills(
                                     buf.extend_from_slice(b"W n\n");
                                 }
 
-                                // Determine placeholder pixel size
-                                // Use a fixed 16x16 checkerboard for all image placeholders.
-                                // The cm operator scales it to the correct size in PDF space.
-                                const PH: u32 = 16;
-                                let checkerboard = generate_checkerboard();
-                                match embed_image(state.doc, &checkerboard, PH, PH) {
-                                    Ok(obj_ref) => {
-                                        let name = format!("Im{}", state.counter);
-                                        state.counter += 1;
-                                        state.refs.push((name.clone(), obj_ref));
+                                // Try to resolve image from manifest by source URL
+                                let manifest_image = manifest
+                                    .as_ref()
+                                    .and_then(|m| m.resolve_image_by_src(src).ok());
 
-                                        // Position and scale the placeholder to fill the shape
-                                        let (bx, by, bw, bh) = shape_pdf_bounds(node, page_height);
-                                        let tx = bx + fill_x;
-                                        let ty = by + fill_y;
-                                        let sx = bw / PH as f64;
-                                        let sy = bh / PH as f64;
+                                match manifest_image {
+                                    Some(img) if img.is_valid() => {
+                                        // Real pixel data from the TS-side ICC pipeline
+                                        let (data, cs, bpc) = match img.color_space {
+                                            resources::ColorSpace::Cmyk => {
+                                                // CMYK data: embed directly as DeviceCMYK
+                                                (img.data.clone(), "DeviceCMYK", 4u32)
+                                            }
+                                            _ => {
+                                                // RGBA data: strip alpha to RGB
+                                                let rgb = rgba_to_rgb(&img.data);
+                                                (rgb, "DeviceRGB", 3u32)
+                                            }
+                                        };
 
-                                        buf.extend(
-                                            format!("{sx:.4} 0 0 {sy:.4} {tx:.4} {ty:.4} cm\n")
-                                                .as_bytes(),
-                                        );
-                                        buf.extend(format!("/{name} Do\n").as_bytes());
+                                        match embed_image_with_colorspace(
+                                            state.doc, &data, img.width, img.height, bpc, cs,
+                                        ) {
+                                            Ok(obj_ref) => {
+                                                let name = format!("Im{}", state.counter);
+                                                state.counter += 1;
+                                                state.refs.push((name.clone(), obj_ref));
 
-                                        if *opacity < 1.0 {
-                                            buf.extend(
-                                                format!("% image opacity={:.3}\n", opacity)
+                                                // Position and scale the image to fill the shape
+                                                let (bx, by, bw, bh) =
+                                                    shape_pdf_bounds(node, page_height);
+                                                let tx = bx + fill_x;
+                                                let ty = by + fill_y;
+                                                // Scale image to fill the shape bounds in PDF space
+                                                let img_w = img.width as f64;
+                                                let img_h = img.height as f64;
+                                                let sx = bw / img_w;
+                                                let sy = bh / img_h;
+
+                                                buf.extend(
+                                                    format!(
+                                                        "{sx:.4} 0 0 {sy:.4} {tx:.4} {ty:.4} cm\n"
+                                                    )
                                                     .as_bytes(),
-                                            );
-                                        }
+                                                );
+                                                buf.extend(format!("/{name} Do\n").as_bytes());
 
-                                        if use_cmyk {
-                                            let note = "% image fill CMYK conversion not yet implemented; checkerboard placeholder rendered as RGB\n";
-                                            buf.extend_from_slice(note.as_bytes());
-                                        }
-
-                                        if alpha_mask.is_some() {
-                                            let note = "% alpha mask not yet implemented for image fills in PDF export; needs full pixel decode pipeline\n";
-                                            buf.extend_from_slice(note.as_bytes());
+                                                if *opacity < 1.0 {
+                                                    buf.extend(
+                                                        format!("% image opacity={:.3}\n", opacity)
+                                                            .as_bytes(),
+                                                    );
+                                                }
+                                            }
+                                            Err(e) => {
+                                                buf.extend(
+                                                    format!("% image fill embed error: {e}\n")
+                                                        .as_bytes(),
+                                                );
+                                            }
                                         }
                                     }
-                                    Err(e) => {
-                                        buf.extend(
-                                            format!("% image fill embed error: {e}\n").as_bytes(),
-                                        );
+                                    _ => {
+                                        // Fallback: checkerboard placeholder (no manifest or no match)
+                                        const PH: u32 = 16;
+                                        let checkerboard = generate_checkerboard();
+                                        match embed_image(state.doc, &checkerboard, PH, PH) {
+                                            Ok(obj_ref) => {
+                                                let name = format!("Im{}", state.counter);
+                                                state.counter += 1;
+                                                state.refs.push((name.clone(), obj_ref));
+
+                                                let (bx, by, bw, bh) =
+                                                    shape_pdf_bounds(node, page_height);
+                                                let tx = bx + fill_x;
+                                                let ty = by + fill_y;
+                                                let sx = bw / PH as f64;
+                                                let sy = bh / PH as f64;
+
+                                                buf.extend(
+                                                    format!(
+                                                        "{sx:.4} 0 0 {sy:.4} {tx:.4} {ty:.4} cm\n"
+                                                    )
+                                                    .as_bytes(),
+                                                );
+                                                buf.extend(format!("/{name} Do\n").as_bytes());
+
+                                                if *opacity < 1.0 {
+                                                    buf.extend(
+                                                        format!("% image opacity={:.3}\n", opacity)
+                                                            .as_bytes(),
+                                                    );
+                                                }
+
+                                                if use_cmyk {
+                                                    let note = "% image fill CMYK conversion not yet implemented; checkerboard placeholder rendered as RGB\n";
+                                                    buf.extend_from_slice(note.as_bytes());
+                                                }
+
+                                                if alpha_mask.is_some() {
+                                                    let note = "% alpha mask not yet implemented for image fills in PDF export; needs full pixel decode pipeline\n";
+                                                    buf.extend_from_slice(note.as_bytes());
+                                                }
+                                            }
+                                            Err(e) => {
+                                                buf.extend(
+                                                    format!("% image fill embed error: {e}\n")
+                                                        .as_bytes(),
+                                                );
+                                            }
+                                        }
                                     }
                                 }
                                 buf.extend_from_slice(b"Q\n");
@@ -953,6 +1021,50 @@ pub fn embed_image(
     );
     doc.objects.insert(image_id, Object::Stream(stream));
     Ok(Object::Reference(image_id))
+}
+
+/// Embed image data with an explicit color space.
+///
+/// `bpc` = bytes per component (3 for RGB, 4 for CMYK).
+/// `color_space_name` = PDF color space name (e.g. "DeviceRGB", "DeviceCMYK").
+pub fn embed_image_with_colorspace(
+    doc: &mut Document,
+    image_data: &[u8],
+    width: u32,
+    height: u32,
+    bpc: u32,
+    color_space_name: &str,
+) -> Result<Object, String> {
+    let expected = (width * height * bpc) as usize;
+    if image_data.len() < expected {
+        return Err(format!(
+            "Image data too short: got {} bytes, expected {expected}",
+            image_data.len()
+        ));
+    }
+
+    let image_id = doc.new_object_id();
+    let stream = Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Image",
+            "Width" => width as i64,
+            "Height" => height as i64,
+            "ColorSpace" => color_space_name,
+            "BitsPerComponent" => 8,
+            "Length" => expected as i64,
+        },
+        image_data[..expected].to_vec(),
+    );
+    doc.objects.insert(image_id, Object::Stream(stream));
+    Ok(Object::Reference(image_id))
+}
+
+/// Convert RGBA pixel data to RGB by stripping the alpha channel.
+pub fn rgba_to_rgb(data: &[u8]) -> Vec<u8> {
+    data.chunks_exact(4)
+        .flat_map(|rgba| [rgba[0], rgba[1], rgba[2]])
+        .collect()
 }
 
 /// Legacy shape_to_pdf_content — maintained for backward compatibility
@@ -2071,6 +2183,7 @@ mod tests {
         let manifest = ExportManifest {
             images: vec![ImageResource {
                 id: "tile_0".into(),
+                src: None,
                 mime_type: "image/png".into(),
                 width: 32,
                 height: 32,
@@ -2149,6 +2262,7 @@ mod tests {
         let manifest = ExportManifest {
             images: vec![ImageResource {
                 id: "other_tile".into(),
+                src: None,
                 mime_type: "image/png".into(),
                 width: 16,
                 height: 16,
@@ -2193,6 +2307,7 @@ mod tests {
         let manifest = ExportManifest {
             images: vec![ImageResource {
                 id: "tile_r".into(),
+                src: None,
                 mime_type: "image/png".into(),
                 width: 16,
                 height: 16,
