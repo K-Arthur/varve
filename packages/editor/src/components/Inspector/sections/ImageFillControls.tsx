@@ -1,13 +1,14 @@
 /**
- * ImageFillControls — image fill sizing/position controls.
+ * ImageFillControls — image fill source + fit controls.
  *
- * Stub implementation: shows fit mode selector and source URL.
- * Full implementation lands with the asset system (Phase 2).
+ * Supports URL entry and local file pick (FileReader → data URL). Preview when
+ * src is set. Fit mode uses the themed Select, not a native OS menu.
  *
- * Research basis: Figma image fill controls.
+ * Research basis: Figma image fill controls; APG file input patterns.
  */
 import type { ImageFillData, ImageFit } from '@strata/scene';
-import { useCallback } from 'react';
+import { Icon, Select } from '@strata/ui';
+import { useCallback, useId, useRef } from 'react';
 import { FieldRow } from '../controls/FieldRow';
 
 const FIT_OPTIONS: { value: ImageFit; label: string }[] = [
@@ -24,9 +25,13 @@ export function ImageFillControls({
   image: ImageFillData;
   onChange: (img: ImageFillData) => void;
 }) {
+  const fileInputId = useId();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const hasSrc = Boolean(image.src);
+
   const handleFitChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onChange({ ...image, fit: e.target.value as ImageFit });
+    (value: string) => {
+      onChange({ ...image, fit: value as ImageFit });
     },
     [image, onChange],
   );
@@ -38,30 +43,83 @@ export function ImageFillControls({
     [image, onChange],
   );
 
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result === 'string') {
+          onChange({ ...image, src: result });
+        }
+      };
+      reader.readAsDataURL(file);
+    },
+    [image, onChange],
+  );
+
+  const clearImage = useCallback(() => {
+    onChange({ ...image, src: '' });
+  }, [image, onChange]);
+
   return (
-    <div style={{ marginTop: 'var(--space-1)' }}>
+    <div className="insp-image-fill">
+      {hasSrc && (
+        <div className="insp-image-fill__preview" aria-hidden>
+          <img src={image.src} alt="" className="insp-image-fill__preview-img" />
+        </div>
+      )}
+
+      <div className="insp-image-fill__actions">
+        <input
+          ref={fileRef}
+          id={fileInputId}
+          type="file"
+          accept="image/*"
+          className="insp-image-fill__file"
+          onChange={handleFileChange}
+          aria-hidden
+          tabIndex={-1}
+        />
+        <button
+          type="button"
+          className="insp-add-btn insp-image-fill__choose"
+          onClick={() => fileRef.current?.click()}
+        >
+          <Icon name="Image" label={undefined} size="0.85em" />
+          <span>{hasSrc ? 'Replace image' : 'Choose image'}</span>
+        </button>
+        {hasSrc && (
+          <button
+            type="button"
+            className="insp-inline-btn"
+            onClick={clearImage}
+            aria-label="Clear image"
+          >
+            <Icon name="X" label={undefined} size="0.85em" />
+          </button>
+        )}
+      </div>
+
       <FieldRow label="Source">
         <input
           type="text"
           value={image.src}
           onChange={handleSrcChange}
           aria-label="Image source URL"
-          className="insp-select"
+          placeholder="URL or choose a file"
+          className="insp-num__input"
         />
       </FieldRow>
       <FieldRow label="Fit">
-        <select
+        <Select
+          label="Image fit mode"
           value={image.fit}
+          options={FIT_OPTIONS}
           onChange={handleFitChange}
-          aria-label="Image fit mode"
-          className="insp-select"
-        >
-          {FIT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        />
       </FieldRow>
     </div>
   );
