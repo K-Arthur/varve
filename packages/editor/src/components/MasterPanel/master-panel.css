@@ -1,0 +1,205 @@
+/* ── Master Panel ────────────────────────────────────── */
+/* Neo-Bento: collapsible list with Linear-esque chips.  */
+
+.master-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.master-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.master-panel__title {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.master-panel__add-btn {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-on-accent);
+  background: var(--color-accent-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.master-panel__add-btn:hover {
+  background: var(--color-accent-primary-hover);
+}
+
+.master-panel__add-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__empty {
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.master-panel__empty-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.master-panel__hint {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+
+.master-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.master-panel__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.master-panel__name {
+  flex: 1;
+  text-align: left;
+  font: inherit;
+  color: var(--color-text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.master-panel__name:hover {
+  color: var(--color-accent-primary);
+}
+
+.master-panel__name:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__rename-input {
+  flex: 1;
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid var(--color-accent-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+}
+
+.master-panel__rename-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.master-panel__applies-select {
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-app);
+  color: var(--color-text-muted);
+}
+
+.master-panel__applies-select:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0;
+}
+
+.master-panel__action-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.master-panel__action-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__action-btn--danger:hover {
+  color: var(--color-status-error);
+}
+
+.master-panel__page-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.master-panel__page-label {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.master-panel__active-master,
+.master-panel__no-master {
+  color: var(--color-text-subtle);
+}
+
+.master-panel__override-badge {
+  color: var(--color-accent-primary);
+  font-size: var(--font-size-xs);
+}
+
+.master-panel__detach-btn {
+  margin-left: var(--space-1);
+  font: inherit;
+  padding: 1px 6px;
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.master-panel__detach-btn:hover {
+  color: var(--color-status-error);
+  border-color: var(--color-status-error);
+}
+
+.master-panel__detach-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
