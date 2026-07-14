@@ -4,6 +4,17 @@
 
 > **Staleness note (2026-07-12):** Section 1.5 below ("Existing problems") predates several fixes landed in the six days since this audit was written. Verified against current code this session: **view rotation is implemented** (`viewport.ts:496` composes real rotation; the `_cam` passthrough stub quoted at 1.5-P0 no longer exists), **zoom range is `[0.001, 64]`** (`viewport.ts:32,34`, not the audited 10%–1000%), **sticky/hysteresis snapping is implemented** (`snapping.ts:24-35`), **artboard-local coordinates exist** (`packages/shared/src/coordinates.ts`, `RulerMode`, tested), and **floating origin is wired through Canvas2D, the render worker, and the WebGPU camera uniform**. Don't action the P0–P3 items below without re-checking current code first. See `docs/architecture/render-pipeline.md`'s "Known Gaps" and "Canvas 2D Export Determinism & Size Limits" sections for the current, maintained gap list.
 
+> **2026-07-13 hardening note:** The floating-origin implementation named above was
+> found to move only the camera and not geometry, causing exact 512-unit jumps; it is
+> now disabled at semantic zero pending atomic rebasing. Frame/text placement, canonical
+> scene conversion, nested raster export, deterministic bundled fonts, worker rotation
+> and DPR parity, image/pattern clipping, item filter isolation, software filter fallback,
+> effect padding, context recovery, large-surface policy, dirty-region tracking, group
+> resolution, thumbnail text/nesting, and PDF preflight were implemented. Treat the
+> historical scorecard below as archival. See
+> [canvas2d-system.md](../architecture/canvas2d-system.md) and the 2026-07-13 production
+> hardening report for current status.
+
 ---
 
 ## Implementation Status (2026-07-06)

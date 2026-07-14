@@ -12,6 +12,7 @@ import {
   filterKindDisplayName,
   filterToCss,
   makeAdjustment,
+  supportsCanvasFilter,
 } from './filters';
 import type { FilterIR } from './types';
 
@@ -197,6 +198,13 @@ describe('applyFilterChain', () => {
     const filters = [adjustmentToFilter(makeAdjustment('e5', 'exposure', { value: 1 }))];
     applyFilterChain(target, filters);
     expect(target.filter).toBe('none');
+  });
+});
+
+describe('supportsCanvasFilter', () => {
+  it('feature-detects the optional Canvas 2D filter property', () => {
+    expect(supportsCanvasFilter({ filter: 'none' })).toBe(true);
+    expect(supportsCanvasFilter({})).toBe(false);
   });
 });
 

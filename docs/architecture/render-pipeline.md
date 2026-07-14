@@ -1,6 +1,11 @@
 # Render Pipeline Architecture
 
-**Updated:** 2026-07-10
+**Updated:** 2026-07-13
+
+> The maintained Canvas 2D lifecycle, coordinate, resource, export, portability, and
+> extension contract is [canvas2d-system.md](canvas2d-system.md). The target model is
+> one Tauri production editor plus a browser compatibility harness; `apps/web` is not
+> a production application.
 
 ## Overview
 

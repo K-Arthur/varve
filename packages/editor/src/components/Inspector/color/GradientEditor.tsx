@@ -17,6 +17,7 @@ import type {
 } from '@strata/scene';
 import { expandGradientStops, interpolateManagedColor, managedColorToRgba } from '@strata/shared';
 import { Icon } from '@strata/ui';
+import type { ColorMode } from '@strata/scene';
 import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';
 
@@ -25,6 +26,7 @@ export interface GradientEditorProps {
   onChange: (gradient: GradientFill) => void;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  documentColorMode?: ColorMode;
 }
 
 const INTERPOLATION_SPACES = [
@@ -89,6 +91,7 @@ export function GradientEditor({
   onChange,
   onEditStart,
   onEditEnd,
+  documentColorMode,
 }: GradientEditorProps) {
   const [selectedStop, setSelectedStop] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
@@ -398,6 +401,7 @@ export function GradientEditor({
           <ColorPicker
             value={currentStop.color}
             onChange={(c) => updateStop(selectedStop, { color: c as ManagedColor })}
+            documentColorMode={documentColorMode}
           />
         </div>
       )}

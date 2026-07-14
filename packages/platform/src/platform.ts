@@ -194,4 +194,38 @@ export interface Platform {
   ): Promise<string | null>;
   revealInFileManager(path: string): Promise<void>;
   fileManagerLabel(): string;
+
+  // ─── Native OS Print ──────────────────────────────────────────────────────
+  /** List available printers on the system. */
+  listPrinters(): Promise<PrinterInfo[]>;
+  /** Send a PDF document to a printer. */
+  printPdf(data: Uint8Array, jobTitle: string, options: PrintJobOptions): Promise<PrintJobResult>;
+  /** Cancel a previously submitted print job. */
+  cancelPrintJob(printerName: string, jobId: number): Promise<string>;
+}
+
+/** Information about an available printer. */
+export interface PrinterInfo {
+  name: string;
+  description: string;
+  isColor: boolean;
+  paperSizes: string[];
+  supportsDuplex: boolean;
+  acceptingJobs: boolean;
+}
+
+/** Options for a print job. */
+export interface PrintJobOptions {
+  printerName: string;
+  copies?: number;
+  duplex?: boolean;
+  colorMode?: 'color' | 'grayscale';
+  pageSize?: string;
+}
+
+/** Result of submitting a print job. */
+export interface PrintJobResult {
+  jobId: number;
+  message: string;
+  success: boolean;
 }

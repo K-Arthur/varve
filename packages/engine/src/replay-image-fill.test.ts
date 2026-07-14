@@ -17,6 +17,16 @@ function mockImage(src: string, naturalWidth: number, naturalHeight: number): HT
   return img;
 }
 
+/** Worker-side image source: ImageBitmap exposes width/height, not naturalWidth/naturalHeight. */
+function mockBitmap(src: string, width: number, height: number): ImageBitmap {
+  return {
+    width,
+    height,
+    close: () => undefined,
+    toString: () => src,
+  } as unknown as ImageBitmap;
+}
+
 function makeRecorder(): {
   calls: string[];
   filter: string;
@@ -103,8 +113,13 @@ function makeRecorder(): {
 
 function imageFill(
   overrides: Omit<Extract<FillIR, { type: 'image' }>, 'opacity' | 'blendMode' | 'visible'>,
-): FillIR {
-  return { opacity: 1, blendMode: 'normal', visible: true, ...overrides } as FillIR;
+): Extract<FillIR, { type: 'image' }> {
+  return {
+    opacity: 1,
+    blendMode: 'normal',
+    visible: true,
+    ...overrides,
+  } as Extract<FillIR, { type: 'image' }>;
 }
 
 function rectItem(w: number, h: number, fill: FillIR): RenderItem {
@@ -336,4 +351,55 @@ describe('image fill modes', () => {
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     expect(draw.length).toBeGreaterThan(0);
   });
+});
+
+describe('worker image lookup parity', () => {
+  const cases: Array<{
+    name: string;
+    fill: Extract<FillIR, { type: 'image' }>;
+    expected: string[];
+  }> = [
+    {
+      name: 'stretch',
+      fill: imageFill({ type: 'image', src: 'worker', fit: 'stretch', x: 7, y: 9, scale: 2 }),
+      expected: ['drawImage worker 7.0 9.0 100.0 100.0'],
+    },
+    {
+      name: 'fit with offsets and scale',
+      fill: imageFill({ type: 'image', src: 'worker', fit: 'fit', x: 7, y: 9, scale: 2 }),
+      expected: ['drawImage worker 7.0 34.0 100.0 50.0'],
+    },
+    {
+      name: 'fill with offsets and scale',
+      fill: imageFill({ type: 'image', src: 'worker', fit: 'fill', x: 7, y: 9, scale: 2 }),
+      expected: ['drawImage worker -43.0 9.0 200.0 100.0'],
+    },
+    {
+      name: 'tile with offsets and scale',
+      fill: imageFill({ type: 'image', src: 'worker', fit: 'tile', x: 7, y: 9, scale: 0.5 }),
+      expected: [
+        'drawImage worker 7.0 9.0 50.0 25.0',
+        'drawImage worker 57.0 9.0 50.0 25.0',
+        'drawImage worker 7.0 34.0 50.0 25.0',
+        'drawImage worker 57.0 34.0 50.0 25.0',
+        'drawImage worker 7.0 59.0 50.0 25.0',
+        'drawImage worker 57.0 59.0 50.0 25.0',
+        'drawImage worker 7.0 84.0 50.0 25.0',
+        'drawImage worker 57.0 84.0 50.0 25.0',
+      ],
+    },
+  ];
+
+  for (const testCase of cases) {
+    it(`preserves ${testCase.name} geometry`, () => {
+      const { target, calls } = makeRecorder();
+      const bitmap = mockBitmap('worker', 100, 50);
+
+      replayIr(target, [rectItem(100, 100, testCase.fill)], (src) =>
+        src === 'worker' ? bitmap : undefined,
+      );
+
+      expect(calls.filter((call) => call.startsWith('drawImage'))).toEqual(testCase.expected);
+    });
+  }
 });

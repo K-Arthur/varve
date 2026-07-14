@@ -274,6 +274,8 @@ function stubEngine(): Engine {
                   tileSrc: f.pattern.tileSrc,
                   spacing: f.pattern.spacing,
                   rotation: f.pattern.rotation,
+                  imageWidth: f.pattern.imageWidth,
+                  imageHeight: f.pattern.imageHeight,
                   opacity: f.opacity,
                   blendMode: f.blendMode,
                   visible: f.visible,

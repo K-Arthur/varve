@@ -13,6 +13,7 @@ members = [
     "crates/strata-upscale",
     "crates/strata-bgremove",
     "crates/strata-bridge",
+    "crates/strata-colour",
     "crates/strata-wasm",
 ]
 

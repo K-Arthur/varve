@@ -1,11 +1,35 @@
 /** @vitest-environment jsdom */
 
 import { createMemoryPlatform } from '@strata/platform';
-import { render, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeShell } from './HomeShell';
 
 describe('HomeShell', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  beforeEach(() => {
+    process.env.NODE_ENV = 'development';
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  it('shows a sane PerfProfile render duration (not a wall-clock delta)', async () => {
+    // Regression: Date.now() passed as renderStartTime while PerfProfile uses
+    // performance.now() → ~-1.78e12 ms.
+    const platform = createMemoryPlatform();
+    render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
+
+    const profile = await screen.findByLabelText('Performance profile');
+    const msText = profile.textContent?.match(/(-?\d+)ms/)?.[1];
+    expect(msText).toBeDefined();
+    const ms = Number(msText);
+    expect(ms).toBeGreaterThanOrEqual(0);
+    expect(ms).toBeLessThan(60_000);
+  });
+
   it('renders toolbar with New and Open buttons', async () => {
     const platform = createMemoryPlatform();
     const { container } = render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);

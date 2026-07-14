@@ -1,20 +1,10 @@
 import type { Page } from '@playwright/test';
+import { navigateToEditor as sharedNavigateToEditor } from '../shared';
 
 /** Open the editor from the home screen via New File dialog. */
 export async function navigateToEditor(page: Page): Promise<void> {
-  await page.goto('/');
-  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /^new$/i }).click();
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .waitFor({ timeout: 5000 });
-  await page
-    .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
-    .click();
+  await sharedNavigateToEditor(page);
   await page.locator('.editor-shell').waitFor({ timeout: 10000 });
-  await page.locator('.layers-panel').waitFor({ timeout: 10000 });
 }
 
 /** Ensure the timeline panel is visible (Ctrl+Alt+T toggles). */

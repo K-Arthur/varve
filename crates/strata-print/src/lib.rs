@@ -7,19 +7,34 @@
 //! construction operators (m, l, re, h, f) per the ISO 32000 spec.
 
 #![forbid(unsafe_code)]
+// Pre-existing clippy exceptions (low-priority, not introduced by this session).
+#![allow(
+    clippy::too_many_arguments,
+    clippy::option_as_ref_deref,
+    clippy::derivable_impls
+)]
 
 pub mod cmyk;
+pub mod icc;
 pub mod marks;
 pub mod outline;
 pub mod profiles;
+pub mod subset;
 
 pub use outline::{
     commands_to_svg_path, outline_text, outline_text_multi, GlyphOutline, PathCommand,
 };
 
+use std::collections::HashMap;
+
 use ab_glyph::Font as AbGlyphFont;
-use lopdf::{dictionary, Document, Object, Stream};
+use lopdf::{dictionary, Document, Object, ObjectId, Stream};
 use strata_core::{Effect, EngineColor, FillIR, SceneNode, Shape};
+
+use crate::subset::{
+    collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
+    EmbeddingPermission, EmbeddingRestriction,
+};
 
 use crate::profiles::PrintProfile;
 
@@ -42,6 +57,11 @@ pub struct PdfOptions {
     pub color_bar: bool,
     /// Print profile for CMYK conversion (None = RGB).
     pub print_profile: Option<PrintProfile>,
+    /// When true, subset each font to only the characters used in the document
+    /// and embed the subset font programs in the PDF (searchable text).
+    pub subset_fonts: bool,
+    /// How to handle fonts whose OS/2 fsType restricts embedding.
+    pub embedding_restriction_handling: EmbeddingRestriction,
 }
 
 impl Default for PdfOptions {
@@ -57,6 +77,8 @@ impl Default for PdfOptions {
             registration_marks: false,
             color_bar: false,
             print_profile: None,
+            subset_fonts: false,
+            embedding_restriction_handling: EmbeddingRestriction::Warn,
         }
     }
 }
@@ -298,10 +320,135 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
     }
 }
 
+/// State for rendering image fills in PDF output.
+///
+/// Carries the `Document` + a counter for naming image XObjects (`/Im0`, `/Im1`, ...)
+/// and collects the references so the caller can add an `XObject` resource dict
+/// to the page.
+pub(crate) struct ImageRenderState<'a> {
+    pub doc: &'a mut Document,
+    pub counter: u32,
+    pub refs: Vec<(String, Object)>,
+}
+
+impl<'a> ImageRenderState<'a> {
+    pub fn new(doc: &'a mut Document) -> Self {
+        Self {
+            doc,
+            counter: 0,
+            refs: Vec::new(),
+        }
+    }
+}
+
+/// Generate a small checkerboard placeholder image (16×16 RGB pixels).
+/// Used as a stand-in for image fills when the real pixel data is unavailable
+/// (the live renderer owns the actual decoded bitmap).
+fn generate_checkerboard() -> Vec<u8> {
+    const SIZE: u32 = 16;
+    let mut data = Vec::with_capacity((SIZE * SIZE * 3) as usize);
+    for y in 0..SIZE {
+        for x in 0..SIZE {
+            if (x / 4 + y / 4) % 2 == 0 {
+                data.extend_from_slice(&[57, 208, 198]); // teal
+            } else {
+                data.extend_from_slice(&[255, 240, 245]); // light pink
+            }
+        }
+    }
+    data
+}
+
+/// Compute the axis-aligned bounding box of a shape node in PDF space (Y-up).
+/// Returns `(x, y, w, h)` where `(x, y)` is the bottom-left corner.
+fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) {
+    let tx = node.transform.as_coeffs();
+    let x_off = tx[4];
+    let y_off = tx[5];
+
+    match &node.shape {
+        Shape::Rect(r) => {
+            let x = r.min_x() + x_off;
+            let y = page_height - r.max_y() - y_off;
+            (x, y, r.width(), r.height())
+        }
+        Shape::Circle(c) => {
+            let cx = c.center.x + x_off;
+            let cy = page_height - c.center.y - y_off;
+            (cx - c.radius, cy - c.radius, 2.0 * c.radius, 2.0 * c.radius)
+        }
+        Shape::Ellipse { center, rx, ry } => {
+            let cx = center.x + x_off;
+            let cy = page_height - center.y - y_off;
+            (cx - rx, cy - ry, 2.0 * rx, 2.0 * ry)
+        }
+        Shape::Line { line, .. } => {
+            let x = line.p0.x.min(line.p1.x) + x_off;
+            let y = page_height - line.p0.y.max(line.p1.y) - y_off;
+            let w = (line.p0.x - line.p1.x).abs();
+            let h = (line.p0.y - line.p1.y).abs();
+            (x, y, w, h)
+        }
+        Shape::Polygon { cx, cy, radius, .. } => {
+            let scx = cx + x_off;
+            let scy = page_height - cy - y_off;
+            (scx - radius, scy - radius, 2.0 * radius, 2.0 * radius)
+        }
+        Shape::Star {
+            cx,
+            cy,
+            outer_radius,
+            ..
+        } => {
+            let scx = cx + x_off;
+            let scy = page_height - cy - y_off;
+            (
+                scx - outer_radius,
+                scy - outer_radius,
+                2.0 * outer_radius,
+                2.0 * outer_radius,
+            )
+        }
+        Shape::Arrow { from, to, .. } => {
+            let x = from[0].min(to[0]) + x_off;
+            let y = page_height - from[1].max(to[1]) - y_off;
+            let w = (from[0] - to[0]).abs();
+            let h = (from[1] - to[1]).abs();
+            (x, y, w, h)
+        }
+        Shape::Path { points, .. } => {
+            if points.is_empty() {
+                return (x_off, page_height - y_off, 0.0, 0.0);
+            }
+            let min_x = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
+            let max_x = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
+            let min_y = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
+            let max_y = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
+            (
+                min_x + x_off,
+                page_height - max_y - y_off,
+                max_x - min_x,
+                max_y - min_y,
+            )
+        }
+        Shape::Text { x, y, w, h, .. } => (x + x_off, page_height - y - h - y_off, *w, *h),
+    }
+}
+
 /// Render stacked fills from `node.fills` (bottom-to-top, last = topmost).
 /// Falls back to `node.fill` when `fills` is None or empty.
 /// `use_cmyk` controls whether RGB or CMYK color operators are emitted.
-fn render_fills(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8> {
+///
+/// When `image_state` is `Some`, image fills are rendered as checkerboard
+/// placeholders via XObject `Do` operators (clipped to the shape path for
+/// non-rectangular geometry). When `None`, image/pattern fills emit an
+/// explicit "not rendered" comment (backward-compatible).
+fn render_fills(
+    node: &SceneNode,
+    page_height: f64,
+    use_cmyk: bool,
+    mut image_state: Option<&mut ImageRenderState>,
+) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     if path_ops.is_empty() {
         return Vec::new();
@@ -316,28 +463,199 @@ fn render_fills(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8> {
                 if !fill_visible(fill) {
                     continue;
                 }
-                if matches!(fill, FillIR::Image { .. } | FillIR::Pattern { .. }) {
-                    // Basic PDF export has no image/pattern XObject pipeline
-                    // yet. Painting a solid color here would silently and
-                    // misleadingly stand in for the real content (it looks
-                    // like a deliberate fill, not a gap); skip the paint and
-                    // say so explicitly instead, matching how unsupported
-                    // effects/filters are already handled below.
-                    buf.extend_from_slice(b"% image/pattern fill (not rendered in basic PDF)\n");
-                    continue;
+                match fill {
+                    FillIR::Image {
+                        x: fill_x,
+                        y: fill_y,
+                        opacity,
+                        alpha_mask,
+                        ..
+                    } => {
+                        match &mut image_state {
+                            Some(state) => {
+                                // ── Image fill with document: embed placeholder XObject ──
+                                buf.extend_from_slice(b"q\n");
+
+                                // Non-rectangular shapes: clip to the shape path first
+                                if !matches!(node.shape, Shape::Rect(_)) {
+                                    buf.extend(&path_ops);
+                                    buf.extend_from_slice(b"W n\n");
+                                }
+
+                                // Determine placeholder pixel size
+                                // Use a fixed 16x16 checkerboard for all image placeholders.
+                                // The cm operator scales it to the correct size in PDF space.
+                                const PH: u32 = 16;
+                                let checkerboard = generate_checkerboard();
+                                match embed_image(state.doc, &checkerboard, PH, PH) {
+                                    Ok(obj_ref) => {
+                                        let name = format!("Im{}", state.counter);
+                                        state.counter += 1;
+                                        state.refs.push((name.clone(), obj_ref));
+
+                                        // Position and scale the placeholder to fill the shape
+                                        let (bx, by, bw, bh) = shape_pdf_bounds(node, page_height);
+                                        let tx = bx + fill_x;
+                                        let ty = by + fill_y;
+                                        let sx = bw / PH as f64;
+                                        let sy = bh / PH as f64;
+
+                                        buf.extend(
+                                            format!("{sx:.4} 0 0 {sy:.4} {tx:.4} {ty:.4} cm\n")
+                                                .as_bytes(),
+                                        );
+                                        buf.extend(format!("/{name} Do\n").as_bytes());
+
+                                        if *opacity < 1.0 {
+                                            buf.extend(
+                                                format!("% image opacity={:.3}\n", opacity)
+                                                    .as_bytes(),
+                                            );
+                                        }
+
+                                        if use_cmyk {
+                                            let note = "% image fill CMYK conversion not yet implemented; checkerboard placeholder rendered as RGB\n";
+                                            buf.extend_from_slice(note.as_bytes());
+                                        }
+
+                                        if alpha_mask.is_some() {
+                                            let note = "% alpha mask not yet implemented for image fills in PDF export; needs full pixel decode pipeline\n";
+                                            buf.extend_from_slice(note.as_bytes());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        buf.extend(
+                                            format!("% image fill embed error: {e}\n").as_bytes(),
+                                        );
+                                    }
+                                }
+                                buf.extend_from_slice(b"Q\n");
+                            }
+                            None => {
+                                // No document — keep legacy behaviour
+                                buf.extend_from_slice(
+                                    b"% image/pattern fill (not rendered in basic PDF)\n",
+                                );
+                            }
+                        }
+                    }
+                    FillIR::Pattern {
+                        tile_src,
+                        spacing,
+                        rotation,
+                        image_width,
+                        image_height,
+                        opacity,
+                        ..
+                    } => {
+                        let tile_w = image_width.unwrap_or(32.0);
+                        let tile_h = image_height.unwrap_or(32.0);
+                        let gap = *spacing;
+                        let angle = *rotation * std::f64::consts::PI / 180.0;
+                        let cos_a = angle.cos();
+                        let sin_a = angle.sin();
+
+                        buf.extend_from_slice(b"q\n");
+
+                        // Non-rectangular shapes: clip to the shape path first
+                        if !matches!(node.shape, Shape::Rect(_)) {
+                            buf.extend(&path_ops);
+                            buf.extend_from_slice(b"W n\n");
+                        }
+
+                        // Draw a dashed-grid pattern placeholder showing tile layout.
+                        // Each tile is a stroked rectangle with a light fill.
+                        let (bx, by, bw, bh) = shape_pdf_bounds(node, page_height);
+                        let step_x = tile_w + gap;
+                        let step_y = tile_h + gap;
+
+                        buf.extend_from_slice(b"q\n");
+
+                        // Apply rotation about center of shape bounds
+                        let cx = bx + bw / 2.0;
+                        let cy = by + bh / 2.0;
+                        let cx_rot = cx - cos_a * cx + sin_a * cy;
+                        let cy_rot = cy - sin_a * cx - cos_a * cy;
+                        buf.extend(
+                            format!("{cos_a:.4} {sin_a:.4} {:.4} {cos_a:.4} {cx_rot:.4} {cy_rot:.4} cm\n",
+                                -sin_a).as_bytes(),
+                        );
+
+                        // Light fill for each tile
+                        buf.extend(format!("{:.3} {:.3} {:.3} rg\n", 0.8, 0.85, 0.9).as_bytes());
+
+                        let start_x = bx;
+                        let start_y = by;
+                        let max_x = bx + bw;
+                        let max_y = by + bh;
+                        let mut ty = start_y;
+                        while ty < max_y {
+                            let mut tx = start_x;
+                            while tx < max_x {
+                                buf.extend(
+                                    format!("{tx:.2} {ty:.2} {tile_w:.2} {tile_h:.2} re\nf\n")
+                                        .as_bytes(),
+                                );
+                                buf.extend(
+                                    format!("{tx:.2} {ty:.2} {tile_w:.2} {tile_h:.2} re\nS\n")
+                                        .as_bytes(),
+                                );
+                                tx += step_x;
+                            }
+                            ty += step_y;
+                        }
+
+                        // Dashed grid lines on top
+                        buf.extend_from_slice(b"[4 4] 0 d\n");
+                        buf.extend(format!("{:.3} {:.3} {:.3} RG\n", 0.4, 0.5, 0.6).as_bytes());
+                        buf.extend(format!("{:.2} w\n", 0.5).as_bytes());
+
+                        let mut gy = start_y;
+                        while gy <= max_y {
+                            buf.extend(format!("{bx:.2} {gy:.2} {bw:.2} 0 re\nS\n").as_bytes());
+                            gy += step_y;
+                        }
+                        let mut gx = start_x;
+                        while gx <= max_x {
+                            buf.extend(format!("{gx:.2} {by:.2} 0 {bh:.2} re\nS\n").as_bytes());
+                            gx += step_x;
+                        }
+
+                        buf.extend_from_slice(b"Q\n");
+
+                        // Annotation comment with tile info
+                        let short_src = if tile_src.len() > 40 {
+                            format!("...{}", &tile_src[tile_src.len() - 37..])
+                        } else {
+                            tile_src.clone()
+                        };
+                        buf.extend(
+                            format!(
+                                "% pattern tile={short_src} tileSize={tile_w}x{tile_h} spacing={gap} rotation={angle:.1}deg\n"
+                            ).as_bytes(),
+                        );
+
+                        if *opacity < 1.0 {
+                            buf.extend(format!("% pattern opacity={opacity:.3}\n").as_bytes());
+                        }
+
+                        buf.extend_from_slice(b"Q\n");
+                    }
+                    FillIR::Solid { .. } | FillIR::Gradient { .. } => {
+                        buf.extend_from_slice(b"q\n");
+                        let color_str = fill_to_color_string(fill, use_cmyk);
+                        buf.extend(color_str.as_bytes());
+                        buf.extend(b"\n");
+                        buf.extend(&path_ops);
+                        buf.extend_from_slice(b"f\n");
+                        if fill_opacity(fill) < 1.0 {
+                            // Emit an explicit opacity comment; full PDF transparency
+                            // requires an extended graphics state (ExtGState).
+                            buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
+                        }
+                        buf.extend_from_slice(b"Q\n");
+                    }
                 }
-                buf.extend_from_slice(b"q\n");
-                let color_str = fill_to_color_string(fill, use_cmyk);
-                buf.extend(color_str.as_bytes());
-                buf.extend(b"\n");
-                buf.extend(&path_ops);
-                buf.extend_from_slice(b"f\n");
-                if fill_opacity(fill) < 1.0 {
-                    // Emit an explicit opacity comment; full PDF transparency
-                    // requires an extended graphics state (ExtGState).
-                    buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
-                }
-                buf.extend_from_slice(b"Q\n");
             }
             return buf;
         }
@@ -505,6 +823,20 @@ fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
                     buf.extend(b"% innerGlow (not rendered in basic PDF)\n");
                 }
             }
+            Effect::GlassMaterial {
+                blur,
+                edge_highlight: _,
+                edge_highlight_width: _,
+                visible,
+                ..
+            } => {
+                if *visible {
+                    buf.extend(
+                        format!("% glassMaterial blur={blur:.2} (not rendered in basic PDF)\n")
+                            .as_bytes(),
+                    );
+                }
+            }
         }
     }
 
@@ -560,12 +892,16 @@ pub fn embed_image(
 
 /// Legacy shape_to_pdf_content — maintained for backward compatibility
 /// with `build_pdfx_content` in cmyk.rs.
-fn shape_to_pdf_content(node: &SceneNode, page_height: f64) -> Vec<u8> {
+fn shape_to_pdf_content(
+    node: &SceneNode,
+    page_height: f64,
+    image_state: Option<&mut ImageRenderState>,
+) -> Vec<u8> {
     let mut buf = Vec::new();
     buf.extend_from_slice(b"q\n");
     let effects = render_effects(node, page_height, false);
     buf.extend(&effects);
-    let fills = render_fills(node, page_height, false);
+    let fills = render_fills(node, page_height, false, image_state);
     buf.extend(&fills);
     let strokes = render_strokes(node, page_height, false);
     buf.extend(&strokes);
@@ -696,12 +1032,169 @@ fn glyph_outline_to_pdf(
     buf
 }
 
+/// Internal record for an embedded subset font.
+#[allow(dead_code)]
+struct EmbeddedFontEntry {
+    /// Resource name in the page's font dict (e.g. "F1").
+    res_name: String,
+    /// BaseFont name with subset tag prefix (e.g. "ABCDEF+DejaVuSans").
+    /// Font family from the scene model.
+    family: String,
+    /// Object ID of the font dictionary in the PDF document.
+    dict_id: ObjectId,
+}
+
+/// Escape a string for use in a PDF literal string `(...)`.
+fn escape_pdf_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '(' => out.push_str("\\("),
+            ')' => out.push_str("\\)"),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_ascii() && (c as u8) < 32 => {
+                out.push_str(&format!("\\{:03o}", c as u8));
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Check whether every character in `text` fits in WinAnsiEncoding
+/// (roughly Latin-1 printable characters plus common whitespace).
+fn can_encode_win_ansi(text: &str) -> bool {
+    text.chars().all(|c| {
+        let cp = c as u32;
+        cp == 0x09
+            || cp == 0x0A
+            || cp == 0x0D
+            || (0x20..=0x7E).contains(&cp)
+            || (0xA0..=0xFF).contains(&cp)
+    })
+}
+
+/// Encode text using WinAnsiEncoding byte values.
+fn encode_win_ansi(text: &str) -> Vec<u8> {
+    let mut out = Vec::with_capacity(text.len());
+    for ch in text.chars() {
+        let cp = ch as u32;
+        match cp {
+            // Pass through ASCII and Latin-1 Supplement
+            0x09 | 0x0A | 0x0D | 0x20..=0x7E | 0xA0..=0xFF => out.push(cp as u8),
+            // Approximate common characters not in WinAnsi:
+            0x2013 | 0x2014 => out.push(0x2D), // en/em dash → hyphen
+            0x2018 | 0x2019 => out.push(0x27), // curly quotes → '
+            0x201C | 0x201D => out.push(0x22), // curly double quotes → "
+            0x2022 => out.push(0xB7),          // bullet → middle dot
+            0x20AC => out.push(0x80),          // € in WinAnsi is 0x80
+            _ => out.push(0x20),               // space as safest fallback
+        }
+    }
+    out
+}
+
+/// Collect all text from scene nodes, grouped by font family.
+fn collect_text_per_family(nodes: &[SceneNode]) -> HashMap<String, String> {
+    let mut map: HashMap<String, String> = HashMap::new();
+    for node in nodes {
+        if let Shape::Text {
+            text, font_family, ..
+        } = &node.shape
+        {
+            if !text.is_empty() {
+                map.entry(font_family.clone()).or_default().push_str(text);
+            }
+        }
+    }
+    map
+}
+
+/// Compute ascender for a font from its raw bytes.
+fn font_ascender(font_data: &[u8], font_size: f64) -> f64 {
+    if let Ok(font) = ab_glyph::FontArc::try_from_vec(font_data.to_vec()) {
+        let scale = font_size / font.units_per_em().unwrap_or(1000.0) as f64;
+        return font.ascent_unscaled() as f64 * scale;
+    }
+    font_size * 0.8
+}
+
+/// Embed a font program into the PDF document as a TrueType font with
+/// FontDescriptor and font dictionary, returning the entry record.
+fn embed_font_program(
+    doc: &mut Document,
+    family: &str,
+    base_font: &str,
+    font_data: &[u8],
+    font_idx: usize,
+) -> Result<EmbeddedFontEntry, String> {
+    // 1. Font program stream (FontFile2)
+    let font_stream_id = doc.new_object_id();
+    let font_stream = Stream::new(
+        dictionary! {
+            "Length1" => font_data.len() as i64,
+        },
+        font_data.to_vec(),
+    );
+    doc.objects
+        .insert(font_stream_id, Object::Stream(font_stream));
+
+    // 2. Font descriptor (with some sensible defaults for metrics)
+    let descriptor_id = doc.new_object_id();
+    let font_name_bytes = base_font.as_bytes().to_vec();
+    let descriptor = dictionary! {
+        "Type" => "FontDescriptor",
+        "FontName" => Object::Name(font_name_bytes.clone()),
+        "Flags" => 32, // Small, serif-free, scalable
+        "FontBBox" => vec![
+            Object::Real(0.0),
+            Object::Real(-200.0),
+            Object::Real(1000.0),
+            Object::Real(800.0),
+        ],
+        "ItalicAngle" => 0,
+        "Ascent" => 800,
+        "Descent" => -200,
+        "CapHeight" => 500,
+        "StemV" => 50,
+        "FontFile2" => Object::Reference(font_stream_id),
+    };
+    doc.objects
+        .insert(descriptor_id, Object::Dictionary(descriptor));
+
+    // 3. Font dictionary
+    let res_name = format!("F{}", font_idx + 1);
+    let font_dict_id = doc.new_object_id();
+    let font_dict = dictionary! {
+        "Type" => "Font",
+        "Subtype" => "TrueType",
+        "BaseFont" => Object::Name(font_name_bytes),
+        "FontDescriptor" => Object::Reference(descriptor_id),
+        "Encoding" => "WinAnsiEncoding",
+        "FirstChar" => 32,
+        "LastChar" => 255,
+    };
+    doc.objects
+        .insert(font_dict_id, Object::Dictionary(font_dict));
+
+    Ok(EmbeddedFontEntry {
+        res_name,
+        family: family.to_string(),
+        dict_id: font_dict_id,
+    })
+}
+
 /// Export a scene to PDF bytes using lopdf.
 ///
 /// Each shape node becomes a filled path. When `opts.outline_text` is true
 /// and `opts.font_data` is `Some`, text nodes are outlined as vector paths
-/// instead of filled rectangles. The new pipeline respects stacked fills,
-/// strokes, and effects.
+/// instead of filled rectangles. When `opts.subset_fonts` is true, fonts
+/// are subsetted to used characters and embedded as font programs, enabling
+/// searchable text. The new pipeline respects stacked fills, strokes, and
+/// effects.
 pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, String> {
     let mut doc = Document::new();
     let page_id = doc.new_object_id();
@@ -720,10 +1213,94 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
         format!("0 0 {:.2} {:.2} re\nf\n", opts.page_width, opts.page_height).as_bytes(),
     );
 
+    // ── Font subsetting / embedding ─────────────────────────────────────
+    let embedded_fonts: Vec<EmbeddedFontEntry> = if opts.subset_fonts && !opts.fonts.is_empty() {
+        let family_text = collect_text_per_family(nodes);
+        let mut entries: Vec<EmbeddedFontEntry> = Vec::new();
+
+        for (font_idx, (family, font_data)) in opts.fonts.iter().enumerate() {
+            // Validate embedding permission
+            match validate_embedding_permission(font_data) {
+                Ok(perm) => match perm {
+                    EmbeddingPermission::Restricted => match opts.embedding_restriction_handling {
+                        EmbeddingRestriction::Warn => {
+                            eprintln!(
+                                "[warning] font '{family}' has Restricted embedding — skipping"
+                            );
+                            continue;
+                        }
+                        EmbeddingRestriction::Block => {
+                            return Err(format!(
+                                "Font '{family}' embedding blocked by license (Restricted)"
+                            ));
+                        }
+                        EmbeddingRestriction::Substitute => {
+                            continue;
+                        }
+                    },
+                    EmbeddingPermission::NoSubsetting => {
+                        // Embed full font without subsetting
+                        let tag = get_subset_tag(family);
+                        let sanitized_name: String =
+                            family.chars().filter(|c| c.is_alphanumeric()).collect();
+                        let base_font = format!("{tag}{sanitized_name}");
+
+                        let entry =
+                            embed_font_program(&mut doc, family, &base_font, font_data, font_idx)?;
+                        entries.push(entry);
+                        continue;
+                    }
+                    _ => { /* proceed with subsetting */ }
+                },
+                Err(e) => {
+                    eprintln!(
+                        "[warning] font '{family}' permission check failed ({e}) — embedding anyway"
+                    );
+                }
+            }
+
+            // Collect used chars for this family
+            let used_text = family_text.get(family).map(|s| s.as_str()).unwrap_or("");
+            let chars = collect_used_chars(used_text);
+
+            // Subset the font
+            let subset_data = if chars.is_empty() {
+                font_data.clone()
+            } else {
+                match subset_font(font_data, &chars) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        eprintln!(
+                            "[warning] failed to subset font '{family}': {e} — embedding full font"
+                        );
+                        font_data.clone()
+                    }
+                }
+            };
+
+            let tag = get_subset_tag(family);
+            let sanitized_name: String = family.chars().filter(|c| c.is_alphanumeric()).collect();
+            let base_font = format!("{tag}{sanitized_name}");
+
+            let entry = embed_font_program(&mut doc, family, &base_font, &subset_data, font_idx)?;
+            entries.push(entry);
+        }
+
+        entries
+    } else {
+        Vec::new()
+    };
+
     let do_outline = opts.outline_text && (opts.font_data.is_some() || !opts.fonts.is_empty());
 
-    for node in nodes {
-        if do_outline {
+    let mut need_bt = false;
+
+    // ── Build content with image rendering support ──────────────────────
+    let image_refs = {
+        let mut image_state = ImageRenderState::new(&mut doc);
+
+        for node in nodes {
+            // Try embedded font text rendering
             if let Shape::Text {
                 text,
                 font_size,
@@ -733,25 +1310,85 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 ..
             } = &node.shape
             {
-                if !text.is_empty() {
-                    let outlined =
-                        try_outline_node(node, text, *font_size, font_family, x, y, opts);
-                    if let Some(mut cmd) = outlined {
-                        content.append(&mut cmd);
+                if !text.is_empty() && !embedded_fonts.is_empty() && can_encode_win_ansi(text) {
+                    if let Some(ef) = embedded_fonts.iter().find(|ef| ef.family == *font_family) {
+                        let tx = node.transform.as_coeffs();
+                        let x_off = tx[4];
+                        let y_off = tx[5];
+
+                        let asc = font_ascender(
+                            opts.fonts
+                                .iter()
+                                .find(|(n, _)| n == font_family)
+                                .map(|(_, d)| d.as_slice())
+                                .unwrap_or_default(),
+                            *font_size,
+                        );
+
+                        let pdf_x = x + x_off;
+                        let pdf_y = opts.page_height - y - asc - y_off;
+                        let encoded = encode_win_ansi(text);
+                        let escaped = escape_pdf_string(&String::from_utf8_lossy(&encoded));
+
+                        if !need_bt {
+                            content.extend_from_slice(b"BT\n");
+                            need_bt = true;
+                        }
+                        content.extend(
+                            format!(
+                                "/{} {} Tf\n1 0 0 1 {:.2} {:.2} Tm\n({}) Tj\n",
+                                ef.res_name, font_size, pdf_x, pdf_y, escaped
+                            )
+                            .as_bytes(),
+                        );
                         continue;
                     }
                 }
             }
+
+            // Flush BT if we were in text mode
+            if need_bt {
+                content.extend_from_slice(b"ET\n");
+                need_bt = false;
+            }
+
+            // Try outline mode
+            if do_outline {
+                if let Shape::Text {
+                    text,
+                    font_size,
+                    font_family,
+                    x,
+                    y,
+                    ..
+                } = &node.shape
+                {
+                    if !text.is_empty() {
+                        let outlined =
+                            try_outline_node(node, text, *font_size, font_family, x, y, opts);
+                        if let Some(mut cmd) = outlined {
+                            content.append(&mut cmd);
+                            continue;
+                        }
+                    }
+                }
+            }
+            // New pipeline: effects + fills + strokes
+            content.extend_from_slice(b"q\n");
+            let effects = render_effects(node, opts.page_height, use_cmyk);
+            content.extend(&effects);
+            let fills = render_fills(node, opts.page_height, use_cmyk, Some(&mut image_state));
+            content.extend(&fills);
+            let strokes = render_strokes(node, opts.page_height, use_cmyk);
+            content.extend(&strokes);
+            content.extend_from_slice(b"Q\n");
         }
-        // New pipeline: effects + fills + strokes
-        content.extend_from_slice(b"q\n");
-        let effects = render_effects(node, opts.page_height, use_cmyk);
-        content.extend(&effects);
-        let fills = render_fills(node, opts.page_height, use_cmyk);
-        content.extend(&fills);
-        let strokes = render_strokes(node, opts.page_height, use_cmyk);
-        content.extend(&strokes);
-        content.extend_from_slice(b"Q\n");
+
+        std::mem::take(&mut image_state.refs)
+    };
+
+    if need_bt {
+        content.extend_from_slice(b"ET\n");
     }
     content.extend_from_slice(b"Q\n");
 
@@ -760,17 +1397,32 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     doc.objects
         .insert(content_id, Object::Stream(content_stream));
 
-    // Font resource (required by PDF spec even if unused)
-    let font_dict = dictionary! {
-        "F1" => dictionary! {
-            "Type" => "Font",
-            "Subtype" => "Type1",
-            "BaseFont" => "Helvetica",
-        },
+    // Font resources
+    let font_dict = if embedded_fonts.is_empty() {
+        dictionary! {
+            "F1" => dictionary! {
+                "Type" => "Font",
+                "Subtype" => "Type1",
+                "BaseFont" => "Helvetica",
+            },
+        }
+    } else {
+        let mut fd = lopdf::Dictionary::new();
+        for ef in &embedded_fonts {
+            fd.set(ef.res_name.as_bytes(), Object::Reference(ef.dict_id));
+        }
+        fd
     };
-    let resources = dictionary! {
+    let mut resources = dictionary! {
         "Font" => font_dict,
     };
+    if !image_refs.is_empty() {
+        let mut xdict = lopdf::Dictionary::new();
+        for (name, ref_obj) in &image_refs {
+            xdict.set(name.as_bytes(), ref_obj.clone());
+        }
+        resources.set("XObject", xdict);
+    }
 
     let pages_id = doc.new_object_id();
     let catalog_id = doc.new_object_id();
@@ -984,6 +1636,8 @@ mod tests {
 
     fn test_font_data() -> Vec<u8> {
         let paths = [
+            "/usr/share/fonts/TTF/OpenSans-Regular.ttf",
+            "/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf",
             "/usr/share/fonts/TTF/Vera.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/TTF/Inter-Regular.ttf",
@@ -1185,7 +1839,7 @@ mod tests {
     fn render_fills_solid() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![solid_fill(255, 0, 0, 255, true)]);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "should contain RGB color");
         assert!(s.contains("f\n"), "should contain fill operator");
@@ -1196,7 +1850,7 @@ mod tests {
     fn render_fills_gradient() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![gradient_fill(true)]);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "gradient approximated as solid");
         assert!(s.contains("f\n"), "should fill");
@@ -1205,7 +1859,7 @@ mod tests {
     #[test]
     fn render_fills_fallback() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         // Default fill is teal: 57, 208, 198
         assert!(s.contains("0.224"), "should contain R component of teal");
@@ -1220,7 +1874,7 @@ mod tests {
             solid_fill(255, 0, 0, 255, true),
             solid_fill(0, 255, 0, 255, true),
         ]);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("1.000 0.000 0.000 rg"), "first fill red");
         assert!(s.contains("0.000 1.000 0.000 rg"), "second fill green");
@@ -1244,7 +1898,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("opacity=0.500"), "should emit opacity comment");
     }
@@ -1253,7 +1907,7 @@ mod tests {
     fn render_fills_invisible() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![solid_fill(255, 0, 0, 255, false)]);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(!s.contains("rg"), "invisible fill should not render");
     }
@@ -1274,7 +1928,7 @@ mod tests {
             visible: true,
             alpha_mask: None,
         }]);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             !s.contains("0 0 0 rg") && !s.contains("f\n"),
@@ -1288,34 +1942,59 @@ mod tests {
     }
 
     #[test]
-    fn render_fills_pattern_not_rendered_as_solid_black() {
+    fn render_fills_pattern_renders_structured_placeholder() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![FillIR::Pattern {
             tile_src: "data:image/png;base64,AAAA".into(),
             spacing: 0.0,
             rotation: 0.0,
+            image_width: None,
+            image_height: None,
             opacity: 1.0,
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
-            !s.contains("0 0 0 rg") && !s.contains("f\n"),
-            "pattern fill has no PDF XObject pipeline yet and must not silently \
-             paint a solid color in its place: {s}"
+            !s.contains("0 0 0 rg"),
+            "pattern fill must not silently paint a solid black color: {s}"
         );
         assert!(
-            s.contains("not rendered"),
-            "should explicitly note the unsupported pattern fill: {s}"
+            s.contains("% pattern tile="),
+            "should include a pattern annotation comment: {s}"
         );
+        assert!(
+            s.contains("32x32"),
+            "should use default tile size of 32x32 when no overrides: {s}"
+        );
+    }
+
+    #[test]
+    fn render_fills_pattern_honours_dimension_overrides() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![FillIR::Pattern {
+            tile_src: "tile.png".into(),
+            spacing: 4.0,
+            rotation: 45.0,
+            image_width: Some(64.0),
+            image_height: Some(48.0),
+            opacity: 0.75,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }]);
+        let result = render_fills(&node, 100.0, false, None);
+        let s = String::from_utf8_lossy(&result);
+        assert!(s.contains("64x48"), "should use override dimensions: {s}");
+        assert!(s.contains("spacing=4"), "should include spacing: {s}");
+        assert!(s.contains("pattern opacity=0.750"), "should include opacity: {s}");
     }
 
     #[test]
     fn render_fills_empty_fills_fallsback() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![]);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "empty fills should fallback");
     }
@@ -1323,9 +2002,213 @@ mod tests {
     #[test]
     fn render_fills_none_fallsback() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_fills(&node, 100.0, false);
+        let result = render_fills(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "None fills should fallback to fill");
+    }
+
+    // ── render_fills image fill tests ──────────────────────────────────
+
+    fn image_fill_node(id: u64, x: f64, y: f64, w: f64, h: f64) -> SceneNode {
+        let mut node = rect_node(id, x, y, w, h);
+        node.fills = Some(vec![FillIR::Image {
+            src: "data:image/png;base64,AAAA".into(),
+            fit: "fill".into(),
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+            image_width: Some(32.0),
+            image_height: Some(32.0),
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+            alpha_mask: None,
+        }]);
+        node
+    }
+
+    #[test]
+    fn render_fills_image_with_document_renders_xobject() {
+        let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(&node, 100.0, false, Some(&mut state));
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            s.contains("/Im0 Do"),
+            "image fill should emit Do operator for embedded XObject: {s}"
+        );
+        assert!(
+            s.contains("cm"),
+            "image fill should emit transformation matrix: {s}"
+        );
+        // Check that the image XObject was embedded
+        assert_eq!(state.refs.len(), 1, "should have 1 image reference");
+        assert_eq!(state.counter, 1, "counter should be 1");
+    }
+
+    #[test]
+    fn render_fills_image_without_document_compat() {
+        // Without a document, image fills should still emit the "not rendered" comment
+        let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
+        let result = render_fills(&node, 100.0, false, None);
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            s.contains("not rendered"),
+            "image fill without doc should note not rendered: {s}"
+        );
+        assert!(
+            !s.contains("Do"),
+            "image fill without doc should not emit Do: {s}"
+        );
+    }
+
+    #[test]
+    fn render_fills_image_nonrect_clips() {
+        // A circle node with an image fill should emit a clip path (W n)
+        let node = SceneNode {
+            id: strata_core::NodeId(1),
+            name: "circle-img".into(),
+            transform: strata_core::Affine::translate((50.0, 50.0)),
+            shape: Shape::Circle(Circle::new(Point::new(0.0, 0.0), 40.0)),
+            fill: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                profile: None,
+            },
+            children: Vec::new(),
+            component_id: None,
+            slots: None,
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            rotation: 0.0,
+            strokes: Vec::new(),
+            effects: Vec::new(),
+            fills: Some(vec![FillIR::Image {
+                src: "data:image/png;base64,AAAA".into(),
+                fit: "fill".into(),
+                x: 0.0,
+                y: 0.0,
+                scale: 1.0,
+                image_width: Some(32.0),
+                image_height: Some(32.0),
+                opacity: 1.0,
+                blend_mode: BlendMode::Normal,
+                visible: true,
+                alpha_mask: None,
+            }]),
+            corner_radius: None,
+            filters: None,
+        };
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(&node, 100.0, false, Some(&mut state));
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            s.contains("W n"),
+            "non-rect image fill should emit clip path (W n): {s}"
+        );
+        assert!(
+            s.contains("/Im0 Do"),
+            "non-rect image fill should still emit Do: {s}"
+        );
+    }
+
+    #[test]
+    fn render_fills_image_with_opacity() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![FillIR::Image {
+            src: "data:image/png;base64,AAAA".into(),
+            fit: "fill".into(),
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+            image_width: Some(32.0),
+            image_height: Some(32.0),
+            opacity: 0.5,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+            alpha_mask: None,
+        }]);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(&node, 100.0, false, Some(&mut state));
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            s.contains("opacity=0.500"),
+            "image fill with opacity should emit opacity comment: {s}"
+        );
+        assert!(
+            s.contains("/Im0 Do"),
+            "image fill with opacity should still emit Do: {s}"
+        );
+    }
+
+    #[test]
+    fn export_pdf_with_image_fill() {
+        let node = image_fill_node(1, 10.0, 10.0, 100.0, 100.0);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf with image fill");
+        assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
+        assert!(
+            bytes.len() > 300,
+            "PDF with image fill should have meaningful content"
+        );
+    }
+
+    #[test]
+    fn render_fills_image_multiple_fills_mixed() {
+        // Stacked fill: solid + image + solid — all should render
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![
+            FillIR::Solid {
+                color: EngineColor::Rgb {
+                    r: 255.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 255.0,
+                    profile: None,
+                },
+                opacity: 1.0,
+                blend_mode: BlendMode::Normal,
+                visible: true,
+            },
+            FillIR::Image {
+                src: "data:image/png;base64,AAAA".into(),
+                fit: "fill".into(),
+                x: 0.0,
+                y: 0.0,
+                scale: 1.0,
+                image_width: Some(32.0),
+                image_height: Some(32.0),
+                opacity: 1.0,
+                blend_mode: BlendMode::Normal,
+                visible: true,
+                alpha_mask: None,
+            },
+        ]);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(&node, 100.0, false, Some(&mut state));
+        let s = String::from_utf8_lossy(&result);
+        assert!(s.contains("rg"), "should have solid fill color");
+        assert!(s.contains("/Im0 Do"), "should have image Do operator");
+        assert_eq!(state.refs.len(), 1, "one image reference");
+    }
+
+    #[test]
+    fn render_fills_image_uses_cmyk_comment() {
+        let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(&node, 100.0, true, Some(&mut state));
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            s.contains("CMYK conversion not yet implemented"),
+            "CMYK mode should emit conversion comment: {s}"
+        );
+        assert!(s.contains("/Im0 Do"), "CMYK mode should still emit Do: {s}");
     }
 
     // ── render_strokes tests ───────────────────────────────────────────

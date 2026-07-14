@@ -210,8 +210,17 @@ apps/desktop/public/icons/
   icon-192-maskable.png / icon-512-maskable.png  ← PWA maskable
 ```
 
-**Build command** (regenerates all platform PNGs, `.icns`, `.ico`, web favicons):
+**Build command** (regenerates all platform PNGs, `.icns`, `.ico`, web favicons from **`strata-app-icon.svg` only**):
 ```bash
-bash apps/desktop/build-icons.sh
+just generate-icons
+# equivalent: bash apps/desktop/build-icons.sh
 ```
 Requires: `rsvg-convert` (librsvg), `magick` (ImageMagick ≥ 7), Tauri CLI in `apps/desktop/node_modules/.bin/tauri`.
+
+**Do not** use `strata-icon.svg` (mark-only) for OS launcher / taskbar / dock icons — that skips the app-icon plate. Mark SVGs are for in-app chrome and favicons only.
+
+**Linux Wayland / KDE (`tauri:dev`):** after generating icons, install the FreeDesktop identity locally:
+```bash
+just install-dev-icons
+```
+This installs `~/.local/share/applications/dev.strata.desktop.desktop` + hicolor icons so Plasma resolves the Strata icon instead of the Wayland logo.

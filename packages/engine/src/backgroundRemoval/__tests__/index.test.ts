@@ -10,6 +10,18 @@ const { mockHeuristic, mockRunPooledInference, mockGetModelLoader, mockInvoke } 
   }),
 );
 
+vi.mock('../previewDownscale', () => ({
+  downscaleImageData: (img: ImageData, maxDim: number) => {
+    if (img.width <= maxDim && img.height <= maxDim) return img;
+    const scale = maxDim / Math.max(img.width, img.height);
+    return new ImageData(
+      new Uint8ClampedArray(Math.ceil(img.width * scale) * Math.ceil(img.height * scale) * 4),
+      Math.ceil(img.width * scale),
+      Math.ceil(img.height * scale),
+    );
+  },
+}));
+
 vi.mock('../heuristic', () => ({
   removeBackgroundHeuristic: mockHeuristic,
 }));
@@ -208,6 +220,28 @@ describe('removeBackground dispatch', () => {
       /AI background removal failed/i,
     );
     expect(mockHeuristic).not.toHaveBeenCalled();
+  });
+
+  it('downscales oversized images at engine entry before dispatch (quick)', async () => {
+    vi.stubGlobal('Worker', class {});
+    const { removeBackground } = await import('../index');
+    const bigImage = new ImageData(new Uint8ClampedArray(4096 * 4096 * 4), 4096, 4096);
+    await removeBackground(bigImage, { method: 'quick' });
+    expect(mockHeuristic).toHaveBeenCalledTimes(1);
+    const arg = mockHeuristic.mock.calls[0]![0] as ImageData;
+    expect(arg.width).toBeLessThanOrEqual(2048);
+    expect(arg.height).toBeLessThanOrEqual(2048);
+  });
+
+  it('downscales oversized images at engine entry before dispatch (ai-balanced)', async () => {
+    vi.stubGlobal('Worker', class {});
+    const { removeBackground } = await import('../index');
+    const bigImage = new ImageData(new Uint8ClampedArray(4096 * 4096 * 4), 4096, 4096);
+    await removeBackground(bigImage, { method: 'ai-balanced' });
+    expect(mockRunPooledInference).toHaveBeenCalledTimes(1);
+    const imageArg = mockRunPooledInference.mock.calls[0]![0] as ImageData;
+    expect(imageArg.width).toBeLessThanOrEqual(2048);
+    expect(imageArg.height).toBeLessThanOrEqual(2048);
   });
 
   it('does not attempt direct AI when the specific model is unavailable', async () => {

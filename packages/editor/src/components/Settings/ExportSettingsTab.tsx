@@ -46,11 +46,6 @@ const INTENT_OPTIONS: { value: RenderingIntent; label: string }[] = [
   { value: 'saturation', label: 'Saturation' },
 ];
 
-const COLOR_PROFILE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'srgb', label: 'sRGB' },
-  { value: 'display-p3', label: 'Display P3' },
-];
-
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="settings-field-row">
@@ -130,12 +125,7 @@ export function ExportSettingsTab() {
       </FieldRow>
 
       <FieldRow label="Color profile">
-        <Select
-          options={COLOR_PROFILE_OPTIONS}
-          value={settings.export.defaultColorProfile}
-          onChange={(v) => updateExport({ defaultColorProfile: v as 'srgb' | 'display-p3' })}
-          label="Color profile"
-        />
+        <span>sRGB (portable Canvas baseline)</span>
       </FieldRow>
 
       <FieldRow label="ICC profile">

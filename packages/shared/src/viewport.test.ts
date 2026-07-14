@@ -364,11 +364,18 @@ describe('resetViewRotation', () => {
 });
 
 describe('computeFloatingOrigin', () => {
-  it('snaps origin to grid', () => {
+  it('stays at semantic zero until scene geometry is atomically rebased', () => {
     const c = cam(-600, -400, 1);
     const origin = computeFloatingOrigin(c, vp);
-    expect(origin[0] % 512).toBe(0);
-    expect(origin[1] % 512).toBe(0);
+    expect(origin).toEqual([0, 0]);
+  });
+
+  it('does not change semantic world-to-screen coordinates at a grid boundary', () => {
+    const c = cam(0, 13.25, 1);
+    const origin = computeFloatingOrigin(c, vp);
+    expect(origin).toEqual([0, 0]);
+    expect(worldToScreen(c, 160, 140, vp, origin)).toEqual([160, 153.25]);
+    expect(screenToWorld(c, 160, 153.25, vp, origin)).toEqual([160, 140]);
   });
 });
 

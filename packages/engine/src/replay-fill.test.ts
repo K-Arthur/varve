@@ -333,7 +333,6 @@ describe('gradient fill rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
     };
     replayIr(baseCtx.target, [baseItem]);
-    const call90 = baseCtx.calls.find((c) => c.startsWith('createLinearGradient('));
 
     const clampedCtx = recorder();
     const clampedFill: FillIR = { ...baseItem.fills![0], rotation: 450 } as FillIR;
@@ -369,7 +368,6 @@ describe('gradient fill rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
     };
     replayIr(baseCtx.target, [baseItem]);
-    const call270 = baseCtx.calls.find((c) => c.startsWith('createLinearGradient('));
 
     const clampedCtx = recorder();
     const clampedFill: FillIR = { ...baseItem.fills![0], rotation: -90 } as FillIR;
@@ -985,6 +983,28 @@ describe('effects rendering', () => {
     expect(rec.calls.filter((c) => c.startsWith('fillRect')).length).toBe(0);
   });
 
+  it('pads layer blur surfaces so the blur kernel is not cropped at object bounds', () => {
+    const rec = recorder();
+    let compositeArgs: unknown[] | null = null;
+    rec.target.drawImage = (...args: unknown[]) => {
+      compositeArgs = args;
+    };
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+      primitive: { kind: 'rect', x: 20, y: 30, w: 40, h: 50 },
+      effects: [{ type: 'layerBlur', radius: 4, visible: true }],
+    };
+
+    replayIr(rec.target, [item]);
+
+    expect(compositeArgs).not.toBeNull();
+    expect(compositeArgs?.[1]).toBe(8);
+    expect(compositeArgs?.[2]).toBe(18);
+    expect(compositeArgs?.[3]).toBe(64);
+    expect(compositeArgs?.[4]).toBe(74);
+  });
+
   it('innerShadow uses source-over (not destination-over)', () => {
     const rec = recorder();
     const compositeOps: string[] = [];
@@ -1461,7 +1481,159 @@ describe('multi-item compositing edge cases', () => {
     };
     replayIr(rec.target, [item]);
     expect(drawImageCalled).toBe(true);
+    const clipIndex = rec.calls.indexOf('clip(0)');
+    const restoreIndex = rec.calls.findIndex(
+      (call, index) => index > clipIndex && call === 'restore(0)',
+    );
+    expect(clipIndex).toBeGreaterThanOrEqual(0);
+    expect(restoreIndex).toBeGreaterThan(clipIndex);
     expect(rec.calls.some((c) => c.startsWith('restore'))).toBe(true);
+  });
+
+  it('clips image fills to non-rectangular primitive outlines', () => {
+    getImageCache().setLoaded('ellipse.png', mockImage('ellipse.png', 80, 40));
+    const rec = recorder();
+    const calls: string[] = [];
+    rec.target.drawImage = () => calls.push('drawImage');
+    rec.target.clip = () => calls.push('clip');
+    replayIr(rec.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'image',
+            src: 'ellipse.png',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'ellipse', cx: 50, cy: 30, rx: 40, ry: 20 },
+      },
+    ]);
+    expect(calls).toEqual(['clip', 'drawImage']);
+    expect(rec.calls).toContain('ellipse(7)');
+  });
+
+  it('offsets pattern tiles to the primitive bounds before clipping', () => {
+    getImageCache().setLoaded('tile-offset.png', mockImage('tile-offset.png', 8, 8));
+    const rec = recorder();
+    const positions: Array<[number, number]> = [];
+    rec.target.drawImage = (_image, x, y) => positions.push([x, y]);
+    replayIr(rec.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'pattern',
+            tileSrc: 'tile-offset.png',
+            spacing: 2,
+            rotation: 0,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 30, y: 40, w: 20, h: 20 },
+      },
+    ]);
+    expect(positions[0]).toEqual([30, 40]);
+  });
+
+  it.each([
+    { name: 'zero repeat increment', width: 8, height: 8, spacing: -8 },
+    { name: 'zero natural dimensions', width: 0, height: 0, spacing: 0 },
+  ])('falls back safely for $name', ({ width, height, spacing }) => {
+    getImageCache().setLoaded('invalid-tile.png', mockImage('invalid-tile.png', width, height));
+    const rec = recorder();
+    let drawCount = 0;
+    rec.target.drawImage = () => {
+      drawCount++;
+      if (drawCount > 5) throw new Error('pattern loop did not advance');
+    };
+
+    expect(() =>
+      replayIr(rec.target, [
+        {
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          fills: [
+            {
+              type: 'pattern',
+              tileSrc: 'invalid-tile.png',
+              spacing,
+              rotation: 0,
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+          primitive: { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+        },
+      ]),
+    ).not.toThrow();
+    expect(drawCount).toBe(0);
+    expect(rec.calls).toContain('fillRect(4)');
+  });
+
+  it('rotates a zero-spacing pattern around the primitive center when supported', () => {
+    getImageCache().setLoaded('rotated-tile.png', mockImage('rotated-tile.png', 8, 8));
+    const rec = recorder();
+    const patternTransforms: Array<{
+      a: number;
+      b: number;
+      c: number;
+      d: number;
+      e: number;
+      f: number;
+    }> = [];
+    rec.target.createPattern = () =>
+      ({
+        setTransform(transform: DOMMatrix2DInit) {
+          patternTransforms.push({
+            a: transform.a ?? 1,
+            b: transform.b ?? 0,
+            c: transform.c ?? 0,
+            d: transform.d ?? 1,
+            e: transform.e ?? 0,
+            f: transform.f ?? 0,
+          });
+        },
+      }) as unknown as CanvasPattern;
+
+    replayIr(rec.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'pattern',
+            tileSrc: 'rotated-tile.png',
+            spacing: 0,
+            rotation: 90,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 30, y: 40, w: 20, h: 10 },
+      },
+    ]);
+
+    expect(patternTransforms).toHaveLength(1);
+    const patternTransform = patternTransforms[0];
+    expect(patternTransform?.a).toBeCloseTo(0);
+    expect(patternTransform?.b).toBeCloseTo(1);
+    expect(patternTransform?.c).toBeCloseTo(-1);
+    expect(patternTransform?.d).toBeCloseTo(0);
+    expect(patternTransform?.e).toBeCloseTo(45);
+    expect(patternTransform?.f).toBeCloseTo(35);
   });
 
   it('image fill renders placeholder when drawImage unavailable', () => {
@@ -1511,6 +1683,64 @@ describe('multi-item compositing edge cases', () => {
     // Pattern fill: set fillStyle + paintShapeFill (fillRect for rect)
     expect(rec.calls.some((c) => c.startsWith('set fillStyle'))).toBe(true);
     expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+  });
+
+  it('honours pattern imageWidth/imageHeight dimension overrides', () => {
+    getImageCache().setLoaded('tile-dim.png', mockImage('tile-dim.png', 200, 200));
+    const drawCalls: Array<{ x: number; y: number; w: number; h: number }> = [];
+    const rec = recorder();
+    rec.target.drawImage = (_img: unknown, x: number, y: number, w: number, h: number) => {
+      drawCalls.push({ x, y, w, h });
+    };
+    replayIr(rec.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'pattern',
+            tileSrc: 'tile-dim.png',
+            spacing: 0,
+            rotation: 0,
+            imageWidth: 32,
+            imageHeight: 24,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      },
+    ]);
+    expect(drawCalls.length).toBeGreaterThan(0);
+    for (const dc of drawCalls) {
+      expect(dc.w).toBe(32);
+      expect(dc.h).toBe(24);
+    }
+  });
+
+  it('starts loading a visible pattern tile when it is not cached', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'pattern',
+          tileSrc: 'missing-tile.png',
+          spacing: 4,
+          rotation: 0,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+
+    replayIr(rec.target, [item]);
+
+    expect(getImageCache().state('missing-tile.png')).toBe('loading');
   });
 
   it('image fill with empty src renders placeholder', () => {

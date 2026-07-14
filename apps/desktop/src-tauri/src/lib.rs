@@ -1,3 +1,4 @@
+mod print;
 mod renderer;
 
 use notify::Watcher;
@@ -361,6 +362,8 @@ impl PdfXOptions {
             registration_marks: false,
             color_bar: false,
             print_profile: None,
+            subset_fonts: self.outline_text,
+            embedding_restriction_handling: strata_print::subset::EmbeddingRestriction::Warn,
         }
     }
 }
@@ -815,10 +818,29 @@ fn close_splashscreen(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    // On Wayland (especially KDE Plasma), the window icon is resolved via the
+    // FreeDesktop desktop file whose *filename stem* matches the process
+    // program name / Wayland app_id. Force that id to our Tauri identifier so
+    // `dev.strata.desktop.desktop` + hicolor icons resolve instead of the
+    // generic Wayland logo. Must run before GTK init inside `Builder::run`.
+    #[cfg(target_os = "linux")]
+    {
+        glib::set_prgname(Some("dev.strata.desktop"));
+        glib::set_application_name("Strata");
+    }
+
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+
+    // WDIO testing plugins (debug-only, excluded from release builds)
+    #[cfg(feature = "wdio")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
+    builder
         .setup(|app| {
             let data_dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&data_dir).expect("create data dir");
@@ -905,6 +927,10 @@ pub fn run() {
             export_pdfx4,
             outline_text,
             export_pdf_with_options,
+            // Native OS print
+            list_printers,
+            print_pdf,
+            cancel_print_job,
             // W6: backend-dependent UI stubs
             ai_chat,
             get_collab_users,
@@ -915,6 +941,74 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+// ── Native Print ────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+struct PrinterInfo {
+    name: String,
+    description: String,
+    is_color: bool,
+    paper_sizes: Vec<String>,
+    supports_duplex: bool,
+    accepting_jobs: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrintOptions {
+    printer_name: String,
+    copies: Option<u32>,
+    duplex: Option<bool>,
+    color_mode: Option<String>,
+    page_size: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct PrintResult {
+    job_id: u32,
+    message: String,
+    success: bool,
+}
+
+#[tauri::command]
+fn list_printers() -> Vec<PrinterInfo> {
+    crate::print::list_printers()
+        .into_iter()
+        .map(|p| PrinterInfo {
+            name: p.name,
+            description: p.description,
+            is_color: p.is_color,
+            paper_sizes: p.paper_sizes,
+            supports_duplex: p.supports_duplex,
+            accepting_jobs: p.accepting_jobs,
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn print_pdf(pdf_data: Vec<u8>, job_title: String, options: PrintOptions) -> PrintResult {
+    let result = crate::print::print_pdf(
+        &options.printer_name,
+        &pdf_data,
+        &job_title,
+        options.copies.unwrap_or(1),
+        options.duplex.unwrap_or(false),
+        &options.color_mode.unwrap_or_else(|| "color".to_string()),
+        &options.page_size.unwrap_or_else(|| "auto".to_string()),
+    );
+    PrintResult {
+        job_id: result.job_id,
+        message: result.message,
+        success: result.success,
+    }
+}
+
+#[tauri::command]
+fn cancel_print_job(printer_name: String, job_id: u32) -> Result<String, String> {
+    crate::print::cancel_job(&printer_name, job_id)
+}
+
+// ── End Native Print ────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {

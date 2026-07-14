@@ -11,11 +11,11 @@ function rgbToCmyk(
   const gg = g / 255;
   const bb = b / 255;
   const k = 1 - Math.max(rr, gg, bb);
-  if (k === 1) return { c: 0, m: 0, y: 0, k: 100 };
-  const c = ((1 - rr - k) / (1 - k)) * 100;
-  const m = ((1 - gg - k) / (1 - k)) * 100;
-  const y = ((1 - bb - k) / (1 - k)) * 100;
-  return { c: Math.round(c), m: Math.round(m), y: Math.round(y), k: Math.round(k * 100) };
+  if (k === 1) return { c: 0, m: 0, y: 0, k: 255 };
+  const c = ((1 - rr - k) / (1 - k)) * 255;
+  const m = ((1 - gg - k) / (1 - k)) * 255;
+  const y = ((1 - bb - k) / (1 - k)) * 255;
+  return { c: Math.round(c), m: Math.round(m), y: Math.round(y), k: Math.round(k * 255) };
 }
 
 function cmykToRgb(
@@ -24,10 +24,9 @@ function cmykToRgb(
   y: number,
   k: number,
 ): { r: number; g: number; b: number } {
-  const kk = k / 100;
-  const r = 255 * (1 - c / 100) * (1 - kk);
-  const g = 255 * (1 - m / 100) * (1 - kk);
-  const b = 255 * (1 - y / 100) * (1 - kk);
+  const r = 255 * (1 - c / 255) * (1 - k / 255);
+  const g = 255 * (1 - m / 255) * (1 - k / 255);
+  const b = 255 * (1 - y / 255) * (1 - k / 255);
   return { r: Math.round(r), g: Math.round(g), b: Math.round(b) };
 }
 
@@ -41,37 +40,47 @@ function convertColor(color: ManagedColor, newMode: ColorMode): ManagedColor {
     if (color.space === 'rgb') return color;
     if (color.space === 'cmyk') {
       const { r, g, b } = cmykToRgb(color.c, color.m, color.y, color.k);
-      return { space: 'rgb', r, g, b, a: color.a };
+      return withProfile({ space: 'rgb', r, g, b, a: color.a }, color);
     }
     if (color.space === 'gray') {
       const v = (color.v / 255) * 255;
-      return { space: 'rgb', r: v, g: v, b: v, a: color.a };
+      return withProfile({ space: 'rgb', r: v, g: v, b: v, a: color.a }, color);
     }
   }
   if (newMode === 'cmyk') {
     if (color.space === 'cmyk') return color;
     if (color.space === 'rgb') {
       const { c, m, y, k } = rgbToCmyk(color.r, color.g, color.b);
-      return { space: 'cmyk', c, m, y, k, a: color.a };
+      return withProfile({ space: 'cmyk', c, m, y, k, a: color.a }, color);
     }
     if (color.space === 'gray') {
-      const v = color.v / 255;
-      const k = Math.round((1 - v) * 100);
-      return { space: 'cmyk', c: 0, m: 0, y: 0, k, a: color.a };
+      const k = Math.round((1 - color.v / 255) * 255);
+      return withProfile({ space: 'cmyk', c: 0, m: 0, y: 0, k, a: color.a }, color);
     }
   }
   if (newMode === 'grayscale') {
     if (color.space === 'gray') return color;
     if (color.space === 'rgb') {
       const v = luminance(color.r, color.g, color.b);
-      return { space: 'gray', v, a: color.a };
+      return withProfile({ space: 'gray', v, a: color.a }, color);
     }
     if (color.space === 'cmyk') {
-      const k = Math.max(color.c, color.m, color.y, color.k);
-      return { space: 'gray', v: 255 - Math.round((k / 100) * 255), a: color.a };
+      const { c, m, y, k } = color;
+      const r = Math.round(255 * (1 - c / 255) * (1 - k / 255));
+      const g = Math.round(255 * (1 - m / 255) * (1 - k / 255));
+      const b = Math.round(255 * (1 - y / 255) * (1 - k / 255));
+      const v = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      return withProfile({ space: 'gray', v, a: color.a }, color);
     }
   }
   return color;
+}
+
+function withProfile<T extends { a: number }>(result: T, source: ManagedColor): T {
+  if ('profile' in source && source.profile) {
+    return { ...result, profile: source.profile };
+  }
+  return result;
 }
 
 function updateColorConfig(
@@ -142,10 +151,16 @@ export function switchColorMode(doc: Document, newMode: ColorMode): Document {
     swatches = swatches.map((s) => ({ ...s, color: convertColor(s.color, newMode) }));
   }
 
+  let canvasBackground = doc.canvasBackground;
+  if (canvasBackground && canvasBackground.space !== 'spot') {
+    canvasBackground = convertColor(canvasBackground, newMode);
+  }
+
   return {
     ...doc,
     nodes,
     swatches,
+    canvasBackground,
     colorConfig: updateColorConfig(doc.colorConfig, newMode),
   };
 }

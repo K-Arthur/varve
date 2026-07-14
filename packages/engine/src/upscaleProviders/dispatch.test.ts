@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './dispatch';
 import { mapNativePathsToTraceResult } from './mapNativePaths';
 import { decodeImageBytesToImageData } from './pngDecode';
+import { TRACE_PROVIDER_CHAIN } from './traceDispatch';
 import type { UpscaleProvider } from './types';
 
 function solidImage(
@@ -21,6 +22,17 @@ function solidImage(
   }
   return data;
 }
+
+describe('trace provider chain', () => {
+  it('includes native-trace before worker-trace and direct-trace', () => {
+    expect(TRACE_PROVIDER_CHAIN.map((p) => p.id)).toEqual([
+      'native-trace',
+      'wasm-trace',
+      'worker-trace',
+      'direct-trace',
+    ]);
+  });
+});
 
 describe('dispatchUpscale', () => {
   it('ships worker AI with native and direct fallbacks', () => {

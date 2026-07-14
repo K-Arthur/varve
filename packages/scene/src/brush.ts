@@ -382,3 +382,222 @@ export function rebuildStrokeDabs(stroke: BrushStroke, preset: BrushPreset): Bru
   const dabs = generateDabs(smoothed, preset);
   return { ...stroke, dabs, bounds: strokeBounds(dabs) };
 }
+
+// ── One Euro Filter (1€ filter) ──────────────────────────────────────────────
+
+function computeAlpha(cutoff: number, dt: number): number {
+  const r = 2 * Math.PI * cutoff * dt;
+  return r / (1 + r);
+}
+
+/**
+ * 1€ filter for real-time pointer smoothing (Casiez et al., 2012).
+ *
+ * Adaptive low-pass filter whose cutoff frequency increases with velocity,
+ * reducing latency during fast movements while smoothing jitter at rest.
+ */
+export class OneEuroFilter {
+  private prevX: number | null = null;
+  private prevY: number | null = null;
+  private prevDx: number = 0;
+  private prevDy: number = 0;
+  private prevTime: number | null = null;
+
+  constructor(
+    private minCutoff: number = 1.0,
+    private beta: number = 0.007,
+    private dCutoff: number = 1.0,
+  ) {}
+
+  reset(): void {
+    this.prevX = null;
+    this.prevY = null;
+    this.prevDx = 0;
+    this.prevDy = 0;
+    this.prevTime = null;
+  }
+
+  filter(x: number, y: number, time?: number): { x: number; y: number; dx: number; dy: number } {
+    const t = time ?? performance.now();
+
+    // First sample: initialize state, return identity
+    if (this.prevX === null || this.prevY === null || this.prevTime === null) {
+      this.prevX = x;
+      this.prevY = y;
+      this.prevTime = t;
+      this.prevDx = 0;
+      this.prevDy = 0;
+      return { x, y, dx: 0, dy: 0 };
+    }
+
+    let dt = (t - this.prevTime) / 1000;
+    if (dt < 0) dt = 0;
+
+    // dt = 0: return current state unchanged
+    if (dt === 0) {
+      return { x: this.prevX, y: this.prevY, dx: this.prevDx, dy: this.prevDy };
+    }
+
+    // Derive dx/dt via exponential smoothing of raw derivative
+    const dAlpha = computeAlpha(this.dCutoff, dt);
+
+    const rawDx = (x - this.prevX) / dt;
+    const rawDy = (y - this.prevY) / dt;
+
+    const dx = dAlpha * rawDx + (1 - dAlpha) * this.prevDx;
+    const dy = dAlpha * rawDy + (1 - dAlpha) * this.prevDy;
+
+    // Adaptive cutoff: higher velocity → higher cutoff → less smoothing
+    const cutoffX = this.minCutoff + this.beta * Math.abs(dx);
+    const cutoffY = this.minCutoff + this.beta * Math.abs(dy);
+
+    const alphaX = computeAlpha(cutoffX, dt);
+    const alphaY = computeAlpha(cutoffY, dt);
+
+    const filteredX = alphaX * x + (1 - alphaX) * this.prevX;
+    const filteredY = alphaY * y + (1 - alphaY) * this.prevY;
+
+    this.prevX = filteredX;
+    this.prevY = filteredY;
+    this.prevDx = dx;
+    this.prevDy = dy;
+    this.prevTime = t;
+
+    return { x: filteredX, y: filteredY, dx, dy };
+  }
+
+  updateConfig(config: { minCutoff?: number; beta?: number; dCutoff?: number }): void {
+    if (config.minCutoff !== undefined) this.minCutoff = config.minCutoff;
+    if (config.beta !== undefined) this.beta = config.beta;
+    if (config.dCutoff !== undefined) this.dCutoff = config.dCutoff;
+  }
+}
+
+export function oneEuroFilterPoint(point: StrokePoint, filter: OneEuroFilter): StrokePoint {
+  const result = filter.filter(point.x, point.y, point.time);
+  return { ...point, x: result.x, y: result.y };
+}
+
+// ── Brush Preset Registry ────────────────────────────────────────────────────
+
+export const BUILT_IN_BRUSH_PRESETS: Record<string, BrushPreset> = {
+  'built-in-round': { ...defaultBrushPreset('built-in-round', 'Round'), id: 'built-in-round' },
+  'built-in-soft': {
+    ...defaultBrushPreset('built-in-soft', 'Soft'),
+    id: 'built-in-soft',
+    hardness: 0.3,
+    opacity: 0.9,
+  },
+  'built-in-marker': {
+    ...defaultBrushPreset('built-in-marker', 'Marker'),
+    id: 'built-in-marker',
+    hardness: 0.9,
+    flow: 0.8,
+    spacing: 0.15,
+  },
+  'built-in-airbrush': {
+    ...defaultBrushPreset('built-in-airbrush', 'Airbrush'),
+    id: 'built-in-airbrush',
+    hardness: 0.1,
+    opacity: 0.5,
+    flow: 0.3,
+    spacing: 0.1,
+  },
+  'built-in-eraser': {
+    ...defaultBrushPreset('built-in-eraser', 'Eraser'),
+    id: 'built-in-eraser',
+    eraser: true,
+  },
+};
+
+export interface BrushPresetMeta {
+  isBuiltIn: boolean;
+  isEditable: boolean;
+}
+
+export function isBuiltInPreset(presetId: string): boolean {
+  return presetId in BUILT_IN_BRUSH_PRESETS;
+}
+
+export function validateBrushPreset(preset: unknown): BrushPreset | null {
+  if (!preset || typeof preset !== 'object') return null;
+  const p = preset as Record<string, unknown>;
+  if (typeof p.id !== 'string' || !p.id) return null;
+  if (typeof p.name !== 'string' || !p.name) return null;
+  if (typeof p.shape !== 'string') return null;
+  if (typeof p.radius !== 'number' || p.radius < 0) return null;
+  const fallback = defaultBrushPreset(p.id as string, p.name as string);
+  const result: BrushPreset = {
+    id: p.id as string,
+    name: p.name as string,
+    shape: (typeof p.shape === 'string' ? p.shape : fallback.shape) as BrushShape,
+    radius: Math.max(0.5, Math.min(1000, (p.radius as number) ?? fallback.radius)),
+    opacity: clampUnit(p.opacity as number | undefined, fallback.opacity),
+    flow: clampUnit(p.flow as number | undefined, fallback.flow),
+    hardness: clampUnit(p.hardness as number | undefined, fallback.hardness),
+    spacing: clampUnit(p.spacing as number | undefined, fallback.spacing),
+    angle: (p.angle as number) ?? fallback.angle,
+    roundness: clampUnit(p.roundness as number | undefined, fallback.roundness),
+    positionJitter: clampUnit(p.positionJitter as number | undefined, fallback.positionJitter),
+    sizeJitter: clampUnit(p.sizeJitter as number | undefined, fallback.sizeJitter),
+    opacityJitter: clampUnit(p.opacityJitter as number | undefined, fallback.opacityJitter),
+    rotationJitter: clampUnit(p.rotationJitter as number | undefined, fallback.rotationJitter),
+    dynamics: Array.isArray(p.dynamics)
+      ? (p.dynamics as BrushDynamicsMapping[])
+      : fallback.dynamics,
+    smoothing: clampUnit(p.smoothing as number | undefined, fallback.smoothing),
+    minSpeed: Math.max(0, (p.minSpeed as number) ?? fallback.minSpeed),
+    maxSpeed: Math.max(0, (p.maxSpeed as number) ?? fallback.maxSpeed),
+    grainScale: Math.max(0, (p.grainScale as number) ?? fallback.grainScale),
+    eraser: typeof p.eraser === 'boolean' ? p.eraser : fallback.eraser,
+    blendMode: typeof p.blendMode === 'string' ? p.blendMode : fallback.blendMode,
+  };
+  return result;
+}
+
+function clampUnit(val: number | undefined, fallback: number): number {
+  return Math.max(0, Math.min(1, val ?? fallback));
+}
+
+export function clampBrushPreset(preset: BrushPreset): BrushPreset {
+  return {
+    ...preset,
+    radius: Math.max(0.5, Math.min(1000, preset.radius)),
+    opacity: Math.max(0, Math.min(1, preset.opacity)),
+    flow: Math.max(0, Math.min(1, preset.flow)),
+    hardness: Math.max(0, Math.min(1, preset.hardness)),
+    spacing: Math.max(0, Math.min(1, preset.spacing)),
+    roundness: Math.max(0, Math.min(1, preset.roundness)),
+    positionJitter: Math.max(0, Math.min(1, preset.positionJitter)),
+    sizeJitter: Math.max(0, Math.min(1, preset.sizeJitter)),
+    opacityJitter: Math.max(0, Math.min(1, preset.opacityJitter)),
+    rotationJitter: Math.max(0, Math.min(1, preset.rotationJitter)),
+    smoothing: Math.max(0, Math.min(1, preset.smoothing)),
+    minSpeed: Math.max(0, preset.minSpeed),
+    maxSpeed: Math.max(0, preset.maxSpeed),
+    grainScale: Math.max(0, preset.grainScale),
+  };
+}
+
+export function migrateBrushPreset(preset: Record<string, unknown>): BrushPreset | null {
+  const id = typeof preset.id === 'string' ? preset.id : '';
+  const name = typeof preset.name === 'string' ? preset.name : '';
+  if (!id || !name) return null;
+  const fallback = defaultBrushPreset(id, name);
+  return validateBrushPreset({ ...fallback, ...preset });
+}
+
+export function getActivePreset(
+  doc: import('./document').Document,
+  presetId?: string,
+  fallbackId?: string,
+): BrushPreset {
+  const id = presetId ?? fallbackId ?? 'built-in-round';
+  const docPreset = doc.brushPresets?.[id];
+  if (docPreset) {
+    return clampBrushPreset(docPreset);
+  }
+  const builtIn = BUILT_IN_BRUSH_PRESETS[id];
+  if (builtIn) return builtIn;
+  return BUILT_IN_BRUSH_PRESETS['built-in-round']!;
+}

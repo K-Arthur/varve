@@ -17,7 +17,7 @@ import type { RenderItem } from '@strata/engine';
  * Explicit pipeline layouts + vertex buffer ring pool.
  */
 import { selectWebGpuAdapter } from '@strata/engine';
-import { computeFloatingOrigin } from '@strata/shared';
+import { computeFloatingOrigin, managedColorToRgba } from '@strata/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import type { CompositorDiagnostics, CompositorFrame } from '../types';
 import {
@@ -44,8 +44,17 @@ const PREMUL_BLEND: GPUBlendState = {
 };
 
 function fillToRgba(fill: RenderItem['fill']): [number, number, number, number] {
-  if (fill && typeof fill === 'object' && 'space' in fill && fill.space === 'rgb') {
-    return [fill.r / 255, fill.g / 255, fill.b / 255, fill.a / 255];
+  if (fill && typeof fill === 'object' && 'space' in fill) {
+    if (fill.space === 'rgb') {
+      return [fill.r / 255, fill.g / 255, fill.b / 255, fill.a / 255];
+    }
+    // For CMYK/Gray/Spot, convert via shared colour pipeline
+    try {
+      const [r, g, b, a] = managedColorToRgba(fill as any);
+      return [r / 255, g / 255, b / 255, a / 255];
+    } catch {
+      return [0, 0, 0, 1];
+    }
   }
   if (Array.isArray(fill)) {
     return [fill[0] / 255, fill[1] / 255, fill[2] / 255, fill[3] / 255];

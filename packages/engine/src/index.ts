@@ -265,6 +265,7 @@ export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/dispatch';
 export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
 export { dispatchTrace } from './upscaleProviders/traceDispatch';
+export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
 export type {
   VideoExportOptions,
@@ -282,5 +283,7 @@ export {
   createWasmEngineFromModule,
   loadWasmEngineModule,
   prewarmWasmEngine,
+  tryLoadTraceWasm,
   tryWasmEngine,
 } from './wasmLoader';
+export type { WasmTraceModule } from './wasmLoader';

@@ -21,11 +21,18 @@ describe('guides1k bench', () => {
     expect(guides.length).toBe(1000);
     const cam = { zoom: 1, pan: { x: 0, y: 0 }, cameraRotation: 0 };
     const viewport = { width: 1280, height: 720 };
-    const t0 = performance.now();
-    for (const guide of guides) {
-      guideLineScreenEndpoints({ axis: guide.axis, position: guide.position }, cam, viewport);
-    }
-    const elapsed = performance.now() - t0;
-    expect(elapsed).toBeLessThan(50);
+    const project = (): number => {
+      const start = performance.now();
+      for (const guide of guides) {
+        guideLineScreenEndpoints({ axis: guide.axis, position: guide.position }, cam, viewport);
+      }
+      return performance.now() - start;
+    };
+
+    // Discard cold JIT/module work, then use a median so unrelated parallel
+    // Vitest workers cannot turn one scheduler preemption into a regression.
+    project();
+    const samples = Array.from({ length: 5 }, project).sort((left, right) => left - right);
+    expect(samples[2]).toBeLessThan(50);
   });
 });

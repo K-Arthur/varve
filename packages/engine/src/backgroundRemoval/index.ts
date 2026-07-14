@@ -1,4 +1,5 @@
 import { dispatchBackgroundRemoval } from './providers/dispatch';
+import { downscaleImageData } from './previewDownscale';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
 
@@ -63,7 +64,6 @@ export { processVideoMatte } from './videoMatte';
 export { cancelAllWorkerJobs, terminateWorkerPool } from './workerPool';
 
 function withPreviewDefaults(options: BackgroundRemovalOptions): BackgroundRemovalOptions {
-  if (options.method === 'quick') return options;
   return {
     ...options,
     previewMaxDimension: options.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION,
@@ -90,5 +90,10 @@ export async function removeBackground(
   }
 
   const resolved = withPreviewDefaults(options);
-  return dispatchBackgroundRemoval(imageData, resolved, signal);
+  const maxDim = resolved.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION;
+  const workingBuffer =
+    imageData.width > maxDim || imageData.height > maxDim
+      ? downscaleImageData(imageData, maxDim)
+      : imageData;
+  return dispatchBackgroundRemoval(workingBuffer, resolved, signal);
 }

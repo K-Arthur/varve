@@ -56,9 +56,7 @@ describe('ImageFillControls', () => {
       }),
     );
 
-    const input = document.querySelector(
-      'input[type="file"][accept^="image"]',
-    ) as HTMLInputElement;
+    const input = document.querySelector('input[type="file"][accept^="image"]') as HTMLInputElement;
     expect(input).toBeTruthy();
     fireEvent.change(input, { target: { files: [file] } });
 
@@ -80,8 +78,6 @@ describe('ImageFillControls', () => {
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /clear image/i }));
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ src: '', fit: 'fit' }),
-    );
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ src: '', fit: 'fit' }));
   });
 });

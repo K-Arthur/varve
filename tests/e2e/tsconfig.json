@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": false,
+    "noEmit": true,
+    "sourceMap": false,
+    "baseUrl": "../..",
+    "paths": {
+      "@strata/*": ["packages/*/src/index.ts"]
+    },
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../../packages/compositor/node_modules/@webgpu/types/dist/index.d.ts"]
+}

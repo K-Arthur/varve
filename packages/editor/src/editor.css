@@ -909,6 +909,47 @@
   box-shadow: 0 -1px 4px rgb(0 0 0 / 0.04);
 }
 
+/* ── Glass panel modifier ──────────────────────────────
+ * Optional frosted-glass treatment for side panels.
+ * Uses backdrop-filter to blur content beneath the panel.
+ * Falls back to opaque surfaces for reduced-transparency
+ * preference. Applied via .editor__panel--glass on the
+ * grid containers .editor__layers-panel /
+ * .editor__inspector-panel.                            */
+.editor__panel--glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.editor__layers-panel.editor__panel--glass {
+  background: color-mix(in oklch, var(--color-surface-sunken) 70%, transparent);
+}
+.editor__inspector-panel.editor__panel--glass {
+  background: color-mix(in oklch, var(--elevation-surface-default) 70%, transparent);
+}
+.editor__panel--glass .editor-layers,
+.editor__panel--glass .editor-inspector {
+  background: transparent;
+}
+
+@media (prefers-reduced-transparency) {
+  .editor__panel--glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .editor__layers-panel.editor__panel--glass {
+    background: var(--color-surface-sunken);
+  }
+  .editor__inspector-panel.editor__panel--glass {
+    background: var(--elevation-surface-default);
+  }
+  .editor__panel--glass .editor-layers {
+    background: var(--color-surface-sunken);
+  }
+  .editor__panel--glass .editor-inspector {
+    background: var(--elevation-surface-default);
+  }
+}
+
 /* ── Panel resize handles (APG window splitter) ── */
 .panel-resize {
   position: absolute;

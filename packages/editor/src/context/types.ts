@@ -141,6 +141,28 @@ export interface EditorState {
   foregroundColor: [number, number, number, number];
   /** Background color for painting, as RGBA [r, g, b, a] in 0-255 range. */
   backgroundColor: [number, number, number, number];
+
+  /**
+   * Quick-mask mode: transient selection-editing state.
+   * When active, the canvas overlays a semi-transparent color over
+   * selected regions. Painting/erasing modifies quick-mask coverage,
+   * which is converted to a persistent mask or selection on exit.
+   */
+  quickMask: {
+    active: boolean;
+    /** Overlay color as RGBA [r, g, b, a] in 0-255 range. */
+    color: [number, number, number, number];
+    /**
+     * Per-pixel mask coverage as a flat Uint8Array (0 = protected,
+     * 255 = selected). Same dimensions as the document canvas.
+     * Transient — not persisted to the document model.
+     */
+    coverage: Uint8Array | null;
+    /** Canvas width of the coverage buffer (px). */
+    width: number;
+    /** Canvas height of the coverage buffer (px). */
+    height: number;
+  };
 }
 
 export interface EditorContextValue {
@@ -314,6 +336,20 @@ export interface EditorContextValue {
   setNodeVisible: (id: NodeId, visible: boolean) => void;
   setNodeClipContent: (id: NodeId, clipContent: boolean) => void;
   setLayerColor: (id: NodeId, color: LayerColor) => void;
+
+  // Masks
+  addMaskToSelected: (type?: import('@strata/scene').MaskType) => void;
+  removeMaskFromSelected: () => void;
+  toggleMask: () => void;
+  invertMask: () => void;
+  setMaskFeather: (feather: number) => void;
+  setMaskDensity: (density: number) => void;
+  setMaskHideSource: (hidden: boolean) => void;
+  setMaskLinked: (linked: boolean) => void;
+  setMaskType: (type: import('@strata/scene').MaskType) => void;
+  setMaskSourceNode: (sourceNodeId: string) => void;
+  setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => void;
+  setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => void;
   bulkSetNodeLocked: (ids: NodeId[], locked: boolean) => void;
   bulkSetNodeVisible: (ids: NodeId[], visible: boolean) => void;
   bulkSetLayerColor: (ids: NodeId[], color: LayerColor) => void;
@@ -505,6 +541,15 @@ export interface EditorContextValue {
 
   // Color blindness simulation
   setColorBlindnessView: (type: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia') => void;
+
+  // Quick-mask mode
+  enterQuickMask: () => void;
+  exitQuickMask: (convertToMask?: boolean) => void;
+  setQuickMaskCoverage: (coverage: Uint8Array, width: number, height: number) => void;
+  paintQuickMask: (x: number, y: number, radius: number, value: number) => void;
+  fillQuickMask: (value: number) => void;
+  invertQuickMask: () => void;
+  isQuickMaskActive: () => boolean;
 
   // Foreground/background painting colors
   setForegroundColor: (color: [number, number, number, number]) => void;

@@ -1,25 +1,105 @@
-# Native Tauri E2E (optional)
+# Native Tauri E2E Testing
 
-Strata's shared editor runs in a Chromium webview on desktop. Browser E2E
-(`tests/e2e/canvas/guides.spec.ts`, etc.) exercises the same DOM pipeline via
-Vite dev server.
+Strata supports two approaches for native Tauri desktop E2E testing:
 
-Native Tauri E2E requires **tauri-driver** + a WebDriver server (e.g. `geckodriver`
-or `chromedriver`) attached to the Tauri webview. This repo ships a gated smoke
-spec that runs only when explicitly enabled:
+| Approach | Runner | macOS | Linux | Windows | Requires |
+|----------|--------|-------|-------|---------|----------|
+| **WDIO (embedded)** | WebdriverIO | ✅ Native | ✅ Native | ✅ Native | `wdio` Cargo feature |
+| **tauri-driver + Playwright** | Playwright | ❌ | ✅ | ✅ | External WebDriver |
+
+## Recommended: WebdriverIO with embedded WebDriver (`@wdio/tauri-service`)
+
+This approach works on **all three platforms** without any external WebDriver process.
+It embeds a W3C WebDriver HTTP server inside the Tauri app itself.
+
+### Prerequisites
 
 ```bash
-# Prerequisites (see https://v2.tauri.app/develop/tests/webdriver/)
+# 1. Install npm packages
+pnpm add -D @wdio/cli @wdio/globals @wdio/local-runner \
+  @wdio/mocha-framework @wdio/spec-reporter \
+  @wdio/tauri-service @wdio/tauri-plugin ts-node
+
+# 2. On Linux, install WebKitGTK driver and xvfb
+sudo apt-get install -y webkit2gtk-driver xvfb
+
+# 3. Build the Tauri app with the wdio feature
+cd apps/desktop
+pnpm tauri build --debug --features wdio
+```
+
+### Running
+
+```bash
+# Headed (requires a real display)
+pnpm test:wdio
+
+# Headless (CI, no display)
+xvfb-run pnpm test:wdio
+```
+
+The WDIO config lives at `wdio.conf.ts`. Tests are in `tests/wdio/`.
+
+### What's tested
+
+- Application lifecycle (load, home screen, create document)
+- Tauri IPC bridge availability
+- Native Tauri command invocation
+- Canvas interaction via pointer events
+- Native plugin access (dialog, fs)
+
+## Legacy: tauri-driver + Playwright
+
+This approach requires `tauri-driver` and a platform WebDriver server.
+It works on **Windows and Linux only** (macOS is not supported by tauri-driver directly).
+
+### Prerequisites
+
+```bash
+# 1. Install tauri-driver
 cargo install tauri-driver --locked
-# Start geckodriver or chromedriver, then:
-STRATA_TAURI_E2E=1 pnpm exec playwright test tests/e2e/tauri --project=tauri
+
+# 2. Install platform WebDriver
+# Linux:
+sudo apt-get install -y webkit2gtk-driver
+# Windows: download msedgedriver matching your Edge version
+
+# 3. Install xvfb (Linux, headless)
+sudo apt-get install -y xvfb
 ```
 
-Or use the helper script:
+### Running
 
 ```bash
+# Using the helper script
 ./scripts/tauri-e2e.sh
+
+# Or manually:
+export STRATA_TAURI_E2E=1
+pnpm exec playwright test tests/e2e/tauri --project=tauri --reporter=list
 ```
 
-CI does not run native Tauri E2E by default (no WebDriver in the PR gate). Chromium
-Playwright coverage remains the regression gate for viewport/guides behavior.
+### Platform support
+
+| Platform | tauri-driver | Notes |
+|----------|-------------|-------|
+| Linux (WebKitGTK) | ✅ | Requires WebKitWebDriver |
+| Windows (WebView2) | ✅ | Requires msedgedriver |
+| macOS (WKWebView) | ❌ | No WKWebView driver tool; use WDIO + embedded WebDriver instead |
+
+## CI
+
+Desktop E2E runs in CI under the `desktop-e2e` job (Linux only, xvfb).
+It uses the embedded WDIO approach with the `wdio` feature flag.
+
+The `build.yml` pipeline also builds with `--features wdio` on Linux so that
+release artifacts include test infrastructure for post-build validation.
+
+## Adding new desktop E2E tests
+
+1. Add WDIO tests to `tests/wdio/*.e2e.ts`
+2. Use `browser.tauri.execute()` for in-app JavaScript access
+3. Use `browser.tauri.mock()` to mock Tauri commands
+4. Use stable selectors (`data-testid`, accessible roles) over CSS classes
+5. Await the `strata:ready` custom event instead of using arbitrary timeouts
+6. Verify real application outcomes, not just DOM presence

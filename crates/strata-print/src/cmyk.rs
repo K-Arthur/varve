@@ -1,197 +1,19 @@
-//! CMYK conversion + PDF/X export (Task 1.5 / A2–A3).
+//! CMYK conversion (re-exported from `strata-colour`) + PDF/X export.
 //!
-//! `rgb_to_cmyk()` provides a naive RGB→CMYK transform. `rgb_to_cmyk_icc()`
-//! performs a full sRGB→linear→XYZ→Lab→CMYK chain using Fogra39-like
-//! equations, now dispatching on `PrintProfile` for profile-specific GCR
-//! and TAC (Total Area Coverage) limits.
+//! The naive (`rgb_to_cmyk`) and analytical ICC-aware (`rgb_to_cmyk_icc`)
+//! colour conversions have moved to the `strata-colour` crate for
+//! deterministic cross-target (native + WASM) colour processing.
+//! This module re-exports them for backward compatibility and provides
+//! the PDF/X export functions that build on top.
 //!
 //! Research basis: ISO 15930 (PDF/X-1a, PDF/X-4), ICC color management,
 //! Bruce Lindbloom's colour equations.
 
 use crate::marks::{self, MarksGeometry};
-use crate::profiles::{PrintProfile, RenderingIntent};
-use crate::PdfOptions;
+use crate::{ImageRenderState, PdfOptions};
 use lopdf::{dictionary, Document, Object, Stream};
+pub use strata_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
 use strata_core::SceneNode;
-
-/// Naive RGB to CMYK conversion (no ICC profile).
-///
-/// Uses the standard inverse: C = 1-R, M = 1-G, Y = 1-B, K = min(C,M,Y).
-/// True ICC-profile conversion requires bundling an eciCMYK or similar profile.
-pub fn rgb_to_cmyk(r: u8, g: u8, b: u8) -> (u8, u8, u8, u8) {
-    let rf = r as f32 / 255.0;
-    let gf = g as f32 / 255.0;
-    let bf = b as f32 / 255.0;
-
-    let k = 1.0 - rf.max(gf).max(bf);
-    if k >= 1.0 {
-        return (0, 0, 0, 255);
-    }
-    let c = (1.0 - rf - k) / (1.0 - k);
-    let m = (1.0 - gf - k) / (1.0 - k);
-    let y = (1.0 - bf - k) / (1.0 - k);
-
-    (
-        (c * 255.0).round() as u8,
-        (m * 255.0).round() as u8,
-        (y * 255.0).round() as u8,
-        (k * 255.0).round() as u8,
-    )
-}
-
-/// sRGB gamma expansion (linearise).
-fn srgb_to_linear(c: f32) -> f32 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
-
-/// Linear RGB to XYZ (sRGB D65 → D50 adapted).
-/// Matrix is the standard sRGB-to-XYZ (D65) × Bradford D65→D50 adaptation.
-fn linear_rgb_to_xyz(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
-    let x = 0.4360747 * r + 0.3850649 * g + 0.1430804 * b;
-    let y = 0.2225045 * r + 0.7168786 * g + 0.0606169 * b;
-    let z = 0.0139322 * r + 0.0971045 * g + 0.7141733 * b;
-    (x, y, z)
-}
-
-fn lab_f(t: f32) -> f32 {
-    let delta: f32 = 6.0 / 29.0;
-    if t > delta * delta * delta {
-        t.powf(1.0 / 3.0)
-    } else {
-        t / (3.0 * delta * delta) + 4.0 / 29.0
-    }
-}
-
-/// Get GCR strength for a given print profile.
-fn profile_gcr(profile: PrintProfile) -> f32 {
-    match profile {
-        PrintProfile::Fogra39 => 0.35,
-        PrintProfile::Gracol2006 => 0.25,
-        PrintProfile::SwopCoated => 0.30,
-    }
-}
-
-/// Get TAC (Total Area Coverage) limit for a given print profile.
-fn profile_tac(profile: PrintProfile) -> f32 {
-    match profile {
-        PrintProfile::Fogra39 => 300.0,
-        PrintProfile::Gracol2006 => 320.0,
-        PrintProfile::SwopCoated => 300.0,
-    }
-}
-
-/// Apply Total Area Coverage (TAC) limit to CMYK values.
-///
-/// If C+M+Y+K exceeds the TAC limit, scales CMY proportionally
-/// to bring the total under the limit, preserving K.
-fn apply_tac(cmyk: &mut [f32; 4], tac_limit: f32) {
-    let total = cmyk[0] + cmyk[1] + cmyk[2] + cmyk[3];
-    let total_pct = total * 100.0; // convert 0-1 to 0-100
-    if total_pct > tac_limit {
-        let scale = (tac_limit / 100.0 - cmyk[3]) / (cmyk[0] + cmyk[1] + cmyk[2]);
-        if scale > 0.0 && scale < 1.0 {
-            cmyk[0] *= scale;
-            cmyk[1] *= scale;
-            cmyk[2] *= scale;
-        }
-    }
-}
-
-/// Full ICC-aware RGB→CMYK conversion with profile dispatch.
-///
-/// Pipeline: sRGB → linear → XYZ(D50) → CIELAB → CMYK.
-///
-/// `profile` determines the GCR (Gray Component Replacement) strength
-/// and TAC (Total Area Coverage) limit:
-/// - Fogra39: GCR 0.35, TAC 300%
-/// - GRACoL:  GCR 0.25, TAC 320%
-/// - SWOP:    GCR 0.30, TAC 300%
-///
-/// Supports all 4 rendering intents.
-pub fn rgb_to_cmyk_icc(
-    profile: PrintProfile,
-    r: u8,
-    g: u8,
-    b: u8,
-    intent: RenderingIntent,
-    black_point_compensation: bool,
-) -> (u8, u8, u8, u8) {
-    let mut rf = r as f32 / 255.0;
-    let mut gf = g as f32 / 255.0;
-    let mut bf = b as f32 / 255.0;
-
-    // Black point compensation: desaturate dark colours
-    if black_point_compensation {
-        let brightness = 0.299 * rf + 0.587 * gf + 0.114 * bf;
-        if brightness < 0.2 {
-            let scale = brightness / 0.2;
-            rf *= scale;
-            gf *= scale;
-            bf *= scale;
-        }
-    }
-
-    // Intent adjustments
-    match intent {
-        RenderingIntent::Saturation => {
-            let gray = (rf + gf + bf) / 3.0;
-            rf = gray + (rf - gray) * 1.3;
-            gf = gray + (gf - gray) * 1.3;
-            bf = gray + (bf - gray) * 1.3;
-        }
-        RenderingIntent::Absolute | RenderingIntent::Relative | RenderingIntent::Perceptual => {}
-    }
-
-    // Full pipeline to Lab for perceptual K derivation
-    let r_lin = srgb_to_linear(rf);
-    let g_lin = srgb_to_linear(gf);
-    let b_lin = srgb_to_linear(bf);
-    let (_x, y, _z) = linear_rgb_to_xyz(r_lin, g_lin, b_lin);
-
-    // Perceptual L* approximation from Y
-    let ln = lab_f(y / 1.0).clamp(0.0, 1.0);
-    let k_base = (1.0 - ln).clamp(0.0, 1.0);
-
-    // Naive CMYK from the original (possibly adjusted) sRGB
-    let k_cmy = 1.0 - rf.max(gf).max(bf);
-    let (mut c, mut m, mut y_c) = if k_cmy >= 1.0 {
-        (0.0, 0.0, 0.0)
-    } else {
-        (
-            (1.0 - rf - k_cmy) / (1.0 - k_cmy),
-            (1.0 - gf - k_cmy) / (1.0 - k_cmy),
-            (1.0 - bf - k_cmy) / (1.0 - k_cmy),
-        )
-    };
-
-    // Profile-specific Gray Component Replacement
-    let gcr_strength = profile_gcr(profile);
-    let common = c.min(m).min(y_c);
-    let gcr = common * gcr_strength * k_base;
-    c = (c - gcr).clamp(0.0, 1.0);
-    m = (m - gcr).clamp(0.0, 1.0);
-    y_c = (y_c - gcr).clamp(0.0, 1.0);
-
-    // K: combine naive and perceptual
-    let k = k_cmy.max(k_base * 0.8);
-
-    let mut cmyk = [c, m, y_c, k];
-
-    // Apply TAC limit
-    let tac_limit = profile_tac(profile);
-    apply_tac(&mut cmyk, tac_limit);
-
-    (
-        (cmyk[0] * 255.0).round() as u8,
-        (cmyk[1] * 255.0).round() as u8,
-        (cmyk[2] * 255.0).round() as u8,
-        (cmyk[3] * 255.0).round() as u8,
-    )
-}
 
 /// Return default bleed/trim marks geometry as `(bleed_mm, trim_offset_mm, mark_length_mm)`.
 ///
@@ -212,6 +34,7 @@ fn build_pdfx_content(
     marks_geo: Option<&MarksGeometry>,
     draw_reg_marks: bool,
     draw_color_bar: bool,
+    mut image_state: Option<&mut ImageRenderState>,
 ) -> Vec<u8> {
     let mut content = Vec::new();
     content.extend_from_slice(b"q\n");
@@ -225,7 +48,8 @@ fn build_pdfx_content(
     content.extend_from_slice(format!("0 0 {page_width:.2} {page_height:.2} re\nf\n").as_bytes());
 
     for node in nodes {
-        let cmd = crate::shape_to_pdf_content(node, page_height);
+        let state = image_state.as_mut().map(|s| &mut **s);
+        let cmd = crate::shape_to_pdf_content(node, page_height, state);
         content.extend_from_slice(&cmd);
     }
 
@@ -310,7 +134,7 @@ fn build_pdfx_content(
                 if use_cmyk {
                     content.extend(format!("{cc:.3} {cm:.3} {cy:.3} {ck:.3} k\n").as_bytes());
                 } else {
-                    // Approximate CMYK→RGB for the color bar in RGB mode
+                    // Approximate CMYK->RGB for the color bar in RGB mode
                     let r = (1.0 - cc) * (1.0 - ck);
                     let g = (1.0 - cm) * (1.0 - ck);
                     let b2 = (1.0 - cy) * (1.0 - ck);
@@ -343,16 +167,21 @@ fn build_pdfx_document(
     let mut doc = Document::new();
     doc.version = pdf_version.to_string();
 
-    let page_id = doc.new_object_id();
-    let content = build_pdfx_content(
-        nodes,
-        opts.page_width,
-        opts.page_height,
-        use_cmyk,
-        marks_geo,
-        opts.registration_marks,
-        opts.color_bar,
-    );
+    // -- Build content with image rendering support --------------------------
+    let (image_refs, content) = {
+        let mut image_state = ImageRenderState::new(&mut doc);
+        let c = build_pdfx_content(
+            nodes,
+            opts.page_width,
+            opts.page_height,
+            use_cmyk,
+            marks_geo,
+            opts.registration_marks,
+            opts.color_bar,
+            Some(&mut image_state),
+        );
+        (std::mem::take(&mut image_state.refs), c)
+    };
 
     let content_stream = Stream::new(dictionary! {}, content);
     let content_id = doc.new_object_id();
@@ -367,9 +196,18 @@ fn build_pdfx_document(
             "BaseFont" => "Helvetica",
         },
     };
-    let resources = dictionary! {
+    let mut resources = dictionary! {
         "Font" => font_dict,
     };
+    if !image_refs.is_empty() {
+        let mut xdict = lopdf::Dictionary::new();
+        for (name, ref_obj) in &image_refs {
+            xdict.set(name.as_bytes(), ref_obj.clone());
+        }
+        resources.set("XObject", xdict);
+    }
+
+    let page_id = doc.new_object_id();
 
     // MediaBox = page size, BleedBox = page size (includes bleed),
     // TrimBox = content area with bleed offset
@@ -497,6 +335,7 @@ pub fn export_pdfx4_with_marks(
 mod tests {
     use super::*;
     use crate::profiles::{PrintProfile, RenderingIntent};
+    use strata_colour::{profile_gcr, profile_tac};
 
     #[test]
     fn rgb_to_cmyk_black() {
@@ -758,14 +597,14 @@ mod tests {
         // produces different K levels. For a reddish-brown where r,g,b
         // are not equal, we get CMY overlap.
         let gcr_vals = [
-            crate::cmyk::profile_gcr(PrintProfile::Fogra39),
-            crate::cmyk::profile_gcr(PrintProfile::Gracol2006),
-            crate::cmyk::profile_gcr(PrintProfile::SwopCoated),
+            profile_gcr(PrintProfile::Fogra39),
+            profile_gcr(PrintProfile::Gracol2006),
+            profile_gcr(PrintProfile::SwopCoated),
         ];
         let tac_vals = [
-            crate::cmyk::profile_tac(PrintProfile::Fogra39),
-            crate::cmyk::profile_tac(PrintProfile::Gracol2006),
-            crate::cmyk::profile_tac(PrintProfile::SwopCoated),
+            profile_tac(PrintProfile::Fogra39),
+            profile_tac(PrintProfile::Gracol2006),
+            profile_tac(PrintProfile::SwopCoated),
         ];
         // At least GCR or TAC should differ between profiles
         let gcr_all_same = gcr_vals[0] == gcr_vals[1] && gcr_vals[1] == gcr_vals[2];

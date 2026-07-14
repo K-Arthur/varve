@@ -286,6 +286,7 @@ function StrokeRow({
             background: swatchBg,
             borderColor: isMixed(colorRaw) ? 'var(--color-border-strong)' : undefined,
           }}
+          documentColorMode={editor.documentColorMode}
         />
         <NumberField
           label={label}
@@ -401,6 +402,7 @@ function StrokeRow({
             <GradientEditor
               gradient={gradientRaw as GradientFill}
               onChange={(g: GradientFill) => onChange((s) => ({ ...s, gradient: g }))}
+              documentColorMode={editor.documentColorMode}
             />
           )}
           {/* Per-side weights for rects/frames */}

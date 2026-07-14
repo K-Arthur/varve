@@ -101,7 +101,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
           </svg>
         </button>
       </div>
-      <div className="strata-dialog__body">{children}</div>
+      <div className="strata-dialog__body">{open ? children : null}</div>
     </dialog>
   );
 });

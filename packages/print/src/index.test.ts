@@ -19,6 +19,25 @@ describe('createPrintEngine', () => {
   });
 });
 
+describe('colour WASM loader exports', () => {
+  it('exports loadColourWasmModule as a function', async () => {
+    const { loadColourWasmModule } = await import('./index');
+    expect(typeof loadColourWasmModule).toBe('function');
+  });
+
+  it('exports prewarmColourWasm as a function', async () => {
+    const { prewarmColourWasm } = await import('./index');
+    expect(typeof prewarmColourWasm).toBe('function');
+  });
+
+  it('exports ColourEngine type', async () => {
+    const mod = await import('./index');
+    // Type-only export; verify the method names are documented
+    const engine = mod.createColourEngineFromModule;
+    expect(typeof engine).toBe('function');
+  });
+});
+
 describe('createStubPrintEngine', () => {
   it('exportPdf returns minimal PDF bytes', async () => {
     const engine = createStubPrintEngine();

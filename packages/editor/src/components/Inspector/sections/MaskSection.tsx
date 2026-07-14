@@ -1,4 +1,5 @@
 import type { MaskType, SceneNode } from '@strata/scene';
+import { walkNodes } from '@strata/scene';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -13,6 +14,12 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
     invertMask,
     setMaskFeather,
     setMaskDensity,
+    setMaskHideSource,
+    setMaskLinked,
+    setMaskType,
+    setMaskFillRule,
+    setMaskVectorPath,
+    document,
   } = editor;
 
   const node = nodes[0];
@@ -24,12 +31,35 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
     hideMaskSource?: boolean;
     feather?: number;
     density?: number;
-    sourceNodeId: string;
+    sourceNodeId?: string;
+    linked?: boolean;
+    fillRule?: 'nonzero' | 'evenodd';
+    vectorMask?: {
+      points: {
+        x: number;
+        y: number;
+        handleIn?: { x: number; y: number } | null;
+        handleOut?: { x: number; y: number } | null;
+      }[];
+      closed: boolean;
+      fillRule: 'nonzero' | 'evenodd';
+    };
   } | null;
 
   const canHaveMask = node.kind === 'frame' || node.kind === 'group' || node.kind === 'adjustment';
   const hasChildren = 'children' in container && (container.children?.length ?? 0) > 0;
   const canAddMask = canHaveMask && !mask && hasChildren;
+
+  const nodeMap = useMemo(() => {
+    if (!document || !mask?.sourceNodeId) return null;
+    return walkNodes(document);
+  }, [document, mask?.sourceNodeId]);
+
+  const sourceNode = useMemo(() => {
+    if (!mask?.sourceNodeId || !nodeMap) return null;
+    const entry = nodeMap.get(mask.sourceNodeId);
+    return entry?.node ?? null;
+  }, [mask?.sourceNodeId, nodeMap]);
 
   const maskTypeLabel = useMemo(() => {
     if (!mask) return '';
@@ -78,6 +108,44 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
     },
     [setMaskDensity],
   );
+
+  const handleToggleHideSource = useCallback(() => {
+    if (setMaskHideSource) {
+      setMaskHideSource(!mask?.hideMaskSource);
+    }
+  }, [setMaskHideSource, mask?.hideMaskSource]);
+
+  const handleToggleLinked = useCallback(() => {
+    if (setMaskLinked) {
+      setMaskLinked(!mask?.linked);
+    }
+  }, [setMaskLinked, mask?.linked]);
+
+  const handleTypeChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (setMaskType) {
+        setMaskType(e.target.value as MaskType);
+      }
+    },
+    [setMaskType],
+  );
+
+  const handleSetFillRule = useCallback(
+    (rule: 'nonzero' | 'evenodd') => {
+      if (setMaskFillRule) {
+        setMaskFillRule(rule);
+      }
+    },
+    [setMaskFillRule],
+  );
+
+  const handleEditVectorPath = useCallback(() => {
+    if (setMaskVectorPath && mask?.vectorMask) {
+      setMaskVectorPath(mask.vectorMask.points, mask.vectorMask.closed);
+    }
+  }, [setMaskVectorPath, mask?.vectorMask]);
+
+  const supportsFillRule = mask?.type === 'clip' || mask?.vectorMask;
 
   if (!canHaveMask) return null;
 
@@ -152,6 +220,40 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
               >
                 Invert
               </button>
+              {mask.sourceNodeId && (
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={handleToggleHideSource}
+                  aria-label={mask.hideMaskSource ? 'Show mask source' : 'Hide mask source'}
+                  aria-pressed={mask.hideMaskSource ?? false}
+                  title={
+                    mask.hideMaskSource
+                      ? 'Mask source is hidden from direct rendering'
+                      : 'Mask source is rendered normally'
+                  }
+                >
+                  Hide
+                </button>
+              )}
+              {mask.sourceNodeId && (
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={handleToggleLinked}
+                  aria-label={
+                    mask.linked !== false ? 'Unlink mask transform' : 'Link mask transform'
+                  }
+                  aria-pressed={mask.linked !== false}
+                  title={
+                    mask.linked !== false
+                      ? 'Mask transforms with masked content'
+                      : 'Mask has independent transform'
+                  }
+                >
+                  Link
+                </button>
+              )}
               <button
                 type="button"
                 className="insp-btn-sm"
@@ -164,6 +266,105 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
               </button>
             </div>
           </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-1)',
+              marginTop: 'var(--space-1)',
+            }}
+          >
+            <span className="insp-field__label" style={{ fontSize: 'var(--font-size-xs)' }}>
+              Type
+            </span>
+            <select
+              value={mask.type}
+              onChange={handleTypeChange}
+              aria-label="Mask type"
+              style={{
+                flex: 1,
+                fontSize: 'var(--font-size-xs)',
+                padding: '2px 4px',
+                background: 'var(--color-surface-raised)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border-default)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              <option value="clip">Clip</option>
+              <option value="alpha">Alpha</option>
+              <option value="luminance">Luminance</option>
+            </select>
+          </div>
+
+          {supportsFillRule && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-1)',
+              }}
+            >
+              <span className="insp-field__label" style={{ fontSize: 'var(--font-size-xs)' }}>
+                Fill Rule
+              </span>
+              <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={() => handleSetFillRule('nonzero')}
+                  aria-pressed={mask.fillRule !== 'evenodd'}
+                  aria-label="Nonzero fill rule"
+                  title="Nonzero winding rule: determines interior by winding direction"
+                  style={{
+                    fontWeight: mask.fillRule !== 'evenodd' ? 'bold' : 'normal',
+                  }}
+                >
+                  Nonzero
+                </button>
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={() => handleSetFillRule('evenodd')}
+                  aria-pressed={mask.fillRule === 'evenodd'}
+                  aria-label="Even-odd fill rule"
+                  title="Even-odd rule: determines interior by raycast parity"
+                  style={{
+                    fontWeight: mask.fillRule === 'evenodd' ? 'bold' : 'normal',
+                  }}
+                >
+                  Even-Odd
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mask.vectorMask && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 'var(--space-1)',
+              }}
+            >
+              <span className="insp-field__label" style={{ fontSize: 'var(--font-size-xs)' }}>
+                Vector: {mask.vectorMask.points.length} pt
+                {mask.vectorMask.points.length !== 1 ? 's' : ''}
+                {mask.vectorMask.closed ? ' (closed)' : ' (open)'}
+              </span>
+              <button
+                type="button"
+                className="insp-btn-sm"
+                onClick={handleEditVectorPath}
+                aria-label="Edit vector mask path"
+                title="Edit the vector mask path points"
+              >
+                Edit path
+              </button>
+            </div>
+          )}
 
           {mask.type !== 'clip' && (
             <>
@@ -212,7 +413,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
           )}
 
           <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-subtle)' }}>
-            Source: {mask.sourceNodeId?.slice(0, 8) ?? 'none'}
+            Source: {sourceNode?.name ?? mask.sourceNodeId?.slice(0, 8) ?? 'none'}
           </div>
         </div>
       )}

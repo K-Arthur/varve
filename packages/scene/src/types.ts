@@ -43,6 +43,28 @@ export interface Constraints {
  */
 export type MaskType = 'clip' | 'alpha' | 'luminance';
 
+/** Fill rule for clip masks and vector masks. */
+export type MaskFillRule = 'nonzero' | 'evenodd';
+
+/**
+ * Independent vector mask data.
+ * When set on a Mask, the mask geometry comes from this path data
+ * rather than from a child node. The mask is resolution-independent
+ * and remains editable via the Pen/Pencil tools or NodeEditTool.
+ *
+ * A vector mask can co-exist with a sourceNodeId reference; when both
+ * are present, the vector mask defines the clipping geometry and the
+ * sourceNodeId provides visual content (if hideMaskSource is false).
+ */
+export interface VectorMaskData {
+  /** Control points in mask-local coordinates. */
+  points: PathPoint[];
+  /** Whether the last point connects back to the first. */
+  closed: boolean;
+  /** Fill rule for determining interior vs exterior. */
+  fillRule: MaskFillRule;
+}
+
 /**
  * A mask on a container node (FrameNode, GroupNode, or AdjustmentNode).
  *
@@ -51,13 +73,19 @@ export type MaskType = 'clip' | 'alpha' | 'luminance';
  * may choose to hide the mask source's direct rendering and instead use its
  * outline/alpha/luminance to clip or modulate the other children.
  *
+ * A mask may also carry self-contained vector path data (`vectorMask`) for
+ * resolution-independent vector masks that don't depend on a child node.
+ *
  * Architecture notes:
  * - Masks are non-destructive and re-editable.
- * - A mask source must be a direct child of the container.
+ * - A mask source must be a direct child of the container (when sourceNodeId
+ *   is set). Vector masks (via `vectorMask`) have no such constraint.
  * - A container may have at most one mask.
  * - Nested masks are supported via nested containers.
  * - The mask source can have effects, fills, strokes, and transforms;
  *   these all contribute to the mask's effective shape/alpha/luminance.
+ * - When both `sourceNodeId` and `vectorMask` are set, `vectorMask` defines
+ *   the clipping geometry and `sourceNodeId` provides optional visual content.
  *
  * Research basis: Figma mask model, Adobe Photoshop layer masks,
  * Affinity Designer pixel/vector masks, SVG <clipPath>/<mask> specs.
@@ -66,9 +94,16 @@ export interface Mask {
   /** How the mask source controls visibility of masked content. */
   type: MaskType;
   /** Id of the child node used as the mask source. Must be a child of the container. */
-  sourceNodeId: NodeId;
+  sourceNodeId?: NodeId;
+  /** Independent vector mask path data (overrides sourceNodeId for geometry). */
+  vectorMask?: VectorMaskData;
   /** Whether the mask is active. When false, the mask is ignored during rendering. */
   visible: boolean;
+  /**
+   * Fill rule for clip/vector masks. Nonzero by default (SVG default).
+   * Used only when type === 'clip' or when vectorMask is set.
+   */
+  fillRule?: MaskFillRule;
   /**
    * When true, the mask effect is inverted:
    * - clip: content inside the clip region is hidden, outside is visible
@@ -296,6 +331,10 @@ export interface PatternFillData {
   spacing: number;
   /** Rotation of the pattern in degrees. */
   rotation: number;
+  /** Tile width in px override. When omitted, natural image width is used. */
+  imageWidth?: number;
+  /** Tile height in px override. When omitted, natural image height is used. */
+  imageHeight?: number;
 }
 
 export type FillType = 'solid' | 'gradient' | 'image' | 'pattern';
