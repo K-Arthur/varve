@@ -27,6 +27,7 @@ import {
   type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
+  type Over,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -934,21 +935,16 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [cancelAutoScroll],
   );
 
-  const handleDragMove = useCallback((event: DragMoveEvent) => {
-    const { activatorEvent, delta } = event;
-    if (activatorEvent instanceof MouseEvent || activatorEvent instanceof PointerEvent) {
-      lastPointerRef.current = {
-        x: activatorEvent.clientX + delta.x,
-        y: activatorEvent.clientY + delta.y,
-      };
-    }
-  }, []);
-
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      const { over, active } = event;
+  // Shared by handleDragMove/handleDragOver: dnd-kit only fires onDragOver
+  // when the collision-detection winner (`over`) changes, which happens
+  // right as the pointer crosses into a row — necessarily near that row's
+  // top/bottom edge, never its middle. Without recomputing on every move,
+  // the drop zone gets stuck at whatever 'before'/'after' was true on entry
+  // and can never reach the middle-third 'into' zone, so dropping onto a
+  // frame row never works (reordering "works" only because it's edge-based).
+  const updateDropIndicator = useCallback(
+    (over: Over | null, activeNodeId: NodeId) => {
       const overId = over?.id as NodeId | undefined;
-      const activeNodeId = active.id as NodeId;
       if (!overId || overId === activeNodeId) {
         setDropIndicator(null);
         cancelAutoExpand();
@@ -981,10 +977,31 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       } else {
         cancelAutoExpand();
       }
+    },
+    [state.document, expanded, cancelAutoExpand, startAutoExpand],
+  );
 
+  const handleDragMove = useCallback(
+    (event: DragMoveEvent) => {
+      const { activatorEvent, delta, over, active } = event;
+      if (activatorEvent instanceof MouseEvent || activatorEvent instanceof PointerEvent) {
+        lastPointerRef.current = {
+          x: activatorEvent.clientX + delta.x,
+          y: activatorEvent.clientY + delta.y,
+        };
+      }
+      updateDropIndicator(over, active.id as NodeId);
       handleAutoScroll(lastPointerRef.current.y);
     },
-    [state.document, expanded, cancelAutoExpand, startAutoExpand, handleAutoScroll],
+    [updateDropIndicator, handleAutoScroll],
+  );
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      updateDropIndicator(event.over, event.active.id as NodeId);
+      handleAutoScroll(lastPointerRef.current.y);
+    },
+    [updateDropIndicator, handleAutoScroll],
   );
 
   const handleDragEnd = useCallback(
