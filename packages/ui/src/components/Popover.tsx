@@ -1,16 +1,8 @@
 import { arrow, autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
-import {
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 
 export interface PopoverProps {
-  children: ReactElement;
+  children: ReactNode;
   popover: ReactNode;
   placement?: 'bottom' | 'top' | 'left' | 'right';
   open?: boolean;

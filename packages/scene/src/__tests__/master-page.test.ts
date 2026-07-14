@@ -197,7 +197,6 @@ describe('Master Page CRUD', () => {
       const masters = getMasters(result);
       expect(masters.length).toBe(2);
 
-      const _original = result.masters?.[masterId] as MasterPage;
       const duplicate = masters.find((m) => m.id !== masterId) as MasterPage;
 
       // Duplicate should have a new ID and new contentRoot
