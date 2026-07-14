@@ -191,31 +191,14 @@
   transition: background var(--duration-quick) var(--ease-standard);
 }
 
-/* Type-coded row wash (resting state only — selected/hover overrides via higher-specificity selectors below) */
-.layers-row[data-layer-type="frame"] {
-  background: var(--color-layer-wash-frame);
-}
-.layers-row[data-layer-type="group"] {
-  background: var(--color-layer-wash-group);
-}
-.layers-row[data-layer-type="text"] {
-  background: var(--color-layer-wash-text);
-}
-.layers-row[data-layer-type="shape"] {
-  background: var(--color-layer-wash-shape);
-}
-.layers-row[data-layer-type="component"] {
-  background: var(--color-layer-wash-component);
-}
-.layers-row[data-layer-type="image"] {
-  background: var(--color-layer-wash-image);
-}
-.layers-row[data-layer-type="adjustment"] {
-  background: var(--color-layer-wash-adjustment);
+/* Resting row uses the flat tree surface — type is communicated via the
+ * accent bar + Lucide type icon, not a full-row coloured wash (which read as
+ * unexplained "squares" behind icons). */
+.layers-row[data-layer-type] {
+  background: var(--color-tree-row);
 }
 
-/* Selected state must win over type-coded wash (matching specificity 0,2,0, later in source = wins).
- * White text is readable against the dark-teal selected background. */
+/* Selected state must win over type-coded wash. */
 .layers-row--selected[data-layer-type] {
   background: var(--color-tree-row-selected);
   color: var(--color-text-on-accent);
@@ -354,16 +337,35 @@
 
 /* ─── Icon area (wraps type icon for double-click target) ──── */
 .layers-row__icon-area {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
   cursor: pointer;
+  color: inherit;
 }
 
 /* ─── Type icon ─────────────────────────────────────────────── */
 .layers-row__type-icon {
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 1;
+  color: inherit;
+}
+
+.layers-row--selected .layers-row__type-icon {
+  color: var(--color-text-on-accent);
+}
+
+[data-theme="high-contrast"] .layers-row {
+  outline: 1px solid transparent;
+}
+[data-theme="high-contrast"] .layers-row--selected {
+  outline-color: var(--color-border-subtle);
+}
+[data-theme="high-contrast"] .layers-row__type-icon {
+  opacity: 1;
 }
 
 /* ─── Name ──────────────────────────────────────────────────── */

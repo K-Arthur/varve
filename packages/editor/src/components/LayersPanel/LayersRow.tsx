@@ -132,7 +132,9 @@ export const LayersRow = memo(function LayersRow({
   const isContainerNode = isContainer(node);
   const typeIcon = nodeTypeIcon(node);
   const thumbnailDataUrl = useThumbnail(node, docId);
-  const showThumbnail = (node.kind === 'frame' || isImageShape(node)) && thumbnailDataUrl != null;
+  // Only show a preview chip for real image content — solid-fill frame
+  // thumbnails read as unexplained coloured squares next to the type icon.
+  const showThumbnail = isImageShape(node) && thumbnailDataUrl != null;
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
 
@@ -313,10 +315,10 @@ export const LayersRow = memo(function LayersRow({
         >
           <Icon
             name={typeIcon}
-            size="0.85em"
+            size={16}
             aria-hidden
             className="layers-row__type-icon"
-            style={isInstance ? { opacity: 0.6 } : undefined}
+            style={isInstance ? { opacity: 0.65 } : undefined}
           />
         </span>
 
