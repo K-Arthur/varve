@@ -1,3 +1,9 @@
+/**
+ * SelectionQuickBar — same chrome grammar as FloatingToolbar:
+ * raised surface, radius-lg, 32px controls, sunken hover, accent active.
+ * Primary actions use horizontal icon+label (Canva densisty, Strata tokens).
+ */
+
 .selection-quick-bar {
   position: absolute;
   z-index: 45;
@@ -20,11 +26,18 @@
   pointer-events: auto;
 }
 
-.selection-quick-bar__btn {
+.selection-quick-bar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Shared control base (match .floating-toolbar__btn) */
+.selection-quick-bar__btn,
+.selection-quick-bar__text-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
   height: 32px;
   padding: 0;
   background: transparent;
@@ -33,66 +46,108 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   flex-shrink: 0;
+  font-family: inherit;
 }
 
-.selection-quick-bar__btn:hover:not(:disabled) {
+.selection-quick-bar__btn {
+  width: 32px;
+}
+
+.selection-quick-bar__text-btn {
+  width: auto;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium, 500);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.selection-quick-bar__text-btn .selection-quick-bar__label {
+  color: inherit;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selection-quick-bar__btn:hover:not(:disabled),
+.selection-quick-bar__text-btn:hover:not(:disabled),
+.selection-quick-bar__chevron:hover:not(:disabled) {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
 }
 
-.selection-quick-bar__btn:focus-visible {
+.selection-quick-bar__btn--active,
+.selection-quick-bar__text-btn--active {
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+}
+
+.selection-quick-bar__btn--active:hover:not(:disabled),
+.selection-quick-bar__text-btn--active:hover:not(:disabled) {
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+  filter: brightness(1.05);
+}
+
+.selection-quick-bar__btn:focus-visible,
+.selection-quick-bar__text-btn:focus-visible,
+.selection-quick-bar__chevron:focus-visible {
   outline: 2px solid var(--color-interactive-default);
   outline-offset: 1px;
 }
 
 .selection-quick-bar__btn:disabled,
+.selection-quick-bar__text-btn:disabled,
 .selection-quick-bar__chevron:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.selection-quick-bar__btn--pending {
+.selection-quick-bar__btn--pending,
+.selection-quick-bar__text-btn--pending {
   opacity: 0.55;
 }
 
-.selection-quick-bar__btn--group-start {
-  border-left: 1px solid var(--color-border-subtle);
-  margin-left: var(--space-1);
-  padding-left: var(--space-1);
-  width: calc(32px + var(--space-1));
+.selection-quick-bar__separator {
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--space-1);
+  background: var(--color-border-subtle);
+  flex-shrink: 0;
+  align-self: center;
 }
 
 .selection-quick-bar__more {
   position: relative;
   display: flex;
   align-items: center;
-  border-left: 1px solid var(--color-border-subtle);
-  margin-left: var(--space-1);
-  padding-left: var(--space-1);
 }
 
 .selection-quick-bar__chevron {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
+  gap: 2px;
   height: 32px;
-  padding: 0;
+  min-width: 32px;
+  padding: 0 var(--space-2);
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.selection-quick-bar__chevron:hover {
-  color: var(--color-text-primary);
+.selection-quick-bar__chevron--open {
   background: var(--color-surface-sunken);
-}
-
-.selection-quick-bar__chevron:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
-  outline-offset: 1px;
+  color: var(--color-text-primary);
 }
 
 .selection-quick-bar__menu {
@@ -117,13 +172,15 @@
   gap: var(--space-2);
   width: 100%;
   text-align: left;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  min-height: 32px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium, 500);
   line-height: 1.25;
   cursor: pointer;
 }
@@ -142,7 +199,19 @@
   cursor: not-allowed;
 }
 
+.selection-quick-bar__menuitem--active {
+  background: var(--color-surface-sunken);
+  color: var(--color-accent-primary);
+  font-weight: var(--font-weight-semibold, 600);
+}
+
 [data-theme="high-contrast"] .selection-quick-bar__inner {
   border-color: var(--color-border-subtle);
   outline: 1px solid var(--color-border-subtle);
+}
+
+[data-theme="high-contrast"] .selection-quick-bar__btn--active,
+[data-theme="high-contrast"] .selection-quick-bar__text-btn--active {
+  outline: 2px solid var(--color-border-strong);
+  outline-offset: 1px;
 }

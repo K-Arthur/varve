@@ -105,7 +105,8 @@ function imageProfile(node: ShapeNode, input: ResolveQuickBarInput): QuickBarPro
   const moreActions: QuickBarAction[] = [action('fitCycle', 'Cycle fit')];
   if (node.backgroundRemoval?.maskDataUrl) {
     moreActions.push(action('refineMask', 'Refine mask'));
-    moreActions.push(action('showOriginal', 'Show original'));
+    const showingOriginal = input.showOriginalBgNodeId === node.id;
+    moreActions.push(action('showOriginal', showingOriginal ? 'Hide original' : 'Show original'));
   }
   if (input.bgRemovalPending) {
     moreActions.push(action('cancelBg', 'Cancel'));

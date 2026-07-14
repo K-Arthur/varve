@@ -40,11 +40,29 @@ export function SelectionQuickBarHost({
         selection: state.selection,
         tool: state.tool,
         textEditTargetId,
+        showOriginalBgNodeId: state.showOriginalBgNodeId ?? null,
         bgRemovalPending: pending.includes('removeBg'),
         suppressForVariant,
       }),
-    [state.document, state.selection, state.tool, textEditTargetId, pending, suppressForVariant],
+    [
+      state.document,
+      state.selection,
+      state.tool,
+      state.showOriginalBgNodeId,
+      textEditTargetId,
+      pending,
+      suppressForVariant,
+    ],
   );
+
+  const activeActionIds = useMemo(() => {
+    const ids: QuickBarActionId[] = [];
+    const imageNode = selectedImageShape(state.document, state.selection);
+    if (imageNode && state.showOriginalBgNodeId === imageNode.id) {
+      ids.push('showOriginal');
+    }
+    return ids;
+  }, [state.document, state.selection, state.showOriginalBgNodeId]);
 
   const screenBounds = useMemo(() => {
     if (!profile) return null;
@@ -143,6 +161,7 @@ export function SelectionQuickBarHost({
         void onAction(id);
       }}
       pendingActionIds={pending}
+      activeActionIds={activeActionIds}
     />
   );
 }
