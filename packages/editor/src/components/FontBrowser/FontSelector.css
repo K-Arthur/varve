@@ -1,0 +1,199 @@
+/**
+ * FontSelector styles — APG combobox with dropdown, section headers,
+ * live preview, and source badges. Uses design tokens exclusively.
+ */
+
+.font-selector {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ---------- Label ---------- */
+
+.font-selector__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Input wrapper ---------- */
+
+.font-selector__input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.font-selector__input {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.font-selector__input:focus-visible {
+  border-color: var(--color-interactive-focus-ring);
+  box-shadow: 0 0 0 2px oklch(0.5449 0.0866 189.77 / 0.2);
+}
+
+.font-selector__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* ---------- Warning icon ---------- */
+
+.font-selector__warning {
+  position: absolute;
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  background: var(--color-feedback-warning);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* ---------- Dropdown ---------- */
+
+.font-selector__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+  margin-top: var(--space-1);
+}
+
+/* ---------- Section headers ---------- */
+
+.font-selector__section-header {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+/* ---------- Options ---------- */
+
+.font-selector__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+.font-selector__option:hover,
+.font-selector__option--highlighted {
+  background: var(--color-interactive-hover);
+}
+
+.font-selector__option--selected {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+
+.font-selector__option--selected:hover,
+.font-selector__option--selected.font-selector__option--highlighted {
+  background: var(--color-interactive-hover);
+}
+
+.font-selector__option--empty {
+  cursor: default;
+  color: var(--color-text-muted);
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+/* ---------- Option name (rendered in the font itself) ---------- */
+
+.font-selector__option-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Option meta / badges ---------- */
+
+.font-selector__option-meta {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.font-selector__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  background: var(--color-surface-sunken);
+  line-height: 1;
+}
+
+.font-selector__badge--var {
+  color: var(--color-accent-primary);
+  font-style: italic;
+  font-weight: var(--font-weight-bold);
+}
+
+/* ---------- High-contrast / forced-colors ---------- */
+
+[data-theme="high-contrast"] .font-selector__input {
+  border-color: var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .font-selector__dropdown {
+  border-color: var(--color-border-strong);
+}
+
+@media (forced-colors: active) {
+  .font-selector__option--selected {
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .font-selector__option--selected .font-selector__option-name {
+    color: HighlightText;
+  }
+
+  .font-selector__input:focus-visible {
+    border-color: Highlight;
+  }
+
+  .font-selector__badge {
+    border: 1px solid ButtonText;
+  }
+}
