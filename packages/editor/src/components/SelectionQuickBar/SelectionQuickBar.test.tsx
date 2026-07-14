@@ -90,5 +90,6 @@ describe('SelectionQuickBar', () => {
     );
     const bar = container.querySelector('.selection-quick-bar') as HTMLElement;
     expect(bar.style.top).toBe('328px'); // 100 + 220 + 8
+    expect(bar.style.left).toBe('290px'); // 200 + 180/2
   });
 });
