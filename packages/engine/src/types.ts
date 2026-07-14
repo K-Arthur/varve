@@ -16,7 +16,7 @@ export type Point = readonly [number, number];
 
 // ── Local typography IR types (mirrors @strata/scene without the dependency) ──
 
-export type OpenTypeFeatureMap = Partial<Record<string, boolean>> & {
+export type OpenTypeFeatureMap = Record<string, boolean | Record<string, boolean> | undefined> & {
   custom?: Record<string, boolean>;
 };
 
@@ -196,6 +196,20 @@ export type Effect =
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
+    }
+  | {
+      type: 'glassMaterial';
+      blur: number;
+      tint: EngineColor;
+      tintOpacity: number;
+      saturation: number;
+      brightness: number;
+      noise: number;
+      edgeHighlight: boolean;
+      edgeHighlightWidth: number;
+      edgeHighlightColor: EngineColor;
+      edgeHighlightOpacity: number;
+      visible: boolean;
     };
 
 export interface PathPoint {
@@ -241,6 +255,8 @@ export interface SceneNode {
   transform: Affine;
   kind?: string;
   shape?: Shape;
+  /** V1.8+: When true, geometry is derived from paint instead of shape. */
+  shapeless?: boolean;
   fill?: EngineColor;
   /** P2: stacked fills (solid/gradient). */
   fills?: EngineFill[];
@@ -294,6 +310,13 @@ export interface SceneNode {
   alphaMask?: string;
   /** Phase 5: nondestructive adjustment filter stack. */
   filters?: FilterIR[];
+  /** Raster layer pixel data (for node.kind === 'rasterLayer'). */
+  rasterLayerData?: {
+    width: number;
+    height: number;
+    pixelMode: boolean;
+    tiles: Record<string, { pixels: number[]; version: number }>;
+  };
 }
 
 /** P2: Fill type for the engine (mirrors @strata/scene Fill). */
@@ -426,7 +449,16 @@ export type Primitive =
       }>;
       /** Default tab width (in px, default 8 spaces). */
       tabSize?: number;
+    }
+  | {
+      kind: 'rasterLayer';
+      width: number;
+      height: number;
+      pixelMode: boolean;
+      tiles: Record<string, { pixels: number[]; version: number }>;
     };
+
+export type EngineRasterLayerPrimitive = Extract<Primitive, { kind: 'rasterLayer' }>;
 
 /** One drawable record in the render IR (mirrors strata-engine::RenderItem). */
 export interface RenderItem {
@@ -543,6 +575,14 @@ export type FilterIR =
       dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
       channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
       method: 'am' | 'fm'; // Amplitude modulation or frequency modulation
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'gradientMap';
+      stops: { position: number; color: readonly [number, number, number, number] }[];
+      dither: boolean;
+      preserveLuminosity: boolean;
       opacity: number;
       blendMode: string;
     };

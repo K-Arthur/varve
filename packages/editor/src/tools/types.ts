@@ -13,6 +13,7 @@
 import type { Engine, PathPoint } from '@strata/engine';
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import type { Camera } from '@strata/shared';
+import type { NormalizedInputEvent } from './inputNormalizer';
 
 export type ToolId =
   | 'select'
@@ -110,6 +111,22 @@ export interface ToolContext {
   tiltY: number;
   /** Stylus rotation in degrees (0-359). */
   twist: number;
+  /** Tangential pressure along barrel [-1, 1], 0 when unavailable. */
+  tangentialPressure: number;
+  /** Contact ellipse width in CSS pixels (from PointerEvent.width). */
+  pointerWidth: number;
+  /** Contact ellipse height in CSS pixels (from PointerEvent.height). */
+  pointerHeight: number;
+  /** Altitude angle in radians (PI/2 = perpendicular to surface). */
+  altitudeAngle: number;
+  /** Azimuth angle in radians from the X axis. */
+  azimuthAngle: number;
+  /** True when the browser provides getCoalescedEvents(). */
+  hasCoalescedEvents: boolean;
+  /** True when the browser provides getPredictedEvents(). */
+  hasPredictedEvents: boolean;
+  /** Normalized source events from coalesced/predicted input. */
+  sourceEvents: NormalizedInputEvent[];
   /** Foreground color for painting as RGBA [r, g, b, a] in 0-255 range. */
   foregroundColor: [number, number, number, number];
   snapEnabled: boolean;

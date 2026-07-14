@@ -12,6 +12,8 @@ export type { Histogram, HistogramStats } from './adjustment/histogram';
 export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
 export type { LevelParams } from './adjustment/levels';
 export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
+export type { AlphaContour, ContourOptions, ContourShapeNodeData } from './alphaContour';
+export { alphaContoursToShapeNodes, extractAlphaContours } from './alphaContour';
 export type {
   BackgroundRemovalOptions,
   BackgroundRemovalResult,
@@ -86,6 +88,8 @@ export type {
   CurvesAdjustment,
   CurvesPoint,
   ExposureAdjustment,
+  GradientMapAdjustment,
+  GradientMapStop,
   GrayscaleAdjustment,
   HalftoneAdjustment,
   HueRotateAdjustment,
@@ -111,7 +115,12 @@ export {
   filterToCss,
   makeAdjustment,
 } from './filters';
-export type { FontEntry, FontLoadState, VariableAxisInfo } from './fontRegistry';
+export type {
+  ExportFontRequest,
+  FontEntry,
+  FontLoadState,
+  VariableAxisInfo,
+} from './fontRegistry';
 export {
   awaitExportsReady,
   FontRegistry,
@@ -145,6 +154,13 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
+export type { EnhancedMaskOptions } from './maskCompositing';
+export {
+  applyMaskPostProcess,
+  pixelToMaskAlpha,
+  renderEnhancedMask,
+  srgbToLuminance,
+} from './maskCompositing';
 export type { MeshControlPoint, MeshTriangle, MeshWarp, MeshWarpCell } from './meshWarp';
 export { createFlatMesh, renderWarpGrid, warpMesh, warpPath, warpPosition } from './meshWarp';
 export type { NonSeparableMode } from './nonSeparable';
@@ -181,6 +197,19 @@ export {
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type {
+  FittedRasterDimensions,
+  RasterCanvas,
+  RasterCanvasContext,
+  RasterSurface,
+  RasterSurfacePolicy,
+} from './rasterSurface';
+export {
+  createRasterSurface,
+  DEFAULT_RASTER_SURFACE_POLICY,
+  encodeRasterSurface,
+  fitRasterDimensions,
+} from './rasterSurface';
+export type {
   RasterTraceFill,
   RasterTraceMode,
   RasterTraceOptions,
@@ -190,7 +219,7 @@ export type {
 } from './rasterTrace';
 export { quantizePalette, traceRasterToPaths } from './rasterTrace';
 export type { ReplayTarget } from './replay';
-export { renderAlphaMask, replayIr } from './replay';
+export { primitiveBounds, renderAlphaMask, replayIr } from './replay';
 export {
   buildBrushMask,
   clonePixels,
