@@ -1,4 +1,8 @@
 .onboarding-checklist {
+  position: fixed;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -7,8 +11,10 @@
   border: var(--border-micro);
   border-radius: var(--radius-xl);
   box-shadow: var(--elevation-shadow-raised);
-  max-width: 240px;
+  width: 240px;
   font-size: var(--font-size-sm);
+  opacity: 0;
+  transform: translateY(8px);
   transition:
     opacity var(--duration-base) var(--ease-out),
     transform var(--duration-base) var(--ease-out);
