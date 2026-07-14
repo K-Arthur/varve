@@ -137,7 +137,7 @@ describe('Forward Compatibility Detection', () => {
 
   it('isForwardCompatible returns false for newer version', () => {
     expect(isForwardCompatible('99.0')).toBe(false);
-    expect(isForwardCompatible('2.0')).toBe(false);
+    expect(isForwardCompatible('3.0')).toBe(false);
   });
 
   it('isForwardCompatible returns true for 1.0 (supported older)', () => {
@@ -149,9 +149,9 @@ describe('Forward Compatibility Detection', () => {
   });
 
   it('detectForwardCompatWarning returns message for newer version', () => {
-    const warning = detectForwardCompatWarning('2.0');
+    const warning = detectForwardCompatWarning('99.0');
     expect(warning).not.toBeNull();
-    expect(warning).toContain('2.0');
+    expect(warning).toContain('99.0');
     expect(warning).toContain('newer');
   });
 });
@@ -191,14 +191,14 @@ describe('Detailed Migration', () => {
     const raw = {
       id: 'd1',
       name: 'Future',
-      formatVersion: '2.0',
+      formatVersion: '99.0',
       rootChildren: [],
       nodes: {},
     };
     const result = migrateDocumentDetailed(raw);
     expect(result).not.toBeNull();
     expect(result?.warnings.length).toBeGreaterThan(0);
-    expect(result?.warnings[0]).toContain('2.0');
+    expect(result?.warnings[0]).toContain('99.0');
   });
 
   it('returns null for invalid input', () => {
