@@ -3,15 +3,22 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  clampBrushPreset,
   defaultBrushPreset,
   generateDabs,
+  getActivePreset,
+  isBuiltInPreset,
   makeBrushStroke,
+  migrateBrushPreset,
+  OneEuroFilter,
+  oneEuroFilterPoint,
   pointDistance,
   rebuildStrokeDabs,
   smoothStrokePoints,
   strokeBounds,
   strokeDirection,
   strokePoint,
+  validateBrushPreset,
 } from './brush';
 
 describe('defaultBrushPreset', () => {
@@ -137,5 +144,98 @@ describe('rebuildStrokeDabs', () => {
     const rebuilt = rebuildStrokeDabs(stroke, preset);
     expect(rebuilt.dabs.length).toBeGreaterThan(0);
     expect(rebuilt.bounds.w).toBeGreaterThan(0);
+  });
+});
+
+describe('OneEuroFilter', () => {
+  it('returns identity on first sample', () => {
+    const filter = new OneEuroFilter(1.0, 0.007, 1.0);
+    const result = filter.filter(100, 200, 0);
+    expect(result.x).toBe(100);
+    expect(result.y).toBe(200);
+    expect(result.dx).toBe(0);
+  });
+
+  it('produces identity at zero velocity with beta=0', () => {
+    const filter = new OneEuroFilter(0.5, 0.0, 1.0);
+    let t = 0;
+    for (let i = 0; i < 5; i++) {
+      t += 16;
+      const sp = strokePoint(100, 200, { time: t });
+      const filtered = oneEuroFilterPoint(sp, filter);
+      expect(filtered.x).toBe(100);
+    }
+  });
+
+  it('tracks movement with velocity-dependent smoothing', () => {
+    const filter = new OneEuroFilter(1.0, 0.5, 1.0);
+    let t = 0;
+    const results: Array<{ x: number }> = [];
+    for (let i = 0; i < 5; i++) {
+      t += 16;
+      const sp = strokePoint(100 + i * 10, 200, { time: t });
+      const filtered = oneEuroFilterPoint(sp, filter);
+      results.push({ x: filtered.x });
+    }
+    expect(results[results.length - 1]!.x).toBeGreaterThan(120);
+  });
+
+  it('reset clears all state', () => {
+    const filter = new OneEuroFilter(1.0, 0.5, 1.0);
+    filter.filter(100, 200, 0);
+    filter.reset();
+    const result = filter.filter(300, 400, 16);
+    expect(result.x).toBe(300);
+    expect(result.dx).toBe(0);
+  });
+});
+
+describe('brush preset validation', () => {
+  it('validateBrushPreset rejects non-objects', () => {
+    expect(validateBrushPreset(null)).toBeNull();
+    expect(validateBrushPreset(42)).toBeNull();
+  });
+
+  it('validateBrushPreset clamps out-of-range radius', () => {
+    const result = validateBrushPreset({ id: 't1', name: 'T1', shape: 'circle', radius: 2000 });
+    expect(result).not.toBeNull();
+    expect(result!.radius).toBe(1000);
+  });
+
+  it('validateBrushPreset fills missing fields with defaults', () => {
+    const result = validateBrushPreset({ id: 't2', name: 'T2', shape: 'circle', radius: 10 });
+    expect(result).not.toBeNull();
+    expect(result!.blendMode).toBe('normal');
+  });
+
+  it('isBuiltInPreset returns true for built-in presets', () => {
+    expect(isBuiltInPreset('built-in-round')).toBe(true);
+    expect(isBuiltInPreset('built-in-eraser')).toBe(true);
+    expect(isBuiltInPreset('unknown')).toBe(false);
+  });
+
+  it('migrateBrushPreset fills missing fields', () => {
+    const result = migrateBrushPreset({
+      id: 'custom',
+      name: 'Custom',
+      shape: 'circle',
+      radius: 20,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe('custom');
+    expect(result!.radius).toBe(20);
+  });
+
+  it('getActivePreset falls back to built-in', () => {
+    const doc = { brushPresets: {} } as never;
+    const preset = getActivePreset(doc, 'nonexistent');
+    expect(preset.id).toBe('built-in-round');
+  });
+
+  it('clampBrushPreset clamps range fields', () => {
+    const p = defaultBrushPreset('test', 'Test');
+    p.radius = 2000;
+    const clamped = clampBrushPreset(p);
+    expect(clamped.radius).toBe(1000);
   });
 });
