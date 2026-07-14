@@ -32,13 +32,74 @@ export interface Constraints {
 
 // ── Mask types ──────────────────────────────────────────────────────────────
 
-export type MaskType = 'clip' | 'alpha';
+/**
+ * Mask type determines how the mask source node controls visibility:
+ * - 'clip': the source node's vector outline clips content (boolean, hard edge)
+ * - 'alpha': the source node's alpha channel controls content opacity
+ * - 'luminance': the source node's luminance (perceived brightness) controls
+ *   content opacity. Black = transparent, white = opaque, following the SVG
+ *   mask luminance formula: L = 0.2126*R + 0.7152*G + 0.0722*B (in linear RGB),
+ *   multiplied by the source alpha.
+ */
+export type MaskType = 'clip' | 'alpha' | 'luminance';
 
+/**
+ * A mask on a container node (FrameNode, GroupNode, or AdjustmentNode).
+ *
+ * The mask designates one of the container's children as the mask source.
+ * A mask source acts as a child (renders in the container) BUT the container
+ * may choose to hide the mask source's direct rendering and instead use its
+ * outline/alpha/luminance to clip or modulate the other children.
+ *
+ * Architecture notes:
+ * - Masks are non-destructive and re-editable.
+ * - A mask source must be a direct child of the container.
+ * - A container may have at most one mask.
+ * - Nested masks are supported via nested containers.
+ * - The mask source can have effects, fills, strokes, and transforms;
+ *   these all contribute to the mask's effective shape/alpha/luminance.
+ *
+ * Research basis: Figma mask model, Adobe Photoshop layer masks,
+ * Affinity Designer pixel/vector masks, SVG <clipPath>/<mask> specs.
+ */
 export interface Mask {
+  /** How the mask source controls visibility of masked content. */
   type: MaskType;
   /** Id of the child node used as the mask source. Must be a child of the container. */
   sourceNodeId: NodeId;
+  /** Whether the mask is active. When false, the mask is ignored during rendering. */
   visible: boolean;
+  /**
+   * When true, the mask effect is inverted:
+   * - clip: content inside the clip region is hidden, outside is visible
+   * - alpha/luminance: transparent regions become opaque and vice versa
+   * (default: false)
+   */
+  inverted?: boolean;
+  /**
+   * Feather radius in world-space pixels. Softens the mask edge by
+   * applying a Gaussian blur to the mask's alpha/luminance values
+   * before compositing. (default: 0, no feather)
+   */
+  feather?: number;
+  /**
+   * Overall mask density/strength as a value between 0 and 1.
+   * 0 = mask has no effect (full visibility), 1 = full mask effect.
+   * Applied after inversion and feather. (default: 1)
+   */
+  density?: number;
+  /**
+   * When true (default), the mask transforms with the masked content.
+   * When false, the mask has its own independent transform.
+   * (default: true)
+   */
+  linked?: boolean;
+  /**
+   * Independent mask transform used when linked === false.
+   * If linked or transform is undefined, the mask source's own transform
+   * is used (which itself is relative to the container).
+   */
+  transform?: Affine;
 }
 
 // ── Guide interface ──────────────────────────────────────────────────────────
@@ -157,6 +218,20 @@ export type Effect =
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
+    }
+  | {
+      type: 'glassMaterial';
+      blur: number;
+      tint: ManagedColor;
+      tintOpacity: number;
+      saturation: number;
+      brightness: number;
+      noise: number;
+      edgeHighlight: boolean;
+      edgeHighlightWidth: number;
+      edgeHighlightColor: ManagedColor;
+      edgeHighlightOpacity: number;
+      visible: boolean;
     };
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
@@ -229,6 +304,35 @@ export interface Fill {
   visible: boolean;
 }
 
+/**
+ * A first-class, independently-addressable Paint entity (v1.8+).
+ *
+ * A Paint wraps a Fill with identity (`id`, `name`) so it can be:
+ * 1. Referenced by multiple nodes via `paintRefs[]` (paint reuse)
+ * 2. Independently updated (changing one Paint updates all consumers)
+ * 3. Promoted/demoted between inline `Fill[]` and shared `Paint` status
+ *
+ * Paint lives in the Document's `paints` map, alongside the existing
+ * inline `fills[]` on each node. When a node has `paintRefs`, those paints
+ * are resolved from `Document.paints` and used as the node's effective fill
+ * stack — replacing the inline `fills`/`fill` for that node.
+ *
+ * Paint reuse is the key architectural change that decouples "what is painted"
+ * from "where it is painted," letting the same image, gradient, or pattern
+ * be used as the visual content of any number of nodes while being editable
+ * in one place.
+ */
+export interface Paint {
+  id: string;
+  name: string;
+  /** The fill content (solid, gradient, image, or pattern). */
+  fill: Fill;
+}
+
+export function makePaint(id: string, name: string, fill: Fill): Paint {
+  return { id, name, fill };
+}
+
 // ── Property Binding (task 1.2+) ────────────────────────────────────────────
 
 export interface PropertyBinding {
@@ -246,6 +350,13 @@ export interface NodeBase {
   fill: ManagedColor;
   /** P2: stacked fills (solid/gradient/image). When present, takes precedence over `fill`. */
   fills?: Fill[];
+  /**
+   * V1.8+: Ordered references to shared Paint entities on the Document.
+   * When present, these paints are resolved from `Document.paints` and used
+   * as the node's effective fill stack, replacing `fills`/`fill` for this node.
+   * Each entry is a Paint ID.
+   */
+  paintRefs?: string[];
   /**
    * Paint order among siblings (0 = bottom). Reorder via Document.move.
    * @deprecated Use `order` (fractional-indexing) instead. This field is set at
@@ -294,7 +405,24 @@ export interface NodeBase {
 
 export interface ShapeNode extends NodeBase {
   kind: 'shape';
+  /** Geometry in local coordinates. When `shapeless` is true, geometry is
+   *  derived from the node's paint (e.g. image natural dimensions) and this
+   *  field may still hold a fallback/sentinel rect for backward compat. */
   shape: Shape;
+  /**
+   * V1.8+: When true, this node's geometry is derived from its paint rather
+   * than from the explicit `shape` field. For an image paint, the geometry is
+   * the image's natural dimensions. For solid/gradient paints, it's a 100×100
+   * default rect.
+   *
+   * This is the mechanism that makes images first-class objects: a shapeless
+   * ShapeNode with an image paint IS an image — its bounds come from the image
+   * content, not from a host shape that clips it. The node still supports all
+   * ShapeNode features (transform, effects, strokes, blend modes, masks).
+   *
+   * Backward compatible: existing nodes always have shapeless=false/undefined.
+   */
+  shapeless?: boolean;
   transform: Affine;
   /** F6: stacked strokes. */
   strokes: Stroke[];
@@ -306,12 +434,18 @@ export interface ShapeNode extends NodeBase {
   cornerSmoothing?: number;
   /** Background removal mask applied to this shape's image fill. */
   backgroundRemoval?: BackgroundRemovalState;
+  /** Live trace state for nondestructive raster-to-vector workflow. */
+  liveTrace?: LiveTraceState;
 }
 
 export interface TextNode extends NodeBase {
   kind: 'text';
   text: string;
   transform: Affine;
+  /** Local text-container width. Present for area/fixed text, omitted for point text. */
+  w?: number;
+  /** Local text-container height. Present for area/fixed text, omitted for point text. */
+  h?: number;
   /** Font size in px at 1x; variable-bindable across breakpoints (task 1.3). */
   fontSize: number;
   /** F6: font family — CSS-safe name or exact font. */
@@ -464,6 +598,41 @@ export interface BackgroundRemovalState {
   decontaminate?: boolean;
 }
 
+// ── Live Trace Types ─────────────────────────────────────────────────────────
+
+export interface LiveTraceParams {
+  mode: 'monochrome' | 'grayscale' | 'color';
+  threshold: number;
+  foreground: 'dark' | 'light';
+  alphaThreshold: number;
+  minArea: number;
+  simplifyTolerance: number;
+  maxPaths: number;
+  maxColors: number;
+  compoundHoles: boolean;
+}
+
+export function defaultLiveTraceParams(): LiveTraceParams {
+  return {
+    mode: 'monochrome',
+    threshold: 128,
+    foreground: 'dark',
+    alphaThreshold: 1,
+    minArea: 4,
+    simplifyTolerance: 0.75,
+    maxPaths: 1000,
+    maxColors: 8,
+    compoundHoles: true,
+  };
+}
+
+export interface LiveTraceState {
+  sourceNodeId: NodeId;
+  params: LiveTraceParams;
+  resolvedAt: number | null;
+  lastError: string | null;
+}
+
 /** @deprecated Use ShapeNode with imageFill(). ImageNode no longer exists as a distinct node kind. */
 export type ImageNode = ShapeNode;
 
@@ -541,7 +710,35 @@ export interface PathNode extends NodeBase {
   effects: Effect[];
 }
 
-export type SceneNode = ShapeNode | TextNode | GroupNode | FrameNode | AdjustmentNode | PathNode;
+// ── Raster Layer Node ─────────────────────────────────────────────────────────
+
+export interface RasterTile {
+  /** RGBA pixel data (128 * 128 * 4 bytes per tile). */
+  pixels: Uint8ClampedArray;
+  /** Monotonic version for cache invalidation. */
+  version: number;
+}
+
+export interface RasterLayerNode extends NodeBase {
+  kind: 'rasterLayer';
+  /** Canvas width in pixels. */
+  width: number;
+  /** Canvas height in pixels. */
+  height: number;
+  /** Whether to constrain drawing to pixel grid. */
+  pixelMode: boolean;
+  /** Tile storage: key = "{col}:{row}" in 128×128 grid. */
+  tiles: Map<string, RasterTile>;
+}
+
+export type SceneNode =
+  | ShapeNode
+  | TextNode
+  | GroupNode
+  | FrameNode
+  | AdjustmentNode
+  | PathNode
+  | RasterLayerNode;
 
 export type ContainerNode = GroupNode | FrameNode;
 
