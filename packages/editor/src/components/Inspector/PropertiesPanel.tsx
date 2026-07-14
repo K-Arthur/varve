@@ -35,6 +35,8 @@ import { FramePresetsSection } from './sections/FramePresetsSection';
 import { ImageEnhancementSection } from './sections/ImageEnhancementSection';
 import { InteractionSection } from './sections/InteractionSection';
 import { LayoutSection } from './sections/LayoutSection';
+import { MaskSection } from './sections/MaskSection';
+import { PaintLibrarySection } from './sections/PaintLibrarySection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TypographySection } from './sections/TypographySection';
@@ -127,7 +129,7 @@ export function PropertiesPanel() {
 }
 
 function EmptySelectionState() {
-  const { state, setCanvasBackground } = useEditor();
+  const { state, setCanvasBackground, switchColorMode } = useEditor();
   const doc = state.document;
   const count = Object.keys(doc.nodes).length;
   const canvasBg: ManagedColor | undefined = doc.canvasBackground;
@@ -184,6 +186,25 @@ function EmptySelectionState() {
           </div>
         </div>
       </DisclosureSection>
+      <div className="insp-panel__section">
+        <div className="insp-panel__section-header">Document Color</div>
+        <div className="insp-panel__color-mode">
+          <span className="insp-panel__color-mode-label">Mode</span>
+          <div className="insp-panel__color-mode-buttons">
+            {(['rgb', 'cmyk', 'grayscale'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={`insp-panel__color-mode-btn${doc.colorConfig?.mode === mode ? ' insp-panel__color-mode-btn--active' : ''}`}
+                onClick={() => switchColorMode(mode)}
+                aria-pressed={doc.colorConfig?.mode === mode}
+              >
+                {mode === 'rgb' ? 'RGB' : mode === 'cmyk' ? 'CMYK' : 'Grayscale'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
       <div className="insp-panel__canvas-info">
         <p className="insp-panel__canvas-name">{doc.name}</p>
         <p className="insp-panel__canvas-count">
@@ -223,7 +244,9 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       {isRect && <CornerRadiusSection nodes={nodes} />}
       {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
       <AppearanceSection nodes={nodes} />
+      <MaskSection nodes={nodes} />
       <FillSection nodes={nodes} />
+      <PaintLibrarySection />
       <ImageEnhancementSection nodes={nodes} />
       <BackgroundRemovalSection nodes={nodes} />
       <StrokeSection nodes={nodes} />
@@ -263,6 +286,7 @@ function MultiSelectionPanel({
       <PositionSizeSection nodes={nodes} />
       <AppearanceSection nodes={nodes} />
       <FillSection nodes={nodes} />
+      <PaintLibrarySection />
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />

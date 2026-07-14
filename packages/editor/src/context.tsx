@@ -32,7 +32,12 @@ export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
 
 import { getTransactionHooks } from '@strata/collab';
 import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
-import { applyAffine, invertAffine, multiplyAffine } from '@strata/engine';
+import {
+  applyAffine,
+  DEFAULT_PREVIEW_MAX_DIMENSION,
+  invertAffine,
+  multiplyAffine,
+} from '@strata/engine';
 import { type ImportFileInput, ImportService } from '@strata/import';
 import { type Platform, upsertPreservingMeta } from '@strata/platform';
 import {
@@ -46,9 +51,11 @@ import {
 } from '@strata/prototype';
 import type {
   AdjustmentNode,
+  ColorMode,
   ContainerNode,
   ExportPreset,
   InstanceStatus,
+  LiveTraceParams,
   ManagedColor,
   NodeId,
   Slot,
@@ -61,6 +68,7 @@ import {
   addGuide as addGuideDoc,
   addInteraction as addInteractionDoc,
   addKeyframe,
+  addMask as addMaskDoc,
   addNode,
   addTimelineMarker as addTimelineMarkerDoc,
   addTrack,
@@ -90,6 +98,7 @@ import {
   booleanOp as doBooleanOp,
   duplicateGuide as duplicateGuideDoc,
   fillSlot as fillSlotDoc,
+  flattenLiveTrace as flattenLiveTraceDoc,
   type Guide,
   activePageNodes as getActivePageNodes,
   getCurrentStateTimelineId,
@@ -101,6 +110,7 @@ import {
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isContainer,
+  type MaskType,
   makeAdjustmentNode,
   makeFrameNode,
   makeGroupNode,
@@ -114,6 +124,7 @@ import {
   removeFrameFromChain as removeFrameFromChainDoc,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
+  removeMask as removeMaskDoc,
   removeNode,
   removeTimeline as removeTimelineDoc,
   removeTimelineMarker as removeTimelineMarkerDoc,
@@ -134,10 +145,22 @@ import {
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
+  setLiveTraceError as setLiveTraceErrorDoc,
+  setLiveTraceParams as setLiveTraceParamsDoc,
+  setLiveTraceResolved as setLiveTraceResolvedDoc,
+  setMaskDensity as setMaskDensityDoc,
+  setMaskFeather as setMaskFeatherDoc,
+  setMaskHideSource as setMaskHideSourceDoc,
+  setMaskInverted as setMaskInvertedDoc,
+  setMaskLinked as setMaskLinkedDoc,
+  setMaskSourceNode as setMaskSourceNodeDoc,
+  setMaskType as setMaskTypeDoc,
+  setMaskVisible as setMaskVisibleDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
   swapInstance as swapInstanceDoc,
+  switchColorMode as switchColorModeDoc,
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
   toggleGuideLock as toggleGuideLockDoc,
@@ -628,6 +651,26 @@ export interface EditorContextValue {
   ungroupSelected: () => void;
   /** Detach the first selected component instance. */
   detachSelected: () => void;
+  /** Create a mask on the selected container from the node above it (or the first shape child). */
+  addMaskToSelected: (type?: import('@strata/scene').MaskType) => void;
+  /** Remove the mask from the selected container. Does NOT delete the mask source node. */
+  removeMaskFromSelected: () => void;
+  /** Toggle the selected container's mask visibility. */
+  toggleMask: () => void;
+  /** Toggle inversion on the selected container's mask. */
+  invertMask: () => void;
+  /** Set feather radius on the selected container's mask (world-space px). */
+  setMaskFeather: (feather: number) => void;
+  /** Set density (0-1) on the selected container's mask. */
+  setMaskDensity: (density: number) => void;
+  /** Toggle whether the mask source is hidden from direct rendering. */
+  setMaskHideSource: (hidden: boolean) => void;
+  /** Toggle whether the mask is linked to the container transform. */
+  setMaskLinked: (linked: boolean) => void;
+  /** Change the mask type ('clip', 'alpha', 'luminance'). */
+  setMaskType: (type: MaskType) => void;
+  /** Change the mask source node (must be a child of the container). */
+  setMaskSourceNode: (sourceNodeId: string) => void;
   /** Create an adjustment layer node with optional initial adjustments and select it. */
   createAdjustmentLayer: (initialAdjustments?: import('@strata/engine').Adjustment[]) => void;
   /** Append an adjustment to an adjustment layer node. */
@@ -711,6 +754,17 @@ export interface EditorContextValue {
   removePreset: (nodeId: NodeId, presetId: string) => void;
   /** Apply a boolean operation to all selected nodes; replaces selection with result. */
   booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
+  /**
+   * Apply a boolean operation between raster image nodes (ShapeNodes with
+   * image fills) and vector ShapeNodes. Extracts alpha contours from each
+   * raster node, converts to ShapeNodes, combines with vector nodes, and
+   * applies the boolean operation. Replaces all operand nodes with the result.
+   */
+  booleanOpRaster: (
+    kind: import('@strata/scene').BooleanOpKind,
+    rasterNodeIds: import('@strata/scene').NodeId[],
+    vectorNodeIds: import('@strata/scene').NodeId[],
+  ) => Promise<void>;
 
   /** Remove background from the selected image node. */
   removeBackground: (method: import('@strata/scene').BackgroundRemovalMethod) => Promise<void>;
@@ -725,7 +779,13 @@ export interface EditorContextValue {
   /** Enlarge the selected image into a new editable image layer. */
   upscaleSelectedImage: (options: import('@strata/engine').UpscaleOptions) => Promise<void>;
   /** Trace the selected image into a new editable vector group. */
-  traceSelectedImage: (options: import('@strata/engine').RasterTraceOptions) => Promise<void>;
+  traceSelectedImage: (
+    options: import('@strata/engine').RasterTraceOptions & { liveTrace?: boolean },
+  ) => Promise<void>;
+  /** Update live trace parameters on the first selected live-traced node (marks pending re-trace). */
+  setSelectedLiveTraceParams: (params: Partial<import('@strata/scene').LiveTraceParams>) => void;
+  /** Flatten the first selected live-traced node to ordinary vector geometry. */
+  flattenSelectedLiveTrace: () => void;
   /** Cancel an in-progress image enlargement or trace job. */
   cancelImageProcessing: () => void;
   /** Toggle preview of original image (without background removal mask). */
@@ -892,6 +952,11 @@ export interface EditorContextValue {
 
   /** Get node IDs visible on the active page (page content + global children). */
   activePageNodes: () => NodeId[];
+
+  /** Document color mode (rgb / cmyk / grayscale). */
+  documentColorMode: ColorMode;
+  /** Switch the document color mode, converting all colors. */
+  switchColorMode: (mode: ColorMode) => void;
 
   /** Record a user action for analytics/onboarding/intelligence. */
   recordAction: (actionId: string) => void;
@@ -1095,6 +1160,9 @@ function shapeForTool(tool: ToolId): Shape {
     case 'patch':
     case 'refineMask':
     case 'trimapEdit':
+    case 'crop':
+    case 'paint':
+    case 'eraser':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
@@ -1991,6 +2059,11 @@ export function EditorProvider({
             'healBrush',
             'spotHeal',
             'patch',
+            'refineMask',
+            'trimapEdit',
+            'crop',
+            'paint',
+            'eraser',
           ];
           if (nonDrawingTools.includes(activeTool)) {
             throw new Error(`createShapeAt called for non-drawing tool: ${activeTool}`);
@@ -2640,7 +2713,7 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
-            const bounds = nodeLocalBounds(node);
+            const bounds = nodeLocalBounds(node, doc);
             if (!bounds) continue;
             nodes[id] = resizeSceneNode(node, w, bounds.h);
           }
@@ -2656,7 +2729,7 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
-            const bounds = nodeLocalBounds(node);
+            const bounds = nodeLocalBounds(node, doc);
             if (!bounds) continue;
             nodes[id] = resizeSceneNode(node, bounds.w, h);
           }
@@ -3116,7 +3189,7 @@ export function EditorProvider({
         for (const id of sel) {
           const node = doc.nodes[id];
           if (!node) continue;
-          const lb = nodeLocalBounds(node);
+          const lb = nodeLocalBounds(node, doc);
           if (!lb) continue;
           const wm = nodeWorldTransform(doc, id);
           const obb = orientedBBox(wm, lb.w, lb.h);
@@ -3753,6 +3826,94 @@ export function EditorProvider({
         });
       },
 
+      addMaskToSelected: (type: MaskType = 'alpha') => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => {
+          const container = doc.nodes[id];
+          if (!container || !('children' in container)) return doc;
+          const children = container.children;
+          // Use first child as mask source, or find a shape child
+          const maskSource = children.length > 0 ? children[0] : null;
+          if (!maskSource || !doc.nodes[maskSource]) return doc;
+          return addMaskDoc(doc, id, maskSource, type);
+        });
+      },
+
+      removeMaskFromSelected: () => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => removeMaskDoc(doc, id));
+      },
+
+      toggleMask: () => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => {
+          const container = doc.nodes[id];
+          const n = container as { mask?: { visible?: boolean } };
+          if (!n.mask) return doc;
+          return setMaskVisibleDoc(doc, id, !n.mask.visible);
+        });
+      },
+
+      invertMask: () => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => {
+          const container = doc.nodes[id];
+          const n = container as { mask?: { inverted?: boolean } };
+          if (!n.mask) return doc;
+          return setMaskInvertedDoc(doc, id, !n.mask.inverted);
+        });
+      },
+
+      setMaskFeather: (feather: number) => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => setMaskFeatherDoc(doc, id, feather));
+      },
+
+      setMaskDensity: (density: number) => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => setMaskDensityDoc(doc, id, density));
+      },
+
+      setMaskHideSource: (hidden: boolean) => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => setMaskHideSourceDoc(doc, id, hidden));
+      },
+
+      setMaskLinked: (linked: boolean) => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => setMaskLinkedDoc(doc, id, linked));
+      },
+
+      setMaskType: (type: MaskType) => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => setMaskTypeDoc(doc, id, type));
+      },
+
+      setMaskSourceNode: (sourceNodeId: string) => {
+        const sel = state.selection;
+        const id = sel[0];
+        if (!id) return;
+        updateDoc((doc) => setMaskSourceNodeDoc(doc, id, sourceNodeId as NodeId));
+      },
+
       detachSelected: () => {
         const sel = state.selection;
         const id = sel[0];
@@ -4303,6 +4464,14 @@ export function EditorProvider({
         updateDoc((doc) => ({ ...doc, canvasBackground: value }));
       },
 
+      documentColorMode: state.document.colorConfig?.mode ?? 'rgb',
+
+      switchColorMode: (mode: ColorMode) => {
+        const current = state.document.colorConfig?.mode;
+        if (current === mode) return;
+        updateDoc((doc) => switchColorModeDoc(doc, mode));
+      },
+
       // F2/A8 — session (tab) management -----------------------------------
 
       resolveVariable: (nameOrId) =>
@@ -4592,6 +4761,85 @@ export function EditorProvider({
         });
       },
 
+      booleanOpRaster: async (kind, rasterNodeIds, vectorNodeIds) => {
+        const allIds = [...rasterNodeIds, ...vectorNodeIds];
+        if (allIds.length < 2) {
+          announcerRef.current?.announce('Need at least 2 nodes for boolean operation');
+          return;
+        }
+        setState((s) => {
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+          return s;
+        });
+        announcerRef.current?.announce('Processing boolean operation...');
+        try {
+          const { extractAlphaContours, alphaContoursToShapeNodes } = await import(
+            '@strata/engine'
+          );
+          const { getImageCache } = await import('@strata/engine');
+          const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
+            '@strata/scene'
+          );
+          const doc = stateRef.current.document;
+
+          // Process raster nodes: extract alpha contours, convert to ShapeNodes
+          const rasterShapeNodes: import('@strata/scene').ShapeNode[] = [];
+          for (const nodeId of rasterNodeIds) {
+            const node = doc.nodes[nodeId] as import('@strata/scene').ShapeNode | undefined;
+            if (node?.kind !== 'shape' || !isImageShape(node)) continue;
+            const src = imageShapeSrc(node);
+            if (!src) continue;
+            const w = imageShapeW(node);
+            const h = imageShapeH(node);
+            if (w < 1 || h < 1) continue;
+            const img = await getImageCache().load(src);
+            if (!img) continue;
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, w, h);
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const contours = extractAlphaContours(imageData, { alphaThreshold: 1, minArea: 4 });
+            const nodes = alphaContoursToShapeNodes(contours, node.id, node);
+            rasterShapeNodes.push(...nodes);
+          }
+
+          // Collect vector nodes
+          const vectorShapeNodes: import('@strata/scene').ShapeNode[] = [];
+          for (const nodeId of vectorNodeIds) {
+            const node = doc.nodes[nodeId] as import('@strata/scene').ShapeNode | undefined;
+            if (node?.kind !== 'shape') continue;
+            vectorShapeNodes.push(node);
+          }
+
+          if (rasterShapeNodes.length === 0 && vectorShapeNodes.length === 0) {
+            announcerRef.current?.announce('No valid nodes for boolean operation');
+            return;
+          }
+
+          const allShapeNodes = [...rasterShapeNodes, ...vectorShapeNodes];
+          setState((s) => {
+            const result = doBooleanOp(kind, allShapeNodes);
+            let d = s.document;
+            for (const id of allIds) d = removeNode(d, id);
+            const { id: newId, doc: d2 } = nextNodeId(d);
+            const newNode = { ...result, id: newId } as import('@strata/scene').ShapeNode;
+            d = addNode(d2, newNode);
+            announcerRef.current?.announce('Boolean operation complete');
+            return { ...s, document: d, selection: [newId], dirty: true };
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          announcerRef.current?.announce(`Boolean operation failed: ${message}`);
+        }
+      },
+
       upscaleSelectedImage: async (options) => {
         const imageNode = selectedImageShape(state.document, state.selection);
         if (!imageNode) {
@@ -4697,6 +4945,31 @@ export function EditorProvider({
             current.document.nodes[processingNodeId] !== imageNode
           )
             return;
+
+          // Live trace mode: set params + resolved geometry on the source node
+          // instead of inserting a separate GroupNode beside it.
+          if (options.liveTrace) {
+            const ltParams: LiveTraceParams = {
+              mode: options.mode ?? 'monochrome',
+              threshold: options.threshold ?? 128,
+              foreground: options.foreground ?? 'dark',
+              alphaThreshold: options.alphaThreshold ?? 1,
+              minArea: options.minArea ?? 4,
+              simplifyTolerance: options.simplifyTolerance ?? 0.75,
+              maxPaths: options.maxPaths ?? 1000,
+              maxColors: options.maxColors ?? 8,
+              compoundHoles: options.compoundHoles ?? true,
+            };
+            updateDoc((d) => {
+              const withParams = setLiveTraceParamsDoc(d, processingNodeId, ltParams);
+              return setLiveTraceResolvedDoc(withParams, processingNodeId, Date.now());
+            });
+            announcerRef.current?.announce(
+              `Traced ${tracedPaths.paths.length} paths as live trace`,
+            );
+            return;
+          }
+
           const inserted = insertTraceGroup(current.document, processingNodeId, tracedPaths);
           updateDoc(() => inserted.doc);
           patch({ selection: [inserted.nodeId] });
@@ -4710,6 +4983,10 @@ export function EditorProvider({
         } catch (error) {
           if (controller.signal.aborted) throw new Error('cancelled');
           const message = error instanceof Error ? error.message : 'Unknown error';
+          // Record the error on the live-traced node if we're in liveTrace mode
+          if (options.liveTrace) {
+            updateDoc((d) => setLiveTraceErrorDoc(d, processingNodeId, message));
+          }
           announcerRef.current?.announce(`Image tracing failed: ${message}`);
           throw error;
         } finally {
@@ -4724,6 +5001,28 @@ export function EditorProvider({
         imageProcessingAbortRef.current?.abort();
         imageProcessingAbortRef.current = null;
         processingImageNodeRef.current = null;
+      },
+
+      setSelectedLiveTraceParams: (params) => {
+        const sel = stateRef.current.selection;
+        const node = sel.length > 0 ? stateRef.current.document.nodes[sel[0]!] : undefined;
+        if (node?.kind !== 'shape') {
+          announcerRef.current?.announce('Select a live-traced image layer first');
+          return;
+        }
+        updateDoc((d) => setLiveTraceParamsDoc(d, sel[0]!, params));
+        announcerRef.current?.announce('Updated live trace parameters');
+      },
+
+      flattenSelectedLiveTrace: () => {
+        const sel = stateRef.current.selection;
+        const node = sel.length > 0 ? stateRef.current.document.nodes[sel[0]!] : undefined;
+        if (node?.kind !== 'shape' || !('liveTrace' in node) || !node.liveTrace) {
+          announcerRef.current?.announce('Select a live-traced image layer first');
+          return;
+        }
+        updateDoc((d) => flattenLiveTraceDoc(d, sel[0]!));
+        announcerRef.current?.announce('Live trace flattened');
       },
 
       removeBackground: async (method) => {
@@ -4763,12 +5062,16 @@ export function EditorProvider({
             announcerRef.current?.announce('Could not load image');
             return;
           }
+          const maxDim = DEFAULT_PREVIEW_MAX_DIMENSION;
+          const scale = Math.min(1, maxDim / Math.max(w, h));
+          const extractW = Math.ceil(w * scale);
+          const extractH = Math.ceil(h * scale);
           const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
+          canvas.width = extractW;
+          canvas.height = extractH;
           const ctx = canvas.getContext('2d')!;
           try {
-            ctx.drawImage(img, 0, 0, w, h);
+            ctx.drawImage(img, 0, 0, extractW, extractH);
           } catch {
             announcerRef.current?.announce(
               'Could not render image: the image may be cross-origin (CORS blocked)',
@@ -4777,7 +5080,7 @@ export function EditorProvider({
           }
           let imageData: ImageData;
           try {
-            imageData = ctx.getImageData(0, 0, w, h);
+            imageData = ctx.getImageData(0, 0, extractW, extractH);
           } catch {
             announcerRef.current?.announce(
               'Could not read image pixels: the image source may be cross-origin (CORS blocked)',
@@ -4867,12 +5170,16 @@ export function EditorProvider({
             announcerRef.current?.announce('Could not load image');
             return;
           }
+          const maxDim = DEFAULT_PREVIEW_MAX_DIMENSION;
+          const scale = Math.min(1, maxDim / Math.max(w, h));
+          const extractW = Math.ceil(w * scale);
+          const extractH = Math.ceil(h * scale);
           const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
+          canvas.width = extractW;
+          canvas.height = extractH;
           const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, w, h);
-          const imageData = ctx.getImageData(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, extractW, extractH);
+          const imageData = ctx.getImageData(0, 0, extractW, extractH);
           const result = await import('@strata/engine').then((m) =>
             m.removeBackground(
               imageData,
@@ -5706,12 +6013,23 @@ export function EditorProvider({
       arrangeSelected: value.arrangeSelected,
       groupSelected: value.groupSelected,
       ungroupSelected: value.ungroupSelected,
+      addMaskToSelected: value.addMaskToSelected,
+      removeMaskFromSelected: value.removeMaskFromSelected,
+      toggleMask: value.toggleMask,
+      invertMask: value.invertMask,
+      setMaskFeather: value.setMaskFeather,
+      setMaskDensity: value.setMaskDensity,
+      setMaskHideSource: value.setMaskHideSource,
+      setMaskLinked: value.setMaskLinked,
+      setMaskType: value.setMaskType,
+      setMaskSourceNode: value.setMaskSourceNode,
       detachSelected: value.detachSelected,
       copySelected: value.copySelected,
       cutSelected: value.cutSelected,
       paste: value.paste,
       importNode: value.importNode,
       booleanOp: value.booleanOp,
+      booleanOpRaster: value.booleanOpRaster,
       setNodeLocked: value.setNodeLocked,
       setNodeVisible: value.setNodeVisible,
       setNodeClipContent: value.setNodeClipContent,

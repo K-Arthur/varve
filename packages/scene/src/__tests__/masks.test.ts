@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { addNode, createDocument, makeFrameNode, makeGroupNode, makeShapeNode } from '../document';
-import { isMasked, resolveMask } from '../masks';
+import {
+  addNode,
+  createDocument,
+  makeAdjustmentNode,
+  makeFrameNode,
+  makeGroupNode,
+  makeShapeNode,
+} from '../document';
+import {
+  addMask,
+  canNodeHaveMask,
+  isMasked,
+  removeMask,
+  resolveMask,
+  resolveMaskType,
+  setMaskDensity,
+  setMaskFeather,
+  setMaskHideSource,
+  setMaskInverted,
+  setMaskLinked,
+  setMaskSourceNode,
+  setMaskTransform,
+  setMaskType,
+  setMaskVisible,
+} from '../masks';
 
 describe('resolveMask', () => {
   it('returns null for non-container nodes', () => {
@@ -44,6 +67,74 @@ describe('resolveMask', () => {
     expect(mask).not.toBeNull();
     expect(mask?.type).toBe('clip');
   });
+
+  it('returns mask for adjustment nodes', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    const adj = makeAdjustmentNode('a1', 'curves', {
+      channel: 'rgb',
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+      ],
+    });
+    adj.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, adj);
+    const mask = resolveMask(adj);
+    expect(mask).not.toBeNull();
+    expect(mask?.type).toBe('alpha');
+  });
+
+  it('returns null when mask visible is false', () => {
+    const frame = makeFrameNode('f1');
+    frame.children = ['n1'];
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: false };
+    expect(resolveMask(frame)).toBeNull();
+  });
+
+  it('returns mask for luminance type', () => {
+    const frame = makeFrameNode('f1');
+    frame.children = ['n1'];
+    frame.mask = { type: 'luminance', sourceNodeId: 'n1', visible: true };
+    expect(resolveMask(frame)).not.toBeNull();
+    expect(resolveMask(frame)?.type).toBe('luminance');
+  });
+});
+
+describe('resolveMaskType', () => {
+  it('returns null for unmasked container', () => {
+    const frame = makeFrameNode('f1');
+    expect(resolveMaskType(frame)).toBeNull();
+  });
+
+  it('returns mask type for masked container', () => {
+    const frame = makeFrameNode('f1');
+    frame.children = ['n1'];
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    expect(resolveMaskType(frame)).toBe('clip');
+  });
+
+  it('returns luminance type', () => {
+    const frame = makeFrameNode('f1');
+    frame.children = ['n1'];
+    frame.mask = { type: 'luminance', sourceNodeId: 'n1', visible: true };
+    expect(resolveMaskType(frame)).toBe('luminance');
+  });
+});
+
+describe('canNodeHaveMask', () => {
+  it('returns true for frame', () => {
+    expect(canNodeHaveMask(makeFrameNode('f1'))).toBe(true);
+  });
+
+  it('returns true for group', () => {
+    expect(canNodeHaveMask(makeGroupNode('g1'))).toBe(true);
+  });
+
+  it('returns false for shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    expect(canNodeHaveMask(shape)).toBe(false);
+  });
 });
 
 describe('isMasked', () => {
@@ -64,5 +155,383 @@ describe('isMasked', () => {
     frame.children = ['n1'];
     frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: false };
     expect(isMasked(frame)).toBe(false);
+  });
+});
+
+describe('addMask', () => {
+  it('adds a clip mask to a frame', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    doc = addNode(doc, frame);
+    doc = addMask(doc, 'f1', 'n1', 'clip');
+    const updatedFrame = doc.nodes.f1 as {
+      mask?: { type?: string; sourceNodeId?: string; visible?: boolean };
+    };
+    expect(updatedFrame.mask).toBeDefined();
+    expect(updatedFrame.mask?.type).toBe('clip');
+    expect(updatedFrame.mask?.sourceNodeId).toBe('n1');
+    expect(updatedFrame.mask?.visible).toBe(true);
+  });
+
+  it('adds an alpha mask to a group', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const group = makeGroupNode('g1', { children: ['n1'] });
+    doc = addNode(doc, group);
+    doc = addMask(doc, 'g1', 'n1', 'alpha');
+    const updatedGroup = doc.nodes.g1 as { mask?: { type?: string } };
+    expect(updatedGroup.mask?.type).toBe('alpha');
+  });
+
+  it('adds a luminance mask', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    doc = addNode(doc, frame);
+    doc = addMask(doc, 'f1', 'n1', 'luminance');
+    const updatedFrame = doc.nodes.f1 as { mask?: { type?: string } };
+    expect(updatedFrame.mask?.type).toBe('luminance');
+  });
+
+  it('rejects invalid mask type', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    doc = addNode(doc, frame);
+    doc = addMask(doc, 'f1', 'n1', 'invalid' as 'clip');
+    const updatedFrame = doc.nodes.f1 as { mask?: unknown };
+    expect(updatedFrame.mask).toBeUndefined();
+  });
+
+  it('rejects when source is not a child', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1'); // no children
+    doc = addNode(doc, frame);
+    doc = addMask(doc, 'f1', 'n1', 'clip');
+    const updatedFrame = doc.nodes.f1 as { mask?: unknown };
+    expect(updatedFrame.mask).toBeUndefined();
+  });
+
+  it('rejects when source does not exist', () => {
+    const frame = makeFrameNode('f1', { children: ['nonexistent'] });
+    const doc = addNode(createDocument(), frame);
+    const result = addMask(doc, 'f1', 'nonexistent', 'clip');
+    const updatedFrame = result.nodes.f1 as { mask?: unknown };
+    expect(updatedFrame.mask).toBeUndefined();
+  });
+
+  it('accepts optional parameters (inverted, feather, density)', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    doc = addNode(doc, frame);
+    doc = addMask(doc, 'f1', 'n1', 'alpha', {
+      inverted: true,
+      feather: 5,
+      density: 0.8,
+    });
+    const updatedFrame = doc.nodes.f1 as {
+      mask?: { inverted?: boolean; feather?: number; density?: number };
+    };
+    expect(updatedFrame.mask?.inverted).toBe(true);
+    expect(updatedFrame.mask?.feather).toBe(5);
+    expect(updatedFrame.mask?.density).toBe(0.8);
+  });
+});
+
+describe('removeMask', () => {
+  it('removes an existing mask', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = removeMask(doc, 'f1');
+    const updatedFrame = doc.nodes.f1 as { mask?: unknown };
+    expect(updatedFrame.mask).toBeUndefined();
+  });
+
+  it('is idempotent (no mask to remove)', () => {
+    const frame = makeFrameNode('f1');
+    const doc = addNode(createDocument(), frame);
+    const result = removeMask(doc, 'f1');
+    expect(result).toBe(doc);
+  });
+
+  it('source node still exists after mask removal', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = removeMask(doc, 'f1');
+    expect(doc.nodes.n1).toBeDefined();
+  });
+});
+
+describe('setMaskInverted', () => {
+  it('sets inverted to true', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskInverted(doc, 'f1', true);
+    const m = (doc.nodes.f1 as { mask?: { inverted?: boolean } }).mask;
+    expect(m?.inverted).toBe(true);
+  });
+
+  it('removes inverted when set to false', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true, inverted: true };
+    doc = addNode(doc, frame);
+    doc = setMaskInverted(doc, 'f1', false);
+    const m = (doc.nodes.f1 as { mask?: { inverted?: boolean } }).mask;
+    expect(m?.inverted).toBeUndefined();
+  });
+});
+
+describe('setMaskFeather', () => {
+  it('sets feather radius', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskFeather(doc, 'f1', 10);
+    const m = (doc.nodes.f1 as { mask?: { feather?: number } }).mask;
+    expect(m?.feather).toBe(10);
+  });
+
+  it('clamps negative values to 0', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskFeather(doc, 'f1', -5);
+    const m = (doc.nodes.f1 as { mask?: { feather?: number } }).mask;
+    expect(m?.feather).toBeUndefined();
+  });
+
+  it('removes feather when set to 0', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true, feather: 5 };
+    doc = addNode(doc, frame);
+    doc = setMaskFeather(doc, 'f1', 0);
+    const m = (doc.nodes.f1 as { mask?: { feather?: number } }).mask;
+    expect(m?.feather).toBeUndefined();
+  });
+});
+
+describe('setMaskDensity', () => {
+  it('sets density to 0.5', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskDensity(doc, 'f1', 0.5);
+    const m = (doc.nodes.f1 as { mask?: { density?: number } }).mask;
+    expect(m?.density).toBe(0.5);
+  });
+
+  it('clamps density to [0, 1]', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskDensity(doc, 'f1', 1.5);
+    const m = (doc.nodes.f1 as { mask?: { density?: number } }).mask;
+    // density=1 is treated as default (undefined)
+    expect(m?.density).toBeUndefined();
+  });
+
+  it('removes density when set to 1 (full effect)', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true, density: 0.5 };
+    doc = addNode(doc, frame);
+    doc = setMaskDensity(doc, 'f1', 1);
+    const m = (doc.nodes.f1 as { mask?: { density?: number } }).mask;
+    expect(m?.density).toBeUndefined();
+  });
+});
+
+describe('setMaskVisible', () => {
+  it('toggles visible', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskVisible(doc, 'f1', false);
+    const m = (doc.nodes.f1 as { mask?: { visible?: boolean } }).mask;
+    expect(m?.visible).toBe(false);
+    doc = setMaskVisible(doc, 'f1', true);
+    const m2 = (doc.nodes.f1 as { mask?: { visible?: boolean } }).mask;
+    expect(m2?.visible).toBe(true);
+  });
+});
+
+describe('hideMaskSource', () => {
+  it('defaults to false when adding a mask', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    doc = addNode(doc, frame);
+    doc = addMask(doc, 'f1', 'n1', 'alpha');
+    const m = (doc.nodes.f1 as { mask?: { hideMaskSource?: boolean } }).mask;
+    expect(m?.hideMaskSource).toBeUndefined();
+  });
+
+  it('sets hideMaskSource to true via addMask opts', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    doc = addNode(doc, frame);
+    doc = addMask(doc, 'f1', 'n1', 'alpha', { hideMaskSource: true });
+    const m = (doc.nodes.f1 as { mask?: { hideMaskSource?: boolean } }).mask;
+    expect(m?.hideMaskSource).toBe(true);
+  });
+
+  it('toggles hideMaskSource on and off', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskHideSource(doc, 'f1', true);
+    const m1 = (doc.nodes.f1 as { mask?: { hideMaskSource?: boolean } }).mask;
+    expect(m1?.hideMaskSource).toBe(true);
+    doc = setMaskHideSource(doc, 'f1', false);
+    const m2 = (doc.nodes.f1 as { mask?: { hideMaskSource?: boolean } }).mask;
+    expect(m2?.hideMaskSource).toBeUndefined();
+  });
+});
+
+describe('setMaskLinked', () => {
+  it('unlinks mask from container', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskLinked(doc, 'f1', false);
+    const m = (doc.nodes.f1 as { mask?: { linked?: boolean } }).mask;
+    expect(m?.linked).toBe(false);
+  });
+
+  it('re-links mask to container (removes linked field)', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true, linked: false };
+    doc = addNode(doc, frame);
+    doc = setMaskLinked(doc, 'f1', true);
+    const m = (doc.nodes.f1 as { mask?: { linked?: boolean } }).mask;
+    expect(m?.linked).toBeUndefined();
+  });
+});
+
+describe('setMaskTransform', () => {
+  it('sets independent mask transform', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true, linked: false };
+    doc = addNode(doc, frame);
+    const t: [number, number, number, number, number, number] = [2, 0, 0, 2, 100, 100];
+    doc = setMaskTransform(doc, 'f1', t);
+    const m = (doc.nodes.f1 as { mask?: { transform?: number[] } }).mask;
+    expect(m?.transform).toEqual(t);
+  });
+
+  it('removes transform when set to undefined', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = {
+      type: 'clip',
+      sourceNodeId: 'n1',
+      visible: true,
+      linked: false,
+      transform: [2, 0, 0, 2, 100, 100],
+    };
+    doc = addNode(doc, frame);
+    doc = setMaskTransform(doc, 'f1', undefined);
+    const m = (doc.nodes.f1 as { mask?: { transform?: unknown } }).mask;
+    expect(m?.transform).toBeUndefined();
+  });
+});
+
+describe('setMaskType', () => {
+  it('changes mask type', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskType(doc, 'f1', 'alpha');
+    const m = (doc.nodes.f1 as { mask?: { type?: string } }).mask;
+    expect(m?.type).toBe('alpha');
+  });
+
+  it('changes to luminance', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskType(doc, 'f1', 'luminance');
+    const m = (doc.nodes.f1 as { mask?: { type?: string } }).mask;
+    expect(m?.type).toBe('luminance');
+  });
+
+  it('rejects invalid type', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskType(doc, 'f1', 'invalid' as 'clip');
+    const m = (doc.nodes.f1 as { mask?: { type?: string } }).mask;
+    expect(m?.type).toBe('clip');
+  });
+});
+
+describe('setMaskSourceNode', () => {
+  it('changes mask source node', () => {
+    const shape1 = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    const shape2 = makeShapeNode('n2', { kind: 'ellipse', cx: 25, cy: 25, rx: 20, ry: 20 });
+    let doc = addNode(createDocument(), shape1);
+    doc = addNode(doc, shape2);
+    const frame = makeFrameNode('f1', { children: ['n1', 'n2'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskSourceNode(doc, 'f1', 'n2');
+    const m = (doc.nodes.f1 as { mask?: { sourceNodeId?: string } }).mask;
+    expect(m?.sourceNodeId).toBe('n2');
+  });
+
+  it('rejects if new source is not a child', () => {
+    const shape1 = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    const shape2 = makeShapeNode('n2', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape1);
+    doc = addNode(doc, shape2);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'clip', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+    doc = setMaskSourceNode(doc, 'f1', 'n2');
+    const m = (doc.nodes.f1 as { mask?: { sourceNodeId?: string } }).mask;
+    expect(m?.sourceNodeId).toBe('n1');
   });
 });
