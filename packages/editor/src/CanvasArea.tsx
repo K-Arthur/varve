@@ -12,8 +12,12 @@
 import { useDroppable } from '@dnd-kit/core';
 import { type CompositorBackend, createCompositorBackend } from '@strata/compositor';
 import {
+  applyBackgroundBlurBackdrop,
+  applyGlassMaterialBackdrop,
+  applyLayerBlur,
   applyStyleOverrides,
   CompositeCanvas,
+  computeScreenBounds,
   createEngine,
   type Engine,
   type EngineColor,
@@ -672,6 +676,16 @@ export function CanvasArea({
     const tool = tm.current.getTool<import('./tools/TrimapEditTool').TrimapEditTool>('trimapEdit');
     tool?.setOptions(state.trimapEditOptions);
   }, [state.trimapEditOptions, state.tool]);
+
+  // Sync brush settings to the paint/eraser tool.
+  useEffect(() => {
+    if (!tm.current) return;
+    if (state.tool !== 'paint' && state.tool !== 'eraser') return;
+    const paintTool = tm.current.getTool<import('./tools/PaintTool').PaintTool>('paint');
+    const eraserTool = tm.current.getTool<import('./tools/PaintTool').PaintTool>('eraser');
+    const active = state.tool === 'eraser' ? eraserTool : paintTool;
+    active?.updatePresetFromSettings(state.brushSettings);
+  }, [state.brushSettings, state.tool]);
 
   useEffect(() => {
     if (!tm.current) return;
@@ -1696,27 +1710,15 @@ export function CanvasArea({
                   const m = targetCtx.getTransform();
                   const gx = minX - effectPadding;
                   const gy = minY - effectPadding;
-                  const corners = [
-                    [gx, gy],
-                    [gx + groupWidth, gy],
-                    [gx, gy + groupHeight],
-                    [gx + groupWidth, gy + groupHeight],
-                  ].map(([cx, cy]) => ({
-                    sx: m.a * cx + m.c * cy + m.e,
-                    sy: m.b * cx + m.d * cy + m.f,
-                  }));
-                  const screenX = Math.floor(Math.min(...corners.map((c) => c.sx)));
-                  const screenY = Math.floor(Math.min(...corners.map((c) => c.sy)));
-                  const screenW = Math.ceil(Math.max(...corners.map((c) => c.sx))) - screenX;
-                  const screenH = Math.ceil(Math.max(...corners.map((c) => c.sy))) - screenY;
-                  if (screenW > 0 && screenH > 0) {
+                  const screen = computeScreenBounds(m, gx, gy, groupWidth, groupHeight);
+                  if (screen.w > 0 && screen.h > 0) {
                     const blurPad = Math.ceil(effect.blur * 3);
                     const padX = Math.ceil(Math.abs(blurPad * m.a));
                     const padY = Math.ceil(Math.abs(blurPad * m.d));
-                    const capX = screenX - padX;
-                    const capY = screenY - padY;
-                    const capW = screenW + padX * 2;
-                    const capH = screenH + padY * 2;
+                    const capX = screen.x - padX;
+                    const capY = screen.y - padY;
+                    const capW = screen.w + padX * 2;
+                    const capH = screen.h + padY * 2;
                     const cc = new CompositeCanvas({
                       width: capW,
                       height: capH,
@@ -1733,88 +1735,7 @@ export function CanvasArea({
                       0,
                     );
                     cc.applyBlur(effect.blur);
-                    if (effect.tintOpacity > 0) {
-                      const td = cc.getImageData(0, 0, capW, capH);
-                      const px = td.data;
-                      const t = effect.tint;
-                      const tR = 'r' in t ? t.r : 'c' in t ? 0 : 0;
-                      const tG = 'g' in t ? t.g : 'm' in t ? 0 : 0;
-                      const tB = 'b' in t ? t.b : 'y' in t ? 0 : 0;
-                      const tA = effect.tintOpacity;
-                      for (let i = 0; i < px.length; i += 4) {
-                        px[i] = Math.max(0, Math.min(255, Math.round(px[i]! * (1 - tA) + tR * tA)));
-                        px[i + 1] = Math.max(
-                          0,
-                          Math.min(255, Math.round(px[i + 1]! * (1 - tA) + tG * tA)),
-                        );
-                        px[i + 2] = Math.max(
-                          0,
-                          Math.min(255, Math.round(px[i + 2]! * (1 - tA) + tB * tA)),
-                        );
-                      }
-                      cc.putImageData(td, 0, 0);
-                    }
-                    if (effect.saturation !== 1) {
-                      const sd = cc.getImageData(0, 0, capW, capH);
-                      const px = sd.data;
-                      for (let i = 0; i < px.length; i += 4) {
-                        const r = px[i]!;
-                        const g = px[i + 1]!;
-                        const b = px[i + 2]!;
-                        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                        px[i] = Math.max(
-                          0,
-                          Math.min(255, Math.round(luma + (r - luma) * effect.saturation)),
-                        );
-                        px[i + 1] = Math.max(
-                          0,
-                          Math.min(255, Math.round(luma + (g - luma) * effect.saturation)),
-                        );
-                        px[i + 2] = Math.max(
-                          0,
-                          Math.min(255, Math.round(luma + (b - luma) * effect.saturation)),
-                        );
-                      }
-                      cc.putImageData(sd, 0, 0);
-                    }
-                    if (effect.brightness !== 1) {
-                      const bd = cc.getImageData(0, 0, capW, capH);
-                      const px = bd.data;
-                      for (let i = 0; i < px.length; i += 4) {
-                        px[i] = Math.max(0, Math.min(255, Math.round(px[i]! * effect.brightness)));
-                        px[i + 1] = Math.max(
-                          0,
-                          Math.min(255, Math.round(px[i + 1]! * effect.brightness)),
-                        );
-                        px[i + 2] = Math.max(
-                          0,
-                          Math.min(255, Math.round(px[i + 2]! * effect.brightness)),
-                        );
-                      }
-                      cc.putImageData(bd, 0, 0);
-                    }
-                    if (effect.noise > 0) {
-                      const nd = cc.getImageData(0, 0, capW, capH);
-                      const px = nd.data;
-                      for (let y = 0; y < capH; y++) {
-                        for (let x = 0; x < capW; x++) {
-                          const idx = (y * capW + x) * 4;
-                          const seed = x * 374761393 + y * 668265263;
-                          const noiseVal = ((seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-                          const offset = (noiseVal - 0.5) * 2 * effect.noise * 255;
-                          px[idx] = Math.max(0, Math.min(255, Math.round(px[idx]! + offset)));
-                          px[idx + 1] = Math.max(
-                            0,
-                            Math.min(255, Math.round(px[idx + 1]! + offset)),
-                          );
-                          px[idx + 2] = Math.max(
-                            0,
-                            Math.min(255, Math.round(px[idx + 2]! + offset)),
-                          );
-                        }
-                      }
-                      cc.putImageData(nd, 0, 0);
-                    }
+                    applyGlassMaterialBackdrop(cc, capW, capH, effect);
                     targetCtx.save();
                     targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
                     targetCtx.drawImage(
@@ -1834,30 +1755,15 @@ export function CanvasArea({
                   const m = targetCtx.getTransform();
                   const gx = minX - effectPadding;
                   const gy = minY - effectPadding;
-                  const corners = [
-                    [gx, gy],
-                    [gx + groupWidth, gy],
-                    [gx, gy + groupHeight],
-                    [gx + groupWidth, gy + groupHeight],
-                  ].map(
-                    ([cx, cy]) =>
-                      ({
-                        sx: m.a * cx + m.c * cy + m.e,
-                        sy: m.b * cx + m.d * cy + m.f,
-                      }) as { sx: number; sy: number },
-                  );
-                  const screenX = Math.floor(Math.min(...corners.map((c) => c.sx)));
-                  const screenY = Math.floor(Math.min(...corners.map((c) => c.sy)));
-                  const screenW = Math.ceil(Math.max(...corners.map((c) => c.sx))) - screenX;
-                  const screenH = Math.ceil(Math.max(...corners.map((c) => c.sy))) - screenY;
-                  if (screenW > 0 && screenH > 0) {
+                  const screen = computeScreenBounds(m, gx, gy, groupWidth, groupHeight);
+                  if (screen.w > 0 && screen.h > 0) {
                     const blurPad = Math.ceil(effect.radius * 3);
                     const padX = Math.ceil(Math.abs(blurPad * m.a));
                     const padY = Math.ceil(Math.abs(blurPad * m.d));
-                    const capX = screenX - padX;
-                    const capY = screenY - padY;
-                    const capW = screenW + padX * 2;
-                    const capH = screenH + padY * 2;
+                    const capX = screen.x - padX;
+                    const capY = screen.y - padY;
+                    const capW = screen.w + padX * 2;
+                    const capH = screen.h + padY * 2;
                     const cc = new CompositeCanvas({
                       width: capW,
                       height: capH,
@@ -1873,7 +1779,7 @@ export function CanvasArea({
                       0,
                       0,
                     );
-                    cc.applyBlur(effect.radius);
+                    applyBackgroundBlurBackdrop(cc, capW, capH, effect.radius);
                     targetCtx.save();
                     targetCtx.drawImage(
                       cc.canvas as CanvasImageSource,
@@ -1904,19 +1810,28 @@ export function CanvasArea({
               targetCtx.globalAlpha = n.opacity ?? 1;
               const layerBlur = visibleGroupEffects.find((effect) => effect.type === 'layerBlur');
               if (layerBlur?.type === 'layerBlur' && layerBlur.radius > 0) {
-                targetCtx.filter = `blur(${layerBlur.radius}px)`;
+                applyLayerBlur(
+                  targetCtx,
+                  gCanvas,
+                  layerBlur.radius,
+                  minX - effectPadding,
+                  minY - effectPadding,
+                  groupWidth,
+                  groupHeight,
+                );
+              } else {
+                targetCtx.drawImage(
+                  gCanvas.canvas as CanvasImageSource,
+                  0,
+                  0,
+                  gCanvas.canvas.width,
+                  gCanvas.canvas.height,
+                  minX - effectPadding,
+                  minY - effectPadding,
+                  groupWidth,
+                  groupHeight,
+                );
               }
-              targetCtx.drawImage(
-                gCanvas.canvas as CanvasImageSource,
-                0,
-                0,
-                gCanvas.canvas.width,
-                gCanvas.canvas.height,
-                minX - effectPadding,
-                minY - effectPadding,
-                groupWidth,
-                groupHeight,
-              );
               targetCtx.restore();
             }
           } else {

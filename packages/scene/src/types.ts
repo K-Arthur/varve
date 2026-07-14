@@ -795,6 +795,25 @@ export function isContainer(node: SceneNode): node is ContainerNode {
   return node.kind === 'frame' || node.kind === 'group';
 }
 
+// ── Document base type ──────────────────────────────────────────────────────
+/**
+ * Minimal document shape shared across scene modules without importing the
+ * full `Document` type from `./document` (which would create import cycles).
+ * `Document` extends this interface.
+ */
+export interface DocumentBase {
+  nodes: Record<NodeId, SceneNode>;
+  nextId: number;
+  components: Record<NodeId, ComponentDefinition>;
+  styles?: Record<string, Style>;
+  installedLibraries?: Array<{
+    id: string;
+    name: string;
+    version: string;
+    installedAt: string;
+  }>;
+}
+
 // ── Page type ────────────────────────────────────────────────────────────────
 
 export interface Page {
@@ -802,6 +821,8 @@ export interface Page {
   name: string;
   width: number;
   height: number;
+  /** Stable fractional-indexing order key for page sequencing. */
+  order: PageOrder;
   /** Per-page bleed override (inherits from Document.bleed when unset). */
   bleed?: BleedConfig;
   /** Per-page safe area override (inherits from Document.safeArea when unset). */
@@ -814,6 +835,102 @@ export interface Page {
   contentRoot: NodeId;
   /** Optional ruler origin offset within the page (artboard-local px). */
   rulerOrigin?: { x: number; y: number };
+  /** ID of the master page applied to this page (unset = no master). */
+  masterPageId?: NodeId;
+  /** Per-node overrides against the applied master. Keyed by master node ID. */
+  masterOverrides?: Record<NodeId, MasterOverride>;
+  /** Print/export settings for this page. */
+  printSettings?: PagePrintSettings;
+}
+
+// ── Page ordering ──────────────────────────────────────────────────────────────
+
+/** Stable ordering key for pages (fractional-indexing). */
+export type PageOrder = string;
+
+// ── Page side classification ──────────────────────────────────────────────────
+
+/** Left/right page classification for facing-page spreads. */
+export type PageSide = 'left' | 'right' | 'none';
+
+// ── Master pages ──────────────────────────────────────────────────────────────
+
+export type MasterAppliesTo = 'all' | 'left' | 'right';
+
+export interface MasterPage {
+  id: NodeId;
+  name: string;
+  width: number;
+  height: number;
+  /** Group node that holds all master content as children. */
+  contentRoot: NodeId;
+  /** Whether this master applies to all, left, or right pages. */
+  appliesTo: MasterAppliesTo;
+  /** Optional description shown in the masters panel. */
+  description?: string;
+}
+
+/** How a node is overridden on a derived page. */
+export type MasterOverrideType = 'modified' | 'hidden' | 'deleted';
+
+export interface MasterOverride {
+  /** ID of the master's node that is being overridden. */
+  masterNodeId: NodeId;
+  /** Type of override. */
+  type: MasterOverrideType;
+  /** When type='modified': the replacement node (a local copy with changes). */
+  localNodeId?: NodeId;
+  /** When type='hidden': the node is invisible on this page. */
+}
+
+// ── Editorial spreads ─────────────────────────────────────────────────────────
+
+export interface Spread {
+  id: NodeId;
+  /** One page (single-page spread) or two pages (facing-page spread). */
+  pageIds: [NodeId] | [NodeId, NodeId];
+  /** Spread-level guides. */
+  guides?: Guide[];
+}
+
+// ── Facing pages configuration ────────────────────────────────────────────────
+
+export interface FacingPagesConfig {
+  enabled: boolean;
+  /** Whether the first page is on the right side (default true). */
+  startOnRight: boolean;
+  /** Whether a blank page is inserted to ensure the first page is right-side. */
+  autoInsertBlank?: boolean;
+}
+
+// ── Page numbering and sections ───────────────────────────────────────────────
+
+export type PageNumberStyle = 'decimal' | 'upperRoman' | 'lowerRoman' | 'upperAlpha' | 'lowerAlpha';
+
+export interface PageSection {
+  id: NodeId;
+  name: string;
+  /** Page order key where this section begins. */
+  startPageOrder: PageOrder;
+  /** Numbering style for this section. */
+  numberStyle: PageNumberStyle;
+  /** Starting page number (1-indexed; default 1). */
+  startNumber: number;
+  /** Whether page numbers are shown on pages in this section. */
+  showPageNumber: boolean;
+  /** Optional prefix before the number (e.g. "A-" for appendix). */
+  prefix?: string;
+}
+
+// ── Print/Export settings (per-page overrides) ─────────────────────────────────
+
+export interface PagePrintSettings {
+  /** Whether this page is excluded from export. */
+  excludeFromExport?: boolean;
+  /** Per-page DPI override. */
+  dpiOverride?: number;
+  /** Per-page rotation for export (degrees, 0/90/180/270). */
+  exportRotation?: 0 | 90 | 180 | 270;
 }
 
 export type SlotKind = 'single' | 'multiple' | 'text';
