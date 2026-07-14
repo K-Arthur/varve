@@ -4,15 +4,14 @@
 
 set -e
 
-# Do not run inside CI.
 if [ -n "$CI" ]; then
   exit 0
 fi
 
-# Fast staged-file checks.
 echo "Running pre-commit checks..."
 
 pnpm exec biome check --staged --no-errors-on-unmatched
 pnpm audit:emoji
+node scripts/audit-health.mjs --staged
 
 echo "Pre-commit checks passed."
