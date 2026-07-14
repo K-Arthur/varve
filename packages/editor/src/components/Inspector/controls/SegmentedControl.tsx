@@ -24,6 +24,8 @@ export interface SegmentedControlProps<T extends string> {
   options: readonly SegmentedOption<T>[];
   onChange: (value: T) => void;
   disabled?: boolean;
+  /** Extra class on the radiogroup (e.g. insp-segmented--distribute). */
+  className?: string;
 }
 
 export function SegmentedControl<T extends string>({
@@ -32,6 +34,7 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
   disabled = false,
+  className,
 }: SegmentedControlProps<T>) {
   const groupId = useId();
   const checkedIndex = options.findIndex((o) => o.value === value);
@@ -76,7 +79,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="insp-segmented"
+      className={className ? `insp-segmented ${className}` : 'insp-segmented'}
       data-disabled={disabled || undefined}
     >
       {options.map((opt, i) => {

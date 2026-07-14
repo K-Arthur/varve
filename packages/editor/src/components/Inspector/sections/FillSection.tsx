@@ -22,15 +22,17 @@ import type {
 } from '@strata/scene';
 import { gradientFill, imageFill, patternFill, resolveNodeFills, solidFill } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import { Icon } from '@strata/ui';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
+import { Icon, Select } from '@strata/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { GradientEditor } from '../color/GradientEditor';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
+import type { SegmentedOption } from '../controls/SegmentedControl';
+import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
 import { ImageFillControls } from './ImageFillControls';
 
@@ -60,7 +62,7 @@ const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'passThrough', label: 'Pass Through' },
 ];
 
-const FILL_TYPE_OPTIONS: { value: FillType; label: string }[] = [
+const FILL_TYPE_OPTIONS: SegmentedOption<FillType>[] = [
   { value: 'solid', label: 'Solid' },
   { value: 'gradient', label: 'Gradient' },
   { value: 'image', label: 'Image' },
@@ -102,7 +104,6 @@ export function FillSection({ nodes }: FillSectionProps) {
   } = editor;
   const [newFillType, setNewFillType] = useState<FillType>('solid');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set([0]));
-  const [openPickerFor, setOpenPickerFor] = useState<number | null>(null);
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const fills = useMemo(() => {
@@ -185,8 +186,6 @@ export function FillSection({ nodes }: FillSectionProps) {
             onChange={(f) => updateFill(i, f)}
             onRemove={() => removeFill(i)}
             onReorder={(dir) => reorderFill(i, i + dir)}
-            pickerOpen={openPickerFor === i}
-            onPickerToggle={() => setOpenPickerFor((p) => (p === i ? null : i))}
             canMoveUp={i > 0}
             canMoveDown={i < fills.length - 1}
             onEditStart={beginTransaction}
@@ -197,19 +196,14 @@ export function FillSection({ nodes }: FillSectionProps) {
       {countMixed && fills.length > 0 && (
         <div className="insp-empty-message">Some selected nodes have additional fills</div>
       )}
-      <div style={{ display: 'flex', gap: 'var(--space-1)', paddingTop: 'var(--space-1)' }}>
-        <select
-          aria-label="New fill type"
+      <div className="insp-fill-add">
+        <SegmentedControl
+          label="New fill type"
           value={newFillType}
-          className="insp-select"
-          onChange={(e) => setNewFillType(e.target.value as FillType)}
-        >
-          {FILL_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          options={FILL_TYPE_OPTIONS}
+          onChange={setNewFillType}
+          className="insp-segmented--distribute"
+        />
         <button type="button" className="insp-add-btn" onClick={addFill}>
           <Icon name="Plus" label={undefined} size="0.85em" />
           <span>Add</span>
@@ -240,8 +234,6 @@ interface FillRowProps {
   onChange: (fill: Fill) => void;
   onRemove: () => void;
   onReorder: (dir: number) => void;
-  pickerOpen: boolean;
-  onPickerToggle: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
   onEditStart?: () => void;
@@ -257,15 +249,12 @@ function FillRow({
   onChange,
   onRemove,
   onReorder,
-  pickerOpen,
-  onPickerToggle,
   canMoveUp,
   canMoveDown,
   onEditStart,
   onEditEnd,
 }: FillRowProps) {
   const label = index === 0 ? 'Fill' : `Fill ${index + 1}`;
-  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const visibleRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.visible ?? true);
   const typeRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.type ?? 'solid');
@@ -280,16 +269,44 @@ function FillRow({
     [fill, onChange],
   );
 
+  const setFillType = useCallback(
+    (newType: FillType) => {
+      if (newType === 'solid') {
+        patch({
+          type: 'solid',
+          color: fill.color ?? { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+        });
+      } else if (newType === 'gradient') {
+        patch({
+          type: 'gradient',
+          gradient: fill.gradient ?? {
+            type: 'linear',
+            stops: [
+              {
+                position: 0,
+                color: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
+              },
+              { position: 1, color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 } },
+            ],
+          },
+        });
+      } else if (newType === 'image') {
+        patch({
+          type: 'image',
+          image: fill.image ?? { src: '', fit: 'fill', x: 0, y: 0, scale: 1 },
+        });
+      } else if (newType === 'pattern') {
+        patch({
+          type: 'pattern',
+          pattern: fill.pattern ?? { tileSrc: '', spacing: 0, rotation: 0 },
+        });
+      }
+    },
+    [fill, patch],
+  );
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-        padding: 'var(--space-1) 0',
-        borderBottom: '1px solid var(--color-border-subtle)',
-      }}
-    >
+    <div className="insp-fill-row">
       <div className="insp-field">
         <button
           type="button"
@@ -299,70 +316,42 @@ function FillRow({
         >
           <Icon name={visible ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
         </button>
-        <button
-          ref={triggerRef}
-          type="button"
-          aria-label={`${label} colour`}
-          aria-haspopup="dialog"
-          aria-expanded={pickerOpen}
-          onClick={onPickerToggle}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onPickerToggle();
-            }
-          }}
-          className="insp-swatch"
-          style={{
-            background: swatchBg,
-            border: '2px solid var(--color-border-strong)',
-          }}
-        />
-        <select
-          aria-label={`${label} type`}
-          value={isMixed(typeRaw) ? '' : typeRaw}
-          className="insp-select"
-          onChange={(e) => {
-            const newType = e.target.value as FillType;
-            if (newType === 'solid') {
-              patch({
-                type: 'solid',
-                color: fill.color ?? { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
-              });
-            } else if (newType === 'gradient') {
-              patch({
-                type: 'gradient',
-                gradient: fill.gradient ?? {
-                  type: 'linear',
-                  stops: [
-                    {
-                      position: 0,
-                      color: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
-                    },
-                    { position: 1, color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 } },
-                  ],
-                },
-              });
-            } else if (newType === 'image') {
-              patch({
-                type: 'image',
-                image: fill.image ?? { src: '', fit: 'fill', x: 0, y: 0, scale: 1 },
-              });
-            } else if (newType === 'pattern') {
-              patch({
-                type: 'pattern',
-                pattern: fill.pattern ?? { tileSrc: '', spacing: 0, rotation: 0 },
-              });
-            }
-          }}
-        >
-          {isMixed(typeRaw) && <option value="">Mixed</option>}
-          {FILL_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        {fill.type === 'solid' && fill.color ? (
+          <InspectorColorPopover
+            label={`${label} colour`}
+            value={fill.color}
+            onChange={(c) => patch({ color: c })}
+            swatchStyle={{
+              background: swatchBg,
+              border: '2px solid var(--color-border-strong)',
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="insp-swatch"
+            aria-label={`${label} preview`}
+            disabled
+            style={{
+              background: swatchBg,
+              border: '2px solid var(--color-border-strong)',
+            }}
+          />
+        )}
+        <div className="insp-field__control">
+          <Select
+            label={`${label} type`}
+            value={isMixed(typeRaw) ? '' : typeRaw}
+            options={[
+              ...(isMixed(typeRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+              ...FILL_TYPE_OPTIONS,
+            ]}
+            onChange={(v) => {
+              if (v) setFillType(v as FillType);
+            }}
+            placeholder="Mixed"
+          />
+        </div>
         <button
           type="button"
           aria-label={`Move ${label} up`}
@@ -399,20 +388,7 @@ function FillRow({
         </button>
       </div>
 
-      {pickerOpen && fill.type === 'solid' && fill.color && (
-        <div
-          className="insp-picker-popover"
-          style={{
-            position: 'relative',
-            top: 'auto',
-            left: 'auto',
-          }}
-        >
-          <ColorPicker value={fill.color!} onChange={(c) => patch({ color: c })} />
-        </div>
-      )}
-
-      {expanded && fill.type === 'gradient' && fill.gradient && (
+      {fill.type === 'gradient' && fill.gradient && (
         <GradientEditor
           gradient={fill.gradient}
           onChange={(g: GradientFill) => patch({ gradient: g })}
@@ -421,14 +397,14 @@ function FillRow({
         />
       )}
 
-      {expanded && fill.type === 'image' && fill.image && (
+      {fill.type === 'image' && fill.image && (
         <ImageFillControls
           image={fill.image}
           onChange={(img: ImageFillData) => patch({ image: img })}
         />
       )}
 
-      {expanded && fill.type === 'pattern' && fill.pattern && (
+      {fill.type === 'pattern' && fill.pattern && (
         <PatternFillControls
           pattern={fill.pattern}
           onChange={(p: PatternFillData) => patch({ pattern: p })}
@@ -469,19 +445,18 @@ function FillRow({
           <div className="insp-field">
             <span className="insp-field__label">Blend</span>
             <div className="insp-field__control">
-              <select
-                aria-label={`${label} blend mode`}
+              <Select
+                label={`${label} blend mode`}
                 value={isMixed(blendRaw) ? '' : blendRaw}
-                className="insp-select"
-                onChange={(e) => patch({ blendMode: e.target.value as BlendMode })}
-              >
-                {isMixed(blendRaw) && <option value="">Mixed</option>}
-                {BLEND_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+                  ...BLEND_OPTIONS,
+                ]}
+                onChange={(v) => {
+                  if (v) patch({ blendMode: v as BlendMode });
+                }}
+                placeholder="Mixed"
+              />
             </div>
           </div>
         </div>

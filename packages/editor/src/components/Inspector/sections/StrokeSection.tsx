@@ -24,12 +24,12 @@ import type {
 import { defaultStroke } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { Icon } from '@strata/ui';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { GradientEditor } from '../color/GradientEditor';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
@@ -228,8 +228,6 @@ function StrokeRow({
   const label = index === 0 ? 'Stroke' : `Stroke ${index + 1}`;
   const editor = useEditor();
   const [showGradient, setShowGradient] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const visibleRaw = commonValue(nodes, (n) => getStroke(n, index)?.visible ?? true);
   const colorRaw = commonValue(
@@ -275,48 +273,20 @@ function StrokeRow({
         >
           <Icon name={visibility ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
         </button>
-        <button
-          ref={triggerRef}
-          type="button"
-          aria-label={`${label} colour`}
-          aria-haspopup="dialog"
-          aria-expanded={pickerOpen}
-          onClick={() => setPickerOpen((o) => !o)}
-          className="insp-swatch"
-          style={{
+        <InspectorColorPopover
+          label={`${label} colour`}
+          value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
+          onChange={(c) =>
+            onChange((s) => ({
+              ...s,
+              color: c as ManagedColor,
+            }))
+          }
+          swatchStyle={{
             background: swatchBg,
             borderColor: isMixed(colorRaw) ? 'var(--color-border-strong)' : undefined,
           }}
         />
-        {pickerOpen && triggerRef.current && (
-          <div
-            role="dialog"
-            aria-label={`Pick ${label} colour`}
-            className="insp-picker-popover"
-            style={{
-              top: triggerRef.current.getBoundingClientRect().bottom + 4,
-              left: triggerRef.current.getBoundingClientRect().left,
-            }}
-          >
-            <ColorPicker
-              value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
-              onChange={(c) =>
-                onChange((s) => ({
-                  ...s,
-                  color: c as ManagedColor,
-                }))
-              }
-            />
-            <button
-              type="button"
-              aria-label="Close colour picker"
-              onClick={() => setPickerOpen(false)}
-              className="insp-picker-done"
-            >
-              Done
-            </button>
-          </div>
-        )}
         <NumberField
           label={label}
           value={isMixed(weightRaw) ? 0 : weightRaw}
