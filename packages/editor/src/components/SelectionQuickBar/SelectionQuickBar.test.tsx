@@ -80,6 +80,35 @@ describe('SelectionQuickBar', () => {
     expect(onAction).toHaveBeenCalledWith('fitCycle');
   });
 
+  it('renders horizontal labeled chips (not icon-only cryptic bar)', () => {
+    render(
+      <SelectionQuickBar
+        profile={imageProfile}
+        screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        onAction={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Remove BG')).toBeInTheDocument();
+    expect(screen.getByText('Crop')).toBeInTheDocument();
+    expect(screen.getByText('More')).toBeInTheDocument();
+  });
+
+  it('marks active actions with aria-pressed', () => {
+    render(
+      <SelectionQuickBar
+        profile={imageProfile}
+        screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        onAction={vi.fn()}
+        activeActionIds={['flipH']}
+      />,
+    );
+    // flip is icon-only — find via aria-label
+    expect(screen.getByRole('button', { name: /flip horizontal/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   it('positions below the selection bounds', () => {
     const { container } = render(
       <SelectionQuickBar
