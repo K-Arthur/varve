@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type BrushDab,
+  compositeDabOnNode,
   createEmptyTile,
+  deserializeTiles,
   makeRasterLayerNode,
   makeTileKey,
   parseTileKey,
+  serializeTiles,
   TILE_SIZE,
   tileForPixel,
   tilesForBounds,
 } from '../rasterLayer';
-import type { SceneNode } from '../types';
+import type { RasterTile, SceneNode } from '../types';
 
 describe('RasterLayerNode', () => {
   it('creates a raster layer node with correct kind', () => {
@@ -93,5 +97,140 @@ describe('Tile utilities', () => {
     const keys = tilesForBounds(10, 10, 50, 50);
     expect(keys).toHaveLength(1);
     expect(keys[0]).toEqual({ col: 0, row: 0 });
+  });
+});
+
+describe('Tile serialization', () => {
+  it('serializes and deserializes a tile', () => {
+    const tile: RasterTile = {
+      pixels: new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4),
+      version: 1,
+    };
+    tile.pixels[0] = 255;
+    tile.pixels[1] = 128;
+    tile.pixels[2] = 64;
+    tile.pixels[3] = 255;
+    tile.pixels[4] = 10;
+    tile.pixels[5] = 20;
+
+    const tiles = new Map<string, RasterTile>();
+    tiles.set('0:0', tile);
+
+    const serialized = serializeTiles(tiles);
+    const deserialized = deserializeTiles(serialized);
+
+    expect(deserialized.size).toBe(1);
+    const restored = deserialized.get('0:0')!;
+    expect(restored.version).toBe(1);
+    expect(restored.pixels[0]).toBe(255);
+    expect(restored.pixels[1]).toBe(128);
+    expect(restored.pixels[2]).toBe(64);
+    expect(restored.pixels[3]).toBe(255);
+    expect(restored.pixels[4]).toBe(10);
+    expect(restored.pixels[5]).toBe(20);
+  });
+
+  it('serializes empty tile map', () => {
+    const tiles = new Map<string, RasterTile>();
+    const serialized = serializeTiles(tiles);
+    const deserialized = deserializeTiles(serialized);
+    expect(deserialized.size).toBe(0);
+  });
+
+  it('handles multiple tiles', () => {
+    const tiles = new Map<string, RasterTile>();
+    tiles.set('0:0', createEmptyTile());
+    tiles.set('1:0', createEmptyTile());
+    tiles.set('0:1', createEmptyTile());
+    tiles.get('0:0')!.pixels[0] = 42;
+
+    const serialized = serializeTiles(tiles);
+    const deserialized = deserializeTiles(serialized);
+    expect(deserialized.size).toBe(3);
+    expect(deserialized.get('0:0')!.pixels[0]).toBe(42);
+    expect(deserialized.get('1:0')!.pixels[0]).toBe(0);
+  });
+});
+
+describe('Tile compositing', () => {
+  it('composites a dab onto a node tile', () => {
+    const node = makeRasterLayerNode('test-comp-1', { width: 256, height: 256 });
+    const dab: BrushDab = {
+      x: 64,
+      y: 64,
+      radius: 10,
+      opacity: 1,
+      flow: 1,
+      hardness: 0.8,
+      angle: 0,
+      roundness: 1,
+      strokeT: 0,
+    };
+    const color: [number, number, number, number] = [255, 0, 0, 255];
+
+    const result = compositeDabOnNode(node, dab, color);
+    expect(result.tiles.get('0:0')).toBeDefined();
+  });
+
+  it('creates new tiles only where dabs land', () => {
+    const node = makeRasterLayerNode('test-comp-2', { width: 512, height: 512 });
+    expect(node.tiles.size).toBe(0);
+
+    const dab: BrushDab = {
+      x: 10,
+      y: 10,
+      radius: 5,
+      opacity: 1,
+      flow: 1,
+      hardness: 1,
+      angle: 0,
+      roundness: 1,
+      strokeT: 0,
+    };
+    const result = compositeDabOnNode(node, dab, [255, 255, 255, 255]);
+    expect(result.tiles.size).toBe(1);
+    expect(result.tiles.has('0:0')).toBe(true);
+  });
+
+  it('preserves immutability of original node', () => {
+    const node = makeRasterLayerNode('test-comp-3', { width: 256, height: 256 });
+    expect(node.tiles.size).toBe(0);
+
+    const dab: BrushDab = {
+      x: 50,
+      y: 50,
+      radius: 8,
+      opacity: 1,
+      flow: 1,
+      hardness: 0.9,
+      angle: 0,
+      roundness: 1,
+      strokeT: 0,
+    };
+    const result = compositeDabOnNode(node, dab, [0, 255, 0, 255]);
+
+    expect(result.tiles.size).toBe(1);
+    expect(node.tiles.size).toBe(0);
+  });
+
+  it('spans multiple tiles for large brushes', () => {
+    const node = makeRasterLayerNode('test-comp-4', { width: 512, height: 512 });
+    const dab: BrushDab = {
+      x: 120,
+      y: 120,
+      radius: 40,
+      opacity: 1,
+      flow: 1,
+      hardness: 1,
+      angle: 0,
+      roundness: 1,
+      strokeT: 0,
+    };
+
+    const result = compositeDabOnNode(node, dab, [0, 255, 0, 255]);
+    expect(result.tiles.get('0:0')).toBeDefined();
+    expect(result.tiles.get('1:0')).toBeDefined();
+    expect(result.tiles.get('0:1')).toBeDefined();
+    expect(result.tiles.get('1:1')).toBeDefined();
   });
 });
