@@ -5,6 +5,7 @@ import type { ShapeNode } from '@strata/scene';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { selectedImageShape } from '../../imageOperations';
+import { setPathClosed, simplifyPathNode } from './pathQuickOps';
 import { dispatchQuickBarAction } from './quickBarActions';
 import { type QuickBarActionId, resolveQuickBarProfile } from './resolveQuickBarProfile';
 import { SelectionQuickBar } from './SelectionQuickBar';
@@ -100,6 +101,18 @@ export function SelectionQuickBarHost({
           groupSelected: editor.groupSelected,
           booleanOp: editor.booleanOp,
           announce: editor.announce,
+          simplifySelectedPath: () => {
+            const id = state.selection[0];
+            if (!id) return;
+            editor.updateDoc((doc) => simplifyPathNode(doc, id));
+            editor.announce('Path simplified');
+          },
+          toggleSelectedPathClosed: (closed) => {
+            const id = state.selection[0];
+            if (!id) return;
+            editor.updateDoc((doc) => setPathClosed(doc, id, closed));
+            editor.announce(closed ? 'Path closed' : 'Path opened');
+          },
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Action failed';
