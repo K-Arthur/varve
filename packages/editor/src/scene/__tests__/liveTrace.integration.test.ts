@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import type { Shape } from '@strata/engine';
 import type { Document, LiveTraceParams, ShapeNode } from '@strata/scene';
 import {
@@ -9,6 +8,7 @@ import {
   setLiveTraceParams,
   setLiveTraceResolved,
 } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
 
 const defaultParams: LiveTraceParams = {
   mode: 'monochrome',

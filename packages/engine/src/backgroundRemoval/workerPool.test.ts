@@ -50,7 +50,7 @@ class MockWorker {
   }
 
   private _dispatch(data: any) {
-    const handlers = this._listeners['message'] || [];
+    const handlers = this._listeners.message || [];
     for (const fn of handlers) {
       fn({ data } as MessageEvent);
     }

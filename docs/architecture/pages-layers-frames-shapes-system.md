@@ -1,18 +1,49 @@
 # Pages, Layers, Frames, and Shapes System
 
-Last updated: 2026-07-12
+Last updated: 2026-07-14
 
 ## Current Architecture
 
-The shared document model lives in `@strata/scene` and is target-agnostic. The editor, renderer, layers tree, hit tester, export code, recovery, and platform adapters all consume the same `Document` object. The current page model is:
+The shared document model lives in `@strata/scene` and is target-agnostic. The editor, renderer, layers tree, hit tester, export code, recovery, and platform adapters all consume the same `Document` object.
+
+### Page Model v2.0
+
+The page model uses stable fractional-indexing for page ordering:
 
 - `Document.pages`: ordered `Page[]`, each with stable `Page.id`, dimensions, backgrounds, and a `contentRoot`.
+- `Page.order`: stable fractional-indexing key (`PageOrder` type) via `generateKeyBetween`. Pages are sorted by `order.localeCompare()`, not array index.
 - `Document.activePageId`: canonical active page id. This must point to a `Page.id`, not a content root node id.
 - `Page.contentRoot`: a `GroupNode` that owns the page's layer tree.
 - `Document.globalChildren`: shared nodes shown on every page.
 - `activePageNodes(doc)`: the active renderer/hit-test traversal entry point, returning globals plus the active page content root's children.
+- `activePageNodesWithMaster(doc, pageId)`: returns visible nodes including applied master content with override filtering.
 
-Frames and groups are both containers. Frames have fixed dimensions, optional clipping, layout style, strokes, effects, and component instance fields. Groups are structural containers whose bounds are derived from their children by higher-level code. Shapes remain parametric via `ShapeNode.shape` where possible.
+### Master Pages
+
+Master pages provide reusable layout templates:
+
+- `Document.masters`: `Record<NodeId, MasterPage>` — master page definitions keyed by id.
+- `MasterPage`: id, name, width, height, contentRoot (GroupNode), appliesTo ('all'|'left'|'right').
+- `Page.masterPageId`: which master is applied to this page.
+- `Page.masterOverrides`: `Record<NodeId, MasterOverride>` — per-node overrides against the applied master.
+- `MasterOverride`: type ('modified'|'hidden'|'deleted'), optional localNodeId for modified nodes.
+
+Master content propagation: `activePageNodesWithMaster` returns globals → master content (filtered by overrides) → page-local content. Modified overrides replace the master node with a local copy. Hidden/deleted overrides filter the master node.
+
+### Facing Pages & Spreads
+
+Editorial spreads for print layout:
+
+- `Document.facingPages`: `FacingPagesConfig` with enabled, startOnRight, autoInsertBlank.
+- `Document.spreads`: `Spread[]` — each spread has one or two page IDs.
+- `rebuildSpreads(doc, config?)`: sorts pages by order, pairs into spreads. `startOnRight` puts first page alone.
+- `getPageSide(doc, pageId, config)`: returns 'left', 'right', or 'none' based on spread position.
+- `PageSection`: section-aware numbering with styles (decimal/upperRoman/lowerRoman/upperAlpha/lowerAlpha) and optional prefix.
+
+### Page Numbering
+
+- `getPageNumber(doc, pageId)`: returns 1-indexed number within section.
+- `getFormattedPageNumber(doc, pageId)`: returns formatted string using section style and prefix.
 
 ## Target I/O Boundary
 

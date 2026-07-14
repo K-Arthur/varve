@@ -20,7 +20,7 @@ function normalize(dx: number, dy: number): [number, number] {
   return [dx / len, dy / len];
 }
 
-function cross(ax: number, ay: number, bx: number, by: number): number {
+function _cross(ax: number, ay: number, bx: number, by: number): number {
   return ax * by - ay * bx;
 }
 
@@ -30,7 +30,7 @@ function dot(ax: number, ay: number, bx: number, by: number): number {
 
 // ── Point helpers ───────────────────────────────────────────────────────────
 
-function ptSub(a: { x: number; y: number }, b: { x: number; y: number }): [number, number] {
+function _ptSub(a: { x: number; y: number }, b: { x: number; y: number }): [number, number] {
   return [a.x - b.x, a.y - b.y];
 }
 
@@ -405,7 +405,7 @@ function lineIntersection(
 /**
  * Sample a cubic bezier segment between two path points at N steps.
  */
-function sampleBezierSegment(
+function _sampleBezierSegment(
   a: PathPoint,
   b: PathPoint,
   steps: number,

@@ -11,8 +11,13 @@
  */
 
 import { expandGradientStops, managedColorToRgba } from '@strata/shared';
-import { gaussianBlurSeparable } from './blur';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
+import {
+  applyGlassMaterialBackdrop,
+  applyLayerBlur,
+  clampByte,
+  computeScreenBounds,
+} from './effectPipeline';
 import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss, supportsCanvasFilter } from './filters';
 import { FrameCache } from './frameCache';
@@ -278,22 +283,9 @@ function paintBackgroundBlur(
   const lh = bounds.h + pad * 2;
 
   const m = target.getTransform();
-  const mapPoint = (x: number, y: number): [number, number] => [
-    m.a * x + m.c * y + m.e,
-    m.b * x + m.d * y + m.f,
-  ];
-  const pts = [
-    mapPoint(lx, ly),
-    mapPoint(lx + lw, ly),
-    mapPoint(lx + lw, ly + lh),
-    mapPoint(lx, ly + lh),
-  ];
-  const minX = Math.floor(Math.min(...pts.map((p) => p[0])));
-  const minY = Math.floor(Math.min(...pts.map((p) => p[1])));
-  const maxX = Math.ceil(Math.max(...pts.map((p) => p[0])));
-  const maxY = Math.ceil(Math.max(...pts.map((p) => p[1])));
-  const sw = Math.max(1, maxX - minX);
-  const sh = Math.max(1, maxY - minY);
+  const screen = computeScreenBounds(m, lx, ly, lw, lh);
+  const sw = screen.w;
+  const sh = screen.h;
 
   // ── Backdrop cache lookup ─────────────────────────────────────
   const cacheKeyInput = backdropCacheKey(lx, ly, lw, lh, m, item.transform, effect.radius);
@@ -310,7 +302,7 @@ function paintBackgroundBlur(
   }
 
   const cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
-  cc.captureSource(canvas, minX, minY, sw, sh, 0, 0);
+  cc.captureSource(canvas, screen.x, screen.y, sw, sh, 0, 0);
   cc.applyBlur(effect.radius);
 
   // ── Store in cache ────────────────────────────────────────────
@@ -353,93 +345,18 @@ function paintGlassMaterial(
   const lh = bounds.h + pad * 2;
 
   const m = target.getTransform();
-  const mapPoint = (x: number, y: number): [number, number] => [
-    m.a * x + m.c * y + m.e,
-    m.b * x + m.d * y + m.f,
-  ];
-  const pts = [
-    mapPoint(lx, ly),
-    mapPoint(lx + lw, ly),
-    mapPoint(lx + lw, ly + lh),
-    mapPoint(lx, ly + lh),
-  ];
-  const minX = Math.floor(Math.min(...pts.map((p) => p[0])));
-  const minY = Math.floor(Math.min(...pts.map((p) => p[1])));
-  const maxX = Math.ceil(Math.max(...pts.map((p) => p[0])));
-  const maxY = Math.ceil(Math.max(...pts.map((p) => p[1])));
-  const sw = Math.max(1, maxX - minX);
-  const sh = Math.max(1, maxY - minY);
+  const screen = computeScreenBounds(m, lx, ly, lw, lh);
+  const sw = screen.w;
+  const sh = screen.h;
 
   const cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
-  cc.captureSource(canvas, minX, minY, sw, sh, 0, 0);
+  cc.captureSource(canvas, screen.x, screen.y, sw, sh, 0, 0);
 
   // Step 1: Blur the backdrop
   cc.applyBlur(effect.blur);
 
-  // Step 2: Apply tint (mix with tint color at tintOpacity)
-  if (effect.tintOpacity > 0) {
-    const tintData = cc.getImageData(0, 0, sw, sh);
-    const pixels = tintData.data;
-    const t = effect.tint;
-    const tR = 'r' in t ? t.r : 'c' in t ? 0 : 0;
-    const tG = 'g' in t ? t.g : 'm' in t ? 0 : 0;
-    const tB = 'b' in t ? t.b : 'y' in t ? 0 : 0;
-    const tA = effect.tintOpacity;
-    for (let i = 0; i < pixels.length; i += 4) {
-      pixels[i] = clampByte(pixels[i]! * (1 - tA) + tR * tA);
-      pixels[i + 1] = clampByte(pixels[i + 1]! * (1 - tA) + tG * tA);
-      pixels[i + 2] = clampByte(pixels[i + 2]! * (1 - tA) + tB * tA);
-    }
-    cc.putImageData(tintData, 0, 0);
-  }
-
-  // Step 3: Apply saturation adjustment
-  if (effect.saturation !== 1) {
-    const satData = cc.getImageData(0, 0, sw, sh);
-    const pixels = satData.data;
-    for (let i = 0; i < pixels.length; i += 4) {
-      const r = pixels[i]!;
-      const g = pixels[i + 1]!;
-      const b = pixels[i + 2]!;
-      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      pixels[i] = clampByte(luma + (r - luma) * effect.saturation);
-      pixels[i + 1] = clampByte(luma + (g - luma) * effect.saturation);
-      pixels[i + 2] = clampByte(luma + (b - luma) * effect.saturation);
-    }
-    cc.putImageData(satData, 0, 0);
-  }
-
-  // Step 4: Apply brightness adjustment
-  if (effect.brightness !== 1) {
-    const briData = cc.getImageData(0, 0, sw, sh);
-    const pixels = briData.data;
-    for (let i = 0; i < pixels.length; i += 4) {
-      pixels[i] = clampByte(pixels[i]! * effect.brightness);
-      pixels[i + 1] = clampByte(pixels[i + 1]! * effect.brightness);
-      pixels[i + 2] = clampByte(pixels[i + 2]! * effect.brightness);
-    }
-    cc.putImageData(briData, 0, 0);
-  }
-
-  // Step 5: Add noise/grain
-  if (effect.noise > 0) {
-    const noiseData = cc.getImageData(0, 0, sw, sh);
-    const pixels = noiseData.data;
-    // Deterministic noise seeded by x,y position for temporal stability
-    for (let y = 0; y < sh; y++) {
-      for (let x = 0; x < sw; x++) {
-        const idx = (y * sw + x) * 4;
-        // Simple hash-based noise (stable across frames)
-        const seed = x * 374761393 + y * 668265263;
-        const noiseVal = ((seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-        const offset = (noiseVal - 0.5) * 2 * effect.noise * 255;
-        pixels[idx] = clampByte(pixels[idx]! + offset);
-        pixels[idx + 1] = clampByte(pixels[idx + 1]! + offset);
-        pixels[idx + 2] = clampByte(pixels[idx + 2]! + offset);
-      }
-    }
-    cc.putImageData(noiseData, 0, 0);
-  }
+  // Steps 2-5: tint, saturation, brightness, noise (shared pipeline)
+  applyGlassMaterialBackdrop(cc, sw, sh, effect);
 
   // Composite the processed backdrop clipped to the shape
   target.save();
@@ -448,10 +365,6 @@ function paintGlassMaterial(
   if (target.clip) target.clip();
   target.drawImage(cc.canvas as unknown as CanvasImageSource, lx, ly, lw, lh);
   target.restore();
-}
-
-function clampByte(v: number): number {
-  return Math.max(0, Math.min(255, Math.round(v)));
 }
 
 /**
@@ -750,33 +663,15 @@ export function replayIr(
 
             target.save();
             target.globalAlpha = itemAlpha;
-            if (radius > 32) {
-              // Software separable blur for large radii:
-              // Capture fills to ImageData, blur in pixel space, put back, then draw.
-              const imageData = cc.getImageData(0, 0, surfaceWidth, surfaceHeight);
-              const blurred = gaussianBlurSeparable(imageData, radius);
-              cc.putImageData(blurred, 0, 0);
-              if (target.drawImage) {
-                target.drawImage(
-                  cc.canvas as unknown as CanvasImageSource,
-                  bounds.x - blurPadding,
-                  bounds.y - blurPadding,
-                  surfaceWidth,
-                  surfaceHeight,
-                );
-              }
-            } else {
-              target.filter = `blur(${radius}px)`;
-              if (target.drawImage) {
-                target.drawImage(
-                  cc.canvas as unknown as CanvasImageSource,
-                  bounds.x - blurPadding,
-                  bounds.y - blurPadding,
-                  surfaceWidth,
-                  surfaceHeight,
-                );
-              }
-            }
+            applyLayerBlur(
+              target,
+              cc,
+              radius,
+              bounds.x - blurPadding,
+              bounds.y - blurPadding,
+              surfaceWidth,
+              surfaceHeight,
+            );
             target.restore();
           }
         } else {

@@ -130,6 +130,9 @@ export function nodeLocalBounds(
   if (node.kind === 'group') {
     return null;
   }
+  if (node.kind === 'rasterLayer') {
+    return { x: 0, y: 0, w: node.width, h: node.height };
+  }
   // Adjustment nodes have no geometry — their bounds are the parent frame's bounds.
   return null;
 }

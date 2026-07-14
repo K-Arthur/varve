@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Document } from './document';
 import { addNode, createDocument, makeShapeNode } from './document';
-import type { LiveTraceParams, ShapeNode } from './types';
 import {
   bakeLiveTraceToRaster,
   clearLiveTrace,
@@ -10,6 +9,7 @@ import {
   setLiveTraceParams,
   setLiveTraceResolved,
 } from './liveTrace';
+import type { LiveTraceParams, ShapeNode } from './types';
 
 const defaultParams: LiveTraceParams = {
   mode: 'monochrome',

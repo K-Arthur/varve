@@ -1,0 +1,200 @@
+/**
+ * FontBrowser styles — flat, inspector-adjacent panel with search, filter
+ * tabs, and scrollable font list. Uses design tokens exclusively.
+ */
+
+.font-browser {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+/* ---------- Search input ---------- */
+
+.font-browser__search {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.font-browser__search-input {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.font-browser__search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.font-browser__search-input:focus-visible {
+  border-color: var(--color-interactive-focus-ring);
+  box-shadow: 0 0 0 2px oklch(0.5449 0.0866 189.77 / 0.2);
+}
+
+/* ---------- Filter tabs ---------- */
+
+.font-browser__filters {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.font-browser__filter-btn {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  text-transform: capitalize;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.font-browser__filter-btn:hover {
+  color: var(--color-text-secondary);
+}
+
+.font-browser__filter-btn--active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-interactive-default);
+}
+
+.font-browser__filter-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+/* ---------- Font list ---------- */
+
+.font-browser__list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.font-browser__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background 0.1s;
+}
+
+.font-browser__row:hover {
+  background: var(--color-interactive-hover);
+}
+
+.font-browser__row:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.font-browser__row--selected {
+  border-left-color: var(--color-accent-primary);
+  background: var(--color-accent-subtle);
+}
+
+/* ---------- Font preview ---------- */
+
+.font-browser__preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+/* ---------- Meta / badges ---------- */
+
+.font-browser__meta {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.font-browser__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  background: var(--color-surface-sunken);
+  line-height: 1.4;
+}
+
+.font-browser__badge--var {
+  color: var(--color-accent-primary);
+  font-style: italic;
+  font-weight: var(--font-weight-bold);
+}
+
+/* ---------- Footer count ---------- */
+
+.font-browser__count {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+/* ---------- Empty state ---------- */
+
+.font-browser__empty {
+  padding: var(--space-4) var(--space-2);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ---------- High-contrast / forced-colors ---------- */
+
+[data-theme="high-contrast"] .font-browser {
+  border-color: var(--color-border-strong);
+}
+
+@media (forced-colors: active) {
+  .font-browser__row--selected {
+    border-left-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .font-browser__row--selected .font-browser__preview {
+    color: HighlightText;
+  }
+
+  .font-browser__filter-btn--active {
+    border-bottom-color: Highlight;
+    color: HighlightText;
+  }
+
+  .font-browser__badge {
+    border: 1px solid ButtonText;
+  }
+}

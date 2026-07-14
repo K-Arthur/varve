@@ -1,4 +1,4 @@
-export const CURRENT_DOCUMENT_VERSION = '1.10';
+export const CURRENT_DOCUMENT_VERSION = '2.0';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -12,6 +12,7 @@ export const SUPPORTED_VERSIONS = [
   '1.8',
   '1.9',
   '1.10',
+  '2.0',
 ];
 
 export interface DocumentMigration {
@@ -242,6 +243,40 @@ const migrations: DocumentMigration[] = [
       formatVersion: '1.10',
       brushPresets: raw.brushPresets ?? undefined,
     }),
+  },
+  {
+    from: '1.10',
+    to: '2.0',
+    migrate: (raw) => {
+      const pages = (raw.pages as Record<string, unknown>[] | undefined) ?? [];
+
+      // Assign stable order keys to pages that don't have them
+      const migratedPages = pages.map((page, i) => {
+        if (!page.order) {
+          const order = `a${i.toString(36).padStart(4, '0')}`;
+          return { ...page, order };
+        }
+        return page;
+      });
+
+      // Add activePageId if missing but pages exist
+      let activePageId = raw.activePageId as string | undefined;
+      if (!activePageId && migratedPages.length > 0) {
+        activePageId = (migratedPages[0] as Record<string, unknown>).id as string;
+      }
+
+      return {
+        ...raw,
+        formatVersion: '2.0',
+        pages: migratedPages,
+        activePageId: activePageId ?? undefined,
+        // New fields default to undefined (empty records/arrays)
+        masters: raw.masters ?? undefined,
+        spreads: raw.spreads ?? undefined,
+        sections: raw.sections ?? undefined,
+        facingPages: raw.facingPages ?? undefined,
+      };
+    },
   },
 ];
 

@@ -1,0 +1,73 @@
+/**
+ * Font management subsystem — barrel export.
+ *
+ * Provides the complete font architecture: identity, catalog, parsing,
+ * providers, downloading, loading, resolution, caching, licensing,
+ * and usage tracking.
+ *
+ * Usage:
+ *   import { FontCatalog, FontResolver, FontLoader } from '@strata/engine/font';
+ */
+
+export type { FontCacheConfig, FontCacheEntry } from './fontCache';
+// Caching
+export { FontBinaryCache, FontMetadataCache } from './fontCache';
+export type {
+  FontCatalogEntry,
+  FontCatalogFilter,
+  FontCatalogSort,
+} from './fontCatalog';
+// Searchable catalog
+export { diffCatalogs, FontCatalog } from './fontCatalog';
+export type {
+  DownloadJob,
+  DownloadManagerConfig,
+  DownloadManagerEvents,
+} from './fontDownloadManager';
+// Download manager
+export { FontDownloadManager } from './fontDownloadManager';
+// Identity and types
+export type {
+  EmbeddingRights,
+  FontCategory,
+  FontFormat,
+  FontIdentity,
+  FontSourceKind,
+  ParsedAxis,
+  ParsedFontMetadata,
+  ParsedNamedInstance,
+} from './fontIdentity';
+export { detectFontFormat, fontIdentityKey, sameFontFace } from './fontIdentity';
+export type {
+  FontLicenseInfo,
+  FontOperation,
+  FontPermissions,
+  PolicyDecision,
+} from './fontLicensePolicy';
+// License policy
+export {
+  FontLicensePolicy,
+  getLicenseFromEmbeddingRights,
+  KNOWN_LICENSES,
+} from './fontLicensePolicy';
+export type { FontLoaderConfig, LoadResult } from './fontLoader';
+// Loading and registration
+export { detectSystemFonts, FontLoader } from './fontLoader';
+// Font file parsing
+export { parseFontData } from './fontParser';
+export type {
+  FontLicense,
+  FontProvider,
+  FontProviderDownload,
+  FontProviderFamily,
+  FontProviderResult,
+  FontProviderSearchOptions,
+} from './fontProviders';
+// Provider system
+export { FontProviderRegistry, GoogleFontsProvider } from './fontProviders';
+export type { FontReplacement, FontSubstitute, MissingFontInfo } from './fontResolver';
+// Missing font resolution
+export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
+export type { FontUsage } from './fontUsageIndex';
+// Document font usage tracking
+export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';

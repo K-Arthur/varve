@@ -1149,7 +1149,7 @@ describe('replayIr', () => {
     const lineWidthCalls = m.calls.filter((c) => c.startsWith('set lineWidth'));
     expect(lineWidthCalls.length).toBeGreaterThan(1);
     // At least some segments have lineWidth < 8 (from 0.2 pressure) and > 0
-    const lineWidthValues = lineWidthCalls.map((c) => m.props.lineWidth as number);
+    const lineWidthValues = lineWidthCalls.map((_c) => m.props.lineWidth as number);
     expect(lineWidthValues.some((w) => w < 8)).toBe(true);
   });
 

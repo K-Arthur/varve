@@ -1,5 +1,5 @@
 import type { StrokePoint } from '@strata/scene';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ASSIST_CONFIG,
   MirrorAssist,

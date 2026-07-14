@@ -57,7 +57,7 @@ export function setLiveTraceParams(
  */
 export function setLiveTraceResolved(doc: Document, nodeId: NodeId, resolvedAt: number): Document {
   const shape = isShapeNode(doc, nodeId);
-  if (!shape || !shape.liveTrace) return doc;
+  if (!shape?.liveTrace) return doc;
 
   return {
     ...doc,
@@ -77,7 +77,7 @@ export function setLiveTraceResolved(doc: Document, nodeId: NodeId, resolvedAt: 
  */
 export function setLiveTraceError(doc: Document, nodeId: NodeId, error: string): Document {
   const shape = isShapeNode(doc, nodeId);
-  if (!shape || !shape.liveTrace) return doc;
+  if (!shape?.liveTrace) return doc;
 
   return {
     ...doc,
@@ -99,7 +99,7 @@ export function setLiveTraceError(doc: Document, nodeId: NodeId, error: string):
  */
 export function flattenLiveTrace(doc: Document, nodeId: NodeId): Document {
   const shape = isShapeNode(doc, nodeId);
-  if (!shape || !shape.liveTrace) return doc;
+  if (!shape?.liveTrace) return doc;
 
   const { liveTrace: _removed, ...rest } = shape;
   return {
@@ -146,7 +146,7 @@ export function bakeLiveTraceToRaster(
   dimensions: { w: number; h: number },
 ): Document {
   const shape = isShapeNode(doc, nodeId);
-  if (!shape || !shape.liveTrace) return doc;
+  if (!shape?.liveTrace) return doc;
 
   // Generate a unique id for the derived node
   const derivedId = `derived_${nodeId}_${Date.now()}`;

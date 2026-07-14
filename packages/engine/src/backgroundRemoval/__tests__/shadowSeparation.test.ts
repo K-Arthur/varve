@@ -30,7 +30,7 @@ function makeImage(pixels: [number, number, number][][]): {
  * Helper: build a 1-D foreground mask (0 = BG, 255 = FG) from a 2-D matrix
  * of booleans (true = foreground).
  */
-function makeMask(pixels: boolean[][]): Uint8Array {
+function _makeMask(pixels: boolean[][]): Uint8Array {
   const height = pixels.length;
   const width = height > 0 ? pixels[0]!.length : 0;
   const mask = new Uint8Array(width * height);
