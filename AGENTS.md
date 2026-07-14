@@ -201,8 +201,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 ```
 
 ## Current test counts
-- **Rust:** 197 tests (all workspace crates): strata-bgremove 8, strata-bridge 3, strata-core 62, strata-engine 4, strata-layout 9, strata-print 93, strata-sync 10, strata-trace 8
-- **JS:** 4542 tests across 399 files — all passing. TypeScript typecheck: all packages clean (pre-existing type errors in @strata/editor remain — 44 errors across 10 files as of Session 48).
+- **Rust:** 304 tests (all workspace crates): strata-bgremove 8, strata-bridge 5, strata-colour 8, strata-core 61, strata-engine 11, strata-layout 63, strata-print 107, strata-sync 9, strata-trace 7, strata-upscale 6
+- **JS:** 5304+ tests across 482+ files. TypeScript typecheck: 17/17 packages clean (pre-existing type errors in @strata/editor remain — see Session 48).
 - **Effects engine:** 77+ tests: 34 replay-fill (was 31) + backdrop cache, 24 halftone (+Bayer, offset dispatch), 11 filterCompositor (+premultiplied alpha), 11 blur (new separable module), 19 boolean hardening (+self-intersect, degenerate, fuzz suite)
 - **Architecture health (2026-07-14 triage baseline):** Composite D (68.5/100). Avg complexity 5.9, dead code 1.9%, 191 unstable modules, 4 dependency cycles, 0 layer violations, 99.3% test reachability.
 - **Playwright E2E:** `npx playwright test tests/e2e --project=chromium` from repo root (NOT `pnpm test:e2e --filter @strata/home` — that `--filter` flag is a pnpm-workspace filter, not a Playwright test filter, and does not scope to the home suite; it's accepted but ignored). 6 spec directories under `tests/e2e/` (home, inspector, layers, spec, motion, canvas). `playwright.config.ts`'s `webServer` boots `pnpm --filter @strata/desktop dev` automatically — no need to start the dev server yourself first.
@@ -424,13 +424,13 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 | `strata-layout` | Stub | Taffy-backed flex/grid layout (task 1.3). |
 | `strata-sync` | **Built** | SQLite save/load via `DocumentStore` with `save_document()`/`load_document()`/`list_documents()` + Tauri IPC commands `sync_save`/`sync_load`. 4 tests. |
 | `strata-trace` | Stub | Auto-trace (Potrace/vtracer, task 1.7). |
-| `strata-print` | **Built** | lopdf-based `export_pdf()` (rect/circle/ellipse/line/polygon/star path operators). Wired to Tauri via `export_node_pdf` command. CMYK/PDF-X in stub. 12 tests. |
+| `strata-print` | **Built** | lopdf-based `export_pdf()` with full fill/stroke/effect rendering, CMYK/PDF-X-1a/X-4 export, font outlining + subsetting, ICC profile embedding, crop/registration marks, color bars. Image fill rendering via resource manifest (real pixels, not checkerboard). Platform-native print backends: Linux CUPS/lp, Windows PowerShell, macOS CUPS. 107 tests. |
 
 ### packages/ (TypeScript)
 | Package | Status | Contents |
 |---|---|---|
 | `@strata/engine` | **Built** | `createEngine(backend)` facade (stub/native/wasm), TypeScript IR types matching Rust, `replayIr(canvas, ir)` — the 86fps canvas2D replay, geometry helpers (affine inverse/apply, point containment, hitTest), `ReplayTarget` interface. 19 tests. |
-| `@strata/scene` | **Built** | Immutable `Document` with add/insert/remove/move/rename/reparent ops, `ShapeNode`/`TextNode`/`FrameNode`/`GroupNode` types, `groupNodes`/`ungroupNode`/`detachInstance` ops, `isContainer`/`getChildren` helpers, `ComponentDefinition` with typed `Slot[]`, `VariableStore` with modes+resolve, `slotsSatisfied()` guard. 70 tests. |
+| `@strata/scene` | **Built** | Immutable `Document` with add/insert/remove/move/rename/reparent ops, `ShapeNode`/`TextNode`/`FrameNode`/`GroupNode` types, `groupNodes`/`ungroupNode`/`detachInstance` ops, `isContainer`/`getChildren` helpers, `ComponentDefinition` with typed `Slot[]`, `VariableStore` with modes+resolve, `slotsSatisfied()` guard. Page model v2.0: stable `order` keys, `MasterPage` CRUD/assignment/overrides, `Spread` reconstruction, `FacingPagesConfig`, `PageSection` numbering, `PagePrintSettings`. 70+ tests. |
 | `@strata/ui` | **Built** | Tokens: color ramps, 3 themes, WCAG-AA audit, `tokens.css` generated from TS. Icons: typed Lucide `<Icon name label>` with a11y contract, `TOOL_ICONS` + `CHROME_ICONS` maps. Components: APG `Button` (5 variants), `IconButton`, `Toolbar` (roving tabindex), `NumberInput` (drag-to-scrub, arrow inc/dec), `components.css` (token-styled). 20 tests. |
 | `@strata/editor` | **Built** | `Shell` (CSS Grid: menubar/toolbar/canvas/layers/inspector/status), `EditorProvider` context (Document + tool state + zoom/pan + shape creation + undo/redo + editable props, shared `aria-live` announcer, `reparentNode`/`groupSelected`/`ungroupSelected`/`detachSelected` actions, prototype mode with `PrototypeRuntime` + presentation), `CanvasArea` (canvas + replayIr with hit-testing + zoom/pan + keyboard nudge + Tab cycling), `LayersPanel` (virtualized APG Tree View), `components/Prototype/` (PrototypePresenter, PrototypePlayer, DeviceFrame), `InspectorPanel` (editable position/size/fill with NumberInput scrubbing, layout/export/spec tabs), `Menubar` (platform-aware shortcuts), `shortcuts/` (ShortcutManager, useShortcuts hook, ShortcutPalette), `ToolPanel` with Select/Frame/Rect/Ellipse/Line/Pen/Text/Hand/Zoom tools, `TabStrip`, `VariablePanel`, `StatusBar`. 291 tests. |
 | `@strata/codegen` | **Built** | `exportDocumentToSvg(doc)` — standalone SVG from Document. `exportDocumentToSvgAdvanced(doc, opts, boundsOverride?)` — SVG with full options. `exportDocumentToReact(doc)` — React/Tailwind JSX. Sub-path export. `buildSpec`/`specToMarkdown`. |
@@ -845,7 +845,7 @@ Implemented from text plan:
 | `packages/editor/src/components/LayersPanel/` | Virtualized APG Tree View — LayersTree, LayersRow, useFlatTree, useTreeFocus, useTypeAhead, useAutoName, useThumbnail |
 | `packages/editor/src/clipboard.ts` | System clipboard with `ClipboardItem` (dual MIME) |
 | `packages/editor/src/InspectorPanel.tsx` | Editable position/size/fill |
-| `packages/editor/src/Menubar.tsx` | File/Edit/View dropdowns with Save/Load/Export |
+| `packages/editor/src/Menubar.tsx` | File/Edit/View/Page dropdowns with Save/Load/Export + master page and facing pages actions |
 | `packages/editor/src/shortcuts/` | ShortcutManager, useShortcuts, ShortcutPalette |
 | `packages/prototype/src/types.ts` | Full prototype type definitions (14 triggers, 13 actions, conditions, transitions) |
 | `packages/prototype/src/runtime.ts` | Prototype runtime: event→trigger→action→state pipeline |
@@ -875,6 +875,11 @@ Implemented from text plan:
 | `packages/platform/src/platform.ts` | Platform interface with saveBinaryFile, searchFiles, reorderFile, listenForChanges |
 | `pnpm-workspace.yaml` | Workspace config + allowBuilds |
 | `packages/editor/src/context/` | Sub-context architecture: `ViewportContext`, `SelectionContext`, `DocumentContext` extracted from the monolith `context.tsx` |
+| `packages/editor/src/components/MasterPanel/` | Master page management panel: list, create, rename, duplicate, delete, appliesTo selector, page status |
+| `packages/editor/src/components/SpreadSettings/` | Facing pages toggle with spread info display |
+| `apps/desktop/src-tauri/src/print.rs` | Platform-native print dispatcher (Linux/Windows/macOS) |
+| `apps/desktop/src-tauri/src/print_shared.rs` | Shared print types: Printer, PrintJobOptions, PrintJobResult |
+| `scripts/validate-pdf.sh` | veraPDF validation wrapper for CI and local use |
 
 ## Editor sub-context architecture
 
@@ -2143,3 +2148,74 @@ TDD-first investigation of 3 pre-existing issues following the methodology in `d
 - **Typecheck:** All 17 packages clean (pre-existing @strata/editor errors untouched — 44 errors across 10 files)
 - **Lint:** 0 new errors on modified files
 - **Rust:** 197/197 workspace tests pass
+
+## Session 49 — Page Model v2.0, Master Pages, Spreads, Print Backends (2026-07-14)
+
+Complete implementation of master pages, facing-page spreads, native print backends, and veraPDF validation. TDD-first with 80+ new tests.
+
+### Phase 1 — Page Model Foundations
+
+| Area | What | Files |
+|---|---|---|
+| **Stable ordering** | `Page.order: PageOrder` field using fractional-indexing (`generateKeyBetween`). Pages sorted by `order.localeCompare()` instead of array index. `generatePageOrderKey()` and `pageOrderForIndex()` helpers. | `types.ts`, `document.ts` |
+| **Master pages** | `MasterPage` type with id/name/dimensions/contentRoot/appliesTo. Full CRUD: `createMaster`, `deleteMaster`, `renameMaster`, `duplicateMaster`, `reorderMasters`. ContentRoot group nodes for master content. | `types.ts`, `document.ts` |
+| **Master assignment** | `assignMasterToPage`, `setMasterAppliesTo`. Pages carry `masterPageId` and `masterOverrides` records. | `types.ts`, `document.ts` |
+| **Master overrides** | `MasterOverride` type (modified/hidden/deleted). `addMasterOverride`, `removeMasterOverride`, `resetMasterOverrides`, `detachMasterOverride`. | `types.ts`, `document.ts` |
+| **Master propagation** | `activePageNodesWithMaster(doc, pageId)` computes visible nodes: globals → master content (filtered by overrides) → page-local content. `pageHasOverrides()`, `resolveNodeOrigin()` for 'master'|'override'|'local' classification. | `document.ts` |
+| **Editor context** | 15 new methods on `EditorContextValue`: master CRUD, assignment, spread reconstruction, page side classification, page numbering, facing pages toggle. All delegate to @strata/scene pure functions via `updateDoc`. | `context.tsx`, `context/types.ts` |
+
+### Phase 2 — Facing Pages & Spreads
+
+| Area | What | Files |
+|---|---|---|
+| **Spread reconstruction** | `rebuildSpreads(doc, facingPages?)` — sorts pages by order, pairs into spreads. `startOnRight` puts first page alone. `getSpreadForPage()`, `getPagesInSpread()`. | `document.ts` |
+| **Page side classification** | `getPageSide()`, `isPageOnLeftSide()` — determines left/right/none based on spread position and `startOnRight` config. | `document.ts` |
+| **Page numbering** | `getPageNumber()`, `getFormattedPageNumber()` — section-aware numbering with decimal/upperRoman/lowerRoman/upperAlpha/lowerAlpha styles and optional prefix. `PageSection` type. | `types.ts`, `document.ts` |
+| **FacingPagesConfig** | `enabled`, `startOnRight`, `autoInsertBlank` fields. Stored on Document, toggled via `toggleFacingPages()`. | `types.ts`, `document.ts` |
+
+### Phase 3 — UI Components
+
+| Component | What | Tests |
+|---|---|---|
+| **MasterPanel** | Master list with create, rename (double-click), duplicate, delete. Per-master appliesTo selector. Page status with override count badge. Detach action. `role="status"` on page status region. `:focus-visible` on all interactive elements. | 13 tests |
+| **SpreadSettings** | Facing pages checkbox toggle. Spread count, page side, startOnRight info. Info hidden when disabled. | 7 tests |
+| **Menubar** | Page menu: Create Master, Apply Master, Detach Master, Facing Pages. View menu: Facing Pages toggle. | — |
+| **Shell** | MasterPanel and SpreadSettings rendered in layers sidebar. | — |
+
+### Phase 4 — Native Print Backends
+
+| Backend | Implementation | Files |
+|---|---|---|
+| **Shared types** | `Printer`, `PrintJobOptions`, `PrintJobResult` structs with serde. | `print_shared.rs` |
+| **Linux** | CUPS `lp`/`lpstat`/`cancel`. Printer enumeration via `lpstat -p`. Job submission via `lp -d`. | `print_linux.rs` |
+| **Windows** | `wmic printer get` enumeration with PowerShell `Get-Printer` fallback. `Start-Process -Verb Print` for submission. `Remove-PrintJob` for cancellation. | `print_windows.rs` |
+| **macOS** | Same CUPS `lp`/`lpstat`/`cancel` (macOS ships CUPS). | `print_macos.rs` |
+| **Dispatcher** | `print.rs` rewritten as thin `#[cfg(target_os)]` dispatcher re-exporting from the correct backend. | `print.rs` |
+
+### Phase 5 — PDF/veraPDF Validation
+
+| What | Files |
+|---|---|
+| `validate-pdf.sh` — bash wrapper for veraPDF (a1b/a2b/a3b/x1a/x4 profiles, text/xml/json output) | `scripts/validate-pdf.sh` |
+| `validate-pdf.ts` — Node runner detecting veraPDF, validating fixtures, writing JSON results | `scripts/validate-pdf.ts` |
+| `generate-pdf-fixtures.sh` — documents fixture generation from `cargo test` | `scripts/generate-pdf-fixtures.sh` |
+| `pdf-validation.test.ts` — structural tests with honest unavailable detection | `packages/print/src/__tests__/` |
+| CI integration — validation step in `ci.yml` for Linux runners | `.github/workflows/ci.yml` |
+
+### Phase 6 — Version Migration
+
+| Area | What | Files |
+|---|---|---|
+| **v2.0 migration** | `1.10 → 2.0`: assigns stable `order` keys to pages, passes through masters/spreads/sections/facingPages as undefined defaults. | `version.ts` |
+| **Schema version** | `CURRENT_DOCUMENT_VERSION = '2.0'`. `SUPPORTED_VERSIONS` includes '2.0'. | `version.ts` |
+
+### Verification
+
+- **Scene tests:** 57 new master/spread/page-numbering tests passing
+- **Editor tests:** 28 new tests (13 MasterPanel + 7 SpreadSettings + 8 master context)
+- **Rust:** 304/304 workspace tests pass (strata-print: 107 with print backend tests)
+- **Typecheck:** 0 new errors across all packages
+- **Lint:** 0 errors on all modified files
+- **Emoji:** 0 violations
+- **Tokens:** 96/96 WCAG-AA
+- **Pre-existing fixes:** Popover (6 tests) and PencilTool (11 tests) failures resolved

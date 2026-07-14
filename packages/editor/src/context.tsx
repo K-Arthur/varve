@@ -32,31 +32,24 @@ export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
 
 import { getTransactionHooks } from '@strata/collab';
 import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
-import {
-  applyAffine,
-  DEFAULT_PREVIEW_MAX_DIMENSION,
-  invertAffine,
-  multiplyAffine,
-} from '@strata/engine';
+import { applyAffine, invertAffine, multiplyAffine } from '@strata/engine';
 import { type ImportFileInput, ImportService } from '@strata/import';
 import { type Platform, upsertPreservingMeta } from '@strata/platform';
 import {
   PrototypeDebugConsole,
   type PrototypeRuntime,
-  applyActionResult as protoApplyActionResult,
-  getVariable as protoGetVar,
-  handleEvent as protoHandleEvent,
   processDelays as protoProcessDelays,
-  setVariable as protoSetVar,
 } from '@strata/prototype';
 import type {
   AdjustmentNode,
   ColorMode,
   ContainerNode,
   ExportPreset,
+  FacingPagesConfig,
   InstanceStatus,
   LiveTraceParams,
   ManagedColor,
+  MasterAppliesTo,
   NodeId,
   Slot,
   SyncResult,
@@ -67,49 +60,51 @@ import {
   addComponentProperty as addComponentPropertyDoc,
   addGuide as addGuideDoc,
   addInteraction as addInteractionDoc,
-  addKeyframe,
   addMask as addMaskDoc,
   addNode,
-  addTimelineMarker as addTimelineMarkerDoc,
-  addTrack,
   addVariableToDocument,
   advanceSMTransition,
   appendFrameToChain as appendFrameToChainDoc,
-  applyMotionPreset as applyMotionPresetDoc,
   arrangeNode as arrangeNodeDoc,
+  assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
   buildParentIndexMap,
   clearGuides,
   createComponent,
   createDocument,
   createGuideId,
-  createMotionPreset as createMotionPresetDoc,
-  createStateMachineRuntime,
+  createMaster as createMasterDoc,
   createTextChain as createTextChainDoc,
-  createTimeline as createTimelineDoc,
   createVariableStore,
   createVariant as createVariantDoc,
   type Document,
   DocumentCodec,
   deepCloneSubtree,
+  deleteMaster as deleteMasterDoc,
   deleteTextChain as deleteTextChainDoc,
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
   duplicateGuide as duplicateGuideDoc,
+  duplicateMaster as duplicateMasterDoc,
   fillSlot as fillSlotDoc,
   flattenLiveTrace as flattenLiveTraceDoc,
   type Guide,
   activePageNodes as getActivePageNodes,
+  activePageNodesWithMaster as getActivePageNodesWithMaster,
   getCurrentStateTimelineId,
+  getFormattedPageNumber as getFormattedPageNumberDoc,
   getGuidesForPage,
   getInstanceStatus as getInstanceStatusDoc,
   getInteractionsForNode,
-  getNestedValue,
+  getPageNumber as getPageNumberDoc,
+  getPageSide as getPageSideDoc,
+  getSpreadForPage as getSpreadForPageDoc,
   groupNodes as groupNodesDoc,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isContainer,
+  isPageOnLeftSide as isPageOnLeftSideDoc,
   type MaskType,
   makeAdjustmentNode,
   makeFrameNode,
@@ -121,17 +116,14 @@ import {
   nextNodeId,
   pasteGuides as pasteGuidesDoc,
   pushMasterChanges as pushMasterChangesDoc,
+  rebuildSpreads as rebuildSpreadsDoc,
   removeFrameFromChain as removeFrameFromChainDoc,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
   removeMask as removeMaskDoc,
   removeNode,
-  removeTimeline as removeTimelineDoc,
-  removeTimelineMarker as removeTimelineMarkerDoc,
-  removeTrack as removeTrackDoc,
+  renameMaster as renameMasterDoc,
   renameNode,
-  renameTimeline as renameTimelineDoc,
-  renameTimelineMarker as renameTimelineMarkerDoc,
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
@@ -145,6 +137,7 @@ import {
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
+  setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
   setLiveTraceParams as setLiveTraceParamsDoc,
   setLiveTraceResolved as setLiveTraceResolvedDoc,
@@ -158,6 +151,7 @@ import {
   setMaskType as setMaskTypeDoc,
   setMaskVectorPath as setMaskVectorPathDoc,
   setMaskVisible as setMaskVisibleDoc,
+  setMasterAppliesTo as setMasterAppliesToDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
@@ -165,8 +159,8 @@ import {
   switchColorMode as switchColorModeDoc,
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
+  toggleFacingPages as toggleFacingPagesDoc,
   toggleGuideLock as toggleGuideLockDoc,
-  triggerSMEvent,
   ungroupNode as ungroupNodeDoc,
   updateInteraction as updateInteractionDoc,
   updateTrack as updateTrackDoc,
@@ -231,7 +225,14 @@ import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPu
 import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import type { DocumentContextValue } from './context/DocumentContext';
-import { DocumentProvider, SelectionProvider, ViewportProvider } from './context/index';
+import {
+  DocumentProvider,
+  MotionProvider,
+  PrototypeProvider,
+  SelectionProvider,
+  ViewportProvider,
+} from './context/index';
+import type { MotionContextValue } from './context/MotionContext';
 import type {
   CanvasMode,
   EditorState,
@@ -240,6 +241,8 @@ import type {
   SessionMeta,
   ToolId,
 } from './context/types';
+import { useBackgroundRemoval } from './context/useBackgroundRemoval';
+import { usePersistence } from './context/usePersistence';
 import { computeZoomStep, computeZoomTo } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
@@ -250,10 +253,6 @@ import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
-import { MotionFacade } from './motion/MotionFacade';
-import { createRuntimeFromDocument, interactionsMapFromDocument } from './motion/prototypeRuntime';
-import { computeSmartAnimateTransition } from './motion/smartAnimateBridge';
-import { getPrimaryStateMachineTimelineId } from './motion/stateMachineBridge';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
 import {
@@ -959,6 +958,39 @@ export interface EditorContextValue {
   /** Get node IDs visible on the active page (page content + global children). */
   activePageNodes: () => NodeId[];
 
+  /** Create a new master page with the given name and dimensions. */
+  createMaster: (name: string, width: number, height: number) => void;
+  /** Delete a master page by id. */
+  deleteMaster: (masterId: NodeId) => void;
+  /** Rename a master page. */
+  renameMaster: (masterId: NodeId, name: string) => void;
+  /** Duplicate a master page. */
+  duplicateMaster: (masterId: NodeId) => void;
+  /** Assign a master page to a specific page (null to detach). */
+  assignMasterToPage: (pageId: NodeId, masterId: NodeId | null) => void;
+  /** Set whether a master applies to all, left, or right pages. */
+  setMasterAppliesTo: (masterId: NodeId, appliesTo: MasterAppliesTo) => void;
+  /** Get nodes visible on the active page, including applied master content. */
+  activePageNodesWithMaster: () => NodeId[];
+
+  /** Rebuild spread groupings, optionally with a facing-pages config override. */
+  rebuildSpreads: (facingPages?: FacingPagesConfig) => void;
+  /** Get the spread that contains the given page id. */
+  getSpreadForPage: (pageId: NodeId) => import('./types').Spread | undefined;
+  /** Classify a page as left/right/none based on facing-pages mode. */
+  getPageSide: (pageId: NodeId) => import('./types').PageSide;
+  /** True when the page sits on the left side of a spread. */
+  isPageOnLeftSide: (pageId: NodeId) => boolean;
+  /** Get the 1-indexed page number for a page id. */
+  getPageNumber: (pageId: NodeId) => number;
+  /** Get formatted page number string (e.g. "iii", "A-1") respecting sections. */
+  getFormattedPageNumber: (pageId: NodeId) => string;
+
+  /** Toggle facing-pages mode on/off. */
+  toggleFacingPages: () => void;
+  /** Enable or disable facing-pages mode. */
+  setFacingPagesEnabled: (enabled: boolean) => void;
+
   /** Document color mode (rgb / cmyk / grayscale). */
   documentColorMode: ColorMode;
   /** Switch the document color mode, converting all colors. */
@@ -1369,43 +1401,46 @@ export function nodeWorldBoundsFn(
   return null;
 }
 
-/** Save-As implementation shared between save() and saveAs(). */
-async function saveAsImpl(
-  platform: Platform | undefined,
-  stateRef: React.MutableRefObject<EditorState>,
-  recoveryRef: React.MutableRefObject<RecoveryManager | null>,
-  patch: (partial: Partial<EditorState>) => void,
-): Promise<boolean> {
-  if (!platform) {
-    patch({ saveState: 'error' });
-    return false;
-  }
-  patch({ saveState: 'saving' });
-  try {
-    const s = stateRef.current;
-    const meta = s.sessions.find((sess) => sess.id === s.activeId);
-    const json = DocumentCodec.encode(s.document);
-    const filePath = await platform.saveDocumentToDisk(meta?.name ?? 'Untitled', json);
-    if (filePath) {
-      await recoveryRef.current?.deleteSession(s.activeId);
-      const fileId = crypto.randomUUID();
-      patch({
-        dirty: false,
-        saveState: 'saved',
-        lastSavedAt: Date.now(),
-        sessions: s.sessions.map((sess) =>
-          sess.id === s.activeId ? { ...sess, dirty: false, filePath, fileId } : sess,
-        ),
-      });
-      return true;
-    }
-    patch({ saveState: 'idle' });
-    return false;
-  } catch {
-    patch({ saveState: 'error' });
-    return false;
-  }
-}
+/** No-op fallback for motion methods used before MotionProvider mounts. */
+const MOTION_NOOP: MotionContextValue = {
+  playTimeline: () => {},
+  pauseTimeline: () => {},
+  stopTimeline: () => {},
+  seekTimeline: () => {},
+  setActiveTimeline: () => {},
+  setPlaybackSpeed: () => {},
+  toggleLoop: () => {},
+  addKeyframeToSelected: () => {},
+  createTimeline: () => '',
+  removeTimeline: () => {},
+  renameTimeline: () => {},
+  removeTrack: () => {},
+  toggleTimelinePanel: () => {},
+  addTimelineMarker: () => {},
+  removeTimelineMarker: () => {},
+  renameTimelineMarker: () => {},
+  createMotionPresetFromTimeline: () => '',
+  applyMotionPreset: () => {},
+  toggleAutoKeyframe: () => {},
+};
+
+/** No-op fallback for prototype methods used before PrototypeProvider mounts. */
+const PROTO_NOOP: import('./context/PrototypeContext').PrototypeContextValue = {
+  setPrototypeMode: () => {},
+  updatePrototypeData: () => {},
+  handlePrototypeEvent: () => {},
+  getPrototypeVariable: () => undefined,
+  setPrototypeVariable: () => {},
+  startPresentation: () => {},
+  stopPresentation: () => {},
+  getPrototypeScreens: () => [],
+  prototypeCurrentScreen: '',
+  navigatePrototypeTo: () => {},
+  prototypeTransition: null,
+  clearPrototypeTransition: () => {},
+  selectedInteractionId: null,
+  selectPrototypeInteraction: () => {},
+};
 
 export function EditorProvider({
   children,
@@ -1523,6 +1558,32 @@ export function EditorProvider({
   }
   /** Selection history for back/forward navigation. */
   const selectionHistory = useSelectionHistory();
+
+  /** Snapshot current session into the session store (for tab switching). */
+  const snapshotSession = useCallback(() => {
+    const sid = stateRef.current.activeId;
+    if (sid) {
+      sessionStoreRef.current.set(
+        sid,
+        snapshotEditorSession(
+          stateRef.current,
+          undoStackRef.current,
+          redoStackRef.current,
+          undoSelStackRef.current,
+          redoSelStackRef.current,
+        ),
+      );
+    }
+  }, [stateRef, sessionStoreRef]);
+
+  /** Reset undo/redo stacks. */
+  const resetUndo = useCallback(() => {
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    undoSelStackRef.current = [];
+    redoSelStackRef.current = [];
+  }, []);
+
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
   const txSnapshotRef = useRef<Document | null>(null);
@@ -1580,15 +1641,6 @@ export function EditorProvider({
   const toolRef = useRef<ToolId>(state.tool);
   const prototypeRuntimeRef = useRef<PrototypeRuntime | null>(null);
   const smRuntimeRef = useRef<SMRuntime | null>(null);
-  const prototypeSmartAnimateRef = useRef<ReturnType<typeof computeSmartAnimateTransition> | null>(
-    null,
-  );
-  const [prototypeTransition, setPrototypeTransition] = useState<ActivePrototypeTransition | null>(
-    null,
-  );
-  const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
-  const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
-  const motionFacadeRef = useRef<MotionFacade | null>(null);
   /** In-flight single-image background removal — aborted on selection change/unmount. */
   const bgRemovalAbortRef = useRef<AbortController | null>(null);
   const processingBgNodeRef = useRef<NodeId | null>(null);
@@ -1636,7 +1688,6 @@ export function EditorProvider({
       imageProcessingAbortRef.current = null;
       processingImageNodeRef.current = null;
       autoSaveRef.current?.stop();
-      motionFacadeRef.current?.stop();
       void import('@strata/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
     };
   }, []);
@@ -1644,6 +1695,17 @@ export function EditorProvider({
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
     [],
+  );
+
+  /** Persistence (save/load/document lifecycle). */
+  const { newDocument, serializeDocument, save, saveAs, loadDocument } = usePersistence(
+    state,
+    patch,
+    stateRef,
+    platform,
+    snapshotSession,
+    resetUndo,
+    recoveryRef,
   );
 
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
@@ -1810,6 +1872,22 @@ export function EditorProvider({
       };
     });
   }, []);
+
+  const [motionValue, setMotionValue] = useState<MotionContextValue | null>(null);
+  const [protoValue, setProtoValue] = useState<
+    import('./context/PrototypeContext').PrototypeContextValue | null
+  >(null);
+  const bgRemoval = useBackgroundRemoval(
+    state,
+    patch,
+    setState,
+    stateRef,
+    updateDoc,
+    announcerRef,
+    bgRemovalAbortRef,
+    processingBgNodeRef,
+    trimapStoreRef,
+  );
 
   const value = useMemo<EditorContextValue>(
     () => ({
@@ -3417,102 +3495,17 @@ export function EditorProvider({
         patch({ document: next, selection: nextSel ?? [] });
       },
 
-      newDocument: () => {
-        // Snapshot current session before replacing document
-        const sid = state.activeId;
-        if (sid) {
-          sessionStoreRef.current.set(
-            sid,
-            snapshotEditorSession(
-              state,
-              undoStackRef.current,
-              redoStackRef.current,
-              undoSelStackRef.current,
-              redoSelStackRef.current,
-            ),
-          );
-        }
-        undoStackRef.current = [];
-        redoStackRef.current = [];
-        undoSelStackRef.current = [];
-        redoSelStackRef.current = [];
-        patch({ document: createDocument('Untitled', true), selection: [] });
-      },
-
-      serializeDocument: () => {
-        return DocumentCodec.encode(state.document);
-      },
-
-      save: async () => {
-        if (!platform) {
-          patch({ saveState: 'error' });
-          return false;
-        }
-        patch({ saveState: 'saving' });
-        try {
-          const s = stateRef.current;
-          const meta = s.sessions.find((sess) => sess.id === s.activeId);
-          const json = DocumentCodec.encode(s.document);
-          if (meta?.fileId) {
-            await upsertPreservingMeta(platform, meta.fileId, meta.name, json);
-          } else {
-            return await saveAsImpl(platform, stateRef, recoveryRef, patch);
-          }
-          await recoveryRef.current?.deleteSession(s.activeId);
-          patch({
-            dirty: false,
-            saveState: 'saved',
-            lastSavedAt: Date.now(),
-            sessions: s.sessions.map((sess) =>
-              sess.id === s.activeId ? { ...sess, dirty: false } : sess,
-            ),
-          });
-          return true;
-        } catch {
-          patch({ saveState: 'error' });
-          return false;
-        }
-      },
-
-      saveAs: async () => {
-        return await saveAsImpl(platform, stateRef, recoveryRef, patch);
-      },
+      newDocument,
+      serializeDocument,
+      save,
+      saveAs,
 
       saveState: state.saveState,
       lastSavedAt: state.lastSavedAt,
       keyObjectId: state.keyObjectId,
       alignToPage: state.alignToPage,
 
-      loadDocument: (json, meta) => {
-        try {
-          const decoded = DocumentCodec.decode(json);
-          if (!decoded.ok) throw new Error(decoded.error);
-          const doc = decoded.document;
-          const result = validateDocument(doc);
-          if (!result.valid) {
-            if (typeof console !== 'undefined') {
-              console.warn('[Strata] loadDocument: validation warnings:', result.errors);
-            }
-          }
-          undoStackRef.current = [];
-          redoStackRef.current = [];
-          undoSelStackRef.current = [];
-          redoSelStackRef.current = [];
-          const name = meta?.name ?? doc.name;
-          const filePath = meta?.filePath;
-          const sessions = state.sessions.map((s) =>
-            s.id === state.activeId ? { ...s, name, filePath, dirty: false } : s,
-          );
-          patch({
-            document: doc,
-            selection: [],
-            sessions,
-            dirty: false,
-          });
-        } catch {
-          // invalid JSON — ignore silently
-        }
-      },
+      loadDocument,
 
       rootNodes,
 
@@ -3694,6 +3687,61 @@ export function EditorProvider({
 
       activePageNodes: () => {
         return getActivePageNodes(state.document);
+      },
+
+      // Master page methods
+      createMaster: (name, width, height) => {
+        updateDoc((doc) => createMasterDoc(doc, { name, width, height }));
+      },
+      deleteMaster: (masterId) => {
+        updateDoc((doc) => deleteMasterDoc(doc, masterId));
+      },
+      renameMaster: (masterId, name) => {
+        updateDoc((doc) => renameMasterDoc(doc, masterId, name));
+      },
+      duplicateMaster: (masterId) => {
+        updateDoc((doc) => duplicateMasterDoc(doc, masterId));
+      },
+      assignMasterToPage: (pageId, masterId) => {
+        updateDoc((doc) => assignMasterToPageDoc(doc, pageId, masterId));
+      },
+      setMasterAppliesTo: (masterId, appliesTo) => {
+        updateDoc((doc) => setMasterAppliesToDoc(doc, masterId, appliesTo));
+      },
+      activePageNodesWithMaster: () => {
+        const doc = state.document;
+        if (!doc.activePageId) return getActivePageNodes(doc);
+        return getActivePageNodesWithMaster(doc, doc.activePageId);
+      },
+
+      // Spread methods
+      rebuildSpreads: (facingPages) => {
+        updateDoc((doc) => rebuildSpreadsDoc(doc, facingPages));
+      },
+      getSpreadForPage: (pageId) => {
+        return getSpreadForPageDoc(state.document, pageId);
+      },
+      getPageSide: (pageId) => {
+        return getPageSideDoc(state.document, pageId);
+      },
+      isPageOnLeftSide: (pageId) => {
+        return isPageOnLeftSideDoc(state.document, pageId);
+      },
+
+      // Page numbering
+      getPageNumber: (pageId) => {
+        return getPageNumberDoc(state.document, pageId);
+      },
+      getFormattedPageNumber: (pageId) => {
+        return getFormattedPageNumberDoc(state.document, pageId);
+      },
+
+      // Facing pages toggle
+      toggleFacingPages: () => {
+        updateDoc((doc) => toggleFacingPagesDoc(doc));
+      },
+      setFacingPagesEnabled: (enabled) => {
+        updateDoc((doc) => setFacingPagesEnabledDoc(doc, enabled));
       },
 
       recordAction: (actionId: string) => {
@@ -5180,549 +5228,35 @@ export function EditorProvider({
         announcerRef.current?.announce('Live trace flattened');
       },
 
-      removeBackground: async (method) => {
-        const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-          '@strata/scene'
-        );
-        const imageNode = state.selection
-          .map((id) => state.document.nodes[id] as import('@strata/scene').ShapeNode | undefined)
-          .find((n) => n && isImageShape(n)) as import('@strata/scene').ShapeNode | undefined;
-        if (!imageNode) {
-          announcerRef.current?.announce('Select an image node first');
-          return;
-        }
-        const processingNodeId = imageNode.id;
-        const src = imageShapeSrc(imageNode);
-        const w = imageShapeW(imageNode);
-        const h = imageShapeH(imageNode);
-        announcerRef.current?.announce(`Removing background using ${method}...`);
-        try {
-          const { getImageCache } = await import('@strata/engine');
-          const { setBackgroundRemoval } = await import('@strata/scene');
-          const cache = getImageCache();
-          bgRemovalAbortRef.current?.abort();
-          bgRemovalAbortRef.current = new AbortController();
-          processingBgNodeRef.current = processingNodeId;
-          const signal = bgRemovalAbortRef.current.signal;
-          let img: HTMLImageElement | ImageBitmap | null = null;
-          try {
-            img = await cache.load(src);
-          } catch {
-            announcerRef.current?.announce(
-              'Could not load image: the image source may be cross-origin or unavailable',
-            );
-            return;
-          }
-          if (!img) {
-            announcerRef.current?.announce('Could not load image');
-            return;
-          }
-          const maxDim = DEFAULT_PREVIEW_MAX_DIMENSION;
-          const scale = Math.min(1, maxDim / Math.max(w, h));
-          const extractW = Math.ceil(w * scale);
-          const extractH = Math.ceil(h * scale);
-          const canvas = document.createElement('canvas');
-          canvas.width = extractW;
-          canvas.height = extractH;
-          const ctx = canvas.getContext('2d')!;
-          try {
-            ctx.drawImage(img, 0, 0, extractW, extractH);
-          } catch {
-            announcerRef.current?.announce(
-              'Could not render image: the image may be cross-origin (CORS blocked)',
-            );
-            return;
-          }
-          let imageData: ImageData;
-          try {
-            imageData = ctx.getImageData(0, 0, extractW, extractH);
-          } catch {
-            announcerRef.current?.announce(
-              'Could not read image pixels: the image source may be cross-origin (CORS blocked)',
-            );
-            return;
-          }
-          const result = await import('@strata/engine').then((m) =>
-            m.removeBackground(
-              imageData,
-              {
-                method,
-                feather: 0.5,
-                decontaminate: true,
-              },
-              signal,
-            ),
-          );
-          if (signal.aborted) return;
-          if (method !== 'quick' && result.method === 'quick') {
-            throw new Error('AI provider returned a Quick result');
-          }
-          const currentSelection = stateRef.current.selection;
-          const stillSelected = currentSelection.includes(processingNodeId);
-          if (!stillSelected) {
-            announcerRef.current?.announce(
-              'Background removal completed but the image is no longer selected',
-            );
-            return;
-          }
-          updateDoc((d) =>
-            setBackgroundRemoval(d, imageNode.id, {
-              maskDataUrl: result.maskDataUrl,
-              method: result.method,
-              confidence: result.confidence,
-              appliedAt: Date.now(),
-              feather: 0.5,
-              decontaminate: true,
-            }),
-          );
-          announcerRef.current?.announce('Background removed');
-        } catch (e) {
-          if (bgRemovalAbortRef.current?.signal.aborted) {
-            throw new Error('cancelled');
-          }
-          announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
-          throw e;
-        } finally {
-          if (processingBgNodeRef.current === processingNodeId) {
-            bgRemovalAbortRef.current = null;
-            processingBgNodeRef.current = null;
-          }
-        }
-      },
+      removeBackground: bgRemoval.removeBackground,
 
-      cancelBackgroundRemoval: () => {
-        bgRemovalAbortRef.current?.abort();
-        bgRemovalAbortRef.current = null;
-        processingBgNodeRef.current = null;
-      },
+      cancelBackgroundRemoval: bgRemoval.cancelBackgroundRemoval,
 
-      removeBackgroundWithOptions: async (method, feather, decontaminate) => {
-        const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-          '@strata/scene'
-        );
-        const imageNode = state.selection
-          .map((id) => state.document.nodes[id] as import('@strata/scene').ShapeNode | undefined)
-          .find((n) => n && isImageShape(n)) as import('@strata/scene').ShapeNode | undefined;
-        if (!imageNode) {
-          announcerRef.current?.announce('Select an image node first');
-          return;
-        }
-        const processingNodeId = imageNode.id;
-        const src = imageShapeSrc(imageNode);
-        const w = imageShapeW(imageNode);
-        const h = imageShapeH(imageNode);
-        announcerRef.current?.announce(`Removing background using ${method}...`);
-        try {
-          const { getImageCache } = await import('@strata/engine');
-          const { setBackgroundRemoval } = await import('@strata/scene');
-          const cache = getImageCache();
-          bgRemovalAbortRef.current?.abort();
-          bgRemovalAbortRef.current = new AbortController();
-          processingBgNodeRef.current = processingNodeId;
-          const signal = bgRemovalAbortRef.current.signal;
-          const img = await cache.load(src);
-          if (!img) {
-            announcerRef.current?.announce('Could not load image');
-            return;
-          }
-          const maxDim = DEFAULT_PREVIEW_MAX_DIMENSION;
-          const scale = Math.min(1, maxDim / Math.max(w, h));
-          const extractW = Math.ceil(w * scale);
-          const extractH = Math.ceil(h * scale);
-          const canvas = document.createElement('canvas');
-          canvas.width = extractW;
-          canvas.height = extractH;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, extractW, extractH);
-          const imageData = ctx.getImageData(0, 0, extractW, extractH);
-          const result = await import('@strata/engine').then((m) =>
-            m.removeBackground(
-              imageData,
-              {
-                method,
-                feather,
-                decontaminate,
-              },
-              signal,
-            ),
-          );
-          if (signal.aborted) return;
-          if (method !== 'quick' && result.method === 'quick') {
-            throw new Error('AI provider returned a Quick result');
-          }
+      removeBackgroundWithOptions: bgRemoval.removeBackgroundWithOptions,
 
-          const { finalizeMaskResult } = await import('@strata/engine');
-          const finalized = await finalizeMaskResult(result, { promptIfMultiple: true });
+      setShowOriginalBg: bgRemoval.setShowOriginalBg,
 
-          if (finalized.needsSubjectPicker && finalized.components) {
-            patch({
-              subjectPickerSession: {
-                nodeId: imageNode.id,
-                width: finalized.width,
-                height: finalized.height,
-                components: finalized.components,
-                keepIds: finalized.components[0] ? [finalized.components[0].id] : [],
-                pendingMaskDataUrl: finalized.maskDataUrl,
-                method: finalized.method,
-                confidence: finalized.confidence,
-                feather,
-                decontaminate,
-              },
-            });
-            announcerRef.current?.announce(
-              'Multiple subjects detected — pick which regions to keep',
-            );
-            return;
-          }
+      setRefineMaskOptions: bgRemoval.setRefineMaskOptions,
 
-          updateDoc((d) =>
-            setBackgroundRemoval(d, imageNode.id, {
-              maskDataUrl: finalized.maskDataUrl,
-              method: finalized.method,
-              confidence: finalized.confidence,
-              appliedAt: Date.now(),
-              feather,
-              decontaminate,
-            }),
-          );
-          announcerRef.current?.announce('Background removed');
-        } catch (e) {
-          if (bgRemovalAbortRef.current?.signal.aborted) {
-            throw new Error('cancelled');
-          }
-          announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
-          throw e;
-        } finally {
-          if (processingBgNodeRef.current === processingNodeId) {
-            bgRemovalAbortRef.current = null;
-            processingBgNodeRef.current = null;
-          }
-        }
-      },
+      setTrimapEditOptions: bgRemoval.setTrimapEditOptions,
 
-      setShowOriginalBg: (nodeId) => {
-        patch({ showOriginalBgNodeId: nodeId });
-      },
+      setBrushSetting: bgRemoval.setBrushSetting,
 
-      setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => {
-        setState((s) => ({
-          ...s,
-          refineMaskOptions: { ...s.refineMaskOptions, ...opts },
-        }));
-      },
+      confirmSubjectPicker: bgRemoval.confirmSubjectPicker,
 
-      setTrimapEditOptions: (
-        opts: Partial<{
-          brushSize: number;
-          hardness: number;
-          penMode: import('./context/types').TrimapPenMode;
-        }>,
-      ) => {
-        setState((s) => ({
-          ...s,
-          trimapEditOptions: { ...s.trimapEditOptions, ...opts },
-        }));
-      },
+      cancelSubjectPicker: bgRemoval.cancelSubjectPicker,
 
-      setBrushSetting: <K extends keyof EditorState['brushSettings']>(
-        key: K,
-        value: EditorState['brushSettings'][K],
-      ) => {
-        setState((s) => ({
-          ...s,
-          brushSettings: { ...s.brushSettings, [key]: value },
-        }));
-      },
+      refineHairEdges: bgRemoval.refineHairEdges,
 
-      confirmSubjectPicker: (keepIds: number[]) => {
-        const session = stateRef.current.subjectPickerSession;
-        if (!session) return;
-        void (async () => {
-          const { decodeMaskDataUrl, filterMaskByComponents, maskArrayToDataUrl } = await import(
-            '@strata/engine'
-          );
-          const { setBackgroundRemoval } = await import('@strata/scene');
-          const { mask, width, height } = await decodeMaskDataUrl(session.pendingMaskDataUrl);
-          const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
-          updateDoc((d) =>
-            setBackgroundRemoval(d, session.nodeId, {
-              maskDataUrl: maskArrayToDataUrl(filtered, width, height),
-              method: session.method,
-              confidence: session.confidence,
-              appliedAt: Date.now(),
-              feather: session.feather,
-              decontaminate: session.decontaminate,
-            }),
-          );
-          patch({ subjectPickerSession: null });
-          announcerRef.current?.announce(`Kept ${keepIds.length} subject(s)`);
-        })();
-      },
+      startTrimapEdit: bgRemoval.startTrimapEdit,
 
-      cancelSubjectPicker: () => {
-        patch({ subjectPickerSession: null });
-        announcerRef.current?.announce('Subject selection cancelled');
-      },
+      applyTrimapMatting: bgRemoval.applyTrimapMatting,
 
-      refineHairEdges: async () => {
-        const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-          '@strata/scene'
-        );
-        const imageNode = state.selection
-          .map((id) => state.document.nodes[id] as import('@strata/scene').ShapeNode | undefined)
-          .find((n) => n && isImageShape(n) && n.backgroundRemoval?.maskDataUrl) as
-          | import('@strata/scene').ShapeNode
-          | undefined;
-        if (!imageNode?.backgroundRemoval?.maskDataUrl) {
-          announcerRef.current?.announce('Apply background removal first');
-          return;
-        }
-        try {
-          const { decodeMaskDataUrl, getImageCache, maskArrayToDataUrl, refineHairMatting } =
-            await import('@strata/engine');
-          const { setBackgroundRemoval } = await import('@strata/scene');
-          const w = imageShapeW(imageNode);
-          const h = imageShapeH(imageNode);
-          const img = await getImageCache().load(imageShapeSrc(imageNode));
-          if (!img) {
-            announcerRef.current?.announce('Could not load image');
-            return;
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, w, h);
-          const imageData = ctx.getImageData(0, 0, w, h);
-          const { mask } = await decodeMaskDataUrl(imageNode.backgroundRemoval.maskDataUrl);
-          const refined = refineHairMatting(imageData, mask);
-          updateDoc((d) =>
-            setBackgroundRemoval(d, imageNode.id, {
-              ...imageNode.backgroundRemoval!,
-              maskDataUrl: maskArrayToDataUrl(refined, w, h),
-              appliedAt: Date.now(),
-            }),
-          );
-          announcerRef.current?.announce('Hair/fur edges refined');
-        } catch (e) {
-          announcerRef.current?.announce(`Edge refinement failed: ${(e as Error).message}`);
-        }
-      },
+      getTrimapData: bgRemoval.getTrimapData,
 
-      startTrimapEdit: () => {
-        const nodeId = state.selection[0];
-        if (!nodeId) {
-          announcerRef.current?.announce('Select an image first');
-          return;
-        }
-        patch({ tool: 'trimapEdit' });
-        announcerRef.current?.announce(
-          'Trimap edit: 1=foreground, 2=unknown, 3=background. Escape to finish.',
-        );
-      },
+      setTrimapData: bgRemoval.setTrimapData,
 
-      applyTrimapMatting: async () => {
-        const nodeId = state.selection[0];
-        if (!nodeId) return;
-        const trimapEntry = trimapStoreRef.current.get(nodeId);
-        const node = state.document.nodes[nodeId] as import('@strata/scene').ShapeNode | undefined;
-        if (!trimapEntry || !node?.backgroundRemoval) {
-          announcerRef.current?.announce('Paint a trimap first');
-          return;
-        }
-        try {
-          const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-            '@strata/scene'
-          );
-          if (!isImageShape(node)) return;
-          const { getImageCache, maskArrayToDataUrl, solveTrimapMatting } = await import(
-            '@strata/engine'
-          );
-          const { setBackgroundRemoval } = await import('@strata/scene');
-          const w = imageShapeW(node);
-          const h = imageShapeH(node);
-          const img = await getImageCache().load(imageShapeSrc(node));
-          if (!img) {
-            announcerRef.current?.announce('Could not load image');
-            return;
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, w, h);
-          const imageData = ctx.getImageData(0, 0, w, h);
-          const matte = solveTrimapMatting(imageData, trimapEntry.data);
-          updateDoc((d) =>
-            setBackgroundRemoval(d, nodeId, {
-              ...node.backgroundRemoval!,
-              maskDataUrl: maskArrayToDataUrl(matte, w, h),
-              appliedAt: Date.now(),
-            }),
-          );
-          trimapStoreRef.current.delete(nodeId);
-          patch({ tool: 'select' });
-          announcerRef.current?.announce('Trimap matting applied');
-        } catch (e) {
-          announcerRef.current?.announce(`Trimap matting failed: ${(e as Error).message}`);
-        }
-      },
-
-      getTrimapData: (nodeId: NodeId) => trimapStoreRef.current.get(nodeId) ?? null,
-
-      setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => {
-        trimapStoreRef.current.set(nodeId, { data, width, height });
-      },
-
-      setPrototypeMode: (active) => {
-        patch({ prototypeMode: active });
-        if (active) {
-          const doc = stateRef.current.document;
-          const { runtime, entryScreenId } = createRuntimeFromDocument(doc);
-          prototypeRuntimeRef.current = runtime;
-          const smIds = Object.keys(doc.stateMachines ?? {});
-          smRuntimeRef.current = smIds[0] ? createStateMachineRuntime(doc, smIds[0]) : null;
-          patch({
-            prototypeRuntime: runtime,
-            prototypeData: {
-              interactions: interactionsMapFromDocument(doc),
-            },
-          });
-          setPrototypeCurrentScreen(entryScreenId);
-        } else {
-          prototypeRuntimeRef.current = null;
-          smRuntimeRef.current = null;
-          patch({ prototypeRuntime: null });
-        }
-      },
-
-      updatePrototypeData: () => {
-        const { runtime, entryScreenId } = createRuntimeFromDocument(stateRef.current.document);
-        prototypeRuntimeRef.current = runtime;
-        patch({
-          prototypeRuntime: runtime,
-          prototypeData: {
-            interactions: interactionsMapFromDocument(stateRef.current.document),
-          },
-        });
-        setPrototypeCurrentScreen(entryScreenId);
-      },
-
-      handlePrototypeEvent: (event) => {
-        const runtime = prototypeRuntimeRef.current;
-        if (!runtime) return;
-        const fromScreenId = runtime.state.currentScreenId;
-        const results = protoHandleEvent(runtime, event as Parameters<typeof protoHandleEvent>[1]);
-        for (const result of results) {
-          for (const actionResult of result.actionResults) {
-            if (actionResult.kind === 'navigateTo') {
-              const transition = actionResult.transition;
-              let smartValues: Record<string, Record<string, unknown>> | undefined;
-              if (transition.kind === 'smartAnimate') {
-                const sa = computeSmartAnimateTransition(
-                  stateRef.current.document,
-                  fromScreenId,
-                  actionResult.targetId,
-                );
-                prototypeSmartAnimateRef.current = sa;
-                smartValues = sa?.values;
-              }
-              if (transition.kind !== 'instant') {
-                setPrototypeTransition({
-                  fromScreenId,
-                  toScreenId: actionResult.targetId,
-                  transition,
-                  smartAnimateValues: smartValues,
-                  layerMatches: prototypeSmartAnimateRef.current?.matches,
-                  startedAt: performance.now(),
-                });
-              }
-            }
-            protoApplyActionResult(runtime, actionResult);
-          }
-        }
-
-        if (smRuntimeRef.current) {
-          const ev = event as { type?: string };
-          if (ev.type === 'click') {
-            smRuntimeRef.current = triggerSMEvent(smRuntimeRef.current, 'onClick');
-            const tlId = getCurrentStateTimelineId(smRuntimeRef.current);
-            if (tlId) {
-              patch({
-                motion: { ...stateRef.current.motion, activeTimelineId: tlId, currentTime: 0 },
-              });
-            }
-          }
-        }
-
-        setPrototypeCurrentScreen(runtime.state.currentScreenId);
-      },
-
-      getPrototypeVariable: (id) => {
-        const runtime = prototypeRuntimeRef.current;
-        if (!runtime) return undefined;
-        return protoGetVar(runtime, id);
-      },
-
-      setPrototypeVariable: (id, value) => {
-        const runtime = prototypeRuntimeRef.current;
-        if (runtime) protoSetVar(runtime, id, value);
-        updateDoc((doc) => {
-          const v = doc.variableStore?.variables[id];
-          if (!v) return doc;
-          const mode = doc.variableStore?.activeMode ?? 'default';
-          return updateVariableInDocument(doc, id, {
-            valuesByMode: { ...v.valuesByMode, [mode]: value },
-          });
-        });
-      },
-
-      startPresentation: () => {
-        const doc = stateRef.current.document;
-        const { runtime, entryScreenId } = createRuntimeFromDocument(doc);
-        prototypeRuntimeRef.current = runtime;
-        const smIds = Object.keys(doc.stateMachines ?? {});
-        smRuntimeRef.current = smIds[0] ? createStateMachineRuntime(doc, smIds[0]) : null;
-        const smTimelineId = getPrimaryStateMachineTimelineId(doc);
-        patch({
-          isPresenting: true,
-          prototypeRuntime: runtime,
-          prototypeData: {
-            interactions: interactionsMapFromDocument(doc),
-          },
-          ...(smTimelineId
-            ? {
-                motion: {
-                  ...stateRef.current.motion,
-                  activeTimelineId: smTimelineId,
-                  currentTime: 0,
-                  isPlaying: false,
-                },
-              }
-            : {}),
-        });
-        updateDoc((d) => (smTimelineId ? setActiveTimelineDoc(d, smTimelineId) : d));
-        setPrototypeCurrentScreen(entryScreenId);
-      },
-
-      stopPresentation: () => {
-        patch({ isPresenting: false });
-      },
-
-      getPrototypeScreens: () => {
-        return Object.values(state.document.nodes)
-          .filter((n): n is import('@strata/scene').FrameNode => n.kind === 'frame')
-          .map((n) => ({ id: n.id, name: n.name }));
-      },
-
-      prototypeCurrentScreen,
-      navigatePrototypeTo: (screenId) => {
-        const runtime = prototypeRuntimeRef.current;
-        if (runtime) {
-          runtime.state.currentScreenId = screenId;
-        }
-        setPrototypeCurrentScreen(screenId);
-      },
+      ...(protoValue ?? PROTO_NOOP),
 
       getNodeInteractions: (nodeId) => {
         return getInteractionsForNode(stateRef.current.document, nodeId);
@@ -5740,158 +5274,7 @@ export function EditorProvider({
         updateDoc((doc) => updateInteractionDoc(doc, interactionId, updates));
       },
 
-      selectedInteractionId,
-      selectPrototypeInteraction: (nodeId, interactionId) => {
-        setSelectedInteractionId(interactionId);
-        patch({ selection: [nodeId] });
-      },
-
-      prototypeTransition,
-      clearPrototypeTransition: () => setPrototypeTransition(null),
-
-      playTimeline: (timelineId) => {
-        const s = stateRef.current;
-        const tlId = timelineId ?? s.motion.activeTimelineId;
-        if (!tlId) return;
-        const timeline = s.document.timelines?.[tlId];
-        if (!timeline) return;
-
-        let facade = motionFacadeRef.current;
-        if (!facade) {
-          facade = new MotionFacade({
-            onFrame: (time) => {
-              patch({ motion: { ...stateRef.current.motion, currentTime: time } });
-            },
-            onFinish: () => {
-              patch({ motion: { ...stateRef.current.motion, isPlaying: false } });
-            },
-          });
-          motionFacadeRef.current = facade;
-        }
-
-        facade.setLoop(s.motion.loop);
-        facade.setSpeed(s.motion.playbackSpeed);
-        facade.play(timeline);
-        patch({ motion: { ...s.motion, isPlaying: true, activeTimelineId: tlId } });
-      },
-
-      pauseTimeline: () => {
-        motionFacadeRef.current?.pause();
-        patch({ motion: { ...stateRef.current.motion, isPlaying: false } });
-      },
-
-      stopTimeline: () => {
-        motionFacadeRef.current?.stop();
-        patch({ motion: { ...stateRef.current.motion, isPlaying: false, currentTime: 0 } });
-      },
-
-      seekTimeline: (time) => {
-        const clamped = Math.max(0, time);
-        motionFacadeRef.current?.seek(clamped);
-        patch({ motion: { ...stateRef.current.motion, currentTime: clamped } });
-      },
-
-      setActiveTimeline: (id) => {
-        updateDoc((doc) => setActiveTimelineDoc(doc, id));
-        motionFacadeRef.current?.stop();
-        patch({
-          motion: {
-            ...stateRef.current.motion,
-            activeTimelineId: id,
-            currentTime: 0,
-            isPlaying: false,
-          },
-        });
-      },
-
-      setPlaybackSpeed: (speed) => {
-        motionFacadeRef.current?.setSpeed(speed);
-        patch({ motion: { ...stateRef.current.motion, playbackSpeed: speed } });
-      },
-
-      toggleLoop: () => {
-        const nextLoop = !stateRef.current.motion.loop;
-        motionFacadeRef.current?.setLoop(nextLoop);
-        patch({ motion: { ...stateRef.current.motion, loop: nextLoop } });
-      },
-
-      addKeyframeToSelected: (property) => {
-        const tlId = state.motion.activeTimelineId;
-        if (!tlId || state.selection.length === 0) return;
-        updateDoc((doc) => {
-          let d = doc;
-          const timeline = d.timelines?.[tlId];
-          if (!timeline) return d;
-          const progress = timeline.duration > 0 ? state.motion.currentTime / timeline.duration : 0;
-          for (const nodeId of state.selection) {
-            const node = d.nodes[nodeId];
-            if (!node) continue;
-            const existingTrack = timeline.tracks.find(
-              (t) => t.nodeId === nodeId && t.property === property,
-            );
-            if (existingTrack) {
-              d = addKeyframe(d, tlId, existingTrack.id, {
-                progress,
-                value: getPropertyValueAt(node, property),
-              });
-            } else {
-              const { doc: d2, trackId } = addTrack(d, tlId, nodeId, property);
-              d = addKeyframe(d2, tlId, trackId, {
-                progress,
-                value: getPropertyValueAt(node, property),
-              });
-            }
-          }
-          return d;
-        });
-        invalidateSamplerCache();
-      },
-
-      createTimeline: (name = 'Timeline 1', duration = 5000) => {
-        let newId = '';
-        updateDoc((doc) => {
-          const { doc: next, id } = createTimelineDoc(doc, name, duration);
-          newId = id;
-          return setActiveTimelineDoc(next, id);
-        });
-        invalidateSamplerCache();
-        motionFacadeRef.current?.stop();
-        patch({
-          motion: {
-            ...stateRef.current.motion,
-            activeTimelineId: newId,
-            currentTime: 0,
-            isPlaying: false,
-          },
-        });
-        return newId;
-      },
-
-      removeTimeline: (id) => {
-        const wasActive = stateRef.current.motion.activeTimelineId === id;
-        updateDoc((doc) => removeTimelineDoc(doc, id));
-        invalidateSamplerCache();
-        if (wasActive) {
-          motionFacadeRef.current?.stop();
-          patch({
-            motion: {
-              ...stateRef.current.motion,
-              activeTimelineId: null,
-              currentTime: 0,
-              isPlaying: false,
-            },
-          });
-        }
-      },
-
-      renameTimeline: (id, name) => {
-        updateDoc((doc) => renameTimelineDoc(doc, id, name));
-      },
-
-      removeTrack: (timelineId, trackId) => {
-        updateDoc((doc) => removeTrackDoc(doc, timelineId, trackId));
-        invalidateSamplerCache();
-      },
+      ...(motionValue ?? MOTION_NOOP),
 
       setTrackNestedTimeline: (timelineId, trackId, nestedTimelineId, startProgress = 0) => {
         updateDoc((doc) =>
@@ -5901,51 +5284,6 @@ export function EditorProvider({
           }),
         );
         invalidateSamplerCache();
-      },
-
-      addTimelineMarker: (timelineId, name, progress) => {
-        const markerId = `mk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        updateDoc((doc) => addTimelineMarkerDoc(doc, timelineId, { id: markerId, name, progress }));
-        invalidateSamplerCache();
-      },
-
-      removeTimelineMarker: (timelineId, markerId) => {
-        updateDoc((doc) => removeTimelineMarkerDoc(doc, timelineId, markerId));
-        invalidateSamplerCache();
-      },
-
-      renameTimelineMarker: (timelineId, markerId, name) => {
-        updateDoc((doc) => renameTimelineMarkerDoc(doc, timelineId, markerId, name));
-        invalidateSamplerCache();
-      },
-
-      createMotionPresetFromTimeline: (timelineId, name) => {
-        let presetId = '';
-        updateDoc((doc) => {
-          const { doc: next, id } = createMotionPresetDoc(doc, timelineId, name);
-          presetId = id;
-          return next;
-        });
-        invalidateSamplerCache();
-        return presetId;
-      },
-
-      applyMotionPreset: (presetId, timelineId) => {
-        updateDoc((doc) => applyMotionPresetDoc(doc, presetId, timelineId));
-        invalidateSamplerCache();
-      },
-
-      toggleAutoKeyframe: () => {
-        patch({
-          motion: {
-            ...stateRef.current.motion,
-            autoKeyframe: !stateRef.current.motion.autoKeyframe,
-          },
-        });
-      },
-
-      toggleTimelinePanel: () => {
-        patch({ timelinePanelVisible: !stateRef.current.timelinePanelVisible });
       },
 
       // ── Guide management implementations ─────────────────────────────────
@@ -6114,10 +5452,15 @@ export function EditorProvider({
       focusedField,
       setFocusedField,
       showExportDialog,
-      prototypeCurrentScreen,
-      prototypeTransition,
-      selectedInteractionId,
+      protoValue,
+      bgRemoval,
       platform,
+      motionValue,
+      newDocument,
+      serializeDocument,
+      save,
+      saveAs,
+      loadDocument,
     ],
   );
 
@@ -6265,7 +5608,26 @@ export function EditorProvider({
       <DocumentProvider value={documentValue}>
         <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
           <SelectionProvider state={state} setState={setState}>
-            {children}
+            <MotionProvider
+              state={state}
+              setState={setState}
+              stateRef={stateRef}
+              updateDoc={updateDoc}
+              invalidateSamplerCache={invalidateSamplerCache}
+              onReady={setMotionValue}
+            >
+              <PrototypeProvider
+                state={state}
+                setState={setState}
+                stateRef={stateRef}
+                updateDoc={updateDoc}
+                prototypeRuntimeRef={prototypeRuntimeRef}
+                smRuntimeRef={smRuntimeRef}
+                onReady={setProtoValue}
+              >
+                {children}
+              </PrototypeProvider>
+            </MotionProvider>
           </SelectionProvider>
         </ViewportProvider>
       </DocumentProvider>
@@ -6279,7 +5641,7 @@ export function useEditor(): EditorContextValue {
   return ctx;
 }
 
-export { useDocument, useSelection, useViewport } from './context/index';
+export { useDocument, useMotion, usePrototype, useSelection, useViewport } from './context/index';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);
@@ -6404,20 +5766,4 @@ function computeKeyObjectTarget(
     centerX: keyBounds.x + keyBounds.w / 2,
     centerY: keyBounds.y + keyBounds.h / 2,
   };
-}
-
-/** Extract a property value from a scene node for keyframe storage. */
-function getPropertyValueAt(node: import('@strata/scene').SceneNode, property: string): unknown {
-  if (property === 'opacity') return node.opacity;
-  if (property === 'rotation') return node.rotation;
-  if (property === 'fill' || property.startsWith('fill[')) return node.fill;
-  if (property === 'transform' || property.startsWith('transform[')) {
-    const t = (node as import('@strata/scene').ShapeNode).transform;
-    return t ?? [1, 0, 0, 1, 0, 0];
-  }
-  if ('w' in node && property === 'w') return (node as import('@strata/scene').FrameNode).w;
-  if ('h' in node && property === 'h') return (node as import('@strata/scene').FrameNode).h;
-  if (property === 'fontSize' && 'fontSize' in node)
-    return (node as import('@strata/scene').TextNode).fontSize;
-  return getNestedValue(node as unknown as Record<string, unknown>, property.split('.')) ?? 0;
 }

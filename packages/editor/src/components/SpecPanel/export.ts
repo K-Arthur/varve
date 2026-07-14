@@ -4,7 +4,7 @@
  */
 
 import { exportNodeToSvg } from '@strata/codegen';
-import type { Engine, RenderItem, SceneNode as EngineNode } from '@strata/engine';
+import type { Engine, SceneNode as EngineNode, RenderItem } from '@strata/engine';
 import {
   awaitExportsReady,
   createRasterSurface,

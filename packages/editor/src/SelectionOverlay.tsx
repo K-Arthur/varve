@@ -428,7 +428,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   if (!box || box.w === 0 || box.h === 0) return null;
 
   const handles = handlePositions(box);
-  const topCenter = handles['n'];
+  const topCenter = handles.n;
   const [rotX, rotY] = simpleWorldToScreen(topCenter[0], topCenter[1], state.zoom, state.pan);
   const rotScreenX = rotX;
   const rotScreenY = rotY - ROT_OFFSET;

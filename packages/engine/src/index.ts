@@ -7,6 +7,11 @@
  */
 
 export type { AdjustmentChannel, AdjustmentParams } from './adjustment';
+export {
+  analyticalCmykToRgb,
+  analyticalRgbToCmyk,
+  convertToCmykIcc,
+} from './adjustment/colorConversion';
 export type { CurvePoint } from './adjustment/curves';
 export type { Histogram, HistogramStats } from './adjustment/histogram';
 export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
@@ -68,8 +73,26 @@ export {
   blendScreen,
   blendSoftLight,
 } from './blendModes';
+export type { ColourEngine, ColourWasmModule } from './colour/colourLoader';
+export { createColourEngineFromModule, loadColourWasmModule } from './colour/colourLoader';
+export {
+  convertSrgbBufferToCmykWasm,
+  getColourProfileInfo,
+  getColourWasm,
+  isColourWasmAvailable,
+  prewarmColourWasm,
+  srgbToCmykWasm,
+  validateColourProfile,
+} from './colourWasm';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
+export {
+  applyBackgroundBlurBackdrop,
+  applyGlassMaterialBackdrop,
+  applyLayerBlur,
+  clampByte,
+  computeScreenBounds,
+} from './effectPipeline';
 export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
 export type { TileExportOpts } from './export';
@@ -132,6 +155,19 @@ export type { AdapterSelectionResult } from './gpuAdapter';
 export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
 export type { HalftoneDotShape, HalftoneMethod, HalftoneParams, HalftonePattern } from './halftone';
 export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';
+export type {
+  ConvertedImage,
+  ExportImageResource,
+  ImageConversionOptions,
+} from './iccImageConverter';
+export {
+  buildExportImageManifest,
+  collectImageSrcsFromFills,
+  convertImageForExport,
+  invalidateIccCache,
+  loadImagePixels,
+  scaleDimensions,
+} from './iccImageConverter';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type { UpscaleMethod, UpscaleOptions } from './imageEnhancement';
@@ -265,8 +301,8 @@ export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/dispatch';
 export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
 export { dispatchTrace } from './upscaleProviders/traceDispatch';
-export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
+export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
 export type {
   VideoExportOptions,
   VideoExportResult,
@@ -279,6 +315,7 @@ export {
   computeVideoFrameCount,
   exportTimelineToVideo,
 } from './videoExport';
+export type { WasmTraceModule } from './wasmLoader';
 export {
   createWasmEngineFromModule,
   loadWasmEngineModule,
@@ -286,4 +323,3 @@ export {
   tryLoadTraceWasm,
   tryWasmEngine,
 } from './wasmLoader';
-export type { WasmTraceModule } from './wasmLoader';

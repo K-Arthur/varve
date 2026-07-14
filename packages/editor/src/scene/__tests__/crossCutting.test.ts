@@ -5,6 +5,8 @@
  * Verifies that Items 1-5 work correctly together — the exact kind of surface
  * where isolated per-item testing misses real defects.
  */
+
+import type { ShapeNode } from '@strata/scene';
 import {
   addNode,
   bakeLiveTraceToRaster,
@@ -13,9 +15,8 @@ import {
   setLiveTraceParams,
   setLiveTraceResolved,
 } from '@strata/scene';
-import type { ShapeNode } from '@strata/scene';
-import { nodeLocalBounds } from '../nodeBounds';
 import { describe, expect, it } from 'vitest';
+import { nodeLocalBounds } from '../nodeBounds';
 
 describe('Cross-cutting integration: Items 1-5', () => {
   // Helper: create a basic shapeless image shape node
@@ -216,7 +217,7 @@ describe('Cross-cutting integration: Items 1-5', () => {
     expect(flatNode.liveTrace).toBeUndefined();
 
     // All intermediate states preserved (undo backward chain)
-    const step1Node = withNode.nodes['img5'] as ShapeNode;
+    const step1Node = withNode.nodes.img5 as ShapeNode;
     expect(step1Node).toBeDefined();
     expect(step1Node.shape.kind).toBe('rect');
   });

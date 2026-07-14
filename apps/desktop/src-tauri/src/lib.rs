@@ -295,16 +295,18 @@ impl Default for ExportPdfOptions {
 }
 
 #[tauri::command]
-fn export_node_pdf(nodes: Vec<IpcSceneNode>, opts: Option<ExportPdfOptions>) -> Result<Vec<u8>, String> {
+fn export_node_pdf(nodes: Vec<IpcSceneNode>, opts: Option<ExportPdfOptions>, manifest_json: Option<String>) -> Result<Vec<u8>, String> {
     let scene = convert_scene(nodes);
     let pdf_opts = opts.unwrap_or_default();
-    let print_opts = strata_print::PdfOptions {
+    let mut print_opts = strata_print::PdfOptions {
         page_width: pdf_opts.page_width,
         page_height: pdf_opts.page_height,
         title: pdf_opts.title,
         author: pdf_opts.author,
         ..Default::default()
     };
+    print_opts.manifest = manifest_json
+        .and_then(|s| serde_json::from_str(&s).ok());
     strata_print::export_pdf(&scene, &print_opts)
 }
 
@@ -364,6 +366,7 @@ impl PdfXOptions {
             print_profile: None,
             subset_fonts: self.outline_text,
             embedding_restriction_handling: strata_print::subset::EmbeddingRestriction::Warn,
+            manifest: None,
         }
     }
 }
@@ -380,11 +383,14 @@ fn export_pdfx1a(
     nodes_json: String,
     page_height: f64,
     options_json: String,
+    manifest_json: Option<String>,
 ) -> Result<Vec<u8>, String> {
     let scene = parse_nodes_from_json(&nodes_json)?;
     let opts: PdfXOptions =
         serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
-    let print_opts = opts.to_pdf_options(page_height);
+    let mut print_opts = opts.to_pdf_options(page_height);
+    print_opts.manifest = manifest_json
+        .and_then(|s| serde_json::from_str(&s).ok());
     strata_print::cmyk::export_pdfx1a(&scene, &print_opts)
 }
 
@@ -394,11 +400,14 @@ fn export_pdfx4(
     nodes_json: String,
     page_height: f64,
     options_json: String,
+    manifest_json: Option<String>,
 ) -> Result<Vec<u8>, String> {
     let scene = parse_nodes_from_json(&nodes_json)?;
     let opts: PdfXOptions =
         serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
-    let print_opts = opts.to_pdf_options(page_height);
+    let mut print_opts = opts.to_pdf_options(page_height);
+    print_opts.manifest = manifest_json
+        .and_then(|s| serde_json::from_str(&s).ok());
     strata_print::cmyk::export_pdfx4(&scene, &print_opts)
 }
 
@@ -431,11 +440,14 @@ fn export_pdf_with_options(
     page_height: f64,
     use_cmyk: bool,
     options_json: String,
+    manifest_json: Option<String>,
 ) -> Result<Vec<u8>, String> {
     let scene = parse_nodes_from_json(&nodes_json)?;
     let opts: PdfXOptions =
         serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
-    let print_opts = opts.to_pdf_options(page_height);
+    let mut print_opts = opts.to_pdf_options(page_height);
+    print_opts.manifest = manifest_json
+        .and_then(|s| serde_json::from_str(&s).ok());
 
     match opts.format.as_str() {
         "x1a" | "pdf-x1a" => strata_print::cmyk::export_pdfx1a(&scene, &print_opts),

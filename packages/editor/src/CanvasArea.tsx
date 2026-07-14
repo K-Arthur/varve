@@ -12,8 +12,12 @@
 import { useDroppable } from '@dnd-kit/core';
 import { type CompositorBackend, createCompositorBackend } from '@strata/compositor';
 import {
+  applyBackgroundBlurBackdrop,
+  applyGlassMaterialBackdrop,
+  applyLayerBlur,
   applyStyleOverrides,
   CompositeCanvas,
+  computeScreenBounds,
   createEngine,
   type Engine,
   type EngineColor,
@@ -58,9 +62,7 @@ import {
   worldToScreen,
   zoomAboutPoint,
 } from '@strata/shared';
-import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CanvasNameLabels } from './canvas/CanvasNameLabels';
 import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
 import {
   resizeCanvasBackingStore,
@@ -71,24 +73,7 @@ import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling
 import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
 import { SubtreeIrCache } from './canvas/subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
-import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './components/AlignmentOverlay';
-import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
-import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
-import { ColorBlindnessOverlay } from './components/ColorBlindnessOverlay';
-import { CropOverlay } from './components/CropOverlay';
-import { DocumentGridOverlay } from './components/DocumentGridOverlay/DocumentGridOverlay';
-import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
-import { GradientHandleOverlay } from './components/GradientHandleOverlay';
-import { GuideOverlay } from './components/GuideOverlay/GuideOverlay';
-import { MeshWarpOverlay } from './components/MeshWarpOverlay';
-import { NodeEditOverlay } from './components/NodeEditOverlay';
-import { Ruler } from './components/Ruler/Ruler';
-import { SelectionQuickBarHost } from './components/SelectionQuickBar/SelectionQuickBarHost';
-import { SnapGuidesOverlay } from './components/SnapGuidesOverlay';
-import { MeasureOverlay } from './components/SpecPanel/MeasureOverlay';
-import { TextEditOverlay } from './components/TextEditOverlay';
-import { VariantBox } from './components/VariantBox/VariantBox';
-import { ZoomIndicator } from './components/ZoomIndicator';
+import { CanvasOverlays } from './components/CanvasOverlays';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
@@ -106,7 +91,6 @@ import {
   isStaleResponse,
   type RenderWorkerHost,
 } from './render/workerHost';
-import { SelectionOverlay } from './SelectionOverlay';
 import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   createTransformCache,
@@ -672,6 +656,16 @@ export function CanvasArea({
     const tool = tm.current.getTool<import('./tools/TrimapEditTool').TrimapEditTool>('trimapEdit');
     tool?.setOptions(state.trimapEditOptions);
   }, [state.trimapEditOptions, state.tool]);
+
+  // Sync brush settings to the paint/eraser tool.
+  useEffect(() => {
+    if (!tm.current) return;
+    if (state.tool !== 'paint' && state.tool !== 'eraser') return;
+    const paintTool = tm.current.getTool<import('./tools/PaintTool').PaintTool>('paint');
+    const eraserTool = tm.current.getTool<import('./tools/PaintTool').PaintTool>('eraser');
+    const active = state.tool === 'eraser' ? eraserTool : paintTool;
+    active?.updatePresetFromSettings(state.brushSettings);
+  }, [state.brushSettings, state.tool]);
 
   useEffect(() => {
     if (!tm.current) return;
@@ -1696,27 +1690,15 @@ export function CanvasArea({
                   const m = targetCtx.getTransform();
                   const gx = minX - effectPadding;
                   const gy = minY - effectPadding;
-                  const corners = [
-                    [gx, gy],
-                    [gx + groupWidth, gy],
-                    [gx, gy + groupHeight],
-                    [gx + groupWidth, gy + groupHeight],
-                  ].map(([cx, cy]) => ({
-                    sx: m.a * cx + m.c * cy + m.e,
-                    sy: m.b * cx + m.d * cy + m.f,
-                  }));
-                  const screenX = Math.floor(Math.min(...corners.map((c) => c.sx)));
-                  const screenY = Math.floor(Math.min(...corners.map((c) => c.sy)));
-                  const screenW = Math.ceil(Math.max(...corners.map((c) => c.sx))) - screenX;
-                  const screenH = Math.ceil(Math.max(...corners.map((c) => c.sy))) - screenY;
-                  if (screenW > 0 && screenH > 0) {
+                  const screen = computeScreenBounds(m, gx, gy, groupWidth, groupHeight);
+                  if (screen.w > 0 && screen.h > 0) {
                     const blurPad = Math.ceil(effect.blur * 3);
                     const padX = Math.ceil(Math.abs(blurPad * m.a));
                     const padY = Math.ceil(Math.abs(blurPad * m.d));
-                    const capX = screenX - padX;
-                    const capY = screenY - padY;
-                    const capW = screenW + padX * 2;
-                    const capH = screenH + padY * 2;
+                    const capX = screen.x - padX;
+                    const capY = screen.y - padY;
+                    const capW = screen.w + padX * 2;
+                    const capH = screen.h + padY * 2;
                     const cc = new CompositeCanvas({
                       width: capW,
                       height: capH,
@@ -1733,88 +1715,7 @@ export function CanvasArea({
                       0,
                     );
                     cc.applyBlur(effect.blur);
-                    if (effect.tintOpacity > 0) {
-                      const td = cc.getImageData(0, 0, capW, capH);
-                      const px = td.data;
-                      const t = effect.tint;
-                      const tR = 'r' in t ? t.r : 'c' in t ? 0 : 0;
-                      const tG = 'g' in t ? t.g : 'm' in t ? 0 : 0;
-                      const tB = 'b' in t ? t.b : 'y' in t ? 0 : 0;
-                      const tA = effect.tintOpacity;
-                      for (let i = 0; i < px.length; i += 4) {
-                        px[i] = Math.max(0, Math.min(255, Math.round(px[i]! * (1 - tA) + tR * tA)));
-                        px[i + 1] = Math.max(
-                          0,
-                          Math.min(255, Math.round(px[i + 1]! * (1 - tA) + tG * tA)),
-                        );
-                        px[i + 2] = Math.max(
-                          0,
-                          Math.min(255, Math.round(px[i + 2]! * (1 - tA) + tB * tA)),
-                        );
-                      }
-                      cc.putImageData(td, 0, 0);
-                    }
-                    if (effect.saturation !== 1) {
-                      const sd = cc.getImageData(0, 0, capW, capH);
-                      const px = sd.data;
-                      for (let i = 0; i < px.length; i += 4) {
-                        const r = px[i]!;
-                        const g = px[i + 1]!;
-                        const b = px[i + 2]!;
-                        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                        px[i] = Math.max(
-                          0,
-                          Math.min(255, Math.round(luma + (r - luma) * effect.saturation)),
-                        );
-                        px[i + 1] = Math.max(
-                          0,
-                          Math.min(255, Math.round(luma + (g - luma) * effect.saturation)),
-                        );
-                        px[i + 2] = Math.max(
-                          0,
-                          Math.min(255, Math.round(luma + (b - luma) * effect.saturation)),
-                        );
-                      }
-                      cc.putImageData(sd, 0, 0);
-                    }
-                    if (effect.brightness !== 1) {
-                      const bd = cc.getImageData(0, 0, capW, capH);
-                      const px = bd.data;
-                      for (let i = 0; i < px.length; i += 4) {
-                        px[i] = Math.max(0, Math.min(255, Math.round(px[i]! * effect.brightness)));
-                        px[i + 1] = Math.max(
-                          0,
-                          Math.min(255, Math.round(px[i + 1]! * effect.brightness)),
-                        );
-                        px[i + 2] = Math.max(
-                          0,
-                          Math.min(255, Math.round(px[i + 2]! * effect.brightness)),
-                        );
-                      }
-                      cc.putImageData(bd, 0, 0);
-                    }
-                    if (effect.noise > 0) {
-                      const nd = cc.getImageData(0, 0, capW, capH);
-                      const px = nd.data;
-                      for (let y = 0; y < capH; y++) {
-                        for (let x = 0; x < capW; x++) {
-                          const idx = (y * capW + x) * 4;
-                          const seed = x * 374761393 + y * 668265263;
-                          const noiseVal = ((seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-                          const offset = (noiseVal - 0.5) * 2 * effect.noise * 255;
-                          px[idx] = Math.max(0, Math.min(255, Math.round(px[idx]! + offset)));
-                          px[idx + 1] = Math.max(
-                            0,
-                            Math.min(255, Math.round(px[idx + 1]! + offset)),
-                          );
-                          px[idx + 2] = Math.max(
-                            0,
-                            Math.min(255, Math.round(px[idx + 2]! + offset)),
-                          );
-                        }
-                      }
-                      cc.putImageData(nd, 0, 0);
-                    }
+                    applyGlassMaterialBackdrop(cc, capW, capH, effect);
                     targetCtx.save();
                     targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
                     targetCtx.drawImage(
@@ -1834,30 +1735,15 @@ export function CanvasArea({
                   const m = targetCtx.getTransform();
                   const gx = minX - effectPadding;
                   const gy = minY - effectPadding;
-                  const corners = [
-                    [gx, gy],
-                    [gx + groupWidth, gy],
-                    [gx, gy + groupHeight],
-                    [gx + groupWidth, gy + groupHeight],
-                  ].map(
-                    ([cx, cy]) =>
-                      ({
-                        sx: m.a * cx + m.c * cy + m.e,
-                        sy: m.b * cx + m.d * cy + m.f,
-                      }) as { sx: number; sy: number },
-                  );
-                  const screenX = Math.floor(Math.min(...corners.map((c) => c.sx)));
-                  const screenY = Math.floor(Math.min(...corners.map((c) => c.sy)));
-                  const screenW = Math.ceil(Math.max(...corners.map((c) => c.sx))) - screenX;
-                  const screenH = Math.ceil(Math.max(...corners.map((c) => c.sy))) - screenY;
-                  if (screenW > 0 && screenH > 0) {
+                  const screen = computeScreenBounds(m, gx, gy, groupWidth, groupHeight);
+                  if (screen.w > 0 && screen.h > 0) {
                     const blurPad = Math.ceil(effect.radius * 3);
                     const padX = Math.ceil(Math.abs(blurPad * m.a));
                     const padY = Math.ceil(Math.abs(blurPad * m.d));
-                    const capX = screenX - padX;
-                    const capY = screenY - padY;
-                    const capW = screenW + padX * 2;
-                    const capH = screenH + padY * 2;
+                    const capX = screen.x - padX;
+                    const capY = screen.y - padY;
+                    const capW = screen.w + padX * 2;
+                    const capH = screen.h + padY * 2;
                     const cc = new CompositeCanvas({
                       width: capW,
                       height: capH,
@@ -1873,7 +1759,7 @@ export function CanvasArea({
                       0,
                       0,
                     );
-                    cc.applyBlur(effect.radius);
+                    applyBackgroundBlurBackdrop(cc, capW, capH, effect.radius);
                     targetCtx.save();
                     targetCtx.drawImage(
                       cc.canvas as CanvasImageSource,
@@ -1904,19 +1790,28 @@ export function CanvasArea({
               targetCtx.globalAlpha = n.opacity ?? 1;
               const layerBlur = visibleGroupEffects.find((effect) => effect.type === 'layerBlur');
               if (layerBlur?.type === 'layerBlur' && layerBlur.radius > 0) {
-                targetCtx.filter = `blur(${layerBlur.radius}px)`;
+                applyLayerBlur(
+                  targetCtx,
+                  gCanvas,
+                  layerBlur.radius,
+                  minX - effectPadding,
+                  minY - effectPadding,
+                  groupWidth,
+                  groupHeight,
+                );
+              } else {
+                targetCtx.drawImage(
+                  gCanvas.canvas as CanvasImageSource,
+                  0,
+                  0,
+                  gCanvas.canvas.width,
+                  gCanvas.canvas.height,
+                  minX - effectPadding,
+                  minY - effectPadding,
+                  groupWidth,
+                  groupHeight,
+                );
               }
-              targetCtx.drawImage(
-                gCanvas.canvas as CanvasImageSource,
-                0,
-                0,
-                gCanvas.canvas.width,
-                gCanvas.canvas.height,
-                minX - effectPadding,
-                minY - effectPadding,
-                groupWidth,
-                groupHeight,
-              );
               targetCtx.restore();
             }
           } else {
@@ -3028,7 +2923,6 @@ export function CanvasArea({
   }, []);
 
   const gridSize = Math.max(4, 24 * state.zoom);
-  const showOverlays = state.canvasMode !== 'preview';
 
   const canvasDropClass = isCanvasDropOver ? ' editor-canvas--dnd-over' : '';
 
@@ -3092,27 +2986,6 @@ export function CanvasArea({
           }}
         />
       )}
-      {state.gridOverlayMode !== 'none' && (
-        <DocumentGridOverlay
-          mode={state.gridOverlayMode}
-          zoom={state.zoom}
-          pan={state.pan}
-          cameraRotation={state.cameraRotation}
-          width={canvasSize.width}
-          height={canvasSize.height}
-        />
-      )}
-      {state.colorBlindnessView !== 'none' && (
-        <ColorBlindnessOverlay
-          type={state.colorBlindnessView}
-          sourceCanvas={contentCanvasRef.current}
-        />
-      )}
-      <CollabCursorOverlay
-        users={collab.users}
-        cursors={stubRemoteCursors}
-        worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
-      />
       <canvas
         ref={contentCanvasRef}
         tabIndex={0}
@@ -3148,353 +3021,42 @@ export function CanvasArea({
         className="editor-canvas__overlay-layer"
         data-testid="canvas-overlay"
       />
-      <Ruler
+      <CanvasOverlays
+        contentCanvasRef={contentCanvasRef}
+        announcerRef={announcer}
         zoom={state.zoom}
         pan={state.pan}
         cameraRotation={state.cameraRotation}
+        tool={state.tool}
+        selection={state.selection}
+        document={state.document}
+        canvasMode={state.canvasMode}
+        gridOverlayMode={state.gridOverlayMode}
+        colorBlindnessView={state.colorBlindnessView}
+        guidesVisible={state.guidesVisible}
+        selectedGuideId={state.selectedGuideId}
         unitType={state.unitType}
         rulerMode={state.rulerMode}
-        artboard={artboardRect}
-        pageRulerOrigin={activePage?.rulerOrigin}
-        onAddGuide={(axis, position) => editor.addGuide(axis, position)}
-        onMoveGuide={(id, position) => editor.moveGuide(id, position)}
-        canvasWidth={canvasSize.width}
-        canvasHeight={canvasSize.height}
-      />
-      <GuideOverlay
-        guides={editor.guides}
-        zoom={state.zoom}
-        pan={state.pan}
-        cameraRotation={state.cameraRotation}
-        visible={state.guidesVisible}
-        selectedGuideId={state.selectedGuideId}
-        onMoveGuide={(id, position) => editor.moveGuide(id, position)}
-        onRemoveGuide={(id) => editor.removeGuide(id)}
-        onToggleLock={(id) => editor.toggleGuideLock(id)}
-        onDuplicateGuide={(id, position) => editor.duplicateGuide(id, position)}
-        onSelectGuide={(id) => editor.setSelectedGuideId(id)}
-      />
-      <SnapGuidesOverlay
-        guides={snapGuides}
-        zoom={state.zoom}
-        pan={state.pan}
-        cameraRotation={state.cameraRotation}
-      />
-      <AlignmentGuideOverlay />
-      {state.selection.length >= 2 && <AlignmentHandleOverlay />}
-      {state.selection.length >= 1 && (
-        <GradientHandleOverlay
-          zoom={state.zoom}
-          pan={state.pan}
-          selectedIds={state.selection}
-          doc={state.document}
-          getWorldTransform={editor.getWorldTransform}
-          onUpdateGradient={(nodeId, fillIndex, gradient) => {
-            const node = state.document.nodes[nodeId];
-            if (!node) return;
-            const nodeAny = node as unknown as Record<string, unknown>;
-            const current: import('@strata/scene').Fill[] = Array.isArray(nodeAny.fills)
-              ? (nodeAny.fills as import('@strata/scene').Fill[])
-              : [];
-            const next = [...current];
-            if (fillIndex >= 0 && fillIndex < next.length) {
-              next[fillIndex] = { ...next[fillIndex], gradient } as import('@strata/scene').Fill;
-              editor.updateSelectedFillAt(
-                fillIndex,
-                next[fillIndex] as import('@strata/scene').Fill,
-              );
-            }
-          }}
-        />
-      )}
-      {warpMesh && state.selection.length >= 1 && (
-        <MeshWarpOverlay
-          zoom={state.zoom}
-          pan={state.pan}
-          mesh={warpMesh}
-          srcW={
-            warpMesh.cols > 0 ? warpMesh.vertices.reduce((max, v) => Math.max(max, v.x), 0) : 100
-          }
-          srcH={
-            warpMesh.rows > 0 ? warpMesh.vertices.reduce((max, v) => Math.max(max, v.y), 0) : 100
-          }
-          onMeshChange={setWarpMesh}
-          onDragStart={() => editor.beginTransaction()}
-          onDragEnd={() => editor.commitTransaction()}
-          cameraRotation={state.cameraRotation}
-        />
-      )}
-      {state.tool === 'nodeEdit' &&
-        nodeEditTargetId &&
-        (() => {
-          const n = state.document.nodes[nodeEditTargetId];
-          if (n?.kind !== 'shape' || n.shape.kind !== 'path') return null;
-          const worldMat = editor.getWorldTransform(nodeEditTargetId);
-          return (
-            <NodeEditOverlay
-              node={n}
-              selectedAnchors={nodeEditSelectedAnchors}
-              zoom={state.zoom}
-              pan={state.pan}
-              worldTransform={worldMat}
-            />
-          );
-        })()}
-      <SelectionOverlay canvasRef={contentCanvasRef} />
-      <CanvasNameLabels
-        doc={state.document}
-        zoom={state.zoom}
-        pan={state.pan}
-        cameraRotation={state.cameraRotation}
-        selection={state.selection}
-      />
-      {(() => {
-        const sel = state.selection;
-        if (sel.length !== 1) return null;
-        const singleId = sel[0] as NodeId;
-        const singleNode = state.document.nodes[singleId];
-        if (singleNode?.kind !== 'frame') return null;
-        const frame = singleNode;
-        if (!frame.componentId) return null;
-        const component = state.document.components[frame.componentId];
-        const hasVariants = component?.variants && component.variants.length > 0;
-        if (!hasVariants) return null;
-        const worldB = editor.getWorldBounds(singleId);
-        if (!worldB) return null;
-        // editor.worldToCanvas applies the same floating-origin correction
-        // the canvas actually paints with — naive world*zoom+pan drifts once
-        // panned away from world (0,0), floating this box away from the
-        // frame it's meant to sit next to.
-        const { x: screenX, y: screenY } = editor.worldToCanvas(worldB.x, worldB.y);
-        const screenW = worldB.w * state.zoom;
-        const screenH = worldB.h * state.zoom;
-        return (
-          <VariantBox
-            nodeId={singleId}
-            document={state.document}
-            onSetVariant={editor.setVariantForInstance}
-            onCreateVariant={editor.createVariant}
-            onSetPropertyOverride={editor.setPropertyOverride}
-            screenBounds={{ x: screenX, y: screenY, w: screenW, h: screenH }}
-            onClose={() => {
-              editor.announce('Closed variant panel');
-            }}
-          />
-        );
-      })()}
-      <SelectionQuickBarHost
+        collabUsers={collab.users}
+        stubRemoteCursors={stubRemoteCursors}
+        snapGuides={snapGuides}
+        nodeEditTargetId={nodeEditTargetId}
+        nodeEditSelectedAnchors={nodeEditSelectedAnchors}
         textEditTargetId={textEditTargetId}
         setTextEditTargetId={setTextEditTargetId}
         setNodeEditTargetId={setNodeEditTargetId}
+        warpMesh={warpMesh}
+        setWarpMesh={setWarpMesh}
+        hoveredNode={hoveredNode}
+        canvasSize={canvasSize}
+        cropTool={tm.current?.getTool<CropTool>('crop') ?? null}
+        buildToolCtx={buildToolCtx}
+        renameDialog={renameDialog}
+        setRenameDialog={setRenameDialog}
+        renameDialogRef={renameDialogRef}
+        renameInputRef={renameInputRef}
+        artboardRect={artboardRect}
       />
-      {state.tool === 'crop' &&
-        tm.current &&
-        (() => {
-          const crop = tm.current.getTool<CropTool>('crop');
-          if (!crop?.getNodeId()) return null;
-          const id = crop.getNodeId()!;
-          const worldB = editor.getWorldBounds(id);
-          if (!worldB) return null;
-          const { x: screenX, y: screenY } = editor.worldToCanvas(worldB.x, worldB.y);
-          return (
-            <CropOverlay
-              tool={crop}
-              screenBounds={{
-                x: screenX,
-                y: screenY,
-                w: worldB.w * state.zoom,
-                h: worldB.h * state.zoom,
-              }}
-              onDone={() => crop.applyCrop(buildToolCtx(new PointerEvent('pointerup')))}
-              onCancel={() => crop.cancel(buildToolCtx(new PointerEvent('pointerup')))}
-            />
-          );
-        })()}
-      {textEditTargetId &&
-        (() => {
-          const n = state.document.nodes[textEditTargetId];
-          if (n?.kind !== 'text') return null;
-          const canvasRect = contentCanvasRef.current?.getBoundingClientRect();
-          const canvasLeft = canvasRect?.left ?? 0;
-          const canvasTop = canvasRect?.top ?? 0;
-          // Compose world transform (includes ancestor frames + own rotation/scale)
-          const textWorldMat = editor.getWorldTransform(textEditTargetId);
-          const worldX = textWorldMat[4];
-          const worldY = textWorldMat[5];
-          // Must match the transform the canvas actually paints with
-          // (applyEditorCameraToCtx: floating origin + rotation) — naive
-          // world*zoom+pan drifts from the real paint position once panned
-          // away from world (0,0), landing this overlay somewhere other than
-          // the text node it's meant to be editing.
-          const textCam = { zoom: state.zoom, pan: state.pan, rotation: state.cameraRotation ?? 0 };
-          const textViewport = {
-            width: canvasRect?.width ?? 1920,
-            height: canvasRect?.height ?? 1080,
-          };
-          const textOrigin = computeFloatingOrigin(textCam, textViewport);
-          const [textCanvasX, textCanvasY] = worldToScreen(
-            textCam,
-            worldX,
-            worldY,
-            textViewport,
-            textOrigin,
-          );
-          const textScreenX = textCanvasX + canvasLeft;
-          const textScreenY = textCanvasY + canvasTop;
-          const textScreenW =
-            (n.w ??
-              (n.text.length > 0
-                ? n.text.length * (n.fontSize ?? 16) * 0.6
-                : (n.fontSize ?? 16) * 3)) * state.zoom;
-          const textScreenH = (n.h ?? (n.fontSize ?? 16) * 1.4) * state.zoom;
-          const textScreenRect = {
-            x: textScreenX,
-            y: textScreenY,
-            w: Math.max(textScreenW, 20),
-            h: Math.max(textScreenH, 20),
-          };
-          return (
-            <>
-              <TextEditOverlay
-                node={n}
-                zoom={state.zoom}
-                pan={state.pan}
-                cameraRotation={state.cameraRotation}
-                canvasElement={contentCanvasRef.current}
-                worldX={worldX}
-                worldY={worldY}
-                worldTransform={textWorldMat}
-                onCommit={() => setTextEditTargetId(null)}
-                onUpdateText={(text) => {
-                  editor.updateNode(textEditTargetId, (node) =>
-                    node.kind === 'text' ? { ...node, text } : node,
-                  );
-                }}
-              />
-              <FloatingTextBar
-                node={n}
-                textScreenRect={textScreenRect}
-                onUpdate={(id, changes) => {
-                  editor.updateNode(id, (node) =>
-                    node.kind === 'text' ? { ...node, ...changes } : node,
-                  );
-                }}
-                onClose={() => setTextEditTargetId(null)}
-              />
-            </>
-          );
-        })()}
-      {state.tool !== 'inspect' &&
-        Object.keys(state.document.nodes).filter((id) => {
-          const n = state.document.nodes[id];
-          return n && n.kind !== 'group';
-        }).length === 0 && (
-          <div className="editor-canvas__empty">
-            <EmptyState
-              illustration={
-                <svg
-                  width="64"
-                  height="64"
-                  viewBox="0 0 64 64"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  aria-hidden
-                >
-                  <title>Empty canvas</title>
-                  <path
-                    d="M24 20 L24 16 C24 14.9 24.9 14 26 14 L44 14 C45.1 14 46 14.9 46 16 L46 40 C46 41.1 45.1 42 44 42 L40 42"
-                    opacity="0.4"
-                  />
-                  <path
-                    d="M18 24 L26 24 C27.1 24 28 24.9 28 26 L28 48 C28 49.1 27.1 50 26 50 L18 50 C16.9 50 16 49.1 16 48 L16 26 C16 24.9 16.9 24 18 24Z"
-                    opacity="0.3"
-                  />
-                  <line x1="22" y1="30" x2="30" y2="30" opacity="0.2" />
-                  <line x1="22" y1="34" x2="30" y2="34" opacity="0.2" />
-                  <line x1="22" y1="38" x2="28" y2="38" opacity="0.2" />
-                  <path
-                    d="M38 26 L42 22 M42 22 L46 26 M42 22 L42 34"
-                    opacity="0.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              }
-              headline="Empty canvas"
-              description="Click a tool and drag on the canvas to create your first shape"
-            />
-          </div>
-        )}
-      {showOverlays && state.tool === 'inspect' && (
-        <MeasureOverlay
-          zoom={state.zoom}
-          pan={state.pan}
-          selectedNodes={editor.selectedNodes()}
-          doc={state.document}
-          hoveredNode={hoveredNode}
-        />
-      )}
-      <ZoomIndicator zoom={state.zoom} />
-      <div
-        className="editor-canvas__announcer"
-        ref={announcer}
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      />
-      <CanvasAccessibilityTree
-        doc={state.document}
-        camera={{ zoom: state.zoom, pan: state.pan }}
-        viewport={canvasSize}
-        walkNodes={(d) => walkNodes(d, activePageNodes(d))}
-        nodeWorldBounds={nodeWorldBounds}
-        isWorldRectInViewport={isWorldRectInViewport}
-      />
-      {/* Accessible rename dialog — replaces blocking prompt() call */}
-      <dialog
-        ref={renameDialogRef}
-        className="strata-dialog strata-dialog--sm"
-        aria-labelledby="rename-dialog-title"
-        onClose={() => setRenameDialog(null)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') setRenameDialog(null);
-        }}
-      >
-        <h2 id="rename-dialog-title" className="strata-dialog__title">
-          Rename layer
-        </h2>
-        <form
-          method="dialog"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const name = renameInputRef.current?.value.trim();
-            if (name) editor.renameSelected(name);
-            setRenameDialog(null);
-          }}
-        >
-          <input
-            ref={renameInputRef}
-            className="canvas-rename__input"
-            type="text"
-            defaultValue={renameDialog?.defaultValue ?? ''}
-            aria-label="Layer name"
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <div className="strata-dialog__actions">
-            <button
-              type="button"
-              className="strata-btn strata-btn--ghost"
-              onClick={() => setRenameDialog(null)}
-            >
-              Cancel
-            </button>
-            <button type="submit" className="strata-btn strata-btn--primary">
-              Rename
-            </button>
-          </div>
-        </form>
-      </dialog>
     </section>
   );
 }

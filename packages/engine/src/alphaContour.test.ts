@@ -1,8 +1,8 @@
 /**
  * Tests for alpha-channel contour extraction.
  */
-import { describe, it, expect } from 'vitest';
-import { extractAlphaContours, alphaContoursToShapeNodes, type AlphaContour } from './alphaContour';
+import { describe, expect, it } from 'vitest';
+import { type AlphaContour, alphaContoursToShapeNodes, extractAlphaContours } from './alphaContour';
 
 function makeImageData(width: number, height: number, alpha: number[]): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);

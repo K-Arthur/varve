@@ -1,12 +1,12 @@
-import { exportDocumentToSvg } from '@strata/codegen';
 import { AlertDialog, CHROME_ICONS, FloatingPortal, IconButton, StrataLogo } from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type ToolId, useEditor } from './context';
+import { getActionRegistry } from './actions/ActionRegistry';
+import { useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
 
-type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Plugins' | 'Help';
+type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Plugins' | 'Help';
 
 interface MenuItem {
   label: string;
@@ -122,6 +122,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         label: 'Lock All Guides',
         shortcut: formatShortcut(SHORTCUT_DEFS.lockAllGuides.binding),
         action: 'lockAllGuides',
+      },
+      { label: '---' },
+      {
+        label: 'Facing Pages',
+        action: 'toggleFacingPages',
       },
       {
         label: 'Soft Proofing',
@@ -288,6 +293,28 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       },
     ],
   },
+  {
+    id: 'Page',
+    items: [
+      {
+        label: 'Create Master',
+        action: 'createMaster',
+      },
+      {
+        label: 'Apply Master to Page',
+        action: 'applyMaster',
+      },
+      {
+        label: 'Detach Master from Page',
+        action: 'detachMaster',
+      },
+      { label: '---' },
+      {
+        label: 'Facing Pages',
+        action: 'toggleFacingPages',
+      },
+    ],
+  },
   { id: 'Plugins', items: [{ label: 'No plugins loaded', action: '' }] },
   {
     id: 'Help',
@@ -337,42 +364,17 @@ export function Menubar({
     loadDocument,
     undo,
     redo,
-    removeSelected,
-    cutSelected,
-    copySelected,
-    paste,
-    duplicateSelected,
-    rootNodes,
-    setSelection,
-    toggleSelection,
-    setTool,
     setZoom,
     setShowExportDialog,
-    groupSelected,
-    ungroupSelected,
-    arrangeSelected,
-    setSnapEnabled,
-    setSoftProofEnabled,
-    toggleTimelinePanel,
-    setCanvasMode,
-    setRulerMode,
-    setGridOverlayMode,
-    setColorBlindnessView,
-    fitActivePage,
-    fitActiveFrame,
-    resetViewRotation,
-    rotateViewBy,
-    booleanOp,
-    startPresentation,
     clearAllGuides,
-    toggleGuidesVisible,
-    toggleLockAllGuides,
+    startPresentation,
     addMaskToSelected,
     removeMaskFromSelected,
     toggleMask,
     invertMask,
-    save,
-    saveAs,
+    assignMasterToPage,
+    createMaster,
+    toggleFacingPages,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -436,246 +438,133 @@ export function Menubar({
   const handleAction = useCallback(
     (action: string) => {
       setOpenMenu(null);
+
+      // Menubar-specific actions (not in the registry or with different behavior)
       switch (action) {
         case 'new':
           setConfirmNewDoc(true);
-          break;
-        case 'save':
-          save();
-          break;
-        case 'saveAs':
-          saveAs();
-          break;
-        case 'open':
-          document.querySelector<HTMLInputElement>('#file-open-input')?.click();
-          break;
-        case 'import':
-          document.querySelector<HTMLInputElement>('#file-import-input')?.click();
-          break;
-        case 'undo':
-          undo();
-          break;
-        case 'redo':
-          redo();
-          break;
-        case 'cut':
-          cutSelected();
-          break;
-        case 'copy':
-          copySelected();
-          break;
-        case 'paste':
-          paste();
-          break;
-        case 'duplicate':
-          duplicateSelected();
-          break;
-        case 'selectAll': {
-          const nodes = rootNodes();
-          if (nodes.length > 0) {
-            setSelection(nodes[0]?.id ?? null);
-            for (let i = 1; i < nodes.length; i++) {
-              const n = nodes[i];
-              if (n) toggleSelection(n.id, true);
-            }
-          }
-          break;
-        }
-        case 'delete':
-          removeSelected();
-          break;
-        case 'exportSvg': {
-          const svg = exportDocumentToSvg(state.document);
-          const blob = new Blob([svg], { type: 'image/svg+xml' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${state.document.name || 'untitled'}.svg`;
-          a.click();
-          URL.revokeObjectURL(url);
-          break;
-        }
-        case 'export':
-          setShowExportDialog(true);
-          break;
-        case 'zoomReset':
-          setZoom(1);
-          break;
-        case 'inspectMode':
-          setTool(state.tool === 'inspect' ? 'select' : ('inspect' as ToolId));
-          break;
-        case 'home':
-          onBackToHome?.();
-          break;
+          return;
         case 'settings':
           onOpenSettings?.();
-          break;
+          return;
         case 'startTour':
           onStartTour?.();
-          break;
+          return;
         case 'shortcutPalette':
           onOpenPalette?.();
-          break;
-        case 'openHelp':
-          onOpenHelp?.();
-          break;
-        case 'openHelpCenter':
-          onOpenHelpCenter?.();
-          break;
+          return;
         case 'whatIsThis':
           onWhatIsThis?.();
-          break;
+          return;
         case 'about':
           onOpenAbout?.();
-          break;
+          return;
         case 'batchBgRemove':
           onBatchBgRemove?.();
-          break;
-        case 'group':
-          groupSelected();
-          break;
-        case 'ungroup':
-          ungroupSelected();
-          break;
+          return;
+        case 'export':
+          setShowExportDialog(true);
+          return;
         case 'addAlphaMask':
           addMaskToSelected('alpha');
-          break;
+          return;
         case 'addClipMask':
           addMaskToSelected('clip');
-          break;
+          return;
         case 'addLuminanceMask':
           addMaskToSelected('luminance');
-          break;
+          return;
         case 'removeMask':
           removeMaskFromSelected();
-          break;
+          return;
         case 'toggleMask':
           toggleMask();
-          break;
+          return;
         case 'invertMask':
           invertMask();
-          break;
-        case 'bringFront':
-          arrangeSelected('front');
-          break;
-        case 'bringForward':
-          arrangeSelected('forward');
-          break;
-        case 'sendBackward':
-          arrangeSelected('backward');
-          break;
-        case 'sendBack':
-          arrangeSelected('back');
-          break;
-        case 'toggleSnap':
-          setSnapEnabled(!state.snapEnabled);
-          break;
-        case 'toggleGuidesVisible':
-          toggleGuidesVisible();
-          break;
-        case 'lockAllGuides':
-          toggleLockAllGuides();
-          break;
-        case 'softProof':
-          setSoftProofEnabled(!state.softProofEnabled);
-          break;
-        case 'toggleTimelinePanel':
-          toggleTimelinePanel();
-          break;
+          return;
         case 'clearGuides':
           clearAllGuides();
-          break;
-        case 'booleanUnion':
-          booleanOp('union');
-          break;
-        case 'booleanSubtract':
-          booleanOp('subtract');
-          break;
-        case 'booleanIntersect':
-          booleanOp('intersect');
-          break;
-        case 'booleanExclude':
-          booleanOp('exclude');
-          break;
+          return;
         case 'present':
           startPresentation();
-          break;
-        case 'canvasModeOutline':
-          setCanvasMode('outline');
-          break;
-        case 'canvasModePreview':
-          setCanvasMode('preview');
-          break;
-        case 'fitActivePage':
-          fitActivePage();
-          break;
-        case 'fitActiveFrame':
-          fitActiveFrame();
-          break;
-        case 'resetViewRotation':
-          resetViewRotation();
-          break;
-        case 'rotateViewCW':
-          rotateViewBy(Math.PI / 12);
-          break;
-        case 'rotateViewCCW':
-          rotateViewBy(-Math.PI / 12);
-          break;
-        case 'rulerModeArtboard':
-          setRulerMode('artboard');
-          break;
-        case 'rulerModeGlobal':
-          setRulerMode('global');
-          break;
-        case 'gridOverlayBaseline':
-          setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline');
-          break;
-        case 'gridOverlayIsometric':
-          setGridOverlayMode(state.gridOverlayMode === 'isometric' ? 'none' : 'isometric');
-          break;
-        case 'colorBlindnessNone':
-          setColorBlindnessView('none');
-          break;
-        case 'colorBlindnessProtanopia':
-          setColorBlindnessView('protanopia');
-          break;
-        case 'colorBlindnessDeuteranopia':
-          setColorBlindnessView('deuteranopia');
-          break;
-        case 'colorBlindnessTritanopia':
-          setColorBlindnessView('tritanopia');
-          break;
+          return;
+        case 'toggleFacingPages':
+          toggleFacingPages();
+          return;
+        case 'createMaster':
+          createMaster('Master', 1920, 1080);
+          return;
+        case 'applyMaster': {
+          const activeId = state.document.activePageId;
+          const masterEntries = state.document.masters ? Object.keys(state.document.masters) : [];
+          if (activeId && masterEntries.length > 0) {
+            assignMasterToPage(activeId, masterEntries[0]!);
+          }
+          return;
+        }
+        case 'detachMaster': {
+          const activeId = state.document.activePageId;
+          if (activeId) {
+            assignMasterToPage(activeId, null);
+          }
+          return;
+        }
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
             setTheme(theme);
             setCurrentTheme(theme);
             localStorage.setItem('strata-theme', theme);
+            return;
           }
+          break;
+      }
+
+      // Fallback to shared action registry
+      const registry = getActionRegistry();
+      const registered = registry.get(action);
+      if (registered) {
+        (registered.handler as () => void)();
+        return;
+      }
+
+      // Legacy fallbacks for actions not yet in the registry
+      switch (action) {
+        case 'open':
+          document.querySelector<HTMLInputElement>('#file-open-input')?.click();
+          break;
+        case 'import':
+          document.querySelector<HTMLInputElement>('#file-import-input')?.click();
+          break;
+        case 'home':
+          onBackToHome?.();
+          break;
+        default:
           break;
       }
     },
     [
-      newDocument,
-      serializeDocument,
-      undo,
-      redo,
-      removeSelected,
-      setTool,
-      setZoom,
-      setSnapEnabled,
       state,
       onBackToHome,
       onOpenSettings,
       onStartTour,
+      onOpenPalette,
       onOpenHelp,
       onOpenHelpCenter,
       onWhatIsThis,
       onOpenAbout,
       onBatchBgRemove,
-      save,
-      saveAs,
-      setColorBlindnessView,
+      setShowExportDialog,
+      addMaskToSelected,
+      removeMaskFromSelected,
+      toggleMask,
+      invertMask,
+      clearAllGuides,
+      startPresentation,
+      assignMasterToPage,
+      createMaster,
+      toggleFacingPages,
     ],
   );
 

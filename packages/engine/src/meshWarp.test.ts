@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   createFlatMesh,
-  type MeshControlPoint,
   type MeshWarp,
   meshTriangles,
   warpMesh,
