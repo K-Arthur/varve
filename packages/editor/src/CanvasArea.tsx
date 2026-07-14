@@ -153,6 +153,7 @@ import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
 import { HandTool } from './tools/HandTool';
 import { HealingBrushTool } from './tools/HealingBrushTool';
+import { collectSourceEvents } from './tools/inputNormalizer';
 import { LineTool } from './tools/LineTool';
 import { NodeEditTool } from './tools/NodeEditTool';
 import { PaintTool } from './tools/PaintTool';
@@ -726,6 +727,7 @@ export function CanvasArea({
     const s = stateRef.current;
     const e = editorRef.current;
     const eng = engineRef.current;
+    const sourceEvents = collectSourceEvents(ev, false);
     return {
       document: s.document,
       selection: s.selection,
@@ -740,6 +742,15 @@ export function CanvasArea({
       tiltX: ev.tiltX ?? 0,
       tiltY: ev.tiltY ?? 0,
       twist: ev.twist ?? 0,
+      tangentialPressure:
+        (ev as PointerEvent & { tangentialPressure?: number }).tangentialPressure ?? 0,
+      pointerWidth: Math.max(0, (ev as PointerEvent & { width?: number }).width ?? 1),
+      pointerHeight: Math.max(0, (ev as PointerEvent & { height?: number }).height ?? 1),
+      altitudeAngle: (ev as PointerEvent & { altitudeAngle?: number }).altitudeAngle ?? Math.PI / 2,
+      azimuthAngle: (ev as PointerEvent & { azimuthAngle?: number }).azimuthAngle ?? 0,
+      hasCoalescedEvents: typeof ev.getCoalescedEvents === 'function',
+      hasPredictedEvents: typeof ev.getPredictedEvents === 'function',
+      sourceEvents,
       foregroundColor: s.foregroundColor,
       snapEnabled: s.snapEnabled,
       snapGrid: s.snapGrid,
