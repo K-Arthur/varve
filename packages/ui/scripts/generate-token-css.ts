@@ -265,6 +265,14 @@ ${SURFACE_ALIASES}
     --color-layer-wash-shape: Canvas;
     --color-layer-accent-component: Highlight;
     --color-layer-wash-component: Canvas;
+    --color-text-muted-on-default: GrayText;
+    --color-text-muted-on-raised: GrayText;
+    --color-text-muted-on-sunken: GrayText;
+    --color-text-muted-on-overlay: GrayText;
+    --color-text-subtle-on-default: GrayText;
+    --color-text-subtle-on-raised: GrayText;
+    --color-text-subtle-on-sunken: GrayText;
+    --color-text-subtle-on-overlay: GrayText;
     --color-hero-glow: transparent;
     --elevation-surface-sunken: Canvas;
     --elevation-surface-default: Canvas;

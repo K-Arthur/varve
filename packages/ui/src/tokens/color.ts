@@ -228,7 +228,15 @@ export type SemanticToken =
   | 'text-primary-on-raised'
   | 'text-secondary-on-raised'
   | 'text-primary-on-overlay'
-  | 'text-secondary-on-overlay';
+  | 'text-secondary-on-overlay'
+  | 'text-muted-on-default'
+  | 'text-muted-on-raised'
+  | 'text-muted-on-sunken'
+  | 'text-muted-on-overlay'
+  | 'text-subtle-on-default'
+  | 'text-subtle-on-raised'
+  | 'text-subtle-on-sunken'
+  | 'text-subtle-on-overlay';
 
 const N = (i: number): Oklch => NEUTRAL[i - 1] as Oklch;
 const T = (i: number): Oklch => TEAL[i - 1] as Oklch;
@@ -277,7 +285,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     // WCAG fix: T(8)=medium teal with white text-on-accent was 3.75:1. T(9) gives 4.66:1.
     'tree-row-selected': T(9),
     'tree-row-focus': T(7),
-    'tree-indent-guide': N(6),
+    'tree-indent-guide': N(7),
     'layer-accent-frame': B(6),
     'layer-wash-frame': B(1),
     'layer-accent-group': A(8),
@@ -310,6 +318,14 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-secondary-on-raised': N(10),
     'text-primary-on-overlay': N(12),
     'text-secondary-on-overlay': N(10),
+    'text-muted-on-default': ok(0.43, 0.032, 262),
+    'text-muted-on-raised': ok(0.35, 0.035, 262),
+    'text-muted-on-sunken': ok(0.35, 0.035, 262),
+    'text-muted-on-overlay': ok(0.35, 0.035, 262),
+    'text-subtle-on-default': ok(0.46, 0.028, 261),
+    'text-subtle-on-raised': ok(0.38, 0.03, 261),
+    'text-subtle-on-sunken': ok(0.38, 0.03, 261),
+    'text-subtle-on-overlay': ok(0.38, 0.03, 261),
   },
   dark: {
     'surface-app': N(12),
@@ -345,7 +361,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'tree-row-hover': N(7),
     'tree-row-selected': T(5),
     'tree-row-focus': T(7),
-    'tree-indent-guide': N(8),
+    'tree-indent-guide': N(7),
     'layer-accent-frame': B(3),
     'layer-wash-frame': B(11),
     'layer-accent-group': A(3),
@@ -378,6 +394,14 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-secondary-on-raised': N(4),
     'text-primary-on-overlay': N(2),
     'text-secondary-on-overlay': N(4),
+    'text-muted-on-default': N(6),
+    'text-muted-on-raised': N(6),
+    'text-muted-on-sunken': N(6),
+    'text-muted-on-overlay': N(6),
+    'text-subtle-on-default': N(6),
+    'text-subtle-on-raised': N(6),
+    'text-subtle-on-sunken': N(6),
+    'text-subtle-on-overlay': N(6),
   },
   'high-contrast': {
     'surface-app': ok(0.0, 0.0, 0),
@@ -446,6 +470,14 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-secondary-on-raised': ok(1.0, 0.0, 0),
     'text-primary-on-overlay': ok(1.0, 0.0, 0),
     'text-secondary-on-overlay': ok(1.0, 0.0, 0),
+    'text-muted-on-default': ok(0.8577, 0.0, 0),
+    'text-muted-on-raised': ok(0.8577, 0.0, 0),
+    'text-muted-on-sunken': ok(0.8577, 0.0, 0),
+    'text-muted-on-overlay': ok(0.8577, 0.0, 0),
+    'text-subtle-on-default': ok(0.8577, 0.0, 0),
+    'text-subtle-on-raised': ok(0.8577, 0.0, 0),
+    'text-subtle-on-sunken': ok(0.8577, 0.0, 0),
+    'text-subtle-on-overlay': ok(0.8577, 0.0, 0),
   },
 };
 
@@ -570,6 +602,55 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   {
     name: 'text-secondary-on-overlay on surface-overlay',
     fg: 'text-secondary-on-overlay',
+    bg: 'surface-overlay',
+    grade: 'AA',
+  },
+  /* Per-elevation muted/subtle text pairs (a11y fix — catch real DOM combinations). */
+  {
+    name: 'text-muted-on-default on surface-base',
+    fg: 'text-muted-on-default',
+    bg: 'surface-base',
+    grade: 'AA',
+  },
+  {
+    name: 'text-muted-on-raised on surface-raised',
+    fg: 'text-muted-on-raised',
+    bg: 'surface-raised',
+    grade: 'AA',
+  },
+  {
+    name: 'text-muted-on-sunken on surface-sunken',
+    fg: 'text-muted-on-sunken',
+    bg: 'surface-sunken',
+    grade: 'AA',
+  },
+  {
+    name: 'text-muted-on-overlay on surface-overlay',
+    fg: 'text-muted-on-overlay',
+    bg: 'surface-overlay',
+    grade: 'AA',
+  },
+  {
+    name: 'text-subtle-on-default on surface-base',
+    fg: 'text-subtle-on-default',
+    bg: 'surface-base',
+    grade: 'AA',
+  },
+  {
+    name: 'text-subtle-on-raised on surface-raised',
+    fg: 'text-subtle-on-raised',
+    bg: 'surface-raised',
+    grade: 'AA',
+  },
+  {
+    name: 'text-subtle-on-sunken on surface-sunken',
+    fg: 'text-subtle-on-sunken',
+    bg: 'surface-sunken',
+    grade: 'AA',
+  },
+  {
+    name: 'text-subtle-on-overlay on surface-overlay',
+    fg: 'text-subtle-on-overlay',
     bg: 'surface-overlay',
     grade: 'AA',
   },
