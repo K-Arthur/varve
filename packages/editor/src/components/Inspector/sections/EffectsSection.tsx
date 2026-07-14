@@ -11,19 +11,18 @@ import type {
   BlendMode,
   Effect,
   FrameNode,
-  GroupNode,
   ManagedColor,
   SceneNode,
   ShapeNode,
   TextNode,
 } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import { Icon } from '@strata/ui';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Icon, Select } from '@strata/ui';
+import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed } from '../selection/selectionState';
 
@@ -31,7 +30,7 @@ export interface EffectsSectionProps {
   nodes: SceneNode[];
 }
 
-type EffectNode = ShapeNode | TextNode | FrameNode | AdjustmentNode | GroupNode;
+type EffectNode = ShapeNode | TextNode | FrameNode | AdjustmentNode;
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -57,7 +56,6 @@ function hasEffects(n: SceneNode): n is EffectNode {
     n.kind === 'shape' ||
     n.kind === 'text' ||
     n.kind === 'frame' ||
-    n.kind === 'group' ||
     n.kind === 'adjustment' ||
     n.kind === 'path'
   );
@@ -222,19 +220,13 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
       {countMixed && minEffects > 0 && (
         <div className="insp-empty-message">Some selected nodes have additional effects</div>
       )}
-      <div style={{ display: 'flex', gap: 'var(--space-1)', paddingTop: 'var(--space-1)' }}>
-        <select
-          aria-label="New effect type"
+      <div className="insp-fill-add">
+        <Select
+          label="New effect type"
           value={newEffectType}
-          className="insp-select"
-          onChange={(e) => setNewEffectType(e.target.value as Effect['type'])}
-        >
-          {EFFECT_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          options={EFFECT_TYPE_OPTIONS}
+          onChange={(v) => setNewEffectType(v as Effect['type'])}
+        />
         <button type="button" className="insp-add-btn" onClick={addEffect}>
           <Icon name="Plus" label={undefined} size="0.85em" />
           <span>Add</span>
@@ -355,52 +347,20 @@ function ShadowColorSwatch({
   });
   const color = isMixed(colorRaw) ? null : colorRaw;
   const swatchBg = color ? toSwatchBg(color) : 'transparent';
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label="Effect colour"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="insp-swatch"
-        style={{ background: swatchBg }}
-      />
-      {open && triggerRef.current && (
-        <div
-          role="dialog"
-          aria-label="Pick effect colour"
-          className="insp-picker-popover"
-          style={{
-            top: triggerRef.current.getBoundingClientRect().bottom + 4,
-            left: triggerRef.current.getBoundingClientRect().left,
-          }}
-        >
-          <ColorPicker
-            value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
-            onChange={(c) =>
-              onChange((e) =>
-                e.type === 'dropShadow' || e.type === 'innerShadow'
-                  ? { ...e, color: c as ManagedColor }
-                  : e,
-              )
-            }
-          />
-          <button
-            type="button"
-            aria-label="Close colour picker"
-            onClick={() => setOpen(false)}
-            className="insp-picker-done"
-          >
-            Done
-          </button>
-        </div>
-      )}
-    </>
+    <InspectorColorPopover
+      label="Effect colour"
+      value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
+      onChange={(c) =>
+        onChange((e) =>
+          e.type === 'dropShadow' || e.type === 'innerShadow'
+            ? { ...e, color: c as ManagedColor }
+            : e,
+        )
+      }
+      swatchStyle={{ background: swatchBg }}
+    />
   );
 }
 
@@ -540,26 +500,24 @@ function ShadowParams({
         }
       />
       <FieldRow label="Blend">
-        <select
-          aria-label="Effect blend mode"
-          value={isMixed(blendRaw) ? '' : blendRaw}
-          className="insp-select"
-          onChange={(e) => {
-            const v = e.target.value as BlendMode;
+        <Select
+          label="Effect blend mode"
+          value={isMixed(blendRaw) ? '' : (blendRaw as string)}
+          options={[
+            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            ...BLEND_OPTIONS,
+          ]}
+          onChange={(v) => {
+            if (!v) return;
+            const mode = v as BlendMode;
             onChange((eff) =>
               eff.type === 'dropShadow' || eff.type === 'innerShadow'
-                ? { ...eff, blendMode: v }
+                ? { ...eff, blendMode: mode }
                 : eff,
             );
           }}
-        >
-          {isMixed(blendRaw) && <option value="">Mixed</option>}
-          {BLEND_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          placeholder="Mixed"
+        />
       </FieldRow>
     </div>
   );
@@ -656,25 +614,24 @@ function GlowParams({
         <span className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
           Blend
         </span>
-        <select
-          className="insp-select"
-          aria-label="Blend"
-          value={isMixed(blendRaw) ? '' : blendRaw}
-          onChange={(e) => {
-            const v = e.target.value as BlendMode;
+        <Select
+          label="Glow blend mode"
+          value={isMixed(blendRaw) ? '' : (blendRaw as string)}
+          options={[
+            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            ...BLEND_OPTIONS,
+          ]}
+          onChange={(v) => {
+            if (!v) return;
+            const mode = v as BlendMode;
             onChange((effect) => {
               if (effect.type === 'outerGlow' || effect.type === 'innerGlow')
-                return { ...effect, blendMode: v };
+                return { ...effect, blendMode: mode };
               return effect;
             });
           }}
-        >
-          {BLEND_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          placeholder="Mixed"
+        />
       </div>
     </div>
   );
