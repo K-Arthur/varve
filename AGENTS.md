@@ -157,6 +157,14 @@ canonical extraction pattern.
 an existing import of equal or greater weight.** This is a hard cap to prevent
 monolithic drift.
 
+This rule is **enforced automatically** by `scripts/audit-health.mjs` in the
+pre-commit hook. The hook checks every changed hub file against
+`.health-baseline.json`. To update the baseline after intentional growth:
+
+```bash
+node scripts/audit-health.mjs --update
+```
+
 ## Commands (run from repo root)
 - `pnpm install` — install JS deps
 - `just check-env` — verify toolchain on PATH
