@@ -143,10 +143,20 @@ function ShellInner({
   const { shellStyle, widths, setWidth } = usePanelWidths();
 
   // Register all actions into the ActionRegistry once on mount
+  // NOTE: registerEditorActions MUST run first so its handlers take
+  // priority over the no-op stubs from registerAllShortcuts.
   useEffect(() => {
+    registerEditorActions(editor, {
+      onOpenHelp: () => editorHelp.openContextualHelp(),
+      onOpenHelpCenter: () => editorHelp.setHelpCenterOpen(true),
+      onWhatIsThis: () => {},
+      onOpenAbout: () => {},
+      onStartTour: () => {},
+      onOpenFile: () => fileRef.current?.click(),
+      onImportFile: () => fileRef.current?.click(),
+    });
     registerAllShortcuts(() => null);
-    registerEditorActions(editor);
-  }, [editor]);
+  }, [editor, editorHelp]);
 
   const handlePaletteSelect = useCallback((id: string) => {
     const input = fileRef.current;

@@ -46,7 +46,7 @@ export function registerEditorActions(
 
   for (const [id, handler] of Object.entries(handlers)) {
     const def = SHORTCUT_DEFS[id];
-    if (def && !r.has(id)) {
+    if (def) {
       r.register(
         {
           id,
