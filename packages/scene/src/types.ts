@@ -736,6 +736,8 @@ export interface RasterLayerNode extends NodeBase {
   pixelMode: boolean;
   /** Tile storage: key = "{col}:{row}" in 128×128 grid. */
   tiles: Map<string, RasterTile>;
+  /** Local transform for positioning/rotation/scale. */
+  transform: Affine;
 }
 
 export type SceneNode =
