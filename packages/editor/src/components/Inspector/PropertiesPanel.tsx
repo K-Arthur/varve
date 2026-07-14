@@ -27,6 +27,7 @@ import { InspectorColorPopover } from './controls/InspectorColorPopover';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
+import { BrushSection } from './sections/BrushSection';
 import { ComponentSection } from './sections/ComponentSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
@@ -87,7 +88,16 @@ export function PropertiesPanel() {
           {state.tool === 'frame' && summary.kind !== 'single' && (
             <FramePresetsSection mode="create" />
           )}
-          {summary.kind === 'empty' && state.tool !== 'frame' && <EmptySelectionState />}
+          {(state.tool === 'paint' || state.tool === 'eraser') && summary.kind === 'empty' && (
+            <BrushSection tool={state.tool} />
+          )}
+          {summary.kind === 'empty' &&
+            state.tool !== 'frame' &&
+            state.tool !== 'paint' &&
+            state.tool !== 'eraser' && <EmptySelectionState />}
+          {(state.tool === 'paint' || state.tool === 'eraser') && (
+            <BrushSection tool={state.tool} />
+          )}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
         </div>

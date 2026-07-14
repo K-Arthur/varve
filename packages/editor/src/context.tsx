@@ -1453,6 +1453,8 @@ export function EditorProvider({
       keyObjectId: null,
       alignToPage: false,
       colorBlindnessView: 'none',
+      foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
+      backgroundColor: [255, 255, 255, 255] as [number, number, number, number],
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -4360,6 +4362,18 @@ export function EditorProvider({
       },
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
       setColorBlindnessView: (type) => patch({ colorBlindnessView: type }),
+      setForegroundColor: (color) => patch({ foregroundColor: color }),
+      setBackgroundColor: (color) => patch({ backgroundColor: color }),
+      swapColors: () =>
+        patch({
+          foregroundColor: state.backgroundColor,
+          backgroundColor: state.foregroundColor,
+        }),
+      resetColors: () =>
+        patch({
+          foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
+          backgroundColor: [255, 255, 255, 255] as [number, number, number, number],
+        }),
 
       setNodeLayout: (id, layout) => {
         updateNodeProp(id, (n) => {

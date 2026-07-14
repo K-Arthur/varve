@@ -43,6 +43,8 @@ export const TOOL_ICONS = {
   booleanIntersect: 'Combine',
   booleanExclude: 'Diff',
   inspect: 'SearchCode',
+  paint: 'Brush',
+  eraser: 'Eraser',
   cloneStamp: 'Stamp',
   healBrush: 'Bandage',
   spotHeal: 'Wand',

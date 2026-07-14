@@ -44,7 +44,9 @@ export type ToolId =
   | 'patch'
   | 'refineMask'
   | 'trimapEdit'
-  | 'crop';
+  | 'crop'
+  | 'paint'
+  | 'eraser';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',
@@ -103,6 +105,13 @@ export interface ToolContext {
   metaKey: boolean;
   pointerType: 'mouse' | 'pen' | 'touch';
   pointerPressure: number;
+  /** Stylus tilt in degrees from perpendicular (-90 to 90). */
+  tiltX: number;
+  tiltY: number;
+  /** Stylus rotation in degrees (0-359). */
+  twist: number;
+  /** Foreground color for painting as RGBA [r, g, b, a] in 0-255 range. */
+  foregroundColor: [number, number, number, number];
   snapEnabled: boolean;
   snapGrid: number;
   /** Isolation/focus view: when set, only nodes in this subtree are selectable. */
@@ -182,6 +191,7 @@ export interface ToolContext {
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapPreview?: (trimap: Uint8Array, width: number, height: number) => void;
   commitTrimapEdit?: (trimap: Uint8Array) => void;
+  createRasterLayer: (width: number, height: number) => string | null;
 }
 
 export interface Tool {
