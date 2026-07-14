@@ -28,9 +28,9 @@ describe('ColorPicker', () => {
   it('renders space selector', () => {
     const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
     render(<ColorPicker value={color} onChange={() => {}} />);
-    const spaceButtons = screen.getAllByRole('button', { name: 'RGB' });
+    const spaceButtons = screen.getAllByRole('radio', { name: 'RGB' });
     expect(spaceButtons.length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole('button', { name: 'CMYK' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'CMYK' })).toBeTruthy();
   });
 
   it('renders CMYK fields when space changes to CMYK', () => {
@@ -38,7 +38,7 @@ describe('ColorPicker', () => {
     const onChange = vi.fn();
     render(<ColorPicker value={color} onChange={onChange} />);
     act(() => {
-      const btn = screen.getAllByRole('button', { name: 'CMYK' })[0];
+      const btn = screen.getAllByRole('radio', { name: 'CMYK' })[0];
       if (btn) btn.click();
     });
     // After switching to CMYK mode, the onChange fires with converted CMYK
@@ -51,7 +51,7 @@ describe('ColorPicker', () => {
     const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
     render(<ColorPicker value={color} onChange={() => {}} />);
     act(() => {
-      const btn = screen.getAllByRole('button', { name: 'Spot' })[0];
+      const btn = screen.getAllByRole('radio', { name: 'Spot' })[0];
       if (btn) btn.click();
     });
     // Spot browser should appear
@@ -62,15 +62,15 @@ describe('ColorPicker', () => {
     const color: ManagedColor = { space: 'cmyk', c: 0, m: 128, y: 255, k: 0, a: 255 };
     render(<ColorPicker value={color} onChange={() => {}} />);
     // Should have CMYK fields visible
-    const cmykBtn = screen.getByRole('button', { name: 'CMYK' });
-    expect(cmykBtn.getAttribute('aria-pressed')).toBe('true');
+    const cmykBtn = screen.getByRole('radio', { name: 'CMYK' });
+    expect(cmykBtn.getAttribute('aria-checked')).toBe('true');
   });
 
   it('works with Grayscale value', () => {
     const color: ManagedColor = { space: 'gray', v: 128, a: 255 };
     render(<ColorPicker value={color} onChange={() => {}} />);
-    const grayBtn = screen.getByRole('button', { name: 'Grayscale' });
-    expect(grayBtn.getAttribute('aria-pressed')).toBe('true');
+    const grayBtn = screen.getByRole('radio', { name: 'Grayscale' });
+    expect(grayBtn.getAttribute('aria-checked')).toBe('true');
   });
 
   it('works with Spot color value', () => {
@@ -82,8 +82,8 @@ describe('ColorPicker', () => {
       processFallback: { c: 0, m: 255, y: 255, k: 0 },
     };
     render(<ColorPicker value={color} onChange={() => {}} />);
-    const spotBtn = screen.getByRole('button', { name: 'Spot' });
-    expect(spotBtn.getAttribute('aria-pressed')).toBe('true');
+    const spotBtn = screen.getByRole('radio', { name: 'Spot' });
+    expect(spotBtn.getAttribute('aria-checked')).toBe('true');
   });
 });
 
@@ -140,10 +140,10 @@ describe('EyeDropperButton', () => {
 describe('ColorSpaceSelector', () => {
   it('renders all four space buttons', () => {
     render(<ColorSpaceSelector active="rgb" onChange={() => {}} />);
-    expect(screen.getByRole('button', { name: 'RGB' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'CMYK' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Grayscale' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Spot' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'RGB' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'CMYK' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Grayscale' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Spot' })).toBeTruthy();
   });
 });
 
