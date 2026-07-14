@@ -12,13 +12,13 @@
 import { useDroppable } from '@dnd-kit/core';
 import { type CompositorBackend, createCompositorBackend } from '@strata/compositor';
 import {
-  adjustmentsToFilters,
   applyStyleOverrides,
   CompositeCanvas,
   createEngine,
   type Engine,
   type EngineColor,
   type SceneNode as EngineNode,
+  fitRasterDimensions,
   getFontRegistry,
   getImageCache,
   mapBlendMode,
@@ -45,10 +45,12 @@ import {
   walkNodes,
 } from '@strata/scene';
 import {
+  type Camera,
   clampZoom,
   computeFloatingOrigin,
   fitBoundsCamera,
   isWorldRectInViewport,
+  managedColorToCss,
   screenToWorld,
   worldToScreen,
   zoomAboutPoint,
@@ -57,7 +59,15 @@ import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CanvasNameLabels } from './canvas/CanvasNameLabels';
 import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
+import {
+  resizeCanvasBackingStore,
+  subscribeToCanvasContextLifecycle,
+  subscribeToDevicePixelRatio,
+} from './canvas/canvasSurface';
+import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
+import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
 import { SubtreeIrCache } from './canvas/subtreeIrCache';
+import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './components/AlignmentOverlay';
 import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
@@ -80,12 +90,14 @@ import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { commitImageCrop } from './imageCrop';
-import { collectImageBitmaps } from './render/collectImageBitmaps';
+import { closeImageBitmapMap, collectImageBitmaps } from './render/collectImageBitmaps';
 import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
 import {
   sceneCanUseWorkerRenderer,
   sceneNeedsStructuralCompositing,
 } from './render/sceneCompositing';
+import { sceneNodeToEngineNode } from './render/sceneToEngine';
+import { workerBitmapDelta } from './render/workerCamera';
 import {
   createRenderWorkerHost,
   isStaleResponse,
@@ -162,117 +174,38 @@ import { TextTool } from './tools/TextTool';
 import { TrimapEditTool } from './tools/TrimapEditTool';
 import { ZoomTool } from './tools/ZoomTool';
 
-type DocNode = SceneNode;
-
 let _showOriginalBgNodeId: string | null = null;
 
-export function toEngineNode(n: DocNode): EngineNode {
-  const base = {
-    id: n.id,
-    name: n.name,
-    fill: n.fill,
-    fills: n.fills,
-    transform: n.transform,
-    opacity: n.opacity ?? 1,
-    blendMode: n.blendMode ?? ('normal' as const),
-    rotation: n.rotation ?? 0,
-    strokes: 'strokes' in n ? (n.strokes ?? []) : [],
-    effects: 'effects' in n ? (n.effects ?? []) : [],
-  };
-  if (n.kind === 'shape') {
-    const shapeNode = n as import('@strata/scene').ShapeNode;
-    const skipAlphaMask = _showOriginalBgNodeId === n.id;
-    return {
-      ...base,
-      shape: n.shape,
-      cornerRadius: n.cornerRadius,
-      alphaMask: skipAlphaMask ? undefined : shapeNode.backgroundRemoval?.maskDataUrl,
-    };
+export function toEngineNode(node: SceneNode): EngineNode {
+  return sceneNodeToEngineNode(node, {
+    showOriginalBackgroundNodeId: _showOriginalBgNodeId,
+  });
+}
+
+function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): number {
+  let padding = 2;
+  const stack = [...rootIds];
+  while (stack.length > 0) {
+    const node = document.nodes[stack.pop()!];
+    if (!node) continue;
+    if ('effects' in node && node.effects) {
+      for (const effect of node.effects) {
+        if (!effect.visible) continue;
+        if (effect.type === 'dropShadow') {
+          padding = Math.max(
+            padding,
+            Math.abs(effect.x) + Math.abs(effect.y) + effect.blur * 3 + effect.spread,
+          );
+        } else if (effect.type === 'outerGlow') {
+          padding = Math.max(padding, effect.blur * 3 + effect.spread);
+        } else if (effect.type === 'layerBlur') {
+          padding = Math.max(padding, effect.radius * 3);
+        }
+      }
+    }
+    if ('children' in node) stack.push(...node.children);
   }
-  if (n.kind === 'text') {
-    const fontSize = n.fontSize ?? 14;
-    const text = n.text ?? '';
-    const estW = Math.max(text.length * fontSize * 0.55, fontSize * 3);
-    const estH = fontSize * 1.4;
-    // Text MUST carry a `shape: { kind: 'text', … }` with every required field
-    // populated. The native/wasm engine deserializes each node into Rust's
-    // strict `IpcSceneNode`, where `shape` is mandatory and `IpcShape::Text`
-    // requires text/fontSize/fontFamily/fontWeight/fontStyle/textAlign/x/y/w/h.
-    // Emitting only the top-level `kind: 'text'` fields (no `shape`) made
-    // `build_ir_json` throw `missing field \`shape\``, which rejected the whole
-    // buildIr batch and blanked the entire canvas — not just the text node.
-    // The pure-TS stub keys off `kind === 'text'`, so the redundant top-level
-    // fields stay for it; Rust ignores unknown fields.
-    const textShape = {
-      kind: 'text' as const,
-      text,
-      fontSize,
-      fontFamily: n.fontFamily ?? 'sans-serif',
-      fontWeight: n.fontWeight ?? 400,
-      fontStyle: n.fontStyle ?? 'normal',
-      textAlign: n.textAlign ?? 'left',
-      x: 0,
-      y: 0,
-      w: estW,
-      h: estH,
-      letterSpacing: n.letterSpacing,
-      lineHeight: n.lineHeight,
-      textCase: n.textCase,
-      textDecoration: n.textDecoration,
-      textMode: n.textMode ?? 'point',
-      pathTextSettings: n.pathTextSettings,
-    };
-    return {
-      ...base,
-      kind: 'text',
-      // Cast: the engine `Shape` union is the vector-primitive set and has no
-      // `text` member, but the wire contract (and the Rust IpcShape) does.
-      shape: textShape as unknown as EngineNode['shape'],
-      text: n.text,
-      fontSize: n.fontSize,
-      fontFamily: n.fontFamily,
-      fontWeight: n.fontWeight,
-      fontStyle: n.fontStyle,
-      textAlign: n.textAlign,
-      textAlignVertical: n.textAlignVertical,
-      letterSpacing: n.letterSpacing,
-      lineHeight: n.lineHeight,
-      paragraphSpacing: n.paragraphSpacing,
-      textCase: n.textCase,
-      textDecoration: n.textDecoration,
-      textOverflow: n.textOverflow,
-      listStyle: n.listStyle,
-      textMode: n.textMode,
-      pathTextSettings: n.pathTextSettings,
-      w: estW,
-      h: estH,
-    };
-  }
-  if (n.kind === 'path') {
-    const pathNode = n as import('@strata/scene').PathNode;
-    return {
-      ...base,
-      shape: {
-        kind: 'path' as const,
-        points: pathNode.points,
-        closed: pathNode.closed,
-        tolerance: 4,
-      },
-    };
-  }
-  if (n.kind === 'frame')
-    return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: n.w, h: n.h } as const };
-  if (n.kind === 'adjustment') {
-    const adjNode = n as import('@strata/scene').AdjustmentNode;
-    return {
-      ...base,
-      shape: { kind: 'rect', x: 0, y: 0, w: 0, h: 0 } as const,
-      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 } as const,
-      opacity: 0,
-      filters: adjustmentsToFilters(adjNode.adjustments ?? []),
-    };
-  }
-  return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: 200, h: 160 } as const };
+  return Math.ceil(padding);
 }
 
 /** Lightweight content string for SubtreeIrCache hash — encodes the EngineNode
@@ -469,7 +402,9 @@ export function CanvasArea({
   const workerBitmapRef = useRef<{
     bitmap: ImageBitmap;
     docVersion: number;
-    camera: { zoom: number; pan: { x: number; y: number } };
+    camera: Camera;
+    viewport: { width: number; height: number };
+    dpr: number;
   } | null>(null);
   const requestContentDrawRef = useRef<(() => void) | null>(null);
   const docVersionRef = useRef(0);
@@ -482,6 +417,7 @@ export function CanvasArea({
   // Frame/group spatial index, cached by fingerprint for fast drag containment.
   const frameIndexRef = useRef<FrameSpatialIndex | null>(null);
   const prevDrawDocRef = useRef(state.document);
+  const lastRenderedDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
     const prevDoc = prevDrawDocRef.current;
     if (prevDoc && isOnlyVariableStoreChange(prevDoc, state.document)) {
@@ -536,14 +472,6 @@ export function CanvasArea({
   const drawInFlightRef = useRef(false);
   const drawPendingRef = useRef(false);
 
-  /** Size a canvas element to match its CSS dimensions at the given DPR. */
-  function sizeCanvas(canvas: HTMLCanvasElement, cssW: number, cssH: number, dpr: number): void {
-    if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
-      canvas.width = cssW * dpr;
-      canvas.height = cssH * dpr;
-    }
-  }
-
   // E1: Auto-pan when dragging near canvas edge.
   const autoPanRaf = useRef<number | null>(null);
   const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -566,6 +494,9 @@ export function CanvasArea({
   const [warpMesh, setWarpMesh] = useState<import('@strata/engine').MeshWarp | null>(null);
   const lastCursorUpdate = useRef(0);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [displayDpr, setDisplayDpr] = useState(() =>
+    typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
+  );
   const [renameDialog, setRenameDialog] = useState<{ defaultValue: string } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const renameDialogRef = useRef<HTMLDialogElement>(null);
@@ -580,6 +511,24 @@ export function CanvasArea({
     const ro = new ResizeObserver(updateSize);
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => subscribeToDevicePixelRatio(setDisplayDpr), []);
+
+  useEffect(() => {
+    const canvas = contentCanvasRef.current;
+    if (!canvas) return;
+    return subscribeToCanvasContextLifecycle(canvas, {
+      onLost: () => {
+        workerBitmapRef.current?.bitmap.close();
+        workerBitmapRef.current = null;
+        editorRef.current.announce('Canvas rendering context lost. Waiting to restore rendering.');
+      },
+      onRestored: () => {
+        editorRef.current.announce('Canvas rendering restored.');
+        requestContentDrawRef.current?.();
+      },
+    });
   }, []);
 
   useEffect(() => {
@@ -631,34 +580,38 @@ export function CanvasArea({
   const workerFailedRef = useRef(false);
 
   useEffect(() => {
-    renderWorkerRef.current = createRenderWorkerHost((msg) => {
-      if (msg.type === 'frameRendered') {
-        if (isStaleResponse(docVersionRef.current, msg.docVersion)) {
-          msg.bitmap?.close();
-          return;
-        }
-        if (msg.bitmap) {
-          workerBitmapRef.current?.bitmap.close();
-          workerBitmapRef.current = {
-            bitmap: msg.bitmap,
-            docVersion: msg.docVersion,
-            camera: msg.camera,
-          };
+    renderWorkerRef.current = createRenderWorkerHost(
+      (msg) => {
+        if (msg.type === 'frameRendered') {
+          if (isStaleResponse(docVersionRef.current, msg.docVersion)) {
+            msg.bitmap?.close();
+            return;
+          }
+          if (msg.bitmap) {
+            workerBitmapRef.current?.bitmap.close();
+            workerBitmapRef.current = {
+              bitmap: msg.bitmap,
+              docVersion: msg.docVersion,
+              camera: msg.camera,
+              viewport: msg.viewport,
+              dpr: msg.dpr,
+            };
+            requestContentDrawRef.current?.();
+          }
+        } else if (msg.type === 'error' && !workerFailedRef.current) {
+          workerFailedRef.current = true;
+          console.warn('[Strata] Render worker failed, falling back to main-thread:', msg.message);
           requestContentDrawRef.current?.();
         }
-      } else if (msg.type === 'error') {
+      },
+      () => {
         if (!workerFailedRef.current) {
           workerFailedRef.current = true;
-          if (typeof console !== 'undefined') {
-            console.warn(
-              '[Strata] Render worker failed, falling back to main-thread:',
-              msg.message,
-            );
-          }
+          console.warn('[Strata] Render worker stopped permanently; using main-thread Canvas 2D.');
           requestContentDrawRef.current?.();
         }
-      }
-    });
+      },
+    );
     return () => {
       renderWorkerRef.current?.terminate();
       renderWorkerRef.current = null;
@@ -789,6 +742,7 @@ export function CanvasArea({
       removeSelected: () => e.removeSelected(),
       duplicateSelected: () => e.duplicateSelected(),
       reparentNode: (id, newParentId, toIndex) => e.reparentNode(id, newParentId, toIndex),
+      setCamera: (camera) => commitCamera(camera),
       setPan: (p) => e.setPan(p),
       setZoom: (z) => e.setZoom(z),
       announce: (msg) => e.announce(msg),
@@ -969,6 +923,22 @@ export function CanvasArea({
     };
   }
 
+  /**
+   * Keep gesture math ahead of React rendering while committing the complete
+   * camera atomically. Trackpads can deliver several wheel events in one task;
+   * updating this ref prevents each event from reusing stale zoom and pan.
+   */
+  function commitCamera(camera: Camera): void {
+    const current = stateRef.current;
+    stateRef.current = {
+      ...current,
+      zoom: camera.zoom,
+      pan: camera.pan,
+      cameraRotation: camera.rotation ?? current.cameraRotation,
+    };
+    editorRef.current.setCamera(camera);
+  }
+
   // ─── Drawing ─────────────────────────────────────────────────────────────
 
   // ── Content canvas draw: board background, IR replay, outline mode ──────
@@ -979,10 +949,10 @@ export function CanvasArea({
     const parent = canvas.parentElement;
     if (!parent) return;
 
-    const dpr = window.devicePixelRatio ?? 1;
+    const dpr = displayDpr;
     const cssW = parent.clientWidth;
     const cssH = parent.clientHeight;
-    sizeCanvas(canvas, cssW, cssH, dpr);
+    resizeCanvasBackingStore(canvas, cssW, cssH, dpr);
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -997,6 +967,9 @@ export function CanvasArea({
       return;
     }
     drawInFlightRef.current = true;
+    let frameBackend: CompositorBackend | null = null;
+    let compositorFrameOpen = false;
+    let dirtyClipOpen = false;
 
     (async () => {
       if (!ctx) return;
@@ -1026,12 +999,18 @@ export function CanvasArea({
       const applyCam = (targetCtx: CanvasRenderingContext2D) =>
         applyEditorCameraToCtx(targetCtx, camState, dpr, vp);
       const hiddenByContainer = new Set<string>();
+      const resolvedStyles = resolveAllStyles(doc);
 
       for (const [id] of entries) {
         const n = doc.nodes[id];
         if (!n) continue;
-        if (isContainer(n) && 'children' in n && n.children.length > 0) {
-          const containerBounds = getCachedWorldBounds(cache, doc, id);
+        if (
+          isContainer(n) &&
+          canCullDescendantsWithContainerBounds(n) &&
+          'children' in n &&
+          n.children.length > 0
+        ) {
+          const containerBounds = nodeVisualWorldBounds(doc, id, resolvedStyles);
           if (containerBounds && !isWorldRectInViewport(cam, vp, containerBounds)) {
             const queue = [...n.children];
             while (queue.length > 0) {
@@ -1046,55 +1025,37 @@ export function CanvasArea({
         }
       }
 
-      const prevDoc = prevDrawDocRef.current;
-      if (prevDoc && prevDoc !== doc) {
-        const prevNodeIds = new Set(Object.keys(prevDoc.nodes));
-        const currNodeIds = new Set(Object.keys(doc.nodes));
-        let dirtyWorld: { x: number; y: number; w: number; h: number } | null = null;
-        for (const id of currNodeIds) {
-          if (!prevNodeIds.has(id)) {
-            const b = getCachedWorldBounds(cache, doc, id);
-            if (!b) continue;
-            if (!dirtyWorld) dirtyWorld = { ...b };
-            else {
-              const mx = Math.min(dirtyWorld.x, b.x);
-              const my = Math.min(dirtyWorld.y, b.y);
-              const mx2 = Math.max(dirtyWorld.x + dirtyWorld.w, b.x + b.w);
-              const my2 = Math.max(dirtyWorld.y + dirtyWorld.h, b.y + b.h);
-              dirtyWorld = { x: mx, y: my, w: mx2 - mx, h: my2 - my };
-            }
-          }
+      const dirty = computeDocumentDirtyRegion(lastRenderedDocRef.current, doc);
+      if (dirty.kind === 'full') {
+        dirtyRectRef.current = null;
+      } else if (dirty.kind === 'partial') {
+        const dirtyWorld = dirty.bounds;
+        // Use the canonical camera transform so rotated views produce the
+        // same dirty bounds as the pixels painted by the compositor.
+        const origin = computeFloatingOrigin(cam, vp);
+        const corners: Array<[number, number]> = [
+          [dirtyWorld.x, dirtyWorld.y],
+          [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y],
+          [dirtyWorld.x, dirtyWorld.y + dirtyWorld.h],
+          [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y + dirtyWorld.h],
+        ];
+        let minSx = Infinity;
+        let minSy = Infinity;
+        let maxSx = -Infinity;
+        let maxSy = -Infinity;
+        for (const [wx, wy] of corners) {
+          const [px, py] = worldToScreen(cam, wx, wy, vp, origin);
+          minSx = Math.min(minSx, px);
+          minSy = Math.min(minSy, py);
+          maxSx = Math.max(maxSx, px);
+          maxSy = Math.max(maxSy, py);
         }
-        if (dirtyWorld) {
-          // Must match the transform applyCam/applyEditorCameraToCtx actually
-          // paints with (floating origin + rotation) — naive world*zoom+pan
-          // drifts from the real paint position once the floating origin is
-          // non-zero, clipping newly-added nodes out of the redraw entirely.
-          const origin = computeFloatingOrigin(cam, vp);
-          const corners: Array<[number, number]> = [
-            [dirtyWorld.x, dirtyWorld.y],
-            [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y],
-            [dirtyWorld.x, dirtyWorld.y + dirtyWorld.h],
-            [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y + dirtyWorld.h],
-          ];
-          let minSx = Infinity;
-          let minSy = Infinity;
-          let maxSx = -Infinity;
-          let maxSy = -Infinity;
-          for (const [wx, wy] of corners) {
-            const [px, py] = worldToScreen(cam, wx, wy, vp, origin);
-            minSx = Math.min(minSx, px);
-            minSy = Math.min(minSy, py);
-            maxSx = Math.max(maxSx, px);
-            maxSy = Math.max(maxSy, py);
-          }
-          dirtyRectRef.current = {
-            x: Math.max(0, minSx - 40),
-            y: Math.max(0, minSy - 40),
-            w: Math.min(VP_W, maxSx - minSx + 80),
-            h: Math.min(VP_H, maxSy - minSy + 80),
-          };
-        }
+        dirtyRectRef.current = {
+          x: Math.max(0, minSx - 40),
+          y: Math.max(0, minSy - 40),
+          w: Math.min(VP_W, maxSx - minSx + 80),
+          h: Math.min(VP_H, maxSy - minSy + 80),
+        };
       }
 
       const variantCaches = buildAllVariantCaches(doc);
@@ -1112,9 +1073,14 @@ export function CanvasArea({
         n = applyBindingsToNode(n, variableStore);
         const world = getCachedWorldTransform(cache, doc, id);
         const worldBounds = getCachedWorldBounds(cache, doc, id);
-        if (worldBounds && !isWorldRectInViewport(cam, vp, worldBounds)) continue;
+        let engineNode = toEngineNode(n);
+        const styleOverrides = resolvedStyles.get(id);
+        if (styleOverrides) engineNode = applyStyleOverrides(engineNode, styleOverrides);
+        const visualBounds = worldBounds
+          ? expandRect(worldBounds, appearancePaddingWorld(engineNode, world))
+          : null;
+        if (visualBounds && !isWorldRectInViewport(cam, vp, visualBounds)) continue;
         nodeIds.push(id);
-        const engineNode = toEngineNode(n);
         // Resolve path shape for text-on-path rendering
         if (
           engineNode.pathTextSettings?.pathNodeId &&
@@ -1128,19 +1094,6 @@ export function CanvasArea({
           }
         }
         flatNodes.push({ ...engineNode, transform: world });
-      }
-
-      const resolvedStyles = resolveAllStyles(doc);
-      if (resolvedStyles.size > 0) {
-        for (let i = 0; i < flatNodes.length; i++) {
-          const nodeId = nodeIds[i];
-          if (!nodeId) continue;
-          const overrides = resolvedStyles.get(nodeId);
-          if (!overrides) continue;
-          const fn = flatNodes[i];
-          if (!fn) continue;
-          flatNodes[i] = applyStyleOverrides(fn, overrides);
-        }
       }
 
       if (s.motion.activeTimelineId) {
@@ -1296,7 +1249,8 @@ export function CanvasArea({
         if (nid && item) irByNodeId.set(nid, item);
       }
 
-      compositorRef.current?.beginFrame(
+      frameBackend = compositorRef.current;
+      frameBackend?.beginFrame(
         {
           items: ir,
           camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
@@ -1305,6 +1259,7 @@ export function CanvasArea({
         },
         { applyCamera: false, clear: false },
       );
+      compositorFrameOpen = frameBackend !== null;
 
       const dirtyRect = dirtyRectRef.current;
       const usePartialRedraw =
@@ -1324,6 +1279,7 @@ export function CanvasArea({
         ctx.fillStyle = boardColor;
         ctx.fillRect(dx - 1, dy - 1, dw + 2, dh + 2);
         ctx.save();
+        dirtyClipOpen = true;
         ctx.beginPath();
         ctx.rect(dx, dy, dw, dh);
         ctx.clip();
@@ -1354,43 +1310,86 @@ export function CanvasArea({
         const maskSrcId = mask ? mask.sourceNodeId : null;
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
         if (mask && maskChild && maskSrcId) {
+          const baseTransform = targetCtx.getTransform();
+          const compositeMaskedSurface = (surface: HTMLCanvasElement): void => {
+            targetCtx.save();
+            try {
+              targetCtx.setTransform(1, 0, 0, 1, 0, 0);
+              if (n.kind === 'group') {
+                const blendMode = n.blendMode ?? 'passThrough';
+                targetCtx.globalAlpha = n.opacity ?? 1;
+                targetCtx.globalCompositeOperation = mapBlendMode(
+                  blendMode === 'passThrough' ? 'normal' : blendMode,
+                ) as GlobalCompositeOperation;
+              }
+              targetCtx.drawImage(surface, 0, 0);
+            } finally {
+              targetCtx.restore();
+            }
+          };
           if (mask.type === 'alpha') {
+            const result = document.createElement('canvas');
+            result.width = targetCtx.canvas.width;
+            result.height = targetCtx.canvas.height;
+            const resultCtx = result.getContext('2d');
+            if (!resultCtx) return;
             renderAlphaMask(
-              targetCtx,
+              resultCtx,
               {
                 draw: (maskCtx: CanvasRenderingContext2D) => {
-                  applyCam(maskCtx);
+                  maskCtx.setTransform(baseTransform);
                   replaySubtreeToCtx(maskSrcId, maskCtx);
                 },
               },
               {
                 draw: (contentCtx: CanvasRenderingContext2D) => {
-                  applyCam(contentCtx);
+                  contentCtx.setTransform(baseTransform);
                   for (const childId of (n as import('@strata/scene').ContainerNode).children) {
                     if (childId !== maskSrcId) replaySubtreeToCtx(childId, contentCtx);
                   }
                 },
               },
             );
+            compositeMaskedSurface(result);
             return;
           }
-          targetCtx.save();
-          const maskWorldTransform = getCachedWorldTransform(cache, doc, maskSrcId);
-          const [ma, mb, mc, md, me, mf] = maskWorldTransform;
-          targetCtx.transform(ma, mb, mc, md, me, mf);
-          targetCtx.beginPath();
-          traceSceneNodeOutline(
-            targetCtx,
-            maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
-          );
-          targetCtx.closePath();
-          targetCtx.clip();
-          targetCtx.setTransform(1, 0, 0, 1, 0, 0);
-          applyCam(targetCtx);
-          for (const childId of (n as import('@strata/scene').ContainerNode).children) {
-            if (childId !== maskSrcId) replaySubtreeToCtx(childId, targetCtx);
+          const drawClippedChildren = (clipCtx: CanvasRenderingContext2D): void => {
+            clipCtx.save();
+            try {
+              clipCtx.transform(...getCachedWorldTransform(cache, doc, maskSrcId));
+              clipCtx.beginPath();
+              traceSceneNodeOutline(
+                clipCtx,
+                maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
+              );
+              clipCtx.closePath();
+              clipCtx.clip();
+              clipCtx.setTransform(baseTransform);
+              for (const childId of (n as import('@strata/scene').ContainerNode).children) {
+                if (childId !== maskSrcId) replaySubtreeToCtx(childId, clipCtx);
+              }
+            } finally {
+              clipCtx.restore();
+            }
+          };
+          const blendMode = n.kind === 'group' ? (n.blendMode ?? 'passThrough') : 'normal';
+          const needsContainerSurface =
+            n.kind === 'group' &&
+            (n.isolated === true ||
+              (blendMode !== 'normal' && blendMode !== 'passThrough') ||
+              (n.opacity ?? 1) < 1);
+          if (needsContainerSurface) {
+            const result = document.createElement('canvas');
+            result.width = targetCtx.canvas.width;
+            result.height = targetCtx.canvas.height;
+            const resultCtx = result.getContext('2d');
+            if (!resultCtx) return;
+            resultCtx.setTransform(baseTransform);
+            drawClippedChildren(resultCtx);
+            compositeMaskedSurface(result);
+          } else {
+            drawClippedChildren(targetCtx);
           }
-          targetCtx.restore();
           return;
         }
 
@@ -1423,17 +1422,19 @@ export function CanvasArea({
           }
         } else if (n.kind === 'group') {
           const isIsolated = n.isolated === true;
+          const visibleGroupEffects = n.effects.filter((effect) => effect.visible);
           const needsFlatten =
             isIsolated ||
             (n.blendMode && n.blendMode !== 'normal' && n.blendMode !== 'passThrough') ||
-            (n.opacity !== undefined && n.opacity < 1);
+            (n.opacity !== undefined && n.opacity < 1) ||
+            visibleGroupEffects.length > 0;
           if (needsFlatten && n.children.length > 0) {
             let minX = Infinity,
               minY = Infinity,
               maxX = -Infinity,
               maxY = -Infinity;
             for (const childId of n.children) {
-              const b = getCachedWorldBounds(cache, doc, childId);
+              const b = nodeVisualWorldBounds(doc, childId, resolvedStyles);
               if (b) {
                 minX = Math.min(minX, b.x);
                 minY = Math.min(minY, b.y);
@@ -1443,20 +1444,69 @@ export function CanvasArea({
             }
             if (Number.isFinite(minX)) {
               targetCtx.save();
-              const gw = Math.ceil(maxX - minX) + 4;
-              const gh = Math.ceil(maxY - minY) + 4;
+              const effectPadding =
+                subtreeEffectPadding(doc, n.children) +
+                appearancePaddingWorld(n, getCachedWorldTransform(cache, doc, n.id));
+              const groupWidth = Math.max(1, maxX - minX + effectPadding * 2);
+              const groupHeight = Math.max(1, maxY - minY + effectPadding * 2);
+              const desiredScale = Math.max(1, dpr * s.zoom);
+              const fitted = fitRasterDimensions(
+                Math.ceil(groupWidth * desiredScale),
+                Math.ceil(groupHeight * desiredScale),
+              );
+              const renderScale = Math.max(
+                0.01,
+                Math.min(fitted.width / groupWidth, fitted.height / groupHeight),
+              );
               const gCanvas = new CompositeCanvas({
-                width: gw,
-                height: gh,
+                width: groupWidth,
+                height: groupHeight,
+                devicePixelRatio: renderScale,
                 testCanvas: document.createElement('canvas'),
               });
               const gCtx = gCanvas.ctx;
               gCtx.save();
-              gCtx.translate(-Math.floor(minX) + 2, -Math.floor(minY) + 2);
+              gCtx.translate(-minX + effectPadding, -minY + effectPadding);
               for (const childId of n.children) {
                 replaySubtreeToCtx(childId, gCtx as unknown as CanvasRenderingContext2D);
               }
               gCtx.restore();
+
+              for (const effect of visibleGroupEffects) {
+                if (effect.type !== 'dropShadow' && effect.type !== 'outerGlow') continue;
+                const effectCanvas = document.createElement('canvas');
+                effectCanvas.width = gCanvas.canvas.width;
+                effectCanvas.height = gCanvas.canvas.height;
+                const effectCtx = effectCanvas.getContext('2d');
+                if (!effectCtx) continue;
+                effectCtx.shadowColor = managedColorToCss(effect.color);
+                effectCtx.shadowBlur = (effect.blur + Math.max(0, effect.spread) / 2) * renderScale;
+                effectCtx.shadowOffsetX =
+                  (effect.type === 'dropShadow' ? effect.x : 0) * renderScale;
+                effectCtx.shadowOffsetY =
+                  (effect.type === 'dropShadow' ? effect.y : 0) * renderScale;
+                effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
+                effectCtx.globalCompositeOperation = 'destination-out';
+                effectCtx.shadowColor = 'transparent';
+                effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
+                targetCtx.save();
+                targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
+                targetCtx.globalCompositeOperation = mapBlendMode(
+                  effect.blendMode,
+                ) as GlobalCompositeOperation;
+                targetCtx.drawImage(
+                  effectCanvas,
+                  0,
+                  0,
+                  effectCanvas.width,
+                  effectCanvas.height,
+                  minX - effectPadding,
+                  minY - effectPadding,
+                  groupWidth,
+                  groupHeight,
+                );
+                targetCtx.restore();
+              }
               const bm = n.blendMode ?? 'passThrough';
               if (bm !== 'passThrough') {
                 targetCtx.globalCompositeOperation = mapBlendMode(bm) as GlobalCompositeOperation;
@@ -1464,10 +1514,20 @@ export function CanvasArea({
                 targetCtx.globalCompositeOperation = 'source-over';
               }
               targetCtx.globalAlpha = n.opacity ?? 1;
+              const layerBlur = visibleGroupEffects.find((effect) => effect.type === 'layerBlur');
+              if (layerBlur?.type === 'layerBlur' && layerBlur.radius > 0) {
+                targetCtx.filter = `blur(${layerBlur.radius}px)`;
+              }
               targetCtx.drawImage(
                 gCanvas.canvas as CanvasImageSource,
-                Math.floor(minX) - 2,
-                Math.floor(minY) - 2,
+                0,
+                0,
+                gCanvas.canvas.width,
+                gCanvas.canvas.height,
+                minX - effectPadding,
+                minY - effectPadding,
+                groupWidth,
+                groupHeight,
               );
               targetCtx.restore();
             }
@@ -1502,9 +1562,12 @@ export function CanvasArea({
           wb.camera.zoom === s.zoom &&
           wb.camera.pan.x === s.pan.x &&
           wb.camera.pan.y === s.pan.y &&
-          (s.cameraRotation ?? 0) === 0;
+          (wb.camera.rotation ?? 0) === (s.cameraRotation ?? 0);
         const docIsCurrent = Boolean(wb && wb.docVersion === docVersion);
-        const bitmapIsCurrent = docIsCurrent && cameraMatches;
+        const surfaceMatches = Boolean(
+          wb && wb.viewport.width === VP_W && wb.viewport.height === VP_H && wb.dpr === dpr,
+        );
+        const bitmapIsCurrent = docIsCurrent && cameraMatches && surfaceMatches;
         // Only ask the worker to re-render when the cached bitmap is stale
         // (doc or camera actually changed). Without this guard, the
         // `frameRendered` handler below calls back into `drawContent` on
@@ -1518,13 +1581,18 @@ export function CanvasArea({
         // a CPU core indefinitely and starving the main thread.
         if (!bitmapIsCurrent) {
           void collectImageBitmaps(ir).then((collected) => {
-            if (!collected || !renderWorkerRef.current) return;
-            renderWorkerRef.current.post(
+            if (!collected) return;
+            const host = renderWorkerRef.current;
+            if (!host) {
+              closeImageBitmapMap(collected.images);
+              return;
+            }
+            const posted = host.post(
               {
                 type: 'render',
                 nodes: flatNodes,
                 ir,
-                camera: { zoom: s.zoom, pan: s.pan },
+                camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
                 viewport: { width: VP_W, height: VP_H },
                 docVersion,
                 dpr,
@@ -1532,12 +1600,16 @@ export function CanvasArea({
               },
               collected.transfer,
             );
+            if (!posted && !workerFailedRef.current) {
+              workerFailedRef.current = true;
+              requestContentDrawRef.current?.();
+            }
           });
         }
-        if (wb) {
+        if (wb && surfaceMatches) {
           // Replay cached bitmap: identity when camera matches exactly,
-          // otherwise compensate for pan/zoom delta and floating-origin
-          // shift — smooth 60fps panning at "last rendered quality" while
+          // otherwise compensate for the complete camera delta — smooth
+          // panning/zoom/rotation at "last rendered quality" while
           // the worker delivers the fresh frame asynchronously.
           ctxNN.save();
           ctxNN.setTransform(1, 0, 0, 1, 0, 0);
@@ -1549,23 +1621,22 @@ export function CanvasArea({
               'normal',
             );
           } else {
-            // Apply camera delta: maps old-bitmap pixel coordinates to
-            // their correct screen positions under the new camera.
-            const zoomNew = s.zoom;
-            const zoomOld = wb.camera.zoom;
-            const panNew = s.pan;
-            const panOld = wb.camera.pan;
-            const sRatio = zoomNew / zoomOld;
-            const ortOld = computeFloatingOrigin({ zoom: zoomOld, pan: panOld }, vp);
-            const ortNew = computeFloatingOrigin({ zoom: zoomNew, pan: panNew }, vp);
-            const dx = (panNew.x - panOld.x * sRatio + (ortOld[0] - ortNew[0]) * zoomNew) * dpr;
-            const dy = (panNew.y - panOld.y * sRatio + (ortOld[1] - ortNew[1]) * zoomNew) * dpr;
-            compositorRef.current?.compositeRasterLayer(
-              'worker-frame',
-              wb.bitmap,
-              [sRatio, 0, 0, sRatio, dx, dy],
-              'normal',
+            const delta = workerBitmapDelta(
+              wb.camera,
+              { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
+              vp,
+              dpr,
             );
+            if (delta) {
+              compositorRef.current?.compositeRasterLayer(
+                'worker-frame',
+                wb.bitmap,
+                delta,
+                'normal',
+              );
+            } else {
+              compositorRef.current?.drawVectorItems(ir);
+            }
           }
           ctxNN.restore();
         } else {
@@ -1575,10 +1646,27 @@ export function CanvasArea({
         compositorRef.current?.drawVectorItems(ir);
       }
 
-      compositorRef.current?.endFrame();
+      if (dirtyClipOpen) {
+        ctx.restore();
+        dirtyClipOpen = false;
+      }
+      frameBackend?.endFrame();
+      compositorFrameOpen = false;
       const diag = compositorRef.current?.getDiagnostics?.();
       if (diag) setCompositorDiagnostics(diag);
+      if (stateRef.current.document === doc) lastRenderedDocRef.current = doc;
     })().finally(() => {
+      // Restore in reverse save order even when IR building or replay throws.
+      // An unbalanced dirty clip survives setTransform() and can make every
+      // later camera-only frame look blank.
+      if (dirtyClipOpen) {
+        ctx.restore();
+        dirtyClipOpen = false;
+      }
+      if (compositorFrameOpen) {
+        frameBackend?.endFrame();
+        compositorFrameOpen = false;
+      }
       drawInFlightRef.current = false;
       if (drawPendingRef.current) {
         drawPendingRef.current = false;
@@ -1599,6 +1687,9 @@ export function CanvasArea({
     state.motion.currentTime,
     state.motion.isPlaying,
     state.motion.activeTimelineId,
+    displayDpr,
+    canvasSize.width,
+    canvasSize.height,
   ]);
 
   useEffect(() => {
@@ -1613,10 +1704,10 @@ export function CanvasArea({
     const parent = canvas.parentElement;
     if (!parent) return;
 
-    const dpr = window.devicePixelRatio ?? 1;
+    const dpr = displayDpr;
     const cssW = parent.clientWidth;
     const cssH = parent.clientHeight;
-    sizeCanvas(canvas, cssW, cssH, dpr);
+    resizeCanvasBackingStore(canvas, cssW, cssH, dpr);
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -1873,32 +1964,23 @@ export function CanvasArea({
       ctx.setLineDash([]);
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // The path-drawing above ran inside applyEditorCameraToCtx's transform
-      // (floating origin included), but this label is drawn after resetting
-      // to a plain DPR transform — must redo the same origin-aware world→
-      // screen math here, or the label drifts from the shape once panned.
-      const draftOrigin = computeFloatingOrigin(
-        { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation },
-        vp,
-      );
+      // The label is drawn after resetting to a plain DPR transform, so use
+      // the canonical camera affine (including view rotation) explicitly.
+      const draftCamera = { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation };
       if (draft.kind === 'freehand') {
         const pt = draft.points[0];
         if (pt) {
-          const sx = (pt.x - draftOrigin[0]) * s.zoom + s.pan.x;
-          const sy = (pt.y - draftOrigin[1]) * s.zoom + s.pan.y;
+          const [sx, sy] = worldToScreen(draftCamera, pt.x, pt.y, vp);
           ctx.font = '11px system-ui';
           ctx.fillStyle = accentColor;
           ctx.fillText(draft.label ?? `${draft.points.length} pts`, sx + 4, sy + 14);
         }
       } else {
-        const sx =
-          draft.kind === 'line' || draft.kind === 'arrow'
-            ? (Math.min(draft.x1, draft.x2) - draftOrigin[0]) * s.zoom + s.pan.x
-            : (draft.x - draftOrigin[0]) * s.zoom + s.pan.x;
-        const sy =
-          draft.kind === 'line' || draft.kind === 'arrow'
-            ? (Math.min(draft.y1, draft.y2) - draftOrigin[1]) * s.zoom + s.pan.y
-            : (draft.y - draftOrigin[1]) * s.zoom + s.pan.y;
+        const worldX =
+          draft.kind === 'line' || draft.kind === 'arrow' ? Math.min(draft.x1, draft.x2) : draft.x;
+        const worldY =
+          draft.kind === 'line' || draft.kind === 'arrow' ? Math.min(draft.y1, draft.y2) : draft.y;
+        const [sx, sy] = worldToScreen(draftCamera, worldX, worldY, vp);
         const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
         ctx.font = '11px system-ui';
         ctx.fillStyle = accentColor;
@@ -1908,7 +1990,15 @@ export function CanvasArea({
         ctx.fillText(label, sx + sw + 4, sy + 14);
       }
     }
-  }, [draft, dropTargetFrameId, state.zoom, state.pan.x, state.pan.y, state.cameraRotation]);
+  }, [
+    draft,
+    dropTargetFrameId,
+    state.zoom,
+    state.pan.x,
+    state.pan.y,
+    state.cameraRotation,
+    displayDpr,
+  ]);
 
   // ── RAF scheduling ──────────────────────────────────────────────────────
 
@@ -1978,6 +2068,14 @@ export function CanvasArea({
     const tmInst = tm.current;
     if (!tmInst) return;
 
+    // Canvas-scoped shortcuts (zoom presets, tool hotkeys, delete/nudge,
+    // Space-pan) are handled by this element's own onKeyDown, so they only
+    // fire while it holds DOM focus. Nothing else re-focuses it after focus
+    // moves away (a panel input, a dialog, the properties panel) — relying
+    // on the browser's default click-to-focus for a tabIndex element is
+    // fragile, so grab focus explicitly on every pointer interaction.
+    e.currentTarget.focus({ preventScroll: true });
+
     // Two-finger touch → pinch zoom/pan. Cancel any in-progress tool gesture
     // from the first finger so it doesn't draw/move while pinching.
     if (e.pointerType === 'touch') {
@@ -2002,6 +2100,7 @@ export function CanvasArea({
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    const ne = e.nativeEvent as PointerEvent;
     // Active pinch: update this finger, re-derive distance + centroid.
     if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
       touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -2031,8 +2130,7 @@ export function CanvasArea({
         );
         const factor = pinch.lastDist > 0 ? geo.dist / pinch.lastDist : 1;
         const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor), viewport);
-        editorRef.current.setZoom(newCam.zoom);
-        editorRef.current.setPan(newCam.pan);
+        commitCamera(newCam);
         pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
         return;
       }
@@ -2042,11 +2140,10 @@ export function CanvasArea({
     const now = performance.now();
     if (now - lastCursorUpdate.current > 32) {
       lastCursorUpdate.current = now;
-      const world = editor.canvasToWorld(e.clientX, e.clientY);
+      const world = buildToolCtx(ne).canvasToWorld(e.clientX, e.clientY);
       editor.setCursorPos(world);
     }
 
-    const ne = e.nativeEvent as PointerEvent;
     const tmInst = tm.current;
     if (!tmInst) return;
 
@@ -2145,8 +2242,7 @@ export function CanvasArea({
       const origin = computeFloatingOrigin(cam, viewport);
       const anchor = screenToWorld(cam, clientX - rect.left, clientY - rect.top, viewport, origin);
       const newCam = zoomAboutPoint(cam, anchor, clampZoom(newZoom), viewport);
-      editorRef.current.setZoom(newCam.zoom);
-      editorRef.current.setPan(newCam.pan);
+      commitCamera(newCam);
     };
 
     // ── Inertial scroll state (A-06) ──────────────────────────────────
@@ -2322,8 +2418,7 @@ export function CanvasArea({
         const origin = computeFloatingOrigin(cam, viewport);
         const centreWorld = screenToWorld(cam, vpW / 2, vpH / 2, viewport, origin);
         const newCam = zoomAboutPoint(cam, centreWorld, newZoom, viewport);
-        eRef.setZoom(newCam.zoom);
-        eRef.setPan(newCam.pan);
+        commitCamera(newCam);
       }
 
       // ── Zoom presets (unmodified 1-6) ────────────────────────────────
@@ -2388,8 +2483,7 @@ export function CanvasArea({
         );
         if (allBounds) {
           const cam = fitBoundsCamera(allBounds, canvasViewport, 40);
-          eRef.setZoom(cam.zoom);
-          eRef.setPan(cam.pan);
+          commitCamera(cam);
           eRef.announceOperation('Zoom', 'fit all');
         }
       }
@@ -2636,6 +2730,7 @@ export function CanvasArea({
         tabIndex={0}
         aria-roledescription="Design canvas"
         aria-label="Design canvas"
+        data-testid="editor-canvas"
         className="editor-canvas__content-layer"
         style={{ cursor }}
         onKeyDown={handleKeyDown}
@@ -2660,7 +2755,11 @@ export function CanvasArea({
           }
         }}
       />
-      <canvas ref={overlayCanvasRef} className="editor-canvas__overlay-layer" />
+      <canvas
+        ref={overlayCanvasRef}
+        className="editor-canvas__overlay-layer"
+        data-testid="canvas-overlay"
+      />
       <Ruler
         zoom={state.zoom}
         pan={state.pan}
@@ -2855,10 +2954,11 @@ export function CanvasArea({
           const textScreenX = textCanvasX + canvasLeft;
           const textScreenY = textCanvasY + canvasTop;
           const textScreenW =
-            (n.text.length > 0
-              ? n.text.length * (n.fontSize ?? 16) * 0.6
-              : (n.fontSize ?? 16) * 3) * state.zoom;
-          const textScreenH = (n.fontSize ?? 16) * 1.4 * state.zoom;
+            (n.w ??
+              (n.text.length > 0
+                ? n.text.length * (n.fontSize ?? 16) * 0.6
+                : (n.fontSize ?? 16) * 3)) * state.zoom;
+          const textScreenH = (n.h ?? (n.fontSize ?? 16) * 1.4) * state.zoom;
           const textScreenRect = {
             x: textScreenX,
             y: textScreenY,
