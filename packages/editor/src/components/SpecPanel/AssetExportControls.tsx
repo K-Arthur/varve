@@ -133,7 +133,7 @@ export function AssetExportControls({
         }
       }
     } catch (err) {
-      setMessage(`Export failed: ${(err as Error).message}`);
+      setMessage(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setExporting(false);
     }
