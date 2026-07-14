@@ -460,7 +460,6 @@ function parseNameTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     if (recOff + 12 > data.byteLength) break;
 
     const platformID = view.getUint16(recOff);
-    const _encodingID = view.getUint16(recOff + 2);
     const nameID = view.getUint16(recOff + 4);
     const length = view.getUint16(recOff + 6);
     const offset2 = view.getUint16(recOff + 8);
@@ -642,8 +641,8 @@ function parseFvarTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     const minValue = view.getFloat32(axisOffset + 4, false);
     const defaultValue = view.getFloat32(axisOffset + 8, false);
     const maxValue = view.getFloat32(axisOffset + 12, false);
-    const _flags = view.getUint16(axisOffset + 16);
-    const _nameID = view.getUint16(axisOffset + 18);
+    void view.getUint16(axisOffset + 16);
+    void view.getUint16(axisOffset + 18);
 
     // Resolve axis name from name table
     const axisName = AXIS_NAMES[tag] || tag;
@@ -701,8 +700,8 @@ function parseCmapTable(
   for (let i = 0; i < numSubtables && i < 10; i++) {
     if (subtableOffset + 8 > data.byteLength) break;
 
-    const _platformID = view.getUint16(subtableOffset);
-    const _encodingID = view.getUint16(subtableOffset + 2);
+    void view.getUint16(subtableOffset);
+    void view.getUint16(subtableOffset + 2);
     const offset2 = view.getUint32(subtableOffset + 4);
     const formatOffset = base + offset2;
 
