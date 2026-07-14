@@ -52,9 +52,8 @@ function setupMocks() {
     }
   };
 
-  // @ts-expect-error — jsdom has no document.fonts
   globalThis.document = globalThis.document ?? {};
-  // @ts-expect-error
+  // @ts-expect-error — document.fonts is read-only in DOM lib
   globalThis.document.fonts = {
     check: vi.fn(() => false),
     add: vi.fn((face: { family: string }) => {
@@ -172,7 +171,6 @@ describe('FontLoader', () => {
 
   it('isFontAvailable checks document.fonts.check', () => {
     const checkMock = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
-    // @ts-expect-error
     globalThis.document.fonts.check = checkMock;
 
     const loader = new FontLoader();
@@ -279,6 +277,6 @@ describe('loadSystemFontsViaLocal', () => {
   it('returns LoadResult array for each requested family', async () => {
     const results = await loadSystemFontsViaLocal(['Arial', 'Helvetica', 'Times New Roman']);
     expect(results).toHaveLength(3);
-    expect(results[0].family).toBe('Arial');
+    expect(results[0]!.family).toBe('Arial');
   });
 });

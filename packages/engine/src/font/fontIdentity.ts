@@ -106,7 +106,7 @@ export interface ParsedFontMetadata {
   /** Supported scripts (from OS/2). */
   scripts: string[];
   /** Supported languages (from name table). */
-  languages: string[];
+  languages?: string[];
   /** Embedding permission from OS/2 fsType. */
   embeddingRights: EmbeddingRights;
   /** Whether the font contains color glyphs (COLR/CPAL or sbix or SVG). */
@@ -139,6 +139,23 @@ export interface ParsedNamedInstance {
   name: string;
   /** Axis coordinates for this instance. */
   coordinates: Record<string, number>;
+}
+
+/**
+ * Detect font format from raw file bytes using magic bytes.
+ */
+export function detectFontFormat(data: ArrayBuffer): FontFormat {
+  const view = new Uint8Array(data, 0, 4);
+  if (view.length < 4) return 'unknown';
+
+  if (view[0] === 0x77 && view[1] === 0x4f && view[2] === 0x46 && view[3] === 0x46) return 'woff';
+  if (view[0] === 0x77 && view[1] === 0x4f && view[2] === 0x46 && view[3] === 0x32) return 'woff2';
+  if (view[0] === 0x00 && view[1] === 0x01 && view[2] === 0x00 && view[3] === 0x00) return 'ttf';
+  if (view[0] === 0x4f && view[1] === 0x54 && view[2] === 0x54 && view[3] === 0x4f) return 'otf';
+  if (view[0] === 0x74 && view[1] === 0x72 && view[2] === 0x75 && view[3] === 0x65) return 'ttf';
+  if (view[0] === 0x74 && view[1] === 0x74 && view[2] === 0x63 && view[3] === 0x66) return 'ttf';
+
+  return 'unknown';
 }
 
 /**
