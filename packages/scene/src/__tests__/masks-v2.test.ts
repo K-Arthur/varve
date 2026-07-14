@@ -19,9 +19,9 @@ describe('vector masks', () => {
     doc = addMask(doc, 'f1', undefined, 'clip', {
       vectorMask: {
         points: [
-          { x: 0, y: 0 },
-          { x: 100, y: 0 },
-          { x: 100, y: 100 },
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 100, handleIn: null, handleOut: null },
         ],
         closed: true,
         fillRule: 'nonzero',
@@ -40,8 +40,8 @@ describe('vector masks', () => {
     doc = addMask(doc, 'f1', undefined, 'clip', {
       vectorMask: {
         points: [
-          { x: 0, y: 0 },
-          { x: 100, y: 100 },
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 100, handleIn: null, handleOut: null },
         ],
         closed: false,
         fillRule: 'nonzero',
@@ -75,7 +75,11 @@ describe('vector masks', () => {
     const validMask = {
       type: 'clip' as const,
       visible: true,
-      vectorMask: { points: [{ x: 0, y: 0 }], closed: true, fillRule: 'nonzero' as const },
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero' as const,
+      },
     };
     expect(hasVectorMask(validMask)).toBe(true);
 
@@ -96,8 +100,8 @@ describe('vector masks', () => {
     doc = addNode(doc, frame);
 
     const newPoints = [
-      { x: 10, y: 20 },
-      { x: 30, y: 40 },
+      { x: 10, y: 20, handleIn: null, handleOut: null },
+      { x: 30, y: 40, handleIn: null, handleOut: null },
     ];
     doc = setMaskVectorPath(doc, 'f1', newPoints, true, 'evenodd');
     const updated = doc.nodes.f1 as { mask?: { vectorMask?: unknown; fillRule?: string } };
@@ -182,8 +186,8 @@ describe('cycle detection', () => {
     const shape2 = makeShapeNode('n2', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
     const doc2 = addNode(doc, shape2);
     const n1Node = doc2.nodes.n1 as { children?: string[] };
-    if (n1Node && 'children' in doc2.nodes.n1) {
-      (doc2.nodes.n1 as { children: string[] }).children = ['n2'];
+    if (n1Node && 'children' in n1Node) {
+      (n1Node as { children: string[] }).children = ['n2'];
     }
     // n1 is not a container, so it can't own a mask — this tests that addMask
     // would reject the cycle at a higher level
@@ -221,7 +225,11 @@ describe('getAllMaskSourceIds', () => {
     const frame = makeFrameNode('f1', { children: [] });
     let doc = addNode(createDocument(), frame);
     doc = addMask(doc, 'f1', undefined, 'clip', {
-      vectorMask: { points: [{ x: 0, y: 0 }], closed: true, fillRule: 'nonzero' },
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
     });
     expect(getAllMaskSourceIds(doc).size).toBe(0);
   });
@@ -238,8 +246,8 @@ describe('mask with both source and vector path', () => {
       doc,
       'f1',
       [
-        { x: 0, y: 0 },
-        { x: 100, y: 0 },
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 100, y: 0, handleIn: null, handleOut: null },
       ],
       false,
     );
