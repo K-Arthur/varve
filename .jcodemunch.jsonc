@@ -1,0 +1,56 @@
+{
+  "architecture": {
+    "layers": [
+      {
+        "name": "shared",
+        "paths": ["packages/shared/src/"],
+        "may_not_import": ["packages/editor/", "packages/home/", "apps/"]
+      },
+      {
+        "name": "engine",
+        "paths": ["packages/engine/src/"],
+        "may_not_import": ["packages/editor/", "packages/home/", "apps/"]
+      },
+      {
+        "name": "scene",
+        "paths": ["packages/scene/src/"],
+        "may_not_import": ["packages/editor/", "packages/home/", "apps/"]
+      },
+      {
+        "name": "ui",
+        "paths": ["packages/ui/src/"],
+        "may_not_import": ["packages/editor/", "packages/home/", "apps/"]
+      },
+      {
+        "name": "codegen",
+        "paths": ["packages/codegen/src/"],
+        "may_not_import": ["packages/editor/", "packages/home/", "apps/"]
+      },
+      {
+        "name": "prototype",
+        "paths": ["packages/prototype/src/"],
+        "may_not_import": ["packages/editor/", "packages/home/", "apps/"]
+      },
+      {
+        "name": "platform",
+        "paths": ["packages/platform/src/"],
+        "may_not_import": ["packages/editor/", "packages/home/", "apps/"]
+      },
+      {
+        "name": "editor",
+        "paths": ["packages/editor/src/"],
+        "may_not_import": ["apps/"]
+      },
+      {
+        "name": "home",
+        "paths": ["packages/home/src/"],
+        "may_not_import": ["apps/"]
+      },
+      {
+        "name": "app",
+        "paths": ["apps/"],
+        "may_not_import": []
+      }
+    ]
+  }
+}

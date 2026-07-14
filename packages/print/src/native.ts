@@ -60,6 +60,7 @@ export function createNativePrintEngine(): PrintEngine {
         page_height: pageHeight,
         use_cmyk: useCmyk,
         options_json: optionsJson,
+        manifest_json: _opts.manifestJson ?? null,
       });
 
       const numbers = Array.isArray(data) ? (data as number[]) : [];

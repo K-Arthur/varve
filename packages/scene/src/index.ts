@@ -16,8 +16,34 @@ export * from './colorMode';
 export * from './component';
 export * from './component-sync';
 export * from './constraints';
+export type { CreateMasterOptions } from './document';
 export * from './document';
-export { setBackgroundRemoval } from './document';
+export {
+  activePageNodesWithMaster,
+  addMasterOverride,
+  assignMasterToPage,
+  createMaster,
+  deleteMaster,
+  detachMasterOverride,
+  duplicateMaster,
+  getFormattedPageNumber,
+  getPageNumber,
+  getPageSide,
+  getSpreadForPage,
+  isPageOnLeftSide,
+  pageHasOverrides,
+  rebuildSpreads,
+  removeMasterOverride,
+  renameMaster,
+  reorderMasters,
+  resetMasterOverrides,
+  resolveNodeOrigin,
+  setBackgroundRemoval,
+  setFacingPagesEnabled,
+  setMasterAppliesTo,
+  setPageSizeWithContentScale,
+  toggleFacingPages,
+} from './document';
 export * from './documentCodec';
 export * from './export-types';
 export * from './expr';

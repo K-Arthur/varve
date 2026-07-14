@@ -551,6 +551,32 @@ export interface EditorContextValue {
   setCurrentPageId: (id: string | null) => void;
   activePageNodes: () => NodeId[];
 
+  // Master page methods
+  createMaster: (name: string, width: number, height: number) => void;
+  deleteMaster: (masterId: NodeId) => void;
+  renameMaster: (masterId: NodeId, name: string) => void;
+  duplicateMaster: (masterId: NodeId) => void;
+  assignMasterToPage: (pageId: NodeId, masterId: NodeId | null) => void;
+  setMasterAppliesTo: (
+    masterId: NodeId,
+    appliesTo: import('@strata/scene').MasterAppliesTo,
+  ) => void;
+  activePageNodesWithMaster: () => NodeId[];
+
+  // Spread methods
+  rebuildSpreads: (facingPages?: import('@strata/scene').FacingPagesConfig) => void;
+  getSpreadForPage: (pageId: NodeId) => import('@strata/scene').Spread | undefined;
+  getPageSide: (pageId: NodeId) => import('@strata/scene').PageSide;
+  isPageOnLeftSide: (pageId: NodeId) => boolean;
+
+  // Page numbering
+  getPageNumber: (pageId: NodeId) => number;
+  getFormattedPageNumber: (pageId: NodeId) => string;
+
+  // Facing pages toggle
+  toggleFacingPages: () => void;
+  setFacingPagesEnabled: (enabled: boolean) => void;
+
   // Color mode
   documentColorMode: ColorMode;
   switchColorMode: (mode: ColorMode) => void;

@@ -48,7 +48,7 @@ export interface ExportDialogProps {
   nodes: SceneNode[];
   document?: Document;
   timelines?: Record<string, Timeline>;
-  onExport: (batch: ExportBatch) => Promise<ExportReport | void>;
+  onExport: (batch: ExportBatch) => Promise<ExportReport | undefined>;
   onPackageExport?: () => Promise<void>;
   onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
   onExportMotion?: (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => void;

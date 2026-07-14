@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./font": {
+      "types": "./src/font/index.ts",
+      "default": "./src/font/index.ts"
     }
   },
   "scripts": {

@@ -97,7 +97,6 @@ describe('PencilTool', () => {
   let rafCb: FrameRequestCallback;
 
   beforeEach(() => {
-    vi.useFakeTimers();
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
       rafCb = cb;
       return 0;
@@ -106,7 +105,6 @@ describe('PencilTool', () => {
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

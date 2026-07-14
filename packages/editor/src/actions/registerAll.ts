@@ -1,13 +1,7 @@
-/**
- * registerAll — one-time registration of all editor actions into the ActionRegistry.
- *
- * Called once at app boot from Shell or EditorProvider. Keeps the registry
- * populated so QuickActionsBar, ShortcutPalette, and future surfaces can
- * discover actions without hardcoded dispatch tables.
- */
 import type { EditorContextValue } from '../context';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
+import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
 function categoryFromShortcut(cat: string): ActionCategory {
   const lc = cat.toLowerCase();
@@ -37,13 +31,33 @@ export function registerAllShortcuts(exec: (id: string) => (() => void) | null):
   }
 }
 
-export function registerEditorActions(ctx: EditorContextValue): void {
+export function registerEditorActions(
+  ctx: EditorContextValue,
+  callbacks?: ActionHandlerCallbacks,
+): void {
   const r = getActionRegistry();
+  const handlers = createActionHandlers(ctx, callbacks);
+
   const reg = (id: string, label: string, category: ActionCategory, handler: () => void) => {
     if (!r.has(id)) {
       r.register({ id, label, category }, handler);
     }
   };
+
+  for (const [id, handler] of Object.entries(handlers)) {
+    const def = SHORTCUT_DEFS[id];
+    if (def) {
+      r.register(
+        {
+          id,
+          label: def.label,
+          category: categoryFromShortcut(def.category),
+          shortcut: def.binding,
+        },
+        handler,
+      );
+    }
+  }
 
   reg('toggleLeftPanel', 'Toggle Layers Panel', 'panel', () => ctx.toggleLeftPanel());
   reg('toggleRightPanel', 'Toggle Inspector Panel', 'panel', () => ctx.toggleRightPanel());
@@ -53,20 +67,6 @@ export function registerEditorActions(ctx: EditorContextValue): void {
   );
   reg('enterFrame', 'Enter Frame', 'canvas', () => {});
   reg('editText', 'Edit Text', 'text', () => {});
-  reg('resetZoom', 'Reset Zoom', 'view', () => ctx.zoomTo(1));
-  reg('fitToScreen', 'Fit to Screen', 'view', () => ctx.fitAll());
-  reg('newTab', 'New Tab', 'file', () => ctx.newTab());
-  reg('closeTab', 'Close Tab', 'file', () => ctx.closeTab(ctx.state.activeId));
-  reg('selectAll', 'Select All', 'edit', () => {
-    const nodes = ctx.rootNodes();
-    if (nodes.length > 0) {
-      ctx.setSelection(nodes[0]?.id ?? null);
-      for (let i = 1; i < nodes.length; i++) {
-        const n = nodes[i];
-        if (n) ctx.toggleSelection(n.id, true);
-      }
-    }
-  });
   reg('nudgeUp', 'Nudge Up', 'object', () => {});
   reg('nudgeDown', 'Nudge Down', 'object', () => {});
   reg('nudgeLeft', 'Nudge Left', 'object', () => {});

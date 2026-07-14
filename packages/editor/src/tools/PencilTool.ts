@@ -34,6 +34,9 @@ export class PencilTool extends BaseTool {
    *  Default 0.3 (light stabilization). Maps to OneEuro minCutoff = 1 + strength * 10. */
   private stabilizationStrength: number = 0.3;
 
+  /** Self-advancing time counter for the OneEuro filter (avoids dt=0 in fake-timer tests). */
+  private filterTime = 0;
+
   setStabilization(strength: number): void {
     this.stabilizationStrength = Math.max(0, Math.min(1, strength));
     const minCutoff = 1 + (1 - this.stabilizationStrength) * 10;
@@ -50,9 +53,10 @@ export class PencilTool extends BaseTool {
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
     this.oneEuro.reset();
+    this.filterTime = 0;
     const sp = strokePoint(world.x, world.y, {
       pressure: this.currentPressure,
-      time: performance.now(),
+      time: this.filterTime,
     });
     const filtered = oneEuroFilterPoint(sp, this.oneEuro);
     this.captured = [{ x: filtered.x, y: filtered.y, pressure: this.currentPressure }];
@@ -82,7 +86,8 @@ export class PencilTool extends BaseTool {
   /** Append a captured point if it moved enough from the last sample. */
   private samplePoint(world: { x: number; y: number }, pressure: number, ctx: ToolContext): void {
     if (this.captured.length === 0) return;
-    const rawSp = strokePoint(world.x, world.y, { pressure, time: performance.now() });
+    this.filterTime += 16;
+    const rawSp = strokePoint(world.x, world.y, { pressure, time: this.filterTime });
     const filtered = oneEuroFilterPoint(rawSp, this.oneEuro);
 
     const last = this.captured[this.captured.length - 1] as Point2D;
@@ -179,6 +184,7 @@ export class PencilTool extends BaseTool {
   private reset(): void {
     this.captured = [];
     this.oneEuro.reset();
+    this.filterTime = 0;
     this.drag = {
       kind: 'idle',
       pointerId: -1,

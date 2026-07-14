@@ -35,6 +35,7 @@ fn build_pdfx_content(
     draw_reg_marks: bool,
     draw_color_bar: bool,
     mut image_state: Option<&mut ImageRenderState>,
+    manifest: Option<&crate::resources::ExportManifest>,
 ) -> Vec<u8> {
     let mut content = Vec::new();
     content.extend_from_slice(b"q\n");
@@ -49,7 +50,7 @@ fn build_pdfx_content(
 
     for node in nodes {
         let state = image_state.as_mut().map(|s| &mut **s);
-        let cmd = crate::shape_to_pdf_content(node, page_height, state);
+        let cmd = crate::shape_to_pdf_content(node, page_height, state, manifest);
         content.extend_from_slice(&cmd);
     }
 
@@ -179,6 +180,7 @@ fn build_pdfx_document(
             opts.registration_marks,
             opts.color_bar,
             Some(&mut image_state),
+            None,
         );
         (std::mem::take(&mut image_state.refs), c)
     };

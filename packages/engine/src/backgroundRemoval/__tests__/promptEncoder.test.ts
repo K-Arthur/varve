@@ -26,7 +26,7 @@ function makeMask(
  * Decode a mask into a human-friendly grid string for assertions:
  * '█' = FG (>=128), '·' = BG (<128).
  */
-function maskToGrid(mask: Uint8Array, w: number, h: number): string[] {
+function _maskToGrid(mask: Uint8Array, w: number, h: number): string[] {
   const rows: string[] = [];
   for (let y = 0; y < h; y++) {
     let row = '';

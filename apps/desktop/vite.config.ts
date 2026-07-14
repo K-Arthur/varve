@@ -1,6 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import react from '@vitejs/plugin-react';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { defineConfig } from 'vite';
 
 /**

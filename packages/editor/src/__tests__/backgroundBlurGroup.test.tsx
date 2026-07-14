@@ -187,7 +187,7 @@ describe('group backgroundBlur effect', () => {
     const doc = createDocument('test', true);
     const gId = 'g1';
     const group = makeGroupNode(gId, { effects: [backgroundBlurEffect] });
-    let updated = addNode(doc, group);
+    const updated = addNode(doc, group);
     expect(sceneNeedsStructuralCompositing(updated)).toBe(false);
   });
 

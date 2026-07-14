@@ -1,9 +1,9 @@
 import type { RasterTraceOptions, RasterTraceResult } from '../rasterTrace';
 import { directTraceProvider } from './directTraceProvider';
 import { nativeTraceProvider } from './nativeTraceProvider';
+import type { TraceProvider } from './types';
 import { wasmTraceProvider } from './wasmTraceProvider';
 import { workerTraceProvider } from './workerTraceProvider';
-import type { TraceProvider } from './types';
 
 export { directTraceProvider } from './directTraceProvider';
 export { mapNativePathsToTraceResult } from './mapNativePaths';
