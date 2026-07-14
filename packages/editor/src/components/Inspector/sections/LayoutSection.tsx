@@ -21,6 +21,7 @@ import type {
   LayoutStyle,
   SceneNode,
 } from '@strata/scene';
+import { Select } from '@strata/ui';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -61,7 +62,7 @@ const GRID_AUTO_FLOW_OPTIONS: { value: NonNullable<LayoutStyle['gridAutoFlow']>;
   ];
 
 export function LayoutSection({ node }: { node: FrameNode }) {
-  const { setNodeLayout } = useEditor();
+  const { setNodeClipContent, setNodeLayout } = useEditor();
   const ls = node.layoutStyle;
 
   function patch(partial: Partial<LayoutStyle>) {
@@ -79,35 +80,44 @@ export function LayoutSection({ node }: { node: FrameNode }) {
 
   return (
     <DisclosureSection title="Layout">
-      <FieldRow label="Mode" htmlFor={`layout-mode-${node.id}`}>
-        <select
-          id={`layout-mode-${node.id}`}
+      <FieldRow label="Clip content" htmlFor={`frame-clip-content-${node.id}`}>
+        <input
+          id={`frame-clip-content-${node.id}`}
+          type="checkbox"
+          className="insp-checkbox"
+          checked={node.clipContent !== false}
+          onChange={(event) => setNodeClipContent(node.id, event.target.checked)}
+        />
+      </FieldRow>
+      <FieldRow label="Mode">
+        <Select
+          label="Layout mode"
           value={ls?.mode ?? 'none'}
-          className="insp-select"
-          onChange={(e) => {
-            if (e.target.value === 'none') setNodeLayout(node.id, undefined);
-            else patch({ mode: e.target.value as LayoutMode });
+          options={[
+            { value: 'none', label: 'None' },
+            { value: 'flex', label: 'Flex' },
+            { value: 'grid', label: 'Grid' },
+          ]}
+          onChange={(v) => {
+            if (v === 'none') setNodeLayout(node.id, undefined);
+            else patch({ mode: v as LayoutMode });
           }}
-        >
-          <option value="none">None</option>
-          <option value="flex">Flex</option>
-          <option value="grid">Grid</option>
-        </select>
+        />
       </FieldRow>
       {ls && (
         <>
-          <FieldRow label="Direction" htmlFor={`layout-dir-${node.id}`}>
-            <select
-              id={`layout-dir-${node.id}`}
+          <FieldRow label="Direction">
+            <Select
+              label="Layout direction"
               value={ls.direction}
-              className="insp-select"
-              onChange={(e) => patch({ direction: e.target.value as FlexDirection })}
-            >
-              <option value="row">Row</option>
-              <option value="column">Column</option>
-              <option value="rowReverse">Row reverse</option>
-              <option value="columnReverse">Column reverse</option>
-            </select>
+              options={[
+                { value: 'row', label: 'Row' },
+                { value: 'column', label: 'Column' },
+                { value: 'rowReverse', label: 'Row reverse' },
+                { value: 'columnReverse', label: 'Column reverse' },
+              ]}
+              onChange={(v) => patch({ direction: v as FlexDirection })}
+            />
           </FieldRow>
           {ls.mode === 'grid' && (
             <>
@@ -179,6 +189,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               <FieldRow label="Wrap">
                 <input
                   type="checkbox"
+                  className="insp-checkbox"
                   checked={ls.wrap}
                   aria-label="Wrap"
                   onChange={(e) => patch({ wrap: e.target.checked })}
