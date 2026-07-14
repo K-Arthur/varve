@@ -62,6 +62,7 @@ import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './components/Alig
 import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ColorBlindnessOverlay } from './components/ColorBlindnessOverlay';
+import { CropOverlay } from './components/CropOverlay';
 import { DocumentGridOverlay } from './components/DocumentGridOverlay/DocumentGridOverlay';
 import { FloatingTextBar } from './components/FloatingTextBar/FloatingTextBar';
 import { GradientHandleOverlay } from './components/GradientHandleOverlay';
@@ -78,6 +79,7 @@ import { ZoomIndicator } from './components/ZoomIndicator';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
+import { commitImageCrop } from './imageCrop';
 import { collectImageBitmaps } from './render/collectImageBitmaps';
 import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
 import {
@@ -130,6 +132,7 @@ function isOnlyVariableStoreChange(oldDoc: Document, newDoc: Document): boolean 
 import { ArrowTool } from './tools/ArrowTool';
 import { computeEdgeVelocity } from './tools/autoPan';
 import { CloneStampTool } from './tools/CloneStampTool';
+import { CropTool } from './tools/CropTool';
 import { EllipseTool } from './tools/EllipseTool';
 import { EyedropperTool } from './tools/EyedropperTool';
 import { FrameTool } from './tools/FrameTool';
@@ -388,6 +391,7 @@ function getToolManager(): ToolManager {
     toolManager.register('patch', () => new PatchTool());
     toolManager.register('refineMask', () => new RefineMaskTool());
     toolManager.register('trimapEdit', () => new TrimapEditTool());
+    toolManager.register('crop', () => new CropTool());
   }
   toolManager.setTool('select');
   return toolManager;
@@ -701,6 +705,19 @@ export function CanvasArea({
     const tool = tm.current.getTool<import('./tools/TrimapEditTool').TrimapEditTool>('trimapEdit');
     tool?.setOptions(state.trimapEditOptions);
   }, [state.trimapEditOptions, state.tool]);
+
+  useEffect(() => {
+    if (!tm.current) return;
+    const crop = tm.current.getTool<CropTool>('crop');
+    if (!crop) return;
+    crop.setCommitHandler((rect) => {
+      const id = crop.getNodeId();
+      if (!id) return;
+      editor.updateDoc((doc) => commitImageCrop(doc, id, rect));
+      editor.announce('Crop applied');
+    });
+    return () => crop.setCommitHandler(null);
+  }, [editor, state.tool]);
 
   // Re-render the canvas whenever an async image finishes loading.
   useEffect(() => {
@@ -2783,6 +2800,29 @@ export function CanvasArea({
         setTextEditTargetId={setTextEditTargetId}
         setNodeEditTargetId={setNodeEditTargetId}
       />
+      {state.tool === 'crop' &&
+        tm.current &&
+        (() => {
+          const crop = tm.current.getTool<CropTool>('crop');
+          if (!crop || !crop.getNodeId()) return null;
+          const id = crop.getNodeId()!;
+          const worldB = editor.getWorldBounds(id);
+          if (!worldB) return null;
+          const { x: screenX, y: screenY } = editor.worldToCanvas(worldB.x, worldB.y);
+          return (
+            <CropOverlay
+              tool={crop}
+              screenBounds={{
+                x: screenX,
+                y: screenY,
+                w: worldB.w * state.zoom,
+                h: worldB.h * state.zoom,
+              }}
+              onDone={() => crop.applyCrop(buildToolCtx(new PointerEvent('pointerup')))}
+              onCancel={() => crop.cancel(buildToolCtx(new PointerEvent('pointerup')))}
+            />
+          );
+        })()}
       {textEditTargetId &&
         (() => {
           const n = state.document.nodes[textEditTargetId];

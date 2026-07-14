@@ -1,0 +1,113 @@
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 46;
+  pointer-events: none;
+}
+
+.crop-overlay__dim {
+  position: absolute;
+  background: oklch(0 0 0 / 0.45);
+  pointer-events: none;
+}
+
+.crop-overlay__window {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--color-accent-primary);
+  box-shadow: 0 0 0 9999px oklch(0 0 0 / 0.45);
+  cursor: move;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.crop-overlay__handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 1px solid var(--color-accent-primary);
+  background: var(--elevation-surface-raised);
+  border-radius: 1px;
+  pointer-events: auto;
+}
+
+.crop-overlay__handle--nw {
+  left: -5px;
+  top: -5px;
+  cursor: nwse-resize;
+}
+.crop-overlay__handle--n {
+  left: 50%;
+  top: -5px;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+.crop-overlay__handle--ne {
+  right: -5px;
+  top: -5px;
+  cursor: nesw-resize;
+}
+.crop-overlay__handle--w {
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+.crop-overlay__handle--e {
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+.crop-overlay__handle--sw {
+  left: -5px;
+  bottom: -5px;
+  cursor: nesw-resize;
+}
+.crop-overlay__handle--s {
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+.crop-overlay__handle--se {
+  right: -5px;
+  bottom: -5px;
+  cursor: nwse-resize;
+}
+
+.crop-overlay__actions {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--space-1);
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.crop-overlay__btn {
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+.crop-overlay__btn:hover {
+  background: var(--color-surface-sunken);
+}
+
+.crop-overlay__btn--ghost {
+  color: var(--color-text-secondary);
+}
+
+.crop-overlay__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
