@@ -70,6 +70,13 @@ export {
 } from './blendModes';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
+export {
+  applyBackgroundBlurBackdrop,
+  applyGlassMaterialBackdrop,
+  applyLayerBlur,
+  clampByte,
+  computeScreenBounds,
+} from './effectPipeline';
 export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
 export type { TileExportOpts } from './export';
@@ -265,8 +272,8 @@ export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/dispatch';
 export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
 export { dispatchTrace } from './upscaleProviders/traceDispatch';
-export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
+export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
 export type {
   VideoExportOptions,
   VideoExportResult,
@@ -279,6 +286,7 @@ export {
   computeVideoFrameCount,
   exportTimelineToVideo,
 } from './videoExport';
+export type { WasmTraceModule } from './wasmLoader';
 export {
   createWasmEngineFromModule,
   loadWasmEngineModule,
@@ -286,4 +294,3 @@ export {
   tryLoadTraceWasm,
   tryWasmEngine,
 } from './wasmLoader';
-export type { WasmTraceModule } from './wasmLoader';
