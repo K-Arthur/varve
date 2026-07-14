@@ -8,6 +8,7 @@ import {
   strokePoint,
   tilesForBounds,
 } from '@strata/scene';
+import { BrushWorkerHost } from '../render/brushWorkerHost';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -19,6 +20,7 @@ export class PaintTool extends BaseTool {
   private strokePoints: import('@strata/scene').StrokePoint[] = [];
   private rasterNodeId: string | null = null;
   private transactionOpen = false;
+  private workerHost: BrushWorkerHost | null = null;
 
   /** Called when the brush settings change (e.g., from keyboard shortcut).
    *  Editor sets this to update the editor state. */
@@ -90,6 +92,19 @@ export class PaintTool extends BaseTool {
     };
   }
 
+  /** Lazily create and return the brush worker host. */
+  getWorkerHost(): BrushWorkerHost {
+    if (!this.workerHost) {
+      this.workerHost = new BrushWorkerHost();
+    }
+    return this.workerHost;
+  }
+
+  /** Override the worker host (used by tests to inject a mock). */
+  setWorkerHost(host: BrushWorkerHost): void {
+    this.workerHost = host;
+  }
+
   override onActivate(ctx: ToolContext): void {
     ctx.setDraft(null);
   }
@@ -99,6 +114,12 @@ export class PaintTool extends BaseTool {
       this.abortStroke(ctx);
     }
     ctx.setDraft(null);
+  }
+
+  /** Destroy the worker host (called when the tool instance is being torn down). */
+  destroy(): void {
+    this.workerHost?.destroy();
+    this.workerHost = null;
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
@@ -230,13 +251,63 @@ export class PaintTool extends BaseTool {
     const pts = this.strokePoints;
     if (pts.length < 1) return;
 
-    const smoothed = smoothStrokePoints(pts, this.preset.smoothing);
-    const dabs = generateDabs(smoothed, this.preset);
-    if (dabs.length === 0) return;
-
     const color: [number, number, number, number] = this.eraserMode
       ? [0, 0, 0, 0]
       : ctx.foregroundColor;
+
+    // Try worker path; fall back synchronously if unavailable or slow.
+    if (this.workerHost?.isUsingWorker) {
+      this.flushDabsWorker(ctx, pts, color);
+    } else {
+      this.flushDabsSync(ctx, pts, color);
+    }
+  }
+
+  /** Worker-thread dab generation with synchronous compositing on main thread. */
+  private flushDabsWorker(
+    ctx: ToolContext,
+    pts: import('@strata/scene').StrokePoint[],
+    color: [number, number, number, number],
+  ): void {
+    const rasterNodeId = this.rasterNodeId;
+    if (!rasterNodeId) return;
+
+    const strokeId = `${rasterNodeId}-${performance.now()}`;
+    const jitterSeed = Math.round(performance.now() * 1000) & 0x7fffffff;
+
+    this.workerHost!.generateDabs(strokeId, pts, this.preset, color, jitterSeed)
+      .then(({ dabs }) => {
+        if (dabs.length === 0 || rasterNodeId !== this.rasterNodeId) return;
+        ctx.updateNode(rasterNodeId, (node) => {
+          const raster = node as RasterLayerNode;
+          let updated = raster;
+          for (const dab of dabs) {
+            if (this.eraserMode) {
+              updated = this.eraseDabOnNode(updated, dab);
+            } else {
+              updated = compositeDabOnNode(updated, dab, color, false);
+            }
+          }
+          return updated;
+        });
+      })
+      .catch(() => {
+        this.flushDabsSync(ctx, pts, color);
+      });
+  }
+
+  /** Synchronous fallback for when the worker is unavailable. */
+  private flushDabsSync(
+    ctx: ToolContext,
+    pts: import('@strata/scene').StrokePoint[],
+    color: [number, number, number, number],
+  ): void {
+    const rasterNodeId = this.rasterNodeId;
+    if (!rasterNodeId) return;
+
+    const smoothed = smoothStrokePoints(pts, this.preset.smoothing);
+    const dabs = generateDabs(smoothed, this.preset);
+    if (dabs.length === 0) return;
 
     ctx.updateNode(rasterNodeId, (node) => {
       const raster = node as RasterLayerNode;
