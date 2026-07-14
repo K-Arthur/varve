@@ -10,7 +10,7 @@ rather than introducing parallel systems.
 ## Design Principles
 
 1. **Non-destructive**: Masks are properties on containers, not permanent pixel modifications.
-   The mask source node remains independently editable.
+   The mask source node (if any) remains independently editable.
 2. **Figma-like visibility model**: Mask sources render visibly by default (contributing both
    to the mask effect and to the visible output), matching professional design tool conventions.
    `hideMaskSource` provides Photoshop-like behavior when needed.
@@ -19,8 +19,13 @@ rather than introducing parallel systems.
 4. **Container ownership**: Only FrameNode, GroupNode, and AdjustmentNode can own masks.
    ShapeNode and TextNode cannot own masks directly (they participate as mask sources
    inside containers).
-5. **Child-based mask source**: The mask source must be a child of the container (except for
-   AdjustmentNode, which can reference arbitrary nodes).
+5. **Child-based or self-contained mask source**: Masks may reference a child node by
+   `sourceNodeId`, or carry self-contained `VectorMaskData` for resolution-independent
+   vector masks. Both may be present: the vector path provides geometry, the source node
+   provides optional visual content.
+6. **Mask graph cycle prevention**: `addMask()` checks for cycles before committing any
+   mask change. `detectMaskCycles()` detects self-referencing and mutual mask references
+   via depth-first search.
 
 ## Architectural Inheritance (Section 0)
 
@@ -35,13 +40,24 @@ This system extends existing architecture rather than introducing parallel repre
 | Existing `Mask` type in types.ts | Extended with `hideMaskSource` rather than introducing a separate mechanism |
 | `renderAlphaMask` / `renderEnhancedMask` | All alpha/luminance compositing builds on these existing primitives |
 
-## Mask Data Model
+## Mask Data Model (v1.9)
 
 ```typescript
+type MaskType = 'clip' | 'alpha' | 'luminance';
+type MaskFillRule = 'nonzero' | 'evenodd';
+
+interface VectorMaskData {
+  points: PathPoint[];              // control points in mask-local coordinates
+  closed: boolean;                  // whether last point connects back to first
+  fillRule: MaskFillRule;           // fill rule for interior vs exterior
+}
+
 interface Mask {
-  type: 'clip' | 'alpha' | 'luminance';
-  sourceNodeId: NodeId;             // child node providing the mask
+  type: MaskType;
+  sourceNodeId?: NodeId;            // child node providing the mask (optional for vector masks)
+  vectorMask?: VectorMaskData;      // self-contained vector path (overrides sourceNodeId for geometry)
   visible: boolean;                 // toggle mask on/off
+  fillRule?: MaskFillRule;          // nonzero (default) or evenodd for clip/vector masks
   inverted?: boolean;               // invert the mask effect
   feather?: number;                 // Gaussian blur radius on mask alpha (world-space px)
   density?: number;                 // overall mask strength 0-1
@@ -50,6 +66,11 @@ interface Mask {
   hideMaskSource?: boolean;         // hide the mask source from direct rendering
 }
 ```
+
+`sourceNodeId` is now optional. When `vectorMask` with non-empty points is provided,
+the mask geometry comes from the path data rather than from a child node. When both
+are present, `vectorMask` defines the clipping geometry and `sourceNodeId` provides
+optional visual content (rendered if `hideMaskSource` is false).
 
 ## Mask Types
 
@@ -98,7 +119,7 @@ coefficients: L = 0.2126*R_lin + 0.7152*G_lin + 0.0722*B_lin).
 
 | Method | Description |
 |--------|-------------|
-| `addMaskToSelected(type)` | Add a mask using the first child as source |
+| `addMaskToSelected(type)` | Add a mask using the first child as source (or vector mask if no children) |
 | `removeMaskFromSelected()` | Remove the mask (source node preserved) |
 | `toggleMask()` | Toggle mask visibility on/off |
 | `invertMask()` | Toggle mask inversion |
@@ -108,18 +129,89 @@ coefficients: L = 0.2126*R_lin + 0.7152*G_lin + 0.0722*B_lin).
 | `setMaskLinked(linked)` | Toggle mask-content transform linking |
 | `setMaskType(type)` | Change mask type |
 | `setMaskSourceNode(id)` | Change which child provides the mask |
+| `setMaskFillRule(fillRule)` | Set fill rule (nonzero/evenodd) for clip/vector masks |
+| `setMaskVectorPath(points, closed)` | Set vector mask path data (independent of child node) |
 
-## Document Validation
+## Quick-Mask Mode
+
+Quick-mask is a transient editor state for selection editing. It is NOT persisted
+to the document model.
+
+```typescript
+interface QuickMaskState {
+  active: boolean;
+  color: [number, number, number, number];  // overlay RGBA
+  coverage: Uint8Array | null;               // per-pixel coverage (0=protected, 255=selected)
+  width: number;
+  height: number;
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| `enterQuickMask()` | Activate quick-mask mode, allocate coverage buffer |
+| `exitQuickMask(convertToMask?)` | Deactivate, optionally convert coverage to raster mask |
+| `setQuickMaskCoverage(coverage, w, h)` | Replace coverage buffer |
+| `paintQuickMask(x, y, radius, value)` | Paint circular dab in coverage buffer |
+| `fillQuickMask(value)` | Fill entire coverage buffer with value |
+| `invertQuickMask()` | Invert all coverage pixels (255 - v) |
+| `isQuickMaskActive()` | Return whether quick-mask mode is active |
+
+Quick-mask state is cleared on document close and is not part of undo/redo history.
+
+## Mask Graph Safety
+
+Masks form a directed graph from containers to their source nodes. The system
+prevents cycles:
+
+- `detectMaskCycles(doc)` — depth-first search that returns an array of cycle paths.
+  Empty array when no cycles exist.
+- `addMask()` rejects masks that would create a cycle, returning the document
+  unchanged.
+- `removeNode()` automatically clears mask references to removed nodes.
+
+Helper functions:
+- `getAllMaskSourceIds(doc)` — collect all source node IDs referenced by any mask.
+- `hasVectorMask(mask)` — true if mask has non-empty vector path data.
+- `hasSourceNode(mask)` — true if mask references a child node.
+
+## Vector Masks
+
+Vector masks carry self-contained `PathPoint[]` data rather than referencing a
+child node. They are:
+
+- Resolution-independent (editable vector paths)
+- Rendered via `traceVectorMaskPoints()` in CanvasArea.tsx, which handles bezier
+  handles (`handleIn`/`handleOut`) as cubic bezier curves
+- Subject to `fillRule` (nonzero/evenodd)
+- Able to be converted to SVG `<clipPath>` / `<mask>` elements on export
+- Edited via the Pen/Pencil tools or NodeEditTool
+
+## Document Validation & Migration
 
 Masks are checked by `validateMasks()` which finds dangling references to non-existent
 source nodes. When a node is removed via `removeNode()`, any masks referencing it are
 automatically cleared (`clearMaskSource()`). Deep clone remaps mask `sourceNodeId` values.
 
+v1.9 migration (from 1.8):
+- Adds `fillRule: 'nonzero'` to existing clip masks without one
+- Adds `fillRule: 'nonzero'` to existing vector masks without one
+- Preserves all existing mask properties
+
 ## SVG/PDF Export Implications
 
-- **SVG**: Clip masks map to `<clipPath>`. Alpha masks map to `<mask mask-type="alpha">`.
-  Luminance masks map to `<mask mask-type="luminance">`. Luminance masking uses the SVG
-  default (`mask-type="luminance"` is the SVG default).
+- **SVG** (via `packages/codegen/src/svg.ts`):
+  - Clip masks map to `<clipPath>` elements in `<defs>`
+  - Alpha masks map to `<mask mask-type="alpha">`
+  - Luminance masks map to `<mask mask-type="luminance">` (SVG default)
+  - Inverted clip masks use `<mask>` with white rect + black clip shape
+  - Vector masks are converted to SVG `<path d="..." />` with bezier handles
+  - Feather maps to `feGaussianBlur` filter on the mask
+  - Density maps to opacity compensation
+  - `hideMaskSource` filters the source node from children
+  - `fillRule="evenodd"` adds `clip-rule="evenodd"`
+  - Unlinked masks use `maskUnits="userSpaceOnUse"` for independent transform
+  - Pre-1.9 SVG export did NOT include scene-graph masks; this is new in v1.9
 - **PDF**: Clip masks map to PDF clipping path operators. Alpha/luminance masks require
   soft-mask (SMask) in PDF 1.4+/X-4. PDF/X-1a cannot express soft masks — must flatten.
 - **Raster export (PNG/JPEG)**: Masks are always correctly composited in the rendering
@@ -147,6 +239,15 @@ automatically cleared (`clearMaskSource()`). Deep clone remaps mask `sourceNodeI
 | Masks on invisible containers | Container visibility check happens before mask check |
 | Deeply nested masks | Each container's mask is resolved independently per render pass |
 | Cross-origin images in mask | `getImageData` may fail (tainted canvas); falls through to basic `destination-in` |
+| Vector mask with no child source | Mask is purely geometric; no visual content rendered |
+| Both sourceNodeId and vectorMask present | Vector path provides geometry, source node provides visual content |
+| Vector mask clip with evenodd fill rule | Path is rendered with `clip('evenodd')` via Path2D |
+| Mask source deletion | Mask is automatically cleared by `removeNode()` |
+| Mask cycle detection | `addMask()` rejects cycles; `detectMaskCycles()` finds them |
+| Quick-mask active during tool switch | Quick-mask mode persists; user must explicitly exit |
+| Quick-mask with no selection | Coverage buffer is null; paint/fill/invert are no-ops |
+| Unlinked mask transform | Mask uses independent `transform` separate from content |
+| SVG export of inverted clip masks | Uses `<mask>` with white rect + inverted black clip shape |
 
 ## Future Mask Types
 
