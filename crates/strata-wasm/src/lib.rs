@@ -108,7 +108,17 @@ pub fn trace_contours_json(
         max_colors: 0,
     };
 
-    let paths = strata_trace::trace_contours(&gray, width, height, &opts);
+    // Detect hardware concurrency via navigator.hardwareConcurrency,
+    // clamped to [1, 4] chunks. Falls back to 2 in non-browser contexts.
+    let chunk_count =
+        js_sys::eval("typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2")
+            .map(|v| v.as_f64().unwrap_or(2.0) as usize)
+            .unwrap_or(2)
+            .max(1)
+            .min(4);
+
+    let paths =
+        strata_trace::chunked::trace_contours_chunked(&gray, width, height, &opts, chunk_count);
 
     // Map to JSON-serializable form with area and bounds computed
     let json_paths: Vec<TracePathJson> = paths
