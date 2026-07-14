@@ -13,7 +13,10 @@ import {
 
 describe('Document Versioning', () => {
   it('stamps current version on new documents', () => {
-    const doc = stampVersion({ id: 'd1', name: 'test' } as unknown as import('./version').Document);
+    const doc = stampVersion({
+      id: 'd1',
+      name: 'test',
+    } as unknown as import('./document').Document);
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
   });
 
@@ -22,7 +25,7 @@ describe('Document Versioning', () => {
       id: 'd1',
       name: 'test',
       formatVersion: CURRENT_DOCUMENT_VERSION,
-    } as unknown as import('./version').Document);
+    } as unknown as import('./document').Document);
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
   });
 
