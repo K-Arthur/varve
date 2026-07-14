@@ -320,7 +320,6 @@ describe('v1.7 → v1.8 migration', () => {
     const result = migrateDocument(v1doc);
     expect(result).not.toBeNull();
     expect(result!.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
-    expect(result!.formatVersion).toBe('1.8');
   });
 
   it('adds paints field (undefined) during migration', () => {
@@ -374,7 +373,7 @@ describe('v1.7 → v1.8 migration', () => {
 
     const result = migrateDocument(v1doc);
     expect(result).not.toBeNull();
-    expect(result!.formatVersion).toBe('1.8');
+    expect(result!.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(result).toHaveProperty('paints');
   });
 });
