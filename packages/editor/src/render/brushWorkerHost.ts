@@ -66,7 +66,6 @@ export class BrushWorkerHost {
     strokeId: string,
     points: StrokePoint[],
     preset: BrushPreset,
-    color: [number, number, number, number],
     jitterSeed: number,
   ): Promise<DabResult> {
     // Cancel any older request for the same stroke

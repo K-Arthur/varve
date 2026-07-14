@@ -275,7 +275,7 @@ export class PaintTool extends BaseTool {
     const strokeId = `${rasterNodeId}-${performance.now()}`;
     const jitterSeed = Math.round(performance.now() * 1000) & 0x7fffffff;
 
-    this.workerHost!.generateDabs(strokeId, pts, this.preset, color, jitterSeed)
+    this.workerHost!.generateDabs(strokeId, pts, this.preset, jitterSeed)
       .then(({ dabs }) => {
         if (dabs.length === 0 || rasterNodeId !== this.rasterNodeId) return;
         ctx.updateNode(rasterNodeId, (node) => {
