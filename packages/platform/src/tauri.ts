@@ -543,13 +543,19 @@ export function createTauriPlatform(): Platform {
       const c = core();
       const ext = extension.replace(/^\./, '');
       const suggested = name.endsWith(`.${ext}`) ? name : `${name}.${ext}`;
-      const path = (await c.invoke('plugin:dialog|save', {
-        defaultPath: suggested,
-        filters: [{ name: mimeType, extensions: [ext] }],
-      })) as string | null;
-      if (!path) return null;
-      await c.invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });
-      return path;
+      try {
+        const path = (await c.invoke('plugin:dialog|save', {
+          defaultPath: suggested,
+          filters: [{ name: mimeType, extensions: [ext] }],
+        })) as string | null;
+        if (!path) return null;
+        await c.invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });
+        return path;
+      } catch (e) {
+        // Tauri IPC rejects with the raw error payload (often a plain string,
+        // not an Error), which loses its message when callers assume `.message`.
+        throw e instanceof Error ? e : new Error(String(e));
+      }
     },
 
     async revealInFileManager(path) {
