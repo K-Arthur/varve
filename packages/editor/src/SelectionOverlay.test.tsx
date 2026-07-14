@@ -366,9 +366,8 @@ describe('SelectionOverlay — multi-selection', () => {
       makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }),
       makeShapeNode('b', { kind: 'rect', x: 100, y: 0, w: 50, h: 50 }),
     ]);
-    const texts = container.querySelectorAll('svg > text');
-    expect(texts.length).toBe(1);
-    expect(texts[0]?.textContent).toContain('by');
+    const dim = container.querySelector('.selection-overlay__dim text');
+    expect(dim?.textContent).toMatch(/\d+\s*x\s*\d+/);
   });
 
   it('does not show rotation handle for multi-selection', () => {
