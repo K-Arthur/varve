@@ -1394,7 +1394,127 @@
   border: 1px solid var(--color-border-subtle);
 }
 
-/* ---------- Background removal inspector ---------- */
+/* ---------- Shared inspector action / meta chrome ---------- */
+.insp-subsection__label {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.insp-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.insp-hint--error {
+  color: var(--color-feedback-danger);
+}
+
+.insp-divider {
+  margin: var(--space-3) 0;
+  border: none;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.insp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.insp-actions--secondary {
+  margin-top: var(--space-1);
+}
+
+.insp-actions .strata-btn--sm {
+  min-height: 32px;
+  min-width: auto;
+  height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.insp-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.insp-meta-row__sep {
+  color: var(--color-border-subtle);
+}
+
+.insp-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.insp-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.insp-stepper__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.insp-stepper__btn:hover {
+  background: var(--color-surface-sunken);
+}
+
+.insp-stepper__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.insp-stepper__input {
+  width: 3.25rem;
+  text-align: center;
+}
+
+.insp-range {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--color-accent-primary);
+}
+
+.insp-field__control output {
+  min-width: 2.5rem;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+/* ---------- Background removal inspector (legacy aliases) ---------- */
 .bg-removal__method {
   display: flex;
   flex-direction: column;
