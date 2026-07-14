@@ -442,9 +442,6 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   );
   const rotationDeg = (box.rotation * 180) / Math.PI;
 
-  const nodeX = node ? Math.round(node.transform[4] ?? 0) : 0;
-  const nodeY = node ? Math.round(node.transform[5] ?? 0) : 0;
-
   return (
     <svg
       role="presentation"
@@ -575,29 +572,64 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         </>
       )}
 
-      {sel.length > 0 && (
-        <text
-          x={simpleWorldToScreen(handles['ne'][0], handles['ne'][1], state.zoom, state.pan)[0] + 6}
-          y={simpleWorldToScreen(handles['ne'][0], handles['ne'][1], state.zoom, state.pan)[1] + 12}
-          fontSize={10}
-          fill="var(--color-interactive-default)"
-          fontFamily="system-ui, sans-serif"
-        >
-          {Math.round(box.w)} by {Math.round(box.h)}
-        </text>
-      )}
+      {sel.length > 0 &&
+        (() => {
+          // Figma-style dimension pill: centered under the selection AABB.
+          const [midX] = simpleWorldToScreen(box.cx, box.cy + box.h / 2, state.zoom, state.pan);
+          const [, botY] = simpleWorldToScreen(handles.s[0], handles.s[1], state.zoom, state.pan);
+          const label = `${Math.round(box.w)} x ${Math.round(box.h)}`;
+          const padX = 6;
+          const padY = 3;
+          const fontSize = 11;
+          const approxCharW = fontSize * 0.62;
+          const textW = label.length * approxCharW;
+          const pillW = textW + padX * 2;
+          const pillH = fontSize + padY * 2;
+          const pillX = midX - pillW / 2;
+          const pillY = botY + 8;
+          return (
+            <g className="selection-overlay__dim" aria-hidden>
+              <rect
+                x={pillX}
+                y={pillY}
+                width={pillW}
+                height={pillH}
+                rx={pillH / 2}
+                fill="var(--color-interactive-default)"
+              />
+              <text
+                x={midX}
+                y={pillY + pillH / 2 + fontSize * 0.35}
+                textAnchor="middle"
+                fontSize={fontSize}
+                fill="var(--color-text-on-accent)"
+                fontFamily="var(--font-body, system-ui, sans-serif)"
+                style={{ fontFeatureSettings: "'tnum'" }}
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })()}
 
-      {sel.length === 1 && (
-        <text
-          x={simpleWorldToScreen(handles['sw'][0], handles['sw'][1], state.zoom, state.pan)[0]}
-          y={simpleWorldToScreen(handles['sw'][0], handles['sw'][1], state.zoom, state.pan)[1] + 14}
-          fontSize={10}
-          fill="var(--color-interactive-default)"
-          fontFamily="system-ui, sans-serif"
-        >
-          {nodeX}, {nodeY}
-        </text>
-      )}
+      {sel.length === 1 &&
+        (() => {
+          const world = nodeWorldBounds(state.document, node!.id);
+          if (!world) return null;
+          const [sx, sy] = simpleWorldToScreen(world.x, world.y + world.h, state.zoom, state.pan);
+          return (
+            <text
+              x={sx}
+              y={sy + 14 + 22}
+              fontSize={10}
+              fill="var(--color-text-muted)"
+              fontFamily="var(--font-body, system-ui, sans-serif)"
+              style={{ fontFeatureSettings: "'tnum'" }}
+            >
+              {Math.round(world.x)}, {Math.round(world.y)}
+            </text>
+          );
+        })()}
     </svg>
   );
 }
