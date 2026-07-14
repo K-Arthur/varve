@@ -37,11 +37,6 @@ wasm-build-simd:
       wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name strata_wasm_simd
     which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/strata_wasm_simd_bg.wasm apps/desktop/public/wasm/strata_wasm_simd_bg.wasm || echo "wasm-opt not on PATH — skipping SIMD optimization"
 
-wasm-build-all: wasm-build wasm-build-simd
-
-wasm-size:
-    ls -lh apps/desktop/public/wasm/strata_wasm_bg.wasm apps/desktop/public/wasm/strata_wasm_simd_bg.wasm 2>/dev/null
-
 wasm-check:
     rustup target add wasm32-unknown-unknown
     cargo check --target wasm32-unknown-unknown -p strata-wasm
