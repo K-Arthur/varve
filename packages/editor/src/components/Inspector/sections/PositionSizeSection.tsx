@@ -15,12 +15,12 @@
  * Research basis: Figma/Sketch position/size panel with aspect lock.
  */
 
-import type { Shape } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { formatCoordForRuler } from '@strata/shared';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
+import { nodeLocalBounds } from '../../../scene/nodeBounds';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
@@ -33,12 +33,14 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   const xRaw = commonValue(nodes, (n) => n.transform[4] ?? 0);
   const yRaw = commonValue(nodes, (n) => n.transform[5] ?? 0);
-  const allShapes = nodes.every((n) => n.kind === 'shape');
-  const wRaw: MaybeMixed<number> | null = allShapes
-    ? commonValue(nodes, (n) => shapeW((n as SceneNode & { shape: Shape }).shape))
+  // Only node kinds `nodeLocalBounds` can measure (shape/text/frame) get a W/H
+  // editor — groups/adjustment nodes have no geometry of their own.
+  const allSizable = nodes.every((n) => nodeLocalBounds(n) !== null);
+  const wRaw: MaybeMixed<number> | null = allSizable
+    ? commonValue(nodes, (n) => nodeLocalBounds(n)?.w ?? 0)
     : null;
-  const hRaw: MaybeMixed<number> | null = allShapes
-    ? commonValue(nodes, (n) => shapeH((n as SceneNode & { shape: Shape }).shape))
+  const hRaw: MaybeMixed<number> | null = allSizable
+    ? commonValue(nodes, (n) => nodeLocalBounds(n)?.h ?? 0)
     : null;
   const rotationRaw = commonValue(nodes, (n) => n.rotation ?? 0);
 
@@ -163,7 +165,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
             />
           )}
       </div>
-      {allShapes && (
+      {allSizable && (
         <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
           <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
             <NumberField
@@ -179,6 +181,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
             <label aria-label="Constrain proportions" className="insp-proportion-lock">
               <input
                 type="checkbox"
+                className="insp-checkbox--icon-only"
                 checked={locked}
                 onChange={() => setLocked((p) => !p)}
                 style={{
@@ -291,7 +294,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
         </button>
       </div>
       {/* P3: Clamp sizing controls */}
-      {allShapes && (
+      {allSizable && (
         <div style={{ marginTop: 'var(--space-1)' }}>
           {(() => {
             const minWRaw = commonValue(nodes, (n) => n.minWidth);
@@ -349,38 +352,4 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       )}
     </DisclosureSection>
   );
-}
-
-function shapeW(shape: Shape): number {
-  switch (shape.kind) {
-    case 'rect':
-      return shape.w;
-    case 'ellipse':
-      return shape.rx;
-    case 'circle':
-      return shape.r;
-    case 'polygon':
-      return shape.radius;
-    case 'star':
-      return shape.outerRadius;
-    default:
-      return 0;
-  }
-}
-
-function shapeH(shape: Shape): number {
-  switch (shape.kind) {
-    case 'rect':
-      return shape.h;
-    case 'ellipse':
-      return shape.ry;
-    case 'circle':
-      return shape.r;
-    case 'polygon':
-      return shape.radius;
-    case 'star':
-      return shape.outerRadius;
-    default:
-      return 0;
-  }
 }
