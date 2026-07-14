@@ -1,3 +1,11 @@
+/**
+ * BackgroundRemovalSection — image cutout controls in the Properties panel.
+ *
+ * Layout / chrome match Appearance/Fill: DisclosureSection, FieldRow,
+ * insp-select, NumberField, @strata/ui Button (replacing unstyled button--*).
+ *
+ * Research basis: Figma generative fill panel density; APG form disclosure.
+ */
 import type { RemovalMethod } from '@strata/engine';
 import {
   DEFAULT_PREVIEW_MAX_DIMENSION,
@@ -6,10 +14,12 @@ import {
 } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Button } from '@strata/ui';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { FieldRow } from '../controls/FieldRow';
 
 function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   const message = e instanceof Error ? e.message : String(e);
@@ -43,10 +53,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     applyTrimapMatting,
     setTrimapEditOptions,
   } = useEditor();
-  const node = nodes[0] as ShapeNode;
-  if (!isImageShape(node) && !node.backgroundRemoval) return null;
+  const node = nodes[0] as ShapeNode | undefined;
+  const methodId = useId();
+  const decontaminateId = useId();
+  const trimapModeId = useId();
+  const eligible = Boolean(node && (isImageShape(node) || node.backgroundRemoval));
+  const bg = node?.backgroundRemoval;
 
-  const bg = node.backgroundRemoval;
   const [method, setMethod] = useState<RemovalMethod>(bg?.method ?? 'quick');
   const [pending, setPending] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -59,9 +72,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     'unavailable',
   );
   const [aiAvailable, setAiAvailable] = useState(false);
-  const showingOriginal = state.showOriginalBgNodeId === node.id;
-  const refiningMask = state.tool === 'refineMask' && state.selection[0] === node.id;
-  const editingTrimap = state.tool === 'trimapEdit' && state.selection[0] === node.id;
+
+  const showingOriginal = Boolean(node && state.showOriginalBgNodeId === node.id);
+  const refiningMask = Boolean(
+    node && state.tool === 'refineMask' && state.selection[0] === node.id,
+  );
+  const editingTrimap = Boolean(
+    node && state.tool === 'trimapEdit' && state.selection[0] === node.id,
+  );
   const { brushSize, hardness } = state.refineMaskOptions ?? { brushSize: 20, hardness: 0.8 };
   const trimapOpts = state.trimapEditOptions ?? {
     brushSize: 20,
@@ -70,7 +88,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   };
 
   const requiredModelId = workerModelIdForMethod(method);
-  const imageMaxDim = node.shape?.kind === 'rect' ? Math.max(node.shape.w, node.shape.h) : 0;
+  const imageMaxDim = node?.shape?.kind === 'rect' ? Math.max(node.shape.w, node.shape.h) : 0;
   const previewDownscaleActive = method !== 'quick' && imageMaxDim > DEFAULT_PREVIEW_MAX_DIMENSION;
 
   const refreshModelStatus = useCallback(async () => {
@@ -84,6 +102,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   }, [method, requiredModelId]);
 
   useEffect(() => {
+    if (!eligible) return;
     void refreshModelStatus();
     let unsub: (() => void) | undefined;
     void getModelLoaderReady().then((loader) => {
@@ -92,7 +111,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       });
     });
     return () => unsub?.();
-  }, [refreshModelStatus]);
+  }, [refreshModelStatus, eligible]);
 
   useEffect(() => {
     if (pending) {
@@ -112,6 +131,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       }
     };
   }, [pending]);
+
+  if (!eligible || !node) return null;
 
   const handleApply = async () => {
     if (method !== 'quick' && !aiAvailable) {
@@ -182,223 +203,257 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Background Removal">
-      <div className="bg-removal__method">
-        <label htmlFor="bg-method">Method</label>
-        <select
-          id="bg-method"
-          value={method}
-          aria-label="Background removal method"
-          aria-describedby="bg-method-desc"
-          onChange={(e) => setMethod(e.target.value as RemovalMethod)}
-        >
-          <option value="quick">Quick (no download needed)</option>
-          <option value="ai-balanced">
-            AI Balanced{!aiAvailable ? ' (download required)' : ''}
-          </option>
-          <option value="ai-quality">
-            AI High Quality{!aiAvailable ? ' (download required)' : ''}
-          </option>
-        </select>
+      <div className="insp-field-group">
+        <FieldRow label="Method" htmlFor={methodId}>
+          <select
+            id={methodId}
+            className="insp-select"
+            value={method}
+            aria-label="Background removal method"
+            aria-describedby="bg-method-desc"
+            onChange={(e) => setMethod(e.target.value as RemovalMethod)}
+          >
+            <option value="quick">Quick (no download needed)</option>
+            <option value="ai-balanced">
+              AI Balanced{!aiAvailable ? ' (download required)' : ''}
+            </option>
+            <option value="ai-quality">
+              AI High Quality{!aiAvailable ? ' (download required)' : ''}
+            </option>
+          </select>
+        </FieldRow>
         <span id="bg-method-desc" className="sr-only">
           Quick uses a fast heuristic. AI Balanced uses the bundled offline model. AI High Quality
           uses a downloadable model for more complex edges.
         </span>
-      </div>
 
-      {previewDownscaleActive && (
-        <p className="bg-removal__hint" aria-live="polite">
-          Processing at reduced resolution; full-resolution mask upscaled.
-        </p>
-      )}
-
-      {method !== 'quick' && !aiAvailable && modelState !== 'downloading' && (
-        <div className="bg-removal__actions">
-          <button
-            className="button--primary"
-            onClick={handleDownload}
-            aria-label="Download AI model for background removal"
-          >
-            Download AI Model
-          </button>
-          <p className="bg-removal__hint">
-            Requires a one-time download stored on this device. Manage models in Settings, Offline
-            Models.
+        {previewDownscaleActive && (
+          <p className="insp-hint" aria-live="polite">
+            Processing at reduced resolution; full-resolution mask upscaled.
           </p>
-        </div>
-      )}
-      {method !== 'quick' && modelState === 'downloading' && (
-        <p className="bg-removal__hint" aria-live="polite">
-          Downloading model... Please wait.
-        </p>
-      )}
+        )}
 
-      {bg && (
-        <div className="bg-removal__info">
-          <span>Confidence: {Math.round((bg.confidence ?? 0) * 100)}%</span>
-          <span>Method: {bg.method}</span>
-        </div>
-      )}
-
-      <div className="bg-removal__refinement">
-        <label htmlFor="bg-feather">Feather</label>
-        <div className="bg-removal__number-input">
-          <button
-            type="button"
-            className="bg-removal__number-btn"
-            onClick={() => setFeather((v) => Math.max(0, +(v - 0.1).toFixed(1)))}
-            aria-label="Decrease feather"
-          >
-            -
-          </button>
-          <input
-            id="bg-feather"
-            type="number"
-            min={0}
-            max={3}
-            step={0.1}
-            value={feather}
-            onChange={(e) => {
-              const v = Number.parseFloat(e.target.value);
-              if (!Number.isNaN(v)) setFeather(Math.max(0, Math.min(3, v)));
-            }}
-            className="bg-removal__number-field"
-          />
-          <button
-            type="button"
-            className="bg-removal__number-btn"
-            onClick={() => setFeather((v) => Math.min(3, +(v + 0.1).toFixed(1)))}
-            aria-label="Increase feather"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      <label className="bg-removal__checkbox-label">
-        <input
-          type="checkbox"
-          className="insp-checkbox"
-          checked={decontaminate}
-          onChange={(e) => setDecontaminate(e.target.checked)}
-        />
-        <span>Decontaminate</span>
-      </label>
-
-      <div className="bg-removal__actions">
-        {pending ? (
-          <>
-            <span className="bg-removal__progress" aria-live="polite">
-              Processing… {Math.round(elapsedMs / 1000)}s
-            </span>
-            <button
+        {method !== 'quick' && !aiAvailable && modelState !== 'downloading' && (
+          <div className="insp-actions">
+            <Button
               type="button"
-              className="button--ghost"
-              onClick={handleCancel}
-              aria-label="Cancel background removal"
+              variant="primary"
+              size="sm"
+              onClick={handleDownload}
+              aria-label="Download AI model for background removal"
             >
-              Cancel
-            </button>
-          </>
-        ) : (
-          <button
-            className="button--primary"
-            onClick={handleApply}
-            aria-label={bg ? 'Re-apply background removal' : 'Remove background from image'}
-          >
-            {bg ? 'Re-apply' : 'Remove Background'}
-          </button>
+              Download AI Model
+            </Button>
+            <p className="insp-hint">
+              Requires a one-time download stored on this device. Manage models in Settings, Offline
+              Models.
+            </p>
+          </div>
         )}
-        {bg && (
-          <button
-            className="button--ghost"
-            onClick={handleReset}
-            aria-label="Reset background removal to original image"
-          >
-            Reset to Original
-          </button>
+        {method !== 'quick' && modelState === 'downloading' && (
+          <p className="insp-hint" aria-live="polite">
+            Downloading model... Please wait.
+          </p>
         )}
+
         {bg && (
-          <button
-            className="button--ghost"
-            onClick={handleRefineMask}
-            aria-label="Refine background removal mask with brush"
-          >
-            Refine Mask
-          </button>
+          <div className="insp-meta-row" aria-label="Removal status">
+            <span>Confidence {Math.round((bg.confidence ?? 0) * 100)}%</span>
+            <span className="insp-meta-row__sep" aria-hidden>
+              ·
+            </span>
+            <span>{bg.method}</span>
+          </div>
         )}
+
+        <div className="insp-field">
+          <label className="insp-field__label" htmlFor="bg-feather">
+            Feather
+          </label>
+          <div className="insp-field__control">
+            <div className="insp-stepper">
+              <button
+                type="button"
+                className="insp-stepper__btn"
+                onClick={() => setFeather((v) => Math.max(0, +(v - 0.1).toFixed(1)))}
+                aria-label="Decrease feather"
+              >
+                −
+              </button>
+              <input
+                id="bg-feather"
+                type="number"
+                min={0}
+                max={3}
+                step={0.1}
+                value={feather}
+                aria-label="Feather"
+                className="insp-num__input insp-stepper__input"
+                onChange={(e) => {
+                  const v = Number.parseFloat(e.target.value);
+                  if (!Number.isNaN(v)) setFeather(Math.max(0, Math.min(3, v)));
+                }}
+              />
+              <button
+                type="button"
+                className="insp-stepper__btn"
+                onClick={() => setFeather((v) => Math.min(3, +(v + 0.1).toFixed(1)))}
+                aria-label="Increase feather"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <label className="insp-check" htmlFor={decontaminateId}>
+          <input
+            id={decontaminateId}
+            type="checkbox"
+            className="insp-checkbox"
+            checked={decontaminate}
+            onChange={(e) => setDecontaminate(e.target.checked)}
+          />
+          <span>Decontaminate</span>
+        </label>
+
+        <div className="insp-actions">
+          {pending ? (
+            <>
+              <span className="insp-hint" aria-live="polite">
+                Processing… {Math.round(elapsedMs / 1000)}s
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleCancel}
+                aria-label="Cancel background removal"
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => void handleApply()}
+              aria-label={bg ? 'Re-apply background removal' : 'Remove background from image'}
+            >
+              {bg ? 'Re-apply' : 'Remove Background'}
+            </Button>
+          )}
+        </div>
+
         {bg && (
-          <button
-            className="button--ghost"
-            onClick={handleRefineHair}
-            aria-label="Refine hair and fur edges with guided matting"
-          >
-            Refine edges (hair/fur)
-          </button>
+          <div className="insp-actions insp-actions--secondary">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              aria-label="Reset background removal to original image"
+            >
+              Reset
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRefineMask}
+              aria-label="Refine background removal mask with brush"
+            >
+              Refine Mask
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRefineHair}
+              aria-label="Refine hair and fur edges with guided matting"
+            >
+              Refine edges (hair/fur)
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleEditTrimap}
+              aria-label="Edit trimap for difficult edges"
+            >
+              Edit trimap
+            </Button>
+            <Button
+              type="button"
+              variant={showingOriginal ? 'secondary' : 'ghost'}
+              size="sm"
+              aria-pressed={showingOriginal}
+              onClick={handleTogglePreview}
+            >
+              {showingOriginal ? 'Showing Original' : 'Show Original'}
+            </Button>
+          </div>
         )}
-        {bg && (
-          <button
-            className="button--ghost"
-            onClick={handleEditTrimap}
-            aria-label="Edit trimap for difficult edges"
-          >
-            Edit trimap
-          </button>
-        )}
-        {bg && (
-          <button
-            className={`button--ghost ${showingOriginal ? 'button--active' : ''}`}
-            onClick={handleTogglePreview}
-          >
-            {showingOriginal ? 'Showing Original' : 'Show Original'}
-          </button>
+
+        {error && error !== 'Cancelled' && (
+          <p className="insp-hint insp-hint--error" role="alert">
+            {error}
+          </p>
         )}
       </div>
-
-      {error && error !== 'Cancelled' && (
-        <div className="bg-removal__error" role="alert">
-          {error}
-        </div>
-      )}
 
       {refiningMask && bg && (
-        <div className="bg-removal__refine-controls">
-          <div className="bg-removal__refinement">
-            <label htmlFor="bg-refine-brush">Brush size</label>
+        <div className="insp-nested-panel">
+          <p className="insp-subsection__label">Refine mask</p>
+          <FieldRow label="Brush size" htmlFor="bg-refine-brush">
             <input
               id="bg-refine-brush"
               type="range"
+              className="insp-range"
               min={5}
               max={100}
               value={brushSize}
-              onChange={(e) => setRefineMaskOptions({ brushSize: Number(e.target.value) })}
+              aria-label="Brush size"
+              onChange={(e) =>
+                setRefineMaskOptions({ brushSize: Number(e.target.value), hardness })
+              }
             />
-            <span>{brushSize}px</span>
-          </div>
-          <div className="bg-removal__refinement">
-            <label htmlFor="bg-refine-hardness">Hardness</label>
+            <output htmlFor="bg-refine-brush">{brushSize}px</output>
+          </FieldRow>
+          <FieldRow label="Hardness" htmlFor="bg-refine-hardness">
             <input
               id="bg-refine-hardness"
               type="range"
+              className="insp-range"
               min={0}
               max={1}
               step={0.05}
               value={hardness}
-              onChange={(e) => setRefineMaskOptions({ hardness: Number(e.target.value) })}
+              aria-label="Hardness"
+              onChange={(e) =>
+                setRefineMaskOptions({ brushSize, hardness: Number(e.target.value) })
+              }
             />
-            <span>{Math.round(hardness * 100)}%</span>
+            <output htmlFor="bg-refine-hardness">{Math.round(hardness * 100)}%</output>
+          </FieldRow>
+          <div className="insp-actions">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setTool('select')}>
+              Done
+            </Button>
           </div>
-          <button type="button" className="button--ghost" onClick={() => setTool('select')}>
-            Done
-          </button>
         </div>
       )}
+
       {editingTrimap && bg && (
-        <div className="bg-removal__refine-controls">
-          <div className="bg-removal__refinement">
-            <label htmlFor="bg-trimap-mode">Trimap pen</label>
+        <div className="insp-nested-panel">
+          <p className="insp-subsection__label">Trimap</p>
+          <FieldRow label="Pen" htmlFor={trimapModeId}>
             <select
-              id="bg-trimap-mode"
+              id={trimapModeId}
+              className="insp-select"
               value={trimapOpts.penMode}
+              aria-label="Trimap pen"
               onChange={(e) =>
                 setTrimapEditOptions({
                   penMode: e.target.value as 'foreground' | 'unknown' | 'background',
@@ -409,26 +464,30 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               <option value="unknown">Unknown</option>
               <option value="background">Background</option>
             </select>
-          </div>
-          <div className="bg-removal__refinement">
-            <label htmlFor="bg-trimap-brush">Brush size</label>
+          </FieldRow>
+          <FieldRow label="Brush size" htmlFor="bg-trimap-brush">
             <input
               id="bg-trimap-brush"
               type="range"
+              className="insp-range"
               min={5}
               max={100}
               value={trimapOpts.brushSize}
+              aria-label="Trimap brush size"
               onChange={(e) => setTrimapEditOptions({ brushSize: Number(e.target.value) })}
             />
+          </FieldRow>
+          <div className="insp-actions">
+            <Button type="button" variant="primary" size="sm" onClick={handleApplyTrimap}>
+              Apply trimap matting
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setTool('select')}>
+              Cancel
+            </Button>
           </div>
-          <button type="button" className="button--primary" onClick={handleApplyTrimap}>
-            Apply trimap matting
-          </button>
-          <button type="button" className="button--ghost" onClick={() => setTool('select')}>
-            Cancel
-          </button>
         </div>
       )}
+
       {showDownloadDialog && (
         <ModelDownloadDialog
           modelId={downloadModelId ?? ''}
