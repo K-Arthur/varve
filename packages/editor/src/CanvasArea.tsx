@@ -56,6 +56,7 @@ import {
 import { EmptyState } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
+import { CanvasNameLabels } from './canvas/CanvasNameLabels';
 import { SubtreeIrCache } from './canvas/subtreeIrCache';
 import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './components/AlignmentOverlay';
 import { CanvasAccessibilityTree } from './components/CanvasAccessibilityTree';
@@ -2740,6 +2741,13 @@ export function CanvasArea({
           );
         })()}
       <SelectionOverlay canvasRef={contentCanvasRef} />
+      <CanvasNameLabels
+        doc={state.document}
+        zoom={state.zoom}
+        pan={state.pan}
+        cameraRotation={state.cameraRotation}
+        selection={state.selection}
+      />
       {(() => {
         const sel = state.selection;
         if (sel.length !== 1) return null;
