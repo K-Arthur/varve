@@ -18,8 +18,19 @@ export class PaintTool extends BaseTool {
   private eraserMode: boolean;
   private strokePoints: import('@strata/scene').StrokePoint[] = [];
   private rasterNodeId: string | null = null;
-  private ownsLayer = false;
   private transactionOpen = false;
+
+  /** Called when the brush settings change (e.g., from keyboard shortcut).
+   *  Editor sets this to update the editor state. */
+  onSettingsChange?: (settings: {
+    presetId: string;
+    radius: number;
+    opacity: number;
+    flow: number;
+    hardness: number;
+    smoothing: number;
+    spacing: number;
+  }) => void;
 
   constructor(eraser: boolean = false) {
     super();
@@ -37,6 +48,46 @@ export class PaintTool extends BaseTool {
 
   cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
+  }
+
+  /** Update internal preset fields from an external settings object. */
+  updatePresetFromSettings(settings: {
+    presetId: string;
+    radius: number;
+    opacity: number;
+    flow: number;
+    hardness: number;
+    smoothing: number;
+    spacing: number;
+  }): void {
+    this.preset.id = settings.presetId;
+    this.preset.radius = settings.radius;
+    this.preset.opacity = settings.opacity;
+    this.preset.flow = settings.flow;
+    this.preset.hardness = settings.hardness;
+    this.preset.smoothing = settings.smoothing;
+    this.preset.spacing = settings.spacing;
+  }
+
+  /** Return current preset values mapped to the brush settings shape. */
+  getSettings(): {
+    presetId: string;
+    radius: number;
+    opacity: number;
+    flow: number;
+    hardness: number;
+    smoothing: number;
+    spacing: number;
+  } {
+    return {
+      presetId: this.preset.id,
+      radius: this.preset.radius,
+      opacity: this.preset.opacity,
+      flow: this.preset.flow,
+      hardness: this.preset.hardness,
+      smoothing: this.preset.smoothing,
+      spacing: this.preset.spacing,
+    };
   }
 
   override onActivate(ctx: ToolContext): void {
@@ -131,12 +182,14 @@ export class PaintTool extends BaseTool {
     if (e.key === '[') {
       this.preset.radius = Math.max(1, this.preset.radius - 2);
       ctx.announce(`Brush size: ${Math.round(this.preset.radius)}px`);
+      this.onSettingsChange?.(this.getSettings());
       if (this.drag.kind === 'dragging') this.paintPreview(ctx);
       return true;
     }
     if (e.key === ']') {
       this.preset.radius += 2;
       ctx.announce(`Brush size: ${Math.round(this.preset.radius)}px`);
+      this.onSettingsChange?.(this.getSettings());
       if (this.drag.kind === 'dragging') this.paintPreview(ctx);
       return true;
     }

@@ -13,7 +13,7 @@ import {
 
 describe('Document Versioning', () => {
   it('stamps current version on new documents', () => {
-    const doc = stampVersion({ id: 'd1', name: 'test' } as any);
+    const doc = stampVersion({ id: 'd1', name: 'test' } as unknown as import('./version').Document);
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
   });
 
@@ -22,7 +22,7 @@ describe('Document Versioning', () => {
       id: 'd1',
       name: 'test',
       formatVersion: CURRENT_DOCUMENT_VERSION,
-    } as any);
+    } as unknown as import('./version').Document);
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
   });
 
@@ -328,7 +328,7 @@ describe('Detailed Migration', () => {
       nodes: {},
     };
     const migrated = migrateDocument(raw);
-    expect(migrated?.formatVersion).toBe('1.8');
+    expect(migrated?.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect((migrated?.guides as { pageId: string }[])?.[0]?.pageId).toBe('page-1');
   });
 });

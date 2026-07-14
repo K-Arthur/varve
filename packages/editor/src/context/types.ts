@@ -132,6 +132,18 @@ export interface EditorState {
   showOriginalBgNodeId: NodeId | null;
   refineMaskOptions: { brushSize: number; hardness: number };
   trimapEditOptions: { brushSize: number; hardness: number; penMode: TrimapPenMode };
+  /** Active brush settings for paint/eraser tools. Central place where the
+   *  inspector writes and the PaintTool reads. Preset defaults are loaded
+   *  into these fields on tool activation. */
+  brushSettings: {
+    presetId: string;
+    radius: number;
+    opacity: number;
+    flow: number;
+    hardness: number;
+    smoothing: number;
+    spacing: number;
+  };
   subjectPickerSession: SubjectPickerSession | null;
   keyObjectId: string | null;
   alignToPage: boolean;
@@ -448,6 +460,10 @@ export interface EditorContextValue {
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
   setTrimapEditOptions: (
     opts: Partial<{ brushSize: number; hardness: number; penMode: TrimapPenMode }>,
+  ) => void;
+  setBrushSetting: <K extends keyof EditorState['brushSettings']>(
+    key: K,
+    value: EditorState['brushSettings'][K],
   ) => void;
   refineHairEdges: () => Promise<void>;
   startTrimapEdit: () => void;

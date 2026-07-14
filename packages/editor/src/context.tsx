@@ -150,11 +150,11 @@ import {
   setLiveTraceResolved as setLiveTraceResolvedDoc,
   setMaskDensity as setMaskDensityDoc,
   setMaskFeather as setMaskFeatherDoc,
+  setMaskFillRule as setMaskFillRuleDoc,
   setMaskHideSource as setMaskHideSourceDoc,
   setMaskInverted as setMaskInvertedDoc,
   setMaskLinked as setMaskLinkedDoc,
   setMaskSourceNode as setMaskSourceNodeDoc,
-  setMaskFillRule as setMaskFillRuleDoc,
   setMaskType as setMaskTypeDoc,
   setMaskVectorPath as setMaskVectorPathDoc,
   setMaskVisible as setMaskVisibleDoc,
@@ -1471,6 +1471,15 @@ export function EditorProvider({
       showOriginalBgNodeId: null,
       refineMaskOptions: { brushSize: 20, hardness: 0.8 },
       trimapEditOptions: { brushSize: 20, hardness: 0.8, penMode: 'unknown' as const },
+      brushSettings: {
+        presetId: 'built-in-round',
+        radius: 10,
+        opacity: 1,
+        flow: 1,
+        hardness: 0.8,
+        smoothing: 0.5,
+        spacing: 0.25,
+      },
       subjectPickerSession: null,
       keyObjectId: null,
       alignToPage: false,
@@ -5412,6 +5421,16 @@ export function EditorProvider({
         setState((s) => ({
           ...s,
           trimapEditOptions: { ...s.trimapEditOptions, ...opts },
+        }));
+      },
+
+      setBrushSetting: <K extends keyof EditorState['brushSettings']>(
+        key: K,
+        value: EditorState['brushSettings'][K],
+      ) => {
+        setState((s) => ({
+          ...s,
+          brushSettings: { ...s.brushSettings, [key]: value },
         }));
       },
 
