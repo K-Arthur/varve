@@ -15,7 +15,6 @@
 import type { Affine, Shape } from '@strata/engine';
 import type { DocumentUnit } from '@strata/shared';
 import { generateKeyBetween } from '@strata/shared';
-import { defaultColorConfig } from './colorManagement';
 import { stripBindingForVariable } from './bindings';
 import { deepCloneSubtree } from './clone';
 import type {
@@ -28,6 +27,7 @@ import type {
   SlugConfig,
   SpotColorDef,
 } from './colorManagement';
+import { defaultColorConfig } from './colorManagement';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
 import type { ExportSettings } from './export-types';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
@@ -35,15 +35,24 @@ import { nextNodeId } from './node-id';
 import type {
   ComponentDefinition,
   ContainerNode,
+  FacingPagesConfig,
   FrameNode,
   GroupNode,
   LayerColor,
+  MasterAppliesTo,
+  MasterOverride,
+  MasterOverrideType,
+  MasterPage,
   NodeId,
   Page,
+  PageNumberStyle,
+  PageSection,
+  PageSide,
   Paint,
   PathNode,
   SceneNode,
   ShapeNode,
+  Spread,
   Style,
   TextNode,
 } from './types';
@@ -151,6 +160,20 @@ export interface Document {
 
   /** Brush presets keyed by preset id (v1.10+). */
   brushPresets?: Record<string, import('./brush').BrushPreset>;
+
+  // ── Master pages (v2.0+) ────────────────────────────────────────────────────
+
+  /** Master pages keyed by master id. */
+  masters?: Record<NodeId, import('./types').MasterPage>;
+
+  /** Spreads for facing-page layout. */
+  spreads?: import('./types').Spread[];
+
+  /** Page sections for page numbering. */
+  sections?: import('./types').PageSection[];
+
+  /** Facing pages configuration. */
+  facingPages?: import('./types').FacingPagesConfig;
 }
 
 export interface NodeEntry {
@@ -209,6 +232,7 @@ export function createDocument(
     const page: Page = {
       id: cryptoId(),
       name: 'Page 1',
+      order: generateKeyBetween(null, null),
       width: pageWidth,
       height: pageHeight,
       backgrounds: [],
@@ -240,6 +264,7 @@ export function createDocument(
   const page: Page = {
     id: cryptoId(),
     name: 'Page 1',
+    order: generateKeyBetween(null, null),
     width: 1920,
     height: 1080,
     backgrounds: [],
@@ -1360,9 +1385,14 @@ export function addPage(
     children: [],
   });
 
+  const existingPages = doc.pages ?? [];
+  const lastOrder =
+    existingPages.length > 0 ? existingPages[existingPages.length - 1]!.order : null;
+
   const page: Page = {
     id: cryptoId(),
     name: opts?.name ?? nextPageName(doc),
+    order: generateKeyBetween(lastOrder, null),
     width: opts?.width ?? 1920,
     height: opts?.height ?? 1080,
     backgrounds: [],
@@ -1485,9 +1515,14 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
 
   const copyName = `${sourcePage.name} Copy`;
 
+  const existingPages = d.pages ?? [];
+  const lastOrder =
+    existingPages.length > 0 ? existingPages[existingPages.length - 1]!.order : null;
+
   const newPage: Page = {
     id: cryptoId(),
     name: copyName,
+    order: generateKeyBetween(lastOrder, null),
     width: sourcePage.width,
     height: sourcePage.height,
     bleed: sourcePage.bleed,
@@ -1523,6 +1558,68 @@ export function setPageSize(
 }
 
 /**
+ * Update page dimensions and scale all content node transforms proportionally.
+ * Computes the scale factor from old to new dimensions and multiplies each
+ * node's affine transform in the page's content tree by that factor.
+ */
+export function setPageSizeWithContentScale(
+  doc: Document,
+  pageId: NodeId,
+  width: number,
+  height: number,
+): Document {
+  if (!doc.pages) return doc;
+
+  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
+  if (pageIndex < 0) return doc;
+
+  const page = doc.pages[pageIndex]!;
+  if (page.width === width && page.height === height) return doc;
+
+  const scaleX = width / page.width;
+  const scaleY = height / page.height;
+
+  // Walk all descendant nodes of the page's contentRoot and scale their transforms
+  const contentRoot = doc.nodes[page.contentRoot] as GroupNode | undefined;
+  if (!contentRoot)
+    return {
+      ...doc,
+      pages: doc.pages.map((p, i) => (i === pageIndex ? { ...p, width, height } : p)),
+    };
+
+  const nodes = { ...doc.nodes };
+  const walk = (nodeId: NodeId) => {
+    const node = nodes[nodeId];
+    if (!node) return;
+    const t = (node as SceneNode & { transform?: number[] }).transform;
+    if (t && t.length >= 6) {
+      nodes[nodeId] = {
+        ...node,
+        transform: [
+          t[0]! * scaleX,
+          t[1]! * scaleX,
+          t[2]! * scaleY,
+          t[3]! * scaleY,
+          t[4]! * scaleX,
+          t[5]! * scaleY,
+        ] as unknown as Affine,
+      } as SceneNode;
+    }
+    if (isContainer(node)) {
+      for (const childId of node.children) {
+        walk(childId);
+      }
+    }
+  };
+
+  walk(page.contentRoot);
+
+  const pages = doc.pages.map((p, i) => (i === pageIndex ? { ...p, width, height } : p));
+
+  return { ...doc, nodes, pages };
+}
+
+/**
  * Migrate a flat (pre-page) document to the page model.
  * Wraps existing rootChildren into a single default page's contentRoot.
  * If the document already has pages, returns as-is.
@@ -1545,6 +1642,7 @@ export function migrateToPages(doc: Document): Document {
   const page: Page = {
     id: cryptoId(),
     name: 'Page 1',
+    order: generateKeyBetween(null, null),
     width: pageWidth,
     height: pageHeight,
     backgrounds: [],
@@ -1662,7 +1760,7 @@ export function addPaintToDocument(doc: Document, paint: Paint): Document {
  */
 export function removePaintFromDocument(doc: Document, paintId: string): Document {
   const paints = doc.paints;
-  if (!paints || !paints[paintId]) return doc;
+  if (!paints?.[paintId]) return doc;
   const { [paintId]: _, ...rest } = paints;
   return { ...doc, paints: Object.keys(rest).length > 0 ? rest : undefined };
 }
@@ -1678,7 +1776,7 @@ export function updatePaintInDocument(
   patch: Partial<Omit<Paint, 'id'>>,
 ): Document {
   const paints = doc.paints;
-  if (!paints || !paints[paintId]) return doc;
+  if (!paints?.[paintId]) return doc;
   return {
     ...doc,
     paints: { ...paints, [paintId]: { ...paints[paintId], ...patch } },
@@ -2087,4 +2185,647 @@ export function activePageNodes(doc: Document): NodeId[] {
   const contentRootNode = doc.nodes[page.contentRoot] as GroupNode | undefined;
   const pageChildren = contentRootNode?.children ?? [];
   return [...globals, ...pageChildren];
+}
+
+// ── Master page CRUD ───────────────────────────────────────────────────────
+
+export interface CreateMasterOptions {
+  name: string;
+  width: number;
+  height: number;
+  appliesTo?: MasterAppliesTo;
+  description?: string;
+}
+
+/**
+ * Create a new master page. A master is a reusable template that can be
+ * applied to one or more pages. Masters are stored in `doc.masters` keyed
+ * by their ID and their contentRoot is added to `rootChildren` so it
+ * participates in the scene render walk.
+ */
+export function createMaster(doc: Document, opts: CreateMasterOptions): Document {
+  const masterId = cryptoId();
+  const { id: contentRootId, doc: d1 } = nextNodeId(doc);
+  const contentRoot = makeGroupNode(contentRootId, {
+    name: `${opts.name} content`,
+    children: [],
+  });
+
+  const master: MasterPage = {
+    id: masterId,
+    name: opts.name,
+    width: opts.width,
+    height: opts.height,
+    contentRoot: contentRootId,
+    appliesTo: opts.appliesTo ?? 'all',
+    description: opts.description,
+  };
+
+  return {
+    ...d1,
+    masters: {
+      ...(d1.masters ?? {}),
+      [masterId]: master,
+    },
+    rootChildren: [...d1.rootChildren, contentRootId],
+    nodes: { ...d1.nodes, [contentRootId]: contentRoot },
+  };
+}
+
+/**
+ * Delete a master page. Removes the master's contentRoot and all descendants,
+ * clears assignments from any page using this master, and removes overrides.
+ */
+export function deleteMaster(doc: Document, masterId: NodeId): Document {
+  const masters = doc.masters ?? {};
+  const master = masters[masterId];
+  if (!master) return doc;
+
+  const updatedMasters = { ...masters };
+  delete updatedMasters[masterId];
+  const remainingKeys = Object.keys(updatedMasters);
+
+  let d: Document = {
+    ...doc,
+    masters: remainingKeys.length > 0 ? updatedMasters : undefined,
+  };
+
+  // Remove contentRoot and all descendants
+  d = removeNode(d, master.contentRoot);
+
+  // Clear assignments from pages
+  if (d.pages) {
+    d = {
+      ...d,
+      pages: d.pages.map((p) =>
+        p.masterPageId === masterId
+          ? { ...p, masterPageId: undefined, masterOverrides: undefined }
+          : p,
+      ),
+    };
+  }
+
+  return d;
+}
+
+/**
+ * Rename a master page. No-ops on empty or whitespace-only names.
+ */
+export function renameMaster(doc: Document, masterId: NodeId, name: string): Document {
+  if (!name.trim()) return doc;
+  const masters = doc.masters ?? {};
+  const master = masters[masterId];
+  if (!master) return doc;
+
+  return {
+    ...doc,
+    masters: {
+      ...masters,
+      [masterId]: { ...master, name },
+    },
+  };
+}
+
+/**
+ * Duplicate a master page with a deep copy of its contentRoot subtree.
+ * The duplicate gets new IDs for itself and all content nodes.
+ */
+export function duplicateMaster(doc: Document, masterId: NodeId): Document {
+  const masters = doc.masters ?? {};
+  const master = masters[masterId];
+  if (!master) return doc;
+
+  const newId = cryptoId();
+  const cloneResult = deepCloneSubtree(doc, master.contentRoot);
+
+  // Merge cloned nodes into doc
+  const d: Document = {
+    ...doc,
+    nodes: { ...doc.nodes, ...cloneResult.nodes },
+    rootChildren: [...doc.rootChildren, cloneResult.rootId],
+  };
+
+  const duplicate: MasterPage = {
+    ...master,
+    id: newId,
+    name: `${master.name} Copy`,
+    contentRoot: cloneResult.rootId,
+  };
+
+  return {
+    ...d,
+    masters: {
+      ...(d.masters ?? {}),
+      [newId]: duplicate,
+    },
+  };
+}
+
+/**
+ * Reorder masters by the given array of master IDs. No-ops if the array
+ * length doesn't match or any ID is not a master.
+ */
+export function reorderMasters(doc: Document, masterIds: NodeId[]): Document {
+  const masters = doc.masters ?? {};
+  const entries = Object.entries(masters);
+  if (masterIds.length !== entries.length) return doc;
+  if (masterIds.some((id) => !masters[id])) return doc;
+
+  const reordered: Record<NodeId, MasterPage> = {};
+  for (const id of masterIds) {
+    reordered[id] = masters[id]!;
+  }
+
+  return {
+    ...doc,
+    masters: reordered,
+  };
+}
+
+// ── Master assignment ─────────────────────────────────────────────────────
+
+/**
+ * Assign a master page to a page. When masterId is null, clears any existing
+ * assignment and overrides. No-ops for unknown master or page IDs.
+ */
+export function assignMasterToPage(
+  doc: Document,
+  pageId: NodeId,
+  masterId: NodeId | null,
+): Document {
+  if (!doc.pages) return doc;
+  if (masterId !== null) {
+    const masters = doc.masters ?? {};
+    if (!masters[masterId]) return doc;
+  }
+
+  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
+  if (pageIndex === -1) return doc;
+
+  const pages = [...doc.pages];
+  const page = pages[pageIndex]!;
+
+  if (masterId === null) {
+    pages[pageIndex] = { ...page, masterPageId: undefined, masterOverrides: undefined };
+  } else {
+    pages[pageIndex] = { ...page, masterPageId: masterId };
+  }
+
+  return { ...doc, pages };
+}
+
+/**
+ * Set the appliesTo field of a master page. No-ops for unknown master ID.
+ */
+export function setMasterAppliesTo(
+  doc: Document,
+  masterId: NodeId,
+  appliesTo: MasterAppliesTo,
+): Document {
+  const masters = doc.masters ?? {};
+  const master = masters[masterId];
+  if (!master) return doc;
+
+  return {
+    ...doc,
+    masters: {
+      ...masters,
+      [masterId]: { ...master, appliesTo },
+    },
+  };
+}
+
+// ── Master overrides ──────────────────────────────────────────────────────
+
+/**
+ * Add an override for a master node on a page. When type is 'modified',
+ * a localNodeId must be provided. No-ops when the page doesn't exist or
+ * when modified is used without a localNodeId.
+ */
+export function addMasterOverride(
+  doc: Document,
+  pageId: NodeId,
+  masterNodeId: NodeId,
+  type: MasterOverrideType,
+  localNodeId?: NodeId,
+): Document {
+  if (!doc.pages) return doc;
+  if (type === 'modified' && !localNodeId) return doc;
+
+  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
+  if (pageIndex === -1) return doc;
+
+  const pages = [...doc.pages];
+  const page = pages[pageIndex]!;
+  const override: MasterOverride = {
+    masterNodeId,
+    type,
+    ...(localNodeId ? { localNodeId } : {}),
+  };
+
+  pages[pageIndex] = {
+    ...page,
+    masterOverrides: {
+      ...(page.masterOverrides ?? {}),
+      [masterNodeId]: override,
+    },
+  };
+
+  return { ...doc, pages };
+}
+
+/**
+ * Remove a specific master override from a page. Cleans up the masterOverrides
+ * map to undefined when empty.
+ */
+export function removeMasterOverride(
+  doc: Document,
+  pageId: NodeId,
+  masterNodeId: NodeId,
+): Document {
+  if (!doc.pages) return doc;
+
+  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
+  if (pageIndex === -1) return doc;
+
+  const page = doc.pages[pageIndex]!;
+  const overrides = page.masterOverrides ?? {};
+  if (!overrides[masterNodeId]) {
+    // No override to remove — return doc unchanged only if overrides was already empty
+    if (Object.keys(overrides).length === 0 && !page.masterOverrides) return doc;
+    return { ...doc, pages: doc.pages };
+  }
+
+  const pages = [...doc.pages];
+  const remaining = { ...overrides };
+  delete remaining[masterNodeId];
+
+  pages[pageIndex] = {
+    ...page,
+    masterOverrides: Object.keys(remaining).length > 0 ? remaining : undefined,
+  };
+
+  return { ...doc, pages };
+}
+
+/**
+ * Clear all master overrides for a page.
+ */
+export function resetMasterOverrides(doc: Document, pageId: NodeId): Document {
+  if (!doc.pages) return doc;
+
+  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
+  if (pageIndex === -1) return doc;
+
+  const pages = [...doc.pages];
+  pages[pageIndex] = { ...pages[pageIndex]!, masterOverrides: undefined };
+
+  return { ...doc, pages };
+}
+
+/**
+ * Detach a single override, restoring the master version. Removes the
+ * override entry. If a localNodeId was used for a 'modified' override,
+ * the local copy node is not removed (caller must remove it separately).
+ */
+export function detachMasterOverride(
+  doc: Document,
+  pageId: NodeId,
+  masterNodeId: NodeId,
+): Document {
+  return removeMasterOverride(doc, pageId, masterNodeId);
+}
+
+// ── Editorial spreads ─────────────────────────────────────────────────────
+
+/**
+ * Rebuild spread assignments based on facing pages configuration.
+ * Assigns each page to a spread: single-page spreads when facing pages
+ * are disabled, or two-page spreads with proper left/right ordering
+ * when enabled.
+ */
+export function rebuildSpreads(doc: Document, facingPages?: FacingPagesConfig): Document {
+  if (!doc.pages) return doc;
+
+  const config = facingPages ?? doc.facingPages ?? { enabled: false, startOnRight: true };
+  const spreads: Spread[] = [];
+
+  if (!config.enabled) {
+    // Single-page spreads
+    for (const page of doc.pages) {
+      spreads.push({
+        id: cryptoId(),
+        pageIds: [page.id],
+      });
+    }
+  } else {
+    // Facing-page spreads
+    let i = 0;
+    const startOnRight = config.startOnRight ?? true;
+
+    // If first page should be right, insert a blank left page
+    if (startOnRight && doc.pages.length > 0) {
+      const blankPageId = cryptoId();
+      spreads.push({
+        id: cryptoId(),
+        pageIds: [blankPageId, doc.pages[0]!.id],
+      });
+      i = 1;
+    }
+
+    // Process remaining pages in pairs
+    while (i < doc.pages.length) {
+      if (i + 1 < doc.pages.length) {
+        spreads.push({
+          id: cryptoId(),
+          pageIds: [doc.pages[i]!.id, doc.pages[i + 1]!.id],
+        });
+        i += 2;
+      } else {
+        // Single page at end
+        spreads.push({
+          id: cryptoId(),
+          pageIds: [doc.pages[i]!.id],
+        });
+        i += 1;
+      }
+    }
+  }
+
+  return { ...doc, spreads, facingPages: config };
+}
+
+/**
+ * Get the spread containing a given page.
+ */
+export function getSpreadForPage(doc: Document, pageId: NodeId): Spread | undefined {
+  if (!doc.spreads) return undefined;
+  return doc.spreads.find((s) => s.pageIds.includes(pageId));
+}
+
+/**
+ * Determine whether a page is left, right, or neither within facing-page spreads.
+ * When facing pages are disabled, always returns 'none'.
+ */
+export function getPageSide(
+  doc: Document,
+  pageId: NodeId,
+  facingPages?: FacingPagesConfig,
+): PageSide {
+  const config = facingPages ?? doc.facingPages ?? { enabled: false, startOnRight: true };
+  if (!config.enabled) return 'none';
+
+  const spreads = doc.spreads;
+  if (!spreads) return 'none';
+
+  for (const spread of spreads) {
+    const idx = spread.pageIds.indexOf(pageId);
+    if (idx === 0) return 'left';
+    if (idx === 1) return 'right';
+  }
+
+  return 'none';
+}
+
+/**
+ * Check whether a page is on the left side (helper for UI).
+ */
+export function isPageOnLeftSide(
+  doc: Document,
+  pageId: NodeId,
+  facingPages?: FacingPagesConfig,
+): boolean {
+  return getPageSide(doc, pageId, facingPages) === 'left';
+}
+
+// ── Page numbering ────────────────────────────────────────────────────────
+
+/**
+ * Get the 1-indexed page number for a page, respecting section numbering.
+ */
+export function getPageNumber(doc: Document, pageId: NodeId): number {
+  if (!doc.pages) return 1;
+
+  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
+  if (pageIndex === -1) return 1;
+
+  // Check for section-based numbering
+  const sections = doc.sections ?? [];
+  if (sections.length === 0) return pageIndex + 1;
+
+  // Find which section this page belongs to
+  let owningSection: PageSection | undefined;
+  let sectionStartIndex = 0;
+
+  for (const section of sections) {
+    const sectionStartPageIdx = doc.pages.findIndex((p) => p.order === section.startPageOrder);
+    if (sectionStartPageIdx !== -1 && sectionStartPageIdx <= pageIndex) {
+      owningSection = section;
+      sectionStartIndex = sectionStartPageIdx;
+    }
+  }
+
+  if (owningSection) {
+    const offset = pageIndex - sectionStartIndex;
+    return owningSection.startNumber + offset;
+  }
+
+  return pageIndex + 1;
+}
+
+/** Roman numeral mapping tables. */
+const ROMAN_NUMERALS: Array<[number, string]> = [
+  [1000, 'M'],
+  [900, 'CM'],
+  [500, 'D'],
+  [400, 'CD'],
+  [100, 'C'],
+  [90, 'XC'],
+  [50, 'L'],
+  [40, 'XL'],
+  [10, 'X'],
+  [9, 'IX'],
+  [5, 'V'],
+  [4, 'IV'],
+  [1, 'I'],
+];
+
+function toRoman(num: number): string {
+  if (num <= 0) return '';
+  let result = '';
+  let n = num;
+  for (const [value, numeral] of ROMAN_NUMERALS) {
+    while (n >= value) {
+      result += numeral;
+      n -= value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Get the formatted page number string (e.g. "1", "iii", "A-5") for a page.
+ */
+export function getFormattedPageNumber(doc: Document, pageId: NodeId): string {
+  const num = getPageNumber(doc, pageId);
+
+  if (!doc.pages) return String(num);
+
+  const page = doc.pages.find((p) => p.id === pageId);
+  if (!page) return String(num);
+
+  // Find the section for this page's numbering style
+  const sections = doc.sections ?? [];
+  let style: PageNumberStyle = 'decimal';
+  let prefix = '';
+
+  for (const section of sections) {
+    const sectionStartPageIdx = doc.pages.findIndex((p) => p.order === section.startPageOrder);
+    if (sectionStartPageIdx !== -1) {
+      const pageIdx = doc.pages.indexOf(page);
+      if (pageIdx >= sectionStartPageIdx) {
+        style = section.numberStyle;
+        prefix = section.prefix ?? '';
+      }
+    }
+  }
+
+  let formatted: string;
+  switch (style) {
+    case 'upperRoman':
+      formatted = toRoman(num);
+      break;
+    case 'lowerRoman':
+      formatted = toRoman(num).toLowerCase();
+      break;
+    case 'upperAlpha':
+      formatted = numToAlpha(num).toUpperCase();
+      break;
+    case 'lowerAlpha':
+      formatted = numToAlpha(num);
+      break;
+    default:
+      formatted = String(num);
+  }
+
+  return prefix ? `${prefix}${formatted}` : formatted;
+}
+
+/** Convert a number to an alphabetic string (1=a, 2=b, ..., 27=aa). */
+function numToAlpha(num: number): string {
+  let result = '';
+  let n = num;
+  while (n > 0) {
+    n -= 1;
+    result = String.fromCharCode(97 + (n % 26)) + result;
+    n = Math.floor(n / 26);
+  }
+  return result;
+}
+
+// ── Toggle facing pages ───────────────────────────────────────────────────
+
+/**
+ * Enable or disable facing pages. When toggling on, rebuilds spreads.
+ */
+export function toggleFacingPages(doc: Document): Document {
+  const current = doc.facingPages ?? { enabled: false, startOnRight: true };
+  return rebuildSpreads(doc, { ...current, enabled: !current.enabled });
+}
+
+/**
+ * Set facing pages enabled state.
+ */
+export function setFacingPagesEnabled(doc: Document, enabled: boolean): Document {
+  const current = doc.facingPages ?? { enabled: false, startOnRight: true };
+  return rebuildSpreads(doc, { ...current, enabled });
+}
+
+// ── Master content propagation ────────────────────────────────────────────
+
+/**
+ * Get all visible nodes for a page, including propagated master content.
+ * Returns the flat list of node IDs in paint order:
+ * 1. Global shared nodes
+ * 2. Master content nodes (if a master is applied, filtering overridden/hidden ones)
+ * 3. Page-local content nodes
+ * 4. Override replacement nodes (for 'modified' overrides)
+ */
+export function activePageNodesWithMaster(doc: Document, pageId: NodeId): NodeId[] {
+  const globals = doc.globalChildren ?? [];
+
+  if (!doc.pages) return globals;
+  const page = doc.pages.find((p) => p.id === pageId);
+  if (!page) return globals;
+
+  const contentRootNode = doc.nodes[page.contentRoot] as GroupNode | undefined;
+  const pageChildren = contentRootNode?.children ?? [];
+
+  if (!page.masterPageId) {
+    return [...globals, ...pageChildren];
+  }
+
+  const master = doc.masters?.[page.masterPageId];
+  if (!master) return [...globals, ...pageChildren];
+
+  const masterRoot = doc.nodes[master.contentRoot] as GroupNode | undefined;
+  const masterChildren = masterRoot?.children ?? [];
+
+  const overrides = page.masterOverrides ?? {};
+  const result: NodeId[] = [...globals];
+
+  for (const mChildId of masterChildren) {
+    const override = overrides[mChildId];
+    if (override && (override.type === 'hidden' || override.type === 'deleted')) {
+      result.push(mChildId);
+      continue;
+    }
+    if (override && override.type === 'modified' && override.localNodeId) {
+      result.push(override.localNodeId);
+      continue;
+    }
+    result.push(mChildId);
+  }
+
+  result.push(...pageChildren);
+
+  return result;
+}
+
+/**
+ * Check whether a page has any active master overrides.
+ */
+export function pageHasOverrides(doc: Document, pageId: NodeId): boolean {
+  if (!doc.pages) return false;
+  const page = doc.pages.find((p) => p.id === pageId);
+  if (!page) return false;
+  return !!page.masterOverrides && Object.keys(page.masterOverrides).length > 0;
+}
+
+/**
+ * Resolve whether a specific node is inherited from a master or page-local.
+ * Returns 'master', 'override', or 'local'.
+ */
+export function resolveNodeOrigin(
+  doc: Document,
+  pageId: NodeId,
+  nodeId: NodeId,
+): 'master' | 'override' | 'local' {
+  if (!doc.pages) return 'local';
+  const page = doc.pages.find((p) => p.id === pageId);
+  if (!page) return 'local';
+  if (!page.masterPageId) return 'local';
+
+  const overrides = page.masterOverrides ?? {};
+  for (const override of Object.values(overrides)) {
+    if (override.localNodeId === nodeId) return 'override';
+  }
+
+  const master = doc.masters?.[page.masterPageId];
+  if (master) {
+    const masterRoot = doc.nodes[master.contentRoot] as GroupNode | undefined;
+    if (masterRoot?.children.includes(nodeId)) return 'master';
+  }
+
+  return 'local';
 }
