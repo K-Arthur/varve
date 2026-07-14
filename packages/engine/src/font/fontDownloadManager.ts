@@ -268,7 +268,8 @@ export class FontDownloadManager {
       this.events.onJobComplete?.(job);
     } catch (err) {
       // Don't mark as failed if cancelled
-      if (job.status === 'cancelled' || job.status === 'paused') return;
+      const s = job.status as DownloadJobStatus;
+      if (s === 'cancelled' || s === 'paused') return;
 
       job.status = 'failed';
       job.error = err instanceof Error ? err.message : String(err);

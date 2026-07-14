@@ -144,7 +144,7 @@ describe('FontDownloadManager', () => {
 
     const active = manager.getActiveJobs();
     expect(active).toHaveLength(1);
-    expect(active[0].id).toBe(job2.id);
+    expect(active[0]!.id).toBe(job2.id);
   });
 
   it('processQueue respects maxConcurrent', async () => {

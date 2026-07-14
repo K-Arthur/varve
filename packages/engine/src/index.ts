@@ -73,6 +73,8 @@ export {
   blendScreen,
   blendSoftLight,
 } from './blendModes';
+export type { ColourEngine, ColourWasmModule } from './colour/colourLoader';
+export { createColourEngineFromModule, loadColourWasmModule } from './colour/colourLoader';
 export {
   convertSrgbBufferToCmykWasm,
   getColourProfileInfo,

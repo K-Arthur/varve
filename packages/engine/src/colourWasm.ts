@@ -3,53 +3,39 @@
  * Provides ICC-based colour transforms for preview and export.
  */
 
-import type { ColourWasmModule } from '@strata/print';
+import type { ColourWasmModule } from './colour/colourLoader';
+import { loadColourWasmModule as loadWasmModule, prewarmColourWasm } from './colour/colourLoader';
+
+export { prewarmColourWasm };
 
 let cachedModule: ColourWasmModule | null = null;
 let loadPromise: Promise<ColourWasmModule | null> | null = null;
 
-/**
- * Pre-warm the colour WASM module during idle time.
- */
-export function prewarmColourWasm(): void {
-  if (cachedModule || loadPromise) return;
-  loadPromise = loadColourWasm();
-}
-
-async function loadColourWasm(): Promise<ColourWasmModule | null> {
-  try {
-    const { loadColourWasmModule } = await import('@strata/print');
-    const mod = await loadColourWasmModule();
-    cachedModule = mod;
-    return mod;
-  } catch (e) {
-    console.warn('[colourWasm] Failed to load colour WASM module:', e);
-    return null;
-  }
-}
-
-/**
- * Get the loaded colour WASM module, loading it if necessary.
- */
-export async function getColourWasm(): Promise<ColourWasmModule | null> {
+async function ensureColourWasm(): Promise<ColourWasmModule | null> {
   if (cachedModule) return cachedModule;
   if (loadPromise) return loadPromise;
-  loadPromise = loadColourWasm();
+  loadPromise = loadWasmModule().then((mod) => {
+    cachedModule = mod;
+    return mod;
+  });
   return loadPromise;
 }
 
-/**
- * Convert an sRGB pixel buffer to CMYK using the ICC profile pipeline.
- * Uses wasm_batch_rgb_to_cmyk_icc which accepts a profile name string.
- * Returns null if WASM is unavailable.
- */
+export async function getColourWasm(): Promise<ColourWasmModule | null> {
+  return ensureColourWasm();
+}
+
+export function isColourWasmAvailable(): boolean {
+  return cachedModule !== null;
+}
+
 export async function convertSrgbBufferToCmykWasm(
   data: Uint8Array,
   profile?: string,
   renderingIntent?: string,
   blackPointCompensation?: boolean,
 ): Promise<Uint8Array | null> {
-  const mod = await getColourWasm();
+  const mod = await ensureColourWasm();
   if (!mod) return null;
 
   try {
@@ -65,11 +51,8 @@ export async function convertSrgbBufferToCmykWasm(
   }
 }
 
-/**
- * Validate an ICC profile by its raw bytes.
- */
 export async function validateColourProfile(data: Uint8Array): Promise<boolean> {
-  const mod = await getColourWasm();
+  const mod = await ensureColourWasm();
   if (!mod) return false;
   try {
     return mod.wasm_validate_colour_profile(data);
@@ -78,14 +61,10 @@ export async function validateColourProfile(data: Uint8Array): Promise<boolean> 
   }
 }
 
-/**
- * Parse ICC profile information from raw bytes.
- * Returns null if WASM unavailable or parsing fails.
- */
 export async function getColourProfileInfo(
   data: Uint8Array,
 ): Promise<{ name: string; colorSpace: string; pcs: string; class_: string } | null> {
-  const mod = await getColourWasm();
+  const mod = await ensureColourWasm();
   if (!mod) return null;
   try {
     const json = mod.wasm_colour_profile_info(data);
@@ -95,10 +74,6 @@ export async function getColourProfileInfo(
   }
 }
 
-/**
- * Convert a single sRGB colour to CMYK using ICC profile.
- * Returns null if WASM unavailable.
- */
 export async function srgbToCmykWasm(
   r: number,
   g: number,
@@ -107,7 +82,7 @@ export async function srgbToCmykWasm(
   renderingIntent?: string,
   blackPointCompensation?: boolean,
 ): Promise<[number, number, number, number] | null> {
-  const mod = await getColourWasm();
+  const mod = await ensureColourWasm();
   if (!mod) return null;
   try {
     const result = mod.wasm_rgb_to_cmyk_icc(
@@ -122,11 +97,4 @@ export async function srgbToCmykWasm(
   } catch {
     return null;
   }
-}
-
-/**
- * Check whether the colour WASM module is available.
- */
-export function isColourWasmAvailable(): boolean {
-  return cachedModule !== null;
 }
