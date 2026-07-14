@@ -115,9 +115,10 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
 ];
 
 export function FloatingToolbar() {
-  const { state, setTool, booleanOp } = useEditor();
+  const { state, setTool, booleanOp, selectedNodes } = useEditor();
   const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [booleanMenuPos, setBooleanMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const canBoolean = selectedNodes().filter((n) => n.kind === 'shape').length >= 2;
 
   const currentShape = (SHAPE_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
     ? state.tool
@@ -150,7 +151,7 @@ export function FloatingToolbar() {
 
   return (
     <>
-      <div className="floating-toolbar">
+      <div className="floating-toolbar" data-testid="toolbar">
         <Toolbar label="Drawing tools">
           <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
             <button
@@ -182,16 +183,23 @@ export function FloatingToolbar() {
           {INDIVIDUAL_TOOLS.map((t) => (
             <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
           ))}
-          <Tooltip label={TOOL_LABELS[currentBoolean] ?? currentBoolean}>
+          <Tooltip
+            label={
+              canBoolean
+                ? (TOOL_LABELS[currentBoolean] ?? currentBoolean)
+                : 'Select 2+ shapes for boolean'
+            }
+          >
             <button
               type="button"
-              className={`floating-toolbar__btn${state.tool === currentBoolean ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
-              aria-pressed={state.tool === currentBoolean}
+              className={`floating-toolbar__btn floating-toolbar__btn--group-start`}
+              aria-pressed={false}
               aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
               data-tool={currentBoolean}
+              disabled={!canBoolean}
               onClick={() => {
                 const op = BOOLEAN_OP_MAP[currentBoolean];
-                if (op) {
+                if (op && canBoolean) {
                   booleanOp(op);
                   setTool('select');
                 }
@@ -204,7 +212,9 @@ export function FloatingToolbar() {
             type="button"
             className="floating-toolbar__chevron"
             aria-label="Boolean operations menu"
+            disabled={!canBoolean}
             onClick={(e) => {
+              if (!canBoolean) return;
               const r = e.currentTarget.getBoundingClientRect();
               if (booleanMenuPos) {
                 setBooleanMenuPos(null);

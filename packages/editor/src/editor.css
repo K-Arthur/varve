@@ -95,9 +95,10 @@
     "layers   canvas    inspector"
     "timeline timeline  timeline"
     "pagenav  pagenav   pagenav"
+    "selinfo  selinfo   selinfo"
     "status   status    status";
   grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width);
-  grid-template-rows: var(--topbar-height) 32px 1fr auto auto var(--statusbar-height);
+  grid-template-rows: var(--topbar-height) 32px 1fr auto auto auto var(--statusbar-height);
   flex: 1;
   min-height: 0;
   overflow: hidden;
