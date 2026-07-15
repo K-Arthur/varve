@@ -1,28 +1,30 @@
 /**
- * PreflightWarnings — warning badge in the StatusBar that shows preflight issues.
- *
- * When preflight detects issues, a badge appears in the status bar color-coded
- * by highest severity (red=error, yellow=warning, gray=info). Clicking opens
- * a small panel listing all issues, grouped by severity.
+ * PreflightWarnings — the Print Mode preflight panel, surfaced as a badge in
+ * the StatusBar. When preflight detects issues, the badge is color-coded by
+ * highest severity (red=error, yellow=warning, gray=info). Clicking opens a
+ * panel listing all issues grouped by severity, plus which check categories
+ * were actually evaluated versus skipped for lack of external data (e.g. no
+ * installed-font registry, no live text-layout measurements).
  *
  * Research basis: Adobe InDesign preflight panel, Enfocus PitStop inspection.
  */
 
-import type { PrintPreflightIssue, PrintPreflightSeverity } from '@strata/scene';
-import { runPrintPreflight } from '@strata/scene';
+import type { CombinedPreflightIssue, CombinedPreflightSeverity } from '@strata/scene';
+import { runCombinedPreflight } from '@strata/scene';
+import { getFontRegistry } from '@strata/engine';
 import { Icon } from '@strata/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../context';
 
-const SEVERITY_ORDER: PrintPreflightSeverity[] = ['error', 'warning', 'info'];
+const SEVERITY_ORDER: CombinedPreflightSeverity[] = ['error', 'warning', 'info'];
 
 interface GroupedIssues {
-  severity: PrintPreflightSeverity;
+  severity: CombinedPreflightSeverity;
   label: string;
-  issues: PrintPreflightIssue[];
+  issues: CombinedPreflightIssue[];
 }
 
-function severityColor(severity: PrintPreflightSeverity): string {
+function severityColor(severity: CombinedPreflightSeverity): string {
   switch (severity) {
     case 'error':
       return 'var(--color-feedback-danger)';
@@ -33,7 +35,7 @@ function severityColor(severity: PrintPreflightSeverity): string {
   }
 }
 
-function severityBg(severity: PrintPreflightSeverity): string {
+function severityBg(severity: CombinedPreflightSeverity): string {
   switch (severity) {
     case 'error':
       return 'var(--color-feedback-danger-bg, rgba(220, 38, 38, 0.1))';
@@ -51,12 +53,14 @@ export function PreflightWarnings() {
 
   const result = useMemo(() => {
     if (!state.document) return null;
-    return runPrintPreflight(state.document);
+    return runCombinedPreflight(state.document, {
+      availableFonts: getFontRegistry().availableFamilies(),
+    });
   }, [state.document]);
 
   const hasIssues = result && result.errorCount + result.warningCount + result.infoCount > 0;
 
-  const highestSeverity: PrintPreflightSeverity | null = useMemo(() => {
+  const highestSeverity: CombinedPreflightSeverity | null = useMemo(() => {
     if (!result || !hasIssues) return null;
     for (const s of SEVERITY_ORDER) {
       if (result.issues.some((i) => i.severity === s)) return s;
@@ -73,6 +77,11 @@ export function PreflightWarnings() {
     })).filter((g) => g.issues.length > 0);
   }, [result, hasIssues]);
 
+  const unavailableChecks = useMemo(
+    () => result?.checks.filter((c) => c.status === 'unavailable') ?? [],
+    [result],
+  );
+
   const handleSelectNode = useCallback(
     (nodeId: string) => {
       revealSelection({ nodeId });
@@ -85,12 +94,16 @@ export function PreflightWarnings() {
     setOpen((prev) => !prev);
   }, []);
 
-  if (!result || !hasIssues) return null;
+  if (!result) return null;
+  // Still surface the badge when checks are unavailable, even with zero
+  // detected issues, so "0 issues" is never confused with "verified clean".
+  if (!hasIssues && unavailableChecks.length === 0) return null;
 
   const ec = result.errorCount;
   const wc = result.warningCount;
   const ic = result.infoCount;
   const totalBadge = (ec + wc + ic).toString();
+  const clean = !hasIssues;
 
   return (
     <div className="preflight-warnings" style={{ position: 'relative', display: 'inline-flex' }}>
@@ -99,14 +112,22 @@ export function PreflightWarnings() {
         className="preflight-warnings__badge"
         onClick={handleToggle}
         aria-expanded={open}
-        aria-label={`Preflight: ${ec} errors, ${wc} warnings, ${ic} info`}
+        aria-label={
+          clean
+            ? `Preflight: no issues found; ${unavailableChecks.length} check${unavailableChecks.length === 1 ? '' : 's'} unavailable`
+            : `Preflight: ${ec} errors, ${wc} warnings, ${ic} info`
+        }
         style={{
-          color: highestSeverity ? severityColor(highestSeverity) : undefined,
+          color: highestSeverity ? severityColor(highestSeverity) : 'var(--color-text-muted)',
         }}
-        title={`${ec} errors, ${wc} warnings, ${ic} info`}
+        title={
+          clean
+            ? `No issues found; ${unavailableChecks.length} check${unavailableChecks.length === 1 ? '' : 's'} could not be verified`
+            : `${ec} errors, ${wc} warnings, ${ic} info`
+        }
       >
-        <Icon name="FileWarning" size={12} />
-        <span className="preflight-warnings__count">{totalBadge}</span>
+        <Icon name={clean ? 'FileCheck2' : 'FileWarning'} size={12} />
+        {!clean && <span className="preflight-warnings__count">{totalBadge}</span>}
       </button>
 
       {open && (
@@ -141,6 +162,18 @@ export function PreflightWarnings() {
               padding: 'var(--space-2)',
             }}
           >
+            {clean && (
+              <div
+                className="preflight-warnings__clean"
+                style={{
+                  padding: 'var(--space-1) var(--space-2)',
+                  fontSize: 'var(--font-size-xs)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                No issues found in the checks below.
+              </div>
+            )}
             {grouped.map((group) => (
               <div key={group.severity} className="preflight-warnings__group">
                 <div
@@ -209,6 +242,46 @@ export function PreflightWarnings() {
                 ))}
               </div>
             ))}
+            {unavailableChecks.length > 0 && (
+              <div
+                className="preflight-warnings__unavailable"
+                style={{
+                  marginTop: 'var(--space-2)',
+                  paddingTop: 'var(--space-2)',
+                  borderTop: '1px solid var(--border-subtle)',
+                }}
+              >
+                <div
+                  className="preflight-warnings__group-header"
+                  style={{
+                    color: 'var(--color-text-muted)',
+                    fontWeight: 600,
+                    fontSize: 'var(--font-size-sm)',
+                    padding: 'var(--space-1) var(--space-2)',
+                  }}
+                >
+                  Not verified ({unavailableChecks.length})
+                </div>
+                {unavailableChecks.map((check) => (
+                  <div
+                    key={check.id}
+                    className="preflight-warnings__check"
+                    title={check.reason}
+                    style={{
+                      padding: 'var(--space-1) var(--space-2)',
+                      fontSize: 'var(--font-size-xs)',
+                      color: 'var(--color-text-muted)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 'var(--space-2)',
+                    }}
+                  >
+                    <span>{check.label}</span>
+                    <span style={{ flexShrink: 0 }}>{check.reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}
