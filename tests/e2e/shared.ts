@@ -21,15 +21,23 @@ export async function navigateToEditor(page: Page) {
     .click();
   await page.locator('.layers-panel').waitFor({ timeout: 10000 });
 
-  // Dismiss "Welcome to Strata" modal on first launch.
-  const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
-  if (
-    await welcomeClose
-      .first()
-      .isVisible({ timeout: 1000 })
-      .catch(() => false)
-  ) {
-    await welcomeClose.first().click();
+  // Dismiss "Welcome to Strata" modal on first launch. Choose Blank canvas
+  // so the dialog actually closes; Get Started starts a tour instead.
+  const blankCanvas = page.getByRole('dialog').getByRole('button', { name: /^Blank canvas$/i });
+  if (await blankCanvas.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await blankCanvas.click();
+  } else {
+    const welcomeClose = page
+      .getByRole('dialog')
+      .getByRole('button', { name: /close|get started/i });
+    if (
+      await welcomeClose
+        .first()
+        .isVisible({ timeout: 1000 })
+        .catch(() => false)
+    ) {
+      await welcomeClose.first().click();
+    }
   }
 }
 

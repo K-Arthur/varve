@@ -23,12 +23,13 @@ import type {
 import { gradientFill, imageFill, patternFill, resolveNodeFills, solidFill } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { Icon, Select } from '@strata/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { GradientEditor } from '../color/GradientEditor';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
@@ -104,7 +105,6 @@ export function FillSection({ nodes }: FillSectionProps) {
     announce,
   } = editor;
   const [newFillType, setNewFillType] = useState<FillType>('solid');
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set([0]));
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const fills = useMemo(() => {
@@ -115,15 +115,6 @@ export function FillSection({ nodes }: FillSectionProps) {
   }, [nodes]);
 
   const countMixed = nodes.some((n) => resolveNodeFills(n).length !== fills.length);
-
-  const toggleRow = useCallback((i: number) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
-    });
-  }, []);
 
   const updateFill = useCallback(
     (index: number, fill: Fill) => {
@@ -172,6 +163,17 @@ export function FillSection({ nodes }: FillSectionProps) {
     [beginTransaction, commitTransaction, reorderSelectedFill],
   );
 
+  // Keep the "Add new fill" tab selector aligned with the current fill so the
+  // bottom tabs don't show a conflicting type (e.g. Solid selected while the
+  // actual fill is Image). The user can still change the tab to add a fill of
+  // a different type.
+  useEffect(() => {
+    const current = fills[0]?.type;
+    if (current && current !== newFillType) {
+      setNewFillType(current);
+    }
+  }, [fills, newFillType]);
+
   return (
     <DisclosureSection title="Fill">
       {fills.length === 0 && <div className="insp-empty-message">No fill</div>}
@@ -182,8 +184,6 @@ export function FillSection({ nodes }: FillSectionProps) {
             index={i}
             fill={fill}
             nodes={nodes}
-            expanded={expandedRows.has(i)}
-            onToggle={() => toggleRow(i)}
             onChange={(f) => updateFill(i, f)}
             onRemove={() => removeFill(i)}
             onReorder={(dir) => reorderFill(i, i + dir)}
@@ -198,17 +198,20 @@ export function FillSection({ nodes }: FillSectionProps) {
         <div className="insp-empty-message">Some selected nodes have additional fills</div>
       )}
       <div className="insp-fill-add">
-        <SegmentedControl
-          label="New fill type"
-          value={newFillType}
-          options={FILL_TYPE_OPTIONS}
-          onChange={setNewFillType}
-          className="insp-segmented--distribute"
-        />
-        <button type="button" className="insp-add-btn" onClick={addFill}>
-          <Icon name="Plus" label={undefined} size="0.85em" />
-          <span>Add</span>
-        </button>
+        <span className="insp-subsection__label">Add new fill</span>
+        <div className="insp-fill-add__controls">
+          <SegmentedControl
+            label="New fill type"
+            value={newFillType}
+            options={FILL_TYPE_OPTIONS}
+            onChange={setNewFillType}
+            className="insp-segmented--distribute"
+          />
+          <button type="button" className="insp-add-btn" onClick={addFill}>
+            <Icon name="Plus" label={undefined} size="0.85em" />
+            <span>Add</span>
+          </button>
+        </div>
       </div>
       {editor.bindingField === 'fill' && (
         <BindingMenu
@@ -230,8 +233,6 @@ interface FillRowProps {
   index: number;
   fill: Fill;
   nodes: SceneNode[];
-  expanded: boolean;
-  onToggle: () => void;
   onChange: (fill: Fill) => void;
   onRemove: () => void;
   onReorder: (dir: number) => void;
@@ -245,8 +246,6 @@ function FillRow({
   index,
   fill,
   nodes,
-  expanded,
-  onToggle,
   onChange,
   onRemove,
   onReorder,
@@ -415,56 +414,31 @@ function FillRow({
         />
       )}
 
-      <button type="button" onClick={onToggle} className="insp-advanced-btn">
-        <Icon
-          name="ChevronRight"
-          label={undefined}
-          size="0.75em"
-          style={{
-            transition: 'transform var(--duration-quick) var(--ease-standard)',
-            transform: expanded ? 'rotate(90deg)' : 'none',
-          }}
+      <div className="insp-fill-row__properties">
+        <NumberField
+          label="Fill opacity"
+          value={isMixed(opacityRaw) ? 1 : opacityRaw}
+          mixed={isMixed(opacityRaw)}
+          step={0.01}
+          min={0}
+          max={1}
+          onChange={(v) => patch({ opacity: v })}
         />
-        <span>Advanced</span>
-      </button>
-
-      {expanded && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-1)',
-            paddingLeft: 'var(--space-4)',
-          }}
-        >
-          <NumberField
-            label="Opacity"
-            value={isMixed(opacityRaw) ? 1 : opacityRaw}
-            mixed={isMixed(opacityRaw)}
-            step={0.01}
-            min={0}
-            max={1}
-            onChange={(v) => patch({ opacity: v })}
+        <FieldRow label="Blend mode">
+          <Select
+            label="Fill blend mode"
+            value={isMixed(blendRaw) ? '' : blendRaw}
+            options={[
+              ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+              ...BLEND_OPTIONS,
+            ]}
+            onChange={(v) => {
+              if (v) patch({ blendMode: v as BlendMode });
+            }}
+            placeholder="Mixed"
           />
-          <div className="insp-field">
-            <span className="insp-field__label">Blend</span>
-            <div className="insp-field__control">
-              <Select
-                label={`${label} blend mode`}
-                value={isMixed(blendRaw) ? '' : blendRaw}
-                options={[
-                  ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-                  ...BLEND_OPTIONS,
-                ]}
-                onChange={(v) => {
-                  if (v) patch({ blendMode: v as BlendMode });
-                }}
-                placeholder="Mixed"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+        </FieldRow>
+      </div>
     </div>
   );
 }

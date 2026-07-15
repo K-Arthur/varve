@@ -32,7 +32,8 @@ export type AdjustmentKind =
   | 'channelMixer'
   | 'photoFilter'
   | 'halftone'
-  | 'gradientMap';
+  | 'gradientMap'
+  | 'tritone';
 
 export type AdjustmentBlendMode =
   | 'normal'
@@ -192,6 +193,9 @@ export interface HalftoneAdjustment extends AdjustmentBase {
   dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
   channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
   method: 'am' | 'fm';
+  threshold?: number;
+  intensity?: number;
+  softness?: number;
 }
 
 export interface GradientMapStop {
@@ -203,6 +207,17 @@ export interface GradientMapAdjustment extends AdjustmentBase {
   kind: 'gradientMap';
   stops: GradientMapStop[];
   dither: boolean;
+  preserveLuminosity: boolean;
+}
+
+export interface TritoneAdjustment extends AdjustmentBase {
+  kind: 'tritone';
+  shadowColor: Color;
+  midtoneColor: Color;
+  highlightColor: Color;
+  shadowPoint: number;
+  highlightPoint: number;
+  intensity: number;
   preserveLuminosity: boolean;
 }
 
@@ -228,7 +243,8 @@ export type Adjustment =
   | ColorBalanceAdjustment
   | ChannelMixerAdjustment
   | PhotoFilterAdjustment
-  | GradientMapAdjustment;
+  | GradientMapAdjustment
+  | TritoneAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
   const base = { opacity: adjustment.opacity, blendMode: adjustment.blendMode };
@@ -334,6 +350,9 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         dotShape: adjustment.dotShape,
         channel: adjustment.channel,
         method: adjustment.method,
+        threshold: adjustment.threshold,
+        intensity: adjustment.intensity,
+        softness: adjustment.softness,
         ...base,
       };
     case 'gradientMap':
@@ -344,6 +363,18 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
           color: s.color as readonly [number, number, number, number],
         })),
         dither: adjustment.dither,
+        preserveLuminosity: adjustment.preserveLuminosity,
+        ...base,
+      };
+    case 'tritone':
+      return {
+        kind: 'tritone',
+        shadowColor: adjustment.shadowColor as readonly [number, number, number, number],
+        midtoneColor: adjustment.midtoneColor as readonly [number, number, number, number],
+        highlightColor: adjustment.highlightColor as readonly [number, number, number, number],
+        shadowPoint: adjustment.shadowPoint,
+        highlightPoint: adjustment.highlightPoint,
+        intensity: adjustment.intensity,
         preserveLuminosity: adjustment.preserveLuminosity,
         ...base,
       };
@@ -392,6 +423,7 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'photoFilter':
     case 'halftone':
     case 'gradientMap':
+    case 'tritone':
       // No direct CSS equivalent; use identity or a placeholder.
       return null;
     case 'chain':
@@ -434,6 +466,8 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Selective Color';
     case 'gradientMap':
       return 'Gradient Map';
+    case 'tritone':
+      return 'Tritone';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
@@ -523,6 +557,9 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         dotShape: 'round',
         channel: 'k',
         method: 'am',
+        threshold: 128,
+        intensity: 1,
+        softness: 0,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'gradientMap':
       return {
@@ -532,6 +569,17 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
           { position: 1, color: [255, 255, 255, 255] as Color },
         ],
         dither: true,
+        preserveLuminosity: false,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'tritone':
+      return {
+        ...base,
+        shadowColor: [20, 30, 80, 255] as Color,
+        midtoneColor: [180, 160, 140, 255] as Color,
+        highlightColor: [255, 245, 220, 255] as Color,
+        shadowPoint: 0.35,
+        highlightPoint: 0.65,
+        intensity: 1,
         preserveLuminosity: false,
       } as Omit<Adjustment, 'id' | 'kind'>;
     default:

@@ -11,7 +11,7 @@
  */
 import type { Affine } from '@strata/engine';
 import type { Document } from './document';
-import { getById } from './document';
+import { getById, removeNode } from './document';
 import type { LiveTraceParams, LiveTraceState, NodeId } from './types';
 import { defaultLiveTraceParams } from './types';
 
@@ -39,7 +39,8 @@ export function setLiveTraceParams(
     sourceNodeId: existing?.sourceNodeId ?? nodeId,
     params: { ...defaultLiveTraceParams(), ...(existing?.params ?? {}), ...params },
     resolvedAt: null,
-    lastError: existing?.lastError ?? null,
+    lastError: null,
+    traceGroupId: undefined,
   };
 
   return {
@@ -55,7 +56,12 @@ export function setLiveTraceParams(
  * Mark a live trace as successfully resolved.
  * Sets `resolvedAt` to the given timestamp and clears any error.
  */
-export function setLiveTraceResolved(doc: Document, nodeId: NodeId, resolvedAt: number): Document {
+export function setLiveTraceResolved(
+  doc: Document,
+  nodeId: NodeId,
+  resolvedAt: number,
+  traceGroupId?: NodeId,
+): Document {
   const shape = isShapeNode(doc, nodeId);
   if (!shape?.liveTrace) return doc;
 
@@ -65,7 +71,7 @@ export function setLiveTraceResolved(doc: Document, nodeId: NodeId, resolvedAt: 
       ...doc.nodes,
       [nodeId]: {
         ...shape,
-        liveTrace: { ...shape.liveTrace, resolvedAt, lastError: null },
+        liveTrace: { ...shape.liveTrace, resolvedAt, lastError: null, traceGroupId },
       },
     },
   };
@@ -85,39 +91,62 @@ export function setLiveTraceError(doc: Document, nodeId: NodeId, error: string):
       ...doc.nodes,
       [nodeId]: {
         ...shape,
-        liveTrace: { ...shape.liveTrace, resolvedAt: null, lastError: error },
+        liveTrace: {
+          ...shape.liveTrace,
+          resolvedAt: null,
+          lastError: error,
+          traceGroupId: undefined,
+        },
       },
     },
   };
 }
 
 /**
- * Flatten a live-traced node: remove `liveTrace` state.
- * The node's current shape is preserved (if traced geometry was resolved, it
- * stays as the explicit shape; otherwise the fallback shape is kept).
- * The result is an ordinary ShapeNode with no liveTrace field.
+ * Flatten a live-traced node: commit the generated trace group and remove the
+ * source image node. The trace group becomes a normal editable group.
  */
 export function flattenLiveTrace(doc: Document, nodeId: NodeId): Document {
   const shape = isShapeNode(doc, nodeId);
   if (!shape?.liveTrace) return doc;
 
+  const traceGroupId = shape.liveTrace.traceGroupId;
+  if (traceGroupId && doc.nodes[traceGroupId]) {
+    let next = removeNode(doc, nodeId);
+    const traceGroup = next.nodes[traceGroupId];
+    if (traceGroup && 'locked' in traceGroup) {
+      next = {
+        ...next,
+        nodes: { ...next.nodes, [traceGroupId]: { ...traceGroup, locked: false } },
+      };
+    }
+    return next;
+  }
+
   const { liveTrace: _removed, ...rest } = shape;
-  return {
-    ...doc,
-    nodes: {
-      ...doc.nodes,
-      [nodeId]: rest as import('./types').ShapeNode,
-    },
-  };
+  return { ...doc, nodes: { ...doc.nodes, [nodeId]: rest as import('./types').ShapeNode } };
 }
 
 /**
- * Remove live trace state from a node without flattening.
- * Equivalent to discarding the live trace link; the node remains as-is.
- * No-op when the node has no liveTrace state.
+ * Cancel a live trace: restore the source image node and remove the generated
+ * trace group. No-op when the node has no liveTrace state.
  */
 export function clearLiveTrace(doc: Document, nodeId: NodeId): Document {
-  return flattenLiveTrace(doc, nodeId);
+  const shape = isShapeNode(doc, nodeId);
+  if (!shape?.liveTrace) return doc;
+
+  const traceGroupId = shape.liveTrace.traceGroupId;
+  let next: Document = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: { ...shape, liveTrace: undefined, visible: true },
+    },
+  };
+  if (traceGroupId && next.nodes[traceGroupId]) {
+    next = removeNode(next, traceGroupId);
+  }
+  return next;
 }
 
 /**

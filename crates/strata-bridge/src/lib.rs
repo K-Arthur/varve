@@ -5,8 +5,8 @@
 use serde::Deserialize;
 use serde_json::Value;
 use strata_core::{
-    Affine, BlendMode, Circle, Effect, EngineColor, FillIR, Line, PathPoint, Point, Rect,
-    SceneNode, Shape, Stroke,
+    Affine, BlendMode, Circle, Effect, EngineColor, FillIR, GradientFill, Line, PathPoint, Point,
+    Rect, SceneNode, Shape, Stroke,
 };
 
 #[derive(Debug, Deserialize)]
@@ -123,6 +123,147 @@ pub struct IpcTextShape {
 
 fn default_arrowhead() -> f64 {
     10.0
+}
+
+/// TypeScript `@strata/engine` EngineImageFillData shape (nested under `image`).
+#[derive(Debug, Deserialize)]
+pub struct IpcEngineImageFillData {
+    pub src: String,
+    pub fit: String,
+    #[serde(default)]
+    pub x: f64,
+    #[serde(default)]
+    pub y: f64,
+    #[serde(default = "default_scale")]
+    pub scale: f64,
+    #[serde(default, rename = "imageWidth")]
+    pub image_width: Option<f64>,
+    #[serde(default, rename = "imageHeight")]
+    pub image_height: Option<f64>,
+}
+
+fn default_scale() -> f64 {
+    1.0
+}
+
+/// TypeScript `@strata/engine` EnginePatternFillData shape (nested under `pattern`).
+#[derive(Debug, Deserialize)]
+pub struct IpcEnginePatternFillData {
+    #[serde(rename = "tileSrc")]
+    pub tile_src: String,
+    #[serde(default)]
+    pub spacing: f64,
+    #[serde(default)]
+    pub rotation: f64,
+    #[serde(default, rename = "imageWidth")]
+    pub image_width: Option<f64>,
+    #[serde(default, rename = "imageHeight")]
+    pub image_height: Option<f64>,
+}
+
+/// TypeScript `@strata/engine` EngineFill shape (nested variant data).
+/// The bridge flattens this into `strata_core::FillIR` for the native renderer.
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum IpcEngineFill {
+    #[serde(rename = "solid")]
+    Solid {
+        color: EngineColor,
+        opacity: f64,
+        #[serde(rename = "blendMode")]
+        blend_mode: BlendMode,
+        visible: bool,
+    },
+    #[serde(rename = "gradient")]
+    Gradient {
+        gradient: GradientFill,
+        opacity: f64,
+        #[serde(rename = "blendMode")]
+        blend_mode: BlendMode,
+        visible: bool,
+    },
+    #[serde(rename = "image")]
+    Image {
+        image: IpcEngineImageFillData,
+        opacity: f64,
+        #[serde(rename = "blendMode")]
+        blend_mode: BlendMode,
+        visible: bool,
+    },
+    #[serde(rename = "pattern")]
+    Pattern {
+        pattern: IpcEnginePatternFillData,
+        opacity: f64,
+        #[serde(rename = "blendMode")]
+        blend_mode: BlendMode,
+        visible: bool,
+    },
+}
+
+impl IpcEngineFill {
+    fn into_fill_ir(self, alpha_mask: Option<String>) -> FillIR {
+        match self {
+            IpcEngineFill::Solid {
+                color,
+                opacity,
+                blend_mode,
+                visible,
+            } => FillIR::Solid {
+                color,
+                opacity,
+                blend_mode,
+                visible,
+            },
+            IpcEngineFill::Gradient {
+                gradient,
+                opacity,
+                blend_mode,
+                visible,
+            } => FillIR::Gradient {
+                gradient_type: gradient.gradient_type,
+                stops: gradient.stops,
+                rotation: gradient.rotation.unwrap_or(0.0),
+                transform: gradient.transform,
+                tiling_mode: gradient.tiling_mode,
+                opacity,
+                blend_mode,
+                visible,
+            },
+            IpcEngineFill::Image {
+                image,
+                opacity,
+                blend_mode,
+                visible,
+            } => FillIR::Image {
+                src: image.src,
+                fit: image.fit,
+                x: image.x,
+                y: image.y,
+                scale: image.scale,
+                image_width: image.image_width,
+                image_height: image.image_height,
+                opacity,
+                blend_mode,
+                visible,
+                alpha_mask,
+            },
+            IpcEngineFill::Pattern {
+                pattern,
+                opacity,
+                blend_mode,
+                visible,
+            } => FillIR::Pattern {
+                tile_src: pattern.tile_src,
+                spacing: pattern.spacing,
+                rotation: pattern.rotation,
+                image_width: pattern.image_width,
+                image_height: pattern.image_height,
+                opacity,
+                blend_mode,
+                visible,
+            },
+        }
+    }
 }
 
 impl IpcShape {
@@ -285,8 +426,10 @@ pub struct IpcSceneNode {
     pub effects: Vec<Effect>,
     #[serde(default, rename = "cornerRadius")]
     pub corner_radius: Option<serde_json::Value>,
+    #[serde(default, rename = "alphaMask")]
+    pub alpha_mask: Option<String>,
     #[serde(default)]
-    pub fills: Option<Vec<FillIR>>,
+    pub fills: Option<Vec<IpcEngineFill>>,
     #[serde(default)]
     pub filters: Option<Vec<serde_json::Value>>,
     // Text layout is present at the SceneNode level in the TS engine contract,
@@ -435,7 +578,12 @@ pub fn convert_engine_nodes(nodes: Vec<IpcSceneNode>) -> Vec<SceneNode> {
                 strokes: n.strokes,
                 effects: n.effects,
                 corner_radius: n.corner_radius.or(shape_corner),
-                fills: n.fills,
+                fills: n.fills.map(|fills| {
+                    fills
+                        .into_iter()
+                        .map(|f| f.into_fill_ir(n.alpha_mask.clone()))
+                        .collect()
+                }),
                 filters: n.filters,
             }
         })
@@ -576,22 +724,26 @@ mod tests {
 
     #[test]
     fn image_fill_wire_preserves_canvas_resource_metadata() {
+        // Real TS engine payload uses nested `image` objects and a node-level
+        // alphaMask from backgroundRemoval.maskDataUrl.
         let json = serde_json::json!([{
             "id": "image-fill",
             "name": "Masked image",
             "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             "shape": { "kind": "rect", "x": 0.0, "y": 0.0, "w": 320.0, "h": 240.0 },
             "fill": { "space": "rgb", "r": 0.0, "g": 0.0, "b": 0.0, "a": 0.0 },
+            "alphaMask": "data:image/png;base64,TUFDSw==",
             "fills": [{
                 "type": "image",
-                "src": "photo.png",
-                "fit": "fit",
-                "x": 3.0,
-                "y": 4.0,
-                "scale": 0.5,
-                "imageWidth": 640.0,
-                "imageHeight": 480.0,
-                "alphaMask": "data:image/png;base64,TUFDSw==",
+                "image": {
+                    "src": "photo.png",
+                    "fit": "fit",
+                    "x": 3.0,
+                    "y": 4.0,
+                    "scale": 0.5,
+                    "imageWidth": 640.0,
+                    "imageHeight": 480.0
+                },
                 "opacity": 0.75,
                 "blendMode": "normal",
                 "visible": true
@@ -604,6 +756,8 @@ mod tests {
         let fills = serde_json::to_value(&scene[0].fills).expect("serialize core image fill");
         let image = &fills[0];
 
+        assert_eq!(image["src"], "photo.png");
+        assert_eq!(image["fit"], "fit");
         assert_eq!(image["imageWidth"], 640.0);
         assert_eq!(image["imageHeight"], 480.0);
         assert_eq!(image["alphaMask"], "data:image/png;base64,TUFDSw==");

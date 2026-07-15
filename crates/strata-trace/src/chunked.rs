@@ -4,6 +4,8 @@
 //! with a shared visited bitmap, providing agreement with the native
 //! sequential (non-rayon) path.
 
+#[cfg(test)]
+use crate::Foreground;
 use crate::{binarize, find_seeds, trace_one, Path, TraceOptions};
 
 /// Contour-trace a raster bitmap using cooperative chunking.
@@ -25,7 +27,7 @@ pub fn trace_contours_chunked(
         return Vec::new();
     }
 
-    let binary = binarize(pixels, opts.threshold);
+    let binary = binarize(pixels, opts.threshold, opts.foreground);
     let seeds = find_seeds(&binary, width, height);
 
     if seeds.is_empty() {
@@ -105,7 +107,7 @@ mod tests {
         // produces the canonical result. trace_contours_chunked(1) should
         // match it exactly.
         let sequential_no_rayon = {
-            let binary = crate::binarize(&pixels, opts.threshold);
+            let binary = crate::binarize(&pixels, opts.threshold, opts.foreground);
             let seeds = crate::find_seeds(&binary, 32, 32);
             let mut visited = vec![false; 32 * 32];
             let mut paths = Vec::new();
@@ -188,11 +190,17 @@ mod tests {
     }
 
     #[test]
-    fn chunked_empty_bitmap() {
+    fn chunked_black_bitmap_bounds() {
+        // All-zeros (black) with default Dark foreground: black < threshold 128,
+        // so the entire bitmap IS foreground. The contour follows the outer edge
+        // of the 32x32 image boundary.
         let pixels = vec![0u8; 32 * 32];
         let opts = TraceOptions::default();
         let paths = trace_contours_chunked(&pixels, 32, 32, &opts, 4);
-        assert!(paths.is_empty(), "all-zeros bitmap should produce no paths");
+        assert!(
+            !paths.is_empty(),
+            "all-black bitmap should produce an outer-boundary contour"
+        );
     }
 
     #[test]
@@ -297,28 +305,52 @@ mod tests {
     }
 
     #[test]
-    fn chunked_single_pixel_bitmap() {
-        // 1x1 all-white: the pixel IS on the boundary (x=0,y=0), so it's a
-        // seed. trace_one produces a 1-point path which passes min_pixels=1.
+    fn chunked_single_pixel_light_foreground() {
+        // 1x1 all-white pixel with Light foreground: white (255) > threshold
+        // (128), so the pixel IS foreground. The boundary seed is the pixel
+        // itself (x=0,y=0 is on the image edge). trace_one produces a 1-point
+        // path which survives min_pixels=1.
         let pixels = vec![255u8];
         let opts = TraceOptions {
             min_pixels: 1,
+            foreground: Foreground::Light,
             ..Default::default()
         };
         let paths = trace_contours_chunked(&pixels, 1, 1, &opts, 4);
-        assert_eq!(paths.len(), 1, "single white pixel should produce 1 path");
+        assert_eq!(
+            paths.len(),
+            1,
+            "single white pixel (Light foreground) should produce 1 path"
+        );
         assert_eq!(paths[0].points.len(), 1);
 
-        // With min_pixels=2 (default is 10, but we lower it), the 1-point
-        // path is filtered out
+        // With min_pixels=2 and Light foreground, the 1-point path is filtered
         let opts_strict = TraceOptions {
             min_pixels: 2,
+            foreground: Foreground::Light,
             ..Default::default()
         };
         let paths_strict = trace_contours_chunked(&pixels, 1, 1, &opts_strict, 4);
         assert!(
             paths_strict.is_empty(),
             "1-point path filtered by min_pixels=2"
+        );
+    }
+
+    #[test]
+    fn chunked_dark_foreground_white_pixel_no_path() {
+        // 1x1 white pixel with default Dark foreground: white (255) > threshold
+        // (128), so it's NOT foreground. Should produce 0 paths regardless of
+        // min_pixels.
+        let pixels = vec![255u8];
+        let opts = TraceOptions {
+            min_pixels: 1,
+            ..Default::default()
+        };
+        let paths = trace_contours_chunked(&pixels, 1, 1, &opts, 4);
+        assert!(
+            paths.is_empty(),
+            "white pixel with Dark foreground should produce no paths"
         );
     }
 

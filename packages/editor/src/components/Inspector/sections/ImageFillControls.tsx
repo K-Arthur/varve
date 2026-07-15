@@ -67,7 +67,12 @@ export function ImageFillControls({
   return (
     <div className="insp-image-fill">
       {hasSrc && (
-        <div className="insp-image-fill__preview" aria-hidden>
+        <div
+          className="insp-image-fill__preview"
+          aria-hidden
+          title="Click to replace image"
+          onClick={() => fileRef.current?.click()}
+        >
           <img src={image.src} alt="" className="insp-image-fill__preview-img" />
         </div>
       )}
@@ -85,7 +90,7 @@ export function ImageFillControls({
         />
         <button
           type="button"
-          className="insp-add-btn insp-image-fill__choose"
+          className="insp-btn-sm insp-image-fill__choose"
           onClick={() => fileRef.current?.click()}
         >
           <Icon name="Image" label={undefined} size="0.85em" />
@@ -110,8 +115,22 @@ export function ImageFillControls({
           onChange={handleSrcChange}
           aria-label="Image source URL"
           placeholder="URL or choose a file"
-          className="insp-num__input"
+          className="insp-num__input insp-image-fill__src"
+          title={image.src}
         />
+        <button
+          type="button"
+          className="insp-inline-btn"
+          aria-label="Copy source URL"
+          title="Copy source URL"
+          onClick={() => {
+            if (navigator.clipboard) {
+              void navigator.clipboard.writeText(image.src);
+            }
+          }}
+        >
+          <Icon name="Copy" label={undefined} size="0.85em" />
+        </button>
       </FieldRow>
       <FieldRow label="Fit">
         <Select

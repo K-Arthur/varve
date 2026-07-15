@@ -10,10 +10,10 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import type { ManagedColor, SceneNode } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import type { ColorMode, ManagedColor, SceneNode } from '@strata/scene';
+import { managedColorToCss } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { docVariableStore } from '../../docVariableStore';
 import { IntelligencePanel } from '../../panels/IntelligencePanel';
@@ -139,11 +139,25 @@ export function PropertiesPanel() {
   );
 }
 
+function whiteForMode(mode: ColorMode): ManagedColor {
+  switch (mode) {
+    case 'cmyk':
+      return { space: 'cmyk', c: 0, m: 0, y: 0, k: 0, a: 255 };
+    case 'grayscale':
+      return { space: 'gray', v: 255, a: 255 };
+    default:
+      return { space: 'rgb', r: 255, g: 255, b: 255, a: 255 };
+  }
+}
+
 function EmptySelectionState() {
-  const { state, setCanvasBackground, switchColorMode } = useEditor();
+  const { state, setCanvasBackground, switchColorMode, documentColorMode } = useEditor();
   const doc = state.document;
   const count = Object.keys(doc.nodes).length;
   const canvasBg: ManagedColor | undefined = doc.canvasBackground;
+  const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
+  const canvasBgColor = canvasBg ?? fallbackColor;
+  const swatchBackground = useMemo(() => managedColorToCss(canvasBgColor), [canvasBgColor]);
 
   return (
     <div className="insp-panel__empty">
@@ -182,23 +196,16 @@ function EmptySelectionState() {
             <div className="insp-field__control">
               <InspectorColorPopover
                 label="Canvas background"
-                value={canvasBg ?? { space: 'rgb', r: 255, g: 255, b: 255, a: 255 }}
-                onChange={(c) => setCanvasBackground(c)}
-                swatchStyle={{
-                  background: (() => {
-                    const [r, g, b, a] = managedColorToRgba(
-                      canvasBg ?? { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
-                    );
-                    return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
-                  })(),
-                }}
+                value={canvasBgColor}
+                onChange={setCanvasBackground}
+                swatchStyle={{ background: swatchBackground }}
+                documentColorMode={documentColorMode}
               />
             </div>
           </div>
         </div>
       </DisclosureSection>
-      <div className="insp-panel__section">
-        <div className="insp-panel__section-header">Document Color</div>
+      <DisclosureSection title="Document Color" defaultExpanded={true}>
         <div className="insp-panel__color-mode">
           <span className="insp-panel__color-mode-label">Mode</span>
           <div className="insp-panel__color-mode-buttons">
@@ -206,16 +213,16 @@ function EmptySelectionState() {
               <button
                 key={mode}
                 type="button"
-                className={`insp-panel__color-mode-btn${doc.colorConfig?.mode === mode ? ' insp-panel__color-mode-btn--active' : ''}`}
+                className={`insp-panel__color-mode-btn${documentColorMode === mode ? ' insp-panel__color-mode-btn--active' : ''}`}
                 onClick={() => switchColorMode(mode)}
-                aria-pressed={doc.colorConfig?.mode === mode}
+                aria-pressed={documentColorMode === mode}
               >
                 {mode === 'rgb' ? 'RGB' : mode === 'cmyk' ? 'CMYK' : 'Grayscale'}
               </button>
             ))}
           </div>
         </div>
-      </div>
+      </DisclosureSection>
       <div className="insp-panel__canvas-info">
         <p className="insp-panel__canvas-name">{doc.name}</p>
         <p className="insp-panel__canvas-count">
@@ -252,7 +259,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       {isFrame && !isComponentInstance && <FramePresetsSection mode="resize" />}
       <AdjustmentPanel />
       <PositionSizeSection nodes={nodes} />
-      {isRect && <CornerRadiusSection nodes={nodes} />}
+      {(isRect || isFrame) && <CornerRadiusSection nodes={nodes} />}
       {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
       <AppearanceSection nodes={nodes} />
       <MaskSection nodes={nodes} />

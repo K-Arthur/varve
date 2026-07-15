@@ -24,12 +24,12 @@ function solidImage(
 }
 
 describe('trace provider chain', () => {
-  it('includes native-trace before worker-trace and direct-trace', () => {
+  it('prefers the full-featured worker path before direct, wasm, and native fallbacks', () => {
     expect(TRACE_PROVIDER_CHAIN.map((p) => p.id)).toEqual([
-      'native-trace',
-      'wasm-trace',
       'worker-trace',
       'direct-trace',
+      'wasm-trace',
+      'native-trace',
     ]);
   });
 });

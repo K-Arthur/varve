@@ -181,3 +181,253 @@ describe('EffectsSection — glass material tint swatch', () => {
     expect(swatch).toHaveStyle({ background: 'rgba(200,220,255,0.24)' });
   });
 });
+
+function nodeWithChromaticAberration(id: string) {
+  return {
+    id,
+    kind: 'shape' as const,
+    name: 'Rect',
+    shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    transform: [1, 0, 0, 1, 0, 0] as const,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    rotation: 0,
+    visible: true,
+    locked: false,
+    order: 'a0',
+    fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
+    strokes: [],
+    effects: [
+      {
+        type: 'chromaticAberration' as const,
+        offsets: { redX: 3, redY: 0, greenX: 0, greenY: 0, blueX: -3, blueY: 0 },
+        intensity: 1,
+        blendMode: 'normal' as const,
+        opacity: 1,
+        visible: true,
+      },
+    ],
+  };
+}
+
+function nodeWithGlitch(id: string) {
+  return {
+    id,
+    kind: 'shape' as const,
+    name: 'Rect',
+    shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    transform: [1, 0, 0, 1, 0, 0] as const,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    rotation: 0,
+    visible: true,
+    locked: false,
+    order: 'a0',
+    fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
+    strokes: [],
+    effects: [
+      {
+        type: 'glitch' as const,
+        seed: 42,
+        strength: 8,
+        density: 0.3,
+        sliceHeight: 8,
+        blockCount: 5,
+        blockSize: 20,
+        blockStrength: 10,
+        noiseIntensity: 0.05,
+        scanlineIntensity: 0.15,
+        scanlineSpacing: 4,
+        direction: 'horizontal' as const,
+        channelShift: { redX: 0, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
+        channelShiftMode: 'static' as const,
+        blendMode: 'normal' as const,
+        opacity: 1,
+        visible: true,
+      },
+    ],
+  };
+}
+
+function nodeWithOuterGlow(id: string) {
+  return {
+    id,
+    kind: 'shape' as const,
+    name: 'Rect',
+    shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 80 },
+    transform: [1, 0, 0, 1, 0, 0] as const,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    rotation: 0,
+    visible: true,
+    locked: false,
+    order: 'a0',
+    fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
+    strokes: [],
+    effects: [
+      {
+        type: 'outerGlow' as const,
+        blur: 6,
+        spread: 0,
+        color: { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 128 },
+        opacity: 0.6,
+        blendMode: 'screen' as const,
+        visible: true,
+      },
+    ],
+  };
+}
+
+describe('EffectsSection — effect type dropdown', () => {
+  const updateNode = vi.fn();
+  const beginTransaction = vi.fn();
+  const commitTransaction = vi.fn();
+  const announce = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+    });
+  });
+
+  afterEach(cleanup);
+
+  function openDropdown() {
+    const trigger = screen.getByRole('combobox', { name: /new effect type/i });
+    fireEvent.click(trigger);
+  }
+
+  it('includes chromatic aberration in new effect type options', async () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    openDropdown();
+    await waitFor(() => {
+      const options = screen.getAllByRole('option');
+      const labels = options.map((o) => o.textContent);
+      expect(labels).toContain('Chromatic Aberration');
+    });
+  });
+
+  it('includes glitch in new effect type options', () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    openDropdown();
+    const options = screen.getAllByRole('option');
+    const labels = options.map((o) => o.textContent);
+    expect(labels).toContain('Glitch');
+  });
+});
+
+describe('EffectsSection — chromatic aberration', () => {
+  const updateNode = vi.fn();
+  const beginTransaction = vi.fn();
+  const commitTransaction = vi.fn();
+  const announce = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+    });
+  });
+
+  afterEach(cleanup);
+
+  it('renders effect row with type label', () => {
+    render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+    expect(screen.getByText('Chromatic Aberration')).toBeTruthy();
+  });
+
+  it('renders intensity control', () => {
+    render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+    expect(screen.getByLabelText('Intensity')).toBeTruthy();
+  });
+
+  it('renders opacity control', () => {
+    render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+    expect(screen.getByLabelText('Opacity')).toBeTruthy();
+  });
+
+  it('renders blend mode selector', () => {
+    render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+    expect(screen.getByLabelText('Aberration blend mode')).toBeTruthy();
+  });
+});
+
+describe('EffectsSection — glitch', () => {
+  const updateNode = vi.fn();
+  const beginTransaction = vi.fn();
+  const commitTransaction = vi.fn();
+  const announce = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+    });
+  });
+
+  afterEach(cleanup);
+
+  it('renders effect row with type label', () => {
+    render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    expect(screen.getByText('Glitch')).toBeTruthy();
+  });
+
+  it('renders strength and density controls', () => {
+    render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    expect(screen.getByLabelText('Strength')).toBeTruthy();
+    expect(screen.getByLabelText('Density')).toBeTruthy();
+  });
+
+  it('renders direction selector', () => {
+    render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    expect(screen.getByLabelText('Glitch direction')).toBeTruthy();
+  });
+
+  it('shows advanced section on click', async () => {
+    render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    const advancedBtn = screen.getByText('Advanced...');
+    fireEvent.click(advancedBtn);
+    await waitFor(() => {
+      expect(screen.getByText('Hide advanced')).toBeTruthy();
+    });
+    expect(screen.getByLabelText('Slice Height')).toBeTruthy();
+  });
+});
+
+describe('EffectsSection — outerGlow color swatch', () => {
+  const updateNode = vi.fn();
+  const beginTransaction = vi.fn();
+  const commitTransaction = vi.fn();
+  const announce = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+    });
+  });
+
+  afterEach(cleanup);
+
+  it('renders effect color swatch for outer glows', () => {
+    render(<EffectsSection nodes={[nodeWithOuterGlow('n1')]} />);
+    expect(screen.getByRole('button', { name: /effect colour/i })).toBeTruthy();
+  });
+});

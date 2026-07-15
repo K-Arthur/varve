@@ -44,6 +44,7 @@ describe('ImageEnhancementSection — live trace', () => {
   const traceSelectedImage = vi.fn().mockResolvedValue(undefined);
   const setSelectedLiveTraceParams = vi.fn();
   const flattenSelectedLiveTrace = vi.fn();
+  const clearSelectedLiveTrace = vi.fn();
   const cancelImageProcessing = vi.fn();
 
   beforeEach(() => {
@@ -51,12 +52,14 @@ describe('ImageEnhancementSection — live trace', () => {
     traceSelectedImage.mockClear();
     setSelectedLiveTraceParams.mockClear();
     flattenSelectedLiveTrace.mockClear();
+    clearSelectedLiveTrace.mockClear();
     cancelImageProcessing.mockClear();
     mockedUseEditor.mockReturnValue({
       upscaleSelectedImage,
       traceSelectedImage,
       setSelectedLiveTraceParams,
       flattenSelectedLiveTrace,
+      clearSelectedLiveTrace,
       cancelImageProcessing,
       announce: vi.fn(),
     });
@@ -282,6 +285,7 @@ describe('ImageEnhancementSection — original one-shot', () => {
       traceSelectedImage,
       setSelectedLiveTraceParams: vi.fn(),
       flattenSelectedLiveTrace: vi.fn(),
+      clearSelectedLiveTrace: vi.fn(),
       cancelImageProcessing: vi.fn(),
       announce: vi.fn(),
     });
