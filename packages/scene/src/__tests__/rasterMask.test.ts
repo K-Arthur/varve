@@ -329,6 +329,29 @@ describe('raster mask document boundary validation', () => {
     expect(DocumentCodec.decode(JSON.stringify({ ...doc, ...patch })).ok).toBe(false);
   });
 
+  it.each([
+    ['empty vector mask', { mask: { type: 'clip', visible: true, vectorMask: {} } }],
+    [
+      'non-array vector points',
+      { mask: { type: 'clip', visible: true, vectorMask: { points: {} } } },
+    ],
+    ['non-array fills', { fills: {} }],
+    ['null mask', { mask: null }],
+    ['primitive raster mask', { mask: { type: 'alpha', visible: true, rasterMask: 7 } }],
+  ])('returns a decode error without throwing for nested malformed %s', (_label, nodePatch) => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const malformed = {
+      ...attached,
+      nodes: {
+        ...attached.nodes,
+        [imageId]: { ...attached.nodes[imageId]!, ...nodePatch },
+      },
+    };
+    expect(() => DocumentCodec.decode(JSON.stringify(malformed))).not.toThrow();
+    expect(DocumentCodec.decode(JSON.stringify(malformed)).ok).toBe(false);
+  });
+
   it('rejects a missing raster asset reference', () => {
     const { doc, imageId } = makeImageDocument();
     const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));

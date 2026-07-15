@@ -33,7 +33,7 @@ import {
   traceSceneNodeOutline,
 } from '@strata/engine';
 import { type ImportFileInput, ImportService } from '@strata/import';
-import type { Document, NodeId, Paint, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@strata/scene';
 import {
   activePageNodes,
   addNode,
@@ -167,10 +167,7 @@ import { ZoomTool } from './tools/ZoomTool';
 
 let _showOriginalBgNodeId: string | null = null;
 
-export function toEngineNode(
-  node: SceneNode,
-  doc?: { paints?: Record<string, Paint> },
-): EngineNode {
+export function toEngineNode(node: SceneNode, doc: Document): EngineNode {
   return sceneNodeToEngineNode(
     node,
     {
@@ -1121,7 +1118,7 @@ export function CanvasArea({
         n = applyBindingsToNode(n, variableStore);
         const world = getCachedWorldTransform(cache, doc, id);
         const worldBounds = getCachedWorldBounds(cache, doc, id);
-        let engineNode = toEngineNode(n);
+        let engineNode = toEngineNode(n, doc);
         const styleOverrides = resolvedStyles.get(id);
         if (styleOverrides) engineNode = applyStyleOverrides(engineNode, styleOverrides);
         const visualBounds = worldBounds
