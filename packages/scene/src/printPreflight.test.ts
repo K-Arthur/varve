@@ -251,7 +251,15 @@ describe('runPrintPreflight', () => {
           fills: [
             {
               type: 'image',
-              image: { src: 'data:image/png;base64,x', fit: 'fill', x: 0, y: 0, scale: 1, imageWidth: 300, imageHeight: 300 },
+              image: {
+                src: 'data:image/png;base64,x',
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+                imageWidth: 300,
+                imageHeight: 300,
+              },
               opacity: 1,
               blendMode: 'normal' as const,
               visible: true,
@@ -263,9 +271,7 @@ describe('runPrintPreflight', () => {
       },
     });
     const result = runPrintPreflight(doc, { minDpi: 300 });
-    const dpiIssue = result.issues.find(
-      (i) => i.category === 'resolution' && i.nodeId === 'img1',
-    );
+    const dpiIssue = result.issues.find((i) => i.category === 'resolution' && i.nodeId === 'img1');
     expect(dpiIssue).toBeDefined();
     expect(dpiIssue?.severity).toBe('warning');
     expect(dpiIssue?.message).toContain('Stretched Photo');
@@ -292,7 +298,15 @@ describe('runPrintPreflight', () => {
           fills: [
             {
               type: 'image',
-              image: { src: 'data:image/png;base64,x', fit: 'fill', x: 0, y: 0, scale: 1, imageWidth: 3000, imageHeight: 3000 },
+              image: {
+                src: 'data:image/png;base64,x',
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+                imageWidth: 3000,
+                imageHeight: 3000,
+              },
               opacity: 1,
               blendMode: 'normal' as const,
               visible: true,
@@ -304,9 +318,7 @@ describe('runPrintPreflight', () => {
       },
     });
     const result = runPrintPreflight(doc, { minDpi: 300 });
-    const dpiIssue = result.issues.find(
-      (i) => i.category === 'resolution' && i.nodeId === 'img1',
-    );
+    const dpiIssue = result.issues.find((i) => i.category === 'resolution' && i.nodeId === 'img1');
     expect(dpiIssue).toBeUndefined();
   });
 
