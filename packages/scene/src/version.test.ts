@@ -6,6 +6,7 @@ import {
   migrateDocument,
   migrateDocumentDetailed,
   migrateDocumentJson,
+  normalizeLegacyBackgroundRemoval,
   SUPPORTED_VERSIONS,
   serializeDocument,
   stampVersion,
@@ -69,19 +70,20 @@ describe('Legacy background removal migration', () => {
                 x: 0,
                 y: 0,
                 scale: 1,
-                imageWidth: 64,
-                imageHeight: 32,
+                imageWidth: 1,
+                imageHeight: 1,
               },
               opacity: 1,
               blendMode: 'normal',
               visible: true,
             },
           ],
-          shape: { kind: 'rect', x: 0, y: 0, w: 64, h: 32 },
+          shape: { kind: 'rect', x: 0, y: 0, w: 1, h: 1 },
           strokes: [],
           effects: [],
           backgroundRemoval: {
-            maskDataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+            maskDataUrl:
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
             method: 'ai-quality',
             confidence: 0.91,
             appliedAt: 1234,
@@ -108,7 +110,7 @@ describe('Legacy background removal migration', () => {
       generatedAt: 1234,
       confidence: 0.91,
     });
-    expect(assets['raster-mask:legacy:1']).toMatchObject({ width: 64, height: 32, byteLength: 8 });
+    expect(assets['raster-mask:legacy:1']).toMatchObject({ width: 1, height: 1, byteLength: 68 });
     expect('backgroundRemoval' in image).toBe(false);
   });
 
@@ -131,6 +133,70 @@ describe('Legacy background removal migration', () => {
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
     expect(JSON.parse(encoded).formatVersion).toBe('2.1');
+  });
+
+  it('suffixes colliding legacy asset IDs without breaking existing references', () => {
+    const dataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const baseId = 'raster-mask:legacy:image';
+    const migrated = normalizeLegacyBackgroundRemoval({
+      nodes: {
+        image: {
+          id: 'image',
+          kind: 'shape',
+          shape: { kind: 'rect', x: 0, y: 0, w: 1, h: 1 },
+          fills: [
+            {
+              type: 'image',
+              image: { src: 'source', imageWidth: 1, imageHeight: 1 },
+            },
+          ],
+          backgroundRemoval: {
+            maskDataUrl: dataUrl,
+            method: 'quick',
+            confidence: 0.5,
+            appliedAt: 1,
+          },
+        },
+        consumer: {
+          id: 'consumer',
+          kind: 'shape',
+          mask: {
+            type: 'alpha',
+            visible: true,
+            rasterMask: {
+              assetId: baseId,
+              coordinateSpace: 'source-image-pixels',
+              sourceFingerprint: 'source:existing',
+              sourcePixelRevision: 1,
+            },
+          },
+        },
+      },
+      rasterMaskAssets: {
+        [baseId]: {
+          id: baseId,
+          mimeType: 'image/png',
+          dataUrl,
+          width: 1,
+          height: 1,
+          byteLength: 68,
+          checksum: 'existing-semantic-asset',
+        },
+      },
+    });
+    const nodes = migrated.nodes as Record<string, Record<string, unknown>>;
+    const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
+    expect(
+      ((nodes.image?.mask as Record<string, unknown>).rasterMask as Record<string, unknown>)
+        .assetId,
+    ).toBe(`${baseId}:1`);
+    expect(
+      ((nodes.consumer?.mask as Record<string, unknown>).rasterMask as Record<string, unknown>)
+        .assetId,
+    ).toBe(baseId);
+    expect(assets[baseId]?.checksum).toBe('existing-semantic-asset');
+    expect(assets[`${baseId}:1`]).toBeDefined();
   });
 });
 
