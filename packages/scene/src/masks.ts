@@ -86,6 +86,9 @@ export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
 
 /** Validate the source union and, when supplied, its document asset reference. */
 export function validateMaskSource(doc: Document | undefined, mask: Mask): string | null {
+  if (mask.rasterMask && ('sourceNodeId' in mask || 'vectorMask' in mask)) {
+    return 'A raster mask source must be exclusive of structural source properties';
+  }
   // A sourceNodeId may accompany a vector mask as optional visual content;
   // vectorMask remains the sole geometry source in that compatible form.
   const hasVectorGeometry = Boolean(mask.vectorMask && mask.vectorMask.points.length > 0);
