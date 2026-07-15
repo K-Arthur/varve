@@ -504,6 +504,15 @@ describe('blendPixels', () => {
     expect(result.data[0]).toBe(255);
   });
 
+  it('preserves premultiplied plusLighter composition with partial alpha and opacity', () => {
+    const backdrop = makePixelData(255, 0, 0, 128);
+    const source = makePixelData(0, 0, 255, 128);
+
+    const result = blendPixels(backdrop, source, 'plusLighter', 0.5);
+
+    expect([...result.data]).toEqual([170, 0, 85, 192]);
+  });
+
   it('transparent source leaves backdrop unchanged', () => {
     const backdrop = makePixelData(100, 100, 100, 255);
     const source = makePixelData(255, 0, 0, 0);
