@@ -34,6 +34,7 @@ import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
 import { FramePresetsSection } from './sections/FramePresetsSection';
 import { ImageEnhancementSection } from './sections/ImageEnhancementSection';
+import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { InteractionSection } from './sections/InteractionSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { MaskSection } from './sections/MaskSection';
@@ -257,6 +258,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       <MaskSection nodes={nodes} />
       <FillSection nodes={nodes} />
       <PaintLibrarySection />
+      <ImagePlacementSection nodes={nodes} />
       <ImageEnhancementSection nodes={nodes} />
       <BackgroundRemovalSection nodes={nodes} />
       <StrokeSection nodes={nodes} />

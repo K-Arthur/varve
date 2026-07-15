@@ -6,6 +6,10 @@
  * at a point in paint order (topmost last). Respects isolation mode, locked
  * state, and visibility.
  *
+ * Zoom-aware: at low zoom levels (e.g. 1%), a screen-space tolerance is
+ * applied so that clicks land on visually-small objects. The tolerance is
+ * SNAP_THRESHOLD_PX / zoom world units, matching the snap threshold.
+ *
  * Research basis: Excalidraw two-phase hit-test (rotated-AABB reject, then
  * precise shape/path test); spatial grid for O(1) candidate filtering.
  */
@@ -21,9 +25,17 @@ import {
 import { getOrCreateSpatialIndex, queryPoint } from '../scene/spatialIndex';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
+/** Screen-pixel snap acquire threshold — same as viewport.ts but not
+ *  re-exported from @strata/shared barrel to avoid circular deps. */
+const HIT_TOLERANCE_PX = 8;
+
+const CELL_SIZE = 64;
+
 export interface HitTestOptions {
   /** Isolation/focus view: when set, only nodes in this subtree are selectable. */
   isolatedNodeId?: NodeId | null;
+  /** Current zoom level — used to compute screen-space hit tolerance. */
+  zoom?: number;
 }
 
 export interface HitResult {
@@ -34,11 +46,14 @@ export interface HitResult {
 export class HitTestEngine {
   private readonly doc: Document;
   private readonly options: HitTestOptions;
+  private readonly toleranceWorld: number;
   private spatialIndex: ReturnType<typeof getOrCreateSpatialIndex>;
 
   constructor(doc: Document, options: HitTestOptions = {}) {
     this.doc = doc;
     this.options = options;
+    const zoom = options.zoom ?? 1;
+    this.toleranceWorld = HIT_TOLERANCE_PX / Math.max(0.001, zoom);
     this.spatialIndex = getOrCreateSpatialIndex(doc, null);
   }
 
@@ -47,7 +62,7 @@ export class HitTestEngine {
    * Returns null if no node is hit.
    */
   hitTest(world: { x: number; y: number }): HitResult | null {
-    const candidates = queryPoint(this.spatialIndex, world.x, world.y);
+    const candidates = this.queryWithTolerance(world.x, world.y);
 
     // Walk the active page's nodes in paint order (DFS) and reverse so
     // that children are tested before parents and later siblings before
@@ -58,7 +73,7 @@ export class HitTestEngine {
     for (const entry of ordered) {
       const n = entry.node;
       if (n.locked || !n.visible) continue;
-      // Only test nodes that overlap the query point's cell.
+      // Only test nodes that overlap the query point's tolerance cell(s).
       if (!candidates.has(entry.nodeId)) continue;
 
       // Filter by isolation mode
@@ -78,11 +93,36 @@ export class HitTestEngine {
         if (shapeContains(shape, local)) {
           return { nodeId: entry.nodeId, node: n };
         }
+        // Zoom tolerance: for visually-small objects, test whether the
+        // world point is within `toleranceWorld` of the shape's world AABB.
+        if (this.toleranceWorld > 0) {
+          const bbox = nodeWorldBounds(this.doc, entry.nodeId);
+          if (bbox) {
+            const expanded = {
+              x: bbox.x - this.toleranceWorld,
+              y: bbox.y - this.toleranceWorld,
+              w: bbox.w + 2 * this.toleranceWorld,
+              h: bbox.h + 2 * this.toleranceWorld,
+            };
+            if (rectContains(expanded, [world.x, world.y])) {
+              return { nodeId: entry.nodeId, node: n };
+            }
+          }
+        }
       }
       if (n.kind === 'text' || n.kind === 'frame') {
         const bbox = nodeWorldBounds(this.doc, entry.nodeId);
-        if (bbox && rectContains(bbox, [world.x, world.y])) {
-          return { nodeId: entry.nodeId, node: n };
+        if (bbox) {
+          // Always apply tolerance for text/frame (AABB-only test).
+          const expanded = {
+            x: bbox.x - this.toleranceWorld,
+            y: bbox.y - this.toleranceWorld,
+            w: bbox.w + 2 * this.toleranceWorld,
+            h: bbox.h + 2 * this.toleranceWorld,
+          };
+          if (rectContains(expanded, [world.x, world.y])) {
+            return { nodeId: entry.nodeId, node: n };
+          }
         }
       }
       if (n.kind === 'group') {
@@ -104,10 +144,33 @@ export class HitTestEngine {
               if (shapeContains(childShape, childLocal)) {
                 return { nodeId: entry.nodeId, node: n };
               }
+              // Zoom tolerance for group children
+              if (this.toleranceWorld > 0) {
+                const childBounds = nodeWorldBounds(this.doc, childId);
+                if (childBounds) {
+                  const expanded = {
+                    x: childBounds.x - this.toleranceWorld,
+                    y: childBounds.y - this.toleranceWorld,
+                    w: childBounds.w + 2 * this.toleranceWorld,
+                    h: childBounds.h + 2 * this.toleranceWorld,
+                  };
+                  if (rectContains(expanded, [world.x, world.y])) {
+                    return { nodeId: entry.nodeId, node: n };
+                  }
+                }
+              }
             } else {
               const childBounds = nodeWorldBounds(this.doc, childId);
-              if (childBounds && rectContains(childBounds, [world.x, world.y])) {
-                return { nodeId: entry.nodeId, node: n };
+              if (childBounds) {
+                const expanded = {
+                  x: childBounds.x - this.toleranceWorld,
+                  y: childBounds.y - this.toleranceWorld,
+                  w: childBounds.w + 2 * this.toleranceWorld,
+                  h: childBounds.h + 2 * this.toleranceWorld,
+                };
+                if (rectContains(expanded, [world.x, world.y])) {
+                  return { nodeId: entry.nodeId, node: n };
+                }
               }
             }
           }
@@ -122,7 +185,7 @@ export class HitTestEngine {
    * (topmost last). Respects isolation mode.
    */
   findNodesAtPoint(world: { x: number; y: number }): HitResult[] {
-    const candidates = queryPoint(this.spatialIndex, world.x, world.y);
+    const candidates = this.queryWithTolerance(world.x, world.y);
     const entries = walkNodes(this.doc, activePageNodes(this.doc));
     const ordered = [...entries.values()].reverse();
     const results: HitResult[] = [];
@@ -148,11 +211,35 @@ export class HitTestEngine {
             : n.shape;
         if (shapeContains(shape, local)) {
           results.push({ nodeId: entry.nodeId, node: n });
+          continue;
+        }
+        // Zoom tolerance fallback
+        if (this.toleranceWorld > 0) {
+          const bbox = nodeWorldBounds(this.doc, entry.nodeId);
+          if (bbox) {
+            const expanded = {
+              x: bbox.x - this.toleranceWorld,
+              y: bbox.y - this.toleranceWorld,
+              w: bbox.w + 2 * this.toleranceWorld,
+              h: bbox.h + 2 * this.toleranceWorld,
+            };
+            if (rectContains(expanded, [world.x, world.y])) {
+              results.push({ nodeId: entry.nodeId, node: n });
+            }
+          }
         }
       } else if (n.kind === 'text' || n.kind === 'frame') {
         const bbox = nodeWorldBounds(this.doc, entry.nodeId);
-        if (bbox && rectContains(bbox, [world.x, world.y])) {
-          results.push({ nodeId: entry.nodeId, node: n });
+        if (bbox) {
+          const expanded = {
+            x: bbox.x - this.toleranceWorld,
+            y: bbox.y - this.toleranceWorld,
+            w: bbox.w + 2 * this.toleranceWorld,
+            h: bbox.h + 2 * this.toleranceWorld,
+          };
+          if (rectContains(expanded, [world.x, world.y])) {
+            results.push({ nodeId: entry.nodeId, node: n });
+          }
         }
       } else if (n.kind === 'group') {
         const groupNode = n as import('@strata/scene').GroupNode;
@@ -172,11 +259,34 @@ export class HitTestEngine {
                 results.push({ nodeId: entry.nodeId, node: n });
                 break;
               }
+              if (this.toleranceWorld > 0) {
+                const childBounds = nodeWorldBounds(this.doc, childId);
+                if (childBounds) {
+                  const expanded = {
+                    x: childBounds.x - this.toleranceWorld,
+                    y: childBounds.y - this.toleranceWorld,
+                    w: childBounds.w + 2 * this.toleranceWorld,
+                    h: childBounds.h + 2 * this.toleranceWorld,
+                  };
+                  if (rectContains(expanded, [world.x, world.y])) {
+                    results.push({ nodeId: entry.nodeId, node: n });
+                    break;
+                  }
+                }
+              }
             } else {
               const childBounds = nodeWorldBounds(this.doc, childId);
-              if (childBounds && rectContains(childBounds, [world.x, world.y])) {
-                results.push({ nodeId: entry.nodeId, node: n });
-                break;
+              if (childBounds) {
+                const expanded = {
+                  x: childBounds.x - this.toleranceWorld,
+                  y: childBounds.y - this.toleranceWorld,
+                  w: childBounds.w + 2 * this.toleranceWorld,
+                  h: childBounds.h + 2 * this.toleranceWorld,
+                };
+                if (rectContains(expanded, [world.x, world.y])) {
+                  results.push({ nodeId: entry.nodeId, node: n });
+                  break;
+                }
               }
             }
           }
@@ -184,6 +294,31 @@ export class HitTestEngine {
       }
     }
     return results;
+  }
+
+  /**
+   * Query the spatial index with a zoom-aware tolerance radius.
+   * At low zoom the tolerance in world space is large, so we query
+   * multiple nearby cells.
+   */
+  private queryWithTolerance(x: number, y: number): Set<NodeId> {
+    const radiusCells = Math.ceil(this.toleranceWorld / CELL_SIZE);
+    if (radiusCells <= 0) {
+      return queryPoint(this.spatialIndex, x, y);
+    }
+    const result = new Set<NodeId>();
+    const cx = Math.floor(x / CELL_SIZE);
+    const cy = Math.floor(y / CELL_SIZE);
+    for (let dx = -radiusCells; dx <= radiusCells; dx++) {
+      for (let dy = -radiusCells; dy <= radiusCells; dy++) {
+        const key = `${cx + dx},${cy + dy}`;
+        const ids = this.spatialIndex.grid.get(key);
+        if (ids) {
+          for (const id of ids) result.add(id);
+        }
+      }
+    }
+    return result;
   }
 
   /**
