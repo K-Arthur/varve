@@ -22,6 +22,7 @@ import { navigateToEditor } from '../shared';
  *    overlapped PageNav underneath.
  */
 test.describe('Toolbar layout', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });

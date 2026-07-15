@@ -3,7 +3,7 @@
  * via page.evaluate() to verify pixel-level correctness of tritone,
  * gradient map, and halftone rendering.
  */
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('Effects engine pixel-level verification', () => {
   test('tritone: pixel mapping correctness', async ({ page }) => {

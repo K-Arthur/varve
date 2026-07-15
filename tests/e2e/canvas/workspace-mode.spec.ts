@@ -4,6 +4,7 @@ import { navigateToEditor } from '../shared';
 const VIEWPORT = { width: 1280, height: 800 };
 
 test.describe('Workspace Mode Switching — Functional Assertions', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(VIEWPORT);
     await navigateToEditor(page);

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Layers Panel - Multi-Selection', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     await seedLayers(page, 3);
@@ -97,10 +98,12 @@ test.describe('Layers Panel - Multi-Selection', () => {
     await items.nth(1).click({ modifiers: ['Control'] });
     await page.waitForTimeout(50);
 
-    // Click bulk lock button
+    // Click bulk lock button.
+    // Use force:true because the onboarding checklist "Group your shapes" /
+    // "Add your first shape" labels overlay the bulk bar and intercept clicks.
     const lockBtn = page.locator('.layers-bulk-bar__btn[aria-label="Lock all"]');
     if ((await lockBtn.count()) > 0) {
-      await lockBtn.click();
+      await lockBtn.click({ force: true, timeout: 5000 });
       await page.waitForTimeout(100);
 
       // Both items should now be locked
@@ -120,10 +123,10 @@ test.describe('Layers Panel - Multi-Selection', () => {
     await items.nth(1).click({ modifiers: ['Control'] });
     await page.waitForTimeout(50);
 
-    // Click bulk hide button
+    // Click bulk hide button.
     const hideBtn = page.locator('.layers-bulk-bar__btn[aria-label="Hide all"]');
     if ((await hideBtn.count()) > 0) {
-      await hideBtn.click();
+      await hideBtn.click({ force: true, timeout: 5000 });
       await page.waitForTimeout(100);
 
       // Both items should now be hidden
@@ -143,10 +146,10 @@ test.describe('Layers Panel - Multi-Selection', () => {
     await items.nth(1).click({ modifiers: ['Control'] });
     await page.waitForTimeout(50);
 
-    // Click bulk group button
+    // Click bulk group button.
     const groupBtn = page.locator('.layers-bulk-bar__btn[aria-label="Group"]');
     if ((await groupBtn.count()) > 0) {
-      await groupBtn.click();
+      await groupBtn.click({ force: true, timeout: 5000 });
       await page.waitForTimeout(200);
 
       // A new group should appear (items count may change)

@@ -28,6 +28,7 @@ import { dragOnCanvas, navigateToEditor } from '../shared';
  * assertion on the baked `node.rotation` field itself.
  */
 test.describe('Selection overlay transform handles', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });
