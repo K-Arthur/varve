@@ -418,6 +418,9 @@
   height: 100%;
   pointer-events: none;
   color: var(--color-accent-primary);
+  /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
+   * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
+  z-index: 10;
 }
 
 .editor-canvas {
@@ -429,6 +432,23 @@
   outline: none;
 }
 
+/*
+ * Canvas stacking scale (lowest to highest):
+ *   0   .editor-canvas__grid-layer
+ *   1   .editor-canvas__pixel-grid
+ *   2   .editor-canvas__content-layer   (opaque page background + shapes)
+ *   3   .editor-canvas__overlay-layer   (opaque; draft shapes, layout grid)
+ *   4   .editor-canvas__color-blindness
+ *   9   .ruler-container
+ *   10  interactive overlays (selection/gradient/node-edit/crop/alignment/
+ *       measure/snap-guide handles) — see CANVAS_INTERACTIVE_OVERLAY_Z_INDEX
+ *       in canvas/overlayZIndex.ts. These MUST set this explicitly: the
+ *       content/overlay canvases above paint an opaque background across
+ *       their full bounds, so a sibling left at the CSS default `z-index:
+ *       auto` renders completely hidden behind them, not just where a shape
+ *       is drawn.
+ *   100 .editor-canvas__zoom-indicator
+ */
 .editor-canvas__grid-layer {
   position: absolute;
   inset: 0;

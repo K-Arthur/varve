@@ -22,6 +22,7 @@ import {
   tryInvertAffine,
 } from '@strata/shared';
 import { Fragment, useCallback, useMemo, useRef } from 'react';
+import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
@@ -458,6 +459,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         width: '100%',
         height: '100%',
         touchAction: 'none',
+        zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX,
       }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -557,12 +559,18 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {hasInteractiveHandles && (
         <>
+          {/* Transform-origin indicator is display-only: it has no drag
+              handler, so it must stay pointer-events:none or it silently
+              steals move-drag gestures that start at the selection center
+              (confirmed via an E2E regression once the overlay's stacking
+              was fixed to actually sit above the canvas — see
+              overlayZIndex.ts). */}
           <circle
             cx={centerScreen[0]}
             cy={centerScreen[1]}
             r={8}
             fill="transparent"
-            style={{ pointerEvents: 'auto', cursor: 'move' }}
+            pointerEvents="none"
           />
           <circle
             cx={centerScreen[0]}

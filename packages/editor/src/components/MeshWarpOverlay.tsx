@@ -6,6 +6,7 @@ import {
 } from '@strata/shared';
 import { useCallback, useRef, useState } from 'react';
 import { getEditorViewport } from '../canvas/cameraState';
+import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
 
 interface MeshWarpOverlayProps {
   zoom: number;
@@ -180,7 +181,7 @@ export function MeshWarpOverlay({
         width: '100%',
         height: '100%',
         pointerEvents: 'auto',
-        zIndex: 10,
+        zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX,
         overflow: 'visible',
       }}
     >
