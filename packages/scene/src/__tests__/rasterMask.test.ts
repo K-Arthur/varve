@@ -136,7 +136,7 @@ describe('native raster masks', () => {
         sourceNodeId: 'source',
         rasterMask,
       }),
-    ).toMatch(/exactly one/i);
+    ).toMatch(/exclusive/i);
     expect(
       validateMaskSource(undefined, {
         type: 'clip',
@@ -144,6 +144,31 @@ describe('native raster masks', () => {
         vectorMask: { points: [], closed: true, fillRule: 'nonzero' },
       }),
     ).toMatch(/exactly one/i);
+  });
+
+  it('rejects raster masks when any structural source property is present', () => {
+    const rasterMask = {
+      assetId: 'mask-1',
+      coordinateSpace: 'source-image-pixels' as const,
+      sourceFingerprint: 'sha256:image-a',
+      sourcePixelRevision: 1,
+    };
+    expect(
+      validateMaskSource(undefined, {
+        type: 'alpha',
+        visible: true,
+        sourceNodeId: '',
+        rasterMask,
+      }),
+    ).toMatch(/exclusive/i);
+    expect(
+      validateMaskSource(undefined, {
+        type: 'alpha',
+        visible: true,
+        vectorMask: { points: [], closed: true, fillRule: 'nonzero' },
+        rasterMask,
+      }),
+    ).toMatch(/exclusive/i);
   });
 
   it('edits native raster mask properties on eligible image leaves', () => {
