@@ -100,7 +100,9 @@ export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 export {
   applyBackgroundBlurBackdrop,
+  applyChromaticAberration,
   applyGlassMaterialBackdrop,
+  applyGlitch,
   applyLayerBlur,
   clampByte,
   computeScreenBounds,
@@ -138,6 +140,7 @@ export type {
   SharpenAdjustment,
   TemperatureAdjustment,
   TintAdjustment,
+  TritoneAdjustment,
   VibranceAdjustment,
 } from './filters';
 export {
@@ -167,6 +170,12 @@ export type { AdapterSelectionResult } from './gpuAdapter';
 export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
 export type { HalftoneDotShape, HalftoneMethod, HalftoneParams, HalftonePattern } from './halftone';
 export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';
+export type { GradientPreset, TritonePreset } from './presets';
+export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
+export type { TritoneParams } from './tritone';
+export { applyTritone, tritoneMap } from './tritone';
+export type { GradientMapParams, GradientMapStop as GradientMapFilterStop } from './gradientMap';
+export { applyGradientMapFilter, buildGradientLUT } from './gradientMap';
 export type {
   ConvertedImage,
   ExportImageResource,
@@ -266,6 +275,8 @@ export type {
   RasterTraceResult,
 } from './rasterTrace';
 export { quantizePalette, traceRasterToPaths } from './rasterTrace';
+export type { BezierFitOptions } from './traceBezierFit';
+export { fitBezierToContour } from './traceBezierFit';
 export type { ReplayTarget } from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr } from './replay';
 export {
@@ -307,6 +318,7 @@ export type {
   StrokeAlign,
   StrokeCap,
   StrokeJoin,
+  ArrowheadStyle,
 } from './types';
 export type { UpscaleModelMetadata } from './upscaleModels';
 export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';

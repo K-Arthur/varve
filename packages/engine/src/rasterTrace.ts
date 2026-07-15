@@ -7,6 +7,8 @@
  * workflow without GPL Potrace).
  */
 
+import { linearSrgbToOklab, srgbToLinear } from '@strata/shared';
+
 export interface RasterTracePoint {
   x: number;
   y: number;
@@ -275,6 +277,15 @@ function traceMaskToPaths(mask: Uint8Array, options: TraceMaskOptions): RasterTr
   return { width, height, paths, omittedHoles };
 }
 
+interface OklabSample {
+  r: number;
+  g: number;
+  b: number;
+  L: number;
+  a: number;
+  b_: number;
+}
+
 interface QuantizedColor {
   r: number;
   g: number;
@@ -282,14 +293,15 @@ interface QuantizedColor {
   count: number;
 }
 
-/** Median-cut palette (up to maxColors). Grayscale collapses RGB to luminance. */
+/** Oklab-based median-cut palette. Uses perceptually uniform Oklab distance
+ * for colour matching instead of naive RGB Euclidean distance. */
 export function quantizePalette(
   source: ImageData,
   maxColors: number,
   grayscale: boolean,
   alphaThreshold: number,
 ): QuantizedColor[] {
-  const samples: Array<{ r: number; g: number; b: number }> = [];
+  const samples: OklabSample[] = [];
   const count = source.width * source.height;
   for (let i = 0; i < count; i += 1) {
     const offset = i * 4;
@@ -304,39 +316,41 @@ export function quantizePalette(
       g = y;
       b = y;
     }
-    samples.push({ r, g, b });
+    const linear = [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)] as [number, number, number];
+    const [L, aa, bb] = linearSrgbToOklab(linear);
+    samples.push({ r, g, b, L, a: aa, b_: bb });
   }
   if (samples.length === 0) return [];
 
-  type Bucket = Array<{ r: number; g: number; b: number }>;
+  type Bucket = OklabSample[];
   let buckets: Bucket[] = [samples];
   while (buckets.length < maxColors) {
     let splitIndex = -1;
-    let splitChannel: 'r' | 'g' | 'b' = 'r';
+    let splitChannel: 'L' | 'a' | 'b_' = 'L';
     let maxRange = -1;
     for (let i = 0; i < buckets.length; i += 1) {
       const bucket = buckets[i] as Bucket;
       if (bucket.length < 2) continue;
-      let minR = 255;
-      let maxR = 0;
-      let minG = 255;
-      let maxG = 0;
-      let minB = 255;
-      let maxB = 0;
+      let minL = Infinity;
+      let maxL = -Infinity;
+      let minA = Infinity;
+      let maxA = -Infinity;
+      let minB = Infinity;
+      let maxB = -Infinity;
       for (const sample of bucket) {
-        minR = Math.min(minR, sample.r);
-        maxR = Math.max(maxR, sample.r);
-        minG = Math.min(minG, sample.g);
-        maxG = Math.max(maxG, sample.g);
-        minB = Math.min(minB, sample.b);
-        maxB = Math.max(maxB, sample.b);
+        if (sample.L < minL) minL = sample.L;
+        if (sample.L > maxL) maxL = sample.L;
+        if (sample.a < minA) minA = sample.a;
+        if (sample.a > maxA) maxA = sample.a;
+        if (sample.b_ < minB) minB = sample.b_;
+        if (sample.b_ > maxB) maxB = sample.b_;
       }
-      const ranges: Array<{ ch: 'r' | 'g' | 'b'; range: number }> = [
-        { ch: 'r', range: maxR - minR },
-        { ch: 'g', range: maxG - minG },
-        { ch: 'b', range: maxB - minB },
+      const ranges: Array<{ ch: 'L' | 'a' | 'b_'; range: number }> = [
+        { ch: 'L', range: maxL - minL },
+        { ch: 'a', range: maxA - minA },
+        { ch: 'b_', range: maxB - minB },
       ];
-      ranges.sort((a, b) => b.range - a.range);
+      ranges.sort((x, y) => y.range - x.range);
       const best = ranges[0];
       if (best && best.range > maxRange) {
         maxRange = best.range;
@@ -344,9 +358,9 @@ export function quantizePalette(
         splitChannel = best.ch;
       }
     }
-    if (splitIndex < 0 || maxRange <= 0) break;
+    if (splitIndex < 0 || maxRange <= 1e-6) break;
     const bucket = buckets[splitIndex] as Bucket;
-    bucket.sort((a, b) => a[splitChannel] - b[splitChannel]);
+    bucket.sort((x, y) => x[splitChannel] - y[splitChannel]);
     const mid = Math.floor(bucket.length / 2);
     buckets = [
       ...buckets.slice(0, splitIndex),
@@ -358,35 +372,45 @@ export function quantizePalette(
 
   return buckets
     .map((bucket) => {
-      let r = 0;
-      let g = 0;
-      let b = 0;
+      let sumR = 0;
+      let sumG = 0;
+      let sumB = 0;
       for (const sample of bucket) {
-        r += sample.r;
-        g += sample.g;
-        b += sample.b;
+        sumR += sample.r;
+        sumG += sample.g;
+        sumB += sample.b;
       }
       const n = bucket.length;
       return {
-        r: Math.round(r / n),
-        g: Math.round(g / n),
-        b: Math.round(b / n),
+        r: Math.round(sumR / n),
+        g: Math.round(sumG / n),
+        b: Math.round(sumB / n),
         count: n,
       };
     })
     .sort((a, b) => b.count - a.count);
 }
 
-function colorDistanceSq(
+function oklabDistanceSq(
   r: number,
   g: number,
   b: number,
   color: { r: number; g: number; b: number },
 ): number {
-  const dr = r - color.r;
-  const dg = g - color.g;
-  const db = b - color.b;
-  return dr * dr + dg * dg + db * db;
+  const linear = [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)] as [number, number, number];
+  const [L1, a1, b1] = linearSrgbToOklab(linear);
+
+  const linear2 = [srgbToLinear(color.r), srgbToLinear(color.g), srgbToLinear(color.b)] as [
+    number,
+    number,
+    number,
+  ];
+  const [L2, a2, b2] = linearSrgbToOklab(linear2);
+
+  const dL = L1 - L2;
+  const da = a1 - a2;
+  const db = b1 - b2;
+  return dL * dL + da * da + db * db;
 }
 
 function assignPaletteIndex(r: number, g: number, b: number, palette: QuantizedColor[]): number {
@@ -394,7 +418,7 @@ function assignPaletteIndex(r: number, g: number, b: number, palette: QuantizedC
   let bestDist = Number.POSITIVE_INFINITY;
   for (let i = 0; i < palette.length; i += 1) {
     const color = palette[i] as QuantizedColor;
-    const dist = colorDistanceSq(r, g, b, color);
+    const dist = oklabDistanceSq(r, g, b, color);
     if (dist < bestDist) {
       bestDist = dist;
       best = i;

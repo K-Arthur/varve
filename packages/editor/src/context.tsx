@@ -92,6 +92,7 @@ import {
   type Guide,
   activePageNodes as getActivePageNodes,
   activePageNodesWithMaster as getActivePageNodesWithMaster,
+  clearLiveTrace as clearLiveTraceDoc,
   getCurrentStateTimelineId,
   getFormattedPageNumber as getFormattedPageNumberDoc,
   getGuidesForPage,
@@ -253,7 +254,12 @@ import { applyDropPosition } from './dropUtils';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
-import { insertDerivedImageShape, insertTraceGroup, selectedImageShape } from './imageOperations';
+import {
+  insertDerivedImageShape,
+  insertLiveTraceGroup,
+  insertTraceGroup,
+  selectedImageShape,
+} from './imageOperations';
 import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
@@ -826,6 +832,8 @@ export interface EditorContextValue {
   setSelectedLiveTraceParams: (params: Partial<import('@strata/scene').LiveTraceParams>) => void;
   /** Flatten the first selected live-traced node to ordinary vector geometry. */
   flattenSelectedLiveTrace: () => void;
+  /** Cancel the first selected live-traced node and restore the source image. */
+  clearSelectedLiveTrace: () => void;
   /** Cancel an in-progress image enlargement or trace job. */
   cancelImageProcessing: () => void;
   /** Toggle preview of original image (without background removal mask). */
@@ -2292,7 +2300,42 @@ export function EditorProvider({
             const shape: Shape = size
               ? buildShapeWithSize(activeTool, size)
               : shapeForTool(activeTool);
-            node = makeShapeNode(id, shape, { name: autoName, transform });
+            const strokeOpts =
+              activeTool === 'arrow'
+                ? {
+                    strokes: [
+                      {
+                        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+                        weight: 2,
+                        align: 'center' as const,
+                        dashPattern: [],
+                        dashOffset: 0,
+                        cap: 'round' as const,
+                        join: 'miter' as const,
+                        miterLimit: 4,
+                        visible: true,
+                        arrowEnd: 'arrow' as const,
+                      },
+                    ],
+                  }
+                : activeTool === 'line'
+                  ? {
+                      strokes: [
+                        {
+                          color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+                          weight: 2,
+                          align: 'center' as const,
+                          dashPattern: [],
+                          dashOffset: 0,
+                          cap: 'round' as const,
+                          join: 'miter' as const,
+                          miterLimit: 4,
+                          visible: true,
+                        },
+                      ],
+                    }
+                  : {};
+            node = makeShapeNode(id, shape, { name: autoName, transform, ...strokeOpts });
           }
 
           const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
@@ -3043,7 +3086,7 @@ export function EditorProvider({
         });
       },
 
-      // F6: batch-edit corner radius on shape nodes
+      // F6: batch-edit corner radius on shape/frame nodes
       setSelectedCornerRadius: (value) => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -3051,7 +3094,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (node?.kind !== 'shape') continue;
+            if (node?.kind !== 'shape' && node?.kind !== 'frame') continue;
             nodes[id] = { ...node, cornerRadius: value } as SceneNode;
           }
           return { ...doc, nodes };
@@ -4534,7 +4577,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (node?.kind !== 'shape') continue;
+            if (node?.kind !== 'shape' && node?.kind !== 'frame') continue;
             nodes[id] = { ...node, cornerSmoothing: value } as SceneNode;
           }
           return { ...doc, nodes };
@@ -5214,8 +5257,14 @@ export function EditorProvider({
           const sourceSrc = imageShapeSrc(imageNode);
           const image = await getImageCache().load(sourceSrc);
           if (controller.signal.aborted) return;
-          const width = Math.max(1, image.naturalWidth || image.width);
-          const height = Math.max(1, image.naturalHeight || image.height);
+          let width = Math.max(1, image.naturalWidth || image.width);
+          let height = Math.max(1, image.naturalHeight || image.height);
+          const MAX_TRACE_DIM = 4096;
+          if (width > MAX_TRACE_DIM || height > MAX_TRACE_DIM) {
+            const scale = Math.min(MAX_TRACE_DIM / width, MAX_TRACE_DIM / height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
@@ -5235,9 +5284,15 @@ export function EditorProvider({
           )
             return;
 
-          // Live trace mode: set params + resolved geometry on the source node
-          // instead of inserting a separate GroupNode beside it.
+          // Live trace mode: generate a trace group at the source's position,
+          // hide the source, and link the group via the source's liveTrace state.
           if (options.liveTrace) {
+            const existingTraceGroupId =
+              current.document.nodes[processingNodeId]?.liveTrace?.traceGroupId;
+            if (existingTraceGroupId) {
+              current.document = removeNode(current.document, existingTraceGroupId);
+            }
+
             const ltParams: LiveTraceParams = {
               mode: options.mode ?? 'monochrome',
               threshold: options.threshold ?? 128,
@@ -5249,10 +5304,15 @@ export function EditorProvider({
               maxColors: options.maxColors ?? 8,
               compoundHoles: options.compoundHoles ?? true,
             };
-            updateDoc((d) => {
-              const withParams = setLiveTraceParamsDoc(d, processingNodeId, ltParams);
-              return setLiveTraceResolvedDoc(withParams, processingNodeId, Date.now());
-            });
+            const withParams = setLiveTraceParamsDoc(current.document, processingNodeId, ltParams);
+            const inserted = insertLiveTraceGroup(withParams, processingNodeId, tracedPaths);
+            const withResolved = setLiveTraceResolvedDoc(
+              inserted.doc,
+              processingNodeId,
+              Date.now(),
+              inserted.nodeId,
+            );
+            updateDoc(() => withResolved);
             announcerRef.current?.announce(
               `Traced ${tracedPaths.paths.length} paths as live trace`,
             );
@@ -5312,6 +5372,17 @@ export function EditorProvider({
         }
         updateDoc((d) => flattenLiveTraceDoc(d, sel[0]!));
         announcerRef.current?.announce('Live trace flattened');
+      },
+
+      clearSelectedLiveTrace: () => {
+        const sel = stateRef.current.selection;
+        const node = sel.length > 0 ? stateRef.current.document.nodes[sel[0]!] : undefined;
+        if (node?.kind !== 'shape' || !('liveTrace' in node) || !node.liveTrace) {
+          announcerRef.current?.announce('Select a live-traced image layer first');
+          return;
+        }
+        updateDoc((d) => clearLiveTraceDoc(d, sel[0]!));
+        announcerRef.current?.announce('Live trace cancelled');
       },
 
       removeBackground: bgRemoval.removeBackground,

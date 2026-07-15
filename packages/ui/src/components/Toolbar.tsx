@@ -7,6 +7,7 @@ import {
   type ButtonHTMLAttributes,
   Children,
   cloneElement,
+  Fragment,
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
@@ -76,7 +77,8 @@ export function Toolbar({ label, children }: ToolbarProps) {
           !child ||
           typeof child === 'string' ||
           typeof child === 'number' ||
-          typeof child === 'boolean'
+          typeof child === 'boolean' ||
+          (child as ReactElement).type === Fragment
         )
           return child;
         return cloneElement(child as ReactElement<ButtonHTMLAttributes<HTMLElement>>, {

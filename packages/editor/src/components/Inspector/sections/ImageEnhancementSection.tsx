@@ -23,6 +23,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
     cancelImageProcessing,
     setSelectedLiveTraceParams,
     flattenSelectedLiveTrace,
+    clearSelectedLiveTrace,
   } = useEditor();
   const node = nodes[0];
   const scaleId = useId();
@@ -243,6 +244,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
                 if (!event.target.checked) {
                   ++requestIdRef.current;
                   cancelImageProcessing();
+                  clearSelectedLiveTrace();
                 }
               }}
             />

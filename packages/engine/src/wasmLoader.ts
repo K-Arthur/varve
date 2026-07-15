@@ -112,6 +112,7 @@ export interface WasmTraceModule {
     height: number,
     threshold: number,
     minPixels: number,
+    foreground?: string,
   ): string;
   wasm_trace_version(): string;
 }

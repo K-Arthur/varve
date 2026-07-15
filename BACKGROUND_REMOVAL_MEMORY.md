@@ -33,8 +33,11 @@ Inspector / Batch / Export
         4. AI → directOnnxProvider (main-thread ONNX fallback)
         5. fallback → heuristic.ts
       → finalizeMaskResult (multi-subject picker if needed)
+      → warmMaskCache(maskDataUrl)   // pre-load before document commit
       → setBackgroundRemoval(doc, nodeId, { maskDataUrl, ... })
-CanvasArea.toEngineNode → alphaMask on shape IR
+CanvasArea.toEngineNode → node.alphaMask (shape IR)
+  → native/WASM bridge flattens nested EngineFill + alphaMask to FillIR::Image.alpha_mask
+  → stub engine maps nested EngineFill + node.alphaMask to FillIR::Image.alpha_mask
 replay.ts → destination-in compositing
 ```
 
@@ -103,6 +106,19 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
 - Hardened `directOnnxProvider` and `tauriRemovalProvider` timeouts/cancellation.
 - Added regression tests for timeout, cancel, concurrency, and OOM.
 
+### Session 49 — AI mask rendering fix (current)
+
+- Defined canonical AI mask format:
+  - **Storage**: `node.backgroundRemoval.maskDataUrl` — PNG data URL, RGBA channels all equal to the mask value (0 = transparent, 255 = opaque).
+  - **Engine IR**: `FillIR::Image.alpha_mask` (flat) is the single source of truth for compositing.
+  - **Bridge**: native/WASM `strata-bridge` now accepts the TypeScript engine's nested `EngineFill` and a node-level `alphaMask`, and flattens both into the canonical `FillIR::Image`.
+- Fixed native/WASM engine dropping the alpha mask because it expected flat `FillIR` fills and had no node-level `alphaMask` field.
+- Added `warmMaskCache()` in `useBackgroundRemoval` so the first post-update render sees the mask already loaded and composites immediately.
+- Added regression tests:
+  - Rust bridge: nested image fill + node-level alphaMask → flat `FillIR` with `alphaMask`.
+  - Editor: `sceneNodeToEngineNode` + `flattenSceneToEngine` → `engine.buildIr` emits `FillIR.alphaMask`.
+  - Playwright E2E: deterministic pixel waits for quick-mode removal and undo/redo.
+
 ---
 
 ## Phase 4 — Verification (2026-07-08)
@@ -147,7 +163,7 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
 
 1. Run full `just gate` after motion WIP merges
 2. Populate BiRefNet SHA-256 at release: `node scripts/compute-model-checksum.mjs`
-3. Optional: Playwright E2E for inspector Apply → canvas alpha mask visible
+3. ~~Optional: Playwright E2E for inspector Apply → canvas alpha mask visible~~ (added deterministic pixel waits)
 4. Optional: Enable native `ai` feature in dedicated CI job
 
 ---

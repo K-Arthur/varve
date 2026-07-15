@@ -82,6 +82,7 @@ export function sceneNodeToEngineNode(
       shape: node.shape,
       shapeless: shapeless || undefined,
       cornerRadius: node.cornerRadius,
+      cornerSmoothing: node.cornerSmoothing !== undefined ? node.cornerSmoothing / 100 : undefined,
       alphaMask:
         options.showOriginalBackgroundNodeId === node.id
           ? undefined
@@ -157,7 +158,12 @@ export function sceneNodeToEngineNode(
   }
 
   if (node.kind === 'frame') {
-    return { ...base, shape: { kind: 'rect', x: 0, y: 0, w: node.w, h: node.h } };
+    return {
+      ...base,
+      shape: { kind: 'rect', x: 0, y: 0, w: node.w, h: node.h },
+      cornerRadius: node.cornerRadius,
+      cornerSmoothing: node.cornerSmoothing !== undefined ? node.cornerSmoothing / 100 : undefined,
+    };
   }
 
   if (node.kind === 'adjustment') {

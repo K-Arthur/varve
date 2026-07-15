@@ -9,8 +9,10 @@ function isTauri(): boolean {
 export const nativeTraceProvider: TraceProvider = {
   id: 'native-trace',
   label: 'Native (Desktop)',
-  isAvailable() {
-    return isTauri();
+  isAvailable(options) {
+    if (!isTauri()) return false;
+    // Native backend currently only supports monochrome threshold/foreground tracing.
+    return (options.mode ?? 'monochrome') === 'monochrome';
   },
   async trace(imageData, options, signal) {
     if (signal?.aborted) throw new Error('cancelled');
@@ -28,6 +30,7 @@ export const nativeTraceProvider: TraceProvider = {
           threshold: options.threshold ?? 128,
           min_pixels: options.minArea ?? 4,
           max_colors: 0,
+          foreground: options.foreground ?? 'dark',
         },
       },
     );

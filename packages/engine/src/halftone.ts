@@ -34,6 +34,12 @@ export interface HalftoneParams {
   dotShape: HalftoneDotShape;
   channel: HalftoneChannel;
   method: HalftoneMethod;
+  /** Threshold midpoint (0-255, default 128). Higher = less ink (brighter output). */
+  threshold?: number;
+  /** Effect intensity 0-1 (default 1). Blends between original and halftoned. */
+  intensity?: number;
+  /** Dot edge softness 0-1 (default 0 = hard binary). Higher = anti-aliased edges. */
+  softness?: number;
 }
 
 // ── Standard CMYK Screen Angles ────────────────────────────────────────
@@ -164,7 +170,9 @@ function screenChannelAt(
   cellSize: number,
   matrix: Uint8Array,
   matrixSize: number,
-): boolean {
+  threshold: number,
+  softness: number,
+): number {
   const rad = (angle * Math.PI) / 180;
   // Rotate coordinates for screen angle
   const rx = x * Math.cos(rad) - y * Math.sin(rad);
@@ -173,8 +181,19 @@ function screenChannelAt(
   const sy = Math.round(ry / cellSize) % matrixSize;
   const mx = ((sx % matrixSize) + matrixSize) % matrixSize;
   const my = ((sy % matrixSize) + matrixSize) % matrixSize;
-  const threshold = matrix[my * matrixSize + mx]!;
-  return gray > threshold;
+  const matrixVal = matrix[my * matrixSize + mx]!;
+  // Apply threshold shift
+  const adjustedGray = gray - (threshold - 128);
+  if (softness > 0) {
+    // Soft (anti-aliased) threshold: linear blend around the threshold boundary
+    const diff = adjustedGray - matrixVal;
+    const range = softness * 64; // softness controls the blend range
+    if (range > 0 && Math.abs(diff) < range) {
+      return Math.max(0, Math.min(1, 0.5 + diff / (range * 2)));
+    }
+    return diff > 0 ? 1 : 0;
+  }
+  return adjustedGray > matrixVal ? 1 : 0;
 }
 
 export function applyAMScreening(
@@ -186,6 +205,9 @@ export function applyAMScreening(
   const w = data.width;
   const h = data.height;
   const pixels = data.data;
+  const threshold = params.threshold ?? 128;
+  const intensity = Math.max(0, Math.min(1, params.intensity ?? 1));
+  const softness = Math.max(0, Math.min(1, params.softness ?? 0));
 
   // Determine effective LPI based on pixel density
   const lpi = Math.max(1, frequency * pixelScale);
@@ -195,6 +217,8 @@ export function applyAMScreening(
   const matrixSize = nextPowerOfTwo(cellSize * 2);
   const matrix = cachedAMMatrix(matrixSize, dotShape);
 
+  if (intensity === 0) return;
+
   if (channel === 'cmyk') {
     // Screen each process-color ink independently (its own ink density and
     // its own standard screen angle), then recombine via subtractive
@@ -203,6 +227,7 @@ export function applyAMScreening(
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = (y * w + x) * 4;
+        if (pixels[idx + 3]! === 0) continue; // skip transparent
 
         const c = screenChannelAt(
           x,
@@ -212,9 +237,9 @@ export function applyAMScreening(
           cellSize,
           matrix,
           matrixSize,
-        )
-          ? 1
-          : 0;
+          threshold,
+          softness,
+        );
         const m = screenChannelAt(
           x,
           y,
@@ -223,9 +248,9 @@ export function applyAMScreening(
           cellSize,
           matrix,
           matrixSize,
-        )
-          ? 1
-          : 0;
+          threshold,
+          softness,
+        );
         const yInk = screenChannelAt(
           x,
           y,
@@ -234,9 +259,9 @@ export function applyAMScreening(
           cellSize,
           matrix,
           matrixSize,
-        )
-          ? 1
-          : 0;
+          threshold,
+          softness,
+        );
         const k = screenChannelAt(
           x,
           y,
@@ -245,14 +270,24 @@ export function applyAMScreening(
           cellSize,
           matrix,
           matrixSize,
-        )
-          ? 1
-          : 0;
+          threshold,
+          softness,
+        );
 
         // Standard uncalibrated CMYK -> RGB overprint approximation.
-        pixels[idx] = Math.round(255 * (1 - c) * (1 - k));
-        pixels[idx + 1] = Math.round(255 * (1 - m) * (1 - k));
-        pixels[idx + 2] = Math.round(255 * (1 - yInk) * (1 - k));
+        const nr = Math.round(255 * (1 - c) * (1 - k));
+        const ng = Math.round(255 * (1 - m) * (1 - k));
+        const nb = Math.round(255 * (1 - yInk) * (1 - k));
+
+        if (intensity < 1) {
+          pixels[idx] = Math.round(pixels[idx]! + (nr - pixels[idx]!) * intensity);
+          pixels[idx + 1] = Math.round(pixels[idx + 1]! + (ng - pixels[idx + 1]!) * intensity);
+          pixels[idx + 2] = Math.round(pixels[idx + 2]! + (nb - pixels[idx + 2]!) * intensity);
+        } else {
+          pixels[idx] = nr;
+          pixels[idx + 1] = ng;
+          pixels[idx + 2] = nb;
+        }
         // pixels[idx + 3] (alpha) intentionally untouched.
       }
     }
@@ -267,12 +302,32 @@ export function applyAMScreening(
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
+      if (pixels[idx + 3]! === 0) continue; // skip transparent
+
       const gray = getChannelLuminance(pixels, idx, channel);
-      const isOn = screenChannelAt(x, y, gray, angle, cellSize, matrix, matrixSize);
-      const val = isOn ? 0 : 255;
-      pixels[idx] = val;
-      pixels[idx + 1] = val;
-      pixels[idx + 2] = val;
+      const inkCoverage = screenChannelAt(
+        x,
+        y,
+        gray,
+        angle,
+        cellSize,
+        matrix,
+        matrixSize,
+        threshold,
+        softness,
+      );
+      // inkCoverage: 0 = no ink (white), 1 = full ink (black)
+      const val = Math.round(255 * (1 - inkCoverage));
+
+      if (intensity < 1) {
+        pixels[idx] = Math.round(pixels[idx]! + (val - pixels[idx]!) * intensity);
+        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (val - pixels[idx + 1]!) * intensity);
+        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (val - pixels[idx + 2]!) * intensity);
+      } else {
+        pixels[idx] = val;
+        pixels[idx + 1] = val;
+        pixels[idx + 2] = val;
+      }
     }
   }
 }
@@ -291,6 +346,10 @@ export function applyFMStochastic(data: ImageData, _params: HalftoneParams): voi
   const h = data.height;
   const pixels = data.data;
   const levels = 2; // 1-bit output for traditional halftone
+  const threshold = _params.threshold ?? 128;
+  const intensity = Math.max(0, Math.min(1, _params.intensity ?? 1));
+
+  if (intensity === 0) return;
 
   // Make a linearized copy for error computation
   const linear = new Float32Array(pixels.length);
@@ -302,6 +361,7 @@ export function applyFMStochastic(data: ImageData, _params: HalftoneParams): voi
   }
 
   const step = 4; // RGBA stride
+  const thresholdOffset = (threshold - 128) / 255;
 
   for (let y = 0; y < h; y++) {
     // Serpentine scan: alternate direction per row
@@ -311,19 +371,27 @@ export function applyFMStochastic(data: ImageData, _params: HalftoneParams): voi
 
     for (let x = xStart; x !== xEnd; x += xStep) {
       const idx = (y * w + x) * step;
+      if (pixels[idx + 3]! === 0) continue; // skip transparent
 
       // Convert to grayscale for single-channel halftone
       const original = 0.299 * linear[idx]! + 0.587 * linear[idx + 1]! + 0.114 * linear[idx + 2]!;
+      const adjusted = original + thresholdOffset;
 
       // Quantize to nearest level
-      const quantized = Math.round(original * (levels - 1)) / (levels - 1);
-      const error = original - quantized;
+      const quantized = Math.round(adjusted * (levels - 1)) / (levels - 1);
+      const error = adjusted - quantized;
 
       // Write output pixel
       const outVal = Math.round(quantized * 255);
-      pixels[idx] = outVal;
-      pixels[idx + 1] = outVal;
-      pixels[idx + 2] = outVal;
+      if (intensity < 1) {
+        pixels[idx] = Math.round(pixels[idx]! + (outVal - pixels[idx]!) * intensity);
+        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (outVal - pixels[idx + 1]!) * intensity);
+        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (outVal - pixels[idx + 2]!) * intensity);
+      } else {
+        pixels[idx] = outVal;
+        pixels[idx + 1] = outVal;
+        pixels[idx + 2] = outVal;
+      }
 
       // Floyd-Steinberg kernel
       //   *  7/16
@@ -498,16 +566,24 @@ export function applyBayerDithering(
   const matrix = bayerMatrix(BAYER_DEFAULT_SIZE);
   const size = matrix.length;
   const totalCells = size * size;
+  const threshold = _params.threshold ?? 128;
+  const intensity = Math.max(0, Math.min(1, _params.intensity ?? 1));
+  const softness = Math.max(0, Math.min(1, _params.softness ?? 0));
+  const thresholdOffset = (threshold - 128) / 255;
+
+  if (intensity === 0) return;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
+      if (pixels[idx + 3]! === 0) continue; // skip transparent
 
       // Convert to luminance in linear space
       const r = srgbToLinear(pixels[idx]! / 255);
       const g = srgbToLinear(pixels[idx + 1]! / 255);
       const b = srgbToLinear(pixels[idx + 2]! / 255);
       const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      const adjusted = luminance + thresholdOffset;
 
       // Document-relative coordinates — stable under viewport pan/zoom
       const docX = x + offsetX;
@@ -516,17 +592,32 @@ export function applyBayerDithering(
       // Index into Bayer matrix with document-relative coords
       const mx = ((docX % size) + size) % size;
       const my = ((docY % size) + size) % size;
-      const threshold = matrix[my]![mx]! / totalCells;
+      const thresholdVal = matrix[my]![mx]! / totalCells;
 
-      // Binary dither: luminance > threshold → white, else black
-      if (luminance > threshold) {
-        pixels[idx] = 255;
-        pixels[idx + 1] = 255;
-        pixels[idx + 2] = 255;
+      let val: number;
+      if (softness > 0) {
+        // Soft threshold: blend around the boundary
+        const diff = adjusted - thresholdVal;
+        const range = softness * 0.15;
+        if (range > 0 && Math.abs(diff) < range) {
+          const blend = Math.max(0, Math.min(1, 0.5 + diff / (range * 2)));
+          val = Math.round(blend * 255);
+        } else {
+          val = diff > 0 ? 255 : 0;
+        }
       } else {
-        pixels[idx] = 0;
-        pixels[idx + 1] = 0;
-        pixels[idx + 2] = 0;
+        // Binary dither: luminance > threshold → white, else black
+        val = adjusted > thresholdVal ? 255 : 0;
+      }
+
+      if (intensity < 1) {
+        pixels[idx] = Math.round(pixels[idx]! + (val - pixels[idx]!) * intensity);
+        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (val - pixels[idx + 1]!) * intensity);
+        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (val - pixels[idx + 2]!) * intensity);
+      } else {
+        pixels[idx] = val;
+        pixels[idx + 1] = val;
+        pixels[idx + 2] = val;
       }
     }
   }

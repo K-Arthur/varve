@@ -96,6 +96,10 @@ export class CompositeCanvas {
     return this.canvas.height / this._dpr;
   }
 
+  get devicePixelRatio(): number {
+    return this._dpr;
+  }
+
   clear(): void {
     const ctx = this.ctx;
     ctx.save();

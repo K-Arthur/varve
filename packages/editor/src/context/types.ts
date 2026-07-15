@@ -19,6 +19,7 @@ import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@strata/sha
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
+import type { WorkspaceMode } from '../workspace/workspaceTypes';
 
 export type ToolId =
   | 'select'
@@ -112,6 +113,8 @@ export interface EditorState {
   leftPanelVisible: boolean;
   rightPanelVisible: boolean;
   timelinePanelVisible: boolean;
+  /** Active workspace mode (design / print / drawing). */
+  workspaceMode: WorkspaceMode;
   motion: MotionState;
   canvasMode: CanvasMode;
   /** View rotation in radians (non-destructive canvas rotate). */

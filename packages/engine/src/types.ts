@@ -141,6 +141,7 @@ export type BlendMode =
 export type StrokeAlign = 'inside' | 'center' | 'outside';
 export type StrokeCap = 'butt' | 'round' | 'square';
 export type StrokeJoin = 'miter' | 'round' | 'bevel';
+export type ArrowheadStyle = 'none' | 'arrow' | 'circle' | 'square' | 'diamond';
 
 export interface Stroke {
   color: EngineColor;
@@ -152,6 +153,19 @@ export interface Stroke {
   join: StrokeJoin;
   miterLimit: number;
   visible: boolean;
+  /** Arrowhead at the start of a line/arrow/path. */
+  arrowStart?: ArrowheadStyle;
+  /** Arrowhead at the end of a line/arrow/path. */
+  arrowEnd?: ArrowheadStyle;
+}
+
+export interface ChannelOffset {
+  redX: number;
+  redY: number;
+  greenX: number;
+  greenY: number;
+  blueX: number;
+  blueY: number;
 }
 
 export type Effect =
@@ -209,6 +223,33 @@ export type Effect =
       edgeHighlightWidth: number;
       edgeHighlightColor: EngineColor;
       edgeHighlightOpacity: number;
+      visible: boolean;
+    }
+  | {
+      type: 'chromaticAberration';
+      offsets: ChannelOffset;
+      intensity: number;
+      blendMode: BlendMode;
+      opacity: number;
+      visible: boolean;
+    }
+  | {
+      type: 'glitch';
+      seed: number;
+      strength: number;
+      density: number;
+      sliceHeight: number;
+      blockCount: number;
+      blockSize: number;
+      blockStrength: number;
+      noiseIntensity: number;
+      scanlineIntensity: number;
+      scanlineSpacing: number;
+      direction: 'horizontal' | 'vertical' | 'both';
+      channelShift: ChannelOffset;
+      channelShiftMode: 'static' | 'seeded';
+      blendMode: BlendMode;
+      opacity: number;
       visible: boolean;
     };
 
@@ -579,6 +620,9 @@ export type FilterIR =
       dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
       channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
       method: 'am' | 'fm'; // Amplitude modulation or frequency modulation
+      threshold?: number;
+      intensity?: number;
+      softness?: number;
       opacity: number;
       blendMode: string;
     }
@@ -586,6 +630,18 @@ export type FilterIR =
       kind: 'gradientMap';
       stops: { position: number; color: readonly [number, number, number, number] }[];
       dither: boolean;
+      preserveLuminosity: boolean;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'tritone';
+      shadowColor: readonly [number, number, number, number];
+      midtoneColor: readonly [number, number, number, number];
+      highlightColor: readonly [number, number, number, number];
+      shadowPoint: number;
+      highlightPoint: number;
+      intensity: number;
       preserveLuminosity: boolean;
       opacity: number;
       blendMode: string;

@@ -39,6 +39,7 @@ export type {
   SharpenAdjustment,
   TemperatureAdjustment,
   TintAdjustment,
+  TritoneAdjustment,
   VibranceAdjustment,
 } from '@strata/engine';
 

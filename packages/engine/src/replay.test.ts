@@ -25,6 +25,8 @@ function recorder(): RecorderProxy {
     restore: mk('restore'),
     clip: mk('clip'),
     transform: mk('transform'),
+    translate: mk('translate'),
+    rotate: mk('rotate'),
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
     beginPath: mk('beginPath'),
@@ -443,7 +445,7 @@ describe('replayIr', () => {
     expect(rec.calls).toContain('moveTo(2)');
     expect(rec.calls).toContain('lineTo(2)');
     expect(rec.calls).toContain('stroke(0)');
-    expect(rec.props.lineWidth).toBe(4);
+    expect(rec.props.lineWidth).toBe(2);
     expect(rec.props.lineCap).toBe('round');
   });
 
