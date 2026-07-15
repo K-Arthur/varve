@@ -193,6 +193,24 @@ export function resolveMask(node: SceneNode): Mask | null {
   return null;
 }
 
+/** Resolve an active leaf raster mask to its document-owned PNG payload. */
+export function resolveRasterMaskAsset(
+  doc: Pick<Document, 'rasterMaskAssets'>,
+  node: SceneNode,
+): RasterMaskAsset | null {
+  const mask = node.mask;
+  if (
+    !mask?.rasterMask ||
+    mask.type !== 'alpha' ||
+    mask.visible === false ||
+    'sourceNodeId' in mask ||
+    'vectorMask' in mask
+  ) {
+    return null;
+  }
+  return doc.rasterMaskAssets?.[mask.rasterMask.assetId] ?? null;
+}
+
 /** True if the container has an active (visible, valid) mask. */
 export function isMasked(node: SceneNode): boolean {
   return resolveMask(node) !== null;
