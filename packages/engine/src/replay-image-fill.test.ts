@@ -64,6 +64,8 @@ function makeRecorder(): {
       save: () => calls.push('save'),
       restore: () => calls.push('restore'),
       transform: () => calls.push('transform'),
+      translate: () => calls.push('translate'),
+      rotate: () => calls.push('rotate'),
       fillRect: () => calls.push('fillRect'),
       strokeRect: () => calls.push('strokeRect'),
       beginPath: () => calls.push('beginPath'),
