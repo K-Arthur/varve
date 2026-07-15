@@ -152,8 +152,20 @@ export function validateRasterMaskDocument(doc: Document): string | null {
   for (const nodeValue of Object.values(doc.nodes) as unknown[]) {
     if (!isRecord(nodeValue)) return 'Document node must be an object';
     const node = nodeValue as unknown as SceneNode;
-    if (!node.mask) continue;
+    if ('fills' in nodeValue && nodeValue.fills !== undefined && !Array.isArray(nodeValue.fills)) {
+      return `${String(nodeValue.id)}: fills must be an array`;
+    }
+    if (!('mask' in nodeValue) || nodeValue.mask === undefined) continue;
     if (!isRecord(node.mask)) return `${node.id}: Mask must be an object`;
+    if ('vectorMask' in node.mask) {
+      if (!isRecord(node.mask.vectorMask)) return `${node.id}: vectorMask must be an object`;
+      if (!Array.isArray(node.mask.vectorMask.points)) {
+        return `${node.id}: vectorMask.points must be an array`;
+      }
+    }
+    if ('rasterMask' in node.mask && !isRecord(node.mask.rasterMask)) {
+      return `${node.id}: rasterMask must be an object`;
+    }
     const error = validateMaskSource(doc, node.mask);
     if (error) return `${node.id}: ${error}`;
     if (node.mask.rasterMask && !isImageShape(node)) {

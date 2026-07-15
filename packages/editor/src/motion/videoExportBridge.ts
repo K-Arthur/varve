@@ -96,7 +96,7 @@ export function resolveVideoExportBounds(
   return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h };
 }
 
-function flattenVisibleNodes(doc: Document): { ids: string[]; nodes: EngineNode[] } {
+export function flattenVisibleNodesForVideo(doc: Document): { ids: string[]; nodes: EngineNode[] } {
   const variantCaches = buildAllVariantCaches(doc);
   const variableStore = doc.variableStore ?? createVariableStore();
   // Scoped to the active page — otherwise every page's shapes get baked
@@ -114,7 +114,7 @@ function flattenVisibleNodes(doc: Document): { ids: string[]; nodes: EngineNode[
     n = applyBindingsToNode(n, variableStore);
     const world = nodeWorldTransform(doc, id);
     ids.push(id);
-    nodes.push({ ...sceneNodeToEngineNode(n), transform: world });
+    nodes.push({ ...sceneNodeToEngineNode(n, {}, doc), transform: world });
   }
 
   const resolvedStyles = resolveAllStyles(doc);
@@ -194,7 +194,7 @@ export async function createVideoFrameRenderer(config: VideoExportBridgeConfig) 
       | null;
     if (!ctx) throw new Error('2D context unavailable');
 
-    const { ids, nodes } = flattenVisibleNodes(doc);
+    const { ids, nodes } = flattenVisibleNodesForVideo(doc);
     applyTimelineOverrides(doc, timeline.id, timeMs, ids, nodes);
 
     const ir = await engine.buildIr({ nodes });
