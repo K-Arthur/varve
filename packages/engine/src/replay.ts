@@ -22,6 +22,7 @@ import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss, supportsCanvasFilter } from './filters';
 import { FrameCache } from './frameCache';
 import { getImageCache } from './imageCache';
+import { computeImagePlacement } from './imagePlacement';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
 import { createRasterSurface } from './rasterSurface';
@@ -846,9 +847,6 @@ function paintImageFill(
     return;
   }
 
-  const scale = fill.scale ?? 1;
-  const fit = fill.fit ?? 'fill';
-
   const sizedImage = image as CanvasImageSource & {
     naturalWidth?: number;
     naturalHeight?: number;
@@ -857,49 +855,26 @@ function paintImageFill(
   };
   const sourceWidth = sizedImage.naturalWidth || sizedImage.width || fill.imageWidth || bw;
   const sourceHeight = sizedImage.naturalHeight || sizedImage.height || fill.imageHeight || bh;
-  // Effective reference dimensions: scale the natural size (matches old IR convention).
-  const refW = sourceWidth * scale;
-  const refH = sourceHeight * scale;
-  const aspect = refW / refH;
-  const boundsAspect = bw / bh;
-  let dw: number, dh: number;
-  if (fit === 'stretch') {
-    dw = bw;
-    dh = bh;
-  } else if (fit === 'tile') {
-    if (refW > 0 && refH > 0) {
-      const startX =
-        bounds.x + (fill.x ?? 0) - Math.floor((bounds.x + (fill.x ?? 0)) / refW) * refW;
-      const startY =
-        bounds.y + (fill.y ?? 0) - Math.floor((bounds.y + (fill.y ?? 0)) / refH) * refH;
-      for (let ty = startY; ty < bounds.y + bh; ty += refH) {
-        for (let tx = startX; tx < bounds.x + bw; tx += refW) {
-          target.drawImage(image, tx, ty, refW, refH);
-        }
+  const placement = computeImagePlacement({
+    fit: fill.fit ?? 'fill',
+    sourceWidth,
+    sourceHeight,
+    bounds,
+    x: fill.x ?? 0,
+    y: fill.y ?? 0,
+    scale: fill.scale ?? 1,
+  });
+  if (!placement) return;
+  const { x: dx, y: dy, w: dw, h: dh } = placement.drawRect;
+
+  if (placement.fit === 'tile') {
+    for (let ty = dy; ty < bounds.y + bh; ty += dh) {
+      for (let tx = dx; tx < bounds.x + bw; tx += dw) {
+        target.drawImage(image, tx, ty, dw, dh);
       }
     }
     return;
-  } else if (fit === 'fit') {
-    // Scale refW/refH to fit within bounds, preserving aspect ratio.
-    if (aspect > boundsAspect) {
-      dw = bw;
-      dh = bw / aspect;
-    } else {
-      dh = bh;
-      dw = bh * aspect;
-    }
-  } else {
-    // fill: scale to cover bounds, preserving aspect ratio, centered.
-    if (aspect > boundsAspect) {
-      dh = bh;
-      dw = bh * aspect;
-    } else {
-      dw = bw;
-      dh = bw / aspect;
-    }
   }
-  const dx = bounds.x + (fill.x ?? 0) + (bw - dw) / 2;
-  const dy = bounds.y + (fill.y ?? 0) + (bh - dh) / 2;
 
   // Apply alpha mask via offscreen compositing (background removal on shape nodes).
   // Worker capability checks reject these scenes because workers have no DOM canvas.
