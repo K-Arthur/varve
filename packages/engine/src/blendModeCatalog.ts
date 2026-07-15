@@ -16,20 +16,62 @@ export type BlendCategory =
   | 'comparative'
   | 'component';
 
+export type CanvasBlendOperation =
+  | 'source-over'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'darken'
+  | 'lighten'
+  | 'color-dodge'
+  | 'color-burn'
+  | 'hard-light'
+  | 'soft-light'
+  | 'difference'
+  | 'exclusion'
+  | 'hue'
+  | 'saturation'
+  | 'color'
+  | 'luminosity'
+  | 'lighter';
+
+export type PdfBlendModeName =
+  | 'Normal'
+  | 'Multiply'
+  | 'Screen'
+  | 'Overlay'
+  | 'Darken'
+  | 'Lighten'
+  | 'ColorDodge'
+  | 'ColorBurn'
+  | 'HardLight'
+  | 'SoftLight'
+  | 'Difference'
+  | 'Exclusion'
+  | 'Hue'
+  | 'Saturation'
+  | 'Color'
+  | 'Luminosity';
+
 export interface BlendModeDefinition {
   readonly id: BlendMode;
   readonly label: string;
   readonly category: BlendCategory;
   readonly kind: 'blend' | 'group-policy' | 'composite' | 'legacy';
-  readonly css: string | null;
-  readonly pdf: string | null;
+  /** Canvas2D-compatible `globalCompositeOperation` name. */
+  readonly css: CanvasBlendOperation | null;
+  readonly pdf: PdfBlendModeName | null;
   readonly editableIn: readonly BlendDomain[];
 }
 
-const ALL_DOMAINS = ['object', 'group', 'fill', 'stroke', 'effect'] as const;
-const PAINT_DOMAINS = ['object', 'fill', 'stroke', 'effect'] as const;
+type BlendModeDefinitionsById = {
+  readonly [M in BlendMode]: Omit<BlendModeDefinition, 'id'> & { readonly id: M };
+};
 
-const DEFINITIONS_BY_ID: Readonly<Record<BlendMode, BlendModeDefinition>> = {
+const ALL_DOMAINS = Object.freeze(['object', 'group', 'fill', 'stroke', 'effect'] as const);
+const PAINT_DOMAINS = Object.freeze(['object', 'fill', 'stroke', 'effect'] as const);
+
+const DEFINITIONS_BY_ID: BlendModeDefinitionsById = {
   passThrough: {
     id: 'passThrough',
     label: 'Pass Through',
@@ -203,8 +245,15 @@ const DEFINITIONS_BY_ID: Readonly<Record<BlendMode, BlendModeDefinition>> = {
   },
 };
 
-export const BLEND_MODE_DEFINITIONS: readonly BlendModeDefinition[] =
-  Object.values(DEFINITIONS_BY_ID);
+for (const definition of Object.values(DEFINITIONS_BY_ID)) {
+  Object.freeze(definition.editableIn);
+  Object.freeze(definition);
+}
+Object.freeze(DEFINITIONS_BY_ID);
+
+export const BLEND_MODE_DEFINITIONS: readonly BlendModeDefinition[] = Object.freeze(
+  Object.values(DEFINITIONS_BY_ID),
+);
 
 export function blendModeDefinition(id: string): BlendModeDefinition | null {
   if (!Object.hasOwn(DEFINITIONS_BY_ID, id)) return null;
