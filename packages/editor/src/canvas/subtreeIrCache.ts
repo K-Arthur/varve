@@ -21,18 +21,24 @@ export class SubtreeIrCache {
   /** FNV-1a hash of node fields relevant to IR generation.
    *
    * Includes node content fields (shape kind, fill, strokes, opacity, blend
-   * mode, rotation, corner radius) alongside docVersion, styleKey and
-   * transform so that content changes invalidate the cache even if
-   * docVersion fails to increment (defence-in-depth). */
+   * mode, rotation, corner radius) alongside styleKey and transform.
+   *
+   * Deliberately excludes any document-wide revision counter: docVersion
+   * bumps on every edit anywhere in the document (see CanvasArea.tsx), so
+   * mixing it into a per-node hash would invalidate every other node's
+   * entry on every single edit, defeating selective invalidation entirely.
+   * Callers are responsible for explicitly invalidating a node's entry
+   * (`invalidate(nodeId)`) when that node's own data changes — this hash
+   * only needs to catch content drift for nodes that were *not* explicitly
+   * invalidated (defence-in-depth). */
   static nodeHash(
     nodeId: string,
     transform: readonly number[],
-    docVersion: number,
     styleKey: string,
     contentParts?: readonly string[],
   ): string {
     let h = 2166136261;
-    const parts = [nodeId, String(docVersion), styleKey, ...transform.map(String)];
+    const parts = [nodeId, styleKey, ...transform.map(String)];
     if (contentParts) parts.push(...contentParts);
     for (const p of parts) {
       for (let i = 0; i < p.length; i++) {
