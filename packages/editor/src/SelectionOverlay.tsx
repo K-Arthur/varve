@@ -424,11 +424,20 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   );
 
   const handlePointerUp = useCallback(() => {
-    if (dragRef.current) {
-      updateDoc((doc) => dragRef.current!.engine.commit(doc));
+    // Capture the drag state into a local before clearing the ref: updateDoc
+    // schedules a React state update whose functional updater — and the
+    // `(doc) => ...engine.commit(doc)` callback passed into it — runs after
+    // this handler returns, not synchronously within it. Reading
+    // `dragRef.current` from inside that callback (instead of a captured
+    // local) meant it always read back `null` by the time it actually ran,
+    // crashing on every handle-driven resize/rotate with "Cannot read
+    // properties of null (reading 'engine')".
+    const drag = dragRef.current;
+    dragRef.current = null;
+    if (drag) {
+      updateDoc((doc) => drag.engine.commit(doc));
       commitTransaction();
     }
-    dragRef.current = null;
   }, [updateDoc, commitTransaction]);
 
   if (!box || box.w === 0 || box.h === 0) return null;
