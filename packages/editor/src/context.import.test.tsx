@@ -1,5 +1,5 @@
 import { ImportService } from '@strata/import';
-import { createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
+import { activePageNodes, createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { captureClipboardEvent } from './clipboard';
@@ -53,6 +53,17 @@ function createClipboardEventWithFiles(files: File[]): ClipboardEvent {
       getAsFile: () => file,
     })) as unknown as DataTransferItemList,
     getData: () => '',
+  } as unknown as DataTransfer;
+
+  return { type: 'paste', clipboardData: dt } as ClipboardEvent;
+}
+
+function createClipboardEventWithStrataNodes(nodes: unknown[]): ClipboardEvent {
+  const json = JSON.stringify({ nodes });
+  const dt = {
+    files: createFileList([]),
+    items: [] as unknown as DataTransferItemList,
+    getData: (type: string) => (type === 'application/vnd.strata+json' ? json : ''),
   } as unknown as DataTransfer;
 
   return { type: 'paste', clipboardData: dt } as ClipboardEvent;
@@ -139,5 +150,91 @@ describe('Editor import insertion', () => {
     expect(options).toMatchObject({ center: true, embedImages: true });
     await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
     spy.mockRestore();
+  });
+});
+
+describe('Editor native clipboard paste (Strata-format data)', () => {
+  it('pastes a plain shape node so it is visible via activePageNodes, not just doc.nodes', async () => {
+    const shape = makeShapeNode('src-1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    captureClipboardEvent(createClipboardEventWithStrataNodes([shape]));
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button type="button" onClick={() => ctx?.paste()}>
+          paste
+        </button>
+      );
+    }
+
+    render(
+      <EditorProvider>
+        <Test />
+      </EditorProvider>,
+    );
+
+    // The EditorProvider's default document (createDocument('Untitled') with
+    // no `flat` option) is a paged document — the normal case for every
+    // real session, not an edge case.
+    expect(ctx?.state.document.activePageId).toBeTruthy();
+
+    screen.getByText('paste').click();
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const pastedId = ctx?.state.selection[0];
+    expect(pastedId).toBeDefined();
+    if (!ctx || !pastedId) throw new Error('Pasted node was not selected');
+
+    expect(ctx.state.document.nodes[pastedId]).toBeDefined();
+    // The actual bug: a node can exist in doc.nodes yet be unreachable from
+    // the page-scoped renderer/hit-tester/marquee-selector if it only ended
+    // up in doc.rootChildren instead of the active page's contentRoot.
+    expect(activePageNodes(ctx.state.document)).toContain(pastedId);
+  });
+
+  it('pastes a container (group) subtree without also splicing its descendants into rootChildren', async () => {
+    const child = makeShapeNode('src-child', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const group = makeGroupNode('src-group', { children: ['src-child'] });
+    // Matches what copySelected() now serializes: the selected node plus its
+    // full descendant subtree (gatherSubtreeNodes), not just the root — a
+    // paste handler that only reads the root would drop this child entirely.
+    captureClipboardEvent(createClipboardEventWithStrataNodes([group, child]));
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button type="button" onClick={() => ctx?.paste()}>
+          paste
+        </button>
+      );
+    }
+
+    render(
+      <EditorProvider>
+        <Test />
+      </EditorProvider>,
+    );
+
+    screen.getByText('paste').click();
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const pastedGroupId = ctx?.state.selection[0];
+    expect(pastedGroupId).toBeDefined();
+    if (!ctx || !pastedGroupId) throw new Error('Pasted group was not selected');
+
+    const pastedGroup = ctx.state.document.nodes[pastedGroupId];
+    expect(pastedGroup?.kind).toBe('group');
+    if (pastedGroup?.kind !== 'group') return;
+    expect(pastedGroup.children).toHaveLength(1);
+    const pastedChildId = pastedGroup.children[0];
+    expect(pastedChildId).toBeDefined();
+    if (!pastedChildId) throw new Error('Pasted group child was not cloned');
+
+    // The group root must be reachable from the active page.
+    expect(activePageNodes(ctx.state.document)).toContain(pastedGroupId);
+    // The child belongs under the group only — it must not also be spliced
+    // into doc.rootChildren as a spurious top-level sibling (which would
+    // make it paint twice: once via the group, once as a stray root node).
+    expect(ctx.state.document.rootChildren).not.toContain(pastedChildId);
   });
 });
