@@ -55,6 +55,24 @@ export function computeZoomTo(
 }
 
 /**
+ * The canvas's own rendered size — narrower than the full window whenever
+ * the layers/inspector side panels are open. Centering math that uses
+ * `window.innerWidth` instead visibly off-centers the result by roughly
+ * half the panel width, since `pan` is resolved against the canvas
+ * element's own local coordinate space, not page-absolute screen space.
+ * Falls back to a window-based estimate only when no canvas is mounted yet.
+ */
+export function getCanvasViewport(): Viewport {
+  const canvasEl =
+    typeof document !== 'undefined' ? document.querySelector<HTMLElement>('.editor-canvas') : null;
+  if (canvasEl) return { width: canvasEl.clientWidth, height: canvasEl.clientHeight };
+  return {
+    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    height: typeof window !== 'undefined' ? window.innerHeight - 120 : 700,
+  };
+}
+
+/**
  * Compute a camera (zoom/pan) that frames every node in `doc` across all
  * pages, or `null` for a genuinely empty document (caller should fall back
  * to a default camera in that case). Shared by the "Fit all" action and by

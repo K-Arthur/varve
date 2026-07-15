@@ -243,7 +243,12 @@ import type {
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { usePersistence } from './context/usePersistence';
-import { computeFitAllCamera, computeZoomStep, computeZoomTo } from './context/viewportOps';
+import {
+  computeFitAllCamera,
+  computeZoomStep,
+  computeZoomTo,
+  getCanvasViewport,
+} from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
@@ -2114,9 +2119,7 @@ export function EditorProvider({
         announcerRef.current?.announce(`Reset ${mode} workspace to defaults`);
       },
       fitAll: () => {
-        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const cam = computeFitAllCamera(state.document, { width: vpW, height: vpH });
+        const cam = computeFitAllCamera(state.document, getCanvasViewport());
         if (cam) patch({ zoom: cam.zoom, pan: cam.pan });
       },
       revealSelection: (opts) => {
@@ -4926,12 +4929,11 @@ export function EditorProvider({
           // explicit fit, a document whose content lives far from world
           // origin would open with the camera still sitting at (0,0),
           // rendering a blank canvas despite the content existing and
-          // showing correctly in the Layers panel.
-          const openVp: Viewport =
-            typeof window !== 'undefined'
-              ? { width: window.innerWidth, height: window.innerHeight - 120 }
-              : { width: 1200, height: 700 };
-          const openCam = computeFitAllCamera(doc, openVp);
+          // showing correctly in the Layers panel. Use the canvas element's
+          // own rendered size (not window size) so the fit is actually
+          // centered in the visible canvas area, not shifted by however much
+          // the layers/inspector side panels currently take up.
+          const openCam = computeFitAllCamera(doc, getCanvasViewport());
           const openZoom = openCam?.zoom ?? 1;
           const openPan = openCam?.pan ?? { x: 0, y: 0 };
 
