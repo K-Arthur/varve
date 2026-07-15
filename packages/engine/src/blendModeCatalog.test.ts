@@ -4,7 +4,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { blendModeDefinition, blendModesForDomain } from './blendModeCatalog';
+import {
+  BLEND_MODE_DEFINITIONS,
+  blendModeDefinition,
+  blendModesForDomain,
+} from './blendModeCatalog';
 
 describe('blendModeDefinition', () => {
   it('maps Color Dodge to interoperable CSS and PDF names', () => {
@@ -14,6 +18,10 @@ describe('blendModeDefinition', () => {
       pdf: 'ColorDodge',
       kind: 'blend',
     });
+  });
+
+  it('maps Normal to the Canvas2D source-over operation', () => {
+    expect(blendModeDefinition('normal')?.css).toBe('source-over');
   });
 
   it('does not silently normalize an unknown mode', () => {
@@ -27,5 +35,29 @@ describe('blendModeDefinition', () => {
 
   it('keeps Plus Darker out of editable domains', () => {
     expect(blendModesForDomain('object').map((mode) => mode.id)).not.toContain('plusDarker');
+  });
+
+  it('exports definitions in product menu order', () => {
+    expect(BLEND_MODE_DEFINITIONS.map((mode) => mode.id)).toEqual([
+      'passThrough',
+      'normal',
+      'darken',
+      'multiply',
+      'colorBurn',
+      'lighten',
+      'screen',
+      'colorDodge',
+      'overlay',
+      'softLight',
+      'hardLight',
+      'difference',
+      'exclusion',
+      'hue',
+      'saturation',
+      'color',
+      'luminosity',
+      'plusLighter',
+      'plusDarker',
+    ]);
   });
 });
