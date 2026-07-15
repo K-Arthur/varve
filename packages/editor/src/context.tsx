@@ -243,7 +243,7 @@ import type {
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { usePersistence } from './context/usePersistence';
-import { computeZoomStep, computeZoomTo } from './context/viewportOps';
+import { computeFitAllCamera, computeZoomStep, computeZoomTo } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
@@ -1751,6 +1751,7 @@ export function EditorProvider({
     snapshotSession,
     resetUndo,
     recoveryRef,
+    computeFitAllCamera,
   );
 
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
@@ -2115,25 +2116,8 @@ export function EditorProvider({
       fitAll: () => {
         const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
         const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const entries = walkNodes(state.document);
-        let union: { x: number; y: number; w: number; h: number } | null = null;
-        for (const [id] of entries) {
-          const b = nodeWorldBounds(state.document, id);
-          if (!b) continue;
-          if (!union) {
-            union = { ...b };
-            continue;
-          }
-          const minX = Math.min(union.x, b.x);
-          const minY = Math.min(union.y, b.y);
-          const maxX = Math.max(union.x + union.w, b.x + b.w);
-          const maxY = Math.max(union.y + union.h, b.y + b.h);
-          union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-        }
-        if (union) {
-          const cam = fitBoundsCamera(union, { width: vpW, height: vpH }, 40);
-          patch({ zoom: cam.zoom, pan: cam.pan });
-        }
+        const cam = computeFitAllCamera(state.document, { width: vpW, height: vpH });
+        if (cam) patch({ zoom: cam.zoom, pan: cam.pan });
       },
       revealSelection: (opts) => {
         const id = opts?.nodeId ?? state.selection[0];
@@ -4936,6 +4920,21 @@ export function EditorProvider({
           undoSelStackRef.current = [];
           redoSelStackRef.current = [];
 
+          // The document format has no saved camera to restore, and this
+          // branch is for a file that isn't already open in another tab (so
+          // there's no in-memory session snapshot either) — without an
+          // explicit fit, a document whose content lives far from world
+          // origin would open with the camera still sitting at (0,0),
+          // rendering a blank canvas despite the content existing and
+          // showing correctly in the Layers panel.
+          const openVp: Viewport =
+            typeof window !== 'undefined'
+              ? { width: window.innerWidth, height: window.innerHeight - 120 }
+              : { width: 1200, height: 700 };
+          const openCam = computeFitAllCamera(doc, openVp);
+          const openZoom = openCam?.zoom ?? 1;
+          const openPan = openCam?.pan ?? { x: 0, y: 0 };
+
           // Reuse a pristine active tab (fresh Untitled, empty, unmodified)
           // instead of leaving a stray blank tab behind.
           const activeMeta = s.sessions.find((sess) => sess.id === s.activeId);
@@ -4950,8 +4949,8 @@ export function EditorProvider({
               ...s,
               document: doc,
               selection: [],
-              zoom: 1,
-              pan: { x: 0, y: 0 },
+              zoom: openZoom,
+              pan: openPan,
               dirty: false,
               sessions: s.sessions.map((sess) =>
                 sess.id === s.activeId ? { ...sess, name, filePath, fileId } : sess,
@@ -4966,8 +4965,8 @@ export function EditorProvider({
             ...s,
             document: doc,
             selection: [],
-            zoom: 1,
-            pan: { x: 0, y: 0 },
+            zoom: openZoom,
+            pan: openPan,
             dirty: false,
             sessions: [...syncedSessions, { id: newId, name, dirty: false, filePath, fileId }],
             activeId: newId,
