@@ -740,7 +740,7 @@ export function replayIr(
             target.save();
             target.globalAlpha = 1;
             target.globalCompositeOperation = itemBlend;
-            target.drawImage(
+            target.drawImage?.(
               cc.canvas as unknown as CanvasImageSource,
               bounds.x - padding,
               bounds.y - padding,
@@ -2279,14 +2279,18 @@ function paintStroke(
       break;
     }
     case 'line': {
+      // Lines can also have arrowheads via stroke.arrowStart/arrowEnd.
+      const arrowStart = stroke.arrowStart ?? 'none';
+      const arrowEnd = stroke.arrowEnd ?? 'none';
+      const hasArrowheads = arrowStart !== 'none' || arrowEnd !== 'none';
+      if (hasArrowheads) {
+        target.lineCap = 'butt';
+      }
       target.beginPath();
       target.moveTo(p.from[0], p.from[1]);
       target.lineTo(p.to[0], p.to[1]);
       target.stroke();
-      // Lines can also have arrowheads via stroke.arrowStart/arrowEnd.
-      const arrowStart = stroke.arrowStart ?? 'none';
-      const arrowEnd = stroke.arrowEnd ?? 'none';
-      if (arrowStart !== 'none' || arrowEnd !== 'none') {
+      if (hasArrowheads) {
         const headSize = arrowheadSize(undefined, stroke.weight);
         target.fillStyle = rgba(stroke.color);
         if (arrowStart !== 'none') {
@@ -2299,14 +2303,20 @@ function paintStroke(
       break;
     }
     case 'arrow': {
+      // When arrowheads are present, use butt cap so the stroke doesn't
+      // extend past the arrowhead base (round cap creates a visible bump).
+      const arrowStart = stroke.arrowStart ?? 'none';
+      const arrowEnd = stroke.arrowEnd ?? 'arrow';
+      const hasArrowheads = arrowStart !== 'none' || arrowEnd !== 'none';
+      if (hasArrowheads) {
+        target.lineCap = 'butt';
+      }
       target.beginPath();
       target.moveTo(p.from[0], p.from[1]);
       target.lineTo(p.to[0], p.to[1]);
       target.stroke();
       // Draw arrowheads using stroke color, respecting per-stroke arrowStart/arrowEnd.
       // Default: arrow tool produces an end arrowhead.
-      const arrowStart = stroke.arrowStart ?? 'none';
-      const arrowEnd = stroke.arrowEnd ?? 'arrow';
       const headSize = arrowheadSize(p.arrowheadSize, stroke.weight);
       target.fillStyle = rgba(stroke.color);
       if (arrowStart !== 'none') {
@@ -2484,7 +2494,7 @@ function paintVariableWidthPathStroke(
 function arrowheadSize(primitiveSize: number | undefined, strokeWeight: number): number {
   const fromWeight = Math.max(strokeWeight * 3, 4);
   if (primitiveSize && primitiveSize > 0) {
-    return Math.max(primitiveSize, fromWeight);
+    return Math.min(Math.max(primitiveSize, fromWeight), Math.max(strokeWeight * 6, fromWeight));
   }
   return fromWeight;
 }
@@ -2509,7 +2519,7 @@ function drawArrowhead(
   const tip = isStart ? from : to;
   const tail = isStart ? to : from;
   const angle = Math.atan2(tip[1] - tail[1], tip[0] - tail[0]);
-  const spread = Math.PI / 7;
+  const spread = Math.PI / 9;
   const safeSize = Math.max(size, 1);
 
   target.save();
@@ -2518,14 +2528,14 @@ function drawArrowhead(
 
   switch (style) {
     case 'arrow': {
-      const x1 = -safeSize * Math.cos(-spread);
-      const y1 = -safeSize * Math.sin(-spread);
-      const x2 = -safeSize * Math.cos(spread);
-      const y2 = -safeSize * Math.sin(spread);
+      // Elongated arrowhead: tip at origin, base set back by the full size.
+      // The base width is controlled by spread (narrower = more elongated).
+      const baseX = -safeSize;
+      const halfW = safeSize * Math.sin(spread);
       target.beginPath();
       target.moveTo(0, 0);
-      target.lineTo(x1, y1);
-      target.lineTo(x2, y2);
+      target.lineTo(baseX, -halfW);
+      target.lineTo(baseX, halfW);
       target.closePath();
       target.fill();
       break;
