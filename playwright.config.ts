@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 2,
   reporter: 'html',
   timeout: 30000,
   expect: { timeout: 10000 },
@@ -51,7 +51,7 @@ export default defineConfig({
   webServer: {
     command: 'pnpm --filter @strata/desktop dev',
     url: 'http://localhost:1420',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 30000,
   },
 });

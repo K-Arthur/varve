@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 test.describe('Layers Panel - Multi-Page', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     await page.waitForSelector('[role="tablist"][aria-label="Page navigation"]');
