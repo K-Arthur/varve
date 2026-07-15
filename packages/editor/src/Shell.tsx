@@ -11,6 +11,7 @@ import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPick
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
+import { ImageCompareOverlay } from './components/ImageCompareOverlay';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
@@ -45,6 +46,7 @@ import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
+import { getWorkspaceConfig } from './workspace/workspaceTypes';
 import './components/Prototype/prototype.css';
 
 /** A request to open a file into a tab; bump `seq` for each dispatch. */
@@ -171,8 +173,7 @@ function ShellInner({
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
-  // Hide pagenav in drawing mode
-  const hidePageNav = workspaceMode === 'drawing';
+  const hidePageNav = !getWorkspaceConfig(workspaceMode).visiblePanels.pagenav;
 
   const layersDndRef = useRef<LayersDnDHandle | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
@@ -228,6 +229,12 @@ function ShellInner({
           worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
+        <ImageCompareOverlay
+          active={editor.state.beforeAfterCompare}
+          selection={editor.selectedNodes()}
+          document={editor.state.document}
+          worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
+        />
         {!hidePageNav && !distractionFreeMode && (
           <div className="page-nav-container">
             <PageNav />

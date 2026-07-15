@@ -99,6 +99,11 @@ export function createActionHandlers(
     toggleRightPanel: () => e.toggleRightPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
     toggleDistractionFree: () => e.toggleDistractionFreeMode(),
+    toggleBeforeAfterCompare: () => e.toggleBeforeAfterCompare(),
+    workspaceDesign: () => e.setWorkspaceMode('design'),
+    workspacePrint: () => e.setWorkspaceMode('print'),
+    workspaceDrawing: () => e.setWorkspaceMode('drawing'),
+    workspaceImage: () => e.setWorkspaceMode('image'),
     canvasModeOutline: () => e.setCanvasMode('outline'),
     canvasModePreview: () => e.setCanvasMode('preview'),
     canvasModeFull: () => {

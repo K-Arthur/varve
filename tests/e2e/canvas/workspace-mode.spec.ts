@@ -89,6 +89,7 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Design' })).toBeVisible();
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Print' })).toBeVisible();
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Draw' })).toBeVisible();
+    await expect(page.getByRole('menuitemradio', { name: 'Workspace: Photo' })).toBeVisible();
   });
 
   test('mode switch preserves zoom', async ({ page }) => {
@@ -106,10 +107,11 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   test('ARIA radiogroup and radio roles', async ({ page }) => {
     await expect(page.locator('[role="radiogroup"][aria-label="Workspace"]')).toBeVisible();
     const radios = page.locator('.editor-menubar__workspace-btn[role="radio"]');
-    await expect(radios).toHaveCount(3);
+    await expect(radios).toHaveCount(4);
     await expect(radios.nth(0)).toHaveAttribute('aria-checked', 'true');
     await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'false');
     await expect(radios.nth(2)).toHaveAttribute('aria-checked', 'false');
+    await expect(radios.nth(3)).toHaveAttribute('aria-checked', 'false');
   });
 
   test('narrow window does not break layout', async ({ page }) => {

@@ -159,11 +159,17 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       { label: 'Workspace: Design', action: 'workspaceDesign' },
       { label: 'Workspace: Print', action: 'workspacePrint' },
       { label: 'Workspace: Draw', action: 'workspaceDrawing' },
+      { label: 'Workspace: Photo', action: 'workspaceImage' },
       { label: '---' },
       {
         label: 'Distraction-Free Mode',
         shortcut: formatShortcut(SHORTCUT_DEFS.toggleDistractionFree.binding),
         action: 'toggleDistractionFree',
+      },
+      {
+        label: 'Compare Before/After',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleBeforeAfterCompare.binding),
+        action: 'toggleBeforeAfterCompare',
       },
       { label: '---' },
       {
@@ -538,16 +544,6 @@ export function Menubar({
           break;
       }
 
-      // Workspace mode switching (outside the registry to avoid no-op stubs)
-      if (
-        action === 'workspaceDesign' ||
-        action === 'workspacePrint' ||
-        action === 'workspaceDrawing'
-      ) {
-        setWorkspaceMode(action.replace('workspace', '').toLowerCase() as WorkspaceMode);
-        return;
-      }
-
       // Fallback to shared action registry
       const registry = getActionRegistry();
       const registered = registry.get(action);
@@ -834,7 +830,7 @@ export function Menubar({
       {/* ── Center: Workspace mode switcher + Document name ── */}
       <div className="editor-menubar__center">
         <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
-          {(['design', 'print', 'drawing'] as WorkspaceMode[]).map((mode) => (
+          {(['design', 'print', 'drawing', 'image'] as WorkspaceMode[]).map((mode, idx) => (
             <button
               key={mode}
               type="button"
@@ -842,7 +838,7 @@ export function Menubar({
               aria-checked={state.workspaceMode === mode}
               className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
               onClick={() => setWorkspaceMode(mode)}
-              title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${mode === 'design' ? '1' : mode === 'print' ? '2' : '3'})`}
+              title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
             >
               {WORKSPACE_LABELS[mode]}
             </button>

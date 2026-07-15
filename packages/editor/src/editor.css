@@ -159,6 +159,24 @@
   outline-offset: 2px;
 }
 
+.image-compare-overlay {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: -2px;
+}
+.image-compare-overlay__label {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  padding: 2px var(--space-2);
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .editor-menubar {
   grid-area: menubar;
   position: relative;
