@@ -6,10 +6,11 @@
  * blend modes; this module provides the same math in pure JS for use in
  * OffscreenCanvas contexts where GCO coverage is incomplete.
  *
- * Architecture: each blend function operates on non-premultiplied [r,g,b]
- * values in [0, 1]. The `blend()` wrapper handles pre-multiplied input,
- * opacity, and alpha compositing. The `blendPixels()` function operates
- * on entire ImageData buffers (for compatibility with compositeCanvas.ts).
+ * Architecture: blend functions and `blend()` inputs use straight
+ * (non-premultiplied) channels in [0, 1]. The `blend()` wrapper combines the
+ * source-uncovered, overlap, and backdrop-uncovered premultiplied compositing
+ * terms, then converts the result back to straight channels. `blendPixels()`
+ * operates on entire ImageData buffers (for compatibility with compositeCanvas.ts).
  *
  * Separable blend modes are listed in §10.1 of the W3C spec:
  *   normal, multiply, screen, overlay, darken, lighten, color-dodge,
@@ -299,6 +300,10 @@ function getBlendFn(
  * @param mode      Blend mode name.
  * @param opacity   Source opacity multiplier [0, 1].
  * @returns         Non-premultiplied [r, g, b, a] result in [0, 1].
+ *
+ * @remarks Inputs and opacity must be finite normalized values in [0, 1].
+ * Invalid numeric inputs are unsupported and are not broadly validated in
+ * this hot per-pixel path.
  */
 export function blend(
   backdrop: readonly [number, number, number, number],
@@ -325,6 +330,7 @@ export function blend(
   // Resolve standard pixel modes before alpha shortcuts so invalid modes are
   // rejected consistently regardless of pixel content.
   const blendFn = getBlendFn(mode);
+  if (sa === 0 && ba === 0) return [0, 0, 0, 0];
   if (sa === 0) return [br, bg, bb, ba];
   if (ba === 0) return [srIn, sgIn, sbIn, sa];
 

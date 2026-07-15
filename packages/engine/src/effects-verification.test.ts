@@ -44,12 +44,11 @@ describe('tritone pixel verification', () => {
   });
 
   it('alpha preserved at 255, 128, 64, 0', () => {
-    const img = createImageData(4, 1, [
-      128, 128, 128, 255,
-      128, 128, 128, 128,
-      128, 128, 128, 64,
-      128, 128, 128, 0,
-    ]);
+    const img = createImageData(
+      4,
+      1,
+      [128, 128, 128, 255, 128, 128, 128, 128, 128, 128, 128, 64, 128, 128, 128, 0],
+    );
     applyTritone(img, {
       shadowColor: [0, 0, 255, 255],
       midtoneColor: [128, 128, 128, 255],
@@ -86,7 +85,11 @@ describe('tritone pixel verification', () => {
   });
 
   it('all output values in valid byte range', () => {
-    const img = createImageData(10, 10, Array.from({ length: 400 }, (_, i) => (i % 4 === 3 ? 255 : Math.round(Math.random() * 255))));
+    const img = createImageData(
+      10,
+      10,
+      Array.from({ length: 400 }, (_, i) => (i % 4 === 3 ? 255 : Math.round(Math.random() * 255))),
+    );
     applyTritone(img, {
       shadowColor: [10, 20, 80, 255],
       midtoneColor: [180, 160, 140, 255],
@@ -151,9 +154,20 @@ describe('gradient map pixel verification', () => {
   });
 
   it('dither produces different output than no-dither', () => {
-    const img1 = createImageData(16, 1, Array.from({ length: 64 }, (_, i) => (i % 4 === 3 ? 255 : Math.round((i / 60) * 255))));
-    const img2 = createImageData(16, 1, Array.from({ length: 64 }, (_, i) => (i % 4 === 3 ? 255 : Math.round((i / 60) * 255))));
-    const stops = [{ position: 0, color: [0, 0, 0, 255] }, { position: 1, color: [255, 255, 255, 255] }];
+    const img1 = createImageData(
+      16,
+      1,
+      Array.from({ length: 64 }, (_, i) => (i % 4 === 3 ? 255 : Math.round((i / 60) * 255))),
+    );
+    const img2 = createImageData(
+      16,
+      1,
+      Array.from({ length: 64 }, (_, i) => (i % 4 === 3 ? 255 : Math.round((i / 60) * 255))),
+    );
+    const stops = [
+      { position: 0, color: [0, 0, 0, 255] },
+      { position: 1, color: [255, 255, 255, 255] },
+    ];
     applyGradientMapFilter(img1, { stops, dither: false, preserveLuminosity: false });
     applyGradientMapFilter(img2, { stops, dither: true, preserveLuminosity: false });
     // At least one pixel should differ between dithered and non-dithered
@@ -164,10 +178,15 @@ describe('gradient map pixel verification', () => {
   });
 
   it('8x8 dither vs 4x4 dither produce different patterns', () => {
-    const base = Array.from({ length: 64 }, (_, i) => (i % 4 === 3 ? 255 : Math.round((i / 60) * 255)));
+    const base = Array.from({ length: 64 }, (_, i) =>
+      i % 4 === 3 ? 255 : Math.round((i / 60) * 255),
+    );
     const img4 = createImageData(16, 1, [...base]);
     const img8 = createImageData(16, 1, [...base]);
-    const stops = [{ position: 0, color: [0, 0, 0, 255] }, { position: 1, color: [255, 255, 255, 255] }];
+    const stops = [
+      { position: 0, color: [0, 0, 0, 255] },
+      { position: 1, color: [255, 255, 255, 255] },
+    ];
     applyGradientMapFilter(img4, { stops, dither: true, preserveLuminosity: false, ditherSize: 4 });
     applyGradientMapFilter(img8, { stops, dither: true, preserveLuminosity: false, ditherSize: 8 });
     const px4 = extract(img4);
@@ -190,9 +209,15 @@ describe('halftone pixel verification', () => {
     }
     const img = createImageData(size, 1, pixels);
     applyHalftone(img, {
-      pattern: 'dot', frequency: 30, angle: 45,
-      dotShape: 'round', channel: 'k', method: 'am',
-      threshold: 128, intensity: 1, softness: 0,
+      pattern: 'dot',
+      frequency: 30,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+      threshold: 128,
+      intensity: 1,
+      softness: 0,
     });
     const px = extract(img);
     // Should have at least 2 distinct gray values
@@ -202,16 +227,26 @@ describe('halftone pixel verification', () => {
   });
 
   it('CMYK screening produces valid RGB output', () => {
-    const img = createImageData(4, 4, [
-      255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
-      255, 0, 255, 255, 0, 255, 255, 255, 128, 128, 128, 255, 0, 0, 0, 255,
-      255, 128, 0, 255, 128, 0, 128, 255, 0, 128, 0, 255, 128, 128, 0, 255,
-      64, 64, 64, 255, 192, 192, 192, 255, 255, 192, 128, 255, 128, 192, 255, 255,
-    ]);
+    const img = createImageData(
+      4,
+      4,
+      [
+        255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255, 255, 0, 255, 255, 0, 255,
+        255, 255, 128, 128, 128, 255, 0, 0, 0, 255, 255, 128, 0, 255, 128, 0, 128, 255, 0, 128, 0,
+        255, 128, 128, 0, 255, 64, 64, 64, 255, 192, 192, 192, 255, 255, 192, 128, 255, 128, 192,
+        255, 255,
+      ],
+    );
     applyHalftone(img, {
-      pattern: 'dot', frequency: 45, angle: 45,
-      dotShape: 'round', channel: 'cmyk', method: 'am',
-      threshold: 128, intensity: 1, softness: 0,
+      pattern: 'dot',
+      frequency: 45,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'cmyk',
+      method: 'am',
+      threshold: 128,
+      intensity: 1,
+      softness: 0,
     });
     const px = extract(img);
     expect(px.every((v) => v >= 0 && v <= 255)).toBe(true);
@@ -228,9 +263,15 @@ describe('halftone pixel verification', () => {
     }
     const img = createImageData(size, 1, pixels);
     applyHalftone(img, {
-      pattern: 'dot', frequency: 30, angle: 45,
-      dotShape: 'round', channel: 'k', method: 'fm',
-      threshold: 128, intensity: 1, softness: 0,
+      pattern: 'dot',
+      frequency: 30,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'fm',
+      threshold: 128,
+      intensity: 1,
+      softness: 0,
     });
     const px = extract(img);
     // FM produces mostly 0 or 255 (binary) with some intermediate values
@@ -240,12 +281,22 @@ describe('halftone pixel verification', () => {
   });
 
   it('intensity=0 leaves image unchanged', () => {
-    const img = createImageData(4, 1, [50, 100, 150, 255, 200, 50, 100, 255, 10, 20, 30, 255, 240, 230, 220, 255]);
+    const img = createImageData(
+      4,
+      1,
+      [50, 100, 150, 255, 200, 50, 100, 255, 10, 20, 30, 255, 240, 230, 220, 255],
+    );
     const before = extract(img);
     applyHalftone(img, {
-      pattern: 'dot', frequency: 45, angle: 45,
-      dotShape: 'round', channel: 'k', method: 'am',
-      threshold: 128, intensity: 0, softness: 0,
+      pattern: 'dot',
+      frequency: 45,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+      threshold: 128,
+      intensity: 0,
+      softness: 0,
     });
     const after = extract(img);
     expect(after).toEqual(before);
@@ -261,14 +312,32 @@ describe('halftone pixel verification', () => {
     }
     const img1 = createImageData(size, size, [...pixels]);
     const img2 = createImageData(size, size, [...pixels]);
-    applyHalftone(img1, {
-      pattern: 'dot', frequency: 30, angle: 45,
-      dotShape: 'round', channel: 'k', method: 'fm',
-    }, 0, 0);
-    applyHalftone(img2, {
-      pattern: 'dot', frequency: 30, angle: 45,
-      dotShape: 'round', channel: 'k', method: 'fm',
-    }, 0, 0);
+    applyHalftone(
+      img1,
+      {
+        pattern: 'dot',
+        frequency: 30,
+        angle: 45,
+        dotShape: 'round',
+        channel: 'k',
+        method: 'fm',
+      },
+      0,
+      0,
+    );
+    applyHalftone(
+      img2,
+      {
+        pattern: 'dot',
+        frequency: 30,
+        angle: 45,
+        dotShape: 'round',
+        channel: 'k',
+        method: 'fm',
+      },
+      0,
+      0,
+    );
     // Same input + same offset = same output (deterministic)
     expect(extract(img1)).toEqual(extract(img2));
   });

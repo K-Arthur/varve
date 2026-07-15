@@ -335,6 +335,11 @@ describe('blend (unified)', () => {
     expect(a).toBeCloseTo(0.8, 0);
   });
 
+  it('canonicalizes fully transparent standard-mode output', () => {
+    const actual = blend([0.8, 0.2, 0.1, 0], [0.2, 0.4, 0.6, 0], 'screen', 1);
+    expect(actual).toEqual([0, 0, 0, 0]);
+  });
+
   it('partial opacity blends', () => {
     const [r, g, b, a] = blend([0, 0, 0, 1], [1, 1, 1, 1], 'normal', 0.5);
     expect(r).toBeCloseTo(0.5, 1);
@@ -552,10 +557,10 @@ describe('blendPixels', () => {
   });
 
   it('handles both transparent (alpha 0)', () => {
-    const backdrop = makePixelData(0, 0, 0, 0);
-    const source = makePixelData(0, 0, 0, 0);
+    const backdrop = makePixelData(204, 51, 26, 0);
+    const source = makePixelData(51, 102, 153, 0);
     const result = blendPixels(backdrop, source, 'normal', 1);
-    expect(result.data[3]).toBe(0);
+    expect(Array.from(result.data)).toEqual([0, 0, 0, 0]);
   });
 
   it('handles all supported pixel blend modes without error', () => {
