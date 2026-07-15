@@ -256,7 +256,9 @@ export class TransformEngine {
     if (scaleX === 0 || scaleY === 0) return null;
     // Reject shear: x-axis and y-axis must be perpendicular.
     if (Math.abs(a * c + b * d) > 1e-6 * scaleX * scaleY) return null;
-    const rotation = Math.atan2(b, a);
+    // node.rotation is stored and consumed in degrees (see scene/world.ts's
+    // rotateDeg call) — atan2 returns radians, so convert before returning.
+    const rotation = (Math.atan2(b, a) * 180) / Math.PI;
     return { translateX: e, translateY: f, rotation, scaleX, scaleY };
   }
 

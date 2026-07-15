@@ -206,6 +206,21 @@ describe('TransformEngine', () => {
     approx(world!.h, 10, 1e-6);
   });
 
+  it('bakes rotation in degrees and preserves the visual world transform after commit', () => {
+    const { doc, rectId } = makeDocWithRect(0, 0, 10, 10);
+    const engine = new TransformEngine(doc, [rectId], { bakeOnCommit: true });
+    const rotated = engine.rotate(Math.PI / 2);
+    const worldBeforeCommit = nodeWorldTransform(rotated, rectId);
+    const committed = engine.commit(rotated);
+    const node = committed.nodes[rectId];
+    expect(node).toBeDefined();
+    // node.rotation is documented and consumed as degrees (scene/world.ts uses rotateDeg).
+    approx(node!.rotation ?? 0, 90, 1e-4);
+    // Committing (baking) must not change what's actually rendered.
+    const worldAfterCommit = nodeWorldTransform(committed, rectId);
+    approxM(worldAfterCommit, worldBeforeCommit, 1e-6);
+  });
+
   // D: Mixed-rotation multi-selection
   it('multi-select with mixed rotations keeps individual rotations in matrix', () => {
     let doc = createDocument('test', true);
