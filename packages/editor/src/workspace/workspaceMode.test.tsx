@@ -58,7 +58,7 @@ describe('WorkspaceConfig', () => {
   });
 
   it('all workspace configs have valid structure', () => {
-    for (const mode of ['design', 'print', 'drawing'] as const) {
+    for (const mode of ['design', 'print', 'drawing', 'image'] as const) {
       const c = WORKSPACE_CONFIGS[mode];
       expect(typeof c.visiblePanels.layers).toBe('boolean');
       expect(typeof c.visiblePanels.inspector).toBe('boolean');
@@ -73,7 +73,7 @@ describe('WorkspaceConfig', () => {
   });
 
   it('all status sections are defined for all modes', () => {
-    for (const mode of ['design', 'print', 'drawing'] as const) {
+    for (const mode of ['design', 'print', 'drawing', 'image'] as const) {
       const c = WORKSPACE_CONFIGS[mode];
       expect(c.statusSections?.toolName).toBeDefined();
       expect(c.statusSections?.cursorPos).toBeDefined();
@@ -85,7 +85,7 @@ describe('WorkspaceConfig', () => {
   });
 
   it('all canvas overlays are defined for all modes', () => {
-    for (const mode of ['design', 'print', 'drawing'] as const) {
+    for (const mode of ['design', 'print', 'drawing', 'image'] as const) {
       const c = WORKSPACE_CONFIGS[mode];
       expect(c.canvasOverlays?.rulers).toBeDefined();
       expect(c.canvasOverlays?.guides).toBeDefined();
@@ -95,12 +95,24 @@ describe('WorkspaceConfig', () => {
   });
 
   it('labels are defined for all modes', () => {
-    expect(Object.keys(WORKSPACE_LABELS).sort()).toEqual(['design', 'drawing', 'print']);
+    expect(Object.keys(WORKSPACE_LABELS).sort()).toEqual(['design', 'drawing', 'image', 'print']);
   });
 
   it('timeline panel is hidden in all modes by default', () => {
-    for (const mode of ['design', 'print', 'drawing'] as const) {
+    for (const mode of ['design', 'print', 'drawing', 'image'] as const) {
       expect(WORKSPACE_CONFIGS[mode].visiblePanels.timeline).toBe(false);
     }
+  });
+
+  it('image mode hides pagenav and preserves the current tool', () => {
+    const config = getWorkspaceConfig('image');
+    expect(config.visiblePanels.pagenav).toBe(false);
+    expect(config.defaultTool).toBeUndefined();
+  });
+
+  it('image mode shows a pixel grid and hides the dot grid', () => {
+    const config = getWorkspaceConfig('image');
+    expect(config.canvasOverlays?.pixelGrid).toBe(true);
+    expect(config.canvasOverlays?.dotGrid).toBe(false);
   });
 });

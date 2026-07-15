@@ -278,9 +278,19 @@ export const SHORTCUT_DEFS = {
     label: 'Drawing Workspace',
     category: 'View',
   },
+  workspaceImage: {
+    binding: { key: '4', ctrl: true, shift: true },
+    label: 'Photo Workspace',
+    category: 'View',
+  },
   toggleDistractionFree: {
     binding: { key: 'f', ctrl: true, shift: true },
     label: 'Toggle Distraction-Free Mode',
+    category: 'View',
+  },
+  toggleBeforeAfterCompare: {
+    binding: { key: '\\' },
+    label: 'Compare Before/After',
     category: 'View',
   },
   colorBlindnessNone: {

@@ -7,8 +7,8 @@ import {
 } from './workspaceTypes';
 
 describe('workspaceTypes', () => {
-  it('has configs for all three modes', () => {
-    const modes: WorkspaceMode[] = ['design', 'print', 'drawing'];
+  it('has configs for all four modes', () => {
+    const modes: WorkspaceMode[] = ['design', 'print', 'drawing', 'image'];
     for (const mode of modes) {
       const config = WORKSPACE_CONFIGS[mode];
       expect(config).toBeDefined();
@@ -44,7 +44,7 @@ describe('workspaceTypes', () => {
   });
 
   it('all modes have layers and inspector panels', () => {
-    for (const mode of ['design', 'print', 'drawing'] as WorkspaceMode[]) {
+    for (const mode of ['design', 'print', 'drawing', 'image'] as WorkspaceMode[]) {
       const config = WORKSPACE_CONFIGS[mode];
       expect(config.visiblePanels.layers).toBe(true);
       expect(config.visiblePanels.inspector).toBe(true);
@@ -55,6 +55,14 @@ describe('workspaceTypes', () => {
     expect(WORKSPACE_LABELS.design).toBe('Design');
     expect(WORKSPACE_LABELS.print).toBe('Print');
     expect(WORKSPACE_LABELS.drawing).toBe('Draw');
+    expect(WORKSPACE_LABELS.image).toBe('Photo');
+  });
+
+  it('image mode hides pagenav and shows a pixel grid by default', () => {
+    const config = getWorkspaceConfig('image');
+    expect(config.visiblePanels.pagenav).toBe(false);
+    expect(config.canvasOverlays?.pixelGrid).toBe(true);
+    expect(config.statusSections?.preflight).toBe(false);
   });
 
   it('print mode maintains defaultTool as undefined (preserve current)', () => {
