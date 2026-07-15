@@ -65,6 +65,41 @@ export interface VectorMaskData {
   fillRule: MaskFillRule;
 }
 
+/** Reproducibility metadata for an automatically generated subject mask. */
+export interface BackgroundRemovalProvenance {
+  method: 'quick' | 'ai-balanced' | 'ai-quality';
+  modelId?: string;
+  modelVersion?: string;
+  modelChecksum?: string;
+  runtime: 'typescript' | 'wasm' | 'webgpu' | 'native-cpu' | 'native-accelerated';
+  generatedAt: number;
+  confidence?: number;
+  /** Legacy edge-colour cleanup setting retained during v2.0 migration. */
+  decontaminate?: boolean;
+}
+
+/** Immutable PNG payload stored once at the document level. */
+export interface RasterMaskAsset {
+  id: string;
+  mimeType: 'image/png';
+  dataUrl: string;
+  width: number;
+  height: number;
+  byteLength: number;
+  checksum?: string;
+}
+
+/** Placement and source-revision metadata for a raster alpha mask. */
+export interface RasterMaskData {
+  assetId: string;
+  coordinateSpace: 'source-image-pixels';
+  sourceFingerprint: string;
+  sourcePixelRevision: number;
+  editRevision?: number;
+  staleReason?: 'source-replaced' | 'source-changed';
+  provenance?: BackgroundRemovalProvenance;
+}
+
 /**
  * A mask on a container node (FrameNode, GroupNode, or AdjustmentNode).
  *
@@ -97,6 +132,8 @@ export interface Mask {
   sourceNodeId?: NodeId;
   /** Independent vector mask path data (overrides sourceNodeId for geometry). */
   vectorMask?: VectorMaskData;
+  /** Source-resolution alpha matte owned by the document asset table. */
+  rasterMask?: RasterMaskData;
   /** Whether the mask is active. When false, the mask is ignored during rendering. */
   visible: boolean;
   /**
@@ -447,6 +484,8 @@ export interface NodeBase {
   styleOverrides?: Record<string, unknown>;
   /** When true, this node is excluded from snapping calculations. */
   snapExcluded?: boolean;
+  /** Native non-destructive mask. Leaf image shapes may own raster masks. */
+  mask?: Mask;
 }
 
 export interface ShapeNode extends NodeBase {
@@ -547,8 +586,6 @@ export interface GroupNode extends NodeBase {
   transform: Affine;
   /** Child node ids in paint order. */
   children: NodeId[];
-  /** Optional mask applied to children (clip or alpha). */
-  mask?: Mask;
   /**
    * When true, the group composites as an isolated group (backdrop is
    * transparent black). Default false (non-isolated = pass-through behavior
@@ -617,8 +654,6 @@ export interface FrameNode extends NodeBase {
   layoutStyle?: LayoutStyle;
   /** Toggle clipping of children outside the frame bounds. Default true. */
   clipContent?: boolean;
-  /** Optional mask applied to children (clip or alpha). */
-  mask?: Mask;
   /** Active variant id for this component instance. */
   variant?: string;
   /** Per-property overrides on top of the variant/base component. */
@@ -734,8 +769,6 @@ export interface AdjustmentNode extends NodeBase {
   transform: Affine;
   /** When true, only affects the layer directly below this adjustment. */
   clipping: boolean;
-  /** Adjustments can optionally have their own mask. */
-  mask?: Mask;
   effects: Effect[];
   /** Nondestructive adjustment entries applied in sequence. */
   adjustments?: Adjustment[];

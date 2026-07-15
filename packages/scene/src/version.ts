@@ -1,4 +1,4 @@
-export const CURRENT_DOCUMENT_VERSION = '2.0';
+export const CURRENT_DOCUMENT_VERSION = '2.1';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -13,6 +13,7 @@ export const SUPPORTED_VERSIONS = [
   '1.9',
   '1.10',
   '2.0',
+  '2.1',
 ];
 
 export interface DocumentMigration {
@@ -278,6 +279,11 @@ const migrations: DocumentMigration[] = [
       };
     },
   },
+  {
+    from: '2.0',
+    to: '2.1',
+    migrate: (raw) => normalizeLegacyBackgroundRemoval({ ...raw, formatVersion: '2.1' }),
+  },
 ];
 
 export interface MigrationResult {
@@ -309,7 +315,98 @@ export function stampVersion<T extends { formatVersion?: string }>(
 
 export function serializeDocument(doc: Record<string, unknown> | unknown): string {
   const target = doc as Record<string, unknown>;
-  return JSON.stringify(stampVersion(target));
+  return JSON.stringify(stampVersion(normalizeLegacyBackgroundRemoval(target)));
+}
+
+function decodedBase64Length(dataUrl: string): number {
+  const payload = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  if (!payload) return 0;
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
+}
+
+function legacyImageMetadata(node: Record<string, unknown>): {
+  src: string;
+  width: number;
+  height: number;
+} {
+  const fills = Array.isArray(node.fills) ? (node.fills as Record<string, unknown>[]) : [];
+  const imageFill = fills.find((fill) => fill.type === 'image');
+  const image = imageFill?.image as Record<string, unknown> | undefined;
+  const shape = node.shape as Record<string, unknown> | undefined;
+  return {
+    src: typeof image?.src === 'string' ? image.src : String(node.id ?? ''),
+    width: Number(image?.imageWidth ?? shape?.w ?? 1),
+    height: Number(image?.imageHeight ?? shape?.h ?? 1),
+  };
+}
+
+/** Convert deprecated inline background-removal payloads to v2.1 mask assets. */
+export function normalizeLegacyBackgroundRemoval(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const rawNodes = (raw.nodes as Record<string, Record<string, unknown>> | undefined) ?? {};
+  const nodes: Record<string, Record<string, unknown>> = {};
+  const rasterMaskAssets = {
+    ...((raw.rasterMaskAssets as Record<string, Record<string, unknown>> | undefined) ?? {}),
+  };
+
+  for (const [nodeId, node] of Object.entries(rawNodes)) {
+    const legacy = node.backgroundRemoval as Record<string, unknown> | undefined;
+    if (!legacy || typeof legacy.maskDataUrl !== 'string') {
+      nodes[nodeId] = node;
+      continue;
+    }
+
+    const { backgroundRemoval: _legacy, ...normalizedNode } = node;
+    if (node.kind !== 'shape' || node.mask) {
+      nodes[nodeId] = normalizedNode;
+      continue;
+    }
+
+    const metadata = legacyImageMetadata(node);
+    const assetId = `raster-mask:legacy:${encodeURIComponent(nodeId)}`;
+    rasterMaskAssets[assetId] = {
+      id: assetId,
+      mimeType: 'image/png',
+      dataUrl: legacy.maskDataUrl,
+      width: metadata.width,
+      height: metadata.height,
+      byteLength: decodedBase64Length(legacy.maskDataUrl),
+    };
+    normalizedNode.mask = {
+      type: 'alpha',
+      visible: true,
+      feather:
+        typeof legacy.feather === 'number' && legacy.feather > 0 ? legacy.feather : undefined,
+      rasterMask: {
+        assetId,
+        coordinateSpace: 'source-image-pixels',
+        sourceFingerprint: `legacy:${metadata.src}`,
+        sourcePixelRevision: 1,
+        provenance: {
+          method:
+            legacy.method === 'quick' ||
+            legacy.method === 'ai-balanced' ||
+            legacy.method === 'ai-quality'
+              ? legacy.method
+              : 'quick',
+          runtime: 'typescript',
+          generatedAt: typeof legacy.appliedAt === 'number' ? legacy.appliedAt : 0,
+          confidence: typeof legacy.confidence === 'number' ? legacy.confidence : undefined,
+          decontaminate:
+            typeof legacy.decontaminate === 'boolean' ? legacy.decontaminate : undefined,
+        },
+      },
+    };
+    nodes[nodeId] = normalizedNode;
+  }
+
+  return {
+    ...raw,
+    nodes,
+    rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+  };
 }
 
 export function isForwardCompatible(fileVersion: string): boolean {
