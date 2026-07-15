@@ -13,11 +13,17 @@ import {
   addRasterMaskAsset,
   removeRasterMaskAsset,
   resolveMask,
+  setMaskDensity,
+  setMaskFeather,
+  setMaskInverted,
+  setMaskSourceNode,
+  setMaskVectorPath,
+  setMaskVisible,
   updateRasterMaskAsset,
   validateMaskSource,
 } from '../masks';
 
-const PNG_DATA_URL = 'data:image/png;base64,AA==';
+const PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
 
 function makeRasterAsset(id: string, width = 64, height = 32): RasterMaskAsset {
   return {
@@ -26,7 +32,7 @@ function makeRasterAsset(id: string, width = 64, height = 32): RasterMaskAsset {
     dataUrl: PNG_DATA_URL,
     width,
     height,
-    byteLength: 1,
+    byteLength: 8,
   };
 }
 
@@ -137,13 +143,36 @@ describe('native raster masks', () => {
         visible: true,
         vectorMask: { points: [], closed: true, fillRule: 'nonzero' },
       }),
-    ).toBeNull();
+    ).toMatch(/exactly one/i);
+  });
+
+  it('edits native raster mask properties on eligible image leaves', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const hidden = setMaskVisible(attached, imageId, false);
+    const inverted = setMaskInverted(hidden, imageId, true);
+    const feathered = setMaskFeather(inverted, imageId, 2.5);
+    const softened = setMaskDensity(feathered, imageId, 0.75);
+
+    expect(softened.nodes[imageId]?.mask).toMatchObject({
+      visible: false,
+      inverted: true,
+      feather: 2.5,
+      density: 0.75,
+      rasterMask: { assetId: 'mask-1' },
+    });
+    expect(setMaskSourceNode(attached, imageId, imageId)).toBe(attached);
+    expect(
+      setMaskVectorPath(attached, imageId, [{ x: 0, y: 0, handleIn: null, handleOut: null }], true),
+    ).toBe(attached);
   });
 });
 
 describe('raster mask document boundary validation', () => {
   it.each([
-    ['invalid PNG data URL', { dataUrl: 'data:image/jpeg;base64,AA==' }, /PNG data URL/i],
+    ['invalid PNG MIME', { dataUrl: 'data:image/jpeg;base64,iVBORw0KGgo=' }, /PNG data URL/i],
+    ['invalid PNG signature', { dataUrl: 'data:image/png;base64,AA==' }, /PNG signature/i],
+    ['malformed base64', { dataUrl: 'data:image/png;base64,%%%%' }, /PNG data URL/i],
     ['zero width', { width: 0 }, /positive dimensions/i],
     ['dimension above limit', { width: 16_385 }, /dimension limit/i],
     ['decoded pixel limit', { width: 16_385, height: 16_385 }, /decoded pixel limit/i],
@@ -172,5 +201,116 @@ describe('raster mask document boundary validation', () => {
     expect(decoded.ok).toBe(false);
     if (decoded.ok) return;
     expect(decoded.error).toMatch(/missing raster mask asset/i);
+  });
+
+  it.each([
+    [
+      'invalid asset bounds',
+      (doc: Document) => ({
+        ...doc,
+        rasterMaskAssets: {
+          ...doc.rasterMaskAssets,
+          'mask-1': {
+            ...(doc.rasterMaskAssets?.['mask-1'] as RasterMaskAsset),
+            width: 0,
+          },
+        },
+      }),
+    ],
+    [
+      'invalid source combination',
+      (doc: Document) => ({
+        ...doc,
+        nodes: {
+          ...doc.nodes,
+          'image-1': {
+            ...doc.nodes['image-1']!,
+            mask: { ...doc.nodes['image-1']!.mask!, sourceNodeId: 'other' },
+          } as ShapeNode,
+        },
+      }),
+    ],
+    ['missing asset reference', (doc: Document) => ({ ...doc, rasterMaskAssets: {} })],
+  ])('normalizes and encodes %s without retaining unsafe raster state', (_label, corrupt) => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const invalid = corrupt(attached);
+
+    const normalized = DocumentCodec.normalize(invalid);
+    expect(normalized.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'document.invalid-raster-mask', severity: 'error' }),
+      ]),
+    );
+    expect(normalized.document.nodes[imageId]?.mask).toBeUndefined();
+    expect(normalized.document.rasterMaskAssets?.['mask-1']).toBeUndefined();
+
+    const encoded = JSON.parse(DocumentCodec.encode(invalid)) as Document;
+    expect(encoded.nodes[imageId]?.mask).toBeUndefined();
+    expect(encoded.rasterMaskAssets?.['mask-1']).toBeUndefined();
+    expect(DocumentCodec.decode(JSON.stringify(encoded)).ok).toBe(true);
+  });
+
+  it('preserves unrelated valid raster assets while sanitizing an invalid mask', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const invalid = {
+      ...attached,
+      rasterMaskAssets: {
+        ...attached.rasterMaskAssets,
+        unrelated: makeRasterAsset('unrelated'),
+      },
+      nodes: {
+        ...attached.nodes,
+        [imageId]: {
+          ...attached.nodes[imageId]!,
+          mask: { ...attached.nodes[imageId]!.mask!, sourceNodeId: 'other' },
+        } as ShapeNode,
+      },
+    };
+
+    const normalized = DocumentCodec.normalize(invalid);
+    expect(normalized.document.nodes[imageId]?.mask).toBeUndefined();
+    expect(normalized.document.rasterMaskAssets?.['mask-1']).toBeUndefined();
+    expect(normalized.document.rasterMaskAssets?.unrelated).toEqual(makeRasterAsset('unrelated'));
+    expect(DocumentCodec.decode(DocumentCodec.encode(invalid)).ok).toBe(true);
+  });
+
+  it('removes malformed legacy background removal state with an error warning', () => {
+    const { doc, imageId } = makeImageDocument();
+    const legacy = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [imageId]: {
+          ...doc.nodes[imageId]!,
+          backgroundRemoval: { method: 'quick', confidence: 0.2 },
+        },
+      },
+    } as unknown as Document;
+
+    const normalized = DocumentCodec.normalize(legacy);
+    expect(normalized.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'document.invalid-legacy-background-removal',
+          severity: 'error',
+        }),
+      ]),
+    );
+    expect('backgroundRemoval' in normalized.document.nodes[imageId]!).toBe(false);
+
+    const decoded = DocumentCodec.decode(JSON.stringify({ ...legacy, formatVersion: '2.0' }));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'document.invalid-legacy-background-removal',
+          severity: 'error',
+        }),
+      ]),
+    );
+    expect('backgroundRemoval' in decoded.document.nodes[imageId]!).toBe(false);
   });
 });

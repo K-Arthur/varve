@@ -81,7 +81,7 @@ describe('Legacy background removal migration', () => {
           strokes: [],
           effects: [],
           backgroundRemoval: {
-            maskDataUrl: 'data:image/png;base64,AA==',
+            maskDataUrl: 'data:image/png;base64,iVBORw0KGgo=',
             method: 'ai-quality',
             confidence: 0.91,
             appliedAt: 1234,
@@ -108,20 +108,26 @@ describe('Legacy background removal migration', () => {
       generatedAt: 1234,
       confidence: 0.91,
     });
-    expect(assets['raster-mask:legacy:1']).toMatchObject({ width: 64, height: 32, byteLength: 1 });
+    expect(assets['raster-mask:legacy:1']).toMatchObject({ width: 64, height: 32, byteLength: 8 });
     expect('backgroundRemoval' in image).toBe(false);
   });
 
   it('omits legacy backgroundRemoval when serializing a normalized document', () => {
-    const doc = migrateDocument({
+    const doc = {
       id: 'd1',
       name: 'Legacy',
-      formatVersion: '2.0',
-      rootChildren: [],
-      nodes: {},
+      formatVersion: '2.1',
+      rootChildren: ['image-1'],
+      nodes: {
+        'image-1': {
+          id: 'image-1',
+          kind: 'shape',
+          backgroundRemoval: { method: 'quick', confidence: 0.2 },
+        },
+      },
       components: {},
       nextId: 1,
-    })!;
+    };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
     expect(JSON.parse(encoded).formatVersion).toBe('2.1');

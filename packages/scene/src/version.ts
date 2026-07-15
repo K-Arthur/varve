@@ -353,12 +353,16 @@ export function normalizeLegacyBackgroundRemoval(
 
   for (const [nodeId, node] of Object.entries(rawNodes)) {
     const legacy = node.backgroundRemoval as Record<string, unknown> | undefined;
-    if (!legacy || typeof legacy.maskDataUrl !== 'string') {
+    if (!('backgroundRemoval' in node)) {
       nodes[nodeId] = node;
       continue;
     }
 
     const { backgroundRemoval: _legacy, ...normalizedNode } = node;
+    if (!legacy || typeof legacy !== 'object' || typeof legacy.maskDataUrl !== 'string') {
+      nodes[nodeId] = normalizedNode;
+      continue;
+    }
     if (node.kind !== 'shape' || node.mask) {
       nodes[nodeId] = normalizedNode;
       continue;

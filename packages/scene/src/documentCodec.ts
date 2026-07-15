@@ -12,7 +12,7 @@
 
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
-import { validateRasterMaskDocument } from './masks';
+import { validateMaskSource, validateRasterMaskAsset, validateRasterMaskDocument } from './masks';
 import type { NodeId, Page, SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
@@ -74,11 +74,96 @@ function maxNumericNodeId(nodes: Record<NodeId, SceneNode>): number {
   return max;
 }
 
+function malformedLegacyBackgroundRemovalWarnings(
+  raw: Record<string, unknown>,
+): DocumentCodecWarning[] {
+  if (!isRecord(raw.nodes)) return [];
+  const warnings: DocumentCodecWarning[] = [];
+  for (const [nodeId, value] of Object.entries(raw.nodes)) {
+    if (!isRecord(value) || !('backgroundRemoval' in value)) continue;
+    const legacy = value.backgroundRemoval;
+    if (
+      legacy === null ||
+      typeof legacy !== 'object' ||
+      typeof (legacy as { maskDataUrl?: unknown }).maskDataUrl !== 'string'
+    ) {
+      warnings.push(
+        warning(
+          'document.invalid-legacy-background-removal',
+          `Node ${nodeId} had malformed legacy background removal state; it was removed`,
+          'error',
+          `${nodeId}.backgroundRemoval`,
+        ),
+      );
+    }
+  }
+  return warnings;
+}
+
+function hasImageFill(node: SceneNode): boolean {
+  return (
+    node.kind === 'shape' &&
+    Boolean(node.fills?.some((fill) => fill.type === 'image' && fill.image))
+  );
+}
+
+function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  const validAssets = Object.fromEntries(
+    Object.entries(doc.rasterMaskAssets ?? {}).filter(([assetId, asset]) => {
+      const error = validateRasterMaskAsset(asset);
+      if (!error) return true;
+      warnings.push(
+        warning('document.invalid-raster-mask', error, 'error', `rasterMaskAssets.${assetId}`),
+      );
+      return false;
+    }),
+  );
+  const candidate = { ...doc, rasterMaskAssets: validAssets };
+  const nodes: Record<NodeId, SceneNode> = {};
+  const referencedAssets = new Set<string>();
+  const invalidatedAssets = new Set<string>();
+
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    const rasterMask = node.mask?.rasterMask;
+    if (!rasterMask) {
+      nodes[nodeId] = node;
+      continue;
+    }
+    const error =
+      validateMaskSource(candidate, node.mask!) ??
+      (!hasImageFill(node) ? 'Raster masks may only attach to image-filled shape nodes' : null);
+    if (error) {
+      warnings.push(
+        warning('document.invalid-raster-mask', `${nodeId}: ${error}`, 'error', `${nodeId}.mask`),
+      );
+      invalidatedAssets.add(rasterMask.assetId);
+      const { mask: _invalidMask, ...rest } = node;
+      nodes[nodeId] = rest as SceneNode;
+      continue;
+    }
+    referencedAssets.add(rasterMask.assetId);
+    nodes[nodeId] = node;
+  }
+
+  const rasterMaskAssets = Object.fromEntries(
+    Object.entries(validAssets).filter(
+      ([assetId]) => !invalidatedAssets.has(assetId) || referencedAssets.has(assetId),
+    ),
+  );
+  return {
+    ...doc,
+    nodes,
+    rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+  };
+}
+
 function normalizeDocument(doc: Document): DocumentNormalizeResult {
+  const warnings = malformedLegacyBackgroundRemovalWarnings(
+    doc as unknown as Record<string, unknown>,
+  );
   doc = normalizeLegacyBackgroundRemoval(
     doc as unknown as Record<string, unknown>,
   ) as unknown as Document;
-  const warnings: DocumentCodecWarning[] = [];
   const nodes: Record<NodeId, SceneNode> = {};
 
   for (const [id, node] of Object.entries(doc.nodes)) {
@@ -193,7 +278,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   const minNextId = maxNumericNodeId(nodes) + 1;
   const nextId = Math.max(doc.nextId, minNextId, 1);
 
-  const document: Document = {
+  let document: Document = {
     ...doc,
     formatVersion: CURRENT_DOCUMENT_VERSION,
     rootChildren,
@@ -203,10 +288,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
     pages,
     activePageId,
   };
-  const maskError = validateRasterMaskDocument(document);
-  if (maskError) {
-    warnings.push(warning('document.invalid-raster-mask', maskError, 'error', 'rasterMaskAssets'));
-  }
+  document = sanitizeRasterMaskState(document, warnings);
   return { document, warnings };
 }
 
@@ -242,6 +324,8 @@ export const DocumentCodec = {
       };
     }
 
+    const legacyWarnings = isRecord(parsed) ? malformedLegacyBackgroundRemovalWarnings(parsed) : [];
+
     const migration = migrateDocumentDetailed(parsed);
     if (!migration) {
       return {
@@ -273,6 +357,15 @@ export const DocumentCodec = {
 
     const normalized = normalizeDocument(migration.document as unknown as Document);
     const warnings = [...normalized.warnings];
+    for (const legacyWarning of legacyWarnings) {
+      if (
+        !warnings.some(
+          (item) => item.code === legacyWarning.code && item.path === legacyWarning.path,
+        )
+      ) {
+        warnings.push(legacyWarning);
+      }
+    }
     if (migration.migrated) {
       warnings.unshift(
         warning(
