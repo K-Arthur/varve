@@ -208,8 +208,9 @@ function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): n
 
 /** Lightweight content string for SubtreeIrCache hash — encodes the EngineNode
  * fields that affect IR output. This makes the cache invalidate on content
- * changes even if docVersion fails to increment (defence-in-depth).
- * The string is compact but distinct per unique content state. */
+ * changes even if a node's explicit `.invalidate(id)` call was missed
+ * (defence-in-depth). The string is compact but distinct per unique content
+ * state. */
 function cacheContentParts(en: EngineNode): string[] {
   const parts: string[] = [];
   const shape = en.shape;
@@ -1225,7 +1226,6 @@ export function CanvasArea({
             const hash = SubtreeIrCache.nodeHash(
               nodeId,
               fn.transform,
-              docVersion,
               styleKey,
               cacheContentParts(fn),
             );
@@ -1253,7 +1253,6 @@ export function CanvasArea({
               const hash = SubtreeIrCache.nodeHash(
                 nodeId,
                 fn.transform,
-                docVersion,
                 styleKey,
                 cacheContentParts(fn),
               );
@@ -1273,7 +1272,6 @@ export function CanvasArea({
               const hash = SubtreeIrCache.nodeHash(
                 nodeId,
                 fn.transform,
-                docVersion,
                 styleKey,
                 cacheContentParts(fn),
               );
