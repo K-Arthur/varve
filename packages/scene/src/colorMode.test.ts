@@ -206,4 +206,24 @@ describe('switchColorMode', () => {
     const result = switchColorMode(doc, 'rgb');
     expect(result).toBe(doc);
   });
+
+  // A freshly created document has no colorConfig at all — document.ts only
+  // sets one when a colorMode is explicitly passed at creation time (not the
+  // normal path). Switching modes on such a document must still persist the
+  // requested mode, not silently leave colorConfig undefined.
+  it('sets colorConfig.mode to grayscale when the document had no colorConfig at all', () => {
+    const doc = makeDoc(rgb(255, 0, 0));
+    const docWithoutConfig = { ...doc, colorConfig: undefined };
+    const result = switchColorMode(docWithoutConfig, 'grayscale');
+    expect(result.colorConfig?.mode).toBe('grayscale');
+    const n = result.nodes.n1;
+    expect(n?.fill.space).toBe('gray');
+  });
+
+  it('sets colorConfig.mode to cmyk when the document had no colorConfig at all', () => {
+    const doc = makeDoc(rgb(255, 0, 0));
+    const docWithoutConfig = { ...doc, colorConfig: undefined };
+    const result = switchColorMode(docWithoutConfig, 'cmyk');
+    expect(result.colorConfig?.mode).toBe('cmyk');
+  });
 });
