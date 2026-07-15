@@ -3,6 +3,7 @@ import type { Affine } from '@strata/shared';
 import { computeFloatingOrigin, screenToWorld, worldToScreen } from '@strata/shared';
 import { useCallback, useRef, useState } from 'react';
 import { getEditorViewport } from '../canvas/cameraState';
+import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
 
 interface GradientHandleOverlayProps {
   zoom: number;
@@ -189,6 +190,7 @@ export function GradientHandleOverlay({
         height: '100%',
         pointerEvents: 'none',
         overflow: 'visible',
+        zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX,
       }}
       aria-hidden
     >
