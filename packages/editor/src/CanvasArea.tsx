@@ -72,7 +72,7 @@ import {
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
 import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
-import { SubtreeIrCache } from './canvas/subtreeIrCache';
+import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
 import { nodeWorldBoundsFn, useEditor } from './context';
@@ -204,35 +204,6 @@ function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): n
     if ('children' in node) stack.push(...node.children);
   }
   return Math.ceil(padding);
-}
-
-/** Lightweight content string for SubtreeIrCache hash — encodes the EngineNode
- * fields that affect IR output. This makes the cache invalidate on content
- * changes even if a node's explicit `.invalidate(id)` call was missed
- * (defence-in-depth). The string is compact but distinct per unique content
- * state. */
-function cacheContentParts(en: EngineNode): string[] {
-  const parts: string[] = [];
-  const shape = en.shape;
-  if (shape) {
-    parts.push(shape.kind);
-    if ('w' in shape) parts.push(String((shape as { w: number }).w));
-    if ('h' in shape) parts.push(String((shape as { h: number }).h));
-    if ('x' in shape) parts.push(String((shape as { x: number }).x));
-    if ('y' in shape) parts.push(String((shape as { y: number }).y));
-  }
-  if (en.fill) parts.push(JSON.stringify(en.fill));
-  if (en.fills && en.fills.length > 0) parts.push(String(en.fills.length));
-  if (en.strokes && en.strokes.length > 0) parts.push(String(en.strokes.length));
-  if (en.effects && en.effects.length > 0) parts.push(String(en.effects.length));
-  if (en.filters && en.filters.length > 0) parts.push(String(en.filters.length));
-  if (en.opacity !== undefined) parts.push(String(en.opacity));
-  if (en.blendMode) parts.push(en.blendMode);
-  if (en.rotation) parts.push(String(en.rotation));
-  if (en.cornerRadius) parts.push(String(en.cornerRadius));
-  if (en.text) parts.push(String(en.text.length));
-  if (en.src) parts.push(en.src);
-  return parts;
 }
 
 /**

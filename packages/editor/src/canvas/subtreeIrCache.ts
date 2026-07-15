@@ -2,7 +2,65 @@
  * Per-node IR item cache — skip rebuild when node content hash is unchanged.
  * Complements compositor SubtreeReplayCache (replay skip, not IR generation).
  */
-import type { RenderItem } from '@strata/engine';
+import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
+
+/** Lightweight content string for SubtreeIrCache hash — encodes the EngineNode
+ * fields that affect IR output. This makes the cache invalidate on content
+ * changes even if a node's explicit `.invalidate(id)` call was missed
+ * (defence-in-depth). The string is compact but distinct per unique content
+ * state. */
+export function cacheContentParts(en: EngineNode): string[] {
+  const parts: string[] = [];
+  const shape = en.shape;
+  if (shape) {
+    parts.push(shape.kind);
+    if ('w' in shape) parts.push(String((shape as { w: number }).w));
+    if ('h' in shape) parts.push(String((shape as { h: number }).h));
+    if ('x' in shape) parts.push(String((shape as { x: number }).x));
+    if ('y' in shape) parts.push(String((shape as { y: number }).y));
+  }
+  // Fills/strokes/effects/filters are serialized in full (not just array
+  // length) so weight, align, dash pattern, cap/join, gradient/image/pattern
+  // params, and per-entry visibility all participate in the hash — a length
+  // check alone can't see e.g. a stroke weight or fill visibility toggle.
+  if (en.fill) parts.push(JSON.stringify(en.fill));
+  if (en.fills && en.fills.length > 0) parts.push(JSON.stringify(en.fills));
+  if (en.strokes && en.strokes.length > 0) parts.push(JSON.stringify(en.strokes));
+  if (en.effects && en.effects.length > 0) parts.push(JSON.stringify(en.effects));
+  if (en.filters && en.filters.length > 0) parts.push(JSON.stringify(en.filters));
+  if (en.opacity !== undefined) parts.push(String(en.opacity));
+  if (en.blendMode) parts.push(en.blendMode);
+  if (en.rotation) parts.push(String(en.rotation));
+  if (en.cornerRadius) parts.push(String(en.cornerRadius));
+  if (en.cornerSmoothing) parts.push(String(en.cornerSmoothing));
+  // Full text content, not just length — two different strings of equal
+  // length must not hash identically.
+  if (en.text) parts.push(en.text);
+  if (en.fontSize !== undefined) parts.push(String(en.fontSize));
+  if (en.fontFamily) parts.push(en.fontFamily);
+  if (en.fontWeight !== undefined) parts.push(String(en.fontWeight));
+  if (en.fontStyle) parts.push(en.fontStyle);
+  if (en.textAlign) parts.push(en.textAlign);
+  if (en.textAlignVertical) parts.push(en.textAlignVertical);
+  if (en.letterSpacing !== undefined) parts.push(String(en.letterSpacing));
+  if (en.lineHeight !== undefined) parts.push(String(en.lineHeight));
+  if (en.paragraphSpacing !== undefined) parts.push(String(en.paragraphSpacing));
+  if (en.textCase) parts.push(en.textCase);
+  if (en.textDecoration) parts.push(en.textDecoration);
+  if (en.textOverflow) parts.push(en.textOverflow);
+  if (en.listStyle) parts.push(en.listStyle);
+  if (en.textMode) parts.push(en.textMode);
+  if (en.pathTextSettings) parts.push(JSON.stringify(en.pathTextSettings));
+  if (en.variableAxes) parts.push(JSON.stringify(en.variableAxes));
+  if (en.openTypeFeatures) parts.push(JSON.stringify(en.openTypeFeatures));
+  if (en.richText) parts.push(JSON.stringify(en.richText));
+  if (en.src) parts.push(en.src);
+  // Alpha masks are data URLs that can run to megabytes — length is a cheap
+  // proxy signal here; explicit `.invalidate(id)` (CanvasArea's document-diff
+  // path) is what actually guarantees correctness on mask changes.
+  if (en.alphaMask) parts.push(`mask:${en.alphaMask.length}`);
+  return parts;
+}
 
 export interface SubtreeIrCacheEntry {
   hash: string;
