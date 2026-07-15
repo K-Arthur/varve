@@ -897,6 +897,8 @@ describe('replayIr', () => {
         restore: vi.fn(),
         clip: vi.fn(),
         transform: vi.fn(),
+        translate: vi.fn(),
+        rotate: vi.fn(),
         fillRect: vi.fn(),
         strokeRect: vi.fn(),
         rect: vi.fn(),
