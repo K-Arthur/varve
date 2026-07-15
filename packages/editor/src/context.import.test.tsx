@@ -1,5 +1,12 @@
 import { ImportService } from '@strata/import';
-import { activePageNodes, createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
+import {
+  activePageNodes,
+  addChild,
+  createDocument,
+  DocumentCodec,
+  makeGroupNode,
+  makeShapeNode,
+} from '@strata/scene';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { captureClipboardEvent } from './clipboard';
@@ -150,6 +157,62 @@ describe('Editor import insertion', () => {
     expect(options).toMatchObject({ center: true, embedImages: true });
     await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
     spy.mockRestore();
+  });
+});
+
+describe('Editor file open — camera fits content far from world origin', () => {
+  it('openFile() frames content instead of defaulting to zoom:1/pan:(0,0)', async () => {
+    // Mirrors the reported bug: a document whose only content sits at
+    // world x≈69192 (a pasted image, matching a real user's file) opened
+    // with the camera still at its (0,0)/100% default — the layers panel
+    // showed the nodes correctly, but the canvas was entirely blank because
+    // nothing pointed the camera at where the content actually lives.
+    let doc = createDocument('Far');
+    const page = doc.pages?.[0];
+    if (!page) throw new Error('createDocument did not produce a page');
+    const shape = makeShapeNode(
+      'far-shape',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+      { transform: [1, 0, 0, 1, 69192, 2048] },
+    );
+    doc = addChild(doc, page.contentRoot, shape);
+    const json = DocumentCodec.encode(doc);
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button type="button" onClick={() => ctx?.openFile('file-1', 'Far', undefined, json)}>
+          open
+        </button>
+      );
+    }
+
+    render(
+      <EditorProvider>
+        <Test />
+      </EditorProvider>,
+    );
+
+    screen.getByText('open').click();
+    await waitFor(() => expect(ctx?.state.document.nodes['far-shape']).toBeDefined());
+    if (!ctx) throw new Error('editor context unavailable');
+
+    const { zoom, pan } = ctx.state;
+    // The shape's world center (69242, 2088) must land inside the viewport
+    // after the fit — screen = world*zoom + pan, using the same simple
+    // mapping the camera itself resolves to at zero rotation.
+    const screenX = 69242 * zoom + pan.x;
+    const screenY = 2088 * zoom + pan.y;
+    // Generous viewport bound (jsdom's window is 1024x768 by default) — the
+    // point is that it's framed at all, not exact pixel placement.
+    expect(screenX).toBeGreaterThan(-500);
+    expect(screenX).toBeLessThan(2000);
+    expect(screenY).toBeGreaterThan(-500);
+    expect(screenY).toBeLessThan(2000);
+    // The old bug's exact signature: zoom stuck at 1 and pan stuck at
+    // (0,0) regardless of content — assert we actually moved.
+    expect(pan.x !== 0 || pan.y !== 0 || zoom !== 1).toBe(true);
   });
 });
 

@@ -7,13 +7,22 @@
  * produced visibly different results. This module is the single
  * implementation both now delegate to.
  */
-import { clampZoom, stepZoom, type Viewport, zoomAboutPoint } from '@strata/shared';
+import type { Document } from '@strata/scene';
+import { walkNodes } from '@strata/scene';
+import {
+  clampZoom,
+  fitBoundsCamera,
+  stepZoom,
+  type Viewport,
+  zoomAboutPoint,
+} from '@strata/shared';
 import {
   cameraPatch,
   type EditorCameraState,
   editorScreenToWorld,
   toCamera,
 } from '../canvas/cameraState';
+import { nodeWorldBounds } from '../scene/world';
 
 type CameraPatch = Pick<EditorCameraState, 'zoom' | 'pan' | 'cameraRotation'>;
 
@@ -43,4 +52,34 @@ export function computeZoomTo(
   viewport: Viewport,
 ): CameraPatch {
   return zoomAboutViewportCenter(camState, clampZoom(level), viewport);
+}
+
+/**
+ * Compute a camera (zoom/pan) that frames every node in `doc` across all
+ * pages, or `null` for a genuinely empty document (caller should fall back
+ * to a default camera in that case). Shared by the "Fit all" action and by
+ * document-open, so a freshly opened file whose content lives far from
+ * world origin doesn't default to a camera that's nowhere near it.
+ */
+export function computeFitAllCamera(
+  doc: Document,
+  viewport: Viewport,
+): { zoom: number; pan: { x: number; y: number } } | null {
+  const entries = walkNodes(doc);
+  let union: { x: number; y: number; w: number; h: number } | null = null;
+  for (const [id] of entries) {
+    const b = nodeWorldBounds(doc, id);
+    if (!b) continue;
+    if (!union) {
+      union = { ...b };
+      continue;
+    }
+    const minX = Math.min(union.x, b.x);
+    const minY = Math.min(union.y, b.y);
+    const maxX = Math.max(union.x + union.w, b.x + b.w);
+    const maxY = Math.max(union.y + union.h, b.y + b.h);
+    union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+  if (!union) return null;
+  return fitBoundsCamera(union, viewport, 40);
 }
