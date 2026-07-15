@@ -55,7 +55,13 @@ export {
   trimapFromMask,
   workerModelIdForMethod,
 } from './backgroundRemoval';
-export type { BlendCategory, BlendDomain, BlendModeDefinition } from './blendModeCatalog';
+export type {
+  BlendCategory,
+  BlendDomain,
+  BlendModeDefinition,
+  CanvasBlendOperation,
+  PdfBlendModeName,
+} from './blendModeCatalog';
 export {
   BLEND_MODE_DEFINITIONS,
   blendModeDefinition,
