@@ -57,7 +57,7 @@ export {
 } from './backgroundRemoval';
 export type { BlendCategory, BlendDomain, BlendModeDefinition } from './blendModeCatalog';
 export {
-  BLEND_MODE_CATALOG,
+  BLEND_MODE_DEFINITIONS,
   blendModeDefinition,
   blendModesForDomain,
 } from './blendModeCatalog';

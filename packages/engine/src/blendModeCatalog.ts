@@ -44,35 +44,8 @@ const DEFINITIONS_BY_ID: Readonly<Record<BlendMode, BlendModeDefinition>> = {
     label: 'Normal',
     category: 'normal',
     kind: 'blend',
-    css: 'normal',
+    css: 'source-over',
     pdf: 'Normal',
-    editableIn: ALL_DOMAINS,
-  },
-  multiply: {
-    id: 'multiply',
-    label: 'Multiply',
-    category: 'darken',
-    kind: 'blend',
-    css: 'multiply',
-    pdf: 'Multiply',
-    editableIn: ALL_DOMAINS,
-  },
-  screen: {
-    id: 'screen',
-    label: 'Screen',
-    category: 'lighten',
-    kind: 'blend',
-    css: 'screen',
-    pdf: 'Screen',
-    editableIn: ALL_DOMAINS,
-  },
-  overlay: {
-    id: 'overlay',
-    label: 'Overlay',
-    category: 'contrast',
-    kind: 'blend',
-    css: 'overlay',
-    pdf: 'Overlay',
     editableIn: ALL_DOMAINS,
   },
   darken: {
@@ -84,22 +57,13 @@ const DEFINITIONS_BY_ID: Readonly<Record<BlendMode, BlendModeDefinition>> = {
     pdf: 'Darken',
     editableIn: ALL_DOMAINS,
   },
-  lighten: {
-    id: 'lighten',
-    label: 'Lighten',
-    category: 'lighten',
+  multiply: {
+    id: 'multiply',
+    label: 'Multiply',
+    category: 'darken',
     kind: 'blend',
-    css: 'lighten',
-    pdf: 'Lighten',
-    editableIn: ALL_DOMAINS,
-  },
-  colorDodge: {
-    id: 'colorDodge',
-    label: 'Color Dodge',
-    category: 'lighten',
-    kind: 'blend',
-    css: 'color-dodge',
-    pdf: 'ColorDodge',
+    css: 'multiply',
+    pdf: 'Multiply',
     editableIn: ALL_DOMAINS,
   },
   colorBurn: {
@@ -111,13 +75,40 @@ const DEFINITIONS_BY_ID: Readonly<Record<BlendMode, BlendModeDefinition>> = {
     pdf: 'ColorBurn',
     editableIn: ALL_DOMAINS,
   },
-  hardLight: {
-    id: 'hardLight',
-    label: 'Hard Light',
+  lighten: {
+    id: 'lighten',
+    label: 'Lighten',
+    category: 'lighten',
+    kind: 'blend',
+    css: 'lighten',
+    pdf: 'Lighten',
+    editableIn: ALL_DOMAINS,
+  },
+  screen: {
+    id: 'screen',
+    label: 'Screen',
+    category: 'lighten',
+    kind: 'blend',
+    css: 'screen',
+    pdf: 'Screen',
+    editableIn: ALL_DOMAINS,
+  },
+  colorDodge: {
+    id: 'colorDodge',
+    label: 'Color Dodge',
+    category: 'lighten',
+    kind: 'blend',
+    css: 'color-dodge',
+    pdf: 'ColorDodge',
+    editableIn: ALL_DOMAINS,
+  },
+  overlay: {
+    id: 'overlay',
+    label: 'Overlay',
     category: 'contrast',
     kind: 'blend',
-    css: 'hard-light',
-    pdf: 'HardLight',
+    css: 'overlay',
+    pdf: 'Overlay',
     editableIn: ALL_DOMAINS,
   },
   softLight: {
@@ -127,6 +118,15 @@ const DEFINITIONS_BY_ID: Readonly<Record<BlendMode, BlendModeDefinition>> = {
     kind: 'blend',
     css: 'soft-light',
     pdf: 'SoftLight',
+    editableIn: ALL_DOMAINS,
+  },
+  hardLight: {
+    id: 'hardLight',
+    label: 'Hard Light',
+    category: 'contrast',
+    kind: 'blend',
+    css: 'hard-light',
+    pdf: 'HardLight',
     editableIn: ALL_DOMAINS,
   },
   difference: {
@@ -183,15 +183,6 @@ const DEFINITIONS_BY_ID: Readonly<Record<BlendMode, BlendModeDefinition>> = {
     pdf: 'Luminosity',
     editableIn: ALL_DOMAINS,
   },
-  plusDarker: {
-    id: 'plusDarker',
-    label: 'Plus Darker',
-    category: 'darken',
-    kind: 'legacy',
-    css: null,
-    pdf: null,
-    editableIn: [],
-  },
   plusLighter: {
     id: 'plusLighter',
     label: 'Plus Lighter',
@@ -201,9 +192,19 @@ const DEFINITIONS_BY_ID: Readonly<Record<BlendMode, BlendModeDefinition>> = {
     pdf: null,
     editableIn: PAINT_DOMAINS,
   },
+  plusDarker: {
+    id: 'plusDarker',
+    label: 'Plus Darker',
+    category: 'darken',
+    kind: 'legacy',
+    css: null,
+    pdf: null,
+    editableIn: [],
+  },
 };
 
-export const BLEND_MODE_CATALOG: readonly BlendModeDefinition[] = Object.values(DEFINITIONS_BY_ID);
+export const BLEND_MODE_DEFINITIONS: readonly BlendModeDefinition[] =
+  Object.values(DEFINITIONS_BY_ID);
 
 export function blendModeDefinition(id: string): BlendModeDefinition | null {
   if (!Object.hasOwn(DEFINITIONS_BY_ID, id)) return null;
@@ -211,5 +212,5 @@ export function blendModeDefinition(id: string): BlendModeDefinition | null {
 }
 
 export function blendModesForDomain(domain: BlendDomain): readonly BlendModeDefinition[] {
-  return BLEND_MODE_CATALOG.filter((definition) => definition.editableIn.includes(domain));
+  return BLEND_MODE_DEFINITIONS.filter((definition) => definition.editableIn.includes(domain));
 }
