@@ -126,18 +126,21 @@ export function FloatingPortal({
 
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
+      // Check the floating element AND any focus-trap wrapper or dialog
+      // that may sit between the portal root and the actual content.
       if (floatingRef.current?.contains(target)) return;
       if (anchorRef.current?.contains(target)) return;
       onClose();
     };
 
-    // Defer listener so the opening click/pointerdown does not immediately dismiss.
-    const frame = requestAnimationFrame(() => {
-      document.addEventListener('pointerdown', handlePointerDown, true);
-    });
+    // Attach synchronously so there is no timing gap between the portal
+    // rendering and the listener being active.  The opening click's
+    // pointerdown fires BEFORE this effect runs (it fires during the
+    // browser's event dispatch, before React commits), so the listener
+    // is never in place to catch it — no skip logic needed.
+    document.addEventListener('pointerdown', handlePointerDown, true);
 
     return () => {
-      cancelAnimationFrame(frame);
       document.removeEventListener('pointerdown', handlePointerDown, true);
     };
   }, [open, onClose, anchorRef]);

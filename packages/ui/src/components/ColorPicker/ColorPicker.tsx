@@ -157,24 +157,15 @@ export function ColorPicker({ value, onChange, bgColor, documentColorMode }: Col
     [onChange],
   );
 
-  const handleSpaceChange = useCallback(
-    (newSpace: ColorSpace) => {
-      setSpace(newSpace);
-      if (newSpace === 'rgb') {
-        const [r, g, b] = hsvToRgb(hue, sat, val);
-        onChange({ space: 'rgb', r, g, b, a: value.a } as ManagedColor);
-      } else if (newSpace === 'cmyk') {
-        const [r, g, b] = hsvToRgb(hue, sat, val);
-        const [c, m, y, k] = rgbToCmyk(r, g, b);
-        onChange({ space: 'cmyk', c, m, y, k, a: value.a } as ManagedColor);
-      } else if (newSpace === 'gray') {
-        const [r, g, b] = hsvToRgb(hue, sat, val);
-        const gray = Math.round((r + g + b) / 3);
-        onChange({ space: 'gray', v: gray, a: value.a } as ManagedColor);
-      }
-    },
-    [hue, sat, val, value, onChange],
-  );
+  const handleSpaceChange = useCallback((newSpace: ColorSpace) => {
+    // Display-only change: switch the editing representation without
+    // emitting a new colour value.  The canonical stored colour is
+    // only updated when the user edits a channel value, not when they
+    // switch the viewing mode.  This prevents:
+    //   1. Unnecessary parent re-renders that could dismiss the picker
+    //   2. Destructive round-trip drift (CMYK → RGB → CMYK → RGB)
+    setSpace(newSpace);
+  }, []);
 
   const overlayColor: Color = [rgbTuple[0], rgbTuple[1], rgbTuple[2], 255];
   const alphaVal = value.a / 255;
@@ -235,17 +226,41 @@ export function ColorPicker({ value, onChange, bgColor, documentColorMode }: Col
           </span>
         </div>
         {isRgbColor(value) && <GamutWarning r={value.r} g={value.g} b={value.b} />}
+        {!isRgbColor(value) && space !== 'gray' && space !== 'spot' && (
+          <GamutWarning r={rgbTuple[0]} g={rgbTuple[1]} b={rgbTuple[2]} />
+        )}
         <EyeDropperButton onPick={handleEyeDropper} />
       </div>
 
       {space === 'rgb' && <ColorFields color={rgbTuple} onChange={handleFieldsChange} />}
 
-      {space === 'cmyk' && isCmykColor(value) && (
-        <CmykColorFields value={value} onChange={handleCmykChange} />
+      {space === 'cmyk' && (
+        <CmykColorFields
+          value={
+            isCmykColor(value)
+              ? value
+              : (() => {
+                  const [c, m, y, k] = rgbToCmyk(rgbTuple[0], rgbTuple[1], rgbTuple[2]);
+                  return { space: 'cmyk' as const, c, m, y, k, a: value.a };
+                })()
+          }
+          onChange={handleCmykChange}
+        />
       )}
 
-      {space === 'gray' && isGrayColor(value) && (
-        <GrayColorFields value={value} onChange={handleGrayChange} />
+      {space === 'gray' && (
+        <GrayColorFields
+          value={
+            isGrayColor(value)
+              ? value
+              : {
+                  space: 'gray' as const,
+                  v: Math.round((rgbTuple[0] + rgbTuple[1] + rgbTuple[2]) / 3),
+                  a: value.a,
+                }
+          }
+          onChange={handleGrayChange}
+        />
       )}
 
       {space === 'spot' && <SpotColorBrowser onSelect={handleSpotSelect} />}

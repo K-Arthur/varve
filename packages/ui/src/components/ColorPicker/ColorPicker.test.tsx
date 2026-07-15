@@ -41,10 +41,11 @@ describe('ColorPicker', () => {
       const btn = screen.getAllByRole('radio', { name: 'CMYK' })[0];
       if (btn) btn.click();
     });
-    // After switching to CMYK mode, the onChange fires with converted CMYK
-    expect(onChange).toHaveBeenCalled();
-    const call = onChange.mock.calls[0]?.[0] as ManagedColor | undefined;
-    expect(call?.space).toBe('cmyk');
+    // Mode switch is display-only — onChange is NOT called.
+    // CMYK fields should appear, converted from the RGB value.
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('spinbutton', { name: 'C' })).toBeTruthy();
+    expect(screen.getByRole('spinbutton', { name: 'M' })).toBeTruthy();
   });
 
   it('shows Spot browser when spot is selected', () => {
@@ -186,6 +187,91 @@ describe('GamutWarning', () => {
   it('does not render for gray', () => {
     render(<GamutWarning r={128} g={128} b={128} />);
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('does not falsely flag in-gamut CMYK process colours', () => {
+    // Pure cyan (C:100 M:0 Y:0 K:0) is fully inside CMYK gamut.
+    // The old HSV heuristic would flag it because s > 85 && v > 15.
+    render(<GamutWarning r={0} g={255} b={255} />);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('does not falsely flag pure magenta', () => {
+    // Pure magenta (C:0 M:100 Y:0 K:0) is fully inside CMYK gamut.
+    render(<GamutWarning r={255} g={0} b={255} />);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('does not falsely flag pure yellow', () => {
+    // Pure yellow (C:0 M:0 Y:100 K:0) is fully inside CMYK gamut.
+    render(<GamutWarning r={255} g={255} b={0} />);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('flags highly saturated neon green (outside CMYK gamut)', () => {
+    // Neon green (R:57 G:255 B:0) has no good CMYK equivalent.
+    render(<GamutWarning r={57} g={255} b={0} />);
+    const warning = screen.getByRole('status');
+    expect(warning).toBeTruthy();
+    expect(warning.textContent).toContain('Out of CMYK gamut');
+  });
+});
+
+describe('ColorPicker — mode switch lifecycle', () => {
+  it('does not call onChange when switching from RGB to CMYK display mode', () => {
+    const color: ManagedColor = { space: 'rgb', r: 57, g: 208, b: 198, a: 255 };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    onChange.mockClear();
+    act(() => {
+      const btn = screen.getAllByRole('radio', { name: 'CMYK' })[0];
+      if (btn) btn.click();
+    });
+    // Switching display mode should NOT emit a colour change —
+    // the picker stays in the same colour, just displays CMYK fields.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not call onChange when switching from CMYK back to RGB', () => {
+    const color: ManagedColor = { space: 'cmyk', c: 0, m: 128, y: 255, k: 0, a: 255 };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    onChange.mockClear();
+    act(() => {
+      const btn = screen.getAllByRole('radio', { name: 'RGB' })[0];
+      if (btn) btn.click();
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('emits the correct colour space when editing CMYK fields after switching to CMYK', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    // Switch to CMYK mode (should not call onChange)
+    act(() => {
+      const btn = screen.getAllByRole('radio', { name: 'CMYK' })[0];
+      if (btn) btn.click();
+    });
+    onChange.mockClear();
+    // Now the CMYK fields should be visible and editing should emit CMYK
+    const cSpinbutton = screen.getByRole('spinbutton', { name: 'C' });
+    expect(cSpinbutton).toBeTruthy();
+  });
+
+  it('preserves the colour value across mode switches without drift', () => {
+    const color: ManagedColor = { space: 'rgb', r: 100, g: 150, b: 200, a: 255 };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    // Switch to CMYK and back — no onChange should fire
+    act(() => {
+      screen.getAllByRole('radio', { name: 'CMYK' })[0]?.click();
+    });
+    act(() => {
+      screen.getAllByRole('radio', { name: 'RGB' })[0]?.click();
+    });
+    // onChange should never have been called (display-only switches)
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 
