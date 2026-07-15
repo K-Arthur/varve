@@ -309,13 +309,7 @@ export function blend(
   const [br, bg, bb, ba] = backdrop;
   const [srIn, sgIn, sbIn, saIn] = source;
 
-  // Resolve the pixel blend mode before alpha shortcuts so invalid modes are
-  // rejected consistently regardless of pixel content.
-  const blendFn = mode === 'plusLighter' ? blendNormal : getBlendFn(mode);
   const sa = Math.max(0, Math.min(1, saIn * opacity));
-  if (sa === 0) return [br, bg, bb, ba];
-  if (ba === 0) return [srIn, sgIn, sbIn, sa];
-
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
   if (mode === 'plusLighter') {
@@ -327,6 +321,12 @@ export function blend(
 
     return [compositeChannel(srIn, br), compositeChannel(sgIn, bg), compositeChannel(sbIn, bb), ao];
   }
+
+  // Resolve standard pixel modes before alpha shortcuts so invalid modes are
+  // rejected consistently regardless of pixel content.
+  const blendFn = getBlendFn(mode);
+  if (sa === 0) return [br, bg, bb, ba];
+  if (ba === 0) return [srIn, sgIn, sbIn, sa];
 
   const [mr, mg, mb] = blendFn(br, bg, bb, srIn, sgIn, sbIn);
   const sourceUncovered = sa * (1 - ba);

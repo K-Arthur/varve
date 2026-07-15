@@ -369,6 +369,11 @@ describe('blend (unified)', () => {
     expect(actual).toEqual([0.5, 0, 0.5, 1]);
   });
 
+  it('canonicalizes fully transparent plusLighter output', () => {
+    const actual = blend([1, 0, 0, 0], [0, 0, 1, 0], 'plusLighter', 1);
+    expect(actual).toEqual([0, 0, 0, 0]);
+  });
+
   it('applies opacity to plusLighter source alpha', () => {
     const actual = blend([1, 0, 0, 0.5], [0, 0, 1, 0.5], 'plusLighter', 0.5);
     expect(actual[0]).toBeCloseTo(2 / 3, 8);
