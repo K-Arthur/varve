@@ -262,6 +262,22 @@ export const SHORTCUT_DEFS = {
     label: 'Help Center',
     category: 'View',
   },
+  // Workspace mode switching
+  workspaceDesign: {
+    binding: { key: '1', ctrl: true, shift: true },
+    label: 'Design Workspace',
+    category: 'View',
+  },
+  workspacePrint: {
+    binding: { key: '2', ctrl: true, shift: true },
+    label: 'Print Workspace',
+    category: 'View',
+  },
+  workspaceDrawing: {
+    binding: { key: '3', ctrl: true, shift: true },
+    label: 'Drawing Workspace',
+    category: 'View',
+  },
   colorBlindnessNone: {
     binding: { key: '0', ctrl: true, alt: true },
     label: 'Color Blindness: None',
