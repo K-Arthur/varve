@@ -182,6 +182,18 @@ export {
   DEFAULT_AI_UPSCALE_MODEL_ID,
   upscaleImageData,
 } from './imageEnhancement';
+export type {
+  ComputeImagePlacementOptions,
+  ImagePlacement,
+  ImagePlacementFit,
+  ImagePlacementPoint,
+  ImagePlacementRect,
+} from './imagePlacement';
+export {
+  computeImagePlacement,
+  localToSourcePixel,
+  sourcePixelToLocal,
+} from './imagePlacement';
 export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
 export {
   analogousHarmony,
