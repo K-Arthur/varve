@@ -34,6 +34,20 @@ export const RASTER_MASK_MAX_ENCODED_BYTES = 128 * 1024 * 1024;
 
 const PNG_DATA_URL_PATTERN =
   /^data:image\/png;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
+
+function hasPngSignature(dataUrl: string): boolean {
+  const payload = dataUrl.slice('data:image/png;base64,'.length);
+  if (payload.length < 12) return false;
+  try {
+    // Eleven payload characters plus padding decode exactly eight bytes. This
+    // verifies the magic bytes without allocating or parsing the full PNG.
+    const prefix = atob(`${payload.slice(0, 11)}=`);
+    return PNG_SIGNATURE.every((byte, index) => prefix.charCodeAt(index) === byte);
+  } catch {
+    return false;
+  }
+}
 
 /** Validate declared raster asset metadata without decoding PNG headers. */
 export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
@@ -43,6 +57,9 @@ export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
     asset.dataUrl === 'data:image/png;base64,'
   ) {
     return `Raster mask ${asset.id} must use a valid PNG data URL`;
+  }
+  if (!hasPngSignature(asset.dataUrl)) {
+    return `Raster mask ${asset.id} must contain the PNG signature`;
   }
   if (
     !Number.isInteger(asset.width) ||
@@ -71,7 +88,8 @@ export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
 export function validateMaskSource(doc: Document | undefined, mask: Mask): string | null {
   // A sourceNodeId may accompany a vector mask as optional visual content;
   // vectorMask remains the sole geometry source in that compatible form.
-  const structuralSourceCount = mask.vectorMask ? 1 : Number(Boolean(mask.sourceNodeId));
+  const hasVectorGeometry = Boolean(mask.vectorMask && mask.vectorMask.points.length > 0);
+  const structuralSourceCount = hasVectorGeometry ? 1 : Number(Boolean(mask.sourceNodeId));
   const sourceCount = structuralSourceCount + Number(Boolean(mask.rasterMask));
   if (sourceCount !== 1) return 'A mask must define exactly one meaningful source';
   if (mask.rasterMask) {
@@ -124,7 +142,7 @@ export function resolveMask(node: SceneNode): Mask | null {
   const container = node as SceneNode & { children?: string[] };
   if (validateMaskSource(undefined, node.mask)) return null;
   // Vector masks don't require a sourceNodeId
-  if (node.mask.vectorMask) {
+  if (node.mask.vectorMask && node.mask.vectorMask.points.length > 0) {
     return node.mask;
   }
   // For frames and groups with sourceNodeId, the mask source must be a child.
@@ -422,7 +440,7 @@ export function addMask(
 
   // Structural masks need a node source, vector geometry, or both. When both
   // are present, vector geometry is meaningful and the node is visual content.
-  if (!sourceNodeId && !opts?.vectorMask) return doc;
+  if (!sourceNodeId && (!opts?.vectorMask || opts.vectorMask.points.length === 0)) return doc;
 
   // Source must exist if specified
   if (sourceNodeId && !doc.nodes[sourceNodeId]) return doc;
@@ -455,7 +473,7 @@ export function addMask(
   if (mask.linked === false) cleaned.linked = false;
   if (mask.transform) cleaned.transform = mask.transform;
   if (mask.hideMaskSource) cleaned.hideMaskSource = true;
-  if (mask.vectorMask) cleaned.vectorMask = mask.vectorMask;
+  if (mask.vectorMask && mask.vectorMask.points.length > 0) cleaned.vectorMask = mask.vectorMask;
   if (mask.fillRule) cleaned.fillRule = mask.fillRule;
 
   // Check for cycles before adding the mask
@@ -515,8 +533,12 @@ function updateMaskProperty<T>(
 ): Document {
   const container = doc.nodes[containerId];
   if (!container) return doc;
-  if (!isContainerNode(container)) return doc;
   if (!container.mask) return doc;
+  const isLeafRasterProperty =
+    isImageShape(container) &&
+    Boolean(container.mask.rasterMask) &&
+    (key === 'visible' || key === 'inverted' || key === 'feather' || key === 'density');
+  if (!isContainerNode(container) && !isLeafRasterProperty) return doc;
 
   const include = shouldInclude ? shouldInclude(value) : value !== undefined;
   const cleaned: Mask = include
@@ -609,11 +631,14 @@ export function setMaskVectorPath(
   closed: boolean,
   fillRule?: MaskFillRule,
 ): Document {
-  return updateMaskProperty(doc, containerId, 'vectorMask', {
-    points,
-    closed,
-    fillRule: fillRule ?? 'nonzero',
-  } as VectorMaskData);
+  return updateMaskProperty(
+    doc,
+    containerId,
+    'vectorMask',
+    points.length > 0
+      ? ({ points, closed, fillRule: fillRule ?? 'nonzero' } as VectorMaskData)
+      : undefined,
+  );
 }
 
 /** Set the fill rule for a clip/vector mask. */

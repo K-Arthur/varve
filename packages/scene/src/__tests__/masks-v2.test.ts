@@ -52,16 +52,15 @@ describe('vector masks', () => {
     expect(resolveMaskType(updated)).toBe('clip');
   });
 
-  it('allows vector mask with empty points (harmless, masks nothing)', () => {
+  it('rejects an empty vector mask because it has no meaningful geometry', () => {
     const frame = makeFrameNode('f1', { children: [] });
     let doc = addNode(createDocument(), frame);
     doc = addMask(doc, 'f1', undefined, 'clip', {
       vectorMask: { points: [], closed: true, fillRule: 'nonzero' },
     });
     const updated = doc.nodes.f1 as { mask?: { vectorMask?: unknown } };
-    // Empty points are allowed — mask won't clip anything (covers nothing)
-    expect(updated.mask).toBeDefined();
-    expect(updated.mask?.vectorMask).toBeDefined();
+    expect(updated.mask).toBeUndefined();
+    expect(resolveMask(doc.nodes.f1!)).toBeNull();
   });
 
   it('hasVectorMask returns true only for masks with points', () => {
