@@ -60,4 +60,29 @@ describe('blendModeDefinition', () => {
       'plusDarker',
     ]);
   });
+
+  it('is deeply immutable at runtime', () => {
+    expect(Object.isFrozen(BLEND_MODE_DEFINITIONS)).toBe(true);
+    for (const definition of BLEND_MODE_DEFINITIONS) {
+      expect(Object.isFrozen(definition)).toBe(true);
+      expect(Object.isFrozen(definition.editableIn)).toBe(true);
+    }
+  });
+
+  it('does not allow a mutable cast to alter subsequent lookups', () => {
+    const normal = blendModeDefinition('normal');
+    expect(normal).not.toBeNull();
+    expect(() => {
+      (normal as { label: string }).label = 'Changed';
+    }).toThrow();
+    expect(blendModeDefinition('normal')?.label).toBe('Normal');
+  });
+
+  it('keeps exported ids unique and correlated with lookups', () => {
+    const ids = BLEND_MODE_DEFINITIONS.map((definition) => definition.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const definition of BLEND_MODE_DEFINITIONS) {
+      expect(blendModeDefinition(definition.id)).toBe(definition);
+    }
+  });
 });
