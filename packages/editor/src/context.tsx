@@ -70,6 +70,7 @@ import {
   type BleedConfig,
   buildParentIndexMap,
   clearGuides,
+  clearLiveTrace as clearLiveTraceDoc,
   createComponent,
   createDocument,
   createGuideId,
@@ -92,7 +93,6 @@ import {
   type Guide,
   activePageNodes as getActivePageNodes,
   activePageNodesWithMaster as getActivePageNodesWithMaster,
-  clearLiveTrace as clearLiveTraceDoc,
   getCurrentStateTimelineId,
   getFormattedPageNumber as getFormattedPageNumberDoc,
   getGuidesForPage,
@@ -391,6 +391,8 @@ export interface EditorContextValue {
   toggleLeftPanel: () => void;
   /** Toggle inspector (right) panel visibility; persists to editor settings. */
   toggleRightPanel: () => void;
+  /** Toggle distraction-free canvas mode (hides chrome, keeps canvas/toolbar). */
+  toggleDistractionFreeMode: () => void;
   /** Active workspace mode (design/print/drawing). */
   workspaceMode: import('./workspace/workspaceTypes').WorkspaceMode;
   /** Switch to a different workspace mode. */
@@ -1547,6 +1549,9 @@ export function EditorProvider({
       softProofEnabled: false,
       leftPanelVisible: loadSettings().panel.leftPanelVisible,
       rightPanelVisible: loadSettings().panel.rightPanelVisible,
+      // Transient view state, not persisted — each session starts with full
+      // chrome visible rather than silently reopening into a hidden-panel state.
+      distractionFreeMode: false,
       // Hidden by default — motion/timeline editing is an opt-in workflow the
       // user reaches via its own toggle, not something every document should
       // open into.
@@ -2090,6 +2095,13 @@ export function EditorProvider({
         const next = !state.rightPanelVisible;
         patch({ rightPanelVisible: next });
         updateSettings({ panel: { rightPanelVisible: next } });
+      },
+      toggleDistractionFreeMode: () => {
+        const next = !state.distractionFreeMode;
+        patch({ distractionFreeMode: next });
+        announcerRef.current?.announce(
+          next ? 'Distraction-free mode on' : 'Distraction-free mode off',
+        );
       },
       workspaceMode: state.workspaceMode,
       setWorkspaceMode: (mode: WorkspaceMode) => {

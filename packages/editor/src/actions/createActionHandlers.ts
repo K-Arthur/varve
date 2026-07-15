@@ -98,6 +98,7 @@ export function createActionHandlers(
     toggleLeftPanel: () => e.toggleLeftPanel(),
     toggleRightPanel: () => e.toggleRightPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
+    toggleDistractionFree: () => e.toggleDistractionFreeMode(),
     canvasModeOutline: () => e.setCanvasMode('outline'),
     canvasModePreview: () => e.setCanvasMode('preview'),
     canvasModeFull: () => {

@@ -167,7 +167,7 @@ function ShellInner({
 
   // Desktop panel visibility (Ctrl+B / Ctrl+Shift+B): collapse the grid
   // column so the canvas reclaims the space.
-  const { leftPanelVisible, rightPanelVisible, workspaceMode } = editor.state;
+  const { leftPanelVisible, rightPanelVisible, workspaceMode, distractionFreeMode } = editor.state;
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
@@ -179,26 +179,43 @@ function ShellInner({
 
   return (
     <DnDShell layersDndRef={layersDndRef}>
-      <div className="editor-shell" style={gridStyle}>
-        <Menubar
-          onBackToHome={onBackToHome}
-          onOpenSettings={() => {
-            setSettingsSection('general');
-            setSettingsOpen(true);
-          }}
-          onStartTour={() => onboardingLayerRef.current?.reopen()}
-          onOpenPalette={openPalette}
-          onOpenHelp={editorHelp.openContextualHelp}
-          onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
-          onWhatIsThis={editorHelp.toggleWhatIsThis}
-          onOpenAbout={() => {
-            setSettingsSection('about');
-            setSettingsOpen(true);
-          }}
-          onBatchBgRemove={() => exportLayerRef.current?.openBatchBgRemove()}
-        />
+      <div
+        className={`editor-shell${distractionFreeMode ? ' editor-shell--distraction-free' : ''}`}
+        style={gridStyle}
+      >
+        {!distractionFreeMode && (
+          <Menubar
+            onBackToHome={onBackToHome}
+            onOpenSettings={() => {
+              setSettingsSection('general');
+              setSettingsOpen(true);
+            }}
+            onStartTour={() => onboardingLayerRef.current?.reopen()}
+            onOpenPalette={openPalette}
+            onOpenHelp={editorHelp.openContextualHelp}
+            onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
+            onWhatIsThis={editorHelp.toggleWhatIsThis}
+            onOpenAbout={() => {
+              setSettingsSection('about');
+              setSettingsOpen(true);
+            }}
+            onBatchBgRemove={() => exportLayerRef.current?.openBatchBgRemove()}
+          />
+        )}
         <FloatingToolbar />
-        <TabStrip onBackToHome={onBackToHome} />
+        {!distractionFreeMode && <TabStrip onBackToHome={onBackToHome} />}
+        {distractionFreeMode && (
+          <button
+            type="button"
+            className="editor-shell__exit-focus"
+            onClick={editor.toggleDistractionFreeMode}
+            aria-label="Exit distraction-free mode (Ctrl+Shift+F)"
+            title="Exit distraction-free mode (Ctrl+Shift+F)"
+          >
+            <Icon name="Minimize2" size={14} />
+            Exit Focus
+          </button>
+        )}
         <ErrorBoundary>
           <CanvasArea
             canvasContainerRef={canvasContainerRef}
@@ -211,49 +228,53 @@ function ShellInner({
           worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
-        {!hidePageNav && (
+        {!hidePageNav && !distractionFreeMode && (
           <div className="page-nav-container">
             <PageNav />
           </div>
         )}
-        <div
-          className="editor__layers-panel editor__panel--glass"
-          data-panel="layers"
-          data-testid="layers-panel"
-          data-visible={layersVisible || undefined}
-          data-collapsed={!leftPanelVisible || undefined}
-          {...(!leftPanelVisible ? { inert: true } : {})}
-        >
-          <ErrorBoundary>
-            <PresenceIndicator presences={collabPresences} />
-            <MinimapPanel />
-            <MasterPanel />
-            <SpreadSettings />
-            <LayersPanel dndRef={layersDndRef} />
-          </ErrorBoundary>
-          <PanelResizeHandle
-            side="layers"
-            width={widths.layers}
-            onResize={(w) => setWidth('layers', w)}
-          />
-        </div>
-        <div
-          className="editor__inspector-panel editor__panel--glass"
-          data-panel="inspector"
-          data-visible={inspectorVisible || undefined}
-          data-collapsed={!rightPanelVisible || undefined}
-          {...(!rightPanelVisible ? { inert: true } : {})}
-        >
-          <ErrorBoundary>
-            <PropertiesPanel />
-          </ErrorBoundary>
-          <PanelResizeHandle
-            side="inspector"
-            width={widths.inspector}
-            onResize={(w) => setWidth('inspector', w)}
-          />
-        </div>
-        {libraryVisible && (
+        {!distractionFreeMode && (
+          <div
+            className="editor__layers-panel editor__panel--glass"
+            data-panel="layers"
+            data-testid="layers-panel"
+            data-visible={layersVisible || undefined}
+            data-collapsed={!leftPanelVisible || undefined}
+            {...(!leftPanelVisible ? { inert: true } : {})}
+          >
+            <ErrorBoundary>
+              <PresenceIndicator presences={collabPresences} />
+              <MinimapPanel />
+              <MasterPanel />
+              <SpreadSettings />
+              <LayersPanel dndRef={layersDndRef} />
+            </ErrorBoundary>
+            <PanelResizeHandle
+              side="layers"
+              width={widths.layers}
+              onResize={(w) => setWidth('layers', w)}
+            />
+          </div>
+        )}
+        {!distractionFreeMode && (
+          <div
+            className="editor__inspector-panel editor__panel--glass"
+            data-panel="inspector"
+            data-visible={inspectorVisible || undefined}
+            data-collapsed={!rightPanelVisible || undefined}
+            {...(!rightPanelVisible ? { inert: true } : {})}
+          >
+            <ErrorBoundary>
+              <PropertiesPanel />
+            </ErrorBoundary>
+            <PanelResizeHandle
+              side="inspector"
+              width={widths.inspector}
+              onResize={(w) => setWidth('inspector', w)}
+            />
+          </div>
+        )}
+        {libraryVisible && !distractionFreeMode && (
           <div className="editor__library-panel" data-panel="library">
             <LibraryPanel
               doc={editor.state.document}
@@ -262,7 +283,7 @@ function ShellInner({
             />
           </div>
         )}
-        {editor.state.timelinePanelVisible && (
+        {editor.state.timelinePanelVisible && !distractionFreeMode && (
           <div className="editor__timeline-panel" data-panel="timeline">
             <ErrorBoundary>
               <TimelinePanel
@@ -339,47 +360,51 @@ function ShellInner({
             </ErrorBoundary>
           </div>
         )}
-        <SelectionInfoBar />
-        <StatusBar />
-        {/* FAB for layers (responsive) */}
-        <button
-          type="button"
-          className="editor__fab editor__fab--layers"
-          onClick={() => setLayersVisible((v) => !v)}
-          aria-label={layersVisible ? 'Hide layers panel' : 'Show layers panel'}
-        >
-          <Icon name="LayoutGrid" />
-        </button>
-        {/* FAB for inspector (responsive) */}
-        <button
-          type="button"
-          className="editor__fab editor__fab--inspector"
-          onClick={() => setInspectorVisible((v) => !v)}
-          aria-label={inspectorVisible ? 'Hide inspector panel' : 'Show inspector panel'}
-        >
-          <Icon name="Settings" />
-        </button>
-        {/* FAB for library (responsive) */}
-        <button
-          type="button"
-          className="editor__fab editor__fab--library"
-          onClick={() => setLibraryVisible((v) => !v)}
-          aria-label={libraryVisible ? 'Hide library panel' : 'Show library panel'}
-        >
-          <Icon name="Library" />
-        </button>
-        {/* Backdrop for overlays */}
-        {(layersVisible || inspectorVisible || libraryVisible) && (
-          // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
-          <div
-            className="editor__panel-backdrop"
-            onClick={() => {
-              setLayersVisible(false);
-              setInspectorVisible(false);
-              setLibraryVisible(false);
-            }}
-            role="presentation"
-          />
+        {!distractionFreeMode && (
+          <>
+            <SelectionInfoBar />
+            <StatusBar />
+            {/* FAB for layers (responsive) */}
+            <button
+              type="button"
+              className="editor__fab editor__fab--layers"
+              onClick={() => setLayersVisible((v) => !v)}
+              aria-label={layersVisible ? 'Hide layers panel' : 'Show layers panel'}
+            >
+              <Icon name="LayoutGrid" />
+            </button>
+            {/* FAB for inspector (responsive) */}
+            <button
+              type="button"
+              className="editor__fab editor__fab--inspector"
+              onClick={() => setInspectorVisible((v) => !v)}
+              aria-label={inspectorVisible ? 'Hide inspector panel' : 'Show inspector panel'}
+            >
+              <Icon name="Settings" />
+            </button>
+            {/* FAB for library (responsive) */}
+            <button
+              type="button"
+              className="editor__fab editor__fab--library"
+              onClick={() => setLibraryVisible((v) => !v)}
+              aria-label={libraryVisible ? 'Hide library panel' : 'Show library panel'}
+            >
+              <Icon name="Library" />
+            </button>
+            {/* Backdrop for overlays */}
+            {(layersVisible || inspectorVisible || libraryVisible) && (
+              // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
+              <div
+                className="editor__panel-backdrop"
+                onClick={() => {
+                  setLayersVisible(false);
+                  setInspectorVisible(false);
+                  setLibraryVisible(false);
+                }}
+                role="presentation"
+              />
+            )}
+          </>
         )}
         <ShortcutPalette open={paletteOpen} onClose={closePalette} onSelect={handlePaletteSelect} />
         <QuickActionsBar

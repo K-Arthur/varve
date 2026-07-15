@@ -828,6 +828,16 @@ export function CanvasArea({
     active?.updatePresetFromSettings(state.brushSettings);
   }, [state.brushSettings, state.tool]);
 
+  // Sync stroke smoothing to the pencil tool's stabilizer. Reuses the same
+  // brushSettings.smoothing field the raster brush already exposes, so the
+  // Inspector's existing Smoothing control drives vector pencil strokes too.
+  useEffect(() => {
+    if (!tm.current) return;
+    if (state.tool !== 'pencil') return;
+    const pencilTool = tm.current.getTool<import('./tools/PencilTool').PencilTool>('pencil');
+    pencilTool?.setStabilization(state.brushSettings.smoothing);
+  }, [state.brushSettings.smoothing, state.tool]);
+
   useEffect(() => {
     if (!tm.current) return;
     const crop = tm.current.getTool<CropTool>('crop');

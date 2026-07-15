@@ -161,6 +161,12 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       { label: 'Workspace: Draw', action: 'workspaceDrawing' },
       { label: '---' },
       {
+        label: 'Distraction-Free Mode',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleDistractionFree.binding),
+        action: 'toggleDistractionFree',
+      },
+      { label: '---' },
+      {
         label: 'Fit Active Page',
         shortcut: formatShortcut(SHORTCUT_DEFS.fitActivePage.binding),
         action: 'fitActivePage',
@@ -382,6 +388,7 @@ export function Menubar({
     createMaster,
     toggleFacingPages,
     setWorkspaceMode,
+    toggleDistractionFreeMode,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -499,6 +506,9 @@ export function Menubar({
         case 'toggleFacingPages':
           toggleFacingPages();
           return;
+        case 'toggleDistractionFree':
+          toggleDistractionFreeMode();
+          return;
         case 'createMaster':
           createMaster('Master', 1920, 1080);
           return;
@@ -583,6 +593,7 @@ export function Menubar({
       createMaster,
       toggleFacingPages,
       setWorkspaceMode,
+      toggleDistractionFreeMode,
     ],
   );
 
