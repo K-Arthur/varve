@@ -28,6 +28,31 @@ import { blendNonSeparable, type NonSeparableMode } from './nonSeparable';
 // ── Separable blend mode functions ───────────────────────────────────────────
 // Each takes non-premultiplied [r,g,b] in [0, 1] and returns blended [r,g,b].
 
+type BlendChannel = (backdrop: number, source: number) => number;
+
+const blendNormalChannel: BlendChannel = (_backdrop, source) => source;
+const blendMultiplyChannel: BlendChannel = (backdrop, source) => backdrop * source;
+const blendScreenChannel: BlendChannel = (backdrop, source) => 1 - (1 - backdrop) * (1 - source);
+const blendOverlayChannel: BlendChannel = (backdrop, source) =>
+  backdrop < 0.5 ? 2 * backdrop * source : 1 - 2 * (1 - backdrop) * (1 - source);
+const blendDarkenChannel: BlendChannel = (backdrop, source) => Math.min(backdrop, source);
+const blendLightenChannel: BlendChannel = (backdrop, source) => Math.max(backdrop, source);
+const blendColorDodgeChannel: BlendChannel = (backdrop, source) =>
+  backdrop === 0 ? 0 : source >= 1 ? 1 : Math.min(1, backdrop / (1 - source));
+const blendColorBurnChannel: BlendChannel = (backdrop, source) =>
+  backdrop >= 1 ? 1 : source <= 0 ? 0 : 1 - Math.min(1, (1 - backdrop) / source);
+const blendHardLightChannel: BlendChannel = (backdrop, source) =>
+  source < 0.5 ? 2 * backdrop * source : 1 - 2 * (1 - backdrop) * (1 - source);
+const blendSoftLightChannel: BlendChannel = (backdrop, source) => {
+  if (source <= 0.5) return backdrop - (1 - 2 * source) * backdrop * (1 - backdrop);
+  const dodge =
+    backdrop <= 0.25 ? ((16 * backdrop - 12) * backdrop + 4) * backdrop : Math.sqrt(backdrop);
+  return backdrop + (2 * source - 1) * (dodge - backdrop);
+};
+const blendDifferenceChannel: BlendChannel = (backdrop, source) => Math.abs(backdrop - source);
+const blendExclusionChannel: BlendChannel = (backdrop, source) =>
+  backdrop + source - 2 * backdrop * source;
+
 /** Normal: source over backdrop (default). */
 export function blendNormal(
   _br: number,
@@ -37,7 +62,7 @@ export function blendNormal(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  return [sr, sg, sb];
+  return [blendNormalChannel(_br, sr), blendNormalChannel(_bg, sg), blendNormalChannel(_bb, sb)];
 }
 
 /** Multiply: Cs × Cb. */
@@ -49,7 +74,7 @@ export function blendMultiply(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  return [br * sr, bg * sg, bb * sb];
+  return [blendMultiplyChannel(br, sr), blendMultiplyChannel(bg, sg), blendMultiplyChannel(bb, sb)];
 }
 
 /** Screen: 1 - (1 - Cs) × (1 - Cb). */
@@ -61,7 +86,7 @@ export function blendScreen(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  return [1 - (1 - br) * (1 - sr), 1 - (1 - bg) * (1 - sg), 1 - (1 - bb) * (1 - sb)];
+  return [blendScreenChannel(br, sr), blendScreenChannel(bg, sg), blendScreenChannel(bb, sb)];
 }
 
 /** Overlay: multiply or screen depending on backdrop value. */
@@ -73,11 +98,7 @@ export function blendOverlay(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  return [
-    br < 0.5 ? 2 * br * sr : 1 - 2 * (1 - br) * (1 - sr),
-    bg < 0.5 ? 2 * bg * sg : 1 - 2 * (1 - bg) * (1 - sg),
-    bb < 0.5 ? 2 * bb * sb : 1 - 2 * (1 - bb) * (1 - sb),
-  ];
+  return [blendOverlayChannel(br, sr), blendOverlayChannel(bg, sg), blendOverlayChannel(bb, sb)];
 }
 
 /** Darken: min(Cs, Cb). */
@@ -89,7 +110,7 @@ export function blendDarken(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  return [Math.min(br, sr), Math.min(bg, sg), Math.min(bb, sb)];
+  return [blendDarkenChannel(br, sr), blendDarkenChannel(bg, sg), blendDarkenChannel(bb, sb)];
 }
 
 /** Lighten: max(Cs, Cb). */
@@ -101,7 +122,7 @@ export function blendLighten(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  return [Math.max(br, sr), Math.max(bg, sg), Math.max(bb, sb)];
+  return [blendLightenChannel(br, sr), blendLightenChannel(bg, sg), blendLightenChannel(bb, sb)];
 }
 
 /** Color-dodge: brighten backdrop to reflect source. */
@@ -114,9 +135,9 @@ export function blendColorDodge(
   sb: number,
 ): [number, number, number] {
   return [
-    br === 0 ? 0 : sr >= 1 ? 1 : Math.min(1, br / (1 - sr)),
-    bg === 0 ? 0 : sg >= 1 ? 1 : Math.min(1, bg / (1 - sg)),
-    bb === 0 ? 0 : sb >= 1 ? 1 : Math.min(1, bb / (1 - sb)),
+    blendColorDodgeChannel(br, sr),
+    blendColorDodgeChannel(bg, sg),
+    blendColorDodgeChannel(bb, sb),
   ];
 }
 
@@ -130,9 +151,9 @@ export function blendColorBurn(
   sb: number,
 ): [number, number, number] {
   return [
-    br >= 1 ? 1 : sr <= 0 ? 0 : 1 - Math.min(1, (1 - br) / sr),
-    bg >= 1 ? 1 : sg <= 0 ? 0 : 1 - Math.min(1, (1 - bg) / sg),
-    bb >= 1 ? 1 : sb <= 0 ? 0 : 1 - Math.min(1, (1 - bb) / sb),
+    blendColorBurnChannel(br, sr),
+    blendColorBurnChannel(bg, sg),
+    blendColorBurnChannel(bb, sb),
   ];
 }
 
@@ -146,9 +167,9 @@ export function blendHardLight(
   sb: number,
 ): [number, number, number] {
   return [
-    sr < 0.5 ? 2 * br * sr : 1 - 2 * (1 - br) * (1 - sr),
-    sg < 0.5 ? 2 * bg * sg : 1 - 2 * (1 - bg) * (1 - sg),
-    sb < 0.5 ? 2 * bb * sb : 1 - 2 * (1 - bb) * (1 - sb),
+    blendHardLightChannel(br, sr),
+    blendHardLightChannel(bg, sg),
+    blendHardLightChannel(bb, sb),
   ];
 }
 
@@ -161,12 +182,11 @@ export function blendSoftLight(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  const soft = (a: number, b: number): number => {
-    if (b <= 0.5) return a - (1 - 2 * b) * a * (1 - a);
-    const g = a <= 0.25 ? ((16 * a - 12) * a + 4) * a : Math.sqrt(a);
-    return a + (2 * b - 1) * (g - a);
-  };
-  return [soft(br, sr), soft(bg, sg), soft(bb, sb)];
+  return [
+    blendSoftLightChannel(br, sr),
+    blendSoftLightChannel(bg, sg),
+    blendSoftLightChannel(bb, sb),
+  ];
 }
 
 /** Difference: |Cs - Cb|. */
@@ -178,7 +198,11 @@ export function blendDifference(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  return [Math.abs(br - sr), Math.abs(bg - sg), Math.abs(bb - sb)];
+  return [
+    blendDifferenceChannel(br, sr),
+    blendDifferenceChannel(bg, sg),
+    blendDifferenceChannel(bb, sb),
+  ];
 }
 
 /** Exclusion: Cs + Cb - 2 × Cs × Cb. */
@@ -190,7 +214,11 @@ export function blendExclusion(
   sg: number,
   sb: number,
 ): [number, number, number] {
-  return [br + sr - 2 * br * sr, bg + sg - 2 * bg * sg, bb + sb - 2 * bb * sb];
+  return [
+    blendExclusionChannel(br, sr),
+    blendExclusionChannel(bg, sg),
+    blendExclusionChannel(bb, sb),
+  ];
 }
 
 // ── Non-separable dispatch ───────────────────────────────────────────────────
@@ -246,51 +274,73 @@ export function blendPlusLighter(
 
 // ─── Unified blend with alpha compositing ────────────────────────────────────
 
-/** Map blend mode string to a (backdrop, source) → blended function. */
-function getBlendFn(
-  mode: string,
-): (
-  br: number,
-  bg: number,
-  bb: number,
-  sr: number,
-  sg: number,
-  sb: number,
-) => [number, number, number] {
+type ResolvedBlendMode = BlendChannel | NonSeparableMode | 'plusLighter';
+
+/** Resolve once before entering an ImageData hot loop. */
+function resolveBlendMode(mode: string): ResolvedBlendMode {
   switch (mode) {
     case 'normal':
-      return blendNormal;
+      return blendNormalChannel;
     case 'multiply':
-      return blendMultiply;
+      return blendMultiplyChannel;
     case 'screen':
-      return blendScreen;
+      return blendScreenChannel;
     case 'overlay':
-      return blendOverlay;
+      return blendOverlayChannel;
     case 'darken':
-      return blendDarken;
+      return blendDarkenChannel;
     case 'lighten':
-      return blendLighten;
+      return blendLightenChannel;
     case 'colorDodge':
-      return blendColorDodge;
+      return blendColorDodgeChannel;
     case 'colorBurn':
-      return blendColorBurn;
+      return blendColorBurnChannel;
     case 'hardLight':
-      return blendHardLight;
+      return blendHardLightChannel;
     case 'softLight':
-      return blendSoftLight;
+      return blendSoftLightChannel;
     case 'difference':
-      return blendDifference;
+      return blendDifferenceChannel;
     case 'exclusion':
-      return blendExclusion;
+      return blendExclusionChannel;
     case 'hue':
     case 'saturation':
     case 'color':
     case 'luminosity':
-      return (br, bg, bb, sr, sg, sb) => blendNonSeparableDispatch(br, bg, bb, sr, sg, sb, mode);
+    case 'plusLighter':
+      return mode;
     default:
       throw new Error(`Unsupported blend mode: ${mode}`);
   }
 }
+
+const clamp = (value: number): number => Math.max(0, Math.min(1, value));
+
+function compositePlusLighterChannel(
+  source: number,
+  backdrop: number,
+  sourceAlpha: number,
+  backdropAlpha: number,
+  outputAlpha: number,
+): number {
+  return clamp(Math.min(1, sourceAlpha * source + backdropAlpha * backdrop) / outputAlpha);
+}
+
+function compositeBlendChannel(
+  source: number,
+  blended: number,
+  backdrop: number,
+  sourceUncovered: number,
+  overlap: number,
+  backdropUncovered: number,
+  outputAlpha: number,
+): number {
+  return clamp(
+    (sourceUncovered * source + overlap * blended + backdropUncovered * backdrop) / outputAlpha,
+  );
+}
+
+const toByte = (channel: number): number => Math.round(Math.max(0, Math.min(255, channel * 255)));
 
 /**
  * Blend two pixels with alpha compositing (non-premultiplied input/output).
@@ -315,59 +365,55 @@ export function blend(
   const [srIn, sgIn, sbIn, saIn] = source;
 
   const sa = Math.max(0, Math.min(1, saIn * opacity));
-  const clamp = (v: number) => Math.max(0, Math.min(1, v));
+  const resolvedMode = resolveBlendMode(mode);
 
-  if (mode === 'plusLighter') {
+  if (resolvedMode === 'plusLighter') {
     const ao = Math.min(1, sa + ba);
     if (ao === 0) return [0, 0, 0, 0];
 
-    const compositeChannel = (sourceChannel: number, backdropChannel: number): number =>
-      clamp(Math.min(1, sa * sourceChannel + ba * backdropChannel) / ao);
-
-    return [compositeChannel(srIn, br), compositeChannel(sgIn, bg), compositeChannel(sbIn, bb), ao];
+    return [
+      compositePlusLighterChannel(srIn, br, sa, ba, ao),
+      compositePlusLighterChannel(sgIn, bg, sa, ba, ao),
+      compositePlusLighterChannel(sbIn, bb, sa, ba, ao),
+      ao,
+    ];
   }
 
-  // Resolve standard pixel modes before alpha shortcuts so invalid modes are
-  // rejected consistently regardless of pixel content.
-  const blendFn = getBlendFn(mode);
   if (sa === 0 && ba === 0) return [0, 0, 0, 0];
   if (sa === 0) return [br, bg, bb, ba];
   if (ba === 0) return [srIn, sgIn, sbIn, sa];
 
-  const [mr, mg, mb] = blendFn(br, bg, bb, srIn, sgIn, sbIn);
+  let mr: number;
+  let mg: number;
+  let mb: number;
+  if (typeof resolvedMode === 'function') {
+    mr = resolvedMode(br, srIn);
+    mg = resolvedMode(bg, sgIn);
+    mb = resolvedMode(bb, sbIn);
+  } else {
+    [mr, mg, mb] = blendNonSeparableDispatch(br, bg, bb, srIn, sgIn, sbIn, resolvedMode);
+  }
   const sourceUncovered = sa * (1 - ba);
   const overlap = sa * ba;
   const backdropUncovered = (1 - sa) * ba;
   const ao = sa + ba * (1 - sa);
   if (ao === 0) return [0, 0, 0, 0];
 
-  const compositeChannel = (
-    sourceChannel: number,
-    blendedChannel: number,
-    backdropChannel: number,
-  ): number =>
-    clamp(
-      (sourceUncovered * sourceChannel +
-        overlap * blendedChannel +
-        backdropUncovered * backdropChannel) /
-        ao,
-    );
-
   return [
-    compositeChannel(srIn, mr, br),
-    compositeChannel(sgIn, mg, bg),
-    compositeChannel(sbIn, mb, bb),
+    compositeBlendChannel(srIn, mr, br, sourceUncovered, overlap, backdropUncovered, ao),
+    compositeBlendChannel(sgIn, mg, bg, sourceUncovered, overlap, backdropUncovered, ao),
+    compositeBlendChannel(sbIn, mb, bb, sourceUncovered, overlap, backdropUncovered, ao),
     clamp(ao),
   ];
 }
 
 /**
  * Blend pixels across an entire ImageData buffer.
- * Delegates to `blend()` per pixel.
  *
- * Operates on the same signature as the existing `blendPixels` in
- * compositeCanvas.ts, but uses the individual blend functions from
- * this module.
+ * Resolves the mode once per buffer. Separable modes use the same scalar
+ * channel formulas as the public tuple helpers without allocating temporary
+ * input, blended, or output tuples per pixel. Component modes retain their
+ * canonical non-separable tuple result.
  */
 export function blendPixels(
   backdrop: ImageData,
@@ -375,6 +421,7 @@ export function blendPixels(
   blendMode: string,
   opacity: number,
 ): ImageData {
+  const resolvedMode = resolveBlendMode(blendMode);
   const w = Math.min(backdrop.width, source.width);
   const h = Math.min(backdrop.height, source.height);
   const result = new ImageData(w, h);
@@ -393,14 +440,65 @@ export function blendPixels(
     const sr = sd[offset]! / 255;
     const sg = sd[offset + 1]! / 255;
     const sb = sd[offset + 2]! / 255;
-    const sa = sd[offset + 3]! / 255;
+    const sa = clamp((sd[offset + 3]! / 255) * opacity);
 
-    const [mr, mg, mb, ma] = blend([br, bg, bb, ba], [sr, sg, sb, sa], blendMode, opacity);
+    let mr = 0;
+    let mg = 0;
+    let mb = 0;
+    let ma = 0;
 
-    rd[offset] = Math.round(Math.max(0, Math.min(255, mr * 255)));
-    rd[offset + 1] = Math.round(Math.max(0, Math.min(255, mg * 255)));
-    rd[offset + 2] = Math.round(Math.max(0, Math.min(255, mb * 255)));
-    rd[offset + 3] = Math.round(Math.max(0, Math.min(255, ma * 255)));
+    if (resolvedMode === 'plusLighter') {
+      ma = Math.min(1, sa + ba);
+      if (ma !== 0) {
+        mr = compositePlusLighterChannel(sr, br, sa, ba, ma);
+        mg = compositePlusLighterChannel(sg, bg, sa, ba, ma);
+        mb = compositePlusLighterChannel(sb, bb, sa, ba, ma);
+      }
+    } else if (sa === 0 && ba === 0) {
+      // Keep canonical transparent black.
+    } else if (sa === 0) {
+      mr = br;
+      mg = bg;
+      mb = bb;
+      ma = ba;
+    } else if (ba === 0) {
+      mr = sr;
+      mg = sg;
+      mb = sb;
+      ma = sa;
+    } else {
+      let blendedR: number;
+      let blendedG: number;
+      let blendedB: number;
+      if (typeof resolvedMode === 'function') {
+        blendedR = resolvedMode(br, sr);
+        blendedG = resolvedMode(bg, sg);
+        blendedB = resolvedMode(bb, sb);
+      } else {
+        [blendedR, blendedG, blendedB] = blendNonSeparableDispatch(
+          br,
+          bg,
+          bb,
+          sr,
+          sg,
+          sb,
+          resolvedMode,
+        );
+      }
+
+      const sourceUncovered = sa * (1 - ba);
+      const overlap = sa * ba;
+      const backdropUncovered = (1 - sa) * ba;
+      ma = sa + ba * (1 - sa);
+      mr = compositeBlendChannel(sr, blendedR, br, sourceUncovered, overlap, backdropUncovered, ma);
+      mg = compositeBlendChannel(sg, blendedG, bg, sourceUncovered, overlap, backdropUncovered, ma);
+      mb = compositeBlendChannel(sb, blendedB, bb, sourceUncovered, overlap, backdropUncovered, ma);
+    }
+
+    rd[offset] = toByte(mr);
+    rd[offset + 1] = toByte(mg);
+    rd[offset + 2] = toByte(mb);
+    rd[offset + 3] = toByte(ma);
   }
 
   return result;
