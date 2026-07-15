@@ -1,10 +1,12 @@
 import { Icon, NumberInput } from '@strata/ui';
 import { useSyncExternalStore } from 'react';
+import { PreflightWarnings } from './components/PreflightWarnings';
 import { useEditor } from './context';
 import {
   getCompositorDiagnosticsSnapshot,
   subscribeCompositorDiagnostics,
 } from './render/compositorDiagnosticsStore';
+import { getWorkspaceConfig } from './workspace/workspaceTypes';
 
 export function StatusBar() {
   const {
@@ -44,10 +46,12 @@ export function StatusBar() {
   }
 
   const singleSel = sel.length === 1;
+  const showPreflight = getWorkspaceConfig(state.workspaceMode).statusSections?.preflight ?? false;
 
   return (
     <div className="editor-status">
       <span>{state.tool}</span>
+      {showPreflight && <PreflightWarnings />}
       {compositorDiag?.deviceLost && (
         <span
           className="editor-status__info editor-status__info--warning"

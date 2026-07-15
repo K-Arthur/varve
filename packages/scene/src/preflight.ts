@@ -12,7 +12,7 @@
  */
 
 import type { Document } from './document';
-import { runPrintPreflight, type PrintPreflightIssue } from './printPreflight';
+import { type PrintPreflightIssue, runPrintPreflight } from './printPreflight';
 import { runTypographyPreflight, type TypographyIssue } from './typographyPreflight';
 
 export type CombinedPreflightSeverity = 'error' | 'warning' | 'info';
