@@ -89,6 +89,15 @@
 
 .editor-shell {
   display: grid;
+  /* position:relative is load-bearing, not decorative: CSS Grid only lets a
+   * position:absolute grid item (e.g. .floating-toolbar's grid-area:canvas)
+   * use its grid area as the containing block when the grid container
+   * itself establishes a containing block (i.e. is not position:static).
+   * Without this, such children fall back to the initial containing block
+   * (the document), silently ignoring the grid entirely and overlapping
+   * whatever real content sits below the "canvas" row (pagenav/selinfo/
+   * status) instead of being confined to it. */
+  position: relative;
   grid-template-areas:
     "menubar  menubar   menubar"
     "tabs     tabs      tabs"
