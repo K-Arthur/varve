@@ -18,7 +18,9 @@ export class PaintTool extends BaseTool {
   private preset: BrushPreset;
   private eraserMode: boolean;
   private strokePoints: import('@strata/scene').StrokePoint[] = [];
+  private lastSmoothedPoint: import('@strata/scene').StrokePoint | null = null;
   private rasterNodeId: string | null = null;
+  private strokeGeneration = 0;
   private transactionOpen = false;
   private workerHost: BrushWorkerHost | null = null;
 
@@ -139,6 +141,7 @@ export class PaintTool extends BaseTool {
       return { consumed: false };
     }
     this.rasterNodeId = rasterNodeId;
+    this.strokeGeneration++;
 
     // Seed deterministic jitter for this stroke
     seedJitter(Math.round(performance.now() * 1000) & 0x7fffffff);
@@ -261,6 +264,11 @@ export class PaintTool extends BaseTool {
     } else {
       this.flushDabsSync(ctx, pts, color);
     }
+
+    // Keep the last point for EMA smoothing continuity, then clear
+    // processed points so the next flush only sends new samples.
+    this.lastSmoothedPoint = pts[pts.length - 1] ?? null;
+    this.strokePoints = this.lastSmoothedPoint ? [this.lastSmoothedPoint] : [];
   }
 
   /** Worker-thread dab generation with synchronous compositing on main thread. */
@@ -270,13 +278,17 @@ export class PaintTool extends BaseTool {
     color: [number, number, number, number],
   ): void {
     const rasterNodeId = this.rasterNodeId;
+    const gen = this.strokeGeneration;
     if (!rasterNodeId) return;
 
-    const strokeId = `${rasterNodeId}-${performance.now()}`;
-    const jitterSeed = Math.round(performance.now() * 1000) & 0x7fffffff;
+    const strokeId = `${rasterNodeId}-${gen}`;
+    const jitterSeed = gen * 7919;
 
     this.workerHost!.generateDabs(strokeId, pts, this.preset, jitterSeed)
       .then(({ dabs }) => {
+        // Stale-result guard: reject if a newer generation has started
+        // (tool switched, new stroke, or undo/redo invalidated this one).
+        if (gen !== this.strokeGeneration) return;
         if (dabs.length === 0 || rasterNodeId !== this.rasterNodeId) return;
         ctx.updateNode(rasterNodeId, (node) => {
           const raster = node as RasterLayerNode;
@@ -292,6 +304,7 @@ export class PaintTool extends BaseTool {
         });
       })
       .catch(() => {
+        if (gen !== this.strokeGeneration) return;
         this.flushDabsSync(ctx, pts, color);
       });
   }
@@ -423,6 +436,7 @@ export class PaintTool extends BaseTool {
 
   private resetState(): void {
     this.strokePoints = [];
+    this.lastSmoothedPoint = null;
     this.rasterNodeId = null;
     this.ownsLayer = false;
   }
