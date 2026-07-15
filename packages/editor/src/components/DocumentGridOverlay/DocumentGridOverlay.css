@@ -2,7 +2,11 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 2;
+  /* z-index 2 previously tied it with .editor-canvas__content-layer (DOM-order
+   * dependent) and always lost to .editor-canvas__overlay-layer (z-index 3),
+   * which paints an opaque surface — the grid rendered but was invisible.
+   * See CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
+  z-index: 10;
 }
 
 .document-grid-overlay__line {

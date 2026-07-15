@@ -5,6 +5,9 @@
   height: 100%;
   pointer-events: none;
   overflow: visible;
+  /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
+   * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
+  z-index: 10;
 }
 
 .alignment-handle__bar {
@@ -50,6 +53,9 @@
   height: 100%;
   pointer-events: none;
   overflow: visible;
+  /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
+   * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
+  z-index: 10;
 }
 
 .alignment-guide__line {

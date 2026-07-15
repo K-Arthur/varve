@@ -4,6 +4,7 @@ import type { ShapeNode } from '@strata/scene';
 import type { Affine } from '@strata/shared';
 import { computeFloatingOrigin, worldToScreen } from '@strata/shared';
 import { getEditorViewport } from '../canvas/cameraState';
+import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
 
 interface NodeEditOverlayProps {
   node: ShapeNode;
@@ -53,6 +54,7 @@ export function NodeEditOverlay({
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
+        zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX,
       }}
       aria-hidden
     >
