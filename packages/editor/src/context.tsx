@@ -274,9 +274,33 @@ import { createInitialMotionState } from './state/motion-state';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
+import { getWorkspaceConfig, type WorkspaceMode } from './workspace/workspaceTypes';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
+
+/**
+ * Flatten `ids` and all of their descendants into a single node list, for
+ * clipboard serialization. Copying only the directly-selected node(s) (not
+ * their descendants) means a pasted group/frame has nothing for
+ * deepCloneSubtree to find its children in — they'd be silently dropped.
+ */
+function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
+  const seen = new Set<NodeId>();
+  const result: SceneNode[] = [];
+  const visit = (id: NodeId): void => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const node = doc.nodes[id];
+    if (!node) return;
+    result.push(node);
+    if (isContainer(node)) {
+      for (const childId of node.children) visit(childId);
+    }
+  };
+  for (const id of ids) visit(id);
+  return result;
+}
 
 function insertImportedSubtree(
   targetDoc: Document,
@@ -356,6 +380,12 @@ export interface EditorContextValue {
   toggleLeftPanel: () => void;
   /** Toggle inspector (right) panel visibility; persists to editor settings. */
   toggleRightPanel: () => void;
+  /** Active workspace mode (design/print/drawing). */
+  workspaceMode: import('./workspace/workspaceTypes').WorkspaceMode;
+  /** Switch to a different workspace mode. */
+  setWorkspaceMode: (mode: import('./workspace/workspaceTypes').WorkspaceMode) => void;
+  /** Reset current workspace to its default panel/tool configuration. */
+  resetWorkspaceToDefault: () => void;
   /** Fit all nodes in the document to the viewport. */
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
@@ -1014,6 +1044,20 @@ export interface EditorContextValue {
 
   /** Record a user action for analytics/onboarding/intelligence. */
   recordAction: (actionId: string) => void;
+
+  /** Set foreground painting color (RGBA 0-255). */
+  setForegroundColor: (color: [number, number, number, number]) => void;
+  /** Set background painting color (RGBA 0-255). */
+  setBackgroundColor: (color: [number, number, number, number]) => void;
+  /** Swap foreground and background colors. */
+  swapColors: () => void;
+  /** Reset foreground/background to defaults (black/white). */
+  resetColors: () => void;
+  /** Update a single brush setting field. */
+  setBrushSetting: <K extends keyof import('./context/types').EditorState['brushSettings']>(
+    key: K,
+    value: import('./context/types').EditorState['brushSettings'][K],
+  ) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -1496,6 +1540,7 @@ export function EditorProvider({
       timelinePanelVisible: false,
       motion: createInitialMotionState(),
       canvasMode: 'full',
+      workspaceMode: 'design' as WorkspaceMode,
       cameraRotation: 0,
       rulerMode: vpDefaults.rulerMode as RulerMode,
       gridOverlayMode: vpDefaults.gridOverlayMode as GridOverlayMode,
@@ -2031,6 +2076,41 @@ export function EditorProvider({
         const next = !state.rightPanelVisible;
         patch({ rightPanelVisible: next });
         updateSettings({ panel: { rightPanelVisible: next } });
+      },
+      workspaceMode: state.workspaceMode,
+      setWorkspaceMode: (mode: WorkspaceMode) => {
+        const config = getWorkspaceConfig(mode);
+        const patchObj: Partial<EditorState> & Record<string, unknown> = {
+          workspaceMode: mode,
+          leftPanelVisible: config.visiblePanels.layers,
+          rightPanelVisible: config.visiblePanels.inspector,
+          timelinePanelVisible: config.visiblePanels.timeline,
+        };
+        if (config.defaultTool && config.defaultTool !== state.tool) {
+          patchObj.tool = config.defaultTool as ToolId;
+        }
+        patch(patchObj as Partial<EditorState>);
+        updateSettings({
+          panel: {
+            leftPanelVisible: config.visiblePanels.layers,
+            rightPanelVisible: config.visiblePanels.inspector,
+          },
+        });
+        announcerRef.current?.announce(`Switched to ${mode} workspace`);
+      },
+      resetWorkspaceToDefault: () => {
+        const mode = state.workspaceMode;
+        const config = getWorkspaceConfig(mode);
+        const patchObj: Partial<EditorState> & Record<string, unknown> = {
+          leftPanelVisible: config.visiblePanels.layers,
+          rightPanelVisible: config.visiblePanels.inspector,
+          timelinePanelVisible: config.visiblePanels.timeline,
+        };
+        if (config.defaultTool) {
+          patchObj.tool = config.defaultTool as ToolId;
+        }
+        patch(patchObj as Partial<EditorState>);
+        announcerRef.current?.announce(`Reset ${mode} workspace to defaults`);
       },
       fitAll: () => {
         const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -4214,22 +4294,16 @@ export function EditorProvider({
         }
         const sel = state.selection;
         if (sel.length === 0) return;
-        const nodes = sel
-          .map((id) => state.document.nodes[id])
-          .filter((n): n is SceneNode => Boolean(n));
+        const nodes = gatherSubtreeNodes(state.document, sel);
         if (nodes.length === 0) return;
         writeToClipboard(nodes);
-        announcerRef.current?.announce(
-          `Copied ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`,
-        );
+        announcerRef.current?.announce(`Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
       cutSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
-        const nodes = sel
-          .map((id) => state.document.nodes[id])
-          .filter((n): n is SceneNode => Boolean(n));
+        const nodes = gatherSubtreeNodes(state.document, sel);
         if (nodes.length === 0) return;
         writeToClipboard(nodes);
         updateDoc((doc) => {
@@ -4238,7 +4312,7 @@ export function EditorProvider({
           return d;
         });
         patch({ selection: [] });
-        announcerRef.current?.announce(`Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`);
+        announcerRef.current?.announce(`Cut ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
       paste: async () => {
@@ -4317,23 +4391,29 @@ export function EditorProvider({
               tempNodes[node.id] = node;
             }
             const tempDoc: Document = { ...doc, nodes: tempNodes };
+            // copySelected()/cutSelected() serialize each selected node plus
+            // its full descendant subtree (gatherSubtreeNodes), so a node
+            // referenced as another copied node's child is a descendant, not
+            // an independent paste target — only the roots of the original
+            // selection should become new top-level pastes.
+            const childIds = new Set<NodeId>();
             for (const node of strataData.nodes) {
               if (isContainer(node)) {
-                const result = deepCloneSubtree(tempDoc, node.id);
-                if (result.rootId) {
-                  doc = { ...doc, nextId: result.nextId };
-                  for (const cloned of Object.values(result.nodes)) {
-                    doc = addNode(doc, cloned);
-                    newIds.push(cloned.id);
-                  }
-                }
-              } else {
-                const { id, doc: d2 } = nextNodeId(doc);
-                doc = d2;
-                const cloned = { ...node, id } as SceneNode;
-                doc = addNode(doc, cloned);
-                newIds.push(id);
+                for (const childId of node.children) childIds.add(childId);
               }
+            }
+            for (const node of strataData.nodes) {
+              if (childIds.has(node.id)) continue;
+              // insertImportedSubtree deep-clones from tempDoc (handling
+              // containers and leaves alike), merges every cloned descendant
+              // into doc.nodes, and hooks only the subtree root into the
+              // active page's contentRoot (or doc.rootChildren for flat
+              // documents) — the same page-scoping every other insertion
+              // path (importNode, drag-and-drop) already relies on.
+              const inserted = insertImportedSubtree(doc, tempDoc, node.id, (n) => n);
+              if (!inserted) continue;
+              doc = inserted.doc;
+              newIds.push(inserted.rootId);
             }
           }
 
