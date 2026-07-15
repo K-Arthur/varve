@@ -93,4 +93,46 @@ describe('InspectorColorPopover', () => {
     const next = onChange.mock.calls[0]?.[0] as ManagedColor;
     expect(next.space).toBe('rgb');
   });
+
+  it('stays open when switching colour space inside the picker', async () => {
+    render(
+      <InspectorColorPopover
+        label="Fill colour"
+        value={WHITE}
+        onChange={() => {}}
+        swatchStyle={{ background: '#fff' }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /fill colour/i }));
+    await screen.findByRole('dialog', { name: /pick fill colour/i });
+    // Switch to CMYK mode
+    const cmykBtn = screen.getAllByRole('radio', { name: 'CMYK' })[0];
+    fireEvent.click(cmykBtn);
+    // The dialog should still be open
+    expect(screen.getByRole('dialog', { name: /pick fill colour/i })).toBeTruthy();
+    // The CMYK button should now be active
+    expect(cmykBtn.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('stays open when switching between RGB and CMYK multiple times', async () => {
+    render(
+      <InspectorColorPopover
+        label="Fill colour"
+        value={WHITE}
+        onChange={() => {}}
+        swatchStyle={{ background: '#fff' }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /fill colour/i }));
+    await screen.findByRole('dialog', { name: /pick fill colour/i });
+    // Switch RGB → CMYK → RGB → CMYK
+    const rgbBtn = screen.getAllByRole('radio', { name: 'RGB' })[0];
+    const cmykBtn = screen.getAllByRole('radio', { name: 'CMYK' })[0];
+    fireEvent.click(cmykBtn);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.click(rgbBtn);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.click(cmykBtn);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
 });
