@@ -393,6 +393,8 @@ export interface EditorContextValue {
   toggleRightPanel: () => void;
   /** Toggle distraction-free canvas mode (hides chrome, keeps canvas/toolbar). */
   toggleDistractionFreeMode: () => void;
+  /** Toggle before/after comparison for the selected image. */
+  toggleBeforeAfterCompare: () => void;
   /** Active workspace mode (design/print/drawing). */
   workspaceMode: import('./workspace/workspaceTypes').WorkspaceMode;
   /** Switch to a different workspace mode. */
@@ -1552,6 +1554,7 @@ export function EditorProvider({
       // Transient view state, not persisted — each session starts with full
       // chrome visible rather than silently reopening into a hidden-panel state.
       distractionFreeMode: false,
+      beforeAfterCompare: false,
       // Hidden by default — motion/timeline editing is an opt-in workflow the
       // user reaches via its own toggle, not something every document should
       // open into.
@@ -2102,6 +2105,11 @@ export function EditorProvider({
         announcerRef.current?.announce(
           next ? 'Distraction-free mode on' : 'Distraction-free mode off',
         );
+      },
+      toggleBeforeAfterCompare: () => {
+        const next = !state.beforeAfterCompare;
+        patch({ beforeAfterCompare: next });
+        announcerRef.current?.announce(next ? 'Showing original image' : 'Showing current edit');
       },
       workspaceMode: state.workspaceMode,
       setWorkspaceMode: (mode: WorkspaceMode) => {

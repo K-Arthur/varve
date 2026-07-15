@@ -117,6 +117,10 @@ export interface EditorState {
    *  affordance. Save/undo/zoom remain reachable via keyboard shortcuts,
    *  which are not panel-dependent. */
   distractionFreeMode: boolean;
+  /** Before/after image comparison: when a single image-fill shape is
+   *  selected, overlays its original source pixels for visual comparison.
+   *  A transient view flag, not a document mutation. */
+  beforeAfterCompare: boolean;
   timelinePanelVisible: boolean;
   /** Active workspace mode (design / print / drawing). */
   workspaceMode: WorkspaceMode;
