@@ -1,8 +1,9 @@
 import type { BooleanOpKind } from '@strata/scene';
-import type { MenuEntry } from '@strata/ui';
+import type { IconName, MenuEntry } from '@strata/ui';
 import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
+import { WORKSPACE_CONFIGS } from '../../workspace/workspaceTypes';
 import './FloatingToolbar.css';
 
 const BOOLEAN_OP_MAP: Record<string, BooleanOpKind> = {
@@ -73,30 +74,32 @@ const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
   spotHeal: 'J 3x',
 };
 
-interface ToolButtonProps {
-  id: ToolId;
-  groupStart?: boolean;
-}
+/** Tools hidden in print mode (painting/retouch). */
+const PRINT_HIDDEN_TOOLS = new Set<ToolId>([
+  'paint',
+  'eraser',
+  'cloneStamp',
+  'healBrush',
+  'spotHeal',
+  'patch',
+  'pencil',
+]);
 
-function ToolButton({ id, groupStart }: ToolButtonProps) {
-  const { state, setTool } = useEditor();
-  const label = TOOL_LABELS[id] ?? id;
-  const shortcut = TOOL_SHORTCUTS[id];
-  return (
-    <Tooltip label={label} shortcut={shortcut}>
-      <button
-        type="button"
-        className={`floating-toolbar__btn${state.tool === id ? ' floating-toolbar__btn--active' : ''}${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
-        aria-pressed={state.tool === id}
-        aria-label={label}
-        data-tool={id}
-        onClick={() => setTool(id)}
-      >
-        <Icon name={TOOL_ICONS[id] ?? 'MousePointer2'} size={16} />
-      </button>
-    </Tooltip>
-  );
-}
+/** Tools for the drawing toolbar subset (painting tools at front). */
+const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
+  { id: 'paint', groupStart: true },
+  { id: 'eraser' },
+  { id: 'pen', groupStart: true },
+  { id: 'pencil' },
+  { id: 'line' },
+  { id: 'arrow' },
+  { id: 'select', groupStart: true },
+  { id: 'hand' },
+  { id: 'zoom' },
+  { id: 'text' },
+  { id: 'eyedropper' },
+  { id: 'frame' },
+];
 
 const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'line' },
@@ -120,11 +123,145 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'patch' },
 ];
 
+interface ToolButtonProps {
+  id: ToolId;
+  groupStart?: boolean;
+}
+
+function iconName(id: string): IconName {
+  return ((TOOL_ICONS as Record<string, string>)[id] ?? 'MousePointer2') as IconName;
+}
+
+function ToolButton({ id, groupStart }: ToolButtonProps) {
+  const { state, setTool } = useEditor();
+  const label = TOOL_LABELS[id] ?? id;
+  const shortcut = TOOL_SHORTCUTS[id];
+  return (
+    <Tooltip label={label} shortcut={shortcut}>
+      <button
+        type="button"
+        className={`floating-toolbar__btn${state.tool === id ? ' floating-toolbar__btn--active' : ''}${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        aria-pressed={state.tool === id}
+        aria-label={label}
+        data-tool={id}
+        onClick={() => setTool(id)}
+      >
+        <Icon name={iconName(id)} size={16} />
+      </button>
+    </Tooltip>
+  );
+}
+
+function rgbToHex(rgba: [number, number, number, number]): string {
+  const toHex = (n: number) =>
+    Math.max(0, Math.min(255, Math.round(n)))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toHex(rgba[0])}${toHex(rgba[1])}${toHex(rgba[2])}`;
+}
+
+function hexToRgba(hex: string): [number, number, number, number] {
+  const clean = hex.replace('#', '');
+  const r = Number.parseInt(clean.slice(0, 2), 16);
+  const g = Number.parseInt(clean.slice(2, 4), 16);
+  const b = Number.parseInt(clean.slice(4, 6), 16);
+  return [r, g, b, 255];
+}
+
+function DrawingToolbarControls() {
+  const { state, setBrushSetting, setForegroundColor, setBackgroundColor, swapColors } =
+    useEditor();
+
+  const fgHex = rgbToHex(state.foregroundColor);
+  const bgHex = rgbToHex(state.backgroundColor);
+
+  return (
+    <div className="floating-toolbar__drawing">
+      <span className="floating-toolbar__drawing-label">Size</span>
+      <input
+        type="range"
+        className="floating-toolbar__drawing-slider"
+        min={1}
+        max={200}
+        value={state.brushSettings.radius}
+        onChange={(e) => setBrushSetting('radius', Number(e.target.value))}
+        aria-label="Brush size"
+        title={`${state.brushSettings.radius}px`}
+      />
+      <span className="floating-toolbar__drawing-label">Op</span>
+      <input
+        type="range"
+        className="floating-toolbar__drawing-slider"
+        min={0}
+        max={100}
+        value={Math.round(state.brushSettings.opacity * 100)}
+        onChange={(e) => setBrushSetting('opacity', Number(e.target.value) / 100)}
+        aria-label="Opacity"
+        title={`${Math.round(state.brushSettings.opacity * 100)}%`}
+      />
+      <div className="floating-toolbar__colors">
+        <label className="floating-toolbar__color-swatch" title="Foreground color">
+          <input
+            type="color"
+            value={fgHex}
+            onChange={(e) => setForegroundColor(hexToRgba(e.target.value))}
+            aria-label="Foreground color"
+            style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+          />
+          <span
+            style={{
+              display: 'block',
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              background: fgHex,
+              border: 'var(--border-micro)',
+              cursor: 'pointer',
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          className="floating-toolbar__color-swap"
+          onClick={swapColors}
+          aria-label="Swap colors"
+          title="Swap colors (X)"
+        >
+          <Icon name="ArrowDownUp" size={12} />
+        </button>
+        <label className="floating-toolbar__color-swatch" title="Background color">
+          <input
+            type="color"
+            value={bgHex}
+            onChange={(e) => setBackgroundColor(hexToRgba(e.target.value))}
+            aria-label="Background color"
+            style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+          />
+          <span
+            style={{
+              display: 'block',
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              background: bgHex,
+              border: 'var(--border-micro)',
+              cursor: 'pointer',
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export function FloatingToolbar() {
-  const { state, setTool, booleanOp, selectedNodes } = useEditor();
+  const { state, setTool, booleanOp, selectedNodes, workspaceMode } = useEditor();
   const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [booleanMenuPos, setBooleanMenuPos] = useState<{ x: number; y: number } | null>(null);
   const canBoolean = selectedNodes().filter((n) => n.kind === 'shape').length >= 2;
+
+  const config = WORKSPACE_CONFIGS[workspaceMode];
+  if (!config?.floatingToolbar) return null;
 
   const currentShape = (SHAPE_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
     ? state.tool
@@ -132,6 +269,12 @@ export function FloatingToolbar() {
   const currentBoolean = (BOOLEAN_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
     ? state.tool
     : ('booleanUnion' as ToolId);
+  const isDrawingMode = workspaceMode === 'drawing';
+  const isPrintMode = workspaceMode === 'print';
+  const activeTools = isDrawingMode ? DRAWING_TOOLS : INDIVIDUAL_TOOLS;
+  const filteredTools = isPrintMode
+    ? activeTools.filter((t) => !PRINT_HIDDEN_TOOLS.has(t.id))
+    : activeTools;
 
   const shapeItems: MenuEntry[] = SHAPE_SUB_TOOLS.map((id) => ({
     id,
@@ -168,7 +311,7 @@ export function FloatingToolbar() {
               data-tool={currentShape}
               onClick={() => setTool(currentShape)}
             >
-              <Icon name={TOOL_ICONS[currentShape] ?? 'MousePointer2'} size={16} />
+              <Icon name={iconName(currentShape)} size={16} />
             </button>
           </Tooltip>
           <button
@@ -186,52 +329,57 @@ export function FloatingToolbar() {
           >
             <Icon name="ChevronDown" size={12} />
           </button>
-          {INDIVIDUAL_TOOLS.map((t) => (
+          {filteredTools.map((t) => (
             <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
           ))}
-          <Tooltip
-            label={
-              canBoolean
-                ? (TOOL_LABELS[currentBoolean] ?? currentBoolean)
-                : 'Select 2+ shapes for boolean'
-            }
-          >
-            <button
-              type="button"
-              className={`floating-toolbar__btn floating-toolbar__btn--group-start`}
-              aria-pressed={false}
-              aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
-              data-tool={currentBoolean}
-              disabled={!canBoolean}
-              onClick={() => {
-                const op = BOOLEAN_OP_MAP[currentBoolean];
-                if (op && canBoolean) {
-                  booleanOp(op);
-                  setTool('select');
+          {!isDrawingMode && (
+            <>
+              <Tooltip
+                label={
+                  canBoolean
+                    ? (TOOL_LABELS[currentBoolean] ?? currentBoolean)
+                    : 'Select 2+ shapes for boolean'
                 }
-              }}
-            >
-              <Icon name={TOOL_ICONS[currentBoolean] ?? 'MousePointer2'} size={16} />
-            </button>
-          </Tooltip>
-          <button
-            type="button"
-            className="floating-toolbar__chevron"
-            aria-label="Boolean operations menu"
-            disabled={!canBoolean}
-            onClick={(e) => {
-              if (!canBoolean) return;
-              const r = e.currentTarget.getBoundingClientRect();
-              if (booleanMenuPos) {
-                setBooleanMenuPos(null);
-                return;
-              }
-              setBooleanMenuPos({ x: r.left, y: r.top });
-            }}
-          >
-            <Icon name="ChevronDown" size={12} />
-          </button>
+              >
+                <button
+                  type="button"
+                  className="floating-toolbar__btn floating-toolbar__btn--group-start"
+                  aria-pressed={false}
+                  aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
+                  data-tool={currentBoolean}
+                  disabled={!canBoolean}
+                  onClick={() => {
+                    const op = BOOLEAN_OP_MAP[currentBoolean];
+                    if (op && canBoolean) {
+                      booleanOp(op);
+                      setTool('select');
+                    }
+                  }}
+                >
+                  <Icon name={iconName(currentBoolean)} size={16} />
+                </button>
+              </Tooltip>
+              <button
+                type="button"
+                className="floating-toolbar__chevron"
+                aria-label="Boolean operations menu"
+                disabled={!canBoolean}
+                onClick={(e) => {
+                  if (!canBoolean) return;
+                  const r = e.currentTarget.getBoundingClientRect();
+                  if (booleanMenuPos) {
+                    setBooleanMenuPos(null);
+                    return;
+                  }
+                  setBooleanMenuPos({ x: r.left, y: r.top });
+                }}
+              >
+                <Icon name="ChevronDown" size={12} />
+              </button>
+            </>
+          )}
         </Toolbar>
+        {isDrawingMode && <DrawingToolbarControls />}
       </div>
       <ContextMenu
         items={shapeItems}

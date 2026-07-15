@@ -745,14 +745,64 @@
   }
 }
 
-/* ── Docs name in menubar ── */
-.editor-menubar__doc-name {
+/* ── Center section (mode switcher + doc name) ── */
+.editor-menubar__center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  max-width: 50%;
+  min-width: 0;
+}
+
+.editor-menubar__workspace {
   display: flex;
   align-items: center;
-  max-width: 240px;
+  gap: 2px;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.editor-menubar__workspace-btn {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-05) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: default;
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default);
+}
+
+.editor-menubar__workspace-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.editor-menubar__workspace-btn--active {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.editor-menubar__workspace-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+/* ── Docs name in menubar ── */
+.editor-menubar__doc-name {
+  display: flex;
+  align-items: center;
+  max-width: 200px;
   min-width: 0;
   pointer-events: auto;
 }

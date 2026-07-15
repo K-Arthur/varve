@@ -56,6 +56,12 @@ export function useShortcuts(
         return () => helpActionsRef.current?.onOpenContextualHelp?.();
       case 'openHelpCenter':
         return () => helpActionsRef.current?.onOpenHelpCenter?.();
+      case 'workspaceDesign':
+        return () => ref.current.setWorkspaceMode('design');
+      case 'workspacePrint':
+        return () => ref.current.setWorkspaceMode('print');
+      case 'workspaceDrawing':
+        return () => ref.current.setWorkspaceMode('drawing');
       default:
         return null;
     }
