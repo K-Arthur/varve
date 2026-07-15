@@ -98,4 +98,70 @@ test.describe('Brush / Paint tool — drawing and persistence', () => {
     const treeItems = await page.getByRole('treeitem').count();
     expect(treeItems).toBeGreaterThanOrEqual(1);
   });
+
+  test('paint stroke is visible as canvas pixel change', async ({ page }) => {
+    const contentCanvas = page.locator('canvas.editor-canvas__content-layer');
+    await contentCanvas.waitFor({ state: 'attached', timeout: 10000 });
+    const before = await contentCanvas.screenshot();
+
+    await page.keyboard.press('b');
+    await page.waitForTimeout(200);
+    await dragOnCanvas(page, 200, 200, 350, 300);
+    await page.waitForTimeout(400);
+
+    const after = await contentCanvas.screenshot();
+    expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+
+  test('paint at non-default zoom produces visible stroke', async ({ page }) => {
+    // Zoom in 200% then paint
+    await page.keyboard.press('Control+=');
+    await page.keyboard.press('Control+=');
+    await page.waitForTimeout(300);
+
+    const contentCanvas = page.locator('canvas.editor-canvas__content-layer');
+    const before = await contentCanvas.screenshot();
+
+    await page.keyboard.press('b');
+    await page.waitForTimeout(200);
+    await dragOnCanvas(page, 150, 150, 250, 200);
+    await page.waitForTimeout(400);
+
+    const after = await contentCanvas.screenshot();
+    expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+
+  test('paint tool undo visibly changes the canvas (dabs removed)', async ({ page }) => {
+    await page.keyboard.press('b');
+    await page.waitForTimeout(200);
+
+    const contentCanvas = page.locator('canvas.editor-canvas__content-layer');
+
+    await dragOnCanvas(page, 200, 200, 350, 300);
+    await page.waitForTimeout(300);
+
+    const afterPaint = await contentCanvas.screenshot();
+
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+
+    const afterUndo = await contentCanvas.screenshot();
+    // Undo removes the dab pixels — canvas after undo differs from
+    // canvas after paint. The raster layer node persists (it is a
+    // container), but the pixel content is reverted.
+    expect(Buffer.compare(afterPaint, afterUndo)).not.toBe(0);
+  });
+
+  test('rapid short strokes produce at least one layer', async ({ page }) => {
+    await page.keyboard.press('b');
+    await page.waitForTimeout(200);
+
+    for (let i = 0; i < 5; i++) {
+      await page.mouse.click(200 + i * 30, 200 + i * 20);
+      await page.waitForTimeout(50);
+    }
+
+    const treeItems = await page.getByRole('treeitem').count();
+    expect(treeItems).toBeGreaterThanOrEqual(1);
+  });
 });
