@@ -12,6 +12,10 @@ import {
 } from './version';
 
 describe('Document Versioning', () => {
+  it('uses the native raster-mask schema version', () => {
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.1');
+    expect(SUPPORTED_VERSIONS).toContain('2.1');
+  });
   it('stamps current version on new documents', () => {
     const doc = stampVersion({
       id: 'd1',
@@ -31,6 +35,96 @@ describe('Document Versioning', () => {
 
   it('reports supported versions list', () => {
     expect(SUPPORTED_VERSIONS).toContain(CURRENT_DOCUMENT_VERSION);
+  });
+});
+
+describe('Legacy background removal migration', () => {
+  it('migrates legacy backgroundRemoval into a stable native raster mask asset', () => {
+    const raw = {
+      id: 'legacy-mask-doc',
+      name: 'Legacy mask',
+      formatVersion: '2.0',
+      rootChildren: ['1'],
+      components: {},
+      nextId: 2,
+      nodes: {
+        '1': {
+          id: '1',
+          kind: 'shape',
+          name: 'Image',
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal',
+          rotation: 0,
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+          fills: [
+            {
+              type: 'image',
+              image: {
+                src: 'legacy-image',
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+                imageWidth: 64,
+                imageHeight: 32,
+              },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+          shape: { kind: 'rect', x: 0, y: 0, w: 64, h: 32 },
+          strokes: [],
+          effects: [],
+          backgroundRemoval: {
+            maskDataUrl: 'data:image/png;base64,AA==',
+            method: 'ai-quality',
+            confidence: 0.91,
+            appliedAt: 1234,
+            feather: 2,
+            decontaminate: true,
+          },
+        },
+      },
+    };
+
+    const migrated = migrateDocument(raw)!;
+    const image = (migrated.nodes as Record<string, Record<string, unknown>>)['1']!;
+    const mask = image.mask as Record<string, unknown>;
+    const rasterMask = mask.rasterMask as Record<string, unknown>;
+    const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
+
+    expect(migrated.formatVersion).toBe('2.1');
+    expect(mask.type).toBe('alpha');
+    expect(mask.feather).toBe(2);
+    expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
+    expect(rasterMask.provenance).toMatchObject({
+      method: 'ai-quality',
+      runtime: 'typescript',
+      generatedAt: 1234,
+      confidence: 0.91,
+    });
+    expect(assets['raster-mask:legacy:1']).toMatchObject({ width: 64, height: 32, byteLength: 1 });
+    expect('backgroundRemoval' in image).toBe(false);
+  });
+
+  it('omits legacy backgroundRemoval when serializing a normalized document', () => {
+    const doc = migrateDocument({
+      id: 'd1',
+      name: 'Legacy',
+      formatVersion: '2.0',
+      rootChildren: [],
+      nodes: {},
+      components: {},
+      nextId: 1,
+    })!;
+    const encoded = serializeDocument(doc);
+    expect(encoded).not.toContain('backgroundRemoval');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.1');
   });
 });
 
